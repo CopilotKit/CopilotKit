@@ -103,6 +103,7 @@ describe("handleGetRuntimeInfo", () => {
       audioFileTranscriptionEnabled: false,
       mode: "sse",
       threadEndpoints: inMemoryThreadEndpoints,
+      suggestions: true,
       a2uiEnabled: false,
       openGenerativeUIEnabled: false,
       telemetryDisabled: false,
@@ -130,6 +131,7 @@ describe("handleGetRuntimeInfo", () => {
       audioFileTranscriptionEnabled: true,
       mode: "sse",
       threadEndpoints: inMemoryThreadEndpoints,
+      suggestions: true,
       a2uiEnabled: false,
       openGenerativeUIEnabled: false,
       telemetryDisabled: false,
@@ -169,10 +171,42 @@ describe("handleGetRuntimeInfo", () => {
       audioFileTranscriptionEnabled: true,
       mode: "sse",
       threadEndpoints: inMemoryThreadEndpoints,
+      suggestions: true,
       a2uiEnabled: false,
       openGenerativeUIEnabled: false,
       telemetryDisabled: false,
     });
+  });
+
+  it("advertises the stateless suggestions capability", async () => {
+    const runtime = new CopilotRuntime({
+      agents: {},
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    expect(data.suggestions).toBe(true);
+  });
+
+  it("advertises suggestions for an Intelligence runtime", async () => {
+    const runtime = createIntelligenceRuntimeLike();
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+      threadEndpointsEnabled: true,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    expect(data.suggestions).toBe(true);
   });
 
   it("detects local thread endpoints from the runner capability flag", async () => {

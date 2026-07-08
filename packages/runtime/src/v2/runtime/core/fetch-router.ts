@@ -96,6 +96,17 @@ function matchSegments(path: string): RouteInfo | null {
     return { method: "agent/run", agentId };
   }
 
+  // /agent/:agentId/suggest (3 segments)
+  if (
+    len >= 3 &&
+    segments[len - 3] === "agent" &&
+    segments[len - 1] === "suggest"
+  ) {
+    const agentId = safeDecodeURIComponent(segments[len - 2]!);
+    if (!agentId) return null;
+    return { method: "agent/suggest", agentId };
+  }
+
   // /agent/:agentId/connect (3 segments)
   if (
     len >= 3 &&

@@ -35,6 +35,7 @@ import type { CopilotRuntimeLike } from "./runtime";
 
 export type RouteInfo =
   | { method: "agent/run"; agentId: string }
+  | { method: "agent/suggest"; agentId: string }
   | { method: "agent/connect"; agentId: string }
   | { method: "agent/stop"; agentId: string; threadId: string }
   | { method: "info" }
