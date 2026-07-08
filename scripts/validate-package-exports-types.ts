@@ -14,8 +14,15 @@ import * as path from "node:path";
 // JS export is missing a valid `types` condition.
 // ---------------------------------------------------------------------------
 
-/** A value in a package.json `exports` map. */
-export type ExportsEntry = string | { [condition: string]: ExportsEntry };
+/**
+ * A value in a package.json `exports` map: a target path, `null` (blocks a
+ * subpath), a fallback array, or a nested conditions object.
+ */
+export type ExportsEntry =
+  | string
+  | null
+  | ExportsEntry[]
+  | { [condition: string]: ExportsEntry };
 
 export interface Violation {
   package: string;
@@ -29,30 +36,55 @@ const PACKAGES_DIR = path.resolve(__dirname, "../packages");
 const JS_TARGET = /\.(mjs|cjs|js)$/;
 const DECLARATION_TARGET = /\.d\.(mts|cts|ts)$/;
 
+// The JS-returning conditions TypeScript resolves types through. Conditions
+// match in object order (first match wins), so a `types` condition must appear
+// BEFORE these or a strict resolver reaches the JS target first and finds no
+// declarations. Runtime-only conditions (browser/deno/worker/development/
+// production/…) are absent on purpose: TypeScript ignores them for types, so a
+// JS target under one needs no declaration.
+const JS_CONDITIONS = new Set(["import", "require", "node", "default"]);
+
 // ---------------------------------------------------------------------------
 // Core check
 // ---------------------------------------------------------------------------
 
 /**
- * Return every entry in one package's `exports` map that resolves to runtime
- * JavaScript without a reachable `types` condition, or whose `types` condition
- * does not point at a declaration file.
+ * Return every entry in one package's `exports` map whose first type-relevant
+ * condition resolves to runtime JavaScript instead of a declaration file —
+ * i.e. TypeScript (and strict `exports` resolvers such as the Backstage CLI)
+ * would find no `.d.ts` for that subpath.
  */
 export function findExportsTypeViolations(
   packageName: string,
   exportsMap: unknown,
 ): Violation[] {
   const violations: Violation[] = [];
-  if (exportsMap && typeof exportsMap === "object") {
-    for (const [subpath, entry] of Object.entries(exportsMap)) {
-      walk(entry, subpath, packageName, violations);
-    }
+  for (const [subpath, entry] of Object.entries(normalizeExports(exportsMap))) {
+    walk(entry, subpath, packageName, violations);
   }
   return violations;
 }
 
+/**
+ * Normalize Node's `exports` sugar into a `subpath -> target` map. A bare
+ * string (`"exports": "./index.mjs"`) and a conditions-only object
+ * (`{ import, require }` with no `.`/`./…` keys) are both sugar for the `.`
+ * subpath; a real subpath map is returned unchanged.
+ */
+function normalizeExports(exportsMap: unknown): Record<string, ExportsEntry> {
+  if (typeof exportsMap === "string" || Array.isArray(exportsMap)) {
+    return { ".": exportsMap as ExportsEntry };
+  }
+  if (!exportsMap || typeof exportsMap !== "object") return {};
+  const entries = exportsMap as Record<string, ExportsEntry>;
+  const isSubpathMap = Object.keys(entries).some(
+    (key) => key === "." || key.startsWith("./"),
+  );
+  return isSubpathMap ? entries : { ".": entries };
+}
+
 function walk(
-  entry: unknown,
+  entry: ExportsEntry,
   trail: string,
   packageName: string,
   out: Violation[],
@@ -67,33 +99,49 @@ function walk(
     }
     return;
   }
+  // `null` blocks a subpath; primitives are not resolvable targets.
   if (!entry || typeof entry !== "object") return;
 
-  const conditions = Object.entries(entry);
-
-  // An explicit `types` condition at this level covers this branch; just check
-  // that it points at a declaration file (`are-the-types-wrong` validates the
-  // ESM/CJS flavor separately).
-  const typesEntry = conditions.find(([condition]) => condition === "types");
-  if (typesEntry) {
-    const typesTarget = typesEntry[1];
-    if (
-      typeof typesTarget === "string" &&
-      !DECLARATION_TARGET.test(typesTarget)
-    ) {
-      out.push({
-        package: packageName,
-        subpath: `${trail} > types`,
-        reason: `"types" target "${typesTarget}" is not a declaration file`,
-      });
-    }
+  // Fallback array: TypeScript resolves the first entry that exists, so every
+  // candidate must itself be typed.
+  if (Array.isArray(entry)) {
+    entry.forEach((item, i) => walk(item, `${trail}[${i}]`, packageName, out));
     return;
   }
 
-  // No `types` here — every condition that leads to JS must carry its own.
-  for (const [condition, value] of conditions) {
+  // Conditions match in object order (first match wins), and import- and
+  // require-mode resolve independently. Validate each `types` target, and flag
+  // every JS-returning condition that is NOT preceded by a `types` (a strict
+  // resolver reaches that JS target before any later `types`). Runtime-only
+  // conditions are ignored — TypeScript resolves no types through them.
+  const conditions = Object.entries(entry);
+  const typesIndex = conditions.findIndex(
+    ([condition]) => condition === "types",
+  );
+  conditions.forEach(([condition, value], index) => {
+    if (condition === "types") {
+      if (typeof value === "string") {
+        if (!DECLARATION_TARGET.test(value)) {
+          out.push({
+            package: packageName,
+            subpath: `${trail} > types`,
+            reason: `"types" target "${value}" is not a declaration file`,
+          });
+        }
+      } else {
+        // Nested/object `types` — recurse so each resolved leaf is validated.
+        walk(value, `${trail} > types`, packageName, out);
+      }
+      return;
+    }
+    if (!JS_CONDITIONS.has(condition)) return; // runtime-only → no types needed
+    // A `types` condition earlier in object order covers this JS condition for
+    // its resolution mode.
+    if (typesIndex !== -1 && typesIndex < index) return;
+    // Otherwise the JS target must itself carry types (a nested `types`) or be
+    // a declaration file.
     walk(value, `${trail} > ${condition}`, packageName, out);
-  }
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -116,8 +164,12 @@ export function getPublishablePackagesWithExports(
   for (const name of fs.readdirSync(packagesDir).sort()) {
     const pkgJsonPath = path.join(packagesDir, name, "package.json");
     if (!fs.existsSync(pkgJsonPath)) continue;
-    const pkg: { name?: string; private?: boolean; exports?: unknown } =
-      JSON.parse(fs.readFileSync(pkgJsonPath, "utf-8"));
+    let pkg: { name?: string; private?: boolean; exports?: unknown };
+    try {
+      pkg = JSON.parse(fs.readFileSync(pkgJsonPath, "utf-8"));
+    } catch (error) {
+      throw new Error(`Failed to parse ${pkgJsonPath}`, { cause: error });
+    }
     if (pkg.private === true || !pkg.exports) continue;
     packages.push({ name: pkg.name ?? name, exports: pkg.exports });
   }

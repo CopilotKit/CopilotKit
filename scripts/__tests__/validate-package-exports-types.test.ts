@@ -1,4 +1,7 @@
 import { describe, it, expect } from "vitest";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import {
   findExportsTypeViolations,
   getPublishablePackagesWithExports,
@@ -80,6 +83,95 @@ describe("findExportsTypeViolations", () => {
   it("returns nothing for packages without an exports map", () => {
     expect(check(undefined)).toEqual([]);
   });
+
+  it("flags a `types` condition listed after a JS condition (order matters)", () => {
+    // A strict resolver matches import/require before reaching a trailing
+    // `types`, landing on JS with no declarations — the #3324 failure.
+    const violations = check({
+      ".": {
+        import: "./dist/index.mjs",
+        require: "./dist/index.cjs",
+        types: "./dist/index.d.cts",
+      },
+    });
+    expect(violations.map((v) => v.subpath)).toEqual([
+      ". > import",
+      ". > require",
+    ]);
+  });
+
+  it("accepts `types` listed first ahead of JS conditions", () => {
+    expect(
+      check({
+        ".": {
+          types: "./dist/index.d.mts",
+          import: "./dist/index.mjs",
+        },
+      }),
+    ).toEqual([]);
+  });
+
+  it("flags a bare-string `exports` value (sugar for '.')", () => {
+    const violations = check("./dist/index.mjs");
+    expect(violations).toHaveLength(1);
+    expect(violations[0].subpath).toBe(".");
+  });
+
+  it("flags conditions-only sugar with no `types`", () => {
+    // No `.`/`./…` keys → whole object is the `.` target's conditions.
+    const violations = check({
+      import: "./dist/index.mjs",
+      require: "./dist/index.cjs",
+    });
+    expect(violations.map((v) => v.subpath)).toEqual([
+      ". > import",
+      ". > require",
+    ]);
+  });
+
+  it("accepts conditions-only sugar with a leading `types`", () => {
+    expect(
+      check({
+        types: "./dist/index.d.ts",
+        import: "./dist/index.mjs",
+        require: "./dist/index.cjs",
+      }),
+    ).toEqual([]);
+  });
+
+  it("ignores runtime-only conditions TypeScript never resolves types through", () => {
+    // `browser` returns JS but TS ignores it for types, so a typed
+    // import/require sibling is sufficient — no false positive.
+    expect(
+      check({
+        ".": {
+          import: { types: "./dist/index.d.mts", default: "./dist/index.mjs" },
+          require: { types: "./dist/index.d.cts", default: "./dist/index.cjs" },
+          browser: "./dist/index.browser.mjs",
+        },
+      }),
+    ).toEqual([]);
+  });
+
+  it("flags an object-valued `types` whose leaf is not a declaration", () => {
+    const violations = check({
+      ".": {
+        types: { import: "./dist/index.mjs" },
+        default: "./dist/index.mjs",
+      },
+    });
+    expect(violations).toHaveLength(1);
+    expect(violations[0].subpath).toBe(". > types > import");
+  });
+
+  it("treats a `null` target (blocked subpath) as no violation", () => {
+    expect(check({ "./internal": null })).toEqual([]);
+  });
+
+  it("walks fallback-array targets", () => {
+    const violations = check({ ".": ["./dist/a.mjs", "./dist/b.mjs"] });
+    expect(violations.map((v) => v.subpath)).toEqual([".[0]", ".[1]"]);
+  });
 });
 
 describe("all publishable packages (regression guard for #3324)", () => {
@@ -99,5 +191,61 @@ describe("all publishable packages (regression guard for #3324)", () => {
         .map((v) => `${v.package} ${v.subpath}: ${v.reason}`)
         .join("\n"),
     ).toEqual([]);
+  });
+});
+
+describe("getPublishablePackagesWithExports (fixture-based discovery)", () => {
+  function writePackage(root: string, dir: string, pkg: object): void {
+    const pkgDir = path.join(root, dir);
+    fs.mkdirSync(pkgDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(pkgDir, "package.json"),
+      JSON.stringify(pkg),
+      "utf-8",
+    );
+  }
+
+  function withFixtureRoot(run: (root: string) => void): void {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "cpk-exports-"));
+    try {
+      run(root);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  }
+
+  it("includes only non-private packages that declare exports", () => {
+    withFixtureRoot((root) => {
+      writePackage(root, "published", {
+        name: "@x/published",
+        exports: { ".": "./index.mjs" },
+      });
+      writePackage(root, "private-pkg", {
+        name: "@x/private",
+        private: true,
+        exports: { ".": "./index.mjs" },
+      });
+      writePackage(root, "no-exports", { name: "@x/no-exports" });
+      // A directory without a package.json is skipped, not an error.
+      fs.mkdirSync(path.join(root, "not-a-package"), { recursive: true });
+
+      const names = getPublishablePackagesWithExports(root).map((p) => p.name);
+      expect(names).toEqual(["@x/published"]);
+    });
+  });
+
+  it("throws with the file path on a malformed package.json", () => {
+    withFixtureRoot((root) => {
+      const pkgDir = path.join(root, "broken");
+      fs.mkdirSync(pkgDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(pkgDir, "package.json"),
+        "{ not json",
+        "utf-8",
+      );
+      expect(() => getPublishablePackagesWithExports(root)).toThrow(
+        /broken[\\/]package\.json/,
+      );
+    });
   });
 });

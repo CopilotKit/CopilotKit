@@ -33,14 +33,17 @@ import path from "node:path";
  *   exports: { customExports: (exports, ctx) => withTypesConditions(exports, ctx) }
  */
 export function withTypesConditions(exports, ctx) {
-  // `packageJsonPath` is present at runtime but absent from tsdown's public
-  // `PackageJson` type; fall back to cwd (nx runs each build from the package
-  // directory) if it is ever missing.
+  // tsdown always supplies `packageJsonPath` at runtime (it is merely absent
+  // from tsdown's public `PackageJson` type). Fail loud rather than silently
+  // resolving against the wrong directory and emitting a types-less map — that
+  // would reintroduce exactly the #3324 bug this helper prevents.
   const packageJsonPath = ctx.pkg?.packageJsonPath;
-  const pkgDir =
-    typeof packageJsonPath === "string"
-      ? path.dirname(packageJsonPath)
-      : process.cwd();
+  if (typeof packageJsonPath !== "string") {
+    throw new Error(
+      "withTypesConditions: ctx.pkg.packageJsonPath is required to resolve declaration files",
+    );
+  }
+  const pkgDir = path.dirname(packageJsonPath);
   const result = {};
   for (const [subpath, entry] of Object.entries(exports)) {
     result[subpath] = withTypes(entry, pkgDir);
@@ -52,6 +55,11 @@ function withTypes(entry, pkgDir) {
   if (typeof entry === "string") {
     return typedTarget(entry, pkgDir) ?? entry;
   }
+  // `null` blocks a subpath; leave it (and any non-object) untouched.
+  if (entry === null || typeof entry !== "object") return entry;
+  // Fallback arrays (`"import": ["./a.mjs", "./b.mjs"]`) are legal: transform
+  // each element and keep the array rather than corrupting it into an object.
+  if (Array.isArray(entry)) return entry.map((item) => withTypes(item, pkgDir));
   const next = {};
   for (const [condition, target] of Object.entries(entry)) {
     next[condition] =
