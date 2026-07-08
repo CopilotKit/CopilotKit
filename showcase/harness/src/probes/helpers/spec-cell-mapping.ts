@@ -1,0 +1,218 @@
+/**
+ * spec-cell-mapping — N:M spec-path → D5FeatureType mapping schema.
+ *
+ * Schema:
+ *   {
+ *     "<slug>": {
+ *       "<spec-path>": ["<D5FeatureType>", ...]
+ *     }
+ *   }
+ *
+ * Cardinality is general N:M (Decision A, impl plan §1):
+ *   - 1:1  — most specs, e.g. agentic-chat.spec.ts → ["agentic-chat"]
+ *   - 1:many — one spec maps to multiple cells, e.g. beautiful-chat.spec.ts
+ *              → 5 cells (the probe family runs five per-pill D5 scripts
+ *              against /demos/beautiful-chat; see d5-feature-mapping.ts:151-157)
+ *   - N:1  — multiple specs map to one cell, e.g. reasoning-custom.spec.ts
+ *              and reasoning-default.spec.ts both map to ["reasoning-display"]
+ *              (the D5 script covers both via preNavigateRoute)
+ *   - N:M  — combination of both (e.g. declarative-hashbrown + declarative-json-render
+ *              each map to ["byoc"])
+ *
+ * The rollup (d6-rollup.ts, Task 3.2) builds the inverse index
+ * (cell → set of specs) internally. A cell is GREEN only if every spec
+ * in its inverse set is PASS.
+ *
+ * Spec paths are relative to the integration root (e.g.
+ * "tests/e2e/agentic-chat.spec.ts"), matching Playwright's per-file
+ * report grouping.
+ *
+ * ## Hand-reconciliation notes (langgraph-python seed)
+ *
+ * Mapping was derived by running each spec filename stem through
+ * `REGISTRY_TO_D5` in `d5-feature-mapping.ts`. Non-trivial cases:
+ *
+ * - `beautiful-chat.spec.ts` → 5 cells (1:many). REGISTRY_TO_D5["beautiful-chat"]
+ *   maps to all five beautiful-chat-* literals per d5-feature-mapping.ts:151-157.
+ *   The per-pill probe family runs five separate D5 scripts against
+ *   /demos/beautiful-chat; each literal gets its own dashboard row.
+ *
+ * - `declarative-hashbrown.spec.ts` + `declarative-json-render.spec.ts` → ["byoc"] (N:1).
+ *   Both stems map to ["byoc"] via REGISTRY_TO_D5. Two specs certify one cell;
+ *   rollup requires BOTH to PASS for the byoc cell to be GREEN.
+ *
+ * - `reasoning-custom.spec.ts` + `reasoning-default.spec.ts` → ["reasoning-display"] (N:1).
+ *   Both stems map to ["reasoning-display"]. Two specs, one cell; same rollup rule.
+ *
+ * - `threadid-frontend-tool-roundtrip.spec.ts` — UNMAPPED (intentional).
+ *   This spec (kind="testing" in feature-registry.json) is a regression smoke
+ *   for ENT-658; it has no entry in REGISTRY_TO_D5 and no corresponding
+ *   D5FeatureType literal. It does not contribute to any cell verdict.
+ *   Track for future addition if a "thread-id" D5FeatureType is introduced.
+ */
+
+import type { D5FeatureType } from "./d5-registry.js";
+
+/**
+ * Mapping type:  slug → spec-path → cell list.
+ *
+ * `D5FeatureType[]` cells are stored as plain strings in the JSON;
+ * the loader validates shape but does not check that each string is a
+ * valid `D5FeatureType` — that is the job of the CI guard (Task 2.2,
+ * spec-cell-mapping.test.ts completeness/uniqueness checks). Keeping
+ * the loader validation shape-only means it stays fast and stateless
+ * (no import of the D5_FEATURE_TYPES runtime array).
+ */
+export type SpecCellMapping = Record<string, Record<string, D5FeatureType[]>>;
+
+/** Keys that must never appear as slug or spec-path keys — prototype pollution vectors. */
+const DANGEROUS_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
+/**
+ * Parse and validate a raw JSON string into a `SpecCellMapping`.
+ *
+ * Validation rules:
+ *   1. Must be valid JSON (throws SyntaxError on parse failure).
+ *   2. Top level must be a plain object (not array, null, or primitive).
+ *   3. Each slug key must not be a dangerous prototype key (__proto__, constructor, prototype).
+ *   4. Each slug value must be a plain object.
+ *   5. Each spec-path key must not be a dangerous prototype key.
+ *   6. Each spec-path value must be an array of strings.
+ *   7. Cell name strings must be non-empty.
+ *   8. Cell names within a spec path must be unique (no intra-spec duplicates).
+ *
+ * Does NOT validate that cell strings are known `D5FeatureType` literals
+ * (that is the CI guard's job so consumers can load unmigrated slugs
+ * without crashing the guard-free loader path).
+ *
+ * @throws {SyntaxError}  on invalid JSON.
+ * @throws {TypeError}    on shape violations (message includes "SpecCellMapping").
+ */
+export function loadSpecCellMapping(json: string): SpecCellMapping {
+  // Step 1: parse — throws SyntaxError on bad JSON (native, intentional).
+  const parsed: unknown = JSON.parse(json);
+
+  // Step 2: top-level must be a plain object.
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new TypeError(
+      `SpecCellMapping: top-level value must be a plain object, got ${
+        Array.isArray(parsed)
+          ? "array"
+          : parsed === null
+            ? "null"
+            : typeof parsed
+      }`,
+    );
+  }
+
+  const top = parsed as Record<string, unknown>;
+
+  for (const [slug, specMap] of Object.entries(top)) {
+    // Step 3: reject dangerous prototype keys at the slug level.
+    if (DANGEROUS_KEYS.has(slug)) {
+      throw new TypeError(
+        `SpecCellMapping: dangerous key "${slug}" is not allowed as a slug key`,
+      );
+    }
+
+    // Step 4: each slug value must be a plain object.
+    if (
+      typeof specMap !== "object" ||
+      specMap === null ||
+      Array.isArray(specMap)
+    ) {
+      throw new TypeError(
+        `SpecCellMapping: value for slug "${slug}" must be a plain object, got ${
+          Array.isArray(specMap)
+            ? "array"
+            : specMap === null
+              ? "null"
+              : typeof specMap
+        }`,
+      );
+    }
+
+    const specObj = specMap as Record<string, unknown>;
+
+    for (const [specPath, cells] of Object.entries(specObj)) {
+      // Step 5: reject dangerous prototype keys at the spec-path level.
+      if (DANGEROUS_KEYS.has(specPath)) {
+        throw new TypeError(
+          `SpecCellMapping: dangerous key "${specPath}" is not allowed as a spec-path key in slug "${slug}"`,
+        );
+      }
+
+      // Step 6: each cell list must be an array of strings.
+      if (!Array.isArray(cells)) {
+        throw new TypeError(
+          `SpecCellMapping: cell list for slug "${slug}" / spec "${specPath}" must be an array, got ${typeof cells}`,
+        );
+      }
+
+      const seen = new Set<string>();
+      for (const cell of cells) {
+        if (typeof cell !== "string") {
+          throw new TypeError(
+            `SpecCellMapping: cell entry for slug "${slug}" / spec "${specPath}" must be a string, got ${typeof cell}`,
+          );
+        }
+        // Step 7: cell name must be non-empty.
+        if (cell === "") {
+          throw new TypeError(
+            `SpecCellMapping: empty cell name is not allowed for slug "${slug}" / spec "${specPath}"`,
+          );
+        }
+        // Step 8: no intra-spec duplicate cells.
+        if (seen.has(cell)) {
+          throw new TypeError(
+            `SpecCellMapping: duplicate cell "${cell}" in slug "${slug}" / spec "${specPath}"`,
+          );
+        }
+        seen.add(cell);
+      }
+    }
+  }
+
+  // Shape validated — cast is safe.
+  return top as SpecCellMapping;
+}
+
+/**
+ * Load the default `spec-cell-mapping.json` bundled with the harness.
+ *
+ * Callers that need to load a custom path should use `loadSpecCellMapping`
+ * directly with `fs.readFileSync(path, "utf-8")`.
+ */
+
+let _mappingOverride: SpecCellMapping | undefined;
+
+export async function loadDefaultSpecCellMapping(): Promise<SpecCellMapping> {
+  if (_mappingOverride !== undefined) return _mappingOverride;
+  // Dynamic import keeps the JSON out of the top-level module graph —
+  // the mapping may grow large and callers that never need it should not
+  // pay the parse cost.
+  const mod = await import("./spec-cell-mapping.json", {
+    with: { type: "json" },
+  });
+  return loadSpecCellMapping(JSON.stringify(mod.default));
+}
+
+/**
+ * Override the default mapping for testing. Pass `undefined` to restore
+ * the bundled JSON. The override value is validated through the same
+ * `loadSpecCellMapping` validator as the real JSON load path — callers
+ * cannot bypass validation by supplying a raw untested object.
+ *
+ * @internal Testing only.
+ */
+export function __overrideSpecCellMappingForTesting(
+  override: SpecCellMapping | undefined,
+): void {
+  if (override === undefined) {
+    _mappingOverride = undefined;
+    return;
+  }
+  // Validate the override through the real load path (round-trip through JSON
+  // so the validator sees the same shape as a real JSON load would).
+  _mappingOverride = loadSpecCellMapping(JSON.stringify(override));
+}
