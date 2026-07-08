@@ -109,6 +109,36 @@ describe("bot.onReaction", () => {
     ]);
   });
 
+  it("resolves <Message onReaction> by postedMessageId when the reaction id differs (managed path)", async () => {
+    const fake = new FakeAdapter();
+    const bot = createBot({ adapters: [fake] });
+    const seen: string[] = [];
+    bot.onMessage(async ({ thread }) => {
+      await thread.post(
+        Message({
+          onReaction: (e, r) => {
+            if (r.added) seen.push(e);
+          },
+          children: "hi",
+        }),
+      );
+    });
+    await bot.start();
+    fake.emitTurn({});
+    await tick();
+    // Managed delivery: the reaction arrives keyed by the provider ts (NOT the
+    // post ref the handler was registered under), and the adapter supplies the
+    // reverse-mapped post ref as `postedMessageId`. Resolution must prefer it.
+    fake.emitReaction({
+      rawEmoji: "🎉",
+      added: true,
+      messageId: "1699999999.000100", // provider ts — not the posted id
+      postedMessageId: "msg-1", // the post ref the handler is registered under
+    });
+    await tick();
+    expect(seen).toEqual(["🎉"]);
+  });
+
   it("re-derives a registered component's onReaction from the store after a restart", async () => {
     const backend = new MemoryStore(); // shared store survives the simulated restart
     const seen: string[] = [];

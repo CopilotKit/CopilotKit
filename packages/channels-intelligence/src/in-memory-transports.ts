@@ -2,9 +2,11 @@ import type {
   DeliverySource,
   EgressSink,
   RenderEventSink,
+  AgentMessage,
 } from "./transports.js";
 import type {
   ManagedIngressEnvelope,
+  EgressRoute,
   EgressOperation,
   EgressResult,
   RenderFrame,
@@ -55,6 +57,17 @@ export class InMemoryDeliverySource implements DeliverySource {
   readonly nacked: { deliveryId: string; reason: string }[] = [];
   /** Seed by handle so a turn's file refs hydrate into content parts. */
   readonly files = new Map<string, { bytes: Uint8Array; mimeType?: string }>();
+  /**
+   * Prior-turn history `getHistory` returns, regardless of `replyTarget` —
+   * seed it in a test to assert `conversationStore.getOrCreate` seeds
+   * `agent.messages` from it. Mirrors {@link HttpDeliverySource.getHistory}'s
+   * contract (oldest→newest, truncated to the requested `limit`).
+   */
+  history: AgentMessage[] = [];
+  /** Every `getHistory` call, in order — asserts the adapter unwraps the
+   * `ManagedReplyTarget` to the raw route and threads `historyLimit` through. */
+  readonly historyRequests: Array<{ replyTarget: EgressRoute; limit: number }> =
+    [];
   private onDelivery?: (env: ManagedIngressEnvelope) => Promise<void>;
 
   async start(
@@ -88,6 +101,13 @@ export class InMemoryDeliverySource implements DeliverySource {
     const f = this.files.get(handle);
     if (!f) throw new Error(`InMemoryDeliverySource: no file for ${handle}`);
     return f;
+  }
+  async getHistory(
+    replyTarget: EgressRoute,
+    limit: number,
+  ): Promise<AgentMessage[]> {
+    this.historyRequests.push({ replyTarget, limit });
+    return this.history.slice(-limit);
   }
   async stop(): Promise<void> {}
 }

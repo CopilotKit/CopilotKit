@@ -1,6 +1,5 @@
 import type { AgentSubscriber } from "@ag-ui/client";
 import type {
-  AgentContentPart,
   BotNode,
   MessageRef,
   PlatformUser,
@@ -23,10 +22,10 @@ import type {
   DeliverySource,
   EgressSink,
   RenderEventSink,
+  AgentMessage,
 } from "./transports.js";
 import type {
   ManagedIngressEnvelope,
-  ManagedFileRef,
   EgressOp,
   EgressOperation,
   HostedBotRenderEvent,
@@ -40,6 +39,8 @@ import {
   resolveTransportConfig,
 } from "./http-transports.js";
 import type { IntelligenceTransportConfig } from "./http-transports.js";
+import { IntelligenceStateStore } from "./intelligence-state-store.js";
+import { buildContentParts } from "./content-parts.js";
 
 /** Reply target the adapter mints during ingress and threads back to egress. */
 interface ManagedReplyTarget {
@@ -50,6 +51,21 @@ interface ManagedReplyTarget {
 
 /** Recover the routing a minted {@link MessageRef} carries (for update/delete). */
 function targetFromRef(ref: MessageRef): ManagedReplyTarget {
+  if (ref.__deliveryId === undefined || ref.__turnId === undefined) {
+    // A ref without stamped routing can't address an update/delete egress op.
+    // This happens when a handler updates a ref that carries no delivery routing
+    // — e.g. a ref-less interaction whose `message.ref` bot core defaulted to
+    // `{ id: "" }`. Fail with a clear, actionable message rather than coercing
+    // `String(undefined)` → `deliveryId:"undefined"` and hitting the opaque
+    // "no leased scope for delivery undefined" downstream (which would nack and
+    // burn the delivery's retries before app-api dead-letters it).
+    throw new Error(
+      `IntelligenceAdapter: cannot address message ref ${JSON.stringify(
+        ref.id,
+      )} for update/delete — it carries no delivery routing (the ref must come ` +
+        `from a prior post/render frame in a live delivery)`,
+    );
+  }
   return {
     route: ref.__route,
     turnId: String(ref.__turnId),
@@ -60,17 +76,6 @@ function targetFromRef(ref: MessageRef): ManagedReplyTarget {
 const textNode = (value: string): BotNode[] => [
   { type: "text", props: { value } },
 ];
-
-/** Map a MIME type to its `AgentContentPart` media kind, or null for non-media. */
-function mediaKindForMime(
-  mime: string,
-): "image" | "audio" | "video" | "document" | null {
-  if (mime.startsWith("image/")) return "image";
-  if (mime.startsWith("audio/")) return "audio";
-  if (mime.startsWith("video/")) return "video";
-  if (mime === "application/pdf") return "document";
-  return null;
-}
 
 const INTERRUPTED_SUFFIX = "\n_(interrupted)_";
 
@@ -101,6 +106,14 @@ export interface IntelligenceAdapterOptions {
    * `egress` are injected.
    */
   config?: Partial<IntelligenceTransportConfig>;
+  /**
+   * Max prior thread turns to seed onto a fresh agent's `messages` before a
+   * turn runs — parity with bot-slack/bot-discord/bot-whatsapp's
+   * reconstructed-history conversation stores. Ignored when the transport has
+   * no {@link DeliverySource.getHistory} (each turn then starts fresh, today's
+   * behavior). Default 20.
+   */
+  historyLimit?: number;
 }
 
 /**
@@ -131,11 +144,51 @@ export class IntelligenceAdapter implements PlatformAdapter {
     // than editing a native streaming message in place.
     supportsStreaming: false,
     supportsEphemeral: false,
+    // The claim loop processes one lease-bounded delivery at a time, so a
+    // blocking `awaitChoice` would deadlock (the click lands as a separate
+    // delivery). HITL uses the ack-first post-then-resume flow instead.
+    supportsBlockingChoice: false,
   };
 
+  /**
+   * Seeds a fresh agent's `messages` from the managed transport's conversation
+   * history (parity with bot-slack/bot-discord/bot-whatsapp, whose stores
+   * rebuild `agent.messages` from platform history every turn) — an arrow
+   * function property so `this` resolves to the adapter instance (not this
+   * object literal) when bot core calls `adapter.conversationStore.getOrCreate(…)`.
+   * `replyTarget` here is the {@link ManagedReplyTarget} bot core threads
+   * through from `dispatchTo`; `.route` is the opaque {@link EgressRoute} the
+   * transport actually needs. Best-effort: `getHistory` degrading to `[]` (no
+   * transport support, or a fetch failure) just means the turn starts fresh.
+   */
   readonly conversationStore: ConversationStore = {
-    async getOrCreate(conversationKey, _replyTarget, makeAgent) {
-      return { agent: makeAgent(conversationKey) };
+    getOrCreate: async (conversationKey, replyTarget, makeAgent) => {
+      const agent = makeAgent(conversationKey);
+      const route = (replyTarget as ManagedReplyTarget).route;
+      let history: AgentMessage[] = [];
+      try {
+        history =
+          ((await this.source?.getHistory?.(
+            route,
+            this.opts.historyLimit ?? 20,
+          )) as AgentMessage[] | undefined) ?? [];
+      } catch (err) {
+        // The DeliverySource contract says getHistory is best-effort (resolve
+        // to [] on failure), but guard here too so a source that violates it
+        // (or a future edit dropping HttpDeliverySource's internal catch) can't
+        // nack an otherwise-fine turn just because history couldn't be fetched.
+        this.opts.config?.log?.(
+          "intelligence getHistory failed; starting fresh",
+          err,
+        );
+      }
+      // AG-UI types an assistant `Message.content` as string-only, but our
+      // reconstructed history's `content` is `string | AgentContentPart[]`
+      // (a historical user turn may carry files) — cast past the stricter
+      // union rather than narrow the type, same as bot-slack/bot-discord/
+      // bot-whatsapp's conversation stores.
+      (agent as unknown as { messages: AgentMessage[] }).messages = history;
+      return { agent };
     },
   };
 
@@ -159,7 +212,32 @@ export class IntelligenceAdapter implements PlatformAdapter {
     this.source = opts.source;
     this.egress = opts.egress;
     this.renderSink = opts.renderSink;
-    this.stateStore = opts.store;
+    // Default to the Intelligence-backed durable KV store so managed bots
+    // persist action-registry snapshots + thread state across restarts (HITL
+    // cards survive). Skipped when a store is passed explicitly or when
+    // in-memory transports are injected (tests) — a durable store hitting HTTP
+    // would be wrong there. Falls back to createBot's MemoryStore if baseUrl /
+    // apiKey can't be resolved.
+    this.stateStore = opts.store ?? this.buildDefaultStore();
+  }
+
+  /** Build the default Intelligence-backed durable store, or undefined. */
+  private buildDefaultStore(): StateStore | undefined {
+    if (this.opts.source || this.opts.egress) return undefined;
+    const env =
+      typeof process !== "undefined"
+        ? process.env
+        : ({} as Record<string, string | undefined>);
+    const baseUrl = (
+      this.opts.config?.baseUrl ?? env["COPILOTKIT_INTELLIGENCE_URL"]
+    )?.replace(/\/+$/, "");
+    const apiKey = this.opts.config?.apiKey ?? env["COPILOTKIT_API_KEY"];
+    if (!baseUrl || !apiKey) return undefined;
+    return new IntelligenceStateStore({
+      baseUrl,
+      apiKey,
+      fetch: this.opts.config?.fetch,
+    });
   }
 
   private requireSource(): DeliverySource {
@@ -229,57 +307,6 @@ export class IntelligenceAdapter implements PlatformAdapter {
     }
   }
 
-  /**
-   * Hydrate turn-input file refs into `AgentContentPart`s: fetch each file's
-   * bytes via the delivery source and base64-encode them. Best-effort per
-   * file — a fetch failure is logged and skipped, never fails the turn. Media
-   * (image/audio/video/pdf) becomes a `data` part; `text/*` is decoded inline;
-   * anything else degrades to a short text note so the model still sees it.
-   */
-  private async buildContentParts(
-    files?: ManagedFileRef[],
-  ): Promise<AgentContentPart[]> {
-    const fetchFile = this.source?.fetchFile?.bind(this.source);
-    if (!files?.length || !fetchFile) return [];
-    const parts: AgentContentPart[] = [];
-    for (const ref of files) {
-      try {
-        const { bytes, mimeType } = await fetchFile(ref.handle);
-        // The typed ref's mime is authoritative — the file-serve route coerces
-        // its Content-Type to a safe allowlist, so the header can be lossy.
-        const mime = ref.mimeType ?? mimeType ?? "application/octet-stream";
-        const kind = mediaKindForMime(mime);
-        if (kind) {
-          const value = Buffer.from(bytes).toString("base64");
-          parts.push({
-            type: kind,
-            source: { type: "data", value, mimeType: mime },
-          });
-        } else if (mime.startsWith("text/")) {
-          parts.push({
-            type: "text",
-            text: Buffer.from(bytes).toString("utf8"),
-          });
-        } else {
-          parts.push({
-            type: "text",
-            text: `[attached file: ${ref.filename} (${mime})]`,
-          });
-        }
-      } catch (err) {
-        this.opts.config?.log?.("intelligence inbound file fetch failed", err);
-        // Fail-visible, not fail-silent: the user attached a file the model
-        // can't be shown, so surface a short note in context rather than
-        // dropping it entirely (the model can acknowledge / ask to retry).
-        parts.push({
-          type: "text",
-          text: `[attached file ${ref.filename} could not be retrieved]`,
-        });
-      }
-    }
-    return parts;
-  }
-
   private async dispatchTo(env: ManagedIngressEnvelope): Promise<void> {
     const sink = this.sink;
     if (!sink) throw new Error("IntelligenceAdapter: not started");
@@ -292,7 +319,13 @@ export class IntelligenceAdapter implements PlatformAdapter {
 
     switch (env.kind) {
       case "turn": {
-        const contentParts = await this.buildContentParts(env.files);
+        // Shared with `HttpDeliverySource.getHistory` (via ./content-parts.js)
+        // so a live inbound file and a historical one hydrate identically.
+        const contentParts = await buildContentParts(
+          env.files,
+          this.source?.fetchFile?.bind(this.source),
+          this.opts.config?.log,
+        );
         await sink.onTurn({
           conversationKey: env.conversationKey,
           replyTarget,
@@ -321,7 +354,32 @@ export class IntelligenceAdapter implements PlatformAdapter {
           triggerId: env.triggerId,
         });
         return;
-      case "interaction":
+      case "interaction": {
+        // The clicked card was posted in a PRIOR delivery, so its messageRef
+        // (minted by app-api as { id: <slackTs>, channel, ts }) carries no SDK
+        // render routing. Stamp THIS interaction delivery's route/turnId/
+        // deliveryId onto it so `thread.update(ref)` emits a valid `update`
+        // frame (routed under this live delivery) whose `ref` is the original
+        // card's ts — the Connector Outbox then `chat.update`s that card in
+        // place. Without this, `targetFromRef` yields `deliveryId:"undefined"`,
+        // the frame is rejected, and the interaction delivery dead-letters.
+        //
+        // CONTRACT (app-api side): the interaction delivery MUST carry a turnId
+        // distinct from the turn that originally posted the card. Egress op ids
+        // are `${turnId}:${seq}` (see mintOp/postRenderFrame) and seq resets to
+        // 0 per delivery, so a reused turnId makes the update's op id collide
+        // with the original post's — the Connector Outbox dedupes on op id and
+        // SILENTLY DROPS the update, so the card never flips. This layer can't
+        // detect the collision (the ref only carries the Slack ts, not the
+        // original turnId); it relies on app-api minting a fresh turnId here.
+        const messageRef = env.messageRef
+          ? {
+              ...env.messageRef,
+              __route: replyTarget.route,
+              __turnId: replyTarget.turnId,
+              __deliveryId: replyTarget.deliveryId,
+            }
+          : undefined;
         await sink.onInteraction({
           id: env.actionId,
           conversationKey: env.conversationKey,
@@ -331,10 +389,11 @@ export class IntelligenceAdapter implements PlatformAdapter {
           eventId: env.eventId,
           turnId: env.turnId,
           deliveryId: env.deliveryId,
-          messageRef: env.messageRef,
+          messageRef,
           triggerId: env.triggerId,
         });
         return;
+      }
       case "thread_started":
         await sink.onThreadStarted({
           conversationKey: env.conversationKey,
@@ -351,10 +410,23 @@ export class IntelligenceAdapter implements PlatformAdapter {
           conversationKey: env.conversationKey,
           replyTarget,
           messageId: env.messageId,
+          // The reaction arrives keyed by the provider ts; app-api reverse-maps
+          // it to the SDK post-time ref so a `<Message onReaction>` handler
+          // (persisted under that ref) resolves. `messageId` stays the ts.
+          ...(env.postedRef ? { postedMessageId: env.postedRef } : {}),
           threadId: env.threadId,
           raw: env,
         });
         return;
+      default: {
+        // Exhaustiveness guard: a delivery whose kind we don't dispatch must
+        // fail loud, not fall through — dispatch() acks on resolve, so a silent
+        // no-op here would ack an unhandled delivery as if it were processed.
+        const unhandled: never = env;
+        throw new Error(
+          `IntelligenceAdapter: unhandled delivery kind ${JSON.stringify(unhandled)}`,
+        );
+      }
     }
   }
 
