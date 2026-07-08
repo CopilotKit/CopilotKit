@@ -6,7 +6,8 @@
 // Mastra port we reuse the shared weatherAgent — the dashboard shape is
 // enforced entirely on the frontend by the catalog and the renderer.
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
@@ -14,7 +15,10 @@ import {
 } from "@copilotkit/runtime";
 import { getLocalAgent } from "@ag-ui/mastra";
 import { mastra } from "@/mastra";
+// @doc-replace
 import { withForwardedHeaders } from "@/mastra/_header_forwarding";
+// @doc-as
+// @doc-end
 
 const byocJsonRenderAgent = getLocalAgent({
   mastra,
@@ -33,6 +37,7 @@ const runtime = new CopilotRuntime({
   agents: { byoc_json_render: byocJsonRenderAgent },
 });
 
+// @doc-replace
 export const POST = async (req: NextRequest) =>
   withForwardedHeaders(req, async () => {
     try {
@@ -50,3 +55,21 @@ export const POST = async (req: NextRequest) =>
       );
     }
   });
+// @doc-as
+// export const POST = async (req: NextRequest) => {
+//   try {
+//     const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+//       endpoint: "/api/copilotkit-byoc-json-render",
+//       serviceAdapter: new ExperimentalEmptyAdapter(),
+//       runtime,
+//     });
+//     return await handleRequest(req);
+//   } catch (error: unknown) {
+//     const e = error as { message?: string; stack?: string };
+//     return NextResponse.json(
+//       { error: e.message, stack: e.stack },
+//       { status: 500 },
+//     );
+//   }
+// };
+// @doc-end

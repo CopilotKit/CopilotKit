@@ -35,7 +35,10 @@ import {
   StateGraph,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+// @doc-replace
 import { makeChatOpenAI } from "./openai-headers";
+// @doc-as
+// @doc-end
 
 import {
   convertActionsToDynamicStructuredTools,
@@ -165,11 +168,19 @@ function buildPreferencesMessage(
 // @endregion[preferences-injector]
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
+  // @doc-replace
   const model = makeChatOpenAI(config, {
     temperature: 0,
     model: "gpt-4o-mini",
     modelKwargs: { parallel_tool_calls: false },
   });
+  // @doc-as
+  // const model = new ChatOpenAI({
+  //     temperature: 0,
+  //     model: "gpt-4o-mini",
+  //     modelKwargs: { parallel_tool_calls: false },
+  //   });
+  // @doc-end
 
   const modelWithTools = model.bindTools!([
     ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions ?? []),

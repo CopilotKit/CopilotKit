@@ -23,18 +23,21 @@
  * `ChatOpenAI` construction — required for `x-aimock-context` propagation.
  */
 
-import { RunnableConfig } from "@langchain/core/runnables";
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { SystemMessage, AIMessage } from "@langchain/core/messages";
+import type { BaseMessage } from "@langchain/langgraph";
 import {
   Annotation,
   MemorySaver,
   START,
   StateGraph,
   messagesStateReducer,
-  BaseMessage,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+// @doc-replace
 import { makeChatOpenAI } from "./openai-headers";
+// @doc-as
+// @doc-end
 
 const SYSTEM_PROMPT =
   "You are a helpful assistant. For each user question, first think " +
@@ -52,11 +55,19 @@ const AgentStateAnnotation = Annotation.Root({
 type AgentState = typeof AgentStateAnnotation.State;
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
+  // @doc-replace
   const model = makeChatOpenAI(config, {
     model: REASONING_MODEL,
     useResponsesApi: true,
     reasoning: { effort: "low", summary: "auto" },
   });
+  // @doc-as
+  // const model = new ChatOpenAI({
+  //     model: REASONING_MODEL,
+  //     useResponsesApi: true,
+  //     reasoning: { effort: "low", summary: "auto" },
+  //   });
+  // @doc-end
 
   const response = await model.invoke(
     [new SystemMessage({ content: SYSTEM_PROMPT }), ...state.messages],

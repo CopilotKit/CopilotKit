@@ -7,9 +7,12 @@ import {
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+// @doc-replace
 // CVDIAG backend instrumentation (L1-E). No-op pass-through unless
 // CVDIAG_BACKEND_EMITTER is set truthy (default OFF).
 import { withCvdiagBackend } from "@/cvdiag-backend";
+// @doc-as
+// @doc-end
 
 // The LangGraph TypeScript agent runs as a separate process on port 8123
 // via @langchain/langgraph-cli. This runtime proxies CopilotKit requests
@@ -150,6 +153,7 @@ const copilotkitPost = async (req: NextRequest): Promise<Response> => {
   }
 };
 
+// @doc-replace
 // Wrap with CVDIAG backend instrumentation. `withCvdiagBackend` returns
 // `copilotkitPost` unchanged when CVDIAG_BACKEND_EMITTER is off (default), so
 // the instrumented path costs nothing in normal operation.
@@ -158,6 +162,9 @@ export const POST = withCvdiagBackend(copilotkitPost, {
   agentName: "starterAgent",
   provider: "openai",
 });
+// @doc-as
+// export const POST = copilotkitPost;
+// @doc-end
 
 export const GET = async () => {
   if (ROUTE_DEBUG) {

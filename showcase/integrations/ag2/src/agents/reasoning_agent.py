@@ -37,10 +37,13 @@ This module builds a small custom `/reasoning` sub-app (mounted by
 
 The emitted channel is REASONING_MESSAGE_* (role "reasoning") — NOT THINKING_*,
 which @ag-ui/client silently drops.
+# @doc-replace
 
 The global httpx hook installed in agent_server.py forwards the inbound
 `x-aimock-context` header onto the outbound OpenAI call so aimock matches the
 ag2-scoped fixture.
+# @doc-as
+# @doc-end
 """
 
 from __future__ import annotations
@@ -166,10 +169,14 @@ async def _run_reasoning_agent(
             type=EventType.RUN_STARTED, thread_id=thread_id, run_id=run_id
         )
 
+        # @doc-replace
         # Single streaming chat-completions call. The global httpx hook
         # (installed in agent_server.py) forwards x-aimock-context so aimock
         # matches the ag2-scoped fixture. OPENAI_BASE_URL points the client at
         # aimock in local/D6 runs and at the real API in production.
+        # @doc-as
+        # # Single streaming chat-completions call.
+        # @doc-end
         client = openai.AsyncOpenAI()
         response_stream = await client.chat.completions.create(
             model=MODEL,

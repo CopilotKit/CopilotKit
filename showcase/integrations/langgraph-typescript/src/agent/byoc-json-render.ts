@@ -9,7 +9,7 @@
  * MetricCard, BarChart, PieChart.
  */
 
-import { RunnableConfig } from "@langchain/core/runnables";
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { SystemMessage } from "@langchain/core/messages";
 import {
   MemorySaver,
@@ -19,7 +19,10 @@ import {
   Annotation,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+// @doc-replace
 import { makeChatOpenAI } from "./openai-headers";
+// @doc-as
+// @doc-end
 
 import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
 
@@ -158,11 +161,19 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
   // Force JSON-object output mode so the renderer's parseSpec never has
   // to parse around prose or code fences. Passed via `modelKwargs` so it
   // survives the LangChain → OpenAI chat-completions mapping.
+  // @doc-replace
   const model = makeChatOpenAI(config, {
     model: "gpt-4o-mini",
     temperature: 0.2,
     modelKwargs: { response_format: { type: "json_object" } },
   });
+  // @doc-as
+  // const model = new ChatOpenAI({
+  //     model: "gpt-4o-mini",
+  //     temperature: 0.2,
+  //     modelKwargs: { response_format: { type: "json_object" } },
+  //   });
+  // @doc-end
   const response = await model.invoke(
     [new SystemMessage({ content: SYSTEM_PROMPT }), ...state.messages],
     config,

@@ -12,10 +12,11 @@
 
 // @region[weather-tool-backend]
 import { z } from "zod";
-import { RunnableConfig } from "@langchain/core/runnables";
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { tool } from "@langchain/core/tools";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
-import { AIMessage, SystemMessage } from "@langchain/core/messages";
+import type { AIMessage } from "@langchain/core/messages";
+import { SystemMessage } from "@langchain/core/messages";
 import {
   Annotation,
   MemorySaver,
@@ -23,7 +24,10 @@ import {
   StateGraph,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+// @doc-replace
 import { makeChatOpenAI } from "./openai-headers";
+// @doc-as
+// @doc-end
 
 import {
   convertActionsToDynamicStructuredTools,
@@ -188,7 +192,11 @@ const tools = [getWeather, searchFlights, getStockPrice, rollD20];
 // ---------------------------------------------------------------------------
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
+  // @doc-replace
   const model = makeChatOpenAI(config, { model: "gpt-5.4" });
+  // @doc-as
+  // const model = new ChatOpenAI({ model: "gpt-5.4" });
+  // @doc-end
 
   const modelWithTools = model.bindTools!([
     ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions ?? []),
