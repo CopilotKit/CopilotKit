@@ -8,6 +8,7 @@ import {
   ɵselectIsMutating,
   ɵselectThreads,
   ɵselectThreadsError,
+  ɵselectFetchMoreError,
   ɵselectThreadsIsLoading,
 } from "@copilotkit/core";
 import type { ɵThreadRuntimeContext, ɵThreadStore } from "@copilotkit/core";
@@ -47,6 +48,13 @@ export interface UseThreadsResult {
   error: Ref<Error | null>;
   /** Genuine list-load/mutation errors only — excludes dev/config errors. */
   listError: Ref<Error | null>;
+  /**
+   * Error from the most recent FAILED next-page (fetch-more) load, or `null`.
+   * Tracked separately from {@link listError} so a paginated-load failure
+   * shows an inline "couldn't load more" affordance while the loaded list
+   * stays visible. Cleared when a fetch-more is retried or succeeds.
+   */
+  fetchMoreError: Ref<Error | null>;
   hasMoreThreads: Ref<boolean>;
   isFetchingMoreThreads: Ref<boolean>;
   isMutating: Ref<boolean>;
@@ -136,6 +144,7 @@ export function useThreads(input: UseThreadsInput): UseThreadsResult {
   const threads = ref<Thread[]>([]);
   const storeIsLoading = ref(false);
   const storeError = ref<Error | null>(null);
+  const fetchMoreError = ref<Error | null>(null);
   const hasMoreThreads = ref(false);
   const isFetchingMoreThreads = ref(false);
   const isMutating = ref(false);
@@ -143,6 +152,7 @@ export function useThreads(input: UseThreadsInput): UseThreadsResult {
   bindThreadStoreSelector(store, ɵselectThreads, threads as Ref<Thread[]>);
   bindThreadStoreSelector(store, ɵselectThreadsIsLoading, storeIsLoading);
   bindThreadStoreSelector(store, ɵselectThreadsError, storeError);
+  bindThreadStoreSelector(store, ɵselectFetchMoreError, fetchMoreError);
   bindThreadStoreSelector(store, ɵselectHasNextPage, hasMoreThreads);
   bindThreadStoreSelector(
     store,
@@ -315,6 +325,7 @@ export function useThreads(input: UseThreadsInput): UseThreadsResult {
     isLoading,
     error,
     listError,
+    fetchMoreError,
     hasMoreThreads,
     isFetchingMoreThreads,
     isMutating,

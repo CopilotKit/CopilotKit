@@ -8,7 +8,13 @@
     the drawer appears. On mobile the drawer is an off-canvas overlay (out of
     flow), so the column collapses to `auto` (≈0) and the chat fills the width.
   */
-  grid-template-columns: 320px minmax(0, 1fr);
+  grid-template-columns: var(--cpk-drawer-reserved-width, 320px) minmax(0, 1fr);
+  /* Bound the row so the drawer's thread list scrolls internally (pinned
+     header) instead of the panel growing to content height. */
+  grid-template-rows: minmax(0, 1fr);
+  /* The drawer sets --cpk-drawer-reserved-width to 0 when collapsed on desktop,
+     so the reserved column collapses and the chat reclaims the space. */
+  transition: grid-template-columns 0.2s ease;
   min-height: 100vh;
   min-height: 100svh;
   height: 100dvh;
@@ -16,13 +22,12 @@
   overflow: hidden;
 
   /*
-    Vertically center the drawer's mobile launcher on this app's header toggle
-    group (the Chat/App control sits at y=13, height 28 → center 27). The 40px
-    launcher therefore needs top = 27 - 20 = 7px; left mirrors the toggle
-    group's ~16px inset on the right for symmetry. These custom properties
-    inherit into the <copilotkit-threads-drawer> element and pierce its shadow root.
+    Uniform 16px gutter for the collapsed cluster — top AND left — matching the
+    right-side controls' (toggle + inspector) 16px inset. Same on both
+    breakpoints. These inherit into <copilotkit-threads-drawer> and pierce its
+    shadow root.
   */
-  --cpk-drawer-launcher-top: 7px;
+  --cpk-drawer-launcher-top: 16px;
   --cpk-drawer-launcher-left: 16px;
 }
 

@@ -35,6 +35,7 @@ from ag_ui.core import (
     ToolCallStartEvent,
 )
 from ag_ui.encoder import EventEncoder
+from agents.claude_agent_sdk_adapter import normalize_claude_model
 
 
 # Typed shapes for the assistant-history thinking blocks replayed to Anthropic
@@ -96,11 +97,10 @@ TOOLS: list[dict[str, Any]] = [
 ]
 
 SYSTEM_PROMPT = dedent("""
-    You are a travel & lifestyle concierge. When a user asks a question,
-    BEFORE calling any tool, emit a short step-by-step plan inside
-    `<reasoning>...</reasoning>` tags (one or two short sentences per
-    step, plain text only). Then call 2+ tools in succession when
-    relevant. After the last tool, write a brief final summary.
+    You are a travel & lifestyle concierge. Think through the user's request
+    before calling any tool, then call 2+ tools in succession when relevant.
+    After the last tool, write a brief final summary. Do not include
+    XML-style reasoning tags in the visible answer.
 """).strip()
 
 
@@ -122,8 +122,9 @@ def _build_stream_kwargs(messages: list[dict[str, Any]]) -> dict[str, Any]:
     """
     model = os.getenv(
         "ANTHROPIC_REASONING_MODEL",
-        os.getenv("ANTHROPIC_MODEL", "claude-opus-4-5"),
+        os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4.6"),
     )
+    model = normalize_claude_model(model)
     return {
         "model": model,
         "max_tokens": _THINKING_BUDGET_TOKENS + 2048,
@@ -197,6 +198,7 @@ async def run_tool_rendering_reasoning_chain_agent(
     client = anthropic.AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""))
 
     messages: list[dict[str, Any]] = []
+    latest_user_message: dict[str, Any] | None = None
     for msg in input_data.messages or []:
         role = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
         if role not in ("user", "assistant"):
@@ -214,7 +216,18 @@ async def run_tool_rendering_reasoning_chain_agent(
                     parts.append(part["text"])
             content = "".join(parts)
         if content:
-            messages.append({"role": role, "content": content})
+            message = {"role": role, "content": content}
+            if role == "user":
+                latest_user_message = message
+            messages.append(message)
+
+    # Each suggestion in this demo is an independent tool-routing task.
+    # Keeping prior UI transcript here makes old prompt text eligible for
+    # fixture matching and replays prior assistant tool-use turns without their
+    # native-thinking blocks. The per-request tool loop below still preserves
+    # the assistant/tool history required to complete a single multi-tool turn.
+    if latest_user_message is not None:
+        messages = [latest_user_message]
 
     thread_id = input_data.thread_id or "default"
     run_id = input_data.run_id or "run-1"
@@ -280,6 +293,27 @@ async def run_tool_rendering_reasoning_chain_agent(
                 )
             )
 
+        async def emit_text(chunk: str) -> AsyncIterator[str]:
+            nonlocal text_started
+            if not chunk:
+                return
+            if not text_started:
+                text_started = True
+                yield encoder.encode(
+                    TextMessageStartEvent(
+                        type=EventType.TEXT_MESSAGE_START,
+                        message_id=msg_id,
+                        role="assistant",
+                    )
+                )
+            yield encoder.encode(
+                TextMessageContentEvent(
+                    type=EventType.TEXT_MESSAGE_CONTENT,
+                    message_id=msg_id,
+                    delta=chunk,
+                )
+            )
+
         try:
             async with client.messages.stream(
                 **_build_stream_kwargs(messages),
@@ -330,27 +364,17 @@ async def run_tool_rendering_reasoning_chain_agent(
                             continue
                         if block.type == "tool_use":
                             # Flush any pending text/reasoning buffer first.
+                            # Text that precedes a tool call is step narration
+                            # for the visible chain. Emit it immediately so the
+                            # chat surface remains responsive while the tool
+                            # loop continues, and keep it in provider history.
                             if buffer:
                                 if in_reasoning:
                                     async for ev in flush_reasoning(buffer):
                                         yield ev
                                 else:
-                                    if not text_started:
-                                        text_started = True
-                                        yield encoder.encode(
-                                            TextMessageStartEvent(
-                                                type=EventType.TEXT_MESSAGE_START,
-                                                message_id=msg_id,
-                                                role="assistant",
-                                            )
-                                        )
-                                    yield encoder.encode(
-                                        TextMessageContentEvent(
-                                            type=EventType.TEXT_MESSAGE_CONTENT,
-                                            message_id=msg_id,
-                                            delta=buffer,
-                                        )
-                                    )
+                                    async for ev in emit_text(buffer):
+                                        yield ev
                                     response_text += buffer
                                 buffer = ""
                             current_tool_id = block.id
@@ -431,42 +455,14 @@ async def run_tool_rendering_reasoning_chain_agent(
                                         chunk = buffer[:keep]
                                         buffer = buffer[keep:]
                                         if chunk:
-                                            if not text_started:
-                                                text_started = True
-                                                yield encoder.encode(
-                                                    TextMessageStartEvent(
-                                                        type=EventType.TEXT_MESSAGE_START,
-                                                        message_id=msg_id,
-                                                        role="assistant",
-                                                    )
-                                                )
-                                            yield encoder.encode(
-                                                TextMessageContentEvent(
-                                                    type=EventType.TEXT_MESSAGE_CONTENT,
-                                                    message_id=msg_id,
-                                                    delta=chunk,
-                                                )
-                                            )
+                                            async for ev in emit_text(chunk):
+                                                yield ev
                                             response_text += chunk
                                         break
                                     chunk = buffer[:open_idx]
                                     if chunk:
-                                        if not text_started:
-                                            text_started = True
-                                            yield encoder.encode(
-                                                TextMessageStartEvent(
-                                                    type=EventType.TEXT_MESSAGE_START,
-                                                    message_id=msg_id,
-                                                    role="assistant",
-                                                )
-                                            )
-                                        yield encoder.encode(
-                                            TextMessageContentEvent(
-                                                type=EventType.TEXT_MESSAGE_CONTENT,
-                                                message_id=msg_id,
-                                                delta=chunk,
-                                            )
-                                        )
+                                        async for ev in emit_text(chunk):
+                                            yield ev
                                         response_text += chunk
                                     # New reasoning message id per block.
                                     reasoning_msg_id = (
@@ -598,22 +594,8 @@ async def run_tool_rendering_reasoning_chain_agent(
                     )
                     reasoning_started = False
             else:
-                if not text_started:
-                    text_started = True
-                    yield encoder.encode(
-                        TextMessageStartEvent(
-                            type=EventType.TEXT_MESSAGE_START,
-                            message_id=msg_id,
-                            role="assistant",
-                        )
-                    )
-                yield encoder.encode(
-                    TextMessageContentEvent(
-                        type=EventType.TEXT_MESSAGE_CONTENT,
-                        message_id=msg_id,
-                        delta=buffer,
-                    )
-                )
+                async for ev in emit_text(buffer):
+                    yield ev
                 response_text += buffer
             buffer = ""
 
@@ -625,6 +607,23 @@ async def run_tool_rendering_reasoning_chain_agent(
                 )
             )
             reasoning_started = False
+
+        if not tool_calls and response_text and not text_started:
+            text_started = True
+            yield encoder.encode(
+                TextMessageStartEvent(
+                    type=EventType.TEXT_MESSAGE_START,
+                    message_id=msg_id,
+                    role="assistant",
+                )
+            )
+            yield encoder.encode(
+                TextMessageContentEvent(
+                    type=EventType.TEXT_MESSAGE_CONTENT,
+                    message_id=msg_id,
+                    delta=response_text,
+                )
+            )
 
         if text_started:
             yield encoder.encode(

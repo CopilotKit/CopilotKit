@@ -6,7 +6,7 @@
   },
   "fixtures": [
     {
-      "_comment": "agentic-chat turn 1 — goldfish name. No turnIndex gate: the probe sends 3 sequential turns in one thread; turnIndex would restrict this to the first turn only, causing turns 2-3 to fall through to proxy.",
+      "_comment": "agentic-chat turn 1 \u2014 goldfish name. No turnIndex gate: the probe sends 3 sequential turns in one thread; turnIndex would restrict this to the first turn only, causing turns 2-3 to fall through to proxy.",
       "match": {
         "userMessage": "good name for a goldfish",
         "context": "ag2"
@@ -16,7 +16,7 @@
       }
     },
     {
-      "_comment": "agentic-chat turn 2 — tank name. No turnIndex gate (multi-turn conversation).",
+      "_comment": "agentic-chat turn 2 \u2014 tank name. No turnIndex gate (multi-turn conversation).",
       "match": {
         "userMessage": "name for its tank",
         "context": "ag2"
@@ -26,7 +26,7 @@
       }
     },
     {
-      "_comment": "agentic-chat turn 3 — recall. No turnIndex gate (multi-turn conversation).",
+      "_comment": "agentic-chat turn 3 \u2014 recall. No turnIndex gate (multi-turn conversation).",
       "match": {
         "userMessage": "what we named the goldfish",
         "context": "ag2"
@@ -46,7 +46,7 @@
           {
             "id": "call_d5_generate_haiku_001",
             "name": "generate_haiku",
-            "arguments": "{\"japanese\":[\"古池や\",\"蛙飛び込む\",\"水の音\"],\"english\":[\"An old silent pond\",\"A frog jumps into the pond\",\"Splash! Silence again.\"],\"image_name\":\"Mount_Fuji_Lake_Reflection_Cherry_Blossoms_Sakura_Spring.jpg\",\"gradient\":\"linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)\"}"
+            "arguments": "{\"japanese\":[\"\u53e4\u6c60\u3084\",\"\u86d9\u98db\u3073\u8fbc\u3080\",\"\u6c34\u306e\u97f3\"],\"english\":[\"An old silent pond\",\"A frog jumps into the pond\",\"Splash! Silence again.\"],\"image_name\":\"Mount_Fuji_Lake_Reflection_Cherry_Blossoms_Sakura_Spring.jpg\",\"gradient\":\"linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)\"}"
           }
         ]
       }
@@ -58,27 +58,7 @@
         "context": "ag2"
       },
       "response": {
-        "content": "Haiku generated above — a beautiful verse about nature with an accompanying image."
-      }
-    },
-    {
-      "match": {
-        "userMessage": "describe the sample image",
-        "turnIndex": 0,
-        "context": "ag2"
-      },
-      "response": {
-        "content": "The image attachment shows a small abstract test pattern used by the multimodal demo to validate the image-upload pipeline. Successful render of this response confirms the binary attachment round-tripped through the runtime."
-      }
-    },
-    {
-      "match": {
-        "userMessage": "summarize the sample document",
-        "turnIndex": 0,
-        "context": "ag2"
-      },
-      "response": {
-        "content": "The PDF document contains a single test page used by the multimodal demo. Its text was flattened by pypdf on the Python side and forwarded as text content to the model. Receiving this response confirms the document upload path works."
+        "content": "Haiku generated above \u2014 a beautiful verse about nature with an accompanying image."
       }
     },
     {
@@ -88,7 +68,7 @@
         "context": "ag2"
       },
       "response": {
-        "content": "Hello from the popup — the CopilotPopup prebuilt component is wired up and reachable. The launcher floats in the corner and the chat sits in an overlay panel."
+        "content": "Hello from the popup \u2014 the CopilotPopup prebuilt component is wired up and reachable. The launcher floats in the corner and the chat sits in an overlay panel."
       }
     },
     {
@@ -98,7 +78,7 @@
         "context": "ag2"
       },
       "response": {
-        "content": "Hello from the sidebar — the CopilotSidebar prebuilt component is wired up and reachable. Anything else you would like me to confirm from inside the sidebar?"
+        "content": "Hello from the sidebar \u2014 the CopilotSidebar prebuilt component is wired up and reachable. Anything else you would like me to confirm from inside the sidebar?"
       }
     },
     {

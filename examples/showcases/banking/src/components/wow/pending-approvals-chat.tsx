@@ -16,7 +16,6 @@ import type {
 import { Button } from "@/components/ui/button";
 import { PolicyExceptionInline } from "@/components/policy-exception-inline";
 import { useRecording } from "@/components/recording-context";
-import { useRecordUserActionInCurrentThread } from "@/lib/record-user-action";
 import { cn, formatCurrency } from "@/lib/utils";
 
 // Same locally-declared result shape every exception-filing surface uses
@@ -49,11 +48,11 @@ interface PendingApprovalsChatProps {
  * full-width actions instead.
  *
  * Behavioral parity with the dashboard table is deliberate and exact:
- * identical over-limit/cleared derivation, identical recordUserAction
- * payloads and logStep narration (teach-mode distills from these), and the
- * same PolicyExceptionInline form for filing exceptions — so an officer can
- * demonstrate the unlock inside the chat exactly as they can on the
- * dashboard.
+ * identical over-limit/cleared derivation, identical begin/endRecording
+ * bracketing and logStep narration (the recording vignette pulses while a
+ * demonstration is captured), and the same PolicyExceptionInline form for
+ * filing exceptions — so an officer can demonstrate the unlock inside the chat
+ * exactly as they can on the dashboard.
  */
 export function PendingApprovalsChat({
   transactions,
@@ -63,7 +62,6 @@ export function PendingApprovalsChat({
   openPolicyException,
   finalizePolicyException,
 }: PendingApprovalsChatProps) {
-  const recordUserAction = useRecordUserActionInCurrentThread();
   const { beginRecording, endRecording, logStep } = useRecording();
   const [exceptionTxnId, setExceptionTxnId] = useState<string | null>(null);
 
@@ -77,39 +75,22 @@ export function PendingApprovalsChat({
     };
   };
 
-  // Mirrors TransactionsList.handleApprove: record only when the server
-  // mutation took effect, with the identical payload the distiller expects.
+  // Mirrors TransactionsList.handleApprove: narrate only when the server
+  // mutation took effect (a blocked over-limit approve is a no-op and must
+  // never be narrated as an approval).
   const handleApprove = async (id: string): Promise<void> => {
     const ok = await onApprove(id);
     if (!ok) return;
-    logStep("Approved the charge");
     beginRecording();
-    recordUserAction({
-      title: "transaction.approved",
-      description:
-        "User approved a pending transaction from the transactions view.",
-      previousData: { status: "pending" },
-      newData: { status: "approved" },
-      metadata: { transactionId: id },
-    })
-      .catch(console.error)
-      .finally(() => endRecording());
+    logStep("Approved the charge");
+    endRecording();
   };
 
   const handleDeny = async (id: string): Promise<void> => {
     const ok = await onDeny(id);
     if (!ok) return;
     beginRecording();
-    recordUserAction({
-      title: "transaction.denied",
-      description:
-        "User denied a pending transaction from the transactions view.",
-      previousData: { status: "pending" },
-      newData: { status: "denied" },
-      metadata: { transactionId: id },
-    })
-      .catch(console.error)
-      .finally(() => endRecording());
+    endRecording();
   };
 
   if (!transactions.length) {

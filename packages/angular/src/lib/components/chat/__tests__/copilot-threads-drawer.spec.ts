@@ -1,7 +1,7 @@
 import { Component } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { signal } from "@angular/core";
-import { test, expect, vi } from "vitest";
+import { test, expect, vi, beforeEach } from "vitest";
 import type { DrawerThread } from "@copilotkit/web-components/threads-drawer";
 import type { RuntimeLicenseStatus } from "@copilotkit/core";
 import {
@@ -34,6 +34,7 @@ const threadsState = {
   isLoading: signal(false),
   error: signal<Error | null>(null),
   listError: signal<Error | null>(null),
+  fetchMoreError: signal<Error | null>(null),
   hasMoreThreads: signal(false),
   isFetchingMoreThreads: signal(false),
   isMutating: signal(false),
@@ -133,6 +134,10 @@ function fakeConfig() {
     hasExplicitThreadId: signal(true),
     setActiveThreadId: vi.fn(),
     startNewThread: vi.fn(),
+    // Drawer open-state coordination consumed by the wrapper.
+    drawerOpen: signal(false),
+    setDrawerOpen: vi.fn(),
+    registerDrawer: vi.fn(() => vi.fn()),
   };
 }
 
@@ -163,6 +168,29 @@ function setupWithConfig(config = fakeConfig()) {
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+// The `threadsState` mock is module-level, so reset every signal to its default
+// and clear the mock fns' call history before each test. Without this, a test
+// that flips a signal (e.g. isLoading/hasMoreThreads/error) leaks that state
+// into whichever test runs next — the same order-coupling guard the
+// react-core/vue suites establish with their own beforeEach.
+beforeEach(() => {
+  threadsState.threads.set([]);
+  threadsState.isLoading.set(false);
+  threadsState.error.set(null);
+  threadsState.listError.set(null);
+  threadsState.fetchMoreError.set(null);
+  threadsState.hasMoreThreads.set(false);
+  threadsState.isFetchingMoreThreads.set(false);
+  threadsState.isMutating.set(false);
+  threadsState.fetchMoreThreads.mockClear();
+  threadsState.refetchThreads.mockClear();
+  threadsState.startNewThread.mockClear();
+  threadsState.renameThread.mockClear();
+  threadsState.archiveThread.mockClear();
+  threadsState.unarchiveThread.mockClear();
+  threadsState.deleteThread.mockClear();
+});
 
 test("renders <copilotkit-threads-drawer> with the default data-testid", () => {
   const { el } = setup();
@@ -437,6 +465,154 @@ test("genuine fetch error surfaces on element.error when listError() is non-null
 });
 
 // ---------------------------------------------------------------------------
+// D2: fetchMoreError forwarding
+// ---------------------------------------------------------------------------
+
+test("fetchMoreError is forwarded to the element's fetchMoreError property; error stays null", async () => {
+  threadsState.error.set(null);
+  threadsState.listError.set(null);
+  threadsState.fetchMoreError.set(new Error("couldn't load more"));
+
+  const { fixture, el } = setup();
+  fixture.detectChanges();
+  await fixture.whenStable();
+
+  expect(
+    (el as unknown as { fetchMoreError: string | null }).fetchMoreError,
+  ).toBe("couldn't load more");
+  // The dedicated fetch-more channel must NOT bleed into the initial-list error.
+  expect(el!.error).toBeNull();
+
+  // Clearing the fetch-more error clears the element property.
+  threadsState.fetchMoreError.set(null);
+  fixture.detectChanges();
+  await fixture.whenStable();
+  expect(
+    (el as unknown as { fetchMoreError: string | null }).fetchMoreError,
+  ).toBeNull();
+});
+
+// ---------------------------------------------------------------------------
+// D1: open-state coordination
+// ---------------------------------------------------------------------------
+
+test("drawer starts CLOSED (el.open === false) with a provider present", async () => {
+  const { fixture, el } = setupWithConfig();
+  await fixture.whenStable();
+
+  expect((el as unknown as { open: boolean }).open).toBe(false);
+});
+
+test("drawer starts CLOSED (el.open === false) with no provider (local fallback)", async () => {
+  const { fixture, el } = setup();
+  await fixture.whenStable();
+
+  expect((el as unknown as { open: boolean }).open).toBe(false);
+});
+
+test("open-change routes to config.setDrawerOpen when a provider is present", () => {
+  const { el, config } = setupWithConfig();
+
+  el.dispatchEvent(
+    new CustomEvent("open-change", {
+      detail: { open: true },
+      bubbles: true,
+    }),
+  );
+
+  expect(config.setDrawerOpen).toHaveBeenCalledWith(true);
+});
+
+test("open-change drives the local fallback (el.open flips) when no provider is present", async () => {
+  const { fixture, el } = setup();
+  await fixture.whenStable();
+  expect((el as unknown as { open: boolean }).open).toBe(false);
+
+  el!.dispatchEvent(
+    new CustomEvent("open-change", {
+      detail: { open: true },
+      bubbles: true,
+    }),
+  );
+  fixture.detectChanges();
+  await fixture.whenStable();
+
+  expect((el as unknown as { open: boolean }).open).toBe(true);
+});
+
+test("registerDrawer is called once when a provider is present", () => {
+  const { config } = setupWithConfig();
+  expect(config.registerDrawer).toHaveBeenCalledTimes(1);
+});
+
+// ---------------------------------------------------------------------------
+// D3: focus-return to the chat input on thread select
+// ---------------------------------------------------------------------------
+
+test("thread-selected returns focus to the chat input (document-global fallback)", () => {
+  const { el } = setupWithConfig();
+
+  // No `copilot-chat-view` ancestor in the test DOM, so findChatInput uses the
+  // document-global fallback: a `<textarea copilotChatTextarea>` on the page.
+  const textarea = document.createElement("textarea");
+  textarea.setAttribute("copilotChatTextarea", "");
+  document.body.appendChild(textarea);
+  const focusSpy = vi.spyOn(textarea, "focus");
+
+  try {
+    el.dispatchEvent(
+      new CustomEvent("thread-selected", {
+        detail: { threadId: "t-focus" },
+        bubbles: true,
+      }),
+    );
+
+    expect(focusSpy).toHaveBeenCalled();
+  } finally {
+    focusSpy.mockRestore();
+    document.body.removeChild(textarea);
+  }
+});
+
+test("thread-selected focuses the chat input scoped to the ancestor copilot-chat-view", () => {
+  const { el } = setupWithConfig();
+
+  // Wrap the drawer in a `copilot-chat-view` that owns its own input, and add a
+  // decoy input elsewhere in the document (earlier in document order, so the
+  // global fallback would pick IT). findChatInput must prefer the scoped one.
+  const decoy = document.createElement("textarea");
+  decoy.setAttribute("copilotChatTextarea", "");
+  document.body.appendChild(decoy);
+
+  const chatView = document.createElement("copilot-chat-view");
+  const scoped = document.createElement("textarea");
+  scoped.setAttribute("copilotChatTextarea", "");
+  const parent = el.parentElement as HTMLElement;
+  parent.insertBefore(chatView, el);
+  chatView.appendChild(scoped);
+  chatView.appendChild(el); // drawer now lives inside the chat-view
+
+  const scopedSpy = vi.spyOn(scoped, "focus");
+  const decoySpy = vi.spyOn(decoy, "focus");
+  try {
+    el.dispatchEvent(
+      new CustomEvent("thread-selected", {
+        detail: { threadId: "t-scoped" },
+        bubbles: true,
+      }),
+    );
+
+    expect(scopedSpy).toHaveBeenCalled();
+    expect(decoySpy).not.toHaveBeenCalled();
+  } finally {
+    scopedSpy.mockRestore();
+    decoySpy.mockRestore();
+    decoy.remove();
+    chatView.remove();
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Per-row custom content projection (copilotThreadsDrawerRow directive)
 // ---------------------------------------------------------------------------
 
@@ -469,6 +645,7 @@ class HostWithRowComponent {}
 class HostWithSlotComponent {}
 
 test("slotted light-DOM children pass through to <copilotkit-threads-drawer>", () => {
+  licenseStatusSignal.set("valid");
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     imports: [HostWithSlotComponent],
@@ -487,6 +664,7 @@ test("slotted light-DOM children pass through to <copilotkit-threads-drawer>", (
 });
 
 test("copilotThreadsDrawerRow renders per-row slot content for each thread", () => {
+  licenseStatusSignal.set("valid");
   threadsState.threads.set([
     {
       id: "t1",
@@ -529,6 +707,7 @@ test("copilotThreadsDrawerRow renders per-row slot content for each thread", () 
 class HostWithLabelComponent {}
 
 test("label input is forwarded to the <copilotkit-threads-drawer> element label property", () => {
+  licenseStatusSignal.set("valid");
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     imports: [HostWithLabelComponent],
@@ -543,6 +722,110 @@ test("label input is forwarded to the <copilotkit-threads-drawer> element label 
   ) as HTMLElement & { label: string };
 
   expect(drawerEl.label).toBe("Custom");
+});
+
+// ---------------------------------------------------------------------------
+// recentLabel input forwarding (ENT-1051 UX redesign parity)
+// ---------------------------------------------------------------------------
+
+/** Host that passes a custom recentLabel to the drawer. */
+@Component({
+  selector: "test-host-recent-label",
+  standalone: true,
+  imports: [CopilotThreadsDrawer],
+  template: `
+    <copilot-threads-drawer [recentLabel]="'History'" />
+  `,
+})
+class HostWithRecentLabelComponent {}
+
+test("recentLabel input is forwarded to the element's recent-label attribute", () => {
+  licenseStatusSignal.set("valid");
+  TestBed.resetTestingModule();
+  TestBed.configureTestingModule({
+    imports: [HostWithRecentLabelComponent],
+    providers: [copilotkitProvider],
+  });
+
+  const fixture = TestBed.createComponent(HostWithRecentLabelComponent);
+  fixture.detectChanges();
+
+  const el = (fixture.nativeElement as HTMLElement).querySelector(
+    "copilotkit-threads-drawer",
+  ) as HTMLElement;
+
+  expect(el.getAttribute("recent-label")).toBe("History");
+});
+
+// ---------------------------------------------------------------------------
+// collapsible input forwarding + collapseChange output (ENT-1051)
+// ---------------------------------------------------------------------------
+
+/** Host that passes collapsible={false} to the drawer. */
+@Component({
+  selector: "test-host-collapsible",
+  standalone: true,
+  imports: [CopilotThreadsDrawer],
+  template: `
+    <copilot-threads-drawer [collapsible]="false" />
+  `,
+})
+class HostWithCollapsibleComponent {}
+
+test("collapsible input is forwarded to the element's collapsible property", () => {
+  licenseStatusSignal.set("valid");
+  TestBed.resetTestingModule();
+  TestBed.configureTestingModule({
+    imports: [HostWithCollapsibleComponent],
+    providers: [copilotkitProvider],
+  });
+
+  const fixture = TestBed.createComponent(HostWithCollapsibleComponent);
+  fixture.detectChanges();
+
+  const el = (fixture.nativeElement as HTMLElement).querySelector(
+    "copilotkit-threads-drawer",
+  ) as HTMLElement & { collapsible: boolean };
+
+  expect(el.collapsible).toBe(false);
+});
+
+/** Host that binds the `collapseChange` output to a spy. */
+@Component({
+  selector: "test-host-collapse-change",
+  standalone: true,
+  imports: [CopilotThreadsDrawer],
+  template: `
+    <copilot-threads-drawer (collapseChange)="spy($event)" />
+  `,
+})
+class HostWithCollapseChangeComponent {
+  spy = vi.fn();
+}
+
+test("collapseChange output emits the collapsed state when the element fires a `collapse-change` event", () => {
+  licenseStatusSignal.set("valid");
+  TestBed.resetTestingModule();
+  TestBed.configureTestingModule({
+    imports: [HostWithCollapseChangeComponent],
+    providers: [copilotkitProvider],
+  });
+
+  const fixture = TestBed.createComponent(HostWithCollapseChangeComponent);
+  fixture.detectChanges();
+  const el = (fixture.nativeElement as HTMLElement).querySelector(
+    "copilotkit-threads-drawer",
+  ) as HTMLElement;
+
+  el.dispatchEvent(
+    new CustomEvent("collapse-change", {
+      detail: { collapsed: true },
+      bubbles: true,
+      composed: true,
+    }),
+  );
+
+  expect(fixture.componentInstance.spy).toHaveBeenCalledWith(true);
 });
 
 // ---------------------------------------------------------------------------

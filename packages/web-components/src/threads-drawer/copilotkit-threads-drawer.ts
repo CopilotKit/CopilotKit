@@ -96,9 +96,13 @@ const iconDelete = html`
     <line x1="14" x2="14" y1="11" y2="17" />
   </svg>
 `;
-const iconLauncher = html`
+// Sidebar/panel glyph (the Figma toggle icon). Used for the desktop collapse
+// toggle, the desktop collapsed cluster's expand toggle, the mobile launcher
+// (open), and the mobile header dismiss (close) — the toggle glyph is identical
+// in every state, matching the Figma.
+const iconSidebar = html`
   <svg
-    class="launcher-icon"
+    class="icon"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
@@ -109,7 +113,52 @@ const iconLauncher = html`
   >
     <rect width="18" height="18" x="3" y="3" rx="2" />
     <path d="M9 3v18" />
-    <path d="m14 9 3 3-3 3" />
+  </svg>
+`;
+
+/**
+ * Header / control icons for the redesigned drawer chrome (ENT-1051). Inlined
+ * lucide glyphs (`square-plus`, `filter`, `ellipsis-vertical`) drawn with
+ * `currentColor` so they inherit the button's themed color — the element cannot
+ * depend on a React icon library.
+ */
+const iconPlusSquare = html`
+  <svg
+    class="icon"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <rect width="18" height="18" x="3" y="3" rx="2" />
+    <path d="M8 12h8" />
+    <path d="M12 8v8" />
+  </svg>
+`;
+const iconFunnel = html`
+  <svg
+    class="icon"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <line x1="3" y1="5" x2="21" y2="5" />
+    <line x1="6" y1="12" x2="18" y2="12" />
+    <line x1="10" y1="19" x2="14" y2="19" />
+  </svg>
+`;
+const iconKebab = html`
+  <svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <circle cx="12" cy="5" r="1.6" />
+    <circle cx="12" cy="12" r="1.6" />
+    <circle cx="12" cy="19" r="1.6" />
   </svg>
 `;
 
@@ -119,7 +168,7 @@ const iconLauncher = html`
  *
  * Pure VIEW: domain data (threads/loading/error/etc.) comes IN as properties and
  * user intent goes OUT as bubbling+composed DOM `CustomEvent`s. The element owns
- * VIEW state (open/collapsed, Active/All filter, confirm-delete dialog, per-row
+ * VIEW state (open, Active/All filter, confirm-delete dialog, per-row
  * animations) while the consumer owns DOMAIN state. `open` is additionally
  * externally controllable via the `open` property + `open-change` event so a
  * host can coordinate mobile open/close.
@@ -142,6 +191,9 @@ export class CopilotKitThreadsDrawer extends LitElement {
     fetchMoreError: { attribute: "fetch-more-error", type: String },
     // Inbound: configurable label for the drawer region and default header.
     label: { type: String },
+    // Inbound: configurable "Recent Conversations" section heading text.
+    recentLabel: { attribute: "recent-label", type: String },
+    collapsible: { type: Boolean },
     // Externally-controllable VIEW state.
     open: { type: Boolean, reflect: true },
     collapsed: { type: Boolean, reflect: true },
@@ -149,16 +201,26 @@ export class CopilotKitThreadsDrawer extends LitElement {
     _filter: { state: true },
     _confirmingDeleteId: { state: true },
     _viewportIsMobile: { state: true },
+    _hasHeader: { state: true },
     _hasMemories: { state: true },
     _hasFooter: { state: true },
+    _filterOpen: { state: true },
+    _openMenuId: { state: true },
   };
 
   /**
-   * Inbound: accessible + default-header label for the drawer region (screen-reader
-   * region name + listbox name + the default header text). Override the visible
-   * header independently via the `header` slot. Defaults to `"Threads"`.
+   * Inbound: accessible label for the drawer region — drives the screen-reader
+   * region name (on `.root`) and the listbox name (on `.list`) ONLY. The
+   * redesign has no visible title; project visible header chrome via the
+   * optional `header` slot instead. Defaults to `"Threads"`.
    */
   label = "Threads";
+
+  /**
+   * Inbound: text for the "Recent Conversations" section heading above the list.
+   * Attribute: `recent-label`. Defaults to `"Recent Conversations"`.
+   */
+  recentLabel = "Recent Conversations";
 
   /** Inbound: thread records to render. The element re-orders/filters them. */
   threads: DrawerThread[] = [];
@@ -184,16 +246,39 @@ export class CopilotKitThreadsDrawer extends LitElement {
   /** Inbound: fetch-more error message (inline, list preserved). */
   fetchMoreError: string | null = null;
 
-  /** Externally-controllable: whether the drawer is open (mobile coordination). */
-  open = true;
-  /** Externally-controllable: whether the drawer is collapsed to a rail (desktop). */
+  /**
+   * Externally-controllable: whether the drawer is open (mobile coordination).
+   * Defaults to `false` so a mobile-width first render does NOT paint the open
+   * modal (backdrop + body scroll-lock + focus steal) for one frame before a
+   * wrapper's post-mount effect can close it. Desktop is unaffected — only
+   * `.root.mobile.open` / `_isMobileModalOpen()` consume `open`.
+   */
+  open = false;
+  /**
+   * Externally-controllable: whether the drawer is collapsed to the floating
+   * cluster on desktop. Defaults to `false` (expanded). Reflected so hosts can
+   * theme on `[collapsed]`. Ignored on mobile, where open/closed governs the
+   * off-canvas modal instead.
+   */
   collapsed = false;
+  /**
+   * Inbound: whether the user may collapse the drawer on desktop. Defaults to
+   * `true`. When `false` the header omits the collapse toggle and the drawer
+   * NEVER renders the collapsed cluster on desktop (it stays expanded even if
+   * `collapsed` is set) — mobile off-canvas open/close is independent.
+   */
+  collapsible = true;
 
   private _filter: DrawerFilter = "active";
   private _confirmingDeleteId: string | null = null;
   private _viewportIsMobile = false;
+  private _hasHeader = false;
   private _hasMemories = false;
   private _hasFooter = false;
+  /** Whether the funnel filter popover (Active/All) is open. */
+  private _filterOpen = false;
+  /** Id of the row whose kebab actions menu is open (only one at a time). */
+  private _openMenuId: string | null = null;
 
   private _mediaQuery: MediaQueryList | null = null;
   private readonly _onMediaChange = (event: MediaQueryListEvent) => {
@@ -201,8 +286,22 @@ export class CopilotKitThreadsDrawer extends LitElement {
   };
   private readonly _onKeyDown = (event: KeyboardEvent) => {
     if (event.key === "Escape") {
+      if (this._openMenuId !== null) {
+        this._openMenuId = null;
+        event.stopPropagation();
+        return;
+      }
+      if (this._filterOpen) {
+        this._filterOpen = false;
+        event.stopPropagation();
+        return;
+      }
+      // The confirm-delete <dialog> is opened with showModal(): the browser
+      // dismisses it natively via the dialog's `cancel` event. But that Escape
+      // keydown still bubbles from the modal to this host handler, so we must
+      // stop here — otherwise it falls through to the mobile branch below and
+      // closes the whole drawer along with the confirmation.
       if (this._confirmingDeleteId !== null) {
-        this._confirmingDeleteId = null;
         event.stopPropagation();
         return;
       }
@@ -222,6 +321,39 @@ export class CopilotKitThreadsDrawer extends LitElement {
     }
   };
 
+  /**
+   * Dismisses the funnel filter popover and/or an open row-actions menu when a
+   * pointerdown lands outside them. Bound to `document` (composed events bubble
+   * out of the shadow root), so we discriminate inside vs. outside via
+   * `composedPath()` rather than target identity. A click on a popover's own
+   * trigger is treated as "inside" so its own `@click` toggle handles the close
+   * (avoids a double-toggle that would immediately reopen it).
+   */
+  private readonly _onDocumentPointerDown = (event: Event) => {
+    if (!this._filterOpen && this._openMenuId === null) return;
+    const path = event.composedPath();
+    if (this._filterOpen) {
+      const popover = this.renderRoot.querySelector('[part="filters"]');
+      const trigger = this.renderRoot.querySelector('[part="filter-toggle"]');
+      const inside =
+        (popover && path.includes(popover)) ||
+        (trigger && path.includes(trigger));
+      if (!inside) this._filterOpen = false;
+    }
+    if (this._openMenuId !== null) {
+      const popover = this.renderRoot.querySelector(
+        '[part="row-menu-popover"]',
+      );
+      const trigger = this.renderRoot.querySelector(
+        '.row.menu-open [part="row-menu"]',
+      );
+      const inside =
+        (popover && path.includes(popover)) ||
+        (trigger && path.includes(trigger));
+      if (!inside) this._openMenuId = null;
+    }
+  };
+
   /** Thread ids previously seen as named, so we can animate the null→named reveal. */
   private readonly _seenNamed = new Set<string>();
   /** Thread ids whose name just transitioned null→named in this update cycle. */
@@ -237,12 +369,28 @@ export class CopilotKitThreadsDrawer extends LitElement {
       this._mediaQuery.addEventListener("change", this._onMediaChange);
     }
     this.addEventListener("keydown", this._onKeyDown);
+    if (typeof document !== "undefined") {
+      document.addEventListener("pointerdown", this._onDocumentPointerDown);
+    }
   }
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     this._mediaQuery?.removeEventListener("change", this._onMediaChange);
     this.removeEventListener("keydown", this._onKeyDown);
+    if (typeof document !== "undefined") {
+      document.removeEventListener("pointerdown", this._onDocumentPointerDown);
+    }
+    if (typeof window !== "undefined") {
+      window.removeEventListener("scroll", this._repositionConfirm, true);
+      window.removeEventListener("resize", this._repositionConfirm);
+    }
+    // Release the reserved-width override we may have set on the document root.
+    if (typeof document !== "undefined") {
+      document.documentElement.style.removeProperty(
+        "--cpk-drawer-reserved-width",
+      );
+    }
     this._releaseScrollLock();
   }
 
@@ -276,6 +424,16 @@ export class CopilotKitThreadsDrawer extends LitElement {
         );
         if (!stillVisible) this._confirmingDeleteId = null;
       }
+
+      // Same reconciliation for an open row-actions menu: if the row whose
+      // kebab menu is open is no longer visible (removed/archived/filtered
+      // away), close the menu so it cannot linger detached from any row.
+      if (this._openMenuId !== null) {
+        const stillVisible = this._visibleThreads().some(
+          (t) => t.id === this._openMenuId,
+        );
+        if (!stillVisible) this._openMenuId = null;
+      }
     }
   }
 
@@ -293,6 +451,41 @@ export class CopilotKitThreadsDrawer extends LitElement {
       }
     }
 
+    // Reclaim the reserved layout column when the desktop collapse state (or the
+    // viewport) changes.
+    if (
+      changed.has("collapsed") ||
+      changed.has("collapsible") ||
+      changed.has("_viewportIsMobile" as keyof CopilotKitThreadsDrawer)
+    ) {
+      this._syncReservedWidth();
+    }
+
+    // Drive the native top-layer <dialog> from the confirm state. Opening with
+    // showModal() places it in the browser top layer (above every stacking
+    // context) so it is never clipped; we then re-center it over the drawer
+    // panel via _positionConfirmDialog(). Feature-detect showModal/close because
+    // jsdom implements neither — fall back to toggling the `open` attribute so
+    // unit tests still observe the open/closed state.
+    const dialog = this.renderRoot.querySelector("dialog");
+    if (dialog) {
+      const id = this._confirmingDeleteId;
+      if (id !== null && !dialog.open) {
+        typeof dialog.showModal === "function"
+          ? dialog.showModal()
+          : dialog.setAttribute("open", "");
+        this._positionConfirmDialog();
+        window.addEventListener("scroll", this._repositionConfirm, true);
+        window.addEventListener("resize", this._repositionConfirm);
+      } else if (id === null && dialog.open) {
+        typeof dialog.close === "function"
+          ? dialog.close()
+          : dialog.removeAttribute("open");
+        window.removeEventListener("scroll", this._repositionConfirm, true);
+        window.removeEventListener("resize", this._repositionConfirm);
+      }
+    }
+
     // The reveal animation fires exactly once per real name-arrival. Clearing
     // the set after the render that applied the `revealed` class prevents any
     // later, unrelated re-render from re-adding the class and re-firing the
@@ -301,32 +494,6 @@ export class CopilotKitThreadsDrawer extends LitElement {
     if (this._justRevealed.size > 0) {
       this._justRevealed = new Set<string>();
     }
-
-    this._syncNameClipping();
-  }
-
-  /**
-   * Marks each row whose name text is truncated with `name-clipped`, so the CSS
-   * shows the name tooltip ONLY when the full name isn't already visible (an
-   * always-on bubble over every row on hover would be noise). Measured after
-   * render because truncation depends on the laid-out width.
-   */
-  private _syncNameClipping(): void {
-    const names = this.renderRoot.querySelectorAll<HTMLElement>(".row-name");
-    names.forEach((name) => {
-      const text = name.querySelector<HTMLElement>(".row-name-text");
-      const clipped = !!text && text.scrollWidth > text.clientWidth;
-      name.classList.toggle("name-clipped", clipped);
-      // The z-index lift in styles.ts (`.row.name-clipped:hover`) targets the
-      // `.row` stacking context — each row creates its own via `transform`, so a
-      // tooltip anchored on `.row-name` is trapped inside it and paints under
-      // later rows unless the row itself is re-floated. Stamp the flag on the
-      // owning row too so that rule matches; the tooltip bubble stays scoped to
-      // `.row-name:hover`, so hovering a row-action never surfaces it.
-      name
-        .closest<HTMLElement>(".row")
-        ?.classList.toggle("name-clipped", clipped);
-    });
   }
 
   // --- View-state helpers ----------------------------------------------------
@@ -340,6 +507,78 @@ export class CopilotKitThreadsDrawer extends LitElement {
     this.open = next;
     this._emit("open-change", { open: next });
   }
+
+  private _setCollapsed(next: boolean): void {
+    if (this.collapsed === next) return;
+    this.collapsed = next;
+    this._emit("collapse-change", { collapsed: next });
+  }
+
+  /**
+   * Signal the drawer's reserved layout width to the host so a desktop collapse
+   * reclaims the column instead of leaving an empty gap. On desktop-collapse we
+   * set `--cpk-drawer-reserved-width: 0px` on the document root; a host whose
+   * grid reads `grid-template-columns: var(--cpk-drawer-reserved-width, 320px) …`
+   * inherits it and collapses the track (with its own transition). Expanded/mobile
+   * clears the override so the host's fallback width applies — which also means
+   * the default (expanded) render never sets it, so there is no hydration flicker.
+   *
+   * It is set on `document.documentElement` (not `parentElement`) BECAUSE the
+   * element is nested inside a framework wrapper host, so its parent is the
+   * wrapper — not the grid container, which is an ancestor a child's custom
+   * property can't reach. `:root` inheritance reaches the grid regardless of
+   * wrapper nesting. Best-effort + namespaced, single-drawer-per-document; a host
+   * with multiple drawers or a custom layout should instead react to the
+   * `collapse-change` event.
+   */
+  private _syncReservedWidth(): void {
+    if (typeof document === "undefined") return;
+    const desktopCollapsed =
+      this.collapsible && this.collapsed && !this._viewportIsMobile;
+    const root = document.documentElement;
+    if (desktopCollapsed) {
+      root.style.setProperty("--cpk-drawer-reserved-width", "0px");
+    } else {
+      root.style.removeProperty("--cpk-drawer-reserved-width");
+    }
+  }
+
+  /**
+   * Center the confirm-delete <dialog> over the drawer PANEL's on-screen box
+   * (not the viewport). The dialog stays a top-layer `showModal()` element so it
+   * is never clipped, but we drive its center via `--confirm-cx/cy` measured
+   * from the visible `.root` rect — so it reads as "inside the drawer" per the
+   * ENT-1051 design while keeping the top-layer robustness. Falls back to
+   * viewport-center (the CSS default) when the panel isn't measurable
+   * (SSR/jsdom).
+   */
+  private _positionConfirmDialog(): void {
+    const dialog = this.renderRoot.querySelector<HTMLDialogElement>("dialog");
+    const root = this.renderRoot.querySelector<HTMLElement>(".root");
+    if (!dialog) return;
+    const rect = root?.getBoundingClientRect();
+    if (!rect || (rect.width === 0 && rect.height === 0)) {
+      dialog.style.removeProperty("--confirm-cx");
+      dialog.style.removeProperty("--confirm-cy");
+      return;
+    }
+    // Center over the drawer's VISIBLE box (its rect intersected with the
+    // viewport), not the raw rect: a host grid that doesn't bound the drawer's
+    // row lets `.root` grow to content height, so a raw-rect center would land
+    // far down the page. Intersecting with the viewport keeps the modal centered
+    // in the on-screen drawer band regardless of how the host sizes the panel.
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const visLeft = Math.max(rect.left, 0);
+    const visRight = Math.min(rect.right, vw);
+    const visTop = Math.max(rect.top, 0);
+    const visBottom = Math.min(rect.bottom, vh);
+    dialog.style.setProperty("--confirm-cx", `${(visLeft + visRight) / 2}px`);
+    dialog.style.setProperty("--confirm-cy", `${(visTop + visBottom) / 2}px`);
+  }
+
+  /** Bound reposition handler for scroll/resize while the confirm dialog is open. */
+  private _repositionConfirm = () => this._positionConfirmDialog();
 
   private _setFilter(next: DrawerFilter): void {
     if (this._filter === next) return;
@@ -467,33 +706,23 @@ export class CopilotKitThreadsDrawer extends LitElement {
   // --- Render ----------------------------------------------------------------
 
   override render() {
+    // Collapsed to the floating cluster on desktop (gated on `collapsible`), OR
+    // closed on mobile — both show the same launcher cluster and hide the panel
+    // body. Mobile keeps the body rendered (off-canvas, ready to slide in);
+    // desktop-collapsed omits it entirely so the reserved column can reclaim.
+    const desktopCollapsed =
+      this.collapsible && this.collapsed && !this._viewportIsMobile;
+    const mobileClosed = this._viewportIsMobile && !this.open;
+    const showCluster = desktopCollapsed || mobileClosed;
     const rootClasses = {
       root: true,
-      collapsed: this.collapsed && !this._viewportIsMobile,
       mobile: this._viewportIsMobile,
       open: this.open,
-      // Suppresses row-action tooltips while the confirm dialog is open (the
-      // clicked trash button keeps :focus-visible/:hover otherwise).
-      confirming: this._confirmingDeleteId !== null,
+      collapsed: desktopCollapsed,
     };
 
     return html`
-      ${
-        // Mobile open-affordance: when the drawer is a closed off-canvas modal,
-        // render its own floating launcher so there is always a way to open it
-        // on phones WITHOUT the host wiring a header button. Desktop (persistent
-        // sidebar) and the open state never show it.
-        this._viewportIsMobile && !this.open
-          ? html`<button
-            class="launcher"
-            part="launcher"
-            aria-label="Open threads"
-            @click=${() => this._setOpen(true)}
-          >
-            <slot name="launcher-icon">${iconLauncher}</slot>
-          </button>`
-          : nothing
-      }
+      ${showCluster ? this._renderCluster() : nothing}
       ${
         this._isMobileModalOpen()
           ? html`<button
@@ -509,52 +738,211 @@ export class CopilotKitThreadsDrawer extends LitElement {
         part="root"
         role=${this._isMobileModalOpen() ? "dialog" : "region"}
         aria-modal=${this._isMobileModalOpen() ? "true" : nothing}
+        aria-hidden=${desktopCollapsed ? "true" : nothing}
         aria-label=${this.label}
       >
-        ${this._renderHeader()} ${this._renderBody()} ${this._renderMemories()}
-        ${this._renderFooter()} ${this._renderConfirmDialog()}
+        ${
+          desktopCollapsed
+            ? nothing
+            : html`${this._renderHeader()} ${this._renderBody()}
+              ${this._renderMemories()} ${this._renderFooter()}
+              ${this._renderConfirmDialog()}`
+        }
+      </div>
+    `;
+  }
+
+  /**
+   * Floating launcher cluster from the Figma "closed" mockup: a sidebar-glyph
+   * toggle + a "New Conversation" (+) icon button. Shown in TWO states — the
+   * mobile closed state (toggle opens the off-canvas modal) and the desktop
+   * collapsed state (toggle expands the sidebar). The primary toggle keeps
+   * `part="launcher"` for mobile-launcher theme compat; the new-thread button is
+   * suppressed in the locked/unlicensed view, mirroring the New Conversation row.
+   */
+  private _renderCluster() {
+    const onToggle = this._viewportIsMobile
+      ? () => this._setOpen(true)
+      : () => this._setCollapsed(false);
+    const toggleLabel = this._viewportIsMobile
+      ? "Open threads"
+      : "Expand threads";
+    return html`
+      <div class="launcher-cluster" part="launcher-cluster">
+        <button
+          class="launcher"
+          part="launcher"
+          aria-label=${toggleLabel}
+          @click=${onToggle}
+        >
+          <slot name="launcher-icon">${iconSidebar}</slot>
+        </button>
+        ${
+          this.licensed
+            ? html`<button
+                class="launcher launcher-new-thread"
+                part="launcher-new-thread"
+                aria-label="New Conversation"
+                @click=${() => this._emit("new-thread", {})}
+              >
+                ${iconPlusSquare}
+              </button>`
+            : nothing
+        }
       </div>
     `;
   }
 
   private _renderHeader() {
+    // The header is a reserved consumer-projection surface with no built-in
+    // controls (search and the desktop collapse toggle were both removed), so
+    // it stays hidden until a consumer projects `slot="header"` content — a
+    // `slotchange` listener drives `_hasHeader`, mirroring the memories/footer
+    // gating. Without this gate the empty padded header bar would render above
+    // the "New Conversation" row. The "New Conversation" row is suppressed in
+    // the locked/unlicensed view (only the Upgrade panel shows), mirroring the
+    // section-heading gating.
+    // On mobile the drawer is an off-canvas modal, so it needs an in-header
+    // close affordance (desktop is a persistent sidebar — nothing to close).
+    // The header therefore also renders when the mobile modal is open, even
+    // with no projected `slot="header"` content.
+    const showMobileClose = this._viewportIsMobile && this.open;
+    // Desktop collapse toggle: always available on desktop when collapsing is
+    // permitted, so the header renders on desktop even with no projected
+    // `slot="header"` content. Mobile uses the launcher/close affordances.
+    const showCollapseToggle = this.collapsible && !this._viewportIsMobile;
     return html`
-      <div class="header" part="header">
-        <slot name="header"><span>${this.label}</span></slot>
-        <button
-          class="primary"
-          part="new-thread-button"
-          aria-label="New thread"
-          @click=${() => this._emit("new-thread", {})}
-        >
-          + New
-        </button>
+      <div
+        class="header"
+        part="header"
+        ?hidden=${!this._hasHeader && !showMobileClose && !showCollapseToggle}
+      >
+        <slot
+          name="header"
+          @slotchange=${(e: Event) => {
+            const slot = e.target as HTMLSlotElement;
+            this._hasHeader = slot.assignedElements().length > 0;
+          }}
+        ></slot>
+        ${
+          // Toggle sits at the END so it right-aligns (the projected header slot
+          // has flex:1 and pushes it over) — matching the mobile close button.
+          showCollapseToggle
+            ? html`<button
+              class="icon-btn"
+              part="collapse-toggle"
+              aria-label="Collapse threads"
+              @click=${() => this._setCollapsed(true)}
+            >
+              ${iconSidebar}
+            </button>`
+            : nothing
+        }
+        ${
+          showMobileClose
+            ? html`<button
+              class="icon-btn"
+              part="close-toggle"
+              aria-label="Close threads"
+              @click=${() => this._setOpen(false)}
+            >
+              ${iconSidebar}
+            </button>`
+            : nothing
+        }
       </div>
-      ${
-        this.licensed &&
-        (!hasErrorMessage(this.error) || this.threads.length > 0)
-          ? html`
-            <div class="filters" part="filters" role="group" aria-label="Filter threads">
+      ${this.licensed ? this._renderNewConversation() : nothing}
+      ${this._renderSectionHeading()}
+    `;
+  }
+
+  /**
+   * Dedicated full-width "New Conversation" row. Keeps `part="new-thread-button"`
+   * and fires the existing `new-thread` event, so wrappers/themes that hook the
+   * old header pill are unaffected.
+   */
+  private _renderNewConversation() {
+    return html`
+      <button
+        class="new-conversation"
+        part="new-thread-button"
+        @click=${() => this._emit("new-thread", {})}
+      >
+        ${iconPlusSquare}
+        <span>New Conversation</span>
+      </button>
+    `;
+  }
+
+  /**
+   * "Recent Conversations" section heading with a funnel button that opens the
+   * Active/All filter popover. Only shown when the list region is shown
+   * (licensed, and not the full-panel error/empty-before-load) — mirrors the
+   * old filters gate. The popover options keep `part="filter-active"` /
+   * `part="filter-all"` and still emit `filter-change` via `_setFilter`.
+   */
+  private _renderSectionHeading() {
+    if (
+      !this.licensed ||
+      (hasErrorMessage(this.error) && this.threads.length === 0)
+    ) {
+      return nothing;
+    }
+    return html`
+      <div class="section-heading" part="section-heading">
+        <span class="section-title">${this.recentLabel}</span>
+        <button
+          class="icon-btn small"
+          part="filter-toggle"
+          aria-label="Filter threads"
+          aria-expanded=${this._filterOpen}
+          @click=${() => (this._filterOpen = !this._filterOpen)}
+        >
+          ${iconFunnel}
+          ${
+            // "Filter applied" indicator dot — shown whenever the active filter
+            // is not the default ("active"), matching the Figma's archived view.
+            this._filter !== "active"
+              ? html`
+                  <span class="filter-dot" part="filter-indicator"></span>
+                `
+              : nothing
+          }
+        </button>
+        ${
+          this._filterOpen
+            ? html`<div
+              class="filter-popover"
+              part="filters"
+              role="group"
+              aria-label="Filter threads"
+            >
               <button
-                class="filter-btn"
+                class="filter-opt"
                 part="filter-active"
                 aria-pressed=${this._filter === "active"}
-                @click=${() => this._setFilter("active")}
+                @click=${() => {
+                  this._setFilter("active");
+                  this._filterOpen = false;
+                }}
               >
                 Active
               </button>
               <button
-                class="filter-btn"
+                class="filter-opt"
                 part="filter-all"
                 aria-pressed=${this._filter === "all"}
-                @click=${() => this._setFilter("all")}
+                @click=${() => {
+                  this._setFilter("all");
+                  this._filterOpen = false;
+                }}
               >
                 All
               </button>
-            </div>
-          `
-          : nothing
-      }
+            </div>`
+            : nothing
+        }
+      </div>
     `;
   }
 
@@ -617,7 +1005,12 @@ export class CopilotKitThreadsDrawer extends LitElement {
 
   private _renderError() {
     return html`
-      <div class="state error" part="error" role="alert" data-testid="drawer-error">
+      <div
+        class="state error"
+        part="error"
+        role="alert"
+        data-testid="drawer-error"
+      >
         <p>${this.error}</p>
         <button
           class="primary"
@@ -648,26 +1041,45 @@ export class CopilotKitThreadsDrawer extends LitElement {
       `;
     }
     return html`
-      <ul class="list" part="list" role="listbox" aria-label=${this.label}>
+      <ul
+        class=${this._openMenuId !== null ? "list menu-open" : "list"}
+        part="list"
+        role="listbox"
+        aria-label=${this.label}
+      >
         ${repeat(
           visible,
           (thread) => thread.id,
-          (thread) => this._renderRow(thread),
+          (thread, index) => this._renderRow(thread, index, visible.length),
         )}
       </ul>
       ${this._renderFetchMore()}
     `;
   }
 
-  private _renderRow(thread: DrawerThread) {
+  private _renderRow(thread: DrawerThread, index = 0, total = 1) {
     const isActive = thread.id === this.activeThreadId;
     const hasName = thread.name !== null && thread.name !== "";
+    // Shared display-name fallback: an empty-string (or null) name reads as
+    // "New thread" for BOTH the visible label and every row-action aria-label,
+    // so a screen reader never announces "Actions for " / "Archive thread ".
+    const displayName = hasName ? (thread.name as string) : "New thread";
     const justRevealed = this._justRevealed.has(thread.id);
+
+    const menuOpen = this._openMenuId === thread.id;
+    // The kebab popover opens downward by default (`top: 100%`). For rows in the
+    // lower portion of the list, a downward menu would be clipped by the list's
+    // `overflow-y: auto` scroll box (which also clips the x-axis). Flip those
+    // rows' menu to open UPWARD (toward the list interior) via `menu-up`, so the
+    // popover for bottom rows is never lost behind the list's bottom edge.
+    const menuUp = menuOpen && total > 1 && index >= total / 2;
 
     const rowClasses = {
       row: true,
       active: isActive,
       archived: thread.archived,
+      "menu-open": menuOpen,
+      "menu-up": menuUp,
     };
     const nameClasses = {
       "row-name": true,
@@ -675,21 +1087,11 @@ export class CopilotKitThreadsDrawer extends LitElement {
       revealed: justRevealed,
     };
     const slotName = rowSlotName(thread.id);
-    // A long thread name is clipped with an ellipsis. The full name is exposed
-    // via a tooltip styled to match the row-action tooltips (an instant primary
-    // bubble, NOT the native `title`), shown only when the name is actually
-    // truncated (`name-clipped`, toggled in `_syncNameClipping`). The name text
-    // lives in an inner span that owns the ellipsis, so the outer `.row-name`
-    // can host the tooltip pseudo-element without its own `overflow: hidden`
-    // clipping it.
-    const nameSpan = html`<span
-      class=${classMap(nameClasses)}
-      part="row-name"
-      data-tooltip=${hasName ? thread.name : nothing}
-    >
-      <span class="row-name-text"
-        >${hasName ? thread.name : "New thread"}</span
-      >
+    // A long thread name is clipped with an ellipsis (no hover tooltip — the
+    // designer opted against name bubbles). The name text lives in an inner span
+    // that owns the ellipsis truncation.
+    const nameSpan = html`<span class=${classMap(nameClasses)} part="row-name">
+      <span class="row-name-text">${displayName}</span>
     </span>`;
 
     return html`
@@ -700,10 +1102,16 @@ export class CopilotKitThreadsDrawer extends LitElement {
         aria-selected=${isActive ? "true" : "false"}
         tabindex="0"
         data-thread-id=${thread.id}
-        @click=${() => this._emit("thread-selected", { threadId: thread.id })}
+        @click=${() => {
+          // Selecting a row dismisses any open kebab menu (it belongs to a row,
+          // not the selection) before emitting the selection intent.
+          this._openMenuId = null;
+          this._emit("thread-selected", { threadId: thread.id });
+        }}
         @keydown=${(e: KeyboardEvent) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
+            this._openMenuId = null;
             this._emit("thread-selected", { threadId: thread.id });
           }
         }}
@@ -713,45 +1121,71 @@ export class CopilotKitThreadsDrawer extends LitElement {
             ? html`<slot name=${slotName}>${nameSpan}</slot>`
             : nameSpan
         }
-        ${
-          thread.archived
-            ? html`<button
-              class="row-action"
-              part="row-unarchive"
-              data-tooltip="Unarchive"
-              aria-label=${`Unarchive thread ${thread.name ?? "New thread"}`}
-              @click=${(e: Event) => {
-                e.stopPropagation();
-                this._emit("unarchive", { threadId: thread.id });
-              }}
-            >
-              ${iconUnarchive}
-            </button>`
-            : html`<button
-              class="row-action"
-              part="row-archive"
-              data-tooltip="Archive"
-              aria-label=${`Archive thread ${thread.name ?? "New thread"}`}
-              @click=${(e: Event) => {
-                e.stopPropagation();
-                this._emit("archive", { threadId: thread.id });
-              }}
-            >
-              ${iconArchive}
-            </button>`
-        }
         <button
-          class="row-action danger"
-          part="row-delete"
-          data-tooltip="Delete"
-          aria-label=${`Delete thread ${thread.name ?? "New thread"}`}
+          class="row-menu"
+          part="row-menu"
+          aria-label=${`Actions for ${displayName}`}
+          aria-haspopup="menu"
+          aria-expanded=${menuOpen}
           @click=${(e: Event) => {
             e.stopPropagation();
-            this._confirmingDeleteId = thread.id;
+            this._openMenuId = menuOpen ? null : thread.id;
           }}
         >
-          ${iconDelete}
+          ${iconKebab}
         </button>
+        ${
+          menuOpen
+            ? html`<div
+              class="row-menu-popover"
+              part="row-menu-popover"
+              role="menu"
+            >
+              ${
+                thread.archived
+                  ? html`<button
+                    class="row-menu-item"
+                    part="row-unarchive"
+                    role="menuitem"
+                    aria-label=${`Unarchive thread ${displayName}`}
+                    @click=${(e: Event) => {
+                      e.stopPropagation();
+                      this._openMenuId = null;
+                      this._emit("unarchive", { threadId: thread.id });
+                    }}
+                  >
+                    ${iconUnarchive}<span>Unarchive</span>
+                  </button>`
+                  : html`<button
+                    class="row-menu-item"
+                    part="row-archive"
+                    role="menuitem"
+                    aria-label=${`Archive thread ${displayName}`}
+                    @click=${(e: Event) => {
+                      e.stopPropagation();
+                      this._openMenuId = null;
+                      this._emit("archive", { threadId: thread.id });
+                    }}
+                  >
+                    ${iconArchive}<span>Archive</span>
+                  </button>`
+              }
+              <button
+                class="row-menu-item danger"
+                part="row-delete"
+                role="menuitem"
+                aria-label=${`Delete thread ${displayName}`}
+                @click=${(e: Event) => {
+                  e.stopPropagation();
+                  this._openMenuId = null;
+                  this._confirmingDeleteId = thread.id;
+                }}
+              >
+                ${iconDelete}<span>Delete</span>
+              </button>
+            </div>`
+            : nothing
+        }
       </li>
     `;
   }
@@ -824,41 +1258,69 @@ export class CopilotKitThreadsDrawer extends LitElement {
     `;
   }
 
+  /**
+   * Confirm-delete dialog, rendered as a native `<dialog>` that is ALWAYS
+   * present in the shadow DOM so `updated()` can drive `showModal()`/`close()`
+   * against it. Opening with `showModal()` puts it in the browser TOP LAYER, so
+   * it can never be painted under other UI — the previous CSS-positioned overlay
+   * was trapped in the drawer host's stacking context and appeared under the
+   * chat's welcome view (ENT-1051). The `::backdrop` pseudo-element (styled in
+   * styles.ts) provides the scrim natively.
+   *
+   * The actionable content (message + Cancel/Delete, bound to the captured id)
+   * renders only while confirming, so a closed dialog holds nothing stale.
+   * Native dismissal is wired via `@cancel` (Escape) and a backdrop-click check.
+   */
   private _renderConfirmDialog() {
-    if (this._confirmingDeleteId === null) return nothing;
     const id = this._confirmingDeleteId;
     return html`
-      <div class="dialog-backdrop" part="dialog-backdrop">
-        <div
-          class="dialog"
-          part="confirm-dialog"
-          role="alertdialog"
-          aria-modal="true"
-          aria-label="Confirm delete"
-          data-testid="drawer-confirm-delete"
-        >
-          <p>Delete this thread? This cannot be undone.</p>
-          <div class="dialog-actions">
-            <button
-              class="row-action"
-              part="confirm-cancel"
-              @click=${() => (this._confirmingDeleteId = null)}
-            >
-              Cancel
-            </button>
-            <button
-              class="primary"
-              part="confirm-delete"
-              @click=${() => {
-                this._confirmingDeleteId = null;
-                this._emit("delete", { threadId: id });
-              }}
-            >
-              Delete
-            </button>
-          </div>
-        </div>
-      </div>
+      <dialog
+        class="dialog"
+        part="confirm-dialog"
+        role="alertdialog"
+        aria-label="Confirm delete"
+        data-testid="drawer-confirm-delete"
+        @cancel=${(event: Event) => {
+          // Native Escape dismissal: prevent the default close (we drive open
+          // state from `_confirmingDeleteId` in `updated()`) and reset it.
+          event.preventDefault();
+          this._confirmingDeleteId = null;
+        }}
+        @click=${(event: MouseEvent) => {
+          // A click whose target is the <dialog> itself (not the inner card)
+          // landed on the ::backdrop — dismiss, mirroring a scrim click.
+          if (event.target === event.currentTarget) {
+            this._confirmingDeleteId = null;
+          }
+        }}
+      >
+        ${
+          id !== null
+            ? html`
+                <p>Delete this thread? This cannot be undone.</p>
+                <div class="dialog-actions">
+                  <button
+                    class="row-action"
+                    part="confirm-cancel"
+                    @click=${() => (this._confirmingDeleteId = null)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    class="primary"
+                    part="confirm-delete"
+                    @click=${() => {
+                      this._confirmingDeleteId = null;
+                      this._emit("delete", { threadId: id });
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              `
+            : nothing
+        }
+      </dialog>
     `;
   }
 }

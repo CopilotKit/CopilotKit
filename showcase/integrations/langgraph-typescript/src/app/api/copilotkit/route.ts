@@ -20,6 +20,14 @@ import { withCvdiagBackend } from "@/cvdiag-backend";
 const AGENT_URL =
   process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123";
 
+// Per-request request/response logging is gated behind this flag (default off).
+// Under d6 probe fan-out, unconditional per-request logs flooded Railway's
+// 500-logs/sec cap and killed the replica ("Messages dropped" → container stop).
+// Set SHOWCASE_ROUTE_DEBUG=1 to re-enable verbose per-request tracing locally.
+const ROUTE_DEBUG =
+  process.env.SHOWCASE_ROUTE_DEBUG === "1" ||
+  process.env.SHOWCASE_ROUTE_DEBUG === "true";
+
 console.log("[copilotkit/route] Initializing CopilotKit runtime");
 console.log(`[copilotkit/route] AGENT_URL: ${AGENT_URL}`);
 
@@ -98,7 +106,11 @@ console.log(
 const copilotkitPost = async (req: NextRequest): Promise<Response> => {
   const url = req.url;
   const contentType = req.headers.get("content-type");
-  console.log(`[copilotkit/route] POST ${url} (content-type: ${contentType})`);
+  if (ROUTE_DEBUG) {
+    console.log(
+      `[copilotkit/route] POST ${url} (content-type: ${contentType})`,
+    );
+  }
 
   try {
     const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
@@ -110,7 +122,11 @@ const copilotkitPost = async (req: NextRequest): Promise<Response> => {
     });
 
     const response = await handleRequest(req);
-    console.log(`[copilotkit/route] Response status: ${response.status}`);
+    if (!response.ok) {
+      console.log(`[copilotkit/route] Response status: ${response.status}`);
+    } else if (ROUTE_DEBUG) {
+      console.log(`[copilotkit/route] Response status: ${response.status}`);
+    }
     return response;
   } catch (error: unknown) {
     // Log full error details server-side with a correlation id, but only
@@ -151,7 +167,9 @@ export const POST = withCvdiagBackend(copilotkitPost, {
 // @doc-end
 
 export const GET = async () => {
-  console.log("[copilotkit/route] GET /api/copilotkit (health probe)");
+  if (ROUTE_DEBUG) {
+    console.log("[copilotkit/route] GET /api/copilotkit (health probe)");
+  }
 
   let agentStatus = "unknown";
   try {

@@ -13,9 +13,9 @@ import OpenAI from "openai";
 import { z } from "zod";
 // @doc-replace
 import { AIMOCK_CONTEXT } from "./model-factory";
+import { forwardingFetch } from "./header-forwarding.js";
 // @doc-as
 // @doc-end
-import { forwardingFetch } from "./header-forwarding.js";
 import { SUBAGENT_FAILURE_MARKER } from "./state";
 import {
   getWeatherImpl,

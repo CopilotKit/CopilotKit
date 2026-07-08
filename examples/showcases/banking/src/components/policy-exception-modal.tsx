@@ -7,7 +7,6 @@ import {
   POLICY_EXCEPTION_CODES,
   labelForExceptionCode,
 } from "@/app/api/v1/policy-exception-codes";
-import { useRecordUserActionInCurrentThread } from "@/lib/record-user-action";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -65,16 +64,13 @@ interface Props {
  * lifted for that transaction — but only if the chosen code is justifying.
  *
  * Presentational only: REST calls (passed in from the page's `useCreditCards`
- * hook to avoid duplicate polling) plus two-step `recordUserAction` recording.
- * No agent tools live here.
+ * hook to avoid duplicate polling). No agent tools live here.
  */
 export const PolicyExceptionModal = (props: Props) => {
   const [code, setCode] = useState<string>(DEFAULT_CODE);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [doneId, setDoneId] = useState<string | null>(null);
-
-  const recordUserAction = useRecordUserActionInCurrentThread();
 
   const submitDisabled = busy || code === "";
 
@@ -105,43 +101,11 @@ export const PolicyExceptionModal = (props: Props) => {
       }
       const exceptionId = opened.data.id;
 
-      recordUserAction({
-        title: "policy_exception.opened",
-        description: "Opened a policy exception from the transactions view.",
-        previousData: {
-          transactionActiveExceptionId: null,
-          approvePermitted: false,
-        },
-        newData: {
-          exceptionId,
-          exceptionStatus: "draft",
-          exceptionCode: code,
-        },
-        metadata: { transactionId: props.transactionId },
-      }).catch(console.error);
-
       const finalized = await props.finalizePolicyException({ exceptionId });
       if (!finalized.ok) {
         setError(finalized.error ?? "Failed to finalize policy exception");
         return;
       }
-
-      recordUserAction({
-        title: "policy_exception.finalized",
-        description:
-          "Finalized the policy exception; links it to the transaction.",
-        previousData: {
-          exceptionId,
-          exceptionStatus: "draft",
-        },
-        newData: {
-          exceptionId,
-          exceptionStatus: "approved",
-          transactionActiveExceptionId: exceptionId,
-          exceptionCode: code,
-        },
-        metadata: { transactionId: props.transactionId },
-      }).catch(console.error);
 
       setDoneId(exceptionId);
     } finally {

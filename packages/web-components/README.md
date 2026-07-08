@@ -68,7 +68,7 @@ confirm-delete dialog, and per-row entry/reveal animations.
 
 - **CSS variables** pierce the shadow boundary — set `--cpk-drawer-*`
   (`-bg`, `-fg`, `-surface`, `-accent`, `-primary`, `-danger`, `-border`,
-  `-ring`, `-radius`, `-width`, `-rail-width`, `-font-family`, …) from the host.
+  `-ring`, `-radius`, `-width`, `-font-family`, …) from the host.
 - **`::part()`** hooks on structural nodes (`root`, `header`, `list`, `row`,
   `row-name`, `confirm-dialog`, `backdrop`, …).
 - **Named slots**: `header`, `footer`, `empty`, `upsell`, `memories`, plus a

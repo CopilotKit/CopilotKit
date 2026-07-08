@@ -66,6 +66,7 @@ type ThreadsOverrides = Partial<{
   isLoading: boolean;
   error: Error | null;
   listError: Error | null;
+  fetchMoreError: Error | null;
   hasMoreThreads: boolean;
   isFetchingMoreThreads: boolean;
   isMutating: boolean;
@@ -84,6 +85,7 @@ function setupThreads(overrides: ThreadsOverrides = {}) {
     isLoading: overrides.isLoading ?? false,
     error: overrides.error ?? listError,
     listError,
+    fetchMoreError: overrides.fetchMoreError ?? null,
     hasMoreThreads: overrides.hasMoreThreads ?? false,
     isFetchingMoreThreads: overrides.isFetchingMoreThreads ?? false,
     isMutating: overrides.isMutating ?? false,
@@ -211,6 +213,17 @@ test("maps a genuine list-load error to the element's error string", async () =>
   await renderDrawer();
 
   expect(getElement().error).toBe("boom");
+});
+
+test("forwards fetchMoreError to the element's fetchMoreError property without touching error", async () => {
+  setupThreads({ fetchMoreError: new Error("couldn't load more") });
+
+  await renderDrawer();
+  const el = getElement();
+
+  expect(el.fetchMoreError).toBe("couldn't load more");
+  // The dedicated fetch-more channel must NOT bleed into the initial-list error.
+  expect(el.error).toBeNull();
 });
 
 test("sets the element's label when the label prop is provided", async () => {
@@ -619,6 +632,45 @@ test("provider-less drawer can be opened and then closed via open-change", async
 
   dispatch("open-change", { open: false });
   await waitFor(() => expect(getElement().open).toBe(false));
+});
+
+test("forwards recentLabel to the element as recent-label", async () => {
+  await renderDrawer({ recentLabel: "History" });
+
+  expect(getElement().getAttribute("recent-label")).toBe("History");
+});
+
+test("omits the recent-label attribute when the prop is not set", async () => {
+  await renderDrawer();
+
+  expect(getElement().hasAttribute("recent-label")).toBe(false);
+});
+
+test("sets the element's collapsible property to false when collapsible={false}", async () => {
+  await renderDrawer({ collapsible: false });
+
+  expect(
+    (getElement() as unknown as { collapsible: boolean }).collapsible,
+  ).toBe(false);
+});
+
+test("leaves the element's collapsible property untouched when the prop is omitted", async () => {
+  await renderDrawer();
+
+  // The wrapper never assigns the property, so the element keeps its own
+  // built-in default of `true` (mirrors the default-true `licensed` field).
+  expect(
+    (getElement() as unknown as { collapsible?: boolean }).collapsible,
+  ).toBe(true);
+});
+
+test("surfaces the element's collapse-change event to onCollapseChange with the collapsed state", async () => {
+  const onCollapseChange = vi.fn();
+  await renderDrawer({ onCollapseChange });
+
+  dispatch("collapse-change", { collapsed: true });
+
+  expect(onCollapseChange).toHaveBeenCalledWith(true);
 });
 
 test("renders nothing during SSR (no element, no hydration mismatch)", () => {

@@ -2058,7 +2058,8 @@ module Railway
                 output = IO.popen(child_env, ["npx", "--yes", "tsx", probe_bin,
                     "--env", "staging",
                     "--services", services_arg,
-                    err: [:child, :out]]) { |io| io.read }
+                    err: [:child, :out]],
+                    chdir: File.expand_path("../scripts", __dir__)) { |io| io.read }
             rescue Errno::ENOENT, StandardError => e
                 return { ok: false, summary: "staging probe failed to launch: #{e.class}: #{e.message}" }
             end

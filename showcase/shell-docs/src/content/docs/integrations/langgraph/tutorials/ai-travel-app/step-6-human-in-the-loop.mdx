@@ -56,7 +56,7 @@ This will force the agent to pause execution at the `trips_node` and wait for th
 <Step>
 ## Update the perform_trips_node node to properly handle the user's decision
 
-Prior to this step, entrance to the `perform_trips_node` was standard. We would recieve the requested tool call, call the appropriate
+Prior to this step, entrance to the `perform_trips_node` was standard. We would receive the requested tool call, call the appropriate
 tool, edit the message state to reflect the tool call results, and then move on to the next node.
 
 However, this will no longer work since we've added a breakpoint to the `trips_node`. In a future step, we'll be utilizing this
@@ -107,7 +107,7 @@ other decision returned will result in the requested actions being performed.
 </Step>
 <Step>
 ## Emitting the tool calls
-In order for the front-end to recieve the breakpoint and take the user's decision, we'll need to emit the tool calls that the agent is requesting.
+In order for the front-end to receive the breakpoint and take the user's decision, we'll need to emit the tool calls that the agent is requesting.
 To do this, we'll be editing the `chat_node` in the `chat.py` file.
 ```python title="agent/travel/chat.py"
 # ...
@@ -286,7 +286,7 @@ export const ActionButtons = ({
 
 The important piece here is that the `onClick` handlers emit the user's decision back to the agent. If the user clicks the `Delete` button
 then the `handler?.("SEND")` is called. If the user clicks the `Cancel` button then the `handler?.("CANCEL")` is called. This is how the
-agent recieves the user's decision.
+agent receives the user's decision.
 
 <Callout>
   If you wanted to implement a more complex UI that allows for the human to edit

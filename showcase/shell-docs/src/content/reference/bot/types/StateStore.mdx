@@ -139,7 +139,7 @@ To use a durable store (Redis, Postgres, or any other persistence layer), implem
 Implement all five primitive groups of the `StateStore` interface and pass your instance as `store.adapter`. Run the conformance suite to verify correctness:
 
 ```ts
-import { runStateStoreConformance } from "@copilotkit/bot";
+import { runStateStoreConformance } from "@copilotkit/bot/testing";
 
 runStateStoreConformance(
   "MyCustomStore",
