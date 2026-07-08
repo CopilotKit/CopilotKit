@@ -58,7 +58,7 @@ class MCPAppsRequestQueue {
   private queues = new Map<
     string,
     Array<{
-      execute: () => Promise<RunAgentResult>;
+      execute: (threadId: string) => Promise<RunAgentResult>;
       resolve: (result: RunAgentResult) => void;
       reject: (error: Error) => void;
     }>
@@ -71,7 +71,7 @@ class MCPAppsRequestQueue {
    */
   async enqueue(
     agent: AbstractAgent,
-    request: () => Promise<RunAgentResult>,
+    request: (threadId: string) => Promise<RunAgentResult>,
   ): Promise<RunAgentResult> {
     const threadId = agent.threadId || "default";
 
@@ -114,7 +114,7 @@ class MCPAppsRequestQueue {
           await this.waitForAgentIdle(agent);
 
           // Execute the request
-          const result = await item.execute();
+          const result = await item.execute(threadId);
           item.resolve(result);
         } catch (error) {
           item.reject(
@@ -574,9 +574,11 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
                       // frontend tools, context, tool execution, and abort support.
                       // Fire-and-forget: errors are handled by RunHandler's error emission.
                       mcpAppsRequestQueue
-                        .enqueue(currentAgent, () =>
-                          copilotkit.runAgent({ agent: currentAgent }),
-                        )
+                        .enqueue(currentAgent, (threadId) => {
+                          const scopedAgent = currentAgent.clone();
+                          scopedAgent.threadId = threadId;
+                          return copilotkit.runAgent({ agent: scopedAgent });
+                        })
                         .catch((err) =>
                           console.error(
                             "[MCPAppsRenderer] ui/message agent run failed:",

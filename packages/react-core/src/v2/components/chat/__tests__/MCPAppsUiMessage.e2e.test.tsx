@@ -42,6 +42,7 @@ class MockMCPProxyAgent extends AbstractAgent {
     role: string;
     content: string;
   }> = [];
+  public runAgentThreadIds: string[] = [];
 
   private runAgentResponses: Map<string, unknown> = new Map();
 
@@ -73,6 +74,65 @@ class MockMCPProxyAgent extends AbstractAgent {
     act(() => {
       this.subject.complete();
     });
+  }
+
+  clone(): MockMCPProxyAgent {
+    const cloned = super.clone() as MockMCPProxyAgent;
+    type Internal = {
+      subject: Subject<BaseEvent>;
+      runAgentCalls: Array<{ input: Partial<RunAgentInput> }>;
+      addMessageCalls: Array<{
+        id: string;
+        role: string;
+        content: string;
+      }>;
+      runAgentThreadIds: string[];
+      runAgentResponses: Map<string, unknown>;
+    };
+    (cloned as unknown as Internal).subject = (
+      this as unknown as Internal
+    ).subject;
+    (cloned as unknown as Internal).runAgentCalls = (
+      this as unknown as Internal
+    ).runAgentCalls;
+    (cloned as unknown as Internal).addMessageCalls = (
+      this as unknown as Internal
+    ).addMessageCalls;
+    (cloned as unknown as Internal).runAgentThreadIds = (
+      this as unknown as Internal
+    ).runAgentThreadIds;
+    (cloned as unknown as Internal).runAgentResponses = (
+      this as unknown as Internal
+    ).runAgentResponses;
+
+    const registry = this;
+    Object.defineProperty(cloned, "isRunning", {
+      get() {
+        return registry.isRunning;
+      },
+      set(v: boolean) {
+        registry.isRunning = v;
+      },
+      configurable: true,
+      enumerable: true,
+    });
+
+    const proto = MockMCPProxyAgent.prototype;
+    cloned.runAgent = async function (
+      input?: Partial<RunAgentInput>,
+    ): Promise<RunAgentResult> {
+      const proxiedRequest = input?.forwardedProps?.__proxiedMCPRequest;
+      if (proxiedRequest) {
+        return registry.runAgent(input);
+      }
+      return proto.runAgent.call(cloned, input);
+    };
+
+    cloned.run = function (input: RunAgentInput): Observable<BaseEvent> {
+      return registry.run(input);
+    };
+
+    return cloned;
   }
 
   async detachActiveRun(): Promise<void> {}
@@ -117,6 +177,7 @@ class MockMCPProxyAgent extends AbstractAgent {
       return { result: {}, newMessages: [] };
     }
 
+    this.runAgentThreadIds.push(this.threadId);
     return super.runAgent(input);
   }
 }
@@ -144,6 +205,7 @@ async function setupMCPActivity(
   agent: MockMCPProxyAgent,
   agentId: string,
   userMessage: string,
+  threadId = testId("thread"),
 ): Promise<HTMLIFrameElement> {
   agent.setRunAgentResponse("resources/read", {
     contents: [
@@ -154,10 +216,6 @@ async function setupMCPActivity(
       },
     ],
   });
-
-  // Use a unique threadId per test to avoid module-level mcpAppsRequestQueue
-  // state leaking between tests (the queue keys by threadId).
-  const threadId = testId("thread");
 
   renderWithCopilotKit({
     agents: { [agentId]: agent },
@@ -358,6 +416,42 @@ describe("MCP Apps ui/message followUp behavior", () => {
 
     // run() should have been called
     expect(runSpy.mock.calls.length).toBeGreaterThan(0);
+  });
+
+  it("keeps queued ui/message follow-up work scoped to the enqueue-time thread", async () => {
+    const agent = new MockMCPProxyAgent();
+    agent.agentId = "ui-msg-agent-thread-context";
+    const threadA = testId("thread-A");
+    const threadB = testId("thread-B");
+
+    const iframe = await setupMCPActivity(
+      agent,
+      "ui-msg-agent-thread-context",
+      "Queued thread context test",
+      threadA,
+    );
+    agent.runAgentThreadIds.length = 0;
+
+    agent.emit(runStartedEvent());
+
+    await sendUiMessage(iframe, {
+      role: "user",
+      content: [{ type: "text", text: "Queued follow-up" }],
+    });
+
+    expect(agent.runAgentThreadIds).toEqual([]);
+
+    agent.threadId = threadB;
+    agent.emit(runFinishedEvent());
+
+    await waitFor(
+      () => {
+        expect(agent.runAgentThreadIds).toEqual([threadA]);
+      },
+      { timeout: 3000 },
+    );
+
+    agent.emit(runFinishedEvent());
   });
 
   it("message with text content always adds to agent messages regardless of followUp", async () => {
