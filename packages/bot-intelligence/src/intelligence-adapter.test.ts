@@ -8,6 +8,8 @@ import {
   InMemoryDeliverySource,
   InMemoryEgressSink,
 } from "./in-memory-transports.js";
+import { IntelligenceStateStore } from "./intelligence-state-store.js";
+import type { FetchLike } from "./http-transports.js";
 import type {
   ManagedIngressEnvelope,
   ManagedIngressBase,
@@ -154,6 +156,68 @@ describe("intelligenceAdapter — inbound file content parts", () => {
     ]);
     expect(source.acked).toEqual(["d1"]);
   });
+
+  it("decodes a text/* file inline as a text content part", async () => {
+    const source = new InMemoryDeliverySource();
+    const egress = new InMemoryEgressSink();
+    source.files.set("fileref_txt", {
+      bytes: new TextEncoder().encode("hello from a file"),
+      mimeType: "text/plain",
+    });
+    const bot = createBot({
+      adapters: [intelligenceAdapter({ source, egress })],
+      agent: () => new FakeAgent(),
+    });
+    let seen: IncomingMessage | undefined;
+    bot.onMessage(async ({ message }) => {
+      seen = message;
+    });
+    await bot.start();
+    await source.deliver(
+      envelope({
+        files: [
+          { handle: "fileref_txt", filename: "note.txt", mimeType: "text/plain" },
+        ],
+      }),
+    );
+
+    expect(seen?.contentParts).toEqual([
+      { type: "text", text: "hello from a file" },
+    ]);
+  });
+
+  it("degrades an unknown-mime file to a short text note", async () => {
+    const source = new InMemoryDeliverySource();
+    const egress = new InMemoryEgressSink();
+    source.files.set("fileref_zip", {
+      bytes: new Uint8Array([1, 2, 3]),
+      mimeType: "application/zip",
+    });
+    const bot = createBot({
+      adapters: [intelligenceAdapter({ source, egress })],
+      agent: () => new FakeAgent(),
+    });
+    let seen: IncomingMessage | undefined;
+    bot.onMessage(async ({ message }) => {
+      seen = message;
+    });
+    await bot.start();
+    await source.deliver(
+      envelope({
+        files: [
+          {
+            handle: "fileref_zip",
+            filename: "archive.zip",
+            mimeType: "application/zip",
+          },
+        ],
+      }),
+    );
+
+    expect(seen?.contentParts).toEqual([
+      { type: "text", text: "[attached file: archive.zip (application/zip)]" },
+    ]);
+  });
 });
 
 describe("intelligenceAdapter — deterministic egress ids", () => {
@@ -267,6 +331,41 @@ describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
     });
     expect(seenValue).toEqual({ page: 2 });
     expect(egress.ops).toHaveLength(1);
+  });
+
+  it("stamps the clicked card's ref so an in-place update routes under the live delivery", async () => {
+    const source = new InMemoryDeliverySource();
+    const egress = new InMemoryEgressSink();
+    const bot = createBot({
+      adapters: [intelligenceAdapter({ source, egress })],
+      agent: () => new FakeAgent(),
+    });
+    bot.onInteraction("ck:approve", async ({ thread, message }) => {
+      // Flip the card that was clicked (posted in a PRIOR delivery) in place.
+      await thread.update(message.ref, Section({ children: "approved" }));
+    });
+    await bot.start();
+    await source.deliver({
+      ...base,
+      deliveryId: "d_click",
+      turnId: "t_click",
+      kind: "interaction",
+      actionId: "ck:approve",
+      value: { ok: true },
+      // app-api mints the ref as the original card's Slack ts; it carries no
+      // SDK routing until this delivery's route/turnId/deliveryId is stamped on.
+      messageRef: { id: "1699999999.000100" },
+    });
+
+    expect(egress.ops).toHaveLength(1);
+    const op = egress.ops[0]!;
+    // Re-addresses the ORIGINAL card ts (Connector Outbox chat.updates in place)…
+    expect(op.op).toMatchObject({ kind: "update", ref: "1699999999.000100" });
+    // …routed under THIS interaction delivery, not the deliveryId:"undefined"
+    // the stamping exists to prevent (which would dead-letter the update).
+    expect(op.deliveryId).toBe("d_click");
+    expect(op.turnId).toBe("t_click");
+    expect(op.route).toEqual(base.route);
   });
 
   it("routes a thread_started event to onThreadStarted", async () => {
@@ -421,5 +520,43 @@ describe("intelligenceAdapter — conversation-history seeding", () => {
     );
 
     expect(agent.messages).toEqual([]);
+  });
+});
+
+describe("intelligenceAdapter — default store resolution", () => {
+  it("builds an IntelligenceStateStore from config, stripping the baseUrl trailing slash", async () => {
+    const calls: string[] = [];
+    const fetch = (async (url: string) => {
+      calls.push(url);
+      return {
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify({ value: null }),
+      };
+    }) as unknown as FetchLike;
+    const adapter = intelligenceAdapter({
+      config: { baseUrl: "http://intel.test/", apiKey: "cpk-1", fetch },
+    });
+
+    expect(adapter.stateStore).toBeInstanceOf(IntelligenceStateStore);
+    await adapter.stateStore!.kv.get("k");
+    expect(calls[0]).toBe("http://intel.test/api/bots/kv/get");
+  });
+
+  it("skips the default store when in-memory transports are injected", () => {
+    const adapter = intelligenceAdapter({
+      source: new InMemoryDeliverySource(),
+      egress: new InMemoryEgressSink(),
+    });
+
+    expect(adapter.stateStore).toBeUndefined();
+  });
+
+  it("skips the default store when credentials can't be resolved", () => {
+    const adapter = intelligenceAdapter({
+      config: { baseUrl: "http://intel.test" },
+    });
+
+    expect(adapter.stateStore).toBeUndefined();
   });
 });

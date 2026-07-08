@@ -32,6 +32,8 @@ export class IntelligenceStateStore implements StateStore {
 
   constructor(private readonly cfg: IntelligenceStateStoreConfig) {}
 
+  /** Resolve the fetch implementation (injected config, else global), throwing
+   * a clear error when neither is available (e.g. old Node without `fetch`). */
   private fetchImpl(): FetchLike {
     const f =
       this.cfg.fetch ?? (globalThis as unknown as { fetch?: FetchLike }).fetch;
@@ -43,6 +45,9 @@ export class IntelligenceStateStore implements StateStore {
     return f;
   }
 
+  /** POST `body` as JSON to app-api at `path` with the runtime bearer, parsing
+   * the JSON response. Throws (fail-loud) on any non-2xx, with the status and a
+   * truncated body for diagnosis. */
   private async post<T>(path: string, body: unknown): Promise<T> {
     const res = await this.fetchImpl()(`${this.cfg.baseUrl}${path}`, {
       method: "POST",
@@ -62,6 +67,8 @@ export class IntelligenceStateStore implements StateStore {
   }
 
   kv = {
+    /** Read a durable key, normalizing app-api's `null` (missing/expired) to
+     * the StateStore contract's `undefined`. */
     get: async <T>(key: string): Promise<T | undefined> => {
       const { value } = await this.post<{ value: T | null }>(
         "/api/bots/kv/get",
@@ -73,13 +80,17 @@ export class IntelligenceStateStore implements StateStore {
       // is harmless in practice.
       return value === null ? undefined : value;
     },
+    /** Write a durable key, optionally with a TTL in ms (omitted → no expiry). */
     set: async <T>(key: string, value: T, ttlMs?: number): Promise<void> => {
       await this.post("/api/bots/kv/set", {
         key,
         value,
-        ...(ttlMs ? { ttlMs } : {}),
+        // `!== undefined` (not truthiness) so an explicit `ttlMs: 0` is still
+        // forwarded rather than silently dropped to a no-expiry set.
+        ...(ttlMs !== undefined ? { ttlMs } : {}),
       });
     },
+    /** Delete a durable key (no-op if absent). */
     delete: async (key: string): Promise<void> => {
       await this.post("/api/bots/kv/delete", { key });
     },

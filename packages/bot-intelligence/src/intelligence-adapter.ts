@@ -47,6 +47,21 @@ interface ManagedReplyTarget {
 
 /** Recover the routing a minted {@link MessageRef} carries (for update/delete). */
 function targetFromRef(ref: MessageRef): ManagedReplyTarget {
+  if (ref.__deliveryId === undefined || ref.__turnId === undefined) {
+    // A ref without stamped routing can't address an update/delete egress op.
+    // This happens when a handler updates a ref that carries no delivery routing
+    // — e.g. a ref-less interaction whose `message.ref` bot core defaulted to
+    // `{ id: "" }`. Fail with a clear, actionable message rather than coercing
+    // `String(undefined)` → `deliveryId:"undefined"` and hitting the opaque
+    // "no leased scope for delivery undefined" downstream (which would nack and
+    // burn the delivery's retries before app-api dead-letters it).
+    throw new Error(
+      `IntelligenceAdapter: cannot address message ref ${JSON.stringify(
+        ref.id,
+      )} for update/delete — it carries no delivery routing (the ref must come ` +
+        `from a prior post/render frame in a live delivery)`,
+    );
+  }
   return {
     route: ref.__route,
     turnId: String(ref.__turnId),
@@ -146,11 +161,23 @@ export class IntelligenceAdapter implements PlatformAdapter {
     getOrCreate: async (conversationKey, replyTarget, makeAgent) => {
       const agent = makeAgent(conversationKey);
       const route = (replyTarget as ManagedReplyTarget).route;
-      const history =
-        (await this.source?.getHistory?.(
-          route,
-          this.opts.historyLimit ?? 20,
-        )) ?? [];
+      let history: AgentMessage[] = [];
+      try {
+        history =
+          ((await this.source?.getHistory?.(
+            route,
+            this.opts.historyLimit ?? 20,
+          )) as AgentMessage[] | undefined) ?? [];
+      } catch (err) {
+        // The DeliverySource contract says getHistory is best-effort (resolve
+        // to [] on failure), but guard here too so a source that violates it
+        // (or a future edit dropping HttpDeliverySource's internal catch) can't
+        // nack an otherwise-fine turn just because history couldn't be fetched.
+        this.opts.config?.log?.(
+          "intelligence getHistory failed; starting fresh",
+          err,
+        );
+      }
       // AG-UI types an assistant `Message.content` as string-only, but our
       // reconstructed history's `content` is `string | AgentContentPart[]`
       // (a historical user turn may carry files) — cast past the stricter
@@ -332,6 +359,15 @@ export class IntelligenceAdapter implements PlatformAdapter {
         // card's ts — the Connector Outbox then `chat.update`s that card in
         // place. Without this, `targetFromRef` yields `deliveryId:"undefined"`,
         // the frame is rejected, and the interaction delivery dead-letters.
+        //
+        // CONTRACT (app-api side): the interaction delivery MUST carry a turnId
+        // distinct from the turn that originally posted the card. Egress op ids
+        // are `${turnId}:${seq}` (see mintOp/postRenderFrame) and seq resets to
+        // 0 per delivery, so a reused turnId makes the update's op id collide
+        // with the original post's — the Connector Outbox dedupes on op id and
+        // SILENTLY DROPS the update, so the card never flips. This layer can't
+        // detect the collision (the ref only carries the Slack ts, not the
+        // original turnId); it relies on app-api minting a fresh turnId here.
         const messageRef = env.messageRef
           ? {
               ...env.messageRef,

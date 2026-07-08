@@ -79,7 +79,8 @@ export interface Thread {
    * Whether `awaitChoice` blocks synchronously for the click (interactive
    * surfaces) or requires an ack-first post-then-resume flow (managed HTTP loop,
    * where blocking would deadlock). `undefined`/`true` = blocking-capable;
-   * `false` = the surface needs the resume flow. HITL gates branch on this.
+   * `false` = the surface needs the resume flow. The HITL resume flow will gate
+   * on this; no code reads it yet (forward-declared for that work).
    */
   readonly supportsBlockingChoice?: boolean;
   post(ui: Renderable): Promise<MessageRef>;

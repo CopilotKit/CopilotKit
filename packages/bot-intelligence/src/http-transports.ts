@@ -122,6 +122,14 @@ const defaultSleep = (ms: number): Promise<void> =>
 const DEFAULT_TURN_TIMEOUT_MS = 120_000;
 
 /**
+ * Safety backstop on an inbound file download. app-api caps inbound files at
+ * 25 MiB, so this generous ceiling never rejects legitimate traffic — it just
+ * prevents an unbounded `arrayBuffer()` read if a served body is pathologically
+ * large (anomaly / misrouted endpoint) and advertises its size.
+ */
+const MAX_INBOUND_FILE_BYTES = 64 * 1024 * 1024;
+
+/**
  * Reject after `ms` if `p` hasn't settled, so a hung turn can't wedge the
  * single-delivery loop. The underlying promise keeps running in the background
  * (harmless — a rejection handler is attached), but the loop moves on.
@@ -166,6 +174,10 @@ interface ClaimedDelivery {
     id: string;
     eventId: string;
     replyTarget: SlackReplyTarget;
+    // NB: there is intentionally no `thread_started` variant here — the claim
+    // path only carries turn/command/reaction/interaction. `thread_started`
+    // envelopes originate on the realtime/Phoenix path, not from `claim`, so a
+    // claimed delivery never maps to `kind:"thread_started"`.
     input?:
       | { kind: "text"; text?: string; files?: ManagedFileRef[] }
       | {
@@ -468,6 +480,11 @@ export class HttpDeliverySource implements DeliverySource {
       this.cfg.log?.(`intelligence ack: no lease for delivery ${deliveryId}`);
       return;
     }
+    // Claim the terminal signal BEFORE the wire call. A turn that completes in
+    // the background after a timeout-`nack` (both close over this lease) must
+    // not also ack: whichever of ack/nack runs first deletes the lease, so the
+    // other sees none and no-ops — exactly one of ack XOR fail reaches app-api.
+    this.leases.delete(deliveryId);
     await this.http.post(
       `/api/bots/deliveries/${encodeURIComponent(deliveryId)}/ack`,
       {
@@ -477,7 +494,6 @@ export class HttpDeliverySource implements DeliverySource {
         acknowledgedAt: new Date().toISOString(),
       },
     );
-    this.leases.delete(deliveryId);
   }
 
   async nack(
@@ -490,6 +506,8 @@ export class HttpDeliverySource implements DeliverySource {
       this.cfg.log?.(`intelligence nack: no lease for delivery ${deliveryId}`);
       return;
     }
+    // Delete-before-POST for the same reason as `ack`: single terminal signal.
+    this.leases.delete(deliveryId);
     await this.http.post(
       `/api/bots/deliveries/${encodeURIComponent(deliveryId)}/fail`,
       {
@@ -504,7 +522,6 @@ export class HttpDeliverySource implements DeliverySource {
         },
       },
     );
-    this.leases.delete(deliveryId);
   }
 
   /**
@@ -530,6 +547,14 @@ export class HttpDeliverySource implements DeliverySource {
     if (!res.ok) {
       throw new Error(`intelligence file ${handle} -> ${res.status}`);
     }
+    // Bound the body read when the server advertises an oversize length, before
+    // pulling the whole thing into memory as an arrayBuffer.
+    const declaredLen = Number(res.headers.get("content-length") ?? "");
+    if (Number.isFinite(declaredLen) && declaredLen > MAX_INBOUND_FILE_BYTES) {
+      throw new Error(
+        `intelligence file ${handle} too large: ${declaredLen} bytes > ${MAX_INBOUND_FILE_BYTES} cap`,
+      );
+    }
     const bytes = new Uint8Array(await res.arrayBuffer());
     const mimeType = res.headers.get("content-type") ?? undefined;
     return { bytes, mimeType };
@@ -552,6 +577,8 @@ export class HttpDeliverySource implements DeliverySource {
     replyTarget: EgressRoute,
     limit: number,
   ): Promise<AgentMessage[]> {
+    // Slack-shaped for the V1 slice; `EgressRoute` is opaque, so a second
+    // adapter would need its own route→query mapping here.
     const rt = replyTarget as
       | { teamId?: string; channel?: string; threadTs?: string }
       | undefined;
@@ -616,7 +643,11 @@ export class HttpDeliverySource implements DeliverySource {
         content.push(...fileParts);
         out.push({ id: m.id, role: m.role, content });
       }
-      return out;
+      // Defensive parity with InMemoryDeliverySource.getHistory (`slice(-limit)`):
+      // the route contract is oldest→newest capped at `limit`, but don't trust
+      // the server to honor it — keep the most recent `limit` so an over-
+      // returning route can't seed more than `historyLimit` onto agent.messages.
+      return out.length > limit ? out.slice(-limit) : out;
     } catch (err) {
       this.cfg.log?.("intelligence history fetch failed", err);
       return [];

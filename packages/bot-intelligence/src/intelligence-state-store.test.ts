@@ -1,3 +1,4 @@
+import { test, expect } from "vitest";
 import { runStateStoreConformance } from "@copilotkit/bot/testing";
 import { IntelligenceStateStore } from "./intelligence-state-store.js";
 import type { FetchLike } from "./http-transports.js";
@@ -49,3 +50,33 @@ runStateStoreConformance(
       fetch: fakeKvFetch(),
     }),
 );
+
+test("kv surfaces a non-2xx app-api response (fail-loud, not swallowed)", async () => {
+  const store = new IntelligenceStateStore({
+    baseUrl: "http://intelligence.test",
+    apiKey: "cpk-test",
+    fetch: (async () => ({
+      ok: false,
+      status: 500,
+      text: async () => "upstream boom",
+    })) as unknown as FetchLike,
+  });
+
+  await expect(store.kv.get("k")).rejects.toThrow(/500/);
+});
+
+test("kv.set forwards an explicit ttlMs of 0 rather than dropping it", async () => {
+  const bodies: Array<Record<string, unknown>> = [];
+  const store = new IntelligenceStateStore({
+    baseUrl: "http://intelligence.test",
+    apiKey: "cpk-test",
+    fetch: (async (_url, init) => {
+      bodies.push(JSON.parse(init.body) as Record<string, unknown>);
+      return { ok: true, status: 200, text: async () => "{}" };
+    }) as unknown as FetchLike,
+  });
+
+  await store.kv.set("k", { v: 1 }, 0);
+
+  expect(bodies[0]).toMatchObject({ key: "k", ttlMs: 0 });
+});
