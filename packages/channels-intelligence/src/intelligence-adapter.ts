@@ -1,5 +1,9 @@
 import type { AgentSubscriber } from "@ag-ui/client";
-import type { BotNode, MessageRef, PlatformUser } from "@copilotkit/channels-ui";
+import type {
+  BotNode,
+  MessageRef,
+  PlatformUser,
+} from "@copilotkit/channels-ui";
 import type {
   StateStore,
   PlatformAdapter,
