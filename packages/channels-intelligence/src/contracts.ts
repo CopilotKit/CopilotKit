@@ -86,6 +86,13 @@ export type ManagedIngressEnvelope =
       added: boolean;
       messageId: string;
       threadId?: string;
+      /**
+       * The SDK post-time message ref the reacted provider message maps to,
+       * when Intelligence could reverse-resolve it (the reaction itself only
+       * carries the provider ts). Lets the bot resolve a `<Message onReaction>`
+       * handler persisted under that ref.
+       */
+      postedRef?: string;
     });
 
 /** A generic, platform-agnostic reply operation emitted by the bridge adapter. */

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { createBot, FakeAgent } from "@copilotkit/channels";
 import type { BotNode } from "@copilotkit/channels-ui";
 import {
@@ -44,6 +44,40 @@ function fakeFetch(
     };
   };
   return { fetch, calls };
+}
+
+/**
+ * `getHistory`/`fetchFile` bypass the injectable `cfg.fetch` (JSON/POST-only)
+ * and hit the global `fetch` directly, same as the existing `fetchFile` /
+ * `uploadFile` methods — so history tests stub `globalThis.fetch` instead.
+ */
+function stubGlobalFetch(
+  handler: (url: string) => {
+    ok?: boolean;
+    status?: number;
+    json?: unknown;
+    arrayBuffer?: ArrayBuffer;
+    contentType?: string;
+  },
+): { calls: string[] } {
+  const calls: string[] = [];
+  vi.stubGlobal("fetch", async (url: string) => {
+    calls.push(url);
+    const r = handler(url);
+    const status = r.status ?? (r.ok === false ? 500 : 200);
+    return {
+      ok: r.ok ?? status < 400,
+      status,
+      headers: { get: (_k: string) => r.contentType ?? null },
+      async json() {
+        return r.json ?? {};
+      },
+      async arrayBuffer() {
+        return r.arrayBuffer ?? new ArrayBuffer(0);
+      },
+    };
+  });
+  return { calls };
 }
 
 function cfg(
@@ -208,6 +242,141 @@ describe("HttpDeliverySource", () => {
     expect(r.env.conversationKey).toBe("slack:T1:C1:thread:1.2");
   });
 
+  it("claimOnce maps a claimed slash command delivery to a command envelope", async () => {
+    const { fetch } = fakeFetch(() => ({
+      body: {
+        claimed: true,
+        delivery: claimedDelivery({
+          turn: {
+            id: "turn_9",
+            eventId: "evt_command",
+            receivedAt: "2026-06-30T00:00:00.000Z",
+            replyTarget: {
+              adapter: "slack",
+              teamId: "T1",
+              channel: "C1",
+            },
+            input: {
+              kind: "command",
+              command: "/opentagbot",
+              text: "summarize this channel",
+              triggerId: "13345224609.738474920.8088930838d88f008e0",
+            },
+          },
+        }),
+      },
+    }));
+    const src = new HttpDeliverySource(cfg({ fetch }));
+    const r = await src.claimOnce();
+    expect("env" in r).toBe(true);
+    if (!("env" in r)) throw new Error("expected env");
+    expect(r.env).toMatchObject({
+      kind: "command",
+      deliveryId: "dlv_9",
+      turnId: "turn_9",
+      eventId: "evt_command",
+      botName: "opentagbot",
+      platform: "slack",
+      command: "/opentagbot",
+      text: "summarize this channel",
+      triggerId: "13345224609.738474920.8088930838d88f008e0",
+      route: { teamId: "T1", channel: "C1" },
+    });
+    expect(r.env.conversationKey).toBe("slack:T1:C1:thread:root");
+  });
+
+  it("claimOnce maps a claimed reaction delivery to a reaction envelope", async () => {
+    const { fetch } = fakeFetch(() => ({
+      body: {
+        claimed: true,
+        delivery: claimedDelivery({
+          turn: {
+            id: "turn_9",
+            eventId: "evt_reaction",
+            receivedAt: "2026-06-30T00:00:00.000Z",
+            replyTarget: {
+              adapter: "slack",
+              teamId: "T1",
+              channel: "C1",
+              threadTs: "1.2",
+            },
+            input: {
+              kind: "reaction",
+              rawEmoji: "thumbsup",
+              added: true,
+              messageId: "1.2",
+              threadId: "1.2",
+            },
+          },
+        }),
+      },
+    }));
+    const src = new HttpDeliverySource(cfg({ fetch }));
+    const r = await src.claimOnce();
+    expect("env" in r).toBe(true);
+    if (!("env" in r)) throw new Error("expected env");
+    expect(r.env).toMatchObject({
+      kind: "reaction",
+      deliveryId: "dlv_9",
+      turnId: "turn_9",
+      eventId: "evt_reaction",
+      botName: "opentagbot",
+      platform: "slack",
+      rawEmoji: "thumbsup",
+      added: true,
+      messageId: "1.2",
+      threadId: "1.2",
+      route: { teamId: "T1", channel: "C1", threadTs: "1.2" },
+    });
+    expect(r.env.conversationKey).toBe("slack:T1:C1:thread:1.2");
+  });
+
+  it("claimOnce maps a claimed interaction delivery to an interaction envelope", async () => {
+    const { fetch } = fakeFetch(() => ({
+      body: {
+        claimed: true,
+        delivery: claimedDelivery({
+          turn: {
+            id: "turn_9",
+            eventId: "evt_interaction",
+            receivedAt: "2026-06-30T00:00:00.000Z",
+            replyTarget: {
+              adapter: "slack",
+              teamId: "T1",
+              channel: "C1",
+              threadTs: "1.2",
+            },
+            input: {
+              kind: "interaction",
+              actionId: "ck:confirm_write:approve",
+              value: { confirmed: true },
+              messageRef: { id: "1.2" },
+              triggerId: "13345224609.738474920.8088930838d88f008e0",
+            },
+          },
+        }),
+      },
+    }));
+    const src = new HttpDeliverySource(cfg({ fetch }));
+    const r = await src.claimOnce();
+    expect("env" in r).toBe(true);
+    if (!("env" in r)) throw new Error("expected env");
+    expect(r.env).toMatchObject({
+      kind: "interaction",
+      deliveryId: "dlv_9",
+      turnId: "turn_9",
+      eventId: "evt_interaction",
+      botName: "opentagbot",
+      platform: "slack",
+      actionId: "ck:confirm_write:approve",
+      value: { confirmed: true },
+      messageRef: { id: "1.2" },
+      triggerId: "13345224609.738474920.8088930838d88f008e0",
+      route: { teamId: "T1", channel: "C1", threadTs: "1.2" },
+    });
+    expect(r.env.conversationKey).toBe("slack:T1:C1:thread:1.2");
+  });
+
   it("claimOnce returns pollAfterMs when idle", async () => {
     const { fetch } = fakeFetch(() => ({
       body: { claimed: false, pollAfterMs: 500 },
@@ -252,6 +421,44 @@ describe("HttpDeliverySource", () => {
     });
   });
 
+  it("nacks (non-retryable) an unmappable delivery kind instead of wedging the loop", async () => {
+    const { fetch, calls } = fakeFetch((c) =>
+      c.url.endsWith("/claim")
+        ? {
+            body: {
+              claimed: true,
+              // A future/unknown wire kind app-api might send. claimOnce must
+              // not throw it up into runLoop (which only logs+sleeps, leaking
+              // the lease until the 120s expiry redelivers the same poison
+              // payload forever) — it nacks non-retryably and idles instead.
+              delivery: claimedDelivery({
+                turn: {
+                  id: "turn_9",
+                  eventId: "evt_x",
+                  receivedAt: "2026-06-30T00:00:00.000Z",
+                  replyTarget: {
+                    adapter: "slack",
+                    teamId: "T1",
+                    channel: "C1",
+                    threadTs: "1.2",
+                  },
+                  input: { kind: "telepathy" },
+                },
+              }),
+            },
+          }
+        : { body: { failed: true, status: "dead_letter" } },
+    );
+    const src = new HttpDeliverySource(cfg({ fetch }));
+
+    const r = await src.claimOnce();
+
+    expect(r).toEqual({ pollAfterMs: 1000 });
+    const fail = calls.find((c) => c.url.includes("/deliveries/dlv_9/fail"))!;
+    expect(fail).toBeDefined();
+    expect(fail.body["error"]).toMatchObject({ retryable: false });
+  });
+
   it("times out a hung turn, nacks it, and keeps the loop alive", async () => {
     const { fetch, calls } = fakeFetch((c) =>
       c.url.endsWith("/claim")
@@ -273,6 +480,161 @@ describe("HttpDeliverySource", () => {
     const fail = calls.find((c) => c.url.includes("/deliveries/dlv_9/fail"));
     expect(fail).toBeDefined();
     expect(fail!.body["error"]).toMatchObject({ code: "runtime_error" });
+  });
+});
+
+describe("HttpDeliverySource.getHistory", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("returns [] without a request when threadTs is missing (root turn)", async () => {
+    const { calls } = stubGlobalFetch(() => ({ json: { messages: [] } }));
+    const src = new HttpDeliverySource(cfg({}));
+    const history = await src.getHistory({ teamId: "T1", channel: "C1" }, 20);
+    expect(history).toEqual([]);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("maps role/text and sends teamId/channel/threadTs/limit in the query", async () => {
+    const { calls } = stubGlobalFetch((url) => {
+      expect(url).toBe(
+        "http://x/api/bots/history?teamId=T1&channel=C1&threadTs=1.2&limit=5",
+      );
+      return {
+        json: {
+          messages: [
+            { id: "m1", role: "user", text: "earlier question" },
+            { id: "m2", role: "assistant", text: "earlier answer" },
+          ],
+        },
+      };
+    });
+    const src = new HttpDeliverySource(cfg({}));
+    const history = await src.getHistory(
+      { teamId: "T1", channel: "C1", threadTs: "1.2" },
+      5,
+    );
+    expect(history).toEqual([
+      { id: "m1", role: "user", content: "earlier question" },
+      { id: "m2", role: "assistant", content: "earlier answer" },
+    ]);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("hydrates a historical file ref into content parts (text inline + image data part)", async () => {
+    const png = new Uint8Array([1, 2, 3, 4]);
+    stubGlobalFetch((url) => {
+      if (url.includes("/api/bots/history")) {
+        return {
+          json: {
+            messages: [
+              {
+                id: "m1",
+                role: "user",
+                text: "what is this?",
+                files: [
+                  {
+                    handle: "fileref_abc",
+                    filename: "shot.png",
+                    mimeType: "image/png",
+                  },
+                ],
+              },
+            ],
+          },
+        };
+      }
+      if (url.includes("/api/bots/files/fileref_abc")) {
+        return { arrayBuffer: png.buffer, contentType: "image/png" };
+      }
+      throw new Error(`unexpected url in test: ${url}`);
+    });
+    const src = new HttpDeliverySource(cfg({}));
+    const history = await src.getHistory(
+      { teamId: "T1", channel: "C1", threadTs: "1.2" },
+      20,
+    );
+    expect(history).toEqual([
+      {
+        id: "m1",
+        role: "user",
+        content: [
+          { type: "text", text: "what is this?" },
+          {
+            type: "image",
+            source: {
+              type: "data",
+              value: Buffer.from(png).toString("base64"),
+              mimeType: "image/png",
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("returns [] and logs a quiet degradation on a transient 5xx history response", async () => {
+    stubGlobalFetch(() => ({ status: 500 }));
+    const logs: unknown[] = [];
+    const src = new HttpDeliverySource(
+      cfg({ log: (msg, meta) => logs.push({ msg, meta }) }),
+    );
+    const history = await src.getHistory(
+      { teamId: "T1", channel: "C1", threadTs: "1.2" },
+      20,
+    );
+    expect(history).toEqual([]);
+    expect(logs.length).toBeGreaterThan(0);
+    expect(String((logs[0] as { msg: string }).msg)).not.toMatch(
+      /misconfigured/i,
+    );
+  });
+
+  it("returns [] and logs a distinct misconfiguration warning on a 4xx history response", async () => {
+    stubGlobalFetch(() => ({ status: 401 }));
+    const logs: unknown[] = [];
+    const src = new HttpDeliverySource(
+      cfg({ log: (msg, meta) => logs.push({ msg, meta }) }),
+    );
+    const history = await src.getHistory(
+      { teamId: "T1", channel: "C1", threadTs: "1.2" },
+      20,
+    );
+    expect(history).toEqual([]);
+    expect(logs.length).toBeGreaterThan(0);
+    expect(String((logs[0] as { msg: string }).msg)).toMatch(
+      /misconfigured\/unauthorized history endpoint/,
+    );
+  });
+
+  it("returns [] and logs a quiet degradation on a 429 history response (not treated as misconfiguration)", async () => {
+    stubGlobalFetch(() => ({ status: 429 }));
+    const logs: unknown[] = [];
+    const src = new HttpDeliverySource(
+      cfg({ log: (msg, meta) => logs.push({ msg, meta }) }),
+    );
+    const history = await src.getHistory(
+      { teamId: "T1", channel: "C1", threadTs: "1.2" },
+      20,
+    );
+    expect(history).toEqual([]);
+    expect(logs.length).toBeGreaterThan(0);
+    expect(String((logs[0] as { msg: string }).msg)).not.toMatch(
+      /misconfigured/i,
+    );
+  });
+
+  it("returns [] when the history fetch throws (never fails the turn)", async () => {
+    vi.stubGlobal("fetch", async () => {
+      throw new Error("network down");
+    });
+    const src = new HttpDeliverySource(cfg({}));
+    const history = await src.getHistory(
+      { teamId: "T1", channel: "C1", threadTs: "1.2" },
+      20,
+    );
+    expect(history).toEqual([]);
   });
 });
 

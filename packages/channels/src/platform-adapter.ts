@@ -28,6 +28,16 @@ export interface SurfaceCapabilities {
   supportsThreadTitle?: boolean;
   /** Native ephemeral messages (Slack). When false, `postEphemeral` still works via DM fallback. */
   supportsEphemeral?: boolean;
+  /**
+   * Whether `Thread.awaitChoice` can block synchronously for a user's click
+   * within a single run. `true`/undefined on interactive surfaces (Slack Socket
+   * Mode, Discord, …). Set `false` on ack-first surfaces like the managed
+   * Intelligence HTTP loop, where a run must end after posting the picker and
+   * resume on the click's separate inbound delivery (a blocking wait would
+   * deadlock the one-delivery-at-a-time claim loop). The HITL resume flow will
+   * gate on this; no code reads it yet (forward-declared for that work).
+   */
+  supportsBlockingChoice?: boolean;
   [k: string]: unknown;
 }
 
@@ -132,6 +142,15 @@ export interface IncomingReaction extends IngressEventBase {
   added: boolean;
   /** Id of the reacted-to message. */
   messageId: string;
+  /**
+   * Key under which a `<Message onReaction>` handler was persisted for this
+   * message, when it differs from {@link messageId}. Needed on adapters where
+   * the reaction arrives keyed by a provider id (e.g. a Slack `ts`) while the
+   * handler was registered under the SDK post-time ref — the engine resolves
+   * the per-message handler by `postedMessageId ?? messageId`. Omit when the
+   * reacted-message id already equals the post ref (the common case).
+   */
+  postedMessageId?: string;
   /**
    * Update-capable ref to the reacted message (the platform-specific shape the
    * adapter's `update`/`delete` accept). Lets a `<Message onReaction>` handler
