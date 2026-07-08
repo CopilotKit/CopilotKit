@@ -227,8 +227,14 @@ fi
 # `npm start` runs `node --import tsx server.ts` (see src/agent/package.json).
 # tsx is a one-shot ESM loader here (NOT a watcher) so server.ts and its
 # imports resolve without a precompile step. Log prefixing uses bash process
-# substitution (`&> >(awk …)`) rather than a pipe so `$!` points at the real
-# node process and `wait -n $AGENT_PID` monitors the right thing.
+# substitution (`&> >(awk …)`) rather than a pipe so `$!` (captured below as
+# AGENT_PID) refers to the agent's own launch process and NOT the awk log-
+# formatter — `wait -n $AGENT_PID` thus monitors the agent side, not the log
+# pipeline. Note `$!`/AGENT_PID is the WRAPPING SUBSHELL of the `... &` compound
+# command, NOT the real npm→node server it forks (the server is a DESCENDANT,
+# reached only via the tree-kill — see the file header and _kill_agent_tree).
+# Never `kill $AGENT_PID` directly: that reaps only the wrapper subshell and
+# orphans the real server on :8000.
 echo "[entrypoint] Starting Strands TS agent on port 8000..."
 cd /app/src/agent && PORT=8000 HOST=0.0.0.0 npm start &> >(awk '{print "[agent] " $0; fflush()}') &
 AGENT_PID=$!

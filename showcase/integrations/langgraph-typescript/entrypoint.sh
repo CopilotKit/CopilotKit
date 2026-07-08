@@ -375,8 +375,13 @@ fi
 # reach the agent regardless of how `localhost` resolves in the container.
 #
 # Log prefixing uses bash process substitution (`&> >(awk …)`) rather than a
-# pipe (`| sed …`): process substitution leaves `$!` pointing at the real
-# node process, so `wait -n $AGENT_PID` monitors the right thing.
+# pipe (`| sed …`) so `$!` (captured below as AGENT_PID) refers to the agent's
+# own launch process and NOT the awk log-formatter — `wait -n $AGENT_PID` thus
+# monitors the agent side, not the log pipeline.  Note `$!`/AGENT_PID is the
+# WRAPPING SUBSHELL of the `... &` compound command, NOT the real npm→node
+# server it forks (the server is a DESCENDANT, reached only via the tree-kill —
+# see the file header and _kill_agent_tree).  Never `kill $AGENT_PID` directly:
+# that reaps only the wrapper subshell and orphans the real server on :8123.
 echo "[entrypoint] Starting LangGraph TS agent on port 8123 (prod mode, no CLI)..."
 cd /app/src/agent && PORT=8123 HOST=0.0.0.0 npm start &> >(awk '{print "[agent] " $0; fflush()}') &
 AGENT_PID=$!
@@ -414,10 +419,12 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
 # and Railway restarts the container. Generalized from
 # showcase/integrations/crewai-crews/entrypoint.sh (PRs #4114 + #4115).
 #
-# Startup grace: langgraph-cli dev does a heavy cold-start (Studio IPC +
-# @langchain/langgraph-api spawn + graph compile). On fresh Railway
-# containers this routinely exceeds the 90s (3-strike) budget introduced
-# in PR #4116, producing the 04-20 restart loop seen on deployment
+# Startup grace: the prod path (see above — we deliberately avoid
+# `langgraph-cli dev`) still pays a heavy cold-start from the top-level
+# `@langchain/langgraph-api` import (schema extraction + graph compile) that
+# gates the main Hono bind on :8123. On fresh Railway containers this routinely
+# exceeds the 90s (3-strike) budget introduced in PR #4116, producing the 04-20
+# restart loop seen on deployment
 # 58bbebe8-7a94-4f99-b6e4-ffcbb4eb78b9. Wait up to 180s for the first
 # healthy /ok probe before arming the strike counter; if /ok comes up
 # sooner, fall through immediately. If 180s elapses without success, arm
@@ -480,9 +487,11 @@ _require_int HEALTH_STRIKE_LIMIT      3 "LangGraph health strike limit"
   # subshell with NO trap armed, orphaning the size sub-loop (reparented to PID 1,
   # left spinning for the container's life).  We instead arm a trap that reaps by
   # a PPID walk of THIS subshell ($BASHPID) — it finds the sub-loop regardless of
-  # whether SIZE_PID has been assigned, so there is no ordering-dependent leak.
-  # SIZE_PID is still captured (kept for the log line / clarity) but is no longer
-  # load-bearing for cleanup.
+  # whether SIZE_PID has been assigned, so cleanup no longer DEPENDS on the
+  # ordering of SIZE_PID's assignment.  SIZE_PID is still captured and the
+  # direct `kill "$SIZE_PID"` below is RETAINED as a belt-and-suspenders backstop
+  # to the $BASHPID PPID-walk (do not remove it): if the walk ever misses the
+  # sub-loop, the explicit PID kill still reaps it.
   _reap_watchdog_children() {
     local sp
     for sp in $(_agent_descendants "$BASHPID"); do
