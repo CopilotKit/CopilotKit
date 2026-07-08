@@ -30,6 +30,18 @@ set -e
 _agent_descendants() {
   # Print all descendant PIDs of $1 (children, grandchildren, …), deepest-first.
   local root="$1" pid ppid stat
+  # Fail closed on a dangerous or meaningless root.  An empty / non-numeric root
+  # would make the PPID comparison below match nothing (harmless) but a root of
+  # "0" or "1" is catastrophic: "0" means "every process in the caller's process
+  # group" and "1" is init — a caller that then fed the result to a kill could
+  # wipe the whole container.  Refuse anything that is not an integer >= 2.
+  case "$root" in
+    ''|*[!0-9]*) echo "[proctree] WARNING: refusing descendant scan for non-numeric root '${root}'" >&2; return 0 ;;
+  esac
+  if [ "$root" -le 1 ]; then
+    echo "[proctree] WARNING: refusing descendant scan for reserved root ${root} (0=process-group, 1=init)" >&2
+    return 0
+  fi
   for pid in $(cd /proc 2>/dev/null && ls -d [0-9]* 2>/dev/null); do
     [ -r "/proc/$pid/stat" ] || continue
     # /proc/PID/stat is: "PID (comm) STATE PPID PGRP …". comm can contain
@@ -69,7 +81,20 @@ _kill_agent_tree() {
   # without job control (no ps/pgrep in node:22-slim; job control off in a
   # non-interactive script, so no process-group kill). The agent's npm→node tree
   # does not daemonize, so this loop covers the real failure surface.
+  #
+  # Fail closed on a dangerous or meaningless root, BEFORE any kill runs.  If the
+  # caller passes an empty / non-numeric PID, or the reserved 0 (SIGKILL to the
+  # WHOLE caller process group) or 1 (init), refuse outright — a bare `kill -9 0`
+  # here would SIGKILL the entire entrypoint.  This makes `kill -9 0`/`kill -9 1`
+  # structurally impossible regardless of what the caller passes.
   local root="$1" p descendants
+  case "$root" in
+    ''|*[!0-9]*) echo "[proctree] WARNING: refusing tree-kill for non-numeric PID '${root}'" >&2; return 0 ;;
+  esac
+  if [ "$root" -le 1 ]; then
+    echo "[proctree] WARNING: refusing tree-kill for reserved PID ${root} (0=process-group, 1=init)" >&2
+    return 0
+  fi
   for _ in 1 2 3 4 5; do
     descendants=$(_agent_descendants "$root")
     [ -z "$descendants" ] && break
@@ -81,6 +106,41 @@ _kill_agent_tree() {
   kill -9 "$root" 2>/dev/null || true
 }
 
+# ---------------------------------------------------------------------------
+# Numeric-config validator.
+#
+# Every operator-overridable numeric knob (size threshold, check intervals,
+# strike budgets, grace/timeout windows) is read from an env var with a `:-`
+# default.  A non-integer or empty override (e.g. LANGGRAPH_SIZE_CHECK_INTERVAL
+# ="60s") does NOT fall back to the default on its own — it propagates as a bad
+# value into an arithmetic test (`[ .. -ge .. ]`), a `sleep`, or a loop count.
+# Under `set -e` those failures are inconsistent: a bad `sleep $INTERVAL` makes
+# the size-monitor loop exit on its FIRST iteration, silently disabling the
+# whole size guard for the container's lifetime; a bad arithmetic test inside an
+# `if` evaluates false and skips the guard with no warning.  Either way an
+# operator typo silently DISABLES a guard.
+#
+# _require_int validates ONE such var by name and rewrites it in place: if the
+# current value is a positive integer it is kept; otherwise a WARNING is logged
+# and the documented default is substituted.  It fails SAFE — it never aborts
+# and never leaves a guard fed by a bad value.  Run over EVERY numeric config
+# var at startup (see the validation pass below) so no `sleep`/loop-count/
+# arithmetic test downstream can be silently broken by a bad override.
+#
+# Args: $1 = variable NAME (validated + reassigned via printf -v)
+#       $2 = documented default (used verbatim on fallback)
+#       $3 = human label for the warning
+_require_int() {
+  local name="$1" default="$2" label="$3" value
+  eval "value=\${$name}"
+  case "$value" in
+    ''|*[!0-9]*)
+      echo "[entrypoint] WARNING: ${label} (${name}) is not a positive integer (got: '${value}') — falling back to default ${default}"
+      printf -v "$name" '%s' "$default"
+      ;;
+  esac
+}
+
 cleanup() {
   # Tree-kill the agent (not a bare `kill $AGENT_PID`): $AGENT_PID is the
   # process-sub subshell, so a single-PID kill on the normal shutdown path
@@ -88,7 +148,17 @@ cleanup() {
   # only the subshell and ORPHAN the real npm→node server — reparented to
   # PID 1, still holding :8000 across the restart.  See _kill_agent_tree.
   _kill_agent_tree "$AGENT_PID"
-  kill $NEXTJS_PID $WATCHDOG_PID 2>/dev/null || true
+  # Tree-kill Next.js too: NEXTJS_PID is ALSO a process-sub subshell wrapping
+  # `npx next start` (which forks npm→node), exactly like AGENT_PID.  A bare
+  # `kill $NEXTJS_PID` would reap only the wrapper subshell and ORPHAN the real
+  # Next.js node server — reparented to PID 1, still holding $PORT across the
+  # Railway redeploy/rollover SIGTERM, so the new container cannot bind $PORT.
+  # (Same orphan class already fixed for the agent; route the frontend through
+  # the same guarded walk.)  WATCHDOG_PID is a genuine single-PID subshell we
+  # spawn directly (`( … ) &`, not process-sub-wrapped) that forks nothing that
+  # outlives it, so a bare kill is correct for it.
+  _kill_agent_tree "$NEXTJS_PID"
+  kill $WATCHDOG_PID 2>/dev/null || true
 }
 trap cleanup EXIT
 
@@ -152,8 +222,28 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
 # counter; if /health comes up sooner, fall through immediately. If 180s
 # elapses without success, arm the counter anyway — the steady-state watchdog
 # will handle a true hang. Mirrors langgraph-typescript/entrypoint.sh.
+#
+# Startup grace window, steady-state health-probe interval and strike budget.
+# All operator-overridable so deploy tuning does not require an image rebuild.
+STARTUP_GRACE_SECONDS=${STRANDS_STARTUP_GRACE_SECONDS:-180}
+HEALTH_CHECK_INTERVAL=${STRANDS_HEALTH_CHECK_INTERVAL:-30}
+HEALTH_STRIKE_LIMIT=${STRANDS_HEALTH_STRIKE_LIMIT:-3}
+
+# ---------------------------------------------------------------------------
+# Numeric-config validation pass (CLASS 1 structural guard).
+#
+# Validate EVERY operator-overridable numeric knob at STARTUP, before any of
+# them can feed a `sleep`, a loop count, or an arithmetic test.  A bad override
+# (non-integer / empty) on ANY of these would otherwise silently disable a guard
+# — e.g. STRANDS_HEALTH_CHECK_INTERVAL="30s" makes the very first
+# `while sleep $HEALTH_CHECK_INTERVAL` fail and kills the health monitor loop
+# for the container's lifetime.  Each bad value WARNs and falls back to the
+# documented default (fail-safe: never abort, never leave a guard disabled).
+_require_int STARTUP_GRACE_SECONDS  180 "Strands startup grace window (s)"
+_require_int HEALTH_CHECK_INTERVAL   30 "Strands health-probe interval (s)"
+_require_int HEALTH_STRIKE_LIMIT      3 "Strands health strike limit"
 (
-  GRACE=180
+  GRACE=$STARTUP_GRACE_SECONDS
   echo "[watchdog] Startup grace: waiting up to ${GRACE}s for first successful health probe before arming strike counter"
   ELAPSED=0
   while [ $ELAPSED -lt $GRACE ]; do
@@ -173,7 +263,7 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
   fi
 
   FAILS=0
-  while sleep 30; do
+  while sleep "$HEALTH_CHECK_INTERVAL"; do
     if ! kill -0 $AGENT_PID 2>/dev/null; then
       break
     fi
@@ -182,8 +272,8 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
     else
       FAILS=$((FAILS + 1))
       echo "[watchdog] Agent health probe failed (count=$FAILS)"
-      if [ $FAILS -ge 3 ]; then
-        echo "[watchdog] Agent unresponsive for ~90s — killing PID $AGENT_PID (and its npm→node tree) to trigger container restart"
+      if [ $FAILS -ge "$HEALTH_STRIKE_LIMIT" ]; then
+        echo "[watchdog] Agent unresponsive for ~$((HEALTH_CHECK_INTERVAL * HEALTH_STRIKE_LIMIT))s — killing PID $AGENT_PID (and its npm→node tree) to trigger container restart"
         # Tree-kill (not a bare `kill -9 $AGENT_PID`): $AGENT_PID is the process-sub
         # subshell, so a single-PID kill would orphan the real npm→node server,
         # leaving :8000 bound to a hung agent that `wait -n` never observes dying.
@@ -195,7 +285,7 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
 ) &
 WATCHDOG_PID=$!
 
-echo "[entrypoint] Watchdog started (PID: $WATCHDOG_PID, probing http://127.0.0.1:8000/health, startup grace 180s)"
+echo "[entrypoint] Watchdog started (PID: $WATCHDOG_PID, probing http://127.0.0.1:8000/health, startup grace ${STARTUP_GRACE_SECONDS}s)"
 echo "[entrypoint] All processes running. Waiting..."
 
 # Only wait on agent + next.js — NOT the watchdog.
