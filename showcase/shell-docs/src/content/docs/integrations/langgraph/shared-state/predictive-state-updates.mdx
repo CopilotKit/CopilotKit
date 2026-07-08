@@ -212,9 +212,11 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                             if isinstance(response, AIMessage) and response.tool_calls:
                                 tool_call = response.tool_calls[0]
                                 if tool_call["name"] == "step_progress_tool":
-                                    # Invoke the tool
-                                    steps = tool_call["args"]["steps"]
-                                    tool_result = await step_progress_tool.ainvoke(steps)
+                                    # Invoke the tool with the full args dict
+                                    tool_result = await step_progress_tool.ainvoke(tool_call["args"])
+                                    
+                                    # Extract steps for state update
+                                    observed_steps = tool_call["args"]["steps"]
                                     
                                     # Create a ToolMessage to complete the tool call
                                     tool_message = ToolMessage(
@@ -226,7 +228,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                                         goto=END,
                                         update={
                                             "messages": [response, tool_message],
-                                            "observed_steps": steps
+                                            "observed_steps": observed_steps
                                         }
                                     )
 
