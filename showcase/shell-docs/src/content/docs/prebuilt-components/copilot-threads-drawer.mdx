@@ -1,0 +1,132 @@
+---
+title: "CopilotThreadsDrawer"
+icon: "lucide/PanelLeft"
+description: "Drop-in threads drawer that lists, switches, and manages conversations next to your chat."
+---
+
+## What is this?
+
+`<CopilotThreadsDrawer>` gives your app a ready-made conversation sidebar — users can
+list, switch, start, archive, and delete their threads, and you wire up
+**no active-thread state** to make it work. Drop it next to your chat and it
+connects automatically.
+
+<Frame description="CopilotThreadsDrawer beside a CopilotChat — selecting a thread replays its conversation, with no active-thread wiring.">
+  <img
+    src="/images/copilot-threads-drawer-preview.png"
+    alt="CopilotThreadsDrawer listing conversations next to an active CopilotChat conversation"
+    className="w-full rounded-lg"
+  />
+</Frame>
+
+Under the hood it's a thin React wrapper around the self-contained
+`copilotkit-threads-drawer` web component, fed by [`useThreads`](/reference/hooks/useThreads)
+and your chat configuration.
+
+Prefer to build your own thread UI? The same data and actions are available
+headlessly through the `useThreads` hook — see [Threads](/threads). Thread
+**rename** is one of those headless actions: the prebuilt drawer's row menu
+covers archive/unarchive and delete, so wire up rename with `useThreads` and
+your own UI if you need it.
+
+## When should I use this?
+
+Use the drawer when you want:
+
+- A persistent thread switcher beside your chat (chat-history sidebar)
+- Thread switching, new conversations, archive, and delete with zero wiring
+- A self-contained, themeable UI that follows your app's light/dark theme
+- A mobile-ready off-canvas drawer with its own launcher
+
+It requires the Enterprise Intelligence Platform (threads are stored and synced
+server-side). See [Threads](/threads) to set that up.
+
+<OpsPlatformCTA
+  variant="inline"
+  title="Threads run on the Enterprise Intelligence Platform"
+  body="Get persistent threads and realtime sync on the free Developer tier."
+  surface="docs_drawer"
+/>
+
+## Basic setup
+
+Drop `<CopilotThreadsDrawer>` next to `<CopilotChat>`, and wrap **both** in a
+shared `<CopilotChatConfigurationProvider>` so they operate on the same chat
+configuration. That shared config is what lets the drawer drive the chat: with
+no callbacks, selecting a row connects the chat to that thread and replays its
+history; the "New Conversation" row resets the chat to a fresh welcome screen.
+(Without the shared provider the drawer sits beside the chat's own scoped
+configuration and can't switch its thread.)
+
+```tsx title="app/page.tsx"
+import {
+  CopilotKitProvider,
+  CopilotChatConfigurationProvider,
+  CopilotChat,
+  CopilotThreadsDrawer,
+} from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+
+export default function Page() {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" publicLicenseKey="ck_pub_...">
+      <CopilotChatConfigurationProvider>
+        <div style={{ display: "flex", height: "100dvh" }}>
+          <CopilotThreadsDrawer />
+          <CopilotChat />
+        </div>
+      </CopilotChatConfigurationProvider>
+    </CopilotKitProvider>
+  );
+}
+```
+
+That's the whole integration. A hand-rolled sidebar would have you track the
+active `threadId` in your own state and pass selection/new-thread handlers
+between the list and the chat; here the drawer and the
+`CopilotChatConfigurationProvider` share that state, so there is none of that
+wiring to write.
+
+## Configuring the drawer
+
+`<CopilotThreadsDrawer>` works with zero props. The optional ones:
+
+| Prop | Description |
+|------|-------------|
+| `agentId` | Agent whose threads to list (defaults to the chat configuration's agent). |
+| `label` | Accessible name for the drawer region and thread listbox. Defaults to `"Threads"`. The redesigned header has no visible title. |
+| `recentLabel` | Section heading shown above the thread list. Defaults to `"Recent Conversations"`. |
+| `onThreadSelect` | Escape hatch to take over thread selection yourself. |
+| `onNewThread` | Escape hatch to handle the "New Conversation" row yourself. |
+| `renderRow` | Render custom content per row (keeps the row chrome around it). |
+| `limit` | Page size for pagination — shows a "Load more" control while more threads remain. Omit to load all at once. |
+
+See the [CopilotThreadsDrawer reference](/reference/components/CopilotThreadsDrawer) for the full prop and type list.
+
+## Customization
+
+The drawer renders in a shadow root with self-contained, theme-inheriting
+styles, so it looks correct in any app (including dark mode) with no config.
+Three bounded escape hatches pierce the boundary:
+
+- **Slots** — project children with a `slot` attribute (`header`, `empty`, `footer`, `memories`, `launcher-icon`):
+
+  ```tsx
+  <CopilotThreadsDrawer>
+    <span slot="header">My conversations</span>
+  </CopilotThreadsDrawer>
+  ```
+
+- **Per-row content** — the `renderRow` prop projects custom content into each row while the element keeps selection, archived styling, and the per-row kebab (⋮) menu (Archive/Delete).
+- **CSS parts + variable tokens** — restyle structural `::part()`s or override `--cpk-drawer-*` tokens. The full list is in the [reference](/reference/components/CopilotThreadsDrawer#customization).
+
+## License
+
+Threads require CopilotKit Intelligence. Without a license key, the drawer shows
+a locked view in place of the list.
+
+## Related
+
+- [Threads](/threads) — set up the platform and the headless `useThreads` data layer
+- [CopilotThreadsDrawer reference (React)](/reference/components/CopilotThreadsDrawer)
+- [CopilotChat](/prebuilt-components/chat) — the chat the drawer connects to
