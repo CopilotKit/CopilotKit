@@ -43,21 +43,27 @@ describe("ChunkedEditStream", () => {
     let id = 0;
     const edits: Record<number, string> = {};
     let callCount = 0;
+    // Resolves the instant the intermediate flush's editAt runs, so the test
+    // waits for the actual condition instead of guessing a duration. An arbitrary
+    // `setTimeout(r, 10)` here is a race: under CI scheduling jitter the internal
+    // setTimeout(0) + microtask chain can miss the window, leaving callCount at 0.
+    let firstFlushRan!: () => void;
+    const firstFlush = new Promise<void>((r) => (firstFlushRan = r));
     const s = new ChunkedEditStream({
       minIntervalMs: 0,
       postPlaceholder: async () => ++id,
       editAt: async (mid, text) => {
         callCount++;
         if (callCount === 1) {
+          firstFlushRan();
           throw new Error("transient network error");
         }
         edits[mid] = text;
       },
     });
     s.append("Hello world");
-    // Wait for the setTimeout(0) scheduled by scheduleFlush to fire and for
-    // its async chain (postPlaceholder + flushNow) to complete.
-    await new Promise<void>((r) => setTimeout(r, 10));
+    // Wait until the intermediate flush has actually run and failed.
+    await firstFlush;
     // The intermediate flush ran and failed (callCount === 1). posted is still "".
     expect(callCount).toBe(1);
     // finish() enqueues a terminal flush. Since posted="", it re-attempts.
@@ -72,6 +78,12 @@ describe("ChunkedEditStream", () => {
     let id = 0;
     const sentTexts: string[] = [];
     let callCount = 0;
+    // Resolves the instant the intermediate flush's editAt runs, so the test
+    // waits for the actual condition instead of guessing a duration. An arbitrary
+    // `setTimeout(r, 10)` here is a race: under CI scheduling jitter the internal
+    // setTimeout(0) + microtask chain can miss the window, leaving callCount at 0.
+    let firstFlushRan!: () => void;
+    const firstFlush = new Promise<void>((r) => (firstFlushRan = r));
     const s = new ChunkedEditStream({
       minIntervalMs: 0,
       postPlaceholder: async () => ++id,
@@ -79,14 +91,15 @@ describe("ChunkedEditStream", () => {
         callCount++;
         if (callCount === 1) {
           // First call (intermediate flush) fails — posted must NOT advance.
+          firstFlushRan();
           throw new Error("first call fails");
         }
         sentTexts.push(text);
       },
     });
     s.append("payload");
-    // Wait for the intermediate flush (setTimeout 0 + async chain) to complete.
-    await new Promise<void>((r) => setTimeout(r, 10));
+    // Wait until the intermediate flush has actually run and failed.
+    await firstFlush;
     expect(callCount).toBe(1); // intermediate flush ran and failed
     // Terminal flush in finish() re-attempts because posted is still "".
     await s.finish();
