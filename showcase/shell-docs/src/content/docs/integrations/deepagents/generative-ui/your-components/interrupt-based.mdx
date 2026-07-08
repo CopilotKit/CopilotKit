@@ -114,17 +114,13 @@ We're going to have the agent ask us to name it, so we'll need a state property 
                     return None
 
             # Now create the agent with the middleware
-            from langchain.agents import create_agent # [!code highlight]
-            from langchain_openai import ChatOpenAI # [!code highlight]
+            from deepagents import create_deep_agent # [!code highlight]
             from copilotkit import CopilotKitMiddleware # [!code highlight]
 
-            model = ChatOpenAI(model="gpt-5.4")
-
-            graph = create_agent( # [!code highlight:6]
-                model=model,
+            graph = create_deep_agent( # [!code highlight:5]
+                model="openai:gpt-4o",
                 tools=[],  # Add your tools here
                 middleware=[AgentNameMiddleware(), CopilotKitMiddleware(expose_state=["agent_name"])],
-                state_schema=AgentState,
                 system_prompt="You are a helpful assistant."
             )
             ```
