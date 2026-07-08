@@ -9,7 +9,9 @@ import React, {
   useState,
 } from "react";
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
-import { useShallowStableRef } from "../lib/slots";
+// Import from the tailwind-free leaf module (not ../lib/slots, which pulls
+// tailwind-merge) so this provider stays lean in the headless entry (issue #4893).
+import { useShallowStableRef } from "../lib/shallow-stable-ref";
 
 // Default labels
 export const CopilotChatDefaultLabels = {
