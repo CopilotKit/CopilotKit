@@ -1923,3 +1923,543 @@ describe("d4 CVDIAG cross-layer join: probe adopts the forwarded X-Test-Id", () 
     expect(session.resolvedTestId).toBe(backendAdopted);
   });
 });
+
+// --- First-token wait hardening (client-side race) -----------------------
+//
+// REGRESSION SURFACE: D4's L4 "tools" probe reads the assistant-message
+// container's textContent by polling for up to `textPollTimeoutMs`. On a run
+// where the FIRST token renders into the DOM slightly LATER than that poll
+// budget — but the agent turn genuinely produces content (SSE RUN_STARTED →
+// RUN_FINISHED) — the pre-fix poll loop exhausted its fixed budget and read
+// the container as empty, yielding a spurious "L4: empty assistant response"
+// red. The turn was NOT empty; the assertion just fired before the first
+// token had a chance to arrive. The hardening waits on the SSE turn-complete
+// signal (RUN_FINISHED / RUN_ERROR) plus a bounded first-token grace window,
+// so a late-but-present first token is captured, while a turn that genuinely
+// completes with NO content still fails.
+
+/**
+ * A fake page modelling the late-first-token race with REAL wall-clock timing
+ * (no fake timers), driven off the PRODUCTION signal — `readTurnState()`, the
+ * `attachSseInterceptor` page-side turn-lifecycle globals — NOT the never-wired
+ * `onSseEvent` Node seam the prior (inert) fix used.
+ *
+ * Timeline modelled relative to the most-recent send (`press`):
+ *   - the DOM assistant-text read (`evaluate`) returns "" until
+ *     `firstTokenDelayMs` has elapsed since the send, then `assistantText`.
+ *   - `readTurnState()` reports the turn COMPLETE at `completeAtDelayMs` after
+ *     the send (DOM run-stop edge + `runsFinished` bump), UNLESS
+ *     `neverComplete` is set (models a stalled/dropped stream that never
+ *     signals completion — the retry surface).
+ *   - `retrySucceeds`: when set with `neverComplete`, the FIRST attempt never
+ *     completes and stays empty; after a resend (`press` fires again) the turn
+ *     completes and `assistantText` renders — modelling a recoverable stall
+ *     that the non-completion retry rescues.
+ *
+ * Setting `textPollTimeoutMs` BELOW `firstTokenDelayMs` reproduces the pre-fix
+ * race deterministically.
+ */
+function makeLateTokenBrowser(opts: {
+  assistantText: string;
+  firstTokenDelayMs: number;
+  /** Delay (ms after send) at which readTurnState reports turn-complete. */
+  completeAtDelayMs?: number;
+  /** Model a stall: the turn NEVER signals completion (retry surface). */
+  neverComplete?: boolean;
+  /** With neverComplete: a resend (2nd attempt) rescues the turn. */
+  retrySucceeds?: boolean;
+  /**
+   * Count of PRIOR finished runs already latched on the page BEFORE the user's
+   * turn starts (auto-greeting / initial-mount run). The page-side globals are
+   * MONOTONIC, so `runsFinished` and `runStartCount` both start at this value
+   * and the current turn only bumps them PAST it. This reproduces the a1
+   * attempt-scoping bug: keying completion off the page-global `runsFinished
+   * >= 1` false-reds the in-flight user turn because a prior run already
+   * satisfied `>= 1`.
+   */
+  priorFinishedRuns?: number;
+  /** Report the interceptor as having failed to attach (finding-3 surface). */
+  sseAttachFailed?: boolean;
+  /**
+   * Model an SSE-ONLY completion: the turn completes via the `runsFinished`
+   * transport counter bumping past baseline, but NO fresh DOM `true→false`
+   * stop-edge fires for THIS turn, so `lastStoppedAtMs` keeps holding a STALE
+   * PRIOR-run page-clock value (never re-stamped for the current turn). This
+   * reproduces the grace-window-collapse bug: the pre-fix poll stamps
+   * `completeAtMs` from that stale past `lastStoppedAtMs`, so `graceEnd` lands
+   * in the past and the grace window collapses to the base floor → a
+   * late-but-present first token false-reds. Requires `priorFinishedRuns >= 1`
+   * so a genuinely-stale prior stamp exists.
+   */
+  sseOnlyStaleStop?: boolean;
+  /**
+   * Age the prior-run stop stamp (`lastStoppedAtMs`) this many ms into the past.
+   * With `sseOnlyStaleStop`, makes the stale stamp genuinely old so a pre-fix
+   * `graceEnd = staleStop + FIRST_TOKEN_GRACE_MS` lands in the past.
+   */
+  priorStoppedAgoMs?: number;
+  /** Callback invoked with the sendCount on each send (retry-count assertions). */
+  onSend?: (sendCount: number) => void;
+}): CvE2eBrowser {
+  let lastSendAtMs = 0;
+  let sendCount = 0;
+  const completeAt = opts.completeAtDelayMs ?? 0;
+  const prior = opts.priorFinishedRuns ?? 0;
+  // Realistic wall-clock ms for the PRIOR run's stop edge. Normally captured at
+  // browser construction (just before the user turn); `priorStoppedAgoMs` ages
+  // it further into the past to model a prior run that finished well before the
+  // current turn — so a pre-fix poll that (wrongly) stamps the grace window from
+  // this STALE value computes a `graceEnd` that has already elapsed, collapsing
+  // the grace window to the base floor.
+  const priorStoppedAtMs = Date.now() - (opts.priorStoppedAgoMs ?? 0);
+  const page: CvE2ePage = {
+    async goto() {
+      return null;
+    },
+    async type() {},
+    async press() {
+      // Each Enter is one turn send; the timeline is relative to the LATEST
+      // send so a resend restarts the first-token / completion clocks.
+      lastSendAtMs = Date.now();
+      sendCount += 1;
+      opts.onSend?.(sendCount);
+    },
+    async waitForSelector() {},
+    async textContent() {
+      return "";
+    },
+    async evaluate<R>(): Promise<R> {
+      // The assistant-text poll and the alternate-content histogram read both
+      // route through evaluate(). A record return is the histogram read
+      // (post-empty-exit) — return {} harmlessly. A string return is the
+      // assistant-text poll.
+      const elapsed = Date.now() - lastSendAtMs;
+      const rescued = opts.retrySucceeds === true && sendCount >= 2;
+      const tokenVisible =
+        opts.assistantText.length > 0 &&
+        elapsed >= opts.firstTokenDelayMs &&
+        // A never-completing (unrescued) turn also never renders its token.
+        (!opts.neverComplete || rescued);
+      if (tokenVisible) {
+        return opts.assistantText as unknown as R;
+      }
+      return "" as unknown as R;
+    },
+    async readTurnState() {
+      // MONOTONIC page-global counters (they only ever grow, exactly like the
+      // real `attachSseInterceptor` globals). `prior` runs already latched
+      // before the user's FIRST turn. Every send starts one run
+      // (`runStartCount = prior + sendCount`). All PRIOR sends' turns are done;
+      // the CURRENT (latest) turn is done once `complete`
+      // (`runsFinished = prior + (sendCount - 1) + (complete ? 1 : 0)`). This is
+      // what lets a shared page survive L3→L4 (two sequential sends) with the
+      // per-attempt baseline correctly scoping completion to each turn.
+      const started = sendCount > 0;
+      const priorSendsDone = Math.max(0, sendCount - 1);
+      const elapsed = Date.now() - lastSendAtMs;
+      const rescued = opts.retrySucceeds === true && sendCount >= 2;
+      // Completion is a property of the CURRENT (in-flight) turn — it can only be
+      // true once a turn has actually been sent (`started`). Before the first
+      // send, `lastSendAtMs === 0` makes `elapsed` (≈ epoch ms) spuriously exceed
+      // `completeAt`, which used to flip `complete` true at the pre-send BASELINE
+      // read the driver takes before `sendTurn()`. That inflated the baseline
+      // `runsFinished` to `prior + 1`, so the current turn's real finished edge
+      // (`prior + priorSendsDone + 1`) never rose PAST the baseline and the
+      // driver's `sseDone = runsFinished > baseline.runsFinished` could never
+      // fire — leaving the SSE-only-stale-grace path (which depends on `sseDone`)
+      // untested. Gating on `started` makes the baseline read a true baseline
+      // (`runsFinished = prior + priorSendsDone`, no current-turn finish) so the
+      // finished edge is a genuine THIS-turn transition the driver observes.
+      const complete =
+        started && (!opts.neverComplete || rescued) && elapsed >= completeAt;
+      // SSE-only completion: the transport `runsFinished` counter bumps but the
+      // DOM run-lifecycle attribute never registers a fresh `true→false` stop
+      // edge for THIS turn, so `runningNow` stays `true` and `lastStoppedAtMs`
+      // is NEVER re-stamped — it keeps holding the STALE prior-run value.
+      const sseOnly = opts.sseOnlyStaleStop === true;
+      const runningNow = started
+        ? sseOnly
+          ? true
+          : !complete
+        : prior > 0
+          ? false
+          : null;
+      return {
+        runsFinished: prior + priorSendsDone + (complete ? 1 : 0),
+        attrPresent: true,
+        sawRunningTrue: prior > 0 || started,
+        runningNow,
+        runStartCount: prior + sendCount,
+        // Current turn complete → stamp NOW; else the most-recent stop is a
+        // prior run's (a real past timestamp) when any prior run has finished.
+        // SSE-only: no fresh DOM stop edge fires, so the stamp STAYS stale.
+        lastStoppedAtMs:
+          complete && !sseOnly
+            ? Date.now()
+            : prior > 0 || priorSendsDone > 0
+              ? priorStoppedAtMs
+              : 0,
+        sseAttachFailed: opts.sseAttachFailed === true,
+      };
+    },
+    async close() {},
+  };
+  const ctx: CvE2eBrowserContext = {
+    async newPage() {
+      return page;
+    },
+    async close() {},
+  };
+  return {
+    async newContext() {
+      return ctx;
+    },
+    async close() {},
+  };
+}
+
+/** Run the driver against a late-token browser and return the L4 result. */
+async function runLateToken(
+  browser: CvE2eBrowser,
+  overrides: { pageTimeoutMs?: number } = {},
+): Promise<{
+  l4State: string;
+  failureSummary: string;
+}> {
+  const writer = new CapturingWriter();
+  const driver = createE2eSmokeDriver({
+    launcher: async () => browser as unknown as E2eBrowser,
+    // Below the 300ms first-token delay in the tests → pre-fix poll exhausts.
+    textPollTimeoutMs: 120,
+    // Bounded ceiling for the signal-based wait — plenty above the delay.
+    pageTimeoutMs: overrides.pageTimeoutMs ?? 4000,
+  });
+  await driver.run(baseCtx({ writer }), {
+    key: "e2e-smoke:foo",
+    backendUrl: "https://x.example.com",
+    demos: ["tool-rendering"],
+  });
+  const l4 = writer.results.find((r) => r.key === "tools:foo");
+  const signal = (l4?.signal ?? {}) as { failureSummary?: string };
+  return {
+    l4State: String(l4?.state ?? "missing"),
+    failureSummary: signal.failureSummary ?? "",
+  };
+}
+
+/**
+ * Run the driver against a late-token browser and return the L3 (chat) result.
+ * L3 uses the `agentic-chat` demo (no `tool-rendering`), so the aggregate green
+ * requires only the chat round-trip. Exercises the SAME first-token poll /
+ * grace / fast-fail / retry path as L4 but on the L3 level (which was
+ * previously test-covered only at L4).
+ */
+async function runLateTokenL3(
+  browser: CvE2eBrowser,
+  overrides: { pageTimeoutMs?: number } = {},
+): Promise<{
+  l3State: string;
+  failureSummary: string;
+}> {
+  const writer = new CapturingWriter();
+  const driver = createE2eSmokeDriver({
+    launcher: async () => browser as unknown as E2eBrowser,
+    textPollTimeoutMs: 120,
+    pageTimeoutMs: overrides.pageTimeoutMs ?? 4000,
+  });
+  await driver.run(baseCtx({ writer }), {
+    key: "e2e-smoke:foo",
+    backendUrl: "https://x.example.com",
+    // No tool-rendering demo → L4 skipped, aggregate green iff L3 green.
+    demos: [],
+  });
+  const l3 = writer.results.find((r) => r.key === "chat:foo");
+  const signal = (l3?.signal ?? {}) as { failureSummary?: string };
+  return {
+    l3State: String(l3?.state ?? "missing"),
+    failureSummary: signal.failureSummary ?? "",
+  };
+}
+
+describe("d4 L4 first-token wait hardening (readTurnState-driven)", () => {
+  it("late-but-present first token (turn completes, token renders after textPollTimeoutMs) PASSES", async () => {
+    // The turn genuinely produces content — readTurnState reports complete —
+    // but the first DOM token renders at 300ms, AFTER the 120ms poll budget.
+    // Pre-fix: RED ("empty assistant response"). Post-fix: GREEN. Exercises the
+    // REAL production signal (readTurnState), not the dead onSseEvent seam.
+    const { l4State, failureSummary } = await runLateToken(
+      makeLateTokenBrowser({
+        assistantText: "The weather in San Francisco is sunny, 72 degrees.",
+        firstTokenDelayMs: 300,
+        completeAtDelayMs: 250,
+      }),
+    );
+    expect(l4State).toBe("green");
+    expect(failureSummary).toBe("");
+  });
+
+  it("genuinely-empty completed turn (completes, no content ever) still FAILS", async () => {
+    // Guard against over-correcting into a false-PASS: a turn that completes
+    // but never renders any assistant content must still be a red "empty
+    // assistant response", even after the grace window. NOT retried (completed
+    // ≠ transient).
+    const { l4State, failureSummary } = await runLateToken(
+      makeLateTokenBrowser({
+        assistantText: "",
+        firstTokenDelayMs: 300,
+        completeAtDelayMs: 50,
+      }),
+    );
+    expect(l4State).toBe("red");
+    expect(failureSummary).toContain("empty assistant response");
+  });
+
+  it("recoverable stall (never completes on attempt 1, rescued on retry) PASSES", async () => {
+    // The real 20:16:52Z failure shape: the first turn stalls — never signals
+    // completion, never renders — so the poll exhausts its attempt ceiling
+    // WITHOUT a completed edge. The non-completion retry resends, and the
+    // second turn renders content → GREEN. Distinguishes "never-completed"
+    // (transient, retry) from "completed-empty" (real red, no retry).
+    const { l4State, failureSummary } = await runLateToken(
+      makeLateTokenBrowser({
+        assistantText: "The weather in San Francisco is sunny, 72 degrees.",
+        firstTokenDelayMs: 100,
+        neverComplete: true,
+        retrySucceeds: true,
+      }),
+    );
+    expect(l4State).toBe("green");
+    expect(failureSummary).toBe("");
+  });
+
+  it("permanent stall (never completes, retry also stalls) FAILS", async () => {
+    // A turn that never completes and never renders even after the retry is a
+    // red — but the retry was attempted (transient hypothesis exhausted). Two
+    // attempts × the per-attempt ceiling → keep pageTimeoutMs small so the
+    // whole envelope stays well under the vitest per-test timeout.
+    const { l4State, failureSummary } = await runLateToken(
+      makeLateTokenBrowser({
+        assistantText: "",
+        firstTokenDelayMs: 100,
+        neverComplete: true,
+      }),
+      { pageTimeoutMs: 1500 },
+    );
+    expect(l4State).toBe("red");
+    expect(failureSummary).toContain("empty assistant response");
+  }, 10000);
+
+  it("a1 REGRESSION: a PRIOR finished run + still-in-flight user turn does NOT false-red", async () => {
+    // The dominant a1 bug: the page already has a PRIOR finished run
+    // (auto-greeting / initial-mount run) so the page-GLOBAL monotonic
+    // `runsFinished` is already >= 1 when the user's turn starts. The pre-fix
+    // poll keyed completion off `runsFinished >= 1`, so it thought THIS turn had
+    // already completed the instant it began, saw the still-empty container, and
+    // FAST-FAILED red — even though the user's turn was healthily in-flight and
+    // renders its token shortly after.
+    //
+    // With attempt-scoped completion (baseline captured at send time; complete
+    // only on a NEW edge past the baseline), the prior run's latched counter no
+    // longer satisfies THIS turn, the poll correctly waits for the real
+    // first-token, and the turn is GREEN.
+    //
+    // The token renders at 2400ms — PAST the ~2000ms grace window the pre-fix
+    // code stamps from its (false) turn-start "completion". Pre-fix: the prior
+    // run makes `runsFinished >= 1` true immediately, completion is stamped at
+    // ~send time, the grace window elapses at ~2000ms with the DOM still empty,
+    // and the poll REDS ("empty assistant response") before the real 2400ms
+    // token. Post-fix: baseline scoping means the prior run does NOT count, the
+    // turn is correctly treated as in-flight, the poll waits to its ceiling, and
+    // the 2400ms token is captured → GREEN. The turn genuinely completes at
+    // 2300ms (just before the token) so no retry-stall.
+    const { l4State, failureSummary } = await runLateToken(
+      makeLateTokenBrowser({
+        assistantText: "The weather in San Francisco is sunny, 72 degrees.",
+        firstTokenDelayMs: 2400,
+        completeAtDelayMs: 2300,
+        priorFinishedRuns: 1,
+      }),
+      { pageTimeoutMs: 8000 },
+    );
+    expect(l4State).toBe("green");
+    expect(failureSummary).toBe("");
+  }, 15000);
+
+  it("SSE-only completion with a STALE lastStoppedAtMs does NOT collapse the grace window (late-but-present token) → GREEN", async () => {
+    // Grace-window-collapse bug: the turn completes via the transport
+    // `runsFinished` counter (SSE-only) but NO fresh DOM stop-edge fires for
+    // THIS turn, so the page-side `lastStoppedAtMs` still holds a STALE prior-run
+    // timestamp (here aged 5s into the past). The pre-fix poll stamped
+    // `completeAtMs` from that stale `lastStoppedAtMs`, so
+    // `graceEnd = staleStop + FIRST_TOKEN_GRACE_MS` landed ~3s in the PAST — the
+    // ~2s grace window collapsed to the base poll floor, and the poll declared
+    // the turn completed-empty BEFORE the real first token (1000ms after send,
+    // 700ms after completion, comfortably inside a healthy grace window) → a
+    // false RED. Post-fix stamps `completeAtMs` from the Node clock at the first
+    // poll that observes completion, so the grace window measures forward from
+    // real completion time and the late-but-present token is captured → GREEN.
+    const { l4State, failureSummary } = await runLateToken(
+      makeLateTokenBrowser({
+        assistantText: "The weather in San Francisco is sunny, 72 degrees.",
+        firstTokenDelayMs: 1000,
+        completeAtDelayMs: 300,
+        priorFinishedRuns: 1,
+        sseOnlyStaleStop: true,
+        priorStoppedAgoMs: 5000,
+      }),
+      { pageTimeoutMs: 8000 },
+    );
+    expect(l4State).toBe("green");
+    expect(failureSummary).toBe("");
+  }, 15000);
+
+  it("a1 REGRESSION (L3): prior finished run + in-flight chat turn does NOT false-red", async () => {
+    // Same a1 regression proven on the L3 (chat) level — the level that runs on
+    // EVERY service (L4 is tool-rendering-only). Prior run latches the global
+    // counter; the in-flight chat turn must still resolve GREEN once its token
+    // renders.
+    const { l3State, failureSummary } = await runLateTokenL3(
+      makeLateTokenBrowser({
+        assistantText: "Hi there! How can I help you today?",
+        firstTokenDelayMs: 2400,
+        completeAtDelayMs: 2300,
+        priorFinishedRuns: 2,
+      }),
+      { pageTimeoutMs: 8000 },
+    );
+    expect(l3State).toBe("green");
+    expect(failureSummary).toBe("");
+  }, 15000);
+
+  it("L3 (chat) late-but-present token: same grace path as L4 → GREEN", async () => {
+    // L3 coverage for the grace/fast-fail path (was L4-tools-only). A chat turn
+    // whose first token renders after the base poll floor still passes via the
+    // completion+grace window.
+    const { l3State, failureSummary } = await runLateTokenL3(
+      makeLateTokenBrowser({
+        assistantText: "A brief and friendly greeting.",
+        firstTokenDelayMs: 300,
+        completeAtDelayMs: 250,
+      }),
+    );
+    expect(l3State).toBe("green");
+    expect(failureSummary).toBe("");
+  });
+
+  it("completed-empty does exactly ONE send — fast-fail RED, retry does NOT fire (L3)", async () => {
+    // A turn that COMPLETES with empty assistant text is a real red and is NOT
+    // transient — the non-completion retry must not fire. L3 runs a SINGLE level
+    // (no tool-rendering demo), so `sendCount` is unconfounded: assert exactly
+    // one send, proving completed-empty short-circuits without a resend.
+    let sends = 0;
+    const { l3State, failureSummary } = await runLateTokenL3(
+      makeLateTokenBrowser({
+        assistantText: "",
+        firstTokenDelayMs: 300,
+        completeAtDelayMs: 50,
+        onSend: (n) => {
+          sends = n;
+        },
+      }),
+    );
+    expect(l3State).toBe("red");
+    expect(failureSummary).toContain("empty assistant response");
+    expect(sends).toBe(1);
+  });
+
+  it("L3 (chat) recoverable stall: rescued by non-completion retry → GREEN", async () => {
+    // L3 coverage for the retry path — attempt 1 stalls (never completes),
+    // resend rescues, second attempt renders content.
+    const { l3State, failureSummary } = await runLateTokenL3(
+      makeLateTokenBrowser({
+        assistantText: "Recovered greeting after a retry.",
+        firstTokenDelayMs: 100,
+        neverComplete: true,
+        retrySucceeds: true,
+      }),
+    );
+    expect(l3State).toBe("green");
+    expect(failureSummary).toBe("");
+  });
+});
+
+describe("wirePlaywrightPage attach-fault telemetry (finding 3)", () => {
+  it("surfaces an interceptor-attach fault via onAttachFault AND readTurnState.sseAttachFailed (not silently swallowed)", async () => {
+    // A failed `attachSseInterceptor` must degrade safely (navigation still
+    // proceeds) BUT leave a distinguishable, observable signal — not the pre-fix
+    // silent fall-back to the inert base-floor path. Assert both surfaces: the
+    // injected `onAttachFault` callback fires with the error, AND
+    // `readTurnState().sseAttachFailed` reads true.
+    const faults: unknown[] = [];
+    let gotoCalled = false;
+    const rawPage = {
+      goto: async () => {
+        gotoCalled = true;
+        return null;
+      },
+      type: async () => {},
+      press: async () => {},
+      waitForSelector: async () => {},
+      textContent: async () => "",
+      // The turn-lifecycle globals were never seeded (attach threw), so the
+      // page-side read returns the zeroed defaults; sseAttachFailed rides on top.
+      evaluate: async () => ({
+        runsFinished: 0,
+        attrPresent: false,
+        sawRunningTrue: false,
+        runningNow: null,
+        runStartCount: 0,
+        lastStoppedAtMs: 0,
+      }),
+      close: async () => {},
+      on: () => {},
+    };
+    const wired = wirePlaywrightPage(
+      rawPage as unknown as Parameters<typeof wirePlaywrightPage>[0],
+      // attachInterceptor throws — the fault path under test.
+      async () => {
+        throw new Error("CDP session unavailable");
+      },
+      (err) => faults.push(err),
+    );
+    // Navigation must still proceed despite the attach fault (degrade safely).
+    await wired.goto("https://x.example.com/demos/agentic-chat", {});
+    expect(gotoCalled).toBe(true);
+    // Fault surfaced through the telemetry callback.
+    expect(faults).toHaveLength(1);
+    expect((faults[0] as Error).message).toContain("CDP session unavailable");
+    // AND observable programmatically via readTurnState.
+    const st = await wired.readTurnState!();
+    expect(st.sseAttachFailed).toBe(true);
+  });
+
+  it("does NOT flag sseAttachFailed when the interceptor attaches cleanly", async () => {
+    const rawPage = {
+      goto: async () => null,
+      type: async () => {},
+      press: async () => {},
+      waitForSelector: async () => {},
+      textContent: async () => "",
+      evaluate: async () => ({
+        runsFinished: 0,
+        attrPresent: false,
+        sawRunningTrue: false,
+        runningNow: null,
+        runStartCount: 0,
+        lastStoppedAtMs: 0,
+      }),
+      close: async () => {},
+      on: () => {},
+    };
+    const wired = wirePlaywrightPage(
+      rawPage as unknown as Parameters<typeof wirePlaywrightPage>[0],
+      async () => ({ stop: async () => ({}) }),
+      () => {
+        throw new Error("onAttachFault must not fire on clean attach");
+      },
+    );
+    await wired.goto("https://x.example.com/demos/agentic-chat", {});
+    const st = await wired.readTurnState!();
+    expect(st.sseAttachFailed).toBe(false);
+  });
+});

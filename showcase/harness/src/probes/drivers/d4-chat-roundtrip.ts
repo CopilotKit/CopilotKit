@@ -10,6 +10,7 @@ import type { BrowserPool } from "../helpers/browser-pool.js";
 import type { ProbeDriver } from "../types.js";
 import type { ProbeContext, ProbeResult } from "../../types/index.js";
 import { mintRunId } from "../helpers/cv-diag.js";
+import { attachSseInterceptor } from "../helpers/sse-interceptor.js";
 import { CvdiagEmitter, filterEdgeHeaders } from "../../cvdiag/index.js";
 import type {
   CvdiagFailureClassifier,
@@ -164,6 +165,58 @@ export interface E2eSmokeLevelSignal {
 }
 
 /**
+ * A snapshot of the page-side AG-UI turn lifecycle, read from the window
+ * globals that `attachSseInterceptor` installs at `document_start` (see
+ * `helpers/sse-interceptor.ts`). This is the SAME production-wired signal the
+ * d6 probe path (`waitForTurnComplete`) trusts — NOT the never-attached
+ * `onSseEvent` Node-side seam the prior fix keyed off (which left the whole
+ * mechanism inert in production).
+ *
+ *   - `runsFinished`   `window.__hk_runsFinished` — count of `RUN_FINISHED`
+ *                      SSE events the page-side fetch-wrap has observed. `>= 1`
+ *                      once the current turn has terminated. This is the
+ *                      transport-level turn-complete signal.
+ *   - `attrPresent`    true once the `[data-testid="copilot-chat"]`
+ *                      `data-copilot-running` attribute has been seen at all —
+ *                      i.e. the DOM run-lifecycle observer has something real to
+ *                      report. The DOM edge (`runningNow` false after a
+ *                      `sawRunningTrue`) is the transport-INDEPENDENT done-signal
+ *                      d6 prefers.
+ *   - `sawRunningTrue` true once `data-copilot-running` was ever `true` — i.e. a
+ *                      run actually started on this page.
+ *   - `runningNow`     current `data-copilot-running` state (null before first
+ *                      observation).
+ *   - `runStartCount`  count of `false→true` DOM edges (RUN_STARTED). A prior
+ *                      turn (auto-greeting / initial mount run) increments this
+ *                      before the user's turn ever starts, so the poll captures
+ *                      a per-attempt BASELINE at send time and treats the turn
+ *                      as complete only on a NEW finished edge for THIS turn
+ *                      (`runsFinished`/`runStartCount` moved past the baseline),
+ *                      never on the page-GLOBAL `>= 1`.
+ *   - `lastStoppedAtMs` page-clock wall-clock ms of the most recent `true→false`
+ *                      DOM edge (RUN_FINISHED). `0` when never stopped. NOTE: the
+ *                      d4 first-token grace window is stamped from the Node-side
+ *                      completion instant, NOT this field — it is a page-clock
+ *                      stamp and can hold a stale prior-run value on an SSE-only
+ *                      completion; feeding it into Node-clock math collapses the
+ *                      grace window. Retained for other TurnState consumers.
+ *   - `sseAttachFailed` true iff `attachSseInterceptor` THREW during `goto`, so
+ *                      the page-side turn-lifecycle globals were never seeded
+ *                      and the poll silently degraded to the base-floor
+ *                      (pre-fix inert / false-red) path. Surfaced so a silent
+ *                      regression to inert is DETECTABLE rather than invisible.
+ */
+export interface TurnState {
+  runsFinished: number;
+  attrPresent: boolean;
+  sawRunningTrue: boolean;
+  runningNow: boolean | null;
+  runStartCount: number;
+  lastStoppedAtMs: number;
+  sseAttachFailed: boolean;
+}
+
+/**
  * Minimal Page surface the driver relies on. Captured here rather than
  * imported from `playwright` so unit tests can hand in a stub without
  * pulling the full runtime type tree (which carries ESM/CJS conditionals
@@ -217,10 +270,29 @@ export interface E2ePage {
   onRequestFailed?(handler: (req: CvdiagRequestFailedEvent) => void): void;
   /** Register a handler invoked for every browser console message. */
   onConsole?(handler: (msg: CvdiagConsoleEvent) => void): void;
-  /** Register a handler invoked for every observed SSE event. */
+  /**
+   * Register a handler invoked for every observed SSE event.
+   *
+   * NOTE: production SSE capture does NOT flow through this Node-side seam —
+   * the real launchers never wire it (Playwright's `page.on` has no per-SSE
+   * signal), so it fires ONLY when a test fake invokes the handler
+   * synthetically. It feeds the `probe.sse.event` CVDIAG telemetry stream and
+   * nothing that gates red/green. The authoritative production turn-complete
+   * signal is `readTurnState()` (the `attachSseInterceptor` page-side globals),
+   * which the first-token poll actually keys off.
+   */
   onSseEvent?(handler: (evt: CvdiagSseEvent) => void): void;
   /** Register a handler invoked when an SSE stream aborts abnormally. */
   onSseAborted?(handler: (evt: CvdiagSseAbortedEvent) => void): void;
+  /**
+   * Read the page-side AG-UI turn lifecycle snapshot (see `TurnState`). The
+   * real launchers back this with a `page.evaluate` of the `__hk_runsFinished`
+   * / `__hk_copilotRunning` window globals that `attachSseInterceptor` installs
+   * at `document_start`. OPTIONAL: a fake page that doesn't model the turn
+   * lifecycle simply omits it, and the driver's first-token poll then falls
+   * back to the base budget floor (no in-flight-turn signal to wait on).
+   */
+  readTurnState?(): Promise<TurnState>;
 }
 
 // The normalized CVDIAG event-source shapes (`CvdiagResponseEvent`,
@@ -402,13 +474,55 @@ const WEATHER_VOCAB = [
 ];
 
 /**
+ * After the turn has COMPLETED (a real turn-complete edge from
+ * `readTurnState()`) but the assistant-message container is still empty, keep
+ * polling the DOM for this long before declaring the turn genuinely empty. The
+ * first token often renders a beat AFTER the transport finish (React commit +
+ * markdown render), so a small grace window converts a "completed but DOM not
+ * yet painted" read into a captured first token, while a truly-empty completed
+ * turn still fails once the grace elapses. Bounded and small so a
+ * genuinely-empty completed turn fails fast.
+ */
+const FIRST_TOKEN_GRACE_MS = 2000;
+
+/**
+ * Fast-fail budget for a turn that COMPLETES with empty assistant text. With a
+ * real turn-complete signal available (`readTurnState()`), we no longer burn
+ * the flat `pageTimeoutMs` (~60s) on a genuinely-empty completed turn: once the
+ * turn reports complete AND the short `FIRST_TOKEN_GRACE_MS` window has elapsed
+ * with still-empty DOM, the poll gives up here. The deadline for a COMPLETED
+ * turn is `Math.min(Math.max(baseBudgetEnd, graceEnd), fastFailEnd,
+ * attemptCeiling)`: completion+grace is raised to at least the base floor, then
+ * this value CLAMPS it from above (as does the per-attempt ceiling). The clamp
+ * can land BEFORE the base floor — the floor is not a hard minimum for a
+ * completed turn — so the overall first-token budget is ~15s (this value)
+ * rather than the flat 60s `pageTimeoutMs`. A genuinely-completed-empty turn
+ * still reds (no masking): completion is observed, grace elapses, DOM is empty
+ * → red.
+ */
+const FIRST_TOKEN_FAST_FAIL_MS = 15_000;
+
+/**
+ * Max number of times the first-token wait retries the turn when it NEVER
+ * signals completion within budget (a stalled / dropped stream — the real
+ * 20:16:52Z failure where aimock served content but the page never rendered
+ * it). A never-completing turn is transient, so we resend once before red
+ * rather than immediate red. A turn that DID complete-empty is NOT transient
+ * and is never retried (it reds immediately per the fast-fail path). Bounded to
+ * 1 so total wall-clock stays within the `pageTimeoutMs` ceiling budgeted for
+ * the retry envelope (see `runLevel`'s per-attempt ceiling arithmetic).
+ */
+const NON_COMPLETION_RETRY_LIMIT = 1;
+
+/**
  * The slice of Playwright's `Page` the launcher adapter consumes. Declared
  * structurally (not imported) so the module stays loadable without the
  * `playwright` type tree at module scope — mirroring the existing `E2ePage`
  * decoupling rationale. The CVDIAG seams (`page.on(...)`) read response /
  * requestfailed / console events; the CDP-backed SSE interceptor
- * (`helpers/sse-interceptor.ts`) is the production source for SSE events and
- * is wired by a higher layer when present.
+ * (`helpers/sse-interceptor.ts`) is attached by `wirePlaywrightPage`'s `goto`
+ * (before navigation) and its page-side turn-lifecycle globals are read via
+ * `readTurnState()` — the production turn-complete signal for the poll.
  */
 interface PlaywrightPageLike {
   goto(url: string, opts?: unknown): Promise<unknown>;
@@ -425,14 +539,45 @@ interface PlaywrightPageLike {
  * Adapt a concrete Playwright `Page` onto our `E2ePage`, wiring the CVDIAG
  * event-source seams to Playwright's `page.on("response" | "requestfailed" |
  * "console")`. Shared by both the default and pooled launchers so the seam
- * wiring lives in exactly one place. The SSE seams (`onSseEvent` /
- * `onSseAborted`) are intentionally NOT wired here: production SSE capture
- * runs through the CDP-backed interceptor (`helpers/sse-interceptor.ts`),
- * which a higher layer attaches; leaving them unwired here means the driver
- * simply emits no `probe.sse.event` rows from the network listener (correct —
- * Playwright's `page.on` has no per-SSE-event signal).
+ * wiring lives in exactly one place.
+ *
+ * SSE turn-complete signal: the per-event `onSseEvent`/`onSseAborted` seams
+ * stay unwired (Playwright's `page.on` has no per-SSE-event signal). What IS
+ * wired — the fix for the prior inert attempt — is `attachSseInterceptor`,
+ * installed on the raw page inside `goto` BEFORE navigation (mirrors
+ * `d6-all-pills.ts`) so its `document_start` init scripts seed the page-side
+ * `__hk_runsFinished` / `__hk_copilotRunning` turn-lifecycle globals on the
+ * REAL production path. `readTurnState()` then reads those globals so the
+ * first-token poll keys off a real turn-complete edge, not a never-firing
+ * Node-side seam.
+ *
+ * `attachInterceptor` is injectable (defaults to the real
+ * `attachSseInterceptor`) so unit tests can adapt a fake Playwright page
+ * without a live chromium / CDP session.
  */
-export function wirePlaywrightPage(page: PlaywrightPageLike): E2ePage {
+export function wirePlaywrightPage(
+  page: PlaywrightPageLike,
+  attachInterceptor: (page: PlaywrightPageLike) => Promise<unknown> = (p) =>
+    attachSseInterceptor(
+      p as unknown as Parameters<typeof attachSseInterceptor>[0],
+    ),
+  // Invoked when `attachInterceptor` THROWS during `goto`. Defaults to a
+  // greppable `console.warn` marker (matching the sse-interceptor's own
+  // low-volume diagnostic style) so a silent regression to the inert
+  // base-floor path leaves an operator-visible breadcrumb. Injectable so unit
+  // tests can assert the fault is surfaced without a live chromium.
+  onAttachFault: (err: unknown) => void = (err) => {
+    // eslint-disable-next-line no-console
+    console.warn(
+      "[d4-chat-roundtrip] attachSseInterceptor failed — first-token poll degrading to base-floor (inert) path",
+      { err: err instanceof Error ? err.message : String(err) },
+    );
+  },
+): E2ePage {
+  // Latched true iff `attachInterceptor` threw during `goto`. Surfaced via
+  // `readTurnState().sseAttachFailed` so a silent regression to the base-floor
+  // (pre-fix inert / false-red) path is DETECTABLE, not invisible.
+  let sseAttachFailed = false;
   // Per-request issue-time tracking so `probe.network.response.duration_ms`
   // reflects the request→response wall-clock, not just the response event.
   //
@@ -448,13 +593,81 @@ export function wirePlaywrightPage(page: PlaywrightPageLike): E2ePage {
   // non-zero rather than colliding to 0.)
   const requestStartsByUrl = new Map<string, number[]>();
   return {
-    goto: (url, opts) => page.goto(url, opts),
+    goto: async (url, opts) => {
+      // Install the SSE interceptor's `document_start` init scripts BEFORE
+      // navigation (mirrors d6-all-pills.ts). This is the LINCHPIN of the fix:
+      // it seeds the page-side `__hk_runsFinished` / `__hk_copilotRunning`
+      // turn-lifecycle globals that `readTurnState()` reads, so the first-token
+      // poll observes a REAL turn-complete edge on the production path. Wrapped
+      // best-effort: an interceptor-attach fault must never break navigation —
+      // the poll then falls back to the base budget floor (`readTurnState`
+      // reports no in-flight turn).
+      try {
+        await attachInterceptor(page);
+      } catch (err) {
+        // Best-effort: an interceptor-attach fault must never break navigation.
+        // But do NOT swallow it silently — the poll then falls back to the
+        // base-floor (pre-fix inert / false-red) path, and without a signal that
+        // regression is invisible. Latch a distinguishable flag (surfaced via
+        // `readTurnState().sseAttachFailed`) AND emit the telemetry marker.
+        sseAttachFailed = true;
+        onAttachFault(err);
+      }
+      return page.goto(url, opts);
+    },
     type: (sel, text, opts) => page.type(sel, text, opts),
     press: (sel, key, opts) => page.press(sel, key, opts),
     waitForSelector: (sel, opts) => page.waitForSelector(sel, opts),
     textContent: (sel) => page.textContent(sel),
     evaluate: <R>(fn: () => R) => page.evaluate(fn),
     close: () => page.close(),
+    async readTurnState(): Promise<TurnState> {
+      // Read the page-side globals `attachSseInterceptor` seeds at
+      // document_start. `__hk_runsFinished` is the transport-level turn-complete
+      // count; `__hk_copilotRunning` is the DOM run-lifecycle observer. Read
+      // both in one `evaluate` so the snapshot is coherent. Any read fault (page
+      // navigating, globals not yet seeded) degrades to a "nothing observed"
+      // snapshot — the poll then treats it as no-in-flight-turn, never a hang.
+      try {
+        const snapshot = await page.evaluate(() => {
+          const g = globalThis as unknown as {
+            __hk_runsFinished?: number;
+            __hk_copilotRunning?: {
+              attrPresent?: boolean;
+              sawRunningTrue?: boolean;
+              runningNow?: boolean | null;
+              runStartCount?: number;
+              lastStoppedAtMs?: number;
+            };
+          };
+          const run = g.__hk_copilotRunning;
+          return {
+            runsFinished:
+              typeof g.__hk_runsFinished === "number" ? g.__hk_runsFinished : 0,
+            attrPresent: run?.attrPresent === true,
+            sawRunningTrue: run?.sawRunningTrue === true,
+            runningNow: run?.runningNow ?? null,
+            runStartCount:
+              typeof run?.runStartCount === "number" ? run.runStartCount : 0,
+            lastStoppedAtMs:
+              typeof run?.lastStoppedAtMs === "number"
+                ? run.lastStoppedAtMs
+                : 0,
+          };
+        });
+        return { ...snapshot, sseAttachFailed };
+      } catch {
+        return {
+          runsFinished: 0,
+          attrPresent: false,
+          sawRunningTrue: false,
+          runningNow: null,
+          runStartCount: 0,
+          lastStoppedAtMs: 0,
+          sseAttachFailed,
+        };
+      }
+    },
     onResponse(handler) {
       page.on("response", (arg) => {
         const resp = arg as {
@@ -540,11 +753,11 @@ export function wirePlaywrightPage(page: PlaywrightPageLike): E2ePage {
       // navigation-cancelled, etc.). Without this, an aborted same-URL request
       // leaks its start in the FIFO queue AND a LATER same-URL response shifts
       // that STALE start, mis-pairing the duration (inflated `duration_ms`).
-      // Co-located with the `request` population listener (NOT in the
-      // `onRequestFailed` block, which the caller may not wire) so eviction is
-      // always active whenever timing is tracked. Drop the OLDEST outstanding
-      // start for the URL — the failed request is, by FIFO ordering, the oldest
-      // un-responded one for that URL.
+      // Co-located with the `onResponse` timing seam (NOT the separate
+      // `onRequestFailed` block, which the caller may not wire) so eviction
+      // rides the same wiring that populates the FIFO queue. Drop the OLDEST
+      // outstanding start for the URL — the failed request is, by FIFO
+      // ordering, the oldest un-responded one for that URL.
       page.on("requestfailed", (arg) => {
         try {
           const req = arg as { url(): string };
@@ -1184,7 +1397,16 @@ export function createE2eSmokeDriver(
           };
         }
         const msg = err instanceof Error ? err.message : String(err);
-        ctx.logger.warn("probe.e2e-smoke.driver-error", { slug, err: msg });
+        // Distinguish an EXTERNAL abort (invoker-provided `ctx.abortSignal`, not
+        // the driver's own hard-timeout which `timedOut` already caught above)
+        // from a genuine driver fault. Label it `"abort"` in the aggregate,
+        // matching the per-level classification (`errorDesc: abortSignal.aborted
+        // ? "abort" : "level-error"`) so a probe-invoker abort doesn't masquerade
+        // as `driver-error` on the dashboard.
+        const externallyAborted =
+          abort.signal.aborted && externalAbort?.aborted === true;
+        const errorDesc = externallyAborted ? "abort" : "driver-error";
+        ctx.logger.warn(`probe.e2e-smoke.${errorDesc}`, { slug, err: msg });
         return {
           key: input.key,
           state: "red",
@@ -1195,7 +1417,7 @@ export function createE2eSmokeDriver(
             l3: "red",
             l4: hasToolRendering ? "red" : "skipped",
             failureSummary: truncateUtf8(msg, 1200),
-            errorDesc: "driver-error",
+            errorDesc,
           },
           observedAt,
         };
@@ -1418,11 +1640,12 @@ async function runLevel(opts: {
       p.onRequestFailed?.((req) => cvdiag.networkError(req));
       p.onConsole?.((c) => cvdiag.consoleError(c));
       p.onSseEvent?.((e) => {
-        // First non-empty SSE event also marks first-token timing when the DOM
-        // first-token has not yet been observed — but DOM first-token is the
-        // authoritative class-(d/e) discriminator, so SSE only feeds the
-        // `probe.sse.event` stream here. firsttoken is emitted from the DOM
-        // poll below.
+        // TELEMETRY-ONLY: feeds the `probe.sse.event` CVDIAG stream. This
+        // Node-side seam fires exclusively when a TEST FAKE invokes it — the
+        // real launchers never wire it (Playwright has no per-SSE-event
+        // signal). It does NOT gate red/green or the first-token wait; the
+        // production turn-complete signal is `page.readTurnState()` (the
+        // `attachSseInterceptor` page-side globals), read inside the poll.
         cvdiag.sseEvent(e, nowMonoMs());
       });
       p.onSseAborted?.((e) => cvdiag.sseAborted(e));
@@ -1453,22 +1676,73 @@ async function runLevel(opts: {
       navStatus,
     );
 
-    // Wait for the chat textarea, type, and submit. Selector mirrors the
-    // reference helper (showcase/tests/e2e/helpers.ts) — CopilotKit
-    // renders a single <textarea> for the chat input.
+    // Wait for the chat textarea to become interactive. Selector mirrors the
+    // reference helper (showcase/tests/e2e/helpers.ts) — CopilotKit renders a
+    // single <textarea> for the chat input. The type+press SEND itself is
+    // issued per-attempt inside `sendTurn` below so the non-completion retry
+    // can resend cleanly.
     await page.waitForSelector("textarea", {
       state: "visible",
       timeout: pageTimeoutMs,
     });
-    await page.type("textarea", message, { timeout: pageTimeoutMs });
-    await page.press("textarea", "Enter", { timeout: pageTimeoutMs });
+    // Issue one agent-message turn: type the message and submit. Extracted so
+    // the non-completion retry (a stalled/dropped stream that never signals
+    // turn-complete) can resend the SAME message without re-running navigation
+    // or the textarea wait. `pg` is the try-scoped non-null page handle.
+    const pg = page;
+    // Hard wall-clock ceiling for the whole first-token envelope (nav + first
+    // send already happened; this bounds the poll + any retry resend). Captured
+    // BEFORE the first send so a stalled resend cannot push level wall-clock
+    // past `pageTimeoutMs`.
+    const pollStart = Date.now();
+    const hardCeiling = pollStart + pageTimeoutMs;
+    // Send one agent-message turn. Action timeouts are CAPPED by the remaining
+    // budget to `hardCeiling` (never a flat `pageTimeoutMs` per call): the retry
+    // resend runs LATE in the envelope, so passing `pageTimeoutMs` unbounded let
+    // a stalled type/press push total level wall-clock to ~2× `pageTimeoutMs`
+    // past the hard ceiling. `Math.max(0, …)` keeps the timeout non-negative;
+    // Playwright treats 0 as "no timeout", so we floor at 1ms once the budget is
+    // spent to fail fast rather than block indefinitely.
+    const sendTurn = async (): Promise<void> => {
+      const budget = () => Math.max(1, hardCeiling - Date.now());
+      await pg.type("textarea", message, { timeout: budget() });
+      await pg.press("textarea", "Enter", { timeout: budget() });
+    };
+    // Per-attempt turn-lifecycle BASELINE. Snapshot the page-GLOBAL, monotonic
+    // edge counters (`runsFinished`, `runStartCount`) BEFORE a turn is sent so
+    // completion is scoped to THIS turn, not the whole page. A PRIOR run on the
+    // page (auto-greeting / initial run fired on mount) leaves `runsFinished >=
+    // 1` and `runStartCount >= 1` already latched when the user's turn starts;
+    // keying "complete" off the page-global `>= 1` (the prior bug) made the poll
+    // think THIS turn had finished the moment it began, see the still-empty
+    // container, and spuriously FAST-FAIL RED. Baselining converts the gate to a
+    // NEW-edge test (`> baseline`) so only a finish that happened AFTER the send
+    // counts. Read via `readTurnState()` (undefined seam → all-zero baseline,
+    // harmless: `> 0` still works for the first ever run). A fresh baseline is
+    // taken per attempt (each retry resends), so a stale prior edge can never
+    // satisfy a retried attempt.
+    const readBaseline = async (): Promise<{
+      runsFinished: number;
+      runStartCount: number;
+    }> => {
+      if (page?.readTurnState === undefined) {
+        return { runsFinished: 0, runStartCount: 0 };
+      }
+      const st = await page.readTurnState();
+      return { runsFinished: st.runsFinished, runStartCount: st.runStartCount };
+    };
+    // Baseline snapshot for attempt 0, taken BEFORE the send so the agent
+    // provably cannot have fired RUN_STARTED / RUN_FINISHED for THIS turn yet —
+    // the completion gate then tests strictly-new edges past this baseline.
+    let attemptBaseline = await readBaseline();
+    await sendTurn();
 
     // probe.message.send is NOT emitted here: at press time the agent-message
     // POST has only just been ISSUED — its response (and thus its edge headers)
     // has not arrived yet, so emitting now would always record empty
     // `edge_headers`. The emit is driven from the `onResponse` seam above the
     // moment the message-POST response lands (real edge headers), with a
-    // fallback `emitMessageSend()` after the response-wait below so a run where
+    // fallback `emitMessageSend()` in the `finally` block so a run where
     // no message-POST response is ever observed still records the boundary
     // (null edge headers). `char_count` (a USER-FACING Unicode code-point
     // count, computed once as `messageCharCount`) is timing-independent.
@@ -1520,35 +1794,239 @@ async function runLevel(opts: {
       // returns immediately with whatever the DOM currently holds, and
       // uses `querySelectorAll` to find the last matching element by
       // index rather than by CSS pseudo-selector.
-      let raw = "";
-      const pollEnd = Date.now() + textPollTimeoutMs;
-      while (Date.now() < pollEnd) {
-        // The callback executes in the browser where `document` exists.
-        // TypeScript's Node-only `lib` doesn't include DOM types, so we
-        // access `document` via `globalThis` to avoid a compile error
-        // without polluting the project-wide tsconfig with `"dom"`.
-        raw =
-          (await page.evaluate(() => {
-            // `document` lives in the browser context where this callback
-            // runs. The server-side tsconfig intentionally excludes DOM
-            // types, so we reach it via a type-erased indirection.
-            const win = globalThis as unknown as {
-              document: {
-                querySelectorAll(
-                  sel: string,
-                ): ArrayLike<{ textContent: string | null }>;
-              };
+
+      // Read the current assistant-message text from the DOM (last matching
+      // container). Returns "" when the container is empty or absent.
+      const readAssistantText = async (): Promise<string> =>
+        (await pg.evaluate(() => {
+          // `document` lives in the browser context where this callback runs.
+          // The server-side tsconfig intentionally excludes DOM types, so we
+          // reach it via a type-erased indirection.
+          const win = globalThis as unknown as {
+            document: {
+              querySelectorAll(
+                sel: string,
+              ): ArrayLike<{ textContent: string | null }>;
             };
-            const msgs = win.document.querySelectorAll(
-              '[data-testid="copilot-assistant-message"]',
+          };
+          const msgs = win.document.querySelectorAll(
+            '[data-testid="copilot-assistant-message"]',
+          );
+          if (msgs.length === 0) return "";
+          return msgs[msgs.length - 1]!.textContent ?? "";
+        })) ?? "";
+
+      // Is THIS turn COMPLETE (relative to the per-attempt `baseline`)? Keys off
+      // the REAL production signal — `page.readTurnState()`, backed by the
+      // `attachSseInterceptor` page-side globals — NOT the never-wired Node-side
+      // `onSseEvent` seam the prior (inert) fix used. Attempt-scoped:
+      //   - `sseDone`  the transport-level `RUN_FINISHED` counter advanced PAST
+      //                the baseline (`runsFinished > baseline.runsFinished`) — a
+      //                NEW finished edge for THIS turn, not the page-global
+      //                `>= 1` that a prior run already satisfied.
+      //   - `domDone`  the DOM run-lifecycle observer saw a run start and then
+      //                stop (`sawRunningTrue && runningNow === false`, the
+      //                transport-INDEPENDENT edge d6 prefers) AND that start was
+      //                new for THIS turn (`runStartCount > baseline`), so a page
+      //                that was already at rest (a prior turn left runningNow
+      //                false) can't be mistaken for THIS turn completing.
+      // The grace window is stamped from the NODE-side instant the poll FIRST
+      // observes completion (see `runAttempt`), NOT from the page-side
+      // `lastStoppedAtMs`: that field is stamped on the BROWSER-PAGE clock and
+      // on an SSE-only completion (no fresh DOM stop-edge for THIS turn) still
+      // holds a STALE prior-run value — feeding either into the Node-clock
+      // deadline math mis-sizes (or collapses) the grace window. Absent a
+      // `readTurnState` seam (fakes that don't model the turn lifecycle) this
+      // reports "not observed", and the poll falls back to the base budget floor
+      // — no hang.
+      const readTurnComplete = async (baseline: {
+        runsFinished: number;
+        runStartCount: number;
+      }): Promise<{
+        observed: boolean;
+        complete: boolean;
+      }> => {
+        if (page?.readTurnState === undefined) {
+          return { observed: false, complete: false };
+        }
+        const st = await page.readTurnState();
+        const newRunStarted = st.runStartCount > baseline.runStartCount;
+        const domDone =
+          st.attrPresent &&
+          st.sawRunningTrue &&
+          st.runningNow === false &&
+          newRunStarted;
+        const sseDone = st.runsFinished > baseline.runsFinished;
+        // "Observed for THIS turn": a NEW run started (DOM edge) or a NEW
+        // finished edge landed. A stale prior-run attribute alone does not count
+        // as observing THIS turn in-flight (else a page at rest from a prior run
+        // would be treated as an in-flight turn and burn the full ceiling).
+        const observed = newRunStarted || sseDone;
+        return {
+          observed,
+          complete: domDone || sseDone,
+        };
+      };
+
+      // First-token wait with fast-fail + non-completion retry. One attempt
+      // returns as soon as one of these holds:
+      //
+      //   (a) non-empty assistant text appears → the real success, return it, or
+      //   (b) the turn COMPLETES (real turn-complete edge from `readTurnState`)
+      //       AND a short `FIRST_TOKEN_GRACE_MS` window past completion has
+      //       elapsed with still-empty DOM → a genuinely-empty COMPLETED turn.
+      //       This FAST-FAILS (bounded by `FIRST_TOKEN_FAST_FAIL_MS`, ~15s)
+      //       instead of burning the flat `pageTimeoutMs`. It is a real red (no
+      //       masking) — the turn finished with no content — and is NOT retried.
+      //   (c) an OBSERVED-but-in-flight turn hits the per-attempt ceiling
+      //       without ever completing (stalled / dropped stream — the real
+      //       20:16:52Z failure where aimock served content but the page never
+      //       rendered it). This is TRANSIENT → the outer loop RETRIES once.
+      //   (d) NOTHING was ever observed (no `readTurnState` seam, or the page
+      //       never seeded any turn lifecycle) and the base budget floor
+      //       elapsed → a dead/never-streaming run. Stop at the base floor
+      //       (pre-fix behavior — no long wait, no retry, no hang).
+      //
+      // `textPollTimeoutMs` stays the MINIMUM budget floor (we always poll at
+      // least that long, unless the per-attempt `attemptCeiling` — itself
+      // bounded by `pageTimeoutMs` — is tighter, in which case the ceiling
+      // wins). We no longer DECLARE emptiness at that floor while a turn is
+      // still in-flight or just completed — distinguishing "still streaming" /
+      // "completed empty" / "never completed" / "no turn". `baseline` scopes the
+      // completion test to THIS turn (see `readTurnComplete`).
+      const runAttempt = async (
+        attemptCeiling: number,
+        baseline: { runsFinished: number; runStartCount: number },
+      ): Promise<{ text: string; completed: boolean; observed: boolean }> => {
+        const attemptStart = Date.now();
+        const baseBudgetEnd = attemptStart + textPollTimeoutMs;
+        let completeAtMs: number | undefined;
+        let everObserved = false;
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          // Abort inside the loop (not just at level entry) so an aborted level
+          // tears down promptly rather than polling out the whole budget.
+          if (abortSignal.aborted) {
+            return {
+              text: "",
+              completed: completeAtMs !== undefined,
+              observed: everObserved,
+            };
+          }
+          const raw = await readAssistantText();
+          if (raw.trim().length > 0) {
+            return {
+              text: raw.trim(),
+              completed: completeAtMs !== undefined,
+              observed: everObserved,
+            };
+          }
+          const { observed, complete } = await readTurnComplete(baseline);
+          if (observed) everObserved = true;
+          if (complete && completeAtMs === undefined) {
+            // Stamp completion from the NODE clock at the first poll iteration
+            // that observes THIS turn complete. The grace-window deadline math
+            // below runs on the Node clock, so the completion instant must too:
+            // the page-side `lastStoppedAtMs` is a BROWSER-PAGE-clock stamp (page
+            // ↔ Node skew mis-sizes the window) and on an SSE-only completion it
+            // still holds a STALE prior-run value (which would push `graceEnd`
+            // into the past and collapse the grace to the base floor). Stamping
+            // Node-side here keeps both clocks consistent and the window intact;
+            // it can lag the true finished edge by at most one 500ms poll
+            // interval, well inside `FIRST_TOKEN_GRACE_MS`.
+            completeAtMs = Date.now();
+          }
+          const now2 = Date.now();
+          // Deadline for THIS poll iteration:
+          //   - completed-but-empty → completion+grace raised to at least the
+          //     base floor (`Math.max(baseBudgetEnd, graceEnd)`), then CLAMPED by
+          //     `Math.min(fastFailEnd, attemptCeiling)`. The clamp intentionally
+          //     wins: a completed-empty turn fast-fails at `fastFailEnd`
+          //     (`attemptStart + FIRST_TOKEN_FAST_FAIL_MS`) or the per-attempt
+          //     ceiling even when that lands BEFORE the base floor — the floor is
+          //     NOT a hard minimum here (a genuinely-completed-empty turn must
+          //     red fast, not burn the full base budget).
+          //   - observed in-flight (not yet complete) → poll to the per-attempt
+          //     ceiling (the slow-first-token race being fixed).
+          //   - never observed → stop at the base floor (dead/no-turn run).
+          let deadline: number;
+          if (completeAtMs !== undefined) {
+            const graceEnd = completeAtMs + FIRST_TOKEN_GRACE_MS;
+            const fastFailEnd = attemptStart + FIRST_TOKEN_FAST_FAIL_MS;
+            deadline = Math.min(
+              Math.max(baseBudgetEnd, graceEnd),
+              fastFailEnd,
+              attemptCeiling,
             );
-            if (msgs.length === 0) return "";
-            return msgs[msgs.length - 1]!.textContent ?? "";
-          })) ?? "";
-        if (raw.trim().length > 0) break;
-        await new Promise((r) => setTimeout(r, 500));
+          } else if (everObserved) {
+            deadline = attemptCeiling;
+          } else {
+            // No turn observed → base budget floor, but NEVER past the
+            // per-attempt ceiling (which is itself bounded by `pageTimeoutMs`).
+            // When `textPollTimeoutMs` defaults to `pageTimeoutMs`, the base
+            // floor would otherwise exceed the retry-split ceiling; cap it so a
+            // no-SSE run can't blow past the hard budget.
+            deadline = Math.min(baseBudgetEnd, attemptCeiling);
+          }
+          if (now2 >= deadline) {
+            return {
+              text: "",
+              completed: completeAtMs !== undefined,
+              observed: everObserved,
+            };
+          }
+          await new Promise((r) => setTimeout(r, 500));
+        }
+      };
+
+      // Retry envelope. The POLL-PHASE wall-clock (all poll attempts + the
+      // retry resend, i.e. everything from `hardCeiling`'s stamp onward) is
+      // bounded by `pageTimeoutMs`: `hardCeiling` was stamped just before the
+      // first send, each attempt gets an equal slice of the REMAINING budget, so
+      // `1 + NON_COMPLETION_RETRY_LIMIT` attempts fit within it, and the resend's
+      // own type/press action timeouts are capped to `hardCeiling` (see
+      // `sendTurn`). NOTE: navigation and the FIRST send happen BEFORE
+      // `hardCeiling` is stamped and each carry their own `pageTimeoutMs`
+      // budget — so end-to-end level wall-clock (`goto` + first send + poll) can
+      // exceed a single `pageTimeoutMs`; the driver-level `timeoutMs` hard cap is
+      // the true overall bound. Retry fires ONLY when a turn was OBSERVED
+      // in-flight but never completed (transient stall). A completed-empty turn
+      // (real red) and a never-observed turn (dead run) both short-circuit
+      // without retry.
+      const maxAttempts = 1 + NON_COMPLETION_RETRY_LIMIT;
+      let attemptText = "";
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        if (abortSignal.aborted) break;
+        if (attempt > 0) {
+          // Non-completion retry: the prior attempt's turn was observed
+          // in-flight but never signalled completion (stalled/dropped stream).
+          // Re-baseline BEFORE the resend (SAME ordering rationale as attempt 0)
+          // so the retried attempt's completion gate tests strictly-new edges
+          // past the STALL's already-latched counters — a stale prior edge can
+          // never satisfy the retry.
+          attemptBaseline = await readBaseline();
+          await sendTurn();
+        }
+        // Split the REMAINING budget evenly across the remaining attempts so the
+        // retry can never push total wall-clock past `pageTimeoutMs`.
+        const remainingAttempts = maxAttempts - attempt;
+        const remainingBudget = Math.max(0, hardCeiling - Date.now());
+        const attemptCeiling =
+          Date.now() + Math.floor(remainingBudget / remainingAttempts);
+        const { text, completed, observed } = await runAttempt(
+          attemptCeiling,
+          attemptBaseline,
+        );
+        if (text.length > 0) {
+          attemptText = text;
+          break;
+        }
+        // Retry ONLY a turn that was OBSERVED in-flight but never completed
+        // (transient stall). Completed-empty (real red) and never-observed
+        // (dead / no-turn run — nothing to retry) both stop here.
+        if (completed || !observed) break;
       }
-      responseText = raw.trim();
+      responseText = attemptText;
       if (responseText.length > 0) {
         // Real content read from the assistant-message container → a genuine
         // assistant turn (the gate's required provenance).
@@ -1558,8 +2036,19 @@ async function runLevel(opts: {
         cvdiag?.firstToken(nowMonoMs(), responseText.length);
       }
     } catch {
-      // Fallback: pull <body> text and slice off everything up to and
-      // including our sent message. Mirrors helpers.ts's fallback.
+      // Fallback: the assistant-message container never mounted (some showcases
+      // don't set the testid), so salvage substantive text from <body> after
+      // our sent message. Mirrors helpers.ts's fallback.
+      //
+      // CRITICAL PROVENANCE: `fromAssistantContainer` stays FALSE for fallback
+      // text — the tightened L3/L4 gate (see `assertResponse`) requires
+      // container provenance, so a dead agent whose static page text leaks
+      // through this scrape does NOT false-PASS. And because `cvdiagResponseEmpty`
+      // is left TRUE here (only a genuine container read clears it above), a
+      // fallback-salvaged run that the gate reds cannot emit `terminal_outcome=ok`
+      // — the exit gate keys `ok` off a genuine assistant turn, not off any
+      // non-empty text (prior bug: fallback text flipped `cvdiagResponseEmpty`
+      // and so mislabeled a red as `ok`).
       const body = (await page.textContent("body")) ?? "";
       const idx = body.lastIndexOf(message);
       if (idx >= 0) {
@@ -1571,23 +2060,27 @@ async function runLevel(opts: {
           .replace(/Powered by CopilotKit/g, "")
           .replace(/Type a message\.\.\./g, "")
           .trim();
-        if (tail.length > 20) {
-          responseText = tail.split("\n")[0]!.trim();
+        // No `tail.length > 20` floor and no `split("\n")[0]` first-line
+        // truncation: the old gate false-red'd a short valid answer (e.g. a
+        // one-word reply under 20 chars) and clipped a genuine MULTILINE answer
+        // to its first line (dropping content the vocab assertion needs). Take
+        // the whole salvaged tail (already whitespace-collapsed by `.trim()`);
+        // `assertResponse` decides green/red on the content.
+        if (tail.length > 0) {
+          responseText = tail;
         }
       }
       if (responseText.length > 0) {
-        cvdiagResponseEmpty = false;
+        // firstToken is telemetry only — record that SOME text was seen. We do
+        // NOT clear `cvdiagResponseEmpty` (fallback text is not a genuine
+        // container turn) so the exit gate cannot mislabel a red as `ok`.
         cvdiag?.firstToken(nowMonoMs(), responseText.length);
       }
     }
 
-    // Fallback `probe.message.send`: the `onResponse` seam emits this the
-    // moment the message-POST response lands (real edge headers). If no
-    // message-POST response was ever observed (e.g. the page never issued one,
-    // or it errored before responding), emit here so the boundary is still
-    // recorded — idempotent via `emitMessageSend`, so a normal run that already
-    // emitted from the seam is unaffected.
-    emitMessageSend();
+    // Fallback `probe.message.send` runs in the `finally` (not here) so the
+    // boundary is recorded even on a nav/send throw path that skips this clean
+    // exit — see the `finally` block. Idempotent via `emitMessageSend`.
 
     // probe.dom.alternate_content — on a clean exit whose assistant text is
     // still empty (the d4 flap surface, class (d)): snapshot the child-element
@@ -1725,6 +2218,15 @@ async function runLevel(opts: {
       edgeHeaders: messageSendEdge,
     };
   } finally {
+    // Fallback `probe.message.send`: the `onResponse` seam emits this the
+    // moment the message-POST response lands (real edge headers). If no
+    // message-POST response was ever observed — including nav/send THROW paths
+    // that skip the clean exit entirely — emit here so the boundary is still
+    // recorded (null edge headers). Idempotent via `emitMessageSend`, so a
+    // normal run that already emitted from the seam is unaffected. In the
+    // `finally` (not the try body) so a throw before the old inline call site
+    // can no longer drop the boundary.
+    emitMessageSend();
     // Defense in depth: if neither the ok nor the error path emitted exit (an
     // unexpected control-flow gap), emit it here so `probe.exit` fires exactly
     // once on every path.
