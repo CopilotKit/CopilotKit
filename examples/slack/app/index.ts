@@ -5,7 +5,7 @@
  * that runs on the chat-platform side of the bot for this deployment.
  *
  * MULTI-PLATFORM: this single app drives Slack, Discord, Telegram, and/or
- * WhatsApp from one process. `@copilotkit/bot`'s `createBot` accepts an array
+ * WhatsApp from one process. `@copilotkit/channels`'s `createBot` accepts an array
  * of adapters and starts them all, so we include each platform's adapter only
  * when its secrets are present. Drop in `SLACK_*` to run Slack, `DISCORD_*` for
  * Discord, `TELEGRAM_BOT_TOKEN` for Telegram, `WHATSAPP_*` for WhatsApp — or any
@@ -17,29 +17,29 @@
  * here in the file you copy from to start a new bot.
  */
 import "dotenv/config";
-import { createBot } from "@copilotkit/bot";
-import type { PlatformAdapter, BotTool, ContextEntry } from "@copilotkit/bot";
+import { createBot } from "@copilotkit/channels";
+import type { PlatformAdapter, BotTool, ContextEntry } from "@copilotkit/channels";
 import {
   slack,
   defaultSlackTools,
   defaultSlackContext,
   SanitizingHttpAgent,
-} from "@copilotkit/bot-slack";
+} from "@copilotkit/channels-slack";
 import {
   discord,
   defaultDiscordTools,
   defaultDiscordContext,
-} from "@copilotkit/bot-discord";
+} from "@copilotkit/channels-discord";
 import {
   telegram,
   defaultTelegramTools,
   defaultTelegramContext,
-} from "@copilotkit/bot-telegram";
+} from "@copilotkit/channels-telegram";
 import {
   whatsapp,
   defaultWhatsAppTools,
   defaultWhatsAppContext,
-} from "@copilotkit/bot-whatsapp";
+} from "@copilotkit/channels-whatsapp";
 import { appTools } from "./tools/index.js";
 import { appContext } from "./context/app-context.js";
 import { appCommands } from "./commands/index.js";

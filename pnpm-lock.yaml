@@ -408,24 +408,24 @@ importers:
 
   examples/slack:
     dependencies:
-      '@copilotkit/bot':
+      '@copilotkit/channels':
         specifier: workspace:*
-        version: link:../../packages/bot
-      '@copilotkit/bot-discord':
+        version: link:../../packages/channels
+      '@copilotkit/channels-discord':
         specifier: workspace:*
-        version: link:../../packages/bot-discord
-      '@copilotkit/bot-slack':
+        version: link:../../packages/channels-discord
+      '@copilotkit/channels-slack':
         specifier: workspace:*
-        version: link:../../packages/bot-slack
-      '@copilotkit/bot-telegram':
+        version: link:../../packages/channels-slack
+      '@copilotkit/channels-telegram':
         specifier: workspace:*
-        version: link:../../packages/bot-telegram
-      '@copilotkit/bot-ui':
+        version: link:../../packages/channels-telegram
+      '@copilotkit/channels-ui':
         specifier: workspace:*
-        version: link:../../packages/bot-ui
-      '@copilotkit/bot-whatsapp':
+        version: link:../../packages/channels-ui
+      '@copilotkit/channels-whatsapp':
         specifier: workspace:*
-        version: link:../../packages/bot-whatsapp
+        version: link:../../packages/channels-whatsapp
       '@copilotkit/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
@@ -472,15 +472,15 @@ importers:
 
   examples/teams:
     dependencies:
-      '@copilotkit/bot':
+      '@copilotkit/channels':
         specifier: workspace:*
-        version: link:../../packages/bot
-      '@copilotkit/bot-teams':
+        version: link:../../packages/channels
+      '@copilotkit/channels-teams':
         specifier: workspace:*
-        version: link:../../packages/bot-teams
-      '@copilotkit/bot-ui':
+        version: link:../../packages/channels-teams
+      '@copilotkit/channels-ui':
         specifier: workspace:*
-        version: link:../../packages/bot-ui
+        version: link:../../packages/channels-ui
       '@copilotkit/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
@@ -2355,7 +2355,7 @@ importers:
         specifier: '>=3.22.3'
         version: 3.25.76
 
-  packages/bot:
+  packages/channels:
     dependencies:
       '@ag-ui/client':
         specifier: 0.0.57
@@ -2363,9 +2363,9 @@ importers:
       '@ag-ui/core':
         specifier: 0.0.57
         version: 0.0.57
-      '@copilotkit/bot-ui':
+      '@copilotkit/channels-ui':
         specifier: workspace:~
-        version: link:../bot-ui
+        version: link:../channels-ui
       '@copilotkit/core':
         specifier: workspace:^
         version: link:../core
@@ -2392,17 +2392,17 @@ importers:
         specifier: '>=3.22.3'
         version: 3.25.76
 
-  packages/bot-discord:
+  packages/channels-discord:
     dependencies:
       '@ag-ui/client':
         specifier: 0.0.57
         version: 0.0.57
-      '@copilotkit/bot':
+      '@copilotkit/channels':
         specifier: workspace:*
-        version: link:../bot
-      '@copilotkit/bot-ui':
+        version: link:../channels
+      '@copilotkit/channels-ui':
         specifier: workspace:*
-        version: link:../bot-ui
+        version: link:../channels-ui
       discord.js:
         specifier: ^14.16.0
         version: 14.26.4
@@ -2423,17 +2423,17 @@ importers:
         specifier: ^4.1.3
         version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@22.19.11)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.0(@noble/hashes@1.8.0))(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.3)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0))
 
-  packages/bot-intelligence:
+  packages/channels-intelligence:
     dependencies:
       '@ag-ui/client':
         specifier: 0.0.57
         version: 0.0.57
-      '@copilotkit/bot':
+      '@copilotkit/channels':
         specifier: workspace:~
-        version: link:../bot
-      '@copilotkit/bot-ui':
+        version: link:../channels
+      '@copilotkit/channels-ui':
         specifier: workspace:~
-        version: link:../bot-ui
+        version: link:../channels-ui
       phoenix:
         specifier: ^1.8.4
         version: 1.8.4
@@ -2454,7 +2454,7 @@ importers:
         specifier: ^4.1.3
         version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@22.19.11)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.0(@noble/hashes@1.8.0))(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.3)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0))
 
-  packages/bot-slack:
+  packages/channels-slack:
     dependencies:
       '@ag-ui/client':
         specifier: 0.0.57
@@ -2462,12 +2462,12 @@ importers:
       '@ag-ui/core':
         specifier: 0.0.57
         version: 0.0.57
-      '@copilotkit/bot':
+      '@copilotkit/channels':
         specifier: workspace:~
-        version: link:../bot
-      '@copilotkit/bot-ui':
+        version: link:../channels
+      '@copilotkit/channels-ui':
         specifier: workspace:~
-        version: link:../bot-ui
+        version: link:../channels-ui
       '@copilotkit/core':
         specifier: workspace:^
         version: link:../core
@@ -2506,7 +2506,7 @@ importers:
         specifier: ^4.1.3
         version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@22.19.11)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.0(@noble/hashes@1.8.0))(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.3)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0))
 
-  packages/bot-teams:
+  packages/channels-teams:
     dependencies:
       '@ag-ui/client':
         specifier: 0.0.57
@@ -2514,12 +2514,12 @@ importers:
       '@ag-ui/core':
         specifier: 0.0.57
         version: 0.0.57
-      '@copilotkit/bot':
+      '@copilotkit/channels':
         specifier: workspace:~
-        version: link:../bot
-      '@copilotkit/bot-ui':
+        version: link:../channels
+      '@copilotkit/channels-ui':
         specifier: workspace:~
-        version: link:../bot-ui
+        version: link:../channels-ui
       '@copilotkit/core':
         specifier: workspace:^
         version: link:../core
@@ -2561,17 +2561,17 @@ importers:
         specifier: ^4.1.3
         version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@22.19.11)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.0(@noble/hashes@1.8.0))(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.3)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0))
 
-  packages/bot-telegram:
+  packages/channels-telegram:
     dependencies:
       '@ag-ui/client':
         specifier: 0.0.57
         version: 0.0.57
-      '@copilotkit/bot':
+      '@copilotkit/channels':
         specifier: workspace:~
-        version: link:../bot
-      '@copilotkit/bot-ui':
+        version: link:../channels
+      '@copilotkit/channels-ui':
         specifier: workspace:~
-        version: link:../bot-ui
+        version: link:../channels-ui
       grammy:
         specifier: ^1.30.0
         version: 1.44.0(encoding@0.1.13)
@@ -2592,7 +2592,7 @@ importers:
         specifier: ^4.1.3
         version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@22.19.11)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.0(@noble/hashes@1.8.0))(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.3)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0))
 
-  packages/bot-ui:
+  packages/channels-ui:
     dependencies:
       '@copilotkit/shared':
         specifier: workspace:^
@@ -2611,17 +2611,17 @@ importers:
         specifier: ^4.1.3
         version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@22.19.11)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.0(@noble/hashes@1.8.0))(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.3)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0))
 
-  packages/bot-whatsapp:
+  packages/channels-whatsapp:
     dependencies:
       '@ag-ui/client':
         specifier: 0.0.57
         version: 0.0.57
-      '@copilotkit/bot':
+      '@copilotkit/channels':
         specifier: workspace:~
-        version: link:../bot
-      '@copilotkit/bot-ui':
+        version: link:../channels
+      '@copilotkit/channels-ui':
         specifier: workspace:~
-        version: link:../bot-ui
+        version: link:../channels-ui
     devDependencies:
       '@copilotkit/typescript-config':
         specifier: workspace:^
@@ -3190,9 +3190,9 @@ importers:
       '@anthropic-ai/sdk':
         specifier: ^0.57.0
         version: 0.57.0
-      '@copilotkit/bot':
+      '@copilotkit/channels':
         specifier: workspace:*
-        version: link:../bot
+        version: link:../channels
       '@copilotkit/license-verifier':
         specifier: ~0.5.0
         version: 0.5.0
@@ -24949,7 +24949,7 @@ packages:
       '@vitest/ui': 4.1.5
       happy-dom: '*'
       jsdom: '*'
-      vite: '>=6.4.2'
+      vite: 7.3.2
     peerDependenciesMeta:
       '@edge-runtime/vm':
         optional: true

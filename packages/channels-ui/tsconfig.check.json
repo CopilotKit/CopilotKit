@@ -1,0 +1,13 @@
+{
+  "extends": "@copilotkit/typescript-config/base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "lib": ["es2022"],
+    "types": ["node"],
+    "jsx": "react-jsx",
+    "jsxImportSource": "@copilotkit/channels-ui",
+    "paths": { "@copilotkit/channels-ui/jsx-runtime": ["./src/jsx-runtime.ts"] }
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": ["dist", "node_modules"]
+}

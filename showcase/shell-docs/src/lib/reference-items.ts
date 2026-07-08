@@ -33,7 +33,7 @@ export const REFERENCE_VERSIONS = [
   "vue",
   "angular",
   "core",
-  "bot",
+  "channels",
 ] as const;
 export type ReferenceVersion = (typeof REFERENCE_VERSIONS)[number];
 
@@ -75,7 +75,7 @@ const VERSION_SUBDIRS: Record<ReferenceVersion, ReferenceSubdir[]> = {
   vue: ["components", "hooks"],
   angular: ["components", "functions", "services", "directives"],
   core: ["classes", "types", "enums"],
-  bot: ["components", "functions", "classes", "types", "slack", "discord"],
+  channels: ["components", "functions", "classes", "types", "slack", "discord"],
 };
 
 const CATEGORY_BY_SUBDIR: Record<ReferenceSubdir, ReferenceCategory> = {
@@ -313,17 +313,17 @@ function packageSeparator(
 }
 
 /**
- * The Bots tab groups the sidebar by package, not by category: a
- * `@copilotkit/bot` section with collapsed kind-folders (Components /
- * Functions / Classes / Types), then a flat `@copilotkit/bot-slack`
+ * The Channels tab groups the sidebar by package, not by category: a
+ * `@copilotkit/channels` section with collapsed kind-folders (Components /
+ * Functions / Classes / Types), then a flat `@copilotkit/channels-slack`
  * section listing the adapter's own exports (the `slack/` subdir).
  */
-function buildBotPageTree(): PageTree.Root {
+function buildChannelsPageTree(): PageTree.Root {
   const kindFolder = (
     name: string,
     subdir: ReferenceSubdir,
   ): PageTree.Folder[] => {
-    const items = loadReferenceItems("bot", subdir);
+    const items = loadReferenceItems("channels", subdir);
     if (items.length === 0) return [];
     return [
       {
@@ -345,7 +345,7 @@ function buildBotPageTree(): PageTree.Root {
     "slack/defaultSlackContext",
     "slack/SanitizingHttpAgent",
   ];
-  const slackItems = [...loadReferenceItems("bot", "slack")].sort((a, b) => {
+  const slackItems = [...loadReferenceItems("channels", "slack")].sort((a, b) => {
     const ai = SLACK_ORDER.indexOf(a.slug);
     const bi = SLACK_ORDER.indexOf(b.slug);
     return (
@@ -375,7 +375,7 @@ function buildBotPageTree(): PageTree.Root {
     "discord/defaultDiscordContext",
     "discord/DISCORD_LIMITS",
   ];
-  const discordItems = [...loadReferenceItems("bot", "discord")].sort(
+  const discordItems = [...loadReferenceItems("channels", "discord")].sort(
     (a, b) => {
       const ai = DISCORD_ORDER.indexOf(a.slug);
       const bi = DISCORD_ORDER.indexOf(b.slug);
@@ -401,19 +401,19 @@ function buildBotPageTree(): PageTree.Root {
   return {
     name: referenceRootName(),
     children: [
-      packageSeparator(React.createElement(CopilotKitMark), "@copilotkit/bot"),
+      packageSeparator(React.createElement(CopilotKitMark), "@copilotkit/channels"),
       ...kindFolder("Components", "components"),
       ...kindFolder("Functions", "functions"),
       ...kindFolder("Classes", "classes"),
       ...kindFolder("Types", "types"),
       packageSeparator(
         React.createElement(Slack, { size: 16 }),
-        "@copilotkit/bot-slack",
+        "@copilotkit/channels-slack",
       ),
       ...slackCoreFolder,
       packageSeparator(
         React.createElement(MessageCircle, { size: 16 }),
-        "@copilotkit/bot-discord",
+        "@copilotkit/channels-discord",
       ),
       ...discordCoreFolder,
     ],
@@ -423,7 +423,7 @@ function buildBotPageTree(): PageTree.Root {
 export function buildReferencePageTree(
   version: ReferenceVersion,
 ): PageTree.Root {
-  if (version === "bot") return buildBotPageTree();
+  if (version === "channels") return buildChannelsPageTree();
   const allItems = loadReferenceVersionItems(version);
   return {
     name: referenceRootName(),

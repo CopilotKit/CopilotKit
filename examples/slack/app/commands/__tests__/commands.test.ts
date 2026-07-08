@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
-import { renderToIR } from "@copilotkit/bot-ui";
-import type { BotNode } from "@copilotkit/bot-ui";
+import { renderToIR } from "@copilotkit/channels-ui";
+import type { BotNode } from "@copilotkit/channels-ui";
 import { appCommands } from "../index.js";
-import type { CommandContext } from "@copilotkit/bot";
+import type { CommandContext } from "@copilotkit/channels";
 
 function tags(node: BotNode | unknown, acc: string[] = []): string[] {
   if (!node || typeof node !== "object") return acc;

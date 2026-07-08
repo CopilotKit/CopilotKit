@@ -4,15 +4,15 @@
  * issues with several fields, metrics parsed from an uploaded CSV, side-by-side
  * comparisons — anything where a chart isn't the right shape.
  *
- * Authored as JSX over `@copilotkit/bot-ui`'s `<Table>/<Row>/<Cell>` vocabulary
+ * Authored as JSX over `@copilotkit/channels-ui`'s `<Table>/<Row>/<Cell>` vocabulary
  * and posted via `thread.post`. If the platform rejects the native Table block,
  * we fall back to a column-aligned monospace (code-fenced) table posted as a
  * platform-neutral `<Message>` so the data always lands — the same look the
  * bridge gives GFM tables in prose.
  */
 import { z } from "zod";
-import { Message, Header, Section, Table, Row, Cell } from "@copilotkit/bot-ui";
-import { defineBotTool } from "@copilotkit/bot";
+import { Message, Header, Section, Table, Row, Cell } from "@copilotkit/channels-ui";
+import { defineBotTool } from "@copilotkit/channels";
 
 const schema = z.object({
   title: z
