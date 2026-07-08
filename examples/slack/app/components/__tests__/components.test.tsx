@@ -1,6 +1,6 @@
 /**
  * Block Kit parity tests for the JSX render components. Each component is a
- * `@copilotkit/bot-ui` `ComponentFn`; we assert the full
+ * `@copilotkit/channels-ui` `ComponentFn`; we assert the full
  * `renderSlackMessage(renderToIR(<… />))` output — both the `blocks` and the
  * attachment `accent` — against the legacy `defineSlackComponent` shapes.
  *
@@ -15,9 +15,9 @@
  * so they render identically on both Slack and Telegram.
  */
 import { describe, it, expect } from "vitest";
-import { renderToIR } from "@copilotkit/bot-ui";
-import { renderSlackMessage } from "@copilotkit/bot-slack";
-import { renderTelegram } from "@copilotkit/bot-telegram";
+import { renderToIR } from "@copilotkit/channels-ui";
+import { renderSlackMessage } from "@copilotkit/channels-slack";
+import { renderTelegram } from "@copilotkit/channels-telegram";
 import { IssueList } from "../issue-list.js";
 import { IssueCard } from "../issue-card.js";
 import { PageList } from "../page-list.js";
