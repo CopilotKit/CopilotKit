@@ -193,9 +193,13 @@ export interface E2eSmokeLevelSignal {
  *                      as complete only on a NEW finished edge for THIS turn
  *                      (`runsFinished`/`runStartCount` moved past the baseline),
  *                      never on the page-GLOBAL `>= 1`.
- *   - `lastStoppedAtMs` wall-clock ms of the most recent `true→false` DOM edge
- *                      (RUN_FINISHED). `0` when never stopped. Lets the poll
- *                      stamp the grace window from the REAL finished edge.
+ *   - `lastStoppedAtMs` page-clock wall-clock ms of the most recent `true→false`
+ *                      DOM edge (RUN_FINISHED). `0` when never stopped. NOTE: the
+ *                      d4 first-token grace window is stamped from the Node-side
+ *                      completion instant, NOT this field — it is a page-clock
+ *                      stamp and can hold a stale prior-run value on an SSE-only
+ *                      completion; feeding it into Node-clock math collapses the
+ *                      grace window. Retained for other TurnState consumers.
  *   - `sseAttachFailed` true iff `attachSseInterceptor` THREW during `goto`, so
  *                      the page-side turn-lifecycle globals were never seeded
  *                      and the poll silently degraded to the base-floor
@@ -746,11 +750,11 @@ export function wirePlaywrightPage(
       // navigation-cancelled, etc.). Without this, an aborted same-URL request
       // leaks its start in the FIFO queue AND a LATER same-URL response shifts
       // that STALE start, mis-pairing the duration (inflated `duration_ms`).
-      // Co-located with the `request` population listener (NOT in the
-      // `onRequestFailed` block, which the caller may not wire) so eviction is
-      // always active whenever timing is tracked. Drop the OLDEST outstanding
-      // start for the URL — the failed request is, by FIFO ordering, the oldest
-      // un-responded one for that URL.
+      // Co-located with the `onResponse` timing seam (NOT the separate
+      // `onRequestFailed` block, which the caller may not wire) so eviction
+      // rides the same wiring that populates the FIFO queue. Drop the OLDEST
+      // outstanding start for the URL — the failed request is, by FIFO
+      // ordering, the oldest un-responded one for that URL.
       page.on("requestfailed", (arg) => {
         try {
           const req = arg as { url(): string };
@@ -1701,19 +1705,33 @@ async function runLevel(opts: {
       await pg.type("textarea", message, { timeout: budget() });
       await pg.press("textarea", "Enter", { timeout: budget() });
     };
-    // Baseline snapshot for attempt 0, taken BEFORE the send so the agent
-    // provably cannot have fired RUN_STARTED / RUN_FINISHED for THIS turn yet —
-    // the completion gate then tests strictly-new edges past this baseline.
-    // `readTurnState` reference works here (the seam is a method on `page`), but
-    // `readBaseline` is defined below inside the try block, so read the raw
-    // state directly for the pre-loop baseline.
-    let attemptBaseline = await (async () => {
+    // Per-attempt turn-lifecycle BASELINE. Snapshot the page-GLOBAL, monotonic
+    // edge counters (`runsFinished`, `runStartCount`) BEFORE a turn is sent so
+    // completion is scoped to THIS turn, not the whole page. A PRIOR run on the
+    // page (auto-greeting / initial run fired on mount) leaves `runsFinished >=
+    // 1` and `runStartCount >= 1` already latched when the user's turn starts;
+    // keying "complete" off the page-global `>= 1` (the prior bug) made the poll
+    // think THIS turn had finished the moment it began, see the still-empty
+    // container, and spuriously FAST-FAIL RED. Baselining converts the gate to a
+    // NEW-edge test (`> baseline`) so only a finish that happened AFTER the send
+    // counts. Read via `readTurnState()` (undefined seam → all-zero baseline,
+    // harmless: `> 0` still works for the first ever run). A fresh baseline is
+    // taken per attempt (each retry resends), so a stale prior edge can never
+    // satisfy a retried attempt.
+    const readBaseline = async (): Promise<{
+      runsFinished: number;
+      runStartCount: number;
+    }> => {
       if (page?.readTurnState === undefined) {
         return { runsFinished: 0, runStartCount: 0 };
       }
       const st = await page.readTurnState();
       return { runsFinished: st.runsFinished, runStartCount: st.runStartCount };
-    })();
+    };
+    // Baseline snapshot for attempt 0, taken BEFORE the send so the agent
+    // provably cannot have fired RUN_STARTED / RUN_FINISHED for THIS turn yet —
+    // the completion gate then tests strictly-new edges past this baseline.
+    let attemptBaseline = await readBaseline();
     await sendTurn();
 
     // probe.message.send is NOT emitted here: at press time the agent-message
@@ -1721,7 +1739,7 @@ async function runLevel(opts: {
     // has not arrived yet, so emitting now would always record empty
     // `edge_headers`. The emit is driven from the `onResponse` seam above the
     // moment the message-POST response lands (real edge headers), with a
-    // fallback `emitMessageSend()` after the response-wait below so a run where
+    // fallback `emitMessageSend()` in the `finally` block so a run where
     // no message-POST response is ever observed still records the boundary
     // (null edge headers). `char_count` (a USER-FACING Unicode code-point
     // count, computed once as `messageCharCount`) is timing-independent.
@@ -1795,33 +1813,6 @@ async function runLevel(opts: {
           return msgs[msgs.length - 1]!.textContent ?? "";
         })) ?? "";
 
-      // Per-attempt turn-lifecycle BASELINE. Snapshot the page-GLOBAL,
-      // monotonic edge counters (`runsFinished`, `runStartCount`) BEFORE a turn
-      // is sent so completion is scoped to THIS turn, not the whole page. A
-      // PRIOR run on the page (auto-greeting / initial run fired on mount)
-      // leaves `runsFinished >= 1` and `runStartCount >= 1` already latched when
-      // the user's turn starts; keying "complete" off the page-global `>= 1`
-      // (the prior bug) made the poll think THIS turn had finished the moment it
-      // began, see the still-empty container, and spuriously FAST-FAIL RED.
-      // Baselining converts the gate to a NEW-edge test (`> baseline`) so only a
-      // finish that happened AFTER the send counts. Read via `readTurnState()`
-      // (undefined seam → all-zero baseline, harmless: `> 0` still works for the
-      // first ever run). A fresh baseline is taken per attempt (each retry
-      // resends), so a stale prior edge can never satisfy a retried attempt.
-      const readBaseline = async (): Promise<{
-        runsFinished: number;
-        runStartCount: number;
-      }> => {
-        if (page?.readTurnState === undefined) {
-          return { runsFinished: 0, runStartCount: 0 };
-        }
-        const st = await page.readTurnState();
-        return {
-          runsFinished: st.runsFinished,
-          runStartCount: st.runStartCount,
-        };
-      };
-
       // Is THIS turn COMPLETE (relative to the per-attempt `baseline`)? Keys off
       // the REAL production signal — `page.readTurnState()`, backed by the
       // `attachSseInterceptor` page-side globals — NOT the never-wired Node-side
@@ -1836,8 +1827,12 @@ async function runLevel(opts: {
       //                new for THIS turn (`runStartCount > baseline`), so a page
       //                that was already at rest (a prior turn left runningNow
       //                false) can't be mistaken for THIS turn completing.
-      // `stoppedAtMs` surfaces the REAL finished edge so the grace window is
-      // stamped from completion rather than the poll's local clock. Absent a
+      // The grace window is stamped from the NODE-side instant the poll FIRST
+      // observes completion (see `runAttempt`), NOT from the page-side
+      // `lastStoppedAtMs`: that field is stamped on the BROWSER-PAGE clock and
+      // on an SSE-only completion (no fresh DOM stop-edge for THIS turn) still
+      // holds a STALE prior-run value — feeding either into the Node-clock
+      // deadline math mis-sizes (or collapses) the grace window. Absent a
       // `readTurnState` seam (fakes that don't model the turn lifecycle) this
       // reports "not observed", and the poll falls back to the base budget floor
       // — no hang.
@@ -1847,10 +1842,9 @@ async function runLevel(opts: {
       }): Promise<{
         observed: boolean;
         complete: boolean;
-        stoppedAtMs: number;
       }> => {
         if (page?.readTurnState === undefined) {
-          return { observed: false, complete: false, stoppedAtMs: 0 };
+          return { observed: false, complete: false };
         }
         const st = await page.readTurnState();
         const newRunStarted = st.runStartCount > baseline.runStartCount;
@@ -1868,7 +1862,6 @@ async function runLevel(opts: {
         return {
           observed,
           complete: domDone || sseDone,
-          stoppedAtMs: st.lastStoppedAtMs,
         };
       };
 
@@ -1925,17 +1918,20 @@ async function runLevel(opts: {
               observed: everObserved,
             };
           }
-          const { observed, complete, stoppedAtMs } =
-            await readTurnComplete(baseline);
+          const { observed, complete } = await readTurnComplete(baseline);
           if (observed) everObserved = true;
           if (complete && completeAtMs === undefined) {
-            // Stamp completion from the REAL finished edge (`lastStoppedAtMs`)
-            // when the page reported one, so the grace window measures from when
-            // the turn actually finished — not from this poll iteration, which
-            // could lag the edge by up to a full 500ms poll interval and cut the
-            // grace ~500ms short. Fall back to the local clock when no DOM stop
-            // edge was recorded (SSE-only completion path).
-            completeAtMs = stoppedAtMs > 0 ? stoppedAtMs : Date.now();
+            // Stamp completion from the NODE clock at the first poll iteration
+            // that observes THIS turn complete. The grace-window deadline math
+            // below runs on the Node clock, so the completion instant must too:
+            // the page-side `lastStoppedAtMs` is a BROWSER-PAGE-clock stamp (page
+            // ↔ Node skew mis-sizes the window) and on an SSE-only completion it
+            // still holds a STALE prior-run value (which would push `graceEnd`
+            // into the past and collapse the grace to the base floor). Stamping
+            // Node-side here keeps both clocks consistent and the window intact;
+            // it can lag the true finished edge by at most one 500ms poll
+            // interval, well inside `FIRST_TOKEN_GRACE_MS`.
+            completeAtMs = Date.now();
           }
           const now2 = Date.now();
           // Deadline for THIS poll iteration:

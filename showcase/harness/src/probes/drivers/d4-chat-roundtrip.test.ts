@@ -1980,6 +1980,24 @@ function makeLateTokenBrowser(opts: {
   priorFinishedRuns?: number;
   /** Report the interceptor as having failed to attach (finding-3 surface). */
   sseAttachFailed?: boolean;
+  /**
+   * Model an SSE-ONLY completion: the turn completes via the `runsFinished`
+   * transport counter bumping past baseline, but NO fresh DOM `true→false`
+   * stop-edge fires for THIS turn, so `lastStoppedAtMs` keeps holding a STALE
+   * PRIOR-run page-clock value (never re-stamped for the current turn). This
+   * reproduces the grace-window-collapse bug: the pre-fix poll stamps
+   * `completeAtMs` from that stale past `lastStoppedAtMs`, so `graceEnd` lands
+   * in the past and the grace window collapses to the base floor → a
+   * late-but-present first token false-reds. Requires `priorFinishedRuns >= 1`
+   * so a genuinely-stale prior stamp exists.
+   */
+  sseOnlyStaleStop?: boolean;
+  /**
+   * Age the prior-run stop stamp (`lastStoppedAtMs`) this many ms into the past.
+   * With `sseOnlyStaleStop`, makes the stale stamp genuinely old so a pre-fix
+   * `graceEnd = staleStop + FIRST_TOKEN_GRACE_MS` lands in the past.
+   */
+  priorStoppedAgoMs?: number;
   /** Callback invoked with the sendCount on each send (retry-count assertions). */
   onSend?: (sendCount: number) => void;
 }): CvE2eBrowser {
@@ -1987,11 +2005,13 @@ function makeLateTokenBrowser(opts: {
   let sendCount = 0;
   const completeAt = opts.completeAtDelayMs ?? 0;
   const prior = opts.priorFinishedRuns ?? 0;
-  // Realistic wall-clock ms for the PRIOR run's stop edge (captured at browser
-  // construction — before any user turn). Used as `lastStoppedAtMs` while the
-  // current turn is still in-flight so the pre-fix false-completion stamps its
-  // grace window from a REAL (past) timestamp, reproducing the a1 false-red.
-  const priorStoppedAtMs = Date.now();
+  // Realistic wall-clock ms for the PRIOR run's stop edge. Normally captured at
+  // browser construction (just before the user turn); `priorStoppedAgoMs` ages
+  // it further into the past to model a prior run that finished well before the
+  // current turn — so a pre-fix poll that (wrongly) stamps the grace window from
+  // this STALE value computes a `graceEnd` that has already elapsed, collapsing
+  // the grace window to the base floor.
+  const priorStoppedAtMs = Date.now() - (opts.priorStoppedAgoMs ?? 0);
   const page: CvE2ePage = {
     async goto() {
       return null;
@@ -2040,19 +2060,33 @@ function makeLateTokenBrowser(opts: {
       // per-attempt baseline correctly scoping completion to each turn.
       const started = sendCount > 0;
       const priorSendsDone = Math.max(0, sendCount - 1);
+      // SSE-only completion: the transport `runsFinished` counter bumps but the
+      // DOM run-lifecycle attribute never registers a fresh `true→false` stop
+      // edge for THIS turn, so `runningNow` stays `true` and `lastStoppedAtMs`
+      // is NEVER re-stamped — it keeps holding the STALE prior-run value.
+      const sseOnly = opts.sseOnlyStaleStop === true;
+      const runningNow = started
+        ? sseOnly
+          ? true
+          : !complete
+        : prior > 0
+          ? false
+          : null;
       return {
         runsFinished: prior + priorSendsDone + (complete ? 1 : 0),
         attrPresent: true,
         sawRunningTrue: prior > 0 || started,
-        runningNow: started ? !complete : prior > 0 ? false : null,
+        runningNow,
         runStartCount: prior + sendCount,
         // Current turn complete → stamp NOW; else the most-recent stop is a
         // prior run's (a real past timestamp) when any prior run has finished.
-        lastStoppedAtMs: complete
-          ? Date.now()
-          : prior > 0 || priorSendsDone > 0
-            ? priorStoppedAtMs
-            : 0,
+        // SSE-only: no fresh DOM stop edge fires, so the stamp STAYS stale.
+        lastStoppedAtMs:
+          complete && !sseOnly
+            ? Date.now()
+            : prior > 0 || priorSendsDone > 0
+              ? priorStoppedAtMs
+              : 0,
         sseAttachFailed: opts.sseAttachFailed === true,
       };
     },
@@ -2232,6 +2266,34 @@ describe("d4 L4 first-token wait hardening (readTurnState-driven)", () => {
         firstTokenDelayMs: 2400,
         completeAtDelayMs: 2300,
         priorFinishedRuns: 1,
+      }),
+      { pageTimeoutMs: 8000 },
+    );
+    expect(l4State).toBe("green");
+    expect(failureSummary).toBe("");
+  }, 15000);
+
+  it("SSE-only completion with a STALE lastStoppedAtMs does NOT collapse the grace window (late-but-present token) → GREEN", async () => {
+    // Grace-window-collapse bug: the turn completes via the transport
+    // `runsFinished` counter (SSE-only) but NO fresh DOM stop-edge fires for
+    // THIS turn, so the page-side `lastStoppedAtMs` still holds a STALE prior-run
+    // timestamp (here aged 5s into the past). The pre-fix poll stamped
+    // `completeAtMs` from that stale `lastStoppedAtMs`, so
+    // `graceEnd = staleStop + FIRST_TOKEN_GRACE_MS` landed ~3s in the PAST — the
+    // ~2s grace window collapsed to the base poll floor, and the poll declared
+    // the turn completed-empty BEFORE the real first token (1000ms after send,
+    // 700ms after completion, comfortably inside a healthy grace window) → a
+    // false RED. Post-fix stamps `completeAtMs` from the Node clock at the first
+    // poll that observes completion, so the grace window measures forward from
+    // real completion time and the late-but-present token is captured → GREEN.
+    const { l4State, failureSummary } = await runLateToken(
+      makeLateTokenBrowser({
+        assistantText: "The weather in San Francisco is sunny, 72 degrees.",
+        firstTokenDelayMs: 1000,
+        completeAtDelayMs: 300,
+        priorFinishedRuns: 1,
+        sseOnlyStaleStop: true,
+        priorStoppedAgoMs: 5000,
       }),
       { pageTimeoutMs: 8000 },
     );
