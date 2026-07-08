@@ -191,29 +191,40 @@ function buildBodyFromMessages(messages) {
     };
 }
 // ---------------------------------------------------------------------------
-// Build a full-history prompt for client-tool (frontend-tool) runs
+// Build a DELTA prompt for a run against a PERSISTENT session
 // ---------------------------------------------------------------------------
 /**
- * Render the entire AG-UI conversation into a single prompt for a stateless
- * `runEmbeddedAgent` turn.
+ * Render only the messages CopilotKit appended after the last assistant turn.
  *
- * Frontend-tool runs go through OpenClaw's caller-provided `clientTools` path
- * (not the channel reply pipeline), and CopilotKit re-sends the complete
- * message history on every request — including the assistant's prior tool
- * calls and their results. We run each such turn against a fresh ephemeral
- * session, so continuity must live in the prompt rather than a server-side
- * transcript. That means we have to render assistant `toolCalls` and `tool`
- * results explicitly: after the browser executes a client tool and re-submits,
- * the model needs to see "I called change_background({...}) → result X" to
- * continue coherently instead of just an orphaned "Tool result:" line.
+ * Every turn now runs through `runEmbeddedAgent` against a STABLE
+ * per-conversation session (see the `sessionId` derivation in the handler), so
+ * OpenClaw's session store already holds the prior transcript — including the
+ * assistant's tool calls and the synthetic `{status:"pending", ... delegated
+ * to client}` tool results OpenClaw records when a run stops at a client tool.
+ * We therefore forward only what the store does NOT yet have: the tail after
+ * the last assistant message.
+ *
+ * - A normal new turn → the trailing user message(s).
+ * - A client-tool re-submission → the trailing `tool` result(s); the assistant
+ *   tool call that produced them (and its pending placeholder) is already
+ *   persisted, so we send just the concrete result the browser computed.
+ *
+ * System messages are always returned separately (as `extraSystemPrompt`) —
+ * they are instructions, not conversation, and belong on every turn.
  */
-function buildToolRunHistory(messages) {
+function buildDeltaPrompt(messages) {
     const systemParts = [];
-    const lines = [];
-    // Map toolCallId → toolName so tool-result messages can be labeled with the
-    // tool they answer (the tool message itself only carries the call id).
     const toolNameById = new Map();
-    for (const msg of messages) {
+    let lastAssistantIdx = -1;
+    messages.forEach((msg, i) => {
+        const role = msg.role?.trim() ?? "";
+        if (role === "system") {
+            const c = extractTextContent(msg).trim();
+            if (c)
+                systemParts.push(c);
+        }
+        if (role === "assistant")
+            lastAssistantIdx = i;
         const toolCalls = msg.toolCalls;
         if (Array.isArray(toolCalls)) {
             for (const call of toolCalls) {
@@ -221,38 +232,35 @@ function buildToolRunHistory(messages) {
                     toolNameById.set(call.id, call.function?.name ?? "tool");
             }
         }
-    }
-    for (const msg of messages) {
+    });
+    const delta = messages.slice(lastAssistantIdx + 1);
+    const lines = [];
+    const soleUserTurn = delta.length === 1 && delta[0]?.role === "user";
+    for (const msg of delta) {
         const role = msg.role?.trim() ?? "";
         const content = extractTextContent(msg).trim();
-        if (role === "system") {
-            if (content)
-                systemParts.push(content);
-            continue;
-        }
         if (role === "user") {
-            if (content)
-                lines.push(`User: ${content}`);
-            continue;
+            if (!content)
+                continue;
+            // A lone user turn reads cleanest recorded verbatim (no "User:" prefix).
+            lines.push(soleUserTurn ? content : `User: ${content}`);
         }
-        if (role === "assistant") {
+        else if (role === "tool") {
+            const toolCallId = msg.toolCallId;
+            const name = toolCallId ? toolNameById.get(toolCallId) ?? "tool" : "tool";
+            lines.push(`Tool ${name} returned: ${content}`);
+        }
+        else if (role === "assistant") {
+            // Only reached if two assistant messages trail with no user/tool between
+            // them; render defensively so nothing is silently dropped.
             if (content)
                 lines.push(`Assistant: ${content}`);
             const toolCalls = msg.toolCalls;
             if (Array.isArray(toolCalls)) {
                 for (const call of toolCalls) {
-                    const name = call.function?.name ?? "tool";
-                    const args = call.function?.arguments ?? "";
-                    lines.push(`Assistant called tool ${name}(${args})`);
+                    lines.push(`Assistant called tool ${call.function?.name ?? "tool"}(${call.function?.arguments ?? ""})`);
                 }
             }
-            continue;
-        }
-        if (role === "tool") {
-            const toolCallId = msg.toolCallId;
-            const name = toolCallId ? toolNameById.get(toolCallId) ?? "tool" : "tool";
-            lines.push(`Tool ${name} returned: ${content}`);
-            continue;
         }
     }
     return {
@@ -759,7 +767,6 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
     const channelDefaults = cfg.channels;
     const clawgDefaults = channelDefaults?.["clawg-ui"]?.defaults ?? {};
     const surfaceReasoning = clawgDefaults.surfaceReasoning !== false;
-    const surfaceSteps = clawgDefaults.surfaceSteps !== false;
     // Reasoning state
     let reasoningMessageId = null;
     let reasoningStarted = false;
@@ -770,8 +777,6 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
     // Without this the frontend stacks every snapshot into an exploding wall of
     // repeated text. Reset to 0 whenever a reasoning block closes.
     let streamedReasoningLen = 0;
-    // Step reporting state
-    const activeSteps = new Set();
     // Close any open reasoning block (called before RUN_FINISHED)
     const closeReasoningIfOpen = () => {
         if (reasoningStarted && reasoningMessageId) {
@@ -819,6 +824,14 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
         sessionKey += `:user:${userKey}`;
     if (threadId)
         sessionKey += `:thread:${threadId.toLowerCase()}`;
+    // STABLE per-conversation session id. OpenClaw names the transcript file
+    // `<sessionId>-topic-<topic>.jsonl`, where `topic` is already derived from
+    // the (stable) sessionKey — so a stable sessionId keeps every turn of a
+    // conversation in ONE transcript, giving continuity/compaction/context-
+    // engine behavior for free. (The previous ephemeral `clawg-ui-tools-<uuid>`
+    // spun up a throwaway transcript per request, forcing full history into the
+    // prompt.) Sanitize to a filename-safe slug.
+    const embeddedSessionId = `clawg-ui-${sessionKey.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
     const hasClientTools = (Array.isArray(input.tools) && input.tools.length > 0) ||
         hasSharedState ||
         hasStateWriters ||
@@ -832,50 +845,6 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
     if (!hasClientTools) {
         setWriter(sessionKey, writeEvent, currentMessageId);
     }
-    const storePath = runtime.channel.session.resolveStorePath(cfg.session?.store, {
-        agentId: route.agentId,
-    });
-    const envelopeOptions = runtime.channel.reply.resolveEnvelopeFormatOptions(cfg);
-    const previousTimestamp = runtime.channel.session.readSessionUpdatedAt({
-        storePath,
-        sessionKey,
-    });
-    const envelopedBody = runtime.channel.reply.formatAgentEnvelope({
-        channel: "AG-UI",
-        from: "User",
-        timestamp: new Date(),
-        previousTimestamp,
-        envelope: envelopeOptions,
-        body: messageBody,
-    });
-    const ctxPayload = runtime.channel.reply.finalizeInboundContext({
-        Body: envelopedBody,
-        BodyForAgent: contextSuffix ? envelopedBody + contextSuffix : undefined,
-        RawBody: messageBody,
-        CommandBody: messageBody,
-        From: caller.fromLabel,
-        To: "clawg-ui",
-        SessionKey: sessionKey,
-        ChatType: "direct",
-        ConversationLabel: "AG-UI",
-        SenderName: "AG-UI Client",
-        SenderId: caller.id,
-        Provider: "clawg-ui",
-        Surface: "clawg-ui",
-        MessageSid: runId,
-        Timestamp: Date.now(),
-        WasMentioned: true,
-        CommandAuthorized: true,
-        OriginatingChannel: "clawg-ui",
-    });
-    // Record inbound session
-    await runtime.channel.session.recordInboundSession({
-        storePath,
-        sessionKey,
-        ctx: ctxPayload,
-        onRecordError: () => { },
-    });
-    // Create reply dispatcher — translates reply payloads into AG-UI SSE events
     const abortController = new AbortController();
     req.on("close", () => {
         abortController.abort();
@@ -1021,97 +990,21 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
             snapshot: JSON.parse(JSON.stringify(runSharedState)),
         });
     };
-    const dispatcher = {
-        sendToolResult: (_payload) => {
-            // Tool call events are emitted by before/after_tool_call hooks
-            return !closed;
-        },
-        sendBlockReply: (payload) => {
-            if (closed || wasClientToolCalled(sessionKey)) {
-                return false;
-            }
-            const text = payload.text?.trim();
-            if (!text) {
-                return false;
-            }
-            // Token streaming (onPartialReply) already delivered this text
-            // incrementally — don't re-emit the finalized block.
-            if (streamedText) {
-                return true;
-            }
-            if (!messageStarted) {
-                messageStarted = true;
-                writeEvent({
-                    type: EventType.TEXT_MESSAGE_START,
-                    messageId: currentMessageId,
-                    runId: currentRunId,
-                    role: "assistant",
-                });
-            }
-            // Join chunks with \n\n (breakPreference: paragraph uses double-newline joiner)
-            writeEvent({
-                type: EventType.TEXT_MESSAGE_CONTENT,
-                messageId: currentMessageId,
-                runId: currentRunId,
-                delta: text + "\n\n",
-            });
-            return true;
-        },
-        sendFinalReply: (payload) => {
-            if (closed) {
-                return false;
-            }
-            const text = wasClientToolCalled(sessionKey) ? "" : payload.text?.trim();
-            if (text && !streamedText) {
-                if (!messageStarted) {
-                    messageStarted = true;
-                    writeEvent({
-                        type: EventType.TEXT_MESSAGE_START,
-                        messageId: currentMessageId,
-                        runId: currentRunId,
-                        role: "assistant",
-                    });
-                }
-                // Join chunks with \n\n (breakPreference: paragraph uses double-newline joiner)
-                writeEvent({
-                    type: EventType.TEXT_MESSAGE_CONTENT,
-                    messageId: currentMessageId,
-                    runId: currentRunId,
-                    delta: text + "\n\n",
-                });
-            }
-            // End the message and run
-            closeReasoningIfOpen();
-            if (messageStarted) {
-                writeEvent({
-                    type: EventType.TEXT_MESSAGE_END,
-                    messageId: currentMessageId,
-                    runId: currentRunId,
-                });
-            }
-            writeEvent({
-                type: EventType.RUN_FINISHED,
-                threadId,
-                runId: currentRunId,
-            });
-            closed = true;
-            res.end();
-            return true;
-        },
-        waitForIdle: () => Promise.resolve(),
-        getQueuedCounts: () => ({ tool: 0, block: 0, final: 0 }),
-        getFailedCounts: () => ({ tool: 0, block: 0, final: 0 }),
-        markComplete: () => { },
-    };
-    // Client/frontend-tool runs cannot go through the channel reply pipeline:
-    // that path only exposes plugin-registered tools, gated by the static
+    // The single run path for EVERY turn: OpenClaw's caller-provided
+    // `clientTools` path via runEmbeddedAgent.
+    //
+    // Frontend tools cannot go through the channel reply pipeline at all — that
+    // path only exposes plugin-registered tools gated by the static
     // `contracts.tools` manifest, so AG-UI's dynamically-named frontend tools
-    // are always dropped. OpenClaw's caller-provided `clientTools` path
-    // (runEmbeddedAgent) is the supported mechanism — the model sees the tools,
-    // calls one, and the run stops with `pendingToolCalls` for the browser to
-    // execute. We reuse the same streaming/reasoning callbacks as the reply
-    // path and emit the pending calls as AG-UI TOOL_CALL_* events.
-    const runWithClientTools = async () => {
+    // are always dropped. runEmbeddedAgent is the supported mechanism: the model
+    // sees the frontend tools, calls one, and the run stops with
+    // `pendingToolCalls` for the browser to execute. Turns WITHOUT frontend
+    // tools (plain chat, backend-tool rendering) run through the same call with
+    // an empty `clientTools`; their backend tools execute in-loop and render via
+    // the before_tool_call / tool_result_persist hooks (writer registered
+    // above). This unifies both on the embedded-agent engine and lets a stable
+    // per-conversation session provide history — no full-history-in-prompt.
+    const runViaEmbeddedAgent = async () => {
         const agentId = route.agentId;
         const workspaceDir = runtime.agent.resolveAgentWorkspaceDir(cfg, agentId);
         const agentDir = runtime.agent.resolveAgentDir(cfg, agentId);
@@ -1141,13 +1034,13 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
         const promptSuffix = [contextSuffix, sharedStateSuffix]
             .filter(Boolean)
             .join("");
-        const { prompt: historyPrompt, systemPrompt } = buildToolRunHistory(messages);
+        const { prompt: deltaPrompt, systemPrompt } = buildDeltaPrompt(messages);
         // Server-side continuation transcript. After we handle a state-writer
-        // call ourselves (apply + STATE_SNAPSHOT), we re-run the model with the
-        // call and a synthetic result appended so it NARRATES a confirmation
-        // instead of stopping silently — OpenClaw stops at a tool call rather than
-        // executing our injected tool in-loop the way Hermes does. Bounded by
-        // MAX_TURNS; real (browser) frontend tools end the run immediately.
+        // call ourselves (apply + STATE_SNAPSHOT), we re-run the model with a
+        // synthetic result appended so it NARRATES a confirmation instead of
+        // stopping silently — OpenClaw stops at a tool call rather than executing
+        // our injected tool in-loop the way Hermes does. Bounded by MAX_TURNS;
+        // real (browser) frontend tools end the run immediately.
         let continuation = "";
         const MAX_TURNS = 6;
         const closeRun = () => {
@@ -1170,12 +1063,13 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
             currentMessageId = `msg-${randomUUID()}`;
             streamedText = false;
             streamedTextLen = 0;
-            // Stateless per-request session: CopilotKit re-sends the full history
-            // (rendered into `historyPrompt`); `continuation` carries any
-            // state-writer results from earlier turns of THIS request.
-            const prompt = historyPrompt + promptSuffix + continuation;
+            // Persistent session: prior turns live in the transcript, so we submit
+            // only the DELTA (new messages after the last assistant) — and only on
+            // the first iteration. Later iterations are state-writer narration
+            // re-runs whose new content is carried entirely by `continuation`.
+            const prompt = (turn === 0 ? deltaPrompt : "") + promptSuffix + continuation;
             const result = await runtime.agent.runEmbeddedAgent({
-                sessionId: `clawg-ui-tools-${randomUUID()}`,
+                sessionId: embeddedSessionId,
                 sessionKey,
                 agentId,
                 workspaceDir,
@@ -1250,13 +1144,12 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
                     });
                     messageStarted = false;
                 }
-                // State-writer calls: apply + emit STATE_SNAPSHOT, and record the call
-                // + a synthetic result so the next turn's model narrates.
+                // State-writer calls: apply + emit STATE_SNAPSHOT. OpenClaw already
+                // persisted the call (and its pending placeholder result) to the
+                // session, so the narration re-run only needs the concrete result.
                 for (const call of writerCalls) {
                     emitStateWriterSnapshot(call.name, call.arguments);
-                    continuation +=
-                        `\nAssistant called tool ${call.name}(${call.arguments ?? "{}"})` +
-                            `\nTool ${call.name} returned: State updated.`;
+                    continuation += `\nTool ${call.name} returned: State updated.`;
                 }
                 // Real frontend tools must round-trip to the browser; emit them and
                 // finish (we cannot continue the run server-side past a client tool).
@@ -1302,59 +1195,20 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
         // Exhausted MAX_TURNS (model kept calling state-writers) — finish cleanly.
         closeRun();
     };
-    // Dispatch the inbound message — this triggers the agent run
+    // Dispatch the inbound message — this triggers the agent run.
+    //
+    // Option B: EVERY turn runs through `runEmbeddedAgent` (runViaEmbeddedAgent).
+    // The former `dispatchReplyFromConfig` (channel reply pipeline / MsgContext)
+    // branch is gone — the reply pipeline is itself a wrapper around
+    // runEmbeddedAgent plus channel envelope/session machinery that this HTTP
+    // AG-UI surface does not need. Backend (server-side) tools still render as
+    // AG-UI cards: the writer is registered for tool-less turns (see setWriter
+    // above), so the before_tool_call / tool_result_persist hooks emit their
+    // TOOL_CALL_* events during the embedded run exactly as they did when the
+    // reply pipeline drove the same run internally.
     try {
-        if (hasClientTools) {
-            await runWithClientTools();
-        }
-        else {
-            await runtime.channel.reply.dispatchReplyFromConfig({
-                ctx: ctxPayload,
-                cfg,
-                dispatcher,
-                replyOptions: {
-                    runId,
-                    abortSignal: abortController.signal,
-                    disableBlockStreaming: false,
-                    ...(surfaceReasoning ? { streamReasoning: true } : {}),
-                    onAgentRunStart: () => { },
-                    onPartialReply: handlePartialReply,
-                    ...(surfaceReasoning
-                        ? {
-                            onReasoningStream: handleReasoningStream,
-                            onReasoningEnd: handleReasoningEnd,
-                        }
-                        : {}),
-                    ...(surfaceSteps
-                        ? {
-                            onItemEvent: (item) => {
-                                if (closed)
-                                    return;
-                                const itemId = item.itemId;
-                                if (!itemId)
-                                    return;
-                                if (item.phase === "started" && !activeSteps.has(itemId)) {
-                                    activeSteps.add(itemId);
-                                    writeEvent({
-                                        type: EventType.STEP_STARTED,
-                                        stepName: item.title ?? itemId,
-                                    });
-                                }
-                                else if ((item.phase === "completed" || item.phase === "failed") &&
-                                    activeSteps.has(itemId)) {
-                                    activeSteps.delete(itemId);
-                                    writeEvent({
-                                        type: EventType.STEP_FINISHED,
-                                        stepName: item.title ?? itemId,
-                                    });
-                                }
-                            },
-                        }
-                        : {}),
-                },
-            });
-        }
-        // If the dispatcher's final reply didn't close the stream, close it now
+        await runViaEmbeddedAgent();
+        // If the run didn't close the stream, close it now
         if (!closed) {
             closeReasoningIfOpen();
             if (messageStarted) {
