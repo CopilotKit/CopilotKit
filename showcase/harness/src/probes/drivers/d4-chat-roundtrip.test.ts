@@ -1923,3 +1923,143 @@ describe("d4 CVDIAG cross-layer join: probe adopts the forwarded X-Test-Id", () 
     expect(session.resolvedTestId).toBe(backendAdopted);
   });
 });
+
+// --- First-token wait hardening (client-side race) -----------------------
+//
+// REGRESSION SURFACE: D4's L4 "tools" probe reads the assistant-message
+// container's textContent by polling for up to `textPollTimeoutMs`. On a run
+// where the FIRST token renders into the DOM slightly LATER than that poll
+// budget — but the agent turn genuinely produces content (SSE RUN_STARTED →
+// RUN_FINISHED) — the pre-fix poll loop exhausted its fixed budget and read
+// the container as empty, yielding a spurious "L4: empty assistant response"
+// red. The turn was NOT empty; the assertion just fired before the first
+// token had a chance to arrive. The hardening waits on the SSE turn-complete
+// signal (RUN_FINISHED / RUN_ERROR) plus a bounded first-token grace window,
+// so a late-but-present first token is captured, while a turn that genuinely
+// completes with NO content still fails.
+
+/**
+ * A CVDIAG-instrumented fake page that models the late-first-token race with
+ * REAL wall-clock timing (no fake timers): the assistant-message `evaluate`
+ * read returns empty until `firstTokenDelayMs` has actually elapsed since
+ * `goto`, then returns `assistantText`. SSE lifecycle events are delivered on
+ * `goto` (RUN_STARTED + a terminal event) so the driver can observe that the
+ * turn completed. Setting `textPollTimeoutMs` BELOW `firstTokenDelayMs`
+ * reproduces the pre-fix race deterministically.
+ */
+function makeLateTokenBrowser(opts: {
+  assistantText: string;
+  firstTokenDelayMs: number;
+  /** Terminal SSE event type for the turn. */
+  terminalSse: "RUN_FINISHED" | "RUN_ERROR";
+  /** Omit RUN_STARTED/terminal to model "turn never started/finished". */
+  sseEvents?: CvdiagSseEvent[];
+}): CvE2eBrowser {
+  let sseHandler: ((e: CvdiagSseEvent) => void) | undefined;
+  let gotoAtMs = 0;
+  let assistantReadStarted = false;
+  const defaultSse: CvdiagSseEvent[] = [
+    { eventType: "RUN_STARTED", payloadSizeBytes: 20 },
+    { eventType: opts.terminalSse, payloadSizeBytes: 10 },
+  ];
+  const page: CvE2ePage = {
+    async goto() {
+      gotoAtMs = Date.now();
+      for (const e of opts.sseEvents ?? defaultSse) sseHandler?.(e);
+      return null;
+    },
+    async type() {},
+    async press() {},
+    async waitForSelector() {},
+    async textContent() {
+      return "";
+    },
+    async evaluate<R>(): Promise<R> {
+      // The assistant-text poll and the alternate-content histogram read both
+      // route through evaluate(). Distinguish them by whether the first token
+      // has "arrived": before firstTokenDelayMs → empty (poll still waiting);
+      // after → the assistant text. The histogram read (post-empty-exit) also
+      // lands here and returns {} harmlessly.
+      const elapsed = Date.now() - gotoAtMs;
+      if (!assistantReadStarted) assistantReadStarted = true;
+      if (opts.assistantText.length > 0 && elapsed >= opts.firstTokenDelayMs) {
+        return opts.assistantText as unknown as R;
+      }
+      return "" as unknown as R;
+    },
+    async close() {},
+    onSseEvent(h) {
+      sseHandler = h;
+    },
+  };
+  const ctx: CvE2eBrowserContext = {
+    async newPage() {
+      return page;
+    },
+    async close() {},
+  };
+  return {
+    async newContext() {
+      return ctx;
+    },
+    async close() {},
+  };
+}
+
+/** Run the driver against a late-token browser and return the L4 result. */
+async function runLateToken(browser: CvE2eBrowser): Promise<{
+  l4State: string;
+  failureSummary: string;
+}> {
+  const writer = new CapturingWriter();
+  const driver = createE2eSmokeDriver({
+    launcher: async () => browser as unknown as E2eBrowser,
+    // Below the 300ms first-token delay in the tests → pre-fix poll exhausts.
+    textPollTimeoutMs: 120,
+    // Bounded ceiling for the signal-based wait — plenty above the delay.
+    pageTimeoutMs: 4000,
+  });
+  await driver.run(baseCtx({ writer }), {
+    key: "e2e-smoke:foo",
+    backendUrl: "https://x.example.com",
+    demos: ["tool-rendering"],
+  });
+  const l4 = writer.results.find((r) => r.key === "tools:foo");
+  const signal = (l4?.signal ?? {}) as { failureSummary?: string };
+  return {
+    l4State: String(l4?.state ?? "missing"),
+    failureSummary: signal.failureSummary ?? "",
+  };
+}
+
+describe("d4 L4 first-token wait hardening", () => {
+  it("late-but-present first token (turn RUN_FINISHED, token renders after textPollTimeoutMs) PASSES", async () => {
+    // The turn genuinely produces content — SSE RUN_STARTED → RUN_FINISHED —
+    // but the first DOM token renders at 300ms, AFTER the 120ms poll budget.
+    // Pre-fix: RED ("empty assistant response"). Post-fix: GREEN.
+    const { l4State, failureSummary } = await runLateToken(
+      makeLateTokenBrowser({
+        assistantText: "The weather in San Francisco is sunny, 72 degrees.",
+        firstTokenDelayMs: 300,
+        terminalSse: "RUN_FINISHED",
+      }),
+    );
+    expect(l4State).toBe("green");
+    expect(failureSummary).toBe("");
+  });
+
+  it("genuinely-empty completed turn (RUN_FINISHED, no content ever) still FAILS", async () => {
+    // Guard against over-correcting into a false-PASS: a turn that completes
+    // (RUN_FINISHED) but never renders any assistant content must still be a
+    // red "empty assistant response", even after the grace window.
+    const { l4State, failureSummary } = await runLateToken(
+      makeLateTokenBrowser({
+        assistantText: "",
+        firstTokenDelayMs: 300,
+        terminalSse: "RUN_FINISHED",
+      }),
+    );
+    expect(l4State).toBe("red");
+    expect(failureSummary).toContain("empty assistant response");
+  });
+});

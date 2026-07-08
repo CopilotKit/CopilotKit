@@ -402,6 +402,31 @@ const WEATHER_VOCAB = [
 ];
 
 /**
+ * AG-UI SSE lifecycle events that mark a turn as COMPLETE (the agent run
+ * lifecycle: `RUN_STARTED` → … → `RUN_FINISHED`/`RUN_ERROR`). The DOM
+ * first-token poll (see `runLevel`) uses these — not a fixed short timeout —
+ * to decide when a turn has genuinely finished, so it never asserts
+ * "empty assistant response" before the turn has had a chance to render its
+ * first token. Matched via the normalized `CvdiagSseEvent.eventType` the SSE
+ * interceptor already surfaces (see helpers/sse-interceptor.ts).
+ */
+const TURN_COMPLETE_SSE_EVENTS: ReadonlySet<string> = new Set([
+  "RUN_FINISHED",
+  "RUN_ERROR",
+]);
+
+/**
+ * After a turn-complete SSE event (`RUN_FINISHED`/`RUN_ERROR`) is observed but
+ * the assistant-message container is still empty, keep polling the DOM for
+ * this long before declaring the turn genuinely empty. The first token often
+ * renders a beat AFTER the SSE finish (React commit + markdown render), so a
+ * small grace window converts a "completed but DOM not yet painted" read into
+ * a captured first token, while a truly-empty completed turn still fails once
+ * the grace elapses. Bounded and small so a genuinely-empty turn fails fast.
+ */
+const FIRST_TOKEN_GRACE_MS = 2000;
+
+/**
  * The slice of Playwright's `Page` the launcher adapter consumes. Declared
  * structurally (not imported) so the module stays loadable without the
  * `playwright` type tree at module scope — mirroring the existing `E2ePage`
@@ -1356,6 +1381,26 @@ async function runLevel(opts: {
   const cvdiagStartMs = nowMonoMs();
   let cvdiagExited = false;
   let cvdiagResponseEmpty = true;
+  /**
+   * Set the moment a turn-complete SSE event (`RUN_FINISHED`/`RUN_ERROR`) is
+   * observed on the `onSseEvent` seam. The first-token poll below uses this to
+   * distinguish "still streaming / not started" (keep waiting, within budget)
+   * from "turn completed" (do a bounded grace poll, then a completed-empty turn
+   * genuinely fails). Undefined until the turn completes. Wall-clock ms so it
+   * composes with the poll loop's `Date.now()` budget arithmetic.
+   */
+  let turnCompleteAtMs: number | undefined;
+  /**
+   * True once ANY SSE event has been observed on the `onSseEvent` seam. This
+   * gates the signal-based wait extension: we only wait PAST the base
+   * `textPollTimeoutMs` floor when we have positive evidence of an in-flight
+   * turn (an SSE stream exists and is producing events). When no SSE stream is
+   * observed at all — either the seam is not wired (fakes / non-Playwright
+   * paths) or the agent genuinely never streamed — there is no turn to wait
+   * for, so the poll falls back to the base budget floor and declares emptiness
+   * there (unchanged pre-fix behavior; no false hangs).
+   */
+  let sseObserved = false;
   /** Capture the agent-message POST edge headers for `probe.message.send`. */
   let messageSendEdge: ReturnType<typeof filterEdgeHeaders> | undefined;
   /**
@@ -1424,6 +1469,18 @@ async function runLevel(opts: {
         // `probe.sse.event` stream here. firsttoken is emitted from the DOM
         // poll below.
         cvdiag.sseEvent(e, nowMonoMs());
+        // Positive evidence that an SSE turn is in-flight — gates the
+        // signal-based wait extension in the first-token poll.
+        sseObserved = true;
+        // Turn-complete signal: record when the agent run lifecycle reaches a
+        // terminal event so the first-token poll can wait on it instead of a
+        // fixed short budget (see runLevel's DOM poll and TURN_COMPLETE_SSE_EVENTS).
+        if (
+          turnCompleteAtMs === undefined &&
+          TURN_COMPLETE_SSE_EVENTS.has(e.eventType)
+        ) {
+          turnCompleteAtMs = Date.now();
+        }
       });
       p.onSseAborted?.((e) => cvdiag.sseAborted(e));
     }
@@ -1521,8 +1578,46 @@ async function runLevel(opts: {
       // uses `querySelectorAll` to find the last matching element by
       // index rather than by CSS pseudo-selector.
       let raw = "";
-      const pollEnd = Date.now() + textPollTimeoutMs;
-      while (Date.now() < pollEnd) {
+      // Signal-based first-token wait (hardening for the client-side render
+      // race). The pre-fix loop stopped at a FIXED `textPollTimeoutMs`, so a
+      // first token that rendered a beat later than that budget — on a turn
+      // that genuinely produced content — was read as empty → a spurious
+      // "empty assistant response" red. We instead keep polling until one of:
+      //
+      //   (a) non-empty text appears (the real success — break immediately), or
+      //   (b) the turn has COMPLETED (SSE `RUN_FINISHED`/`RUN_ERROR`, tracked
+      //       via `turnCompleteAtMs`) AND a short `FIRST_TOKEN_GRACE_MS` window
+      //       past that completion has elapsed with still-empty DOM — a
+      //       genuinely-empty completed turn, which must still fail, or
+      //   (c) the hard `pageTimeoutMs` ceiling is hit (defensive upper bound so
+      //       a turn that never completes and never renders can't hang).
+      //
+      // `textPollTimeoutMs` remains the MINIMUM budget floor (we always poll at
+      // least that long) — but we no longer DECLARE emptiness at that floor
+      // while the turn is still in-flight or just completed. This distinguishes
+      // "still streaming / not started" from "completed empty".
+      const pollStart = Date.now();
+      const baseBudgetEnd = pollStart + textPollTimeoutMs;
+      const hardCeiling = pollStart + pageTimeoutMs;
+      const pollDeadline = (): number => {
+        // No SSE turn observed at all → no in-flight turn to wait for; use the
+        // base budget floor (unchanged pre-fix behavior). This is the path when
+        // the SSE seam is unwired OR the agent genuinely never streamed, and it
+        // keeps a truly-dead run from hanging to the hard ceiling.
+        if (!sseObserved) return baseBudgetEnd;
+        if (turnCompleteAtMs !== undefined) {
+          // Turn finished: wait the base floor OR a short grace past the finish
+          // (whichever is later) for the first token to paint, capped at the
+          // hard ceiling. A completed-empty turn stops here → still fails.
+          const graceEnd = turnCompleteAtMs + FIRST_TOKEN_GRACE_MS;
+          return Math.min(Math.max(baseBudgetEnd, graceEnd), hardCeiling);
+        }
+        // Turn in-flight (SSE observed, not yet terminal): keep waiting up to
+        // the hard `pageTimeoutMs` ceiling so a slow first token is not cut off
+        // by the short base budget — this is the actual race being fixed.
+        return hardCeiling;
+      };
+      while (Date.now() < pollDeadline()) {
         // The callback executes in the browser where `document` exists.
         // TypeScript's Node-only `lib` doesn't include DOM types, so we
         // access `document` via `globalThis` to avoid a compile error
