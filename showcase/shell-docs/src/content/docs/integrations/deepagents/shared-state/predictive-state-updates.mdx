@@ -67,18 +67,16 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
             </Tab>
             <Tab value="TypeScript">
                 ```ts title="agent.ts"
-                import { createMiddleware } from "langchain";
-                import { copilotkitMiddleware, zodState } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
-                import { z } from "zod";
+                import { Annotation } from "@langchain/langgraph";
+                import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
 
-                export const observedStepsMiddleware = createMiddleware({
-                    name: "AgentState",
-                    stateSchema: z.object({
-                        observed_steps: zodState(z.array(z.string()).default([])), // Array of completed steps
-                    }),
+                // Define your custom state by combining CopilotKitStateAnnotation with your fields
+                const AgentStateAnnotation = Annotation.Root({
+                    ...CopilotKitStateAnnotation.spec,
+                    observed_steps: Annotation<string[]>({ default: () => [] }), // Array of completed steps
                 });
 
-                // createDeepAgent({ middleware: [observedStepsMiddleware, copilotkitMiddleware], ... })
+                export type AgentState = typeof AgentStateAnnotation.State;
                 ```
             </Tab>
         </Tabs>
@@ -130,9 +128,14 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                     <Tab value="TypeScript">
                         ```ts title="agent.ts"
                         import { copilotkitEmitState } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+                        import type { RunnableConfig } from "@langchain/core/runnables";
+                        import { ChatOpenAI } from "@langchain/openai";
+                        import { SystemMessage } from "@langchain/core/messages";
 
-                        // Inside your custom graph node or a middleware hook that has access to state and config:
-                        async function chatNode(state: any, config: any) {
+                        // Define your custom graph node
+                        async function chatNode(state: AgentState, config: RunnableConfig) {
+                            const model = new ChatOpenAI({ model: "gpt-4o-mini" });
+
                             const steps = [
                                 "Analyzing input data...",
                                 "Identifying key patterns...",
@@ -140,13 +143,42 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                                 "Formatting final output...",
                             ];
 
+                            // Emit intermediate state updates as steps complete
                             for (const step of steps) {
                                 state.observed_steps = [...(state.observed_steps ?? []), step];
                                 await copilotkitEmitState(config, state); // [!code highlight]
                                 await new Promise((resolve) => setTimeout(resolve, 1000));
                             }
+
+                            // Call the model and return the response
+                            const response = await model.invoke(
+                                [new SystemMessage("You are a helpful assistant."), ...(state.messages ?? [])],
+                                config
+                            );
+
+                            return {
+                                messages: [response],
+                                observed_steps: state.observed_steps, // Persist the final state
+                            };
                         }
+
+                        // Create and compile the graph
+                        import { StateGraph, START, END, MemorySaver } from "@langchain/langgraph";
+
+                        const workflow = new StateGraph(AgentStateAnnotation) // [!code highlight]
+                            .addNode("chat_node", chatNode) // [!code highlight]
+                            .addEdge(START, "chat_node") // [!code highlight]
+                            .addEdge("chat_node", END); // [!code highlight]
+
+                        // Compile the graph with a checkpointer for persistence
+                        const memory = new MemorySaver();
+                        export const graph = workflow.compile({ // [!code highlight]
+                            checkpointer: memory, // [!code highlight]
+                        }); // [!code highlight]
                         ```
+                        <Callout type="info">
+                          For custom graphs, you wire your nodes together using `StateGraph`, then compile it. The state you defined with `AgentStateAnnotation` is passed to `new StateGraph()` to ensure type safety across your nodes.
+                        </Callout>
                     </Tab>
                 </Tabs>
             </TailoredContentOption>
