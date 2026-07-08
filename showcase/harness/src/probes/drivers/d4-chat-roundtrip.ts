@@ -199,7 +199,15 @@ export interface E2eSmokeLevelSignal {
  *                      completion instant, NOT this field — it is a page-clock
  *                      stamp and can hold a stale prior-run value on an SSE-only
  *                      completion; feeding it into Node-clock math collapses the
- *                      grace window. Retained for other TurnState consumers.
+ *                      grace window. RETAINED (not dead code) even though d4 only
+ *                      ever WRITES it: this field mirrors the SHARED
+ *                      `attachSseInterceptor` page-side global (`sse-interceptor.ts`
+ *                      stamps `__hk_copilotRunning.lastStoppedAtMs` on every DOM
+ *                      stop edge) that the d6 run-signal snapshot
+ *                      (`conversation-runner.ts` `CopilotRunningState`) also reads.
+ *                      Dropping it from d4's `TurnState` would diverge d4's
+ *                      snapshot shape from that shared interceptor contract; it
+ *                      stays for shared-global parity, not for d4's own use.
  *   - `sseAttachFailed` true iff `attachSseInterceptor` THREW during `goto`, so
  *                      the page-side turn-lifecycle globals were never seeded
  *                      and the poll silently degraded to the base-floor
@@ -513,6 +521,20 @@ const FIRST_TOKEN_FAST_FAIL_MS = 15_000;
  * the retry envelope (see `runLevel`'s per-attempt ceiling arithmetic).
  */
 const NON_COMPLETION_RETRY_LIMIT = 1;
+
+/**
+ * Minimum remaining wall-clock budget (ms) required to ATTEMPT a non-completion
+ * retry resend. A resend runs late in the first-token envelope; once
+ * `hardCeiling - now` drops below this floor, `sendTurn`'s
+ * `Math.max(1, hardCeiling - Date.now())` would clamp the type/press action
+ * timeout to ~1ms — which Playwright throws on, and the driver's outer catch
+ * red-classifies as a generic `level-error`, indistinguishable from a real page
+ * fault (a spurious-red flap source). Below this floor the retry is skipped and
+ * the prior attempt's stall reds on its own terms instead. Set to one poll
+ * interval (500ms) plus headroom so a resend only fires when there is real
+ * budget left to observe its result.
+ */
+const RETRY_MIN_BUDGET_MS = 750;
 
 /**
  * The slice of Playwright's `Page` the launcher adapter consumes. Declared
@@ -1894,12 +1916,39 @@ async function runLevel(opts: {
       // still in-flight or just completed — distinguishing "still streaming" /
       // "completed empty" / "never completed" / "no turn". `baseline` scopes the
       // completion test to THIS turn (see `readTurnComplete`).
+      // Is the SSE interceptor known to have failed to attach for THIS page?
+      // When true, `attachSseInterceptor` threw during `goto`, so the page-side
+      // turn-lifecycle globals were never seeded and `readTurnComplete` can
+      // NEVER report `observed`/`complete` — every poll falls into the
+      // never-observed branch. That would pin the deadline to the base floor
+      // (`textPollTimeoutMs`), reintroducing exactly the slow-first-token
+      // false-red the main fix targets: a late-but-present token that arrives
+      // after the base floor but before the hard ceiling would be missed.
+      // `undefined` seam → treated as NOT degraded (a fake that doesn't model
+      // the turn lifecycle is a legitimate no-signal case, not an attach
+      // failure). Read once per attempt (the flag is latched at `goto` time and
+      // never changes within a level).
+      const readDegraded = async (): Promise<boolean> => {
+        if (page?.readTurnState === undefined) return false;
+        try {
+          return (await page.readTurnState()).sseAttachFailed === true;
+        } catch {
+          return false;
+        }
+      };
       const runAttempt = async (
         attemptCeiling: number,
         baseline: { runsFinished: number; runStartCount: number },
       ): Promise<{ text: string; completed: boolean; observed: boolean }> => {
         const attemptStart = Date.now();
         const baseBudgetEnd = attemptStart + textPollTimeoutMs;
+        // Degraded path: the interceptor silently no-op'd (attach failed), so no
+        // completion signal will EVER arrive. Widen the never-observed wait to
+        // the per-attempt ceiling (the hard budget) instead of the base floor so
+        // a missing interceptor doesn't cause a false-red on a late-but-present
+        // token. On a healthy page (`degraded === false`) the never-observed
+        // branch keeps its base-floor semantics (dead/no-turn run fails fast).
+        const degraded = await readDegraded();
         let completeAtMs: number | undefined;
         let everObserved = false;
         // eslint-disable-next-line no-constant-condition
@@ -1960,6 +2009,14 @@ async function runLevel(opts: {
             );
           } else if (everObserved) {
             deadline = attemptCeiling;
+          } else if (degraded) {
+            // Degraded path: the interceptor never seeded the turn-lifecycle
+            // globals, so NO completion signal will ever arrive and `everObserved`
+            // can never flip. Widen the wait to the per-attempt ceiling (the hard
+            // budget) so a late-but-present first token still lands inside the
+            // window — instead of pinning to the base floor and false-redding a
+            // slow-first-token turn just because the interceptor no-op'd.
+            deadline = attemptCeiling;
           } else {
             // No turn observed → base budget floor, but NEVER past the
             // per-attempt ceiling (which is itself bounded by `pageTimeoutMs`).
@@ -1998,6 +2055,16 @@ async function runLevel(opts: {
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
         if (abortSignal.aborted) break;
         if (attempt > 0) {
+          // Budget-exhaustion guard. A retry resend runs LATE in the envelope;
+          // if the remaining budget has all but drained, `sendTurn`'s
+          // `Math.max(1, hardCeiling - Date.now())` would floor the type/press
+          // action timeout to ~1ms, which Playwright throws on — and that throw
+          // is caught below as a generic `level-error`, indistinguishable from a
+          // real page fault (a spurious-red flap source). When too little budget
+          // remains to run a meaningful resend, SKIP the retry and fall through
+          // to the normal red path (the prior attempt's stall is reported on its
+          // own terms) rather than emitting a misleading 1ms-timeout error.
+          if (hardCeiling - Date.now() < RETRY_MIN_BUDGET_MS) break;
           // Non-completion retry: the prior attempt's turn was observed
           // in-flight but never signalled completion (stalled/dropped stream).
           // Re-baseline BEFORE the resend (SAME ordering rationale as attempt 0)
@@ -2005,6 +2072,18 @@ async function runLevel(opts: {
           // past the STALL's already-latched counters — a stale prior edge can
           // never satisfy the retry.
           attemptBaseline = await readBaseline();
+          // Re-arm the message-POST edge-header capture for THIS (winning)
+          // attempt: `messageSendEdge` / `lastMessagePostResp` were latched to
+          // the FIRST (stalled) attempt's POST response, so a retry-rescued GREEN
+          // turn would otherwise mis-attribute `probe.message.send` /
+          // `edge_interference_signal` / the DEBUG raw-byte sample to the stalled
+          // attempt. Clearing them (and the `emitMessageSend` idempotency latch)
+          // lets the resend's own POST response re-capture the real winning-turn
+          // edge headers. `emitMessageSend` still fires at most once PER LEVEL
+          // (the finally-block fallback covers a retry whose POST never lands).
+          messageSendEdge = undefined;
+          lastMessagePostResp = undefined;
+          messageSendEmitted = false;
           await sendTurn();
         }
         // Split the REMAINING budget evenly across the remaining attempts so the
