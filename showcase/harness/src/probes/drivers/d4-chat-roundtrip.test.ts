@@ -1968,10 +1968,30 @@ function makeLateTokenBrowser(opts: {
   neverComplete?: boolean;
   /** With neverComplete: a resend (2nd attempt) rescues the turn. */
   retrySucceeds?: boolean;
+  /**
+   * Count of PRIOR finished runs already latched on the page BEFORE the user's
+   * turn starts (auto-greeting / initial-mount run). The page-side globals are
+   * MONOTONIC, so `runsFinished` and `runStartCount` both start at this value
+   * and the current turn only bumps them PAST it. This reproduces the a1
+   * attempt-scoping bug: keying completion off the page-global `runsFinished
+   * >= 1` false-reds the in-flight user turn because a prior run already
+   * satisfied `>= 1`.
+   */
+  priorFinishedRuns?: number;
+  /** Report the interceptor as having failed to attach (finding-3 surface). */
+  sseAttachFailed?: boolean;
+  /** Callback invoked with the sendCount on each send (retry-count assertions). */
+  onSend?: (sendCount: number) => void;
 }): CvE2eBrowser {
   let lastSendAtMs = 0;
   let sendCount = 0;
   const completeAt = opts.completeAtDelayMs ?? 0;
+  const prior = opts.priorFinishedRuns ?? 0;
+  // Realistic wall-clock ms for the PRIOR run's stop edge (captured at browser
+  // construction — before any user turn). Used as `lastStoppedAtMs` while the
+  // current turn is still in-flight so the pre-fix false-completion stamps its
+  // grace window from a REAL (past) timestamp, reproducing the a1 false-red.
+  const priorStoppedAtMs = Date.now();
   const page: CvE2ePage = {
     async goto() {
       return null;
@@ -1982,6 +2002,7 @@ function makeLateTokenBrowser(opts: {
       // send so a resend restarts the first-token / completion clocks.
       lastSendAtMs = Date.now();
       sendCount += 1;
+      opts.onSend?.(sendCount);
     },
     async waitForSelector() {},
     async textContent() {
@@ -2009,11 +2030,30 @@ function makeLateTokenBrowser(opts: {
       const rescued = opts.retrySucceeds === true && sendCount >= 2;
       const complete =
         (!opts.neverComplete || rescued) && elapsed >= completeAt;
+      // MONOTONIC page-global counters (they only ever grow, exactly like the
+      // real `attachSseInterceptor` globals). `prior` runs already latched
+      // before the user's FIRST turn. Every send starts one run
+      // (`runStartCount = prior + sendCount`). All PRIOR sends' turns are done;
+      // the CURRENT (latest) turn is done once `complete`
+      // (`runsFinished = prior + (sendCount - 1) + (complete ? 1 : 0)`). This is
+      // what lets a shared page survive L3→L4 (two sequential sends) with the
+      // per-attempt baseline correctly scoping completion to each turn.
+      const started = sendCount > 0;
+      const priorSendsDone = Math.max(0, sendCount - 1);
       return {
-        runsFinished: complete ? 1 : 0,
+        runsFinished: prior + priorSendsDone + (complete ? 1 : 0),
         attrPresent: true,
-        sawRunningTrue: true,
-        runningNow: !complete,
+        sawRunningTrue: prior > 0 || started,
+        runningNow: started ? !complete : prior > 0 ? false : null,
+        runStartCount: prior + sendCount,
+        // Current turn complete → stamp NOW; else the most-recent stop is a
+        // prior run's (a real past timestamp) when any prior run has finished.
+        lastStoppedAtMs: complete
+          ? Date.now()
+          : prior > 0 || priorSendsDone > 0
+            ? priorStoppedAtMs
+            : 0,
+        sseAttachFailed: opts.sseAttachFailed === true,
       };
     },
     async close() {},
@@ -2057,6 +2097,40 @@ async function runLateToken(
   const signal = (l4?.signal ?? {}) as { failureSummary?: string };
   return {
     l4State: String(l4?.state ?? "missing"),
+    failureSummary: signal.failureSummary ?? "",
+  };
+}
+
+/**
+ * Run the driver against a late-token browser and return the L3 (chat) result.
+ * L3 uses the `agentic-chat` demo (no `tool-rendering`), so the aggregate green
+ * requires only the chat round-trip. Exercises the SAME first-token poll /
+ * grace / fast-fail / retry path as L4 but on the L3 level (which was
+ * previously test-covered only at L4).
+ */
+async function runLateTokenL3(
+  browser: CvE2eBrowser,
+  overrides: { pageTimeoutMs?: number } = {},
+): Promise<{
+  l3State: string;
+  failureSummary: string;
+}> {
+  const writer = new CapturingWriter();
+  const driver = createE2eSmokeDriver({
+    launcher: async () => browser as unknown as E2eBrowser,
+    textPollTimeoutMs: 120,
+    pageTimeoutMs: overrides.pageTimeoutMs ?? 4000,
+  });
+  await driver.run(baseCtx({ writer }), {
+    key: "e2e-smoke:foo",
+    backendUrl: "https://x.example.com",
+    // No tool-rendering demo → L4 skipped, aggregate green iff L3 green.
+    demos: [],
+  });
+  const l3 = writer.results.find((r) => r.key === "chat:foo");
+  const signal = (l3?.signal ?? {}) as { failureSummary?: string };
+  return {
+    l3State: String(l3?.state ?? "missing"),
     failureSummary: signal.failureSummary ?? "",
   };
 }
@@ -2128,4 +2202,190 @@ describe("d4 L4 first-token wait hardening (readTurnState-driven)", () => {
     expect(l4State).toBe("red");
     expect(failureSummary).toContain("empty assistant response");
   }, 10000);
+
+  it("a1 REGRESSION: a PRIOR finished run + still-in-flight user turn does NOT false-red", async () => {
+    // The dominant a1 bug: the page already has a PRIOR finished run
+    // (auto-greeting / initial-mount run) so the page-GLOBAL monotonic
+    // `runsFinished` is already >= 1 when the user's turn starts. The pre-fix
+    // poll keyed completion off `runsFinished >= 1`, so it thought THIS turn had
+    // already completed the instant it began, saw the still-empty container, and
+    // FAST-FAILED red — even though the user's turn was healthily in-flight and
+    // renders its token shortly after.
+    //
+    // With attempt-scoped completion (baseline captured at send time; complete
+    // only on a NEW edge past the baseline), the prior run's latched counter no
+    // longer satisfies THIS turn, the poll correctly waits for the real
+    // first-token, and the turn is GREEN.
+    //
+    // The token renders at 2400ms — PAST the ~2000ms grace window the pre-fix
+    // code stamps from its (false) turn-start "completion". Pre-fix: the prior
+    // run makes `runsFinished >= 1` true immediately, completion is stamped at
+    // ~send time, the grace window elapses at ~2000ms with the DOM still empty,
+    // and the poll REDS ("empty assistant response") before the real 2400ms
+    // token. Post-fix: baseline scoping means the prior run does NOT count, the
+    // turn is correctly treated as in-flight, the poll waits to its ceiling, and
+    // the 2400ms token is captured → GREEN. The turn genuinely completes at
+    // 2300ms (just before the token) so no retry-stall.
+    const { l4State, failureSummary } = await runLateToken(
+      makeLateTokenBrowser({
+        assistantText: "The weather in San Francisco is sunny, 72 degrees.",
+        firstTokenDelayMs: 2400,
+        completeAtDelayMs: 2300,
+        priorFinishedRuns: 1,
+      }),
+      { pageTimeoutMs: 8000 },
+    );
+    expect(l4State).toBe("green");
+    expect(failureSummary).toBe("");
+  }, 15000);
+
+  it("a1 REGRESSION (L3): prior finished run + in-flight chat turn does NOT false-red", async () => {
+    // Same a1 regression proven on the L3 (chat) level — the level that runs on
+    // EVERY service (L4 is tool-rendering-only). Prior run latches the global
+    // counter; the in-flight chat turn must still resolve GREEN once its token
+    // renders.
+    const { l3State, failureSummary } = await runLateTokenL3(
+      makeLateTokenBrowser({
+        assistantText: "Hi there! How can I help you today?",
+        firstTokenDelayMs: 2400,
+        completeAtDelayMs: 2300,
+        priorFinishedRuns: 2,
+      }),
+      { pageTimeoutMs: 8000 },
+    );
+    expect(l3State).toBe("green");
+    expect(failureSummary).toBe("");
+  }, 15000);
+
+  it("L3 (chat) late-but-present token: same grace path as L4 → GREEN", async () => {
+    // L3 coverage for the grace/fast-fail path (was L4-tools-only). A chat turn
+    // whose first token renders after the base poll floor still passes via the
+    // completion+grace window.
+    const { l3State, failureSummary } = await runLateTokenL3(
+      makeLateTokenBrowser({
+        assistantText: "A brief and friendly greeting.",
+        firstTokenDelayMs: 300,
+        completeAtDelayMs: 250,
+      }),
+    );
+    expect(l3State).toBe("green");
+    expect(failureSummary).toBe("");
+  });
+
+  it("completed-empty does exactly ONE send — fast-fail RED, retry does NOT fire (L3)", async () => {
+    // A turn that COMPLETES with empty assistant text is a real red and is NOT
+    // transient — the non-completion retry must not fire. L3 runs a SINGLE level
+    // (no tool-rendering demo), so `sendCount` is unconfounded: assert exactly
+    // one send, proving completed-empty short-circuits without a resend.
+    let sends = 0;
+    const { l3State, failureSummary } = await runLateTokenL3(
+      makeLateTokenBrowser({
+        assistantText: "",
+        firstTokenDelayMs: 300,
+        completeAtDelayMs: 50,
+        onSend: (n) => {
+          sends = n;
+        },
+      }),
+    );
+    expect(l3State).toBe("red");
+    expect(failureSummary).toContain("empty assistant response");
+    expect(sends).toBe(1);
+  });
+
+  it("L3 (chat) recoverable stall: rescued by non-completion retry → GREEN", async () => {
+    // L3 coverage for the retry path — attempt 1 stalls (never completes),
+    // resend rescues, second attempt renders content.
+    const { l3State, failureSummary } = await runLateTokenL3(
+      makeLateTokenBrowser({
+        assistantText: "Recovered greeting after a retry.",
+        firstTokenDelayMs: 100,
+        neverComplete: true,
+        retrySucceeds: true,
+      }),
+    );
+    expect(l3State).toBe("green");
+    expect(failureSummary).toBe("");
+  });
+});
+
+describe("wirePlaywrightPage attach-fault telemetry (finding 3)", () => {
+  it("surfaces an interceptor-attach fault via onAttachFault AND readTurnState.sseAttachFailed (not silently swallowed)", async () => {
+    // A failed `attachSseInterceptor` must degrade safely (navigation still
+    // proceeds) BUT leave a distinguishable, observable signal — not the pre-fix
+    // silent fall-back to the inert base-floor path. Assert both surfaces: the
+    // injected `onAttachFault` callback fires with the error, AND
+    // `readTurnState().sseAttachFailed` reads true.
+    const faults: unknown[] = [];
+    let gotoCalled = false;
+    const rawPage = {
+      goto: async () => {
+        gotoCalled = true;
+        return null;
+      },
+      type: async () => {},
+      press: async () => {},
+      waitForSelector: async () => {},
+      textContent: async () => "",
+      // The turn-lifecycle globals were never seeded (attach threw), so the
+      // page-side read returns the zeroed defaults; sseAttachFailed rides on top.
+      evaluate: async () => ({
+        runsFinished: 0,
+        attrPresent: false,
+        sawRunningTrue: false,
+        runningNow: null,
+        runStartCount: 0,
+        lastStoppedAtMs: 0,
+      }),
+      close: async () => {},
+      on: () => {},
+    };
+    const wired = wirePlaywrightPage(
+      rawPage as unknown as Parameters<typeof wirePlaywrightPage>[0],
+      // attachInterceptor throws — the fault path under test.
+      async () => {
+        throw new Error("CDP session unavailable");
+      },
+      (err) => faults.push(err),
+    );
+    // Navigation must still proceed despite the attach fault (degrade safely).
+    await wired.goto("https://x.example.com/demos/agentic-chat", {});
+    expect(gotoCalled).toBe(true);
+    // Fault surfaced through the telemetry callback.
+    expect(faults).toHaveLength(1);
+    expect((faults[0] as Error).message).toContain("CDP session unavailable");
+    // AND observable programmatically via readTurnState.
+    const st = await wired.readTurnState!();
+    expect(st.sseAttachFailed).toBe(true);
+  });
+
+  it("does NOT flag sseAttachFailed when the interceptor attaches cleanly", async () => {
+    const rawPage = {
+      goto: async () => null,
+      type: async () => {},
+      press: async () => {},
+      waitForSelector: async () => {},
+      textContent: async () => "",
+      evaluate: async () => ({
+        runsFinished: 0,
+        attrPresent: false,
+        sawRunningTrue: false,
+        runningNow: null,
+        runStartCount: 0,
+        lastStoppedAtMs: 0,
+      }),
+      close: async () => {},
+      on: () => {},
+    };
+    const wired = wirePlaywrightPage(
+      rawPage as unknown as Parameters<typeof wirePlaywrightPage>[0],
+      async () => ({ stop: async () => ({}) }),
+      () => {
+        throw new Error("onAttachFault must not fire on clean attach");
+      },
+    );
+    await wired.goto("https://x.example.com/demos/agentic-chat", {});
+    const st = await wired.readTurnState!();
+    expect(st.sseAttachFailed).toBe(false);
+  });
 });
