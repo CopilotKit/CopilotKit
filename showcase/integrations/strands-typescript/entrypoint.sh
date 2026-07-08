@@ -106,7 +106,11 @@ _kill_agent_tree() {
     for p in $descendants; do
       kill -9 "$p" 2>/dev/null || true
     done
-    sleep 0.2
+    # `|| true`: under set -e a non-zero `sleep` (e.g. a future busybox/Alpine
+    # rebase whose sleep can fail) would abort this tree-kill mid-walk, leaving
+    # the root un-killed and the real npm→node server orphaned.  The guard keeps
+    # the walk running to completion regardless of sleep's exit status.
+    sleep 0.2 || true
   done
   kill -9 "$root" 2>/dev/null || true
 }
