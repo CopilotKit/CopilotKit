@@ -2046,10 +2046,6 @@ function makeLateTokenBrowser(opts: {
       return "" as unknown as R;
     },
     async readTurnState() {
-      const elapsed = Date.now() - lastSendAtMs;
-      const rescued = opts.retrySucceeds === true && sendCount >= 2;
-      const complete =
-        (!opts.neverComplete || rescued) && elapsed >= completeAt;
       // MONOTONIC page-global counters (they only ever grow, exactly like the
       // real `attachSseInterceptor` globals). `prior` runs already latched
       // before the user's FIRST turn. Every send starts one run
@@ -2060,6 +2056,22 @@ function makeLateTokenBrowser(opts: {
       // per-attempt baseline correctly scoping completion to each turn.
       const started = sendCount > 0;
       const priorSendsDone = Math.max(0, sendCount - 1);
+      const elapsed = Date.now() - lastSendAtMs;
+      const rescued = opts.retrySucceeds === true && sendCount >= 2;
+      // Completion is a property of the CURRENT (in-flight) turn — it can only be
+      // true once a turn has actually been sent (`started`). Before the first
+      // send, `lastSendAtMs === 0` makes `elapsed` (≈ epoch ms) spuriously exceed
+      // `completeAt`, which used to flip `complete` true at the pre-send BASELINE
+      // read the driver takes before `sendTurn()`. That inflated the baseline
+      // `runsFinished` to `prior + 1`, so the current turn's real finished edge
+      // (`prior + priorSendsDone + 1`) never rose PAST the baseline and the
+      // driver's `sseDone = runsFinished > baseline.runsFinished` could never
+      // fire — leaving the SSE-only-stale-grace path (which depends on `sseDone`)
+      // untested. Gating on `started` makes the baseline read a true baseline
+      // (`runsFinished = prior + priorSendsDone`, no current-turn finish) so the
+      // finished edge is a genuine THIS-turn transition the driver observes.
+      const complete =
+        started && (!opts.neverComplete || rescued) && elapsed >= completeAt;
       // SSE-only completion: the transport `runsFinished` counter bumps but the
       // DOM run-lifecycle attribute never registers a fresh `true→false` stop
       // edge for THIS turn, so `runningNow` stays `true` and `lastStoppedAtMs`

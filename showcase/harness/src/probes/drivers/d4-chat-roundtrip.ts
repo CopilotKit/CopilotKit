@@ -490,12 +490,15 @@ const FIRST_TOKEN_GRACE_MS = 2000;
  * real turn-complete signal available (`readTurnState()`), we no longer burn
  * the flat `pageTimeoutMs` (~60s) on a genuinely-empty completed turn: once the
  * turn reports complete AND the short `FIRST_TOKEN_GRACE_MS` window has elapsed
- * with still-empty DOM, the poll gives up here. The overall first-token budget
- * for a COMPLETED turn is thus bounded by roughly this value (whichever is
- * later: the base floor, or completion + grace, capped at the hard ceiling) —
- * ~15-20s in practice rather than the flat 60s. A genuinely-completed-empty
- * turn still reds (no masking): completion is observed, grace elapses, DOM is
- * empty → red.
+ * with still-empty DOM, the poll gives up here. The deadline for a COMPLETED
+ * turn is `Math.min(Math.max(baseBudgetEnd, graceEnd), fastFailEnd,
+ * attemptCeiling)`: completion+grace is raised to at least the base floor, then
+ * this value CLAMPS it from above (as does the per-attempt ceiling). The clamp
+ * can land BEFORE the base floor — the floor is not a hard minimum for a
+ * completed turn — so the overall first-token budget is ~15s (this value)
+ * rather than the flat 60s `pageTimeoutMs`. A genuinely-completed-empty turn
+ * still reds (no masking): completion is observed, grace elapses, DOM is empty
+ * → red.
  */
 const FIRST_TOKEN_FAST_FAIL_MS = 15_000;
 
@@ -1935,8 +1938,14 @@ async function runLevel(opts: {
           }
           const now2 = Date.now();
           // Deadline for THIS poll iteration:
-          //   - completed-but-empty → completion+grace, capped by fast-fail and
-          //     the per-attempt ceiling (base floor always respected).
+          //   - completed-but-empty → completion+grace raised to at least the
+          //     base floor (`Math.max(baseBudgetEnd, graceEnd)`), then CLAMPED by
+          //     `Math.min(fastFailEnd, attemptCeiling)`. The clamp intentionally
+          //     wins: a completed-empty turn fast-fails at `fastFailEnd`
+          //     (`attemptStart + FIRST_TOKEN_FAST_FAIL_MS`) or the per-attempt
+          //     ceiling even when that lands BEFORE the base floor — the floor is
+          //     NOT a hard minimum here (a genuinely-completed-empty turn must
+          //     red fast, not burn the full base budget).
           //   - observed in-flight (not yet complete) → poll to the per-attempt
           //     ceiling (the slow-first-token race being fixed).
           //   - never observed → stop at the base floor (dead/no-turn run).
