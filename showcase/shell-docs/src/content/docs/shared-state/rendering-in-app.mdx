@@ -33,6 +33,7 @@ export function Canvas() {
   useEffect(() => {
     if (!state.title) {
       agent.setState({
+        ...agent.state,
         title: "My Canvas",
         items: [
           { id: "1", label: "First item", done: false },
@@ -40,8 +41,7 @@ export function Canvas() {
         ],
       } satisfies CanvasState);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [agent, state.title]);
 
   return (
     <main className="canvas">
