@@ -6,6 +6,52 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# ---------------------------------------------------------------------------
+# Agent process-tree kill.
+#
+# The agent is launched as a compound command through a process substitution:
+#   cd /app/src/agent && ... npm start &> >(awk …) &
+# so $AGENT_PID (=$!) is the *outer subshell* wrapping that pipeline — NOT the
+# `npm` wrapper nor the `node` server it forks.  A plain `kill -9 $AGENT_PID`
+# therefore reaps only the subshell: `npm` and `node` are reparented to PID 1
+# and KEEP RUNNING — still bound to :8000.  The watchdog's whole promise
+# ("kill agent → wait -n returns → container restart") is then broken: the
+# frontend proxies to a dead-but-not-restarted agent forever (edge 502s), and
+# even if the container does exit, a surviving orphan can still hold :8000
+# across the restart.
+#
+# We cannot `kill -- -$PGID` because a non-interactive script has job control
+# OFF: the agent subshell, npm, node, next.js AND the main shell all share the
+# shell's process group, so a group kill would take out the whole entrypoint.
+# Instead we walk the process tree via /proc (node:22-slim ships neither
+# `ps` nor `pgrep`) and SIGKILL every descendant, deepest-first, then the root.
+# ---------------------------------------------------------------------------
+_agent_descendants() {
+  # Print all descendant PIDs of $1 (children, grandchildren, …), deepest-first.
+  local root="$1" pid ppid stat
+  for pid in $(cd /proc 2>/dev/null && ls -d [0-9]* 2>/dev/null); do
+    [ -r "/proc/$pid/stat" ] || continue
+    # comm (field 2) can contain spaces/parens, so strip through the final ')'
+    # before splitting; PPID is then the 2nd field of the remainder.
+    stat=$(cat "/proc/$pid/stat" 2>/dev/null) || continue
+    ppid=$(echo "${stat##*) }" | awk '{print $2}')
+    if [ "$ppid" = "$root" ]; then
+      _agent_descendants "$pid"
+      echo "$pid"
+    fi
+  done
+}
+
+_kill_agent_tree() {
+  # SIGKILL the agent subshell AND its npm→node descendants so the real server
+  # actually dies and frees :8000 — not just the log-pipeline subshell.
+  local root="$1" p
+  for p in $(_agent_descendants "$root"); do
+    kill -9 "$p" 2>/dev/null || true
+  done
+  kill -9 "$root" 2>/dev/null || true
+}
+
 echo "========================================="
 echo "[entrypoint] Starting showcase package: strands-typescript"
 echo "[entrypoint] Time: $(date -u)"
@@ -68,8 +114,11 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
       FAILS=$((FAILS + 1))
       echo "[watchdog] Agent health probe failed (count=$FAILS)"
       if [ $FAILS -ge 3 ]; then
-        echo "[watchdog] Agent unresponsive for ~90s — killing PID $AGENT_PID to trigger container restart"
-        kill -9 $AGENT_PID 2>/dev/null || true
+        echo "[watchdog] Agent unresponsive for ~90s — killing PID $AGENT_PID (and its npm→node tree) to trigger container restart"
+        # Tree-kill (not a bare `kill -9 $AGENT_PID`): $AGENT_PID is the process-sub
+        # subshell, so a single-PID kill would orphan the real npm→node server,
+        # leaving :8000 bound to a hung agent that `wait -n` never observes dying.
+        _kill_agent_tree "$AGENT_PID"
         break
       fi
     fi
