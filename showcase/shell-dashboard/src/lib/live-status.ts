@@ -446,6 +446,8 @@ export const CATALOG_TO_D5_KEY: Readonly<Record<string, readonly string[]>> = {
   "readonly-state-agent-context": ["readonly-state-context"],
   "shared-state-read": ["shared-state-read"],
   "declarative-gen-ui": ["gen-ui-declarative"],
+  // A2UI error recovery — mirrors d5-feature-mapping.ts REGISTRY_TO_D5.
+  "a2ui-recovery": ["a2ui-recovery"],
   "a2ui-fixed-schema": ["gen-ui-a2ui-fixed"],
   "open-gen-ui": ["gen-ui-open"],
   "open-gen-ui-advanced": ["gen-ui-open-advanced"],
@@ -777,6 +779,86 @@ export function starterIsSupported(columnSlug: string): boolean {
   return STARTER_COLUMNS.has(columnSlug);
 }
 
+/* ------------------------------------------------------------------ */
+/*  Starter failure-class taxonomy + two-miss tolerance (pool-fleet C) */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Keyed starter-failure taxonomy — the DASHBOARD-side mirror of the harness
+ * `StarterFailureClass` in
+ * `showcase/harness/src/probes/drivers/starter-smoke.ts`. The starter-smoke
+ * driver stamps `errorClass` onto the `signal` of every red `starter:<slug>`
+ * aggregate and `starter:<slug>/<level>` row.
+ *
+ * WHY MIRRORED, NOT IMPORTED: the dashboard imports only `@/*` and never reaches
+ * across the package boundary into harness source at runtime (same rule that
+ * makes `STARTER_COLUMNS` / `CATALOG_TO_D5_KEY` / the comm-error contract local
+ * copies of harness producer constants). The
+ * `starter-error-class-drift.test.ts` lint test guards the two against drift.
+ *
+ * SOFT vs HARD split (the whole point of step C):
+ *   - SOFT (`transport-error`, `aborted`): a transient transport / cold-start
+ *     wake / external-abort hiccup. A SINGLE soft miss must NOT flip the cell
+ *     red — that would flap the dashboard on infra noise. It is tolerated until
+ *     a SECOND consecutive soft miss confirms the failure.
+ *   - HARD (`smoke-failed`): a real HTTP-level content regression. Flips the
+ *     cell red IMMEDIATELY — no tolerance.
+ */
+export const STARTER_FAILURE_CLASSES = [
+  "transport-error",
+  "smoke-failed",
+  "aborted",
+] as const;
+
+/** A single keyed starter-failure class. Mirror of harness `StarterFailureClass`. */
+export type StarterFailureClass = (typeof STARTER_FAILURE_CLASSES)[number];
+
+/**
+ * SOFT (transient) failure classes that earn two-miss tolerance. `smoke-failed`
+ * is deliberately ABSENT — a real content regression is a hard red.
+ */
+const SOFT_STARTER_FAILURE_CLASSES: ReadonlySet<StarterFailureClass> = new Set([
+  "transport-error",
+  "aborted",
+]);
+
+/** Type guard for a valid StarterFailureClass. */
+export function isStarterFailureClass(
+  value: unknown,
+): value is StarterFailureClass {
+  return (
+    typeof value === "string" &&
+    (STARTER_FAILURE_CLASSES as readonly string[]).includes(value)
+  );
+}
+
+/**
+ * Extract the keyed `errorClass` from a starter row's `signal` blob, or
+ * `undefined` when none is present / the value is unrecognized. The driver
+ * writes `errorClass` at the top level of both the aggregate
+ * (`StarterSmokeAggregateSignal`) and per-level (`StarterSmokeLevelSignal`)
+ * signal shapes. An unrecognized / malformed value decodes to `undefined`
+ * (fail-safe: the row is treated as an untagged failure → hard flip, never a
+ * tolerated soft miss on a value we don't understand).
+ */
+export function starterErrorClassFromSignal(
+  signal: unknown,
+): StarterFailureClass | undefined {
+  if (signal === null || typeof signal !== "object") return undefined;
+  const raw = (signal as Record<string, unknown>).errorClass;
+  return isStarterFailureClass(raw) ? raw : undefined;
+}
+
+/**
+ * The consecutive-miss count below which a SOFT failure is tolerated. The
+ * harness `status-writer` maintains `fail_count` as the persisted
+ * consecutive-red counter (1 on green→red, incremented on sustained red, 0 on
+ * red→green), so `fail_count <= 1` is "this is the FIRST red tick" and
+ * `fail_count >= 2` is "two+ consecutive misses — confirmed". A SOFT failure
+ * flips red only once the count crosses this threshold.
+ */
+const SOFT_MISS_TOLERANCE_THRESHOLD = 2;
+
 /**
  * Resolve the `starter:<columnSlug>/<level>` row for one starter sub-cell.
  *
@@ -831,6 +913,33 @@ const STARTER_LEVEL_DESCRIPTION: Readonly<Record<StarterLevel, string>> = {
  * path supplies the same staleness downgrade + tooltip machinery as every
  * other badge; the per-level descriptor is appended to the tooltip.
  */
+/**
+ * Apply two-miss tolerance to a starter row: a red row keyed with a SOFT
+ * failure class (`transport-error` / `aborted`) whose `fail_count` is below
+ * `SOFT_MISS_TOLERANCE_THRESHOLD` is downgraded to `degraded` (amber `~`) so a
+ * single transient miss does not flip the cell red. Everything else — a
+ * non-red row, a HARD (`smoke-failed`) or untagged red, or a soft red at/over
+ * the threshold — passes through unchanged.
+ *
+ * Only `.state` is rewritten (mirrors `buildBadge`'s stale-green fold); the
+ * spread preserves `fail_count`, `first_failure_at`, `observed_at`, and the
+ * `signal` blob so drilldown metadata is intact and a downstream reader of
+ * `.row.state` sees `degraded` (agreeing with the amber tone), not a latent
+ * false-red.
+ */
+function toleratedSoftMissRow(row: StatusRow | null): StatusRow | null {
+  if (!row || row.state !== "red") return row;
+  const errorClass = starterErrorClassFromSignal(row.signal);
+  if (
+    errorClass === undefined ||
+    !SOFT_STARTER_FAILURE_CLASSES.has(errorClass)
+  ) {
+    return row;
+  }
+  if (row.fail_count >= SOFT_MISS_TOLERANCE_THRESHOLD) return row;
+  return { ...row, state: "degraded" };
+}
+
 export function buildStarterBadge(
   level: StarterLevel,
   isSupported: boolean,
@@ -852,9 +961,20 @@ export function buildStarterBadge(
       row: null,
     };
   }
+  // Two-miss tolerance (pool-fleet step C): a red row whose failure is keyed
+  // SOFT (`transport-error` / `aborted`) and whose consecutive-miss count has
+  // NOT yet reached the threshold is TOLERATED — we downgrade it to `degraded`
+  // so it renders amber `~` ("transient, not yet actionable") instead of
+  // flapping the cell red on a single transport hiccup. HARD (`smoke-failed`)
+  // and untagged failures, and soft failures at/over the threshold, pass
+  // through unchanged and flip red. The downgrade rewrites ONLY `.state` (same
+  // pattern as `buildBadge`'s stale-green→degraded fold) so the connection,
+  // tooltip, and drilldown signal are all preserved; the amber tooltip then
+  // honestly reports a stale/degraded surface rather than a green ✓.
+  const tolerated = toleratedSoftMissRow(row);
   const base = buildBadge(
     "starter",
-    row,
+    tolerated,
     now,
     STARTER_STALE_AFTER_MS,
     connection,

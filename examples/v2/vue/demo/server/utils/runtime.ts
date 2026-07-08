@@ -79,53 +79,46 @@ class DemoButtonAgent extends AbstractAgent {
           messageId: activityId,
           activityType: "a2ui-surface",
           content: {
-            operations: [
+            // Canonical A2UI v0.9 content key + operation format (matches
+            // @ag-ui/a2ui-middleware, @copilotkit/vue's A2UIMessageRenderer,
+            // @a2ui/web_core, and the Python SDK). The root component must
+            // have id "root".
+            a2ui_operations: [
               {
-                beginRendering: {
+                version: "v0.9",
+                createSurface: {
                   surfaceId: "demo-surface",
-                  root: "container",
+                  catalogId:
+                    "https://a2ui.org/specification/v0_9/basic_catalog.json",
                 },
               },
               {
-                surfaceUpdate: {
+                version: "v0.9",
+                updateComponents: {
                   surfaceId: "demo-surface",
                   components: [
                     {
-                      id: "container",
-                      component: {
-                        Column: {
-                          children: {
-                            explicitList: ["prompt-text", "confirm-btn"],
-                          },
-                        },
-                      },
+                      id: "root",
+                      component: "Column",
+                      children: ["prompt-text", "confirm-btn"],
                     },
                     {
                       id: "prompt-text",
-                      component: {
-                        Text: {
-                          text: {
-                            literalString:
-                              "Click the button to trigger a response:",
-                          },
-                        },
-                      },
+                      component: "Text",
+                      text: "Click the button to trigger a response:",
+                      variant: "body",
                     },
                     {
                       id: "btn-label",
-                      component: {
-                        Text: { text: { literalString: "Confirm" } },
-                      },
+                      component: "Text",
+                      text: "Confirm",
                     },
                     {
                       id: "confirm-btn",
-                      component: {
-                        Button: {
-                          child: "btn-label",
-                          action: { name: "confirm" },
-                          primary: true,
-                        },
-                      },
+                      component: "Button",
+                      child: "btn-label",
+                      variant: "primary",
+                      action: { event: { name: "confirm" } },
                     },
                   ],
                 },
@@ -175,6 +168,20 @@ export const createDefaultRuntime = () =>
     runner: new InMemoryAgentRunner(),
     transcriptionService: createTranscriptionService(),
     a2ui: {},
+  });
+
+/**
+ * Catalog-on-provider runtime: same DemoButtonAgent, but the runtime has NO
+ * `a2ui` config. A2UI is meant to switch on purely from the client passing
+ * `a2ui.catalog` to the provider (which forwards `a2uiCatalogAvailable`).
+ * Used by `/a2ui-catalog` to validate the #5774 fix in isolation.
+ */
+export const createCatalogOnlyRuntime = () =>
+  new CopilotRuntime({
+    agents: {
+      "demo-button": new DemoButtonAgent(),
+    },
+    runner: new InMemoryAgentRunner(),
   });
 
 export const createMcpRuntime = () => {

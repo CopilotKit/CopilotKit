@@ -25,12 +25,16 @@ export function assertValidBotNames(bots: readonly Bot[]): void {
           "(letters, digits, underscore; starting with a letter)",
       );
     }
-    if (seen.has(name)) {
+    // Case-insensitive uniqueness: "Support" and "support" would resolve to the
+    // same delivery routing, so reject the collision rather than let both bots
+    // receive every delivery.
+    const key = name.toLowerCase();
+    if (seen.has(key)) {
       throw new Error(
-        `duplicate managed bot name "${name}" — each bot in a runtime must be unique`,
+        `duplicate managed bot name "${name}" — each bot in a runtime must be unique (case-insensitive)`,
       );
     }
-    seen.add(name);
+    seen.add(key);
   }
 }
 
@@ -75,18 +79,29 @@ export function resolveActivationEnv(
  * Build the activation metadata declared to Intelligence: the resolved
  * env/versions plus per-bot declarations (name + declared command names). Pure.
  *
+ * Assumes every bot has a name — call {@link assertValidBotNames} first
+ * (`startManagedBots` does). A nameless bot is a programming error and throws
+ * rather than being silently filtered out of the activation set.
+ *
  * TODO(OSS-377): add richer per-bot capabilities once the bot exposes them.
  */
 export function buildActivationMetadata(
   bots: readonly Bot[],
   env: ActivationEnv,
 ): ActivationMetadata {
-  const named = bots.filter((b): b is Bot & { name: string } => !!b.name);
+  const names = bots.map((b) => {
+    if (!b.name) {
+      throw new Error(
+        "buildActivationMetadata: bot is missing a `name` — validate with assertValidBotNames first",
+      );
+    }
+    return b.name;
+  });
   return {
     ...env,
-    declaredBotNames: named.map((b) => b.name),
-    declaredBots: named.map((b) => ({
-      name: b.name,
+    declaredBotNames: names,
+    declaredBots: bots.map((b, i) => ({
+      name: names[i]!,
       commands: b.commandNames,
     })),
   };
@@ -125,14 +140,31 @@ export async function startManagedBots(
   opts: StartManagedBotsOptions,
 ): Promise<ManagedBotsHandle> {
   assertValidBotNames(opts.bots);
+  if (opts.bots.length === 0) {
+    console.warn(
+      "[bot-intelligence] startManagedBots called with no bots — nothing to start. " +
+        "Pass `bots: [createBot({ name })]` on the Intelligence runtime.",
+    );
+  }
   const metadata = buildActivationMetadata(
     opts.bots,
     resolveActivationEnv(opts.env),
   );
-  for (const bot of opts.bots) {
-    const { source, egress, store } = opts.resolveTransport(bot.name!);
-    bot.addAdapter(intelligenceAdapter({ source, egress, store }));
-    await bot.start();
+  // Partial-start rollback: addAdapter/resolveTransport/start for bot N can
+  // throw AFTER bots 0..N-1 are already live. Without unwinding, those started
+  // bots leak (open listeners/connections) with no handle to stop them. Track
+  // what started and stop it before rethrowing.
+  const startedBots: Bot[] = [];
+  try {
+    for (const bot of opts.bots) {
+      const { source, egress, store } = opts.resolveTransport(bot.name!);
+      bot.addAdapter(intelligenceAdapter({ source, egress, store }));
+      await bot.start();
+      startedBots.push(bot);
+    }
+  } catch (err) {
+    await Promise.allSettled(startedBots.map((b) => b.stop()));
+    throw err;
   }
   return {
     metadata,

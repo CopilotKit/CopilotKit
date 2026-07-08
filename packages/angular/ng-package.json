@@ -10,6 +10,7 @@
     "@copilotkit/a2ui-renderer",
     "@copilotkit/shared",
     "@copilotkit/core",
+    "@copilotkit/web-components",
     "@jetbrains/websandbox",
     "rxjs",
     "zod",

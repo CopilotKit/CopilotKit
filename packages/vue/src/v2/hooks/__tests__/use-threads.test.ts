@@ -20,8 +20,10 @@ type ThreadState = {
   threads: ThreadRecord[];
   isLoading: boolean;
   error: Error | null;
+  fetchMoreError: Error | null;
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
+  isMutating: boolean;
   context: {
     runtimeUrl: string;
     headers: Record<string, string>;
@@ -105,8 +107,10 @@ vi.mock("@copilotkit/core", () => {
       threads: [],
       isLoading: false,
       error: null,
+      fetchMoreError: null,
       hasNextPage: false,
       isFetchingNextPage: false,
+      isMutating: false,
       context: null,
     };
     private listeners = new Set<() => void>();
@@ -119,8 +123,10 @@ vi.mock("@copilotkit/core", () => {
         threads: [],
         isLoading: false,
         error: null,
+        fetchMoreError: null,
         hasNextPage: false,
         isFetchingNextPage: false,
+        isMutating: false,
         context: null,
       };
       if (this.socket) {
@@ -266,6 +272,31 @@ vi.mock("@copilotkit/core", () => {
       });
     }
 
+    async unarchiveThread(threadId: string): Promise<void> {
+      const context = this.requireContext();
+      // Mirrors the real core store: unarchive is a PATCH to the thread with
+      // `{ archived: false }`, NOT a dedicated /unarchive sub-route (see
+      // core/src/__tests__/threads.test.ts).
+      await fetchMock(`${context.runtimeUrl}/threads/${threadId}`, {
+        method: "PATCH",
+        headers: context.headers,
+        body: JSON.stringify({
+          agentId: context.agentId,
+          archived: false,
+        }),
+      });
+    }
+
+    refetchThreads(): void {
+      if (!this.state.context) return;
+      void this.fetchThreads(this.state.context);
+    }
+
+    startNewThread(): void {
+      // Test double: mirrors the real store's "reset to a fresh thread" no-op
+      // shape closely enough for surface-presence assertions.
+    }
+
     fetchNextPage(): void {
       this.state.isFetchingNextPage = true;
       this.notify();
@@ -317,8 +348,10 @@ vi.mock("@copilotkit/core", () => {
     ɵselectThreads: select((state) => state.threads),
     ɵselectThreadsIsLoading: select((state) => state.isLoading),
     ɵselectThreadsError: select((state) => state.error),
+    ɵselectFetchMoreError: select((state) => state.fetchMoreError),
     ɵselectHasNextPage: select((state) => state.hasNextPage),
     ɵselectIsFetchingNextPage: select((state) => state.isFetchingNextPage),
+    ɵselectIsMutating: select((state) => state.isMutating),
   };
 });
 
@@ -336,22 +369,48 @@ function getDispatchedContexts(): Array<ThreadState["context"]> {
   return threadMocks.dispatchedContexts;
 }
 
+type ThreadEndpointRuntimeInfo = {
+  list: boolean;
+  inspect: boolean;
+  mutations: boolean;
+  realtimeMetadata: boolean;
+};
+
+const supportedThreadEndpoints: ThreadEndpointRuntimeInfo = {
+  list: true,
+  inspect: true,
+  mutations: true,
+  realtimeMetadata: true,
+};
+
+type MockCopilotKit = {
+  runtimeUrl: string | undefined;
+  runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
+  headers: Record<string, string>;
+  intelligence: { wsUrl?: string } | undefined;
+  threadEndpoints: ThreadEndpointRuntimeInfo | undefined;
+  registerThreadStore: ReturnType<typeof vi.fn>;
+  unregisterThreadStore: ReturnType<typeof vi.fn>;
+};
+
 function setupCopilotKit(
   runtimeUrl: string | undefined = "http://localhost:4000",
   runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus = CopilotKitCoreRuntimeConnectionStatus.Connected,
+  overrides: Partial<
+    Pick<MockCopilotKit, "threadEndpoints" | "intelligence">
+  > = {},
 ) {
-  const copilotkit = ref<{
-    runtimeUrl: string | undefined;
-    runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
-    headers: Record<string, string>;
-    intelligence: { wsUrl?: string } | undefined;
-  }>({
+  const copilotkit = ref<MockCopilotKit>({
     runtimeUrl,
     runtimeConnectionStatus,
     headers: { Authorization: "Bearer test-token" },
     intelligence: {
       wsUrl: "ws://localhost:4000/client",
     },
+    threadEndpoints: supportedThreadEndpoints,
+    registerThreadStore: vi.fn(),
+    unregisterThreadStore: vi.fn(),
+    ...overrides,
   });
   mockUseCopilotKit.mockReturnValue({ copilotkit });
   return copilotkit;
@@ -399,6 +458,7 @@ function mountHook(
     agentId: string | Ref<string>;
     includeArchived?: boolean | Ref<boolean | undefined>;
     limit?: number | Ref<number | undefined>;
+    enabled?: boolean | Ref<boolean | undefined>;
   } = defaultInput,
 ) {
   let result: UseThreadsResult | undefined;
@@ -1036,6 +1096,255 @@ describe("useThreads", () => {
         "u-only",
         "c-only",
       ]);
+    });
+  });
+
+  describe("useThreads augmented surface", () => {
+    it("exposes listError, isMutating, and the missing mutations/actions", async () => {
+      fetchMock
+        .mockReturnValueOnce(
+          jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
+        )
+        .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
+
+      const { getResult } = mountHook();
+
+      await vi.waitFor(() => {
+        expect(getResult().isLoading.value).toBe(false);
+      });
+
+      expect(getResult().listError).toBeDefined();
+      expect(getResult().listError.value).toBeNull();
+      expect(getResult().isMutating).toBeDefined();
+      expect(getResult().isMutating.value).toBe(false);
+      expect(typeof getResult().unarchiveThread).toBe("function");
+      expect(typeof getResult().refetchThreads).toBe("function");
+      expect(typeof getResult().startNewThread).toBe("function");
+    });
+
+    it("listError excludes the dev 'Runtime URL is not configured' error", async () => {
+      // No runtimeUrl -> `error` is the dev string, but `listError` stays null.
+      setupCopilotKit("");
+
+      const { getResult } = mountHook();
+
+      await nextTick();
+
+      expect(getResult().error.value).toBeInstanceOf(Error);
+      expect(getResult().error.value?.message).toBe(
+        "Runtime URL is not configured",
+      );
+      expect(getResult().listError.value).toBeNull();
+    });
+
+    it("unarchiveThread calls through to the store's unarchive contract", async () => {
+      fetchMock
+        .mockReturnValueOnce(
+          jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
+        )
+        .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }))
+        .mockReturnValueOnce(jsonResponse({}));
+
+      const { getResult } = mountHook();
+
+      await vi.waitFor(() => {
+        expect(getResult().isLoading.value).toBe(false);
+      });
+
+      await getResult().unarchiveThread("t-1");
+
+      const [url, options] = fetchMock.mock.calls[2];
+      // Unarchive is a PATCH to the thread with `{ archived: false }` (matching
+      // the real core store), not a dedicated /unarchive sub-route.
+      expect(url).toContain("/threads/t-1");
+      expect(url).not.toContain("/unarchive");
+      expect(options.method).toBe("PATCH");
+      expect(JSON.parse(options.body)).toMatchObject({
+        agentId: "agent-1",
+        archived: false,
+      });
+    });
+
+    it("does not dispatch a context (or fetch) when enabled is false", async () => {
+      const { getResult } = mountHook({ ...defaultInput, enabled: false });
+
+      await nextTick();
+
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(getResult().threads.value).toEqual([]);
+      const lastDispatched = getDispatchedContexts().at(-1);
+      expect(lastDispatched).toBeNull();
+      // A disabled consumer must not be stuck in a permanent loading state:
+      // preConnectLoading must factor in `enabled`, otherwise isLoading would
+      // stay true forever since hasDispatchedContext never gets set.
+      expect(getResult().isLoading.value).toBe(false);
+    });
+
+    it("re-arms the pre-connect loading indicator when enabled toggles false -> true", async () => {
+      const enabled = ref(false);
+
+      fetchMock
+        .mockReturnValueOnce(
+          jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
+        )
+        .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
+
+      const { getResult } = mountHook({ ...defaultInput, enabled });
+
+      await nextTick();
+
+      // Disabled: inert, not loading, no fetch.
+      expect(getResult().isLoading.value).toBe(false);
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(getDispatchedContexts().at(-1)).toBeNull();
+
+      // Re-enable: the pre-connect loading indicator must re-arm (i.e.
+      // hasDispatchedContext was reset to false on disable) so consumers see
+      // isLoading=true again rather than a stale empty-list flash while the
+      // new context dispatch/fetch is in flight.
+      enabled.value = true;
+      await nextTick();
+
+      expect(getResult().isLoading.value).toBe(true);
+
+      await vi.waitFor(() => {
+        expect(getResult().isLoading.value).toBe(false);
+      });
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/threads?agentId=agent-1"),
+        expect.objectContaining({ method: "GET" }),
+      );
+      const nonNullContexts = getDispatchedContexts().filter(
+        (context) => context !== null,
+      );
+      expect(nonNullContexts).toHaveLength(1);
+    });
+  });
+
+  describe("thread store registration (core registry)", () => {
+    it("registers the thread store with core when enabled", async () => {
+      const copilotkit = setupCopilotKit();
+
+      fetchMock
+        .mockReturnValueOnce(
+          jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
+        )
+        .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
+
+      mountHook();
+
+      await vi.waitFor(() => {
+        expect(copilotkit.value.registerThreadStore).toHaveBeenCalledWith(
+          "agent-1",
+          expect.objectContaining({ select: expect.any(Function) }),
+        );
+      });
+    });
+
+    it("does not register the thread store when disabled (avoids evicting a live store for the same agent)", async () => {
+      const copilotkit = setupCopilotKit();
+
+      mountHook({ ...defaultInput, enabled: false });
+
+      await nextTick();
+
+      expect(copilotkit.value.registerThreadStore).not.toHaveBeenCalled();
+    });
+
+    it("unregisters the thread store with core on unmount", async () => {
+      const copilotkit = setupCopilotKit();
+
+      fetchMock
+        .mockReturnValueOnce(
+          jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
+        )
+        .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
+
+      const { wrapper } = mountHook();
+
+      await vi.waitFor(() => {
+        expect(copilotkit.value.registerThreadStore).toHaveBeenCalled();
+      });
+
+      wrapper.unmount();
+
+      expect(copilotkit.value.unregisterThreadStore).toHaveBeenCalledWith(
+        "agent-1",
+      );
+    });
+  });
+
+  describe("threadEndpoints gating", () => {
+    it("does not fetch when the runtime does not advertise the list endpoint and surfaces the endpoints-unavailable error", async () => {
+      setupCopilotKit(
+        "http://localhost:4000",
+        CopilotKitCoreRuntimeConnectionStatus.Connected,
+        {
+          threadEndpoints: {
+            list: false,
+            inspect: false,
+            mutations: false,
+            realtimeMetadata: false,
+          },
+          intelligence: undefined,
+        },
+      );
+
+      const { getResult } = mountHook();
+
+      await vi.waitFor(() => {
+        expect(getResult().isLoading.value).toBe(false);
+      });
+
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(getResult().threads.value).toEqual([]);
+      const lastDispatched = getDispatchedContexts().at(-1);
+      expect(lastDispatched).toBeNull();
+      expect(getResult().error.value?.message).toBe(
+        "Thread endpoints are not available on this CopilotKit runtime",
+      );
+      // The config error must NOT leak into the user-facing list error.
+      expect(getResult().listError.value).toBeNull();
+    });
+
+    it("rejects mutations locally when the runtime reports mutations are unsupported", async () => {
+      setupCopilotKit(
+        "http://localhost:4000",
+        CopilotKitCoreRuntimeConnectionStatus.Connected,
+        {
+          threadEndpoints: {
+            list: true,
+            inspect: true,
+            mutations: false,
+            realtimeMetadata: false,
+          },
+          intelligence: undefined,
+        },
+      );
+      fetchMock.mockReturnValueOnce(jsonResponse({ threads: sampleThreads }));
+
+      const { getResult } = mountHook();
+
+      await vi.waitFor(() => {
+        expect(getResult().isLoading.value).toBe(false);
+      });
+
+      fetchMock.mockClear();
+
+      await expect(getResult().renameThread("t-1", "Renamed")).rejects.toThrow(
+        "Thread mutations are not available on this CopilotKit runtime",
+      );
+      await expect(getResult().archiveThread("t-1")).rejects.toThrow(
+        "Thread mutations are not available on this CopilotKit runtime",
+      );
+      await expect(getResult().unarchiveThread("t-1")).rejects.toThrow(
+        "Thread mutations are not available on this CopilotKit runtime",
+      );
+      await expect(getResult().deleteThread("t-1")).rejects.toThrow(
+        "Thread mutations are not available on this CopilotKit runtime",
+      );
+      expect(fetchMock).not.toHaveBeenCalled();
     });
   });
 });

@@ -4,14 +4,14 @@ import {
   useComponent,
   useHumanInTheLoop,
 } from "@copilotkit/react-core/v2";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { z } from "zod";
 import useCreditCards from "@/app/actions";
 import { useAuthContext } from "@/components/auth-context";
 import { useRecording } from "@/components/recording-context";
 import { ApprovalButtons } from "@/components/approval-buttons";
 import { RecordingSteps } from "@/components/recording-feed";
-import { TransactionsList } from "@/components/transactions-list";
+import { PendingApprovalsChat } from "@/components/wow/pending-approvals-chat";
 import {
   SpendingTrendChart,
   BudgetUsageChart,
@@ -68,6 +68,7 @@ const canonicalProcedure = (code: string): string =>
 const CopilotContext = ({ children }: { children: React.ReactNode }) => {
   const { currentUser } = useAuthContext();
   const pathname = usePathname();
+  const router = useRouter();
   const {
     cards,
     policies,
@@ -182,9 +183,17 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
             size="icon"
             onClick={() => {
               const operationParams = `?operation=${operation}`;
-              window.location.href = `${page!.toLowerCase()}${
-                operationAvailable ? operationParams : ""
-              }`;
+              // `/cards` mirrors the dashboard; the card tools/operations
+              // (add card, change PIN) are registered on the home route, so
+              // card requests must land on `/` or the operation dies on
+              // arrival.
+              const target = page === "/cards" ? "/" : page!.toLowerCase();
+              // Client-side navigation: a full reload (window.location) tears
+              // down the chat panel mid-run, so the conversation — and the
+              // in-flight operation — is lost the moment we navigate.
+              router.push(
+                `${target}${operationAvailable ? operationParams : ""}`,
+              );
               respond?.(page!);
             }}
             aria-label="Confirm Navigation"
@@ -207,20 +216,25 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
   });
 
   // Generative-UI: the pending-approval queue, rendered IN the chat. Mirrors the
-  // dashboard's "Pending approval" tab (TransactionsList in approval mode) so the
-  // officer can triage and clear over-limit charges without leaving the
-  // conversation — over-limit rows keep Approve gated and offer "File policy
-  // exception", exactly like the dashboard. Display-only `useComponent` (not
-  // useFrontendTool) so the table persists in the transcript after the call;
+  // dashboard's "Pending approval" tab behaviors (identical over-limit gating,
+  // exception filing, and teach-mode recording payloads) so the officer can
+  // triage and clear over-limit charges without leaving the conversation.
+  // Rendered via PendingApprovalsChat — the dashboard's 4-column table is
+  // ~550px wide and its Actions column lands past the ~375px chat card's edge
+  // (buttons render but cannot be clicked), so the chat uses a stacked layout
+  // with labeled actions instead. Display-only `useComponent` (not
+  // useFrontendTool) so the card persists in the transcript after the call;
   // re-registers when the data changes, or the closure captures empty arrays.
   useComponent(
     {
       name: "showPendingApprovals",
       description:
         "Show the queue of transactions awaiting approval (including over-limit " +
-        "charges) as an interactive table in the chat. Call this whenever the " +
+        "charges) as an interactive list in the chat. Call this whenever the " +
         "user asks what is pending, what needs approval, or to review pending or " +
-        "over-limit charges — do NOT answer those in plain text.",
+        "over-limit charges — do NOT list the transactions in plain text. After " +
+        "the list renders, add one short sentence pointing at what needs " +
+        "attention (e.g. how many are over their policy limit).",
       parameters: z.object({}),
       render: () => {
         const pending = transactions.filter((t) => t.status === "pending");
@@ -232,23 +246,26 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
           );
         }
         return (
-          <div className="space-y-3 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
+          // `pointer-events-auto`: this is a `useComponent` (display-only) render,
+          // which CopilotKit paints with `pointer-events: none` on the assistant
+          // message. But this table is interactive (Approve / Deny / File policy
+          // exception), so opt its subtree back into pointer events or the row
+          // actions (incl. the "More actions" menu) are unclickable in the chat.
+          <div className="pointer-events-auto space-y-3 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
             <h3 className="text-lg font-semibold text-ink">
               Pending approvals
             </h3>
-            <TransactionsList
+            <PendingApprovalsChat
               transactions={pending}
               policies={policies}
               openPolicyException={openPolicyException}
               finalizePolicyException={finalizePolicyException}
-              showApprovalInterface
-              approvalInterfaceProps={{
-                onApprove: async (id) =>
-                  (await changeTransactionStatus({ id, status: "approved" }))
-                    .ok,
-                onDeny: async (id) =>
-                  (await changeTransactionStatus({ id, status: "denied" })).ok,
-              }}
+              onApprove={async (id) =>
+                (await changeTransactionStatus({ id, status: "approved" })).ok
+              }
+              onDeny={async (id) =>
+                (await changeTransactionStatus({ id, status: "denied" })).ok
+              }
             />
           </div>
         );
@@ -262,12 +279,24 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
   // `useComponent`, so they persist in the transcript like showTransactions).
   // All hand-rolled SVG/CSS in the brand style — no charting dependency. Each
   // re-registers when the data it reads changes.
+  //
+  // Every chart description carries the same "chart + answer" rule: the chart
+  // replaces restating the raw numbers, NOT the answer itself. Without it the
+  // model renders the right chart and never addresses the user's actual
+  // question ("which policy is closest to its limit?" → chart, silence).
+  const CHART_ANSWER_RULE =
+    " After the chart renders, ALSO answer the user's specific question in " +
+    "one or two sentences grounded in the data — the chart replaces listing " +
+    "the raw numbers, not your answer. If the user asked no specific " +
+    "question, one short takeaway sentence is enough.";
+
   useComponent(
     {
       name: "showSpendingTrend",
       description:
         "Render a chart of spending over time in the chat. Call this for any " +
-        "question about spend trends, history, or how spending has changed.",
+        "question about spend trends, history, or how spending has changed." +
+        CHART_ANSWER_RULE,
       parameters: z.object({}),
       render: () => (
         <div className="space-y-3 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
@@ -285,7 +314,8 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
       description:
         "Render a chart of budget usage per expense policy (spent vs limit) in " +
         "the chat. Call this for questions about budgets, limits, utilization, " +
-        "or which teams are close to or over their limit.",
+        "or which teams are close to or over their limit." +
+        CHART_ANSWER_RULE,
       parameters: z.object({}),
       render: () => (
         <div className="space-y-3 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
@@ -305,7 +335,8 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
       description:
         "Render a donut chart breaking spend down by team/policy in the chat. " +
         "Call this for 'where is the money going', spend distribution, or " +
-        "breakdown-by-team questions.",
+        "breakdown-by-team questions." +
+        CHART_ANSWER_RULE,
       parameters: z.object({}),
       render: () => (
         <div className="space-y-3 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
@@ -323,7 +354,8 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
       description:
         "Render a chart comparing total income vs expenses (and the net) in " +
         "the chat. Call this for cash-flow, income-vs-spend, or net-position " +
-        "questions.",
+        "questions." +
+        CHART_ANSWER_RULE,
       parameters: z.object({}),
       render: () => (
         <div className="space-y-3 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
@@ -563,11 +595,27 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
         .string()
         .describe("The transaction whose approval was just declined."),
     }),
-    render: ({ respond, status }) => {
+    render: ({ args, respond, status, result }) => {
       if (status === "inProgress") {
         return (
           <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
             Loading…
+          </div>
+        );
+      }
+      // Once the user has chosen, collapse to a static line so the
+      // "Start recording" button doesn't linger (or get clicked twice) — the
+      // live "Recording your workflow" card (awaitDashboardDemonstration) takes
+      // over from here. Branch on the resolved `result` (fresh on complete) — NOT
+      // isRecording, whose value in this render closure can be stale and wrongly
+      // show "not recording" right after Start recording. onDeny resolves
+      // "declined"; onApprove resolves the (non-"declined") directive string.
+      if (status === "complete") {
+        return (
+          <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+            {result === "declined"
+              ? "Okay — not recording."
+              : "Recording started — go ahead and demonstrate the fix on the dashboard."}
           </div>
         );
       }
@@ -587,7 +635,14 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
             denyLabel="Not now"
             onApprove={() => {
               beginRecording();
-              respond?.("started");
+              // Directive result. With a bare "started", gpt-5.4-mini tends to
+              // just SAY awaitDashboardDemonstration's "go ahead and I'll watch"
+              // line (from its description) instead of CALLING it — leaving this
+              // card frozen with no live recording card. Tell it explicitly to
+              // call the tool and not reply in prose (mirrors the save beat).
+              respond?.(
+                `Recording started. Now IMMEDIATELY call awaitDashboardDemonstration with transactionId "${args?.transactionId ?? ""}" — that tool renders the live "Recording your workflow" card and is how you watch. Do NOT reply in plain text; calling that tool is the only correct next step.`,
+              );
             }}
             onDeny={() => respond?.("declined")}
           />
@@ -614,11 +669,21 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
         .string()
         .describe("The transaction the user will demonstrate on."),
     }),
-    render: ({ respond, status }) => {
+    render: ({ respond, status, result }) => {
       if (status === "inProgress") {
         return (
           <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
             Loading…
+          </div>
+        );
+      }
+      // Once resolved, collapse so the "I'm done" button can't linger.
+      if (status === "complete") {
+        return (
+          <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+            {result === "cancelled"
+              ? "Recording cancelled."
+              : "Recording finished — saving the workflow…"}
           </div>
         );
       }
@@ -690,11 +755,24 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
           "The exception code the user demonstrated, taken from awaitDashboardDemonstration's result.",
         ),
     }),
-    render: ({ args, respond, status }) => {
+    render: ({ args, respond, status, result }) => {
       if (status === "inProgress") {
         return (
           <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
             Loading…
+          </div>
+        );
+      }
+      // Once resolved, collapse so the "Save workflow" button can't linger or be
+      // re-clicked. `result` carries the value passed to respond() on complete.
+      if (status === "complete") {
+        const saved =
+          typeof result === "string" && result.includes("status: saved");
+        return (
+          <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+            {saved
+              ? "Workflow saved — I’ll reuse it for future over-limit charges."
+              : "Discarded — not saved."}
           </div>
         );
       }
@@ -722,13 +800,14 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
             denyLabel="Discard"
             onApprove={() => {
               endRecording();
-              // The charge the user demonstrated on was cleared BY that
-              // demonstration, so it is already approved. Tell the agent
-              // explicitly, or it tends to immediately re-run the just-saved
-              // procedure on that same charge — opening a redundant exception
-              // on an approved transaction and tangling the next request.
+              // Resolve a result the agent recognizes as "saved" and that drives it
+              // to persist the procedure durably via save_memory (Option A — see the
+              // TEACH & RECALL prompt). The demonstrated charge was cleared BY the
+              // demonstration, so it is already approved; say so explicitly or the
+              // agent tends to re-run the just-saved procedure on that same charge —
+              // opening a redundant exception on an approved transaction.
               respond?.(
-                `${canonicalProcedure(code)} You learned this by watching the user clear transaction ${transactionId}, which is already approved now — do NOT apply the procedure to ${transactionId} again or re-approve it. The original request is complete; wait for the user's next instruction before acting.`,
+                `(status: saved) ${canonicalProcedure(code)} Now persist this durably: call save_memory with scope "project", kind "operational", and content describing this over-limit procedure using code "${code}". You learned this by watching the user clear transaction ${transactionId}, which is already approved now — do NOT apply the procedure to ${transactionId} again or re-approve it. The original request is complete; wait for the user's next instruction before acting.`,
               );
             }}
             onDeny={() => {

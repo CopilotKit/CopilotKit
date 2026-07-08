@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { createBot, FakeAgent } from "@copilotkit/bot";
 import { Section } from "@copilotkit/bot-ui";
 import {
@@ -25,6 +25,12 @@ describe("assertValidBotNames", () => {
 
   it("throws on duplicate names", () => {
     const a = createBot({ name: "support", agent: () => new FakeAgent() });
+    const b = createBot({ name: "support", agent: () => new FakeAgent() });
+    expect(() => assertValidBotNames([a, b])).toThrow(/duplicate/i);
+  });
+
+  it("treats duplicate names case-insensitively", () => {
+    const a = createBot({ name: "Support", agent: () => new FakeAgent() });
     const b = createBot({ name: "support", agent: () => new FakeAgent() });
     expect(() => assertValidBotNames([a, b])).toThrow(/duplicate/i);
   });
@@ -158,5 +164,46 @@ describe("startManagedBots", () => {
         env: { runtimeEnv: "test" },
       }),
     ).rejects.toThrow(/name/i);
+  });
+
+  it("rolls back already-started bots when a later bot fails to start", async () => {
+    const a = createBot({ name: "support", agent: () => new FakeAgent() });
+    const b = createBot({ name: "triage", agent: () => new FakeAgent() });
+    const stopA = vi.spyOn(a, "stop");
+    await expect(
+      startManagedBots({
+        bots: [a, b],
+        // First bot wires fine; second bot's transport resolution throws
+        // AFTER `a` is already live.
+        resolveTransport: (botName) => {
+          if (botName === "triage") throw new Error("boom");
+          return {
+            source: new InMemoryDeliverySource(),
+            egress: new InMemoryEgressSink(),
+          };
+        },
+        env: { runtimeEnv: "test" },
+      }),
+    ).rejects.toThrow(/boom/);
+    expect(stopA).toHaveBeenCalledTimes(1);
+  });
+
+  it("warns (but does not throw) when called with no bots", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const handle = await startManagedBots({
+        bots: [],
+        resolveTransport: () => ({
+          source: new InMemoryDeliverySource(),
+          egress: new InMemoryEgressSink(),
+        }),
+        env: { runtimeEnv: "test" },
+      });
+      expect(handle.metadata.declaredBotNames).toEqual([]);
+      expect(warn).toHaveBeenCalledWith(expect.stringMatching(/no bots/i));
+      await handle.stop();
+    } finally {
+      warn.mockRestore();
+    }
   });
 });

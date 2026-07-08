@@ -65,7 +65,11 @@ export { ActionRegistry, ActionExpiredError } from "./action-registry.js";
 // State store
 export type { StateStore } from "./state/state-store.js";
 export { MemoryStore } from "./state/memory-store.js";
-export { runStateStoreConformance } from "./testing/state-store-conformance.js";
+// NOTE: `runStateStoreConformance` is intentionally NOT re-exported here. It
+// pulls in `vitest`, so re-exporting it from the package entry would drag a
+// test framework into every consumer's runtime module graph (a bare
+// `import ... from "@copilotkit/bot"` would fail unless vitest is installed).
+// It is published under the `@copilotkit/bot/testing` subpath instead.
 export { parseDuration } from "./state/duration.js";
 export { createStateBackedConversationStore } from "./state/state-conversation-store.js";
 

@@ -73,9 +73,11 @@ describe("CopilotA2UIActivityRenderer", () => {
     expect(
       scrollWrapper?.classList.contains("copilot-a2ui-surface-scroll"),
     ).toBe(true);
-    expect(element.operations).toEqual([
-      { version: "v0.9", updateComponents: {} },
-    ]);
+    await vi.waitFor(() =>
+      expect(element.operations).toEqual([
+        { version: "v0.9", updateComponents: {} },
+      ]),
+    );
     expect(element.theme).toEqual({ color: "blue" });
     expect(element.catalog).toEqual({ id: "catalog" });
     expect(element.getAttribute("operations")).toBeNull();

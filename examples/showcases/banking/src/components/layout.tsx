@@ -1,7 +1,15 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
-import { CreditCard, HelpCircle, LayoutDashboard, Users } from "lucide-react";
+import {
+  CreditCard,
+  HelpCircle,
+  LayoutDashboard,
+  RotateCcw,
+  Telescope,
+  Users,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -20,14 +28,18 @@ import {
 import type { Member } from "@/app/api/v1/data";
 import { MemberRole } from "@/app/api/v1/data";
 import { useAuthContext } from "@/components/auth-context";
+import { useGlassEngine } from "@/components/glass-engine-context";
 import { useRecording } from "@/components/recording-context";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useAgentContext } from "@copilotkit/react-core/v2";
 import { usePathname } from "next/navigation";
 import { IDENTITY } from "@/lib/identity";
+import { useCanvas } from "@/components/canvas/canvas-context";
+import { ReportCanvas } from "@/components/canvas/report-canvas";
 
 interface LayoutProps {
   children: React.ReactNode;
+  resetEnabled?: boolean;
 }
 
 /** Compact violet→indigo logo mark used at the top of the floating rail. */
@@ -126,16 +138,60 @@ function UserNavigation({
   );
 }
 
-export function LayoutComponent({ children }: LayoutProps) {
+export function LayoutComponent({
+  children,
+  resetEnabled = false,
+}: LayoutProps) {
   const { users, currentUser, setCurrentUser } = useAuthContext();
+  const {
+    available: glassAvailable,
+    active: glassActive,
+    toggle: toggleGlass,
+  } = useGlassEngine();
   const pathname = usePathname();
   useAgentContext({
     description: "The current page where the user is",
     value: pathname.split("/")[1] === "" ? "cards" : pathname.split("/")[1],
   });
+  const { activeSurfaceId, clear } = useCanvas();
+
+  const handleReset = async () => {
+    // Native confirm keeps the booth tool dependency-free and reliable; a stray
+    // click can't nuke the demo mid-show.
+    if (
+      !window.confirm(
+        "Reset demo state? This clears all learned memories and restores pending charges.",
+      )
+    ) {
+      return;
+    }
+    try {
+      const res = await fetch("/api/v1/dev/reset", { method: "POST" });
+      if (res.ok) {
+        // Full reload -> pristine client slate (fresh transactions, cleared
+        // canvas, new thread on next message).
+        window.location.reload();
+      } else {
+        window.alert(`Reset failed (HTTP ${res.status}). See the server logs.`);
+      }
+    } catch (err) {
+      window.alert(`Reset failed: ${err instanceof Error ? err.message : err}`);
+    }
+  };
+
+  // Navigating via the rail dismisses any stale surface.
+  useEffect(() => {
+    clear();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-canvas">
+    <div
+      className={cn(
+        "flex h-screen overflow-hidden bg-canvas transition-[padding] duration-300",
+        glassActive && "md:pr-96",
+      )}
+    >
       {/* Floating icon rail. */}
       <div className="flex flex-shrink-0 flex-col py-4 pl-4">
         <aside className="glass-surface flex h-full w-[72px] flex-col items-center rounded-[28px] border border-white/60 px-2 py-5 shadow-lift dark:border-hairline">
@@ -169,6 +225,50 @@ export function LayoutComponent({ children }: LayoutProps) {
             ) : null}
           </nav>
           <div className="flex flex-col items-center gap-3">
+            {resetEnabled && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={handleReset}
+                      aria-label="Reset demo state"
+                      className="flex h-10 w-10 items-center justify-center rounded-2xl text-ink-muted transition-colors hover:bg-brand-soft hover:text-brand-indigo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                    >
+                      <RotateCcw className="h-5 w-5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    <p>Reset demo state</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            {glassAvailable && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={toggleGlass}
+                      aria-pressed={glassActive}
+                      aria-label="Glass Engine"
+                      className={cn(
+                        "hidden h-10 w-10 items-center justify-center rounded-2xl transition-all md:flex",
+                        glassActive
+                          ? "brand-gradient text-surface shadow-[0_8px_18px_hsl(252_83%_60%/0.4)]"
+                          : "text-ink-muted hover:bg-brand-soft hover:text-brand-indigo",
+                      )}
+                    >
+                      <Telescope className="h-5 w-5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    <p>Glass Engine (advanced)</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
             <ThemeToggle />
             <UserNavigation
               availableUsers={users}
@@ -207,7 +307,24 @@ export function LayoutComponent({ children }: LayoutProps) {
           </div>
         </header>
         <main className="flex-1 overflow-y-auto px-2 pb-6 md:px-6">
-          {children}
+          {activeSurfaceId ? (
+            <div className="flex h-full flex-1 flex-col">
+              <div className="flex items-center gap-2 p-4">
+                <button
+                  type="button"
+                  onClick={clear}
+                  className="inline-flex items-center gap-1 rounded-xl border border-hairline bg-surface px-3 py-1.5 text-sm text-ink shadow-soft"
+                >
+                  ← Back to {pathname.split("/")[1] || "dashboard"}
+                </button>
+              </div>
+              <div className="min-h-0 flex-1">
+                <ReportCanvas />
+              </div>
+            </div>
+          ) : (
+            children
+          )}
         </main>
       </div>
     </div>

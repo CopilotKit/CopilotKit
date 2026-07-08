@@ -1,8 +1,18 @@
 "use client";
 
 import React from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "./_components/card";
+import { Badge } from "./_components/badge";
 
-// Branded catch-all renderer for the tool-rendering-custom-catchall cell.
+// ShadCN-styled catch-all renderer for the tool-rendering-custom-catchall
+// cell. A single wildcard renderer handles every tool call — name,
+// status, arguments, and result rendered inside a shadcn <Card />.
 
 export type CatchallToolStatus = "inProgress" | "executing" | "complete";
 
@@ -23,32 +33,32 @@ export function CustomCatchallRenderer({
   const done = status === "complete";
 
   return (
-    <div
+    <Card
       data-testid="custom-wildcard-card"
       data-tool-name={name}
       data-status={status}
-      className="my-3 overflow-hidden rounded-2xl border border-[#DBDBE5] bg-white shadow-sm"
+      className="my-3 overflow-hidden"
     >
-      <div className="flex items-center justify-between border-b border-[#E9E9EF] bg-[#FAFAFC] px-4 py-2.5">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b border-neutral-200 bg-neutral-50/60 py-3">
         <div className="flex items-center gap-2">
-          <span className="text-[10px] uppercase tracking-[0.14em] text-[#838389]">
-            Tool
-          </span>
-          <span
+          <CardTitle
             data-testid="custom-wildcard-tool-name"
-            className="font-mono text-sm text-[#010507]"
+            className="font-mono text-sm text-neutral-900"
           >
             {name}
-          </span>
+          </CardTitle>
+          <CardDescription className="text-[10px] uppercase tracking-wider text-neutral-500">
+            tool call
+          </CardDescription>
         </div>
         <StatusBadge status={status} />
-      </div>
+      </CardHeader>
 
-      <div className="grid gap-3 p-4 text-sm">
+      <CardContent className="grid gap-3 p-4 text-sm">
         <Section label="Arguments">
           <pre
             data-testid="custom-wildcard-args"
-            className="overflow-x-auto rounded-lg border border-[#E9E9EF] bg-[#FAFAFC] p-2.5 font-mono text-xs text-[#010507]"
+            className="overflow-x-auto rounded-md border border-neutral-200 bg-neutral-50 p-2.5 font-mono text-xs text-neutral-900"
           >
             {safeStringify(parameters)}
           </pre>
@@ -58,20 +68,20 @@ export function CustomCatchallRenderer({
           {done ? (
             <pre
               data-testid="custom-wildcard-result"
-              className="overflow-x-auto rounded-lg border border-[#85ECCE4D] bg-[#85ECCE]/10 p-2.5 font-mono text-xs text-[#010507]"
+              className="overflow-x-auto rounded-md border border-emerald-200 bg-emerald-50 p-2.5 font-mono text-xs text-neutral-900"
             >
               {parsedResult !== undefined
                 ? safeStringify(parsedResult)
                 : "(empty)"}
             </pre>
           ) : (
-            <p className="text-xs italic text-[#838389]">
+            <p className="text-xs italic text-neutral-500">
               waiting for tool to finish…
             </p>
           )}
         </Section>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -84,7 +94,7 @@ function Section({
 }) {
   return (
     <div>
-      <div className="mb-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-[#838389]">
+      <div className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-neutral-500">
         {label}
       </div>
       {children}
@@ -93,36 +103,41 @@ function Section({
 }
 
 function StatusBadge({ status }: { status: CatchallToolStatus }) {
-  const { label, tone } = describeStatus(status);
+  const { label, variant, dot } = describeStatus(status);
   return (
-    <span
-      data-testid="custom-wildcard-status"
-      className={`rounded-full px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em] ${tone}`}
-    >
+    <Badge data-testid="custom-wildcard-status" variant={variant}>
+      <span
+        className={`inline-block h-1.5 w-1.5 rounded-full ${dot}`}
+        aria-hidden
+      />
       {label}
-    </span>
+    </Badge>
   );
 }
 
 function describeStatus(status: CatchallToolStatus): {
   label: string;
-  tone: string;
+  variant: "warning" | "secondary" | "success";
+  dot: string;
 } {
   switch (status) {
     case "inProgress":
       return {
         label: "streaming",
-        tone: "border border-[#FFAC4D33] bg-[#FFAC4D]/15 text-[#57575B]",
+        variant: "warning",
+        dot: "bg-amber-500 animate-pulse",
       };
     case "executing":
       return {
         label: "running",
-        tone: "border border-[#BEC2FF] bg-[#BEC2FF1A] text-[#010507]",
+        variant: "secondary",
+        dot: "bg-neutral-500 animate-pulse",
       };
     case "complete":
       return {
         label: "done",
-        tone: "border border-[#85ECCE4D] bg-[#85ECCE]/20 text-[#189370]",
+        variant: "success",
+        dot: "bg-emerald-500",
       };
   }
 }

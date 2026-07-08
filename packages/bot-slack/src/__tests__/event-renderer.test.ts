@@ -536,8 +536,9 @@ describe("createRunRenderer — native status mode", () => {
   });
 
   // ── Non-pane: a channel @-mention / thread (isPane:false) gets the native
-  // "is thinking…" status instead of the old :hourglass: placeholder, but tool
-  // progress still flows to :wrench: rows (not composer status). ──────────────
+  // "is thinking…" status instead of the old :hourglass: placeholder, and tool
+  // progress flows to both :wrench: rows and the composer "is using…" status
+  // (setStatus drives any thread anchor now, not just panes). ──────────────────
   it("non-pane thread: sets native status on run start (no :hourglass: placeholder)", async () => {
     const f = makePaneClient();
     const { subscriber: sub } = createRunRenderer({
@@ -550,7 +551,7 @@ describe("createRunRenderer — native status mode", () => {
     expect(f.statuses[0]?.status).toBe("is thinking…");
   });
 
-  it("non-pane thread: tool calls still post :wrench: rows, not composer status", async () => {
+  it("non-pane thread: tool calls post :wrench: rows and set composer status", async () => {
     const f = makePaneClient();
     const { subscriber: sub } = createRunRenderer({
       transport: f.transport,
@@ -561,7 +562,7 @@ describe("createRunRenderer — native status mode", () => {
       event: { toolCallId: "t1", toolCallName: "search" },
     } as never);
     expect(f.posts.at(-1)?.text).toContain(":wrench:");
-    expect(f.statuses.some((s) => s.status.includes("is using"))).toBe(false);
+    expect(f.statuses.some((s) => s.status.includes("is using"))).toBe(true);
   });
 
   it("uses the provided threadTs anchor (e.g. a DM's inbound ts) for setStatus", async () => {

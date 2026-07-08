@@ -176,7 +176,13 @@ export interface RenderFrame {
 export interface RenderAccepted {
   /** `${turnId}:${slot}:${seq}` — the frame's idempotency key. */
   idempotencyKey: string;
-  acceptance: "accepted" | "duplicate_accepted" | "duplicate_skipped";
+  /**
+   * `accepted` — first durable write; `duplicate_accepted` — same
+   * (idempotency-key, payload) re-pushed (benign, at-least-once retry). A
+   * payload MISMATCH for an existing key is a 409 conflict on the transport, not
+   * an acceptance value, and surfaces as a thrown render error (turn nack).
+   */
+  acceptance: "accepted" | "duplicate_accepted";
   /** Present only on an accepted `finalize` frame — links to the egress op. */
   egressOperationId?: string;
 }

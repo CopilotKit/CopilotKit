@@ -4,6 +4,8 @@
   "pages": [
     "index",
     "---Generative UI---",
-    "...generative-ui"
+    "...generative-ui",
+    "---Intelligence Platform---",
+    "threads"
   ]
 }

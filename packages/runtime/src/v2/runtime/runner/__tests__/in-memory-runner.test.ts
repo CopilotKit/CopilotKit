@@ -830,6 +830,9 @@ describe("InMemoryAgentRunner onConcurrentRun", () => {
     clone(): AbstractAgent {
       return new HangingAgent();
     }
+    run(): ReturnType<AbstractAgent["run"]> {
+      return EMPTY;
+    }
   }
 
   // Emits its own RUN_STARTED then hangs until aborted, at which point its run
@@ -861,6 +864,9 @@ describe("InMemoryAgentRunner onConcurrentRun", () => {
     }
     clone(): AbstractAgent {
       return new AbortableAgent();
+    }
+    run(): ReturnType<AbstractAgent["run"]> {
+      return EMPTY;
     }
   }
 

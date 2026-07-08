@@ -67,7 +67,7 @@ icon: "lucide/Database"
     The package ships `runStateStoreConformance(name, make, teardown?)` — a Vitest describe block that verifies your implementation against the full contract (locking, dedup, state round-trips). Run it in your test suite before wiring the store into production:
 
     ```ts
-    import { runStateStoreConformance } from "@copilotkit/bot";
+    import { runStateStoreConformance } from "@copilotkit/bot/testing";
 
     runStateStoreConformance(
       "MyDurableStore",
