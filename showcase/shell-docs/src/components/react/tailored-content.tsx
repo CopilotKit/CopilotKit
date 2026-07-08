@@ -100,7 +100,8 @@ function TailoredContentInner({
       const newParams = new URLSearchParams(searchParams.toString());
       newParams.set(id, optionIds[index]);
       // Update URL without reload; derived selectedIndex will follow.
-      router.replace(`?${newParams.toString()}`, { scroll: false });
+      // Use history entries so browser back/forward can move between options.
+      router.push(`?${newParams.toString()}`, { scroll: false });
     },
     [router, searchParams, id, optionIds, options.length],
   );

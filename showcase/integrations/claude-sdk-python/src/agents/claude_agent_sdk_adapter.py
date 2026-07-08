@@ -50,6 +50,7 @@ def should_use_claude_agent_sdk(
 
 
 # @region[claude-agent-sdk-python-adapter]
+# @region[claude-agent-sdk-agent-setup]
 async def run_with_claude_agent_sdk(
     input_data: RunAgentInput,
     *,
@@ -62,7 +63,6 @@ async def run_with_claude_agent_sdk(
 ) -> AsyncIterator[str]:
     """Run through the official AG-UI Claude adapter and emit SSE chunks."""
 
-    # @region[claude-agent-sdk-agent-setup]
     encoder = EventEncoder()
     state_box = {"state": state}
     pending_state_snapshots: list[Any] = []
@@ -112,7 +112,9 @@ async def run_with_claude_agent_sdk(
                 )
             )
         yield encoder.encode(event)
-    # @endregion[claude-agent-sdk-agent-setup]
+
+
+# @endregion[claude-agent-sdk-agent-setup]
 
 
 def _build_sdk_tools(

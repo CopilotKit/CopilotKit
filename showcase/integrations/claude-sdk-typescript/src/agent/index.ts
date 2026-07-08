@@ -142,10 +142,9 @@ function buildTools(tools: RunAgentInput["tools"]): Anthropic.Tool[] {
 
 app.post("/", async (req: Request, res: Response): Promise<void> => {
   const input = req.body as RunAgentInput;
-  const accept = req.headers["accept"] ?? "";
 
-  const encoder = new EventEncoder({ accept });
-  res.setHeader("Content-Type", encoder.getContentType());
+  const encoder = new EventEncoder();
+  res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
 

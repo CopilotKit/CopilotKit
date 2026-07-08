@@ -1028,15 +1028,14 @@ async function generateDeclarativeA2uiOperations(
 function makeAgentHandler(config: DemoConfig = {}) {
   return async (req: Request, res: Response): Promise<void> => {
     const input = req.body as RunAgentInput;
-    const accept = req.headers["accept"] ?? "";
     // Inbound x-* headers travel from the AG-UI client →
     // CopilotRuntime → HttpAgent → here. We forward them to every
     // Anthropic call so aimock (and any other downstream observer)
     // receives `x-aimock-context` and friends.
     const forwardedHeaders = extractForwardedHeaders(req);
 
-    const encoder = new EventEncoder({ accept });
-    res.setHeader("Content-Type", encoder.getContentType());
+    const encoder = new EventEncoder();
+    res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
 
@@ -1337,7 +1336,6 @@ interface Delegation {
   result: string;
 }
 
-// @region[state-streaming-middleware]
 function partialJsonStringProperty(source: string, key: string): string | null {
   try {
     const parsed = PartialJSON.parse(source);
@@ -1373,7 +1371,6 @@ const WRITE_DOCUMENT_TOOL_SCHEMA: Anthropic.Tool = {
     required: ["document"],
   },
 };
-// @endregion[state-streaming-middleware]
 
 /**
  * Run a single Anthropic Messages API call for a sub-agent. No tools,
@@ -1510,7 +1507,6 @@ async function executeBackendTool(
     };
   }
 
-  // @region[weather-tool-backend]
   if (toolName === "get_weather") {
     const location =
       typeof toolInput.location === "string" ? toolInput.location : "";
@@ -1519,7 +1515,6 @@ async function executeBackendTool(
       state: null,
     };
   }
-  // @endregion[weather-tool-backend]
 
   if (toolName === "get_stock_price") {
     const ticker = typeof toolInput.ticker === "string" ? toolInput.ticker : "";
@@ -1748,7 +1743,6 @@ async function runAgenticLoop(
   config: AgenticLoopConfig,
 ): Promise<void> {
   const input = req.body as RunAgentInput;
-  const accept = req.headers["accept"] ?? "";
   // See `makeAgentHandler` — same forwarding contract applies to the
   // agentic-loop demos (shared-state-read-write, subagents, a2ui-fixed,
   // headless-complete). Without this, the secondary Anthropic calls
@@ -1756,8 +1750,8 @@ async function runAgenticLoop(
   // x-aimock-context and aimock returns 404.
   const forwardedHeaders = extractForwardedHeaders(req);
 
-  const encoder = new EventEncoder({ accept });
-  res.setHeader("Content-Type", encoder.getContentType());
+  const encoder = new EventEncoder();
+  res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
 
@@ -1976,6 +1970,7 @@ async function runAgenticLoop(
                   toolCallId: activeToolCallId,
                   delta: event.delta.partial_json,
                 });
+                // @region[state-streaming-delta-emission]
                 if (activeToolCallName === "write_document") {
                   const streamedDocument = partialJsonStringProperty(
                     activeToolArgs,
@@ -1990,6 +1985,7 @@ async function runAgenticLoop(
                     emit({ type: EventType.STATE_SNAPSHOT, snapshot: state });
                   }
                 }
+                // @endregion[state-streaming-delta-emission]
               }
             } else if (
               (event.delta as any).type === "thinking_delta" &&
@@ -2417,9 +2413,9 @@ app.post(
 );
 
 // @region[shared-state-streaming-route]
-// Shared State Streaming — mirror LangGraph's state-streaming middleware by
-// copying Claude's streamed write_document argument into shared state on each
-// input_json_delta, then emitting the final snapshot when the tool completes.
+// Shared State Streaming — copy Claude's streamed write_document argument
+// into shared state on each input_json_delta, then emit the final snapshot
+// when the tool completes.
 app.post(
   "/shared-state-streaming",
   async (req: Request, res: Response): Promise<void> => {

@@ -20,16 +20,21 @@ Watch the document panel fill in live as the agent writes.
 
 ## Technical Details
 
-The magic is one middleware entry:
+The magic is a backend mapping from the streamed `write_document.document`
+tool argument into `state.document`. The Claude SDK adapter does this inside
+its streaming loop:
 
-```py
-StateStreamingMiddleware(
-    StateItem(
-        state_key="document",
-        tool="write_document",
-        tool_argument="content",
-    )
-)
+```ts
+if (activeToolCallName === "write_document") {
+  const streamedDocument = partialJsonStringProperty(
+    activeToolArgs,
+    "document",
+  );
+  if (streamedDocument !== null) {
+    state = { ...state, document: streamedDocument };
+    emit({ type: EventType.STATE_SNAPSHOT, snapshot: state });
+  }
+}
 ```
 
-Without it, `state.document` would only update when the tool call finishes. With it, every token the LLM generates for the `content` argument is mirrored into state immediately. On the frontend, `useAgent({ updates: [OnStateChanged, OnRunStatusChanged] })` drives re-renders for both the text and the "LIVE" badge; `agent.isRunning` toggles the cursor.
+Without it, `state.document` would only update when the tool call finishes. With it, every token the LLM generates for the `document` argument is mirrored into state immediately. On the frontend, `useAgent({ updates: [OnStateChanged, OnRunStatusChanged] })` drives re-renders for both the text and the "LIVE" badge; `agent.isRunning` toggles the cursor.

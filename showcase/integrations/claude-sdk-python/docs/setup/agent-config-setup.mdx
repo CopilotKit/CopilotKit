@@ -1,0 +1,11 @@
+<Steps>
+  <Step>
+    ### Make runtime configuration explicit
+
+    The Claude Agent SDK demo reads configuration from shared state and folds it
+    into the system prompt. This keeps the agent behavior visible to the UI and
+    lets users tune model behavior without rebuilding the backend.
+
+    <DemoCode file="src/agents/agent_config_agent.py" region="agent-config-setup" />
+  </Step>
+</Steps>
