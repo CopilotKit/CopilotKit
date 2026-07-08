@@ -133,8 +133,30 @@ _kill_agent_tree() {
 _require_int() {
   local name="$1" default="$2" label="$3" value
   eval "value=\${$name}"
+  # Valid ONLY if a positive integer with no leading zero: first digit 1-9,
+  # rest digits ([1-9][0-9]*).  This rejects — and falls back to the default
+  # for — every operator-typo class that would break a guard:
+  #   • empty / non-numeric ("", "60s", "abc")
+  #   • "0" — a zero threshold/interval/limit turns a guard into an instant-fire
+  #     kill loop (SIZE_THRESHOLD_MB=0 kills on cycle 1) or a busy-spin
+  #     (SIZE_CHECK_INTERVAL=0 → `while sleep 0`)
+  #   • leading-zero / octal forms ("010", "08") — bash arithmetic reads a
+  #     leading-zero literal as OCTAL, so "010" becomes 8 (wrong value) and an
+  #     "08"/"09" digit aborts the script under `set -e` ("value too great for
+  #     base").
+  # The `[1-9]*([0-9])` extglob-free equivalent is written as two arms: a lone
+  # single digit 1-9, or a 1-9 lead followed by one-or-more digits.
   case "$value" in
-    ''|*[!0-9]*)
+    [1-9]) : ;;                # single positive digit
+    [1-9][0-9]*)               # multi-digit, must be all digits after the lead
+      case "$value" in
+        *[!0-9]*)
+          echo "[entrypoint] WARNING: ${label} (${name}) is not a positive integer (got: '${value}') — falling back to default ${default}"
+          printf -v "$name" '%s' "$default"
+          ;;
+      esac
+      ;;
+    *)
       echo "[entrypoint] WARNING: ${label} (${name}) is not a positive integer (got: '${value}') — falling back to default ${default}"
       printf -v "$name" '%s' "$default"
       ;;
