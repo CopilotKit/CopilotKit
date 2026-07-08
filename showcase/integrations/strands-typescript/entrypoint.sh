@@ -142,7 +142,36 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
 # the container never restarts) but stops responding on :8000. Poll
 # /health every 30s; after 3 consecutive failures (~90s unreachable), kill
 # the agent so `wait -n` returns and Railway restarts the container.
+#
+# Startup grace: the Strands TS agent does a tsx cold-start (one-shot ESM
+# compile of server.ts + imports on first boot). On fresh Railway containers
+# this can exceed the 90s (3-strike) budget, and — now that the agent kill is
+# effective via the process-tree walk above (previously the orphan bug made it
+# cosmetic) — a slow boot would be genuinely killed and enter a restart loop.
+# Wait up to 180s for the first healthy /health probe before arming the strike
+# counter; if /health comes up sooner, fall through immediately. If 180s
+# elapses without success, arm the counter anyway — the steady-state watchdog
+# will handle a true hang. Mirrors langgraph-typescript/entrypoint.sh.
 (
+  GRACE=180
+  echo "[watchdog] Startup grace: waiting up to ${GRACE}s for first successful health probe before arming strike counter"
+  ELAPSED=0
+  while [ $ELAPSED -lt $GRACE ]; do
+    if ! kill -0 $AGENT_PID 2>/dev/null; then
+      # Agent died during startup — wait -n in the main shell will handle it.
+      exit 0
+    fi
+    if curl -fsS --max-time 5 http://127.0.0.1:8000/health > /dev/null 2>&1; then
+      echo "[watchdog] Agent healthy after ${ELAPSED}s — arming strike counter"
+      break
+    fi
+    sleep 5
+    ELAPSED=$((ELAPSED + 5))
+  done
+  if [ $ELAPSED -ge $GRACE ]; then
+    echo "[watchdog] Grace window elapsed without successful probe — arming strike counter anyway"
+  fi
+
   FAILS=0
   while sleep 30; do
     if ! kill -0 $AGENT_PID 2>/dev/null; then
@@ -166,7 +195,7 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
 ) &
 WATCHDOG_PID=$!
 
-echo "[entrypoint] Watchdog started (PID: $WATCHDOG_PID)"
+echo "[entrypoint] Watchdog started (PID: $WATCHDOG_PID, probing http://127.0.0.1:8000/health, startup grace 180s)"
 echo "[entrypoint] All processes running. Waiting..."
 
 # Only wait on agent + next.js — NOT the watchdog.
