@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import {
+import type {
   BaseEvent,
-  EventType,
   ToolCallResultEvent,
   RunErrorEvent,
 } from "@ag-ui/client";
+import { EventType } from "@ag-ui/client";
 import { finalizeRunEvents } from "@copilotkit/shared";
 
 const createTextStart = (messageId: string): BaseEvent =>
@@ -82,28 +82,54 @@ describe("finalizeRunEvents", () => {
     expect(errorEvent?.message).toContain("terminal event");
   });
 
-  it("only appends structural fixes when a terminal event already exists", () => {
+  // #5812: once a run has emitted a terminal event, the AG-UI verifier rejects
+  // any sub-event streamed after it ("the run has already errored/finished …").
+  // Because finalization events are streamed after everything the agent already
+  // emitted, finalize must append NOTHING when a terminal already exists — even
+  // for messages / tool calls that are still open (the terminal closes them on
+  // the client). Regression: it previously appended a trailing TEXT_MESSAGE_END.
+  it.each([EventType.RUN_FINISHED, EventType.RUN_ERROR])(
+    "appends nothing after an existing %s terminal, even with open sub-events",
+    (terminal) => {
+      const events: BaseEvent[] = [
+        createTextStart("msg-1"),
+        createToolStart("tool-1"),
+        { type: terminal, message: "boom" } as BaseEvent,
+      ];
+
+      const appended = finalizeRunEvents(events, { stopRequested: true });
+
+      expect(appended).toEqual([]);
+      // The terminal stays the final event — nothing was pushed after it.
+      expect(events.at(-1)?.type).toBe(terminal);
+    },
+  );
+
+  it("does not append TEXT_MESSAGE_END after a RUN_ERROR emitted on mid-stream stop (#5812)", () => {
+    // Mirrors the issue: an HttpAgent proxy is aborted mid-stream, so a live
+    // RUN_ERROR arrives while a text message is still open.
+    const messageId = "225f30a2-c662-4d0d-a05e-789cb51e17cc";
     const events: BaseEvent[] = [
-      createTextStart("msg-1"),
-      createToolStart("tool-1"),
-      { type: EventType.RUN_FINISHED } as BaseEvent,
+      createTextStart(messageId),
+      {
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        messageId,
+        delta: " frames",
+      } as BaseEvent,
+      {
+        type: EventType.RUN_ERROR,
+        message: "This operation was aborted",
+        code: "abort",
+      } as BaseEvent,
     ];
 
-    const appended = finalizeRunEvents(events);
+    const appended = finalizeRunEvents(events, { stopRequested: true });
 
-    expect(appended.map((event) => event.type)).toEqual([
-      EventType.TEXT_MESSAGE_END,
-      EventType.TOOL_CALL_END,
-    ]);
-
-    expect(
-      appended.some((event) => event.type === EventType.TOOL_CALL_RESULT),
-    ).toBe(false);
-    expect(appended.some((event) => event.type === EventType.RUN_ERROR)).toBe(
-      false,
+    expect(appended).toEqual([]);
+    const runErrorIdx = events.findIndex(
+      (event) => event.type === EventType.RUN_ERROR,
     );
-    expect(
-      appended.some((event) => event.type === EventType.RUN_FINISHED),
-    ).toBe(false);
+    // No events at all follow the terminal RUN_ERROR.
+    expect(events.slice(runErrorIdx + 1)).toEqual([]);
   });
 });
