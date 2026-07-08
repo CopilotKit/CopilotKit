@@ -127,10 +127,20 @@ _watchdog_check_size_once() {
   # to leave margin for this approximation.
   # || true prevents set -e from killing this subshell if du fails.
   DIR_SIZE_MB=$(du -sm "$persist_dir" 2>/dev/null | awk '{print $1}') || true
-  if [ -z "$DIR_SIZE_MB" ]; then
-    echo "[watchdog:size] WARNING: Could not read size of ${persist_dir} — size guard inactive this cycle"
-    return 0
-  fi
+  # Validate for NUMERICITY, not merely emptiness.  A non-integer value (junk
+  # du output, a transient error, a test-seam stub) would otherwise reach the
+  # `[ "$DIR_SIZE_MB" -ge ... ]` comparison below and throw "integer expression
+  # expected".  Because that comparison sits inside an `if`, set -e is
+  # suppressed and the failed test evaluates false — SILENTLY skipping the size
+  # gate for this cycle with NO warning (unlike the empty-string case).  Match
+  # on ^[0-9]+$ and emit the SAME "size guard inactive" WARNING so the gate can
+  # never silently disappear.
+  case "$DIR_SIZE_MB" in
+    ''|*[!0-9]*)
+      echo "[watchdog:size] WARNING: Could not read a numeric size of ${persist_dir} (got: '${DIR_SIZE_MB}') — size guard inactive this cycle"
+      return 0
+      ;;
+  esac
   echo "[watchdog:size] Persistence dir size: ${DIR_SIZE_MB}MB (threshold: ${threshold_mb}MB)"
   if [ "$DIR_SIZE_MB" -ge "$threshold_mb" ]; then
     echo "[watchdog:size] Size threshold exceeded (${DIR_SIZE_MB}MB >= ${threshold_mb}MB) — killing agent PID $agent_pid (and its npm→node tree) to trigger container restart and boot-purge"
@@ -308,7 +318,26 @@ SIZE_CHECK_INTERVAL=${LANGGRAPH_SIZE_CHECK_INTERVAL:-60}
   (
     echo "[watchdog:size] Starting size-gated restart monitor (threshold=${SIZE_THRESHOLD_MB}MB, interval=${SIZE_CHECK_INTERVAL}s, dir=${PERSIST_DIR})"
     while sleep $SIZE_CHECK_INTERVAL; do
-      _watchdog_check_size_once || break
+      # _watchdog_check_size_once returns:
+      #   0 = no action (under threshold, dir missing, or a transient/junk read
+      #       that left the guard inactive for this cycle only)
+      #   1 = REAL threshold kill issued (agent tree SIGKILLed)
+      # A bare `|| break` treated ANY non-zero identically, so a transient check
+      # error would PERMANENTLY end the monitor for the container's lifetime.
+      # Break ONLY on the real-kill signal (rc==1): after that kill the agent is
+      # dead, the outer `wait -n $AGENT_PID` fires, and Railway restarts the
+      # container (re-running the boot-purge) — so the monitor correctly stops.
+      # For rc==0 (including transient errors, which are surfaced as a WARNING
+      # inside the function) the monitor MUST stay live and re-check next cycle.
+      _watchdog_check_size_once && continue
+      rc=$?
+      if [ "$rc" -eq 1 ]; then
+        # Real kill issued — agent is terminating; stop the monitor and let the
+        # container restart flow (wait -n → exit → Railway restart) proceed.
+        break
+      fi
+      # Any other non-zero is a transient hiccup, not a kill: keep monitoring.
+      echo "[watchdog:size] Size check returned transient status ${rc} — keeping monitor active"
     done
   ) &
   SIZE_PID=$!
