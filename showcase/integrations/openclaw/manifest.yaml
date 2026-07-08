@@ -60,10 +60,18 @@ not_supported_features:
   # Evidence: flipping the model to api:openai-completions cut the loop 41 -> 8
   # (confirms cause #1 is dominant) but did NOT terminate it (cause #2 remains),
   # and it breaks the reasoning demos -- so it is not a viable fix.
-  # Single-card tests pass (>=1 card tolerates the dupes); count/multi-tool tests
-  # fail. Real fix: teach aimock's matchers to read Responses-API
-  # function_call/function_call_output (fixes the whole cluster), or cap/dedupe
-  # repeated identical tool calls in clawg-ui. Not fixable in fixtures alone.
+  # STATUS: the d6/openclaw tool fixtures are now re-gated to the hasToolResult
+  # 2-step (tool-call: hasToolResult:false; narration: hasToolResult:true), which
+  # DOES work under the Responses API -- so SINGLE-tool turns (weather/flights/
+  # stock/background/etc.) terminate after one call and render correctly.
+  # MULTI-tool/sequential turns still fail: a catch-all narration in
+  # d4/openclaw/chat.json ({context:openclaw, hasToolResult:true} -> generic
+  # "Here's what I found...") fires on the FIRST tool result of any prompt, so
+  # 5x d20 / chain-3 stop after turn 1. Removing that catch-all risks re-looping
+  # prompts that lack their own terminator. Real fix: teach aimock's matchers to
+  # read Responses-API function_call/function_call_output (then per-tool
+  # toolCallId narrations work), or cap/dedupe repeated identical tool calls in
+  # clawg-ui. These demos stay excluded until the multi-tool tests can pass.
   - tool-rendering
   # Same tool-call loop as tool-rendering (useDefaultRenderTool wildcard): dozens of
   # duplicate default cards; the flood eventually stalls the run.

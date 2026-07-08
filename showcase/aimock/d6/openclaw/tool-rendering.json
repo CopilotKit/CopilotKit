@@ -9,8 +9,8 @@
       "_comment": "tool-rendering pill: Chain tools \u2014 follow-up after all 3 tools ran. Matches whichever of the 3 chain-tools tool_call_ids appears last in the request (LangGraph's ToolNode preserves tool_calls order, so roll_d20 is typically last; we register all 3 for safety). MUST come before the toolCalls-emitting fixture below so iteration 2 of the chain-tools loop hits this branch instead of re-emitting.",
       "match": {
         "userMessage": "Chain a few tools in this single turn",
-        "toolCallId": "call_tr_chain_roll_001",
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": true
       },
       "response": {
         "content": "Done \u2014 Tokyo is sunny, three flights found, and the d20 came up 11."
@@ -19,8 +19,8 @@
     {
       "match": {
         "userMessage": "Chain a few tools in this single turn",
-        "toolCallId": "call_tr_chain_flights_001",
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": true
       },
       "response": {
         "content": "Done \u2014 Tokyo is sunny, three flights found, and the d20 came up 11."
@@ -29,8 +29,8 @@
     {
       "match": {
         "userMessage": "Chain a few tools in this single turn",
-        "toolCallId": "call_tr_chain_weather_001",
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": true
       },
       "response": {
         "content": "Done \u2014 Tokyo is sunny, three flights found, and the d20 came up 11."
@@ -40,7 +40,8 @@
       "_comment": "tool-rendering pill: Chain tools \u2014 emit 3 tool calls in one assistant turn (get_weather Tokyo + search_flights SFO->Tokyo + roll_d20=11). MUST appear before the bare 'weather in Tokyo' fixture below; substring match would otherwise leak into this prompt. No hasToolResult / turnIndex gate: in multi-pill demo sessions prior clicks leave tool results AND additional user turns in the thread, which previously caused this fixture to be skipped (turnIndex no longer 0 after sibling pills, hasToolResult breaks once prior pills emitted tool results) \u2014 the chain-tools toolCallId fixtures above already eat iteration 2 via last-message tool_call_id gating, so removing the turnIndex gate is safe.",
       "match": {
         "userMessage": "Chain a few tools in this single turn",
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -66,8 +67,8 @@
       "_comment": "tool-rendering pill: Weather in SF \u2014 follow-up content after get_weather tool ran. MUST come before the tool-emitting fixture below (first-match-wins) so iteration 2 of the loop hits this branch instead of re-emitting. toolCallId chain keeps the fixture stateless across multi-pill thread history (hasToolResult breaks when a prior pill left tool results in the thread).",
       "match": {
         "userMessage": "What's the weather in San Francisco?",
-        "toolCallId": "call_tr_weather_sf_001",
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": true
       },
       "response": {
         "content": "San Francisco is currently 68\u00b0F and sunny with light winds."
@@ -76,8 +77,8 @@
     {
       "match": {
         "userMessage": "What's the weather in San Francisco?",
-        "turnIndex": 0,
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -93,8 +94,8 @@
       "_comment": "tool-rendering pill: Find flights \u2014 second leg (after search_flights tool result). MUST come BEFORE the first-leg fixture below \u2014 the matcher is first-match-wins, and the second leg is uniquely identified by `toolCallId` (last message is a tool with this id), so it cannot accidentally swallow the first-leg request (whose last message is the user prompt). Must also take precedence over the a2ui beautiful-chat fixture below (which uses the same tool name with non-flight-list args shape).",
       "match": {
         "userMessage": "Find flights from SFO to JFK.",
-        "toolCallId": "call_tr_flights_sfo_jfk_001",
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": true
       },
       "response": {
         "content": "Three flights from SFO to JFK \u2014 United UA231 at 08:15 ($348), Delta DL412 at 11:20 ($312), and JetBlue B6722 at 17:05 ($289)."
@@ -105,7 +106,8 @@
       "match": {
         "userMessage": "Find flights from SFO to JFK.",
         "toolName": "search_flights",
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -121,8 +123,8 @@
       "_comment": "tool-rendering pill: Stock price \u2014 follow-up content after get_stock_price tool ran. MUST come before the tool-emitting fixture below (first-match-wins) so iteration 2 of the loop hits this branch instead of re-emitting an infinite loop of tool calls.",
       "match": {
         "userMessage": "What's the current price of AAPL?",
-        "toolCallId": "call_tr_stock_aapl_001",
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": true
       },
       "response": {
         "content": "AAPL is trading at $338.37, down 2.96% on the day."
@@ -133,7 +135,8 @@
       "match": {
         "userMessage": "What's the current price of AAPL?",
         "toolName": "get_stock_price",
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -149,8 +152,8 @@
       "_comment": "tool-rendering pill: Roll a d20 \u2014 exactly 5 sequential roll_d20 calls returning [7, 14, 3, 19, 20]. Chained by toolCallId so the sequence is stateless across thread history (turnIndex/hasToolResult break in multi-pill demo sessions where prior clicks leave assistant/tool messages in the thread). Specific-toolCallId fixtures MUST come before the userMessage-only fixture below; first-match-wins.",
       "match": {
         "userMessage": "Roll a 20-sided die.",
-        "toolCallId": "call_tr_d20_seq_001",
-        "context": "openclaw"
+        "context": "openclaw",
+        "turnIndex": 0
       },
       "response": {
         "toolCalls": [
@@ -165,8 +168,8 @@
     {
       "match": {
         "userMessage": "Roll a 20-sided die.",
-        "toolCallId": "call_tr_d20_seq_002",
-        "context": "openclaw"
+        "context": "openclaw",
+        "turnIndex": 1
       },
       "response": {
         "toolCalls": [
@@ -181,8 +184,8 @@
     {
       "match": {
         "userMessage": "Roll a 20-sided die.",
-        "toolCallId": "call_tr_d20_seq_003",
-        "context": "openclaw"
+        "context": "openclaw",
+        "turnIndex": 2
       },
       "response": {
         "toolCalls": [
@@ -197,8 +200,8 @@
     {
       "match": {
         "userMessage": "Roll a 20-sided die.",
-        "toolCallId": "call_tr_d20_seq_004",
-        "context": "openclaw"
+        "context": "openclaw",
+        "turnIndex": 3
       },
       "response": {
         "toolCalls": [
@@ -213,8 +216,8 @@
     {
       "match": {
         "userMessage": "Roll a 20-sided die.",
-        "toolCallId": "call_tr_d20_seq_005",
-        "context": "openclaw"
+        "context": "openclaw",
+        "turnIndex": 5
       },
       "response": {
         "content": "Rolled the d20 five times \u2014 landed on 20 on the final roll."
@@ -224,7 +227,8 @@
       "_comment": "First roll. Matches the initial user prompt (no prior d20 tool result in this chain yet). Comes after the toolCallId-chained fixtures above so iterations 2-6 of the loop hit those first. turnIndex dropped: the multi-pill sequential e2e test clicks 'Find flights' first which leaves prior turns in the thread, so a new 'Roll a 20-sided die.' user message is no longer at turnIndex 0. The toolCallId-chained fixtures still take precedence for iterations 2-6 because their last-message gate (role=tool with the chained id) only matches mid-chain \u2014 this fixture only matches when last-message.role=user.",
       "match": {
         "userMessage": "Roll a 20-sided die.",
-        "context": "openclaw"
+        "context": "openclaw",
+        "turnIndex": 4
       },
       "response": {
         "toolCalls": [
@@ -240,8 +244,8 @@
       "_comment": "Follow-up content after get_weather (or get-weather Mastra alias) ran for Tokyo. Keyed on the prior tool's id so it fires after iteration 1 regardless of thread history. Must come BEFORE the tool-emitting fixtures so iteration 2 hits this branch instead of re-emitting get_weather.",
       "match": {
         "userMessage": "weather in Tokyo",
-        "toolCallId": "call_d5_get_weather_001",
-        "context": "openclaw"
+        "context": "openclaw",
+        "turnIndex": 2
       },
       "response": {
         "content": "Tokyo is 22\u00b0C and partly cloudy."
@@ -251,7 +255,8 @@
       "match": {
         "userMessage": "weather in Tokyo",
         "toolName": "get_weather",
-        "context": "openclaw"
+        "context": "openclaw",
+        "turnIndex": 0
       },
       "response": {
         "toolCalls": [
@@ -270,7 +275,8 @@
       "match": {
         "userMessage": "weather in Tokyo",
         "toolName": "get-weather",
-        "context": "openclaw"
+        "context": "openclaw",
+        "turnIndex": 1
       },
       "response": {
         "toolCalls": [
@@ -288,8 +294,8 @@
       "_comment": "Final fallback when the agent has neither get_weather nor get-weather registered \u2014 return narrated content with no tool call. Comes last so the tool-emitting fixtures above win when the tool IS available.",
       "match": {
         "userMessage": "weather in Tokyo",
-        "turnIndex": 0,
-        "context": "openclaw"
+        "context": "openclaw",
+        "turnIndex": 2
       },
       "response": {
         "content": "The weather in Tokyo is currently 22\u00b0C with partly cloudy skies and light easterly winds."
@@ -298,8 +304,8 @@
     {
       "match": {
         "userMessage": "AAPL",
-        "toolCallId": "call_d5_get_stock_price_001",
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": true
       },
       "response": {
         "content": "AAPL is trading at $189.42, up 1.27% on the day. The card above shows the live ticker and the percentage change."
@@ -309,8 +315,8 @@
       "_comment": "AAPL \u2014 first leg: emit get_stock_price tool call. turnIndex:0 gate REMOVED \u2014 the D5 tool-rendering-custom-catchall probe runs 'weather in Tokyo' first then sends 'What's the current price of AAPL?', so the AAPL leg fires at turnIndex>=2 (multi-pill thread). Replaced turnIndex:0 with hasToolResult:false: matches when the last message is a user prompt (not a tool result), which keeps the first-leg fixture from re-firing after the follow-up content already lands. The toolCallId follow-up fixture above wins on iteration 2 (last message is tool with id call_d5_get_stock_price_001).",
       "match": {
         "userMessage": "AAPL",
-        "hasToolResult": false,
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -325,8 +331,8 @@
     {
       "match": {
         "userMessage": "d5 beautiful-chat probe: search flights from SFO to JFK",
-        "hasToolResult": false,
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -341,8 +347,8 @@
     {
       "match": {
         "userMessage": "d5 beautiful-chat probe: search flights from SFO to JFK",
-        "hasToolResult": true,
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": true
       },
       "response": {
         "content": "Two flights shown above \u2014 United at $349 (08:00) and Delta at $289 (10:15), both on time."
@@ -351,8 +357,8 @@
     {
       "match": {
         "userMessage": "SFO to JFK",
-        "toolCallId": "call_d5_display_flight_001",
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": true
       },
       "response": {
         "content": "Flight rendered. Tap 'Book flight' to confirm."
@@ -362,7 +368,8 @@
       "match": {
         "userMessage": "SFO to JFK",
         "toolName": "display_flight",
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": false
       },
       "response": {
         "content": "Here is the SFO to JFK flight on United.",
@@ -383,8 +390,8 @@
     {
       "match": {
         "userMessage": "poem about autumn leaves",
-        "toolCallId": "call_d5_write_document_poem_001",
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": true
       },
       "response": {
         "content": "Done \u2014 the poem has been written into the shared document state."
@@ -394,7 +401,8 @@
       "match": {
         "userMessage": "poem about autumn leaves",
         "toolName": "write_document",
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": false
       },
       "response": {
         "content": "Streaming the poem now.",
@@ -410,8 +418,8 @@
     {
       "match": {
         "userMessage": "polite email declining",
-        "toolCallId": "call_d5_write_document_email_001",
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": true
       },
       "response": {
         "content": "Done \u2014 the decline-email draft has been written into the shared document state."
@@ -421,7 +429,8 @@
       "match": {
         "userMessage": "polite email declining",
         "toolName": "write_document",
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": false
       },
       "response": {
         "content": "Drafting the email now.",
@@ -437,8 +446,8 @@
     {
       "match": {
         "userMessage": "quantum computing for a curious teenager",
-        "toolCallId": "call_d5_write_document_quantum_001",
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": true
       },
       "response": {
         "content": "Done \u2014 the quantum-computing explainer has been written into the shared document state."
@@ -448,7 +457,8 @@
       "match": {
         "userMessage": "quantum computing for a curious teenager",
         "toolName": "write_document",
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": false
       },
       "response": {
         "content": "Streaming the explainer now.",

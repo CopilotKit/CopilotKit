@@ -8,8 +8,8 @@
     {
       "match": {
         "userMessage": "3D axis visualization (model airplane)",
-        "toolCallId": "call_d5_open_gen_ui_3d_axis_001",
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": true
       },
       "response": {
         "content": "Generated. The sandboxed UI is rendered above."
@@ -18,8 +18,8 @@
     {
       "match": {
         "userMessage": "3D axis visualization (model airplane)",
-        "turnIndex": 0,
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -34,8 +34,8 @@
     {
       "match": {
         "userMessage": "How a neural network works",
-        "toolCallId": "call_d5_open_gen_ui_neural_001",
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": true
       },
       "response": {
         "content": "Generated. The sandboxed UI is rendered above."
@@ -44,8 +44,8 @@
     {
       "match": {
         "userMessage": "How a neural network works",
-        "turnIndex": 0,
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -60,8 +60,8 @@
     {
       "match": {
         "userMessage": "Quicksort visualization",
-        "toolCallId": "call_d5_open_gen_ui_quicksort_001",
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": true
       },
       "response": {
         "content": "Generated. The sandboxed UI is rendered above."
@@ -70,8 +70,8 @@
     {
       "match": {
         "userMessage": "Quicksort visualization",
-        "turnIndex": 0,
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -86,8 +86,8 @@
     {
       "match": {
         "userMessage": "Fourier: square wave from sines",
-        "toolCallId": "call_d5_open_gen_ui_fourier_001",
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": true
       },
       "response": {
         "content": "Generated. The sandboxed UI is rendered above."
@@ -96,8 +96,8 @@
     {
       "match": {
         "userMessage": "Fourier: square wave from sines",
-        "turnIndex": 0,
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -112,8 +112,8 @@
     {
       "match": {
         "userMessage": "Calculator (calls evaluateExpression)",
-        "toolCallId": "call_d5_open_gen_ui_calc_001",
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": true
       },
       "response": {
         "content": "Generated. The sandboxed UI is rendered above."
@@ -122,8 +122,8 @@
     {
       "match": {
         "userMessage": "Calculator (calls evaluateExpression)",
-        "turnIndex": 0,
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -138,8 +138,8 @@
     {
       "match": {
         "userMessage": "Ping the host (calls notifyHost)",
-        "toolCallId": "call_d5_open_gen_ui_ping_001",
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": true
       },
       "response": {
         "content": "Generated. The sandboxed UI is rendered above."
@@ -148,8 +148,8 @@
     {
       "match": {
         "userMessage": "Ping the host (calls notifyHost)",
-        "turnIndex": 0,
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -164,8 +164,8 @@
     {
       "match": {
         "userMessage": "Inline expression evaluator",
-        "toolCallId": "call_d5_open_gen_ui_inline_001",
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": true
       },
       "response": {
         "content": "Generated. The sandboxed UI is rendered above."
@@ -174,8 +174,8 @@
     {
       "match": {
         "userMessage": "Inline expression evaluator",
-        "turnIndex": 0,
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [

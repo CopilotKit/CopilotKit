@@ -8,8 +8,8 @@
     {
       "match": {
         "userMessage": "Make the background a sunset gradient",
-        "toolCallId": "call_d5_change_background_sunset",
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": true
       },
       "response": {
         "content": "Done \u2014 sunset gradient is live."
@@ -19,7 +19,8 @@
       "_comment": "frontend-tools 'Sunset' pill \u2014 1st leg: emit change_background tool call only. The toolCallId-keyed follow-up fixture above is ordered first, so it catches the second-leg request (after tool result). This fixture only matches the first-leg request (before tool execution). No turnIndex gate \u2014 the 3-pill probe sends sequential turns; turnIndex would restrict to the first turn.",
       "match": {
         "userMessage": "Make the background a sunset gradient",
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -36,8 +37,8 @@
     {
       "match": {
         "userMessage": "deep green forest gradient",
-        "toolCallId": "call_d5_change_background_forest",
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": true
       },
       "response": {
         "content": "Done \u2014 forest gradient is live."
@@ -47,7 +48,8 @@
       "_comment": "frontend-tools 'Forest' pill \u2014 1st leg: emit change_background tool call only. No turnIndex gate \u2014 multi-turn probe.",
       "match": {
         "userMessage": "deep green forest gradient",
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -64,8 +66,8 @@
     {
       "match": {
         "userMessage": "navy \u2192 magenta cosmic gradient",
-        "toolCallId": "call_d5_change_background_cosmic",
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": true
       },
       "response": {
         "content": "Done \u2014 cosmic gradient is live."
@@ -75,7 +77,8 @@
       "_comment": "frontend-tools 'Cosmic' pill \u2014 1st leg: emit change_background tool call only. No turnIndex gate \u2014 multi-turn probe.",
       "match": {
         "userMessage": "navy \u2192 magenta cosmic gradient",
-        "context": "openclaw"
+        "context": "openclaw",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
