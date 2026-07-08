@@ -1,0 +1,25 @@
+{
+  "name": "@copilotkit/svelte-demo",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@copilotkit/runtime": "workspace:*",
+    "@copilotkit/svelte": "workspace:*",
+    "@copilotkit/voice": "workspace:*"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-auto": "^4.0.0",
+    "@sveltejs/kit": "^2.20.0",
+    "@sveltejs/vite-plugin-svelte": "^5.0.0",
+    "svelte": "^5.28.0",
+    "svelte-check": "^4.0.0",
+    "typescript": "5.8.2",
+    "vite": "^6.0.0"
+  }
+}
