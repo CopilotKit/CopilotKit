@@ -1,23 +1,14 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 
-/**
- * A single value in a package.json `exports` map: either a target path or a
- * nested conditions object (`import`/`require`/`types`/`default`/...).
- */
-export type ExportEntry = string | { [condition: string]: ExportEntry };
-
-/**
- * Minimal shape of tsdown's `customExports` context. `pkg` is typed `unknown`
- * so this stays structurally assignable from tsdown's own
- * `{ pkg, chunks, isPublish }` context: tsdown's public `PackageJson` type does
- * not declare the `packageJsonPath` field that is present at runtime, and a
- * `{ packageJsonPath?: string }` shape would be an all-optional "weak type"
- * that `PackageJson` cannot satisfy.
- */
-interface CustomExportsContext {
-  pkg: unknown;
-}
+// Authored as plain ESM (`.mjs`) with a sibling `.d.mts`, NOT `.ts`: each
+// package's `tsdown.config.ts` imports this helper, and tsdown loads those
+// configs with Node's native ESM loader when `process.features.typescript` is
+// on (Node >= 22.18 / 24 in CI). Native ESM does not resolve extensionless or
+// `.ts`-mapped relative imports, so a `.ts` helper imported without an
+// extension fails in CI with "Cannot find module". A real `.mjs` imported with
+// its explicit extension resolves under the native loader, tsdown's bundler
+// loader, and `tsc` (via the adjacent `.d.mts`) alike.
 
 /**
  * Ensure every generated `exports` entry carries a `types` condition.
@@ -41,31 +32,27 @@ interface CustomExportsContext {
  * Wire it into `tsdown.config.ts` via the `exports.customExports` hook:
  *   exports: { customExports: (exports, ctx) => withTypesConditions(exports, ctx) }
  */
-export function withTypesConditions(
-  exports: Record<string, ExportEntry>,
-  ctx: CustomExportsContext,
-): Record<string, ExportEntry> {
+export function withTypesConditions(exports, ctx) {
   // `packageJsonPath` is present at runtime but absent from tsdown's public
   // `PackageJson` type; fall back to cwd (nx runs each build from the package
   // directory) if it is ever missing.
-  const packageJsonPath = (ctx.pkg as { packageJsonPath?: unknown })
-    .packageJsonPath;
+  const packageJsonPath = ctx.pkg?.packageJsonPath;
   const pkgDir =
     typeof packageJsonPath === "string"
       ? path.dirname(packageJsonPath)
       : process.cwd();
-  const result: Record<string, ExportEntry> = {};
+  const result = {};
   for (const [subpath, entry] of Object.entries(exports)) {
     result[subpath] = withTypes(entry, pkgDir);
   }
   return result;
 }
 
-function withTypes(entry: ExportEntry, pkgDir: string): ExportEntry {
+function withTypes(entry, pkgDir) {
   if (typeof entry === "string") {
     return typedTarget(entry, pkgDir) ?? entry;
   }
-  const next: Record<string, ExportEntry> = {};
+  const next = {};
   for (const [condition, target] of Object.entries(entry)) {
     next[condition] =
       typeof target === "string"
@@ -79,10 +66,7 @@ function withTypes(entry: ExportEntry, pkgDir: string): ExportEntry {
  * Map a JS output path to a `{ types, default }` pair when a sibling
  * declaration file exists; return `null` to leave the target unchanged.
  */
-function typedTarget(
-  jsPath: string,
-  pkgDir: string,
-): { types: string; default: string } | null {
+function typedTarget(jsPath, pkgDir) {
   const typesPath = jsPath.endsWith(".mjs")
     ? `${jsPath.slice(0, -".mjs".length)}.d.mts`
     : jsPath.endsWith(".cjs")

@@ -1,5 +1,5 @@
 import { defineConfig } from "tsdown";
-import { withTypesConditions } from "../../scripts/tsdown-exports";
+import { withTypesConditions } from "../../scripts/tsdown-exports.mjs";
 
 export default defineConfig({
   entry: [

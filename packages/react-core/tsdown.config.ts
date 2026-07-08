@@ -3,7 +3,7 @@ import { defineConfig } from "tsdown";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { withTypesConditions } from "../../scripts/tsdown-exports";
+import { withTypesConditions } from "../../scripts/tsdown-exports.mjs";
 
 // Resolved path to src/v2/context.ts — used to redirect the headless build's
 // relative ../context imports to the external @copilotkit/react-core/v2/context

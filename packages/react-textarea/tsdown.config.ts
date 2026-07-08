@@ -2,7 +2,7 @@
 import { defineConfig } from "tsdown";
 import fs from "fs";
 import path from "path";
-import { withTypesConditions } from "../../scripts/tsdown-exports";
+import { withTypesConditions } from "../../scripts/tsdown-exports.mjs";
 
 // Side-effect CSS imports are kept in the JS output so styles auto-load for
 // bundler consumers, but rolldown-plugin-dts also leaves them in the emitted
