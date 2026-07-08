@@ -3,6 +3,11 @@ import type { WebClient } from "@slack/web-api";
 import type { SlackConversationStore } from "./conversation-store.js";
 import type { IncomingTurn, ResolvedSlackRespondToOptions } from "./types.js";
 import { DEFAULT_SLACK_RESPOND_TO_OPTIONS, DM_SCOPE } from "./types.js";
+import {
+  stripMentions,
+  deriveEventId,
+  isPlainUserMessage,
+} from "./ingress-normalize.js";
 
 /**
  * Handler the listener calls when a Slack event maps to a usable turn.
@@ -57,33 +62,6 @@ export interface ListenerConfig {
    * turn. Absent (or returning false) → messages flow as shipped.
    */
   isAssistantThread?: (channel: string, threadTs: string) => boolean;
-}
-
-const MENTION_RE = /<@[UW][A-Z0-9]+>/g;
-
-const stripMentions = (text: string): string =>
-  text.replace(MENTION_RE, "").replace(/\s+/g, " ").trim();
-
-/**
- * Derive a stable per-delivery id for a message/event turn, used for inbound
- * idempotency. Prefer the Events API envelope `event_id` (it is stable across
- * Slack's automatic retries), then the message's own `client_msg_id`, then a
- * synthesized `${channel}:${ts}`. Returns undefined only when none is
- * available — never fabricate a random id (that would defeat dedup).
- *
- * TODO(dedup): wire eventId for Discord/Telegram (same pattern) — Discord
- * message/interaction id; Telegram `update_id`.
- */
-function deriveEventId(
-  body: unknown,
-  event: { client_msg_id?: string; ts?: string; channel?: string },
-  channel: string,
-): string | undefined {
-  const envelopeEventId = (body as { event_id?: string } | undefined)?.event_id;
-  if (envelopeEventId) return envelopeEventId;
-  if (event.client_msg_id) return event.client_msg_id;
-  if (event.ts) return `${channel}:${event.ts}`;
-  return undefined;
 }
 
 /**
@@ -237,46 +215,4 @@ export function attachSlackListener(config: ListenerConfig): void {
       client,
     );
   });
-}
-
-/** Minimal shape we actually care about, after filtering. */
-interface PlainUserMessage {
-  channel: string;
-  text: string;
-  user?: string;
-  thread_ts?: string;
-  channel_type?: string;
-  files?: unknown[];
-  /** Slack's client-generated message id; a per-delivery dedup fallback. */
-  client_msg_id?: string;
-  /** Message ts; last-resort dedup key as `${channel}:${ts}`. */
-  ts?: string;
-}
-
-/**
- * Narrows to plain, user-authored, non-bot, non-subtyped messages with text.
- * Anything that fails this check is uninteresting to the bridge.
- *
- * Bolt's `MessageEvent` is a union over a dozen subtypes; we don't want to
- * pull each member name explicitly. A predicate function with a custom
- * narrow type gives us a clean handler body without that ceremony.
- */
-function isPlainUserMessage(
-  message: unknown,
-  botUserId: string | undefined,
-): message is PlainUserMessage {
-  if (!message || typeof message !== "object") return false;
-  const m = message as Record<string, unknown>;
-  // Reject subtyped messages EXCEPT file uploads (`file_share`), which are
-  // real user messages carrying a `files` array we want to deliver.
-  if (m.subtype && m.subtype !== "file_share") return false;
-  // Loop guard: skip the bot's own posts (matched by bot user id).
-  if (botUserId && m.user === botUserId) return false;
-  // Skip messages with NO user (true bot-only / app-only posts). Messages
-  // posted via a USER token (xoxp-) belonging to an app have BOTH `user`
-  // and `bot_id` set — those are real user messages and should pass.
-  if (m.bot_id && !m.user) return false;
-  if (typeof m.channel !== "string") return false;
-  if (typeof m.text !== "string") return false;
-  return true;
 }

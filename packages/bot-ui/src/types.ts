@@ -57,6 +57,15 @@ export interface IncomingMessage {
    * any. Stable across platforms for the same human (e.g. an email address).
    */
   userKey?: string;
+  /**
+   * Stable platform event id (managed/Intelligence path), for customer-side
+   * idempotency. Omitted by adapters that don't surface one.
+   */
+  eventId?: string;
+  /** Stable per-turn id (managed/Intelligence path). */
+  turnId?: string;
+  /** Lease/delivery id (managed/Intelligence path). */
+  deliveryId?: string;
 }
 export interface ThreadMessage {
   user?: PlatformUser;

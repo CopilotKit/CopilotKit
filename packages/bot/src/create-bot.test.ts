@@ -552,8 +552,6 @@ describe("createBot", () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
 
-    // Seed one prior cross-platform entry (different platform label) so we can
-    // assert it shows up in the injected context.
     const bot = createBot({
       adapters: [fake],
       agent: () => agent,
@@ -563,11 +561,6 @@ describe("createBot", () => {
         transcripts: {},
       },
     });
-    await bot.transcripts.append(
-      { platform: "discord", conversationKey: "other" },
-      { role: "user", text: "remembered from discord" },
-      { userKey: "u@x.com" },
-    );
 
     // Capture the context the agent receives on its first runAgent call, and
     // have the fake produce an assistant message with text on agent.messages
@@ -592,6 +585,14 @@ describe("createBot", () => {
     });
 
     await bot.start();
+    // Seed one prior cross-platform entry (different platform label) so we can
+    // assert it shows up in the injected context. Seeded post-start: transcripts
+    // are only available once the backend is resolved in start().
+    await bot.transcripts.append(
+      { platform: "discord", conversationKey: "other" },
+      { role: "user", text: "remembered from discord" },
+      { userKey: "u@x.com" },
+    );
     const sink = fake.getSink();
     await sink.onTurn({
       conversationKey: "c1",

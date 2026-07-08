@@ -1,11 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
-import type { WebClient } from "@slack/web-api";
+import type { SlackRenderTransport } from "../render/transport.js";
 import { createRunRenderer } from "../event-renderer.js";
 
 /**
- * Stub WebClient surface — only the methods the renderer touches
- * (`chat.postMessage`, `chat.update`, `chat.delete`). Records every
- * post / update call in order.
+ * Fake {@link SlackRenderTransport} — records every post / update call in
+ * order. This is exactly the seam the managed Connector Outbox will drive, so
+ * the renderer is verified Bolt-free (no `WebClient`).
  */
 function makeFakeClient() {
   const posts: {
@@ -16,28 +16,23 @@ function makeFakeClient() {
   }[] = [];
   const updates: { channel: string; ts: string; text: string }[] = [];
   let postedTsCounter = 0;
-  const chat = {
+  const transport: SlackRenderTransport = {
+    setStatus: vi.fn(async () => {}),
     postMessage: vi.fn(
       async (args: { channel: string; thread_ts?: string; text: string }) => {
         postedTsCounter++;
         const ts = `${postedTsCounter}.000`;
         posts.push({ ...args, ts });
-        return { ok: true, ts };
+        return { ts };
       },
     ),
-    update: vi.fn(
+    updateMessage: vi.fn(
       async (args: { channel: string; ts: string; text: string }) => {
         updates.push(args);
-        return { ok: true };
       },
     ),
-    delete: vi.fn(async (_args: { channel: string; ts: string }) => {
-      return { ok: true };
-    }),
   };
-  // The renderer only ever touches `client.chat.{postMessage,update,delete}`.
-  const client = { chat } as unknown as WebClient;
-  return { client, posts, updates };
+  return { transport, posts, updates };
 }
 
 describe("createRunRenderer", () => {
@@ -48,7 +43,7 @@ describe("createRunRenderer", () => {
     // instead of "ECHO". The renderer must accumulate deltas on its own.
     const fake = makeFakeClient();
     const { subscriber: sub } = createRunRenderer({
-      client: fake.client,
+      transport: fake.transport,
       target: { channel: "C1", threadTs: "100.0" },
     });
     const id = "msg-1";
@@ -77,7 +72,7 @@ describe("createRunRenderer", () => {
   it("posts placeholder with thread_ts for thread replies, none for DMs (only on first content)", async () => {
     const fake = makeFakeClient();
     const { subscriber: dm } = createRunRenderer({
-      client: fake.client,
+      transport: fake.transport,
       target: { channel: "D1" },
     });
     await dm.onTextMessageStartEvent!({
@@ -94,7 +89,7 @@ describe("createRunRenderer", () => {
     expect(fake.posts[0]?.thread_ts).toBeUndefined();
 
     const { subscriber: thread } = createRunRenderer({
-      client: fake.client,
+      transport: fake.transport,
       target: { channel: "C1", threadTs: "100.0" },
     });
     await thread.onTextMessageStartEvent!({
@@ -113,7 +108,7 @@ describe("createRunRenderer", () => {
   it("D20: a TEXT_MESSAGE_START + END with NO content events produces no Slack message", async () => {
     const fake = makeFakeClient();
     const { subscriber: sub } = createRunRenderer({
-      client: fake.client,
+      transport: fake.transport,
       target: { channel: "C1", threadTs: "100.0" },
     });
     await sub.onTextMessageStartEvent!({
@@ -127,7 +122,7 @@ describe("createRunRenderer", () => {
   it("captures EVERY tool-call-end (getCapturedToolCalls returns it)", async () => {
     const fake = makeFakeClient();
     const { subscriber: sub, getCapturedToolCalls } = createRunRenderer({
-      client: fake.client,
+      transport: fake.transport,
       target: { channel: "C1", threadTs: "100.0" },
       showToolStatus: false,
     });
@@ -152,7 +147,7 @@ describe("createRunRenderer", () => {
   it("captures partial args from onToolCallArgsEvent, finalised at END", async () => {
     const fake = makeFakeClient();
     const { subscriber: sub, getCapturedToolCalls } = createRunRenderer({
-      client: fake.client,
+      transport: fake.transport,
       target: { channel: "C1", threadTs: "100.0" },
       showToolStatus: false,
     });
@@ -175,7 +170,7 @@ describe("createRunRenderer", () => {
   it("tool-call status: showToolStatus default (true) → START posts 🔧, END edits to ✅", async () => {
     const fake = makeFakeClient();
     const { subscriber: sub } = createRunRenderer({
-      client: fake.client,
+      transport: fake.transport,
       target: { channel: "C1", threadTs: "100.0" },
     });
     await sub.onToolCallStartEvent!({
@@ -196,7 +191,7 @@ describe("createRunRenderer", () => {
   it("tool-call status: showToolStatus:false → no status posts but still captures", async () => {
     const fake = makeFakeClient();
     const { subscriber: sub, getCapturedToolCalls } = createRunRenderer({
-      client: fake.client,
+      transport: fake.transport,
       target: { channel: "C1", threadTs: "100.0" },
       showToolStatus: false,
     });
@@ -216,7 +211,7 @@ describe("createRunRenderer", () => {
   it("tool-call status: dedup by toolCallId — a repeated START (e.g. on graph resume) does not double-post", async () => {
     const fake = makeFakeClient();
     const { subscriber: sub } = createRunRenderer({
-      client: fake.client,
+      transport: fake.transport,
       target: { channel: "C1", threadTs: "100.0" },
       showToolStatus: true,
     });
@@ -236,7 +231,7 @@ describe("createRunRenderer", () => {
       getPendingInterrupt,
       clearPendingInterrupt,
     } = createRunRenderer({
-      client: fake.client,
+      transport: fake.transport,
       target: { channel: "C1", threadTs: "100.0" },
     });
     sub.onCustomEvent!({
@@ -254,7 +249,7 @@ describe("createRunRenderer", () => {
   it("interrupt: a JSON-string value is parsed", async () => {
     const fake = makeFakeClient();
     const { subscriber: sub, getPendingInterrupt } = createRunRenderer({
-      client: fake.client,
+      transport: fake.transport,
       target: { channel: "C1", threadTs: "100.0" },
     });
     sub.onCustomEvent!({
@@ -266,7 +261,7 @@ describe("createRunRenderer", () => {
   it("interrupt: a non-matching custom event is ignored", async () => {
     const fake = makeFakeClient();
     const { subscriber: sub, getPendingInterrupt } = createRunRenderer({
-      client: fake.client,
+      transport: fake.transport,
       target: { channel: "C1", threadTs: "100.0" },
     });
     sub.onCustomEvent!({
@@ -278,7 +273,7 @@ describe("createRunRenderer", () => {
   it("mrkdwn: bold/italic/links/lists get translated before chat.update", async () => {
     const fake = makeFakeClient();
     const { subscriber: sub } = createRunRenderer({
-      client: fake.client,
+      transport: fake.transport,
       target: { channel: "C1", threadTs: "100.0" },
     });
     await sub.onTextMessageStartEvent!({
@@ -301,7 +296,7 @@ describe("createRunRenderer", () => {
   it("posts a warning when RUN_ERROR fires", async () => {
     const fake = makeFakeClient();
     const { subscriber: sub } = createRunRenderer({
-      client: fake.client,
+      transport: fake.transport,
       target: { channel: "C1", threadTs: "100.0" },
     });
     await sub.onRunErrorEvent!({ event: { message: "boom" } } as never);
@@ -313,7 +308,7 @@ describe("createRunRenderer", () => {
   it("markInterrupted: appends _(interrupted)_ to a partial reply and finalises", async () => {
     const fake = makeFakeClient();
     const { subscriber, markInterrupted } = createRunRenderer({
-      client: fake.client,
+      transport: fake.transport,
       target: { channel: "C1", threadTs: "100.0" },
     });
     await subscriber.onTextMessageStartEvent!({
@@ -332,7 +327,7 @@ describe("createRunRenderer", () => {
   it("markInterrupted: no partial reply yet → no Slack post created", async () => {
     const fake = makeFakeClient();
     const { subscriber, markInterrupted } = createRunRenderer({
-      client: fake.client,
+      transport: fake.transport,
       target: { channel: "C1", threadTs: "100.0" },
     });
     await subscriber.onTextMessageStartEvent!({
@@ -347,7 +342,7 @@ describe("createRunRenderer", () => {
   it("markInterrupted: a RUN_ERROR event that arrives AFTER abort is suppressed", async () => {
     const fake = makeFakeClient();
     const { subscriber, markInterrupted } = createRunRenderer({
-      client: fake.client,
+      transport: fake.transport,
       target: { channel: "C1", threadTs: "100.0" },
     });
     await subscriber.onTextMessageStartEvent!({
@@ -369,7 +364,7 @@ describe("createRunRenderer", () => {
   it("markInterrupted: ignores late content events after the interrupt", async () => {
     const fake = makeFakeClient();
     const { subscriber, markInterrupted } = createRunRenderer({
-      client: fake.client,
+      transport: fake.transport,
       target: { channel: "C1", threadTs: "100.0" },
     });
     await subscriber.onTextMessageStartEvent!({
@@ -392,7 +387,7 @@ describe("createRunRenderer", () => {
   it("does not bleed buffers between messages with different ids", async () => {
     const fake = makeFakeClient();
     const { subscriber: sub } = createRunRenderer({
-      client: fake.client,
+      transport: fake.transport,
       target: { channel: "C1", threadTs: "100.0" },
     });
     await sub.onTextMessageStartEvent!({
@@ -433,45 +428,37 @@ describe("createRunRenderer — native status mode", () => {
     const posts: { text: string; ts: string }[] = [];
     const updates: { ts: string; text: string }[] = [];
     let counter = 0;
-    const chat = {
+    const transport: SlackRenderTransport = {
+      setStatus: vi.fn(
+        async (args: {
+          status: string;
+          loading_messages?: string[];
+          thread_ts: string;
+        }) => {
+          statuses.push({
+            status: args.status,
+            loading_messages: args.loading_messages,
+            thread_ts: args.thread_ts,
+          });
+        },
+      ),
       postMessage: vi.fn(async (args: { text: string }) => {
         counter++;
         const ts = `${counter}.000`;
         posts.push({ text: args.text, ts });
-        return { ok: true, ts };
+        return { ts };
       }),
-      update: vi.fn(async (args: { ts: string; text: string }) => {
+      updateMessage: vi.fn(async (args: { ts: string; text: string }) => {
         updates.push(args);
-        return { ok: true };
       }),
-      delete: vi.fn(async () => ({ ok: true })),
     };
-    const assistant = {
-      threads: {
-        setStatus: vi.fn(
-          async (args: {
-            status: string;
-            loading_messages?: string[];
-            thread_ts?: string;
-          }) => {
-            statuses.push({
-              status: args.status,
-              loading_messages: args.loading_messages,
-              thread_ts: args.thread_ts,
-            });
-            return { ok: true };
-          },
-        ),
-      },
-    };
-    const client = { chat, assistant } as unknown as WebClient;
-    return { client, statuses, posts };
+    return { transport, statuses, posts };
   }
 
   it("sets native status on run start instead of posting a placeholder", async () => {
     const f = makePaneClient();
     const { subscriber: sub } = createRunRenderer({
-      client: f.client,
+      transport: f.transport,
       target: { channel: "D1", threadTs: "100.0" },
       status: {
         threadTs: "100.0",
@@ -491,7 +478,7 @@ describe("createRunRenderer — native status mode", () => {
   it("surfaces tool calls as live status, not :wrench: rows", async () => {
     const f = makePaneClient();
     const { subscriber: sub } = createRunRenderer({
-      client: f.client,
+      transport: f.transport,
       target: { channel: "D1", threadTs: "100.0" },
       status: { threadTs: "100.0", isPane: true, config: {} },
     });
@@ -505,7 +492,7 @@ describe("createRunRenderer — native status mode", () => {
   it("showToolStatus:false suppresses the pane's `is using` status", async () => {
     const f = makePaneClient();
     const { subscriber: sub } = createRunRenderer({
-      client: f.client,
+      transport: f.transport,
       target: { channel: "D1", threadTs: "100.0" },
       status: { threadTs: "100.0", isPane: true, config: {} },
       showToolStatus: false,
@@ -520,7 +507,7 @@ describe("createRunRenderer — native status mode", () => {
   it("clears the status once a reply is posted", async () => {
     const f = makePaneClient();
     const { subscriber: sub } = createRunRenderer({
-      client: f.client,
+      transport: f.transport,
       target: { channel: "D1", threadTs: "100.0" },
       status: { threadTs: "100.0", isPane: true, config: {} },
     });
@@ -539,7 +526,7 @@ describe("createRunRenderer — native status mode", () => {
   it("clears the status on run finish when nothing was posted", async () => {
     const f = makePaneClient();
     const { subscriber: sub } = createRunRenderer({
-      client: f.client,
+      transport: f.transport,
       target: { channel: "D1", threadTs: "100.0" },
       status: { threadTs: "100.0", isPane: true, config: { thinking: "t" } },
     });
@@ -549,12 +536,13 @@ describe("createRunRenderer — native status mode", () => {
   });
 
   // ── Non-pane: a channel @-mention / thread (isPane:false) gets the native
-  // "is thinking…" status instead of the old :hourglass: placeholder, but tool
-  // progress still flows to :wrench: rows (not composer status). ──────────────
+  // "is thinking…" status instead of the old :hourglass: placeholder, and tool
+  // progress flows to both :wrench: rows and the composer "is using…" status
+  // (setStatus drives any thread anchor now, not just panes). ──────────────────
   it("non-pane thread: sets native status on run start (no :hourglass: placeholder)", async () => {
     const f = makePaneClient();
     const { subscriber: sub } = createRunRenderer({
-      client: f.client,
+      transport: f.transport,
       target: { channel: "C1", threadTs: "100.0" },
       status: { threadTs: "100.0", isPane: false, config: {} },
     });
@@ -563,10 +551,10 @@ describe("createRunRenderer — native status mode", () => {
     expect(f.statuses[0]?.status).toBe("is thinking…");
   });
 
-  it("non-pane thread: tool calls still post :wrench: rows, not composer status", async () => {
+  it("non-pane thread: tool calls post :wrench: rows and set composer status", async () => {
     const f = makePaneClient();
     const { subscriber: sub } = createRunRenderer({
-      client: f.client,
+      transport: f.transport,
       target: { channel: "C1", threadTs: "100.0" },
       status: { threadTs: "100.0", isPane: false, config: {} },
     });
@@ -574,13 +562,13 @@ describe("createRunRenderer — native status mode", () => {
       event: { toolCallId: "t1", toolCallName: "search" },
     } as never);
     expect(f.posts.at(-1)?.text).toContain(":wrench:");
-    expect(f.statuses.some((s) => s.status.includes("is using"))).toBe(false);
+    expect(f.statuses.some((s) => s.status.includes("is using"))).toBe(true);
   });
 
   it("uses the provided threadTs anchor (e.g. a DM's inbound ts) for setStatus", async () => {
     const f = makePaneClient();
     const { subscriber: sub } = createRunRenderer({
-      client: f.client,
+      transport: f.transport,
       // Flat DM: the channel target has no threadTs, but the adapter passes the
       // inbound message ts as the status anchor.
       target: { channel: "D1" },

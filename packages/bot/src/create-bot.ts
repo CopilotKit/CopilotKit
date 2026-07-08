@@ -174,7 +174,18 @@ export interface StoreConfig<
 export interface CreateBotOptions<
   TStateSchema extends StandardSchemaV1 | undefined = undefined,
 > {
-  adapters: PlatformAdapter[];
+  /**
+   * Project-unique bot identifier. Required for managed (Intelligence-delivered)
+   * bots — it ties the runtime declaration to the Intelligence setup — and
+   * optional for local/custom adapters. Validated by the managed runtime
+   * (`startManagedBots`), not here.
+   */
+  name?: string;
+  /**
+   * Adapters supplied at construction. Optional — adapters can also be attached
+   * before `start()` via {@link Bot.addAdapter} (the managed runtime uses this).
+   */
+  adapters?: PlatformAdapter[];
   agent?: AbstractAgent | ((threadId: string) => AbstractAgent);
   /** @deprecated Pass `store.adapter` instead. */
   actionStore?: ActionStore;
@@ -194,6 +205,10 @@ export interface CreateBotOptions<
 }
 
 export interface Bot<TState = unknown> {
+  /** Project-unique identifier from `createBot({ name })`; used by the managed runtime. */
+  readonly name?: string;
+  /** Declared slash-command names (normalized). Surfaced for managed activation metadata. */
+  readonly commandNames: string[];
   onMention(h: BotHandler<TState>): void;
   onMessage(h: BotHandler<TState>): void;
   /**
@@ -234,6 +249,8 @@ export interface Bot<TState = unknown> {
   /** Handle a modal dismissal for `callbackId` (Slack `view_closed`). */
   onModalClose(callbackId: string, handler: ModalCloseHandler): void;
   tool(t: BotTool): void;
+  /** Attach an adapter before `start()`. Throws if called after the bot has started. */
+  addAdapter(adapter: PlatformAdapter): void;
   start(): Promise<void>;
   stop(): Promise<void>;
   /** Cross-platform transcript store. Append, list, and delete entries per user. */
@@ -248,7 +265,49 @@ function msgFromTurn(turn: IncomingTurn): IncomingMessage {
     user: turn.user ?? { id: "" },
     ref: { id: "" },
     platform: turn.platform,
+    eventId: turn.eventId,
+    turnId: turn.turnId,
+    deliveryId: turn.deliveryId,
   };
+}
+
+/**
+ * Enforce V1 managed exclusivity: a managed adapter (`intelligenceAdapter`)
+ * must be the only adapter on a bot. Managed and direct delivery are
+ * alternative modes per platform — Intelligence holds the platform creds, or
+ * the runtime does, never both.
+ */
+function assertExclusive(adapters: PlatformAdapter[]): void {
+  if (adapters.some((a) => a.__managed) && adapters.length > 1) {
+    throw new Error(
+      "intelligenceAdapter() must be the only adapter on a bot — managed and " +
+        "direct delivery are alternative modes. Use intelligenceAdapter() OR " +
+        "direct adapters (slack/discord/...), not both.",
+    );
+  }
+}
+
+/**
+ * Resolve the persistence backend at start(): an explicit `store.adapter` wins
+ * (silently); otherwise an adapter-provided `stateStore` is used (warning when
+ * more than one adapter provides one); otherwise an in-memory store.
+ */
+function resolveBackend(
+  explicit: StateStore | undefined,
+  adapters: PlatformAdapter[],
+): StateStore {
+  if (explicit) return explicit;
+  const providers = adapters.filter((a) => a.stateStore);
+  if (providers.length > 1) {
+    console.warn(
+      `[bot] multiple adapters provide a state store (${providers
+        .map((a) => a.platform)
+        .join(
+          ", ",
+        )}); using "${providers[0]!.platform}". Pass store.adapter to choose explicitly.`,
+    );
+  }
+  return providers[0]?.stateStore ?? new MemoryStore();
 }
 
 export function createBot<
@@ -264,26 +323,21 @@ export function createBot<
     );
   }
 
-  const backend: StateStore = cfg.adapter ?? new MemoryStore();
-  const telemetry = new BotTelemetry({
-    backend,
-    packageName: pkg.name,
-    packageVersion: pkg.version,
-  });
-  const transcripts = new Transcripts(backend, cfg.transcripts ?? {});
-  const registry = new ActionRegistry({
-    store: opts.actionStore ?? kvActionStore(backend),
-  });
+  // Adapters can be supplied up front or added later via `bot.addAdapter`
+  // (before `start()`). The runtime uses the latter to attach managed delivery.
+  const adapters: PlatformAdapter[] = [...(opts.adapters ?? [])];
+  assertExclusive(adapters);
+  let started = false;
 
-  for (const c of opts.components ?? []) {
-    if (!c.name) {
-      console.warn(
-        "[bot] createBot: skipping anonymous component — give it a name to enable durable actions after restart.",
-      );
-      continue;
-    }
-    registry.registerComponent(c.name, c as unknown as ComponentFn);
-  }
+  // Backend, transcripts, telemetry, the action registry, and component
+  // registration are resolved in `start()` — not at construction — so an
+  // adapter added via `addAdapter` after `createBot` can still supply the
+  // persistence backend (see `resolveBackend`). Nothing reads these before the
+  // first event, which can only arrive after `start()`.
+  let backend: StateStore | undefined;
+  let transcripts: Transcripts | undefined;
+  let registry: ActionRegistry | undefined;
+  let telemetry: BotTelemetry | undefined;
 
   const agentFactory: (threadId: string) => AbstractAgent = (() => {
     const a = opts.agent;
@@ -332,6 +386,11 @@ export function createBot<
     conversationKey: string,
     extras?: { userKey?: string; message?: IncomingMessage },
   ): Thread {
+    if (!backend || !registry || !telemetry) {
+      throw new Error(
+        "bot not started: call bot.start() before handling events",
+      );
+    }
     const deps: ThreadDeps = {
       adapter,
       replyTarget,
@@ -371,10 +430,13 @@ export function createBot<
   }
 
   function makeSink(adapter: PlatformAdapter): IngressSink {
+    // backend/registry are resolved in start() before any adapter.start() runs,
+    // so they are always set by the time the sink receives an event.
+    const store = backend!;
     return {
       async onTurn(turn: IncomingTurn) {
         const lockKey = `turn:${turn.conversationKey}`;
-        const acquired = await backend.lock.acquire(lockKey, {
+        const acquired = await store.lock.acquire(lockKey, {
           ttlMs: cfg.lockTtl ?? 60_000,
         });
 
@@ -396,10 +458,10 @@ export function createBot<
           // eventId, so Slack's retry can still be processed once the lock frees. (A handler
           // that throws still leaves its event marked seen — dedup drops duplicate DELIVERIES,
           // it is not retry-of-failed-turns.)
-          if (turn.eventId) {
+          if (turn.eventId && !adapter.skipIngressDedup) {
             const dupKey = `evt:${adapter.platform}:${turn.eventId}`;
             try {
-              if (await backend.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000))
+              if (await store.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000))
                 return;
             } catch (err) {
               console.warn(
@@ -445,16 +507,15 @@ export function createBot<
           for (const h of handlers) await h({ thread, message });
         } finally {
           // acquired is null on "force" — naturally skips release.
-          if (acquired) await backend.lock.release(lockKey, acquired.token);
+          if (acquired) await store.lock.release(lockKey, acquired.token);
         }
       },
       async onInteraction(evt: InteractionEvent) {
         // Dedup guard: drop duplicate deliveries of the same event within the TTL window.
-        if (evt.eventId) {
+        if (evt.eventId && !adapter.skipIngressDedup) {
           const dupKey = `evt:${adapter.platform}:${evt.eventId}`;
           try {
-            if (await backend.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000))
-              return;
+            if (await store.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000)) return;
           } catch (err) {
             console.warn(
               `[bot] dedup check failed for ${adapter.platform}; processing without dedup`,
@@ -498,7 +559,7 @@ export function createBot<
           if (explicit) {
             await explicit(ctx);
           } else {
-            dispatchedValue = await registry.dispatch(evt.id, ctx);
+            dispatchedValue = await registry!.dispatch(evt.id, ctx);
           }
         } catch (err) {
           // v1: swallow expired-action dispatches; surface anything else.
@@ -515,11 +576,10 @@ export function createBot<
       },
       async onCommand(cmd: IncomingCommand) {
         // Dedup guard: drop duplicate deliveries of the same event within the TTL window.
-        if (cmd.eventId) {
+        if (cmd.eventId && !adapter.skipIngressDedup) {
           const dupKey = `evt:${adapter.platform}:${cmd.eventId}`;
           try {
-            if (await backend.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000))
-              return;
+            if (await store.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000)) return;
           } catch (err) {
             console.warn(
               `[bot] dedup check failed for ${adapter.platform}; processing without dedup`,
@@ -603,7 +663,9 @@ export function createBot<
         }
         // Per-message handler set via `<Message onReaction>` on the posted
         // message — hot cache, falling back to the durable snapshot after a restart.
-        const perMessage = await registry.resolveMessageReaction(evt.messageId);
+        const perMessage = await registry!.resolveMessageReaction(
+          evt.messageId,
+        );
         if (perMessage) {
           await perMessage(value, {
             emoji: value,
@@ -647,7 +709,23 @@ export function createBot<
   }
 
   const bot: Bot<ThreadStateOf<TStateSchema>> = {
-    transcripts,
+    name: opts.name,
+    get commandNames() {
+      return [...commandHandlers.keys()];
+    },
+    get transcripts() {
+      if (!transcripts) {
+        throw new Error("bot.transcripts is available after bot.start()");
+      }
+      return transcripts;
+    },
+    addAdapter(adapter) {
+      if (started) {
+        throw new Error("bot.addAdapter must be called before bot.start()");
+      }
+      assertExclusive([...adapters, adapter]);
+      adapters.push(adapter);
+    },
     onMention(h) {
       // The public surface narrows `thread` to StatefulThread<TState>; the
       // internal arrays hold the loose `BotHandler` shape. A real Thread is
@@ -724,18 +802,61 @@ export function createBot<
       toolMap.set(t.name, t);
     },
     async start() {
+      // Idempotent: a second start() must not re-resolve the backend and
+      // rebuild Transcripts/Telemetry/ActionRegistry or re-call adapter.start()
+      // — with a MemoryStore that wipes all lock/dedup/transcript/action state,
+      // and real adapters would connect/port-bind twice.
+      if (started) return;
+      started = true;
+      assertExclusive(adapters);
+      // Resolve persistence now that all adapters (including any attached via
+      // addAdapter) are known, then build the transcript store, action
+      // registry, and register components against it.
+      backend = resolveBackend(cfg.adapter, adapters);
+      transcripts = new Transcripts(backend, cfg.transcripts ?? {});
+      const tel = new BotTelemetry({
+        backend,
+        packageName: pkg.name,
+        packageVersion: pkg.version,
+      });
+      telemetry = tel;
+      const registryInstance = new ActionRegistry({
+        store: opts.actionStore ?? kvActionStore(backend),
+      });
+      registry = registryInstance;
+      for (const c of opts.components ?? []) {
+        if (!c.name) {
+          console.warn(
+            "[bot] createBot: skipping anonymous component — give it a name to enable durable actions after restart.",
+          );
+          continue;
+        }
+        registryInstance.registerComponent(c.name, c as unknown as ComponentFn);
+      }
       toolDescriptors = toAgentToolDescriptors([...toolMap.values()]);
+      tel.capture("oss.bot.configured", {
+        platforms: adapters.map((a) => normalizePlatform(a.platform)),
+        adapterCount: adapters.length,
+        store: storeKind(backend),
+        hasComponents: (opts.components?.length ?? 0) > 0,
+        componentsCount: opts.components?.length ?? 0,
+        toolsCount: toolMap.size,
+        commandsCount: commandHandlers.size,
+        contextCount: context.length,
+        transcripts: !!cfg.transcripts,
+        identity: !!cfg.identity,
+      });
       // Isolate per-adapter startup failures: one adapter rejecting (e.g.
       // Telegram's setMyCommands rejecting a hyphenated command name, a revoked
       // token, a port already in use) must NOT crash the bot or prevent the
       // other adapters from starting. Log + degrade, never throw.
       const startResults = await Promise.allSettled(
-        opts.adapters.map((a) => a.start(makeSink(a))),
+        adapters.map((a) => a.start(makeSink(a), { botName: opts.name })),
       );
       const startedPlatforms: string[] = [];
       const failedPlatforms: string[] = [];
       startResults.forEach((r, i) => {
-        const rawPlatform = opts.adapters[i]!.platform;
+        const rawPlatform = adapters[i]!.platform;
         // Raw label for the human-facing log; normalized label for telemetry.
         const platform = normalizePlatform(rawPlatform);
         if (r.status === "rejected") {
@@ -744,7 +865,7 @@ export function createBot<
             `[bot] adapter "${rawPlatform}" failed to start:`,
             r.reason,
           );
-          telemetry.capture("oss.bot.start_failed", {
+          tel.capture("oss.bot.start_failed", {
             platform,
             errorClass: errorClass(r.reason),
           });
@@ -753,7 +874,7 @@ export function createBot<
         }
       });
       if (startedPlatforms.length > 0) {
-        telemetry.capture("oss.bot.started", {
+        tel.capture("oss.bot.started", {
           platforms: startedPlatforms,
           startedCount: startedPlatforms.length,
           failedCount: failedPlatforms.length,
@@ -770,12 +891,12 @@ export function createBot<
       const commandSpecs = [...commandHandlers.values()].map(toCommandSpec);
       if (commandSpecs.length > 0) {
         const registerResults = await Promise.allSettled(
-          opts.adapters.map((a) => a.registerCommands?.(commandSpecs)),
+          adapters.map((a) => a.registerCommands?.(commandSpecs)),
         );
         registerResults.forEach((r, i) => {
           if (r.status === "rejected") {
             console.error(
-              `[bot] adapter "${opts.adapters[i]!.platform}" failed to register commands:`,
+              `[bot] adapter "${adapters[i]!.platform}" failed to register commands:`,
               r.reason,
             );
           }
@@ -783,32 +904,25 @@ export function createBot<
       }
     },
     async stop() {
+      // Clear the started flag so a later start() is a real restart (re-resolve
+      // backend, rebuild components, reconnect adapters) rather than a silent
+      // no-op. The idempotency guard in start() only exists to block a DOUBLE
+      // start() while running — not a legitimate start→stop→start cycle.
+      started = false;
       // Isolate per-adapter shutdown failures: one adapter's stop() rejecting
       // must not prevent the others from being stopped.
       const stopResults = await Promise.allSettled(
-        opts.adapters.map((a) => a.stop()),
+        adapters.map((a) => a.stop()),
       );
       stopResults.forEach((r, i) => {
         if (r.status === "rejected") {
           console.error(
-            `[bot] adapter "${opts.adapters[i]!.platform}" failed to stop:`,
+            `[bot] adapter "${adapters[i]!.platform}" failed to stop:`,
             r.reason,
           );
         }
       });
     },
   };
-  telemetry.capture("oss.bot.configured", {
-    platforms: opts.adapters.map((a) => normalizePlatform(a.platform)),
-    adapterCount: opts.adapters.length,
-    store: storeKind(backend),
-    hasComponents: (opts.components?.length ?? 0) > 0,
-    componentsCount: opts.components?.length ?? 0,
-    toolsCount: toolMap.size,
-    commandsCount: commandHandlers.size,
-    contextCount: context.length,
-    transcripts: !!cfg.transcripts,
-    identity: !!cfg.identity,
-  });
   return bot;
 }

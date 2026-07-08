@@ -21,8 +21,11 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
 describe("createBot telemetry wiring", () => {
   beforeEach(() => capture.mockClear());
 
-  it("emits oss.bot.configured with a config snapshot", () => {
-    createBot({
+  it("emits oss.bot.configured with a config snapshot", async () => {
+    // The config snapshot is captured at start() — the backend (and therefore
+    // telemetry) is resolved there, not at construction, so an adapter attached
+    // via addAdapter can still provide the persistence backend.
+    const bot = createBot({
       adapters: [new FakeAdapter()],
       components: [
         function Card() {
@@ -30,6 +33,7 @@ describe("createBot telemetry wiring", () => {
         },
       ],
     });
+    await bot.start();
     const call = capture.mock.calls.find((c) => c[0] === "oss.bot.configured");
     expect(call).toBeDefined();
     expect(call![1].platforms).toEqual(["custom"]); // FakeAdapter.platform "fake" → normalized
