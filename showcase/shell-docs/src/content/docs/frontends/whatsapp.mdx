@@ -57,25 +57,25 @@ This guide takes you from zero to a WhatsApp bot that replies to every inbound m
         <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn']}>
             <Tab value="npm">
                 ```bash
-                npm install @copilotkit/bot @copilotkit/bot-ui @copilotkit/bot-whatsapp @copilotkit/runtime
+                npm install @copilotkit/channels @copilotkit/channels-ui @copilotkit/channels-whatsapp @copilotkit/runtime
                 npm install -D tsx typescript @types/node
                 ```
             </Tab>
             <Tab value="pnpm">
                 ```bash
-                pnpm add @copilotkit/bot @copilotkit/bot-ui @copilotkit/bot-whatsapp @copilotkit/runtime
+                pnpm add @copilotkit/channels @copilotkit/channels-ui @copilotkit/channels-whatsapp @copilotkit/runtime
                 pnpm add -D tsx typescript @types/node
                 ```
             </Tab>
             <Tab value="yarn">
                 ```bash
-                yarn add @copilotkit/bot @copilotkit/bot-ui @copilotkit/bot-whatsapp @copilotkit/runtime
+                yarn add @copilotkit/channels @copilotkit/channels-ui @copilotkit/channels-whatsapp @copilotkit/runtime
                 yarn add -D tsx typescript @types/node
                 ```
             </Tab>
         </Tabs>
 
-        Create a `tsconfig.json` that points the JSX factory at `@copilotkit/bot-ui`:
+        Create a `tsconfig.json` that points the JSX factory at `@copilotkit/channels-ui`:
 
         ```json title="tsconfig.json"
         {
@@ -88,7 +88,7 @@ This guide takes you from zero to a WhatsApp bot that replies to every inbound m
             "noEmit": true,
             "types": ["node"],
             "jsx": "react-jsx",
-            "jsxImportSource": "@copilotkit/bot-ui"
+            "jsxImportSource": "@copilotkit/channels-ui"
           },
           "include": ["bot.tsx"]
         }
@@ -105,8 +105,8 @@ This guide takes you from zero to a WhatsApp bot that replies to every inbound m
 
         ```tsx title="bot.tsx"
         import { createServer } from "node:http";
-        import { createBot } from "@copilotkit/bot";
-        import { whatsapp, defaultWhatsAppContext } from "@copilotkit/bot-whatsapp"; // [!code highlight]
+        import { createBot } from "@copilotkit/channels";
+        import { whatsapp, defaultWhatsAppContext } from "@copilotkit/channels-whatsapp"; // [!code highlight]
         import { BuiltInAgent, CopilotSseRuntime } from "@copilotkit/runtime/v2";
         import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 
@@ -135,7 +135,7 @@ This guide takes you from zero to a WhatsApp bot that replies to every inbound m
             }),
           ],
           agent: (threadId) => {
-            const { HttpAgent } = await import("@copilotkit/bot");
+            const { HttpAgent } = await import("@copilotkit/channels");
             const agent = new HttpAgent({
               url: "http://localhost:8200/api/copilotkit/agent/assistant/run",
             });
@@ -183,10 +183,10 @@ This guide takes you from zero to a WhatsApp bot that replies to every inbound m
     <Step>
         ### Post interactive UI
 
-        Replies can include interactive buttons (up to 3) or a list picker (4–10 items). Messages are authored as JSX from the [`@copilotkit/bot-ui` vocabulary](/reference/bot/components/Message). Replace the `onMessage` handler:
+        Replies can include interactive buttons (up to 3) or a list picker (4–10 items). Messages are authored as JSX from the [`@copilotkit/channels-ui` vocabulary](/reference/channels/components/Message). Replace the `onMessage` handler:
 
         ```tsx title="bot.tsx"
-        import { Message, Section, Actions, Button } from "@copilotkit/bot-ui"; // [!code highlight]
+        import { Message, Section, Actions, Button } from "@copilotkit/channels-ui"; // [!code highlight]
 
         bot.onMessage(async ({ thread, message }) => {
           if (message.text?.toLowerCase().includes("deploy")) {
@@ -222,7 +222,7 @@ This guide takes you from zero to a WhatsApp bot that replies to every inbound m
         Sending a message containing "deploy" triggers the interactive reply buttons. The handler code never leaves your process — WhatsApp only sees an opaque id in the button reply.
 
         <Callout type="warn" title="Buttons expire on restart">
-          The default action store is **in-memory**: after a process restart, clicks on old buttons are acknowledged but ignored. For buttons that survive restarts, plug a durable store (Redis, a database) into `createBot({ actionStore })` — see the [ActionStore contract](/reference/bot/types/ActionStore).
+          The default action store is **in-memory**: after a process restart, clicks on old buttons are acknowledged but ignored. For buttons that survive restarts, plug a durable store (Redis, a database) into `createBot({ actionStore })` — see the [ActionStore contract](/reference/channels/types/ActionStore).
         </Callout>
     </Step>
     <Step>
@@ -312,5 +312,5 @@ value instead.
 
 ## Next steps
 
-- **API reference:** the [Bots reference](/reference/bot) — [createBot](/reference/bot/functions/createBot), the [Thread API](/reference/bot/classes/Thread), [tools](/reference/bot/functions/defineBotTool) & [commands](/reference/bot/functions/defineBotCommand), and the [component vocabulary](/reference/bot/components/Message)
+- **API reference:** the [Channels reference](/reference/channels) — [createBot](/reference/channels/functions/createBot), the [Thread API](/reference/channels/classes/Thread), [tools](/reference/channels/functions/defineBotTool) & [commands](/reference/channels/functions/defineBotCommand), and the [component vocabulary](/reference/channels/components/Message)
 - **Full example:** [on-call triage bot over Linear + Notion MCP](https://github.com/CopilotKit/CopilotKit/tree/main/examples/slack) — tools, human-in-the-loop, commands, file uploads, persistent history

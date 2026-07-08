@@ -1,6 +1,6 @@
 /**
  * Showcase render-tools — three small JSX `BotTool`s that demonstrate the
- * `@copilotkit/bot-ui` vocabulary end-to-end:
+ * `@copilotkit/channels-ui` vocabulary end-to-end:
  *
  *  - `show_incident` — an interactive card whose `Acknowledge`/`Escalate`
  *    buttons carry inline `onClick` handlers. These are FIRE-AND-FORGET
@@ -20,9 +20,9 @@ import {
   Field,
   Actions,
   Button,
-} from "@copilotkit/bot-ui";
-import type { InteractionContext } from "@copilotkit/bot-ui";
-import { defineBotTool } from "@copilotkit/bot";
+} from "@copilotkit/channels-ui";
+import type { InteractionContext } from "@copilotkit/channels-ui";
+import { defineBotTool } from "@copilotkit/channels";
 
 // ── show_incident ──────────────────────────────────────────────────────────
 

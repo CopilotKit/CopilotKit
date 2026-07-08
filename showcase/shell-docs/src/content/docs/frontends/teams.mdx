@@ -38,25 +38,25 @@ Microsoft Teams can be the frontend for agents built on any harness or framework
         <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn']}>
             <Tab value="npm">
                 ```bash
-                npm install @copilotkit/bot @copilotkit/bot-ui @copilotkit/bot-teams @copilotkit/runtime
+                npm install @copilotkit/channels @copilotkit/channels-ui @copilotkit/channels-teams @copilotkit/runtime
                 npm install -D tsx typescript @types/node
                 ```
             </Tab>
             <Tab value="pnpm">
                 ```bash
-                pnpm add @copilotkit/bot @copilotkit/bot-ui @copilotkit/bot-teams @copilotkit/runtime
+                pnpm add @copilotkit/channels @copilotkit/channels-ui @copilotkit/channels-teams @copilotkit/runtime
                 pnpm add -D tsx typescript @types/node
                 ```
             </Tab>
             <Tab value="yarn">
                 ```bash
-                yarn add @copilotkit/bot @copilotkit/bot-ui @copilotkit/bot-teams @copilotkit/runtime
+                yarn add @copilotkit/channels @copilotkit/channels-ui @copilotkit/channels-teams @copilotkit/runtime
                 yarn add -D tsx typescript @types/node
                 ```
             </Tab>
         </Tabs>
 
-        Then create a `tsconfig.json` that points the JSX factory at `@copilotkit/bot-ui`. That is what makes `<Message>` / `<Button>` statically type-checked bot UI instead of React:
+        Then create a `tsconfig.json` that points the JSX factory at `@copilotkit/channels-ui`. That is what makes `<Message>` / `<Button>` statically type-checked bot UI instead of React:
 
         ```json title="tsconfig.json"
         {
@@ -69,7 +69,7 @@ Microsoft Teams can be the frontend for agents built on any harness or framework
             "noEmit": true,
             "types": ["node"],
             "jsx": "react-jsx",
-            "jsxImportSource": "@copilotkit/bot-ui"
+            "jsxImportSource": "@copilotkit/channels-ui"
           },
           "include": ["bot.tsx"]
         }
@@ -86,8 +86,8 @@ Microsoft Teams can be the frontend for agents built on any harness or framework
 
         ```tsx title="bot.tsx"
         import { createServer } from "node:http";
-        import { createBot } from "@copilotkit/bot";
-        import { teams, SanitizingHttpAgent } from "@copilotkit/bot-teams"; // [!code highlight]
+        import { createBot } from "@copilotkit/channels";
+        import { teams, SanitizingHttpAgent } from "@copilotkit/channels-teams"; // [!code highlight]
         import { BuiltInAgent, CopilotSseRuntime } from "@copilotkit/runtime/v2";
         import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 
@@ -169,10 +169,10 @@ Microsoft Teams can be the frontend for agents built on any harness or framework
     <Step>
         ### Post interactive UI
 
-        Replies don't have to be text. Messages are authored as JSX from the [`@copilotkit/bot-ui` vocabulary](/reference/bot/components/Message), including buttons with **inline `onClick` handlers**, and the adapter renders them to an Adaptive Card. Replace the `onMessage` handler from the previous step:
+        Replies don't have to be text. Messages are authored as JSX from the [`@copilotkit/channels-ui` vocabulary](/reference/channels/components/Message), including buttons with **inline `onClick` handlers**, and the adapter renders them to an Adaptive Card. Replace the `onMessage` handler from the previous step:
 
         ```tsx title="bot.tsx"
-        import { Message, Header, Section, Actions, Button } from "@copilotkit/bot-ui"; // [!code highlight]
+        import { Message, Header, Section, Actions, Button } from "@copilotkit/channels-ui"; // [!code highlight]
 
         bot.onMessage(async ({ thread, message }) => {
           if (message.text.toLowerCase().includes("deploy")) {
@@ -209,7 +209,7 @@ Microsoft Teams can be the frontend for agents built on any harness or framework
         Send a message containing "deploy" and click the buttons. Your handler code never leaves your process. Teams only sees an opaque action id carried in the card's `Action.Submit` data.
 
         <Callout type="warn" title="Buttons expire on restart">
-          The default action store is **in-memory**: after a process restart, clicks on old buttons are acknowledged but ignored. For buttons that survive restarts, plug a durable store into `createBot({ actionStore })` (see the [ActionStore contract](/reference/bot/types/ActionStore)).
+          The default action store is **in-memory**: after a process restart, clicks on old buttons are acknowledged but ignored. For buttons that survive restarts, plug a durable store into `createBot({ actionStore })` (see the [ActionStore contract](/reference/channels/types/ActionStore)).
         </Callout>
     </Step>
     <Step>
@@ -218,8 +218,8 @@ Microsoft Teams can be the frontend for agents built on any harness or framework
         The same buttons can **block the agent** until a human decides. A tool calls `await thread.awaitChoice(<Card/>)`, which posts the card and suspends the run until a click resolves it. It's the Teams equivalent of React's `useHumanInTheLoop`. Because the bot acks the Teams turn immediately and runs the agent out-of-turn, the approval can land minutes later and still resume the agent:
 
         ```tsx title="bot.tsx"
-        import { defineBotTool } from "@copilotkit/bot";
-        import { Message, Header, Actions, Button } from "@copilotkit/bot-ui";
+        import { defineBotTool } from "@copilotkit/channels";
+        import { Message, Header, Actions, Button } from "@copilotkit/channels-ui";
         import { z } from "zod";
 
         const confirmSend = defineBotTool({
@@ -269,7 +269,7 @@ agent: (threadId) => {
 },
 ```
 
-[`SanitizingHttpAgent`](https://github.com/CopilotKit/CopilotKit/tree/main/packages/bot-teams) is an `HttpAgent` that tolerates the event streams real agent backends emit. Use it instead of the stock `HttpAgent` when connecting to a remote runtime.
+[`SanitizingHttpAgent`](https://github.com/CopilotKit/CopilotKit/tree/main/packages/channels-teams) is an `HttpAgent` that tolerates the event streams real agent backends emit. Use it instead of the stock `HttpAgent` when connecting to a remote runtime.
 
 ## Sideload into Microsoft Teams
 
@@ -396,5 +396,5 @@ In Microsoft Teams: open **Apps → Manage your apps → Upload a custom app**, 
 
 ## Next steps
 
-- **API reference:** the [Bots reference](/reference/bot), covering [createBot](/reference/bot/functions/createBot), the [Thread API](/reference/bot/classes/Thread), [tools](/reference/bot/functions/defineBotTool), and the [component vocabulary](/reference/bot/components/Message)
+- **API reference:** the [Channels reference](/reference/channels), covering [createBot](/reference/channels/functions/createBot), the [Thread API](/reference/channels/classes/Thread), [tools](/reference/channels/functions/defineBotTool), and the [component vocabulary](/reference/channels/components/Message)
 - **Full example:** the [Teams demo bot](https://github.com/CopilotKit/CopilotKit/tree/main/examples/teams), a `BuiltInAgent` with agent-rendered Adaptive Cards, a human-in-the-loop approval gate, and a deployable app package

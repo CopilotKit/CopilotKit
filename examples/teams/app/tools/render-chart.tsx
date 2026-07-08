@@ -9,8 +9,8 @@
  * no Chromium, and no PNG upload, so the bot stays a pure Node service.
  */
 import { z } from "zod";
-import { defineBotTool } from "@copilotkit/bot";
-import { Message, Chart } from "@copilotkit/bot-ui";
+import { defineBotTool } from "@copilotkit/channels";
+import { Message, Chart } from "@copilotkit/channels-ui";
 
 const schema = z.object({
   chartType: z

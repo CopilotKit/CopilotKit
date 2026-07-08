@@ -10,13 +10,13 @@ export const ROOT = path.resolve(
 export type ReleaseScope =
   | "monorepo"
   | "angular"
-  | "bot"
-  | "bot-discord"
-  | "bot-intelligence"
-  | "bot-slack"
-  | "bot-teams"
-  | "bot-telegram"
-  | "bot-whatsapp";
+  | "channels"
+  | "channels-discord"
+  | "channels-intelligence"
+  | "channels-slack"
+  | "channels-teams"
+  | "channels-telegram"
+  | "channels-whatsapp";
 
 export interface ScopeConfig {
   packages: string[];
