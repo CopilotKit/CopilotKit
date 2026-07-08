@@ -7,7 +7,7 @@ import * as path from "node:path";
 // TypeScript ignores the top-level `types` field once a package.json `exports`
 // map exists, so under `moduleResolution` bundler/node16/nodenext every export
 // subpath that resolves to runtime JavaScript needs its OWN `types` condition.
-// tsdown does not emit one automatically (scripts/tsdown-exports.ts adds it),
+// tsdown does not emit one automatically (scripts/tsdown-exports.mjs adds it),
 // and hand-maintained maps can forget it — either way strict-exports tooling
 // (e.g. the Backstage CLI) then reports "has no exported member" for every
 // named import. This script scans every publishable package and fails if any
@@ -156,7 +156,7 @@ function main(): void {
   }
   console.error(
     "\nEvery JS entry in a package.json `exports` map needs a `types` condition.\n" +
-      "tsdown-managed packages get it from scripts/tsdown-exports.ts (withTypesConditions) —\n" +
+      "tsdown-managed packages get it from scripts/tsdown-exports.mjs (withTypesConditions) —\n" +
       "rebuild the package after editing its tsdown config. Hand-maintained maps must add it directly.",
   );
   process.exit(1);

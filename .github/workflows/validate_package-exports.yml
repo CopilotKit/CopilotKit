@@ -13,7 +13,8 @@ on:
     paths:
       - "packages/*/package.json"
       - "packages/*/tsdown.config.ts"
-      - "scripts/tsdown-exports.ts"
+      - "scripts/tsdown-exports.mjs"
+      - "scripts/tsdown-exports.d.mts"
       - "scripts/validate-package-exports-types.ts"
       - "scripts/__tests__/validate-package-exports-types.test.ts"
       - ".github/workflows/validate_package-exports.yml"
@@ -21,7 +22,8 @@ on:
     paths:
       - "packages/*/package.json"
       - "packages/*/tsdown.config.ts"
-      - "scripts/tsdown-exports.ts"
+      - "scripts/tsdown-exports.mjs"
+      - "scripts/tsdown-exports.d.mts"
       - "scripts/validate-package-exports-types.ts"
       - "scripts/__tests__/validate-package-exports-types.test.ts"
       - ".github/workflows/validate_package-exports.yml"
