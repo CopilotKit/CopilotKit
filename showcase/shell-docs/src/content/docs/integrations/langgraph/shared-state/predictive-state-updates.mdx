@@ -53,7 +53,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
     </Step>
     <Step>
         ### Define the state
-        We'll be defining a `observed_steps` field in the state, which will be updated as the agent writes different sections of the report.
+        We'll be defining a `steps` field in the state, which will be updated as the agent writes different sections of the report.
 
         <Tabs groupId="language_langgraph_agent" items={["Python", "TypeScript"]} persist>
             <Tab value="Python">
@@ -62,7 +62,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                 from typing import Literal
 
                 class AgentState(CopilotKitState):
-                    observed_steps: list[str]  # Array of completed steps
+                    steps: list[str]  # Array of completed steps
                 ```
             </Tab>
             <Tab value="TypeScript">
@@ -72,7 +72,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                 import { z } from "zod";
 
                 export const AgentStateSchema = new StateSchema({
-                    observed_steps: z.array(z.string()).default(() => []),  // Array of completed steps
+                    steps: z.array(z.string()).default(() => []),  // Array of completed steps
                     ...CopilotKitStateSchema.fields,
                 });
                 export type AgentState = typeof AgentStateSchema.State;
@@ -117,7 +117,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                             ]
 
                             for step in steps:
-                                self.state["observed_steps"] = self.state.get("observed_steps", []) + [step]
+                                self.state["steps"] = self.state.get("steps", []) + [step]
                                 await copilotkit_emit_state(config, state) # [!code highlight]
                                 await asyncio.sleep(1)
 
@@ -140,7 +140,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                             ];
 
                             for (const step of steps) {
-                                state.observed_steps = [...(state.observed_steps ?? []), step];
+                                state.steps = [...(state.steps ?? []), step];
                                 copilotkitEmitState(config, state);
                                 await new Promise(resolve => setTimeout(resolve, 1000));
                             }
@@ -180,7 +180,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                                 config,
                                 emit_intermediate_state=[
                                     {
-                                        "state_key": "observed_steps",
+                                        "state_key": "steps",
                                         "tool": "step_progress_tool",
                                         "tool_argument": "steps"
                                     },
@@ -212,7 +212,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                                     goto=END,
                                     update={
                                         "messages": response,
-                                        "observed_steps": response.tool_calls[0].get("args", None).get('steps')
+                                        "steps": response.tool_calls[0].get("args", None).get('steps')
                                     }
                                 )
 
@@ -227,7 +227,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                             const modifiedConfig = copilotkitCustomizeConfig(config, {
                                 emitIntermediateState: [
                                 {
-                                    stateKey: "observed_steps",
+                                    stateKey: "steps",
                                     tool: "StepProgressTool",
                                     toolArgument: "steps",
                                 },
@@ -256,7 +256,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                             if (response.tool_calls?.length) {
                                 return {
                                     messages: response,
-                                    observed_steps: response.tool_calls[0].args.steps,
+                                    steps: response.tool_calls[0].args.steps,
                                 };
                             }
 
@@ -281,16 +281,16 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                 agentId: "sample_agent",
             });
 
-            const observedSteps = (agent.state.observed_steps as string[]) ?? [];
+            const steps = (agent.state.steps as string[]) ?? [];
 
             return (
                 <div>
                     <h1>Agent Progress</h1>
-                    {observedSteps.length > 0 && (
+                    {steps.length > 0 && (
                         <div>
                             <h3>Steps:</h3>
                             <ul>
-                                {observedSteps.map((step, i) => (
+                                {steps.map((step, i) => (
                                     <li key={i}>{step}</li>
                                 ))}
                             </ul>
@@ -322,7 +322,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
     <Steps>
       <Step>
         ### Define the state schema
-        We'll define an `observed_steps` field in the state, which will be updated as the agent reports progress.
+        We'll define a `steps` field in the state, which will be updated as the agent reports progress.
 
         <Tabs groupId="language_langgraph_agent" items={["Python", "TypeScript"]} persist>
           <Tab value="Python">
@@ -330,7 +330,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
             from copilotkit import CopilotKitState
 
             class AgentState(CopilotKitState):
-                observed_steps: list[str]
+                steps: list[str]
             ```
           </Tab>
           <Tab value="TypeScript">
@@ -340,7 +340,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
             import { z } from "zod";
 
             export const AgentStateSchema = new StateSchema({
-                observed_steps: z.array(z.string()).default(() => []),
+                steps: z.array(z.string()).default(() => []),
                 ...CopilotKitStateSchema.fields,
             });
             export type AgentState = typeof AgentStateSchema.State;
@@ -370,7 +370,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                 middleware=[
                     CopilotKitMiddleware(),
                     StateStreamingMiddleware(  # [!code highlight]
-                        StateItem(state_key="observed_steps", tool="step_progress_tool", tool_argument="steps")  # [!code highlight]
+                        StateItem(state_key="steps", tool="step_progress_tool", tool_argument="steps")  # [!code highlight]
                     ),  # [!code highlight]
                 ],
                 system_prompt="You are a task performer. Report your steps using step_progress_tool.",
@@ -401,7 +401,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                 middleware: [
                     copilotkitMiddleware,
                     stateStreamingMiddleware(  // [!code highlight]
-                        stateItem({ stateKey: "observed_steps", tool: "step_progress_tool", toolArgument: "steps" })  // [!code highlight]
+                        stateItem({ stateKey: "steps", tool: "step_progress_tool", toolArgument: "steps" })  // [!code highlight]
                     ),  // [!code highlight]
                 ],
                 stateSchema: AgentStateSchema,
@@ -424,16 +424,16 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                 agentId: "sample_agent",
             });
 
-            const observedSteps = (agent.state.observed_steps as string[]) ?? [];
+            const steps = (agent.state.steps as string[]) ?? [];
 
             return (
                 <div>
                     <h1>Agent Progress</h1>
-                    {observedSteps.length > 0 && (
+                    {steps.length > 0 && (
                         <div>
                             <h3>Steps:</h3>
                             <ul>
-                                {observedSteps.map((step, i) => (
+                                {steps.map((step, i) => (
                                     <li key={i}>{step}</li>
                                 ))}
                             </ul>
