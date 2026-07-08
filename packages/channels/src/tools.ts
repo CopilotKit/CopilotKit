@@ -1,6 +1,10 @@
 import type { InferSchemaOutput, ObjectSchema } from "./standard-schema.js";
 import { toJsonSchema, validateSchema } from "./standard-schema.js";
-import type { Thread, IncomingMessage, PlatformUser } from "@copilotkit/channels-ui";
+import type {
+  Thread,
+  IncomingMessage,
+  PlatformUser,
+} from "@copilotkit/channels-ui";
 
 export type { ObjectSchema } from "./standard-schema.js";
 

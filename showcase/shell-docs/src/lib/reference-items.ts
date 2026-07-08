@@ -345,14 +345,16 @@ function buildChannelsPageTree(): PageTree.Root {
     "slack/defaultSlackContext",
     "slack/SanitizingHttpAgent",
   ];
-  const slackItems = [...loadReferenceItems("channels", "slack")].sort((a, b) => {
-    const ai = SLACK_ORDER.indexOf(a.slug);
-    const bi = SLACK_ORDER.indexOf(b.slug);
-    return (
-      (ai === -1 ? SLACK_ORDER.length : ai) -
-      (bi === -1 ? SLACK_ORDER.length : bi)
-    );
-  });
+  const slackItems = [...loadReferenceItems("channels", "slack")].sort(
+    (a, b) => {
+      const ai = SLACK_ORDER.indexOf(a.slug);
+      const bi = SLACK_ORDER.indexOf(b.slug);
+      return (
+        (ai === -1 ? SLACK_ORDER.length : ai) -
+        (bi === -1 ? SLACK_ORDER.length : bi)
+      );
+    },
+  );
 
   const slackCoreFolder: PageTree.Folder[] =
     slackItems.length === 0
@@ -401,7 +403,10 @@ function buildChannelsPageTree(): PageTree.Root {
   return {
     name: referenceRootName(),
     children: [
-      packageSeparator(React.createElement(CopilotKitMark), "@copilotkit/channels"),
+      packageSeparator(
+        React.createElement(CopilotKitMark),
+        "@copilotkit/channels",
+      ),
       ...kindFolder("Components", "components"),
       ...kindFolder("Functions", "functions"),
       ...kindFolder("Classes", "classes"),

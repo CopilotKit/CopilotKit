@@ -18,7 +18,11 @@
  */
 import "dotenv/config";
 import { createBot } from "@copilotkit/channels";
-import type { PlatformAdapter, BotTool, ContextEntry } from "@copilotkit/channels";
+import type {
+  PlatformAdapter,
+  BotTool,
+  ContextEntry,
+} from "@copilotkit/channels";
 import {
   slack,
   defaultSlackTools,

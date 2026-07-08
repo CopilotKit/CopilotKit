@@ -24,7 +24,11 @@ import type {
   NativePayload,
 } from "@copilotkit/channels";
 import type { AbstractAgent } from "@ag-ui/client";
-import type { BotNode, ThreadMessage, EmojiValue } from "@copilotkit/channels-ui";
+import type {
+  BotNode,
+  ThreadMessage,
+  EmojiValue,
+} from "@copilotkit/channels-ui";
 import { toPlatformEmoji } from "@copilotkit/channels-ui";
 import { SlackConversationStore } from "./conversation-store.js";
 import { attachSlackListener } from "./slack-listener.js";

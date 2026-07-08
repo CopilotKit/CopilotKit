@@ -18,7 +18,10 @@ pnpm add @copilotkit/channels @copilotkit/channels-whatsapp
 
 ```ts
 import { createBot } from "@copilotkit/channels";
-import { whatsapp, defaultWhatsAppContext } from "@copilotkit/channels-whatsapp";
+import {
+  whatsapp,
+  defaultWhatsAppContext,
+} from "@copilotkit/channels-whatsapp";
 
 const bot = createBot({
   adapters: [

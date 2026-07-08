@@ -9,7 +9,13 @@
  * Authored with the `@copilotkit/channels-ui` JSX vocabulary.
  */
 import { z } from "zod";
-import { Context, Divider, Header, Message, Section } from "@copilotkit/channels-ui";
+import {
+  Context,
+  Divider,
+  Header,
+  Message,
+  Section,
+} from "@copilotkit/channels-ui";
 import type { BotNode } from "@copilotkit/channels-ui";
 import { ACCENT } from "./_status.js";
 

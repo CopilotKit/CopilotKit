@@ -11,7 +11,14 @@
  * bridge gives GFM tables in prose.
  */
 import { z } from "zod";
-import { Message, Header, Section, Table, Row, Cell } from "@copilotkit/channels-ui";
+import {
+  Message,
+  Header,
+  Section,
+  Table,
+  Row,
+  Cell,
+} from "@copilotkit/channels-ui";
 import { defineBotTool } from "@copilotkit/channels";
 
 const schema = z.object({
