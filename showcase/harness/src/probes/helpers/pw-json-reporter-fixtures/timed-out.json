@@ -1,0 +1,69 @@
+{
+  "suites": [
+    {
+      "title": "timed-out.spec.ts",
+      "file": "timed-out.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "times out",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 500,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "timedOut",
+                  "duration": 502,
+                  "error": {
+                    "message": "\u001b[31mTest timeout of 500ms exceeded.\u001b[39m",
+                    "stack": "\u001b[31mTest timeout of 500ms exceeded.\u001b[39m"
+                  },
+                  "errors": [
+                    {
+                      "message": "\u001b[31mTest timeout of 500ms exceeded.\u001b[39m"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-07-07T23:02:28.861Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/private/tmp/pw-fixture-gen/test-results/timed-out-times-out/error-context.md"
+                    }
+                  ]
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "7765d85a486e78866c02-08ca19693548ab9dff29",
+          "file": "timed-out.spec.ts",
+          "line": 4,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-07-07T23:02:28.569Z",
+    "duration": 824.001,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  }
+}
