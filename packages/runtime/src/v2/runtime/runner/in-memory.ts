@@ -13,8 +13,10 @@ import type {
   Message,
   RunStartedEvent,
   StateSnapshotEvent,
+  StateDeltaEvent,
 } from "@ag-ui/client";
 import { EventType, compactEvents } from "@ag-ui/client";
+import { applyPatch } from "fast-json-patch";
 import { finalizeRunEvents } from "@copilotkit/shared";
 
 interface HistoricRun {
@@ -192,15 +194,17 @@ export class InMemoryAgentRunner extends AgentRunner {
 
         // Store the completed run in memory with ONLY its events
         if (store.currentRunId) {
-          // Compact the events before storing (like SQLite does)
-          const compactedEvents = compactEvents(currentRunEvents);
+          // Store raw events without per-run compaction. Compaction is applied
+          // during connect() and getThreadEvents() over ALL runs' events together,
+          // which allows STATE_DELTA events from later runs to be properly applied
+          // to STATE_SNAPSHOT events from earlier runs (FAC-110 fix).
 
           store.historicRuns.push({
             threadId: request.threadId,
             runId: store.currentRunId,
             agentId: request.agent.agentId ?? "default",
             parentRunId,
-            events: compactedEvents,
+            events: currentRunEvents,
             // Snapshot all messages (input + generated) for the thread-messages endpoint
             messages: Array.isArray(request.agent.messages)
               ? [...request.agent.messages]
@@ -232,14 +236,16 @@ export class InMemoryAgentRunner extends AgentRunner {
 
         // Store the run even if it failed (partial events)
         if (store.currentRunId && currentRunEvents.length > 0) {
-          // Compact the events before storing (like SQLite does)
-          const compactedEvents = compactEvents(currentRunEvents);
+          // Store raw events without per-run compaction. Compaction is applied
+          // during connect() and getThreadEvents() over ALL runs' events together,
+          // which allows STATE_DELTA events from later runs to be properly applied
+          // to STATE_SNAPSHOT events from earlier runs (FAC-110 fix).
           store.historicRuns.push({
             threadId: request.threadId,
             runId: store.currentRunId,
             agentId: request.agent.agentId ?? "default",
             parentRunId,
-            events: compactedEvents,
+            events: currentRunEvents,
             messages: Array.isArray(request.agent.messages)
               ? [...request.agent.messages]
               : [],
@@ -293,8 +299,54 @@ export class InMemoryAgentRunner extends AgentRunner {
       allHistoricEvents.push(...run.events);
     }
 
-    // Apply compaction to all historic events together (like SQLite)
-    const compactedEvents = compactEvents(allHistoricEvents);
+    // Manually consolidate state events across runs (FAC-110 fix).
+    // compactEvents() from @ag-ui/client can't apply STATE_DELTA from run N
+    // to STATE_SNAPSHOT from run N-1, so we track state ourselves.
+    const stateEvents = allHistoricEvents.filter(
+      (e) =>
+        e.type === EventType.STATE_SNAPSHOT || e.type === EventType.STATE_DELTA,
+    );
+    const nonStateEvents = allHistoricEvents.filter(
+      (e) =>
+        e.type !== EventType.STATE_SNAPSHOT && e.type !== EventType.STATE_DELTA,
+    );
+
+    let consolidatedState: Record<string, unknown> | null = null;
+    for (const event of stateEvents) {
+      if (event.type === EventType.STATE_SNAPSHOT) {
+        const snapshot = (event as StateSnapshotEvent).snapshot;
+        consolidatedState =
+          snapshot && typeof snapshot === "object"
+            ? (snapshot as Record<string, unknown>)
+            : null;
+      } else if (
+        event.type === EventType.STATE_DELTA &&
+        consolidatedState !== null
+      ) {
+        const delta = (event as StateDeltaEvent).delta;
+        if (Array.isArray(delta) && delta.length > 0) {
+          try {
+            applyPatch(consolidatedState, delta);
+          } catch (err) {
+            // If patch fails, skip it but log for debugging
+            console.warn("Failed to apply STATE_DELTA in connect():", err);
+          }
+        }
+      }
+    }
+
+    // Compact non-state events
+    const compactedNonStateEvents = compactEvents(nonStateEvents);
+
+    // Build final event stream: consolidated state snapshot first, then other events
+    const compactedEvents: BaseEvent[] = [];
+    if (consolidatedState !== null) {
+      compactedEvents.push({
+        type: EventType.STATE_SNAPSHOT,
+        snapshot: consolidatedState,
+      });
+    }
+    compactedEvents.push(...compactedNonStateEvents);
 
     // Emit compacted events and track message IDs
     const emittedMessageIds = new Set<string>();
@@ -425,7 +477,56 @@ export class InMemoryAgentRunner extends AgentRunner {
     if (!store || store.historicRuns.length === 0) return [];
     const all: BaseEvent[] = [];
     for (const run of store.historicRuns) all.push(...run.events);
-    return compactEvents(all);
+
+    // Manually consolidate state events across runs (FAC-110 fix)
+    const stateEvents = all.filter(
+      (e) =>
+        e.type === EventType.STATE_SNAPSHOT || e.type === EventType.STATE_DELTA,
+    );
+    const nonStateEvents = all.filter(
+      (e) =>
+        e.type !== EventType.STATE_SNAPSHOT && e.type !== EventType.STATE_DELTA,
+    );
+
+    let consolidatedState: Record<string, unknown> | null = null;
+    for (const event of stateEvents) {
+      if (event.type === EventType.STATE_SNAPSHOT) {
+        const snapshot = (event as StateSnapshotEvent).snapshot;
+        consolidatedState =
+          snapshot && typeof snapshot === "object"
+            ? (snapshot as Record<string, unknown>)
+            : null;
+      } else if (
+        event.type === EventType.STATE_DELTA &&
+        consolidatedState !== null
+      ) {
+        const delta = (event as StateDeltaEvent).delta;
+        if (Array.isArray(delta) && delta.length > 0) {
+          try {
+            applyPatch(consolidatedState, delta);
+          } catch (err) {
+            console.warn(
+              "Failed to apply STATE_DELTA in getThreadEvents():",
+              err,
+            );
+          }
+        }
+      }
+    }
+
+    // Compact non-state events
+    const compactedNonStateEvents = compactEvents(nonStateEvents);
+
+    // Build final event list: consolidated state snapshot first, then other events
+    const result: BaseEvent[] = [];
+    if (consolidatedState !== null) {
+      result.push({
+        type: EventType.STATE_SNAPSHOT,
+        snapshot: consolidatedState,
+      });
+    }
+    result.push(...compactedNonStateEvents);
+    return result;
   }
 
   /**
