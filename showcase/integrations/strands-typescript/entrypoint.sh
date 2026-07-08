@@ -151,6 +151,23 @@ _require_int() {
   #     base").
   # The `[1-9]*([0-9])` extglob-free equivalent is written as two arms: a lone
   # single digit 1-9, or a 1-9 lead followed by one-or-more digits.
+  #
+  # UPPER BOUND (fail-safe, same class as the checks above): even a value that is
+  # syntactically all-digits can be pathologically large.  bash arithmetic is
+  # signed 64-bit, so a 19-digit value can still parse but a 20+ digit value
+  # OVERFLOWS — `[ "$x" -ge "$y" ]` then aborts with "value too great for base"
+  # (suppressed to false inside an `if`, silently disabling the guard) or wraps
+  # to a negative/garbage magnitude.  No real knob (interval seconds, strike
+  # count, size-MB threshold) is ever more than a handful of digits, so cap the
+  # length at 10 digits (max 9,999,999,999 — years of seconds, petabytes of MB;
+  # comfortably inside the signed-64-bit range with no overflow risk).  A longer
+  # value is treated exactly like any other bad override: WARN + fall back to the
+  # documented default rather than silently disabling the guard.
+  if [ "${#value}" -gt 10 ]; then
+    echo "[entrypoint] WARNING: ${label} (${name}) is too large (got: '${value}', ${#value} digits — max 10) — falling back to default ${default}"
+    printf -v "$name" '%s' "$default"
+    return 0
+  fi
   case "$value" in
     [1-9]) : ;;                # single positive digit
     [1-9][0-9]*)               # multi-digit, must be all digits after the lead
