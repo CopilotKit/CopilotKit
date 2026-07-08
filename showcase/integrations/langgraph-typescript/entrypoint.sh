@@ -29,7 +29,7 @@ set -e
 # ---------------------------------------------------------------------------
 _agent_descendants() {
   # Print all descendant PIDs of $1 (children, grandchildren, …), deepest-first.
-  local root="$1" pid ppid stat
+  local root="$1" pid ppid stat _state _rest
   # Fail closed on a dangerous or meaningless root.  An empty / non-numeric root
   # would make the PPID comparison below match nothing (harmless) but a root of
   # "0" or "1" is catastrophic: "0" means "every process in the caller's process
@@ -51,7 +51,12 @@ _agent_descendants() {
     # closing paren contains ")", so even a comm like "(evil) S 1)" parses to
     # the true PPID — the last ") " is always the comm's real terminator.
     stat=$(cat "/proc/$pid/stat" 2>/dev/null) || continue
-    ppid=$(echo "${stat##*) }" | awk '{print $2}')
+    # The remainder after the comm's terminating ") " is "STATE PPID PGRP …", so
+    # PPID is the 2nd whitespace-separated field.  Use the `read` builtin instead
+    # of `echo … | awk` to avoid forking awk once per /proc entry (a fork-storm
+    # under a large process table).  `read` word-splits on IFS; discard STATE
+    # into _state, capture PPID, discard the rest into _rest.
+    read -r _state ppid _rest <<< "${stat##*) }"
     if [ "$ppid" = "$root" ]; then
       _agent_descendants "$pid"
       echo "$pid"
