@@ -444,6 +444,26 @@ The tables below summarize the most common values. For every option, see `values
 | `auth.providerName` | Display name shown in the UI | `Enterprise SSO` |
 | `auth.trustHost` | Trust the `X-Forwarded-Host` header (set behind a reverse proxy) | `"true"` |
 
+### Memory
+
+Long-term [memory](/premium/memory) is off by default. Setting `memory.enabled: true` registers the agent memory tools on the platform's `/mcp` endpoint and deploys an embeddings workload. Memory requires the **pgvector** extension on your Postgres database.
+
+By default an in-cluster [text-embeddings-inference](https://github.com/huggingface/text-embeddings-inference) (TEI) sidecar is deployed to embed memory content. Alternatively, point `embeddings.external` at any hosted OpenAI-compatible embeddings endpoint and the sidecar is not deployed. Either way, embeddings must be **1024-dimensional** to match the storage schema — app-api refuses to start otherwise.
+
+| Key | Description | Default |
+|---|---|---|
+| `memory.enabled` | Enable memory: register memory tools on `/mcp` and deploy the embeddings workload | `false` |
+| `embeddings.modelId` | Embedding model served by the in-cluster TEI sidecar (1024-dim) | `Qwen/Qwen3-Embedding-0.6B` |
+| `embeddings.persistence.enabled` | Persist the downloaded model in a PVC (avoids re-download on restart) | `true` |
+| `embeddings.external.enabled` | Use a hosted OpenAI-compatible endpoint instead of the TEI sidecar | `false` |
+| `embeddings.external.url` | Base URL of the OpenAI-compatible endpoint (e.g. `https://api.openai.com`) | `""` |
+| `embeddings.external.model` | Model id sent to the endpoint (e.g. `text-embedding-3-small`) | `""` |
+| `embeddings.external.dimensions` | Output dimensionality; must be `1024` | `1024` |
+| `embeddings.external.apiKey.existingSecret` | Secret holding the embeddings API key | `""` |
+| `embeddings.external.apiKey.secretKey` | Key within that Secret | `""` |
+
+Enabling memory on the cluster makes the platform able to store and serve memories. Your CopilotKit runtime must also opt in so the agent actually uses them — see [Memory](/premium/memory#enable-memory-on-the-runtime).
+
 ### Ingress
 
 | Key | Description | Default |

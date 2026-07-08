@@ -1,0 +1,162 @@
+---
+title: "injectMemories"
+description: "Angular function that returns signals of a user's long-term memories plus create, supersede, and retire callbacks for @copilotkit/angular."
+---
+
+## Overview
+
+`injectMemories` reads and manages a user's long-term [memories](/premium/memory) on the Enterprise Intelligence Platform. It returns a `MemoriesController` whose state members are Angular signals — the live list plus loading, error, and availability — together with stable callbacks to create, supersede, and retire memories.
+
+This is the Angular equivalent of React's [`useMemories()`](/reference/hooks/useMemories). Call it from an injection context (a constructor or a field initializer); the underlying subscription is torn down automatically when the owning component or service is destroyed.
+
+Memory must be enabled on the runtime ([`enableEnterpriseLearning`](/premium/memory#enable-memory-on-the-runtime)) and the platform for the list to populate.
+
+## Signature
+
+```ts
+import { injectMemories } from "@copilotkit/angular";
+
+function injectMemories(): MemoriesController;
+```
+
+## Parameters
+
+This function takes no parameters.
+
+## Return Value
+
+<PropertyReference name="controller" type="MemoriesController">
+  A controller whose state members are signals and whose mutation members are stable callbacks.
+
+  ### State
+
+  <PropertyReference name="memories" type="Signal<Memory[]>">
+    A signal of the current user's memories, newest first, kept current by realtime updates. Read it with `controller.memories()`. Each `Memory` contains:
+    - `id: string` — unique memory identifier (superseding produces a new `id`)
+    - `kind: "topical" | "episodic" | "operational"` — the memory type
+    - `scope: "user"` — the memory's visibility; the SDK surfaces user-scoped memories
+    - `content: string` — the memory text
+    - `sourceThreadIds: readonly string[]` — ids of the threads this memory was learned from
+    - `invalidatedAt: string | null` — ISO 8601 timestamp set when the memory is retired, or `null` while live
+  </PropertyReference>
+
+  <PropertyReference name="isLoading" type="Signal<boolean>">
+    `true` while the initial memory snapshot is being fetched. Read it with `controller.isLoading()`. Subsequent realtime updates do not re-enter the loading state.
+  </PropertyReference>
+
+  <PropertyReference name="error" type="Signal<Error | null>">
+    A signal of the most recent error from fetching memories or running a mutation, or `null`. Read it with `controller.error()`. Resets to `null` on the next successful fetch.
+  </PropertyReference>
+
+  <PropertyReference name="isAvailable" type="Signal<boolean>">
+    `true` when the runtime's memory routes are reachable. `false` after a 404 or 501, indicating memory is not enabled on the current runtime. Read it with `controller.isAvailable()` to hide memory UI rather than show an error.
+  </PropertyReference>
+
+  ### Methods
+
+  <PropertyReference name="refresh" type="() => Promise<void>">
+    Re-fetch the memory snapshot from the platform without clearing the current list. Resolves once the re-pull settles; rejects if it fails or the store is torn down mid-flight.
+  </PropertyReference>
+
+  <PropertyReference name="addMemory" type="(input: NewMemory) => Promise<Memory>">
+    Create a memory. Resolves to the stored memory (server-authoritative); rejects on failure. `NewMemory` is `{ content: string; kind: "topical" | "episodic" | "operational"; scope?: "user"; sourceThreadIds?: readonly string[] }`.
+  </PropertyReference>
+
+  <PropertyReference name="updateMemory" type="(id: string, changes: NewMemory) => Promise<Memory>">
+    Supersede a memory: the old memory is retired and a new one is created. Resolves to the **new** memory — its `id` differs from the supplied `id`. Rejects on failure.
+  </PropertyReference>
+
+  <PropertyReference name="removeMemory" type="(id: string) => Promise<void>">
+    Retire a memory — a non-lossy delete that excludes the memory from future recall without hard-deleting it. Resolves when the platform confirms; rejects on failure.
+  </PropertyReference>
+</PropertyReference>
+
+## Usage
+
+### List and remove memories
+
+```ts title="src/app/memories.component.ts"
+import { Component } from "@angular/core";
+import { injectMemories } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-memories",
+  standalone: true,
+  template: `
+    @if (memory.isAvailable()) {
+      @if (memory.isLoading()) {
+        <p>Loading memories…</p>
+      } @else {
+        <ul>
+          @for (m of memory.memories(); track m.id) {
+            <li>
+              <strong>{{ m.kind }}</strong> {{ m.content }}
+              <button (click)="memory.removeMemory(m.id)">Forget</button>
+            </li>
+          }
+        </ul>
+      }
+    }
+  `,
+})
+export class MemoriesComponent {
+  readonly memory = injectMemories();
+}
+```
+
+### Create and correct memories
+
+```ts title="src/app/edit-memory.component.ts"
+import { Component } from "@angular/core";
+import { injectMemories } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-edit-memory",
+  standalone: true,
+  template: `<button (click)="addPreference()">Save preference</button>`,
+})
+export class EditMemoryComponent {
+  readonly memory = injectMemories();
+
+  async addPreference() {
+    // create
+    await this.memory.addMemory({
+      kind: "topical",
+      content: "Prefers metric units",
+    });
+  }
+
+  async correct(existingId: string) {
+    // supersedes the old memory and resolves to a new one
+    await this.memory.updateMemory(existingId, {
+      kind: "topical",
+      content: "Prefers imperial units",
+    });
+  }
+}
+```
+
+## Behavior
+
+- **Injection context required.** Call `injectMemories()` from a constructor or field initializer so the selector→signal bridges tear down with the host.
+- **Server-authoritative mutations.** `addMemory`, `updateMemory`, and `removeMemory` resolve only after the platform confirms, and reject on failure.
+- **Supersede, not edit.** `updateMemory` never edits in place. It retires the target and creates a successor with a new `id`; the returned memory is the successor.
+- **Realtime updates.** The underlying store opens its own subscription and applies create/supersede/retire deltas, so the signals stay current across tabs and devices without polling.
+- **Availability.** A 404/501 from a runtime without memory enabled sets `isAvailable()` to `false` rather than surfacing an error.
+
+## Related
+
+<Cards>
+  <Card
+    title="useMemories"
+    description="The React equivalent — same contract, returned as plain values instead of signals."
+    href="/reference/hooks/useMemories"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="Memory"
+    description="How memory works, the memory types, recall, and enabling memory on the runtime."
+    href="/premium/memory"
+    icon={<LinkIcon />}
+  />
+</Cards>
