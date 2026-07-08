@@ -199,8 +199,18 @@ echo "[entrypoint] Watchdog started (PID: $WATCHDOG_PID, probing http://127.0.0.
 echo "[entrypoint] All processes running. Waiting..."
 
 # Only wait on agent + next.js — NOT the watchdog.
-wait -n $AGENT_PID $NEXTJS_PID
-EXIT_CODE=$?
+#
+# `|| EXIT_CODE=$?` is LOAD-BEARING under `set -e`: the PRIMARY designed exit
+# path here is a NON-ZERO wait (137 = the watchdog SIGKILL of the agent tree,
+# or an agent crash).  Without the `||` guard, `set -e` aborts the script AT
+# this line on exactly those interesting exits, making the entire "which
+# process exited with code N" diagnostic below AND the final explicit
+# `exit $EXIT_CODE` dead code — the container still restarts (EXIT trap runs
+# cleanup, script exits non-zero) but the operator-facing diagnostic never
+# prints.  Capturing the code preserves it exactly (incl. 137) for both the
+# diagnostic and the final exit, and the container-restart path is unchanged.
+EXIT_CODE=0
+wait -n "$AGENT_PID" "$NEXTJS_PID" || EXIT_CODE=$?
 if ! kill -0 $AGENT_PID 2>/dev/null; then
   echo "[entrypoint] Agent (PID: $AGENT_PID) exited with code $EXIT_CODE"
 elif ! kill -0 $NEXTJS_PID 2>/dev/null; then

@@ -141,6 +141,21 @@ _watchdog_check_size_once() {
       return 0
       ;;
   esac
+  # Validate the THRESHOLD for numericity too — same set -e hazard class as
+  # DIR_SIZE_MB above.  threshold_mb comes from LANGGRAPH_SIZE_THRESHOLD_MB, an
+  # operator-supplied override.  A non-integer value (e.g. "200MB", "abc") would
+  # otherwise reach the `[ "$DIR_SIZE_MB" -ge "$threshold_mb" ]` comparison and
+  # throw "integer expression expected"; because that comparison sits inside an
+  # `if`, set -e is suppressed and the failed test evaluates false — SILENTLY
+  # skipping the size gate EVERY cycle with NO warning.  Match on ^[0-9]+$ and
+  # emit the SAME "size guard inactive" WARNING so the gate can never silently
+  # disappear behind a bad override.
+  case "$threshold_mb" in
+    ''|*[!0-9]*)
+      echo "[watchdog:size] WARNING: LANGGRAPH_SIZE_THRESHOLD_MB is not a positive integer (got: '${threshold_mb}') — size guard inactive this cycle"
+      return 0
+      ;;
+  esac
   echo "[watchdog:size] Persistence dir size: ${DIR_SIZE_MB}MB (threshold: ${threshold_mb}MB)"
   if [ "$DIR_SIZE_MB" -ge "$threshold_mb" ]; then
     echo "[watchdog:size] Size threshold exceeded (${DIR_SIZE_MB}MB >= ${threshold_mb}MB) — killing agent PID $agent_pid (and its npm→node tree) to trigger container restart and boot-purge"
@@ -377,8 +392,18 @@ echo "[entrypoint] All processes running. Waiting..."
 # kill the agent when it hangs; if the watchdog exits first, `wait -n` would
 # otherwise return with the watchdog's exit code and short-circuit before
 # the agent's true exit status is observable.
-wait -n $AGENT_PID $NEXTJS_PID
-EXIT_CODE=$?
+#
+# `|| EXIT_CODE=$?` is LOAD-BEARING under `set -e`: the PRIMARY designed exit
+# path here is a NON-ZERO wait (137 = the size-gate / watchdog SIGKILL of the
+# agent tree, or an agent crash).  Without the `||` guard, `set -e` aborts the
+# script AT this line on exactly those interesting exits, making the entire
+# "which process exited with code N" diagnostic below AND the final explicit
+# `exit $EXIT_CODE` dead code — the container still restarts (EXIT trap runs
+# cleanup, script exits non-zero) but the operator-facing diagnostic never
+# prints.  Capturing the code preserves it exactly (incl. 137) for both the
+# diagnostic and the final exit, and the container-restart path is unchanged.
+EXIT_CODE=0
+wait -n "$AGENT_PID" "$NEXTJS_PID" || EXIT_CODE=$?
 if ! kill -0 $AGENT_PID 2>/dev/null; then
   echo "[entrypoint] Agent (PID: $AGENT_PID) exited with code $EXIT_CODE"
 elif ! kill -0 $NEXTJS_PID 2>/dev/null; then
