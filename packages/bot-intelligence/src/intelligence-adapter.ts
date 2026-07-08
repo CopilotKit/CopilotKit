@@ -378,6 +378,15 @@ export class IntelligenceAdapter implements PlatformAdapter {
           raw: env,
         });
         return;
+      default: {
+        // Exhaustiveness guard: a delivery whose kind we don't dispatch must
+        // fail loud, not fall through — dispatch() acks on resolve, so a silent
+        // no-op here would ack an unhandled delivery as if it were processed.
+        const unhandled: never = env;
+        throw new Error(
+          `IntelligenceAdapter: unhandled delivery kind ${JSON.stringify(unhandled)}`,
+        );
+      }
     }
   }
 

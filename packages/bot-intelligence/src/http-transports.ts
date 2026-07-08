@@ -302,12 +302,22 @@ function mapDeliveryToEnvelope(d: ClaimedDelivery): ManagedIngressEnvelope {
     };
   }
 
-  return {
-    ...base,
-    kind: "turn",
-    text: input?.text ?? "",
-    ...(input?.files?.length ? { files: input.files } : {}),
-  };
+  if (input === undefined || input.kind === "text") {
+    return {
+      ...base,
+      kind: "turn",
+      text: input?.text ?? "",
+      ...(input?.files?.length ? { files: input.files } : {}),
+    };
+  }
+
+  // Exhaustiveness guard: mirror the adapter's dispatch switch — an unknown wire
+  // kind must fail loud rather than be silently coerced into an empty turn (which
+  // would then ack as a processed no-op).
+  const unhandled: never = input;
+  throw new Error(
+    `intelligenceAdapter: unknown delivery input kind ${JSON.stringify(unhandled)}`,
+  );
 }
 
 interface LeaseRecord {
