@@ -421,6 +421,44 @@ describe("HttpDeliverySource", () => {
     });
   });
 
+  it("nacks (non-retryable) an unmappable delivery kind instead of wedging the loop", async () => {
+    const { fetch, calls } = fakeFetch((c) =>
+      c.url.endsWith("/claim")
+        ? {
+            body: {
+              claimed: true,
+              // A future/unknown wire kind app-api might send. claimOnce must
+              // not throw it up into runLoop (which only logs+sleeps, leaking
+              // the lease until the 120s expiry redelivers the same poison
+              // payload forever) — it nacks non-retryably and idles instead.
+              delivery: claimedDelivery({
+                turn: {
+                  id: "turn_9",
+                  eventId: "evt_x",
+                  receivedAt: "2026-06-30T00:00:00.000Z",
+                  replyTarget: {
+                    adapter: "slack",
+                    teamId: "T1",
+                    channel: "C1",
+                    threadTs: "1.2",
+                  },
+                  input: { kind: "telepathy" },
+                },
+              }),
+            },
+          }
+        : { body: { failed: true, status: "dead_letter" } },
+    );
+    const src = new HttpDeliverySource(cfg({ fetch }));
+
+    const r = await src.claimOnce();
+
+    expect(r).toEqual({ pollAfterMs: 1000 });
+    const fail = calls.find((c) => c.url.includes("/deliveries/dlv_9/fail"))!;
+    expect(fail).toBeDefined();
+    expect(fail.body["error"]).toMatchObject({ retryable: false });
+  });
+
   it("times out a hung turn, nacks it, and keeps the loop alive", async () => {
     const { fetch, calls } = fakeFetch((c) =>
       c.url.endsWith("/claim")

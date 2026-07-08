@@ -379,7 +379,29 @@ export class HttpDeliverySource implements DeliverySource {
         botName: res.delivery.bot.name,
       },
     });
-    return { env: mapDeliveryToEnvelope(res.delivery) };
+    try {
+      return { env: mapDeliveryToEnvelope(res.delivery) };
+    } catch (mapErr) {
+      // An unmappable/unknown delivery kind must fail loud, but must not wedge
+      // the single-delivery loop: the lease is already recorded, so nack it
+      // here (non-retryable — re-mapping the same payload fails identically, so
+      // let app-api dead-letter it rather than burn retries) and fall through to
+      // an idle poll so the loop keeps draining the queue. Without this the
+      // throw escapes to runLoop's catch, which only logs+sleeps, leaking the
+      // lease until the 120s expiry redelivers the same poison payload forever.
+      this.cfg.log?.("intelligence claim: unmappable delivery", mapErr);
+      await this.nack(
+        res.delivery.id,
+        mapErr instanceof Error ? mapErr.message : String(mapErr),
+        false,
+      ).catch((nackErr) =>
+        this.cfg.log?.(
+          "intelligence nack after unmappable delivery failed",
+          nackErr,
+        ),
+      );
+      return { pollAfterMs: 1000 };
+    }
   }
 
   /** The org/project/bot scope for a leased delivery, for render-frame egress. */
@@ -458,7 +480,11 @@ export class HttpDeliverySource implements DeliverySource {
     this.leases.delete(deliveryId);
   }
 
-  async nack(deliveryId: string, reason: string): Promise<void> {
+  async nack(
+    deliveryId: string,
+    reason: string,
+    retryable = true,
+  ): Promise<void> {
     const lease = this.leases.get(deliveryId);
     if (!lease) {
       this.cfg.log?.(`intelligence nack: no lease for delivery ${deliveryId}`);
@@ -474,7 +500,7 @@ export class HttpDeliverySource implements DeliverySource {
         error: {
           code: "runtime_error",
           message: (reason || "runtime error").slice(0, 500),
-          retryable: true,
+          retryable,
         },
       },
     );
