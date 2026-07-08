@@ -99,6 +99,7 @@ export function StepsFeedback({
               <Button
                 variant="success"
                 className="flex-1"
+                data-testid="confirm-steps"
                 disabled={status !== "executing"}
                 onClick={() => {
                   setDecided(true);
@@ -117,6 +118,7 @@ export function StepsFeedback({
               <Badge
                 variant={decided ? "success" : "destructive"}
                 className="px-3 py-1 text-sm"
+                data-testid="steps-decision"
               >
                 {decided ? "Accepted" : "Rejected"}
               </Badge>

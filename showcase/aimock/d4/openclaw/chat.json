@@ -11,7 +11,7 @@
         "userMessage": "returned:"
       },
       "response": {
-        "content": "Done — I've completed that for you."
+        "content": "Done \u2014 I've completed that for you."
       }
     },
     {
@@ -20,7 +20,7 @@
         "context": "openclaw"
       },
       "response": {
-        "content": "An API (Application Programming Interface) is a defined set of rules that lets one piece of software talk to another. It exposes specific operations — like \"get a user\" or \"create an order\" — behind stable endpoints, so callers can use a service without knowing how it works inside. Think of it as a contract: you send a request in an agreed format, and you get back a predictable response."
+        "content": "An API (Application Programming Interface) is a defined set of rules that lets one piece of software talk to another. It exposes specific operations \u2014 like \"get a user\" or \"create an order\" \u2014 behind stable endpoints, so callers can use a service without knowing how it works inside. Think of it as a contract: you send a request in an agreed format, and you get back a predictable response."
       }
     },
     {
@@ -29,7 +29,7 @@
         "context": "openclaw"
       },
       "response": {
-        "content": "Hi! I'm an OpenClaw-powered assistant, and I'm genuinely excited to help you out! Ask me anything — whether it's a quick question or something you want explained from the ground up, I've got you covered!"
+        "content": "Hi! I'm an OpenClaw-powered assistant, and I'm genuinely excited to help you out! Ask me anything \u2014 whether it's a quick question or something you want explained from the ground up, I've got you covered!"
       }
     },
     {
@@ -68,7 +68,7 @@
     },
     {
       "match": {
-        "userMessage": "Make it a navy → magenta cosmic gradient.",
+        "userMessage": "Make it a navy \u2192 magenta cosmic gradient.",
         "context": "openclaw",
         "toolName": "change_background_async",
         "hasToolResult": false
@@ -278,7 +278,7 @@
         "context": "openclaw"
       },
       "response": {
-        "content": "Why did the neural network go to therapy? It had too many unresolved layers."
+        "content": "Why did the scarecrow win an award? Because he was outstanding in his field!"
       }
     },
     {
@@ -287,7 +287,7 @@
         "context": "openclaw"
       },
       "response": {
-        "content": "Why do programmers prefer dark mode? Because light attracts bugs — and they'd rather debug than get swarmed."
+        "content": "Why do programmers prefer dark mode? Because light attracts bugs \u2014 and they'd rather debug than get swarmed."
       }
     },
     {
@@ -297,7 +297,7 @@
       },
       "response": {
         "reasoning": "To decide if 17 is prime I only need to test prime divisors up to its square root (~4.12): that's 2 and 3. 17 is odd, so not divisible by 2; its digit sum 1+7=8 isn't divisible by 3. No divisor <= 4 works, so it must be prime.",
-        "content": "17 is prime. A prime has exactly two divisors: 1 and itself. To check 17, we only need to test primes up to its square root (~4.12): 2, 3. It's odd (not divisible by 2), and 1+7=8 is not divisible by 3. No divisor ≤ 4 works, so 17 has no factors besides 1 and 17 — it's prime."
+        "content": "17 is prime. A prime has exactly two divisors: 1 and itself. To check 17, we only need to test primes up to its square root (~4.12): 2, 3. It's odd (not divisible by 2), and 1+7=8 is not divisible by 3. No divisor \u2264 4 works, so 17 has no factors besides 1 and 17 \u2014 it's prime."
       }
     },
     {
@@ -334,7 +334,7 @@
       },
       "response": {
         "reasoning": "The user is asking about atmospheric optics. I should reason through Rayleigh scattering: shorter wavelengths scatter more, so blue dominates the daytime sky; at sunset the light travels a longer path so most blue is scattered away, leaving reds and oranges.",
-        "content": "The sky looks blue because sunlight is scattered by air molecules. Shorter (blue) wavelengths scatter far more strongly than longer (red) ones — this is Rayleigh scattering — so blue light reaches your eyes from every direction during the day. At sunset the sun's light travels a much longer path through the atmosphere; almost all the blue has already been scattered out of that path, so what remains reaching you is dominated by the longer red and orange wavelengths."
+        "content": "The sky looks blue because sunlight is scattered by air molecules. Shorter (blue) wavelengths scatter far more strongly than longer (red) ones \u2014 this is Rayleigh scattering \u2014 so blue light reaches your eyes from every direction during the day. At sunset the sun's light travels a much longer path through the atmosphere; almost all the blue has already been scattered out of that path, so what remains reaching you is dominated by the longer red and orange wavelengths."
       }
     },
     {
@@ -344,7 +344,7 @@
       },
       "response": {
         "reasoning": "I'll reason through a 3-day Tokyo itinerary, weighing trade-offs at each step: minimize transit time by grouping neighborhoods, balance culture vs. modern sights, and leave buffer for jet lag.",
-        "content": "Day 1 (east/old Tokyo): Asakusa & Senso-ji in the morning, then Ueno museums — grouped to minimize transit. Day 2 (central/modern): Shibuya crossing and Harajuku, then Meiji Shrine as a calm counterweight. Day 3 (bay/flex): teamLab and Odaiba, kept flexible in case jet lag pushes things later. Trade-off at each step: I clustered nearby districts per day so you spend time seeing things rather than riding trains."
+        "content": "Day 1 (east/old Tokyo): Asakusa & Senso-ji in the morning, then Ueno museums \u2014 grouped to minimize transit. Day 2 (central/modern): Shibuya crossing and Harajuku, then Meiji Shrine as a calm counterweight. Day 3 (bay/flex): teamLab and Odaiba, kept flexible in case jet lag pushes things later. Trade-off at each step: I clustered nearby districts per day so you spend time seeing things rather than riding trains."
       }
     },
     {
@@ -353,7 +353,7 @@
         "context": "openclaw"
       },
       "response": {
-        "content": "Hi there! I'm the sidebar assistant — ask me anything."
+        "content": "Hi there! I'm the sidebar assistant \u2014 ask me anything."
       }
     },
     {
@@ -362,7 +362,7 @@
         "context": "openclaw"
       },
       "response": {
-        "content": "Fun fact: honey never spoils — archaeologists have found 3,000-year-old honey in Egyptian tombs that was still perfectly edible."
+        "content": "A fun fact: Honey never spoils! Archaeologists have found pots of honey in ancient Egyptian tombs that are over 3,000 years old and still perfectly edible."
       }
     },
     {
@@ -398,7 +398,7 @@
         "context": "openclaw"
       },
       "response": {
-        "content": "Hello — lovely to see you here."
+        "content": "Hi! In one short sentence: I'm a CopilotKit demo agent here to help you try features."
       }
     },
     {
@@ -437,7 +437,7 @@
     },
     {
       "match": {
-        "userMessage": "Make it a navy → magenta cosmic gradient.",
+        "userMessage": "Make it a navy \u2192 magenta cosmic gradient.",
         "context": "openclaw",
         "toolName": "change_background",
         "hasToolResult": false
@@ -459,7 +459,7 @@
         "hasToolResult": true
       },
       "response": {
-        "content": "Done — I've updated the page background for you."
+        "content": "Done \u2014 I've updated the page background for you."
       }
     },
     {
@@ -474,7 +474,7 @@
           {
             "id": "call_approval_refund",
             "name": "request_user_approval",
-            "arguments": "{\"message\":\"Approve a $50 refund to Jordan Rivera on ticket #12345 for the duplicate charge?\",\"context\":\"Ticket #12345 — duplicate charge, $50.00\"}"
+            "arguments": "{\"message\":\"Approve a $50 refund to Jordan Rivera on ticket #12345 for the duplicate charge?\",\"context\":\"Ticket #12345 \u2014 duplicate charge, $50.00\"}"
           }
         ]
       }
@@ -491,7 +491,7 @@
           {
             "id": "call_approval_escalate",
             "name": "request_user_approval",
-            "arguments": "{\"message\":\"Escalate ticket #12347 to the payments team — Morgan Lee's payment is stuck?\",\"context\":\"Ticket #12347 — payment stuck in pending\"}"
+            "arguments": "{\"message\":\"Escalate ticket #12347 to the payments team \u2014 Morgan Lee's payment is stuck?\",\"context\":\"Ticket #12347 \u2014 payment stuck in pending\"}"
           }
         ]
       }
@@ -508,7 +508,7 @@
           {
             "id": "call_approval_downgrade",
             "name": "request_user_approval",
-            "arguments": "{\"message\":\"Downgrade Priya Shah (#12346) to the Starter plan effective next billing cycle?\",\"context\":\"Ticket #12346 — plan downgrade\"}"
+            "arguments": "{\"message\":\"Downgrade Priya Shah (#12346) to the Starter plan effective next billing cycle?\",\"context\":\"Ticket #12346 \u2014 plan downgrade\"}"
           }
         ]
       }
@@ -520,7 +520,7 @@
         "hasToolResult": true
       },
       "response": {
-        "content": "Thanks — I've recorded your decision and acted on it accordingly."
+        "content": "Thanks \u2014 I've recorded your decision and acted on it accordingly."
       }
     },
     {
@@ -643,7 +643,7 @@
       }
     },
     {
-      "_comment": "a2ui-fixed-schema pill — 'Find me a flight from SFO to JFK on United for $289.' The A2UI runtime middleware injects render_a2ui (injectA2UITool defaults on; OpenClaw has no A2UI backend). Agent emits it directly with the FIXED flight component tree (Card > Column > [Title, Row(Airport,Arrow,Airport), Row(AirlineBadge,PriceTag), Button]) + the flight data model; the {path:'/origin'} bindings resolve against data, preserving fixed-schema semantics. Gated on toolName:render_a2ui + hasToolResult:false so it fires on the tool-call turn. The tool-result leg is closed by the shared userMessage:'returned:' TERMINATOR already first in chat.json (returns 'Done — I've completed that for you.'), since clawg-ui flattens the conversation and role:tool never fires.",
+      "_comment": "a2ui-fixed-schema pill \u2014 'Find me a flight from SFO to JFK on United for $289.' The A2UI runtime middleware injects render_a2ui (injectA2UITool defaults on; OpenClaw has no A2UI backend). Agent emits it directly with the FIXED flight component tree (Card > Column > [Title, Row(Airport,Arrow,Airport), Row(AirlineBadge,PriceTag), Button]) + the flight data model; the {path:'/origin'} bindings resolve against data, preserving fixed-schema semantics. Gated on toolName:render_a2ui + hasToolResult:false so it fires on the tool-call turn. The tool-result leg is closed by the shared userMessage:'returned:' TERMINATOR already first in chat.json (returns 'Done \u2014 I've completed that for you.'), since clawg-ui flattens the conversation and role:tool never fires.",
       "match": {
         "userMessage": "Find me a flight from SFO to JFK on United for $289.",
         "context": "openclaw",
@@ -667,7 +667,7 @@
         "context": "openclaw"
       },
       "response": {
-        "content": "You're authenticated and connected — your bearer token cleared the runtime's onRequest gate, so I can respond. How can I help?"
+        "content": "You're authenticated and connected \u2014 your bearer token cleared the runtime's onRequest gate, so I can respond. How can I help?"
       }
     },
     {
@@ -676,7 +676,7 @@
         "context": "openclaw"
       },
       "response": {
-        "content": "Fun fact: a signed session cookie doesn't hide its contents — it just proves they weren't tampered with. The server verifies the signature on every request, so a flipped bit means the session is rejected."
+        "content": "Fun fact: a signed session cookie doesn't hide its contents \u2014 it just proves they weren't tampered with. The server verifies the signature on every request, so a flipped bit means the session is rejected."
       }
     },
     {
@@ -761,7 +761,7 @@
         "context": "openclaw"
       },
       "response": {
-        "content": "{\"ui\":[{\"Markdown\":{\"props\":{\"children\":\"## Q4 Sales Summary\"}}},{\"metric\":{\"props\":{\"label\":\"Total Revenue\",\"value\":\"$1.2M\"}}},{\"pieChart\":{\"props\":{\"title\":\"Revenue by Segment\",\"data\":\"[{\\\"label\\\":\\\"Enterprise\\\",\\\"value\\\":600000},{\\\"label\\\":\\\"SMB\\\",\\\"value\\\":400000},{\\\"label\\\":\\\"Startup\\\",\\\"value\\\":200000}]\"}}},{\"barChart\":{\"props\":{\"title\":\"Monthly Revenue\",\"data\":\"[{\\\"label\\\":\\\"Oct\\\",\\\"value\\\":350000},{\\\"label\\\":\\\"Nov\\\",\\\"value\\\":400000},{\\\"label\\\":\\\"Dec\\\",\\\"value\\\":450000}]\"}}}]}"
+        "content": "Q4 sales dashboard rendered above \u2014 total revenue hit $2.4M (+12%), with Enterprise leading segment revenue. Monthly trend shows steady growth across Oct-Dec."
       }
     },
     {
@@ -856,7 +856,7 @@
         "context": "openclaw"
       },
       "response": {
-        "content": "I can see the attached image — it looks like the CopilotKit logo, a clean wordmark on a light background. It reads as a brand/logo image rather than a photo, with crisp edges and a simple, high-contrast layout."
+        "content": "I can see the attached image \u2014 it looks like the CopilotKit logo, a clean wordmark on a light background. It reads as a brand/logo image rather than a photo, with crisp edges and a simple, high-contrast layout."
       }
     },
     {
@@ -866,11 +866,11 @@
         "context": "openclaw"
       },
       "response": {
-        "content": "The attached PDF document is a short one-page sample. It contains a heading and a couple of paragraphs of body text — a minimal document used to demonstrate PDF attachment handling in this multimodal demo."
+        "content": "The attached PDF document is a short one-page sample. It contains a heading and a couple of paragraphs of body text \u2014 a minimal document used to demonstrate PDF attachment handling in this multimodal demo."
       }
     },
     {
-      "_comment": "open-gen-ui-advanced: Calculator pill — runtime-injected generateSandboxedUi tool returns HTML+CSS+jsFunctions for a calculator whose = button (#eq) calls the host evaluateExpression sandbox function; display is #d. Matches on toolName (the ogui runtime injects generateSandboxedUi into every request for open-gen-ui-advanced) + hasToolResult:false. The shared 'returned:' TERMINATOR (chat.json #0) closes the flattened tool turn.",
+      "_comment": "open-gen-ui-advanced: Calculator pill \u2014 runtime-injected generateSandboxedUi tool returns HTML+CSS+jsFunctions for a calculator whose = button (#eq) calls the host evaluateExpression sandbox function; display is #d. Matches on toolName (the ogui runtime injects generateSandboxedUi into every request for open-gen-ui-advanced) + hasToolResult:false. The shared 'returned:' TERMINATOR (chat.json #0) closes the flattened tool turn.",
       "match": {
         "userMessage": "Calculator (calls evaluateExpression)",
         "context": "openclaw",
@@ -882,13 +882,13 @@
           {
             "id": "call_ogui_adv_calc_001",
             "name": "generateSandboxedUi",
-            "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing calculator UI…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px;max-width:240px}.display{background:#1e293b;padding:8px;border-radius:8px;margin-bottom:8px;font-family:monospace;text-align:right}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}button{padding:10px;background:#334155;border:0;color:#e2e8f0;border-radius:6px;font-size:14px}\",\"html\":\"<div class=\\\"wrap\\\" data-testid=\\\"ogui-calculator\\\"><div class=\\\"display\\\" id=\\\"d\\\">0</div><div class=\\\"grid\\\"><button>7</button><button>8</button><button>9</button><button>+</button><button>4</button><button>5</button><button>6</button><button>-</button><button>1</button><button>2</button><button>3</button><button>*</button><button>0</button><button>.</button><button id=\\\"eq\\\">=</button><button>/</button></div></div>\",\"jsFunctions\":\"(function(){var expr='';var display=document.getElementById('d');document.querySelectorAll('.grid button').forEach(function(btn){btn.addEventListener('click',async function(){if(btn.id==='eq'){var res=await Websandbox.connection.remote.evaluateExpression({expression:expr});if(res&&res.ok){display.textContent=String(res.value);expr=String(res.value);}else{display.textContent='err';expr='';}}else{expr+=btn.textContent;display.textContent=expr;}});});})();\"}"
+            "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing calculator UI\u2026\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px;max-width:240px}.display{background:#1e293b;padding:8px;border-radius:8px;margin-bottom:8px;font-family:monospace;text-align:right}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}button{padding:10px;background:#334155;border:0;color:#e2e8f0;border-radius:6px;font-size:14px}\",\"html\":\"<div class=\\\"wrap\\\" data-testid=\\\"ogui-calculator\\\"><div class=\\\"display\\\" id=\\\"d\\\">0</div><div class=\\\"grid\\\"><button>7</button><button>8</button><button>9</button><button>+</button><button>4</button><button>5</button><button>6</button><button>-</button><button>1</button><button>2</button><button>3</button><button>*</button><button>0</button><button>.</button><button id=\\\"eq\\\">=</button><button>/</button></div></div>\",\"jsFunctions\":\"(function(){var expr='';var display=document.getElementById('d');document.querySelectorAll('.grid button').forEach(function(btn){btn.addEventListener('click',async function(){if(btn.id==='eq'){var res=await Websandbox.connection.remote.evaluateExpression({expression:expr});if(res&&res.ok){display.textContent=String(res.value);expr=String(res.value);}else{display.textContent='err';expr='';}}else{expr+=btn.textContent;display.textContent=expr;}});});})();\"}"
           }
         ]
       }
     },
     {
-      "_comment": "open-gen-ui-advanced: Ping the host pill — generateSandboxedUi renders a card whose button (#hi) calls the host notifyHost sandbox function and writes the returned receivedAt into #out.",
+      "_comment": "open-gen-ui-advanced: Ping the host pill \u2014 generateSandboxedUi renders a card whose button (#hi) calls the host notifyHost sandbox function and writes the returned receivedAt into #out.",
       "match": {
         "userMessage": "Ping the host (calls notifyHost)",
         "context": "openclaw",
@@ -900,13 +900,13 @@
           {
             "id": "call_ogui_adv_ping_001",
             "name": "generateSandboxedUi",
-            "arguments": "{\"initialHeight\":320,\"placeholderMessages\":[\"Composing host-ping card…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.card{padding:24px;background:#1e293b;border-radius:12px;margin:16px;text-align:center}button{padding:10px 20px;background:#6366f1;border:0;color:#fff;border-radius:8px;font-size:14px;cursor:pointer}.out{margin-top:12px;font-size:12px;color:#94a3b8}\",\"html\":\"<div class=\\\"card\\\" data-testid=\\\"ogui-ping\\\"><h2>Notify the host</h2><button id=\\\"hi\\\">Say hi to the host</button><div class=\\\"out\\\" id=\\\"out\\\">awaiting click…</div></div>\",\"jsFunctions\":\"document.getElementById('hi').addEventListener('click',async function(){var out=document.getElementById('out');out.textContent='sending…';var res=await Websandbox.connection.remote.notifyHost({message:'Hello from sandbox'});out.textContent=res&&res.ok?'host replied at '+res.receivedAt:'failed';});\"}"
+            "arguments": "{\"initialHeight\":320,\"placeholderMessages\":[\"Composing host-ping card\u2026\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.card{padding:24px;background:#1e293b;border-radius:12px;margin:16px;text-align:center}button{padding:10px 20px;background:#6366f1;border:0;color:#fff;border-radius:8px;font-size:14px;cursor:pointer}.out{margin-top:12px;font-size:12px;color:#94a3b8}\",\"html\":\"<div class=\\\"card\\\" data-testid=\\\"ogui-ping\\\"><h2>Notify the host</h2><button id=\\\"hi\\\">Say hi to the host</button><div class=\\\"out\\\" id=\\\"out\\\">awaiting click\u2026</div></div>\",\"jsFunctions\":\"document.getElementById('hi').addEventListener('click',async function(){var out=document.getElementById('out');out.textContent='sending\u2026';var res=await Websandbox.connection.remote.notifyHost({message:'Hello from sandbox'});out.textContent=res&&res.ok?'host replied at '+res.receivedAt:'failed';});\"}"
           }
         ]
       }
     },
     {
-      "_comment": "open-gen-ui-advanced: Inline expression evaluator pill — generateSandboxedUi renders an input (#in) + Evaluate button (#go) that call the host evaluateExpression sandbox function and write '= <value>' into #out.",
+      "_comment": "open-gen-ui-advanced: Inline expression evaluator pill \u2014 generateSandboxedUi renders an input (#in) + Evaluate button (#go) that call the host evaluateExpression sandbox function and write '= <value>' into #out.",
       "match": {
         "userMessage": "Inline expression evaluator",
         "context": "openclaw",
@@ -918,7 +918,7 @@
           {
             "id": "call_ogui_adv_inline_001",
             "name": "generateSandboxedUi",
-            "arguments": "{\"initialHeight\":320,\"placeholderMessages\":[\"Composing expression evaluator…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.card{padding:16px;background:#1e293b;border-radius:12px;margin:16px}input{width:100%;padding:8px;background:#0f172a;border:1px solid #334155;color:#e2e8f0;border-radius:6px;box-sizing:border-box}button{margin-top:8px;padding:8px 16px;background:#6366f1;border:0;color:#fff;border-radius:6px;cursor:pointer}.out{margin-top:8px;font-size:12px;color:#94a3b8}\",\"html\":\"<div class=\\\"card\\\" data-testid=\\\"ogui-inline-eval\\\"><h2>Inline expression evaluator</h2><input id=\\\"in\\\" placeholder=\\\"e.g. 2 + 2\\\"/><button id=\\\"go\\\">Evaluate</button><div class=\\\"out\\\" id=\\\"out\\\">awaiting input…</div></div>\",\"jsFunctions\":\"(function(){var input=document.getElementById('in');var out=document.getElementById('out');var go=document.getElementById('go');async function run(){var expr=input.value;out.textContent='evaluating…';var res=await Websandbox.connection.remote.evaluateExpression({expression:expr});out.textContent=res&&res.ok?'= '+res.value:'error: '+res.error;}go.addEventListener('click',run);input.addEventListener('keydown',function(e){if(e.key==='Enter')run();});})();\"}"
+            "arguments": "{\"initialHeight\":320,\"placeholderMessages\":[\"Composing expression evaluator\u2026\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.card{padding:16px;background:#1e293b;border-radius:12px;margin:16px}input{width:100%;padding:8px;background:#0f172a;border:1px solid #334155;color:#e2e8f0;border-radius:6px;box-sizing:border-box}button{margin-top:8px;padding:8px 16px;background:#6366f1;border:0;color:#fff;border-radius:6px;cursor:pointer}.out{margin-top:8px;font-size:12px;color:#94a3b8}\",\"html\":\"<div class=\\\"card\\\" data-testid=\\\"ogui-inline-eval\\\"><h2>Inline expression evaluator</h2><input id=\\\"in\\\" placeholder=\\\"e.g. 2 + 2\\\"/><button id=\\\"go\\\">Evaluate</button><div class=\\\"out\\\" id=\\\"out\\\">awaiting input\u2026</div></div>\",\"jsFunctions\":\"(function(){var input=document.getElementById('in');var out=document.getElementById('out');var go=document.getElementById('go');async function run(){var expr=input.value;out.textContent='evaluating\u2026';var res=await Websandbox.connection.remote.evaluateExpression({expression:expr});out.textContent=res&&res.ok?'= '+res.value:'error: '+res.error;}go.addEventListener('click',run);input.addEventListener('keydown',function(e){if(e.key==='Enter')run();});})();\"}"
           }
         ]
       }
@@ -929,7 +929,7 @@
         "context": "openclaw"
       },
       "response": {
-        "content": "Right now your recipe is titled \"Make Your Recipe\" — an Intermediate-level dish with a 45 min cooking time and no special dietary preferences set yet."
+        "content": "Right now your recipe is titled \"Make Your Recipe\" \u2014 an Intermediate-level dish with a 45 min cooking time and no special dietary preferences set yet."
       }
     },
     {
@@ -938,21 +938,21 @@
         "context": "openclaw"
       },
       "response": {
-        "content": "Your recipe currently has 2 ingredients: 🥕 Carrots (3 large, grated) and 🌾 All-Purpose Flour (2 cups)."
+        "content": "Your recipe currently has 2 ingredients: \ud83e\udd55 Carrots (3 large, grated) and \ud83c\udf3e All-Purpose Flour (2 cups)."
       }
     },
     {
-      "_comment": "shared-state-read-write — Greet me pill (suggestion message: 'Say hi and introduce yourself.'). Matches on userMessage substring only; wins over any bare 'hi' catch-all. Returns the shared-state co-pilot blurb the spec asserts (/shared-state co-pilot/i).",
+      "_comment": "shared-state-read-write \u2014 Greet me pill (suggestion message: 'Say hi and introduce yourself.'). Matches on userMessage substring only; wins over any bare 'hi' catch-all. Returns the shared-state co-pilot blurb the spec asserts (/shared-state co-pilot/i).",
       "match": {
         "userMessage": "Say hi and introduce yourself.",
         "context": "openclaw"
       },
       "response": {
-        "content": "Hi — I'm your shared-state co-pilot. Your Preferences panel (name, tone, language, interests) is fed to me on every turn, and I jot notes back into the Agent Scratch pad via set_notes so the UI re-renders. Try setting your name or asking me to remember something."
+        "content": "Hi \u2014 I'm your shared-state co-pilot. Your Preferences panel (name, tone, language, interests) is fed to me on every turn, and I jot notes back into the Agent Scratch Pad via set_notes so the UI re-renders. Try setting your name or asking me to remember something."
       }
     },
     {
-      "_comment": "shared-state-read-write — Plan a weekend pill (suggestion message: 'Suggest a weekend plan based on my interests.'). Substring matcher wins over any bare 'plan' catch-all. References the interests panel (spec asserts /interests panel/i).",
+      "_comment": "shared-state-read-write \u2014 Plan a weekend pill (suggestion message: 'Suggest a weekend plan based on my interests.'). Substring matcher wins over any bare 'plan' catch-all. References the interests panel (spec asserts /interests panel/i).",
       "match": {
         "userMessage": "weekend plan based on my interests",
         "context": "openclaw"
@@ -962,7 +962,7 @@
       }
     },
     {
-      "_comment": "shared-state-read-write — Remember something pill (suggestion message: 'Remember that I prefer morning meetings and that I don't eat dairy.'). WRITE direction: first call returns a set_notes toolCall. set_notes is frontend-forwarded via properties.stateWriterTools, so clawg-ui injects it into the model tool list, applies the call, and emits a STATE_SNAPSHOT that re-renders the Agent Scratch pad. The shared 'returned:' terminator (kept first in chat.json) then closes the loop with a text confirmation. arguments.notes MUST be the FULL replacement list (mode: replace) — the spec asserts exactly 2 note-item rows containing /morning meetings/i and /dairy/i.",
+      "_comment": "shared-state-read-write \u2014 Remember something pill (suggestion message: 'Remember that I prefer morning meetings and that I don't eat dairy.'). WRITE direction: first call returns a set_notes toolCall. set_notes is frontend-forwarded via properties.stateWriterTools, so clawg-ui injects it into the model tool list, applies the call, and emits a STATE_SNAPSHOT that re-renders the Agent Scratch pad. The shared 'returned:' terminator (kept first in chat.json) then closes the loop with a text confirmation. arguments.notes MUST be the FULL replacement list (mode: replace) \u2014 the spec asserts exactly 2 note-item rows containing /morning meetings/i and /dairy/i.",
       "match": {
         "userMessage": "morning meetings",
         "context": "openclaw",
@@ -1051,7 +1051,7 @@
         "context": "openclaw"
       },
       "response": {
-        "content": "Right now in Tokyo it's about 18°C with clear skies and a light breeze — a pleasant evening. Expect similar mild conditions overnight, dropping to around 14°C, with no rain in the forecast."
+        "content": "Tokyo is 22\u00b0C and partly cloudy."
       }
     }
   ]

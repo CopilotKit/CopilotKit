@@ -22,11 +22,81 @@ interaction_modalities:
   - embedded
   - chat
 not_supported_features:
+  # Frontend render_chart tool (useFrontendTool). Failing tests: the chart <svg>
+  # is not asserted-visible inside copilot-assistant-message, and a plain "Hello"
+  # turn timed out with no assistant message. NOT root-caused to DOM depth (unlike
+  # tool-rendering); the earlier "renders outside the bubble" note was an
+  # unverified guess -- for tool-rendering the card DID render inside the bubble,
+  # so revisit before trusting that explanation for this demo.
+  - gen-ui-tool-based
+  # Async query_notes frontend tool: the notes card and sequential multi-turn card sequence depend on the client-tool result rendering inline; OpenClaw's fire-and-forget client-tool round-trip does not reproduce the inline card/sequence.
+  - frontend-tools-async
+  # Fixed-schema A2UI: a backend display_flight tool emits an a2ui_operations
+  # container -> flight card. Same backend-tool path as tool-rendering, so it very
+  # likely hits the same tool-call loop (turnIndex/hasToolResult not advancing
+  # under the Responses API); the flight card is not asserted-visible. Not
+  # separately measured at the event level -- confirm against the tool-rendering
+  # root cause above.
+  - a2ui-fixed-schema
+  # Dedicated auth runtime route (/api/copilotkit-auth, bearer onRequest gate): authenticated send does not surface an assistant response in the demo cell (route/token plumbing); gateway itself returns responses. Fixable with route-plumbing work.
+  - auth
+  # Dedicated voice runtime route: transcription round-trip populates the composer, but the subsequent send does not surface the assistant response in the voice cell (route plumbing); gateway returns the weather text fine. Fixable with route-plumbing work.
+  - voice
+  # TOOL-CALL LOOP (measured; root cause for the whole tool-rendering cluster).
+  # The card renders CORRECTLY inside the assistant bubble (right testid + real
+  # data) -- the bug is that it is painted many times because the backend tool is
+  # re-invoked in a loop. One "weather in SF" turn = ~41 get_weather calls.
+  # Two compounding causes:
+  #  1) API shape. OpenClaw runs the showcase model (gpt-5.5) on the OpenAI
+  #     Responses API (/v1/responses), where a tool result is a
+  #     `function_call_output` item and an assistant turn is a `function_call`
+  #     item. aimock's multi-turn matchers (turnIndex/hasToolResult/toolCallId)
+  #     are defined over chat-completions `role:assistant`/`role:tool` messages
+  #     (see aimock skills/write-fixtures), so they don't see the Responses-API
+  #     tool result and never advance to the "narrate & stop" fixture.
+  #  2) toolCallId not preserved. The loop-ender fixtures gate on a specific
+  #     toolCallId (e.g. call_tr_weather_sf_001), but OpenClaw's provider mints
+  #     its own composite ids (call_...|fc_...), so that gate can't match either.
+  # Evidence: flipping the model to api:openai-completions cut the loop 41 -> 8
+  # (confirms cause #1 is dominant) but did NOT terminate it (cause #2 remains),
+  # and it breaks the reasoning demos -- so it is not a viable fix.
+  # Single-card tests pass (>=1 card tolerates the dupes); count/multi-tool tests
+  # fail. Real fix: teach aimock's matchers to read Responses-API
+  # function_call/function_call_output (fixes the whole cluster), or cap/dedupe
+  # repeated identical tool calls in clawg-ui. Not fixable in fixtures alone.
+  - tool-rendering
+  # Same tool-call loop as tool-rendering (useDefaultRenderTool wildcard): dozens of
+  # duplicate default cards; the flood eventually stalls the run.
+  - tool-rendering-default-catchall
+  # Same tool-call loop as tool-rendering (branded wildcard renderer).
+  - tool-rendering-custom-catchall
+  # Same tool-call loop as tool-rendering, across a multi-tool chain
+  # (stocks/dice/flights) plus intermittent reasoning.
+  - tool-rendering-reasoning-chain
+  # A2UI dynamic-schema drives a render_a2ui tool turn. OBSERVED: the run hangs
+  # (only RUN_STARTED emitted; SSE never completes) and crashed the Next runtime
+  # during full runs. Consistent with the same multi-turn non-advancement as the
+  # tool-rendering loop, on the render_a2ui path. Needs the same aimock/clawg-ui
+  # fix (or a gateway-side A2UI relay).
+  - declarative-gen-ui
+  # Agent-state generative UI: the live agent-state card did not render. Suspected
+  # cause is predictive per-step state streaming, which the gateway does not emit
+  # (same class as shared-state-streaming) -- but NOT individually root-caused;
+  # confirm before trusting this reason.
+  - gen-ui-agent
+  # Deliberately configured with injectA2UITool:false and aggregates A2UI/MCP surfaces the pass-through gateway does not drive; the canonical A2UI assertions cannot pass.
+  - beautiful-chat
+  # Asserts a reasoning chain (data-testid=headless-message-reasoning) the demo never renders; reasoning is intermittent on OpenClaw (openai-responses summary:auto, upstream). See PARITY_NOTES.
+  - headless-complete
   - shared-state-streaming
   - gen-ui-interrupt
   - interrupt-headless
+  # Requires a rendering system prompt (the { ui: [...] } envelope instruction)
+  # that the reference held in its backend. The clawg-ui gateway is a
+  # pass-through and does not inject it, so catalog-constrained output is not
+  # reliably produced. See PARITY_NOTES.md "Known gaps".
+  - declarative-hashbrown
 features:
-  - beautiful-chat
   - cli-start
   - agentic-chat
   - prebuilt-sidebar
@@ -34,34 +104,21 @@ features:
   - chat-slots
   - chat-customization-css
   - headless-simple
-  - headless-complete
   - reasoning-custom
   - reasoning-default
   - frontend-tools
-  - frontend-tools-async
-  - gen-ui-tool-based
   - hitl-in-chat
   - hitl-in-chat-booking
   - hitl
   - hitl-in-app
-  - declarative-gen-ui
-  - a2ui-fixed-schema
   - mcp-apps
-  - gen-ui-agent
-  - tool-rendering-default-catchall
-  - tool-rendering-custom-catchall
-  - tool-rendering
-  - tool-rendering-reasoning-chain
   - shared-state-read-write
   - readonly-state-agent-context
   - subagents
   - multimodal
-  - auth
-  - declarative-hashbrown
   - declarative-json-render
   - open-gen-ui
   - open-gen-ui-advanced
-  - voice
   - agent-config
 agent_config_pattern: shared-state
 interrupt_pattern: promise-based

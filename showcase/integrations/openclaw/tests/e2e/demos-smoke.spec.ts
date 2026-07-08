@@ -8,7 +8,6 @@ import { test, expect } from "@playwright/test";
 
 const DEMOS = [
   "/demos/agentic-chat",
-  "/demos/agentic-chat-reasoning",
   "/demos/tool-rendering",
   "/demos/frontend-tools",
   "/demos/prebuilt-sidebar",

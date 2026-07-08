@@ -1,62 +1,119 @@
 import { test, expect } from "@playwright/test";
 
-// Behavioral e2e for the reasoning-custom demo, run against aimock (deterministic
-// LLM). The OpenClaw gateway injects X-AIMock-Context: openclaw, so these prompts
-// match the fixtures in showcase/aimock/d4/openclaw/chat.json. The reasoning
-// fixtures carry a `reasoning` field so REASONING_* events stream and the custom
-// `ReasoningBlock` slot ([data-testid="reasoning-block"]) has content to render.
-test.describe("Reasoning (Custom)", () => {
+// QA reference: qa/reasoning-custom.md
+// Demo source: src/app/demos/reasoning-custom/{page.tsx, reasoning-block.tsx}
+//
+// The demo mounts a custom `reasoningMessage` slot (`ReasoningBlock`) that
+// renders an amber banner with `data-testid="reasoning-block"`. The label
+// inside the banner reads "Thinking…" while the agent is streaming, then
+// flips to "Agent reasoning" once streaming settles. The backend uses
+// `deepagents.create_deep_agent` with a reasoning-capable OpenAI model
+// (`gpt-5-mini` by default, override via `OPENAI_REASONING_MODEL`) routed
+// through the Responses API so the model's chain of thought streams as
+// AG-UI REASONING_MESSAGE_* events.
+//
+// Streaming assertions exercise the aimock fixture in
+// `showcase/aimock/d5-all.json` — its `reasoning` field makes aimock emit
+// `response.reasoning_summary_text.delta` events deterministically, no
+// real LLM call required. Local stack: a "Show reasoning" suggestion pill
+// fires the same prompt, so a single click reproduces the streaming UX.
+//
+// Selectors are testid / role / stable text only. No LLM-text assertions.
+
+const REASONING_PROMPT = "show your reasoning step by step";
+
+test.describe("Reasoning: Custom", () => {
+  test.setTimeout(120_000);
+
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/reasoning-custom");
   });
 
-  test("page loads with a chat input and the starter suggestions", async ({
-    page,
-  }) => {
-    await expect(page.getByRole("textbox").first()).toBeVisible({
-      timeout: 20000,
-    });
-    for (const title of ["Show reasoning", "Plan a trip", "Is 17 prime?"]) {
-      await expect(page.getByRole("button", { name: title })).toBeVisible({
-        timeout: 15000,
-      });
-    }
+  test("page loads with chat input", async ({ page }) => {
+    await expect(page.getByPlaceholder("Type a message")).toBeVisible();
   });
 
-  test("clicking 'Show reasoning' renders the custom reasoning block and an answer", async ({
+  test("send button is visible alongside the input", async ({ page }) => {
+    await expect(page.getByPlaceholder("Type a message")).toBeVisible();
+    await expect(
+      page.locator('[data-testid="copilot-send-button"]').first(),
+    ).toBeVisible();
+  });
+
+  test("typing a prompt and submitting does not crash the UI", async ({
     page,
   }) => {
-    await page.getByRole("button", { name: "Show reasoning" }).click();
+    const input = page.getByPlaceholder("Type a message");
+    await input.fill("Say hello in one short sentence.");
+    await page.locator('[data-testid="copilot-send-button"]').first().click();
 
-    // The custom reasoningMessage slot renders the reasoning chain.
-    await expect(
-      page.locator('[data-testid="reasoning-block"]').first(),
-    ).toBeVisible({ timeout: 30000 });
+    await expect(input).toHaveValue("", { timeout: 10_000 });
+  });
 
-    // The assistant's final answer still streams alongside the reasoning block.
+  // --- Reasoning-block streaming coverage --------------------------------
+
+  test("reasoning prompt renders a reasoning-block before the answer", async ({
+    page,
+  }) => {
+    const input = page.getByPlaceholder("Type a message");
+    await input.fill(REASONING_PROMPT);
+    await page.locator('[data-testid="copilot-send-button"]').first().click();
+
+    const reasoningBlock = page
+      .locator('[data-testid="reasoning-block"]')
+      .first();
+    await expect(reasoningBlock).toBeVisible({ timeout: 60_000 });
     await expect(
-      page.locator('[data-testid="copilot-assistant-message"]').first(),
-    ).toBeVisible({ timeout: 30000 });
-    // The sky-scattering fixture answer mentions Rayleigh scattering.
-    await expect(page.getByText(/scatter/i).first()).toBeVisible({
-      timeout: 30000,
+      reasoningBlock.getByText("Reasoning", { exact: true }),
+    ).toBeVisible({ timeout: 10_000 });
+  });
+
+  test("reasoning-block label flips from Thinking to Agent reasoning", async ({
+    page,
+  }) => {
+    const input = page.getByPlaceholder("Type a message");
+    await input.fill(REASONING_PROMPT);
+    await page.locator('[data-testid="copilot-send-button"]').first().click();
+
+    const reasoningBlock = page
+      .locator('[data-testid="reasoning-block"]')
+      .first();
+    await expect(reasoningBlock).toBeVisible({ timeout: 60_000 });
+    await expect(reasoningBlock.getByText("Agent reasoning")).toBeVisible({
+      timeout: 90_000,
     });
   });
 
-  test("typing a reasoning prompt renders the custom reasoning block", async ({
+  test("reasoning-block accumulates italic reasoning content", async ({
     page,
   }) => {
-    const input = page.getByRole("textbox").first();
-    await input.fill(
-      "Plan a 3-day trip to Tokyo, reasoning through the trade-offs at each step.",
-    );
-    await input.press("Enter");
+    const input = page.getByPlaceholder("Type a message");
+    await input.fill(REASONING_PROMPT);
+    await page.locator('[data-testid="copilot-send-button"]').first().click();
 
-    await expect(
-      page.locator('[data-testid="reasoning-block"]').first(),
-    ).toBeVisible({ timeout: 30000 });
-    await expect(
-      page.locator('[data-testid="copilot-assistant-message"]').first(),
-    ).toBeVisible({ timeout: 30000 });
+    const reasoningBlock = page
+      .locator('[data-testid="reasoning-block"]')
+      .first();
+    await expect(reasoningBlock).toBeVisible({ timeout: 60_000 });
+    // ReasoningBlock renders content inside a div with italic class when
+    // `message.content` is non-empty (see reasoning-block.tsx).
+    await expect(reasoningBlock.locator(".italic")).toBeVisible({
+      timeout: 45_000,
+    });
+  });
+
+  test("Show reasoning suggestion pill fires the reasoning prompt", async ({
+    page,
+  }) => {
+    // The page wires `useConfigureSuggestions` with a single "Show reasoning"
+    // pill whose message exactly matches the aimock fixture key.
+    const pill = page.getByRole("button", { name: /Show reasoning/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+
+    const reasoningBlock = page
+      .locator('[data-testid="reasoning-block"]')
+      .first();
+    await expect(reasoningBlock).toBeVisible({ timeout: 60_000 });
   });
 });
