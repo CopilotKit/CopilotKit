@@ -13,7 +13,6 @@
 // listening but /health probes never succeed.
 console.log(`[agent_server] module loaded ${new Date().toISOString()}`);
 
-// @region[weather-tool-backend]
 import type { Request, Response } from "express";
 import express from "express";
 import Anthropic from "@anthropic-ai/sdk";
