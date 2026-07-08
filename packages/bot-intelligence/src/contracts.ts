@@ -38,8 +38,25 @@ export interface ManagedIngressBase {
  * TODO(OSS-377): the frozen envelope will carry richer per-kind payloads
  * (contentParts, structured command options, raw interaction values, etc.).
  */
+/**
+ * A turn-input file reference: an opaque handle plus display metadata (no
+ * bytes). The adapter fetches the bytes lazily via
+ * {@link DeliverySource.fetchFile} and builds `AgentContentPart`s from them.
+ */
+export interface ManagedFileRef {
+  handle: string;
+  filename: string;
+  mimeType?: string;
+  byteSize?: number;
+}
+
 export type ManagedIngressEnvelope =
-  | (ManagedIngressBase & { kind: "turn"; text?: string })
+  | (ManagedIngressBase & {
+      kind: "turn";
+      text?: string;
+      /** Inbound files attached to this turn (images, docs, …), in order. */
+      files?: ManagedFileRef[];
+    })
   | (ManagedIngressBase & {
       kind: "command";
       /** Command name as invoked (leading slash / case normalized by core). */
@@ -93,3 +110,66 @@ export type EgressResult =
   | { ok: true; ref: string }
   // TODO(OSS-377): `code` becomes a bounded failure-code enum.
   | { ok: false; code: string };
+
+// ── Realtime render events (OSS-402) ──────────────────────────────────────
+// Mirrors the frozen `hosted_bot.render_event.v1` contract on the Intelligence
+// side (libs/app-api-contracts/src/hosted-bots.ts). The SDK streams these
+// semantic frames to the realtime-gateway; the gateway-side Connector Outbox
+// (OSS-404) renders them to the provider (Slack Block Kit, etc.).
+// TODO(OSS-377): replace with the shared `@copilotkit/managed-bot-contracts`
+// package; `post`/`update` content is `BotNode[]` (SDK IR) here — the frozen
+// contract types it as opaque `HostedBotRenderContent`.
+
+/** One semantic render frame the agent run emits. Matches the frozen kinds. */
+export type HostedBotRenderEvent =
+  | { kind: "run_started" }
+  | { kind: "text_delta"; messageId: string; delta: string }
+  | { kind: "text_end"; messageId: string }
+  | { kind: "tool_start"; toolCallId: string; toolName: string }
+  | { kind: "tool_end"; toolCallId: string; toolName: string }
+  | { kind: "interrupt" }
+  | { kind: "run_error"; message: string }
+  | { kind: "post"; content: BotNode[] }
+  | { kind: "update"; ref: string; content: BotNode[] }
+  | {
+      /**
+       * Outbound file post (`thread.postFile`). Bytes were streamed to app-api
+       * ahead of this frame and stored in object storage under `handle`; the
+       * Connector Outbox fetches them and calls Slack `files.uploadV2`.
+       */
+      kind: "file";
+      handle: string;
+      filename: string;
+      title?: string;
+      altText?: string;
+    }
+  | { kind: "finalize" };
+
+/** All render-event kinds, for exhaustive/ordering checks. */
+export type HostedBotRenderEventKind = HostedBotRenderEvent["kind"];
+
+/**
+ * The adapter-facing render frame. The {@link RenderEventSink} fills in the
+ * org/project/bot scope, the `idempotencyKey` (`turnId:slot:seq`), the
+ * `runtimeInstanceId`, and `sentAt` before it hits the wire — the adapter only
+ * supplies the delivery/turn identity, the render lane (`slot`), the monotonic
+ * per-`(turn, slot)` `seq`, and the semantic `event`.
+ */
+export interface RenderFrame {
+  deliveryId: string;
+  turnId: string;
+  /** Render lane; a single turn uses `"main"` for V1. */
+  slot: string;
+  /** Zero-based, monotonic within `(turnId, slot)`. */
+  seq: number;
+  event: HostedBotRenderEvent;
+}
+
+/** Durable-acceptance receipt echoed back for each pushed {@link RenderFrame}. */
+export interface RenderAccepted {
+  /** `${turnId}:${slot}:${seq}` — the frame's idempotency key. */
+  idempotencyKey: string;
+  acceptance: "accepted" | "duplicate_accepted" | "duplicate_skipped";
+  /** Present only on an accepted `finalize` frame — links to the egress op. */
+  egressOperationId?: string;
+}

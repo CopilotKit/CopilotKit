@@ -1,5 +1,10 @@
 import type { AgentSubscriber } from "@ag-ui/client";
-import type { BotNode, MessageRef, PlatformUser } from "@copilotkit/bot-ui";
+import type {
+  AgentContentPart,
+  BotNode,
+  MessageRef,
+  PlatformUser,
+} from "@copilotkit/bot-ui";
 import type {
   StateStore,
   PlatformAdapter,
@@ -14,15 +19,24 @@ import type {
   UserQuery,
   InteractionEvent,
 } from "@copilotkit/bot";
-import type { DeliverySource, EgressSink } from "./transports.js";
+import type {
+  DeliverySource,
+  EgressSink,
+  RenderEventSink,
+} from "./transports.js";
 import type {
   ManagedIngressEnvelope,
+  ManagedFileRef,
   EgressOp,
   EgressOperation,
+  HostedBotRenderEvent,
+  RenderFrame,
+  RenderAccepted,
 } from "./contracts.js";
 import {
   HttpDeliverySource,
   HttpEgressSink,
+  HttpRenderEventSink,
   resolveTransportConfig,
 } from "./http-transports.js";
 import type { IntelligenceTransportConfig } from "./http-transports.js";
@@ -47,6 +61,17 @@ const textNode = (value: string): BotNode[] => [
   { type: "text", props: { value } },
 ];
 
+/** Map a MIME type to its `AgentContentPart` media kind, or null for non-media. */
+function mediaKindForMime(
+  mime: string,
+): "image" | "audio" | "video" | "document" | null {
+  if (mime.startsWith("image/")) return "image";
+  if (mime.startsWith("audio/")) return "audio";
+  if (mime.startsWith("video/")) return "video";
+  if (mime === "application/pdf") return "document";
+  return null;
+}
+
 const INTERRUPTED_SUFFIX = "\n_(interrupted)_";
 
 export interface IntelligenceAdapterOptions {
@@ -60,6 +85,14 @@ export interface IntelligenceAdapterOptions {
    * (built at `start()` from env/`config`); inject in-memory for tests.
    */
   egress?: EgressSink;
+  /**
+   * Streaming render transport (OSS-402). When set, the run renderer streams
+   * semantic render frames to it and awaits durable acceptance receipts (the
+   * realtime-gateway path). When omitted, the renderer falls back to
+   * translating frames into `post` operations on {@link egress} so plain-text
+   * replies still flow without a Connector Outbox.
+   */
+  renderSink?: RenderEventSink;
   /** Optional Intelligence-backed persistence the adapter exposes as `stateStore`. */
   store?: StateStore;
   /**
@@ -115,6 +148,9 @@ export class IntelligenceAdapter implements PlatformAdapter {
   private source?: DeliverySource;
   /** Outbound transport — injected via opts, or the default HTTP sink built at `start()`. */
   private egress?: EgressSink;
+  /** Streaming render transport — injected via opts (realtime path). When unset,
+   * the run renderer translates frames to `post` ops on {@link egress}. */
+  private renderSink?: RenderEventSink;
   /** Per-turn egress sequence; reset at the start of each turn's processing so
    * a redelivered turn reproduces the same operation id sequence. */
   private readonly seq = new Map<string, number>();
@@ -122,6 +158,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
   constructor(private readonly opts: IntelligenceAdapterOptions = {}) {
     this.source = opts.source;
     this.egress = opts.egress;
+    this.renderSink = opts.renderSink;
     this.stateStore = opts.store;
   }
 
@@ -137,6 +174,12 @@ export class IntelligenceAdapter implements PlatformAdapter {
     return this.egress;
   }
 
+  private requireRenderSink(): RenderEventSink {
+    if (!this.renderSink)
+      throw new Error("IntelligenceAdapter: render sink not started");
+    return this.renderSink;
+  }
+
   async start(sink: IngressSink, ctx?: { botName?: string }): Promise<void> {
     this.sink = sink;
     // Config-free default: build the HTTP transports from env (+ the bot's
@@ -146,8 +189,15 @@ export class IntelligenceAdapter implements PlatformAdapter {
         ...this.opts.config,
         botName: this.opts.config?.botName ?? ctx?.botName,
       });
-      this.source ??= new HttpDeliverySource(cfg);
+      const source = (this.source ??= new HttpDeliverySource(cfg));
       this.egress ??= new HttpEgressSink(cfg);
+      // Default the realtime render path to the HTTP render-accept route,
+      // sharing the HttpDeliverySource's per-delivery scope. Only when we built
+      // (or were given) an HttpDeliverySource — injected in-memory sources fall
+      // back to the egress-backed render sink in createRunRenderer.
+      if (!this.renderSink && source instanceof HttpDeliverySource) {
+        this.renderSink = new HttpRenderEventSink(cfg, source);
+      }
     }
     await this.requireSource().start((env) => this.dispatch(env));
   }
@@ -174,6 +224,50 @@ export class IntelligenceAdapter implements PlatformAdapter {
     }
   }
 
+  /**
+   * Hydrate turn-input file refs into `AgentContentPart`s: fetch each file's
+   * bytes via the delivery source and base64-encode them. Best-effort per
+   * file — a fetch failure is logged and skipped, never fails the turn. Media
+   * (image/audio/video/pdf) becomes a `data` part; `text/*` is decoded inline;
+   * anything else degrades to a short text note so the model still sees it.
+   */
+  private async buildContentParts(
+    files?: ManagedFileRef[],
+  ): Promise<AgentContentPart[]> {
+    const fetchFile = this.source?.fetchFile?.bind(this.source);
+    if (!files?.length || !fetchFile) return [];
+    const parts: AgentContentPart[] = [];
+    for (const ref of files) {
+      try {
+        const { bytes, mimeType } = await fetchFile(ref.handle);
+        // The typed ref's mime is authoritative — the file-serve route coerces
+        // its Content-Type to a safe allowlist, so the header can be lossy.
+        const mime = ref.mimeType ?? mimeType ?? "application/octet-stream";
+        const kind = mediaKindForMime(mime);
+        if (kind) {
+          const value = Buffer.from(bytes).toString("base64");
+          parts.push({
+            type: kind,
+            source: { type: "data", value, mimeType: mime },
+          });
+        } else if (mime.startsWith("text/")) {
+          parts.push({
+            type: "text",
+            text: Buffer.from(bytes).toString("utf8"),
+          });
+        } else {
+          parts.push({
+            type: "text",
+            text: `[attached file: ${ref.filename} (${mime})]`,
+          });
+        }
+      } catch (err) {
+        this.opts.config?.log?.("intelligence inbound file fetch failed", err);
+      }
+    }
+    return parts;
+  }
+
   private async dispatchTo(env: ManagedIngressEnvelope): Promise<void> {
     const sink = this.sink;
     if (!sink) throw new Error("IntelligenceAdapter: not started");
@@ -185,11 +279,13 @@ export class IntelligenceAdapter implements PlatformAdapter {
     const user = env.user ? { id: env.user.id } : undefined;
 
     switch (env.kind) {
-      case "turn":
+      case "turn": {
+        const contentParts = await this.buildContentParts(env.files);
         await sink.onTurn({
           conversationKey: env.conversationKey,
           replyTarget,
           userText: env.text ?? "",
+          ...(contentParts.length ? { contentParts } : {}),
           user,
           eventId: env.eventId,
           turnId: env.turnId,
@@ -197,6 +293,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
           platform: env.platform,
         });
         return;
+      }
       case "command":
         await sink.onCommand({
           command: env.command,
@@ -249,15 +346,49 @@ export class IntelligenceAdapter implements PlatformAdapter {
     }
   }
 
+  /** Allocate the next monotonic frame/op seq for a turn. Shared by the run
+   * renderer and discrete post/update so all of a turn's render frames land on
+   * one ordered `(turnId, "main")` lane. Reset per delivery in {@link dispatch}. */
+  private nextFrameSeq(turnId: string): number {
+    const seq = this.seq.get(turnId) ?? 0;
+    this.seq.set(turnId, seq + 1);
+    return seq;
+  }
+
   private mintOp(target: ManagedReplyTarget, op: EgressOp): EgressOperation {
-    const seq = this.seq.get(target.turnId) ?? 0;
-    this.seq.set(target.turnId, seq + 1);
+    const seq = this.nextFrameSeq(target.turnId);
     return {
       operationId: `${target.turnId}:${seq}`,
       turnId: target.turnId,
       deliveryId: target.deliveryId,
       route: target.route,
       op,
+    };
+  }
+
+  /**
+   * Push a discrete render frame (post/update) through the realtime render sink
+   * so the Connector Outbox renders it as Block Kit — preserving rich JSX/IR
+   * instead of flattening to text. Returns a {@link MessageRef} keyed to the
+   * frame so a later update/delete can re-address it.
+   */
+  private async postRenderFrame(
+    target: ManagedReplyTarget,
+    event: HostedBotRenderEvent,
+  ): Promise<MessageRef> {
+    const seq = this.nextFrameSeq(target.turnId);
+    const receipt = await this.requireRenderSink().push({
+      deliveryId: target.deliveryId,
+      turnId: target.turnId,
+      slot: "main",
+      seq,
+      event,
+    });
+    return {
+      id: receipt.egressOperationId ?? `${target.turnId}:main:${seq}`,
+      __route: target.route,
+      __turnId: target.turnId,
+      __deliveryId: target.deliveryId,
     };
   }
 
@@ -284,24 +415,82 @@ export class IntelligenceAdapter implements PlatformAdapter {
   }
 
   async post(target: ReplyTarget, ir: BotNode[]): Promise<MessageRef> {
+    // Realtime path: stream a `post` render frame carrying the IR so the
+    // Connector Outbox renders full Block Kit (rich JSX preserved). Fallback
+    // (no render sink wired — e.g. in-memory tests): the egress op path.
+    if (this.renderSink) {
+      return this.postRenderFrame(target as ManagedReplyTarget, {
+        kind: "post",
+        content: ir,
+      });
+    }
     return this.emit(target as ManagedReplyTarget, { kind: "post", ir });
   }
 
   async update(ref: MessageRef, ir: BotNode[]): Promise<void> {
+    if (this.renderSink) {
+      await this.postRenderFrame(targetFromRef(ref), {
+        kind: "update",
+        ref: ref.id,
+        content: ir,
+      });
+      return;
+    }
     await this.emit(targetFromRef(ref), { kind: "update", ref: ref.id, ir });
+  }
+
+  async postFile(
+    target: ReplyTarget,
+    args: {
+      bytes: Uint8Array;
+      filename: string;
+      title?: string;
+      altText?: string;
+    },
+  ): Promise<{ ok: boolean; fileId?: string; error?: string }> {
+    const mt = target as ManagedReplyTarget;
+    const uploadFile = this.source?.uploadFile?.bind(this.source);
+    if (!uploadFile || !this.renderSink) {
+      return {
+        ok: false,
+        error: "managed adapter: outbound file upload is not available",
+      };
+    }
+    try {
+      // Stream bytes to app-api first (durable in S3), then emit a `file` frame
+      // referencing the handle; the Connector Outbox does the Slack uploadV2.
+      const { handle } = await uploadFile(mt.deliveryId, args);
+      await this.postRenderFrame(mt, {
+        kind: "file",
+        handle,
+        filename: args.filename,
+        ...(args.title ? { title: args.title } : {}),
+        ...(args.altText ? { altText: args.altText } : {}),
+      });
+      return { ok: true };
+    } catch (err) {
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
   }
 
   async stream(
     _target: ReplyTarget,
     chunks: AsyncIterable<string>,
   ): Promise<MessageRef> {
-    // Non-streaming surface: accumulate the full reply and emit one post op.
+    // Non-streaming surface: accumulate the full reply and emit one post.
     let acc = "";
     for await (const c of chunks) acc += c;
-    return this.emit(_target as ManagedReplyTarget, {
-      kind: "post",
-      ir: textNode(acc),
-    });
+    const target = _target as ManagedReplyTarget;
+    if (this.renderSink) {
+      return this.postRenderFrame(target, {
+        kind: "post",
+        content: textNode(acc),
+      });
+    }
+    return this.emit(target, { kind: "post", ir: textNode(acc) });
   }
 
   async delete(ref: MessageRef): Promise<void> {
@@ -317,16 +506,113 @@ export class IntelligenceAdapter implements PlatformAdapter {
     return undefined;
   }
 
+  /**
+   * The render transport the run renderer streams frames to. Uses the injected
+   * realtime {@link RenderEventSink} when present; otherwise translates frames
+   * back to `post` operations on the {@link EgressSink} so plain-text replies
+   * still flow on the HTTP-fallback path (no Connector Outbox required). The
+   * fallback accumulates text per message and posts on `text_end`, and flushes
+   * any un-ended text on `finalize` (the interrupt path) with the interrupted
+   * marker.
+   */
+  private renderSinkFor(t: ManagedReplyTarget): RenderEventSink {
+    if (this.renderSink) return this.renderSink;
+    const emit = (op: EgressOp) => this.emit(t, op);
+    const acc = new Map<string, string>();
+    const order: string[] = [];
+    let interrupted = false;
+    return {
+      push: async (frame: RenderFrame): Promise<RenderAccepted> => {
+        const e = frame.event;
+        if (e.kind === "text_delta") {
+          if (!acc.has(e.messageId)) order.push(e.messageId);
+          acc.set(e.messageId, (acc.get(e.messageId) ?? "") + e.delta);
+        } else if (e.kind === "text_end") {
+          const txt = acc.get(e.messageId) ?? "";
+          acc.delete(e.messageId);
+          const i = order.indexOf(e.messageId);
+          if (i >= 0) order.splice(i, 1);
+          if (txt.length > 0) await emit({ kind: "post", ir: textNode(txt) });
+        } else if (e.kind === "interrupt") {
+          interrupted = true;
+        } else if (e.kind === "post") {
+          await emit({ kind: "post", ir: e.content });
+        } else if (e.kind === "update") {
+          await emit({ kind: "update", ref: e.ref, ir: e.content });
+        } else if (e.kind === "finalize") {
+          // Flush any message that never received a text_end (interrupt path).
+          for (const id of order) {
+            const txt = acc.get(id) ?? "";
+            if (txt.length > 0) {
+              await emit({
+                kind: "post",
+                ir: textNode(interrupted ? txt + INTERRUPTED_SUFFIX : txt),
+              });
+            }
+          }
+          acc.clear();
+          order.length = 0;
+        }
+        // run_started / tool_start / tool_end / run_error: no provider-visible
+        // effect in the plain-text fallback (the Outbox renders those live).
+        return {
+          idempotencyKey: `${frame.turnId}:${frame.slot}:${frame.seq}`,
+          acceptance: "accepted",
+        };
+      },
+    };
+  }
+
   createRunRenderer(target: ReplyTarget): RunRenderer {
     const t = target as ManagedReplyTarget;
+    const sink = this.renderSinkFor(t);
     const interruptEventNames = new Set<string>(["on_interrupt"]);
-    const buffers = new Map<string, string>();
     const capturedToolCalls: CapturedToolCall[] = [];
     let pendingInterrupt: CapturedInterrupt | undefined;
     let aborted = false;
+    let runStarted = false;
 
-    const emitText = (text: string): Promise<MessageRef> =>
-      this.emit(t, { kind: "post", ir: textNode(text) });
+    // ponytail: serial promise chain — AG-UI does not guarantee it awaits
+    // subscriber callbacks in order, so `seq` is assigned synchronously at
+    // enqueue time (preserving event order) and frames are pushed one at a
+    // time, awaiting each durable-acceptance receipt before the next. `finish`/
+    // `markInterrupted` await the drained chain. A rejected push is recorded
+    // and surfaced at drain (so it nacks the delivery) without wedging the
+    // chain. Upgrade path: batch text_delta frames if per-token RTT matters.
+    let chain: Promise<void> = Promise.resolve();
+    let pushError: unknown;
+
+    const enqueue = (event: HostedBotRenderEvent): void => {
+      const frame: RenderFrame = {
+        deliveryId: t.deliveryId,
+        turnId: t.turnId,
+        slot: "main",
+        seq: this.nextFrameSeq(t.turnId),
+        event,
+      };
+      chain = chain.then(async () => {
+        if (pushError !== undefined) return;
+        try {
+          await sink.push(frame);
+        } catch (err) {
+          pushError = err;
+        }
+      });
+    };
+
+    const drain = async (): Promise<void> => {
+      await chain;
+      if (pushError !== undefined) {
+        const err = pushError;
+        throw err instanceof Error ? err : new Error(String(err));
+      }
+    };
+
+    const ensureRunStarted = (): void => {
+      if (runStarted) return;
+      runStarted = true;
+      enqueue({ kind: "run_started" });
+    };
 
     const captureToolCall = (
       toolCallId: string,
@@ -345,22 +631,32 @@ export class IntelligenceAdapter implements PlatformAdapter {
     };
 
     const subscriber: AgentSubscriber = {
-      onTextMessageStartEvent({ event }) {
-        if (aborted) return;
-        buffers.set(event.messageId, "");
-      },
       onTextMessageContentEvent({ event }) {
         if (aborted) return;
-        buffers.set(
-          event.messageId,
-          (buffers.get(event.messageId) ?? "") + (event.delta ?? ""),
-        );
+        ensureRunStarted();
+        // Skip empty deltas (e.g. the leading role-announcement chunk): they
+        // carry no content and violate the render contract's min-1 text
+        // constraint, which would reject the frame and abort the whole run.
+        const delta = event.delta ?? "";
+        if (delta.length === 0) return;
+        enqueue({
+          kind: "text_delta",
+          messageId: event.messageId,
+          delta,
+        });
       },
-      async onTextMessageEndEvent({ event }) {
+      onTextMessageEndEvent({ event }) {
         if (aborted) return;
-        const text = buffers.get(event.messageId) ?? "";
-        buffers.delete(event.messageId);
-        if (text.length > 0) await emitText(text);
+        enqueue({ kind: "text_end", messageId: event.messageId });
+      },
+      onToolCallStartEvent({ event }) {
+        if (aborted) return;
+        ensureRunStarted();
+        enqueue({
+          kind: "tool_start",
+          toolCallId: event.toolCallId,
+          toolName: event.toolCallName,
+        });
       },
       onToolCallArgsEvent({ event, toolCallName, partialToolCallArgs }) {
         if (aborted) return;
@@ -377,6 +673,18 @@ export class IntelligenceAdapter implements PlatformAdapter {
           toolCallName,
           (toolCallArgs ?? {}) as Record<string, unknown>,
         );
+        enqueue({
+          kind: "tool_end",
+          toolCallId: event.toolCallId,
+          toolName: toolCallName,
+        });
+      },
+      onRunErrorEvent({ event }) {
+        if (aborted) return;
+        enqueue({
+          kind: "run_error",
+          message: event.message ?? "unknown error",
+        });
       },
       onCustomEvent({ event }) {
         if (aborted) return;
@@ -401,16 +709,17 @@ export class IntelligenceAdapter implements PlatformAdapter {
       clearPendingInterrupt: () => {
         pendingInterrupt = undefined;
       },
+      async finish() {
+        if (aborted) return;
+        enqueue({ kind: "finalize" });
+        await drain();
+      },
       async markInterrupted() {
         if (aborted) return;
         aborted = true;
-        // Flush any partial text with an interrupted marker.
-        const tasks: Promise<MessageRef>[] = [];
-        for (const [id, buf] of Array.from(buffers.entries())) {
-          if (buf.length > 0) tasks.push(emitText(buf + INTERRUPTED_SUFFIX));
-          buffers.delete(id);
-        }
-        await Promise.all(tasks);
+        enqueue({ kind: "interrupt" });
+        enqueue({ kind: "finalize" });
+        await drain();
       },
     };
   }

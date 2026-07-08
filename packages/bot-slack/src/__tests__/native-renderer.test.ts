@@ -1,10 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
-import type { WebClient } from "@slack/web-api";
 import type { AnyChunk, KnownBlock } from "@slack/types";
 import { createRunRenderer } from "../event-renderer.js";
 import type { NativeStreamTransport } from "../native-stream.js";
+import type { SlackRenderTransport } from "../render/transport.js";
 
-/** Fake client exposing only the methods the renderer touches on the side channels. */
+/** Fake render transport for the non-native side channels (legacy/error posts). */
 function makeFakeClient() {
   const posts: {
     channel: string;
@@ -14,24 +14,23 @@ function makeFakeClient() {
   }[] = [];
   const updates: { channel: string; ts: string; text: string }[] = [];
   let counter = 0;
-  const chat = {
+  const transport: SlackRenderTransport = {
+    setStatus: vi.fn(async () => {}),
     postMessage: vi.fn(
       async (args: { channel: string; thread_ts?: string; text: string }) => {
         counter++;
         const ts = `${counter}.000`;
         posts.push({ ...args, ts });
-        return { ok: true, ts };
+        return { ts };
       },
     ),
-    update: vi.fn(
+    updateMessage: vi.fn(
       async (args: { channel: string; ts: string; text: string }) => {
         updates.push(args);
-        return { ok: true };
       },
     ),
-    delete: vi.fn(async () => ({ ok: true })),
   };
-  return { client: { chat } as unknown as WebClient, posts, updates };
+  return { transport, posts, updates };
 }
 
 type Event =
@@ -96,7 +95,7 @@ describe("createRunRenderer — native streaming", () => {
     const fake = makeFakeClient();
     const nt = makeFakeNativeTransport();
     const { subscriber: sub, finish } = createRunRenderer({
-      client: fake.client,
+      transport: fake.transport,
       target: { channel: "C1", threadTs: "100.0" },
       nativeStreaming: { transport: nt.transport },
     });
@@ -123,7 +122,7 @@ describe("createRunRenderer — native streaming", () => {
     const fake = makeFakeClient();
     const nt = makeFakeNativeTransport();
     const { subscriber: sub, finish } = createRunRenderer({
-      client: fake.client,
+      transport: fake.transport,
       target: { channel: "C1", threadTs: "100.0" },
       nativeStreaming: { transport: nt.transport },
     });
@@ -166,7 +165,7 @@ describe("createRunRenderer — native streaming", () => {
     const fake = makeFakeClient();
     const nt = makeFakeNativeTransport();
     const { subscriber: sub, finish } = createRunRenderer({
-      client: fake.client,
+      transport: fake.transport,
       target: { channel: "C1", threadTs: "100.0" },
       nativeStreaming: { transport: nt.transport },
       showToolStatus: false,
@@ -201,7 +200,7 @@ describe("createRunRenderer — native streaming", () => {
     // (a) with text → feedback attached.
     const withText = makeFakeNativeTransport();
     const r1 = createRunRenderer({
-      client: makeFakeClient().client,
+      transport: makeFakeClient().transport,
       target: { channel: "C1", threadTs: "100.0" },
       nativeStreaming: { transport: withText.transport },
       feedbackBlocks: blocks,
@@ -215,7 +214,7 @@ describe("createRunRenderer — native streaming", () => {
     // (b) no text (tool-only run) → no stream, nothing to attach.
     const noText = makeFakeNativeTransport();
     const r2 = createRunRenderer({
-      client: makeFakeClient().client,
+      transport: makeFakeClient().transport,
       target: { channel: "C1", threadTs: "100.0" },
       nativeStreaming: { transport: noText.transport },
       feedbackBlocks: blocks,
@@ -229,7 +228,7 @@ describe("createRunRenderer — native streaming", () => {
     const nt = makeFakeNativeTransport({ failChunks: true });
     const onChunkFailure = vi.fn();
     const { subscriber: sub, finish } = createRunRenderer({
-      client: fake.client,
+      transport: fake.transport,
       target: { channel: "C1", threadTs: "100.0" },
       nativeStreaming: { transport: nt.transport, onChunkFailure },
     });
@@ -256,7 +255,7 @@ describe("createRunRenderer — native streaming", () => {
       { type: "context_actions", elements: [] } as unknown as KnownBlock,
     ];
     const { subscriber: sub, markInterrupted } = createRunRenderer({
-      client: makeFakeClient().client,
+      transport: makeFakeClient().transport,
       target: { channel: "C1", threadTs: "100.0" },
       nativeStreaming: { transport: nt.transport },
       feedbackBlocks: blocks,
@@ -273,7 +272,7 @@ describe("createRunRenderer — native streaming", () => {
     const fake = makeFakeClient();
     const nt = makeFakeNativeTransport();
     const { subscriber: sub, markInterrupted } = createRunRenderer({
-      client: fake.client,
+      transport: fake.transport,
       target: { channel: "C1", threadTs: "100.0" },
       nativeStreaming: { transport: nt.transport },
     });

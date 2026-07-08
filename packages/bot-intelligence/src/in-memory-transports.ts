@@ -1,8 +1,14 @@
-import type { DeliverySource, EgressSink } from "./transports.js";
+import type {
+  DeliverySource,
+  EgressSink,
+  RenderEventSink,
+} from "./transports.js";
 import type {
   ManagedIngressEnvelope,
   EgressOperation,
   EgressResult,
+  RenderFrame,
+  RenderAccepted,
 } from "./contracts.js";
 
 /**
@@ -19,6 +25,27 @@ export class InMemoryEgressSink implements EgressSink {
 }
 
 /**
+ * In-memory {@link RenderEventSink} that records every pushed frame in order and
+ * returns an `accepted` receipt (with a deterministic `egressOperationId` on
+ * `finalize`). Used to assert render-frame ordering / idempotency keys in tests;
+ * the production sink is the Realtime Gateway client.
+ */
+export class InMemoryRenderEventSink implements RenderEventSink {
+  readonly frames: RenderFrame[] = [];
+  async push(frame: RenderFrame): Promise<RenderAccepted> {
+    this.frames.push(frame);
+    const idempotencyKey = `${frame.turnId}:${frame.slot}:${frame.seq}`;
+    return {
+      idempotencyKey,
+      acceptance: "accepted",
+      ...(frame.event.kind === "finalize"
+        ? { egressOperationId: `eop_${frame.turnId}_${frame.seq}` }
+        : {}),
+    };
+  }
+}
+
+/**
  * In-memory {@link DeliverySource} driven by the test/caller via {@link deliver}.
  * Records ack/nack so tests can assert at-least-once semantics. The production
  * source is the Realtime Gateway client.
@@ -26,6 +53,8 @@ export class InMemoryEgressSink implements EgressSink {
 export class InMemoryDeliverySource implements DeliverySource {
   readonly acked: string[] = [];
   readonly nacked: { deliveryId: string; reason: string }[] = [];
+  /** Seed by handle so a turn's file refs hydrate into content parts. */
+  readonly files = new Map<string, { bytes: Uint8Array; mimeType?: string }>();
   private onDelivery?: (env: ManagedIngressEnvelope) => Promise<void>;
 
   async start(
@@ -52,6 +81,13 @@ export class InMemoryDeliverySource implements DeliverySource {
   }
   async nack(deliveryId: string, reason: string): Promise<void> {
     this.nacked.push({ deliveryId, reason });
+  }
+  async fetchFile(
+    handle: string,
+  ): Promise<{ bytes: Uint8Array; mimeType?: string }> {
+    const f = this.files.get(handle);
+    if (!f) throw new Error(`InMemoryDeliverySource: no file for ${handle}`);
+    return f;
   }
   async stop(): Promise<void> {}
 }

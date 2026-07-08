@@ -84,6 +84,7 @@ export { slack, SlackAdapter } from "./adapter.js";
 export type { SlackAdapterOptions } from "./adapter.js";
 
 export { createRunRenderer } from "./event-renderer.js";
+export type { SlackRenderTransport } from "./render/transport.js";
 
 export { decodeInteraction, conversationKeyOf } from "./interaction.js";
 
@@ -93,4 +94,5 @@ export {
   buildFeedbackBlocks,
   FEEDBACK_ACTION_ID,
 } from "./render/block-kit.js";
+export { renderSlackModal } from "./render/modal.js";
 export { SLACK_LIMITS } from "./render/budget.js";

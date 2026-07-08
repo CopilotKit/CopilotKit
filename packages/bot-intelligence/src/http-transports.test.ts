@@ -4,6 +4,7 @@ import type { BotNode } from "@copilotkit/bot-ui";
 import {
   HttpDeliverySource,
   HttpEgressSink,
+  HttpRenderEventSink,
   resolveTransportConfig,
 } from "./http-transports.js";
 import type {
@@ -65,6 +66,8 @@ const text = (value: string): BotNode =>
 const claimedDelivery = (over?: Record<string, unknown>) => ({
   id: "dlv_9",
   attempt: 1,
+  organizationId: "org_1",
+  projectId: 7,
   bot: { id: "bot_1", name: "opentagbot" },
   adapter: "slack",
   leaseToken: "lease_z",
@@ -247,6 +250,93 @@ describe("HttpDeliverySource", () => {
       message: "boom",
       retryable: true,
     });
+  });
+
+  it("times out a hung turn, nacks it, and keeps the loop alive", async () => {
+    const { fetch, calls } = fakeFetch((c) =>
+      c.url.endsWith("/claim")
+        ? { body: { claimed: true, delivery: claimedDelivery() } }
+        : { body: { failed: true, status: "retry_wait" } },
+    );
+    const src = new HttpDeliverySource(cfg({ fetch, turnTimeoutMs: 20 }));
+    let started = 0;
+    // A turn that never resolves (e.g. a HITL approval that never arrives) must
+    // not wedge the single-delivery loop: it times out, gets nacked, loop continues.
+    await src.start(async () => {
+      started += 1;
+      await new Promise<void>(() => {});
+    });
+    await new Promise((r) => setTimeout(r, 80));
+    await src.stop();
+
+    expect(started).toBeGreaterThanOrEqual(1);
+    const fail = calls.find((c) => c.url.includes("/deliveries/dlv_9/fail"));
+    expect(fail).toBeDefined();
+    expect(fail!.body["error"]).toMatchObject({ code: "runtime_error" });
+  });
+});
+
+describe("HttpRenderEventSink", () => {
+  it("streams a render frame to the accept route with echoed scope (no deliveryId in body)", async () => {
+    const { fetch, calls } = fakeFetch((c) =>
+      c.url.endsWith("/claim")
+        ? { body: { claimed: true, delivery: claimedDelivery() } }
+        : {
+            body: {
+              idempotencyKey: "turn_9:main:0",
+              acceptance: "accepted",
+            },
+          },
+    );
+    const conf = cfg({ fetch });
+    const src = new HttpDeliverySource(conf);
+    await src.claimOnce(); // populates per-delivery scope
+    const sink = new HttpRenderEventSink(conf, src);
+
+    const receipt = await sink.push({
+      deliveryId: "dlv_9",
+      turnId: "turn_9",
+      slot: "main",
+      seq: 0,
+      event: { kind: "text_delta", messageId: "m1", delta: "hi" },
+    });
+
+    expect(receipt).toEqual({
+      idempotencyKey: "turn_9:main:0",
+      acceptance: "accepted",
+    });
+    const accept = calls.find((c) =>
+      c.url.endsWith("/deliveries/dlv_9/render-events/accept"),
+    )!;
+    expect(accept.body).toMatchObject({
+      organizationId: "org_1",
+      projectId: 7,
+      botId: "bot_1",
+      botName: "opentagbot",
+      turnId: "turn_9",
+      runtimeInstanceId: "rti_test",
+      slot: "main",
+      seq: 0,
+      idempotencyKey: "turn_9:main:0",
+      event: { kind: "text_delta", messageId: "m1", delta: "hi" },
+    });
+    // The accept route rejects a body that also carries deliveryId.
+    expect("deliveryId" in accept.body).toBe(false);
+  });
+
+  it("throws when no leased scope exists for the delivery", async () => {
+    const { fetch } = fakeFetch(() => ({ body: {} }));
+    const src = new HttpDeliverySource(cfg({ fetch }));
+    const sink = new HttpRenderEventSink(cfg({ fetch }), src);
+    await expect(
+      sink.push({
+        deliveryId: "dlv_unknown",
+        turnId: "turn_9",
+        slot: "main",
+        seq: 0,
+        event: { kind: "run_started" },
+      }),
+    ).rejects.toThrow(/no leased scope/);
   });
 });
 

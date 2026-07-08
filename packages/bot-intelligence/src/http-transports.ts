@@ -1,9 +1,16 @@
 import { randomUUID } from "node:crypto";
-import type { DeliverySource, EgressSink } from "./transports.js";
+import type {
+  DeliverySource,
+  EgressSink,
+  RenderEventSink,
+} from "./transports.js";
 import type {
   ManagedIngressEnvelope,
+  ManagedFileRef,
   EgressOperation,
   EgressResult,
+  RenderFrame,
+  RenderAccepted,
 } from "./contracts.js";
 import { irToText } from "./ir-to-text.js";
 
@@ -47,6 +54,13 @@ export interface IntelligenceTransportConfig {
   sleep?: (ms: number) => Promise<void>;
   /** Optional logger for loop/transport diagnostics. */
   log?: (msg: string, meta?: unknown) => void;
+  /**
+   * Max wall-clock a single turn may take before the listener gives up on it,
+   * `nack`s the delivery, and moves on (default 120000). Prevents a hung turn
+   * (e.g. a HITL approval that never arrives, or a half-open stream) from
+   * wedging the single-delivery-at-a-time loop indefinitely.
+   */
+  turnTimeoutMs?: number;
 }
 
 /**
@@ -93,11 +107,40 @@ export function resolveTransportConfig(
     heartbeatIntervalMs: overrides.heartbeatIntervalMs,
     sleep: overrides.sleep,
     log: overrides.log,
+    turnTimeoutMs: overrides.turnTimeoutMs,
   };
 }
 
 const defaultSleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Default per-turn deadline before a hung turn is nacked and skipped. */
+const DEFAULT_TURN_TIMEOUT_MS = 120_000;
+
+/**
+ * Reject after `ms` if `p` hasn't settled, so a hung turn can't wedge the
+ * single-delivery loop. The underlying promise keeps running in the background
+ * (harmless — a rejection handler is attached), but the loop moves on.
+ */
+function withTimeout<T>(
+  p: Promise<T>,
+  ms: number,
+  message: string,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), ms);
+    p.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
 
 /** Slack reply target Intelligence mints at ingress and the sink echoes back. */
 interface SlackReplyTarget {
@@ -110,6 +153,8 @@ interface SlackReplyTarget {
 /** Successful `claim` delivery envelope (subset the bridge reads). */
 interface ClaimedDelivery {
   id: string;
+  organizationId: string;
+  projectId: number;
   bot: { id: string; name: string };
   adapter: string;
   leaseToken: string;
@@ -117,8 +162,16 @@ interface ClaimedDelivery {
     id: string;
     eventId: string;
     replyTarget: SlackReplyTarget;
-    input?: { kind: string; text: string };
+    input?: { kind: string; text: string; files?: ManagedFileRef[] };
   };
+}
+
+/** Per-delivery org/project/bot scope, echoed onto render frames. */
+export interface DeliveryScope {
+  organizationId: string;
+  projectId: number;
+  botId: string;
+  botName: string;
 }
 
 type ClaimResponse =
@@ -181,12 +234,14 @@ function mapDeliveryToEnvelope(d: ClaimedDelivery): ManagedIngressEnvelope {
     conversationKey: conversationKeyFromReplyTarget(d.turn.replyTarget),
     route: d.turn.replyTarget,
     text: d.turn.input?.text ?? "",
+    ...(d.turn.input?.files?.length ? { files: d.turn.input.files } : {}),
   };
 }
 
 interface LeaseRecord {
   turnId: string;
   leaseToken: string;
+  scope: DeliveryScope;
 }
 
 /**
@@ -235,8 +290,19 @@ export class HttpDeliverySource implements DeliverySource {
     this.leases.set(res.delivery.id, {
       turnId: res.delivery.turn.id,
       leaseToken: res.delivery.leaseToken,
+      scope: {
+        organizationId: res.delivery.organizationId,
+        projectId: res.delivery.projectId,
+        botId: res.delivery.bot.id,
+        botName: res.delivery.bot.name,
+      },
     });
     return { env: mapDeliveryToEnvelope(res.delivery) };
+  }
+
+  /** The org/project/bot scope for a leased delivery, for render-frame egress. */
+  scopeFor(deliveryId: string): DeliveryScope | undefined {
+    return this.leases.get(deliveryId)?.scope;
   }
 
   async start(
@@ -259,7 +325,29 @@ export class HttpDeliverySource implements DeliverySource {
         if ("env" in r) {
           // The adapter dispatches the turn and calls back into ack/nack
           // before this resolves — at-least-once, one delivery at a time.
-          await onDelivery(r.env);
+          // Bound it: a turn that throws or hangs must not wedge the loop, so
+          // we time it out, `nack` to release the lease immediately (app-api
+          // then retries / dead-letters at max_attempts), and keep polling.
+          const env = r.env;
+          const timeoutMs = this.cfg.turnTimeoutMs ?? DEFAULT_TURN_TIMEOUT_MS;
+          try {
+            await withTimeout(
+              onDelivery(env),
+              timeoutMs,
+              `turn ${env.turnId} exceeded ${timeoutMs}ms`,
+            );
+          } catch (turnErr) {
+            this.cfg.log?.("intelligence turn failed/timed out", turnErr);
+            await this.nack(
+              env.deliveryId,
+              turnErr instanceof Error ? turnErr.message : String(turnErr),
+            ).catch((nackErr) =>
+              this.cfg.log?.(
+                "intelligence nack after turn failure failed",
+                nackErr,
+              ),
+            );
+          }
         } else {
           await this.sleep(Math.min(r.pollAfterMs || 1000, cadence));
         }
@@ -309,6 +397,83 @@ export class HttpDeliverySource implements DeliverySource {
       },
     );
     this.leases.delete(deliveryId);
+  }
+
+  /**
+   * Download an inbound file's raw bytes by handle from app-api's file-serve
+   * route. Bypasses {@link IntelligenceHttp} on purpose — that helper is
+   * JSON/POST-only and decodes bodies as text, which corrupts binary; the
+   * global `fetch` gives us `arrayBuffer()`. Auth is the same runtime bearer.
+   */
+  async fetchFile(
+    handle: string,
+  ): Promise<{ bytes: Uint8Array; mimeType?: string }> {
+    const gfetch = (globalThis as unknown as { fetch?: typeof fetch }).fetch;
+    if (!gfetch) {
+      throw new Error(
+        "intelligenceAdapter: no global fetch available for file download",
+      );
+    }
+    const url = `${this.cfg.baseUrl}/api/bots/files/${encodeURIComponent(handle)}`;
+    const res = await gfetch(url, {
+      method: "GET",
+      headers: { authorization: `Bearer ${this.cfg.apiKey}` },
+    });
+    if (!res.ok) {
+      throw new Error(`intelligence file ${handle} -> ${res.status}`);
+    }
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    const mimeType = res.headers.get("content-type") ?? undefined;
+    return { bytes, mimeType };
+  }
+
+  /**
+   * Stream an outbound file's bytes to app-api's per-delivery upload route
+   * (lease-scoped) ahead of a `file` render frame. Returns the storage handle
+   * the frame references. Bytes go as the raw request body; display metadata
+   * rides query params.
+   */
+  async uploadFile(
+    deliveryId: string,
+    args: {
+      bytes: Uint8Array;
+      filename: string;
+      title?: string;
+      altText?: string;
+    },
+  ): Promise<{ handle: string }> {
+    const gfetch = (globalThis as unknown as { fetch?: typeof fetch }).fetch;
+    if (!gfetch) {
+      throw new Error(
+        "intelligenceAdapter: no global fetch available for file upload",
+      );
+    }
+    const qs = new URLSearchParams({ filename: args.filename });
+    if (args.title) qs.set("title", args.title);
+    if (args.altText) qs.set("altText", args.altText);
+    const url = `${this.cfg.baseUrl}/api/bots/deliveries/${encodeURIComponent(
+      deliveryId,
+    )}/files?${qs.toString()}`;
+    const res = await gfetch(url, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${this.cfg.apiKey}`,
+        "content-type": "application/octet-stream",
+      },
+      // The runtime (undici) sends the Uint8Array bytes verbatim; the static
+      // `fetch` body type differs across this package's dom vs node-only lib
+      // configs, so bridge with a portable cast (`string` is a valid body in
+      // both). The value is never actually a string at runtime.
+      body: args.bytes as unknown as string,
+    });
+    if (!res.ok) {
+      throw new Error(`intelligence file upload -> ${res.status}`);
+    }
+    const json = (await res.json()) as { handle?: string };
+    if (!json.handle) {
+      throw new Error("intelligence file upload: response missing handle");
+    }
+    return { handle: json.handle };
   }
 
   async stop(): Promise<void> {
@@ -361,5 +526,71 @@ export class HttpEgressSink implements EgressSink {
         code: err instanceof Error ? err.message : "egress_error",
       };
     }
+  }
+}
+
+/** Durable render-acceptance receipt (subset the sink reads). */
+interface RenderAcceptedResponse {
+  idempotencyKey?: string;
+  acceptance?: RenderAccepted["acceptance"];
+  egressOperationId?: string;
+}
+
+/**
+ * @internal {@link RenderEventSink} that streams semantic render frames to
+ * Intelligence's durable render-acceptance route
+ * (`/api/bots/deliveries/:id/render-events/accept`). This is the HTTP-path
+ * equivalent of the realtime {@link PhoenixRealtimeTransport}: each frame is
+ * POSTed and the durable acceptance receipt is awaited before the next. The
+ * gateway-side Connector Outbox then renders the accepted frames to Slack, so
+ * this path reaches full reply-UX parity without a running realtime gateway.
+ *
+ * Per-delivery org/project/bot scope is read from the {@link HttpDeliverySource}
+ * that leased the delivery (populated at claim). The `deliveryId` travels in the
+ * URL only — the accept route rejects a body that also carries it.
+ */
+export class HttpRenderEventSink implements RenderEventSink {
+  private readonly http: IntelligenceHttp;
+
+  constructor(
+    private readonly cfg: IntelligenceTransportConfig,
+    private readonly scopeSource: {
+      scopeFor(deliveryId: string): DeliveryScope | undefined;
+    },
+  ) {
+    this.http = new IntelligenceHttp(cfg);
+  }
+
+  async push(frame: RenderFrame): Promise<RenderAccepted> {
+    const scope = this.scopeSource.scopeFor(frame.deliveryId);
+    if (!scope) {
+      throw new Error(
+        `intelligenceAdapter: no leased scope for delivery ${frame.deliveryId}`,
+      );
+    }
+    const idempotencyKey = `${frame.turnId}:${frame.slot}:${frame.seq}`;
+    const res = await this.http.post<RenderAcceptedResponse>(
+      `/api/bots/deliveries/${encodeURIComponent(frame.deliveryId)}/render-events/accept`,
+      {
+        organizationId: scope.organizationId,
+        projectId: scope.projectId,
+        botId: scope.botId,
+        botName: scope.botName,
+        turnId: frame.turnId,
+        runtimeInstanceId: this.cfg.runtimeInstanceId,
+        slot: frame.slot,
+        seq: frame.seq,
+        idempotencyKey,
+        event: frame.event,
+        sentAt: new Date().toISOString(),
+      },
+    );
+    return {
+      idempotencyKey: res.idempotencyKey ?? idempotencyKey,
+      acceptance: res.acceptance ?? "accepted",
+      ...(res.egressOperationId
+        ? { egressOperationId: res.egressOperationId }
+        : {}),
+    };
   }
 }
