@@ -1,10 +1,9 @@
 "use client";
 
-import { CopilotKit } from "@copilotkit/react-core/v2";
 import { VoiceChat } from "./voice-chat";
 
 // @region[voice-page]
-import { CopilotChat } from "@copilotkit/react-core/v2";
+import { CopilotChat, CopilotKit } from "@copilotkit/react-core/v2";
 
 export function VoicePage() {
   return (
