@@ -117,7 +117,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                             ]
 
                             for step in steps:
-                                self.state["observed_steps"] = self.state.get("observed_steps", []) + [step]
+                                state["observed_steps"] = state.get("observed_steps", []) + [step]
                                 await copilotkit_emit_state(config, state) # [!code highlight]
                                 await asyncio.sleep(1)
 
@@ -171,7 +171,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
 
                         # Define a step progress tool for the llm to report the steps
                         @tool
-                        def step_progress_tool(steps: list[str])
+                        def step_progress_tool(steps: list[str]):
                             """Reads and reports steps"""
 
                         async def frontend_actions_node(state: AgentState, config: RunnableConfig):
