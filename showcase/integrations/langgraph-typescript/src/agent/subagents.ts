@@ -133,37 +133,6 @@ async function invokeSubAgent(
 }
 // @endregion[subagent-setup]
 
-// Showcase-specific wrapper: uses makeChatOpenAI for aimock header forwarding.
-// The invokeSubAgent above (inside the region) uses the public ChatOpenAI API for docs.
-async function invokeSubAgentWithHeaders(
-  agent: SubAgentName,
-  task: string,
-  config?: RunnableConfig,
-): Promise<string> {
-  const subModel = makeChatOpenAI(config, {
-    temperature: 0,
-    model: "gpt-4o-mini",
-  });
-  const result = await subModel.invoke([
-    new SystemMessage({ content: SUB_AGENT_PROMPTS[agent] }),
-    new HumanMessage({ content: task }),
-  ]);
-  const content = (result as AIMessage).content;
-  if (typeof content === "string") return content;
-  if (Array.isArray(content)) {
-    return content
-      .map((part) =>
-        typeof part === "string"
-          ? part
-          : "text" in (part as Record<string, unknown>)
-            ? String((part as { text?: unknown }).text ?? "")
-            : "",
-      )
-      .join("");
-  }
-  return String(content ?? "");
-}
-
 // ---------------------------------------------------------------------------
 // 3. Helper — emit a single delegation entry plus a ToolMessage.
 //
@@ -215,7 +184,7 @@ async function runSubAgentSafely(
   config?: RunnableConfig,
 ): Promise<{ ok: true; result: string } | { ok: false; result: string }> {
   try {
-    const result = await invokeSubAgentWithHeaders(agent, task, config);
+    const result = await invokeSubAgent(agent, task, config);
     return { ok: true, result };
   } catch (err) {
     const errName = err instanceof Error ? err.constructor.name : typeof err;
@@ -332,7 +301,159 @@ const critiqueAgentTool = tool(
 );
 // @endregion[supervisor-delegation-tools]
 
-const tools = [researchAgentTool, writingAgentTool, critiqueAgentTool];
+// ---------------------------------------------------------------------------
+// Showcase-specific wrappers for aimock header forwarding.
+// ---------------------------------------------------------------------------
+
+// Showcase-specific wrapper: uses makeChatOpenAI for aimock header forwarding.
+// The invokeSubAgent above (inside the region) uses the public ChatOpenAI API for docs.
+async function invokeSubAgentWithHeaders(
+  agent: SubAgentName,
+  task: string,
+  config?: RunnableConfig,
+): Promise<string> {
+  const subModel = makeChatOpenAI(config, {
+    temperature: 0,
+    model: "gpt-4o-mini",
+  });
+  const result = await subModel.invoke([
+    new SystemMessage({ content: SUB_AGENT_PROMPTS[agent] }),
+    new HumanMessage({ content: task }),
+  ]);
+  const content = (result as AIMessage).content;
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((part) =>
+        typeof part === "string"
+          ? part
+          : "text" in (part as Record<string, unknown>)
+            ? String((part as { text?: unknown }).text ?? "")
+            : "",
+      )
+      .join("");
+  }
+  return String(content ?? "");
+}
+
+// Showcase-specific wrapper for runSubAgentSafely that uses makeChatOpenAI.
+async function runSubAgentSafelyWithHeaders(
+  agent: SubAgentName,
+  task: string,
+  config?: RunnableConfig,
+): Promise<{ ok: true; result: string } | { ok: false; result: string }> {
+  try {
+    const result = await invokeSubAgentWithHeaders(agent, task, config);
+    return { ok: true, result };
+  } catch (err) {
+    const errName = err instanceof Error ? err.constructor.name : typeof err;
+    console.error(`[subagents] ${agent} sub-agent invocation failed:`, err);
+    return {
+      ok: false,
+      result: `sub-agent call failed: ${errName} (see server logs)`,
+    };
+  }
+}
+
+// Showcase-specific tool wrappers that use makeChatOpenAI for aimock testing.
+const researchAgentToolWithHeaders = tool(
+  async ({ task }, config: ToolRunnableConfig) => {
+    const toolCallId = requireToolCallId(config, "research_agent");
+    const outcome = await runSubAgentSafelyWithHeaders(
+      "research_agent",
+      task,
+      config,
+    );
+    return delegationUpdate(
+      "research_agent",
+      task,
+      outcome.result,
+      toolCallId,
+      outcome.ok ? "completed" : "failed",
+    );
+  },
+  {
+    name: "research_agent",
+    description:
+      "Delegate a research task to the research sub-agent. " +
+      "Use for: gathering facts, background, definitions, statistics. " +
+      "Returns a bulleted list of key facts.",
+    schema: z.object({
+      task: z
+        .string()
+        .describe("The research question or topic to investigate."),
+    }),
+  },
+);
+
+const writingAgentToolWithHeaders = tool(
+  async ({ task }, config: ToolRunnableConfig) => {
+    const toolCallId = requireToolCallId(config, "writing_agent");
+    const outcome = await runSubAgentSafelyWithHeaders(
+      "writing_agent",
+      task,
+      config,
+    );
+    return delegationUpdate(
+      "writing_agent",
+      task,
+      outcome.result,
+      toolCallId,
+      outcome.ok ? "completed" : "failed",
+    );
+  },
+  {
+    name: "writing_agent",
+    description:
+      "Delegate a drafting task to the writing sub-agent. " +
+      "Use for: producing a polished paragraph, draft, or summary. Pass " +
+      "relevant facts from prior research inside `task`.",
+    schema: z.object({
+      task: z
+        .string()
+        .describe(
+          "Brief + optional source facts. The sub-agent returns a 1-paragraph draft.",
+        ),
+    }),
+  },
+);
+
+const critiqueAgentToolWithHeaders = tool(
+  async ({ task }, config: ToolRunnableConfig) => {
+    const toolCallId = requireToolCallId(config, "critique_agent");
+    const outcome = await runSubAgentSafelyWithHeaders(
+      "critique_agent",
+      task,
+      config,
+    );
+    return delegationUpdate(
+      "critique_agent",
+      task,
+      outcome.result,
+      toolCallId,
+      outcome.ok ? "completed" : "failed",
+    );
+  },
+  {
+    name: "critique_agent",
+    description:
+      "Delegate a critique task to the critique sub-agent. " +
+      "Use for: reviewing a draft and suggesting concrete improvements.",
+    schema: z.object({
+      task: z
+        .string()
+        .describe(
+          "The draft to critique. The sub-agent returns 2-3 critiques.",
+        ),
+    }),
+  },
+);
+
+const tools = [
+  researchAgentToolWithHeaders,
+  writingAgentToolWithHeaders,
+  critiqueAgentToolWithHeaders,
+];
 
 // ---------------------------------------------------------------------------
 // 5. Supervisor chat node.
