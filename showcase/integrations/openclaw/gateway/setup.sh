@@ -32,7 +32,7 @@ openclaw config patch --stdin >/dev/null <<JSON
 {
   gateway: { auth: { mode: "token", token: "$TOKEN" }, port: $PORT, bind: "loopback" },
   agents: { defaults: { reasoningDefault: "stream", skipBootstrap: true } },
-  tools: { alsoAllow: ["query_data", "get_weather", "search_flights", "get_stock_price", "roll_d20", "get_revenue_chart"] }
+  tools: { alsoAllow: ["query_data", "get_weather", "search_flights", "get_stock_price", "roll_d20", "get_revenue_chart", "display_flight"] }
 }
 JSON
 

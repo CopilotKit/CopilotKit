@@ -26,8 +26,16 @@ const a2uiFixedSchemaAgent = createGatewayAgent();
 const runtime = new CopilotRuntime({
   // @ts-ignore -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
   agents: { "a2ui-fixed-schema": a2uiFixedSchemaAgent },
-  // injectA2UITool defaults to true — the model gets `render_a2ui` and renders
-  // into the frontend's fixed catalog.
+  a2ui: {
+    // The OpenClaw backend now owns `display_flight` (in the showcase-tools
+    // plugin), which emits its own `a2ui_operations` container -- the
+    // fleet-standard pattern (matches langgraph-python). We still run the A2UI
+    // middleware so it detects the container in the tool result and forwards
+    // the surface to the frontend catalog, but we do NOT inject a runtime
+    // `render_a2ui` tool: that injection is not forwarded through the
+    // pass-through HttpAgent to the gateway, so it never reached the model.
+    injectA2UITool: false,
+  },
 });
 
 export const POST = async (req: NextRequest) => {

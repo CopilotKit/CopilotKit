@@ -73,6 +73,47 @@ const revenueChartData = () => ({
   ],
 });
 
+// ---------------------------------------------------------------------------
+// Fixed-schema A2UI: the backend tool owns the component tree + emits the
+// `a2ui_operations` envelope (mirrors langgraph-python's `display_flight` /
+// `a2ui.render`). This is the fleet-standard A2UI pattern -- the tool lives in
+// the backend so it does NOT depend on the runtime middleware injecting
+// `render_a2ui` (which is not forwarded through the pass-through gateway).
+// Catalog + surface ids must match src/app/demos/a2ui-fixed-schema/a2ui/catalog.ts.
+// ---------------------------------------------------------------------------
+const A2UI_CATALOG_ID = "copilotkit://flight-fixed-catalog";
+const A2UI_FLIGHT_SURFACE = "flight-fixed-schema";
+const FLIGHT_SCHEMA = [
+  { id: "root", component: "Card", child: "content" },
+  { id: "content", component: "Column", children: ["title", "route", "meta", "bookButton"] },
+  { id: "title", component: "Title", text: "Flight Details" },
+  { id: "route", component: "Row", justify: "spaceBetween", align: "center", children: ["from", "arrow", "to"] },
+  { id: "from", component: "Airport", code: { path: "/origin" } },
+  { id: "arrow", component: "Arrow" },
+  { id: "to", component: "Airport", code: { path: "/destination" } },
+  { id: "meta", component: "Row", justify: "spaceBetween", align: "center", children: ["airline", "price"] },
+  { id: "airline", component: "AirlineBadge", name: { path: "/airline" } },
+  { id: "price", component: "PriceTag", amount: { path: "/price" } },
+  { id: "bookButton", component: "Button", variant: "primary", child: "bookButtonLabel",
+    action: { event: { name: "book_flight", context: {
+      origin: { path: "/origin" }, destination: { path: "/destination" },
+      airline: { path: "/airline" }, price: { path: "/price" } } } } },
+  { id: "bookButtonLabel", component: "Text", text: "Book flight" },
+];
+
+// Returns the a2ui_operations envelope (as a JSON string, like langgraph's
+// a2ui.render -> wrapAsOperationsEnvelope). The runtime's A2UI middleware
+// detects `a2ui_operations` in the tool result and forwards the ops to the
+// frontend renderer, which paints them via the fixed catalog.
+const displayFlightEnvelope = (origin, destination, airline, price) =>
+  JSON.stringify({
+    a2ui_operations: [
+      { version: "v0.9", createSurface: { surfaceId: A2UI_FLIGHT_SURFACE, catalogId: A2UI_CATALOG_ID } },
+      { version: "v0.9", updateComponents: { surfaceId: A2UI_FLIGHT_SURFACE, components: FLIGHT_SCHEMA } },
+      { version: "v0.9", updateDataModel: { surfaceId: A2UI_FLIGHT_SURFACE, path: "/", value: { origin, destination, airline, price } } },
+    ],
+  });
+
 export default defineToolPlugin({
   id: "showcase-tools",
   name: "Showcase Demo Tools",
@@ -152,6 +193,24 @@ export default defineToolPlugin({
       // Returns the full ledger (like langgraph's query_data); the model
       // aggregates the rows into the pie/bar chart it renders.
       execute: async () => financialLedger,
+    }),
+    tool({
+      name: "display_flight",
+      description:
+        "Render a flight card. After this returns, the flight card is already " +
+        "rendered to the user via the A2UI surface; do NOT call it again.",
+      parameters: {
+        type: "object",
+        properties: {
+          origin: { type: "string" },
+          destination: { type: "string" },
+          airline: { type: "string" },
+          price: { type: "string" },
+        },
+        required: ["origin", "destination", "airline", "price"],
+        additionalProperties: false,
+      },
+      execute: async (p) => displayFlightEnvelope(p.origin, p.destination, p.airline, p.price),
     }),
   ],
 });

@@ -31,13 +31,6 @@ not_supported_features:
   - gen-ui-tool-based
   # Async query_notes frontend tool: the notes card and sequential multi-turn card sequence depend on the client-tool result rendering inline; OpenClaw's fire-and-forget client-tool round-trip does not reproduce the inline card/sequence.
   - frontend-tools-async
-  # Fixed-schema A2UI: a backend display_flight tool emits an a2ui_operations
-  # container -> flight card. Same backend-tool path as tool-rendering, so it very
-  # likely hits the same tool-call loop (turnIndex/hasToolResult not advancing
-  # under the Responses API); the flight card is not asserted-visible. Not
-  # separately measured at the event level -- confirm against the tool-rendering
-  # root cause above.
-  - a2ui-fixed-schema
   # Dedicated auth runtime route (/api/copilotkit-auth, bearer onRequest gate): authenticated send does not surface an assistant response in the demo cell (route/token plumbing); gateway itself returns responses. Fixable with route-plumbing work.
   - auth
   # Dedicated voice runtime route: transcription round-trip populates the composer, but the subsequent send does not surface the assistant response in the voice cell (route plumbing); gateway returns the weather text fine. Fixable with route-plumbing work.
@@ -120,6 +113,7 @@ features:
   - hitl
   - hitl-in-app
   - mcp-apps
+  - a2ui-fixed-schema
   - shared-state-read-write
   - readonly-state-agent-context
   - subagents

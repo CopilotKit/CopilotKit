@@ -654,8 +654,13 @@
         "toolCalls": [
           {
             "id": "call_openclaw_a2ui_fixed_flight_001",
-            "name": "render_a2ui",
-            "arguments": "{\"surfaceId\":\"flight-fixed-schema\",\"catalogId\":\"copilotkit://flight-fixed-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Card\",\"child\":\"content\"},{\"id\":\"content\",\"component\":\"Column\",\"children\":[\"title\",\"route\",\"meta\",\"bookButton\"]},{\"id\":\"title\",\"component\":\"Title\",\"text\":\"Flight Details\"},{\"id\":\"route\",\"component\":\"Row\",\"justify\":\"spaceBetween\",\"align\":\"center\",\"children\":[\"from\",\"arrow\",\"to\"]},{\"id\":\"from\",\"component\":\"Airport\",\"code\":{\"path\":\"/origin\"}},{\"id\":\"arrow\",\"component\":\"Arrow\"},{\"id\":\"to\",\"component\":\"Airport\",\"code\":{\"path\":\"/destination\"}},{\"id\":\"meta\",\"component\":\"Row\",\"justify\":\"spaceBetween\",\"align\":\"center\",\"children\":[\"airline\",\"price\"]},{\"id\":\"airline\",\"component\":\"AirlineBadge\",\"name\":{\"path\":\"/airline\"}},{\"id\":\"price\",\"component\":\"PriceTag\",\"amount\":{\"path\":\"/price\"}},{\"id\":\"bookButton\",\"component\":\"Button\",\"variant\":\"primary\",\"child\":\"bookButtonLabel\",\"action\":{\"event\":{\"name\":\"book_flight\",\"context\":{\"origin\":{\"path\":\"/origin\"},\"destination\":{\"path\":\"/destination\"},\"airline\":{\"path\":\"/airline\"},\"price\":{\"path\":\"/price\"}}}}},{\"id\":\"bookButtonLabel\",\"component\":\"Text\",\"text\":\"Book flight\"}],\"data\":{\"origin\":\"SFO\",\"destination\":\"JFK\",\"airline\":\"United\",\"price\":\"$289\"}}"
+            "name": "display_flight",
+            "arguments": {
+              "origin": "SFO",
+              "destination": "JFK",
+              "airline": "United",
+              "price": "$289"
+            }
           }
         ]
       },

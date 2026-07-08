@@ -18,7 +18,8 @@
       "get_stock_price",
       "roll_d20",
       "get_revenue_chart",
-      "query_data"
+      "query_data",
+      "display_flight"
     ]
   }
 }
