@@ -176,7 +176,11 @@ describe("intelligenceAdapter — inbound file content parts", () => {
     await source.deliver(
       envelope({
         files: [
-          { handle: "fileref_txt", filename: "note.txt", mimeType: "text/plain" },
+          {
+            handle: "fileref_txt",
+            filename: "note.txt",
+            mimeType: "text/plain",
+          },
         ],
       }),
     );
