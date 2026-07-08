@@ -141,6 +141,40 @@ describe("thread store", () => {
     expect(getChannel().topic).toBe("user_meta:jc-1");
   });
 
+  it("uses the thread environment fetch instead of global fetch", async () => {
+    const globalFetch = vi.fn(async () => {
+      throw new Error("global fetch should not be used");
+    });
+    const environmentFetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        threads: [sampleThreads[0]],
+        joinCode: null,
+      }),
+    });
+    vi.stubGlobal("fetch", globalFetch);
+
+    const store = ɵcreateThreadStore(createEnvironment(environmentFetch));
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      agentId: "agent-1",
+    });
+
+    await flushEffects();
+
+    expect(globalFetch).not.toHaveBeenCalled();
+    expect(environmentFetch).toHaveBeenCalledWith(
+      "https://runtime.example.com/threads?agentId=agent-1",
+      expect.objectContaining({ method: "GET" }),
+    );
+    expect(ɵselectThreads(store.getState()).map((thread) => thread.id)).toEqual(
+      ["thread-1"],
+    );
+  });
+
   it("upserts realtime thread metadata without refetching", async () => {
     const fetchMock = vi
       .fn()
@@ -236,6 +270,70 @@ describe("thread store", () => {
     await flushEffects();
 
     expect(ɵselectThreads(store.getState())).toHaveLength(1);
+  });
+
+  it("notifies run-activity subscribers without mutating the thread list", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          threads: sampleThreads,
+          joinCode: "jc-1",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          joinToken: "jt-1",
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
+    stores.push(store);
+    const notifications: import("../threads").ThreadRunActivityNotification[] =
+      [];
+    const subscription = store.subscribeToRunActivity!((notification) => {
+      notifications.push(notification);
+    });
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      wsUrl: "ws://localhost:4000/client",
+      agentId: "agent-1",
+    });
+
+    await flushEffects();
+
+    const threadsBefore = ɵselectThreads(store.getState());
+    getChannel().serverPush("thread_run_activity", {
+      thread_id: "thread-1",
+      agent_id: "agent-1",
+      run_id: "run-1",
+      event_type: "text_message_content",
+      latest_event_id: "event-1",
+    });
+
+    await flushEffects();
+
+    expect(notifications).toEqual([
+      {
+        type: "thread_run_activity",
+        threadId: "thread-1",
+        agentId: "agent-1",
+        runId: "run-1",
+        eventType: "text_message_content",
+        latestEventId: "event-1",
+      },
+    ]);
+    expect(ɵselectThreads(store.getState())).toBe(threadsBefore);
+    expect(ɵselectThreads(store.getState()).map((thread) => thread.id)).toEqual(
+      ["thread-2", "thread-1"],
+    );
+
+    subscription.unsubscribe();
   });
 
   it("switches sessions when context changes and ignores stale results", async () => {
@@ -561,6 +659,141 @@ describe("thread store", () => {
     expect(ɵselectThreads(store.getState())).toHaveLength(3);
     expect(ɵselectHasNextPage(store.getState())).toBe(false);
     expect(ɵselectIsFetchingNextPage(store.getState())).toBe(false);
+  });
+
+  it("records a failed fetch-more on fetchMoreError (not error) and preserves the list; a later success clears it", async () => {
+    const { ɵselectFetchMoreError } = await import("../threads");
+    const page2Thread: ThreadRecord = {
+      id: "thread-3",
+      organizationId: "organization-1",
+      agentId: "agent-1",
+      createdById: "user-1",
+      name: "Page 2 Thread",
+      archived: false,
+      createdAt: "2025-12-01T00:00:00Z",
+      updatedAt: "2025-12-01T00:00:00Z",
+    };
+    const fetchMock = vi
+      .fn()
+      // initial list
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          threads: sampleThreads,
+          joinCode: "jc-1",
+          nextCursor: "cursor-abc",
+        }),
+      })
+      // metadata credentials
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1" }),
+      })
+      // first fetch-more: FAILS
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({}),
+      })
+      // retried fetch-more: SUCCEEDS
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: [page2Thread], nextCursor: null }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      wsUrl: "ws://localhost:4000/client",
+      agentId: "agent-1",
+      limit: 2,
+    });
+
+    await flushEffects();
+    expect(ɵselectThreads(store.getState())).toHaveLength(2);
+    expect(ɵselectHasNextPage(store.getState())).toBe(true);
+
+    // Failed fetch-more.
+    store.fetchNextPage();
+    await flushEffects();
+
+    // The failure lands on the dedicated fetch-more channel, NOT `error`, and
+    // the already-loaded list is preserved.
+    expect(ɵselectFetchMoreError(store.getState())).toBeInstanceOf(Error);
+    expect(ɵselectThreadsError(store.getState())).toBeNull();
+    expect(ɵselectThreads(store.getState())).toHaveLength(2);
+    expect(ɵselectIsFetchingNextPage(store.getState())).toBe(false);
+    // A failed fetch-more keeps the cursor so the load can be retried.
+    expect(ɵselectHasNextPage(store.getState())).toBe(true);
+
+    // Successful retry clears the fetch-more error and appends the page.
+    store.fetchNextPage();
+    await flushEffects();
+
+    expect(ɵselectFetchMoreError(store.getState())).toBeNull();
+    expect(ɵselectThreads(store.getState())).toHaveLength(3);
+    expect(ɵselectHasNextPage(store.getState())).toBe(false);
+  });
+
+  it("clears a lingering fetchMoreError when a full list refetch succeeds", async () => {
+    const { ɵselectFetchMoreError } = await import("../threads");
+    const fetchMock = vi
+      .fn()
+      // initial list
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          threads: sampleThreads,
+          joinCode: "jc-1",
+          nextCursor: "cursor-abc",
+        }),
+      })
+      // metadata credentials
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1" }),
+      })
+      // fetch-more: FAILS
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({}),
+      })
+      // full refetch: SUCCEEDS
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      wsUrl: "ws://localhost:4000/client",
+      agentId: "agent-1",
+      limit: 2,
+    });
+
+    await flushEffects();
+
+    // Fetch-more fails → error lands on the dedicated channel.
+    store.fetchNextPage();
+    await flushEffects();
+    expect(ɵselectFetchMoreError(store.getState())).toBeInstanceOf(Error);
+
+    // A full refetch (e.g. filter-change / retry) replaces the list; the stale
+    // fetch-more banner must NOT survive onto the fresh list.
+    store.refetchThreads();
+    await flushEffects();
+    expect(ɵselectFetchMoreError(store.getState())).toBeNull();
+    expect(ɵselectThreads(store.getState())).toHaveLength(2);
   });
 
   it("removes thread on archived WS event when includeArchived is false", async () => {
@@ -1029,11 +1262,8 @@ describe("thread store", () => {
   });
 
   it("isolates selector memo caches across concurrent stores", async () => {
-    // The list fetch goes through RxJS `fromFetch`, which uses the GLOBAL
-    // `fetch` (it ignores any `fetch` threaded through the environment — and
-    // both framework wrappers pass `globalThis.fetch` anyway). To give two
-    // concurrent stores distinct lists we therefore route a single global stub
-    // by request host rather than handing each store its own fetch mock.
+    // Route a single stub by request host so both concurrent stores share the
+    // same deterministic environment fetch while receiving distinct lists.
     const routedFetch = vi.fn(async (url: string | URL | Request) => {
       const href = String(url);
       const id = href.includes("a.example.com") ? "thread-a" : "thread-b";
@@ -1160,6 +1390,105 @@ describe("thread store", () => {
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("realtime"));
 
     warnSpy.mockRestore();
+  });
+
+  it("retries realtime metadata credentials after a failed credential fetch", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({}),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-2" }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      wsUrl: "ws://localhost:4000/client",
+      agentId: "agent-1",
+    });
+    await flushEffects();
+
+    store.refetchThreads();
+    await flushEffects();
+
+    expect(
+      fetchMock.mock.calls
+        .map(([url]) => String(url))
+        .filter((url) => url.endsWith("/threads/subscribe")),
+    ).toEqual([
+      "https://runtime.example.com/threads/subscribe",
+      "https://runtime.example.com/threads/subscribe",
+    ]);
+    expect(phoenix.sockets).toHaveLength(1);
+    expect(getChannel().topic).toBe("user_meta:jc-1");
+
+    warnSpy.mockRestore();
+  });
+
+  it("refreshes realtime metadata credentials when a refetch rotates the join code", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads, joinCode: "jc-2" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-2" }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      wsUrl: "ws://localhost:4000/client",
+      agentId: "agent-1",
+    });
+    await flushEffects();
+
+    store.refetchThreads();
+    await flushEffects();
+
+    expect(
+      fetchMock.mock.calls
+        .map(([url]) => String(url))
+        .filter((url) => url.endsWith("/threads/subscribe")),
+    ).toEqual([
+      "https://runtime.example.com/threads/subscribe",
+      "https://runtime.example.com/threads/subscribe",
+    ]);
+    expect(phoenix.sockets).toHaveLength(2);
+    expect(phoenix.sockets[0]?.channels[0]?.topic).toBe("user_meta:jc-1");
+    expect(phoenix.sockets[1]?.channels[0]?.topic).toBe("user_meta:jc-2");
   });
 
   it("exposes a stable empty server snapshot for SSR", () => {

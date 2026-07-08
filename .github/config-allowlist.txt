@@ -49,6 +49,7 @@ examples/showcases/multi-agent-canvas/frontend/next.config.ts
 examples/showcases/multi-page/vite.config.ts
 examples/showcases/open-mcp-client/apps/threejs-server/vite.config.ts
 examples/showcases/open-mcp-client/apps/web/next.config.ts
+examples/showcases/oracle-agent-memory/frontend/next.config.ts
 examples/showcases/orca/frontend/next.config.mjs
 examples/showcases/presentation/next.config.mjs
 examples/showcases/pydantic-ai-todos/next.config.ts
@@ -90,6 +91,7 @@ packages/sqlite-runner/tsdown.config.ts
 packages/voice/tsdown.config.ts
 packages/vue/vite.config.ts
 packages/web-components/tsdown.config.ts
+packages/web-inspector/dev/vite.config.ts
 packages/web-inspector/tsdown.config.ts
 showcase/integrations/ag2/next.config.ts
 showcase/integrations/agno/next.config.ts

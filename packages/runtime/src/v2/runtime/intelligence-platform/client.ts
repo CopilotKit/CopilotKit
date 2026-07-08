@@ -149,6 +149,42 @@ export interface ListThreadsResponse {
 }
 
 /**
+ * A single memory as returned by the platform's list endpoint. Mirrors the
+ * public projection the client memory store consumes (tenant ids stripped).
+ */
+export interface MemorySummary {
+  /** Platform-assigned unique identifier. */
+  id: string;
+  /** Memory kind, e.g. `"topical"`, `"episodic"`, `"operational"`. */
+  kind: string;
+  /** Memory scope: `"user"` (private) or `"project"` (shared). */
+  scope: string;
+  /** The remembered fact, preference, or procedure. */
+  content: string;
+  /** Ids of the threads this memory was learned from. */
+  sourceThreadIds: string[];
+  /** ISO-8601 timestamp when the memory was retired, or `null` if live. */
+  invalidatedAt: string | null;
+}
+
+/** Response from {@link CopilotKitIntelligence.listMemories}. */
+export interface ListMemoriesResponse {
+  memories: MemorySummary[];
+}
+
+/**
+ * Response from a create ({@link CopilotKitIntelligence.createMemory}) or
+ * supersede ({@link CopilotKitIntelligence.updateMemory}) call: the stored
+ * memory, plus the operation-specific marker the client store consumes.
+ */
+export interface SaveMemoryResponse extends MemorySummary {
+  /** Create only: content was merged into a near-duplicate, not inserted new. */
+  absorbed?: boolean;
+  /** Supersede only: the id of the memory retired by this call. */
+  retiredId?: string;
+}
+
+/**
  * Fields that can be updated on a thread via {@link CopilotKitIntelligence.updateThread}.
  *
  * Additional platform-specific fields can be passed as extra keys and will be
@@ -190,6 +226,21 @@ export interface SubscribeToThreadsRequest {
 
 export interface SubscribeToThreadsResponse {
   joinToken: string;
+}
+
+export interface SubscribeToMemoriesRequest {
+  userId: string;
+}
+
+/**
+ * Memory subscribe returns both the token and the join code, unlike threads
+ * (whose join code reaches the client via the thread-list response). Memory has
+ * no list-borne code, so the code is delivered here and used to build the
+ * `user_meta:memories:<joinCode>` channel topic.
+ */
+export interface SubscribeToMemoriesResponse {
+  joinToken: string;
+  joinCode: string;
 }
 
 export type ConnectThreadResponse = ThreadConnectionResponse | null;
@@ -459,12 +510,18 @@ export class CopilotKitIntelligence {
     return this.#enterpriseLearningEnabled;
   }
 
-  async #request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  async #request<T>(
+    method: string,
+    path: string,
+    body?: unknown,
+    extraHeaders?: Record<string, string>,
+  ): Promise<T> {
     const url = `${this.#apiUrl}${path}`;
 
     const headers: Record<string, string> = {
       Authorization: `Bearer ${this.#apiKey}`,
       "Content-Type": "application/json",
+      ...extraHeaders,
     };
 
     const response = await fetch(url, {
@@ -542,6 +599,99 @@ export class CopilotKitIntelligence {
     return this.#request<ListThreadsResponse>("GET", `/api/threads?${qs}`);
   }
 
+  /**
+   * List the given user's long-term memories, newest first.
+   *
+   * The platform scopes by the opaque app user supplied in the
+   * `x-cpki-user-id` header (resolved by the runtime via `identifyUser`),
+   * not a query param. Pass `includeInvalidated` to also return retired rows.
+   *
+   * @returns The `{ memories }` envelope the client memory store consumes.
+   * @throws {@link PlatformRequestError} on non-2xx responses.
+   */
+  async listMemories(params: {
+    userId: string;
+    includeInvalidated?: boolean;
+  }): Promise<ListMemoriesResponse> {
+    const qs = params.includeInvalidated ? "?includeInvalidated=true" : "";
+    return this.#request<ListMemoriesResponse>(
+      "GET",
+      `/api/memories${qs}`,
+      undefined,
+      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
+    );
+  }
+
+  /**
+   * Create a memory for the given user (platform `POST /api/memories`).
+   * @returns The stored memory; `absorbed` is true if the content was merged
+   *   into a near-duplicate rather than inserted as a new row.
+   * @throws {@link PlatformRequestError} on non-2xx responses.
+   */
+  async createMemory(params: {
+    userId: string;
+    content: string;
+    kind: string;
+    /** Optional: when omitted, the platform applies its default (`"user"`). */
+    scope?: string;
+    sourceThreadIds?: string[];
+  }): Promise<SaveMemoryResponse> {
+    return this.#request<SaveMemoryResponse>(
+      "POST",
+      `/api/memories`,
+      {
+        content: params.content,
+        kind: params.kind,
+        ...(params.scope !== undefined ? { scope: params.scope } : {}),
+        sourceThreadIds: params.sourceThreadIds ?? [],
+      },
+      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
+    );
+  }
+
+  /**
+   * Supersede an existing memory (platform `PATCH /api/memories/:id`). The
+   * `:id` row is retired and a new memory with the supplied content is
+   * inserted atomically.
+   * @returns The new memory plus `retiredId` (the id of the retired row).
+   * @throws {@link PlatformRequestError} on non-2xx responses (e.g. 404 when
+   *   `:id` is not a live, same-scope memory for this user).
+   */
+  async updateMemory(params: {
+    userId: string;
+    id: string;
+    content: string;
+    kind: string;
+    /** Optional: when omitted, the platform applies its default (`"user"`). */
+    scope?: string;
+    sourceThreadIds?: string[];
+  }): Promise<SaveMemoryResponse> {
+    return this.#request<SaveMemoryResponse>(
+      "PATCH",
+      `/api/memories/${encodeURIComponent(params.id)}`,
+      {
+        content: params.content,
+        kind: params.kind,
+        ...(params.scope !== undefined ? { scope: params.scope } : {}),
+        sourceThreadIds: params.sourceThreadIds ?? [],
+      },
+      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
+    );
+  }
+
+  /**
+   * Non-lossily retire (forget) a memory (platform `DELETE /api/memories/:id`).
+   * @throws {@link PlatformRequestError} on non-2xx responses.
+   */
+  async removeMemory(params: { userId: string; id: string }): Promise<void> {
+    await this.#request<void>(
+      "DELETE",
+      `/api/memories/${encodeURIComponent(params.id)}`,
+      undefined,
+      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
+    );
+  }
+
   async ɵsubscribeToThreads(
     params: SubscribeToThreadsRequest,
   ): Promise<SubscribeToThreadsResponse> {
@@ -551,6 +701,31 @@ export class CopilotKitIntelligence {
       {
         userId: params.userId,
       },
+    );
+  }
+
+  /**
+   * Mint memory-realtime join credentials (platform `POST
+   * /api/memories/subscribe`). Returns both the single-use `joinToken` and the
+   * per-user `joinCode` the client needs to build the
+   * `user_meta:memories:<joinCode>` channel topic.
+   *
+   * The user is supplied via the `x-cpki-user-id` header — the same way every
+   * other memory endpoint (`listMemories`/`createMemory`/…) identifies the app
+   * user — because the platform's memory routes resolve identity from that
+   * header, not the body. (This differs from `ɵsubscribeToThreads`, whose
+   * platform endpoint reads `userId` from the body.)
+   *
+   * @throws {@link PlatformRequestError} on non-2xx responses.
+   */
+  async ɵsubscribeToMemories(
+    params: SubscribeToMemoriesRequest,
+  ): Promise<SubscribeToMemoriesResponse> {
+    return this.#request<SubscribeToMemoriesResponse>(
+      "POST",
+      "/api/memories/subscribe",
+      undefined,
+      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
     );
   }
 

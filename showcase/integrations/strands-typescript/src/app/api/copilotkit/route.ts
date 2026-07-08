@@ -13,6 +13,14 @@ import { AsyncLocalStorage } from "node:async_hooks";
 // This runtime proxies CopilotKit requests to it via AG-UI protocol.
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
+// Per-request request/response logging is gated behind this flag (default off).
+// Under d6 probe fan-out, unconditional per-request logs flooded Railway's
+// 500-logs/sec cap and killed the replica ("Messages dropped" → container stop).
+// Set SHOWCASE_ROUTE_DEBUG=1 to re-enable verbose per-request tracing locally.
+const ROUTE_DEBUG =
+  process.env.SHOWCASE_ROUTE_DEBUG === "1" ||
+  process.env.SHOWCASE_ROUTE_DEBUG === "true";
+
 console.log("[copilotkit/route] Initializing CopilotKit runtime");
 console.log(`[copilotkit/route] AGENT_URL: ${AGENT_URL}`);
 
@@ -21,7 +29,7 @@ console.log(`[copilotkit/route] AGENT_URL: ${AGENT_URL}`);
 // @ag-ui/client's HttpAgent `headers` are STATIC (construction-time), so the
 // per-request seam is its `fetch` option: a custom fetch that reads an
 // AsyncLocalStorage snapshot (seeded by the POST handler below) and injects the
-// inbound x-* (incl. X-AIMock-Strict / x-test-id / x-diag-*) onto the outbound
+// inbound x-* (incl. x-aimock-strict / x-test-id / x-diag-*) onto the outbound
 // POST. These then arrive on req.headers at the Express endpoint, where the
 // agent-side middleware reads them. Byte-identical to a plain fetch when no x-*
 // are in scope, so demo traffic proxies unchanged.
@@ -129,9 +137,11 @@ export const POST = async (req: NextRequest) =>
   proxyHeaders.run(extractXHeaders(req), async () => {
     const url = req.url;
     const contentType = req.headers.get("content-type");
-    console.log(
-      `[copilotkit/route] POST ${url} (content-type: ${contentType})`,
-    );
+    if (ROUTE_DEBUG) {
+      console.log(
+        `[copilotkit/route] POST ${url} (content-type: ${contentType})`,
+      );
+    }
 
     try {
       const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
@@ -144,7 +154,11 @@ export const POST = async (req: NextRequest) =>
       });
 
       const response = await handleRequest(req);
-      console.log(`[copilotkit/route] Response status: ${response.status}`);
+      if (!response.ok) {
+        console.log(`[copilotkit/route] Response status: ${response.status}`);
+      } else if (ROUTE_DEBUG) {
+        console.log(`[copilotkit/route] Response status: ${response.status}`);
+      }
       return response;
     } catch (error: unknown) {
       const err = error as Error;
@@ -158,7 +172,9 @@ export const POST = async (req: NextRequest) =>
   });
 
 export const GET = async () => {
-  console.log("[copilotkit/route] GET /api/copilotkit (health probe)");
+  if (ROUTE_DEBUG) {
+    console.log("[copilotkit/route] GET /api/copilotkit (health probe)");
+  }
 
   let agentStatus = "unknown";
   try {

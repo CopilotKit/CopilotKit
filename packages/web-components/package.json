@@ -1,8 +1,8 @@
 {
   "name": "@copilotkit/web-components",
-  "version": "1.61.2",
+  "version": "1.62.2",
   "private": false,
-  "description": "Framework-agnostic shadow-DOM web components for CopilotKit - includes the <copilotkit-drawer> threads drawer element",
+  "description": "Framework-agnostic shadow-DOM web components for CopilotKit - includes the <copilotkit-threads-drawer> threads drawer element",
   "keywords": [
     "ai",
     "copilotkit",
@@ -40,14 +40,14 @@
         "default": "./dist/index.cjs"
       }
     },
-    "./drawer": {
+    "./threads-drawer": {
       "import": {
-        "types": "./dist/drawer/index.d.mts",
-        "default": "./dist/drawer/index.mjs"
+        "types": "./dist/threads-drawer/index.d.mts",
+        "default": "./dist/threads-drawer/index.mjs"
       },
       "require": {
-        "types": "./dist/drawer/index.d.cts",
-        "default": "./dist/drawer/index.cjs"
+        "types": "./dist/threads-drawer/index.d.cts",
+        "default": "./dist/threads-drawer/index.cjs"
       }
     },
     "./package.json": "./package.json"

@@ -35,106 +35,200 @@ The demo runs against the workspace versions of `@copilotkit/*` (see the root
 `pnpm-workspace.yaml`). The seed dataset lives in memory and resets every time
 the server restarts.
 
-## Self-learning backend (optional, Phase C)
+## Memory & durable self-learning (Intelligence mode)
 
-By default the runtime is pure OSS: a SSE `CopilotRuntime` + `InMemoryAgentRunner`,
-with no external dependency. The agent runs locally against OpenAI and nothing
-is persisted. **This is the default and requires only `OPENAI_API_KEY`.**
+By default the runtime is pure OSS: an SSE `CopilotRuntime` + `InMemoryAgentRunner`,
+with no external dependency. The agent runs locally against OpenAI and nothing is
+persisted. **This is the default and requires only `OPENAI_API_KEY`.**
 
-The runtime in `src/app/api/copilotkit/[[...slug]]/route.ts` is **env-gated**:
-when the three Intelligence env vars below are all present, it builds the runtime
-in Intelligence mode instead (`CopilotKitIntelligence` + `CopilotRuntime({ intelligence, identifyUser })`).
-The local `bankingAgent` still executes here, but every AG-UI event of every run
-is also streamed over a Phoenix WebSocket to the Intelligence gateway for durable
-threads and self-learning ingestion. If any of the three is unset, the demo falls
-back to the exact OSS path above.
+The runtime in `src/app/api/copilotkit/[[...slug]]/route.ts` is **env-gated**: when
+the three `INTELLIGENCE_*` vars below are all present it builds the runtime in
+Intelligence mode (`CopilotKitIntelligence` + `CopilotRuntime({ intelligence,
+identifyUser, licenseToken, … })`). The local `bankingAgent` still executes here,
+but it gains durable long-term memory — the `recall_memory` / `save_memory` MCP
+tools auto-attach from the memory-enabled Intelligence backend. If any of the three
+is unset, the demo falls back to the exact OSS path above.
 
-### What each mode actually recalls
-
-The two modes differ in **how far the learned workflow travels**:
+### What each mode recalls
 
 - **OSS (default):** the teach-a-workflow loop works _within a single
-  conversation_. After you teach the over-limit procedure, the agent reuses it
-  for other charges **in the same thread** — the saved procedure is echoed back
-  into that thread's context. Start a **new** conversation and the agent no
-  longer knows it; nothing persists across conversations or restarts.
-- **Intelligence:** the demonstrated actions are distilled into durable
-  knowledge, so a **brand-new conversation** (or a fresh agent) recalls the
-  procedure without being re-taught. This cross-conversation memory is the part
-  the external Intelligence backend provides — it cannot be reproduced in OSS
-  mode. (So "it doesn't know in a new chat" is expected in OSS; it's the signal
-  you need Intelligence mode for full persistence.)
+  conversation_. Start a **new** thread and the agent no longer knows the
+  procedure; nothing persists across threads or restarts. (Expected — it's the
+  signal that durable recall needs Intelligence mode.)
+- **Intelligence:** durable long-term memory across three flavours, all via
+  `save_memory` / `recall_memory`:
+  - **Demonstrated over-limit procedure** — saved as a `project`-scoped,
+    `procedural` memory and recalled at the start of any later over-limit
+    request. A **brand-new thread — or a different user on the same team** —
+    recalls the procedure and completes the approval unaided. This is the
+    durable cross-thread + cross-user proof (FOR-149).
+  - **General facts / preferences (`user` scope)** — arbitrary personal facts
+    persist cross-thread but stay per-person. Try _"remember my favorite food
+    is sushi"_, then ask _"what's my favorite food?"_ in a **new** thread and
+    the copilot recalls it.
+  - **Team-shared facts (`project` scope)** — facts flagged for the whole team
+    persist cross-user, so a teammate recalls them in their own threads.
+  - **Secrets are never stored.** Passwords, API keys, tokens, and full card or
+    SSN numbers are never written to memory.
+
+### 1. Start the memory-enabled stack (one command)
+
+A self-contained Intelligence stack (postgres + pgvector, redis, minio, a TEI
+embedder, and the `app-api` + realtime-gateway composite) is vendored as
+`docker-compose.yml`:
+
+**Recommended (one command, handles the embedder per-platform):**
 
 ```bash
-# Required for Intelligence mode (all three, or none):
-export INTELLIGENCE_API_URL=http://localhost:4201        # platform REST API
-export INTELLIGENCE_GATEWAY_WS_URL=ws://localhost:4401    # Phoenix runner/client gateway
-export INTELLIGENCE_API_KEY=cpk_...                       # platform API key
-# Optional — read automatically by the runtime if present:
-export COPILOTKIT_LICENSE_TOKEN=...
-# Optional — pin the asserted end-user identity. Use when the backend enforces
-# org membership on the user id (e.g. a local Intelligence stack with seeded
-# fixture users); otherwise a stable per-role id is derived automatically:
-export INTELLIGENCE_USER_ID=morgan-fluxx
-export INTELLIGENCE_USER_NAME="David Garcia"
-# Model keys the external Intelligence stack needs to run its writer/reader agents:
-export OPENAI_API_KEY=...
-export ANTHROPIC_API_KEY=...
+cd examples/showcases/banking
+export INTELLIGENCE_REPO=/path/to/Intelligence   # composite image build context + dev-license signer
+./run-demo.sh
 ```
 
-### What the live loop needs (external)
+`run-demo.sh` brings up the stack, picks the right embedder for your platform
+(native Metal TEI on Apple Silicon, the bundled docker `tei` on amd64/CI), mints
+a dev license if `.env` lacks one, then starts the Next.js dev server.
 
-The distillation backend — the `sl-worker`, `app-api`, and `/knowledge`
-endpoints that turn recorded actions into learned procedures — is **not in this
-repo**. It lives in the separate Intelligence stack (the CopilotKit Intelligence
-repo's `./scripts/local-dev.sh`, or a hosted Intelligence deployment). The demo
-can only **connect** to it via the env vars above; it cannot run the loop on its
-own.
-
-### Smoke-testing the loop
-
-With the demo running in Intelligence mode and the backend reachable,
-`scripts/self-learning-smoke.mjs` proves record → distill → recall end-to-end:
-it posts four teaching actions through the demo's `/api/copilotkit/annotate`
-route (exactly like the in-app call sites), optionally runs one `sl-worker`
-sweep, and asserts the distilled vendor policy is readable back via the
-platform's `/mcp` knowledge tool.
+**Manual (if you prefer raw compose):** the bundled `tei` is gated behind the
+`cpu-fallback` profile, so a bare `docker compose up` **skips it** (see the Apple
+Silicon note below). On amd64/CI, opt it in:
 
 ```bash
-pnpm --filter demo-saas-copilot test:self-learning
-# include the distill phase (needs a built sl-worker in the Intelligence repo):
-INTELLIGENCE_REPO=~/Projects/intelligence pnpm --filter demo-saas-copilot test:self-learning
+export INTELLIGENCE_REPO=/path/to/Intelligence
+docker compose --profile cpu-fallback up -d --wait   # amd64/CI: bundled docker embedder
+pnpm dev
 ```
 
-### The 4-step payoff walkthrough
+Host ports: app-api **7050**, gateway **7053**, postgres 7156, redis 7158, minio
+7160/7161, tei 7167. (The deps use a `715x` range so a bare `docker compose up`
+coexists with a developer's own Intelligence dev stack on `705x`.) Seeded org
+`casa-de-erlang`, key `cpk_sPRVSEED_seed0privat0longtoken00`, users
+`jordan-beamson` / `morgan-fluxx`. The team is exactly two members, each mapped
+1:1 to a seeded backend identity — **Alex Morgan (Admin) → `jordan-beamson`** and
+**Maya Chen (Assistant) → `morgan-fluxx`** (see `src/lib/intelligence/user-id.ts`).
+That 1:1 mapping is what makes cross-user memory scope demonstrable through the
+sidebar user switcher. `SL_ENABLED=true` + a reachable embedder are
+required for the `save_memory`/`recall_memory` MCP tools to attach — both are set
+on the `intelligence` service in `docker-compose.yml`.
 
-1. **Agent fails.** A fresh agent is asked to approve an over-limit transaction
-   and cannot — it has no procedure for unlocking it, so it reports the failure.
-2. **Human unlocks it.** An officer opens and finalizes a policy exception via
-   the transactions UI (`src/components/policy-exception-modal.tsx`). These
-   demonstrated actions are the teaching signal.
-3. **`sl-worker` distills.** The external Intelligence stack ingests the run's
-   event stream, distills the officer's actions, and writes a procedure to
-   `/knowledge`.
-4. **Fresh agent succeeds.** A brand-new agent, asked the same over-limit
-   request, reads the distilled knowledge back and performs the unlock unaided.
+> **Apple Silicon:** the bundled `tei` image is amd64-only. Under emulation the
+> Candle/safetensors backend is unavailable, so TEI falls back to the ONNX/ORT
+> backend — which needs `onnx/model.onnx` files that `Qwen3-Embedding-0.6B` does
+> not publish (404), so the container **crash-loops**. `run-demo.sh` handles this
+> for you (native Metal TEI on `:7067`). To do it manually, run a native TEI on
+> the host and point the stack at it (the bundled `tei` is profile-gated, so a
+> bare `up` already skips it):
+>
+> ```bash
+> brew install text-embeddings-inference   # one-time
+> text-embeddings-router --model-id Qwen/Qwen3-Embedding-0.6B --port 7067 --auto-truncate &
+> MEMORY_EMBEDDINGS_URL=http://host.docker.internal:7067 docker compose up -d --wait
+> ```
+>
+> Same TEI version (1.9.3) + model as the docker image → **byte-identical
+> embeddings**, and ~20× faster (Metal GPU vs CPU-under-emulation).
 
-### Client-side action recording
+### 2. Point the demo at the stack
 
-Steps 2→3 are reinforced by an explicit client-side recording API:
-`src/lib/record-user-action.ts` adapts the teaching call sites in
-`policy-exception-modal.tsx` / `policy-exception-inline.tsx` /
-`transactions-list.tsx` onto `useLearnFromUserActionInCurrentThread` from
-`@copilotkit/react-core/v2` (the successor name of
-`useRecordUserActionInCurrentThread`). Each demonstrated action posts to the
-runtime's `/annotate` endpoint, which resolves the user via `identifyUser` and
-forwards to the platform's `PUT /connector/annotate/:clientEventId`.
+```bash
+cp .env.example .env       # fill OPENAI_API_KEY; run `copilotkit license -n banking-demo`
+# .env (key lines):
+#   INTELLIGENCE_API_URL=http://localhost:7050
+#   INTELLIGENCE_GATEWAY_WS_URL=ws://localhost:7053
+#   INTELLIGENCE_API_KEY=cpk_sPRVSEED_seed0privat0longtoken00
+#   # INTELLIGENCE_USER_ID  — leave UNPINNED for the interactive demo (see below)
+pnpm --filter demo-saas-copilot dev
+```
 
-Recording therefore requires an Intelligence backend that exposes the
-generalized `/connector/annotate` route. Older backends that only expose
-`/connector/user-actions/record` will 404 the recording call (agent runs and
-recall are unaffected); in pure OSS mode (no `INTELLIGENCE_*` env) `/annotate`
-returns 422 and the demo simply doesn't record.
+The Next.js app needs only the three `INTELLIGENCE_*` vars (+ identity). The memory
+backend flags (`MEMORY_ENABLED`, `SL_ENABLED`, `MEMORY_EMBEDDINGS_URL`,
+`MEMORY_EMBEDDING_MODEL`) live on the `intelligence` service in `docker-compose.yml`.
+
+Leave `INTELLIGENCE_USER_ID` **unpinned** for the interactive demo: with it unset,
+the sidebar user switcher drives which backend identity (and therefore which memory
+scope) is active, so you can walk through cross-user isolation live. It is pinned to
+a single identity only for CI/e2e (see `playwright.config.ts`).
+
+### 3. The cross-thread payoff (FOR-149)
+
+With the stack up and project memory empty:
+
+1. **Thread A — teach.** Ask to approve an over-limit charge. The agent calls
+   `recall_memory`, finds nothing, and offers to record. Demonstrate the policy
+   exception on the dashboard, then click **Save workflow** — the agent calls
+   `save_memory` (`scope:"project"`, `kind:"procedural"`).
+2. **Thread B — recall.** Open a **new** thread and ask to approve a _different_
+   over-limit charge. The agent calls `recall_memory`, gets the procedure, files
+   the exception with the learned code, and approves — **with no recording offer.**
+3. **Different persona.** Switch user (sidebar avatar) in a fresh thread and repeat
+   — same unaided success, proving `project`-scope cross-user recall.
+
+### 4. The memory-scope isolation demo (two personas)
+
+The team is exactly **Alex Morgan (Admin)** and **Maya Chen (Assistant)**, mapped
+1:1 to the seeded `jordan-beamson` / `morgan-fluxx` backend identities. With
+`INTELLIGENCE_USER_ID` unpinned, the sidebar user switcher (bottom-left avatar)
+selects which identity is live, so scope isolation is visible end-to-end:
+
+1. **Personal fact — save (as Alex).** Ask _"remember my favorite food is
+   sushi."_ The copilot confirms it saved (`user` scope).
+2. **Personal fact — recall (as Alex, new thread).** Open a **new** thread and
+   ask _"what's my favorite food?"_ — the copilot recalls **sushi** (cross-thread,
+   same person).
+3. **Personal fact — isolated (switch to Maya, fresh thread).** Switch the sidebar
+   user to Maya, open a fresh thread, and ask _"what's my favorite food?"_ — the
+   copilot **does NOT know it.** `user`-scope memory is per-person.
+4. **Team fact — crosses users.** Back as Alex, say _"keep in mind, for the whole
+   team: our fiscal year ends in March."_ Switch to Maya and ask _"when does our
+   fiscal year end?"_ — the copilot recalls **March.** `project`-scope memory
+   crosses users on the same team.
+
+To replay the "fails first" beat, forget the saved procedure between runs
+(`DELETE http://localhost:7050/api/memories/:id`, or via the agent's
+`forget_memory` tool). Per-run reset for a repeatable public demo is a separate
+follow-up (user-scope memory, periodic DB reset, or a dashboard control).
+
+### Testing
+
+- **Deterministic E2E (CI gate):** `pnpm --filter demo-saas-copilot test:self-learning`
+  runs `e2e/memory-learning.spec.ts`. The agent's LLM is served by
+  [`@copilotkit/aimock`](https://github.com/CopilotKit/aimock) (fixtured
+  `save_memory`/`recall_memory` tool calls) while the **real** local memory backend
+  persists + recalls — so the full teach→save→fresh-thread-recall→unlock flow is
+  deterministic. It asserts the fresh thread completes the unlock from recalled
+  memory and never offers to record.
+- **Real-LLM drift smoke (manual, non-gating):**
+  `node scripts/memory-drift-smoke.mjs` seeds the procedure via REST, then drives a
+  fresh-thread over-limit request against a real OpenAI key and asserts the live
+  model still emits `recall_memory` (the autonomous recall-first moment). aimock
+  fixtures replay a fixed decision and cannot catch _behavioral drift_ after a
+  prompt edit — this can. The save half is HITL-gated (not headless), so verify it
+  via the manual walkthrough above + the aimock E2E. Run after editing the prompt or
+  teach tools.
+
+### Advanced mode — Glass Engine
+
+Glass Engine is a docked inspector (desktop-only) that exposes the copilot's
+internals. It is gated twice:
+
+- **Availability (deployment):** set `GLASS_ENGINE_AVAILABLE=true` to expose the
+  left-rail telescope toggle. Leave it unset on public deployments — Glass Engine
+  is then absent entirely and the `/api/memories*` routes return 404. (FDE/sales/
+  conference deployments set it; one image, per-deployment env.)
+- **Activation (presenter):** when available, the telescope toggles the pane on/off
+  per session (persisted in localStorage), so you can reveal it case-by-case during
+  a talk.
+
+Tabs:
+
+- **Timeline** — every AG-UI protocol event of each run, live (works in any mode).
+- **Memory** — durable memory recall + semantic search (Intelligence mode only).
+  The "Recalled memories" list is top-k semantic recall, not a full enumeration.
+- **Learning** — the over-limit teach→save→recall procedure and live recall
+  activity (Intelligence mode only).
+
+In OSS mode (no `INTELLIGENCE_*`) the Memory and Learning tabs show a "Requires
+Intelligence mode" hint.
 
 ## Architecture at a glance
 

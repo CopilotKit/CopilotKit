@@ -21,6 +21,13 @@ export default defineConfig([
       "@copilotkit/shared",
       "@copilotkit/web-inspector",
       "@copilotkit/a2ui-renderer",
+      // Keep @copilotkit/web-components (the Lit drawer element) + its subpaths
+      // external. The drawer wrapper loads it via a client-only dynamic import;
+      // bundling it inline ships a duplicate element + a second copy of lit-html,
+      // which bloats the library and breaks Vite consumers ("Identifier 'h' has
+      // already been declared") and risks double custom-element registration.
+      // (The self-contained UMD builds below intentionally keep it inlined.)
+      /^@copilotkit\/web-components(\/.*)?$/,
       "rxjs",
       /\.css$/,
     ],
