@@ -276,57 +276,6 @@ export class IntelligenceAdapter implements PlatformAdapter {
     }
   }
 
-  /**
-   * Hydrate turn-input file refs into `AgentContentPart`s: fetch each file's
-   * bytes via the delivery source and base64-encode them. Best-effort per
-   * file — a fetch failure is logged and skipped, never fails the turn. Media
-   * (image/audio/video/pdf) becomes a `data` part; `text/*` is decoded inline;
-   * anything else degrades to a short text note so the model still sees it.
-   */
-  private async buildContentParts(
-    files?: ManagedFileRef[],
-  ): Promise<AgentContentPart[]> {
-    const fetchFile = this.source?.fetchFile?.bind(this.source);
-    if (!files?.length || !fetchFile) return [];
-    const parts: AgentContentPart[] = [];
-    for (const ref of files) {
-      try {
-        const { bytes, mimeType } = await fetchFile(ref.handle);
-        // The typed ref's mime is authoritative — the file-serve route coerces
-        // its Content-Type to a safe allowlist, so the header can be lossy.
-        const mime = ref.mimeType ?? mimeType ?? "application/octet-stream";
-        const kind = mediaKindForMime(mime);
-        if (kind) {
-          const value = Buffer.from(bytes).toString("base64");
-          parts.push({
-            type: kind,
-            source: { type: "data", value, mimeType: mime },
-          });
-        } else if (mime.startsWith("text/")) {
-          parts.push({
-            type: "text",
-            text: Buffer.from(bytes).toString("utf8"),
-          });
-        } else {
-          parts.push({
-            type: "text",
-            text: `[attached file: ${ref.filename} (${mime})]`,
-          });
-        }
-      } catch (err) {
-        this.opts.config?.log?.("intelligence inbound file fetch failed", err);
-        // Fail-visible, not fail-silent: the user attached a file the model
-        // can't be shown, so surface a short note in context rather than
-        // dropping it entirely (the model can acknowledge / ask to retry).
-        parts.push({
-          type: "text",
-          text: `[attached file ${ref.filename} could not be retrieved]`,
-        });
-      }
-    }
-    return parts;
-  }
-
   private async dispatchTo(env: ManagedIngressEnvelope): Promise<void> {
     const sink = this.sink;
     if (!sink) throw new Error("IntelligenceAdapter: not started");

@@ -1,4 +1,4 @@
-import { runStateStoreConformance } from "@copilotkit/bot";
+import { runStateStoreConformance } from "@copilotkit/bot/testing";
 import { IntelligenceStateStore } from "./intelligence-state-store.js";
 import type { FetchLike } from "./http-transports.js";
 

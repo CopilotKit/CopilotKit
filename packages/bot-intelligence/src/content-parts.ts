@@ -15,10 +15,11 @@ export function mediaKindForMime(
 /**
  * Hydrate file refs into `AgentContentPart`s: fetch each file's bytes via the
  * given fetcher and base64-encode them. Best-effort per file — a fetch failure
- * is logged and the file is skipped, never thrown (the caller's turn must not
- * fail because one attachment couldn't be fetched). Media (image/audio/video/
- * pdf) becomes a `data` part; `text/*` is decoded inline; anything else
- * degrades to a short text note so the model still sees it.
+ * is logged and degraded to a short "could not be retrieved" note, never thrown
+ * (the caller's turn must not fail because one attachment couldn't be fetched).
+ * Media (image/audio/video/pdf) becomes a `data` part; `text/*` is decoded
+ * inline; anything else degrades to a short text note so the model still sees
+ * it.
  *
  * Shared by the inbound turn path ({@link IntelligenceAdapter.dispatchTo}, via
  * `buildContentParts`) and conversation-history seeding
@@ -60,6 +61,13 @@ export async function buildContentParts(
       }
     } catch (err) {
       log?.("intelligence file fetch failed", err);
+      // Fail-visible, not fail-silent: the user attached a file the model
+      // can't be shown, so surface a short note in context rather than
+      // dropping it entirely (the model can acknowledge / ask to retry).
+      parts.push({
+        type: "text",
+        text: `[attached file ${ref.filename} could not be retrieved]`,
+      });
     }
   }
   return parts;
