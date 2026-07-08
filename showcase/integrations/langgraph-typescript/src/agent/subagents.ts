@@ -105,7 +105,7 @@ const SUB_AGENT_PROMPTS: Record<SubAgentName, string> = {
 async function invokeSubAgent(
   agent: SubAgentName,
   task: string,
-  config?: RunnableConfig,
+  _config?: RunnableConfig,
 ): Promise<string> {
   const subModel = new ChatOpenAI({
     temperature: 0,
@@ -449,6 +449,10 @@ const critiqueAgentToolWithHeaders = tool(
   },
 );
 
+// Export the doc-region tools for reference (used in extracted docs).
+export { researchAgentTool, writingAgentTool, critiqueAgentTool };
+
+// Use the showcase-specific wrappers in the actual graph.
 const tools = [
   researchAgentToolWithHeaders,
   writingAgentToolWithHeaders,
