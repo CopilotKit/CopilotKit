@@ -1,15 +1,6 @@
 #!/bin/bash
 set -e
 
-cleanup() {
-  kill $AGENT_PID $NEXTJS_PID $WATCHDOG_PID 2>/dev/null || true
-  # NOTE: SIZE_PID is intentionally NOT killed here.  SIZE_PID is assigned
-  # inside the watchdog subshell ( ) & so it is never visible in this outer
-  # shell.  The subshell registers its own EXIT trap to kill its SIZE_PID; see
-  # the "trap ... EXIT" inside the ( ) & block below.
-}
-trap cleanup EXIT
-
 # ---------------------------------------------------------------------------
 # Agent process-tree kill.
 #
@@ -29,6 +20,10 @@ trap cleanup EXIT
 # shell's process group, so a group kill would take out the whole entrypoint.
 # Instead we walk the process tree via /proc (node:22-slim ships neither
 # `ps` nor `pgrep`) and SIGKILL every descendant, deepest-first, then the root.
+#
+# Defined ABOVE cleanup() on purpose: cleanup() (the EXIT/SIGTERM trap) calls
+# _kill_agent_tree, so the helper must already exist whenever the trap can
+# first fire — including the early `exit 1` below if the agent fails to start.
 # ---------------------------------------------------------------------------
 _agent_descendants() {
   # Print all descendant PIDs of $1 (children, grandchildren, …), deepest-first.
@@ -55,6 +50,21 @@ _kill_agent_tree() {
   done
   kill -9 "$root" 2>/dev/null || true
 }
+
+cleanup() {
+  # Tree-kill the agent (not a bare `kill $AGENT_PID`): $AGENT_PID is the
+  # process-sub subshell, so a single-PID kill on the normal shutdown path
+  # (graceful exit / SIGTERM on every Railway redeploy/rollover) would reap
+  # only the subshell and ORPHAN the real npm→node server — reparented to
+  # PID 1, still holding :8123 across the restart.  See _kill_agent_tree.
+  _kill_agent_tree "$AGENT_PID"
+  kill $NEXTJS_PID $WATCHDOG_PID 2>/dev/null || true
+  # NOTE: SIZE_PID is intentionally NOT killed here.  SIZE_PID is assigned
+  # inside the watchdog subshell ( ) & so it is never visible in this outer
+  # shell.  The subshell registers its own EXIT trap to kill its SIZE_PID; see
+  # the "trap ... EXIT" inside the ( ) & block below.
+}
+trap cleanup EXIT
 
 # ---------------------------------------------------------------------------
 # Size-check seam: extract the per-cycle size-check-and-kill decision so it
