@@ -199,14 +199,22 @@ cleanup() {
   # Railway redeploy/rollover SIGTERM, so the new container cannot bind $PORT.
   # (Same orphan class already fixed for the agent; route the frontend through
   # the same guarded walk.)  WATCHDOG_PID is a genuine single-PID subshell we
-  # spawn directly (`( … ) &`, not process-sub-wrapped) that forks nothing that
-  # outlives it, so a bare kill is correct for it.
+  # spawn directly (`( … ) &`, not process-sub-wrapped).  It DOES fork one child
+  # — the size sub-loop (SIZE_PID) — but a bare `kill $WATCHDOG_PID` is still
+  # correct because the watchdog subshell arms its OWN inner EXIT trap that reaps
+  # that child (a $BASHPID PPID-walk, arm-then-spawn, no leak window) whenever the
+  # subshell exits, including on this SIGTERM.  So the outer cleanup only needs to
+  # signal the watchdog; the watchdog cleans up its own subtree.  SIZE_PID is
+  # local to the watchdog subshell and never visible here, so this outer shell
+  # cannot (and need not) kill it directly.
   _kill_agent_tree "$NEXTJS_PID"
   kill $WATCHDOG_PID 2>/dev/null || true
-  # NOTE: SIZE_PID is intentionally NOT killed here.  SIZE_PID is assigned
-  # inside the watchdog subshell ( ) & so it is never visible in this outer
-  # shell.  The subshell registers its own EXIT trap to kill its SIZE_PID; see
-  # the "trap ... EXIT" inside the ( ) & block below.
+  # NOTE: the size sub-loop is intentionally NOT killed here.  It is spawned
+  # inside the watchdog subshell ( ) & so its PID is never visible in this outer
+  # shell.  The watchdog subshell registers its own EXIT trap (armed BEFORE the
+  # spawn) that reaps the sub-loop via a $BASHPID PPID-walk on any exit path,
+  # including the SIGTERM the `kill $WATCHDOG_PID` above delivers; see the
+  # "trap ... EXIT" inside the ( ) & block below.
 }
 trap cleanup EXIT
 
@@ -456,27 +464,45 @@ _require_int HEALTH_CHECK_INTERVAL   30 "LangGraph health-probe interval (s)"
 _require_int HEALTH_STRIKE_LIMIT      3 "LangGraph health strike limit"
 (
   GRACE=$STARTUP_GRACE_SECONDS
-  echo "[watchdog] Startup grace: waiting up to ${GRACE}s for first successful health probe before arming strike counter"
-  ELAPSED=0
-  while [ $ELAPSED -lt $GRACE ]; do
-    if ! kill -0 $AGENT_PID 2>/dev/null; then
-      # Agent died during startup — wait -n in the main shell will handle it.
-      exit 0
-    fi
-    if curl -fsS --max-time 5 http://127.0.0.1:8124/ok > /dev/null 2>&1; then
-      echo "[watchdog] Agent healthy after ${ELAPSED}s — arming strike counter"
-      break
-    fi
-    sleep 5
-    ELAPSED=$((ELAPSED + 5))
-  done
-  if [ $ELAPSED -ge $GRACE ]; then
-    echo "[watchdog] Grace window elapsed without successful probe — arming strike counter anyway"
-  fi
+
+  # Arm the size sub-loop's reaping trap BEFORE spawning it (arm-then-spawn), and
+  # start the size monitor BEFORE the startup-grace loop.
+  #
+  # TRAP ORDERING (no-leak-window): the reaping trap is registered FIRST and does
+  # not depend on SIZE_PID being assigned yet.  The previous order spawned the
+  # sub-loop (`( … ) &`, SIZE_PID=$!) and only THEN registered
+  # `trap 'kill "$SIZE_PID"' EXIT` — leaving a tiny window in which an outer
+  # SIGTERM arriving between the `&` and the `trap` would exit this watchdog
+  # subshell with NO trap armed, orphaning the size sub-loop (reparented to PID 1,
+  # left spinning for the container's life).  We instead arm a trap that reaps by
+  # a PPID walk of THIS subshell ($BASHPID) — it finds the sub-loop regardless of
+  # whether SIZE_PID has been assigned, so there is no ordering-dependent leak.
+  # SIZE_PID is still captured (kept for the log line / clarity) but is no longer
+  # load-bearing for cleanup.
+  _reap_watchdog_children() {
+    local sp
+    for sp in $(_agent_descendants "$BASHPID"); do
+      kill "$sp" 2>/dev/null || true
+    done
+    [ -n "${SIZE_PID:-}" ] && kill "$SIZE_PID" 2>/dev/null || true
+    return 0
+  }
+  trap _reap_watchdog_children EXIT
 
   # Size-gated restart sub-loop: periodically check the persistence dir size
   # and kill the agent if it exceeds SIZE_THRESHOLD_MB. The container restart
   # will re-run the boot-purge, clearing accumulated state safely.
+  #
+  # STARTED BEFORE THE GRACE LOOP (cold-start coverage): the size ceiling must be
+  # guarded during the up-to-180s startup-grace window too, not only after it.
+  # The previous order started this monitor only AFTER the grace loop returned,
+  # so a pathological cold boot that bloats PERSIST_DIR during startup went
+  # unguarded for up to 180s.  Starting it here is safe because
+  # _watchdog_check_size_once already fail-closes on every not-yet-ready
+  # condition: agent PID not alive (`kill -0` fails → return 0), PERSIST_DIR
+  # missing (freshly purged on boot → return 0), and non-numeric/absent size or
+  # threshold (WARN + return 0).  Early cycles are therefore harmless no-ops
+  # until the dir exists and actually grows.
   (
     echo "[watchdog:size] Starting size-gated restart monitor (threshold=${SIZE_THRESHOLD_MB}MB, interval=${SIZE_CHECK_INTERVAL}s, dir=${PERSIST_DIR})"
     while sleep $SIZE_CHECK_INTERVAL; do
@@ -503,12 +529,24 @@ _require_int HEALTH_STRIKE_LIMIT      3 "LangGraph health strike limit"
     done
   ) &
   SIZE_PID=$!
-  # Register EXIT trap INSIDE this watchdog subshell so the size sub-loop is
-  # reaped on any exit path (normal, kill, SIGTERM from outer cleanup).
-  # This is the only reliable cleanup path: SIZE_PID is local to this subshell
-  # and is never visible in the outer shell, so the outer cleanup() cannot
-  # kill it.
-  trap 'kill "$SIZE_PID" 2>/dev/null || true' EXIT
+
+  echo "[watchdog] Startup grace: waiting up to ${GRACE}s for first successful health probe before arming strike counter"
+  ELAPSED=0
+  while [ $ELAPSED -lt $GRACE ]; do
+    if ! kill -0 $AGENT_PID 2>/dev/null; then
+      # Agent died during startup — wait -n in the main shell will handle it.
+      exit 0
+    fi
+    if curl -fsS --max-time 5 http://127.0.0.1:8124/ok > /dev/null 2>&1; then
+      echo "[watchdog] Agent healthy after ${ELAPSED}s — arming strike counter"
+      break
+    fi
+    sleep 5
+    ELAPSED=$((ELAPSED + 5))
+  done
+  if [ $ELAPSED -ge $GRACE ]; then
+    echo "[watchdog] Grace window elapsed without successful probe — arming strike counter anyway"
+  fi
 
   FAILS=0
   while sleep "$HEALTH_CHECK_INTERVAL"; do
