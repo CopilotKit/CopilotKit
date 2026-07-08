@@ -17,6 +17,7 @@ on:
       - "scripts/tsdown-exports.d.mts"
       - "scripts/validate-package-exports-types.ts"
       - "scripts/__tests__/validate-package-exports-types.test.ts"
+      - "scripts/__tests__/tsdown-exports.test.ts"
       - ".github/workflows/validate_package-exports.yml"
   pull_request:
     paths:
@@ -26,6 +27,7 @@ on:
       - "scripts/tsdown-exports.d.mts"
       - "scripts/validate-package-exports-types.ts"
       - "scripts/__tests__/validate-package-exports-types.test.ts"
+      - "scripts/__tests__/tsdown-exports.test.ts"
       - ".github/workflows/validate_package-exports.yml"
 
 permissions:
@@ -53,11 +55,14 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # Unit tests for the checker + a regression assertion over every real
-      # publishable package's exports map.
+      # Unit tests for BOTH the validator (checker) and the withTypesConditions
+      # build helper — the helper is the mechanism that actually injects the
+      # types conditions, so it must be exercised here — plus a regression
+      # assertion over every real publishable package's exports map.
       - name: Run exports-types validation tests
-        run: pnpm exec vitest run scripts/__tests__/validate-package-exports-types.test.ts
+        run: pnpm exec vitest run scripts/__tests__/validate-package-exports-types.test.ts scripts/__tests__/tsdown-exports.test.ts
 
-      # Standalone gate with a human-readable report of any offending package.
+      # Standalone gate over the COMMITTED package.json maps (it does not
+      # rebuild), with a human-readable report of any offending package.
       - name: Validate package exports declare types conditions
         run: pnpm validate:exports

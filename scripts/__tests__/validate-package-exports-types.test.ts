@@ -172,6 +172,20 @@ describe("findExportsTypeViolations", () => {
     const violations = check({ ".": ["./dist/a.mjs", "./dist/b.mjs"] });
     expect(violations.map((v) => v.subpath)).toEqual([".[0]", ".[1]"]);
   });
+
+  it("does not flag a trailing default/node shadowed by typed import + require", () => {
+    // import-mode resolves `import`, require-mode resolves `require`; the
+    // trailing `default` is never reached for types, so it must not be flagged.
+    expect(
+      check({
+        ".": {
+          import: { types: "./dist/index.d.mts", default: "./dist/index.mjs" },
+          require: { types: "./dist/index.d.cts", default: "./dist/index.cjs" },
+          default: "./dist/index.mjs",
+        },
+      }),
+    ).toEqual([]);
+  });
 });
 
 describe("all publishable packages (regression guard for #3324)", () => {

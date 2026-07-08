@@ -1,5 +1,11 @@
 import { defineConfig } from "tsdown";
 
+// NOTE: unlike the other tsdown-built packages, this config sets no `exports`
+// option, so tsdown does NOT generate/overwrite package.json `exports` — the
+// map (including the per-entry `types` conditions required by issue #3324) is
+// hand-maintained in package.json. The `pnpm validate:exports` CI gate guards
+// it against a missing `types` condition. If entry points change here, update
+// the `exports` map in package.json by hand to match.
 export default defineConfig({
   entry: [
     "src/index.ts",

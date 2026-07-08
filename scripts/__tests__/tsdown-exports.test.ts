@@ -37,6 +37,22 @@ describe("withTypesConditions", () => {
           require: { types: "./dist/index.d.cts", default: "./dist/index.cjs" },
         },
       });
+      // `types` must be emitted FIRST — that is the whole point (attw flags a
+      // types-last condition). toEqual is key-order-insensitive, so assert
+      // order via serialization, which preserves insertion order.
+      const json = JSON.stringify(result);
+      expect(json).toContain('"import":{"types":');
+      expect(json).toContain('"require":{"types":');
+    });
+  });
+
+  it("is idempotent — re-applying does not re-nest the default target", () => {
+    withPackage(["dist/index.d.mts", "dist/index.d.cts"], (ctx) => {
+      const once = withTypesConditions(
+        { ".": { import: "./dist/index.mjs", require: "./dist/index.cjs" } },
+        ctx,
+      );
+      expect(withTypesConditions(once, ctx)).toEqual(once);
     });
   });
 
@@ -73,6 +89,8 @@ describe("withTypesConditions", () => {
           ],
         },
       });
+      // The typed array element must also keep `types` first.
+      expect(JSON.stringify(result)).toContain('[{"types":');
     });
   });
 

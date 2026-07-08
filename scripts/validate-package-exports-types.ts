@@ -36,23 +36,35 @@ const PACKAGES_DIR = path.resolve(__dirname, "../packages");
 const JS_TARGET = /\.(mjs|cjs|js)$/;
 const DECLARATION_TARGET = /\.d\.(mts|cts|ts)$/;
 
-// The JS-returning conditions TypeScript resolves types through. Conditions
-// match in object order (first match wins), so a `types` condition must appear
-// BEFORE these or a strict resolver reaches the JS target first and finds no
-// declarations. Runtime-only conditions (browser/deno/worker/development/
-// production/…) are absent on purpose: TypeScript ignores them for types, so a
-// JS target under one needs no declaration.
-const JS_CONDITIONS = new Set(["import", "require", "node", "default"]);
+// import- and require-mode resolve types INDEPENDENTLY. In each mode TypeScript
+// matches the first condition present (in object order) from
+// {types, <mode>, node, default} — so `import` and `require` never shadow each
+// other, and a trailing `default`/`node` after both is unreachable in every
+// mode. Runtime-only conditions (browser/deno/worker/development/production/…)
+// are ignored for types, so a JS target under one needs no declaration.
+const RESOLUTION_MODES = ["import", "require"] as const;
+
+function isActiveCondition(
+  condition: string,
+  mode: (typeof RESOLUTION_MODES)[number],
+): boolean {
+  return (
+    condition === "types" ||
+    condition === mode ||
+    condition === "node" ||
+    condition === "default"
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Core check
 // ---------------------------------------------------------------------------
 
 /**
- * Return every entry in one package's `exports` map whose first type-relevant
- * condition resolves to runtime JavaScript instead of a declaration file —
- * i.e. TypeScript (and strict `exports` resolvers such as the Backstage CLI)
- * would find no `.d.ts` for that subpath.
+ * Return every entry in one package's `exports` map where TypeScript's import-
+ * or require-mode resolution lands on runtime JavaScript instead of a
+ * declaration file — i.e. TypeScript (and strict `exports` resolvers such as
+ * the Backstage CLI) would find no `.d.ts` for that subpath.
  */
 export function findExportsTypeViolations(
   packageName: string,
@@ -109,39 +121,39 @@ function walk(
     return;
   }
 
-  // Conditions match in object order (first match wins), and import- and
-  // require-mode resolve independently. Validate each `types` target, and flag
-  // every JS-returning condition that is NOT preceded by a `types` (a strict
-  // resolver reaches that JS target before any later `types`). Runtime-only
-  // conditions are ignored — TypeScript resolves no types through them.
   const conditions = Object.entries(entry);
-  const typesIndex = conditions.findIndex(
-    ([condition]) => condition === "types",
-  );
-  conditions.forEach(([condition, value], index) => {
-    if (condition === "types") {
-      if (typeof value === "string") {
-        if (!DECLARATION_TARGET.test(value)) {
-          out.push({
-            package: packageName,
-            subpath: `${trail} > types`,
-            reason: `"types" target "${value}" is not a declaration file`,
-          });
-        }
-      } else {
-        // Nested/object `types` — recurse so each resolved leaf is validated.
-        walk(value, `${trail} > types`, packageName, out);
+
+  // 1. Every `types` target must be a declaration file (or, if nested, resolve
+  //    to declarations).
+  for (const [condition, value] of conditions) {
+    if (condition !== "types") continue;
+    if (typeof value === "string") {
+      if (!DECLARATION_TARGET.test(value)) {
+        out.push({
+          package: packageName,
+          subpath: `${trail} > types`,
+          reason: `"types" target "${value}" is not a declaration file`,
+        });
       }
-      return;
+    } else {
+      // Nested/object `types` — recurse so each resolved leaf is validated.
+      walk(value, `${trail} > types`, packageName, out);
     }
-    if (!JS_CONDITIONS.has(condition)) return; // runtime-only → no types needed
-    // A `types` condition earlier in object order covers this JS condition for
-    // its resolution mode.
-    if (typesIndex !== -1 && typesIndex < index) return;
-    // Otherwise the JS target must itself carry types (a nested `types`) or be
-    // a declaration file.
-    walk(value, `${trail} > ${condition}`, packageName, out);
-  });
+  }
+
+  // 2. For each resolution mode the first active condition wins. When that
+  //    winner is a JS-returning condition (not `types`), its value must itself
+  //    carry types. Dedupe so a shared winner (e.g. a trailing `default`) is
+  //    reported once, and skip winners already covered by a `types`.
+  const walked = new Set<string>();
+  for (const mode of RESOLUTION_MODES) {
+    const winner = conditions.find(([condition]) =>
+      isActiveCondition(condition, mode),
+    );
+    if (!winner || winner[0] === "types" || walked.has(winner[0])) continue;
+    walked.add(winner[0]);
+    walk(winner[1], `${trail} > ${winner[0]}`, packageName, out);
+  }
 }
 
 // ---------------------------------------------------------------------------

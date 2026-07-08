@@ -37,7 +37,7 @@ export function withTypesConditions(exports, ctx) {
   // from tsdown's public `PackageJson` type). Fail loud rather than silently
   // resolving against the wrong directory and emitting a types-less map — that
   // would reintroduce exactly the #3324 bug this helper prevents.
-  const packageJsonPath = ctx.pkg?.packageJsonPath;
+  const packageJsonPath = ctx?.pkg?.packageJsonPath;
   if (typeof packageJsonPath !== "string") {
     throw new Error(
       "withTypesConditions: ctx.pkg.packageJsonPath is required to resolve declaration files",
@@ -60,6 +60,10 @@ function withTypes(entry, pkgDir) {
   // Fallback arrays (`"import": ["./a.mjs", "./b.mjs"]`) are legal: transform
   // each element and keep the array rather than corrupting it into an object.
   if (Array.isArray(entry)) return entry.map((item) => withTypes(item, pkgDir));
+  // Idempotent: an object that already carries a `types` condition has been
+  // processed (or is already type-first), so leave it untouched rather than
+  // re-nesting its `default`.
+  if ("types" in entry) return entry;
   const next = {};
   for (const [condition, target] of Object.entries(entry)) {
     next[condition] =
