@@ -29,7 +29,7 @@ set -e
 # ---------------------------------------------------------------------------
 _agent_descendants() {
   # Print all descendant PIDs of $1 (children, grandchildren, …), deepest-first.
-  local root="$1" pid ppid stat
+  local root="$1" pid ppid stat _state _rest
   # Fail closed on a dangerous or meaningless root.  An empty / non-numeric root
   # would make the PPID comparison below match nothing (harmless) but a root of
   # "0" or "1" is catastrophic: "0" means "every process in the caller's process
@@ -51,7 +51,12 @@ _agent_descendants() {
     # closing paren contains ")", so even a comm like "(evil) S 1)" parses to
     # the true PPID — the last ") " is always the comm's real terminator.
     stat=$(cat "/proc/$pid/stat" 2>/dev/null) || continue
-    ppid=$(echo "${stat##*) }" | awk '{print $2}')
+    # The remainder after the comm's terminating ") " is "STATE PPID PGRP …", so
+    # PPID is the 2nd whitespace-separated field.  Use the `read` builtin instead
+    # of `echo … | awk` to avoid forking awk once per /proc entry (a fork-storm
+    # under a large process table).  `read` word-splits on IFS; discard STATE
+    # into _state, capture PPID, discard the rest into _rest.
+    read -r _state ppid _rest <<< "${stat##*) }"
     if [ "$ppid" = "$root" ]; then
       _agent_descendants "$pid"
       echo "$pid"
@@ -101,7 +106,11 @@ _kill_agent_tree() {
     for p in $descendants; do
       kill -9 "$p" 2>/dev/null || true
     done
-    sleep 0.2
+    # `|| true`: under set -e a non-zero `sleep` (e.g. a future busybox/Alpine
+    # rebase whose sleep can fail) would abort this tree-kill mid-walk, leaving
+    # the root un-killed and the real npm→node server orphaned.  The guard keeps
+    # the walk running to completion regardless of sleep's exit status.
+    sleep 0.2 || true
   done
   kill -9 "$root" 2>/dev/null || true
 }
@@ -146,6 +155,23 @@ _require_int() {
   #     base").
   # The `[1-9]*([0-9])` extglob-free equivalent is written as two arms: a lone
   # single digit 1-9, or a 1-9 lead followed by one-or-more digits.
+  #
+  # UPPER BOUND (fail-safe, same class as the checks above): even a value that is
+  # syntactically all-digits can be pathologically large.  bash arithmetic is
+  # signed 64-bit, so a 19-digit value can still parse but a 20+ digit value
+  # OVERFLOWS — `[ "$x" -ge "$y" ]` then aborts with "value too great for base"
+  # (suppressed to false inside an `if`, silently disabling the guard) or wraps
+  # to a negative/garbage magnitude.  No real knob (interval seconds, strike
+  # count, size-MB threshold) is ever more than a handful of digits, so cap the
+  # length at 10 digits (max 9,999,999,999 — years of seconds, petabytes of MB;
+  # comfortably inside the signed-64-bit range with no overflow risk).  A longer
+  # value is treated exactly like any other bad override: WARN + fall back to the
+  # documented default rather than silently disabling the guard.
+  if [ "${#value}" -gt 10 ]; then
+    echo "[entrypoint] WARNING: ${label} (${name}) is too large (got: '${value}', ${#value} digits — max 10) — falling back to default ${default}"
+    printf -v "$name" '%s' "$default"
+    return 0
+  fi
   case "$value" in
     [1-9]) : ;;                # single positive digit
     [1-9][0-9]*)               # multi-digit, must be all digits after the lead
@@ -177,14 +203,22 @@ cleanup() {
   # Railway redeploy/rollover SIGTERM, so the new container cannot bind $PORT.
   # (Same orphan class already fixed for the agent; route the frontend through
   # the same guarded walk.)  WATCHDOG_PID is a genuine single-PID subshell we
-  # spawn directly (`( … ) &`, not process-sub-wrapped) that forks nothing that
-  # outlives it, so a bare kill is correct for it.
+  # spawn directly (`( … ) &`, not process-sub-wrapped).  It DOES fork one child
+  # — the size sub-loop (SIZE_PID) — but a bare `kill $WATCHDOG_PID` is still
+  # correct because the watchdog subshell arms its OWN inner EXIT trap that reaps
+  # that child (a $BASHPID PPID-walk, arm-then-spawn, no leak window) whenever the
+  # subshell exits, including on this SIGTERM.  So the outer cleanup only needs to
+  # signal the watchdog; the watchdog cleans up its own subtree.  SIZE_PID is
+  # local to the watchdog subshell and never visible here, so this outer shell
+  # cannot (and need not) kill it directly.
   _kill_agent_tree "$NEXTJS_PID"
   kill $WATCHDOG_PID 2>/dev/null || true
-  # NOTE: SIZE_PID is intentionally NOT killed here.  SIZE_PID is assigned
-  # inside the watchdog subshell ( ) & so it is never visible in this outer
-  # shell.  The subshell registers its own EXIT trap to kill its SIZE_PID; see
-  # the "trap ... EXIT" inside the ( ) & block below.
+  # NOTE: the size sub-loop is intentionally NOT killed here.  It is spawned
+  # inside the watchdog subshell ( ) & so its PID is never visible in this outer
+  # shell.  The watchdog subshell registers its own EXIT trap (armed BEFORE the
+  # spawn) that reaps the sub-loop via a $BASHPID PPID-walk on any exit path,
+  # including the SIGTERM the `kill $WATCHDOG_PID` above delivers; see the
+  # "trap ... EXIT" inside the ( ) & block below.
 }
 trap cleanup EXIT
 
@@ -341,8 +375,13 @@ fi
 # reach the agent regardless of how `localhost` resolves in the container.
 #
 # Log prefixing uses bash process substitution (`&> >(awk …)`) rather than a
-# pipe (`| sed …`): process substitution leaves `$!` pointing at the real
-# node process, so `wait -n $AGENT_PID` monitors the right thing.
+# pipe (`| sed …`) so `$!` (captured below as AGENT_PID) refers to the agent's
+# own launch process and NOT the awk log-formatter — `wait -n $AGENT_PID` thus
+# monitors the agent side, not the log pipeline.  Note `$!`/AGENT_PID is the
+# WRAPPING SUBSHELL of the `... &` compound command, NOT the real npm→node
+# server it forks (the server is a DESCENDANT, reached only via the tree-kill —
+# see the file header and _kill_agent_tree).  Never `kill $AGENT_PID` directly:
+# that reaps only the wrapper subshell and orphans the real server on :8123.
 echo "[entrypoint] Starting LangGraph TS agent on port 8123 (prod mode, no CLI)..."
 cd /app/src/agent && PORT=8123 HOST=0.0.0.0 npm start &> >(awk '{print "[agent] " $0; fflush()}') &
 AGENT_PID=$!
@@ -380,10 +419,12 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
 # and Railway restarts the container. Generalized from
 # showcase/integrations/crewai-crews/entrypoint.sh (PRs #4114 + #4115).
 #
-# Startup grace: langgraph-cli dev does a heavy cold-start (Studio IPC +
-# @langchain/langgraph-api spawn + graph compile). On fresh Railway
-# containers this routinely exceeds the 90s (3-strike) budget introduced
-# in PR #4116, producing the 04-20 restart loop seen on deployment
+# Startup grace: the prod path (see above — we deliberately avoid
+# `langgraph-cli dev`) still pays a heavy cold-start from the top-level
+# `@langchain/langgraph-api` import (schema extraction + graph compile) that
+# gates the main Hono bind on :8123. On fresh Railway containers this routinely
+# exceeds the 90s (3-strike) budget introduced in PR #4116, producing the 04-20
+# restart loop seen on deployment
 # 58bbebe8-7a94-4f99-b6e4-ffcbb4eb78b9. Wait up to 180s for the first
 # healthy /ok probe before arming the strike counter; if /ok comes up
 # sooner, fall through immediately. If 180s elapses without success, arm
@@ -434,27 +475,47 @@ _require_int HEALTH_CHECK_INTERVAL   30 "LangGraph health-probe interval (s)"
 _require_int HEALTH_STRIKE_LIMIT      3 "LangGraph health strike limit"
 (
   GRACE=$STARTUP_GRACE_SECONDS
-  echo "[watchdog] Startup grace: waiting up to ${GRACE}s for first successful health probe before arming strike counter"
-  ELAPSED=0
-  while [ $ELAPSED -lt $GRACE ]; do
-    if ! kill -0 $AGENT_PID 2>/dev/null; then
-      # Agent died during startup — wait -n in the main shell will handle it.
-      exit 0
-    fi
-    if curl -fsS --max-time 5 http://127.0.0.1:8124/ok > /dev/null 2>&1; then
-      echo "[watchdog] Agent healthy after ${ELAPSED}s — arming strike counter"
-      break
-    fi
-    sleep 5
-    ELAPSED=$((ELAPSED + 5))
-  done
-  if [ $ELAPSED -ge $GRACE ]; then
-    echo "[watchdog] Grace window elapsed without successful probe — arming strike counter anyway"
-  fi
+
+  # Arm the size sub-loop's reaping trap BEFORE spawning it (arm-then-spawn), and
+  # start the size monitor BEFORE the startup-grace loop.
+  #
+  # TRAP ORDERING (no-leak-window): the reaping trap is registered FIRST and does
+  # not depend on SIZE_PID being assigned yet.  The previous order spawned the
+  # sub-loop (`( … ) &`, SIZE_PID=$!) and only THEN registered
+  # `trap 'kill "$SIZE_PID"' EXIT` — leaving a tiny window in which an outer
+  # SIGTERM arriving between the `&` and the `trap` would exit this watchdog
+  # subshell with NO trap armed, orphaning the size sub-loop (reparented to PID 1,
+  # left spinning for the container's life).  We instead arm a trap that reaps by
+  # a PPID walk of THIS subshell ($BASHPID) — it finds the sub-loop regardless of
+  # whether SIZE_PID has been assigned, so cleanup no longer DEPENDS on the
+  # ordering of SIZE_PID's assignment.  SIZE_PID is still captured and the
+  # direct `kill "$SIZE_PID"` below is RETAINED as a belt-and-suspenders backstop
+  # to the $BASHPID PPID-walk (do not remove it): if the walk ever misses the
+  # sub-loop, the explicit PID kill still reaps it.
+  _reap_watchdog_children() {
+    local sp
+    for sp in $(_agent_descendants "$BASHPID"); do
+      kill "$sp" 2>/dev/null || true
+    done
+    [ -n "${SIZE_PID:-}" ] && kill "$SIZE_PID" 2>/dev/null || true
+    return 0
+  }
+  trap _reap_watchdog_children EXIT
 
   # Size-gated restart sub-loop: periodically check the persistence dir size
   # and kill the agent if it exceeds SIZE_THRESHOLD_MB. The container restart
   # will re-run the boot-purge, clearing accumulated state safely.
+  #
+  # STARTED BEFORE THE GRACE LOOP (cold-start coverage): the size ceiling must be
+  # guarded during the up-to-180s startup-grace window too, not only after it.
+  # The previous order started this monitor only AFTER the grace loop returned,
+  # so a pathological cold boot that bloats PERSIST_DIR during startup went
+  # unguarded for up to 180s.  Starting it here is safe because
+  # _watchdog_check_size_once already fail-closes on every not-yet-ready
+  # condition: agent PID not alive (`kill -0` fails → return 0), PERSIST_DIR
+  # missing (freshly purged on boot → return 0), and non-numeric/absent size or
+  # threshold (WARN + return 0).  Early cycles are therefore harmless no-ops
+  # until the dir exists and actually grows.
   (
     echo "[watchdog:size] Starting size-gated restart monitor (threshold=${SIZE_THRESHOLD_MB}MB, interval=${SIZE_CHECK_INTERVAL}s, dir=${PERSIST_DIR})"
     while sleep $SIZE_CHECK_INTERVAL; do
@@ -481,12 +542,24 @@ _require_int HEALTH_STRIKE_LIMIT      3 "LangGraph health strike limit"
     done
   ) &
   SIZE_PID=$!
-  # Register EXIT trap INSIDE this watchdog subshell so the size sub-loop is
-  # reaped on any exit path (normal, kill, SIGTERM from outer cleanup).
-  # This is the only reliable cleanup path: SIZE_PID is local to this subshell
-  # and is never visible in the outer shell, so the outer cleanup() cannot
-  # kill it.
-  trap 'kill "$SIZE_PID" 2>/dev/null || true' EXIT
+
+  echo "[watchdog] Startup grace: waiting up to ${GRACE}s for first successful health probe before arming strike counter"
+  ELAPSED=0
+  while [ $ELAPSED -lt $GRACE ]; do
+    if ! kill -0 $AGENT_PID 2>/dev/null; then
+      # Agent died during startup — wait -n in the main shell will handle it.
+      exit 0
+    fi
+    if curl -fsS --max-time 5 http://127.0.0.1:8124/ok > /dev/null 2>&1; then
+      echo "[watchdog] Agent healthy after ${ELAPSED}s — arming strike counter"
+      break
+    fi
+    sleep 5
+    ELAPSED=$((ELAPSED + 5))
+  done
+  if [ $ELAPSED -ge $GRACE ]; then
+    echo "[watchdog] Grace window elapsed without successful probe — arming strike counter anyway"
+  fi
 
   FAILS=0
   while sleep "$HEALTH_CHECK_INTERVAL"; do
@@ -527,14 +600,25 @@ echo "[entrypoint] All processes running. Waiting..."
 # cleanup, script exits non-zero) but the operator-facing diagnostic never
 # prints.  Capturing the code preserves it exactly (incl. 137) for both the
 # diagnostic and the final exit, and the container-restart path is unchanged.
+#
+# REAPED_PID via `wait -n -p VAR` (bash >= 5.1; node:22-slim ships 5.2) captures
+# the ACTUAL PID `wait -n` reaped.  The previous `kill -0` if/elif merely INFERRED
+# which process exited by probing liveness AFTER the wait — racy on a near-
+# simultaneous exit: if both are dead by the time we probe, the first `kill -0`
+# branch always wins and mislabels the diagnostic (e.g. reports the agent when
+# Next.js is what actually exited, attaching the wrong code to the wrong name).
+# Keying the message off the reaped PID names the correct process every time.
+# `|| EXIT_CODE=$?` remains LOAD-BEARING (see above): -p does not change that a
+# non-zero wait would abort under set -e without the guard.
+REAPED_PID=""
 EXIT_CODE=0
-wait -n "$AGENT_PID" "$NEXTJS_PID" || EXIT_CODE=$?
-if ! kill -0 $AGENT_PID 2>/dev/null; then
+wait -n -p REAPED_PID "$AGENT_PID" "$NEXTJS_PID" || EXIT_CODE=$?
+if [ "$REAPED_PID" = "$AGENT_PID" ]; then
   echo "[entrypoint] Agent (PID: $AGENT_PID) exited with code $EXIT_CODE"
-elif ! kill -0 $NEXTJS_PID 2>/dev/null; then
+elif [ "$REAPED_PID" = "$NEXTJS_PID" ]; then
   echo "[entrypoint] Next.js (PID: $NEXTJS_PID) exited with code $EXIT_CODE"
 else
-  echo "[entrypoint] A process exited with code $EXIT_CODE"
+  echo "[entrypoint] A process (PID: ${REAPED_PID:-unknown}) exited with code $EXIT_CODE"
 fi
 
 exit $EXIT_CODE

@@ -29,7 +29,7 @@ set -e
 # ---------------------------------------------------------------------------
 _agent_descendants() {
   # Print all descendant PIDs of $1 (children, grandchildren, …), deepest-first.
-  local root="$1" pid ppid stat
+  local root="$1" pid ppid stat _state _rest
   # Fail closed on a dangerous or meaningless root.  An empty / non-numeric root
   # would make the PPID comparison below match nothing (harmless) but a root of
   # "0" or "1" is catastrophic: "0" means "every process in the caller's process
@@ -51,7 +51,12 @@ _agent_descendants() {
     # closing paren contains ")", so even a comm like "(evil) S 1)" parses to
     # the true PPID — the last ") " is always the comm's real terminator.
     stat=$(cat "/proc/$pid/stat" 2>/dev/null) || continue
-    ppid=$(echo "${stat##*) }" | awk '{print $2}')
+    # The remainder after the comm's terminating ") " is "STATE PPID PGRP …", so
+    # PPID is the 2nd whitespace-separated field.  Use the `read` builtin instead
+    # of `echo … | awk` to avoid forking awk once per /proc entry (a fork-storm
+    # under a large process table).  `read` word-splits on IFS; discard STATE
+    # into _state, capture PPID, discard the rest into _rest.
+    read -r _state ppid _rest <<< "${stat##*) }"
     if [ "$ppid" = "$root" ]; then
       _agent_descendants "$pid"
       echo "$pid"
@@ -101,7 +106,11 @@ _kill_agent_tree() {
     for p in $descendants; do
       kill -9 "$p" 2>/dev/null || true
     done
-    sleep 0.2
+    # `|| true`: under set -e a non-zero `sleep` (e.g. a future busybox/Alpine
+    # rebase whose sleep can fail) would abort this tree-kill mid-walk, leaving
+    # the root un-killed and the real npm→node server orphaned.  The guard keeps
+    # the walk running to completion regardless of sleep's exit status.
+    sleep 0.2 || true
   done
   kill -9 "$root" 2>/dev/null || true
 }
@@ -146,6 +155,23 @@ _require_int() {
   #     base").
   # The `[1-9]*([0-9])` extglob-free equivalent is written as two arms: a lone
   # single digit 1-9, or a 1-9 lead followed by one-or-more digits.
+  #
+  # UPPER BOUND (fail-safe, same class as the checks above): even a value that is
+  # syntactically all-digits can be pathologically large.  bash arithmetic is
+  # signed 64-bit, so a 19-digit value can still parse but a 20+ digit value
+  # OVERFLOWS — `[ "$x" -ge "$y" ]` then aborts with "value too great for base"
+  # (suppressed to false inside an `if`, silently disabling the guard) or wraps
+  # to a negative/garbage magnitude.  No real knob (interval seconds, strike
+  # count, size-MB threshold) is ever more than a handful of digits, so cap the
+  # length at 10 digits (max 9,999,999,999 — years of seconds, petabytes of MB;
+  # comfortably inside the signed-64-bit range with no overflow risk).  A longer
+  # value is treated exactly like any other bad override: WARN + fall back to the
+  # documented default rather than silently disabling the guard.
+  if [ "${#value}" -gt 10 ]; then
+    echo "[entrypoint] WARNING: ${label} (${name}) is too large (got: '${value}', ${#value} digits — max 10) — falling back to default ${default}"
+    printf -v "$name" '%s' "$default"
+    return 0
+  fi
   case "$value" in
     [1-9]) : ;;                # single positive digit
     [1-9][0-9]*)               # multi-digit, must be all digits after the lead
@@ -201,8 +227,14 @@ fi
 # `npm start` runs `node --import tsx server.ts` (see src/agent/package.json).
 # tsx is a one-shot ESM loader here (NOT a watcher) so server.ts and its
 # imports resolve without a precompile step. Log prefixing uses bash process
-# substitution (`&> >(awk …)`) rather than a pipe so `$!` points at the real
-# node process and `wait -n $AGENT_PID` monitors the right thing.
+# substitution (`&> >(awk …)`) rather than a pipe so `$!` (captured below as
+# AGENT_PID) refers to the agent's own launch process and NOT the awk log-
+# formatter — `wait -n $AGENT_PID` thus monitors the agent side, not the log
+# pipeline. Note `$!`/AGENT_PID is the WRAPPING SUBSHELL of the `... &` compound
+# command, NOT the real npm→node server it forks (the server is a DESCENDANT,
+# reached only via the tree-kill — see the file header and _kill_agent_tree).
+# Never `kill $AGENT_PID` directly: that reaps only the wrapper subshell and
+# orphans the real server on :8000.
 echo "[entrypoint] Starting Strands TS agent on port 8000..."
 cd /app/src/agent && PORT=8000 HOST=0.0.0.0 npm start &> >(awk '{print "[agent] " $0; fflush()}') &
 AGENT_PID=$!
@@ -321,14 +353,25 @@ echo "[entrypoint] All processes running. Waiting..."
 # cleanup, script exits non-zero) but the operator-facing diagnostic never
 # prints.  Capturing the code preserves it exactly (incl. 137) for both the
 # diagnostic and the final exit, and the container-restart path is unchanged.
+#
+# REAPED_PID via `wait -n -p VAR` (bash >= 5.1; node:22-slim ships 5.2) captures
+# the ACTUAL PID `wait -n` reaped.  The previous `kill -0` if/elif merely INFERRED
+# which process exited by probing liveness AFTER the wait — racy on a near-
+# simultaneous exit: if both are dead by the time we probe, the first `kill -0`
+# branch always wins and mislabels the diagnostic (e.g. reports the agent when
+# Next.js is what actually exited, attaching the wrong code to the wrong name).
+# Keying the message off the reaped PID names the correct process every time.
+# `|| EXIT_CODE=$?` remains LOAD-BEARING (see above): -p does not change that a
+# non-zero wait would abort under set -e without the guard.
+REAPED_PID=""
 EXIT_CODE=0
-wait -n "$AGENT_PID" "$NEXTJS_PID" || EXIT_CODE=$?
-if ! kill -0 $AGENT_PID 2>/dev/null; then
+wait -n -p REAPED_PID "$AGENT_PID" "$NEXTJS_PID" || EXIT_CODE=$?
+if [ "$REAPED_PID" = "$AGENT_PID" ]; then
   echo "[entrypoint] Agent (PID: $AGENT_PID) exited with code $EXIT_CODE"
-elif ! kill -0 $NEXTJS_PID 2>/dev/null; then
+elif [ "$REAPED_PID" = "$NEXTJS_PID" ]; then
   echo "[entrypoint] Next.js (PID: $NEXTJS_PID) exited with code $EXIT_CODE"
 else
-  echo "[entrypoint] A process exited with code $EXIT_CODE"
+  echo "[entrypoint] A process (PID: ${REAPED_PID:-unknown}) exited with code $EXIT_CODE"
 fi
 
 exit $EXIT_CODE
