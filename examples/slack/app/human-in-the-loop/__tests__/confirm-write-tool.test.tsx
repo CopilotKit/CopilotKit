@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { renderToIR, type BotNode } from "@copilotkit/bot-ui";
-import { renderSlackMessage } from "@copilotkit/bot-slack";
+import { renderToIR, type BotNode } from "@copilotkit/channels-ui";
+import { renderSlackMessage } from "@copilotkit/channels-slack";
 import { confirmWriteTool } from "../confirm-write-tool.js";
 
 /** A fake thread whose `awaitChoice` records the posted UI and returns a fixed choice. */

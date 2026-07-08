@@ -1,0 +1,56 @@
+{
+  "name": "@copilotkit/channels-discord",
+  "version": "0.0.2",
+  "description": "Discord PlatformAdapter for @copilotkit/channels.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CopilotKit/CopilotKit.git",
+    "directory": "packages/channels-discord"
+  },
+  "homepage": "https://github.com/CopilotKit/CopilotKit",
+  "keywords": [
+    "ai",
+    "agent",
+    "bot",
+    "discord",
+    "copilotkit",
+    "ag-ui"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check-types": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.check.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "publint": "publint .",
+    "attw": "attw --pack . --profile esm-only"
+  },
+  "dependencies": {
+    "@ag-ui/client": "0.0.57",
+    "@copilotkit/channels": "workspace:*",
+    "@copilotkit/channels-ui": "workspace:*",
+    "discord.js": "^14.16.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@copilotkit/typescript-config": "workspace:^",
+    "@types/node": "^22.10.0",
+    "typescript": "^5.6.3",
+    "vitest": "^4.1.3"
+  }
+}

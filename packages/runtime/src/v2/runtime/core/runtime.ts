@@ -33,11 +33,11 @@ import type { AgentRunner } from "../runner/agent-runner";
 import { InMemoryAgentRunner } from "../runner/in-memory";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
 import type { CopilotKitIntelligence } from "../intelligence-platform";
-// Type-only: @copilotkit/bot is pure-ESM, so a value import would break this
+// Type-only: @copilotkit/channels is pure-ESM, so a value import would break this
 // package's CJS output. The bots are validated + activated (wired to delivery
-// transports) by `startManagedBots` from @copilotkit/bot, called by the
+// transports) by `startManagedBots` from @copilotkit/channels, called by the
 // managed-listener bootstrap — not here.
-import type { Bot } from "@copilotkit/bot";
+import type { Bot } from "@copilotkit/channels";
 import telemetry from "../telemetry/telemetry-client";
 
 export const VERSION = pkg.version;
@@ -207,7 +207,7 @@ export interface CopilotIntelligenceRuntimeOptions extends BaseCopilotRuntimeOpt
    * `createBot({ name })` instance. Only available on the Intelligence runtime
    * path. Names are validated (required, identifier-style, unique) and wired to
    * delivery/egress transports when activated via `startManagedBots` from
-   * `@copilotkit/bot` — not at construction.
+   * `@copilotkit/channels` — not at construction.
    */
   bots?: Bot[];
 }
@@ -412,7 +412,7 @@ export class CopilotIntelligenceRuntime
     // Declared managed bots. Full name validation (identifier shape +
     // uniqueness) lives in `startManagedBots` (`assertValidBotNames`) at
     // activation — it can't run here because it's a value import from the
-    // pure-ESM `@copilotkit/bot-intelligence`, which this CJS package must not
+    // pure-ESM `@copilotkit/channels-intelligence`, which this CJS package must not
     // pull in. Fail fast on the most common misconfiguration (a missing name)
     // right here at construction, though, rather than only at activation.
     this.bots = options.bots ?? [];

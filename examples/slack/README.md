@@ -1,12 +1,12 @@
 # bot-example — on-call triage assistant (Slack, Discord, Telegram &/or WhatsApp)
 
-A runnable demo for [`@copilotkit/bot-slack`](../../packages/bot-slack),
-[`@copilotkit/bot-discord`](../../packages/bot-discord),
-[`@copilotkit/bot-telegram`](../../packages/bot-telegram), **and**
-[`@copilotkit/bot-whatsapp`](../../packages/bot-whatsapp): an on-call triage bot
+A runnable demo for [`@copilotkit/channels-slack`](../../packages/channels-slack),
+[`@copilotkit/channels-discord`](../../packages/channels-discord),
+[`@copilotkit/channels-telegram`](../../packages/channels-telegram), **and**
+[`@copilotkit/channels-whatsapp`](../../packages/channels-whatsapp): an on-call triage bot
 that turns incident chatter into tracked work. It's built with
-[`@copilotkit/bot`](../../packages/bot) (the platform-agnostic bot core), one or
-more platform adapters, and [`@copilotkit/bot-ui`](../../packages/bot-ui) (a
+[`@copilotkit/channels`](../../packages/channels) (the platform-agnostic bot core), one or
+more platform adapters, and [`@copilotkit/channels-ui`](../../packages/channels-ui) (a
 cross-platform JSX vocabulary for rich messages).
 
 **One app, any platform — or all at once.** `createBot` takes an array of
@@ -65,13 +65,13 @@ present (Slack, Discord, and/or Telegram) and adds graceful shutdown; read the
 file for the full multi-platform wiring:
 
 ```ts
-import { createBot } from "@copilotkit/bot";
+import { createBot } from "@copilotkit/channels";
 import {
   slack,
   defaultSlackTools,
   defaultSlackContext,
   SanitizingHttpAgent,
-} from "@copilotkit/bot-slack";
+} from "@copilotkit/channels-slack";
 import { appTools } from "./tools/index.js";
 import { appContext } from "./context/app-context.js";
 
@@ -136,7 +136,7 @@ adapter supplies at call time; tools reach platform power (post, postFile,
 
 ### UI as JSX components
 
-Rich messages are authored as JSX components over the `@copilotkit/bot-ui`
+Rich messages are authored as JSX components over the `@copilotkit/channels-ui`
 vocabulary (`<Message>`, `<Header>`, `<Section>`, `<Context>`, `<Actions>`,
 `<Button>`, …). Each component (`IssueCard`, `IssueList`, `PageList`,
 `ConfirmWrite`) is a plain function whose zod prop schema doubles as a tool
@@ -247,8 +247,8 @@ adapter for each one whose secrets are present (so you can run any one, or
 several from one process).
 
 > **This example runs from the monorepo.** The Telegram work ships an
-> unpublished package (`@copilotkit/bot-telegram`) and depends on a fix in the
-> core (`@copilotkit/bot`), so all `@copilotkit/*` deps are `workspace:*` and
+> unpublished package (`@copilotkit/channels-telegram`) and depends on a fix in the
+> core (`@copilotkit/channels`), so all `@copilotkit/*` deps are `workspace:*` and
 > the example runs against local source: `pnpm --filter slack-example <script>`.
 > Once those versions publish, switch the deps to published ranges for a
 > standalone build.
@@ -412,7 +412,7 @@ the workspace and `packages/**` are visible. On Railway (or any host), set:
 | **Watch Paths**    | `packages/**`, `examples/slack/**`, `pnpm-lock.yaml`, `package.json`                                                     |
 
 `pnpm --filter slack-example build` builds the workspace libs the example
-imports (`@copilotkit/bot-slack` / `-discord` / `-telegram` / `runtime`) and
+imports (`@copilotkit/channels-slack` / `-discord` / `-telegram` / `runtime`) and
 everything they depend on, via the Nx project graph — so `tsx` runs against
 fresh `dist`. The **Watch Paths** are what makes a `packages/**`-only change
 trigger a redeploy (the example's own files no longer need to change to provoke
@@ -420,7 +420,7 @@ one).
 
 > **Copying this example out of the monorepo?** Replace the `workspace:*`
 > ranges in `package.json` with the published versions (e.g.
-> `@copilotkit/bot-slack: ^0.0.3`) — `workspace:*` only resolves inside this
+> `@copilotkit/channels-slack: ^0.0.3`) — `workspace:*` only resolves inside this
 > monorepo.
 
 ### WhatsApp (inbound webhook, needs a public domain)

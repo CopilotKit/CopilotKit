@@ -7,8 +7,8 @@
  * render-tool demo.
  */
 import { z } from "zod";
-import { Context } from "@copilotkit/bot-ui";
-import { defineBotTool } from "@copilotkit/bot";
+import { Context } from "@copilotkit/channels-ui";
+import { defineBotTool } from "@copilotkit/channels";
 import { renderDiagram } from "../render/diagram.js";
 
 const schema = z.object({
