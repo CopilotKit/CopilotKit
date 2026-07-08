@@ -343,14 +343,25 @@ echo "[entrypoint] All processes running. Waiting..."
 # cleanup, script exits non-zero) but the operator-facing diagnostic never
 # prints.  Capturing the code preserves it exactly (incl. 137) for both the
 # diagnostic and the final exit, and the container-restart path is unchanged.
+#
+# REAPED_PID via `wait -n -p VAR` (bash >= 5.1; node:22-slim ships 5.2) captures
+# the ACTUAL PID `wait -n` reaped.  The previous `kill -0` if/elif merely INFERRED
+# which process exited by probing liveness AFTER the wait — racy on a near-
+# simultaneous exit: if both are dead by the time we probe, the first `kill -0`
+# branch always wins and mislabels the diagnostic (e.g. reports the agent when
+# Next.js is what actually exited, attaching the wrong code to the wrong name).
+# Keying the message off the reaped PID names the correct process every time.
+# `|| EXIT_CODE=$?` remains LOAD-BEARING (see above): -p does not change that a
+# non-zero wait would abort under set -e without the guard.
+REAPED_PID=""
 EXIT_CODE=0
-wait -n "$AGENT_PID" "$NEXTJS_PID" || EXIT_CODE=$?
-if ! kill -0 $AGENT_PID 2>/dev/null; then
+wait -n -p REAPED_PID "$AGENT_PID" "$NEXTJS_PID" || EXIT_CODE=$?
+if [ "$REAPED_PID" = "$AGENT_PID" ]; then
   echo "[entrypoint] Agent (PID: $AGENT_PID) exited with code $EXIT_CODE"
-elif ! kill -0 $NEXTJS_PID 2>/dev/null; then
+elif [ "$REAPED_PID" = "$NEXTJS_PID" ]; then
   echo "[entrypoint] Next.js (PID: $NEXTJS_PID) exited with code $EXIT_CODE"
 else
-  echo "[entrypoint] A process exited with code $EXIT_CODE"
+  echo "[entrypoint] A process (PID: ${REAPED_PID:-unknown}) exited with code $EXIT_CODE"
 fi
 
 exit $EXIT_CODE
