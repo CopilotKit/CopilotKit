@@ -350,6 +350,17 @@ export class CopilotSseRuntime
   readonly mode = RUNTIME_MODE_SSE;
 
   constructor(options: CopilotSseRuntimeOptions) {
+    // Runtime guard mirroring the discriminated-union type: the SSE runtime has
+    // no Intelligence delivery path, so `bots` cannot be honored here. The type
+    // forbids it, but a JS / `as any` caller passing `{ agents, bots }` would
+    // otherwise land here and have `bots` silently dropped — fail loud instead.
+    const bots = (options as { bots?: unknown[] }).bots;
+    if (Array.isArray(bots) && bots.length > 0) {
+      throw new Error(
+        "`bots` requires the Intelligence runtime (pass `intelligence`); " +
+          "managed bots are not available in SSE mode.",
+      );
+    }
     super(options, options.runner ?? new InMemoryAgentRunner());
   }
 }
@@ -398,9 +409,20 @@ export class CopilotIntelligenceRuntime
       options.lockHeartbeatIntervalSeconds ?? 15,
       CopilotIntelligenceRuntime.MAX_HEARTBEAT_INTERVAL_SECONDS,
     );
-    // Declared managed bots. Names are validated (required/identifier/unique)
-    // and wired to delivery transports by `startManagedBots` at activation.
+    // Declared managed bots. Full name validation (identifier shape +
+    // uniqueness) lives in `startManagedBots` (`assertValidBotNames`) at
+    // activation — it can't run here because it's a value import from the
+    // pure-ESM `@copilotkit/bot-intelligence`, which this CJS package must not
+    // pull in. Fail fast on the most common misconfiguration (a missing name)
+    // right here at construction, though, rather than only at activation.
     this.bots = options.bots ?? [];
+    for (const b of this.bots) {
+      if (!b.name) {
+        throw new Error(
+          "managed bot is missing a `name` — pass createBot({ name }) for each bot in `bots`",
+        );
+      }
+    }
   }
 }
 

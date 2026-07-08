@@ -9,9 +9,11 @@
 // reply target / egress route. Each side wraps these pure helpers with its own
 // policy + transport.
 
-const MENTION_RE = /<@[UW][A-Z0-9]+>/g;
+// Matches both the plain `<@U123>` form and Slack's labeled `<@U123|handle>`
+// form, so neither leaves a `|handle>` fragment behind after stripping.
+const MENTION_RE = /<@[UW][A-Z0-9]+(?:\|[^>]+)?>/g;
 
-/** Strip `<@U…>` mention tokens and collapse whitespace. */
+/** Strip `<@U…>` / `<@U…|handle>` mention tokens and collapse whitespace. */
 export const stripMentions = (text: string): string =>
   text.replace(MENTION_RE, "").replace(/\s+/g, " ").trim();
 
@@ -179,13 +181,26 @@ export function normalizeSlackEvent(
         source: "direct_message",
         channel,
         ts: event.ts,
-        userText: text,
+        // Strip mention tokens for parity with app_mention/thread_reply — a DM
+        // that @-mentions the bot shouldn't leak the raw `<@U…>` into userText.
+        userText: stripMentions(text),
         senderUserId: event.user,
         eventId,
         hasFiles,
       };
     }
     if (!event.thread_ts) return undefined; // top-level channel chatter
+    // A threaded @-mention is delivered as BOTH an `app_mention` and this
+    // `message` event; app_mention handles it, so skip the duplicate here
+    // (mirrors the native Slack listener) to avoid a double response. Match
+    // both the plain `<@U…>` and labeled `<@U…|handle>` mention forms — same
+    // form set as MENTION_RE — so a labeled mention doesn't slip through.
+    if (
+      botUserId &&
+      (text.includes(`<@${botUserId}>`) || text.includes(`<@${botUserId}|`))
+    ) {
+      return undefined;
+    }
     return {
       kind: "turn",
       source: "thread_reply",

@@ -802,6 +802,11 @@ export function createBot<
       toolMap.set(t.name, t);
     },
     async start() {
+      // Idempotent: a second start() must not re-resolve the backend and
+      // rebuild Transcripts/Telemetry/ActionRegistry or re-call adapter.start()
+      // — with a MemoryStore that wipes all lock/dedup/transcript/action state,
+      // and real adapters would connect/port-bind twice.
+      if (started) return;
       started = true;
       assertExclusive(adapters);
       // Resolve persistence now that all adapters (including any attached via
@@ -899,6 +904,11 @@ export function createBot<
       }
     },
     async stop() {
+      // Clear the started flag so a later start() is a real restart (re-resolve
+      // backend, rebuild components, reconnect adapters) rather than a silent
+      // no-op. The idempotency guard in start() only exists to block a DOUBLE
+      // start() while running — not a legitimate start→stop→start cycle.
+      started = false;
       // Isolate per-adapter shutdown failures: one adapter's stop() rejecting
       // must not prevent the others from being stopped.
       const stopResults = await Promise.allSettled(

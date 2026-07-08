@@ -125,10 +125,11 @@ describe("intelligenceAdapter — inbound file content parts", () => {
     ]);
   });
 
-  it("skips a file that fails to fetch without failing the turn", async () => {
+  it("surfaces a fail-visible text note when a file can't be fetched (turn still dispatches)", async () => {
     const source = new InMemoryDeliverySource();
     const egress = new InMemoryEgressSink();
-    // No file seeded → fetchFile throws → part is dropped, turn still dispatches.
+    // No file seeded → fetchFile throws → the part degrades to a text note
+    // (fail-visible, not dropped) and the turn still dispatches + acks.
     const bot = createBot({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
@@ -148,7 +149,9 @@ describe("intelligenceAdapter — inbound file content parts", () => {
     );
 
     expect(seen?.text).toBe("hi");
-    expect(seen?.contentParts ?? []).toEqual([]);
+    expect(seen?.contentParts).toEqual([
+      { type: "text", text: "[attached file x.png could not be retrieved]" },
+    ]);
     expect(source.acked).toEqual(["d1"]);
   });
 });

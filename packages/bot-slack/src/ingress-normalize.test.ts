@@ -12,6 +12,12 @@ describe("stripMentions", () => {
     expect(stripMentions("<@W999> hi")).toBe("hi");
     expect(stripMentions("<@U1>")).toBe("");
   });
+
+  it("strips the labeled <@U…|handle> form without leaving a |handle> fragment", () => {
+    expect(stripMentions("<@U123|alice> hello")).toBe("hello");
+    expect(stripMentions("<@W999|Bob Smith> hi")).toBe("hi");
+    expect(stripMentions("<@U1|x>")).toBe("");
+  });
 });
 
 describe("deriveEventId", () => {
@@ -128,6 +134,77 @@ describe("normalizeSlackEvent", () => {
       threadTs: "100.0",
       userText: "reply",
     });
+  });
+
+  it("skips a threaded reply that @-mentions the bot (app_mention handles it — no double turn)", () => {
+    // Slack delivers a threaded @-mention as BOTH an app_mention and a
+    // message event; with the bot's own id known, the message branch must
+    // defer to app_mention so the managed path doesn't respond twice.
+    expect(
+      normalizeSlackEvent(
+        {
+          event: {
+            type: "message",
+            channel: "C1",
+            text: "<@BOT> reply",
+            user: "U2",
+            ts: "100.4",
+            thread_ts: "100.0",
+          },
+        },
+        "BOT",
+      ),
+    ).toBeUndefined();
+  });
+
+  it("skips a threaded reply that mentions the bot in the labeled <@U|handle> form", () => {
+    expect(
+      normalizeSlackEvent(
+        {
+          event: {
+            type: "message",
+            channel: "C1",
+            text: "<@BOT|assistant> reply",
+            user: "U2",
+            ts: "100.7",
+            thread_ts: "100.0",
+          },
+        },
+        "BOT",
+      ),
+    ).toBeUndefined();
+  });
+
+  it("still delivers a threaded reply that mentions a DIFFERENT user", () => {
+    expect(
+      normalizeSlackEvent(
+        {
+          event: {
+            type: "message",
+            channel: "C1",
+            text: "<@U9> reply",
+            user: "U2",
+            ts: "100.5",
+            thread_ts: "100.0",
+          },
+        },
+        "BOT",
+      ),
+    ).toMatchObject({ source: "thread_reply", userText: "reply" });
+  });
+
+  it("strips mention tokens from a DM turn (parity with app_mention/thread_reply)", () => {
+    const n = normalizeSlackEvent({
+      event: {
+        type: "message",
+        channel: "D1",
+        channel_type: "im",
+        text: "<@U1> hi there",
+        user: "U2",
+        ts: "100.6",
+      },
+    });
+    expect(n).toMatchObject({ source: "direct_message", userText: "hi there" });
   });
 
   it("drops top-level channel chatter (no thread_ts) and bot echoes", () => {

@@ -37,4 +37,28 @@ describe("CopilotRuntime — managed bots option", () => {
     });
     expect(rt.bots).toEqual([]);
   });
+
+  it("throws (does not silently drop) when bots is passed without intelligence", () => {
+    // The discriminated union forbids this at compile time; a JS / `as any`
+    // caller would otherwise land on the SSE runtime and lose `bots` silently.
+    expect(
+      () =>
+        new CopilotRuntime({
+          agents: {},
+          bots: [createBot({ name: "support" })],
+        } as unknown as ConstructorParameters<typeof CopilotRuntime>[0]),
+    ).toThrow(/Intelligence runtime/i);
+  });
+
+  it("throws at construction when a declared bot has no name (fail-fast)", () => {
+    expect(
+      () =>
+        new CopilotIntelligenceRuntime({
+          agents: {},
+          intelligence: intelligence(),
+          identifyUser,
+          bots: [createBot({})],
+        }),
+    ).toThrow(/name/i);
+  });
 });

@@ -23,6 +23,34 @@ describe("createBot — optional adapters + addAdapter", () => {
     await bot.start();
     expect(() => bot.addAdapter(new FakeAdapter())).toThrow(/start/i);
   });
+
+  it("is idempotent: a second start() does not re-start adapters or rebuild state", async () => {
+    const fake = new FakeAdapter();
+    const bot = createBot({
+      adapters: [fake],
+      agent: () => new FakeAgent(),
+    });
+    const startSpy = vi.spyOn(fake, "start");
+    await bot.start();
+    const transcriptsAfterFirst = bot.transcripts;
+    await bot.start(); // second call must be a no-op
+    expect(startSpy).toHaveBeenCalledTimes(1);
+    // Same transcript-store instance → state (locks/dedup/actions) not wiped.
+    expect(bot.transcripts).toBe(transcriptsAfterFirst);
+  });
+
+  it("allows a real restart after stop() (start → stop → start re-inits)", async () => {
+    const fake = new FakeAdapter();
+    const bot = createBot({
+      adapters: [fake],
+      agent: () => new FakeAgent(),
+    });
+    const startSpy = vi.spyOn(fake, "start");
+    await bot.start();
+    await bot.stop();
+    await bot.start(); // stop() cleared `started`, so this is a real restart
+    expect(startSpy).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("createBot — transcripts deferred to start()", () => {

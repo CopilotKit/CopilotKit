@@ -221,6 +221,11 @@ export class IntelligenceAdapter implements PlatformAdapter {
         env.deliveryId,
         err instanceof Error ? err.message : String(err),
       );
+    } finally {
+      // Drop the per-turn counter once the turn is fully processed (renderer
+      // chain drained inside dispatchTo) so the Map can't grow unbounded over a
+      // long-running managed bot. A redelivery re-seeds it at the top.
+      this.seq.delete(env.turnId);
     }
   }
 
@@ -263,6 +268,13 @@ export class IntelligenceAdapter implements PlatformAdapter {
         }
       } catch (err) {
         this.opts.config?.log?.("intelligence inbound file fetch failed", err);
+        // Fail-visible, not fail-silent: the user attached a file the model
+        // can't be shown, so surface a short note in context rather than
+        // dropping it entirely (the model can acknowledge / ask to retry).
+        parts.push({
+          type: "text",
+          text: `[attached file ${ref.filename} could not be retrieved]`,
+        });
       }
     }
     return parts;
