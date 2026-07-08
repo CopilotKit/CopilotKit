@@ -2,8 +2,8 @@
 
 How `@copilotkit/channels-whatsapp` is structured and **why** each boundary exists.
 
-This package is the WhatsApp `PlatformAdapter` for [`@copilotkit/channels`](../bot).
-The bot engine owns the platform-agnostic orchestration (handlers, the
+This package is the WhatsApp `PlatformAdapter` for [`@copilotkit/channels`](../channels).
+The channel engine owns the platform-agnostic orchestration (handlers, the
 run/tool/interrupt loop, JSX action binding, the `ActionStore`); this package
 owns everything WhatsApp-specific: webhook ingress, Cloud API egress, buffered
 rendering, and opaque-id interactions.

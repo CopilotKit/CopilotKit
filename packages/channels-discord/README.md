@@ -1,6 +1,6 @@
 # @copilotkit/channels-discord
 
-The **Discord `PlatformAdapter`** for [`@copilotkit/channels`](../bot). It connects a
+The **Discord `PlatformAdapter`** for [`@copilotkit/channels`](../channels). It connects a
 Discord application to any AG-UI agent: ingress via discord.js (Gateway), egress
 as Components V2 rendered from the `@copilotkit/channels-ui` JSX vocabulary, plus text
 streaming, opaque-id interactions, and HITL.

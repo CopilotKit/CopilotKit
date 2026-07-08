@@ -1,6 +1,6 @@
 # @copilotkit/channels-slack
 
-The **Slack `PlatformAdapter`** for [`@copilotkit/channels`](../bot). It connects a
+The **Slack `PlatformAdapter`** for [`@copilotkit/channels`](../channels). It connects a
 Slack workspace to any AG-UI agent: ingress via Bolt (Socket Mode), egress as
 Block Kit rendered from the `@copilotkit/channels-ui` JSX vocabulary, plus text
 streaming, opaque-id interactions, and HITL.
@@ -283,7 +283,7 @@ above against a real workspace lives in
 The adapter forwards every slash command Slack delivers to the engine, which
 routes it to the matching `bot.onCommand` handler (and ignores unregistered
 ones). Register handlers on the engine — see
-[`@copilotkit/channels`](../bot/README.md):
+[`@copilotkit/channels`](../channels/README.md):
 
 ```ts
 bot.onCommand({

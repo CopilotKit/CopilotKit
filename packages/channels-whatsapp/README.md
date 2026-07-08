@@ -1,6 +1,6 @@
 # @copilotkit/channels-whatsapp
 
-The **WhatsApp `PlatformAdapter`** for [`@copilotkit/channels`](../bot). It connects a
+The **WhatsApp `PlatformAdapter`** for [`@copilotkit/channels`](../channels). It connects a
 WhatsApp Business number to any AG-UI agent: ingress via the Meta Cloud API webhook,
 egress as text or interactive messages rendered from the `@copilotkit/channels-ui` JSX
 vocabulary, opaque-id interactions, and HITL.

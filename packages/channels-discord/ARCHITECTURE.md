@@ -2,8 +2,8 @@
 
 How `@copilotkit/channels-discord` is structured and **why** each boundary exists.
 
-This package is the Discord `PlatformAdapter` for [`@copilotkit/channels`](../bot).
-The bot engine owns the platform-agnostic orchestration (handlers, the
+This package is the Discord `PlatformAdapter` for [`@copilotkit/channels`](../channels).
+The channel engine owns the platform-agnostic orchestration (handlers, the
 run/tool/interrupt loop, JSX action binding, the `ActionStore`); this package
 owns everything Discord-specific: discord.js Gateway ingress, Components V2
 egress, streaming, and opaque-id interactions.
@@ -180,7 +180,7 @@ always `undefined`.
 ## Preserved mechanics
 
 These files carry over from (or are adapted from) the cross-platform and
-bot-slack approach:
+channels-slack approach:
 
 | File                        | Job                                                                      |
 | --------------------------- | ------------------------------------------------------------------------ |

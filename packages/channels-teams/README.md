@@ -1,8 +1,8 @@
 # @copilotkit/channels-teams
 
-The **Microsoft Teams platform adapter** for [`@copilotkit/channels`](../bot). It's a
+The **Microsoft Teams platform adapter** for [`@copilotkit/channels`](../channels). It's a
 concrete `PlatformAdapter` that plugs Teams into the platform-agnostic bot
-engine, exactly like [`@copilotkit/channels-slack`](../bot-slack) does for Slack. You
+engine, exactly like [`@copilotkit/channels-slack`](../channels-slack) does for Slack. You
 write your bot once with `createBot` (handlers, JSX, tools, context) and run it
 on Teams by adding this adapter.
 

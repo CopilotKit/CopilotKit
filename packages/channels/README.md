@@ -1,6 +1,6 @@
 # @copilotkit/channels
 
-The **platform-agnostic bot engine**. It owns everything between an incoming
+The **platform-agnostic channel engine**. It owns everything between an incoming
 message and a rendered reply — handler registration, the agent
 run/tool/interrupt loop, JSX action binding, and the `PlatformAdapter`
 contract — without knowing anything about Slack (or any other surface). A

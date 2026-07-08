@@ -1,6 +1,6 @@
 # @copilotkit/channels-telegram
 
-The **Telegram `PlatformAdapter`** for [`@copilotkit/channels`](../bot). It connects
+The **Telegram `PlatformAdapter`** for [`@copilotkit/channels`](../channels). It connects
 a Telegram bot to any AG-UI agent: ingress via grammY (long-polling or webhook),
 egress as Telegram HTML rendered from the `@copilotkit/channels-ui` JSX vocabulary,
 plus streaming via chunked message edits, opaque-id interactions, and HITL.

@@ -1,8 +1,8 @@
 # Architecture
 
 `@copilotkit/channels-teams` is a concrete `PlatformAdapter` for
-[`@copilotkit/channels`](../bot): it plugs Microsoft Teams into the
-platform-agnostic bot engine, exactly as [`@copilotkit/channels-slack`](../bot-slack)
+[`@copilotkit/channels`](../channels): it plugs Microsoft Teams into the
+platform-agnostic channel engine, exactly as [`@copilotkit/channels-slack`](../channels-slack)
 does for Slack. You write the bot once (handlers, JSX, tools, context) and this
 package translates between the engine and Teams via the **Microsoft 365 Agents
 SDK** (`@microsoft/agents-hosting`).
@@ -11,7 +11,7 @@ SDK** (`@microsoft/agents-hosting`).
 
 - **The agent is ignorant of Teams.** Tool/handler code uses the engine's
   platform-agnostic surface (`thread.post`, `thread.stream`,
-  `thread.awaitChoice`, bot-ui JSX). Nothing Teams-specific leaks up.
+  `thread.awaitChoice`, channels-ui JSX). Nothing Teams-specific leaks up.
 - **Teams mechanics are contained.** Adaptive Card rendering, streamed-by-edit
   updates, card-action decoding, and proactive auth all live behind the
   `PlatformAdapter` boundary.
@@ -111,8 +111,8 @@ backend can be swapped in for production (today the store and any pending
 | `listener.ts`              | express server: `POST /api/messages` + `/healthz`, error containment |
 | `event-renderer.ts`        | AG-UI → streamed-by-edit + tool/interrupt capture                    |
 | `message-stream.ts`        | throttled, serialised post-then-edit state machine                   |
-| `render/adaptive-card.ts`  | bot-ui IR → Adaptive Card 1.5 (+ HITL action ids)                    |
-| `render/markdown.ts`       | bot-ui IR → Markdown (plain-text path)                               |
+| `render/adaptive-card.ts`  | channels-ui IR → Adaptive Card 1.5 (+ HITL action ids)                    |
+| `render/markdown.ts`       | channels-ui IR → Markdown (plain-text path)                               |
 | `render/auto-close.ts`     | balances mid-stream markdown for clean edits                         |
 | `render/budget.ts`         | per-element limits, truncation/clamping                              |
 | `interaction.ts`           | decode `Action.Submit` → engine `InteractionEvent`                   |
