@@ -11,6 +11,52 @@ cleanup() {
 trap cleanup EXIT
 
 # ---------------------------------------------------------------------------
+# Agent process-tree kill.
+#
+# The agent is launched as a compound command through a process substitution:
+#   cd /app/src/agent && ... npm start &> >(awk …) &
+# so $AGENT_PID (=$!) is the *outer subshell* wrapping that pipeline — NOT the
+# `npm` wrapper nor the `node` server it forks.  A plain `kill -9 $AGENT_PID`
+# therefore reaps only the subshell: `npm` and `node` are reparented to PID 1
+# and KEEP RUNNING — still bound to :8123, still holding the bloated in-memory
+# state.  The size-gate's whole promise ("kill agent → container restart →
+# boot-purge") is then broken: the frontend proxies to a dead-but-not-restarted
+# agent forever (edge 502s), and even if the container does exit, a surviving
+# orphan can still hold :8123 across the restart.
+#
+# We cannot `kill -- -$PGID` because a non-interactive script has job control
+# OFF: the agent subshell, npm, node, next.js AND the main shell all share the
+# shell's process group, so a group kill would take out the whole entrypoint.
+# Instead we walk the process tree via /proc (node:22-slim ships neither
+# `ps` nor `pgrep`) and SIGKILL every descendant, deepest-first, then the root.
+# ---------------------------------------------------------------------------
+_agent_descendants() {
+  # Print all descendant PIDs of $1 (children, grandchildren, …), deepest-first.
+  local root="$1" pid ppid stat
+  for pid in $(cd /proc 2>/dev/null && ls -d [0-9]* 2>/dev/null); do
+    [ -r "/proc/$pid/stat" ] || continue
+    # comm (field 2) can contain spaces/parens, so strip through the final ')'
+    # before splitting; PPID is then the 2nd field of the remainder.
+    stat=$(cat "/proc/$pid/stat" 2>/dev/null) || continue
+    ppid=$(echo "${stat##*) }" | awk '{print $2}')
+    if [ "$ppid" = "$root" ]; then
+      _agent_descendants "$pid"
+      echo "$pid"
+    fi
+  done
+}
+
+_kill_agent_tree() {
+  # SIGKILL the agent subshell AND its npm→node descendants so the real server
+  # actually dies and frees :8123 — not just the log-pipeline subshell.
+  local root="$1" p
+  for p in $(_agent_descendants "$root"); do
+    kill -9 "$p" 2>/dev/null || true
+  done
+  kill -9 "$root" 2>/dev/null || true
+}
+
+# ---------------------------------------------------------------------------
 # Size-check seam: extract the per-cycle size-check-and-kill decision so it
 # can be exercised directly in tests without running the full entrypoint stack.
 #
@@ -47,11 +93,14 @@ _watchdog_check_size_once() {
   fi
   echo "[watchdog:size] Persistence dir size: ${DIR_SIZE_MB}MB (threshold: ${threshold_mb}MB)"
   if [ "$DIR_SIZE_MB" -ge "$threshold_mb" ]; then
-    echo "[watchdog:size] Size threshold exceeded (${DIR_SIZE_MB}MB >= ${threshold_mb}MB) — killing agent PID $agent_pid to trigger container restart and boot-purge"
+    echo "[watchdog:size] Size threshold exceeded (${DIR_SIZE_MB}MB >= ${threshold_mb}MB) — killing agent PID $agent_pid (and its npm→node tree) to trigger container restart and boot-purge"
     # NOTE: this kill WILL terminate any in-flight streaming runs — accepted
     # tradeoff vs OOM/crash.  The gate is threshold-based (not a fixed timer)
     # so it fires only when state has grown dangerously large.
-    kill -9 "$agent_pid" 2>/dev/null || true
+    # Tree-kill (not a bare `kill -9 $agent_pid`): $agent_pid is the process-sub
+    # subshell, so a single-PID kill would orphan the real npm→node server,
+    # leaving :8123 bound and the boot-purge never re-run.  See _kill_agent_tree.
+    _kill_agent_tree "$agent_pid"
     return 1
   fi
   return 0
@@ -241,8 +290,11 @@ SIZE_CHECK_INTERVAL=${LANGGRAPH_SIZE_CHECK_INTERVAL:-60}
       FAILS=$((FAILS + 1))
       echo "[watchdog] Agent health probe failed (count=$FAILS)"
       if [ $FAILS -ge 3 ]; then
-        echo "[watchdog] Agent unresponsive for ~90s — killing PID $AGENT_PID to trigger container restart"
-        kill -9 $AGENT_PID 2>/dev/null || true
+        echo "[watchdog] Agent unresponsive for ~90s — killing PID $AGENT_PID (and its npm→node tree) to trigger container restart"
+        # Tree-kill for the same reason as the size gate: $AGENT_PID is the
+        # process-sub subshell; a single-PID kill would orphan npm→node and
+        # leave :8123 bound to a hung agent that `wait -n` never observes dying.
+        _kill_agent_tree "$AGENT_PID"
         break
       fi
     fi
