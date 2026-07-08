@@ -57,8 +57,8 @@ values come from? Your backend agent populates them, typically through one of th
 Define agent tools that accept data and write it to shared state. The exact syntax
 depends on your framework:
 
-<Tabs>
-  <TabItem label="Google ADK">
+<Tabs items={["Google ADK", "LangGraph", "Other Frameworks"]}>
+  <Tab value="Google ADK">
     ```python
     from google.adk.tools import ToolContext
 
@@ -68,25 +68,39 @@ depends on your framework:
         tool_context.state["items"] = items
         return {"status": "success"}
     ```
-  </TabItem>
-  <TabItem label="LangGraph">
+  </Tab>
+  <Tab value="LangGraph">
     ```python
+    import uuid
     from langchain_core.tools import tool
-    from langgraph.prebuilt import ToolNode
+    from langchain_core.messages import ToolMessage
+    from langgraph.types import Command
+    from langchain.tools import ToolRuntime
 
     @tool
-    def update_canvas(title: str, items: list, state: dict):
+    def update_canvas(title: str, items: list, runtime: ToolRuntime) -> Command:
         """Update the canvas with a new title and items."""
-        state["title"] = title
-        state["items"] = items
-        return {"status": "success"}
+        return Command(
+            update={
+                "title": title,
+                "items": items,
+                "messages": [
+                    ToolMessage(
+                        content="Canvas updated.",
+                        name="update_canvas",
+                        id=str(uuid.uuid4()),
+                        tool_call_id=runtime.tool_call_id,
+                    )
+                ],
+            }
+        )
     ```
-  </TabItem>
-  <TabItem label="Other Frameworks">
+  </Tab>
+  <Tab value="Other Frameworks">
     The key pattern: give your agent a tool or action that can mutate the shared
     state object. When the agent decides to call that tool (e.g., "update the dashboard"),
     the state changes propagate to the frontend via `useAgent`.
-  </TabItem>
+  </Tab>
 </Tabs>
 
 ### Pattern 2: Initialize state on the frontend
