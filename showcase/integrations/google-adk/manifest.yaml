@@ -211,6 +211,7 @@ demos:
       - src/agents/tool_rendering_agent.py
       - src/agents/tool_rendering_common.py
       - src/app/demos/tool-rendering/page.tsx
+      - src/app/demos/_shared/parse-json-result.ts
       - src/app/api/copilotkit/route.ts
   - id: gen-ui-tool-based
     name: Tool-Based Generative UI
