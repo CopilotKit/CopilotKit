@@ -19,7 +19,9 @@ set -e
 # OFF: the agent subshell, npm, node, next.js AND the main shell all share the
 # shell's process group, so a group kill would take out the whole entrypoint.
 # Instead we walk the process tree via /proc (node:22-slim ships neither
-# `ps` nor `pgrep`) and SIGKILL every descendant, deepest-first, then the root.
+# `ps` nor `pgrep`) and SIGKILL every descendant, deepest-first, in a BOUNDED
+# re-scan loop that keeps the root alive as the walk anchor until the subtree
+# is drained, then kills the root last (see _kill_agent_tree for why).
 #
 # Defined ABOVE cleanup() on purpose: cleanup() (the EXIT/SIGTERM trap) calls
 # _kill_agent_tree, so the helper must already exist whenever the trap can
@@ -30,8 +32,12 @@ _agent_descendants() {
   local root="$1" pid ppid stat
   for pid in $(cd /proc 2>/dev/null && ls -d [0-9]* 2>/dev/null); do
     [ -r "/proc/$pid/stat" ] || continue
-    # comm (field 2) can contain spaces/parens, so strip through the final ')'
-    # before splitting; PPID is then the 2nd field of the remainder.
+    # /proc/PID/stat is: "PID (comm) STATE PPID PGRP …". comm can contain
+    # spaces AND parens, so strip through the final ") " before splitting; PPID
+    # is then the 2nd field of the remainder (1st is STATE). "${x##*) }" takes
+    # the LONGEST prefix up to the LAST ") ", and no field after the real
+    # closing paren contains ")", so even a comm like "(evil) S 1)" parses to
+    # the true PPID — the last ") " is always the comm's real terminator.
     stat=$(cat "/proc/$pid/stat" 2>/dev/null) || continue
     ppid=$(echo "${stat##*) }" | awk '{print $2}')
     if [ "$ppid" = "$root" ]; then
@@ -44,9 +50,33 @@ _agent_descendants() {
 _kill_agent_tree() {
   # SIGKILL the agent subshell AND its npm→node descendants so the real server
   # actually dies and frees :8000 — not just the log-pipeline subshell.
-  local root="$1" p
-  for p in $(_agent_descendants "$root"); do
-    kill -9 "$p" 2>/dev/null || true
+  #
+  # A single snapshot-then-kill is racy: a descendant that forks a new child (or
+  # a child that reparents) BETWEEN the scan and the kill is missed by the walk,
+  # reparents to PID 1, and keeps :8000 bound — defeating the whole tree-kill.
+  # So we re-scan in a BOUNDED loop, killing the currently-live descendants
+  # deepest-first each pass, until a scan comes back empty (or the bound is
+  # hit). Crucially we keep the ROOT alive as the walk anchor across passes and
+  # kill it LAST: killing root first would immediately reparent every descendant
+  # to PID 1, making them unreachable by a root-anchored PPID walk. Leaving root
+  # alive (it is an idle subshell that spawns nothing on its own) means a child
+  # that forks between two passes is still attached to a live chain from root
+  # and is reaped on the next pass.
+  #
+  # Residual limitation: a descendant that FULLY reparents to PID 1 (double-fork
+  # / daemonize) before we reach it is no longer on any PPID chain from root and
+  # cannot be found by a /proc PPID walk. That is inherent to PPID-based reaping
+  # without job control (no ps/pgrep in node:22-slim; job control off in a
+  # non-interactive script, so no process-group kill). The agent's npm→node tree
+  # does not daemonize, so this loop covers the real failure surface.
+  local root="$1" p descendants
+  for _ in 1 2 3 4 5; do
+    descendants=$(_agent_descendants "$root")
+    [ -z "$descendants" ] && break
+    for p in $descendants; do
+      kill -9 "$p" 2>/dev/null || true
+    done
+    sleep 0.2
   done
   kill -9 "$root" 2>/dev/null || true
 }
