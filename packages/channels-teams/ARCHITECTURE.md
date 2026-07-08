@@ -111,8 +111,8 @@ backend can be swapped in for production (today the store and any pending
 | `listener.ts`              | express server: `POST /api/messages` + `/healthz`, error containment |
 | `event-renderer.ts`        | AG-UI → streamed-by-edit + tool/interrupt capture                    |
 | `message-stream.ts`        | throttled, serialised post-then-edit state machine                   |
-| `render/adaptive-card.ts`  | channels-ui IR → Adaptive Card 1.5 (+ HITL action ids)                    |
-| `render/markdown.ts`       | channels-ui IR → Markdown (plain-text path)                               |
+| `render/adaptive-card.ts`  | channels-ui IR → Adaptive Card 1.5 (+ HITL action ids)               |
+| `render/markdown.ts`       | channels-ui IR → Markdown (plain-text path)                          |
 | `render/auto-close.ts`     | balances mid-stream markdown for clean edits                         |
 | `render/budget.ts`         | per-element limits, truncation/clamping                              |
 | `interaction.ts`           | decode `Action.Submit` → engine `InteractionEvent`                   |
