@@ -6,11 +6,9 @@
  * `forwardedProps`) and composes the Claude system prompt from
  * tone / expertise / responseLength before each turn.
  *
- * Unlike the LangGraph reference, the Claude agent reads
- * `forwardedProps` directly off the AG-UI `RunAgentInput` — there is no
- * `RunnableConfig.configurable.properties` plumbing to bridge because
- * the pass-through doesn't use LangGraph's config protocol. So this
- * runtime can register a plain HttpAgent with no subclass.
+ * The Claude agent reads `forwardedProps` directly off the AG-UI
+ * `RunAgentInput`, so this runtime can register a plain HttpAgent with
+ * no compatibility repacking step.
  */
 
 import type { NextRequest } from "next/server";

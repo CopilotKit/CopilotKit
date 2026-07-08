@@ -201,7 +201,7 @@ describe("frontend options", () => {
     expect(getFrontendReferenceSlug("react-native")).toBe(
       "reference/react-native",
     );
-    expect(getFrontendReferenceSlug("slack")).toBe("reference/bot");
+    expect(getFrontendReferenceSlug("slack")).toBe("reference/channels");
     expect(getFrontendReferenceSlug("vue")).toBe("reference");
     expect(getFrontendReferenceSlug("teams")).toBe("reference");
   });
@@ -235,7 +235,7 @@ describe("frontend options", () => {
     expect(pageUrls).toEqual([
       "/slack",
       "/slack/using-these-docs",
-      "/reference/bot",
+      "/reference/channels",
     ]);
     expect(pageUrls).not.toEqual(
       expect.arrayContaining([

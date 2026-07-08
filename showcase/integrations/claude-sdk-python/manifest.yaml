@@ -11,7 +11,7 @@ partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/claude-sdk-python
 copilotkit_version: 2.0.0
 deployed: true
-docs_mode: hidden
+docs_mode: generated
 sort_order: 70
 generative_ui:
   - constrained-explicit

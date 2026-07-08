@@ -64,6 +64,7 @@ export function shouldUseClaudeAgentSdk({
 }
 
 // @region[claude-agent-sdk-typescript-adapter]
+// @region[claude-agent-sdk-agent-setup]
 export async function runWithClaudeAgentSdk({
   input,
   emit,
@@ -87,7 +88,6 @@ export async function runWithClaudeAgentSdk({
   executeTool: ExecuteTool;
   forwardedHeaders?: Record<string, string>;
 }): Promise<void> {
-  // @region[claude-agent-sdk-agent-setup]
   let state = { ...initialState };
   const pendingStateSnapshots: Record<string, unknown>[] = [];
   const backendToolServer = buildBackendToolServer({
@@ -143,8 +143,8 @@ export async function runWithClaudeAgentSdk({
       complete: () => resolve(),
     });
   });
-  // @endregion[claude-agent-sdk-agent-setup]
 }
+// @endregion[claude-agent-sdk-agent-setup]
 
 function buildBackendToolServer({
   toolSchemas,
