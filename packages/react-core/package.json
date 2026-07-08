@@ -36,21 +36,45 @@
   "jsdelivr": "./dist/index.umd.js",
   "exports": {
     ".": {
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs"
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./v2": {
-      "import": "./dist/v2/index.mjs",
-      "require": "./dist/v2/index.cjs"
+      "import": {
+        "types": "./dist/v2/index.d.mts",
+        "default": "./dist/v2/index.mjs"
+      },
+      "require": {
+        "types": "./dist/v2/index.d.cts",
+        "default": "./dist/v2/index.cjs"
+      }
     },
     "./package.json": "./package.json",
     "./v2/context": {
-      "import": "./dist/v2/context.mjs",
-      "require": "./dist/v2/context.cjs"
+      "import": {
+        "types": "./dist/v2/context.d.mts",
+        "default": "./dist/v2/context.mjs"
+      },
+      "require": {
+        "types": "./dist/v2/context.d.cts",
+        "default": "./dist/v2/context.cjs"
+      }
     },
     "./v2/headless": {
-      "import": "./dist/v2/headless.mjs",
-      "require": "./dist/v2/headless.cjs"
+      "import": {
+        "types": "./dist/v2/headless.d.mts",
+        "default": "./dist/v2/headless.mjs"
+      },
+      "require": {
+        "types": "./dist/v2/headless.d.cts",
+        "default": "./dist/v2/headless.cjs"
+      }
     },
     "./v2/styles.css": "./dist/v2/index.css"
   },

@@ -3,6 +3,7 @@ import { defineConfig } from "tsdown";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { withTypesConditions } from "../../scripts/tsdown-exports";
 
 // Resolved path to src/v2/context.ts — used to redirect the headless build's
 // relative ../context imports to the external @copilotkit/react-core/v2/context
@@ -73,18 +74,22 @@ export default defineConfig([
       /\.css$/,
     ],
     exports: {
-      customExports: (exports) => ({
-        ...exports,
-        "./v2/context": {
-          import: "./dist/v2/context.mjs",
-          require: "./dist/v2/context.cjs",
-        },
-        "./v2/headless": {
-          import: "./dist/v2/headless.mjs",
-          require: "./dist/v2/headless.cjs",
-        },
-        "./v2/styles.css": "./dist/v2/index.css",
-      }),
+      customExports: (exports, ctx) =>
+        withTypesConditions(
+          {
+            ...exports,
+            "./v2/context": {
+              import: "./dist/v2/context.mjs",
+              require: "./dist/v2/context.cjs",
+            },
+            "./v2/headless": {
+              import: "./dist/v2/headless.mjs",
+              require: "./dist/v2/headless.cjs",
+            },
+            "./v2/styles.css": "./dist/v2/index.css",
+          },
+          ctx,
+        ),
     },
   },
   // v2/context is built separately into dist/v2/ so it produces a standalone

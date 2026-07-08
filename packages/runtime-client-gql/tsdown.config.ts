@@ -1,4 +1,5 @@
 import { defineConfig } from "tsdown";
+import { withTypesConditions } from "../../scripts/tsdown-exports";
 
 export default defineConfig([
   {
@@ -10,7 +11,7 @@ export default defineConfig([
     outDir: "dist",
     unbundle: true,
     external: ["react", "@graphql-typed-document-node/core"],
-    exports: true,
+    exports: { customExports: withTypesConditions },
   },
   {
     entry: ["src/index.ts"],

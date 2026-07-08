@@ -27,36 +27,84 @@
   "types": "./dist/index.d.cts",
   "exports": {
     ".": {
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs"
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./polyfills": {
-      "import": "./dist/polyfills.mjs",
-      "require": "./dist/polyfills.cjs"
+      "import": {
+        "types": "./dist/polyfills.d.mts",
+        "default": "./dist/polyfills.mjs"
+      },
+      "require": {
+        "types": "./dist/polyfills.d.cts",
+        "default": "./dist/polyfills.cjs"
+      }
     },
     "./polyfills/streams": {
-      "import": "./dist/polyfills/streams.mjs",
-      "require": "./dist/polyfills/streams.cjs"
+      "import": {
+        "types": "./dist/polyfills/streams.d.mts",
+        "default": "./dist/polyfills/streams.mjs"
+      },
+      "require": {
+        "types": "./dist/polyfills/streams.d.cts",
+        "default": "./dist/polyfills/streams.cjs"
+      }
     },
     "./polyfills/encoding": {
-      "import": "./dist/polyfills/encoding.mjs",
-      "require": "./dist/polyfills/encoding.cjs"
+      "import": {
+        "types": "./dist/polyfills/encoding.d.mts",
+        "default": "./dist/polyfills/encoding.mjs"
+      },
+      "require": {
+        "types": "./dist/polyfills/encoding.d.cts",
+        "default": "./dist/polyfills/encoding.cjs"
+      }
     },
     "./polyfills/crypto": {
-      "import": "./dist/polyfills/crypto.mjs",
-      "require": "./dist/polyfills/crypto.cjs"
+      "import": {
+        "types": "./dist/polyfills/crypto.d.mts",
+        "default": "./dist/polyfills/crypto.mjs"
+      },
+      "require": {
+        "types": "./dist/polyfills/crypto.d.cts",
+        "default": "./dist/polyfills/crypto.cjs"
+      }
     },
     "./polyfills/dom": {
-      "import": "./dist/polyfills/dom.mjs",
-      "require": "./dist/polyfills/dom.cjs"
+      "import": {
+        "types": "./dist/polyfills/dom.d.mts",
+        "default": "./dist/polyfills/dom.mjs"
+      },
+      "require": {
+        "types": "./dist/polyfills/dom.d.cts",
+        "default": "./dist/polyfills/dom.cjs"
+      }
     },
     "./polyfills/location": {
-      "import": "./dist/polyfills/location.mjs",
-      "require": "./dist/polyfills/location.cjs"
+      "import": {
+        "types": "./dist/polyfills/location.d.mts",
+        "default": "./dist/polyfills/location.mjs"
+      },
+      "require": {
+        "types": "./dist/polyfills/location.d.cts",
+        "default": "./dist/polyfills/location.cjs"
+      }
     },
     "./components": {
-      "import": "./dist/components/index.mjs",
-      "require": "./dist/components/index.cjs"
+      "import": {
+        "types": "./dist/components/index.d.mts",
+        "default": "./dist/components/index.mjs"
+      },
+      "require": {
+        "types": "./dist/components/index.d.cts",
+        "default": "./dist/components/index.cjs"
+      }
     },
     "./package.json": "./package.json"
   },

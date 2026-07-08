@@ -2,6 +2,7 @@
 import { defineConfig } from "tsdown";
 import fs from "fs";
 import path from "path";
+import { withTypesConditions } from "../../scripts/tsdown-exports";
 
 // Side-effect CSS imports are kept in the JS output so styles auto-load for
 // bundler consumers, but rolldown-plugin-dts also leaves them in the emitted
@@ -43,11 +44,15 @@ export default defineConfig([
       "@copilotkit/react-core/v2",
     ],
     exports: {
-      customExports: (exports) => ({
-        ...exports,
-        "./styles.css": "./dist/index.css",
-        "./v2/styles.css": "./dist/v2/index.css",
-      }),
+      customExports: (exports, ctx) =>
+        withTypesConditions(
+          {
+            ...exports,
+            "./styles.css": "./dist/index.css",
+            "./v2/styles.css": "./dist/v2/index.css",
+          },
+          ctx,
+        ),
     },
   },
   {

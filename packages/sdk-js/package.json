@@ -27,20 +27,44 @@
   "types": "./dist/index.d.cts",
   "exports": {
     ".": {
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs"
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./langchain": {
-      "import": "./dist/langchain.mjs",
-      "require": "./dist/langchain.cjs"
+      "import": {
+        "types": "./dist/langchain.d.mts",
+        "default": "./dist/langchain.mjs"
+      },
+      "require": {
+        "types": "./dist/langchain.d.cts",
+        "default": "./dist/langchain.cjs"
+      }
     },
     "./langgraph": {
-      "import": "./dist/langgraph.mjs",
-      "require": "./dist/langgraph.cjs"
+      "import": {
+        "types": "./dist/langgraph.d.mts",
+        "default": "./dist/langgraph.mjs"
+      },
+      "require": {
+        "types": "./dist/langgraph.d.cts",
+        "default": "./dist/langgraph.cjs"
+      }
     },
     "./langgraph-middlewares": {
-      "import": "./dist/langgraph-middlewares.mjs",
-      "require": "./dist/langgraph-middlewares.cjs"
+      "import": {
+        "types": "./dist/langgraph-middlewares.d.mts",
+        "default": "./dist/langgraph-middlewares.mjs"
+      },
+      "require": {
+        "types": "./dist/langgraph-middlewares.d.cts",
+        "default": "./dist/langgraph-middlewares.cjs"
+      }
     },
     "./package.json": "./package.json"
   },

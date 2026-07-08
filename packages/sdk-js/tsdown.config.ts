@@ -1,4 +1,5 @@
 import { defineConfig } from "tsdown";
+import { withTypesConditions } from "../../scripts/tsdown-exports";
 
 export default defineConfig({
   entry: {
@@ -14,5 +15,5 @@ export default defineConfig({
   outDir: "dist",
   unbundle: true,
   exclude: ["**/*.test.ts", "**/*.test.tsx", "**/__tests__/*"],
-  exports: true,
+  exports: { customExports: withTypesConditions },
 });

@@ -1,4 +1,5 @@
 import { defineConfig } from "tsdown";
+import { withTypesConditions } from "../../scripts/tsdown-exports";
 
 export default defineConfig([
   {
@@ -9,7 +10,7 @@ export default defineConfig([
     target: "es2022",
     outDir: "dist",
     unbundle: true,
-    exports: true,
+    exports: { customExports: withTypesConditions },
   },
   {
     entry: ["src/index.ts"],

@@ -1,4 +1,5 @@
 import { defineConfig } from "tsdown";
+import { withTypesConditions } from "../../scripts/tsdown-exports";
 
 export default defineConfig({
   entry: [
@@ -41,5 +42,5 @@ export default defineConfig({
     "@whatwg-node/server",
     "rxjs",
   ],
-  exports: true,
+  exports: { customExports: withTypesConditions },
 });
