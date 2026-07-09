@@ -52,12 +52,12 @@ docker compose ps
 
 ## Services and Ports
 
-| Service       | Internal Port | Default Host Port | Description                          |
-|---------------|---------------|-------------------|--------------------------------------|
-| postgres      | 5432          | 5432              | PostgreSQL with pgvector             |
-| redis         | 6379          | 6379              | Redis for session/realtime           |
-| intelligence  | 4201          | 4201              | Intelligence API (`/api/health`, `/api/memories`) |
-| intelligence  | 4401          | 4401              | Intelligence Gateway (WebSocket)     |
+| Service      | Internal Port | Default Host Port | Description                                       |
+| ------------ | ------------- | ----------------- | ------------------------------------------------- |
+| postgres     | 5432          | 5432              | PostgreSQL with pgvector                          |
+| redis        | 6379          | 6379              | Redis for session/realtime                        |
+| intelligence | 4201          | 4201              | Intelligence API (`/api/health`, `/api/memories`) |
+| intelligence | 4401          | 4401              | Intelligence Gateway (WebSocket)                  |
 
 ## Environment Variables
 
@@ -88,6 +88,7 @@ INTELLIGENCE_API_KEY=  # Optional, for additional auth
 This error means the postgres init script didn't run. This template includes the init script at `./docker/01-create-databases.sql` which creates the required databases on first boot.
 
 **Solution:**
+
 ```bash
 # Stop and remove volumes
 docker compose -f ../../showcase/shared/intelligence-dev/docker-compose.yml down -v
@@ -101,6 +102,7 @@ docker compose -f ../../showcase/shared/intelligence-dev/docker-compose.yml up -
 If you have another intelligence instance running, you'll see port conflict errors.
 
 **Solution:**
+
 ```bash
 # Find processes using the ports
 lsof -i :4201
@@ -124,6 +126,7 @@ docker compose -f ../../showcase/shared/intelligence-dev/docker-compose.yml up -
 The intelligence service requires the Intelligence repo to build.
 
 **Solution:**
+
 ```bash
 # Option 1: Set path to your Intelligence checkout
 export INTELLIGENCE_REPO=/path/to/your/Intelligence
