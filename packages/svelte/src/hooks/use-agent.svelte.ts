@@ -1,4 +1,3 @@
-import { getContext } from "svelte";
 import type { AbstractAgent } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
@@ -8,6 +7,7 @@ import type { SubscribeToAgentSubscriber } from "@copilotkit/core";
 import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 import { COPILOT_KIT_KEY } from "../providers/context";
 import type { CopilotKitContextValue } from "../providers/context";
+import { getContext } from "svelte";
 
 export enum UseAgentUpdate {
   OnMessagesChanged = "OnMessagesChanged",
@@ -86,7 +86,7 @@ function getOrCreateThreadClone(
 }
 
 export function useAgent(props: UseAgentProps = {}) {
-  const context = getContext<CopilotKitContextValue>(COPILOT_KIT_KEY);
+  const context = getContext<CopilotKitContextValue | null>(COPILOT_KIT_KEY);
   if (!context) {
     throw new Error("useAgent must be used within CopilotKitProvider");
   }
@@ -97,6 +97,8 @@ export function useAgent(props: UseAgentProps = {}) {
   let hookThrottleMs = $derived(props.throttleMs);
 
   let agent = $state<AbstractAgent | null>(null);
+  let messages = $state<import("@ag-ui/core").Message[]>([]);
+  let isRunning = $state(false);
   let subscriptionAgent = $state<AbstractAgent | null>(null);
   let provisionalAgentCache = new Map<string, ProxiedCopilotRuntimeAgent>();
 
@@ -113,6 +115,8 @@ export function useAgent(props: UseAgentProps = {}) {
         ? getOrCreateThreadClone(existing, resolvedThreadId, core.headers)
         : existing;
       agent = resolvedAgent;
+      messages = [...(resolvedAgent.messages ?? [])];
+      isRunning = resolvedAgent.isRunning ?? false;
       subscriptionAgent = resolvedAgent;
       return;
     }
@@ -133,6 +137,8 @@ export function useAgent(props: UseAgentProps = {}) {
           cached.threadId = resolvedThreadId;
         }
         agent = cached;
+        messages = [...(cached.messages ?? [])];
+        isRunning = cached.isRunning ?? false;
         subscriptionAgent = cached;
         return;
       }
@@ -148,6 +154,8 @@ export function useAgent(props: UseAgentProps = {}) {
       }
       provisionalAgentCache.set(cacheKey, provisional);
       agent = provisional;
+      messages = [...(provisional.messages ?? [])];
+      isRunning = provisional.isRunning ?? false;
       subscriptionAgent = provisional;
       return;
     }
@@ -215,7 +223,10 @@ export function useAgent(props: UseAgentProps = {}) {
 
     if (flags.includes(UseAgentUpdate.OnMessagesChanged)) {
       handlers.onMessagesChanged = () => {
-        if (active) agent = a;
+        if (active) {
+          messages = [...(a.messages ?? [])];
+          isRunning = a.isRunning ?? false;
+        }
       };
     }
 
@@ -224,10 +235,33 @@ export function useAgent(props: UseAgentProps = {}) {
     }
 
     if (flags.includes(UseAgentUpdate.OnRunStatusChanged)) {
-      handlers.onRunInitialized = batchedRefresh;
-      handlers.onRunFinalized = batchedRefresh;
-      handlers.onRunFailed = batchedRefresh;
-      handlers.onRunErrorEvent = batchedRefresh;
+      handlers.onRunInitialized = () => {
+        if (active) {
+          isRunning = true;
+          agent = a;
+        }
+      };
+      handlers.onRunFinalized = () => {
+        if (active) {
+          isRunning = false;
+          agent = a;
+          messages = [...(a.messages ?? [])];
+        }
+      };
+      handlers.onRunFailed = () => {
+        if (active) {
+          isRunning = false;
+          agent = a;
+          messages = [...(a.messages ?? [])];
+        }
+      };
+      handlers.onRunErrorEvent = () => {
+        if (active) {
+          isRunning = false;
+          agent = a;
+          messages = [...(a.messages ?? [])];
+        }
+      };
     }
 
     const subscription = core.subscribeToAgentWithOptions(a, handlers, {
@@ -243,6 +277,12 @@ export function useAgent(props: UseAgentProps = {}) {
   return {
     get agent() {
       return agent;
+    },
+    get messages() {
+      return messages;
+    },
+    get isRunning() {
+      return isRunning;
     },
   };
 }

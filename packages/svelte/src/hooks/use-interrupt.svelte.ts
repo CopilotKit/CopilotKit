@@ -97,7 +97,7 @@ function toLegacyEvent(pending: PendingInterrupt): InterruptEvent {
 export function useInterrupt<TValue = unknown, TResult = never>(
   config: UseInterruptConfig<TValue, TResult> = {},
 ): UseInterruptResult<TValue, TResult> {
-  const context = getContext<CopilotKitContextValue>(COPILOT_KIT_KEY);
+  const context = getContext<CopilotKitContextValue | null>(COPILOT_KIT_KEY);
   if (!context) {
     throw new Error("useInterrupt must be used within CopilotKitProvider");
   }
