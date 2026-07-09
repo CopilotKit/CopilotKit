@@ -4,5 +4,5 @@
 # The `[agui]` extra pulls the adapter's runtime deps (ag-ui-protocol, fastapi,
 # uvicorn). When the adapter is merged upstream and published, switch this to a
 # plain `hermes-agent[agui]==<version>` PyPI pin and drop the git URL.
-hermes-agent[agui] @ git+https://github.com/mme/hermes-agent.git@10a7f0806de35be652dd0e0a64582df11672a7df
+hermes-agent[agui] @ git+https://github.com/mme/hermes-agent.git@a7b8d62f7268ac550f46fa24862465004c4f96ac
 python-dotenv

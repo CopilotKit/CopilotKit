@@ -36,7 +36,15 @@ fi
 # OPENAI_BASE_URL / OPENAI_API_KEY are provided by docker-compose
 # (x-integration-defaults). Default them here for standalone runs so the agent
 # doesn't crash on import if the compose env is absent.
-export HERMES_AGUI_HOST=0.0.0.0
+#
+# Bind LOOPBACK, not 0.0.0.0: the agent is consumed only by the co-located
+# Next.js runtime in THIS container (AGENT_URL=http://localhost:8000), never
+# from outside. The hardened AG-UI adapter fails closed on a network-accessible
+# (0.0.0.0) bind unless HERMES_AGUI_SESSION_TOKEN is set — because an open bind
+# to a terminal-capable agent is remote code execution. Loopback is the correct
+# posture for a co-located agent: the container's network boundary is the
+# authorization, so no token plumbing between Next.js and the agent is needed.
+export HERMES_AGUI_HOST=127.0.0.1
 export HERMES_AGUI_PORT=8000
 export OPENAI_BASE_URL=${OPENAI_BASE_URL:-http://aimock:4010/v1}
 export OPENAI_API_KEY=${OPENAI_API_KEY:-sk-aimock}
