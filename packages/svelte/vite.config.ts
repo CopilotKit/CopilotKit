@@ -1,9 +1,19 @@
 import { resolve } from "node:path";
 import { defineConfig } from "vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
+import dts from "vite-plugin-dts";
 
 export default defineConfig({
-  plugins: [svelte()],
+  plugins: [
+    svelte(),
+    dts({
+      tsconfigPath: resolve(__dirname, "tsconfig.json"),
+      outDir: "dist",
+      include: ["src/**/*.ts", "src/**/*.svelte"],
+      exclude: ["src/**/__tests__/**"],
+      rollupTypes: true,
+    }),
+  ],
   resolve: {
     alias: {
       "@": resolve(__dirname, "./src"),
