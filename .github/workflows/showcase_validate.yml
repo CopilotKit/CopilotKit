@@ -557,7 +557,10 @@ jobs:
     # These tests gate the promote-fleet.sh best-effort loop + succeeded_csv
     # export that the promote → verify-prod handoff depends on.
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # The bats suite runs ~4.5min and keeps growing; at the old 5min job cap it
+    # raced the deadline and intermittently got cancelled mid-suite (all steps
+    # passing) rather than reported. Give headroom so a green suite reports green.
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:
