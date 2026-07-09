@@ -43,8 +43,26 @@ function ReportHandoffPill() {
   );
 }
 
+// Same handoff treatment for Open Generative UI: the sandboxed iframe renders
+// full-region on the canvas (see <ReportCanvas/>), so the chat shows only this
+// pill. Registering it OVERRIDES the built-in inline OGUI renderer (user-provided
+// renderers take precedence).
+function OguiHandoffPill() {
+  return (
+    <div className="my-1.5 inline-flex max-w-fit items-center gap-2 rounded-full border border-hairline bg-surface px-3 py-2 text-xs font-medium text-ink">
+      <span className="h-2 w-2 rounded-full bg-brand" />
+      <span className="uppercase tracking-wide text-ink-muted">interactive</span>
+      <span aria-hidden className="text-ink-muted">
+        →
+      </span>
+      <span>rendered on the canvas</span>
+    </div>
+  );
+}
+
 const A2UI_RENDERERS: ReactActivityMessageRenderer<unknown>[] = [
   { activityType: "a2ui-surface", content: z.any(), render: ReportHandoffPill },
+  { activityType: "open-generative-ui", content: z.any(), render: OguiHandoffPill },
 ];
 
 // Static suggestion pills — the demo's full use-case catalog, available at
