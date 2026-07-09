@@ -681,6 +681,8 @@ describe("HttpRenderEventSink", () => {
       seq: 0,
       idempotencyKey: "turn_9:main:0",
       event: { kind: "text_delta", messageId: "m1", delta: "hi" },
+      // OSS-446: the render-accept is fenced on the claim's lease token.
+      leaseToken: "lease_z",
     });
     // The accept route rejects a body that also carries deliveryId.
     expect("deliveryId" in accept.body).toBe(false);

@@ -421,6 +421,12 @@ export class HttpDeliverySource implements DeliverySource {
     return this.leases.get(deliveryId)?.scope;
   }
 
+  /** The lease token for a leased delivery, so a render frame can fence its
+   * accept against `lease_token_hash` the same way ack/fail already do. */
+  leaseTokenFor(deliveryId: string): string | undefined {
+    return this.leases.get(deliveryId)?.leaseToken;
+  }
+
   async start(
     onDelivery: (env: ManagedIngressEnvelope) => Promise<void>,
   ): Promise<void> {
@@ -783,6 +789,7 @@ export class HttpRenderEventSink implements RenderEventSink {
     private readonly cfg: IntelligenceTransportConfig,
     private readonly scopeSource: {
       scopeFor(deliveryId: string): DeliveryScope | undefined;
+      leaseTokenFor(deliveryId: string): string | undefined;
     },
   ) {
     this.http = new IntelligenceHttp(cfg);
@@ -795,6 +802,11 @@ export class HttpRenderEventSink implements RenderEventSink {
         `intelligenceAdapter: no leased scope for delivery ${frame.deliveryId}`,
       );
     }
+    // Fence the render-accept on the delivery's lease token (OSS-446), the same
+    // way ack/fail already do. Optional: app-api falls back to instance-id +
+    // expiry when it's absent, so an older lease record without a token still
+    // renders — but supplying it lets app-api reject a stale/rotated lease.
+    const leaseToken = this.scopeSource.leaseTokenFor(frame.deliveryId);
     const idempotencyKey = `${frame.turnId}:${frame.slot}:${frame.seq}`;
     const res = await this.http.post<RenderAcceptedResponse>(
       `/api/bots/deliveries/${encodeURIComponent(frame.deliveryId)}/render-events/accept`,
@@ -809,6 +821,7 @@ export class HttpRenderEventSink implements RenderEventSink {
         seq: frame.seq,
         idempotencyKey,
         event: frame.event,
+        ...(leaseToken ? { leaseToken } : {}),
         sentAt: new Date().toISOString(),
       },
     );
