@@ -34,6 +34,26 @@
       "response": {
         "content": "We named the goldfish Bubbles, and the tank The Bubble Bowl."
       }
+    },
+    {
+      "_comment": "agentic-chat e2e: multi-turn test turn 1 — 'My name is Alice.' (ported from the peer integrations' _from-feature-parity fixtures; substring-anchored on the longer phrase so it does not collide with other Alice prompts).",
+      "match": {
+        "userMessage": "My name is Alice",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Nice to meet you, Alice! How can I help you today?"
+      }
+    },
+    {
+      "_comment": "agentic-chat e2e: multi-turn test turn 2 — 'What name did I just give you?' Response must contain 'Alice' so the test's context-retention assertion passes.",
+      "match": {
+        "userMessage": "What name did I just give you",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "You told me your name is Alice."
+      }
     }
   ]
 }
