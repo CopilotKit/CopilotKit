@@ -84,10 +84,10 @@ CopilotKit Intelligence provides durable, multi-turn conversation threads with m
 echo "COPILOTKIT_LICENSE_TOKEN=your-token-here" >> .env
 
 # Start intelligence services (postgres, redis, intelligence API)
-docker compose -f ../../showcase/shared/intelligence-dev/docker-compose.yml up -d
+docker compose -f ../../../showcase/shared/intelligence-dev/docker-compose.yml up -d
 
 # Verify services are healthy
-docker compose -f ../../showcase/shared/intelligence-dev/docker-compose.yml ps
+docker compose -f ../../../showcase/shared/intelligence-dev/docker-compose.yml ps
 ```
 
 2. Ensure intelligence configuration in `.env` (uncomment if already present):
@@ -104,16 +104,16 @@ INTELLIGENCE_GATEWAY_WS_URL=ws://localhost:4401
 npm run dev
 ```
 
-The intelligence stack will now handle conversation threads, state persistence, and memory. See the [Intelligence setup documentation](../../showcase/shared/intelligence-dev/README.md) for troubleshooting and advanced configuration.
+The intelligence stack will now handle conversation threads, state persistence, and memory. See the [Intelligence setup documentation](../../../showcase/shared/intelligence-dev/README.md) for troubleshooting and advanced configuration.
 
 ### Stopping Intelligence
 
 ```bash
 # Stop services (keeps data)
-docker compose -f ../../showcase/shared/intelligence-dev/docker-compose.yml stop
+docker compose -f ../../../showcase/shared/intelligence-dev/docker-compose.yml stop
 
 # Stop and remove containers + volumes (fresh start)
-docker compose -f ../../showcase/shared/intelligence-dev/docker-compose.yml down -v
+docker compose -f ../../../showcase/shared/intelligence-dev/docker-compose.yml down -v
 ```
 
 ## Available Scripts
