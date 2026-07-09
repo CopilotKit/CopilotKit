@@ -30,6 +30,11 @@
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
     },
+    "./attachments": {
+      "types": "./dist/attachments-expo.d.cts",
+      "import": "./dist/attachments-expo.mjs",
+      "require": "./dist/attachments-expo.cjs"
+    },
     "./polyfills": {
       "import": "./dist/polyfills.mjs",
       "require": "./dist/polyfills.cjs"

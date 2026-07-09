@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { TelemetryClient } from "../telemetry/telemetry-client";
-import { lambdaClient } from "@copilotkit/shared";
+import { lambdaClient } from "@copilotkit/shared/telemetry";
 
 describe("TelemetryClient", () => {
   let lambdaSpy: ReturnType<typeof vi.spyOn>;

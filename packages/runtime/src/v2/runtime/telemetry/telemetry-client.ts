@@ -1,5 +1,8 @@
 import type { AnalyticsEvents } from "./events";
-import { lambdaClient, parseAndWarnTelemetryId } from "@copilotkit/shared";
+import {
+  lambdaClient,
+  parseAndWarnTelemetryId,
+} from "@copilotkit/shared/telemetry";
 import * as packageJson from "../../../../package.json";
 
 export function isTelemetryDisabled(): boolean {

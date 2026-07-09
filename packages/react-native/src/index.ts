@@ -31,14 +31,16 @@ export type { CopilotChatProps, CopilotChatContextValue } from "./CopilotChat";
 export { CopilotModal } from "./CopilotModal";
 export type { CopilotModalProps } from "./CopilotModal";
 
-// Native attachments hook and types
-export { useAttachments } from "./hooks/use-attachments";
+// Native attachments stub (prevents Metro from resolving Expo modules)
+// For real attachments support, install expo-document-picker and expo-file-system,
+// then import from @copilotkit/react-native/attachments
+export { useAttachments } from "./attachments-stub";
 export type {
   NativeAttachmentsConfig,
   NativeFileInput,
   UseNativeAttachmentsProps,
   UseNativeAttachmentsReturn,
-} from "./hooks/use-attachments";
+} from "./attachments-stub";
 
 // Pre-built UI components
 export { CopilotSidebar } from "./CopilotSidebar";

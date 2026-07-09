@@ -1,7 +1,9 @@
 export * from "./types";
 export * from "./utils";
 export * from "./constants";
-export * from "./telemetry";
+// Telemetry is isolated to @copilotkit/shared/telemetry subpath to prevent
+// bundling Node-only @segment/analytics-node into client builds.
+// Server code should import from @copilotkit/shared/telemetry.
 export * from "./debug";
 export * from "./standard-schema";
 export * from "./attachments";

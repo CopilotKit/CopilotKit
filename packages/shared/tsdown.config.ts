@@ -12,6 +12,28 @@ export default defineConfig([
     exports: true,
   },
   {
+    // Server-only telemetry entry point (imports @segment/analytics-node)
+    entry: ["src/telemetry-server.ts"],
+    format: ["esm", "cjs"],
+    dts: true,
+    sourcemap: true,
+    target: "es2022",
+    outDir: "dist",
+    unbundle: true,
+    exports: true,
+  },
+  {
+    // Client-safe telemetry stub (no Node.js dependencies)
+    entry: ["src/telemetry-stub.ts"],
+    format: ["esm", "cjs"],
+    dts: true,
+    sourcemap: true,
+    target: "es2022",
+    outDir: "dist",
+    unbundle: true,
+    exports: true,
+  },
+  {
     entry: ["src/index.ts"],
     format: ["umd"],
     globalName: "CopilotKitShared",
@@ -25,6 +47,7 @@ export default defineConfig([
       "@ag-ui/core",
       "@ag-ui/client",
       "partial-json",
+      "@segment/analytics-node",
     ],
     outputOptions(options) {
       options.entryFileNames = "[name].umd.js";

@@ -15,7 +15,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
 import { Observable, of } from "rxjs";
-import { lambdaClient } from "@copilotkit/shared";
+import { lambdaClient } from "@copilotkit/shared/telemetry";
 
 import { createCopilotHonoHandler } from "../endpoints/hono";
 import { createCopilotRuntimeHandler } from "../core/fetch-handler";
