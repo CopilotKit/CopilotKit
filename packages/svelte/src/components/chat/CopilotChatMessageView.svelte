@@ -13,7 +13,7 @@
 
 <div class="copilotkit-message-list">
   {#each messages as msg (msg.id)}
-      <CopilotChatMessage message={msg} {isRunning} />
+      <CopilotChatMessage message={msg} {messages} {isRunning} />
   {/each}
 </div>
 
