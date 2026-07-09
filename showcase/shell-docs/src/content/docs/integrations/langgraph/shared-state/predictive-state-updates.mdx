@@ -171,7 +171,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
 
                         # Define a step progress tool for the llm to report the steps
                         @tool
-                        def step_progress_tool(steps: list[str]):
+                        def step_progress_tool(observed_steps: list[str]):
                             """Reads and reports steps"""
 
                         async def frontend_actions_node(state: AgentState, config: RunnableConfig):
@@ -212,7 +212,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                                     goto=END,
                                     update={
                                         "messages": response,
-                                        "observed_steps": response.tool_calls[0].get("args", None).get('steps')
+                                        "observed_steps": response.tool_calls[0].get("args", None).get('observed_steps')
                                     }
                                 )
 
@@ -253,7 +253,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
 
                         // 2. Define the tool with proper ToolMessage handling
                         const stepProgressTool = tool(
-                          async ({ steps }, config: ToolRunnableConfig) => {
+                          async ({ observed_steps }, config: ToolRunnableConfig) => {
                             const toolCallId = config.toolCall?.id;
                             if (typeof toolCallId !== "string" || toolCallId.length === 0) {
                               throw new Error(
@@ -265,7 +265,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
 
                             return new Command({
                               update: {
-                                observed_steps: steps,
+                                observed_steps,
                                 messages: [
                                   new ToolMessage({
                                     content: "Steps recorded to shared state.",
@@ -281,7 +281,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                             name: "StepProgressTool",
                             description: "Records progress by updating the steps array",
                             schema: z.object({
-                              steps: z.array(z.string()),
+                              observed_steps: z.array(z.string()),
                             }),
                           }
                         );
@@ -457,7 +457,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
             from langchain.tools import tool
 
             @tool
-            def step_progress_tool(steps: list[str]):
+            def step_progress_tool(observed_steps: list[str]):
                 """Reports the current steps being executed"""
 
             graph = create_agent(
@@ -487,7 +487,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                 {
                     name: "step_progress_tool",
                     description: "Reports the current steps being executed",
-                    schema: z.object({ steps: z.array(z.string()) }),
+                    schema: z.object({ observed_steps: z.array(z.string()) }),
                 }
             );
 
