@@ -31,9 +31,9 @@ async function openChatAndClick(page: Page, pillText: string) {
   // hydration completes.
   await expect(async () => {
     await pill.evaluate((el) => (el as HTMLElement).click());
-    await expect(
-      page.getByTestId("copilot-user-message").first(),
-    ).toBeVisible({ timeout: 2_000 });
+    await expect(page.getByTestId("copilot-user-message").first()).toBeVisible({
+      timeout: 2_000,
+    });
   }).toPass({ timeout: 20_000 });
 }
 

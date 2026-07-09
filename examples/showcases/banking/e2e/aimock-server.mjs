@@ -26,9 +26,9 @@ import { dirname, join } from "node:path";
 
 const PORT = Number(process.env.AIMOCK_PORT ?? 7099);
 const FIXTURES = process.env.AIMOCK_FIXTURES
-  ? (process.env.AIMOCK_FIXTURES.startsWith("/")
-      ? process.env.AIMOCK_FIXTURES
-      : join(process.cwd(), process.env.AIMOCK_FIXTURES))
+  ? process.env.AIMOCK_FIXTURES.startsWith("/")
+    ? process.env.AIMOCK_FIXTURES
+    : join(process.cwd(), process.env.AIMOCK_FIXTURES)
   : join(
       dirname(fileURLToPath(import.meta.url)),
       "fixtures",

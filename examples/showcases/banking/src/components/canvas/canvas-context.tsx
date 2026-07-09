@@ -19,10 +19,17 @@ const CanvasContext = createContext<CanvasValue>({
 });
 
 /** Minimal shape of an activity message in the agent's message list. */
-type MaybeActivityMessage = { id?: string; role?: string; activityType?: string };
+type MaybeActivityMessage = {
+  id?: string;
+  role?: string;
+  activityType?: string;
+};
 
 /** The latest canvas surface (report or OGUI) in the stream, whichever is most recent. */
-function useLatestCanvasSurface(): { kind: SurfaceKind | null; surfaceId: string | null } {
+function useLatestCanvasSurface(): {
+  kind: SurfaceKind | null;
+  surfaceId: string | null;
+} {
   const { agent } = useAgent();
   const { surfaceId: reportId } = useReportSurface();
   const messages = agent?.messages as MaybeActivityMessage[] | undefined;
@@ -30,8 +37,10 @@ function useLatestCanvasSurface(): { kind: SurfaceKind | null; surfaceId: string
     for (let i = messages.length - 1; i >= 0; i--) {
       const m = messages[i];
       if (m?.role !== "activity") continue;
-      if (m.activityType === "a2ui-surface") return { kind: "report", surfaceId: reportId };
-      if (m.activityType === "open-generative-ui") return { kind: "ogui", surfaceId: m.id ?? null };
+      if (m.activityType === "a2ui-surface")
+        return { kind: "report", surfaceId: reportId };
+      if (m.activityType === "open-generative-ui")
+        return { kind: "ogui", surfaceId: m.id ?? null };
     }
   }
   return { kind: null, surfaceId: null };
@@ -54,7 +63,9 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
   const clear = () => setDismissedId(surfaceId);
 
   return (
-    <CanvasContext.Provider value={{ activeSurfaceKind, activeSurfaceId, clear }}>
+    <CanvasContext.Provider
+      value={{ activeSurfaceKind, activeSurfaceId, clear }}
+    >
       {children}
     </CanvasContext.Provider>
   );

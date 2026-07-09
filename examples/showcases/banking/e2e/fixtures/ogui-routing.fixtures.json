@@ -8,21 +8,33 @@
   "fixtures": [
     {
       "match": { "userMessage": "Show me the spending trend over time." },
-      "response": { "toolCalls": [{ "name": "showSpendingTrend", "arguments": {} }] }
+      "response": {
+        "toolCalls": [{ "name": "showSpendingTrend", "arguments": {} }]
+      }
     },
     {
       "match": {
         "userMessage": "Show me budget usage by policy — which ones are close to or over their limit?"
       },
-      "response": { "toolCalls": [{ "name": "showBudgetUsage", "arguments": {} }] }
+      "response": {
+        "toolCalls": [{ "name": "showBudgetUsage", "arguments": {} }]
+      }
     },
     {
-      "match": { "userMessage": "Where is the money going? Break down spend by team." },
-      "response": { "toolCalls": [{ "name": "showSpendBreakdown", "arguments": {} }] }
+      "match": {
+        "userMessage": "Where is the money going? Break down spend by team."
+      },
+      "response": {
+        "toolCalls": [{ "name": "showSpendBreakdown", "arguments": {} }]
+      }
     },
     {
-      "match": { "userMessage": "Compare our income vs expenses — how is our cash flow?" },
-      "response": { "toolCalls": [{ "name": "showIncomeVsExpenses", "arguments": {} }] }
+      "match": {
+        "userMessage": "Compare our income vs expenses — how is our cash flow?"
+      },
+      "response": {
+        "toolCalls": [{ "name": "showIncomeVsExpenses", "arguments": {} }]
+      }
     },
     {
       "match": {

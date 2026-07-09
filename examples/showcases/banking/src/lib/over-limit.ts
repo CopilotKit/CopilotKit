@@ -27,5 +27,8 @@ export function withOverLimit(
   transactions: Transaction[],
   policies: ExpensePolicy[],
 ): TransactionWithOverLimit[] {
-  return transactions.map((t) => ({ ...t, overLimit: isOverLimit(t, policies) }));
+  return transactions.map((t) => ({
+    ...t,
+    overLimit: isOverLimit(t, policies),
+  }));
 }

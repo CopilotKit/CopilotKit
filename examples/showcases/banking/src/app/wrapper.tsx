@@ -51,7 +51,9 @@ function OguiHandoffPill() {
   return (
     <div className="my-1.5 inline-flex max-w-fit items-center gap-2 rounded-full border border-hairline bg-surface px-3 py-2 text-xs font-medium text-ink">
       <span className="h-2 w-2 rounded-full bg-brand" />
-      <span className="uppercase tracking-wide text-ink-muted">interactive</span>
+      <span className="uppercase tracking-wide text-ink-muted">
+        interactive
+      </span>
       <span aria-hidden className="text-ink-muted">
         →
       </span>
@@ -62,7 +64,11 @@ function OguiHandoffPill() {
 
 const A2UI_RENDERERS: ReactActivityMessageRenderer<unknown>[] = [
   { activityType: "a2ui-surface", content: z.any(), render: ReportHandoffPill },
-  { activityType: "open-generative-ui", content: z.any(), render: OguiHandoffPill },
+  {
+    activityType: "open-generative-ui",
+    content: z.any(),
+    render: OguiHandoffPill,
+  },
 ];
 
 // Static suggestion pills — the demo's full use-case catalog, available at
@@ -240,7 +246,10 @@ export function CopilotKitWrapper({
       // the surface itself renders full-screen in <ReportCanvas/>.
       a2ui={{ catalog }}
       renderActivityMessages={A2UI_RENDERERS}
-      openGenerativeUI={{ sandboxFunctions, designSkill: NORTHWIND_DESIGN_SKILL }}
+      openGenerativeUI={{
+        sandboxFunctions,
+        designSkill: NORTHWIND_DESIGN_SKILL,
+      }}
       // Use the v2-native CopilotKitProvider, NOT the v1 `CopilotKit`
       // compatibility bridge. The bridge wraps the chat in a heavier stack (its
       // own ThreadsProvider + a second CopilotChatConfigurationProvider +

@@ -1,6 +1,11 @@
 import { z } from "zod";
 import type { SandboxFunction } from "@copilotkit/react-core/v2";
-import type { Card, CardBrand, ExpensePolicy, Transaction } from "@/app/api/v1/data";
+import type {
+  Card,
+  CardBrand,
+  ExpensePolicy,
+  Transaction,
+} from "@/app/api/v1/data";
 import { withOverLimit, isOverLimit } from "@/lib/over-limit";
 
 /**
@@ -9,7 +14,11 @@ import { withOverLimit, isOverLimit } from "@/lib/over-limit";
  * secret (Card.pin, etc.) ever crosses into the iframe's LLM-authored JS.
  * <SandboxDataSync/> keeps this in sync with the app's live view.
  */
-export type Snapshot = { transactions: Transaction[]; policies: ExpensePolicy[]; cards: Card[] };
+export type Snapshot = {
+  transactions: Transaction[];
+  policies: ExpensePolicy[];
+  cards: Card[];
+};
 let snapshot: Snapshot = { transactions: [], policies: [], cards: [] };
 /**
  * Replace the snapshot the handlers read. Takes ownership of `next` (and its
@@ -22,23 +31,62 @@ export function setSandboxSnapshot(next: Snapshot): void {
 }
 
 // ── Projection DTOs (allowlist — no raw domain objects cross the boundary) ──
-type SafeCard = { id: string; last4: string; type: CardBrand; expensePolicyId?: string };
-type SafeTransaction = {
-  id: string; title: string; amount: number; date: string;
-  policyId: string; cardId: string; status: Transaction["status"]; overLimit: boolean;
+type SafeCard = {
+  id: string;
+  last4: string;
+  type: CardBrand;
+  expensePolicyId?: string;
 };
-type SafePolicy = { id: string; type: ExpensePolicy["type"]; limit: number; spent: number };
-type Kpis = { totalSpend: number; pendingCount: number; overLimitCount: number; policyCount: number };
+type SafeTransaction = {
+  id: string;
+  title: string;
+  amount: number;
+  date: string;
+  policyId: string;
+  cardId: string;
+  status: Transaction["status"];
+  overLimit: boolean;
+};
+type SafePolicy = {
+  id: string;
+  type: ExpensePolicy["type"];
+  limit: number;
+  spent: number;
+};
+type Kpis = {
+  totalSpend: number;
+  pendingCount: number;
+  overLimitCount: number;
+  policyCount: number;
+};
 
-const toSafeCard = (c: Card): SafeCard => ({ id: c.id, last4: c.last4, type: c.type, expensePolicyId: c.expensePolicyId });
-const toSafePolicy = (p: ExpensePolicy): SafePolicy => ({ id: p.id, type: p.type, limit: p.limit, spent: p.spent });
+const toSafeCard = (c: Card): SafeCard => ({
+  id: c.id,
+  last4: c.last4,
+  type: c.type,
+  expensePolicyId: c.expensePolicyId,
+});
+const toSafePolicy = (p: ExpensePolicy): SafePolicy => ({
+  id: p.id,
+  type: p.type,
+  limit: p.limit,
+  spent: p.spent,
+});
 
 function safeTransactions(status?: Transaction["status"]): SafeTransaction[] {
   const withFlag = withOverLimit(snapshot.transactions, snapshot.policies);
-  const filtered = status ? withFlag.filter((t) => t.status === status) : withFlag;
+  const filtered = status
+    ? withFlag.filter((t) => t.status === status)
+    : withFlag;
   return filtered.map((t) => ({
-    id: t.id, title: t.title, amount: t.amount, date: t.date,
-    policyId: t.policyId, cardId: t.cardId, status: t.status, overLimit: t.overLimit,
+    id: t.id,
+    title: t.title,
+    amount: t.amount,
+    date: t.date,
+    policyId: t.policyId,
+    cardId: t.cardId,
+    status: t.status,
+    overLimit: t.overLimit,
   }));
 }
 
@@ -67,24 +115,30 @@ export const sandboxFunctions: SandboxFunction[] = [
       "Return the current transactions (real app data). Each includes `overLimit` " +
       "(true when the pending charge exceeds its policy limit and has no active " +
       "exception). Optional `status` filters to pending/approved/denied.",
-    parameters: z.object({ status: z.enum(["pending", "approved", "denied"]).optional() }),
-    handler: async ({ status }: { status?: Transaction["status"] }) => safeTransactions(status),
+    parameters: z.object({
+      status: z.enum(["pending", "approved", "denied"]).optional(),
+    }),
+    handler: async ({ status }: { status?: Transaction["status"] }) =>
+      safeTransactions(status),
   },
   {
     name: "getPolicies",
-    description: "Return the expense policies (id, type, limit, spent) — real app data.",
+    description:
+      "Return the expense policies (id, type, limit, spent) — real app data.",
     parameters: z.object({}),
     handler: async () => snapshot.policies.map(toSafePolicy),
   },
   {
     name: "getCards",
-    description: "Return the expense cards (id, last4, type, assigned policy) — real app data. No PIN or expiry is exposed.",
+    description:
+      "Return the expense cards (id, last4, type, assigned policy) — real app data. No PIN or expiry is exposed.",
     parameters: z.object({}),
     handler: async () => snapshot.cards.map(toSafeCard),
   },
   {
     name: "getKpis",
-    description: "Return headline KPIs: totalSpend, pendingCount, overLimitCount, policyCount — real app data.",
+    description:
+      "Return headline KPIs: totalSpend, pendingCount, overLimitCount, policyCount — real app data.",
     parameters: z.object({}),
     handler: async () => computeKpis(snapshot),
   },
