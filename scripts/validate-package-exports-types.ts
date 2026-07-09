@@ -57,24 +57,26 @@ function isActiveCondition(
 }
 
 /**
- * Whether a `types` condition's value actually resolves for `mode`. A string
- * `types` covers every mode; an object `types` covers a mode only if it has a
- * branch active for that mode (recursively). A partial object (e.g. only
- * `import`) does NOT cover `require`, so a strict resolver falls through to the
- * next sibling condition — which is where an untyped JS target can hide.
+ * Whether a condition's value resolves to SOMETHING for `mode`. A string always
+ * resolves; an object resolves only if it has a branch active for that mode
+ * (recursively). A partial object (e.g. only `import`) does NOT resolve for
+ * `require`, so a strict resolver falls through to the next sibling condition —
+ * which is where an untyped JS target can hide. Applies to every condition,
+ * not just `types` (a partial `node`/`default`/`import` object falls through
+ * the same way).
  */
-function typesCoversMode(
+function resolvesForMode(
   value: ExportsEntry,
   mode: (typeof RESOLUTION_MODES)[number],
 ): boolean {
   if (typeof value === "string") return true;
   if (!value || typeof value !== "object") return false;
   if (Array.isArray(value)) {
-    return value.some((item) => typesCoversMode(item, mode));
+    return value.some((item) => resolvesForMode(item, mode));
   }
   return Object.entries(value).some(
     ([condition, sub]) =>
-      isActiveCondition(condition, mode) && typesCoversMode(sub, mode),
+      isActiveCondition(condition, mode) && resolvesForMode(sub, mode),
   );
 }
 
@@ -163,18 +165,20 @@ function walk(
     }
   }
 
-  // 2. For each resolution mode the first RESOLVING condition wins. A `types`
-  //    condition wins only if it actually covers the mode (a partial object
-  //    `types` does not); otherwise resolution falls through to the next
-  //    sibling. When the winner is a JS-returning condition its value must
-  //    itself carry types. Dedupe so a shared winner (e.g. a trailing
-  //    `default`) is reported once; a `types` winner is covered by step 1.
+  // 2. For each resolution mode the first RESOLVING condition wins. A condition
+  //    only wins if it is active for the mode AND its value actually resolves
+  //    for that mode (a partial object — `types`, `node`, `default`, … that
+  //    lacks the mode's branch — does not, so resolution falls through to the
+  //    next sibling, which is where an untyped JS target hides). When the winner
+  //    is a JS-returning condition its value must itself carry types. Dedupe so
+  //    a shared winner (e.g. a trailing `default`) is reported once; a `types`
+  //    winner is covered by step 1.
   const walked = new Set<string>();
   for (const mode of RESOLUTION_MODES) {
     const winner = conditions.find(([condition, value]) =>
       condition === "types"
-        ? typesCoversMode(value, mode)
-        : isActiveCondition(condition, mode),
+        ? resolvesForMode(value, mode)
+        : isActiveCondition(condition, mode) && resolvesForMode(value, mode),
     );
     if (!winner || winner[0] === "types" || walked.has(winner[0])) continue;
     walked.add(winner[0]);

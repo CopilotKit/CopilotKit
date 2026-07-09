@@ -1,8 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { withTypesConditions } from "../tsdown-exports.mjs";
+import { findExportsTypeViolations } from "../validate-package-exports-types";
 
 // Build a temp package dir whose dist/ contains the given declaration files
 // and hand the callback the `ctx` tsdown's `customExports` hook would pass.
@@ -21,6 +22,19 @@ function withPackage(
     run({ pkg: { packageJsonPath: path.join(root, "package.json") } });
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+// Capture `console.warn` output for the duration of `run`, then restore it.
+function withWarnSpy(run: (warnings: string[]) => void): void {
+  const warnings: string[] = [];
+  const spy = vi
+    .spyOn(console, "warn")
+    .mockImplementation((message) => warnings.push(String(message)));
+  try {
+    run(warnings);
+  } finally {
+    spy.mockRestore();
   }
 }
 
@@ -81,15 +95,76 @@ describe("withTypesConditions", () => {
     });
   });
 
-  it("leaves targets without a sibling declaration untouched", () => {
-    withPackage([], (ctx) => {
-      const input = {
-        ".": { import: "./dist/index.mjs" },
-        "./styles.css": "./dist/index.css",
-        "./package.json": "./package.json",
-      };
-      expect(withTypesConditions(input, ctx)).toEqual(input);
+  it("leaves non-JS targets (css, package.json) untouched, silently", () => {
+    withWarnSpy((warnings) => {
+      withPackage([], (ctx) => {
+        const input = {
+          "./styles.css": "./dist/index.css",
+          "./package.json": "./package.json",
+        };
+        expect(withTypesConditions(input, ctx)).toEqual(input);
+      });
+      expect(warnings).toEqual([]);
     });
+  });
+
+  it("warns and leaves a JS target with no adjacent declaration untouched", () => {
+    withWarnSpy((warnings) => {
+      withPackage([], (ctx) => {
+        const input = { ".": { import: "./dist/index.mjs" } };
+        expect(withTypesConditions(input, ctx)).toEqual(input);
+      });
+      expect(
+        warnings.some((w) => w.includes("has no adjacent declaration")),
+      ).toBe(true);
+    });
+  });
+
+  it("normalizes a types-first PARTIAL object so the uncovered mode gets typed", () => {
+    // `types` (import-only) covers import; require has no types, so the helper
+    // must still add one to the bare `require` rather than skipping the entry.
+    withPackage(["dist/index.d.mts", "dist/index.d.cts"], (ctx) => {
+      const result = withTypesConditions(
+        {
+          ".": {
+            types: { import: "./dist/index.d.mts" },
+            require: "./dist/index.cjs",
+          },
+        },
+        ctx,
+      );
+      expect(result).toEqual({
+        ".": {
+          types: { import: "./dist/index.d.mts" },
+          require: { types: "./dist/index.d.cts", default: "./dist/index.cjs" },
+        },
+      });
+    });
+  });
+
+  it("produces output the validator accepts (round-trip)", () => {
+    withPackage(
+      [
+        "dist/index.d.mts",
+        "dist/index.d.cts",
+        "dist/v2/index.d.mts",
+        "dist/v2/index.d.cts",
+      ],
+      (ctx) => {
+        const result = withTypesConditions(
+          {
+            ".": { import: "./dist/index.mjs", require: "./dist/index.cjs" },
+            "./v2": {
+              import: "./dist/v2/index.mjs",
+              require: "./dist/v2/index.cjs",
+            },
+            "./package.json": "./package.json",
+          },
+          ctx,
+        );
+        expect(findExportsTypeViolations("pkg", result)).toEqual([]);
+      },
+    );
   });
 
   it("preserves a null target (blocked subpath) without crashing", () => {

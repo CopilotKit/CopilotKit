@@ -234,6 +234,22 @@ describe("findExportsTypeViolations", () => {
       }),
     ).toEqual([]);
   });
+
+  it("flags a partial node/default object that leaves a mode falling through to JS", () => {
+    // `node` is active in both modes but only has an `import` branch: import
+    // resolves `node`'s bare-JS leaf; require falls through to the untyped
+    // `default`. Both must be flagged (not just the first).
+    const violations = check({
+      ".": {
+        node: { import: "./dist/index.mjs" },
+        default: "./dist/fallback.js",
+      },
+    });
+    expect(violations.map((v) => v.subpath).sort()).toEqual([
+      ". > default",
+      ". > node > import",
+    ]);
+  });
 });
 
 describe("all publishable packages (regression guard for #3324)", () => {

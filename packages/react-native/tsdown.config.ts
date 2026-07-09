@@ -29,7 +29,6 @@ export default defineConfig({
     "@copilotkit/react-core",
     "@copilotkit/core",
     "@copilotkit/shared",
-    "@ag-ui/client",
     "@gorhom/bottom-sheet",
     "react-native-streamdown",
     "react-native-gesture-handler",
