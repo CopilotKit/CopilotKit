@@ -215,6 +215,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                                     {
                                         "state_key": "observed_steps",
                                         "tool": "step_progress_tool",
+                                        # The tool_argument must match the tool parameter name for streaming to work
                                         "tool_argument": "observed_steps"
                                     },
                                 ]
@@ -499,6 +500,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                 middleware=[
                     CopilotKitMiddleware(),
                     StateStreamingMiddleware(  # [!code highlight]
+                        # The tool_argument must match the tool parameter name for streaming to work
                         StateItem(state_key="observed_steps", tool="step_progress_tool", tool_argument="observed_steps")  # [!code highlight]
                     ),  # [!code highlight]
                 ],
