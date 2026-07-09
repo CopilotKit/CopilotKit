@@ -88,3 +88,6 @@ tasks/
 # Transient session artifacts
 .playwright-mcp/
 .claude/scheduled_tasks.lock
+
+
+.opencode/

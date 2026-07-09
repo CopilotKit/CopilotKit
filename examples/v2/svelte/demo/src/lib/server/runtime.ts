@@ -1,6 +1,6 @@
 import {
   CopilotRuntime,
-  createCopilotEndpoint,
+  createCopilotHonoHandler,
   InMemoryAgentRunner,
   BuiltInAgent,
 } from "@copilotkit/runtime/v2";
@@ -28,7 +28,7 @@ const honoRuntime = new CopilotRuntime({
   runner: new InMemoryAgentRunner(),
 });
 
-export const app = createCopilotEndpoint({
+export const app = createCopilotHonoHandler({
   runtime: honoRuntime,
   basePath: "/api/copilotkit",
 });
