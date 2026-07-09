@@ -6,6 +6,7 @@
 // are intercepted by the AG-UI client when the model calls them.
 
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
@@ -29,9 +30,23 @@ export const POST = async (req: NextRequest) => {
     });
     return await handleRequest(req);
   } catch (error: unknown) {
-    const e = error as { message?: string; stack?: string };
+    // Log the full error server-side under an opaque id; return only the id.
+    // Returning error.message/stack leaks server internals (paths, versions,
+    // env-derived values) to any caller. Matches copilotkit-subagents/route.ts.
+    const err = error instanceof Error ? error : new Error(String(error));
+    const errorId = randomUUID();
+    console.error(
+      JSON.stringify({
+        at: new Date().toISOString(),
+        level: "error",
+        route: "/api/copilotkit-headless-complete",
+        errorId,
+        message: err.message,
+        stack: err.stack,
+      }),
+    );
     return NextResponse.json(
-      { error: e.message, stack: e.stack },
+      { error: "internal runtime error", errorId },
       { status: 500 },
     );
   }
