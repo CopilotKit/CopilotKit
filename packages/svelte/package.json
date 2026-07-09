@@ -28,10 +28,15 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
       "svelte": "./src/index.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs",
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      },
       "default": "./dist/index.mjs"
     },
     "./package.json": "./package.json"
@@ -40,7 +45,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "vite build",
+    "build": "vite build && node -e \"\nconst fs=require('fs');\nconst path=require('path');\n// Copy root types for CJS/ESM\nfs.cpSync('./dist/index.d.ts','./dist/index.d.cts');\nfs.cpSync('./dist/index.d.ts','./dist/index.d.mts');\n// Rename .svelte.d.ts -> .d.svelte.ts for Svelte component types\nconst dir='./dist/components/chat';\nif(fs.existsSync(dir)){\n  fs.readdirSync(dir).filter(f=>f.endsWith('.svelte.d.ts')).forEach(f=>{\n    const old=path.join(dir,f);\n    const New=path.join(dir,f.replace('.svelte.d.ts','.d.svelte.ts'));\n    fs.cpSync(old,New);\n  });\n}\n\"",
     "dev": "vite build --watch",
     "test": "vitest run",
     "test:watch": "vitest",
