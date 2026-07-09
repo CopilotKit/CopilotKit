@@ -203,7 +203,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
 
                         # Define a step progress tool for the llm to report the steps
                         @tool
-                        def step_progress_tool(steps: list[str]):
+                        def step_progress_tool(observed_steps: list[str]):
                             """Reads and reports steps"""
                             pass
 
@@ -215,7 +215,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                                     {
                                         "state_key": "observed_steps",
                                         "tool": "step_progress_tool",
-                                        "tool_argument": "steps"
+                                        "tool_argument": "observed_steps"
                                     },
                                 ]
                             )
@@ -489,7 +489,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
             from langchain.tools import tool
 
             @tool
-            def step_progress_tool(steps: list[str]):
+            def step_progress_tool(observed_steps: list[str]):
                 """Reports the current steps being executed"""
                 pass
 
@@ -499,7 +499,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                 middleware=[
                     CopilotKitMiddleware(),
                     StateStreamingMiddleware(  # [!code highlight]
-                        StateItem(state_key="observed_steps", tool="step_progress_tool", tool_argument="steps")  # [!code highlight]
+                        StateItem(state_key="observed_steps", tool="step_progress_tool", tool_argument="observed_steps")  # [!code highlight]
                     ),  # [!code highlight]
                 ],
                 system_prompt="You are a task performer. Report your steps using step_progress_tool.",
