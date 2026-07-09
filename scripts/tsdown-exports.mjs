@@ -21,13 +21,16 @@ import path from "node:path";
  * type declarations and report every named export as "has no exported member"
  * (CopilotKit issue #3324).
  *
- * This post-processes tsdown's generated exports: for each `import`/`require`
- * (or bare string) target pointing at an emitted `.mjs`/`.cjs`/`.js`, it nests
- * a matching `types` condition (`.d.mts`/`.d.cts`/`.d.ts`) FIRST so ESM
- * consumers get ESM-flavored declarations and CJS consumers get CJS-flavored
- * ones (keeping `are-the-types-wrong` green — a single top-level `.d.cts` on an
- * ESM `import` would report as False CJS). Targets without an adjacent
- * declaration file (CSS, `package.json`, UMD) are left untouched.
+ * This post-processes tsdown's generated exports (a `subpath -> target` map):
+ * for each condition target (typically `import`/`require`) — and bare-string
+ * targets — pointing at an emitted `.mjs`/`.cjs`/`.js`, it nests a matching
+ * `types` condition (`.d.mts`/`.d.cts`/`.d.ts`) FIRST so ESM consumers get
+ * ESM-flavored declarations and CJS consumers get CJS-flavored ones (keeping
+ * `are-the-types-wrong` green — a single top-level `.d.cts` on an ESM `import`
+ * would report as False CJS). Targets without an adjacent declaration file
+ * (CSS, `package.json`, UMD) are left untouched. It only ADDS a missing
+ * `types`; it does not split an existing shared `types` into per-flavor
+ * declarations (attw guards that).
  *
  * Wire it into `tsdown.config.ts` via the `exports.customExports` hook:
  *   exports: { customExports: (exports, ctx) => withTypesConditions(exports, ctx) }
@@ -60,10 +63,13 @@ function withTypes(entry, pkgDir) {
   // Fallback arrays (`"import": ["./a.mjs", "./b.mjs"]`) are legal: transform
   // each element and keep the array rather than corrupting it into an object.
   if (Array.isArray(entry)) return entry.map((item) => withTypes(item, pkgDir));
-  // Idempotent: an object that already carries a `types` condition has been
-  // processed (or is already type-first), so leave it untouched rather than
-  // re-nesting its `default`.
-  if ("types" in entry) return entry;
+  // Idempotent: an object whose FIRST condition is already `types` is this
+  // helper's own output (types-first), so leave it untouched rather than
+  // re-nesting its `default`. Keying on first-key (not mere presence) means a
+  // hand-authored `types`-last entry is still normalized instead of passed
+  // through — keeping the helper's output consistent with what the validator
+  // (`validate-package-exports-types.ts`) accepts.
+  if (Object.keys(entry)[0] === "types") return entry;
   const next = {};
   for (const [condition, target] of Object.entries(entry)) {
     next[condition] =

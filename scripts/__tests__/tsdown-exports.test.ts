@@ -56,6 +56,31 @@ describe("withTypesConditions", () => {
     });
   });
 
+  it("normalizes a hand-authored types-last entry (idempotency keys on first key)", () => {
+    withPackage(["dist/index.d.mts", "dist/index.d.cts"], (ctx) => {
+      const result = withTypesConditions(
+        {
+          ".": {
+            import: "./dist/index.mjs",
+            require: "./dist/index.cjs",
+            types: "./dist/index.d.cts",
+          },
+        },
+        ctx,
+      );
+      // A leading `types` means "already processed" and is skipped, but a
+      // trailing `types` must NOT short-circuit — import/require still get
+      // nested types conditions (leaving the shadowed top-level `types` as-is).
+      expect(result).toEqual({
+        ".": {
+          import: { types: "./dist/index.d.mts", default: "./dist/index.mjs" },
+          require: { types: "./dist/index.d.cts", default: "./dist/index.cjs" },
+          types: "./dist/index.d.cts",
+        },
+      });
+    });
+  });
+
   it("leaves targets without a sibling declaration untouched", () => {
     withPackage([], (ctx) => {
       const input = {

@@ -56,6 +56,28 @@ function isActiveCondition(
   );
 }
 
+/**
+ * Whether a `types` condition's value actually resolves for `mode`. A string
+ * `types` covers every mode; an object `types` covers a mode only if it has a
+ * branch active for that mode (recursively). A partial object (e.g. only
+ * `import`) does NOT cover `require`, so a strict resolver falls through to the
+ * next sibling condition — which is where an untyped JS target can hide.
+ */
+function typesCoversMode(
+  value: ExportsEntry,
+  mode: (typeof RESOLUTION_MODES)[number],
+): boolean {
+  if (typeof value === "string") return true;
+  if (!value || typeof value !== "object") return false;
+  if (Array.isArray(value)) {
+    return value.some((item) => typesCoversMode(item, mode));
+  }
+  return Object.entries(value).some(
+    ([condition, sub]) =>
+      isActiveCondition(condition, mode) && typesCoversMode(sub, mode),
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Core check
 // ---------------------------------------------------------------------------
@@ -79,9 +101,9 @@ export function findExportsTypeViolations(
 
 /**
  * Normalize Node's `exports` sugar into a `subpath -> target` map. A bare
- * string (`"exports": "./index.mjs"`) and a conditions-only object
- * (`{ import, require }` with no `.`/`./…` keys) are both sugar for the `.`
- * subpath; a real subpath map is returned unchanged.
+ * string (`"exports": "./index.mjs"`), a top-level fallback array, and a
+ * conditions-only object (`{ import, require }` with no `.`/`./…` keys) are all
+ * sugar for the `.` subpath; a real subpath map is returned unchanged.
  */
 function normalizeExports(exportsMap: unknown): Record<string, ExportsEntry> {
   if (typeof exportsMap === "string" || Array.isArray(exportsMap)) {
@@ -141,14 +163,18 @@ function walk(
     }
   }
 
-  // 2. For each resolution mode the first active condition wins. When that
-  //    winner is a JS-returning condition (not `types`), its value must itself
-  //    carry types. Dedupe so a shared winner (e.g. a trailing `default`) is
-  //    reported once, and skip winners already covered by a `types`.
+  // 2. For each resolution mode the first RESOLVING condition wins. A `types`
+  //    condition wins only if it actually covers the mode (a partial object
+  //    `types` does not); otherwise resolution falls through to the next
+  //    sibling. When the winner is a JS-returning condition its value must
+  //    itself carry types. Dedupe so a shared winner (e.g. a trailing
+  //    `default`) is reported once; a `types` winner is covered by step 1.
   const walked = new Set<string>();
   for (const mode of RESOLUTION_MODES) {
-    const winner = conditions.find(([condition]) =>
-      isActiveCondition(condition, mode),
+    const winner = conditions.find(([condition, value]) =>
+      condition === "types"
+        ? typesCoversMode(value, mode)
+        : isActiveCondition(condition, mode),
     );
     if (!winner || winner[0] === "types" || walked.has(winner[0])) continue;
     walked.add(winner[0]);
@@ -180,7 +206,9 @@ export function getPublishablePackagesWithExports(
     try {
       pkg = JSON.parse(fs.readFileSync(pkgJsonPath, "utf-8"));
     } catch (error) {
-      throw new Error(`Failed to parse ${pkgJsonPath}`, { cause: error });
+      throw new Error(`Failed to read or parse ${pkgJsonPath}`, {
+        cause: error,
+      });
     }
     if (pkg.private === true || !pkg.exports) continue;
     packages.push({ name: pkg.name ?? name, exports: pkg.exports });

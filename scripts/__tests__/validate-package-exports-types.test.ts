@@ -140,8 +140,12 @@ describe("findExportsTypeViolations", () => {
   });
 
   it("ignores runtime-only conditions TypeScript never resolves types through", () => {
-    // `browser` returns JS but TS ignores it for types, so a typed
-    // import/require sibling is sufficient — no false positive.
+    // A bare `browser`-only JS target must NOT be flagged — TypeScript resolves
+    // no types through `browser`. This is the discriminating case: if
+    // `isActiveCondition` wrongly treated `browser` as active, `browser` would
+    // win and be flagged.
+    expect(check({ ".": { browser: "./dist/index.browser.mjs" } })).toEqual([]);
+    // ...and a runtime-only sibling alongside typed import/require is fine too.
     expect(
       check({
         ".": {
@@ -153,15 +157,53 @@ describe("findExportsTypeViolations", () => {
     ).toEqual([]);
   });
 
-  it("flags an object-valued `types` whose leaf is not a declaration", () => {
+  it("flags an object-valued `types` per resolution mode", () => {
+    // `types` covers only import (its leaf is JS, flagged); require falls
+    // through the partial `types` object to the untyped `default`.
     const violations = check({
       ".": {
         types: { import: "./dist/index.mjs" },
         default: "./dist/index.mjs",
       },
     });
-    expect(violations).toHaveLength(1);
-    expect(violations[0].subpath).toBe(". > types > import");
+    expect(violations.map((v) => v.subpath)).toEqual([
+      ". > types > import",
+      ". > default",
+    ]);
+  });
+
+  it("accepts a well-formed object-valued `types` covering both modes", () => {
+    expect(
+      check({
+        ".": {
+          types: {
+            import: "./dist/index.d.mts",
+            require: "./dist/index.d.cts",
+          },
+        },
+      }),
+    ).toEqual([]);
+  });
+
+  it("flags a partial object `types` that leaves a mode falling through to JS", () => {
+    // import-only `types` → require falls through to the bare-JS `require`.
+    expect(
+      check({
+        ".": {
+          types: { import: "./dist/index.d.mts" },
+          require: "./dist/index.cjs",
+        },
+      }).map((v) => v.subpath),
+    ).toEqual([". > require"]);
+    // require-only `types` → import falls through to the bare-JS `import`.
+    expect(
+      check({
+        ".": {
+          types: { require: "./dist/index.d.cts" },
+          import: "./dist/index.mjs",
+        },
+      }).map((v) => v.subpath),
+    ).toEqual([". > import"]);
   });
 
   it("treats a `null` target (blocked subpath) as no violation", () => {
@@ -173,14 +215,20 @@ describe("findExportsTypeViolations", () => {
     expect(violations.map((v) => v.subpath)).toEqual([".[0]", ".[1]"]);
   });
 
-  it("does not flag a trailing default/node shadowed by typed import + require", () => {
+  it("flags a top-level fallback array (sugar for '.')", () => {
+    expect(check(["./dist/a.mjs"]).map((v) => v.subpath)).toEqual([".[0]"]);
+  });
+
+  it("does not flag trailing default/node shadowed by typed import + require", () => {
     // import-mode resolves `import`, require-mode resolves `require`; the
-    // trailing `default` is never reached for types, so it must not be flagged.
+    // trailing `default`/`node` are never reached for types, so neither is
+    // flagged.
     expect(
       check({
         ".": {
           import: { types: "./dist/index.d.mts", default: "./dist/index.mjs" },
           require: { types: "./dist/index.d.cts", default: "./dist/index.cjs" },
+          node: "./dist/index.mjs",
           default: "./dist/index.mjs",
         },
       }),
