@@ -19,16 +19,32 @@ import {
   useCopilotKit,
 } from "@copilotkit/react-core/v2";
 import { RecipeCard } from "./recipe-card";
-import {
-  INITIAL_RECIPE,
-  type RecipeAgentState,
-  type RecipeData,
-} from "./types";
+import { INITIAL_RECIPE } from "./types";
+import type { RecipeAgentState, RecipeData } from "./types";
 
 export default function SharedStateReadDemo() {
   return (
     <CopilotKit runtimeUrl="/api/copilotkit" agent="shared-state-read">
-      <div className="min-h-screen w-full bg-gray-50">
+      {/*
+        Reserve the CopilotSidebar's column so the recipe card clears it.
+        NOTE: this does NOT double-reserve — the framework's own reservation is
+        inert here. The v2 `CopilotSidebar defaultOpen` is a FIXED overlay
+        pinned right (480px) and also sets `body { margin-inline-end: 480px }`
+        to reserve its column; but this showcase gives `body` an explicit
+        full-viewport width, so that margin OVERFLOWS the viewport instead of
+        narrowing the body content box. Measured at a 1280px viewport: body
+        width = 1280px (not 800), body margin-inline-end = 480px, and this
+        `w-full` wrapper resolves to the full 1280px — so the `mx-auto` card
+        centers against the FULL viewport and its right-aligned "+ Add
+        Ingredient" control lands UNDER the fixed sidebar (without this padding
+        the button center hit-tests to the sidebar overlay and the e2e click is
+        intercepted). `lg:pr-[480px]` reserves the column at the content level
+        (border-box), centering the card in the visible ~800px region (measured
+        card width ~640px — it does not stack with the inert body margin). The
+        page is otherwise identical to the langgraph-python baseline, which has
+        the same latent issue — see PARITY_NOTES.
+      */}
+      <div className="min-h-screen w-full bg-gray-50 lg:pr-[480px]">
         <div className="mx-auto max-w-2xl px-4 py-8 md:py-12">
           <Recipe />
         </div>
