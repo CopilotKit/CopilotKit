@@ -53,7 +53,7 @@ export type {
   ConnectedHostedBotChannel,
 } from "./phoenix-channel.js";
 // The managed-over-Phoenix launcher (OSS-406): the composition that runs a
-// coworker over the realtime path (connect → transport → startManagedBots).
+// managed bot over the realtime path (connect → transport → startManagedBots).
 export {
   startManagedBotsOverPhoenix,
   startManagedBotsOnChannel,
