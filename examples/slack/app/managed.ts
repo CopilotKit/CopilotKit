@@ -67,7 +67,10 @@ async function main() {
   const bot = createBot({
     name: botName,
     agent: (threadId) => {
-      const a = new SanitizingHttpAgent({ url: agentUrl, headers: agentHeaders });
+      const a = new SanitizingHttpAgent({
+        url: agentUrl,
+        headers: agentHeaders,
+      });
       a.threadId = threadId;
       return a;
     },
@@ -93,8 +96,14 @@ async function main() {
   bot.onThreadStarted(async ({ thread, user }) => {
     if (!user?.name) return;
     await thread.setSuggestedPrompts([
-      { title: `Triage ${user.name}'s issues`, message: "Triage my open issues" },
-      { title: "What shipped this week?", message: "Summarize what shipped this week" },
+      {
+        title: `Triage ${user.name}'s issues`,
+        message: "Triage my open issues",
+      },
+      {
+        title: "What shipped this week?",
+        message: "Summarize what shipped this week",
+      },
     ]);
   });
 
@@ -113,7 +122,9 @@ async function main() {
     adapter: "slack",
     log: (msg, meta) => console.log(`[managed] ${msg}`, meta ?? ""),
   });
-  console.log(`[bot] started managed (Phoenix) as "${botName}" on project ${projectId}`);
+  console.log(
+    `[bot] started managed (Phoenix) as "${botName}" on project ${projectId}`,
+  );
 
   const shutdown = async (signal: string) => {
     console.log(`\n[bot] received ${signal}, stopping…`);
