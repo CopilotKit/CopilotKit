@@ -8,7 +8,13 @@
 import { tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 
-import { createSurface, loadSchema, render, updateComponents, updateDataModel } from "./a2ui";
+import {
+  createSurface,
+  loadSchema,
+  render,
+  updateComponents,
+  updateDataModel,
+} from "./a2ui";
 
 export const CATALOG_ID = "copilotkit://app-dashboard-catalog";
 const FLIGHT_SURFACE_ID = "flight-search-results";

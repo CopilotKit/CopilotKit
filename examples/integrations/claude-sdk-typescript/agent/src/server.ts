@@ -20,7 +20,8 @@ const PORT = Number.parseInt(process.env.AGENT_PORT || "8000", 10);
 const HOST = process.env.AGENT_HOST || "0.0.0.0";
 
 const server = http.createServer(async (req, res) => {
-  const pathname = new URL(req.url ?? "/", `http://${req.headers.host}`).pathname;
+  const pathname = new URL(req.url ?? "/", `http://${req.headers.host}`)
+    .pathname;
 
   if (req.method === "GET" && pathname === "/health") {
     res.writeHead(200, { "Content-Type": "application/json" });
@@ -34,7 +35,9 @@ const server = http.createServer(async (req, res) => {
 
     let input: RunAgentInput;
     try {
-      input = JSON.parse(Buffer.concat(chunks).toString("utf-8")) as RunAgentInput;
+      input = JSON.parse(
+        Buffer.concat(chunks).toString("utf-8"),
+      ) as RunAgentInput;
     } catch {
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Invalid JSON body" }));
@@ -58,7 +61,9 @@ const server = http.createServer(async (req, res) => {
       error: (err) => {
         const message = err instanceof Error ? err.message : String(err);
         console.error(`[agent] run error: ${message}`);
-        res.write(encoder.encode({ type: EventType.RUN_ERROR, message } as never));
+        res.write(
+          encoder.encode({ type: EventType.RUN_ERROR, message } as never),
+        );
         res.end();
       },
       complete: () => res.end(),
@@ -71,5 +76,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, HOST, () => {
-  console.log(`[agent] Claude Agent SDK (TypeScript) starter listening on http://${HOST}:${PORT}`);
+  console.log(
+    `[agent] Claude Agent SDK (TypeScript) starter listening on http://${HOST}:${PORT}`,
+  );
 });

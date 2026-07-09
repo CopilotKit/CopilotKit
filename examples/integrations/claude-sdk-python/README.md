@@ -116,11 +116,13 @@ and the UI in `src/app/page.tsx` and `src/components/`.
 ## Troubleshooting
 
 **"I'm having trouble connecting to my tools" / agent unreachable**
+
 - Make sure the agent is running on port 8000 (`npm run dev:agent`) and that
   `ANTHROPIC_API_KEY` is set in `.env`.
 - Confirm the agent's health check: `curl http://localhost:8000/health` → `{"status":"ok"}`.
 
 **Python import errors**
+
 - Reinstall the agent's dependencies: `cd agent && uv sync`.
 
 ## Learn more

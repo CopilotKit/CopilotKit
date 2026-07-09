@@ -95,11 +95,7 @@
       "devDependencies.typescript"
     ],
     "agentSurface": {
-      "toolNames": [
-        "query_data",
-        "generate_a2ui",
-        "search_flights"
-      ],
+      "toolNames": ["query_data", "generate_a2ui", "search_flights"],
       "stateKeys": ["todos", "messages"],
       "modelFamily": "openai"
     }

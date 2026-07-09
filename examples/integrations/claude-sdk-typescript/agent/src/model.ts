@@ -9,6 +9,8 @@ export const DEFAULT_CLAUDE_MODEL = "claude-sonnet-5";
  */
 export function resolveModel(): string {
   const model =
-    process.env.CLAUDE_MODEL || process.env.ANTHROPIC_MODEL || DEFAULT_CLAUDE_MODEL;
+    process.env.CLAUDE_MODEL ||
+    process.env.ANTHROPIC_MODEL ||
+    DEFAULT_CLAUDE_MODEL;
   return model.replace(/\./g, "-");
 }

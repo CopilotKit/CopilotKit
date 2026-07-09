@@ -57,7 +57,9 @@ adapter = ClaudeAgentAdapter(
         "model": resolve_model(),
         "system_prompt": SYSTEM_PROMPT,
         "mcp_servers": {
-            SERVER_NAME: create_sdk_mcp_server(SERVER_NAME, "1.0.0", tools=BACKEND_TOOLS),
+            SERVER_NAME: create_sdk_mcp_server(
+                SERVER_NAME, "1.0.0", tools=BACKEND_TOOLS
+            ),
         },
         "allowed_tools": [f"mcp__{SERVER_NAME}__{tool.name}" for tool in BACKEND_TOOLS],
         "tools": [],

@@ -11,7 +11,12 @@ import { tool } from "@anthropic-ai/claude-agent-sdk";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 
-import { createSurface, render, updateComponents, updateDataModel } from "./a2ui";
+import {
+  createSurface,
+  render,
+  updateComponents,
+  updateDataModel,
+} from "./a2ui";
 import { resolveModel } from "./model";
 import { CATALOG_ID } from "./a2ui_fixed_schema";
 
@@ -67,7 +72,8 @@ export const generateA2ui = tool(
       messages: [
         {
           role: "user",
-          content: "Generate a dynamic A2UI dashboard based on the conversation.",
+          content:
+            "Generate a dynamic A2UI dashboard based on the conversation.",
         },
       ],
       tools: [RENDER_A2UI_TOOL],

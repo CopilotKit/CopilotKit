@@ -39,7 +39,7 @@ class Flight(TypedDict):
     "search_flights",
     "Search for flights and display the results as rich cards. Return exactly 2 "
     "flights. Each flight must have: id, airline, airlineLogo (Google favicon API "
-    'URL for the airline domain), flightNumber, origin, destination, date (e.g. '
+    "URL for the airline domain), flightNumber, origin, destination, date (e.g. "
     '"Tue, Mar 18" — use near-future dates), departureTime, arrivalTime, duration '
     '(e.g. "4h 25m"), status (e.g. "On Time" or "Delayed"), statusIcon (colored '
     "dot URL: https://placehold.co/12/22c55e/22c55e.png for On Time, "
@@ -56,9 +56,7 @@ async def search_flights(args: dict[str, Any]) -> dict[str, Any]:
                     operations=[
                         a2ui.create_surface(FLIGHT_SURFACE_ID, catalog_id=CATALOG_ID),
                         a2ui.update_components(FLIGHT_SURFACE_ID, FLIGHT_SCHEMA),
-                        a2ui.update_data_model(
-                            FLIGHT_SURFACE_ID, {"flights": flights}
-                        ),
+                        a2ui.update_data_model(FLIGHT_SURFACE_ID, {"flights": flights}),
                     ]
                 ),
             }
