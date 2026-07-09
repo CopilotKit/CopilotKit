@@ -11,6 +11,10 @@ export default ({ mode }: { mode: string }) => {
     resolve: {
       alias: {
         "@segment/analytics-node": path.resolve("src/lib/segment-stub.js"),
+        "@copilotkit/svelte": path.resolve(
+          workspaceRoot,
+          "packages/svelte/src/index.ts",
+        ),
       },
     },
     ssr: {
