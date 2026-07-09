@@ -28,14 +28,14 @@ import type { Page } from "@playwright/test";
  *  pipeline is wired and is silently swallowed — retry until the bubble
  *  shows up.
  *
- *  The "dispatched" assertion is scoped to the chat-message list
- *  (`[data-message-role="user"]`), NOT a bare `getByText` — the pill
- *  button itself contains the message text, so an unscoped match would
- *  satisfy the locator with the pill rather than the resulting user
- *  bubble, neutering the dispatch guard. Before each retry we also
- *  check whether the user bubble already exists; if it does the
- *  earlier click DID dispatch and we must NOT re-click (which would
- *  send a duplicate user message). */
+ *  The "dispatched" assertion is scoped to the user-message bubble
+ *  (`[data-testid="copilot-user-message"]`), NOT a bare `getByText(message)`.
+ *  In the v2 chat the suggestion pill renders its `title` (not the full
+ *  `message`), and other surfaces could contain the message text, so scoping
+ *  to the user bubble is what reliably confirms the click produced a user
+ *  turn. Before each retry we also check whether the user bubble already
+ *  exists; if it does the earlier click DID dispatch and we must NOT re-click
+ *  (which would send a duplicate user message). */
 async function clickPill(page: Page, title: string, message: string) {
   const pill = page
     .locator('[data-testid="copilot-suggestion"]')
@@ -43,7 +43,7 @@ async function clickPill(page: Page, title: string, message: string) {
     .first();
   await expect(pill).toBeVisible({ timeout: 15_000 });
   const userBubble = page
-    .locator('[data-message-role="user"]')
+    .locator('[data-testid="copilot-user-message"]')
     .filter({ hasText: message })
     .first();
   await expect(async () => {
