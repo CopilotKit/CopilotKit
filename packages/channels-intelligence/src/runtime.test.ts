@@ -4,6 +4,7 @@ import { Section } from "@copilotkit/channels-ui";
 import {
   InMemoryDeliverySource,
   InMemoryEgressSink,
+  InMemoryRenderEventSink,
 } from "./in-memory-transports.js";
 import {
   assertValidBotNames,
@@ -148,6 +149,39 @@ describe("startManagedBots", () => {
     expect(aPosted).toEqual(["a"]);
     expect(bPosted).toEqual([]);
     expect(sinks.get("support")!.ops).toHaveLength(1);
+
+    await handle.stop();
+  });
+
+  it("forwards renderSink so managed runtime streams rich render frames", async () => {
+    const bot = createBot({ name: "support", agent: () => new FakeAgent() });
+    bot.onMessage(async ({ thread }) => {
+      await thread.post(Section({ children: "A" }));
+    });
+
+    const source = new InMemoryDeliverySource();
+    const egress = new InMemoryEgressSink();
+    const renderSink = new InMemoryRenderEventSink();
+    const handle = await startManagedBots({
+      bots: [bot],
+      resolveTransport: () => ({ source, egress, renderSink }),
+      env: { runtimeEnv: "test" },
+    });
+
+    await source.deliver({
+      deliveryId: "d1",
+      eventId: "e1",
+      turnId: "t1",
+      botName: "support",
+      platform: "slack",
+      conversationKey: "c1",
+      route: {},
+      kind: "turn",
+      text: "hi",
+    });
+
+    expect(renderSink.frames.some((f) => f.event.kind === "post")).toBe(true);
+    expect(egress.ops).toHaveLength(0);
 
     await handle.stop();
   });
