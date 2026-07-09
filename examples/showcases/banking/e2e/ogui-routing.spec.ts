@@ -88,9 +88,25 @@ test.describe("OGUI routing — adjacency set", () => {
       const surface = page.getByTestId("ogui-surface");
       await expect(surface).toBeVisible({ timeout: 30_000 });
       await expect(surface.locator("iframe").first()).toBeVisible();
-      // The OGUI handoff pill; use .first() since a thread may accumulate more
-      // than one "rendered on the canvas" pill across exchanges (report + OGUI
-      // both use this text), which would trip strict-mode's single-match rule.
+      // Two identical handoff pills appear on OGUI turns in REPLAY (this uses
+      // .first() to tolerate that). Cause: generateSandboxedUi is a frontend tool
+      // with followUp:true, so after it runs the agent takes a follow-up turn with
+      // the SAME (unchanged) userMessage. aimock matches only on that userMessage,
+      // so on the follow-up it RE-SERVES the same generateSandboxedUi fixture → a
+      // second OGUI activity → a second pill. It is a replay-only artifact:
+      // interactively a real LLM replies with prose on the follow-up, so a user sees
+      // ONE pill, and the canvas renders one surface either way (latest-id
+      // arbitration). NOT cross-exchange accumulation — each test does a fresh
+      // page.goto("/").
+      //
+      // A terminating follow-up fixture (sequenceIndex 0 = the tool, sequenceIndex 1
+      // = prose) was attempted to make replay show a single pill, but it destabilized
+      // this suite: the runtime issues a "Generate a short title for this
+      // conversation" request whose body EMBEDS the pill text, and aimock matches
+      // userMessage by substring — so those title-gen requests also match the OGUI
+      // fixtures and race ahead to consume the sequenceIndex counter, leaving the
+      // real leg-1 turn to fall through to prose (no tool → no surface renders). So
+      // we keep the .first() guard; the canvas already renders exactly one surface.
       await expect(
         page.getByText(/rendered on the canvas/i).first(),
       ).toBeVisible();
