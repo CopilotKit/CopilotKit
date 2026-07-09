@@ -96,8 +96,6 @@
     ],
     "agentSurface": {
       "toolNames": [
-        "manage_todos",
-        "get_todos",
         "query_data",
         "generate_a2ui",
         "search_flights"
@@ -163,6 +161,48 @@
       "agent": {
         "language": "python",
         "runtime": "strands-ag-ui"
+      },
+      "allowedDivergence": [
+        "agent/**",
+        "src/app/api/copilotkit/**",
+        "Dockerfile",
+        "docker/Dockerfile.agent",
+        "docker-compose.test.yml",
+        "entrypoint.sh",
+        "serve.py",
+        "scripts/**"
+      ],
+      "packageJsonOverrides": {
+        "scripts.dev:agent": "./scripts/run-agent.sh || scripts\\run-agent.bat",
+        "scripts.install:agent": "./scripts/setup-agent.sh || scripts\\setup-agent.bat"
+      }
+    },
+    "claude-sdk-python": {
+      "role": "instance",
+      "agent": {
+        "language": "python",
+        "runtime": "claude-agent-sdk"
+      },
+      "allowedDivergence": [
+        "agent/**",
+        "src/app/api/copilotkit/**",
+        "Dockerfile",
+        "docker/Dockerfile.agent",
+        "docker-compose.test.yml",
+        "entrypoint.sh",
+        "serve.py",
+        "scripts/**"
+      ],
+      "packageJsonOverrides": {
+        "scripts.dev:agent": "./scripts/run-agent.sh || scripts\\run-agent.bat",
+        "scripts.install:agent": "./scripts/setup-agent.sh || scripts\\setup-agent.bat"
+      }
+    },
+    "claude-sdk-typescript": {
+      "role": "instance",
+      "agent": {
+        "language": "typescript",
+        "runtime": "claude-agent-sdk"
       },
       "allowedDivergence": [
         "agent/**",
