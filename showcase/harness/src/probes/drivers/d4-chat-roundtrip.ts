@@ -2415,6 +2415,46 @@ async function runLevel(opts: {
       }
     }
 
+    // Aborted/timed-out-EMPTY guard. A mid-poll abort — the external
+    // `ctx.abortSignal` firing, OR the driver's own hard-timeout landing —
+    // makes `runAttempt` return with empty text WITHOUT throwing: the retry
+    // loop breaks (`abortSignal.aborted`) and control falls here to the clean
+    // exit. Classifying that as the generic content-red "empty assistant
+    // response" (`probe.exit` outcome `err`, no `errorDesc`) masquerades a
+    // teardown/abort/timeout as a CONTENT failure on the dashboard + CVDIAG.
+    // Every OTHER abort/timeout path (the abort-before-start early return, the
+    // outer catch, the aggregate) classifies it as `errorDesc: "abort"` with a
+    // `timeout` outcome; this poll-exit path was the gap. Short-circuit to the
+    // SAME classification BEFORE the content-red gate.
+    //
+    // Discriminator is `abortSignal.aborted`, NOT emptiness alone: a
+    // genuinely-completed-EMPTY turn (the turn finished, nothing was aborted)
+    // is a real content failure and MUST stay the content-red "empty assistant
+    // response" below. Only an aborted-AND-empty run is re-classified here.
+    // (Inside `runLevel` the single `abortSignal` conflates external abort and
+    // the driver hard-timeout — the same conflation the two other in-module
+    // abort paths carry — so this mirrors their `errorDesc: "abort"` / `timeout`
+    // outcome exactly rather than inventing a new classifier.)
+    if (abortSignal.aborted && responseText.length === 0) {
+      cvdiagExit(cvdiag, "timeout");
+      cvdiagExited = true;
+      return {
+        result: {
+          key: `${level}:${slug}`,
+          state: "red",
+          signal: {
+            slug,
+            backendUrl,
+            level,
+            failureSummary: "aborted during response poll",
+            errorDesc: "abort",
+          },
+          observedAt: now().toISOString(),
+        },
+        edgeHeaders: messageSendEdge,
+      };
+    }
+
     const assertion = assertResponse({
       text: responseText,
       fromAssistantContainer,

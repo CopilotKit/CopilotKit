@@ -2976,6 +2976,114 @@ describe("d4 L4 first-token wait hardening (readTurnState-driven)", () => {
   }, 10000);
 });
 
+describe("d4 mid-poll abort/timeout classification (follow-up)", () => {
+  function bufDirAbort(): string {
+    return mkdtempSync(join(tmpdir(), "cvdiag-abort-"));
+  }
+
+  it("mid-poll EXTERNAL abort with empty container → abort classification (errorDesc=abort, probe.exit=timeout), NOT content-red", async () => {
+    // RED (pre-fix): the external `ctx.abortSignal` fires DURING the first-token
+    // poll while the assistant container is still empty. `runAttempt` returns
+    // empty text WITHOUT throwing, the retry loop breaks, and control falls to
+    // the clean-exit path — where the level is misclassified as a generic
+    // content red `failureSummary: "empty assistant response"` with `probe.exit`
+    // outcome `err` and NO `errorDesc: "abort"`. That masquerades a teardown/
+    // abort as a CONTENT failure on the dashboard + CVDIAG.
+    //
+    // GREEN (post-fix): the aborted-AND-empty run is short-circuited to the SAME
+    // abort classification every other abort path uses — `errorDesc: "abort"`,
+    // `probe.exit` outcome `timeout` — and is NOT the content-red "empty
+    // assistant response".
+    const { emitter, writer: cvWriter } = makeCvdiagEmitter();
+    // neverComplete + a first-token delay well past the abort instant keeps the
+    // poll spinning on an OBSERVED-but-incomplete empty turn, so the abort lands
+    // mid-poll (the exact production gap). Generous pageTimeoutMs so the EXTERNAL
+    // abort — not the driver hard-timeout — is what fires first.
+    const browser = makeLateTokenBrowser({
+      assistantText: "The weather in San Francisco is sunny, 72 degrees.",
+      firstTokenDelayMs: 5000,
+      neverComplete: true,
+    });
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser as unknown as E2eBrowser,
+      textPollTimeoutMs: 4000,
+      pageTimeoutMs: 8000,
+      cvdiagEmitter: emitter,
+      cvdiagBufferDir: bufDirAbort(),
+    });
+    const resultWriter = new CapturingWriter();
+    const ac = new AbortController();
+    // Fire the external abort mid-poll (first poll iteration is ~500ms; abort at
+    // 150ms lands squarely inside `runAttempt`'s loop while the container is
+    // still empty).
+    setTimeout(() => ac.abort(), 150);
+    await driver.run(
+      baseCtx({ writer: resultWriter, abortSignal: ac.signal }),
+      {
+        key: "e2e-smoke:foo",
+        backendUrl: "https://x.example.com",
+        demos: [],
+      },
+    );
+    await emitter.flush();
+
+    const chat = resultWriter.results.find((r) => r.key === "chat:foo");
+    expect(chat?.state).toBe("red");
+    const sig = chat?.signal as
+      | { failureSummary?: string; errorDesc?: string }
+      | undefined;
+    // Classified as an abort, NOT the generic content red.
+    expect(sig?.errorDesc).toBe("abort");
+    expect(sig?.failureSummary).not.toContain("empty assistant response");
+    // probe.exit outcome is `timeout` (the abort/teardown classification every
+    // other abort path uses), NOT `err` (the content-red classification).
+    const exits = byBoundary(cvWriter, "probe.exit");
+    expect(exits.length).toBeGreaterThan(0);
+    expect(exits[0]!.metadata.terminal_outcome).toBe("timeout");
+  }, 15000);
+
+  it("OVER-CORRECTION GUARD: a genuinely-completed-EMPTY turn (NOT aborted) STAYS content-red 'empty assistant response'", async () => {
+    // The discriminator is `abortSignal.aborted`, NOT emptiness alone. A turn
+    // that actually FINISHES with no content — nothing aborted — is a real
+    // content failure and must remain the content-red "empty assistant
+    // response" with `probe.exit` outcome `err`. This proves the abort guard
+    // does not over-correct genuine content reds into abort/timeout.
+    const { emitter, writer: cvWriter } = makeCvdiagEmitter();
+    const browser = makeLateTokenBrowser({
+      assistantText: "",
+      firstTokenDelayMs: 300,
+      completeAtDelayMs: 50,
+    });
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser as unknown as E2eBrowser,
+      textPollTimeoutMs: 120,
+      pageTimeoutMs: 4000,
+      cvdiagEmitter: emitter,
+      cvdiagBufferDir: bufDirAbort(),
+    });
+    const resultWriter = new CapturingWriter();
+    // No abort signal fired — the turn completes empty on its own.
+    await driver.run(baseCtx({ writer: resultWriter }), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
+      demos: [],
+    });
+    await emitter.flush();
+
+    const chat = resultWriter.results.find((r) => r.key === "chat:foo");
+    expect(chat?.state).toBe("red");
+    const sig = chat?.signal as
+      | { failureSummary?: string; errorDesc?: string }
+      | undefined;
+    // Stays the genuine content red — NOT reclassified as an abort.
+    expect(sig?.failureSummary).toContain("empty assistant response");
+    expect(sig?.errorDesc).not.toBe("abort");
+    const exits = byBoundary(cvWriter, "probe.exit");
+    expect(exits.length).toBeGreaterThan(0);
+    expect(exits[0]!.metadata.terminal_outcome).toBe("err");
+  }, 10000);
+});
+
 describe("d4 retry telemetry re-attribution (follow-up item 3)", () => {
   function bufDirLt(): string {
     return mkdtempSync(join(tmpdir(), "cvdiag-lt-"));
