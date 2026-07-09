@@ -11,7 +11,8 @@
   "dependencies": {
     "@copilotkit/runtime": "workspace:*",
     "@copilotkit/svelte": "workspace:*",
-    "@copilotkit/voice": "workspace:*"
+    "@copilotkit/voice": "workspace:*",
+    "zod": "^3.23.3"
   },
   "devDependencies": {
     "@sveltejs/adapter-auto": "^4.0.0",
