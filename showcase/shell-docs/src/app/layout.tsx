@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
 import Script from "next/script";
 import { RootProvider } from "fumadocs-ui/provider/next";
 import { AnalyticsClient } from "@/components/analytics-client";
@@ -13,18 +12,13 @@ import { getIntegrations } from "@/lib/registry";
 import { RESERVED_ROUTE_SLUGS } from "@/lib/reserved-route-slugs";
 import { getRuntimeConfig } from "@/lib/runtime-config";
 import { serializeRuntimeConfig } from "@/lib/runtime-config-serialize";
+import { plusJakartaSans, splineSansMono } from "./fonts";
 import "./globals.css";
 
 // serializeRuntimeConfig is extracted to `lib/runtime-config-serialize.ts`
 // so it can be unit-tested for the OWASP escape behavior (XSS via
 // `</script>`, U+2028/U+2029 line-terminator injection) without
 // importing the layout into the test runner.
-
-const plusJakartaSans = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  variable: "--font-prose",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "CopilotKit Docs",
@@ -94,7 +88,7 @@ export default function RootLayout({
     // theme script in the document head.
     <html
       lang="en"
-      className={plusJakartaSans.variable}
+      className={`${plusJakartaSans.variable} ${splineSansMono.variable}`}
       suppressHydrationWarning
     >
       <head>

@@ -1,0 +1,223 @@
+/* CopilotKit's docs-native design contract.
+ *
+ * These primitives own brand color, typography, shape, motion, elevation,
+ * and stacking. The compatibility aliases below keep Fumadocs and existing
+ * shell-docs components stable while making the semantic docs tokens the
+ * source of truth. Article styling remains intentionally quiet. */
+:root {
+  color-scheme: light;
+
+  /* Light palette */
+  --docs-color-canvas: #ededf5;
+  --docs-color-surface: #ffffff;
+  --docs-color-elevated: #f7f7f9;
+  --docs-color-hover: #f0f0f4;
+  --docs-color-text-primary: #010507;
+  --docs-color-text-secondary: #57575b;
+  --docs-color-text-muted: #57575b;
+  --docs-color-border: #dbdbe5;
+  --docs-color-lilac-ambient: #bec2ff;
+  --docs-color-lilac-accent: #5b62d4;
+  /* Text-safe implementation variants preserve the approved brand hues
+   * above while meeting AA contrast on the docs surface stack. */
+  --docs-color-accent-text: #565dcd;
+  --docs-color-mint-ambient: #85ecce;
+  --docs-color-mint-accent: #189370;
+  --docs-color-orange-support: #ffac4d;
+  --docs-color-yellow-support: #fff388;
+  --docs-color-red-brand: #fa5f67;
+  --docs-color-destructive-text: #c7313e;
+  --docs-color-accent-contrast: #ffffff;
+
+  /* Shape */
+  --docs-radius-control: 8px;
+  --docs-radius-icon: 8px;
+  --docs-radius-surface: 12px;
+  --docs-radius-panel: 16px;
+  --docs-radius-pill: 9999px;
+
+  /* Motion */
+  --motion-duration-fast: 120ms;
+  --motion-duration-standard: 180ms;
+  --motion-duration-slow: 260ms;
+  --motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --motion-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Stacking */
+  --z-dropdown: 20;
+  --z-sticky: 30;
+  --z-backdrop: 40;
+  --z-modal: 50;
+  --z-toast: 60;
+  --z-tooltip: 70;
+
+  /* Compact elevation. Owned surfaces generally pair a border with the
+   * control shadow; floating panels use the compact panel/modal shadows. */
+  --shadow-control: 0 1px 2px rgba(1, 5, 7, 0.06);
+  --shadow-panel: 0 4px 8px -4px rgba(1, 5, 7, 0.18);
+  --shadow-modal: 0 8px 12px -8px rgba(1, 5, 7, 0.28);
+  --overlay-backdrop: rgba(1, 5, 7, 0.48);
+
+  /* Typography */
+  --font-docs-prose:
+    var(--font-prose, "Plus Jakarta Sans"), ui-sans-serif, system-ui, sans-serif;
+  --font-docs-code:
+    var(--font-code, "Spline Sans Mono"), ui-monospace, SFMono-Regular, Menlo,
+    Monaco, Consolas, "Liberation Mono", monospace;
+
+  /* Fumadocs / shadcn compatibility */
+  --background: var(--docs-color-canvas);
+  --foreground: var(--docs-color-text-primary);
+  --card: var(--docs-color-surface);
+  --card-foreground: var(--docs-color-text-primary);
+  --popover: var(--docs-color-surface);
+  --popover-foreground: var(--docs-color-text-primary);
+  --primary: var(--docs-color-lilac-accent);
+  --primary-foreground: var(--docs-color-accent-contrast);
+  --secondary: var(--docs-color-elevated);
+  --secondary-foreground: var(--docs-color-text-primary);
+  --muted: var(--docs-color-hover);
+  --muted-foreground: var(--docs-color-text-muted);
+  --accent-token: var(--docs-color-hover);
+  --accent-foreground: var(--docs-color-text-primary);
+  --destructive: var(--docs-color-destructive-text);
+  --input: var(--docs-color-border);
+  --ring: var(--docs-color-lilac-accent);
+  --sidebar: var(--docs-color-surface);
+  --sidebar-foreground: var(--docs-color-text-primary);
+  --sidebar-primary: var(--docs-color-lilac-accent);
+  --sidebar-primary-foreground: var(--docs-color-accent-contrast);
+  --sidebar-accent: var(--docs-color-hover);
+  --sidebar-accent-foreground: var(--docs-color-text-primary);
+  --sidebar-border: var(--docs-color-border);
+  --sidebar-ring: var(--docs-color-lilac-accent);
+
+  /* Existing shell-docs aliases */
+  --bg: var(--background);
+  --bg-surface: var(--card);
+  --bg-elevated: var(--secondary);
+  --bg-hover: var(--muted);
+  --border: var(--docs-color-border);
+  --border-dim: color-mix(in srgb, var(--docs-color-border) 62%, transparent);
+  --glass-background: var(--docs-color-surface);
+  --nav-surface: var(--docs-color-canvas);
+  --text: var(--foreground);
+  --text-secondary: var(--docs-color-text-secondary);
+  --text-muted: var(--docs-color-text-muted);
+  --text-faint: var(--docs-color-text-muted);
+  --accent: var(--docs-color-accent-text);
+  --accent-strong: color-mix(in oklch, var(--accent) 84%, black);
+  --accent-light: color-mix(
+    in srgb,
+    var(--docs-color-lilac-ambient) 42%,
+    white
+  );
+  --accent-dim: color-mix(in srgb, var(--accent) 10%, transparent);
+  --blue: #1a5fb4;
+  --violet: var(--accent);
+  --violet-light: var(--accent-light);
+
+  /* Supporting statuses */
+  --warning: var(--docs-color-orange-support);
+  --warning-dim: color-mix(in srgb, var(--warning) 14%, transparent);
+  --warning-border: color-mix(in srgb, var(--warning) 48%, var(--border));
+  --warning-text: #7a4300;
+  --success: var(--docs-color-mint-accent);
+  --window-control-close: #ff5f57;
+  --window-control-minimize: #ffbd2e;
+  --window-control-zoom: #28c840;
+
+  /* Shared component contracts */
+  --radius: var(--docs-radius-surface);
+  --shell-docs-radius: var(--docs-radius-surface);
+  --shell-docs-radius-control: var(--docs-radius-control);
+  --shell-docs-radius-surface: var(--docs-radius-surface);
+  --shell-docs-radius-icon: var(--docs-radius-icon);
+  --shell-docs-radius-panel: var(--docs-radius-panel);
+  --shell-docs-radius-pill: var(--docs-radius-pill);
+  --nav-control-border: color-mix(in srgb, var(--accent) 24%, var(--border));
+  --nav-control-border-hover: color-mix(
+    in srgb,
+    var(--accent) 42%,
+    var(--border)
+  );
+  --scrollbar-color: rgba(1, 5, 7, 0.24);
+  --scrollbar-track: transparent;
+
+  /* Fumadocs callout aliases are plain custom properties because the
+   * components consume them directly instead of through Tailwind classes. */
+  --color-fd-info: var(--accent);
+  --color-fd-warning: var(--warning);
+  --color-fd-success: var(--success);
+}
+
+.dark {
+  color-scheme: dark;
+  --docs-color-canvas: #010507;
+  --docs-color-surface: #15151a;
+  --docs-color-elevated: #202026;
+  --docs-color-hover: #2b2b2b;
+  --docs-color-text-primary: #fafafc;
+  --docs-color-text-secondary: #afafb7;
+  --docs-color-text-muted: #afafb7;
+  --docs-color-border: rgba(255, 255, 255, 0.1);
+  --docs-color-lilac-ambient: #bec2ff;
+  --docs-color-lilac-accent: #bec2ff;
+  --docs-color-accent-text: #bec2ff;
+  --docs-color-mint-ambient: #85ecce;
+  --docs-color-mint-accent: #85ecce;
+  --docs-color-orange-support: #ffac4d;
+  --docs-color-yellow-support: #fff388;
+  --docs-color-destructive-text: #fa5f67;
+  --docs-color-accent-contrast: #010507;
+  --accent-strong: color-mix(in oklch, var(--accent) 86%, white);
+  --accent-light: color-mix(in srgb, var(--accent) 24%, transparent);
+  --accent-dim: color-mix(in srgb, var(--accent) 14%, transparent);
+  --border-dim: rgba(255, 255, 255, 0.05);
+  --glass-background: var(--docs-color-surface);
+  --warning-text: #ffd59c;
+  --blue: #6ba6e8;
+  --overlay-backdrop: rgba(0, 0, 0, 0.68);
+  --shadow-control: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-panel: 0 4px 8px -4px rgba(0, 0, 0, 0.56);
+  --shadow-modal: 0 8px 12px -8px rgba(0, 0, 0, 0.72);
+  --scrollbar-color: rgba(255, 255, 255, 0.22);
+}
+
+/* Tailwind/Fumadocs bridge. The radius scale intentionally distinguishes
+ * controls, reading surfaces, and larger panels. */
+@theme inline {
+  --font-sans: var(--font-docs-prose);
+  --font-mono: var(--font-docs-code);
+  --radius-sm: var(--docs-radius-control);
+  --radius-md: var(--docs-radius-control);
+  --radius-lg: var(--docs-radius-surface);
+  --radius-xl: var(--docs-radius-panel);
+  --radius-2xl: var(--docs-radius-panel);
+  --color-fd-background: var(--bg);
+  --color-fd-foreground: var(--text);
+  --color-fd-card: var(--bg-surface);
+  --color-fd-card-foreground: var(--text);
+  --color-fd-popover: var(--bg-surface);
+  --color-fd-popover-foreground: var(--text);
+  --color-fd-primary: var(--accent);
+  --color-fd-primary-foreground: var(--primary-foreground);
+  --color-fd-secondary: var(--bg-elevated);
+  --color-fd-secondary-foreground: var(--text);
+  --color-fd-muted: var(--bg-hover);
+  --color-fd-muted-foreground: var(--text-muted);
+  --color-fd-accent: var(--bg-hover);
+  --color-fd-accent-foreground: var(--text);
+  --color-fd-border: var(--border);
+  --color-fd-ring: var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-duration-fast: 0.01ms;
+    --motion-duration-standard: 0.01ms;
+    --motion-duration-slow: 0.01ms;
+    --motion-ease-standard: linear;
+    --motion-ease-out: linear;
+  }
+}

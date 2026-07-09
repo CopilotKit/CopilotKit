@@ -8,6 +8,7 @@
 @import "tailwindcss";
 @import "fumadocs-ui/css/shadcn.css";
 @import "fumadocs-ui/css/preset.css";
+@import "../styles/brand.css";
 
 /* Activate `dark:` Tailwind variants based on the `.dark` class on an
  * ancestor (typically <html>) instead of the default
@@ -35,33 +36,6 @@
   --shell-docs-layout-width: calc(97rem + 11px);
   --shell-docs-grid-gutter: 0px;
   --shell-docs-grid-top-offset: 0px;
-  --radius: 0.875rem;
-  --shell-docs-radius: var(--radius);
-  --shell-docs-radius-control: var(--radius);
-  --shell-docs-radius-surface: var(--radius);
-  --shell-docs-radius-icon: var(--radius);
-  --shadow-control: 0 1px 0 rgba(1, 5, 7, 0.03);
-  --shadow-panel: 0 18px 50px rgba(1, 5, 7, 0.18);
-  --shadow-modal:
-    0 24px 70px rgba(1, 5, 7, 0.22), 0 0 0 1px rgba(109, 69, 249, 0.05);
-  --overlay-backdrop: rgba(1, 5, 7, 0.25);
-  --accent-strong: color-mix(in oklch, var(--accent) 88%, black);
-  --nav-control-border: color-mix(in srgb, var(--accent) 24%, var(--border));
-  --nav-control-border-hover: color-mix(
-    in srgb,
-    var(--accent) 42%,
-    var(--border)
-  );
-  --warning: oklch(0.72 0.16 76);
-  --warning-dim: color-mix(in oklch, var(--warning) 10%, transparent);
-  --warning-border: color-mix(in oklch, var(--warning) 46%, var(--border));
-  --warning-text: color-mix(in oklch, var(--warning) 70%, var(--text));
-  /* Brand mint, backs --color-fd-success. mint/800 for contrast on the
-   * white callout card; the dark theme lifts this to mint/400. */
-  --success: #189370;
-  --window-control-close: #ff5f57;
-  --window-control-minimize: #ffbd2e;
-  --window-control-zoom: #28c840;
 }
 @media (min-width: 1280px) {
   :root {
@@ -296,7 +270,7 @@
 }
 
 .shell-docs-picker-menu {
-  box-shadow: 0 18px 42px -18px rgba(1, 5, 7, 0.18);
+  box-shadow: var(--shadow-panel);
   clip-path: inset(0 -48px -48px -48px);
 }
 
@@ -324,7 +298,7 @@
   position: fixed;
   right: 12px;
   bottom: 8px;
-  z-index: 9999;
+  z-index: var(--z-tooltip);
   color: var(--text-faint);
   font-family: var(--font-docs-code);
   font-size: 10px;
@@ -1008,188 +982,6 @@ figure.shiki > div:first-child[class*="border-b"] {
   padding: 0 0 1rem 0 !important;
   -webkit-mask-image: none !important;
   mask-image: none !important;
-}
-
-/* Bridge shell-docs's hand-rolled token names (--bg, --text, --accent, …)
- * to the names Fumadocs's shadcn preset expects (--background, --foreground,
- * --primary, …). Done in @theme inline so Tailwind's color utilities
- * (`bg-fd-background`, etc.) and Fumadocs's internal components both
- * resolve to the shell-docs palette. */
-@theme inline {
-  /* Fumadocs ships Tailwind utilities that use rounded-md/lg/xl/2xl in
-   * generated layout chrome. Map those radius tokens back to the shadcn
-   * `--radius` value so custom and Fumadocs surfaces share one shape
-   * instead of each rounded-* utility choosing a different corner size. */
-  --radius-sm: var(--shell-docs-radius);
-  --radius-md: var(--shell-docs-radius);
-  --radius-lg: var(--shell-docs-radius);
-  --radius-xl: var(--shell-docs-radius);
-  --radius-2xl: var(--shell-docs-radius);
-  --color-fd-background: var(--bg);
-  --color-fd-foreground: var(--text);
-  --color-fd-card: var(--bg-surface);
-  --color-fd-card-foreground: var(--text);
-  --color-fd-popover: var(--bg-surface);
-  --color-fd-popover-foreground: var(--text);
-  --color-fd-primary: var(--accent);
-  --color-fd-primary-foreground: #ffffff;
-  --color-fd-secondary: var(--bg-elevated);
-  --color-fd-secondary-foreground: var(--text);
-  --color-fd-muted: var(--bg-elevated);
-  --color-fd-muted-foreground: var(--text-muted);
-  --color-fd-accent: var(--bg-elevated);
-  --color-fd-accent-foreground: var(--text);
-  --color-fd-border: var(--border);
-  --color-fd-ring: var(--accent);
-}
-
-/* Callout / admonition accents (consumed by the fumadocs `<Callout>` via
- * `var(--color-fd-info|warning|success)`). Fumadocs' preset ships generic
- * blue/amber/green for these, which read as off-brand against the
- * purple-anchored docs theme. Remap them to existing brand tokens: info ->
- * brand accent (purple), warning -> the docs `--warning` orange already used
- * by `.shell-docs-warning-surface`, success -> brand mint. These MUST be plain
- * `:root` custom properties, not `@theme` tokens — Tailwind v4 tree-shakes
- * theme variables that no utility class references, and the Callout reads
- * these only through inline `var()`. The source tokens are theme-aware, so a
- * single `:root` definition covers light and dark. `error` is intentionally
- * left to `--destructive` (set by fumadocs' shadcn.css). */
-:root {
-  --color-fd-info: var(--accent);
-  --color-fd-warning: var(--warning);
-  --color-fd-success: var(--success);
-}
-
-:root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.457 0.24 277.023);
-  --primary-foreground: oklch(0.962 0.018 272.314);
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent-token: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.511 0.262 276.966);
-  --sidebar-primary-foreground: oklch(0.962 0.018 272.314);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-  /* Light mode follows a shadcn-style neutral scale: white page/card
-   * surfaces, a very light sidebar, low-chroma borders, and a single
-   * purple primary. shell-docs keeps `--accent` as the primary color
-   * because existing CTAs and link states depend on that contract.
-   *
-   * Exception: `--nav-surface` remains explicit so the header can keep
-   * tracking the page background independently of elevated surfaces. */
-  --bg: var(--background);
-  --bg-surface: var(--card);
-  --bg-elevated: var(--secondary);
-  --bg-hover: var(--muted);
-  --border: oklch(0.922 0 0);
-  --border-dim: color-mix(in oklch, var(--border) 62%, transparent);
-  --sidebar: oklch(0.985 0 0);
-  --glass-background: var(--card);
-  --nav-surface: var(--background);
-  --text: var(--foreground);
-  --text-secondary: oklch(0.21 0.006 285.885);
-  --text-muted: var(--muted-foreground);
-  --text-faint: oklch(0.708 0 0);
-  --accent: var(--primary);
-  --accent-light: color-mix(in oklch, var(--accent) 14%, white);
-  --accent-dim: color-mix(in oklch, var(--accent) 8%, transparent);
-  --blue: #1a5fb4;
-  /* Aliased to --accent / --accent-light. Consumed by AG-UI section pages
-   * and OpsPlatformCTA. Kept as separate names for backwards compatibility
-   * with existing class references; values track the canonical accent. */
-  --violet: var(--accent);
-  --violet-light: var(--accent-light);
-  /* Scrollbar tokens — applied to internal scroll containers (sidebar
-   * inner scroll, content wrapper) so thumb + track follow theme. */
-  --scrollbar-color: rgba(0, 0, 0, 0.2);
-  --scrollbar-track: transparent;
-
-  /* Font stacks — fed by next/font CSS variables in layout.tsx with
-   * safe fallbacks for environments where the font fails to load.
-   * We expose them under `--font-prose`/`--font-code` and use those
-   * names in component CSS so Tailwind's own `--font-sans`/`--font-mono`
-   * theme tokens don't collide. */
-  --font-docs-prose:
-    var(--font-prose, "Plus Jakarta Sans"), -apple-system, BlinkMacSystemFont,
-    "Segoe UI", Roboto, sans-serif;
-  /* Code font: canonical docs.copilotkit.ai now uses system mono only,
-   * so we follow suit. No Google Font fetched for monospaced text. */
-  --font-docs-code:
-    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
-}
-
-/* Dark token set — same neutral scale, with purple lifted slightly brighter
- * than the sample's dark primary so text and outline CTAs keep enough
- * contrast on the docs header. */
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.585 0.233 277.117);
-  --primary-foreground: oklch(0.962 0.018 272.314);
-  --secondary: oklch(0.274 0.006 286.033);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent-token: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.585 0.233 277.117);
-  --sidebar-primary-foreground: oklch(0.962 0.018 272.314);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-  --bg: var(--background);
-  --bg-surface: var(--card);
-  --bg-elevated: var(--secondary);
-  --bg-hover: color-mix(in oklch, var(--secondary) 82%, white 18%);
-  --nav-surface: var(--background);
-  --border-dim: oklch(1 0 0 / 5%);
-  --glass-background: color-mix(in oklch, var(--card) 70%, transparent);
-  --text: var(--foreground);
-  --text-secondary: oklch(0.82 0.01 286);
-  --text-muted: var(--muted-foreground);
-  --text-faint: oklch(0.556 0 0);
-  --accent: var(--primary);
-  --accent-light: color-mix(in oklch, var(--accent) 24%, transparent);
-  --accent-dim: color-mix(in oklch, var(--accent) 14%, transparent);
-  --warning: oklch(0.76 0.15 76);
-  --warning-dim: color-mix(in oklch, var(--warning) 14%, transparent);
-  --warning-border: color-mix(in oklch, var(--warning) 48%, var(--border));
-  --warning-text: color-mix(in oklch, var(--warning) 72%, var(--text));
-  /* Brand mint/400 — brighter than the light-mode mint/800 so the success
-   * accent reads on the dark callout card. */
-  --success: #85ecce;
-  --blue: #6ba6e8;
-  --violet: var(--accent);
-  --violet-light: var(--accent-light);
-  --scrollbar-color: rgba(255, 255, 255, 0.18);
-  --scrollbar-track: transparent;
 }
 
 /* Apply themed scrollbar to internal scroll containers. Targets the
