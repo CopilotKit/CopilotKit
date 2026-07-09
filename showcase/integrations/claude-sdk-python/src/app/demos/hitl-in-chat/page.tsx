@@ -81,6 +81,7 @@ function Chat() {
     available: "always",
   });
 
+  // @region[hitl-frontend-tool]
   useHumanInTheLoop({
     agentId: "hitl-in-chat",
     name: "book_call",
@@ -104,6 +105,7 @@ function Chat() {
       />
     ),
   });
+  // @endregion[hitl-frontend-tool]
   // @endregion[hitl-hook]
 
   return <CopilotChat agentId="hitl-in-chat" className="h-full rounded-2xl" />;

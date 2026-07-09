@@ -1,0 +1,760 @@
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { createBot, FakeAgent } from "@copilotkit/channels";
+import type { BotNode } from "@copilotkit/channels-ui";
+import {
+  HttpDeliverySource,
+  HttpEgressSink,
+  HttpRenderEventSink,
+  resolveTransportConfig,
+} from "./http-transports.js";
+import type {
+  FetchLike,
+  IntelligenceTransportConfig,
+} from "./http-transports.js";
+import { intelligenceAdapter } from "./intelligence-adapter.js";
+import type { EgressOperation } from "./contracts.js";
+
+interface Call {
+  url: string;
+  method: string;
+  headers: Record<string, string>;
+  body: Record<string, unknown>;
+}
+
+function fakeFetch(
+  handler: (call: Call) => { ok?: boolean; status?: number; body?: unknown },
+): { fetch: FetchLike; calls: Call[] } {
+  const calls: Call[] = [];
+  const fetch: FetchLike = async (url, init) => {
+    const call: Call = {
+      url,
+      method: init.method,
+      headers: init.headers,
+      body: JSON.parse(init.body) as Record<string, unknown>,
+    };
+    calls.push(call);
+    const r = handler(call);
+    const status = r.status ?? (r.ok === false ? 500 : 200);
+    return {
+      ok: r.ok ?? status < 400,
+      status,
+      async text() {
+        return r.body === undefined ? "" : JSON.stringify(r.body);
+      },
+    };
+  };
+  return { fetch, calls };
+}
+
+/**
+ * `getHistory`/`fetchFile` bypass the injectable `cfg.fetch` (JSON/POST-only)
+ * and hit the global `fetch` directly, same as the existing `fetchFile` /
+ * `uploadFile` methods — so history tests stub `globalThis.fetch` instead.
+ */
+function stubGlobalFetch(
+  handler: (url: string) => {
+    ok?: boolean;
+    status?: number;
+    json?: unknown;
+    arrayBuffer?: ArrayBuffer;
+    contentType?: string;
+  },
+): { calls: string[] } {
+  const calls: string[] = [];
+  vi.stubGlobal("fetch", async (url: string) => {
+    calls.push(url);
+    const r = handler(url);
+    const status = r.status ?? (r.ok === false ? 500 : 200);
+    return {
+      ok: r.ok ?? status < 400,
+      status,
+      headers: { get: (_k: string) => r.contentType ?? null },
+      async json() {
+        return r.json ?? {};
+      },
+      async arrayBuffer() {
+        return r.arrayBuffer ?? new ArrayBuffer(0);
+      },
+    };
+  });
+  return { calls };
+}
+
+function cfg(
+  over: Partial<IntelligenceTransportConfig>,
+): IntelligenceTransportConfig {
+  return resolveTransportConfig({
+    baseUrl: "http://x",
+    apiKey: "cpk-test",
+    botName: "opentagbot",
+    runtimeInstanceId: "rti_test",
+    adapter: "slack",
+    sleep: async () => {},
+    ...over,
+  });
+}
+
+const text = (value: string): BotNode =>
+  ({ type: "text", props: { value } }) as unknown as BotNode;
+
+const claimedDelivery = (over?: Record<string, unknown>) => ({
+  id: "dlv_9",
+  attempt: 1,
+  organizationId: "org_1",
+  projectId: 7,
+  bot: { id: "bot_1", name: "opentagbot" },
+  adapter: "slack",
+  leaseToken: "lease_z",
+  leaseExpiresAt: "2026-06-30T00:00:00.000Z",
+  turn: {
+    id: "turn_9",
+    eventId: "evt_9",
+    receivedAt: "2026-06-30T00:00:00.000Z",
+    replyTarget: {
+      adapter: "slack",
+      teamId: "T1",
+      channel: "C1",
+      threadTs: "1.2",
+    },
+    input: { kind: "text", text: "hello" },
+  },
+  ...over,
+});
+
+describe("resolveTransportConfig", () => {
+  it("throws loudly when required fields are missing", () => {
+    // No overrides + (assumed) no COPILOTKIT_* env in the test runner.
+    expect(() =>
+      resolveTransportConfig({ baseUrl: "", apiKey: "", botName: "" }),
+    ).toThrow(/missing required transport config/);
+  });
+});
+
+describe("HttpEgressSink", () => {
+  it("posts flattened text with the op id as idempotency key", async () => {
+    const { fetch, calls } = fakeFetch(() => ({
+      body: { operationId: "eop_1", status: "sent", acceptedAt: "t" },
+    }));
+    const sink = new HttpEgressSink(cfg({ fetch }));
+    const op: EgressOperation = {
+      operationId: "turn_9:0",
+      turnId: "turn_9",
+      deliveryId: "dlv_9",
+      route: { adapter: "slack", teamId: "T1", channel: "C1", threadTs: "1.2" },
+      op: { kind: "post", ir: [text("hi")] },
+    };
+    const res = await sink.emit(op);
+    expect(res).toEqual({ ok: true, ref: "eop_1" });
+    expect(calls[0]!.url).toBe("http://x/api/bots/egress/messages");
+    expect(calls[0]!.headers["authorization"]).toBe("Bearer cpk-test");
+    expect(calls[0]!.body).toMatchObject({
+      botName: "opentagbot",
+      adapter: "slack",
+      deliveryId: "dlv_9",
+      idempotencyKey: "turn_9:0",
+      replyTarget: { teamId: "T1", channel: "C1" },
+      text: "hi",
+    });
+  });
+
+  it("maps a failed status to ok:false with the failure code", async () => {
+    const { fetch } = fakeFetch(() => ({
+      body: {
+        operationId: "eop_2",
+        status: "failed",
+        acceptedAt: "t",
+        error: { code: "provider_error", message: "x", retryable: true },
+      },
+    }));
+    const sink = new HttpEgressSink(cfg({ fetch }));
+    const res = await sink.emit({
+      operationId: "turn_9:0",
+      turnId: "turn_9",
+      deliveryId: "dlv_9",
+      route: { adapter: "slack", teamId: "T1", channel: "C1" },
+      op: { kind: "post", ir: [text("hi")] },
+    });
+    expect(res).toEqual({ ok: false, code: "provider_error" });
+  });
+
+  it("no-ops delete ops and empty text without hitting the network", async () => {
+    const { fetch, calls } = fakeFetch(() => ({ body: {} }));
+    const sink = new HttpEgressSink(cfg({ fetch }));
+    expect(
+      await sink.emit({
+        operationId: "turn_9:0",
+        turnId: "turn_9",
+        deliveryId: "dlv_9",
+        route: {},
+        op: { kind: "delete", ref: "r" },
+      }),
+    ).toEqual({ ok: true, ref: "turn_9:0" });
+    expect(
+      await sink.emit({
+        operationId: "turn_9:1",
+        turnId: "turn_9",
+        deliveryId: "dlv_9",
+        route: {},
+        op: { kind: "post", ir: [] },
+      }),
+    ).toEqual({ ok: true, ref: "turn_9:1" });
+    expect(calls).toHaveLength(0);
+  });
+});
+
+describe("HttpDeliverySource", () => {
+  it("heartbeat declares the bot + adapter", async () => {
+    const { fetch, calls } = fakeFetch(() => ({
+      body: {
+        runtimeInstanceId: "rti_test",
+        receivedAt: "t",
+        leaseExpiresAt: "t",
+        bots: [],
+      },
+    }));
+    const src = new HttpDeliverySource(cfg({ fetch }));
+    await src.heartbeat();
+    expect(calls[0]!.url).toBe("http://x/api/bots/listener/heartbeat");
+    expect(calls[0]!.body).toMatchObject({
+      runtimeInstanceId: "rti_test",
+      declaredBots: [{ botName: "opentagbot", adapter: "slack" }],
+    });
+  });
+
+  it("claimOnce maps a claimed delivery to a turn envelope with a stable conversationKey", async () => {
+    const { fetch } = fakeFetch(() => ({
+      body: { claimed: true, delivery: claimedDelivery() },
+    }));
+    const src = new HttpDeliverySource(cfg({ fetch }));
+    const r = await src.claimOnce();
+    expect("env" in r).toBe(true);
+    if (!("env" in r)) throw new Error("expected env");
+    expect(r.env).toMatchObject({
+      kind: "turn",
+      deliveryId: "dlv_9",
+      turnId: "turn_9",
+      eventId: "evt_9",
+      botName: "opentagbot",
+      platform: "slack",
+      text: "hello",
+      route: { teamId: "T1" },
+    });
+    expect(r.env.conversationKey).toBe("slack:T1:C1:thread:1.2");
+  });
+
+  it("claimOnce maps a claimed slash command delivery to a command envelope", async () => {
+    const { fetch } = fakeFetch(() => ({
+      body: {
+        claimed: true,
+        delivery: claimedDelivery({
+          turn: {
+            id: "turn_9",
+            eventId: "evt_command",
+            receivedAt: "2026-06-30T00:00:00.000Z",
+            replyTarget: {
+              adapter: "slack",
+              teamId: "T1",
+              channel: "C1",
+            },
+            input: {
+              kind: "command",
+              command: "/opentagbot",
+              text: "summarize this channel",
+              triggerId: "13345224609.738474920.8088930838d88f008e0",
+            },
+          },
+        }),
+      },
+    }));
+    const src = new HttpDeliverySource(cfg({ fetch }));
+    const r = await src.claimOnce();
+    expect("env" in r).toBe(true);
+    if (!("env" in r)) throw new Error("expected env");
+    expect(r.env).toMatchObject({
+      kind: "command",
+      deliveryId: "dlv_9",
+      turnId: "turn_9",
+      eventId: "evt_command",
+      botName: "opentagbot",
+      platform: "slack",
+      command: "/opentagbot",
+      text: "summarize this channel",
+      triggerId: "13345224609.738474920.8088930838d88f008e0",
+      route: { teamId: "T1", channel: "C1" },
+    });
+    expect(r.env.conversationKey).toBe("slack:T1:C1:thread:root");
+  });
+
+  it("claimOnce maps a claimed reaction delivery to a reaction envelope", async () => {
+    const { fetch } = fakeFetch(() => ({
+      body: {
+        claimed: true,
+        delivery: claimedDelivery({
+          turn: {
+            id: "turn_9",
+            eventId: "evt_reaction",
+            receivedAt: "2026-06-30T00:00:00.000Z",
+            replyTarget: {
+              adapter: "slack",
+              teamId: "T1",
+              channel: "C1",
+              threadTs: "1.2",
+            },
+            input: {
+              kind: "reaction",
+              rawEmoji: "thumbsup",
+              added: true,
+              messageId: "1.2",
+              threadId: "1.2",
+            },
+          },
+        }),
+      },
+    }));
+    const src = new HttpDeliverySource(cfg({ fetch }));
+    const r = await src.claimOnce();
+    expect("env" in r).toBe(true);
+    if (!("env" in r)) throw new Error("expected env");
+    expect(r.env).toMatchObject({
+      kind: "reaction",
+      deliveryId: "dlv_9",
+      turnId: "turn_9",
+      eventId: "evt_reaction",
+      botName: "opentagbot",
+      platform: "slack",
+      rawEmoji: "thumbsup",
+      added: true,
+      messageId: "1.2",
+      threadId: "1.2",
+      route: { teamId: "T1", channel: "C1", threadTs: "1.2" },
+    });
+    expect(r.env.conversationKey).toBe("slack:T1:C1:thread:1.2");
+  });
+
+  it("claimOnce maps a claimed interaction delivery to an interaction envelope", async () => {
+    const { fetch } = fakeFetch(() => ({
+      body: {
+        claimed: true,
+        delivery: claimedDelivery({
+          turn: {
+            id: "turn_9",
+            eventId: "evt_interaction",
+            receivedAt: "2026-06-30T00:00:00.000Z",
+            replyTarget: {
+              adapter: "slack",
+              teamId: "T1",
+              channel: "C1",
+              threadTs: "1.2",
+            },
+            input: {
+              kind: "interaction",
+              actionId: "ck:confirm_write:approve",
+              value: { confirmed: true },
+              messageRef: { id: "1.2" },
+              triggerId: "13345224609.738474920.8088930838d88f008e0",
+            },
+          },
+        }),
+      },
+    }));
+    const src = new HttpDeliverySource(cfg({ fetch }));
+    const r = await src.claimOnce();
+    expect("env" in r).toBe(true);
+    if (!("env" in r)) throw new Error("expected env");
+    expect(r.env).toMatchObject({
+      kind: "interaction",
+      deliveryId: "dlv_9",
+      turnId: "turn_9",
+      eventId: "evt_interaction",
+      botName: "opentagbot",
+      platform: "slack",
+      actionId: "ck:confirm_write:approve",
+      value: { confirmed: true },
+      messageRef: { id: "1.2" },
+      triggerId: "13345224609.738474920.8088930838d88f008e0",
+      route: { teamId: "T1", channel: "C1", threadTs: "1.2" },
+    });
+    expect(r.env.conversationKey).toBe("slack:T1:C1:thread:1.2");
+  });
+
+  it("claimOnce returns pollAfterMs when idle", async () => {
+    const { fetch } = fakeFetch(() => ({
+      body: { claimed: false, pollAfterMs: 500 },
+    }));
+    const src = new HttpDeliverySource(cfg({ fetch }));
+    expect(await src.claimOnce()).toEqual({ pollAfterMs: 500 });
+  });
+
+  it("ack uses the lease token + turn id stashed from the claim", async () => {
+    const { fetch, calls } = fakeFetch((c) =>
+      c.url.endsWith("/claim")
+        ? { body: { claimed: true, delivery: claimedDelivery() } }
+        : { body: { acknowledged: true } },
+    );
+    const src = new HttpDeliverySource(cfg({ fetch }));
+    await src.claimOnce();
+    await src.ack("dlv_9");
+    const ack = calls.find((c) => c.url.includes("/deliveries/dlv_9/ack"))!;
+    expect(ack.body).toMatchObject({
+      turnId: "turn_9",
+      leaseToken: "lease_z",
+      runtimeInstanceId: "rti_test",
+    });
+  });
+
+  it("nack posts a retryable runtime_error fail", async () => {
+    const { fetch, calls } = fakeFetch((c) =>
+      c.url.endsWith("/claim")
+        ? { body: { claimed: true, delivery: claimedDelivery() } }
+        : {
+            body: { failed: true, retryScheduled: true, status: "retry_wait" },
+          },
+    );
+    const src = new HttpDeliverySource(cfg({ fetch }));
+    await src.claimOnce();
+    await src.nack("dlv_9", "boom");
+    const fail = calls.find((c) => c.url.includes("/deliveries/dlv_9/fail"))!;
+    expect(fail.body["error"]).toMatchObject({
+      code: "runtime_error",
+      message: "boom",
+      retryable: true,
+    });
+  });
+
+  it("nacks (non-retryable) an unmappable delivery kind instead of wedging the loop", async () => {
+    const { fetch, calls } = fakeFetch((c) =>
+      c.url.endsWith("/claim")
+        ? {
+            body: {
+              claimed: true,
+              // A future/unknown wire kind app-api might send. claimOnce must
+              // not throw it up into runLoop (which only logs+sleeps, leaking
+              // the lease until the 120s expiry redelivers the same poison
+              // payload forever) — it nacks non-retryably and idles instead.
+              delivery: claimedDelivery({
+                turn: {
+                  id: "turn_9",
+                  eventId: "evt_x",
+                  receivedAt: "2026-06-30T00:00:00.000Z",
+                  replyTarget: {
+                    adapter: "slack",
+                    teamId: "T1",
+                    channel: "C1",
+                    threadTs: "1.2",
+                  },
+                  input: { kind: "telepathy" },
+                },
+              }),
+            },
+          }
+        : { body: { failed: true, status: "dead_letter" } },
+    );
+    const src = new HttpDeliverySource(cfg({ fetch }));
+
+    const r = await src.claimOnce();
+
+    expect(r).toEqual({ pollAfterMs: 1000 });
+    const fail = calls.find((c) => c.url.includes("/deliveries/dlv_9/fail"))!;
+    expect(fail).toBeDefined();
+    expect(fail.body["error"]).toMatchObject({ retryable: false });
+  });
+
+  it("times out a hung turn, nacks it, and keeps the loop alive", async () => {
+    const { fetch, calls } = fakeFetch((c) =>
+      c.url.endsWith("/claim")
+        ? { body: { claimed: true, delivery: claimedDelivery() } }
+        : { body: { failed: true, status: "retry_wait" } },
+    );
+    const src = new HttpDeliverySource(cfg({ fetch, turnTimeoutMs: 20 }));
+    let started = 0;
+    // A turn that never resolves (e.g. a HITL approval that never arrives) must
+    // not wedge the single-delivery loop: it times out, gets nacked, loop continues.
+    await src.start(async () => {
+      started += 1;
+      await new Promise<void>(() => {});
+    });
+    await new Promise((r) => setTimeout(r, 80));
+    await src.stop();
+
+    expect(started).toBeGreaterThanOrEqual(1);
+    const fail = calls.find((c) => c.url.includes("/deliveries/dlv_9/fail"));
+    expect(fail).toBeDefined();
+    expect(fail!.body["error"]).toMatchObject({ code: "runtime_error" });
+  });
+});
+
+describe("HttpDeliverySource.getHistory", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("returns [] without a request when threadTs is missing (root turn)", async () => {
+    const { calls } = stubGlobalFetch(() => ({ json: { messages: [] } }));
+    const src = new HttpDeliverySource(cfg({}));
+    const history = await src.getHistory({ teamId: "T1", channel: "C1" }, 20);
+    expect(history).toEqual([]);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("maps role/text and sends teamId/channel/threadTs/limit in the query", async () => {
+    const { calls } = stubGlobalFetch((url) => {
+      expect(url).toBe(
+        "http://x/api/bots/history?teamId=T1&channel=C1&threadTs=1.2&limit=5",
+      );
+      return {
+        json: {
+          messages: [
+            { id: "m1", role: "user", text: "earlier question" },
+            { id: "m2", role: "assistant", text: "earlier answer" },
+          ],
+        },
+      };
+    });
+    const src = new HttpDeliverySource(cfg({}));
+    const history = await src.getHistory(
+      { teamId: "T1", channel: "C1", threadTs: "1.2" },
+      5,
+    );
+    expect(history).toEqual([
+      { id: "m1", role: "user", content: "earlier question" },
+      { id: "m2", role: "assistant", content: "earlier answer" },
+    ]);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("hydrates a historical file ref into content parts (text inline + image data part)", async () => {
+    const png = new Uint8Array([1, 2, 3, 4]);
+    stubGlobalFetch((url) => {
+      if (url.includes("/api/bots/history")) {
+        return {
+          json: {
+            messages: [
+              {
+                id: "m1",
+                role: "user",
+                text: "what is this?",
+                files: [
+                  {
+                    handle: "fileref_abc",
+                    filename: "shot.png",
+                    mimeType: "image/png",
+                  },
+                ],
+              },
+            ],
+          },
+        };
+      }
+      if (url.includes("/api/bots/files/fileref_abc")) {
+        return { arrayBuffer: png.buffer, contentType: "image/png" };
+      }
+      throw new Error(`unexpected url in test: ${url}`);
+    });
+    const src = new HttpDeliverySource(cfg({}));
+    const history = await src.getHistory(
+      { teamId: "T1", channel: "C1", threadTs: "1.2" },
+      20,
+    );
+    expect(history).toEqual([
+      {
+        id: "m1",
+        role: "user",
+        content: [
+          { type: "text", text: "what is this?" },
+          {
+            type: "image",
+            source: {
+              type: "data",
+              value: Buffer.from(png).toString("base64"),
+              mimeType: "image/png",
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("returns [] and logs a quiet degradation on a transient 5xx history response", async () => {
+    stubGlobalFetch(() => ({ status: 500 }));
+    const logs: unknown[] = [];
+    const src = new HttpDeliverySource(
+      cfg({ log: (msg, meta) => logs.push({ msg, meta }) }),
+    );
+    const history = await src.getHistory(
+      { teamId: "T1", channel: "C1", threadTs: "1.2" },
+      20,
+    );
+    expect(history).toEqual([]);
+    expect(logs.length).toBeGreaterThan(0);
+    expect(String((logs[0] as { msg: string }).msg)).not.toMatch(
+      /misconfigured/i,
+    );
+  });
+
+  it("returns [] and logs a distinct misconfiguration warning on a 4xx history response", async () => {
+    stubGlobalFetch(() => ({ status: 401 }));
+    const logs: unknown[] = [];
+    const src = new HttpDeliverySource(
+      cfg({ log: (msg, meta) => logs.push({ msg, meta }) }),
+    );
+    const history = await src.getHistory(
+      { teamId: "T1", channel: "C1", threadTs: "1.2" },
+      20,
+    );
+    expect(history).toEqual([]);
+    expect(logs.length).toBeGreaterThan(0);
+    expect(String((logs[0] as { msg: string }).msg)).toMatch(
+      /misconfigured\/unauthorized history endpoint/,
+    );
+  });
+
+  it("returns [] and logs a quiet degradation on a 429 history response (not treated as misconfiguration)", async () => {
+    stubGlobalFetch(() => ({ status: 429 }));
+    const logs: unknown[] = [];
+    const src = new HttpDeliverySource(
+      cfg({ log: (msg, meta) => logs.push({ msg, meta }) }),
+    );
+    const history = await src.getHistory(
+      { teamId: "T1", channel: "C1", threadTs: "1.2" },
+      20,
+    );
+    expect(history).toEqual([]);
+    expect(logs.length).toBeGreaterThan(0);
+    expect(String((logs[0] as { msg: string }).msg)).not.toMatch(
+      /misconfigured/i,
+    );
+  });
+
+  it("returns [] when the history fetch throws (never fails the turn)", async () => {
+    vi.stubGlobal("fetch", async () => {
+      throw new Error("network down");
+    });
+    const src = new HttpDeliverySource(cfg({}));
+    const history = await src.getHistory(
+      { teamId: "T1", channel: "C1", threadTs: "1.2" },
+      20,
+    );
+    expect(history).toEqual([]);
+  });
+});
+
+describe("HttpRenderEventSink", () => {
+  it("streams a render frame to the accept route with echoed scope (no deliveryId in body)", async () => {
+    const { fetch, calls } = fakeFetch((c) =>
+      c.url.endsWith("/claim")
+        ? { body: { claimed: true, delivery: claimedDelivery() } }
+        : {
+            body: {
+              idempotencyKey: "turn_9:main:0",
+              acceptance: "accepted",
+            },
+          },
+    );
+    const conf = cfg({ fetch });
+    const src = new HttpDeliverySource(conf);
+    await src.claimOnce(); // populates per-delivery scope
+    const sink = new HttpRenderEventSink(conf, src);
+
+    const receipt = await sink.push({
+      deliveryId: "dlv_9",
+      turnId: "turn_9",
+      slot: "main",
+      seq: 0,
+      event: { kind: "text_delta", messageId: "m1", delta: "hi" },
+    });
+
+    expect(receipt).toEqual({
+      idempotencyKey: "turn_9:main:0",
+      acceptance: "accepted",
+    });
+    const accept = calls.find((c) =>
+      c.url.endsWith("/deliveries/dlv_9/render-events/accept"),
+    )!;
+    expect(accept.body).toMatchObject({
+      organizationId: "org_1",
+      projectId: 7,
+      botId: "bot_1",
+      botName: "opentagbot",
+      turnId: "turn_9",
+      runtimeInstanceId: "rti_test",
+      slot: "main",
+      seq: 0,
+      idempotencyKey: "turn_9:main:0",
+      event: { kind: "text_delta", messageId: "m1", delta: "hi" },
+    });
+    // The accept route rejects a body that also carries deliveryId.
+    expect("deliveryId" in accept.body).toBe(false);
+  });
+
+  it("throws when no leased scope exists for the delivery", async () => {
+    const { fetch } = fakeFetch(() => ({ body: {} }));
+    const src = new HttpDeliverySource(cfg({ fetch }));
+    const sink = new HttpRenderEventSink(cfg({ fetch }), src);
+    await expect(
+      sink.push({
+        deliveryId: "dlv_unknown",
+        turnId: "turn_9",
+        slot: "main",
+        seq: 0,
+        event: { kind: "run_started" },
+      }),
+    ).rejects.toThrow(/no leased scope/);
+  });
+});
+
+describe("intelligenceAdapter() — config-free default transports", () => {
+  it("is callable with zero arguments (config-free)", () => {
+    // Compile-time + runtime guard: intelligenceAdapter() must take no required
+    // args so consumers can write createBot({ adapters: [intelligenceAdapter()] }).
+    const adapter = intelligenceAdapter();
+    expect(adapter.platform).toBe("intelligence");
+  });
+
+  it("builds HTTP transports and takes botName from createBot({ name })", async () => {
+    const { fetch, calls } = fakeFetch((c) =>
+      c.url.endsWith("/heartbeat")
+        ? {
+            body: {
+              runtimeInstanceId: "rti_test",
+              receivedAt: "t",
+              leaseExpiresAt: "t",
+              bots: [],
+            },
+          }
+        : { body: { claimed: false, pollAfterMs: 60000 } },
+    );
+    const bot = createBot({
+      name: "opentagbot",
+      agent: () => new FakeAgent(),
+      // No source/egress injected -> default HTTP transports; no botName in
+      // config -> must come from createBot({ name }) via the start() context.
+      adapters: [
+        intelligenceAdapter({
+          config: {
+            baseUrl: "http://x",
+            apiKey: "cpk-test",
+            runtimeInstanceId: "rti_test",
+            fetch,
+            sleep: () => new Promise((r) => setTimeout(r, 1)),
+          },
+        }),
+      ],
+    });
+    await bot.start();
+    // Let the loop heartbeat + poll at least once.
+    const deadline = Date.now() + 200;
+    while (
+      Date.now() < deadline &&
+      !calls.some((c) => c.url.endsWith("/claim"))
+    ) {
+      await new Promise((r) => setTimeout(r, 5));
+    }
+    await bot.stop();
+
+    const hb = calls.find((c) => c.url.endsWith("/heartbeat"))!;
+    expect(hb.body).toMatchObject({
+      declaredBots: [{ botName: "opentagbot", adapter: "slack" }],
+    });
+    expect(calls.some((c) => c.url.endsWith("/claim"))).toBe(true);
+  });
+});

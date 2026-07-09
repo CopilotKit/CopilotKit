@@ -1,6 +1,6 @@
 # Teams example: demo bot
 
-A runnable demo of [`@copilotkit/bot-teams`](../../packages/bot-teams): a
+A runnable demo of [`@copilotkit/channels-teams`](../../packages/channels-teams): a
 Microsoft Teams bot backed by a CopilotKit `BuiltInAgent` that shows
 **streamed-by-edit replies**, **agent-rendered Adaptive Cards**, and a
 **human-in-the-loop approval gate**, testable locally in the **Microsoft 365
@@ -148,7 +148,7 @@ service** — no separate runtime process. On Railway (or any host), set:
 | **Watch Paths**    | `packages/**`, `examples/teams/**`, `pnpm-lock.yaml`, `package.json` |
 
 `pnpm --filter teams-example build` builds the workspace libs the example
-imports (`@copilotkit/bot`, `bot-teams`, `bot-ui`, `runtime`) and everything
+imports (`@copilotkit/channels`, `bot-teams`, `bot-ui`, `runtime`) and everything
 they depend on, via the Nx project graph — so `tsx` runs against fresh `dist`. The **Watch Paths** are
 what make a `packages/**`-only change trigger a redeploy. On Railway, generate a
 public domain on the service (Settings → Networking); it routes to `$PORT`,
@@ -156,7 +156,7 @@ which the bot listens on for `/api/messages`.
 
 > **Copying this example out of the monorepo?** Replace the `workspace:*` ranges
 > in `package.json` with the published versions (e.g.
-> `@copilotkit/bot-teams: ^0.0.1`) — `workspace:*` only resolves inside this
+> `@copilotkit/channels-teams: ^0.0.1`) — `workspace:*` only resolves inside this
 > monorepo.
 
 Set the environment for wherever you deploy:

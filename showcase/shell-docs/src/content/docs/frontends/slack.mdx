@@ -1,18 +1,18 @@
 ---
 title: Slack
-description: Build an AI Slack bot with CopilotKit, Copilot Runtime, createBot, the Slack adapter over Socket Mode, and interactive JSX messages rendered as Block Kit.
+description: Bring custom agents into Slack with native cards, streaming replies, approvals, and durable thread context.
 icon: "lucide/Slack"
 hideTOC: true
 ---
 
-This guide takes you from zero to a Slack bot you can @-mention in a channel, then adds an interactive button card. You write handlers in TypeScript, Copilot Runtime hosts the agent, and rich messages are JSX that the adapter renders to Block Kit (Slack's message-UI format). No public URL needed.
+Slack can be the frontend for agents built on any harness or framework, so your team can get work done in the conversations, approvals, and handoffs they already use. The open source Bot SDK gives you the adapter path for TypeScript handlers and JSX-authored Block Kit messages. CopilotKit Enterprise Intelligence adds the self-hosted or cloud-hosted production layer for thread mapping, durable agent state, approvals, observability, and release operations when Slack becomes a critical workflow.
 
 <OpsPlatformCTA
   variant="inline"
-  title="Join the waitlist for managed Slack and Teams agents"
-  body="Want CopilotKit Intelligence to carry Slack and Teams setup, identity and permissions, durable state, approvals, and runtime operations for you?"
-  ctaLabel="Join the waitlist"
-  surface="docs_slack_managed_agents_waitlist"
+  title="Get early access to Slack and Teams agents in CopilotKit Enterprise Intelligence"
+  body="Use the open source Bot SDK to run the adapter, runtime, platform credentials, tools, and storage inside your stack. CopilotKit Enterprise Intelligence adds the self-hosted or cloud-hosted production layer around that SDK: durable agent threads, platform conversation mapping, approvals, observability, and release operations for Slack and Teams."
+  ctaLabel="Get early access"
+  surface="docs_slack_agents_early_access"
   href="https://www.copilotkit.ai/opentag-managed"
 />
 
@@ -64,25 +64,25 @@ This guide takes you from zero to a Slack bot you can @-mention in a channel, th
         <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn']}>
             <Tab value="npm">
                 ```bash
-                npm install @copilotkit/bot @copilotkit/bot-ui @copilotkit/bot-slack @copilotkit/runtime
+                npm install @copilotkit/channels @copilotkit/channels-ui @copilotkit/channels-slack @copilotkit/runtime
                 npm install -D tsx typescript @types/node
                 ```
             </Tab>
             <Tab value="pnpm">
                 ```bash
-                pnpm add @copilotkit/bot @copilotkit/bot-ui @copilotkit/bot-slack @copilotkit/runtime
+                pnpm add @copilotkit/channels @copilotkit/channels-ui @copilotkit/channels-slack @copilotkit/runtime
                 pnpm add -D tsx typescript @types/node
                 ```
             </Tab>
             <Tab value="yarn">
                 ```bash
-                yarn add @copilotkit/bot @copilotkit/bot-ui @copilotkit/bot-slack @copilotkit/runtime
+                yarn add @copilotkit/channels @copilotkit/channels-ui @copilotkit/channels-slack @copilotkit/runtime
                 yarn add -D tsx typescript @types/node
                 ```
             </Tab>
         </Tabs>
 
-        Then create a `tsconfig.json` that points the JSX factory at `@copilotkit/bot-ui` — this is what makes `<Message>` / `<Button>` statically type-checked bot UI instead of React:
+        Then create a `tsconfig.json` that points the JSX factory at `@copilotkit/channels-ui` — this is what makes `<Message>` / `<Button>` statically type-checked bot UI instead of React:
 
         ```json title="tsconfig.json"
         {
@@ -95,7 +95,7 @@ This guide takes you from zero to a Slack bot you can @-mention in a channel, th
             "noEmit": true,
             "types": ["node"],
             "jsx": "react-jsx",
-            "jsxImportSource": "@copilotkit/bot-ui"
+            "jsxImportSource": "@copilotkit/channels-ui"
           },
           "include": ["bot.tsx"]
         }
@@ -112,8 +112,8 @@ This guide takes you from zero to a Slack bot you can @-mention in a channel, th
 
         ```tsx title="bot.tsx"
         import { createServer } from "node:http";
-        import { createBot } from "@copilotkit/bot";
-        import { slack, SanitizingHttpAgent } from "@copilotkit/bot-slack"; // [!code highlight]
+        import { createBot } from "@copilotkit/channels";
+        import { slack, SanitizingHttpAgent } from "@copilotkit/channels-slack"; // [!code highlight]
         import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime/v2";
         import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 
@@ -200,10 +200,10 @@ This guide takes you from zero to a Slack bot you can @-mention in a channel, th
     <Step>
         ### Post interactive UI
 
-        Replies don't have to be text. Messages are authored as JSX from the [`@copilotkit/bot-ui` vocabulary](/reference/bot/components/Message) — including buttons with **inline `onClick` handlers**. Replace the `onMention` handler from the previous step:
+        Replies don't have to be text. Messages are authored as JSX from the [`@copilotkit/channels-ui` vocabulary](/reference/channels/components/Message) — including buttons with **inline `onClick` handlers**. Replace the `onMention` handler from the previous step:
 
         ```tsx title="bot.tsx"
-        import { Message, Header, Section, Actions, Button } from "@copilotkit/bot-ui"; // [!code highlight]
+        import { Message, Header, Section, Actions, Button } from "@copilotkit/channels-ui"; // [!code highlight]
 
         bot.onMention(async ({ thread, message }) => {
           if (message.text.toLowerCase().includes("deploy")) {
@@ -240,7 +240,7 @@ This guide takes you from zero to a Slack bot you can @-mention in a channel, th
         Mention the bot with "deploy" in the message and click the buttons. Your handler code never leaves your process — Slack only sees an opaque action id.
 
         <Callout type="warn" title="Buttons expire on restart">
-          The default action store is **in-memory**: after a process restart, clicks on old buttons are acknowledged but ignored. For buttons that survive restarts, plug a durable store (Redis, a database) into `createBot({ actionStore })` — see the [ActionStore contract](/reference/bot/types/ActionStore).
+          The default action store is **in-memory**: after a process restart, clicks on old buttons are acknowledged but ignored. For buttons that survive restarts, plug a durable store (Redis, a database) into `createBot({ actionStore })` — see the [ActionStore contract](/reference/channels/types/ActionStore).
         </Callout>
     </Step>
     <Step>
@@ -277,11 +277,11 @@ agent: (threadId) => {
 },
 ```
 
-[`SanitizingHttpAgent`](/reference/bot/slack/SanitizingHttpAgent) is an `HttpAgent` that tolerates the event streams real agent backends emit — use it over the stock `HttpAgent` when connecting a Slack bot to Copilot Runtime.
+[`SanitizingHttpAgent`](/reference/channels/slack/SanitizingHttpAgent) is an `HttpAgent` that tolerates the event streams real agent backends emit — use it over the stock `HttpAgent` when connecting a Slack bot to Copilot Runtime.
 
 ## Platform capability matrix
 
-The three CopilotKit bot adapters — Slack, Discord, and Telegram — share the same `@copilotkit/bot` API surface but differ in what the underlying platform natively supports. The table below shows exactly what shipped in the current release.
+The three CopilotKit bot adapters — Slack, Discord, and Telegram — share the same `@copilotkit/channels` API surface but differ in what the underlying platform natively supports. The table below shows exactly what shipped in the current release.
 
 | Feature | Slack | Discord | Telegram |
 |---|---|---|---|
@@ -299,7 +299,7 @@ The three CopilotKit bot adapters — Slack, Discord, and Telegram — share the
 **Telegram:** `message_reaction` is already included in `TELEGRAM_ALLOWED_UPDATES` — no manual configuration needed for long-polling. For webhook mode, pass the exported constant to `setWebhook`:
 
 ```ts
-import { TELEGRAM_ALLOWED_UPDATES } from "@copilotkit/bot-telegram";
+import { TELEGRAM_ALLOWED_UPDATES } from "@copilotkit/channels-telegram";
 await bot.api.setWebhook(url, { allowed_updates: [...TELEGRAM_ALLOWED_UPDATES] });
 ```
 
@@ -321,5 +321,5 @@ Discord requires the modal to be opened **before any other response** to a butto
 
 ## Next steps
 
-- **API reference:** the [Bots reference](/reference/bot) — [createBot](/reference/bot/functions/createBot), the [Thread API](/reference/bot/classes/Thread), [tools](/reference/bot/functions/defineBotTool) & [commands](/reference/bot/functions/defineBotCommand), the [component vocabulary](/reference/bot/components/Message), and the [Slack adapter](/reference/bot/slack)
+- **API reference:** the [Channels reference](/reference/channels) — [createBot](/reference/channels/functions/createBot), the [Thread API](/reference/channels/classes/Thread), [tools](/reference/channels/functions/defineBotTool) & [commands](/reference/channels/functions/defineBotCommand), the [component vocabulary](/reference/channels/components/Message), and the [Slack adapter](/reference/channels/slack)
 - **Full example:** [on-call triage bot over Linear + Notion MCP](https://github.com/CopilotKit/CopilotKit/tree/main/examples/slack) — tools, human-in-the-loop, slash commands, file uploads

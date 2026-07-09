@@ -1,6 +1,6 @@
 /**
  * App-specific render components — agent-renderable Block Kit cards authored
- * with the `@copilotkit/bot-ui` JSX vocabulary.
+ * with the `@copilotkit/channels-ui` JSX vocabulary.
  *
  * Each component is a plain `ComponentFn` returning a `<Message>` tree; its
  * exported zod prop schema doubles as the render-tool input schema. Render a

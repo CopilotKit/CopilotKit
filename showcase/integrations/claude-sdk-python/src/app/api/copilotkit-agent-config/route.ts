@@ -7,12 +7,10 @@
 //
 // This route subclasses the `HttpAgent` so it can intercept each run and
 // repack the non-structural forwardedProps keys into
-// `forwardedProps.config.configurable.properties` — the same shape the
-// langgraph-python reference uses (and the agent-config Python backend
-// accepts both shapes defensively; see
-// src/agents/agent_config_agent.py :: `read_properties`). Repacking
-// keeps the wire format consistent across frameworks so the Python
-// backend can be compared directly against the LangGraph reference.
+// `forwardedProps.config.configurable.properties` — the compatibility shape
+// accepted by the agent-config Python backend (see
+// src/agents/agent_config_agent.py :: `read_properties`). Repacking keeps the
+// wire format consistent across framework implementations.
 
 import type { NextRequest } from "next/server";
 import {

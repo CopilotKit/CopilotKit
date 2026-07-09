@@ -11,6 +11,16 @@ CopilotKit threads enable persistent, resumable multi-turn conversations. The `u
   surface="docs_threads"
 />
 
+<Callout type="info" title="Prebuilt thread UI: CopilotThreadsDrawer">
+  The fastest way to add a thread switcher is the prebuilt
+  **[`CopilotThreadsDrawer`](/prebuilt-components/copilot-threads-drawer)** — drop
+  `<CopilotThreadsDrawer />` next to your chat and it lists, switches,
+  archives, and deletes threads with no active-thread wiring. The `useThreads`
+  steps below are the **headless** path, for when you want to build the thread
+  UI yourself (and the way to add thread **rename**, which the prebuilt drawer
+  doesn't surface).
+</Callout>
+
 ## When should I use this?
 
 - Your app needs multiple saved conversations per user (like a chat history sidebar)
@@ -265,5 +275,6 @@ CopilotKit threads enable persistent, resumable multi-turn conversations. The `u
 
 ## Next steps
 
+- **Prebuilt UI:** [CopilotThreadsDrawer](/prebuilt-components/copilot-threads-drawer) — the drop-in thread switcher ([React reference](/reference/components/CopilotThreadsDrawer))
 - **Thread architecture:** [Threads & Persistence Architecture](/premium/threads-explained) — event replay model and WebSocket sync
 - **API reference:** [useThreads](/reference/hooks/useThreads) — parameters, return values, types

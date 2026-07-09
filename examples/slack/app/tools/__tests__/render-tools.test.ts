@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderToIR } from "@copilotkit/bot-ui";
-import { renderSlackMessage } from "@copilotkit/bot-slack";
+import { renderToIR } from "@copilotkit/channels-ui";
+import { renderSlackMessage } from "@copilotkit/channels-slack";
 
 // Mock the local renderers so no headless browser is launched.
 const renderChart = vi.fn(async () => Buffer.from("CHARTPNG"));

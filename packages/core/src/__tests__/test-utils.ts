@@ -45,6 +45,14 @@ export class MockAgent {
   public abortRun = vi.fn();
   public clone = vi.fn(() => this._cloneImpl());
 
+  setMessages(messages: Message[]): void {
+    this.messages = messages;
+  }
+
+  setState(state: Record<string, any>): void {
+    this.state = state;
+  }
+
   private newMessages: Message[];
   private error?: Error | string;
   private runAgentDelay: number;

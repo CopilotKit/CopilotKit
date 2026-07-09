@@ -63,6 +63,12 @@ export interface RuntimeInfo {
   intelligence?: IntelligenceRuntimeInfo;
   threadEndpoints?: ThreadEndpointRuntimeInfo;
   /**
+   * When true, the runtime exposes POST /agent/:agentId/suggest for stateless
+   * suggestion generation. Absent on older runtimes; clients fall back to a
+   * client-side agent run.
+   */
+  suggestions?: boolean;
+  /**
    * @deprecated Use `a2ui` instead, which preserves per-agent scoping.
    * Kept for backward compatibility with older clients.
    */

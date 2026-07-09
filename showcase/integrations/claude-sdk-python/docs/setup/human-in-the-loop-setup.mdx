@@ -1,0 +1,12 @@
+<Steps>
+  <Step>
+    ### Model approvals as async frontend tools
+
+    Claude Agent SDK human-in-the-loop demos use CopilotKit's promise-based
+    frontend tool flow. The agent calls an approval tool, the UI resolves the
+    tool result after the user decides, and the same Claude run continues with
+    that result. Register the approval UI from the page component.
+
+    <DemoCode file="src/app/demos/hitl-in-chat/page.tsx" region="hitl-frontend-tool" title="page.tsx - useHumanInTheLoop" />
+  </Step>
+</Steps>
