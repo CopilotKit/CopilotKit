@@ -227,7 +227,8 @@ function walkRegionCandidateFiles(
     const abs = path.join(absDir, entry.name);
     const rel = currentRel ? `${currentRel}/${entry.name}` : entry.name;
     if (entry.isDirectory()) {
-      if (!SKIP_DIRS.has(entry.name)) out.push(...walkRegionCandidateFiles(abs, rel));
+      if (!SKIP_DIRS.has(entry.name))
+        out.push(...walkRegionCandidateFiles(abs, rel));
       continue;
     }
     if (!entry.isFile()) continue;

@@ -469,7 +469,9 @@ export function Snippet({
       lang={resolveShikiLanguage(reg.language)}
       code={reg.code}
       codeblock={caption ? { title: caption } : undefined}
-      highlightedLines={highlightedLines ? Array.from(highlightedLines) : undefined}
+      highlightedLines={
+        highlightedLines ? Array.from(highlightedLines) : undefined
+      }
     />
   );
 }
