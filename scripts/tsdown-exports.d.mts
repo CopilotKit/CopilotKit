@@ -1,6 +1,10 @@
 /**
  * A value in a package.json `exports` map: a target path, `null` (blocks a
  * subpath), a fallback array, or a nested conditions object.
+ *
+ * Mirror of `ExportsEntry` in `scripts/validate-package-exports-types.ts`;
+ * the two are hand-kept in sync (a `.d.mts` declaration and a `.ts` script
+ * cannot share one source without coupling the build helper to the validator).
  */
 export type ExportsEntry =
   | string

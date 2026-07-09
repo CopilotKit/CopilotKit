@@ -177,20 +177,26 @@ describe("withTypesConditions", () => {
 
   it("maps over fallback-array targets instead of corrupting them", () => {
     withPackage(["dist/a.d.mts"], (ctx) => {
-      const result = withTypesConditions(
-        { ".": { import: ["./dist/a.mjs", "./dist/b.mjs"] } },
-        ctx,
-      );
-      expect(result).toEqual({
-        ".": {
-          import: [
-            { types: "./dist/a.d.mts", default: "./dist/a.mjs" },
-            "./dist/b.mjs",
-          ],
-        },
+      withWarnSpy((warnings) => {
+        const result = withTypesConditions(
+          { ".": { import: ["./dist/a.mjs", "./dist/b.mjs"] } },
+          ctx,
+        );
+        // a.mjs has a sibling declaration → typed entry; b.mjs has none → left
+        // untouched (and warned about, asserted below — not silently dropped).
+        expect(result).toEqual({
+          ".": {
+            import: [
+              { types: "./dist/a.d.mts", default: "./dist/a.mjs" },
+              "./dist/b.mjs",
+            ],
+          },
+        });
+        // The typed array element must also keep `types` first.
+        expect(JSON.stringify(result)).toContain('[{"types":');
+        // The declaration-less element is reported loudly, not swallowed.
+        expect(warnings.some((w) => w.includes("b.mjs"))).toBe(true);
       });
-      // The typed array element must also keep `types` first.
-      expect(JSON.stringify(result)).toContain('[{"types":');
     });
   });
 

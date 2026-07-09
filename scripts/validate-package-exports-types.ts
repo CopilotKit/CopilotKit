@@ -17,6 +17,10 @@ import * as path from "node:path";
 /**
  * A value in a package.json `exports` map: a target path, `null` (blocks a
  * subpath), a fallback array, or a nested conditions object.
+ *
+ * Mirror of `ExportsEntry` in `scripts/tsdown-exports.d.mts`; the two are
+ * hand-kept in sync (a `.ts` script and a `.d.mts` declaration cannot share
+ * one source without coupling the validator to the build helper).
  */
 export type ExportsEntry =
   | string
