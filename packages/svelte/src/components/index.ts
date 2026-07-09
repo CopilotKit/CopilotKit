@@ -1,2 +1,15 @@
-// Components will be added here as they are implemented.
-// Placeholder to avoid empty barrel export errors.
+export * from "./chat/types";
+export { default as CopilotChat } from "./chat/CopilotChat.svelte";
+export { default as CopilotChatView } from "./chat/CopilotChatView.svelte";
+export { default as CopilotChatInput } from "./chat/CopilotChatInput.svelte";
+export { default as CopilotChatMessage } from "./chat/CopilotChatMessage.svelte";
+export { default as CopilotChatMessageView } from "./chat/CopilotChatMessageView.svelte";
+export { default as CopilotChatAssistantMessage } from "./chat/CopilotChatAssistantMessage.svelte";
+export { default as CopilotChatUserMessage } from "./chat/CopilotChatUserMessage.svelte";
+export { default as CopilotChatReasoningMessage } from "./chat/CopilotChatReasoningMessage.svelte";
+export { default as CopilotChatToolCallsView } from "./chat/CopilotChatToolCallsView.svelte";
+export { default as CopilotChatSuggestionView } from "./chat/CopilotChatSuggestionView.svelte";
+export { default as CopilotChatSuggestionPill } from "./chat/CopilotChatSuggestionPill.svelte";
+export { default as CopilotChatToggleButton } from "./chat/CopilotChatToggleButton.svelte";
+export { default as CopilotSidebar } from "./chat/CopilotSidebar.svelte";
+export { default as CopilotPopup } from "./chat/CopilotPopup.svelte";
