@@ -352,6 +352,40 @@ describe("SearchModal", () => {
     expect(frameworkOptions).not.toContain(document.activeElement);
   });
 
+  it("routes Escape to the framework picker before closing the search dialog", async () => {
+    const user = userEvent.setup();
+    const onOpenChange = vi.fn();
+    renderWithFumadocs(
+      <SearchModal
+        open
+        onOpenChange={onOpenChange}
+        loadRegistry={() => Promise.resolve(registry)}
+      />,
+      navigation,
+    );
+
+    const trigger = await screen.findByRole("button", {
+      name: /Currently Built-in Agent/,
+    });
+    await user.click(trigger);
+    const selectedOption = getFrameworkOption(/Built-in Agent/);
+    await waitFor(() => expect(document.activeElement).toBe(selectedOption));
+
+    await user.keyboard("{Escape}");
+    expect(
+      screen.queryByRole("listbox", { name: "Docs framework" }),
+    ).toBeNull();
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+    expect(
+      onOpenChange.mock.calls.filter(([nextOpen]) => nextOpen === false),
+    ).toHaveLength(0);
+
+    await user.keyboard("{Escape}");
+    expect(
+      onOpenChange.mock.calls.filter(([nextOpen]) => nextOpen === false),
+    ).toHaveLength(1);
+  });
+
   it("keeps programmatic framework focus visible in an overflowing listbox", async () => {
     const user = userEvent.setup();
     const onOpenChange = vi.fn();

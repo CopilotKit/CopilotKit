@@ -220,9 +220,6 @@ export function SearchModal({
       } else if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
         chooseFramework(slug);
-      } else if (event.key === "Escape") {
-        event.preventDefault();
-        closeFrameworkPicker(true);
       } else if (event.key === "Tab") {
         window.requestAnimationFrame(() => {
           closeFrameworkPicker(false);
@@ -334,6 +331,11 @@ export function SearchModal({
       />
       <SearchDialogContent
         aria-label="Search documentation"
+        onEscapeKeyDown={(event) => {
+          if (!frameworkPickerOpen) return;
+          event.preventDefault();
+          closeFrameworkPicker(true);
+        }}
         onOpenAutoFocus={(event) => {
           event.preventDefault();
           window.requestAnimationFrame(() => {
