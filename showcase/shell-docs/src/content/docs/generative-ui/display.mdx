@@ -62,12 +62,16 @@ Use render-only generative UI when you want to:
 
 ## How it works in code
 
-<FrameworkSetup concept="agent-setup" />
+<FrameworkSetup concept="frontend-tools-setup" />
 
 The renderer component receives the tool's arguments as typed props and
 mounts inline in the chat. Below is the chart renderer wired up in the
 canonical demo — the agent emits the data, the component draws it.
 
-<Snippet region="bar-chart-renderer" title="frontend/src/app/page.tsx — bar chart renderer" />
+<Snippet
+  region="bar-chart-renderer"
+  title="frontend/src/app/page.tsx — bar chart renderer"
+  highlight="1-6"
+/>
 
 <IntegrationGrid path="render-only" />

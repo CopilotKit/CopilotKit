@@ -2,10 +2,10 @@
 title: Reasoning Messages
 icon: "lucide/Brain"
 description: "Customize how reasoning (thinking) tokens from models like o1, o3, and o4-mini are displayed."
-snippet_cell: agentic-chat-reasoning
+snippet_cell: reasoning-custom
 ---
 
-<InlineDemo demo="reasoning-default-render" />
+<InlineDemo demo="reasoning-default" />
 
 Some models (like OpenAI's o1, o3, and o4-mini) emit **reasoning tokens**: internal
 "thinking" traces that show the model's chain-of-thought before it produces a final
@@ -32,7 +32,7 @@ the card appears automatically.
 The only requirement is connecting your agent to CopilotKit; no extra props or configuration needed:
 
 <Snippet
-  cell="reasoning-default-render"
+  cell="reasoning-default"
   region="default-reasoning-zero-config"
   title="frontend/src/app/page.tsx — default reasoning"
 />
@@ -160,7 +160,7 @@ slot props. Your component receives the same top-level props as the built-in one
 | `messages` | `Message[]` | All messages in the conversation |
 | `isRunning` | `boolean` | Whether the agent is currently running |
 
-<InlineDemo demo="agentic-chat-reasoning" />
+<InlineDemo demo="reasoning-custom" />
 
 The `ReasoningBlock` used above renders the reasoning as an amber-tagged
 inline banner, intentionally louder than the default card so the thinking
