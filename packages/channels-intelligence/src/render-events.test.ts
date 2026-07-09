@@ -184,6 +184,7 @@ describe("PhoenixRealtimeTransport — completion intent, never self-ack", () =>
       payload: {
         delivery: {
           id: "dlv_d1",
+          leaseToken: "lease_l1",
           adapter: "slack",
           bot: { id: "bot_1", name: "support" },
           turn: {
@@ -266,6 +267,7 @@ describe("PhoenixRealtimeTransport — completion intent, never self-ack", () =>
       payload: {
         delivery: {
           id: "dlv_d1",
+          leaseToken: "lease_l1",
           adapter: "slack",
           bot: { id: "bot_1", name: "support" },
           turn: {
@@ -281,5 +283,110 @@ describe("PhoenixRealtimeTransport — completion intent, never self-ack", () =>
     const events = fake.pushes.map((p) => p.event);
     expect(events).toContain("hosted_bot.delivery.fail.v1");
     expect(events).not.toContain("hosted_bot.delivery.ack.v1");
+    const fail = fake.pushes.find(
+      (p) => p.event === "hosted_bot.delivery.fail.v1",
+    );
+    expect(
+      (fail?.payload as { payload?: { leaseToken?: string } }).payload
+        ?.leaseToken,
+    ).toBe("lease_l1");
+  });
+
+  it("drops a delivery with no leaseToken (never fires onDelivery) and logs it", async () => {
+    const fake = makeFakeChannel();
+    const logs: string[] = [];
+    const t = new PhoenixRealtimeTransport({
+      ...cfg(fake.channel),
+      log: (m) => logs.push(m),
+    });
+    let delivered = false;
+    await t.start(async () => {
+      delivered = true;
+    });
+    fake.handlers.get("hosted_bot.delivery.available.v1")?.({
+      payload: {
+        delivery: {
+          id: "dlv_d1",
+          // no leaseToken → the SDK can't build a fenced complete/fail intent
+          adapter: "slack",
+          bot: { id: "bot_1", name: "support" },
+          turn: {
+            id: "turn_t1",
+            eventId: "evt_1",
+            input: { kind: "text", text: "hi" },
+          },
+        },
+      },
+    });
+    await Promise.resolve();
+
+    expect(delivered).toBe(false);
+    expect(logs.some((m) => m.includes("no leaseToken"))).toBe(true);
+  });
+
+  it("nack with no delivery state sends nothing and logs it", async () => {
+    const fake = makeFakeChannel();
+    const logs: string[] = [];
+    const t = new PhoenixRealtimeTransport({
+      ...cfg(fake.channel),
+      log: (m) => logs.push(m),
+    });
+    await t.start(async () => {});
+
+    await t.nack("dlv_unknown", "boom");
+
+    expect(fake.pushes).toHaveLength(0);
+    expect(logs.some((m) => m.includes("no delivery state"))).toBe(true);
+  });
+
+  it("stamps the delivery's authoritative scope (not the transport default) on render + fail", async () => {
+    const fake = makeFakeChannel();
+    // Transport default scope is org_1 / 7 / bot_1; the delivery carries a
+    // DIFFERENT authoritative scope, so this proves DeliveryState.scope is used.
+    const t = new PhoenixRealtimeTransport(cfg(fake.channel));
+    await t.start(async () => {});
+    fake.handlers.get("hosted_bot.delivery.available.v1")?.({
+      payload: {
+        delivery: {
+          id: "dlv_d1",
+          leaseToken: "lease_l1",
+          organizationId: "org_OTHER",
+          projectId: 99,
+          adapter: "slack",
+          bot: { id: "bot_OTHER", name: "other-bot" },
+          turn: {
+            id: "turn_t1",
+            eventId: "evt_1",
+            input: { kind: "text", text: "hi" },
+          },
+        },
+      },
+    });
+    await Promise.resolve();
+
+    await t.push({
+      deliveryId: "dlv_d1",
+      turnId: "turn_t1",
+      slot: "main",
+      seq: 0,
+      event: { kind: "run_started" },
+    });
+    await t.nack("dlv_d1", "boom");
+
+    const inner = (event: string) =>
+      (
+        fake.pushes.find((p) => p.event === event)!.payload as {
+          payload: Record<string, unknown>;
+        }
+      ).payload;
+    for (const p of [
+      inner("hosted_bot.render_event.v1"),
+      inner("hosted_bot.delivery.fail.v1"),
+    ]) {
+      expect(p.organizationId).toBe("org_OTHER");
+      expect(p.projectId).toBe(99);
+      expect(p.botId).toBe("bot_OTHER");
+      expect(p.botName).toBe("other-bot");
+    }
   });
 });
