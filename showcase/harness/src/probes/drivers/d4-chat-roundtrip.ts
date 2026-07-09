@@ -1379,6 +1379,7 @@ export function createE2eSmokeDriver(
 
         let l4State: "green" | "red" | "skipped" = "skipped";
         let l4Summary = "";
+        let l4ErrorDesc: string | undefined;
         if (hasToolRendering) {
           const l4 = await runLevel({
             browser,
@@ -1422,6 +1423,7 @@ export function createE2eSmokeDriver(
           });
           l4State = l4.result.state === "green" ? "green" : "red";
           l4Summary = l4.result.signal.failureSummary;
+          l4ErrorDesc = l4.result.signal.errorDesc;
           if (ctx.writer) {
             try {
               await ctx.writer.write({
@@ -1456,6 +1458,26 @@ export function createE2eSmokeDriver(
               1200,
             );
 
+        // Carry the failing level's classifier (`errorDesc`) onto the PRIMARY
+        // aggregate tick. `runLevel` RETURNS (not throws) reds that already
+        // carry an `errorDesc` — the mid-poll abort guard (`"abort"`), the
+        // hard-timeout poll exit (`"timeout"`), the `SendBudgetExhaustedError`
+        // classification (`"send-budget-exhausted"`). Those classifiers were
+        // preserved on the side `chat:`/`tools:` rows (which side-emit the raw
+        // per-level signal) but DROPPED here, so an abort/timeout/budget red
+        // showed on `e2e-smoke:<slug>` as an unclassified content-shaped red.
+        // Thread the classifier through so the primary tick matches the side
+        // row and the launcher-phase abort path. L3 (the primary chat level)
+        // takes precedence; fall back to L4 when only tools went red. This does
+        // NOT change what counts as red/green — it only carries the classifier.
+        const aggregateErrorDesc = aggregateGreen
+          ? undefined
+          : l3State === "red"
+            ? l3.result.signal.errorDesc
+            : l4State === "red"
+              ? l4ErrorDesc
+              : undefined;
+
         return {
           key: input.key,
           state: aggregateGreen ? "green" : "red",
@@ -1466,6 +1488,9 @@ export function createE2eSmokeDriver(
             l3: l3State,
             l4: l4State,
             failureSummary,
+            ...(aggregateErrorDesc !== undefined
+              ? { errorDesc: aggregateErrorDesc }
+              : {}),
           },
           observedAt,
         };
@@ -2346,6 +2371,52 @@ async function runLevel(opts: {
     // boundary is recorded even on a nav/send throw path that skips this clean
     // exit — see the `finally` block. Idempotent via `emitMessageSend`.
 
+    // Aborted/timed-out-EMPTY guard. A mid-poll abort — the external
+    // `ctx.abortSignal` firing, OR the driver's own hard-timeout landing —
+    // makes `runAttempt` return with empty text WITHOUT throwing: the retry
+    // loop breaks (`abortSignal.aborted`) and control falls here to the clean
+    // exit. Classifying that as the generic content-red "empty assistant
+    // response" (`probe.exit` outcome `err`, no `errorDesc`) masquerades a
+    // teardown/abort/timeout as a CONTENT failure on the dashboard + CVDIAG.
+    // Every OTHER abort/timeout path (the abort-before-start early return, the
+    // outer catch, the aggregate) classifies it as `errorDesc: "abort"` with a
+    // `timeout` outcome; this poll-exit path was the gap. Short-circuit to the
+    // SAME classification BEFORE the content-red gate.
+    //
+    // Discriminator is `abortSignal.aborted`, NOT emptiness alone: a
+    // genuinely-completed-EMPTY turn (the turn finished, nothing was aborted)
+    // is a real content failure and MUST stay the content-red "empty assistant
+    // response" below. Only an aborted-AND-empty run is re-classified here.
+    // (Inside `runLevel` the single `abortSignal` conflates external abort and
+    // the driver hard-timeout — the same conflation the two other in-module
+    // abort paths carry — so this mirrors their `errorDesc: "abort"` / `timeout`
+    // outcome exactly rather than inventing a new classifier.)
+    //
+    // Ordered BEFORE the alternate-content / raw-byte reads below: an aborted
+    // run's page is tearing down, so those `evaluate` reads would be swallowed
+    // against a dead page and emit an ambiguous empty histogram. Bailing here
+    // first skips them. Non-aborted runs fall through and still perform the
+    // alternate-content salvage.
+    if (abortSignal.aborted && responseText.length === 0) {
+      cvdiagExit(cvdiag, "timeout");
+      cvdiagExited = true;
+      return {
+        result: {
+          key: `${level}:${slug}`,
+          state: "red",
+          signal: {
+            slug,
+            backendUrl,
+            level,
+            failureSummary: "aborted during response poll",
+            errorDesc: "abort",
+          },
+          observedAt: now().toISOString(),
+        },
+        edgeHeaders: messageSendEdge,
+      };
+    }
+
     // probe.dom.alternate_content — on a clean exit whose assistant text is
     // still empty (the d4 flap surface, class (d)): snapshot the child-element
     // type histogram of the assistant-message container so a markdown widget /
@@ -2413,46 +2484,6 @@ async function runLevel(opts: {
           // throw into the probe it observes (spec §7 R5-F8).
         }
       }
-    }
-
-    // Aborted/timed-out-EMPTY guard. A mid-poll abort — the external
-    // `ctx.abortSignal` firing, OR the driver's own hard-timeout landing —
-    // makes `runAttempt` return with empty text WITHOUT throwing: the retry
-    // loop breaks (`abortSignal.aborted`) and control falls here to the clean
-    // exit. Classifying that as the generic content-red "empty assistant
-    // response" (`probe.exit` outcome `err`, no `errorDesc`) masquerades a
-    // teardown/abort/timeout as a CONTENT failure on the dashboard + CVDIAG.
-    // Every OTHER abort/timeout path (the abort-before-start early return, the
-    // outer catch, the aggregate) classifies it as `errorDesc: "abort"` with a
-    // `timeout` outcome; this poll-exit path was the gap. Short-circuit to the
-    // SAME classification BEFORE the content-red gate.
-    //
-    // Discriminator is `abortSignal.aborted`, NOT emptiness alone: a
-    // genuinely-completed-EMPTY turn (the turn finished, nothing was aborted)
-    // is a real content failure and MUST stay the content-red "empty assistant
-    // response" below. Only an aborted-AND-empty run is re-classified here.
-    // (Inside `runLevel` the single `abortSignal` conflates external abort and
-    // the driver hard-timeout — the same conflation the two other in-module
-    // abort paths carry — so this mirrors their `errorDesc: "abort"` / `timeout`
-    // outcome exactly rather than inventing a new classifier.)
-    if (abortSignal.aborted && responseText.length === 0) {
-      cvdiagExit(cvdiag, "timeout");
-      cvdiagExited = true;
-      return {
-        result: {
-          key: `${level}:${slug}`,
-          state: "red",
-          signal: {
-            slug,
-            backendUrl,
-            level,
-            failureSummary: "aborted during response poll",
-            errorDesc: "abort",
-          },
-          observedAt: now().toISOString(),
-        },
-        edgeHeaders: messageSendEdge,
-      };
     }
 
     const assertion = assertResponse({

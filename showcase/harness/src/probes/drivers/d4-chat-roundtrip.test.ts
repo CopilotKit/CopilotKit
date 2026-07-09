@@ -472,6 +472,140 @@ describe("e2eChatToolsDriver error paths", () => {
   });
 });
 
+// --- Aggregate errorDesc propagation (follow-up hardening) --------------
+//
+// The PRIMARY dashboard tick `e2e-smoke:<slug>` returns from the aggregate
+// normal path. `runLevel` RETURNS (not throws) reds that carry an
+// `errorDesc` — the abort-before-start / mid-poll-abort guards ("abort"), the
+// hard-timeout poll exit ("timeout"), and the `SendBudgetExhaustedError`
+// classification ("send-budget-exhausted"). Those classifiers were preserved
+// on the side `chat:`/`tools:` rows but DROPPED on the aggregate, so an
+// aborted/timed-out/budget red showed on the primary tick as an unclassified
+// content-shaped red. These pin the classifier being carried through.
+describe("e2eChatToolsDriver aggregate errorDesc propagation", () => {
+  it("aborted L3 → aggregate carries errorDesc:'abort' (matching the side chat: row), NOT an unclassified content red", async () => {
+    // A pre-aborted `ctx.abortSignal` makes L3's runLevel RETURN a red whose
+    // level signal already carries `errorDesc:"abort"`. Pre-fix the aggregate
+    // dropped it (unclassified content-shaped red on the primary tick); the
+    // fix threads the failing level's classifier through.
+    const ac = new AbortController();
+    ac.abort();
+    const { browser } = makeBrowser([{ assistantText: "" }]);
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser,
+      textPollTimeoutMs: 50,
+    });
+    const writer = new CapturingWriter();
+    const result = await driver.run(
+      baseCtx({ writer, abortSignal: ac.signal }),
+      {
+        key: "e2e-smoke:foo",
+        backendUrl: "https://x.example.com",
+      },
+    );
+    expect(result.state).toBe("red");
+    const sig = result.signal as E2eSmokePackageSignal;
+    expect(sig.shape).toBe("package");
+    expect(sig.l3).toBe("red");
+    // The PRIMARY tick now carries the classifier…
+    expect(sig.errorDesc).toBe("abort");
+    // …matching the side chat: row (which always kept it).
+    const chat = writer.results.find((r) => r.key === "chat:foo");
+    const chatSig = chat?.signal as E2eSmokeLevelSignal;
+    expect(chatSig.errorDesc).toBe("abort");
+  });
+
+  it("over-correction guard: a genuinely-completed-EMPTY (non-aborted) L3 red stays a content red on the aggregate — NO spurious errorDesc", async () => {
+    // A turn that finished and produced no assistant content is a REAL content
+    // failure; its level signal carries no `errorDesc`. The aggregate must NOT
+    // invent one — only carry a classifier the failing level actually set.
+    const { browser } = makeBrowser([{ assistantText: "" }]);
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser,
+      textPollTimeoutMs: 50,
+    });
+    const result = await driver.run(baseCtx(), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
+    });
+    expect(result.state).toBe("red");
+    const sig = result.signal as E2eSmokePackageSignal;
+    expect(sig.l3).toBe("red");
+    expect(sig.failureSummary).toMatch(/L3:/);
+    // Content red — no classifier fabricated.
+    expect(sig.errorDesc).toBeUndefined();
+  });
+});
+
+// --- Aborted-empty short-circuit ordering vs alternate-content reads ----
+//
+// The aborted-and-empty short-circuit runs BEFORE the alternate-content /
+// raw-byte `evaluate` reads: an aborted run's page is tearing down, so those
+// reads would be swallowed against a dead page and emit an ambiguous empty
+// histogram. A non-aborted empty run still performs the alternate-content
+// salvage.
+describe("e2eChatToolsDriver aborted-empty short-circuit ordering", () => {
+  function bufDir(): string {
+    return mkdtempSync(join(tmpdir(), "cvdiag-reorder-"));
+  }
+
+  it("aborted-and-empty run bails at the short-circuit BEFORE the alternate-content read (no probe.dom.alternate_content)", async () => {
+    const { emitter, writer } = makeCvdiagEmitter();
+    const ac = new AbortController();
+    const browser = makeCvBrowser({
+      assistantText: "",
+      alternateHistogram: { pre: 1, code: 2 },
+      // Fire the external abort on the first assistant-text read so the run is
+      // aborted-AND-empty when it reaches the short-circuit.
+      abortOnFirstEvaluate: ac,
+    });
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser as unknown as E2eBrowser,
+      textPollTimeoutMs: 50,
+      cvdiagEmitter: emitter,
+      cvdiagBufferDir: bufDir(),
+    });
+    const result = await driver.run(baseCtx({ abortSignal: ac.signal }), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
+      demos: ["agentic-chat"],
+    });
+    await emitter.flush();
+
+    // The aborted level is classified as abort, not a content red.
+    const sig = result.signal as E2eSmokePackageSignal;
+    expect(sig.l3).toBe("red");
+    expect(sig.errorDesc).toBe("abort");
+    // The alternate-content read was SKIPPED — the short-circuit bailed first.
+    expect(byBoundary(writer, "probe.dom.alternate_content").length).toBe(0);
+  });
+
+  it("non-aborted empty run still performs the alternate-content salvage (reorder preserves it)", async () => {
+    const { emitter, writer } = makeCvdiagEmitter();
+    const browser = makeCvBrowser({
+      assistantText: "",
+      alternateHistogram: { pre: 1, code: 2 },
+      // No abort → falls through the short-circuit to the salvage block.
+    });
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser as unknown as E2eBrowser,
+      textPollTimeoutMs: 50,
+      cvdiagEmitter: emitter,
+      cvdiagBufferDir: bufDir(),
+    });
+    await driver.run(baseCtx(), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
+      demos: ["agentic-chat"],
+    });
+    await emitter.flush();
+
+    const alt = byBoundary(writer, "probe.dom.alternate_content");
+    expect(alt.length).toBeGreaterThan(0);
+    expect(alt[0]!.metadata.child_type_histogram).toEqual({ pre: 1, code: 2 });
+  });
+});
+
 // --- Side-emit / writer plumbing ----------------------------------------
 
 describe("e2eChatToolsDriver side-emits", () => {
@@ -824,6 +958,14 @@ interface CvPageScript {
   consoleMessages?: CvdiagConsoleEvent[];
   /** SSE events delivered to the onSseEvent seam after goto. */
   sseEvents?: CvdiagSseEvent[];
+  /**
+   * When set, fire this controller's abort on the FIRST assistant-text
+   * `evaluate` read — models a mid-poll external abort (`ctx.abortSignal`
+   * firing) that leaves the response empty. The retry loop then breaks on
+   * `abortSignal.aborted` and control reaches the aborted-and-empty
+   * short-circuit before the alternate-content reads.
+   */
+  abortOnFirstEvaluate?: AbortController;
 }
 
 /**
@@ -858,6 +1000,9 @@ function makeCvBrowser(script: CvPageScript): CvE2eBrowser {
       // assistant-text read (which the driver runs post-submit).
       if (evaluateCall === 1) {
         for (const r of script.responsesAfterSubmit ?? []) respHandler?.(r);
+        // Mid-poll external abort: fire on the first assistant-text read so the
+        // response stays empty and the retry loop breaks on the aborted signal.
+        script.abortOnFirstEvaluate?.abort();
       }
       // First evaluate call(s): assistant-message text read. The
       // alternate-content read happens AFTER the poll loop, on empty exit.
