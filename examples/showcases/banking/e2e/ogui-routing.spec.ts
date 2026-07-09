@@ -63,6 +63,7 @@ test.describe("OGUI routing — adjacency set", () => {
           .filter({ hasText: heading })
           .first(),
       ).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByTestId("ogui-surface")).toHaveCount(0);
       await expect(page.locator("iframe")).toHaveCount(0);
     });
   }
@@ -71,10 +72,10 @@ test.describe("OGUI routing — adjacency set", () => {
     page,
   }) => {
     await openChatAndClick(page, "Build a spend report on the canvas");
-    await expect(page.getByText(/rendered on the canvas/i)).toBeVisible({
+    await expect(page.getByTestId("a2ui-surface")).toBeVisible({
       timeout: 30_000,
     });
-    await expect(page.locator("iframe")).toHaveCount(0);
+    await expect(page.getByTestId("ogui-surface")).toHaveCount(0);
   });
 
   const OGUI = [
@@ -82,11 +83,17 @@ test.describe("OGUI routing — adjacency set", () => {
     "Prototype a cash-flow what-if calculator",
   ];
   for (const pill of OGUI) {
-    test(`OGUI pill "${pill}" opens a sandboxed iframe`, async ({ page }) => {
+    test(`OGUI pill "${pill}" renders on the canvas`, async ({ page }) => {
       await openChatAndClick(page, pill);
-      await expect(page.locator("iframe").first()).toBeVisible({
-        timeout: 30_000,
-      });
+      const surface = page.getByTestId("ogui-surface");
+      await expect(surface).toBeVisible({ timeout: 30_000 });
+      await expect(surface.locator("iframe").first()).toBeVisible();
+      // The OGUI handoff pill; use .first() since a thread may accumulate more
+      // than one "rendered on the canvas" pill across exchanges (report + OGUI
+      // both use this text), which would trip strict-mode's single-match rule.
+      await expect(
+        page.getByText(/rendered on the canvas/i).first(),
+      ).toBeVisible();
     });
   }
 });
