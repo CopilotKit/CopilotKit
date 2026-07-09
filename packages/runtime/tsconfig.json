@@ -8,6 +8,8 @@
     // module es2022 so dynamic import() typechecks (build is done by tsdown,
     // which does not read this setting)
     "module": "es2022",
+    // bundler moduleResolution for package.json subpath exports (e.g. @copilotkit/shared/telemetry)
+    "moduleResolution": "bundler",
     "useDefineForClassFields": false,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,

@@ -15,7 +15,7 @@ import type { AbstractAgent } from "@ag-ui/client";
 import { Observable, of } from "rxjs";
 import request from "supertest";
 import express from "express";
-import { lambdaClient } from "@copilotkit/shared";
+import { lambdaClient } from "@copilotkit/shared/telemetry";
 
 import { createCopilotExpressHandler } from "../endpoints/express";
 import { CopilotRuntime } from "../core/runtime";

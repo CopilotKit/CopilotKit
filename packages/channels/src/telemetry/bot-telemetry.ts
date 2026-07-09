@@ -1,5 +1,8 @@
-import { lambdaClient, isTelemetryDisabled } from "@copilotkit/shared";
-import type { LambdaSendOptions } from "@copilotkit/shared";
+import {
+  lambdaClient,
+  isTelemetryDisabled,
+} from "@copilotkit/shared/telemetry";
+import type { LambdaSendOptions } from "@copilotkit/shared/telemetry";
 import type { StateStore } from "../state/state-store.js";
 import { resolveInstallId } from "./install-id.js";
 

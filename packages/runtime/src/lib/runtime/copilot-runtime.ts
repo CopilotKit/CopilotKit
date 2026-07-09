@@ -16,8 +16,8 @@ import {
   CopilotKitMisuseError,
   readBody,
   getZodParameters,
-  isTelemetryDisabled,
 } from "@copilotkit/shared";
+import { isTelemetryDisabled } from "@copilotkit/shared/telemetry";
 import type {
   Action,
   CopilotErrorHandler,
