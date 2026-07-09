@@ -65,20 +65,34 @@ export const generateA2ui = tool(
     // Construct the client per call so it picks up ANTHROPIC_API_KEY /
     // ANTHROPIC_BASE_URL after the environment is loaded.
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const response = await client.messages.create({
-      model: resolveModel(),
-      max_tokens: 4096,
-      system: args.context || "Generate a useful dashboard UI.",
-      messages: [
-        {
-          role: "user",
-          content:
-            "Generate a dynamic A2UI dashboard based on the conversation.",
-        },
-      ],
-      tools: [RENDER_A2UI_TOOL],
-      tool_choice: { type: "tool", name: "render_a2ui" },
-    });
+    let response;
+    try {
+      response = await client.messages.create({
+        model: resolveModel(),
+        max_tokens: 4096,
+        system: args.context || "Generate a useful dashboard UI.",
+        messages: [
+          {
+            role: "user",
+            content:
+              "Generate a dynamic A2UI dashboard based on the conversation.",
+          },
+        ],
+        tools: [RENDER_A2UI_TOOL],
+        tool_choice: { type: "tool", name: "render_a2ui" },
+      });
+    } catch {
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({
+              error: "Failed to generate A2UI dashboard",
+            }),
+          },
+        ],
+      };
+    }
 
     for (const block of response.content) {
       if (block.type === "tool_use" && block.name === "render_a2ui") {

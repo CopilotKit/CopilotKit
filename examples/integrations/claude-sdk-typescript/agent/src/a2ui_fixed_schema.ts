@@ -24,9 +24,9 @@ const flightSchema = {
   flights: z
     .array(
       z.object({
-        id: z.string().optional(),
+        id: z.string(),
         airline: z.string(),
-        airlineLogo: z.string().optional(),
+        airlineLogo: z.string(),
         flightNumber: z.string(),
         origin: z.string(),
         destination: z.string(),
@@ -35,7 +35,7 @@ const flightSchema = {
         arrivalTime: z.string(),
         duration: z.string(),
         status: z.string(),
-        statusIcon: z.string().optional(),
+        statusIcon: z.string(),
         price: z.string(),
       }),
     )

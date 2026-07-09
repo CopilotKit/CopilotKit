@@ -9,7 +9,6 @@ free to make its own Anthropic request.
 from __future__ import annotations
 
 import json
-import os
 from typing import Any
 
 import anthropic
@@ -60,20 +59,30 @@ _RENDER_A2UI_TOOL: dict[str, Any] = {
 async def generate_a2ui(args: dict[str, Any]) -> dict[str, Any]:
     # Construct the client per call so it picks up ANTHROPIC_API_KEY /
     # ANTHROPIC_BASE_URL after the environment is loaded.
-    client = anthropic.AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""))
-    response = await client.messages.create(
-        model=resolve_model(),
-        max_tokens=4096,
-        system=args.get("context") or "Generate a useful dashboard UI.",
-        messages=[
-            {
-                "role": "user",
-                "content": "Generate a dynamic A2UI dashboard based on the conversation.",
-            }
-        ],
-        tools=[_RENDER_A2UI_TOOL],
-        tool_choice={"type": "tool", "name": "render_a2ui"},
-    )
+    client = anthropic.AsyncAnthropic()
+    try:
+        response = await client.messages.create(
+            model=resolve_model(),
+            max_tokens=4096,
+            system=args.get("context") or "Generate a useful dashboard UI.",
+            messages=[
+                {
+                    "role": "user",
+                    "content": "Generate a dynamic A2UI dashboard based on the conversation.",
+                }
+            ],
+            tools=[_RENDER_A2UI_TOOL],
+            tool_choice={"type": "tool", "name": "render_a2ui"},
+        )
+    except Exception:
+        return {
+            "content": [
+                {
+                    "type": "text",
+                    "text": json.dumps({"error": "Failed to generate A2UI dashboard"}),
+                }
+            ]
+        }
     for block in response.content:
         if getattr(block, "type", None) == "tool_use" and block.name == "render_a2ui":
             spec = dict(block.input)

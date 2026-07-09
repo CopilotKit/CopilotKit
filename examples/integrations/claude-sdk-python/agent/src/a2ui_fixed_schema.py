@@ -7,7 +7,7 @@ call. The tool result carries ``a2ui_operations``, which the frontend renders.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, NotRequired, TypedDict
+from typing import Any, TypedDict
 
 from claude_agent_sdk import tool
 from copilotkit import a2ui
@@ -20,9 +20,9 @@ FLIGHT_SCHEMA = a2ui.load_schema(
 
 
 class Flight(TypedDict):
-    id: NotRequired[str]
+    id: str
     airline: str
-    airlineLogo: NotRequired[str]
+    airlineLogo: str
     flightNumber: str
     origin: str
     destination: str
@@ -31,7 +31,7 @@ class Flight(TypedDict):
     arrivalTime: str
     duration: str
     status: str
-    statusIcon: NotRequired[str]
+    statusIcon: str
     price: str
 
 
