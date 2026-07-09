@@ -21,6 +21,8 @@ import { ReportCopilotTools } from "@/components/wow/report-tool";
 import { GlassEngineProvider } from "@/components/glass-engine-context";
 import { InspectorStoreProvider } from "@/lib/inspector/store";
 import { InspectorPane } from "@/components/inspector/inspector-pane";
+import { sandboxFunctions } from "@/opengen/sandbox-functions";
+import { SandboxDataSync } from "@/opengen/sandbox-data-sync";
 
 // The agent's render_report tool result becomes an `a2ui-surface` activity that
 // <ReportCanvas/> renders full-screen (it reads the ops from the agent message
@@ -74,6 +76,22 @@ const A2UI_RENDERERS: ReactActivityMessageRenderer<unknown>[] = [
 // Page-scoped fire-and-forget tools (spend alert, card replacement, flag for
 // review) are deliberately NOT pilled: they only exist on the home route, so
 // a global pill for them would be a broken promise on every other page.
+
+// Design brief handed to generateSandboxedUi so generated UIs match the demo's
+// look instead of the generic DEFAULT_DESIGN_SKILL. Dark-mode aware, brand accent,
+// glass surfaces, Geist type — the same language as the curated cards.
+const NORTHWIND_DESIGN_SKILL = `You are designing UI for Northwind Finance, a
+corporate banking dashboard. Match its aesthetic:
+- Surfaces: rounded-2xl cards, subtle hairline borders, soft shadow, a translucent
+  "glass" surface over the page background. Generous padding.
+- Type: the Geist sans-serif family; clear hierarchy (semibold headings, muted
+  secondary text). Currency in USD with thousands separators.
+- Color: a restrained neutral base with a single indigo/violet brand accent for
+  emphasis, positive = green, negative/over-limit = red. Never rainbow palettes.
+- Dark-mode aware: read colors from CSS variables / prefers-color-scheme; never
+  hardcode white backgrounds.
+- Keep it calm, precise, and enterprise-appropriate — this is a finance tool.`;
+
 function BankingSuggestions() {
   useConfigureSuggestions({
     available: "always",
@@ -135,6 +153,20 @@ function BankingSuggestions() {
         title: "How's our cash flow?",
         message: "Compare our income vs expenses — how is our cash flow?",
       },
+      // ── Open Generative UI (custom interactive surfaces) ─────────────────
+      {
+        // OGUI-only: an interactive explorer the fixed catalog can't express.
+        // "interactive"/"explorer" (not "build") is what routes this to
+        // generateSandboxedUi; figures come from the sandbox functions.
+        title: "Build an interactive spend explorer",
+        message:
+          "Build an interactive spend explorer I can filter and play with — pull the real transactions and policies.",
+      },
+      {
+        title: "Prototype a cash-flow what-if calculator",
+        message:
+          "Prototype an interactive what-if calculator for our cash flow using our real income and expense figures.",
+      },
       {
         title: "How do approvals work?",
         message: "Explain how an over-limit charge gets cleared and approved.",
@@ -190,6 +222,7 @@ export function CopilotKitWrapper({
       // the surface itself renders full-screen in <ReportCanvas/>.
       a2ui={{ catalog }}
       renderActivityMessages={A2UI_RENDERERS}
+      openGenerativeUI={{ sandboxFunctions, designSkill: NORTHWIND_DESIGN_SKILL }}
       // Use the v2-native CopilotKitProvider, NOT the v1 `CopilotKit`
       // compatibility bridge. The bridge wraps the chat in a heavier stack (its
       // own ThreadsProvider + a second CopilotChatConfigurationProvider +
@@ -215,6 +248,7 @@ export function CopilotKitWrapper({
       */}
       <CopilotChatConfigurationProvider agentId="default" threadId={threadId}>
         <BankingSuggestions />
+        <SandboxDataSync />
         {/*
           ChatInboxProvider carries the inbox open/closed state + the thread
           actions (select/create) so the panel header and the inbox rows can
