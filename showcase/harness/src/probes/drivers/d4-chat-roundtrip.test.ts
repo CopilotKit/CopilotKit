@@ -472,6 +472,140 @@ describe("e2eChatToolsDriver error paths", () => {
   });
 });
 
+// --- Aggregate errorDesc propagation (follow-up hardening) --------------
+//
+// The PRIMARY dashboard tick `e2e-smoke:<slug>` returns from the aggregate
+// normal path. `runLevel` RETURNS (not throws) reds that carry an
+// `errorDesc` — the abort-before-start / mid-poll-abort guards ("abort"), the
+// hard-timeout poll exit ("timeout"), and the `SendBudgetExhaustedError`
+// classification ("send-budget-exhausted"). Those classifiers were preserved
+// on the side `chat:`/`tools:` rows but DROPPED on the aggregate, so an
+// aborted/timed-out/budget red showed on the primary tick as an unclassified
+// content-shaped red. These pin the classifier being carried through.
+describe("e2eChatToolsDriver aggregate errorDesc propagation", () => {
+  it("aborted L3 → aggregate carries errorDesc:'abort' (matching the side chat: row), NOT an unclassified content red", async () => {
+    // A pre-aborted `ctx.abortSignal` makes L3's runLevel RETURN a red whose
+    // level signal already carries `errorDesc:"abort"`. Pre-fix the aggregate
+    // dropped it (unclassified content-shaped red on the primary tick); the
+    // fix threads the failing level's classifier through.
+    const ac = new AbortController();
+    ac.abort();
+    const { browser } = makeBrowser([{ assistantText: "" }]);
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser,
+      textPollTimeoutMs: 50,
+    });
+    const writer = new CapturingWriter();
+    const result = await driver.run(
+      baseCtx({ writer, abortSignal: ac.signal }),
+      {
+        key: "e2e-smoke:foo",
+        backendUrl: "https://x.example.com",
+      },
+    );
+    expect(result.state).toBe("red");
+    const sig = result.signal as E2eSmokePackageSignal;
+    expect(sig.shape).toBe("package");
+    expect(sig.l3).toBe("red");
+    // The PRIMARY tick now carries the classifier…
+    expect(sig.errorDesc).toBe("abort");
+    // …matching the side chat: row (which always kept it).
+    const chat = writer.results.find((r) => r.key === "chat:foo");
+    const chatSig = chat?.signal as E2eSmokeLevelSignal;
+    expect(chatSig.errorDesc).toBe("abort");
+  });
+
+  it("over-correction guard: a genuinely-completed-EMPTY (non-aborted) L3 red stays a content red on the aggregate — NO spurious errorDesc", async () => {
+    // A turn that finished and produced no assistant content is a REAL content
+    // failure; its level signal carries no `errorDesc`. The aggregate must NOT
+    // invent one — only carry a classifier the failing level actually set.
+    const { browser } = makeBrowser([{ assistantText: "" }]);
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser,
+      textPollTimeoutMs: 50,
+    });
+    const result = await driver.run(baseCtx(), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
+    });
+    expect(result.state).toBe("red");
+    const sig = result.signal as E2eSmokePackageSignal;
+    expect(sig.l3).toBe("red");
+    expect(sig.failureSummary).toMatch(/L3:/);
+    // Content red — no classifier fabricated.
+    expect(sig.errorDesc).toBeUndefined();
+  });
+});
+
+// --- Aborted-empty short-circuit ordering vs alternate-content reads ----
+//
+// The aborted-and-empty short-circuit runs BEFORE the alternate-content /
+// raw-byte `evaluate` reads: an aborted run's page is tearing down, so those
+// reads would be swallowed against a dead page and emit an ambiguous empty
+// histogram. A non-aborted empty run still performs the alternate-content
+// salvage.
+describe("e2eChatToolsDriver aborted-empty short-circuit ordering", () => {
+  function bufDir(): string {
+    return mkdtempSync(join(tmpdir(), "cvdiag-reorder-"));
+  }
+
+  it("aborted-and-empty run bails at the short-circuit BEFORE the alternate-content read (no probe.dom.alternate_content)", async () => {
+    const { emitter, writer } = makeCvdiagEmitter();
+    const ac = new AbortController();
+    const browser = makeCvBrowser({
+      assistantText: "",
+      alternateHistogram: { pre: 1, code: 2 },
+      // Fire the external abort on the first assistant-text read so the run is
+      // aborted-AND-empty when it reaches the short-circuit.
+      abortOnFirstEvaluate: ac,
+    });
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser as unknown as E2eBrowser,
+      textPollTimeoutMs: 50,
+      cvdiagEmitter: emitter,
+      cvdiagBufferDir: bufDir(),
+    });
+    const result = await driver.run(baseCtx({ abortSignal: ac.signal }), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
+      demos: ["agentic-chat"],
+    });
+    await emitter.flush();
+
+    // The aborted level is classified as abort, not a content red.
+    const sig = result.signal as E2eSmokePackageSignal;
+    expect(sig.l3).toBe("red");
+    expect(sig.errorDesc).toBe("abort");
+    // The alternate-content read was SKIPPED — the short-circuit bailed first.
+    expect(byBoundary(writer, "probe.dom.alternate_content").length).toBe(0);
+  });
+
+  it("non-aborted empty run still performs the alternate-content salvage (reorder preserves it)", async () => {
+    const { emitter, writer } = makeCvdiagEmitter();
+    const browser = makeCvBrowser({
+      assistantText: "",
+      alternateHistogram: { pre: 1, code: 2 },
+      // No abort → falls through the short-circuit to the salvage block.
+    });
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser as unknown as E2eBrowser,
+      textPollTimeoutMs: 50,
+      cvdiagEmitter: emitter,
+      cvdiagBufferDir: bufDir(),
+    });
+    await driver.run(baseCtx(), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
+      demos: ["agentic-chat"],
+    });
+    await emitter.flush();
+
+    const alt = byBoundary(writer, "probe.dom.alternate_content");
+    expect(alt.length).toBeGreaterThan(0);
+    expect(alt[0]!.metadata.child_type_histogram).toEqual({ pre: 1, code: 2 });
+  });
+});
+
 // --- Side-emit / writer plumbing ----------------------------------------
 
 describe("e2eChatToolsDriver side-emits", () => {
@@ -824,6 +958,14 @@ interface CvPageScript {
   consoleMessages?: CvdiagConsoleEvent[];
   /** SSE events delivered to the onSseEvent seam after goto. */
   sseEvents?: CvdiagSseEvent[];
+  /**
+   * When set, fire this controller's abort on the FIRST assistant-text
+   * `evaluate` read — models a mid-poll external abort (`ctx.abortSignal`
+   * firing) that leaves the response empty. The retry loop then breaks on
+   * `abortSignal.aborted` and control reaches the aborted-and-empty
+   * short-circuit before the alternate-content reads.
+   */
+  abortOnFirstEvaluate?: AbortController;
 }
 
 /**
@@ -858,6 +1000,9 @@ function makeCvBrowser(script: CvPageScript): CvE2eBrowser {
       // assistant-text read (which the driver runs post-submit).
       if (evaluateCall === 1) {
         for (const r of script.responsesAfterSubmit ?? []) respHandler?.(r);
+        // Mid-poll external abort: fire on the first assistant-text read so the
+        // response stays empty and the retry loop breaks on the aborted signal.
+        script.abortOnFirstEvaluate?.abort();
       }
       // First evaluate call(s): assistant-message text read. The
       // alternate-content read happens AFTER the poll loop, on empty exit.
@@ -1199,6 +1344,216 @@ describe("d4 CVDIAG probe instrumentation (L1-A)", () => {
     // resolved id is the forwarded id, lowercased.
     expect(eventTestId).toMatch(/^d4-foo-/);
     expect(eventTestId).toBe(sanitizeJoinTestId(eventTestId));
+  });
+});
+
+// ── Follow-up item 4: additional coverage (no production change) ─────────────
+//
+// These tests widen coverage over paths the #5882 CR deferred as bucket-(b):
+//   - the FIFO-cap `CVDIAG_MAX_OUTSTANDING_STARTS_PER_URL` eviction backstop,
+//   - the DEBUG-auto-disarm fail-closed guard on the raw-byte capture,
+//   - the alternate-content / raw-byte block being SKIPPED on a container
+//     success (non-empty assistant text) path.
+describe("d4 follow-up coverage (item 4)", () => {
+  function bufDir(): string {
+    return mkdtempSync(join(tmpdir(), "cvdiag-cov-"));
+  }
+
+  it("FIFO-cap: a URL that accumulates > CVDIAG_MAX_OUTSTANDING_STARTS_PER_URL un-responded starts evicts the OLDEST so a later response pairs with a RECENT start", () => {
+    // A persistent SSE stream issues many same-URL requests that NEVER respond
+    // (no `response`, no `requestfailed`) — the exact leak the cap backstops.
+    // Without the cap the per-URL FIFO grows unbounded AND a much-later response
+    // shifts an ANCIENT stale start → inflated duration_ms. The cap (64) drops
+    // the oldest starts so the queue stays bounded and the eventual response
+    // pairs with a recent start (small duration).
+    const handlers = new Map<string, (arg: unknown) => void>();
+    const fakePage = {
+      goto: async () => null,
+      type: async () => {},
+      press: async () => {},
+      waitForSelector: async () => {},
+      textContent: async () => null,
+      evaluate: async <R>() => "" as unknown as R,
+      close: async () => {},
+      on(event: string, handler: (arg: unknown) => void) {
+        handlers.set(event, handler);
+      },
+    };
+    const adapted = wirePlaywrightPage(fakePage);
+    const durations: number[] = [];
+    adapted.onResponse?.((r) => durations.push(r.durationMs));
+    const reqHandler = handlers.get("request")!;
+    const respHandler = handlers.get("response")!;
+    const URL = "https://x.example.com/api/copilotkit";
+    const mkReq = () => ({ url: () => URL });
+    const mkResp = () => ({
+      url: () => URL,
+      status: () => 200,
+      headers: () => ({}),
+      request: () => ({ method: () => "POST" }),
+    });
+
+    const CAP = 64;
+    // Issue exactly CAP ANCIENT un-responded starts (a persistent SSE stream
+    // that never responds/fails).
+    for (let i = 0; i < CAP; i++) reqHandler(mkReq());
+    // Age those ancient starts with a measurable gap.
+    const gapUntil = performance.now() + 15;
+    while (performance.now() < gapUntil) {
+      /* spin */
+    }
+    // Now issue ANOTHER CAP fresh starts. Each push beyond the cap evicts the
+    // OLDEST outstanding start, so after CAP fresh pushes EVERY ancient start
+    // has been evicted and the queue holds only the fresh (recent) starts —
+    // the whole point of the backstop for requests that neither respond nor fail.
+    for (let i = 0; i < CAP; i++) reqHandler(mkReq());
+    // A response now pairs (FIFO) with the OLDEST REMAINING start — which, after
+    // the cap evicted all ancient starts, is a fresh (recent) one.
+    respHandler(mkResp());
+
+    expect(durations.length).toBe(1);
+    // The cap evicted every ancient start, so the response paired with a RECENT
+    // start → a small duration, NOT the ~15ms+ ancient gap. Without the cap the
+    // unbounded FIFO would still hold all CAP ancient starts and shift the
+    // oldest (~15ms+) here.
+    expect(durations[0]).toBeLessThan(10);
+  });
+
+  it("DEBUG auto-disarm is fail-closed: once DEBUG has disarmed, NO raw-byte sample is captured even on the class-(d) empty-response trigger", async () => {
+    // The raw-byte body capture is the most PII-sensitive path CVDIAG has; it
+    // MUST stop the instant DEBUG auto-disarms (10min / 10k-event bounds), NOT
+    // merely when `tier` flips (it never does). The driver gates capture on the
+    // LIVE `shouldEmit("aimock.sse.chunk")` (a debug-exclusive boundary), which
+    // returns false once DEBUG expires. This negative test drives a DISARMED
+    // debug emitter down the exact empty-response path that WOULD capture while
+    // armed and asserts fail-closed: zero samples.
+    const rawByteSamples: unknown[] = [];
+    const combinedWriter = {
+      async writeBatch(): Promise<void> {},
+      async writeRawByteSample(record: unknown): Promise<void> {
+        rawByteSamples.push(record);
+      },
+    };
+    const emitter = new CvdiagEmitter({
+      debug: true,
+      env: {
+        NODE_ENV: "test",
+        SHOWCASE_ENV: "test",
+        CVDIAG_DEBUG: "1",
+        CVDIAG_DEBUG_ALLOW_LIST: "foo",
+      },
+      layer: "probe",
+      pbWriter: combinedWriter as unknown as CvdiagPbWriter,
+    });
+    // Force DEBUG past its wall-clock deadline → auto-disarmed. This models
+    // "DEBUG was armed >10 minutes ago"; `shouldEmit("aimock.sse.chunk")` now
+    // returns false (fall-through to default-tier inclusion, which excludes it).
+    (emitter as unknown as { debugDeadlineMs: number }).debugDeadlineMs =
+      Date.now() - 1;
+    expect(emitter.shouldEmit("aimock.sse.chunk")).toBe(false);
+
+    const browser = makeCvBrowser({
+      // Empty assistant text → class-(d) trigger that WOULD capture while armed.
+      assistantText: "",
+      responses: [
+        {
+          url: "https://x.example.com/api/copilotkit",
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+          contentLength: 0,
+          durationMs: 4,
+          isMessagePost: true,
+          body: async () => Buffer.from("data: {}\n\n", "utf8"),
+        },
+      ],
+    });
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser as unknown as E2eBrowser,
+      textPollTimeoutMs: 50,
+      cvdiagEmitter: emitter,
+      cvdiagBufferDir: bufDir(),
+      cvdiagPbWriter: combinedWriter as unknown as CvdiagPbWriter,
+    });
+    await driver.run(baseCtx({ env: { CVDIAG_DEBUG_ALLOW_LIST: "foo" } }), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
+      demos: ["agentic-chat"],
+    });
+    await emitter.flush();
+
+    // Fail-closed: DEBUG disarmed → NO raw-byte sample written.
+    expect(rawByteSamples.length).toBe(0);
+  });
+
+  it("container-success path (non-empty assistant text): the alternate-content / raw-byte capture block is SKIPPED entirely", async () => {
+    // The alternate-content histogram + raw-byte capture block is gated on
+    // `cvdiagResponseEmpty` — it exists ONLY to characterize an EMPTY-response
+    // flap (class (d)). On a genuine container success (non-empty assistant
+    // text) `cvdiagResponseEmpty` is cleared, so the whole block must be
+    // skipped: no `probe.dom.alternate_content` boundary AND no raw-byte sample,
+    // even under a DEBUG emitter that would otherwise arm capture.
+    const rawByteSamples: unknown[] = [];
+    const captured: CvdiagEnvelope[] = [];
+    const combinedWriter = {
+      async writeBatch(events: CvdiagEnvelope[]): Promise<void> {
+        captured.push(...events);
+      },
+      async writeRawByteSample(record: unknown): Promise<void> {
+        rawByteSamples.push(record);
+      },
+    };
+    const emitter = new CvdiagEmitter({
+      debug: true,
+      env: {
+        NODE_ENV: "test",
+        SHOWCASE_ENV: "test",
+        CVDIAG_DEBUG: "1",
+        CVDIAG_DEBUG_ALLOW_LIST: "foo",
+      },
+      layer: "probe",
+      pbWriter: combinedWriter as unknown as CvdiagPbWriter,
+    });
+    const browser = makeCvBrowser({
+      // Non-empty assistant text → container SUCCESS → block skipped.
+      assistantText: "Hello there, happy to help!",
+      responses: [
+        {
+          url: "https://x.example.com/api/copilotkit",
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+          contentLength: 10,
+          durationMs: 4,
+          isMessagePost: true,
+          body: async () => Buffer.from("data: {}\n\n", "utf8"),
+        },
+      ],
+    });
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser as unknown as E2eBrowser,
+      textPollTimeoutMs: 50,
+      cvdiagEmitter: emitter,
+      cvdiagBufferDir: bufDir(),
+      cvdiagPbWriter: combinedWriter as unknown as CvdiagPbWriter,
+    });
+    const result = await driver.run(
+      baseCtx({ env: { CVDIAG_DEBUG_ALLOW_LIST: "foo" } }),
+      {
+        key: "e2e-smoke:foo",
+        backendUrl: "https://x.example.com",
+        demos: ["agentic-chat"],
+      },
+    );
+    await emitter.flush();
+
+    // The turn genuinely succeeded (container had content).
+    expect(result.state).toBe("green");
+    // The empty-response-only block was skipped: no alternate-content boundary
+    // and no raw-byte capture on the success path.
+    expect(
+      captured.filter((e) => e.boundary === "probe.dom.alternate_content")
+        .length,
+    ).toBe(0);
+    expect(rawByteSamples.length).toBe(0);
   });
 });
 
@@ -1981,6 +2336,55 @@ function makeLateTokenBrowser(opts: {
   /** Report the interceptor as having failed to attach (finding-3 surface). */
   sseAttachFailed?: boolean;
   /**
+   * Model the DEGRADED path (item-2 follow-up): the interceptor silently
+   * no-op'd, so `readTurnState` reports `sseAttachFailed: true` AND — because the
+   * page-side turn-lifecycle globals were NEVER seeded — every counter stays at
+   * its zero/absent baseline (`runsFinished: 0`, `runStartCount: 0`,
+   * `attrPresent: false`, `sawRunningTrue: false`, `runningNow: null`). No
+   * completion signal will ever arrive, so the driver's poll can only ever fall
+   * into the never-observed branch. The DOM token still renders late (via
+   * `evaluate`, gated on `firstTokenDelayMs`), reproducing a slow-first-token
+   * turn on a page whose interceptor failed to attach — the exact false-red
+   * surface the degraded-path widening fixes.
+   */
+  degradedNoSignal?: boolean;
+  /**
+   * Model a mid-poll `readTurnState()` REJECTION (harmonization surface): every
+   * `readTurnState()` call THROWS instead of returning a snapshot. Distinct from
+   * `degradedNoSignal` (which returns a well-formed degraded snapshot) — this is
+   * the page/launcher whose read itself rejects (a transient read fault, a page
+   * mid-navigation). Pre-fix, `readBaseline`/`readTurnComplete` called it
+   * UNGUARDED (the throw escaped → spurious `level-error`) while `readDegraded`
+   * swallowed it to `false` (silent base-floor fast-fail). The `safeReadTurnState`
+   * wrapper harmonizes all three: a throw → degraded WIDEN + observable telemetry,
+   * never a spurious red. The DOM token still renders late (via `evaluate`) so a
+   * late-but-present token on a read-throwing page can be exercised.
+   */
+  throwFromReadTurnState?: boolean;
+  /**
+   * Model item-1 (budget-exhaustion retry guard): when set, `type`/`press`
+   * THROW if their `timeout` option is at or below this many ms — mirroring
+   * Playwright, which rejects a ~1ms action timeout. Combined with
+   * `neverComplete` (attempt 1 stalls, forcing a retry) and a `pageTimeoutMs`
+   * tuned so the retry resend fires with the budget all but drained, this
+   * reproduces the pre-fix 1ms-timeout `level-error` flap: the guarded driver
+   * must SKIP the doomed resend rather than emit a misleading level-error.
+   */
+  throwWhenTimeoutAtMost?: number;
+  /**
+   * Model item-1 FIRST-SEND cap: the FIRST `type` action AWAITS this many ms
+   * before returning (a near-hang first-send `type`), draining the first-token
+   * envelope so the following `press`'s remaining budget drops below
+   * `RETRY_MIN_BUDGET_MS`. Pre-fix `sendTurn` then floored `press`'s timeout to
+   * ~1ms — which (with `throwWhenTimeoutAtMost`) Playwright rejects, caught as a
+   * generic `level-error` spurious red. Post-fix the first-send min-budget guard
+   * throws a DISTINCTLY-classified `SendBudgetExhaustedError`
+   * (`errorDesc: send-budget-exhausted`) instead of issuing the doomed ~1ms
+   * `press`. Applies to the first `type` only (subsequent resends are covered by
+   * the existing `RETRY_MIN_BUDGET_MS` retry guard).
+   */
+  firstTypeDelayMs?: number;
+  /**
    * Model an SSE-ONLY completion: the turn completes via the `runsFinished`
    * transport counter bumping past baseline, but NO fresh DOM `true→false`
    * stop-edge fires for THIS turn, so `lastStoppedAtMs` keeps holding a STALE
@@ -2000,118 +2404,217 @@ function makeLateTokenBrowser(opts: {
   priorStoppedAgoMs?: number;
   /** Callback invoked with the sendCount on each send (retry-count assertions). */
   onSend?: (sendCount: number) => void;
+  /**
+   * Callback invoked at the START of every `type` action (before it may throw),
+   * with the running count of type ATTEMPTS. Counts resend ATTEMPTS even when
+   * the action then throws on a floored timeout — the discriminator for the
+   * budget-exhaustion guard (a skipped resend never attempts `type` a 2nd time).
+   */
+  onTypeAttempt?: (typeCount: number) => void;
+  /**
+   * Item-3 (telemetry re-capture): per-send agent-message-POST responses driven
+   * into the wired `onResponse` seam. Index N is delivered when the Nth `press`
+   * (send) fires, modelling each attempt's OWN message-POST response landing
+   * after its submit. Lets a retry-rescued run give attempt 0 (stalled) and
+   * attempt 1 (winning) DISTINCT edge headers so a test can assert
+   * `probe.message.send` re-captures the WINNING attempt's headers rather than
+   * staying latched to the stalled first attempt.
+   */
+  responsesPerSend?: CvdiagResponseEvent[];
 }): CvE2eBrowser {
-  let lastSendAtMs = 0;
-  let sendCount = 0;
   const completeAt = opts.completeAtDelayMs ?? 0;
   const prior = opts.priorFinishedRuns ?? 0;
-  // Realistic wall-clock ms for the PRIOR run's stop edge. Normally captured at
-  // browser construction (just before the user turn); `priorStoppedAgoMs` ages
-  // it further into the past to model a prior run that finished well before the
-  // current turn — so a pre-fix poll that (wrongly) stamps the grace window from
-  // this STALE value computes a `graceEnd` that has already elapsed, collapsing
-  // the grace window to the base floor.
-  const priorStoppedAtMs = Date.now() - (opts.priorStoppedAgoMs ?? 0);
-  const page: CvE2ePage = {
-    async goto() {
-      return null;
-    },
-    async type() {},
-    async press() {
-      // Each Enter is one turn send; the timeline is relative to the LATEST
-      // send so a resend restarts the first-token / completion clocks.
-      lastSendAtMs = Date.now();
-      sendCount += 1;
-      opts.onSend?.(sendCount);
-    },
-    async waitForSelector() {},
-    async textContent() {
-      return "";
-    },
-    async evaluate<R>(): Promise<R> {
-      // The assistant-text poll and the alternate-content histogram read both
-      // route through evaluate(). A record return is the histogram read
-      // (post-empty-exit) — return {} harmlessly. A string return is the
-      // assistant-text poll.
-      const elapsed = Date.now() - lastSendAtMs;
-      const rescued = opts.retrySucceeds === true && sendCount >= 2;
-      const tokenVisible =
-        opts.assistantText.length > 0 &&
-        elapsed >= opts.firstTokenDelayMs &&
-        // A never-completing (unrescued) turn also never renders its token.
-        (!opts.neverComplete || rescued);
-      if (tokenVisible) {
-        return opts.assistantText as unknown as R;
-      }
-      return "" as unknown as R;
-    },
-    async readTurnState() {
-      // MONOTONIC page-global counters (they only ever grow, exactly like the
-      // real `attachSseInterceptor` globals). `prior` runs already latched
-      // before the user's FIRST turn. Every send starts one run
-      // (`runStartCount = prior + sendCount`). All PRIOR sends' turns are done;
-      // the CURRENT (latest) turn is done once `complete`
-      // (`runsFinished = prior + (sendCount - 1) + (complete ? 1 : 0)`). This is
-      // what lets a shared page survive L3→L4 (two sequential sends) with the
-      // per-attempt baseline correctly scoping completion to each turn.
-      const started = sendCount > 0;
-      const priorSendsDone = Math.max(0, sendCount - 1);
-      const elapsed = Date.now() - lastSendAtMs;
-      const rescued = opts.retrySucceeds === true && sendCount >= 2;
-      // Completion is a property of the CURRENT (in-flight) turn — it can only be
-      // true once a turn has actually been sent (`started`). Before the first
-      // send, `lastSendAtMs === 0` makes `elapsed` (≈ epoch ms) spuriously exceed
-      // `completeAt`, which used to flip `complete` true at the pre-send BASELINE
-      // read the driver takes before `sendTurn()`. That inflated the baseline
-      // `runsFinished` to `prior + 1`, so the current turn's real finished edge
-      // (`prior + priorSendsDone + 1`) never rose PAST the baseline and the
-      // driver's `sseDone = runsFinished > baseline.runsFinished` could never
-      // fire — leaving the SSE-only-stale-grace path (which depends on `sseDone`)
-      // untested. Gating on `started` makes the baseline read a true baseline
-      // (`runsFinished = prior + priorSendsDone`, no current-turn finish) so the
-      // finished edge is a genuine THIS-turn transition the driver observes.
-      const complete =
-        started && (!opts.neverComplete || rescued) && elapsed >= completeAt;
-      // SSE-only completion: the transport `runsFinished` counter bumps but the
-      // DOM run-lifecycle attribute never registers a fresh `true→false` stop
-      // edge for THIS turn, so `runningNow` stays `true` and `lastStoppedAtMs`
-      // is NEVER re-stamped — it keeps holding the STALE prior-run value.
-      const sseOnly = opts.sseOnlyStaleStop === true;
-      const runningNow = started
-        ? sseOnly
-          ? true
-          : !complete
-        : prior > 0
-          ? false
-          : null;
-      return {
-        runsFinished: prior + priorSendsDone + (complete ? 1 : 0),
-        attrPresent: true,
-        sawRunningTrue: prior > 0 || started,
-        runningNow,
-        runStartCount: prior + sendCount,
-        // Current turn complete → stamp NOW; else the most-recent stop is a
-        // prior run's (a real past timestamp) when any prior run has finished.
-        // SSE-only: no fresh DOM stop edge fires, so the stamp STAYS stale.
-        lastStoppedAtMs:
-          complete && !sseOnly
-            ? Date.now()
-            : prior > 0 || priorSendsDone > 0
-              ? priorStoppedAtMs
-              : 0,
-        sseAttachFailed: opts.sseAttachFailed === true,
-      };
-    },
-    async close() {},
-  };
-  const ctx: CvE2eBrowserContext = {
-    async newPage() {
-      return page;
-    },
-    async close() {},
+  // PER-PAGE state factory. Real Playwright hands each `newContext().newPage()`
+  // an INDEPENDENT page; the driver opens a FRESH context+page per level (L3
+  // then L4). A single shared `page` singleton leaked `sendCount` /
+  // `lastSendAtMs` / `respHandler` from L3 into L4, so L4's per-attempt baseline
+  // was polluted by L3's send and the L4 retry/completion path was never
+  // genuinely exercised in isolation. Minting fresh state per `newPage()` keeps
+  // each level's turn-lifecycle clean, faithful to production.
+  const makeLateTokenPage = (): CvE2ePage => {
+    let lastSendAtMs = 0;
+    let sendCount = 0;
+    let typeCount = 0;
+    let respHandler: ((r: CvdiagResponseEvent) => void) | undefined;
+    // Realistic wall-clock ms for the PRIOR run's stop edge. Normally captured
+    // at page construction (just before the user turn); `priorStoppedAgoMs` ages
+    // it further into the past to model a prior run that finished well before the
+    // current turn — so a pre-fix poll that (wrongly) stamps the grace window
+    // from this STALE value computes a `graceEnd` that has already elapsed,
+    // collapsing the grace window to the base floor.
+    const priorStoppedAtMs = Date.now() - (opts.priorStoppedAgoMs ?? 0);
+    const page: CvE2ePage = {
+      async goto() {
+        return null;
+      },
+      async type(_sel: string, _text: string, o?: { timeout?: number }) {
+        typeCount += 1;
+        opts.onTypeAttempt?.(typeCount);
+        // Item-1 FIRST-SEND cap: the first `type` near-hangs, consuming
+        // wall-clock so the following `press`'s remaining budget drains below
+        // the min-budget floor. Only the FIRST type (attempt 0) — resends are
+        // covered by the retry budget guard.
+        if (
+          opts.firstTypeDelayMs !== undefined &&
+          typeCount === 1 &&
+          opts.firstTypeDelayMs > 0
+        ) {
+          await new Promise((r) => setTimeout(r, opts.firstTypeDelayMs));
+        }
+        // Item-1 surface: Playwright rejects a near-zero action timeout. Model it
+        // so a retry resend that runs with a drained budget (floored to ~1ms)
+        // throws — the pre-fix path that mis-classified as `level-error`.
+        if (
+          opts.throwWhenTimeoutAtMost !== undefined &&
+          o?.timeout !== undefined &&
+          o.timeout <= opts.throwWhenTimeoutAtMost
+        ) {
+          throw new Error(
+            `page.type: Timeout ${o.timeout}ms exceeded waiting for selector "textarea"`,
+          );
+        }
+      },
+      async press(_sel: string, _key: string, o?: { timeout?: number }) {
+        if (
+          opts.throwWhenTimeoutAtMost !== undefined &&
+          o?.timeout !== undefined &&
+          o.timeout <= opts.throwWhenTimeoutAtMost
+        ) {
+          throw new Error(
+            `page.press: Timeout ${o.timeout}ms exceeded waiting for selector "textarea"`,
+          );
+        }
+        // Each Enter is one turn send; the timeline is relative to the LATEST
+        // send so a resend restarts the first-token / completion clocks.
+        lastSendAtMs = Date.now();
+        sendCount += 1;
+        opts.onSend?.(sendCount);
+        // Item-3: deliver THIS send's own agent-message-POST response into the
+        // wired onResponse seam (models each attempt's response landing after its
+        // submit) so a retry-rescued run can re-capture the winning attempt's
+        // edge headers.
+        const perSend = opts.responsesPerSend?.[sendCount - 1];
+        if (perSend !== undefined) respHandler?.(perSend);
+      },
+      async waitForSelector() {},
+      async textContent() {
+        return "";
+      },
+      async evaluate<R>(): Promise<R> {
+        // The assistant-text poll and the alternate-content histogram read both
+        // route through evaluate(). A record return is the histogram read
+        // (post-empty-exit) — return {} harmlessly. A string return is the
+        // assistant-text poll.
+        const elapsed = Date.now() - lastSendAtMs;
+        const rescued = opts.retrySucceeds === true && sendCount >= 2;
+        const tokenVisible =
+          opts.assistantText.length > 0 &&
+          elapsed >= opts.firstTokenDelayMs &&
+          // A never-completing (unrescued) turn also never renders its token.
+          (!opts.neverComplete || rescued);
+        if (tokenVisible) {
+          return opts.assistantText as unknown as R;
+        }
+        return "" as unknown as R;
+      },
+      async readTurnState() {
+        // HARMONIZATION surface: the read itself REJECTS mid-poll (transient
+        // read fault / page mid-navigation). Every consumer must route through
+        // `safeReadTurnState` so this throw becomes a degraded-widen, never a
+        // spurious `level-error` (unguarded escape) or a silent base-floor
+        // fast-fail (swallowed to `false`).
+        if (opts.throwFromReadTurnState === true) {
+          throw new Error("readTurnState: page evaluate rejected mid-poll");
+        }
+        // DEGRADED path (item-2): the interceptor no-op'd, so the page-side
+        // globals were NEVER seeded — every counter stays at its zero/absent
+        // baseline and `sseAttachFailed` rides true. No completion signal ever
+        // arrives; only the DOM token (via `evaluate`) eventually renders.
+        if (opts.degradedNoSignal === true) {
+          return {
+            runsFinished: 0,
+            attrPresent: false,
+            sawRunningTrue: false,
+            runningNow: null,
+            runStartCount: 0,
+            lastStoppedAtMs: 0,
+            sseAttachFailed: true,
+          };
+        }
+        // MONOTONIC page-global counters (they only ever grow, exactly like the
+        // real `attachSseInterceptor` globals). `prior` runs already latched
+        // before the user's FIRST turn. Every send starts one run
+        // (`runStartCount = prior + sendCount`). All PRIOR sends' turns are done;
+        // the CURRENT (latest) turn is done once `complete`
+        // (`runsFinished = prior + (sendCount - 1) + (complete ? 1 : 0)`). This is
+        // what lets a shared page survive L3→L4 (two sequential sends) with the
+        // per-attempt baseline correctly scoping completion to each turn.
+        const started = sendCount > 0;
+        const priorSendsDone = Math.max(0, sendCount - 1);
+        const elapsed = Date.now() - lastSendAtMs;
+        const rescued = opts.retrySucceeds === true && sendCount >= 2;
+        // Completion is a property of the CURRENT (in-flight) turn — it can only be
+        // true once a turn has actually been sent (`started`). Before the first
+        // send, `lastSendAtMs === 0` makes `elapsed` (≈ epoch ms) spuriously exceed
+        // `completeAt`, which used to flip `complete` true at the pre-send BASELINE
+        // read the driver takes before `sendTurn()`. That inflated the baseline
+        // `runsFinished` to `prior + 1`, so the current turn's real finished edge
+        // (`prior + priorSendsDone + 1`) never rose PAST the baseline and the
+        // driver's `sseDone = runsFinished > baseline.runsFinished` could never
+        // fire — leaving the SSE-only-stale-grace path (which depends on `sseDone`)
+        // untested. Gating on `started` makes the baseline read a true baseline
+        // (`runsFinished = prior + priorSendsDone`, no current-turn finish) so the
+        // finished edge is a genuine THIS-turn transition the driver observes.
+        const complete =
+          started && (!opts.neverComplete || rescued) && elapsed >= completeAt;
+        // SSE-only completion: the transport `runsFinished` counter bumps but the
+        // DOM run-lifecycle attribute never registers a fresh `true→false` stop
+        // edge for THIS turn, so `runningNow` stays `true` and `lastStoppedAtMs`
+        // is NEVER re-stamped — it keeps holding the STALE prior-run value.
+        const sseOnly = opts.sseOnlyStaleStop === true;
+        const runningNow = started
+          ? sseOnly
+            ? true
+            : !complete
+          : prior > 0
+            ? false
+            : null;
+        return {
+          runsFinished: prior + priorSendsDone + (complete ? 1 : 0),
+          attrPresent: true,
+          sawRunningTrue: prior > 0 || started,
+          runningNow,
+          runStartCount: prior + sendCount,
+          // Current turn complete → stamp NOW; else the most-recent stop is a
+          // prior run's (a real past timestamp) when any prior run has finished.
+          // SSE-only: no fresh DOM stop edge fires, so the stamp STAYS stale.
+          lastStoppedAtMs:
+            complete && !sseOnly
+              ? Date.now()
+              : prior > 0 || priorSendsDone > 0
+                ? priorStoppedAtMs
+                : 0,
+          sseAttachFailed: opts.sseAttachFailed === true,
+        };
+      },
+      async close() {},
+      onResponse(h) {
+        respHandler = h;
+      },
+    };
+    return page;
   };
   return {
     async newContext() {
+      // Fresh, independent page per context (mirrors Playwright) — no
+      // cross-level state leak.
+      const page = makeLateTokenPage();
+      const ctx: CvE2eBrowserContext = {
+        async newPage() {
+          return page;
+        },
+        async close() {},
+      };
       return ctx;
     },
     async close() {},
@@ -2220,6 +2723,14 @@ describe("d4 L4 first-token wait hardening (readTurnState-driven)", () => {
     // WITHOUT a completed edge. The non-completion retry resends, and the
     // second turn renders content → GREEN. Distinguishes "never-completed"
     // (transient, retry) from "completed-empty" (real red, no retry).
+    // With the per-page state fix, L3 (agentic-chat) AND L4 (tool-rendering) each
+    // run their OWN independent stall+retry cycle on a FRESH page, so the whole
+    // run exercises both levels' retry paths genuinely (no shared sendCount
+    // short-circuit). `pageTimeoutMs` must be generous enough that a legitimate
+    // retry still clears the budget-exhaustion guard (item-1,
+    // `RETRY_MIN_BUDGET_MS` = 750ms) after attempt 0 burns roughly half the
+    // envelope — a too-tight budget would make the guard (correctly) skip the
+    // resend and the rescue would never fire.
     const { l4State, failureSummary } = await runLateToken(
       makeLateTokenBrowser({
         assistantText: "The weather in San Francisco is sunny, 72 degrees.",
@@ -2227,10 +2738,11 @@ describe("d4 L4 first-token wait hardening (readTurnState-driven)", () => {
         neverComplete: true,
         retrySucceeds: true,
       }),
+      { pageTimeoutMs: 4000 },
     );
     expect(l4State).toBe("green");
     expect(failureSummary).toBe("");
-  });
+  }, 20000);
 
   it("permanent stall (never completes, retry also stalls) FAILS", async () => {
     // A turn that never completes and never renders even after the retry is a
@@ -2381,6 +2893,485 @@ describe("d4 L4 first-token wait hardening (readTurnState-driven)", () => {
     expect(l3State).toBe("green");
     expect(failureSummary).toBe("");
   });
+
+  // ── ITEM 2 (follow-up): degraded-path floor when interceptor no-ops ─────────
+  it("degraded path (sseAttachFailed, no completion signal) with a late-but-present token → GREEN, not a base-floor false-red", async () => {
+    // The interceptor silently no-op'd: `readTurnState` reports
+    // `sseAttachFailed: true` and every turn-lifecycle counter stays at its
+    // never-seeded baseline, so the poll can only ever fall into the
+    // never-observed branch. The DOM token renders at 800ms — AFTER the base
+    // poll floor's effective fast-fail (the ~500ms poll iteration at which
+    // `now >= baseBudgetEnd(120ms)` first fires) but WELL WITHIN the 4000ms hard
+    // ceiling. The 800ms delay is chosen so the base-floor deadline bites on a
+    // poll iteration BEFORE the token is visible (the 500ms poll interval means a
+    // 300ms token would be read at the 500ms poll regardless, masking the bug).
+    //
+    // RED (pre-fix): the never-observed branch pinned the deadline to the base
+    // floor (`min(baseBudgetEnd=120ms, attemptCeiling)`), so the poll declared
+    // the container empty at the ~500ms iteration and false-red'd —
+    // reintroducing the exact slow-first-token false-red the main #5882 fix
+    // targets, just gated behind a failed interceptor attach.
+    // GREEN (post-fix): the degraded flag widens the never-observed wait to the
+    // per-attempt ceiling, so the 800ms token is captured → GREEN.
+    const { l4State, failureSummary } = await runLateToken(
+      makeLateTokenBrowser({
+        assistantText: "The weather in San Francisco is sunny, 72 degrees.",
+        firstTokenDelayMs: 800,
+        degradedNoSignal: true,
+      }),
+    );
+    expect(l4State).toBe("green");
+    expect(failureSummary).toBe("");
+  });
+
+  it("degraded path (sseAttachFailed) that produces NO content still FAILS (widening does not mask a genuine empty)", async () => {
+    // Guard against over-correction: widening the degraded wait to the ceiling
+    // must NOT convert a genuinely-empty degraded run into a false-pass. A page
+    // whose interceptor no-op'd AND which never renders any token is a real red
+    // — it just reds at the ceiling (no signal to fast-fail on) rather than the
+    // base floor.
+    const { l4State, failureSummary } = await runLateToken(
+      makeLateTokenBrowser({
+        assistantText: "",
+        firstTokenDelayMs: 300,
+        degradedNoSignal: true,
+      }),
+      { pageTimeoutMs: 800 },
+    );
+    expect(l4State).toBe("red");
+    expect(failureSummary).toContain("empty assistant response");
+  }, 10000);
+
+  // ── (a) HARMONIZED readTurnState() error handling ───────────────────────────
+  it("readTurnState() THROW mid-poll with a late-but-present token → GREEN (degraded widen), not a spurious level-error / base-floor false-red", async () => {
+    // The page's `readTurnState()` REJECTS on every call (a transient read fault
+    // / page mid-navigation). The DOM token still renders at 800ms — past the
+    // 120ms base poll floor but well within the 4000ms hard ceiling.
+    //
+    // RED (pre-fix): `readBaseline` (unguarded) awaited `page.readTurnState()`
+    // BEFORE the send; the rejection escaped, the driver's outer catch caught it,
+    // and the level red'd as a generic `level-error` (a spurious red) — the token
+    // was never even polled for. (Had baseline somehow survived, `readDegraded`
+    // swallowed the throw to `false`, base-floor fast-failing at ~500ms before
+    // the 800ms token — a silent false-red either way.)
+    // GREEN (post-fix): `safeReadTurnState` turns the throw into a degraded
+    // sentinel → `readDegraded` true → the never-observed wait WIDENS to the
+    // ceiling, the 800ms token is captured → GREEN, and the fault is observable
+    // (one-shot console.warn), never a silent/spurious red.
+    const { l4State, failureSummary } = await runLateToken(
+      makeLateTokenBrowser({
+        assistantText: "The weather in San Francisco is sunny, 72 degrees.",
+        firstTokenDelayMs: 800,
+        throwFromReadTurnState: true,
+      }),
+    );
+    expect(l4State).toBe("green");
+    expect(failureSummary).toBe("");
+  });
+
+  it("readTurnState() THROW mid-poll that produces NO content still FAILS (degraded widen does not mask a genuine empty)", async () => {
+    // Over-correction guard for the harmonization: a read-throwing page that
+    // ALSO never renders any token is a real red. The throw routes onto the
+    // degraded widen path (no base-floor fast-fail, no spurious level-error), so
+    // it reds at the ceiling with the genuine "empty assistant response" — the
+    // throw must not be masked into a false-PASS.
+    const { l4State, failureSummary } = await runLateToken(
+      makeLateTokenBrowser({
+        assistantText: "",
+        firstTokenDelayMs: 300,
+        throwFromReadTurnState: true,
+      }),
+      { pageTimeoutMs: 800 },
+    );
+    expect(l4State).toBe("red");
+    expect(failureSummary).toContain("empty assistant response");
+  }, 10000);
+
+  // ── ITEM 4 (#4): per-page state isolation exercises L4 retry independently ──
+  it("L3 and L4 each run their OWN independent stall+retry on a fresh page (no shared-state leak)", async () => {
+    // With the pre-fix SHARED page singleton, L3's sends leaked into L4:
+    // `retrySucceeds` gates on `sendCount >= 2`, so after L3 stalled (send 1) and
+    // retried (send 2), L4 reused the same page with `sendCount` already at 2 and
+    // was rescued on its VERY FIRST send — L4's retry path was never genuinely
+    // exercised (only 3 total sends). With per-page state, each level starts at
+    // `sendCount = 0`, stalls on its own attempt 0, and rescues on its own retry
+    // → 4 total sends (2 per level). The send count is the discriminator.
+    let totalSends = 0;
+    const writer = new CapturingWriter();
+    const driver = createE2eSmokeDriver({
+      launcher: async () =>
+        makeLateTokenBrowser({
+          assistantText: "The weather in San Francisco is sunny, 72 degrees.",
+          firstTokenDelayMs: 100,
+          neverComplete: true,
+          retrySucceeds: true,
+          onSend: () => {
+            totalSends += 1;
+          },
+        }) as unknown as E2eBrowser,
+      textPollTimeoutMs: 120,
+      pageTimeoutMs: 4000,
+    });
+    const result = await driver.run(baseCtx({ writer }), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
+      // Runs BOTH L3 (agentic-chat, always) and L4 (tool-rendering).
+      demos: ["tool-rendering"],
+    });
+    expect(result.state).toBe("green");
+    // Each level independently: attempt-0 stall (1 send) + retry rescue (1 send).
+    // Pre-fix leak → 3 (L4 rescued on first send from L3's carried-over count).
+    expect(totalSends).toBe(4);
+  }, 20000);
+
+  // ── ITEM 1 (follow-up): budget-exhaustion retry guard ───────────────────────
+  it("near-exhausted-budget retry is SKIPPED — no doomed ~1ms-floored resend attempt", async () => {
+    // Attempt 0 stalls (observed in-flight, never completes → the retry
+    // surface). `textPollTimeoutMs == pageTimeoutMs == 500` (one poll interval):
+    // attempt 0 polls to its per-attempt ceiling and the single 500ms poll
+    // overrun drains essentially the whole envelope, so the retry (attempt 1)
+    // would fire with the budget gone. The fake rejects any `type` whose action
+    // timeout is <= 5ms — modelling Playwright's rejection of the ~1ms timeout
+    // `sendTurn`'s `Math.max(1, hardCeiling - now)` produces once budget drains.
+    //
+    // RED (pre-fix): the retry loop unconditionally re-sent, so `sendTurn`
+    // ATTEMPTED a second `type` with a ~1ms floored timeout — a doomed action
+    // that throws a page-fault-shaped "Timeout 1ms exceeded…" error (swallowed
+    // by the fallback into a misleading empty-red, a spurious-red flap source).
+    // The discriminator is the resend ATTEMPT itself: pre-fix `type` is invoked
+    // TWICE (attempt 0 + the doomed resend).
+    // GREEN (post-fix): the budget-exhaustion guard skips the doomed resend
+    // entirely, so `type` is invoked exactly ONCE and the stall reds cleanly on
+    // its own terms ("empty assistant response") with no 1ms-timeout artifact.
+    let typeAttempts = 0;
+    const writer = new CapturingWriter();
+    const driver = createE2eSmokeDriver({
+      launcher: async () =>
+        makeLateTokenBrowser({
+          assistantText: "",
+          firstTokenDelayMs: 100,
+          neverComplete: true,
+          throwWhenTimeoutAtMost: 5,
+          onTypeAttempt: (n) => {
+            typeAttempts = n;
+          },
+        }) as unknown as E2eBrowser,
+      textPollTimeoutMs: 500,
+      pageTimeoutMs: 500,
+    });
+    const result = await driver.run(baseCtx({ writer }), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
+      demos: [],
+    });
+    expect(result.state).toBe("red");
+    const chat = writer.results.find((r) => r.key === "chat:foo");
+    expect(chat?.state).toBe("red");
+    // The discriminator: the doomed ~1ms resend was NEVER attempted → `type`
+    // fired exactly once (attempt 0). Pre-fix this is 2 (the doomed resend
+    // attempts a second `type` before throwing on its floored timeout).
+    expect(typeAttempts).toBe(1);
+  }, 10000);
+
+  it("FIRST-SEND cap: a near-hang first `type` does NOT floor `press` to ~1ms → classified send-budget-exhausted, not a generic level-error", async () => {
+    // Item-1 first-send fold: the FIRST `type` near-hangs (awaits past the whole
+    // 2000ms envelope), so by the time `press` is reached the remaining budget
+    // has fully drained — below `RETRY_MIN_BUDGET_MS` (750ms) AND to the ~1ms
+    // pre-fix floor. `pageTimeoutMs` (2000ms) exceeds `RETRY_MIN_BUDGET_MS` so the
+    // FIRST `type` itself clears the guard (a fresh envelope) — only `press`,
+    // reached after the hang, trips it. The fake rejects any `type`/`press` whose
+    // action timeout is <= 5ms (Playwright's ~1ms rejection).
+    //
+    // RED (pre-fix): `sendTurn` floored `press`'s timeout to `Math.max(1,
+    // hardCeiling - now)` ≈ 1ms; the fake threw a page-fault-shaped "Timeout 1ms
+    // exceeded…", the driver's outer catch red-classified it as a GENERIC
+    // `level-error` — a self-inflicted 1ms floor masquerading as a real page
+    // fault (spurious-red flap).
+    // GREEN (post-fix): the first-send min-budget guard throws a distinctly
+    // classified `SendBudgetExhaustedError` BEFORE issuing the doomed `press`, so
+    // the red carries `errorDesc: send-budget-exhausted` (observable + specific),
+    // never the catch-all `level-error`.
+    const writer = new CapturingWriter();
+    const driver = createE2eSmokeDriver({
+      launcher: async () =>
+        makeLateTokenBrowser({
+          assistantText: "",
+          firstTokenDelayMs: 100,
+          // First `type` eats the whole envelope so `press` drains below
+          // RETRY_MIN_BUDGET_MS (750ms) and to the ~1ms pre-fix floor.
+          firstTypeDelayMs: 2100,
+          throwWhenTimeoutAtMost: 5,
+        }) as unknown as E2eBrowser,
+      textPollTimeoutMs: 2000,
+      pageTimeoutMs: 2000,
+    });
+    const result = await driver.run(baseCtx({ writer }), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
+      demos: [],
+    });
+    expect(result.state).toBe("red");
+    const chat = writer.results.find((r) => r.key === "chat:foo");
+    expect(chat?.state).toBe("red");
+    const errorDesc = (chat?.signal as { errorDesc?: string } | undefined)
+      ?.errorDesc;
+    // The discriminator: a distinct, observable classification — NOT the generic
+    // `level-error` a floored-1ms `press` throw produced pre-fix.
+    expect(errorDesc).toBe("send-budget-exhausted");
+  }, 10000);
+});
+
+describe("d4 mid-poll abort/timeout classification (follow-up)", () => {
+  function bufDirAbort(): string {
+    return mkdtempSync(join(tmpdir(), "cvdiag-abort-"));
+  }
+
+  it("mid-poll EXTERNAL abort with empty container → abort classification (errorDesc=abort, probe.exit=timeout), NOT content-red", async () => {
+    // RED (pre-fix): the external `ctx.abortSignal` fires DURING the first-token
+    // poll while the assistant container is still empty. `runAttempt` returns
+    // empty text WITHOUT throwing, the retry loop breaks, and control falls to
+    // the clean-exit path — where the level is misclassified as a generic
+    // content red `failureSummary: "empty assistant response"` with `probe.exit`
+    // outcome `err` and NO `errorDesc: "abort"`. That masquerades a teardown/
+    // abort as a CONTENT failure on the dashboard + CVDIAG.
+    //
+    // GREEN (post-fix): the aborted-AND-empty run is short-circuited to the SAME
+    // abort classification every other abort path uses — `errorDesc: "abort"`,
+    // `probe.exit` outcome `timeout` — and is NOT the content-red "empty
+    // assistant response".
+    const { emitter, writer: cvWriter } = makeCvdiagEmitter();
+    // neverComplete + a first-token delay well past the abort instant keeps the
+    // poll spinning on an OBSERVED-but-incomplete empty turn, so the abort lands
+    // mid-poll (the exact production gap). Generous pageTimeoutMs so the EXTERNAL
+    // abort — not the driver hard-timeout — is what fires first.
+    const browser = makeLateTokenBrowser({
+      assistantText: "The weather in San Francisco is sunny, 72 degrees.",
+      firstTokenDelayMs: 5000,
+      neverComplete: true,
+    });
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser as unknown as E2eBrowser,
+      textPollTimeoutMs: 4000,
+      pageTimeoutMs: 8000,
+      cvdiagEmitter: emitter,
+      cvdiagBufferDir: bufDirAbort(),
+    });
+    const resultWriter = new CapturingWriter();
+    const ac = new AbortController();
+    // Fire the external abort mid-poll (first poll iteration is ~500ms; abort at
+    // 150ms lands squarely inside `runAttempt`'s loop while the container is
+    // still empty).
+    setTimeout(() => ac.abort(), 150);
+    await driver.run(
+      baseCtx({ writer: resultWriter, abortSignal: ac.signal }),
+      {
+        key: "e2e-smoke:foo",
+        backendUrl: "https://x.example.com",
+        demos: [],
+      },
+    );
+    await emitter.flush();
+
+    const chat = resultWriter.results.find((r) => r.key === "chat:foo");
+    expect(chat?.state).toBe("red");
+    const sig = chat?.signal as
+      | { failureSummary?: string; errorDesc?: string }
+      | undefined;
+    // Classified as an abort, NOT the generic content red.
+    expect(sig?.errorDesc).toBe("abort");
+    expect(sig?.failureSummary).not.toContain("empty assistant response");
+    // probe.exit outcome is `timeout` (the abort/teardown classification every
+    // other abort path uses), NOT `err` (the content-red classification).
+    const exits = byBoundary(cvWriter, "probe.exit");
+    expect(exits.length).toBeGreaterThan(0);
+    expect(exits[0]!.metadata.terminal_outcome).toBe("timeout");
+  }, 15000);
+
+  it("OVER-CORRECTION GUARD: a genuinely-completed-EMPTY turn (NOT aborted) STAYS content-red 'empty assistant response'", async () => {
+    // The discriminator is `abortSignal.aborted`, NOT emptiness alone. A turn
+    // that actually FINISHES with no content — nothing aborted — is a real
+    // content failure and must remain the content-red "empty assistant
+    // response" with `probe.exit` outcome `err`. This proves the abort guard
+    // does not over-correct genuine content reds into abort/timeout.
+    const { emitter, writer: cvWriter } = makeCvdiagEmitter();
+    const browser = makeLateTokenBrowser({
+      assistantText: "",
+      firstTokenDelayMs: 300,
+      completeAtDelayMs: 50,
+    });
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser as unknown as E2eBrowser,
+      textPollTimeoutMs: 120,
+      pageTimeoutMs: 4000,
+      cvdiagEmitter: emitter,
+      cvdiagBufferDir: bufDirAbort(),
+    });
+    const resultWriter = new CapturingWriter();
+    // No abort signal fired — the turn completes empty on its own.
+    await driver.run(baseCtx({ writer: resultWriter }), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
+      demos: [],
+    });
+    await emitter.flush();
+
+    const chat = resultWriter.results.find((r) => r.key === "chat:foo");
+    expect(chat?.state).toBe("red");
+    const sig = chat?.signal as
+      | { failureSummary?: string; errorDesc?: string }
+      | undefined;
+    // Stays the genuine content red — NOT reclassified as an abort.
+    expect(sig?.failureSummary).toContain("empty assistant response");
+    expect(sig?.errorDesc).not.toBe("abort");
+    const exits = byBoundary(cvWriter, "probe.exit");
+    expect(exits.length).toBeGreaterThan(0);
+    expect(exits[0]!.metadata.terminal_outcome).toBe("err");
+  }, 10000);
+});
+
+describe("d4 retry telemetry re-attribution (follow-up item 3)", () => {
+  function bufDirLt(): string {
+    return mkdtempSync(join(tmpdir(), "cvdiag-lt-"));
+  }
+
+  it("retry-rescued GREEN turn re-captures the WINNING attempt's edge headers for probe.message.send (not the stalled first attempt's)", async () => {
+    // A stall on attempt 0 (never completes → retry), rescued by attempt 1. Each
+    // attempt lands its OWN agent-message-POST response with DISTINCT edge
+    // headers. The stalled attempt's response is the CopilotKit runtime POST
+    // (isMessagePost) carrying `cf-mitigated: stalled`; the winning resend's
+    // carries `cf-mitigated: winning`.
+    //
+    // RED (pre-fix): `messageSendEdge` / `lastMessagePostResp` latched to the
+    // FIRST (stalled) attempt's response, and `emitMessageSend`'s idempotency
+    // meant the winning resend's response never re-captured them — so
+    // `probe.message.send` reported the STALLED attempt's `cf-mitigated:stalled`
+    // header, mis-attributing edge_interference to the wrong turn.
+    // GREEN (post-fix): the retry clears the latches before the resend, so the
+    // winning attempt's response re-captures them → `probe.message.send` carries
+    // `cf-mitigated: winning`.
+    const writer = new CaptureWriter();
+    const emitter = new CvdiagEmitter({
+      verbose: true,
+      env: {},
+      layer: "probe",
+      pbWriter: writer,
+    });
+    const browser = makeLateTokenBrowser({
+      assistantText: "Recovered greeting after a retry.",
+      firstTokenDelayMs: 100,
+      neverComplete: true,
+      retrySucceeds: true,
+      responsesPerSend: [
+        {
+          url: "https://x.example.com/api/copilotkit",
+          status: 200,
+          headers: { "cf-mitigated": "stalled", "content-length": "5" },
+          contentLength: 5,
+          durationMs: 3,
+          isMessagePost: true,
+        },
+        {
+          url: "https://x.example.com/api/copilotkit",
+          status: 200,
+          headers: { "cf-mitigated": "winning", "content-length": "9" },
+          contentLength: 9,
+          durationMs: 4,
+          isMessagePost: true,
+        },
+      ],
+    });
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser as unknown as E2eBrowser,
+      textPollTimeoutMs: 120,
+      pageTimeoutMs: 4000,
+      cvdiagEmitter: emitter,
+      cvdiagBufferDir: bufDirLt(),
+    });
+    const writerP = new CapturingWriter();
+    const result = await driver.run(baseCtx({ writer: writerP }), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
+      // L3-only (agentic-chat) so the retry telemetry is unconfounded by an L4 level.
+      demos: [],
+    });
+    await emitter.flush();
+    expect(result.state).toBe("green");
+
+    const send = byBoundary(writer, "probe.message.send");
+    // Two real sends (stall + winning resend) → one message.send boundary per
+    // send. Pre-fix the retry never re-armed the emit latch, so only the FIRST
+    // (stalled) boundary was ever recorded (and the winning attempt's real edge
+    // headers were lost). The re-capture fix re-arms the latch on retry, so the
+    // winning resend records its OWN boundary.
+    expect(send.length).toBe(2);
+    // The FINAL (winning) boundary carries the winning attempt's edge headers,
+    // NOT the stalled first attempt's — telemetry now attributed to the turn
+    // that actually rendered content.
+    expect(send[send.length - 1]!.edge_headers["cf-mitigated"]).toBe("winning");
+    // And the stalled first attempt is still recorded on its own boundary
+    // (nothing is silently dropped).
+    expect(send[0]!.edge_headers["cf-mitigated"]).toBe("stalled");
+  }, 15000);
+
+  it("retry whose WINNING resend lands NO POST does NOT emit a second NULL-header probe.message.send (single correct attribution)", async () => {
+    // Item-3 null-header double-boundary fold. Attempt 0 stalls (never completes
+    // → retry) and lands a REAL agent-message POST (`cf-mitigated: real`). The
+    // winning resend rescues (renders content → GREEN) but lands NO POST at all
+    // (`responsesPerSend[1]` is absent).
+    //
+    // RED (pre-fix): the retry reset `messageSendEmitted = false` AND cleared
+    // `messageSendEdge`, so the `finally`-block fallback `emitMessageSend()` fired
+    // a SECOND `probe.message.send` boundary with NULL edge headers — a phantom
+    // null-header turn that mis-attributes `edge_interference_signal`.
+    // GREEN (post-fix): `messageSendRealPostEmitted` (set when the attempt-0 real
+    // POST emitted) SUPPRESSES the null-header fallback, so exactly ONE boundary
+    // survives — the real attempt-0 capture. No second null-header emit.
+    const writer = new CaptureWriter();
+    const emitter = new CvdiagEmitter({
+      verbose: true,
+      env: {},
+      layer: "probe",
+      pbWriter: writer,
+    });
+    const browser = makeLateTokenBrowser({
+      assistantText: "Recovered greeting after a retry.",
+      firstTokenDelayMs: 100,
+      neverComplete: true,
+      retrySucceeds: true,
+      // Attempt 0 lands a real POST; the winning resend (index 1) lands NONE.
+      responsesPerSend: [
+        {
+          url: "https://x.example.com/api/copilotkit",
+          status: 200,
+          headers: { "cf-mitigated": "real", "content-length": "5" },
+          contentLength: 5,
+          durationMs: 3,
+          isMessagePost: true,
+        },
+      ],
+    });
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser as unknown as E2eBrowser,
+      textPollTimeoutMs: 120,
+      pageTimeoutMs: 4000,
+      cvdiagEmitter: emitter,
+      cvdiagBufferDir: bufDirLt(),
+    });
+    const writerP = new CapturingWriter();
+    const result = await driver.run(baseCtx({ writer: writerP }), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
+      demos: [],
+    });
+    await emitter.flush();
+    expect(result.state).toBe("green");
+
+    const send = byBoundary(writer, "probe.message.send");
+    // Exactly ONE boundary — the real attempt-0 capture. Pre-fix: 2 (the second a
+    // spurious NULL-header emit from the finally fallback after the retry re-arm).
+    expect(send.length).toBe(1);
+    expect(send[0]!.edge_headers["cf-mitigated"]).toBe("real");
+  }, 15000);
 });
 
 describe("wirePlaywrightPage attach-fault telemetry (finding 3)", () => {
