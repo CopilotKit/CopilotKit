@@ -71,17 +71,21 @@ Use state rendering when you want to:
   <Step>
     ### Emit state updates from your agent
 
-    Use `copilotkit_emit_state` to push intermediate state to the frontend before a node finishes.
+    Create a tool that emits state updates using `copilotkit_emit_state`, then integrate it into your agent.
 
     <Tabs groupId="agent_language" items={['Python', 'TypeScript']} persist>
       <Tab value="Python">
         ```python title="agent.py"
         import asyncio
+        from langchain_core.tools import tool # [!code highlight]
         from copilotkit.langgraph import copilotkit_emit_state # [!code highlight]
         from langchain_core.runnables import RunnableConfig
+        from deepagents import create_deep_agent # [!code highlight]
+        from copilotkit import CopilotKitMiddleware # [!code highlight]
 
-        # Inside a custom tool or middleware hook where you have access to state and config:
-        async def emit_research_progress(state: AgentState, config: RunnableConfig):
+        @tool # [!code highlight]
+        async def show_research_progress(state: AgentState, config: RunnableConfig):
+            """Show progressive research state updates to the user."""
             state["searches"] = [
                 {"query": "Initial research", "done": False},
                 {"query": "Retrieving sources", "done": False},
@@ -93,32 +97,72 @@ Use state rendering when you want to:
                 await asyncio.sleep(1)
                 search["done"] = True
                 await copilotkit_emit_state(config, state) # [!code highlight]
+
+        # Integrate the tool into your Deep Agent:
+        agent = create_deep_agent( # [!code highlight]
+            model="openai:gpt-4o", # [!code highlight]
+            tools=[show_research_progress],  # Add the state-emission tool # [!code highlight]
+            middleware=[CopilotKitMiddleware()],  # Required for state sync # [!code highlight]
+            system_prompt="You are a helpful assistant. Call show_research_progress to display your work.", # [!code highlight]
+        ) # [!code highlight]
         ```
+
+        The agent will call `show_research_progress` based on your system prompt or when it decides to show progress.
       </Tab>
       <Tab value="TypeScript">
         ```ts title="agent.ts"
+        import { tool } from "@langchain/core/tools"; // [!code highlight]
+        import { z } from "zod";
         import { copilotkitEmitState } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+        import { createDeepAgent } from "@copilotkit/sdk-js/deepagents"; // [!code highlight]
+        import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
 
-        // Inside a custom graph node function that has access to state and config:
-        async function chatNode(state: any, config: any) {
+        const showResearchProgress = tool( // [!code highlight]
+          async ({ state, config }: { state: any; config: any }) => {
             state.searches = [
-                { query: "Initial research", done: false },
-                { query: "Retrieving sources", done: false },
-                { query: "Forming an answer", done: false },
+              { query: "Initial research", done: false },
+              { query: "Retrieving sources", done: false },
+              { query: "Forming an answer", done: false },
             ];
             await copilotkitEmitState(config, state); // [!code highlight]
 
             for (const search of state.searches) {
-                await new Promise((resolve) => setTimeout(resolve, 1000));
-                search.done = true;
-                await copilotkitEmitState(config, state); // [!code highlight]
+              await new Promise((resolve) => setTimeout(resolve, 1000));
+              search.done = true;
+              await copilotkitEmitState(config, state); // [!code highlight]
             }
+            return "Progress displayed";
+          },
+          {
+            name: "show_research_progress",
+            description: "Show progressive research state updates to the user.",
+            schema: z.object({
+              state: z.any(),
+              config: z.any(),
+            }),
+          }
+        );
 
-            // ... rest of your node logic
-        }
+        // Integrate the tool into your Deep Agent:
+        const agent = createDeepAgent({ // [!code highlight]
+          model: "openai:gpt-4o", // [!code highlight]
+          tools: [showResearchProgress],  // Add the state-emission tool // [!code highlight]
+          middleware: [copilotkitMiddleware],  // Required for state sync // [!code highlight]
+          systemPrompt: "You are a helpful assistant. Call show_research_progress to display your work.", // [!code highlight]
+        }); // [!code highlight]
         ```
+
+        The agent will call `show_research_progress` based on your system prompt or when it decides to show progress.
       </Tab>
     </Tabs>
+
+    <Callout type="info" title="Integration Required">
+      State emission requires two parts:
+      1. **Calling `copilotkit_emit_state()`** — emits state to the frontend
+      2. **Integrating into your agent workflow** — via tools, middleware, or custom nodes
+
+      In this example, we integrate state emission as a tool so the agent can call it when appropriate. The `CopilotKitMiddleware` ensures state updates are properly synchronized with the frontend.
+    </Callout>
   </Step>
   <Step>
     ### Render state in the UI
