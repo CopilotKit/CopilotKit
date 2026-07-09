@@ -39,12 +39,13 @@ on:
         options:
           - monorepo
           - angular
-          - bot
-          - bot-discord
-          - bot-slack
-          - bot-teams
-          - bot-telegram
-          - bot-whatsapp
+          - channels
+          - channels-discord
+          - channels-intelligence
+          - channels-slack
+          - channels-teams
+          - channels-telegram
+          - channels-whatsapp
       mode:
         description: "Release mode: stable (full release with tag + GH Release) or prerelease (canary, no tag/release)"
         required: false

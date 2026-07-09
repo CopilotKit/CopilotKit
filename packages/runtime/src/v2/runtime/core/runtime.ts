@@ -33,6 +33,11 @@ import type { AgentRunner } from "../runner/agent-runner";
 import { InMemoryAgentRunner } from "../runner/in-memory";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
 import type { CopilotKitIntelligence } from "../intelligence-platform";
+// Type-only: @copilotkit/channels is pure-ESM, so a value import would break this
+// package's CJS output. The bots are validated + activated (wired to delivery
+// transports) by `startManagedBots` from @copilotkit/channels, called by the
+// managed-listener bootstrap — not here.
+import type { Bot } from "@copilotkit/channels";
 import telemetry from "../telemetry/telemetry-client";
 
 export const VERSION = pkg.version;
@@ -176,6 +181,8 @@ export interface CopilotSseRuntimeOptions extends BaseCopilotRuntimeOptions {
   runner?: AgentRunner;
   intelligence?: undefined;
   generateThreadNames?: undefined;
+  /** Managed bots require the Intelligence runtime; not available in SSE mode. */
+  bots?: undefined;
 }
 
 export interface CopilotIntelligenceRuntimeOptions extends BaseCopilotRuntimeOptions {
@@ -195,6 +202,14 @@ export interface CopilotIntelligenceRuntimeOptions extends BaseCopilotRuntimeOpt
   lockKeyPrefix?: string;
   /** Interval in seconds at which the runtime renews the thread lock. Clamped to a maximum of 3000 (50 minutes). @default 15 */
   lockHeartbeatIntervalSeconds?: number;
+  /**
+   * Managed bots (Intelligence-delivered) declared by this runtime. Each is a
+   * `createBot({ name })` instance. Only available on the Intelligence runtime
+   * path. Names are validated (required, identifier-style, unique) and wired to
+   * delivery/egress transports when activated via `startManagedBots` from
+   * `@copilotkit/channels` — not at construction.
+   */
+  bots?: Bot[];
 }
 
 export type CopilotRuntimeOptions =
@@ -240,6 +255,7 @@ export interface CopilotIntelligenceRuntimeLike extends CopilotRuntimeLike {
   lockTtlSeconds: number;
   lockKeyPrefix?: string;
   lockHeartbeatIntervalSeconds: number;
+  bots: Bot[];
   mode: typeof RUNTIME_MODE_INTELLIGENCE;
 }
 
@@ -334,6 +350,17 @@ export class CopilotSseRuntime
   readonly mode = RUNTIME_MODE_SSE;
 
   constructor(options: CopilotSseRuntimeOptions) {
+    // Runtime guard mirroring the discriminated-union type: the SSE runtime has
+    // no Intelligence delivery path, so `bots` cannot be honored here. The type
+    // forbids it, but a JS / `as any` caller passing `{ agents, bots }` would
+    // otherwise land here and have `bots` silently dropped — fail loud instead.
+    const bots = (options as { bots?: unknown[] }).bots;
+    if (Array.isArray(bots) && bots.length > 0) {
+      throw new Error(
+        "`bots` requires the Intelligence runtime (pass `intelligence`); " +
+          "managed bots are not available in SSE mode.",
+      );
+    }
     super(options, options.runner ?? new InMemoryAgentRunner());
   }
 }
@@ -348,6 +375,7 @@ export class CopilotIntelligenceRuntime
   readonly lockTtlSeconds: number;
   readonly lockKeyPrefix?: string;
   readonly lockHeartbeatIntervalSeconds: number;
+  readonly bots: Bot[];
   readonly mode = RUNTIME_MODE_INTELLIGENCE;
 
   /** Maximum allowed lock TTL in seconds (1 hour). */
@@ -381,6 +409,20 @@ export class CopilotIntelligenceRuntime
       options.lockHeartbeatIntervalSeconds ?? 15,
       CopilotIntelligenceRuntime.MAX_HEARTBEAT_INTERVAL_SECONDS,
     );
+    // Declared managed bots. Full name validation (identifier shape +
+    // uniqueness) lives in `startManagedBots` (`assertValidBotNames`) at
+    // activation — it can't run here because it's a value import from the
+    // pure-ESM `@copilotkit/channels-intelligence`, which this CJS package must not
+    // pull in. Fail fast on the most common misconfiguration (a missing name)
+    // right here at construction, though, rather than only at activation.
+    this.bots = options.bots ?? [];
+    for (const b of this.bots) {
+      if (!b.name) {
+        throw new Error(
+          "managed bot is missing a `name` — pass createBot({ name }) for each bot in `bots`",
+        );
+      }
+    }
   }
 }
 
@@ -488,6 +530,12 @@ export class CopilotRuntime implements CopilotRuntimeLike {
   get lockHeartbeatIntervalSeconds(): number | undefined {
     return isIntelligenceRuntime(this.delegate)
       ? this.delegate.lockHeartbeatIntervalSeconds
+      : undefined;
+  }
+
+  get bots(): Bot[] | undefined {
+    return isIntelligenceRuntime(this.delegate)
+      ? this.delegate.bots
       : undefined;
   }
 

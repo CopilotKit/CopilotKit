@@ -67,10 +67,10 @@ const SDK_CHOICES: { name: string; description: string; href: string }[] = [
     href: referenceVersionHref("core"),
   },
   {
-    name: "Bots",
+    name: "Channels",
     description:
       "The bot stack — createBot, JSX message components, and the Slack adapter.",
-    href: referenceVersionHref("bot"),
+    href: referenceVersionHref("channels"),
   },
 ];
 

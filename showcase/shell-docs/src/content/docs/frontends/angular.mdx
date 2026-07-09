@@ -77,7 +77,7 @@ The runtime runs on your server, keeps model credentials out of the browser, and
           },
         });
 
-        const port = Number(process.env.PORT ?? 8200);
+        const port = Number(process.env['PORT'] ?? 8200);
 
         createServer(
           createCopilotNodeListener({

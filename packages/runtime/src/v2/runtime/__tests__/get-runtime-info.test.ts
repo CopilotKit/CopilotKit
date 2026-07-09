@@ -80,6 +80,7 @@ describe("handleGetRuntimeInfo", () => {
     generateThreadNames: true,
     lockTtlSeconds: 20,
     lockHeartbeatIntervalSeconds: 15,
+    bots: [],
     ...overrides,
   });
 

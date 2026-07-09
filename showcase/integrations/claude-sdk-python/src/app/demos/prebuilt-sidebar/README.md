@@ -20,7 +20,7 @@ The agent replies with streaming tokens — it's the default neutral assistant, 
 
 ## Technical Details
 
-- `CopilotKit` wires the page to the runtime with `runtimeUrl="/api/copilotkit"` and `agent="prebuilt-sidebar"`, which resolves to the default `graph` in `src/agents/main.py` (a plain `create_agent` with no tools)
+- `CopilotKit` wires the page to the runtime with `runtimeUrl="/api/copilotkit"` and `agent="prebuilt-sidebar"`, which resolves to the shared Claude Agent SDK backend
 - `CopilotSidebar` is rendered as a sibling of the main content, with `agentId="prebuilt-sidebar"` and `defaultOpen={true}`
 - `useConfigureSuggestions` registers a single "Say hi" chip to demonstrate starter prompts
 - This is the minimal wiring needed to add an agentic sidebar to an existing page — no custom chat component, no slot overrides

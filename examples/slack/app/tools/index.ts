@@ -19,7 +19,7 @@ import {
   showLinksTool,
 } from "./showcase-tools.js";
 import { confirmWriteTool } from "../human-in-the-loop/index.js";
-import type { BotTool } from "@copilotkit/bot";
+import type { BotTool } from "@copilotkit/channels";
 
 /**
  * Every tool is a plain `BotTool`: its handler receives the generic
