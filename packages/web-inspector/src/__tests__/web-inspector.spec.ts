@@ -1844,10 +1844,9 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
       'a[href="https://docs.copilotkit.ai/threads"]',
     );
     expect(threadsDocs?.textContent?.trim()).toBe("Learn how Threads work");
-    const selfHosted =
-      inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
-        'a[href="https://docs.copilotkit.ai/premium/self-hosting"]',
-      );
+    const selfHosted = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
+      'a[href="https://docs.copilotkit.ai/premium/self-hosting"]',
+    );
     expect(selfHosted?.textContent?.trim()).toBe(
       "Explore self-hosted Intelligence",
     );
@@ -1927,9 +1926,9 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     await inspector.updateComplete;
     await vi.waitFor(() => {
       expect(internals.selectedThreadId).toBe("example-realtime-sync");
-      expect(inspector.shadowRoot?.querySelector("cpk-thread-details")).not.toBe(
-        null,
-      );
+      expect(
+        inspector.shadowRoot?.querySelector("cpk-thread-details"),
+      ).not.toBe(null);
       expect(inspector.shadowRoot?.textContent ?? "").toContain(
         "Read the run as a story",
       );
@@ -1940,7 +1939,9 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
 
     await vi.waitFor(() => {
       expect(internals.selectedThreadId).toBeNull();
-      expect(inspector.shadowRoot?.querySelector("cpk-thread-details")).toBeNull();
+      expect(
+        inspector.shadowRoot?.querySelector("cpk-thread-details"),
+      ).toBeNull();
       expect(inspector.shadowRoot?.textContent ?? "").toContain(
         "Threads are persistent, inspectable conversations",
       );
@@ -1999,13 +2000,14 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     skip!.click();
     await inspector.updateComplete;
 
-    expect(
-      stored.get("cpk:inspector:threads-example-tour:v1"),
-    ).toContain('"dismissed":true');
+    expect(stored.get("cpk:inspector:threads-example-tour:v1")).toContain(
+      '"dismissed":true',
+    );
 
     const secondInspector = new WebInspectorElement();
     document.body.appendChild(secondInspector);
-    secondInspector.core = harness.core as unknown as WebInspectorElement["core"];
+    secondInspector.core =
+      harness.core as unknown as WebInspectorElement["core"];
     harness.emitAgentsChanged();
     const secondInternals = secondInspector as unknown as {
       isOpen: boolean;
@@ -2016,9 +2018,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     await secondInspector.updateComplete;
 
     await vi.waitFor(() => {
-      expect(threadListText(secondInspector)).toContain(
-        "Realtime thread sync",
-      );
+      expect(threadListText(secondInspector)).toContain("Realtime thread sync");
     });
 
     const secondRow = secondInspector.shadowRoot
@@ -2028,13 +2028,16 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     await secondInspector.updateComplete;
 
     await vi.waitFor(() => {
-      expect(secondInspector.shadowRoot?.querySelector("cpk-thread-details")).not
-        .toBeNull();
+      expect(
+        secondInspector.shadowRoot?.querySelector("cpk-thread-details"),
+      ).not.toBeNull();
     });
     expect(secondInspector.shadowRoot?.textContent ?? "").not.toContain(
       "Read the run as a story",
     );
-    expect(secondInspector.shadowRoot?.textContent ?? "").toContain("Show tour");
+    expect(secondInspector.shadowRoot?.textContent ?? "").toContain(
+      "Show tour",
+    );
 
     const showTour = Array.from(
       secondInspector.shadowRoot?.querySelectorAll<HTMLButtonElement>(

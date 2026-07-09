@@ -946,9 +946,9 @@ class CpkThreadList extends LitElement {
                   <span class="cpk-tl__pill">${thread.agentId}</span>
                   ${
                     (thread as Partial<ExampleThread>).isExample
-                      ? html`<span class="cpk-tl__pill cpk-tl__pill--example"
-                          >Example</span
-                        >`
+                      ? html`
+                          <span class="cpk-tl__pill cpk-tl__pill--example">Example</span>
+                        `
                       : nothing
                   }
                 </div>
@@ -8144,7 +8144,10 @@ ${argsString}</pre
   }
 
   private renderThreadsExampleTour() {
-    if (!this.selectedThreadId || !this.isExampleThreadId(this.selectedThreadId)) {
+    if (
+      !this.selectedThreadId ||
+      !this.isExampleThreadId(this.selectedThreadId)
+    ) {
       return nothing;
     }
 
@@ -8178,7 +8181,8 @@ ${argsString}</pre
       THREADS_EXAMPLE_TOUR_STEPS[this.exampleTourStep] ??
       THREADS_EXAMPLE_TOUR_STEPS[0]!;
     const isFirst = this.exampleTourStep === 0;
-    const isLast = this.exampleTourStep === THREADS_EXAMPLE_TOUR_STEPS.length - 1;
+    const isLast =
+      this.exampleTourStep === THREADS_EXAMPLE_TOUR_STEPS.length - 1;
 
     return html`
       <div
@@ -8987,7 +8991,7 @@ ${argsString}</pre
                   ${selectedThreadIsExample ? this.renderThreadsExampleTour() : nothing}`
                 : showingExamples
                   ? this.renderThreadsExampleOverview()
-                : html`
+                  : html`
                     <div
                       style="
                         flex: 1;
