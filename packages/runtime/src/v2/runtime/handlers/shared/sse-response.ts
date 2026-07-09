@@ -279,6 +279,7 @@ export function createSseEventResponse({
 
   request.signal.addEventListener("abort", () => {
     subscription?.unsubscribe();
+    closeStream();
   });
 
   const body =
