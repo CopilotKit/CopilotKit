@@ -35,9 +35,12 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.0",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^22.0.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
+    "jsdom": "^24.1.3",
     "oxlint": "^1.51.0",
     "postcss": "^8.5.0",
     "tailwindcss": "^4.0.0",

@@ -69,7 +69,7 @@ export function MobileTopNav() {
             <CopilotKitMark className="h-5 w-5" />
           </Link>
           <div className="shell-docs-mobile-search">
-            <SearchTrigger iconOnly />
+            <SearchTrigger variant="icon" />
           </div>
           <ThemeSwitch />
           <SidebarTrigger

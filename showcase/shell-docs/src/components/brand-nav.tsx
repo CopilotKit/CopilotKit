@@ -124,7 +124,7 @@ export function BrandNav(_props: BrandNavProps = {}) {
         </ul>
 
         <div className="flex min-w-0 items-center gap-2 justify-self-end pl-2">
-          <SearchTrigger iconOnly />
+          <SearchTrigger variant="icon" />
           <Link
             href={INTELLIGENCE_CTA_HREF}
             target="_blank"

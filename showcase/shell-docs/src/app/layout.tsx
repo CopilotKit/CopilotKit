@@ -174,7 +174,9 @@ export default function RootLayout({
         <PostHogProvider>
           <FrameworkProvider knownFrameworks={knownFrameworks}>
             {/* RootProvider supplies Fumadocs's theme provider (next-themes).
-             * Search is handled exclusively by shell-docs's SearchTrigger. */}
+             * Its default search provider stays disabled because the nested
+             * ShellSearchProvider installs Fumadocs's SearchProvider with our
+             * guarded hotkey and custom local-index dialog. */}
             <RootProvider
               theme={{ enabled: true, defaultTheme: "system" }}
               search={{ enabled: false }}
