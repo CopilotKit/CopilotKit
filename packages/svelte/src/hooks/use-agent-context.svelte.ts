@@ -16,7 +16,7 @@ export interface AgentContextInput {
 }
 
 export function useAgentContext(context: AgentContextInput): void {
-  const ctx = getContext<CopilotKitContextValue>(COPILOT_KIT_KEY);
+  const ctx = getContext<CopilotKitContextValue | null>(COPILOT_KIT_KEY);
   if (!ctx) {
     throw new Error("useAgentContext must be used within CopilotKitProvider");
   }
@@ -27,7 +27,7 @@ export function useAgentContext(context: AgentContextInput): void {
     const core = ctx.copilotkit;
     const description = context.description;
     const raw = context.value;
-    const stringValue = typeof raw === "string" ? raw : JSON.stringify(raw);
+    const stringValue = raw === undefined ? "" : typeof raw === "string" ? raw : JSON.stringify(raw);
 
     const id = core.addContext({
       description,

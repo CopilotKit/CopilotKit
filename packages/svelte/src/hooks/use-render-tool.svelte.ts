@@ -43,7 +43,7 @@ export function useRenderTool(config: {
   render: (props: RenderToolProps<StandardSchemaV1<any, any>>) => any;
   agentId?: string;
 }): void {
-  const context = getContext<CopilotKitContextValue>(COPILOT_KIT_KEY);
+  const context = getContext<CopilotKitContextValue | null>(COPILOT_KIT_KEY);
   if (!context) {
     throw new Error("useRenderTool must be used within CopilotKitProvider");
   }
