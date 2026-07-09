@@ -4,43 +4,132 @@ icon: "lucide/Bolt"
 description: "Using agent execution parameters when communicating with an agent."
 ---
 ## What is this?
-LangGraph agents are able to take execution parameters, such as auth tokens and similar properties.
-You can add these using this feature.
+LangGraph agents can receive runtime configuration from your frontend, such as user preferences, session metadata, or authentication tokens. With LangGraph 0.6.0+, the recommended approach is using **`useAgentContext`** from CopilotKit's v2 API.
 
 If you wish to read further, you can refer to [the configuration guide by LangGraph](https://docs.langchain.com/oss/python/langgraph/use-graph-api#add-runtime-configuration)
 
+<Callout type="warning" title="LangGraph 0.6.0+ Compatibility">
+  LangGraph 0.6.0 introduced runtime `context` as the preferred mechanism for passing configuration, replacing the older `configurable` pattern. If you're using LangGraph 0.6.0+, use the **`useAgentContext`** approach shown below. The legacy `forwardedProps.config.configurable` pattern is no longer compatible with modern LangGraph versions.
+</Callout>
+
 ## When should I use this?
 
-This is useful when you want to send execution-time configuration information (such as different tokens or metadata for a given session) that should not be part of the agent state.
+This is useful when you want to send execution-time configuration information (such as user preferences, tokens, or metadata for a given session) that should not be part of the agent state but should influence how the agent behaves.
 
 <Callout type="info" title="Looking for authentication?">
   If you need to pass authentication tokens specifically, see the dedicated [Authentication guide](/langgraph/auth) which covers LangGraph Platform and self-hosted authentication patterns in detail.
 </Callout>
 
-## Implementation
+## Implementation (v2 - Recommended)
 
-By default, LangGraph agents are invoked with a `config` argument. This config has a `configurable` property which can be accessed and filled with your data.
+The recommended approach uses **`useAgentContext`** from `@copilotkit/react-core/v2`. This pattern works seamlessly with LangGraph 0.6.0+ and the `CopilotKitMiddleware`.
 
 <Steps>
 <Step>
-### Pass configuration from the frontend
-First, pass the configuration properties as you would like to receive them in the agent.
+### Publish context from the frontend
 
-Do not call `runAgent` directly in the component body: it would run on every render and can trigger errors such as **thread is already processing**. Use a `useEffect` with an empty dependency array (or call `runAgent` from an event handler) when you want to start the run once with a given config.
+Use the `useAgentContext` hook to publish configuration values that your agent can access:
 
 ```tsx title="app/page.tsx"
-import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
-import { useEffect } from "react";
-function YourMainContent() {
-  // ...
+import { useAgentContext } from "@copilotkit/react-core/v2"; // [!code highlight]
 
-  // [!code highlight:3]
+function YourMainContent() {
+  // Publish configuration context that the agent can access
+  // [!code highlight:8]
+  useAgentContext({
+    description: "User preferences and session configuration",
+    value: {
+      authToken: 'example-token',
+      userPreference: 'detailed',
+      sessionId: 'abc123'
+    },
+  });
+
+  return (... your component UI)
+}
+```
+
+<Callout type="tip" title="Dynamic configuration">
+  The context value updates automatically when your state changes. For example, if `authToken` comes from a React state variable, the agent receives the updated value on subsequent runs.
+</Callout>
+</Step>
+<Step>
+### Set up the middleware in your agent
+
+Add `CopilotKitMiddleware` to your LangGraph agent. The middleware automatically injects the context into your agent's execution:
+
+```python title="agent.py"
+from langgraph.prebuilt import create_agent
+from langchain_openai import ChatOpenAI
+from copilotkit import CopilotKitMiddleware  # [!code highlight]
+
+graph = create_agent(
+    model=ChatOpenAI(model="gpt-4"),
+    tools=[],
+    middleware=[CopilotKitMiddleware()],  # [!code highlight]
+)
+```
+</Step>
+<Step>
+### Access context in your agent nodes
+
+The context is available through the standard LangGraph `config` parameter. The middleware makes it accessible via `config["context"]` (LangGraph 0.6.0+) with automatic fallback to `config["configurable"]` for older versions:
+
+```python title="agent_node.py"
+from langchain_core.runnables import RunnableConfig
+from typing import Any
+
+async def agent_node(state: AgentState, config: RunnableConfig) -> AgentState:
+    # Access the context published from useAgentContext
+    context = config.get("context", {}) or config.get("configurable", {})
+    
+    auth_token = context.get("authToken")
+    user_preference = context.get("userPreference")
+    session_id = context.get("sessionId")
+    
+    # Use the context values in your agent logic
+    if auth_token:
+        # Make authenticated requests
+        user_data = fetch_user_data(auth_token)
+    
+    return state
+```
+
+<Callout type="info" title="Compatibility">
+  The `CopilotKitMiddleware` handles both LangGraph 0.6.0+ (`context`) and older versions (`configurable`) automatically, so your agent code works across versions.
+</Callout>
+</Step>
+</Steps>
+
+## Complete working example
+
+For a full working demonstration, see the [Agent Config demo](https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/langgraph-python/src/app/demos/agent-config) in the CopilotKit showcase. It demonstrates:
+
+- Dynamic configuration updates from frontend UI controls
+- Context publishing with `useAgentContext`
+- Agent behavior adaptation based on runtime configuration
+- Proper middleware setup
+
+## Legacy Pattern (LangGraph <0.6.0)
+
+<details>
+<summary>Click to expand legacy pattern for LangGraph versions before 0.6.0</summary>
+
+<Callout type="warning" title="Deprecated for LangGraph 0.6.0+">
+  This pattern is **not compatible** with LangGraph 0.6.0 and later. LangGraph 0.6.0 introduced runtime `context` and explicitly rejects requests with both `configurable` and `context` set. Use the v2 `useAgentContext` pattern above instead.
+</Callout>
+
+### Legacy: Pass via forwardedProps.config
+
+```tsx title="app/page.tsx (legacy)"
+import { useAgent } from "@copilotkit/react-core/v2";
+import { useEffect } from "react";
+
+function YourMainContent() {
   const { agent } = useAgent({
     agentId: "sample_agent",
   });
 
-  // Pass configuration when running the agent
-  // [!code highlight:8]
   useEffect(() => {
     agent.runAgent({
       forwardedProps: {
@@ -54,76 +143,21 @@ function YourMainContent() {
     });
   }, []);
 
-  // ...
-
-  return (... your component UI markdown)
+  return (...);
 }
 ```
-</Step>
-<Step>
-### Use configurables in agent
-Now you can simply pull the values from the provided config argument in any agent node
 
-<Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
-    <Tab value="Python">
-        ```python
-        from langchain_core.runnables import RunnableConfig
+### Legacy: Access in agent node
 
-        async def agent_node(state: AgentState, config: RunnableConfig):
+```python title="agent_node.py (legacy)"
+async def agent_node(state: AgentState, config: RunnableConfig):
+    auth_token = config['configurable'].get('authToken', None)
+    return state
+```
 
-            auth_token = config['configurable'].get('authToken', None)
+**Known issues with this pattern:**
+- Does not work with LangGraph 0.6.0+ (HTTP 400 error: "Cannot specify both configurable and context")
+- Configuration may become `None` on subsequent agent runs in the same session
+- Not compatible with `@ag-ui/langgraph` 0.0.31+
 
-            return state
-        ```
-    </Tab>
-    <Tab value="TypeScript">
-        ```typescript
-        async function agentNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
-            const authToken = config.configurable?.authToken ?? null;
-
-            return state;
-        }
-        ```
-    </Tab>
-</Tabs>
-</Step>
-<Step>
-    ### Optional: Define configurables schema
-    If you'd like, you can define a schema to indicate which configurables you wish to receive.
-    Any item passed to "configurables" which is not included in the schema, will be filtered out.
-
-    You can read more about this [here](https://docs.langchain.com/oss/python/langgraph/use-graph-api#add-runtime-configuration).
-    <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
-        <Tab value="Python">
-            ```python
-            from typing import TypedDict
-
-            # define which properties will be allowed in the configuration
-            class ConfigSchema(TypedDict):
-              authToken: str
-
-            # ...add all necessary graph nodes
-
-            # when defining the state graph, apply the config schema
-            workflow = StateGraph(AgentState, config_schema=ConfigSchema)
-            ```
-        </Tab>
-        <Tab value="TypeScript">
-            ```typescript
-            import { StateSchema } from "@langchain/langgraph";
-            import { z } from "zod";
-
-            // define which properties will be allowed in the configuration
-            export const ConfigSchema = new StateSchema({
-              authToken: z.string()
-            })
-
-            // ...add all necessary graph nodes
-
-            // when defining the state graph, apply the config schema
-            const workflow = new StateGraph(AgentStateSchema, ConfigSchema)
-            ```
-        </Tab>
-    </Tabs>
-</Step>
-</Steps>
+</details>
