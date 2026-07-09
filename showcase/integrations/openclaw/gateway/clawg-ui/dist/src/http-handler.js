@@ -1,7 +1,7 @@
-import { randomUUID, createHmac, timingSafeEqual } from "node:crypto";
+import { randomUUID, createHmac, createHash, timingSafeEqual, } from "node:crypto";
 import { EventType } from "@ag-ui/core";
 import { EventEncoder } from "@ag-ui/encoder";
-import { setWriter, clearWriter, wasClientToolCalled, clearClientToolCalled, clearClientToolNames, } from "./tool-store.js";
+import { setWriter, clearWriter, markClientToolNames, wasClientToolCalled, clearClientToolCalled, clearClientToolNames, } from "./tool-store.js";
 import { aguiChannelPlugin } from "./channel.js";
 import { resolveGatewaySecret } from "./gateway-secret.js";
 // ---------------------------------------------------------------------------
@@ -647,13 +647,35 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
         });
         return;
     }
+    // Validate the parsed shape before touching any field. `JSON.parse` accepts
+    // `null`, numbers, arrays, etc.; reject anything that isn't a plain object
+    // so a malformed payload returns 400 rather than throwing later (past the
+    // point where response headers are already flushed) and hanging the stream.
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+        sendJson(res, 400, {
+            error: {
+                message: "Request body must be a JSON object.",
+                type: "invalid_request_error",
+            },
+        });
+        return;
+    }
     const input = body;
-    const threadId = input.threadId || `clawg-ui-${randomUUID()}`;
-    const runId = input.runId || `clawg-ui-run-${randomUUID()}`;
-    // Validate messages
-    const messages = Array.isArray(input.messages)
-        ? input.messages
-        : [];
+    // threadId/runId are client-controlled. Only accept a non-empty, reasonably
+    // bounded string; otherwise generate one. (A non-string threadId would throw
+    // on `.toLowerCase()` when composing the session key, after headers are
+    // flushed — an unrecoverable hung request.)
+    const threadId = typeof input.threadId === "string" &&
+        input.threadId.trim() &&
+        input.threadId.length <= 256
+        ? input.threadId
+        : `clawg-ui-${randomUUID()}`;
+    const runId = typeof input.runId === "string" && input.runId.trim()
+        ? input.runId
+        : `clawg-ui-run-${randomUUID()}`;
+    // Validate messages — keep only well-formed entries. A `[null]` element or
+    // one without a string `role` would otherwise throw in the checks below.
+    const messages = (Array.isArray(input.messages) ? input.messages : []).filter((m) => !!m && typeof m === "object" && typeof m.role === "string");
     const hasUserMessage = messages.some((m) => m.role === "user");
     const hasToolMessage = messages.some((m) => m.role === "tool");
     if (!hasUserMessage && !hasToolMessage) {
@@ -687,8 +709,6 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
     const { specs: stateWriterSpecs, schemas: stateWriterSchemas } = parseStateWriterTools(input.forwardedProps);
     const stateWriterNames = [...stateWriterSpecs.keys()];
     const sharedStateSuffix = formatSharedState(input.state, stateWriterNames);
-    const hasSharedState = sharedStateSuffix !== undefined;
-    const hasStateWriters = stateWriterSpecs.size > 0;
     // Run-scoped shared-state store, seeded from inbound state so snapshots
     // carry UI-set keys (e.g. preferences) alongside agent-written keys.
     const runSharedState = isSharedState(input.state)
@@ -824,27 +844,28 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
         sessionKey += `:user:${userKey}`;
     if (threadId)
         sessionKey += `:thread:${threadId.toLowerCase()}`;
-    // STABLE per-conversation session id. OpenClaw names the transcript file
-    // `<sessionId>-topic-<topic>.jsonl`, where `topic` is already derived from
-    // the (stable) sessionKey — so a stable sessionId keeps every turn of a
-    // conversation in ONE transcript, giving continuity/compaction/context-
-    // engine behavior for free. (The previous ephemeral `clawg-ui-tools-<uuid>`
-    // spun up a throwaway transcript per request, forcing full history into the
-    // prompt.) Sanitize to a filename-safe slug.
-    const embeddedSessionId = `clawg-ui-${sessionKey.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
-    const hasClientTools = (Array.isArray(input.tools) && input.tools.length > 0) ||
-        hasSharedState ||
-        hasStateWriters ||
-        hasImages;
-    // Register the SSE writer so the plugin's before/after_tool_call hooks can
-    // render SERVER-side tool calls as AG-UI events. Client/frontend-tool runs
-    // are driven directly via runEmbeddedAgent below and emit their own
-    // TOOL_CALL_* events from the run's pendingToolCalls — registering the
-    // writer for those would make the hooks emit a second, duplicate tool-call
-    // sequence for the same call, so we skip it here.
-    if (!hasClientTools) {
-        setWriter(sessionKey, writeEvent, currentMessageId);
-    }
+    // STABLE per-conversation session id. OpenClaw derives the transcript file
+    // from this id, so it IS the isolation boundary between conversations — a
+    // stable id keeps every turn of one conversation in ONE transcript (giving
+    // continuity/compaction for free), and DISTINCT sessionKeys must map to
+    // DISTINCT ids. Hash the raw sessionKey rather than character-replacing it:
+    // a lossy `[^a-zA-Z0-9_-] -> -` collapse let different keys (e.g. emails
+    // "a.b@x" vs "a-b@x", or "chat.1" vs "chat-1") collide into one transcript
+    // and cross-contaminate history. A sha256 hex digest is collision-free and
+    // fixed-length (73 chars incl. prefix — safely under OpenClaw's 128-char
+    // session-id limit regardless of how long sessionKey grows).
+    const embeddedSessionId = `clawg-ui-${createHash("sha256")
+        .update(sessionKey)
+        .digest("hex")}`;
+    // Register the SSE writer ALWAYS so the before_tool_call / tool_result_persist
+    // hooks can render SERVER-side (backend) tool calls as AG-UI events — even on
+    // turns that ALSO carry frontend/client tools, shared state, or images (a
+    // typical CopilotKit page declares frontend tools on every turn, so gating
+    // the writer on `!hasClientTools` meant any backend tool the model ran on
+    // those turns rendered no card). To avoid a duplicate tool-call sequence,
+    // the client/state-writer tool NAMES are marked below and the hooks skip
+    // them — those are emitted by this handler's pendingToolCalls path instead.
+    setWriter(sessionKey, writeEvent, currentMessageId);
     const abortController = new AbortController();
     req.on("close", () => {
         abortController.abort();
@@ -1031,6 +1052,11 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
                 },
             });
         }
+        // Mark the client + state-writer tool names so the before_tool_call /
+        // tool_result_persist hooks SKIP them (this handler emits them via the
+        // pendingToolCalls path). Backend tools are not marked, so they render
+        // through the hooks even on turns that also carry client tools.
+        markClientToolNames(sessionKey, clientTools.map((t) => t.function.name));
         const promptSuffix = [contextSuffix, sharedStateSuffix]
             .filter(Boolean)
             .join("");
@@ -1042,6 +1068,11 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
         // our injected tool in-loop the way Hermes does. Bounded by MAX_TURNS;
         // real (browser) frontend tools end the run immediately.
         let continuation = "";
+        // How much of `continuation` has already been submitted, so narration
+        // re-runs send only the NEWLY-appended result — not the whole suffix +
+        // accumulated continuation again (which the persistent session would
+        // otherwise re-record on every turn, polluting the transcript).
+        let continuationSentLen = 0;
         const MAX_TURNS = 6;
         const closeRun = () => {
             closeReasoningIfOpen();
@@ -1056,6 +1087,16 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
             closed = true;
             res.end();
         };
+        // Nothing new to send: a re-sync/regenerate POST can carry history whose
+        // tail is an assistant turn (delta empty) with no context/state/images.
+        // The persistent session already holds everything, so submitting an empty
+        // prompt would trigger a spurious duplicate run — finish the run cleanly
+        // instead. (The earlier 400 guard checks the FULL history via
+        // buildBodyFromMessages, which is non-empty here, so it doesn't catch it.)
+        if (!deltaPrompt.trim() && !promptSuffix.trim() && !hasImages) {
+            closeRun();
+            return;
+        }
         for (let turn = 0; turn < MAX_TURNS; turn++) {
             // Fresh text/reasoning message lifecycle for this turn so a narration
             // turn streams as its own assistant message.
@@ -1063,11 +1104,15 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
             currentMessageId = `msg-${randomUUID()}`;
             streamedText = false;
             streamedTextLen = 0;
-            // Persistent session: prior turns live in the transcript, so we submit
-            // only the DELTA (new messages after the last assistant) — and only on
-            // the first iteration. Later iterations are state-writer narration
-            // re-runs whose new content is carried entirely by `continuation`.
-            const prompt = (turn === 0 ? deltaPrompt : "") + promptSuffix + continuation;
+            // Persistent session: prior turns live in the transcript. Turn 0 sends
+            // the DELTA (new messages after the last assistant) + context/state
+            // suffix. Later turns are state-writer narration re-runs that send ONLY
+            // the newly-appended continuation (the suffix and earlier continuation
+            // are already in the session).
+            const prompt = turn === 0
+                ? deltaPrompt + promptSuffix + continuation
+                : continuation.slice(continuationSentLen);
+            continuationSentLen = continuation.length;
             const result = await runtime.agent.runEmbeddedAgent({
                 sessionId: embeddedSessionId,
                 sessionKey,
@@ -1091,8 +1136,16 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
                 chatType: "direct",
                 trigger: "user",
                 onPartialReply: handlePartialReply,
+                // Enable reasoning-summary STREAMING. runEmbeddedAgent defaults
+                // reasoningLevel to "off" and does NOT inherit the agent's
+                // `reasoningDefault: stream` config, so without this the provider
+                // parses the model's reasoning summary but never streams it to
+                // onReasoningStream — no REASONING_MESSAGE_* events reach the client.
+                // The old channel reply pipeline set this via `streamReasoning: true`;
+                // routing through runEmbeddedAgent dropped it (reasoning regression).
                 ...(surfaceReasoning
                     ? {
+                        reasoningLevel: "stream",
                         onReasoningStream: handleReasoningStream,
                         onReasoningEnd: handleReasoningEnd,
                     }

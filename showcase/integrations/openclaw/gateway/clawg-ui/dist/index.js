@@ -4,7 +4,7 @@ import { EventType } from "@ag-ui/core";
 import { aguiChannelPlugin } from "./src/channel.js";
 import { createAguiHttpHandler, createOperatorAguiHttpHandler, } from "./src/http-handler.js";
 import { clawgUiToolFactory } from "./src/client-tools.js";
-import { getWriter, getMessageId, pushToolCallId, popToolCallId, isClientTool, setClientToolCalled, } from "./src/tool-store.js";
+import { getWriter, getMessageId, pushToolCallId, popToolCallId, isClientTool, } from "./src/tool-store.js";
 import { extractToolResultText, tryParseA2UIOperations, groupBySurface, A2UI_OPERATIONS_KEY, } from "./src/a2ui.js";
 /**
  * Handles the `before_tool_call` OpenClaw hook.
@@ -22,6 +22,19 @@ export function handleBeforeToolCall(event, ctx) {
         console.log(`[clawg-ui] before_tool_call: skipping, no writer for sessionKey=${sk}`);
         return;
     }
+    // Marked client/frontend + state-writer tools are emitted by the HTTP
+    // handler's pendingToolCalls path (client tools) or intercepted into
+    // STATE_SNAPSHOTs (state writers). The writer is now registered on EVERY turn
+    // so BACKEND (server-side) tools render even when the turn also carries client
+    // tools — so skip the marked names here to avoid a duplicate TOOL_CALL_*
+    // sequence for the same call.
+    if (isClientTool(sk, event.toolName)) {
+        console.log(`[clawg-ui] before_tool_call: ${event.toolName} is a client/state-writer tool — skipping hook emission (handled by pendingToolCalls path)`);
+        return;
+    }
+    // Server (backend) tool: emit START + ARGS and push the id so
+    // tool_result_persist can emit TOOL_CALL_RESULT + TOOL_CALL_END after
+    // execute() completes.
     const toolCallId = `tool-${randomUUID()}`;
     console.log(`[clawg-ui] before_tool_call: emitting TOOL_CALL_START, toolCallId=${toolCallId}`);
     writer({
@@ -37,22 +50,7 @@ export function handleBeforeToolCall(event, ctx) {
             delta: JSON.stringify(event.params),
         });
     }
-    if (isClientTool(sk, event.toolName)) {
-        // Client tool: emit TOOL_CALL_END now. The run will finish and the
-        // client initiates a new run with the tool result.
-        console.log(`[clawg-ui] before_tool_call: client tool detected, emitting TOOL_CALL_END immediately`);
-        writer({
-            type: EventType.TOOL_CALL_END,
-            toolCallId,
-        });
-        setClientToolCalled(sk);
-    }
-    else {
-        // Server tool: push ID so tool_result_persist can emit
-        // TOOL_CALL_RESULT + TOOL_CALL_END after execute() completes.
-        console.log(`[clawg-ui] before_tool_call: server tool, pushing toolCallId to stack`);
-        pushToolCallId(sk, toolCallId);
-    }
+    pushToolCallId(sk, toolCallId);
 }
 /**
  * Handles the `tool_result_persist` OpenClaw hook.
