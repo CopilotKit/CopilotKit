@@ -133,8 +133,8 @@ type E2eSmokeDriverInput = z.infer<typeof inputSchema>;
  * against `/demos/*`. `l3` is `green` or `red`; `l4` can also be
  * `skipped` when the registry entry has no `tool-rendering` demo. A
  * red row may carry an `errorDesc` keyed to the failure class
- * (`launcher-error`, `timeout`, `driver-error`, or absent when the
- * failure lives in `failureSummary`).
+ * (`launcher-error`, `timeout`, `driver-error`, `abort`, or absent when
+ * the failure lives in `failureSummary`).
  */
 export type E2eSmokeSignal = E2eSmokePackageSignal;
 
@@ -535,6 +535,75 @@ const NON_COMPLETION_RETRY_LIMIT = 1;
  * budget left to observe its result.
  */
 const RETRY_MIN_BUDGET_MS = 750;
+
+/**
+ * Minimum wall-clock budget (ms) required to issue the `press` that FOLLOWS
+ * `type` within a single send. This is the in-send analogue of
+ * `RETRY_MIN_BUDGET_MS` (which gates whole resends BETWEEN attempts): item-1's
+ * first-send cap. A near-hang `type` drains the envelope, so the following
+ * `press`'s `Math.max(1, hardCeiling - now)` floors to ~1ms — a doomed action
+ * Playwright rejects, which the outer catch then mis-classifies as a generic
+ * `level-error`. Below this floor `sendTurn` throws a distinctly-classified
+ * `SendBudgetExhaustedError` instead of issuing the doomed `press`.
+ *
+ * Deliberately MUCH smaller than `RETRY_MIN_BUDGET_MS`: this gates a single
+ * already-in-progress action (only the ~1ms-floor danger zone matters), NOT
+ * whether a fresh resend is worth attempting — so a legitimately-small envelope
+ * (`pageTimeoutMs` well under `RETRY_MIN_BUDGET_MS`) still issues a healthy
+ * first `press`. Set to a handful of poll intervals so a press with real
+ * remaining budget is never refused, while a hang-drained (~0ms) press is.
+ */
+const SEND_PRESS_MIN_BUDGET_MS = 50;
+
+/**
+ * Thrown by `sendTurn` when too little wall-clock budget remains to issue a
+ * `type`/`press` action with a MEANINGFUL timeout — i.e. the remaining budget
+ * to `hardCeiling` has dropped below `RETRY_MIN_BUDGET_MS`, so
+ * `Math.max(1, hardCeiling - now)` would floor the Playwright action timeout to
+ * ~1ms. A ~1ms `type`/`press` timeout is a doomed action Playwright rejects
+ * with a page-fault-shaped "Timeout 1ms exceeded…" message; the driver's outer
+ * catch would then red-classify it as a GENERIC `level-error`,
+ * indistinguishable from a real page fault — a spurious-red flap source. The
+ * retry path guards whole resends with `RETRY_MIN_BUDGET_MS` BEFORE resending;
+ * `sendTurn` guards the in-send `press` with `SEND_PRESS_MIN_BUDGET_MS` (a
+ * near-hang `type` can drain the budget so the following `press` would floor to
+ * ~1ms). Carrying a distinct
+ * `errorDesc` (duck-typed in the outer catch, mirroring the
+ * `TurnNotCompleteError.reason` decoupling) classifies the failure as
+ * `send-budget-exhausted` — an OBSERVABLE, non-`level-error` red — rather than
+ * masquerading a self-inflicted 1ms floor as a generic page fault.
+ */
+class SendBudgetExhaustedError extends Error {
+  readonly errorDesc = "send-budget-exhausted" as const;
+  constructor(action: "type" | "press", remainingMs: number, minMs: number) {
+    super(
+      `send-turn ${action} skipped: ${remainingMs}ms budget remaining ` +
+        `(< ${minMs}ms min) would floor the action timeout to ~1ms`,
+    );
+    this.name = "SendBudgetExhaustedError";
+  }
+}
+
+/**
+ * Duck-typed extractor for a `SendBudgetExhaustedError`'s distinct `errorDesc`
+ * (`send-budget-exhausted`), returning `undefined` for any other throw. Kept
+ * structural (a `readonly errorDesc` field check) rather than an `instanceof`
+ * so the outer catch stays decoupled from the concrete class — the SAME
+ * decoupling rationale as `turnCompleteReason`'s `reason`-field duck-type.
+ */
+function sendBudgetErrorDesc(
+  err: unknown,
+): "send-budget-exhausted" | undefined {
+  if (
+    typeof err === "object" &&
+    err !== null &&
+    "errorDesc" in err &&
+    (err as { errorDesc?: unknown }).errorDesc === "send-budget-exhausted"
+  ) {
+    return "send-budget-exhausted";
+  }
+  return undefined;
+}
 
 /**
  * The slice of Playwright's `Page` the launcher adapter consumes. Declared
@@ -1619,9 +1688,22 @@ async function runLevel(opts: {
    * edge headers). `emitted` makes the two call sites idempotent.
    */
   let messageSendEmitted = false;
+  // True once a `probe.message.send` boundary has been emitted carrying REAL
+  // edge headers from an observed agent-message POST (i.e. `messageSendEdge` was
+  // defined at emit time). Item-3 double-boundary guard: the retry re-arms
+  // `messageSendEmitted` so the WINNING resend's real POST can re-capture and
+  // re-emit — but if the resend lands NO POST, the `finally`-block fallback
+  // would otherwise emit a SECOND boundary with NULL edge headers
+  // (`messageSendEdge` was cleared on retry), mis-attributing
+  // `edge_interference_signal` to a phantom null-header turn. The fallback is
+  // therefore SUPPRESSED once a real-header boundary already fired — a
+  // null-header boundary is only ever the SINGLE boundary for a level that never
+  // observed any message POST, never a second boundary after a real one.
+  let messageSendRealPostEmitted = false;
   const emitMessageSend = (): void => {
     if (messageSendEmitted) return;
     messageSendEmitted = true;
+    if (messageSendEdge !== undefined) messageSendRealPostEmitted = true;
     cvdiag?.messageSend(0, messageCharCount, messageSendEdge);
   };
   /**
@@ -1722,13 +1804,104 @@ async function runLevel(opts: {
     // budget to `hardCeiling` (never a flat `pageTimeoutMs` per call): the retry
     // resend runs LATE in the envelope, so passing `pageTimeoutMs` unbounded let
     // a stalled type/press push total level wall-clock to ~2× `pageTimeoutMs`
-    // past the hard ceiling. `Math.max(0, …)` keeps the timeout non-negative;
-    // Playwright treats 0 as "no timeout", so we floor at 1ms once the budget is
-    // spent to fail fast rather than block indefinitely.
+    // past the hard ceiling.
+    //
+    // MIN-BUDGET GUARD (item-1, first-send cap): the `press` that FOLLOWS `type`
+    // within one send is guarded against `SEND_PRESS_MIN_BUDGET_MS` BEFORE it
+    // issues.
+    // Without this, a near-hang `type` (it eats most of the envelope) leaves the
+    // following `press` with a sub-1ms `Math.max(1, hardCeiling - now)` timeout —
+    // a doomed ~1ms action Playwright rejects with a page-fault-shaped
+    // "Timeout 1ms exceeded…" message, which the outer catch then red-classifies
+    // as a GENERIC `level-error` (a spurious-red flap, indistinguishable from a
+    // real page fault). Instead, once the budget remaining for `press` has
+    // drained below the floor we throw a DISTINCTLY-classified
+    // `SendBudgetExhaustedError` (`errorDesc: send-budget-exhausted`) so the red
+    // is observable-and-specific, not a self-inflicted 1ms floor masquerading as
+    // a page fault. This mirrors — for the type↔press pair WITHIN a send — the
+    // retry path's own `RETRY_MIN_BUDGET_MS` guard between sends (but with a much
+    // smaller floor; see `SEND_PRESS_MIN_BUDGET_MS`).
+    //
+    // Only `press` is guarded, NOT `type`: `type` is the OPENING action of the
+    // send, so guarding it would (wrongly) refuse to even start a send on a
+    // legitimately-small envelope. The BETWEEN-send resend budget is already
+    // gated by the retry loop's own `RETRY_MIN_BUDGET_MS` check before `sendTurn`
+    // is called; this in-send guard covers the type→press drain the retry check
+    // can't see. `type` keeps the plain `Math.max(1, remaining)` floor
+    // (Playwright treats 0 as "no timeout").
     const sendTurn = async (): Promise<void> => {
-      const budget = () => Math.max(1, hardCeiling - Date.now());
-      await pg.type("textarea", message, { timeout: budget() });
-      await pg.press("textarea", "Enter", { timeout: budget() });
+      const typeBudget = Math.max(1, hardCeiling - Date.now());
+      await pg.type("textarea", message, { timeout: typeBudget });
+      const pressRemaining = hardCeiling - Date.now();
+      if (pressRemaining < SEND_PRESS_MIN_BUDGET_MS) {
+        throw new SendBudgetExhaustedError(
+          "press",
+          Math.max(0, pressRemaining),
+          SEND_PRESS_MIN_BUDGET_MS,
+        );
+      }
+      await pg.press("textarea", "Enter", {
+        timeout: Math.max(1, pressRemaining),
+      });
+    };
+    // ── ONE guarded `readTurnState()` wrapper (harmonized error handling) ─────
+    // ALL three turn-state consumers below (`readBaseline`, `readTurnComplete`,
+    // `readDegraded`) route through this. `page.readTurnState()` can REJECT
+    // mid-poll (a fake that models a transient read fault, a page mid-navigation,
+    // or any launcher whose implementation throws). Before harmonization those
+    // consumers handled a throw INCONSISTENTLY:
+    //   - `readBaseline` / `readTurnComplete` called it UNGUARDED → a mid-poll
+    //     rejection escaped, was caught by the driver's outer catch, and
+    //     red-classified as a generic `level-error` = a SPURIOUS red.
+    //   - `readDegraded` swallowed the throw into "not degraded" (`false`) → the
+    //     poll silently routed a genuinely-broken page to the base-floor
+    //     fast-fail = a SILENT false-red with NO telemetry.
+    // Both are the exact false-red/flap class this effort fights. This wrapper
+    // makes a throw mean ONE thing everywhere: "no reliable signal" → return a
+    // well-defined DEGRADED sentinel (all-zero counters + `sseAttachFailed:
+    // true`) so `readDegraded` reports degraded (WIDEN the wait to the ceiling,
+    // NOT base-floor fast-fail, NOT a spurious `level-error`), while
+    // `readBaseline`/`readTurnComplete` see a benign all-zero snapshot (never a
+    // throw). The fault is OBSERVABLE — a greppable one-shot marker (mirroring
+    // `onAttachFault`'s low-volume diagnostic style) fires the first time it is
+    // seen for this level — never a silent false-red. A genuinely-empty degraded
+    // turn still eventually reds (the widened ceiling elapses with empty DOM).
+    // `undefined` return = NO SEAM (a fake that omits `readTurnState`): a
+    // legitimate no-signal case, distinct from a throw, so callers fall back to
+    // their all-zero/not-degraded defaults WITHOUT emitting the fault marker.
+    let readTurnStateFaultReported = false;
+    const safeReadTurnState = async (): Promise<TurnState | undefined> => {
+      if (page?.readTurnState === undefined) return undefined;
+      try {
+        return await page.readTurnState();
+      } catch (err) {
+        if (!readTurnStateFaultReported) {
+          readTurnStateFaultReported = true;
+          // eslint-disable-next-line no-console
+          console.warn(
+            "[d4-chat-roundtrip] readTurnState() threw mid-poll — treating as " +
+              "degraded/unobserved (widening the first-token wait, not fast-failing)",
+            {
+              slug,
+              level,
+              err: err instanceof Error ? err.message : String(err),
+            },
+          );
+        }
+        // Well-defined DEGRADED sentinel: no reliable turn signal, so counters
+        // stay at their zero/absent baseline and `sseAttachFailed` rides true —
+        // routing the poll onto the degraded WIDEN path, never a base-floor
+        // fast-fail or a spurious `level-error`.
+        return {
+          runsFinished: 0,
+          attrPresent: false,
+          sawRunningTrue: false,
+          runningNow: null,
+          runStartCount: 0,
+          lastStoppedAtMs: 0,
+          sseAttachFailed: true,
+        };
+      }
     };
     // Per-attempt turn-lifecycle BASELINE. Snapshot the page-GLOBAL, monotonic
     // edge counters (`runsFinished`, `runStartCount`) BEFORE a turn is sent so
@@ -1739,18 +1912,18 @@ async function runLevel(opts: {
     // think THIS turn had finished the moment it began, see the still-empty
     // container, and spuriously FAST-FAIL RED. Baselining converts the gate to a
     // NEW-edge test (`> baseline`) so only a finish that happened AFTER the send
-    // counts. Read via `readTurnState()` (undefined seam → all-zero baseline,
-    // harmless: `> 0` still works for the first ever run). A fresh baseline is
-    // taken per attempt (each retry resends), so a stale prior edge can never
-    // satisfy a retried attempt.
+    // counts. Read via `safeReadTurnState()` (undefined seam OR read-throw →
+    // all-zero baseline, harmless: `> 0` still works for the first ever run). A
+    // fresh baseline is taken per attempt (each retry resends), so a stale prior
+    // edge can never satisfy a retried attempt.
     const readBaseline = async (): Promise<{
       runsFinished: number;
       runStartCount: number;
     }> => {
-      if (page?.readTurnState === undefined) {
+      const st = await safeReadTurnState();
+      if (st === undefined) {
         return { runsFinished: 0, runStartCount: 0 };
       }
-      const st = await page.readTurnState();
       return { runsFinished: st.runsFinished, runStartCount: st.runStartCount };
     };
     // Baseline snapshot for attempt 0, taken BEFORE the send so the agent
@@ -1868,10 +2041,17 @@ async function runLevel(opts: {
         observed: boolean;
         complete: boolean;
       }> => {
-        if (page?.readTurnState === undefined) {
+        // Route through `safeReadTurnState`: no seam OR a mid-poll read-throw
+        // both yield "not observed / not complete" here (the throw returns the
+        // degraded sentinel whose all-zero counters can't rise past the
+        // baseline, so `observed`/`complete` stay false). A throw is thus handled
+        // CONSISTENTLY with `readDegraded` — the poll treats it as "no reliable
+        // signal → degraded", widening the wait rather than escaping as a
+        // spurious `level-error`.
+        const st = await safeReadTurnState();
+        if (st === undefined) {
           return { observed: false, complete: false };
         }
-        const st = await page.readTurnState();
         const newRunStarted = st.runStartCount > baseline.runStartCount;
         const domDone =
           st.attrPresent &&
@@ -1928,13 +2108,18 @@ async function runLevel(opts: {
       // the turn lifecycle is a legitimate no-signal case, not an attach
       // failure). Read once per attempt (the flag is latched at `goto` time and
       // never changes within a level).
+      //
+      // Routed through `safeReadTurnState` so a mid-poll read-THROW is handled
+      // CONSISTENTLY with the two consumers above: the throw returns the degraded
+      // sentinel (`sseAttachFailed: true`), so this reports `true` and the poll
+      // WIDENS the wait — instead of the prior code, which swallowed the throw
+      // into `false` and silently base-floor fast-failed a genuinely-broken page
+      // (a SILENT false-red with no telemetry). The observable one-shot fault
+      // marker fires inside `safeReadTurnState` on that throw.
       const readDegraded = async (): Promise<boolean> => {
-        if (page?.readTurnState === undefined) return false;
-        try {
-          return (await page.readTurnState()).sseAttachFailed === true;
-        } catch {
-          return false;
-        }
+        const st = await safeReadTurnState();
+        if (st === undefined) return false;
+        return st.sseAttachFailed === true;
       };
       const runAttempt = async (
         attemptCeiling: number,
@@ -2288,7 +2473,14 @@ async function runLevel(opts: {
           backendUrl,
           level,
           failureSummary: truncateUtf8(msg, 1200),
-          errorDesc: abortSignal.aborted ? "abort" : "level-error",
+          // Duck-type a distinct `errorDesc` off the thrown error (mirroring the
+          // `TurnNotCompleteError.reason` decoupling): a `SendBudgetExhaustedError`
+          // is a self-inflicted min-budget skip (item-1), NOT a generic page
+          // fault, so it reports `send-budget-exhausted` rather than the catch-all
+          // `level-error`. An external abort still wins (the driver's hard-timeout).
+          errorDesc: abortSignal.aborted
+            ? "abort"
+            : (sendBudgetErrorDesc(err) ?? "level-error"),
         },
         observedAt: now().toISOString(),
       },
@@ -2305,7 +2497,15 @@ async function runLevel(opts: {
     // normal run that already emitted from the seam is unaffected. In the
     // `finally` (not the try body) so a throw before the old inline call site
     // can no longer drop the boundary.
-    emitMessageSend();
+    //
+    // Item-3 double-boundary guard: SUPPRESS this fallback once a REAL-header
+    // boundary already fired (`messageSendRealPostEmitted`). The retry re-arms
+    // `messageSendEmitted` so the winning resend can re-capture, but a resend
+    // that lands NO POST would otherwise let this fallback emit a SECOND,
+    // NULL-header boundary (mis-attributing `edge_interference_signal`). The
+    // null-header fallback is only ever the SINGLE boundary for a level that
+    // observed no message POST at all — never a second one after a real capture.
+    if (!messageSendRealPostEmitted) emitMessageSend();
     // Defense in depth: if neither the ok nor the error path emitted exit (an
     // unexpected control-flow gap), emit it here so `probe.exit` fires exactly
     // once on every path.

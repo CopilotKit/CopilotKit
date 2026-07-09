@@ -2204,6 +2204,19 @@ function makeLateTokenBrowser(opts: {
    */
   degradedNoSignal?: boolean;
   /**
+   * Model a mid-poll `readTurnState()` REJECTION (harmonization surface): every
+   * `readTurnState()` call THROWS instead of returning a snapshot. Distinct from
+   * `degradedNoSignal` (which returns a well-formed degraded snapshot) — this is
+   * the page/launcher whose read itself rejects (a transient read fault, a page
+   * mid-navigation). Pre-fix, `readBaseline`/`readTurnComplete` called it
+   * UNGUARDED (the throw escaped → spurious `level-error`) while `readDegraded`
+   * swallowed it to `false` (silent base-floor fast-fail). The `safeReadTurnState`
+   * wrapper harmonizes all three: a throw → degraded WIDEN + observable telemetry,
+   * never a spurious red. The DOM token still renders late (via `evaluate`) so a
+   * late-but-present token on a read-throwing page can be exercised.
+   */
+  throwFromReadTurnState?: boolean;
+  /**
    * Model item-1 (budget-exhaustion retry guard): when set, `type`/`press`
    * THROW if their `timeout` option is at or below this many ms — mirroring
    * Playwright, which rejects a ~1ms action timeout. Combined with
@@ -2213,6 +2226,19 @@ function makeLateTokenBrowser(opts: {
    * must SKIP the doomed resend rather than emit a misleading level-error.
    */
   throwWhenTimeoutAtMost?: number;
+  /**
+   * Model item-1 FIRST-SEND cap: the FIRST `type` action AWAITS this many ms
+   * before returning (a near-hang first-send `type`), draining the first-token
+   * envelope so the following `press`'s remaining budget drops below
+   * `RETRY_MIN_BUDGET_MS`. Pre-fix `sendTurn` then floored `press`'s timeout to
+   * ~1ms — which (with `throwWhenTimeoutAtMost`) Playwright rejects, caught as a
+   * generic `level-error` spurious red. Post-fix the first-send min-budget guard
+   * throws a DISTINCTLY-classified `SendBudgetExhaustedError`
+   * (`errorDesc: send-budget-exhausted`) instead of issuing the doomed ~1ms
+   * `press`. Applies to the first `type` only (subsequent resends are covered by
+   * the existing `RETRY_MIN_BUDGET_MS` retry guard).
+   */
+  firstTypeDelayMs?: number;
   /**
    * Model an SSE-ONLY completion: the turn completes via the `runsFinished`
    * transport counter bumping past baseline, but NO fresh DOM `true→false`
@@ -2279,6 +2305,17 @@ function makeLateTokenBrowser(opts: {
       async type(_sel: string, _text: string, o?: { timeout?: number }) {
         typeCount += 1;
         opts.onTypeAttempt?.(typeCount);
+        // Item-1 FIRST-SEND cap: the first `type` near-hangs, consuming
+        // wall-clock so the following `press`'s remaining budget drains below
+        // the min-budget floor. Only the FIRST type (attempt 0) — resends are
+        // covered by the retry budget guard.
+        if (
+          opts.firstTypeDelayMs !== undefined &&
+          typeCount === 1 &&
+          opts.firstTypeDelayMs > 0
+        ) {
+          await new Promise((r) => setTimeout(r, opts.firstTypeDelayMs));
+        }
         // Item-1 surface: Playwright rejects a near-zero action timeout. Model it
         // so a retry resend that runs with a drained budget (floored to ~1ms)
         // throws — the pre-fix path that mis-classified as `level-error`.
@@ -2336,6 +2373,14 @@ function makeLateTokenBrowser(opts: {
         return "" as unknown as R;
       },
       async readTurnState() {
+        // HARMONIZATION surface: the read itself REJECTS mid-poll (transient
+        // read fault / page mid-navigation). Every consumer must route through
+        // `safeReadTurnState` so this throw becomes a degraded-widen, never a
+        // spurious `level-error` (unguarded escape) or a silent base-floor
+        // fast-fail (swallowed to `false`).
+        if (opts.throwFromReadTurnState === true) {
+          throw new Error("readTurnState: page evaluate rejected mid-poll");
+        }
         // DEGRADED path (item-2): the interceptor no-op'd, so the page-side
         // globals were NEVER seeded — every counter stays at its zero/absent
         // baseline and `sseAttachFailed` rides true. No completion signal ever
@@ -2752,6 +2797,51 @@ describe("d4 L4 first-token wait hardening (readTurnState-driven)", () => {
     expect(failureSummary).toContain("empty assistant response");
   }, 10000);
 
+  // ── (a) HARMONIZED readTurnState() error handling ───────────────────────────
+  it("readTurnState() THROW mid-poll with a late-but-present token → GREEN (degraded widen), not a spurious level-error / base-floor false-red", async () => {
+    // The page's `readTurnState()` REJECTS on every call (a transient read fault
+    // / page mid-navigation). The DOM token still renders at 800ms — past the
+    // 120ms base poll floor but well within the 4000ms hard ceiling.
+    //
+    // RED (pre-fix): `readBaseline` (unguarded) awaited `page.readTurnState()`
+    // BEFORE the send; the rejection escaped, the driver's outer catch caught it,
+    // and the level red'd as a generic `level-error` (a spurious red) — the token
+    // was never even polled for. (Had baseline somehow survived, `readDegraded`
+    // swallowed the throw to `false`, base-floor fast-failing at ~500ms before
+    // the 800ms token — a silent false-red either way.)
+    // GREEN (post-fix): `safeReadTurnState` turns the throw into a degraded
+    // sentinel → `readDegraded` true → the never-observed wait WIDENS to the
+    // ceiling, the 800ms token is captured → GREEN, and the fault is observable
+    // (one-shot console.warn), never a silent/spurious red.
+    const { l4State, failureSummary } = await runLateToken(
+      makeLateTokenBrowser({
+        assistantText: "The weather in San Francisco is sunny, 72 degrees.",
+        firstTokenDelayMs: 800,
+        throwFromReadTurnState: true,
+      }),
+    );
+    expect(l4State).toBe("green");
+    expect(failureSummary).toBe("");
+  });
+
+  it("readTurnState() THROW mid-poll that produces NO content still FAILS (degraded widen does not mask a genuine empty)", async () => {
+    // Over-correction guard for the harmonization: a read-throwing page that
+    // ALSO never renders any token is a real red. The throw routes onto the
+    // degraded widen path (no base-floor fast-fail, no spurious level-error), so
+    // it reds at the ceiling with the genuine "empty assistant response" — the
+    // throw must not be masked into a false-PASS.
+    const { l4State, failureSummary } = await runLateToken(
+      makeLateTokenBrowser({
+        assistantText: "",
+        firstTokenDelayMs: 300,
+        throwFromReadTurnState: true,
+      }),
+      { pageTimeoutMs: 800 },
+    );
+    expect(l4State).toBe("red");
+    expect(failureSummary).toContain("empty assistant response");
+  }, 10000);
+
   // ── ITEM 4 (#4): per-page state isolation exercises L4 retry independently ──
   it("L3 and L4 each run their OWN independent stall+retry on a fresh page (no shared-state leak)", async () => {
     // With the pre-fix SHARED page singleton, L3's sends leaked into L4:
@@ -2837,6 +2927,53 @@ describe("d4 L4 first-token wait hardening (readTurnState-driven)", () => {
     // attempts a second `type` before throwing on its floored timeout).
     expect(typeAttempts).toBe(1);
   }, 10000);
+
+  it("FIRST-SEND cap: a near-hang first `type` does NOT floor `press` to ~1ms → classified send-budget-exhausted, not a generic level-error", async () => {
+    // Item-1 first-send fold: the FIRST `type` near-hangs (awaits past the whole
+    // 2000ms envelope), so by the time `press` is reached the remaining budget
+    // has fully drained — below `RETRY_MIN_BUDGET_MS` (750ms) AND to the ~1ms
+    // pre-fix floor. `pageTimeoutMs` (2000ms) exceeds `RETRY_MIN_BUDGET_MS` so the
+    // FIRST `type` itself clears the guard (a fresh envelope) — only `press`,
+    // reached after the hang, trips it. The fake rejects any `type`/`press` whose
+    // action timeout is <= 5ms (Playwright's ~1ms rejection).
+    //
+    // RED (pre-fix): `sendTurn` floored `press`'s timeout to `Math.max(1,
+    // hardCeiling - now)` ≈ 1ms; the fake threw a page-fault-shaped "Timeout 1ms
+    // exceeded…", the driver's outer catch red-classified it as a GENERIC
+    // `level-error` — a self-inflicted 1ms floor masquerading as a real page
+    // fault (spurious-red flap).
+    // GREEN (post-fix): the first-send min-budget guard throws a distinctly
+    // classified `SendBudgetExhaustedError` BEFORE issuing the doomed `press`, so
+    // the red carries `errorDesc: send-budget-exhausted` (observable + specific),
+    // never the catch-all `level-error`.
+    const writer = new CapturingWriter();
+    const driver = createE2eSmokeDriver({
+      launcher: async () =>
+        makeLateTokenBrowser({
+          assistantText: "",
+          firstTokenDelayMs: 100,
+          // First `type` eats the whole envelope so `press` drains below
+          // RETRY_MIN_BUDGET_MS (750ms) and to the ~1ms pre-fix floor.
+          firstTypeDelayMs: 2100,
+          throwWhenTimeoutAtMost: 5,
+        }) as unknown as E2eBrowser,
+      textPollTimeoutMs: 2000,
+      pageTimeoutMs: 2000,
+    });
+    const result = await driver.run(baseCtx({ writer }), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
+      demos: [],
+    });
+    expect(result.state).toBe("red");
+    const chat = writer.results.find((r) => r.key === "chat:foo");
+    expect(chat?.state).toBe("red");
+    const errorDesc = (chat?.signal as { errorDesc?: string } | undefined)
+      ?.errorDesc;
+    // The discriminator: a distinct, observable classification — NOT the generic
+    // `level-error` a floored-1ms `press` throw produced pre-fix.
+    expect(errorDesc).toBe("send-budget-exhausted");
+  }, 10000);
 });
 
 describe("d4 retry telemetry re-attribution (follow-up item 3)", () => {
@@ -2921,6 +3058,66 @@ describe("d4 retry telemetry re-attribution (follow-up item 3)", () => {
     // And the stalled first attempt is still recorded on its own boundary
     // (nothing is silently dropped).
     expect(send[0]!.edge_headers["cf-mitigated"]).toBe("stalled");
+  }, 15000);
+
+  it("retry whose WINNING resend lands NO POST does NOT emit a second NULL-header probe.message.send (single correct attribution)", async () => {
+    // Item-3 null-header double-boundary fold. Attempt 0 stalls (never completes
+    // → retry) and lands a REAL agent-message POST (`cf-mitigated: real`). The
+    // winning resend rescues (renders content → GREEN) but lands NO POST at all
+    // (`responsesPerSend[1]` is absent).
+    //
+    // RED (pre-fix): the retry reset `messageSendEmitted = false` AND cleared
+    // `messageSendEdge`, so the `finally`-block fallback `emitMessageSend()` fired
+    // a SECOND `probe.message.send` boundary with NULL edge headers — a phantom
+    // null-header turn that mis-attributes `edge_interference_signal`.
+    // GREEN (post-fix): `messageSendRealPostEmitted` (set when the attempt-0 real
+    // POST emitted) SUPPRESSES the null-header fallback, so exactly ONE boundary
+    // survives — the real attempt-0 capture. No second null-header emit.
+    const writer = new CaptureWriter();
+    const emitter = new CvdiagEmitter({
+      verbose: true,
+      env: {},
+      layer: "probe",
+      pbWriter: writer,
+    });
+    const browser = makeLateTokenBrowser({
+      assistantText: "Recovered greeting after a retry.",
+      firstTokenDelayMs: 100,
+      neverComplete: true,
+      retrySucceeds: true,
+      // Attempt 0 lands a real POST; the winning resend (index 1) lands NONE.
+      responsesPerSend: [
+        {
+          url: "https://x.example.com/api/copilotkit",
+          status: 200,
+          headers: { "cf-mitigated": "real", "content-length": "5" },
+          contentLength: 5,
+          durationMs: 3,
+          isMessagePost: true,
+        },
+      ],
+    });
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser as unknown as E2eBrowser,
+      textPollTimeoutMs: 120,
+      pageTimeoutMs: 4000,
+      cvdiagEmitter: emitter,
+      cvdiagBufferDir: bufDirLt(),
+    });
+    const writerP = new CapturingWriter();
+    const result = await driver.run(baseCtx({ writer: writerP }), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
+      demos: [],
+    });
+    await emitter.flush();
+    expect(result.state).toBe("green");
+
+    const send = byBoundary(writer, "probe.message.send");
+    // Exactly ONE boundary — the real attempt-0 capture. Pre-fix: 2 (the second a
+    // spurious NULL-header emit from the finally fallback after the retry re-arm).
+    expect(send.length).toBe(1);
+    expect(send[0]!.edge_headers["cf-mitigated"]).toBe("real");
   }, 15000);
 });
 
