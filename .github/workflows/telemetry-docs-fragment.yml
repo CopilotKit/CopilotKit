@@ -77,6 +77,22 @@ jobs:
         if: steps.token.outputs.token != ''
         run: pnpm tsx scripts/telemetry/emit-fragment.ts --surface docs --out p2p/telemetry-registry/fragments/CopilotKit.docs.json
 
+      # Regenerate the canonical alongside the fragment — the registry's reconcile
+      # CI rejects a stale telemetry-events.json, so a fragment-only PR fails.
+      # Use the registry's own pnpm (its packageManager field).
+      - name: Setup pnpm for registry
+        if: steps.token.outputs.token != ''
+        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+        with:
+          package_json_file: p2p/package.json
+
+      - name: Reconcile registry
+        if: steps.token.outputs.token != ''
+        working-directory: p2p
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm reconcile
+
       - name: Open fragment PR
         if: steps.token.outputs.token != ''
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8
