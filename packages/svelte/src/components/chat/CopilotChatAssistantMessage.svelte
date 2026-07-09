@@ -177,16 +177,18 @@
 <div
   data-copilotkit
   data-testid="copilot-assistant-message"
-  class="cpk:prose cpk:max-w-full cpk:break-words cpk:dark:prose-invert"
+  class="cpk:flex cpk:flex-col cpk:items-start cpk:w-full cpk:group cpk:pt-10"
   data-message-id={message.id}
 >
-  {#if messageRenderer}
-    {@render messageRenderer({ message, content: normalizedContent })}
-  {:else}
-    {#if hasContent}
-      <StreamMarkdown content={normalizedContent} />
+  <div class="cpk:prose cpk:max-w-full cpk:break-words cpk:dark:prose-invert">
+    {#if messageRenderer}
+      {@render messageRenderer({ message, content: normalizedContent })}
+    {:else}
+      {#if hasContent}
+        <StreamMarkdown content={normalizedContent} />
+      {/if}
     {/if}
-  {/if}
+  </div>
 
   {#if toolCallsView}
     {@render toolCallsView({ message, messages })}

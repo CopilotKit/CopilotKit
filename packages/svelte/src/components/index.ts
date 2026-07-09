@@ -13,3 +13,4 @@ export { default as CopilotChatSuggestionPill } from "./chat/CopilotChatSuggesti
 export { default as CopilotChatToggleButton } from "./chat/CopilotChatToggleButton.svelte";
 export { default as CopilotSidebar } from "./chat/CopilotSidebar.svelte";
 export { default as CopilotPopup } from "./chat/CopilotPopup.svelte";
+export { default as StreamMarkdown } from "./chat/StreamMarkdown.svelte";
