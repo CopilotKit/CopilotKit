@@ -1,4 +1,4 @@
-// Docs-only snippet — not imported or rendered. The langgraph-python
+// Docs-only snippet - not imported or rendered. The claude-sdk-python
 // chat-slots production demo registers a dozen slot overrides at once
 // (see page.tsx) with `as unknown as typeof X` casts that exist to
 // satisfy the WithSlots types when the wrappers are structurally
@@ -6,8 +6,8 @@
 // running app but obscures the teaching shape.
 //
 // This file gives the slots docs page (custom-look-and-feel/slots.mdx)
-// three minimal teaching examples — the welcome screen, assistant
-// message, and disclaimer slot patterns — without changing the
+// three minimal teaching examples: the welcome screen, assistant
+// message, and disclaimer slot patterns, without changing the
 // production demo's runtime behavior. See agentic-chat /
 // chat-component.snippet.tsx for the same sibling-file pattern.
 

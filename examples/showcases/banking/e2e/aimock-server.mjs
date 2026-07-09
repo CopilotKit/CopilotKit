@@ -1,13 +1,16 @@
 #!/usr/bin/env node
 /**
- * aimock launcher for the deterministic memory E2E (Task 7).
+ * aimock launcher for the deterministic banking E2Es.
  *
- * Starts an aimock server on $AIMOCK_PORT (default 7099) loading the fixtures in
- * fixtures/memory-learning.fixtures.json, so the banking dev server can point
- * OPENAI_BASE_URL at it and get deterministic agent tool calls.
+ * Starts an aimock server on $AIMOCK_PORT (default 7099) so the banking dev server
+ * can point OPENAI_BASE_URL at it and get deterministic agent tool calls. The
+ * fixture file is $AIMOCK_FIXTURES (a path relative to cwd, or absolute); when
+ * unset it defaults to fixtures/memory-learning.fixtures.json. The OGUI routing
+ * suite (playwright.ogui.config.ts) sets AIMOCK_FIXTURES=fixtures/ogui-routing...
+ * on its own aimock instance (port 7098).
  *
- * Used as Playwright webServer[0] (see playwright.config.ts) — Playwright waits on
- * the readiness URL before starting the dev server.
+ * Used as a Playwright webServer entry — Playwright waits on the readiness URL
+ * before starting the dev server.
  *
  * VERIFY ON FIRST GREEN RUN (unverified API assumptions):
  * - The exact @copilotkit/aimock programmatic API. This uses the documented
@@ -22,11 +25,15 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const PORT = Number(process.env.AIMOCK_PORT ?? 7099);
-const FIXTURES = join(
-  dirname(fileURLToPath(import.meta.url)),
-  "fixtures",
-  "memory-learning.fixtures.json",
-);
+const FIXTURES = process.env.AIMOCK_FIXTURES
+  ? process.env.AIMOCK_FIXTURES.startsWith("/")
+    ? process.env.AIMOCK_FIXTURES
+    : join(process.cwd(), process.env.AIMOCK_FIXTURES)
+  : join(
+      dirname(fileURLToPath(import.meta.url)),
+      "fixtures",
+      "memory-learning.fixtures.json",
+    );
 
 const mod = await import("@copilotkit/aimock");
 

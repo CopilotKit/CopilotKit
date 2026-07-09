@@ -8,7 +8,6 @@
 //
 // Mirrors the convention from `tool-rendering/render-flight-tool.snippet.tsx`.
 
-// @region[bar-chart-renderer]
 import { useComponent } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 
@@ -22,6 +21,7 @@ declare const BarChart: React.ComponentType<{
 declare const barChartPropsSchema: z.ZodSchema;
 
 export function BarChartRenderer() {
+  // @region[bar-chart-renderer]
   useComponent({
     name: "render_bar_chart",
     description: "Display a bar chart with labeled numeric values.",
