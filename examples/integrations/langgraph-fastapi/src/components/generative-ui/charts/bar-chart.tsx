@@ -138,7 +138,8 @@ export function BarChart({ title, description, data }: BarChartProps) {
               dataKey="value"
               radius={[6, 6, 0, 0]}
               maxBarSize={48}
-              shape={(props: Record<string, unknown>) => (
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              shape={(props: any) => (
                 <AnimatedBar {...props} isNew={isNew(props.index as number)} />
               )}
             >

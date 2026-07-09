@@ -12,7 +12,10 @@ import {
 import { HttpAgent } from "@ag-ui/client";
 import { handle } from "hono/vercel";
 
-const agentUrl = process.env.AGENT_URL || "http://localhost:8123";
+const agentUrl = (process.env.AGENT_URL || "http://localhost:8123").replace(
+  /\/+$/,
+  "",
+);
 
 const defaultAgent = new HttpAgent({
   url: `${agentUrl}/`,
