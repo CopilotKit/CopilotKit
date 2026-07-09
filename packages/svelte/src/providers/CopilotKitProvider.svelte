@@ -201,7 +201,33 @@
   // $effect automatically tracks $derived dependencies, so there are no stale snapshots
   // and no "state_referenced_locally" warnings.
   let copilotkit = new CopilotKitCoreSvelte({});
+
+  // Apply runtimeUrl synchronously so child effects (e.g. useAgent) can
+  // read it immediately without waiting for the first $effect pass.
+  const initialEndpoint =
+    runtimeUrl ?? (resolvedPublicKey ? COPILOT_CLOUD_CHAT_URL : undefined);
+  if (initialEndpoint) {
+    copilotkit.setRuntimeUrl(initialEndpoint);
+    reactiveRuntimeUrl = initialEndpoint;
+  }
   let executingToolCallIds = $state<ReadonlySet<string>>(new Set());
+
+  // ── Context Registration (BEFORE any $effect blocks!) ──
+  // setContext must be called during synchronous component initialization.
+  // If placed after $effect blocks, the compiler may hoist it outside the
+  // initialization scope, causing "lifecycle_outside_component".
+  setContext(COPILOT_KIT_KEY, {
+    get copilotkit() { return copilotkit; },
+    get executingToolCallIds() { return executingToolCallIds; },
+    get agents() { return agents; },
+    get runtimeConnectionStatus() { return runtimeConnectionStatus; },
+    get runtimeUrl() { return reactiveRuntimeUrl; },
+    get runtimeTransport() { return reactiveRuntimeTransport; },
+    get headers() { return reactiveHeaders; },
+    get threadEndpoints() { return threadEndpoints; },
+    get intelligence() { return intelligence; },
+    get licenseStatus() { return licenseStatus; },
+  });
 
   // ── Unified Core Configuration Sync ──
   // Grouping guarantees that if multiple props change at once (e.g. runtime URL + headers),
@@ -295,22 +321,6 @@
     };
   });
 
-  // ── Clean Native Svelte 5 Context Registration ──
-  // Getters ensure consumers always read the live $state values on access.
-  // No sync $effect needed — the getters are evaluated lazily at access time,
-  // and Svelte 5 tracks $state reads through them in templates and effects.
-  setContext(COPILOT_KIT_KEY, {
-    get copilotkit() { return copilotkit; },
-    get executingToolCallIds() { return executingToolCallIds; },
-    get agents() { return agents; },
-    get runtimeConnectionStatus() { return runtimeConnectionStatus; },
-    get runtimeUrl() { return reactiveRuntimeUrl; },
-    get runtimeTransport() { return reactiveRuntimeTransport; },
-    get headers() { return reactiveHeaders; },
-    get threadEndpoints() { return threadEndpoints; },
-    get intelligence() { return intelligence; },
-    get licenseStatus() { return licenseStatus; },
-  });
 </script>
 
 {@render children()}

@@ -224,7 +224,7 @@ export function useAgent(props: UseAgentProps = {}) {
     if (flags.includes(UseAgentUpdate.OnMessagesChanged)) {
       handlers.onMessagesChanged = () => {
         if (active) {
-          messages = [...(a.messages ?? [])];
+          messages = (a.messages ?? []).map((m) => ({ ...m }));
           isRunning = a.isRunning ?? false;
         }
       };
@@ -245,21 +245,21 @@ export function useAgent(props: UseAgentProps = {}) {
         if (active) {
           isRunning = false;
           agent = a;
-          messages = [...(a.messages ?? [])];
+          messages = (a.messages ?? []).map((m) => ({ ...m }));
         }
       };
       handlers.onRunFailed = () => {
         if (active) {
           isRunning = false;
           agent = a;
-          messages = [...(a.messages ?? [])];
+          messages = (a.messages ?? []).map((m) => ({ ...m }));
         }
       };
       handlers.onRunErrorEvent = () => {
         if (active) {
           isRunning = false;
           agent = a;
-          messages = [...(a.messages ?? [])];
+          messages = (a.messages ?? []).map((m) => ({ ...m }));
         }
       };
     }
