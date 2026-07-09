@@ -82,7 +82,14 @@ async function main() {
   // Turn + feature handlers — identical to the native example (app/index.ts).
   bot.onMention(async ({ thread, message }) => {
     try {
+      // Managed history (app-api /api/bots/history) does NOT include the
+      // in-flight turn (unlike native adapters whose getHistory rebuilds the
+      // live thread), so pass the current message explicitly as `prompt` —
+      // otherwise runAgent runs with zero messages. Prefer multimodal parts.
       await thread.runAgent({
+        prompt: message.contentParts?.length
+          ? message.contentParts
+          : message.text,
         context: senderContext(message.user, thread.platform),
       });
     } catch (err) {
