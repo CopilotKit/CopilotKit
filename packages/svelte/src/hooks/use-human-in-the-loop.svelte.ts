@@ -54,14 +54,12 @@ export function useHumanInTheLoop<T extends Record<string, unknown>>(
     const core = context.copilotkit;
     core.addTool(frontendTool);
     const name = tool.name;
-    if (tool.render) {
-      core.addHookRenderToolCall({
-        name,
-        args: tool.parameters,
-        agentId: tool.agentId,
-        render: RenderComponent,
-      } as SvelteToolCallRenderer<unknown>);
-    }
+    core.addHookRenderToolCall({
+      name,
+      args: tool.parameters,
+      agentId: tool.agentId,
+      render: RenderComponent,
+    } as SvelteToolCallRenderer<unknown>);
     return () => {
       core.removeTool(name, tool.agentId);
       core.removeHookRenderToolCall(name, tool.agentId);

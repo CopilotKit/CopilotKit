@@ -68,9 +68,11 @@ export function useThreads(input: UseThreadsInput): UseThreadsResult {
   let isMutating = $state(false);
   let hasDispatchedContext = $state(false);
 
-  function bindSelector<T>(selector: (state: any) => T): T {
+  function bindSelector<T>(
+    selector: (state: ReturnType<ɵThreadStore["getState"]>) => T,
+  ) {
     const val = selector(store.getState());
-    const unsub = store.select(selector).subscribe((next: T) => {
+    const subscription = store.select(selector).subscribe((next: T) => {
       if (selector === ɵselectThreads) threads = next as unknown as Thread[];
       else if (selector === ɵselectThreadsIsLoading)
         storeIsLoading = next as unknown as boolean;
@@ -85,18 +87,39 @@ export function useThreads(input: UseThreadsInput): UseThreadsResult {
       else if (selector === ɵselectIsMutating)
         isMutating = next as unknown as boolean;
     });
-    $effect(() => unsub);
-    return val;
+    return {
+      initialValue: val,
+      unsubscribe: () => subscription.unsubscribe(),
+    };
   }
 
   $effect(() => {
-    bindSelector(ɵselectThreads);
-    bindSelector(ɵselectThreadsIsLoading);
-    bindSelector(ɵselectThreadsError);
-    bindSelector(ɵselectFetchMoreError);
-    bindSelector(ɵselectHasNextPage);
-    bindSelector(ɵselectIsFetchingNextPage);
-    bindSelector(ɵselectIsMutating);
+    const threadsBinding = bindSelector(ɵselectThreads);
+    const storeIsLoadingBinding = bindSelector(ɵselectThreadsIsLoading);
+    const storeErrorBinding = bindSelector(ɵselectThreadsError);
+    const fetchMoreErrorBinding = bindSelector(ɵselectFetchMoreError);
+    const hasMoreThreadsBinding = bindSelector(ɵselectHasNextPage);
+    const isFetchingMoreThreadsBinding = bindSelector(ɵselectIsFetchingNextPage);
+    const isMutatingBinding = bindSelector(ɵselectIsMutating);
+
+    threads = threadsBinding.initialValue as Thread[];
+    storeIsLoading = storeIsLoadingBinding.initialValue as boolean;
+    storeError = storeErrorBinding.initialValue as Error | null;
+    fetchMoreError = fetchMoreErrorBinding.initialValue as Error | null;
+    hasMoreThreads = hasMoreThreadsBinding.initialValue as boolean;
+    isFetchingMoreThreads =
+      isFetchingMoreThreadsBinding.initialValue as boolean;
+    isMutating = isMutatingBinding.initialValue as boolean;
+
+    return () => {
+      threadsBinding.unsubscribe();
+      storeIsLoadingBinding.unsubscribe();
+      storeErrorBinding.unsubscribe();
+      fetchMoreErrorBinding.unsubscribe();
+      hasMoreThreadsBinding.unsubscribe();
+      isFetchingMoreThreadsBinding.unsubscribe();
+      isMutatingBinding.unsubscribe();
+    };
   });
 
   store.start();
