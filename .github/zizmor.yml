@@ -77,3 +77,17 @@ rules:
       # pkg-pr-new posts snapshot comments on the PR using the repo token
       # — credentials must remain persisted for the action to authenticate.
       - publish-commit.yml
+
+  # `cache-poisoning` flags setup-* actions under a "publishing" trigger
+  # (here `on: release`) on the theory that a poisoned restored cache could
+  # taint a published artifact.
+  #
+  # telemetry-runtime-fragment.yml: reviewed, does not apply. The workflow
+  # configures NO cache (setup-node caching is opt-in via `cache:`, which this
+  # workflow does not set), and it publishes no build artifact — it reads the
+  # runtime's type catalog, emits a JSON registry fragment, and opens a PR
+  # against another repo. There is no runtime artifact a restored cache could
+  # poison.
+  cache-poisoning:
+    ignore:
+      - telemetry-runtime-fragment.yml
