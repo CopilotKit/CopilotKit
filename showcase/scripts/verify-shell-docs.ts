@@ -4,6 +4,11 @@ import os from "os";
 import path from "path";
 import { fileURLToPath } from "url";
 import { glob } from "glob";
+import yaml from "yaml";
+import {
+  findUnexpectedMultiFileRegions,
+  type MultiFileRegionSource,
+} from "./lib/demo-region-guard.js";
 import { checkEssentialContent } from "./lib/essential-content.js";
 import type { PageInput } from "./lib/essential-content.js";
 
@@ -56,6 +61,17 @@ interface RegistryIntegrationLite {
 }
 interface RegistryLite {
   integrations: RegistryIntegrationLite[];
+}
+
+interface ManifestDemoLite {
+  id: string;
+  route?: string;
+  highlight?: string[];
+}
+
+interface ManifestLite {
+  slug: string;
+  demos?: ManifestDemoLite[];
 }
 
 // Strip fenced code blocks (``` ... ```) before scanning for component
@@ -164,6 +180,143 @@ export function checkSnippetRegions(input: {
     status: failures.length === 0 ? "pass" : "fail",
     messages: failures,
   };
+}
+
+const REGION_START_RE = /@region\[([a-z0-9][a-z0-9-]*)\]/g;
+const SKIP_EXACT = new Set([".DS_Store", "Thumbs.db"]);
+const SKIP_DIRS = new Set(["__pycache__", "node_modules", ".next"]);
+const SKIP_EXTENSIONS = new Set([
+  ".pyc",
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".gif",
+  ".webp",
+  ".ico",
+  ".bmp",
+  ".avif",
+  ".tiff",
+  ".woff",
+  ".woff2",
+  ".ttf",
+  ".otf",
+  ".eot",
+  ".pdf",
+  ".zip",
+  ".tar",
+  ".gz",
+  ".tgz",
+  ".bz2",
+  ".7z",
+  ".rar",
+  ".mp4",
+  ".mp3",
+  ".wav",
+  ".mov",
+  ".webm",
+  ".ogg",
+]);
+
+function walkRegionCandidateFiles(
+  absDir: string,
+  currentRel = "",
+): Array<{ abs: string; rel: string }> {
+  const out: Array<{ abs: string; rel: string }> = [];
+  for (const entry of fs.readdirSync(absDir, { withFileTypes: true })) {
+    if (SKIP_EXACT.has(entry.name)) continue;
+    const abs = path.join(absDir, entry.name);
+    const rel = currentRel ? `${currentRel}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) {
+      if (!SKIP_DIRS.has(entry.name)) out.push(...walkRegionCandidateFiles(abs, rel));
+      continue;
+    }
+    if (!entry.isFile()) continue;
+    if (SKIP_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) continue;
+    out.push({ abs, rel });
+  }
+  return out;
+}
+
+function collectMultiFileRegionSources(): MultiFileRegionSource[] {
+  const integrationsDir = path.join(REPO_ROOT, "showcase", "integrations");
+  const sources: MultiFileRegionSource[] = [];
+  const packageDirs = fs
+    .readdirSync(integrationsDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name);
+
+  for (const pkgDir of packageDirs) {
+    const pkgRoot = path.join(integrationsDir, pkgDir);
+    const manifestPath = path.join(pkgRoot, "manifest.yaml");
+    if (!fs.existsSync(manifestPath)) continue;
+    const manifest = yaml.parse(
+      fs.readFileSync(manifestPath, "utf-8"),
+    ) as ManifestLite;
+    for (const demo of manifest.demos ?? []) {
+      if (!demo.route) continue;
+      const routeDir = demo.route.replace(/^\/demos\//, "");
+      const demoDir = path.join(pkgRoot, "src", "app", "demos", routeDir);
+      if (!fs.existsSync(demoDir)) continue;
+
+      const files = walkRegionCandidateFiles(demoDir).map((file) => ({
+        ...file,
+        bundled: `src/app/demos/${routeDir}/${file.rel}`,
+      }));
+      const demoPathSet = new Set(files.map((file) => file.bundled));
+      for (const hlPath of demo.highlight ?? []) {
+        if (demoPathSet.has(hlPath)) continue;
+        const abs = path.join(pkgRoot, hlPath);
+        if (fs.existsSync(abs) && fs.statSync(abs).isFile()) {
+          files.push({ abs, rel: hlPath, bundled: hlPath });
+        }
+      }
+
+      const filesByRegion = new Map<string, Set<string>>();
+      for (const file of files) {
+        const raw = fs.readFileSync(file.abs, "utf-8");
+        REGION_START_RE.lastIndex = 0;
+        let match: RegExpExecArray | null;
+        while ((match = REGION_START_RE.exec(raw)) !== null) {
+          const regionFiles = filesByRegion.get(match[1]) ?? new Set<string>();
+          regionFiles.add(file.bundled);
+          filesByRegion.set(match[1], regionFiles);
+        }
+      }
+
+      const demoKey = `${manifest.slug}::${demo.id}`;
+      for (const [regionName, regionFiles] of filesByRegion.entries()) {
+        if (regionFiles.size > 1) {
+          sources.push({
+            demoKey,
+            regionName,
+            files: [...regionFiles],
+          });
+        }
+      }
+    }
+  }
+
+  return sources;
+}
+
+export function checkUnexpectedMultiFileRegionSources(input: {
+  sources: MultiFileRegionSource[];
+}): CheckResult {
+  const unexpected = findUnexpectedMultiFileRegions(input.sources);
+  return {
+    name: "duplicate-region-sources",
+    status: unexpected.length === 0 ? "pass" : "fail",
+    messages: unexpected.map(
+      ({ demoKey, regionName, files }) =>
+        `${demoKey}: region "${regionName}" appears in multiple files: ${files.join(", ")}`,
+    ),
+  };
+}
+
+export function checkDuplicateRegionSources(): CheckResult {
+  return checkUnexpectedMultiFileRegionSources({
+    sources: collectMultiFileRegionSources(),
+  });
 }
 
 const MD_LINK_RE = /\[[^\]]*\]\((\/[^)\s]*)\)/g;
@@ -854,6 +1007,7 @@ async function main() {
       runBuildCheck({ skipExecution: skipBuild }),
       checkInlineDemoRefs({ pages, registry }),
       checkSnippetRegions({ pages, demoContent }),
+      checkDuplicateRegionSources(),
       checkInternalLinks({ pages, knownRoutes }),
       checkImportPaths({ pages, existsOnDisk: aliasExists }),
       checkComponentImports({ pages }),
