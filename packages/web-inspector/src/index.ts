@@ -65,6 +65,13 @@ import {
   trackTalkToEngineerClicked,
   trackThreadsEmptyEnabledViewed,
   trackThreadsEnabledViewed,
+  trackThreadsExampleSelected,
+  trackThreadsExampleTourCompleted,
+  trackThreadsExampleTourDismissed,
+  trackThreadsExampleTourReopened,
+  trackThreadsExampleTourStarted,
+  trackThreadsExampleTourStepViewed,
+  trackThreadsExampleViewed,
   trackThreadsIntelligenceSignupClicked,
   trackThreadsLockedViewed,
   trackMemoriesTabClicked,
@@ -113,6 +120,12 @@ const MAX_AGENT_EVENTS = 200;
 const MAX_TOTAL_EVENTS = 500;
 const INTELLIGENCE_SIGNUP_URL = "https://go.copilotkit.ai/intelligence-signup";
 const TALK_TO_ENGINEER_URL = "https://www.copilotkit.ai/talk-to-an-engineer";
+const THREADS_DOCS_URL = "https://docs.copilotkit.ai/threads";
+const SELF_HOSTED_INTELLIGENCE_URL =
+  "https://docs.copilotkit.ai/premium/self-hosting";
+const THREADS_EXAMPLE_TOUR_STORAGE_KEY =
+  "cpk:inspector:threads-example-tour:v1";
+const THREADS_EXAMPLE_AGENT_ID = "threads-feature";
 
 type ThreadServiceStatus = "available" | "unavailable" | "unknown" | "error";
 
@@ -376,6 +389,235 @@ type RuntimeStateFetchResult =
   | { status: "available"; state: Record<string, unknown> | null }
   | { status: "not-available" };
 
+type ExampleThread = ɵThread & { isExample: true };
+
+type ExampleThreadDetails = {
+  messages: ThreadDebuggerMessage[];
+  events: ThreadDebuggerEvent[];
+  state: Record<string, unknown>;
+};
+
+const THREADS_EXAMPLE_THREADS: ExampleThread[] = [
+  {
+    id: "example-realtime-sync",
+    name: "Realtime thread sync",
+    agentId: THREADS_EXAMPLE_AGENT_ID,
+    organizationId: "example-organization",
+    createdById: "example-user",
+    archived: false,
+    createdAt: "2026-07-08T16:00:00.000Z",
+    updatedAt: "2026-07-08T16:30:00.000Z",
+    isExample: true,
+  },
+  {
+    id: "example-manage-history",
+    name: "Manage saved conversations",
+    agentId: THREADS_EXAMPLE_AGENT_ID,
+    organizationId: "example-organization",
+    createdById: "example-user",
+    archived: false,
+    createdAt: "2026-07-07T17:45:00.000Z",
+    updatedAt: "2026-07-07T18:15:00.000Z",
+    isExample: true,
+  },
+  {
+    id: "example-inspect-runs",
+    name: "Inspect durable run history",
+    agentId: THREADS_EXAMPLE_AGENT_ID,
+    organizationId: "example-organization",
+    createdById: "example-user",
+    archived: false,
+    createdAt: "2026-07-06T20:15:00.000Z",
+    updatedAt: "2026-07-06T20:45:00.000Z",
+    isExample: true,
+  },
+];
+
+const THREADS_EXAMPLE_DETAILS: Record<string, ExampleThreadDetails> = {
+  "example-realtime-sync": {
+    messages: [
+      {
+        id: "example-sync-user",
+        role: "user",
+        content: "Resume the checkout support thread from yesterday.",
+      },
+      {
+        id: "example-sync-assistant",
+        role: "assistant",
+        content:
+          "I found the saved thread, restored the cart state, and continued from the latest user message.",
+      },
+    ],
+    events: [
+      {
+        type: "RUN_STARTED",
+        timestamp: "2026-07-08T16:30:00.000Z",
+        payload: {
+          threadId: "example-realtime-sync",
+          agentId: THREADS_EXAMPLE_AGENT_ID,
+        },
+      },
+      {
+        type: "MESSAGES_SNAPSHOT",
+        timestamp: "2026-07-08T16:30:01.000Z",
+        payload: {
+          messageCount: 6,
+          source: "thread-history",
+        },
+      },
+      {
+        type: "STATE_SNAPSHOT",
+        timestamp: "2026-07-08T16:30:02.000Z",
+        payload: {
+          cartId: "cart_demo_42",
+          checkoutStep: "shipping",
+          resumed: true,
+        },
+      },
+      {
+        type: "RUN_FINISHED",
+        timestamp: "2026-07-08T16:30:04.000Z",
+        payload: {
+          status: "completed",
+        },
+      },
+    ],
+    state: {
+      cartId: "cart_demo_42",
+      checkoutStep: "shipping",
+      userIntent: "resume_previous_checkout",
+      persistedThread: true,
+    },
+  },
+  "example-manage-history": {
+    messages: [
+      {
+        id: "example-history-user",
+        role: "user",
+        content: "Rename this saved support conversation for the handoff.",
+      },
+      {
+        id: "example-history-assistant",
+        role: "assistant",
+        content:
+          "Renamed the thread and kept the prior messages available for the next session.",
+      },
+    ],
+    events: [
+      {
+        type: "RUN_STARTED",
+        timestamp: "2026-07-07T18:15:00.000Z",
+        payload: {
+          threadId: "example-manage-history",
+          agentId: THREADS_EXAMPLE_AGENT_ID,
+        },
+      },
+      {
+        type: "CUSTOM_EVENT",
+        timestamp: "2026-07-07T18:15:01.000Z",
+        payload: {
+          action: "thread_renamed",
+          previousName: "Untitled",
+          name: "Billing escalation handoff",
+        },
+      },
+      {
+        type: "RUN_FINISHED",
+        timestamp: "2026-07-07T18:15:03.000Z",
+        payload: {
+          status: "completed",
+        },
+      },
+    ],
+    state: {
+      name: "Billing escalation handoff",
+      savedMessages: 14,
+      lastHandoff: "support-team",
+    },
+  },
+  "example-inspect-runs": {
+    messages: [
+      {
+        id: "example-inspect-user",
+        role: "user",
+        content: "Why did the assistant recommend the enterprise plan?",
+      },
+      {
+        id: "example-inspect-assistant",
+        role: "assistant",
+        content:
+          "The recommendation came from the account size, SSO requirement, and audit-log constraint in state.",
+      },
+    ],
+    events: [
+      {
+        type: "RUN_STARTED",
+        timestamp: "2026-07-06T20:45:00.000Z",
+        payload: {
+          threadId: "example-inspect-runs",
+          agentId: THREADS_EXAMPLE_AGENT_ID,
+        },
+      },
+      {
+        type: "TOOL_CALL_START",
+        timestamp: "2026-07-06T20:45:01.000Z",
+        payload: {
+          toolCallId: "call_account_lookup",
+          toolName: "lookupAccount",
+        },
+      },
+      {
+        type: "TOOL_CALL_RESULT",
+        timestamp: "2026-07-06T20:45:02.000Z",
+        payload: {
+          toolCallId: "call_account_lookup",
+          seats: 220,
+          requiresSso: true,
+        },
+      },
+      {
+        type: "RUN_FINISHED",
+        timestamp: "2026-07-06T20:45:04.000Z",
+        payload: {
+          status: "completed",
+        },
+      },
+    ],
+    state: {
+      accountTier: "growth",
+      seats: 220,
+      requiresSso: true,
+      auditLogsRequired: true,
+    },
+  },
+};
+
+const THREADS_EXAMPLE_TOUR_STEPS: ReadonlyArray<{
+  tab: ThreadDetailsTab;
+  label: string;
+  title: string;
+  body: string;
+}> = [
+  {
+    tab: "timeline",
+    label: "Timeline",
+    title: "Read the run as a story",
+    body: "The timeline turns messages, tool calls, state changes, and run markers into a scannable debugging trail.",
+  },
+  {
+    tab: "raw-events",
+    label: "Raw AG-UI Events",
+    title: "Drop into the protocol payloads",
+    body: "Raw events show the exact AG-UI stream behind the timeline when you need to verify ordering or payload shape.",
+  },
+  {
+    tab: "state",
+    label: "State",
+    title: "Check the durable state",
+    body: "The state tab shows the saved values that make a thread resumable across sessions.",
+  },
+];
+
 // ─── JSON syntax highlighter ─────────────────────────────────────────────────
 // Inline-styled so shadow DOM encapsulation preserves colors when the output
 // is injected via unsafeHTML. Only for structured data — never raw user HTML.
@@ -602,6 +844,11 @@ class CpkThreadList extends LitElement {
       color: #57575b;
     }
 
+    .cpk-tl__pill--example {
+      background: rgba(133, 236, 206, 0.22);
+      color: #189370;
+    }
+
     /* ── Empty state ── */
     .cpk-tl__empty {
       padding: 32px 16px;
@@ -697,6 +944,13 @@ class CpkThreadList extends LitElement {
                 </div>
                 <div class="cpk-tl__meta">
                   <span class="cpk-tl__pill">${thread.agentId}</span>
+                  ${
+                    (thread as Partial<ExampleThread>).isExample
+                      ? html`<span class="cpk-tl__pill cpk-tl__pill--example"
+                          >Example</span
+                        >`
+                      : nothing
+                  }
                 </div>
               </div>
             `,
@@ -971,6 +1225,10 @@ export class CpkThreadInspector extends LitElement {
       });
     }
     this.maybeFetchTabData(id);
+  }
+
+  selectTab(id: ThreadDetailsTab): void {
+    this.activateTab(id);
   }
 
   private maybeFetchTabData(id: ThreadDetailsTab): void {
@@ -3937,6 +4195,15 @@ export class WebInspectorElement extends LitElement {
   // don't inflate funnel counts beyond one signal per intent type per banner.
   private clickedBannerIds: Set<string> = new Set();
   private viewedThreadsTelemetryStates: Set<string> = new Set();
+  private viewedExampleThreadIds: Set<string> = new Set();
+  private selectedExampleThreadIds: Set<string> = new Set();
+  private viewedExampleTourSteps: Set<string> = new Set();
+  private exampleThreadProviders: Map<string, ThreadDebuggerProvider> =
+    new Map();
+  private exampleTourDismissed = false;
+  private exampleTourActive = false;
+  private exampleTourStep = 0;
+  private exampleTourAutoShown = false;
 
   get core(): CopilotKitCore | null {
     return this._core;
@@ -4114,6 +4381,7 @@ export class WebInspectorElement extends LitElement {
     if (this._threads.length === 0) return;
     const stillValid =
       this.selectedThreadId != null &&
+      !this.isExampleThreadId(this.selectedThreadId) &&
       this._threads.some((t) => t.id === this.selectedThreadId);
     if (!stillValid) {
       // Threads are sorted most-recently-updated first
@@ -5885,6 +6153,7 @@ ${argsString}</pre
 
       // Load state early (before first render) so menu selection is correct
       this.hydrateStateFromStorageEarly();
+      this.exampleTourDismissed = this.readThreadsExampleTourDismissed();
       this.tryAutoAttachCore();
       this.ensureAnnouncementLoading();
     }
@@ -6188,6 +6457,21 @@ ${argsString}</pre
                   </button>
                 `;
               })}
+              ${
+                this.selectedMenu === "threads"
+                  ? html`
+                      <a
+                        href=${this.getTalkToEngineerUrl()}
+                        target="_blank"
+                        rel="noopener"
+                        style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;border-radius:6px;border:1px solid #dbdbe5;background:#ffffff;padding:7px 10px;font-size:12px;font-weight:600;color:#57575b;text-decoration:none;"
+                        @click=${this.handleTalkToEngineerClick}
+                      >
+                        Talk to an Engineer
+                      </a>
+                    `
+                  : nothing
+              }
             </div>
           </div>
           <div class="flex flex-1 flex-col overflow-hidden">
@@ -7566,6 +7850,421 @@ ${argsString}</pre
     }
   }
 
+  private shouldRenderExampleThreads(
+    displayThreads: ɵThread[],
+    threadsErrorMessage: string | null,
+  ): boolean {
+    return (
+      this.areThreadEndpointsAvailable() &&
+      !threadsErrorMessage &&
+      displayThreads.length === 0
+    );
+  }
+
+  private getVisibleThreads(
+    displayThreads: ɵThread[],
+    threadsErrorMessage: string | null,
+  ): ɵThread[] {
+    return this.shouldRenderExampleThreads(displayThreads, threadsErrorMessage)
+      ? THREADS_EXAMPLE_THREADS
+      : displayThreads;
+  }
+
+  private isExampleThreadId(threadId: string | null | undefined): boolean {
+    return THREADS_EXAMPLE_THREADS.some((thread) => thread.id === threadId);
+  }
+
+  private getExampleThreadProvider(threadId: string): ThreadDebuggerProvider {
+    const cached = this.exampleThreadProviders.get(threadId);
+    if (cached) return cached;
+    const thread = THREADS_EXAMPLE_THREADS.find((item) => item.id === threadId);
+    const details = THREADS_EXAMPLE_DETAILS[threadId];
+    const provider: ThreadDebuggerProvider = {
+      getThreadMetadata: async () =>
+        thread
+          ? {
+              id: thread.id,
+              name: thread.name,
+              agentId: thread.agentId,
+              endUserId: "example-user",
+              status: "completed",
+              updatedAt: thread.updatedAt,
+            }
+          : null,
+      getMessages: async () => details?.messages ?? [],
+      getEvents: async () => details?.events ?? [],
+      getState: async () => details?.state ?? null,
+    };
+    this.exampleThreadProviders.set(threadId, provider);
+    return provider;
+  }
+
+  private trackThreadsExampleViewedOnce(): void {
+    if (this.core?.telemetryDisabled) return;
+    for (const thread of THREADS_EXAMPLE_THREADS) {
+      if (this.viewedExampleThreadIds.has(thread.id)) continue;
+      this.viewedExampleThreadIds.add(thread.id);
+      trackThreadsExampleViewed(
+        this.getThreadsTelemetryProps({
+          example_thread_id: thread.id,
+          thread_count: 0,
+        }),
+      );
+    }
+  }
+
+  private trackThreadsExampleSelectedOnce(threadId: string): void {
+    if (this.core?.telemetryDisabled) return;
+    if (this.selectedExampleThreadIds.has(threadId)) return;
+    this.selectedExampleThreadIds.add(threadId);
+    trackThreadsExampleSelected(
+      this.getThreadsTelemetryProps({
+        example_thread_id: threadId,
+        thread_count: 0,
+      }),
+    );
+  }
+
+  private getCurrentExampleTourProps(): InspectorThreadTelemetryProps {
+    const step =
+      THREADS_EXAMPLE_TOUR_STEPS[this.exampleTourStep] ??
+      THREADS_EXAMPLE_TOUR_STEPS[0]!;
+    return this.getThreadsTelemetryProps({
+      example_thread_id: this.selectedThreadId ?? undefined,
+      thread_count: 0,
+      tour_step: this.exampleTourStep + 1,
+      tour_tab: step?.tab,
+    });
+  }
+
+  private trackThreadsExampleTourStepViewedOnce(): void {
+    if (this.core?.telemetryDisabled || !this.selectedThreadId) return;
+    const step =
+      THREADS_EXAMPLE_TOUR_STEPS[this.exampleTourStep] ??
+      THREADS_EXAMPLE_TOUR_STEPS[0]!;
+    if (!step) return;
+    const key = `${this.selectedThreadId}:${this.exampleTourStep}`;
+    if (this.viewedExampleTourSteps.has(key)) return;
+    this.viewedExampleTourSteps.add(key);
+    trackThreadsExampleTourStepViewed(this.getCurrentExampleTourProps());
+  }
+
+  private syncExampleTourTab(): void {
+    const step =
+      THREADS_EXAMPLE_TOUR_STEPS[this.exampleTourStep] ??
+      THREADS_EXAMPLE_TOUR_STEPS[0]!;
+    if (!step) return;
+    void this.updateComplete.then(() => {
+      const details = this.shadowRoot?.querySelector("cpk-thread-details") as
+        | (ɵCpkThreadDetails & { selectTab?: (id: ThreadDetailsTab) => void })
+        | null;
+      details?.selectTab?.(step.tab);
+    });
+  }
+
+  private startExampleTour(autoStarted: boolean): void {
+    if (!this.selectedThreadId) return;
+    this.exampleTourActive = true;
+    this.exampleTourStep = 0;
+    if (autoStarted) {
+      this.exampleTourAutoShown = true;
+      if (!this.core?.telemetryDisabled) {
+        trackThreadsExampleTourStarted(this.getCurrentExampleTourProps());
+      }
+    } else if (!this.core?.telemetryDisabled) {
+      trackThreadsExampleTourReopened(this.getCurrentExampleTourProps());
+    }
+    this.trackThreadsExampleTourStepViewedOnce();
+    this.syncExampleTourTab();
+    this.requestUpdate();
+  }
+
+  private setExampleTourStep(nextStep: number): void {
+    this.exampleTourStep = Math.max(
+      0,
+      Math.min(THREADS_EXAMPLE_TOUR_STEPS.length - 1, nextStep),
+    );
+    this.trackThreadsExampleTourStepViewedOnce();
+    this.syncExampleTourTab();
+    this.requestUpdate();
+  }
+
+  private dismissExampleTour(method: "skip" | "done"): void {
+    if (!this.selectedThreadId) return;
+    const props = this.getThreadsTelemetryProps({
+      ...this.getCurrentExampleTourProps(),
+      dismiss_method: method,
+    });
+    this.exampleTourActive = false;
+    this.exampleTourDismissed = true;
+    this.writeThreadsExampleTourDismissed();
+    if (!this.core?.telemetryDisabled) {
+      if (method === "done") {
+        trackThreadsExampleTourCompleted(props);
+      } else {
+        trackThreadsExampleTourDismissed(props);
+      }
+    }
+    this.requestUpdate();
+  }
+
+  private handleThreadsThreadSelected(
+    threadId: string,
+    showingExamples: boolean,
+  ): void {
+    if (showingExamples && this.selectedThreadId === threadId) {
+      this.selectedThreadId = null;
+      this.exampleTourActive = false;
+      this.requestUpdate();
+      return;
+    }
+
+    this.selectedThreadId = threadId;
+    if (showingExamples && this.isExampleThreadId(threadId)) {
+      this.trackThreadsExampleSelectedOnce(threadId);
+      if (!this.exampleTourDismissed && !this.exampleTourAutoShown) {
+        this.startExampleTour(true);
+      } else {
+        this.exampleTourActive = false;
+      }
+    } else {
+      this.exampleTourActive = false;
+    }
+    this.requestUpdate();
+  }
+
+  private readThreadsExampleTourDismissed(): boolean {
+    if (typeof window === "undefined") return false;
+    try {
+      const raw = window.localStorage.getItem(THREADS_EXAMPLE_TOUR_STORAGE_KEY);
+      if (!raw) return false;
+      const value = JSON.parse(raw) as { dismissed?: unknown };
+      return value.dismissed === true;
+    } catch {
+      return false;
+    }
+  }
+
+  private writeThreadsExampleTourDismissed(): void {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        THREADS_EXAMPLE_TOUR_STORAGE_KEY,
+        JSON.stringify({ dismissed: true }),
+      );
+    } catch {
+      // Persistence is best-effort; the inspector should keep working without it.
+    }
+  }
+
+  private renderThreadsExampleOverview() {
+    return html`
+      <div
+        style="
+          flex: 1;
+          min-width: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 32px;
+          background: #f7f7f9;
+        "
+      >
+        <div style="max-width: 440px; color: #57575b;">
+          <h2
+            style="
+              margin: 0 0 10px;
+              font-size: 20px;
+              line-height: 1.25;
+              font-weight: 600;
+              color: #010507;
+            "
+          >
+            Threads are persistent, inspectable conversations
+          </h2>
+          <p
+            style="
+              margin: 0 0 16px;
+              font-size: 13px;
+              line-height: 1.55;
+              color: #57575b;
+            "
+          >
+            Take a tour with the example threads in the sidebar. Then, start
+            chatting in your app to create the first real thread.
+          </p>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;">
+            <a
+              href=${THREADS_DOCS_URL}
+              target="_blank"
+              rel="noopener"
+              style="
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                min-height: 34px;
+                border-radius: 6px;
+                background: #010507;
+                padding: 8px 12px;
+                font-size: 12px;
+                font-weight: 600;
+                color: #ffffff;
+                text-decoration: none;
+              "
+            >
+              Learn how Threads work
+            </a>
+            <a
+              href=${SELF_HOSTED_INTELLIGENCE_URL}
+              target="_blank"
+              rel="noopener"
+              style="
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                min-height: 34px;
+                border-radius: 6px;
+                border: 1px solid #dbdbe5;
+                background: #ffffff;
+                padding: 8px 12px;
+                font-size: 12px;
+                font-weight: 600;
+                color: #010507;
+                text-decoration: none;
+              "
+            >
+              Explore self-hosted Intelligence
+            </a>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderThreadsExampleTour() {
+    if (!this.selectedThreadId || !this.isExampleThreadId(this.selectedThreadId)) {
+      return nothing;
+    }
+
+    if (!this.exampleTourActive) {
+      return html`
+        <button
+          type="button"
+          style="
+            position: absolute;
+            right: 16px;
+            bottom: 16px;
+            z-index: 2;
+            border: 1px solid #dbdbe5;
+            border-radius: 6px;
+            background: #ffffff;
+            padding: 7px 10px;
+            color: #57575b;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 8px 18px rgba(1, 5, 7, 0.08);
+          "
+          @click=${() => this.startExampleTour(false)}
+        >
+          Show tour
+        </button>
+      `;
+    }
+
+    const step =
+      THREADS_EXAMPLE_TOUR_STEPS[this.exampleTourStep] ??
+      THREADS_EXAMPLE_TOUR_STEPS[0]!;
+    const isFirst = this.exampleTourStep === 0;
+    const isLast = this.exampleTourStep === THREADS_EXAMPLE_TOUR_STEPS.length - 1;
+
+    return html`
+      <div
+        role="dialog"
+        aria-label="Example thread tour"
+        style="
+          position: absolute;
+          right: 16px;
+          bottom: 16px;
+          z-index: 3;
+          width: min(340px, calc(100% - 32px));
+          border: 1px solid #dbdbe5;
+          border-radius: 8px;
+          background: #ffffff;
+          padding: 14px;
+          box-shadow: 0 16px 36px rgba(1, 5, 7, 0.14);
+          color: #57575b;
+        "
+      >
+        <div
+          style="
+            margin-bottom: 8px;
+            font-family: 'Spline Sans Mono', monospace;
+            font-size: 10px;
+            font-weight: 600;
+            color: #189370;
+            text-transform: uppercase;
+          "
+        >
+          ${this.exampleTourStep + 1}/${THREADS_EXAMPLE_TOUR_STEPS.length}
+          ${step.label}
+        </div>
+        <div
+          style="
+            margin-bottom: 6px;
+            font-size: 14px;
+            line-height: 1.35;
+            font-weight: 600;
+            color: #010507;
+          "
+        >
+          ${step.title}
+        </div>
+        <div style="font-size: 12px; line-height: 1.5; color: #57575b;">
+          ${step.body}
+        </div>
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            margin-top: 14px;
+          "
+        >
+          <button
+            type="button"
+            style="border:0;background:transparent;color:#838389;font-size:12px;font-weight:600;cursor:pointer;padding:7px 0;"
+            @click=${() => this.dismissExampleTour("skip")}
+          >
+            Skip
+          </button>
+          <div style="display:flex;gap:8px;">
+            <button
+              type="button"
+              style="border:1px solid #dbdbe5;border-radius:6px;background:#ffffff;color:#57575b;font-size:12px;font-weight:600;cursor:pointer;padding:7px 10px;"
+              ?disabled=${isFirst}
+              @click=${() => this.setExampleTourStep(this.exampleTourStep - 1)}
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              style="border:1px solid #010507;border-radius:6px;background:#010507;color:#ffffff;font-size:12px;font-weight:600;cursor:pointer;padding:7px 10px;"
+              @click=${() =>
+                isLast
+                  ? this.dismissExampleTour("done")
+                  : this.setExampleTourStep(this.exampleTourStep + 1)}
+            >
+              ${isLast ? "Done" : "Next"}
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   private renderThreadsLockedBackgroundMockup() {
     const threadRows = [
       { width: 74, accent: true },
@@ -7812,28 +8511,6 @@ ${argsString}</pre
               gap: 8px;
             "
           >
-            <a
-              href=${this.getTalkToEngineerUrl()}
-              target="_blank"
-              rel="noopener"
-              style="
-                display: inline-flex;
-                min-height: 34px;
-                align-items: center;
-                justify-content: center;
-                gap: 6px;
-                border-radius: 6px;
-                background: #010507;
-                padding: 8px 12px;
-                font-size: 12px;
-                font-weight: 600;
-                color: #ffffff;
-                text-decoration: none;
-              "
-              @click=${this.handleThreadsTalkToEngineerClick}
-            >
-              Talk to an Engineer
-            </a>
             <a
               href=${this.getIntelligenceSignupUrl()}
               target="_blank"
@@ -8226,10 +8903,23 @@ ${argsString}</pre
         this._threadsErrorByAgent.get(this.selectedContext)?.message ?? null;
     }
 
+    const showingExamples = this.shouldRenderExampleThreads(
+      displayThreads,
+      threadsErrorMessage,
+    );
+    const visibleThreads = this.getVisibleThreads(
+      displayThreads,
+      threadsErrorMessage,
+    );
+    if (showingExamples) {
+      this.trackThreadsExampleViewedOnce();
+    }
+
     const selectedThread =
       this.selectedThreadId != null
-        ? (displayThreads.find((t) => t.id === this.selectedThreadId) ?? null)
+        ? (visibleThreads.find((t) => t.id === this.selectedThreadId) ?? null)
         : null;
+    const selectedThreadIsExample = this.isExampleThreadId(selectedThread?.id);
 
     if (!threadsErrorMessage) {
       this.trackThreadsViewStateOnce(
@@ -8240,19 +8930,6 @@ ${argsString}</pre
 
     return html`
       <div style="display:flex;height:100%;overflow:hidden;flex-direction:column;">
-        <div
-          style="display:flex;align-items:center;justify-content:flex-end;border-bottom:1px solid #DBDBE5;background:#ffffff;padding:8px 12px;flex-shrink:0;"
-        >
-          <a
-            href=${this.getTalkToEngineerUrl()}
-            target="_blank"
-            rel="noopener"
-            style="display:inline-flex;align-items:center;gap:6px;border-radius:6px;border:1px solid #dbdbe5;background:#ffffff;padding:7px 10px;font-size:12px;font-weight:600;color:#57575b;text-decoration:none;"
-            @click=${this.handleTalkToEngineerClick}
-          >
-            Talk to an Engineer
-          </a>
-        </div>
         <div style="display:flex;min-height:0;flex:1;overflow:hidden;">
           <!-- Left sidebar: thread list -->
           <div
@@ -8260,12 +8937,11 @@ ${argsString}</pre
           >
             <cpk-thread-list
               style="height:100%;"
-              .threads=${displayThreads}
+              .threads=${visibleThreads}
               .selectedThreadId=${this.selectedThreadId}
               .errorMessage=${threadsErrorMessage}
               @threadSelected=${(e: CustomEvent<string>) => {
-                this.selectedThreadId = e.detail;
-                this.requestUpdate();
+                this.handleThreadsThreadSelected(e.detail, showingExamples);
               }}
             ></cpk-thread-list>
           </div>
@@ -8280,16 +8956,22 @@ ${argsString}</pre
           ></div>
 
           <!-- Center + right: thread details or empty state -->
-          <div style="flex:1;min-width:0;overflow:hidden;display:flex;">
+          <div style="flex:1;min-width:0;overflow:hidden;display:flex;position:relative;">
             ${
               selectedThread
                 ? html`<cpk-thread-details
                     style="flex:1;min-width:0;"
                     .threadId=${selectedThread.id}
                     .thread=${selectedThread}
+                    .provider=${
+                      selectedThreadIsExample
+                        ? this.getExampleThreadProvider(selectedThread.id)
+                        : null
+                    }
                     .runtimeUrl=${this._core?.runtimeUrl ?? ""}
                     .headers=${this._core?.headers ?? {}}
                     .threadInspectionAvailable=${
+                      selectedThreadIsExample ||
                       this._core?.threadEndpoints?.inspect !== false
                     }
                     .liveMessageVersion=${
@@ -8301,7 +8983,10 @@ ${argsString}</pre
                     .agentEventsInput=${
                       this.agentEvents.get(selectedThread.agentId) ?? []
                     }
-                  ></cpk-thread-details>`
+                  ></cpk-thread-details>
+                  ${selectedThreadIsExample ? this.renderThreadsExampleTour() : nothing}`
+                : showingExamples
+                  ? this.renderThreadsExampleOverview()
                 : html`
                     <div
                       style="
