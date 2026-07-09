@@ -11,7 +11,7 @@ import type {
 export function useHumanInTheLoop<T extends Record<string, unknown>>(
   tool: SvelteHumanInTheLoop<T>,
 ) {
-  const context = getContext<CopilotKitContextValue>(COPILOT_KIT_KEY);
+  const context = getContext<CopilotKitContextValue | null>(COPILOT_KIT_KEY);
   if (!context) {
     throw new Error("useHumanInTheLoop must be used within CopilotKitProvider");
   }

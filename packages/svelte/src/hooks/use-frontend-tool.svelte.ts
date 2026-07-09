@@ -7,7 +7,7 @@ import type { SvelteToolCallRenderer } from "../types";
 export function useFrontendTool<T extends Record<string, unknown>>(
   tool: SvelteFrontendTool<T>,
 ) {
-  const context = getContext<CopilotKitContextValue>(COPILOT_KIT_KEY);
+  const context = getContext<CopilotKitContextValue | null>(COPILOT_KIT_KEY);
   if (!context) {
     throw new Error("useFrontendTool must be used within CopilotKitProvider");
   }
