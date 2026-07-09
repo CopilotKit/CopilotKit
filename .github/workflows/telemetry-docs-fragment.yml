@@ -30,9 +30,10 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
-    # GitHub rejects secrets.* in `if:`; surface the gate as an env var.
+    # GitHub rejects secrets.* in `if:`; surface the registry App ID as an env
+    # var to gate on — the workflow self-skips when the App isn't configured.
     env:
-      HAS_BOT_KEY: ${{ secrets.DEVOPS_BOT_PRIVATE_KEY != '' }}
+      REGISTRY_APP_ID: ${{ secrets.TELEMETRY_REGISTRY_APP_ID }}
     steps:
       - name: Checkout CopilotKit
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -53,12 +54,12 @@ jobs:
       # Cross-repo token, least privilege: NO explicit owner + bare
       # `repositories`; contents+pull-requests write only.
       - name: Mint token for oss-path-to-production
-        if: env.HAS_BOT_KEY == 'true'
+        if: env.REGISTRY_APP_ID != ''
         id: token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
-          app-id: 1108748
-          private-key: ${{ secrets.DEVOPS_BOT_PRIVATE_KEY }}
+          app-id: ${{ secrets.TELEMETRY_REGISTRY_APP_ID }}
+          private-key: ${{ secrets.TELEMETRY_REGISTRY_APP_PRIVATE_KEY }}
           repositories: oss-path-to-production
           permission-contents: write
           permission-pull-requests: write
