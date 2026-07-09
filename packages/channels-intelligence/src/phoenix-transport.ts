@@ -224,6 +224,10 @@ export class PhoenixRealtimeTransport
         seq: frame.seq,
         idempotencyKey,
         event: frame.event,
+        // Fence the render-accept on the lease token (OSS-446), matching the
+        // fail path. Optional — omitted when no state (app-api falls back to
+        // instance-id + expiry), present for a normally-leased delivery.
+        ...(state ? { leaseToken: state.leaseToken } : {}),
         sentAt: this.now(),
       },
     };
@@ -294,6 +298,9 @@ export class PhoenixRealtimeTransport
         deliveryId,
         turnId: state.turnId,
         runtimeInstanceId: this.runtimeInstanceId,
+        // Fence the completion intent on the lease token (OSS-446), matching
+        // the fail path; app-api fences when present, falls back otherwise.
+        leaseToken: state.leaseToken,
         acceptedThrough,
         requestedAt: this.now(),
       },

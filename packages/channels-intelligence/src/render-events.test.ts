@@ -232,12 +232,22 @@ describe("PhoenixRealtimeTransport — completion intent, never self-ack", () =>
     expect(events).not.toContain("hosted_bot.delivery.ack.v1");
 
     const completion = fake.pushes.at(-1)!.payload as {
-      payload: { acceptedThrough: unknown[]; runtimeInstanceId: string };
+      payload: {
+        acceptedThrough: unknown[];
+        runtimeInstanceId: string;
+        leaseToken?: string;
+      };
     };
     expect(completion.payload.acceptedThrough).toEqual([
       { turnId: "turn_t1", slot: "main", seq: 1 },
     ]);
     expect(completion.payload.runtimeInstanceId).toBe("rti_1");
+    // OSS-446: render-accept + completion intent are both fenced on the lease.
+    const render = fake.pushes.find(
+      (p) => p.event === "hosted_bot.render_event.v1",
+    )!.payload as { payload: { leaseToken?: string } };
+    expect(render.payload.leaseToken).toBe("lease_l1");
+    expect(completion.payload.leaseToken).toBe("lease_l1");
   });
 
   it("throws if a render frame is not accepted (no silent success)", async () => {
