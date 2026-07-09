@@ -111,6 +111,10 @@ MaybePromise<NonEmptyRecord<...>> ...; fixed in source, pending release`
       `@ts-ignore`s are likely unnecessary. Remove them and confirm `tsc` passes
       against the workspace `@copilotkit/runtime`.
 - [ ] The `// @ts-ignore -- see main route.ts` copies inherit the same fate.
+- [ ] `next.config.ts` sets `typescript.ignoreBuildErrors: true`, which masks
+      type regressions beyond these targeted `@ts-ignore`s. It can't simply be
+      removed — the same published-package type drift currently fails a strict
+      build. Once the drift above is resolved, drop `ignoreBuildErrors`.
 
 ---
 
@@ -153,6 +157,11 @@ test-harness assumptions that reviewers should see:
       Keep, but note it's opinionated agent-prompt seeding.
 - [ ] `reasoningDefault: "stream"` and the intermittent-reasoning caveat (see
       `PARITY_NOTES.md`) are OpenClaw-core limitations, not fixable here.
+- [ ] **Config-injection footgun (CR):** the JSON heredocs in `setup.sh`
+      interpolate `$TOKEN`/`$PORT`/`$OPENAI_BASE_URL` unescaped. Operator-set
+      values with a `"`, `}`, or newline corrupt the config (not
+      attacker-reachable, so left as-is). Fix with `jq -n --arg` if a container
+      `jq` is guaranteed, or validate/quote before merge.
 
 ---
 
