@@ -160,4 +160,62 @@ describe("startManagedBotsOverPhoenix — fail-fast validation (OSS-406)", () =>
 
     expect(socketConstructed).toBe(false);
   });
+
+  it("rejects >1 bot before opening a socket (Phase 1 is single-bot per channel)", async () => {
+    let socketConstructed = false;
+    class NeverWebSocket {
+      constructor() {
+        socketConstructed = true;
+        throw new Error("startManagedBotsOverPhoenix should not have connected");
+      }
+    }
+    const a = createBot({ name: "one", agent: () => new FakeAgent() });
+    const b = createBot({ name: "two", agent: () => new FakeAgent() });
+
+    await expect(
+      startManagedBotsOverPhoenix([a, b], {
+        wsUrl: "wss://gateway.example/socket",
+        apiKey: "cpk-test",
+        scope,
+        runtimeInstanceId: "rti_1",
+        webSocket: NeverWebSocket,
+      }),
+    ).rejects.toThrow(/exactly one bot per channel/i);
+
+    expect(socketConstructed).toBe(false);
+  });
+
+  it("startManagedBotsOnChannel also rejects >1 bot (shared-transport misrouting guard)", async () => {
+    const fake = makeFakeChannel();
+    const a = createBot({ name: "one", agent: () => new FakeAgent() });
+    const b = createBot({ name: "two", agent: () => new FakeAgent() });
+
+    await expect(
+      startManagedBotsOnChannel([a, b], {
+        channel: fake.channel,
+        scope,
+        runtimeInstanceId: "rti_1",
+      }),
+    ).rejects.toThrow(/exactly one bot per channel/i);
+  });
+});
+
+describe("startManagedBotsOnChannel — activation metadata (OSS-406)", () => {
+  it("forwards env overrides into handle.metadata (keeps join ↔ metadata in sync)", async () => {
+    const fake = makeFakeChannel();
+    const bot = createBot({ name: "opentag", agent: () => new FakeAgent() });
+
+    const handle = await startManagedBotsOnChannel([bot], {
+      channel: fake.channel,
+      scope,
+      runtimeInstanceId: "rti_1",
+      env: { runtimeEnv: "production", runtimePackageVersion: "9.9.9" },
+    });
+
+    expect(handle.metadata.runtimeEnv).toBe("production");
+    expect(handle.metadata.runtimePackageVersion).toBe("9.9.9");
+    expect(handle.metadata.declaredBotNames).toEqual(["opentag"]);
+
+    await handle.stop();
+  });
 });

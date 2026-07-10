@@ -30,6 +30,24 @@ const phoenixEgress: EgressSink = {
   },
 };
 
+/**
+ * Phase 1 runs exactly one bot per channel. {@link PhoenixRealtimeTransport} is
+ * a single-delivery-callback object bound to one channel; attaching more than
+ * one bot's `intelligenceAdapter` to the same transport would make every
+ * delivery dispatch through the last bot's callback (and earlier bots receive
+ * nothing). Multi-bot routing over a shared channel is Phase 2 (OSS-459) — until
+ * then, run one bot per channel/runner and fail loudly on more.
+ */
+function assertSingleBotForPhase1(bots: readonly Bot[]): void {
+  if (bots.length !== 1) {
+    throw new Error(
+      `managed Phoenix runtime supports exactly one bot per channel, got ${bots.length} — ` +
+        "multi-bot routing over a shared PhoenixRealtimeTransport is not implemented yet (OSS-459); " +
+        "run one bot per channel/runner",
+    );
+  }
+}
+
 /** Options for {@link startManagedBotsOnChannel} — an already-connected channel. */
 export interface ManagedBotsOnChannelOptions {
   /** The joined realtime-gateway bot-IO channel (`hosted_bots:project:<id>`). */
@@ -61,6 +79,7 @@ export async function startManagedBotsOnChannel(
   bots: Bot[],
   opts: ManagedBotsOnChannelOptions,
 ): Promise<ManagedBotsHandle> {
+  assertSingleBotForPhase1(bots);
   const transport = new PhoenixRealtimeTransport({
     scope: opts.scope,
     runtimeInstanceId: opts.runtimeInstanceId,
@@ -93,8 +112,10 @@ export interface ManagedPhoenixConfig {
   adapter?: string;
   /** Activation env overrides (package versions, runtimeEnv); omitted fields
    * are gathered from the process. Included in the join's `runtimeMetadata` and
-   * in `handle.metadata`. */
-  env?: Partial<ActivationEnv>;
+   * in `handle.metadata`. `runtimeInstanceId` is intentionally excluded — the
+   * required top-level {@link ManagedPhoenixConfig.runtimeInstanceId} is
+   * authoritative for both the join and `handle.metadata` (they must agree). */
+  env?: Partial<Omit<ActivationEnv, "runtimeInstanceId">>;
   /** Join timeout in ms. */
   timeoutMs?: number;
   /** Injectable `WebSocket` ctor (non-global hosts / tests). */
@@ -123,15 +144,19 @@ export async function startManagedBotsOverPhoenix(
   // the socket already open and never closed (a leak). Validating here means a
   // bad declaration never opens a connection at all.
   assertValidBotNames(bots);
+  // Fail fast before opening a socket for an unsupported multi-bot call.
+  assertSingleBotForPhase1(bots);
 
   // Build activation metadata up front so the join carries the Runtime
   // Activation data Intelligence's health view expects (runtime env, node
   // version, per-bot commands) rather than just name+adapter. The same
   // `envOverrides` is forwarded to startManagedBots so `handle.metadata` agrees
-  // with what we declared on join.
+  // with what we declared on join. The required `config.runtimeInstanceId` is
+  // spread LAST so it stays authoritative even though `config.env` cannot carry
+  // it (type-excluded) — belt and suspenders for the join↔metadata invariant.
   const envOverrides: Partial<ActivationEnv> = {
-    runtimeInstanceId: config.runtimeInstanceId,
     ...(config.env ?? {}),
+    runtimeInstanceId: config.runtimeInstanceId,
   };
   const activation = buildActivationMetadata(
     bots,
@@ -170,13 +195,22 @@ export async function startManagedBotsOverPhoenix(
     ...(config.timeoutMs !== undefined ? { timeoutMs: config.timeoutMs } : {}),
     ...(config.webSocket !== undefined ? { webSocket: config.webSocket } : {}),
   });
-  const handle = await startManagedBotsOnChannel(bots, {
-    channel,
-    scope: config.scope,
-    runtimeInstanceId: config.runtimeInstanceId,
-    env: envOverrides,
-    ...(config.log ? { log: config.log } : {}),
-  });
+  // The channel is now joined. If starting the bots throws (e.g. a bot was
+  // already started, or a conflicting adapter), the caller never receives a
+  // handle — so disconnect the socket here rather than leak it, then rethrow.
+  let handle: ManagedBotsHandle;
+  try {
+    handle = await startManagedBotsOnChannel(bots, {
+      channel,
+      scope: config.scope,
+      runtimeInstanceId: config.runtimeInstanceId,
+      env: envOverrides,
+      ...(config.log ? { log: config.log } : {}),
+    });
+  } catch (err) {
+    channel.disconnect();
+    throw err;
+  }
   return {
     ...handle,
     stop: async () => {
