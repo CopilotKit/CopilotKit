@@ -1542,10 +1542,10 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
   const threadListText = (inspector: WebInspectorElement) =>
     inspector.shadowRoot?.querySelector("cpk-thread-list")?.shadowRoot
       ?.textContent ?? "";
-  const expectThreadsOnboardingUtmParams = (url: URL) => {
-    expect(url.searchParams.get("utm_source")).toBe("copilotkit_inspector");
-    expect(url.searchParams.get("utm_medium")).toBe("in_product");
-    expect(url.searchParams.get("utm_campaign")).toBe("threads_onboarding");
+  const expectNoUtmParams = (url: URL) => {
+    expect(url.searchParams.has("utm_source")).toBe(false);
+    expect(url.searchParams.has("utm_medium")).toBe(false);
+    expect(url.searchParams.has("utm_campaign")).toBe(false);
   };
 
   beforeEach(() => {
@@ -1762,7 +1762,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     expect(signupUrl.origin).toBe("https://dashboard.operations.copilotkit.ai");
     expect(signupUrl.pathname).toBe("/sign-in");
     expect(signupUrl.searchParams.get("ref")).toBe("cpk-inspector");
-    expectThreadsOnboardingUtmParams(signupUrl);
+    expectNoUtmParams(signupUrl);
     const distinctId = signupUrl.searchParams.get("posthog_distinct_id");
     expect(distinctId).toMatch(/^[0-9a-f-]{36}$/);
 
@@ -1770,7 +1770,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     expect(engineerUrl.origin).toBe("https://www.copilotkit.ai");
     expect(engineerUrl.pathname).toBe("/talk-to-an-engineer");
     expect(engineerUrl.searchParams.get("ref")).toBe("cpk-inspector-threads");
-    expectThreadsOnboardingUtmParams(engineerUrl);
+    expectNoUtmParams(engineerUrl);
     expect(engineerUrl.searchParams.get("posthog_distinct_id")).toBe(
       distinctId,
     );
@@ -1860,7 +1860,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     expect(threadsDocsUrl.searchParams.get("ref")).toBe(
       "cpk-inspector-threads",
     );
-    expectThreadsOnboardingUtmParams(threadsDocsUrl);
+    expectNoUtmParams(threadsDocsUrl);
     const selfHosted = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
       'a[href^="https://docs.copilotkit.ai/premium/self-hosting"]',
     );
@@ -1871,7 +1871,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     expect(selfHostedUrl.origin).toBe("https://docs.copilotkit.ai");
     expect(selfHostedUrl.pathname).toBe("/premium/self-hosting");
     expect(selfHostedUrl.searchParams.get("ref")).toBe("cpk-inspector-threads");
-    expectThreadsOnboardingUtmParams(selfHostedUrl);
+    expectNoUtmParams(selfHostedUrl);
     expect(threadListText(inspector)).toContain("Example");
     expect(text).not.toContain("No threads yet");
     expect(
@@ -1888,7 +1888,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     expect(engineerUrl.origin).toBe("https://www.copilotkit.ai");
     expect(engineerUrl.pathname).toBe("/talk-to-an-engineer");
     expect(engineerUrl.searchParams.get("ref")).toBe("cpk-inspector-threads");
-    expectThreadsOnboardingUtmParams(engineerUrl);
+    expectNoUtmParams(engineerUrl);
     expect(engineer?.closest("#cpk-main-scroll")).toBeNull();
   });
 

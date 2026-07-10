@@ -130,11 +130,6 @@ const THREADS_EXAMPLE_OVERVIEW_VIDEO_URL =
 const THREADS_EXAMPLE_TOUR_STORAGE_KEY =
   "cpk:inspector:threads-example-tour:v1";
 const THREADS_EXAMPLE_AGENT_ID = "threads-feature";
-const INSPECTOR_UTM_PARAMS = {
-  utm_source: "copilotkit_inspector",
-  utm_medium: "in_product",
-  utm_campaign: "threads_onboarding",
-} as const;
 
 type ThreadServiceStatus = "available" | "unavailable" | "unknown" | "error";
 
@@ -4378,7 +4373,7 @@ export class WebInspectorElement extends LitElement {
   }
 
   private getThreadsIntelligenceSignupUrl(): string {
-    return this.appendThreadsOnboardingAttribution(
+    return this.appendRefParam(
       THREADS_INTELLIGENCE_SIGNIN_URL,
       "cpk-inspector",
     );
@@ -4389,21 +4384,21 @@ export class WebInspectorElement extends LitElement {
   }
 
   private getThreadsTalkToEngineerUrl(): string {
-    return this.appendThreadsOnboardingAttribution(
+    return this.appendRefParam(
       TALK_TO_ENGINEER_URL,
       "cpk-inspector-threads",
     );
   }
 
   private getThreadsDocsUrl(): string {
-    return this.appendThreadsOnboardingAttribution(
+    return this.appendRefParam(
       THREADS_DOCS_URL,
       "cpk-inspector-threads",
     );
   }
 
   private getSelfHostedIntelligenceUrl(): string {
-    return this.appendThreadsOnboardingAttribution(
+    return this.appendRefParam(
       SELF_HOSTED_INTELLIGENCE_URL,
       "cpk-inspector-threads",
     );
@@ -11040,18 +11035,7 @@ ${prettyEvent}</pre
     }
   };
 
-  private appendThreadsOnboardingAttribution(
-    href: string,
-    ref = "cpk-inspector-threads",
-  ): string {
-    return this.appendRefParam(href, ref, INSPECTOR_UTM_PARAMS);
-  }
-
-  private appendRefParam(
-    href: string,
-    ref = "cpk-inspector",
-    utmParams?: Readonly<Record<string, string>>,
-  ): string {
+  private appendRefParam(href: string, ref = "cpk-inspector"): string {
     try {
       const isRootRelative = href.startsWith("/") && !href.startsWith("//");
       const url = new URL(
@@ -11062,13 +11046,6 @@ ${prettyEvent}</pre
       );
       if (!url.searchParams.has("ref")) {
         url.searchParams.append("ref", ref);
-      }
-      if (utmParams) {
-        for (const [key, value] of Object.entries(utmParams)) {
-          if (!url.searchParams.has(key)) {
-            url.searchParams.append(key, value);
-          }
-        }
       }
       // Propagate the inspector's anonymous distinct-ID so the website /
       // Ops API can call posthog.alias(...) on signup-flow landing and
