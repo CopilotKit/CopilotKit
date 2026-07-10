@@ -4372,6 +4372,10 @@ export class WebInspectorElement extends LitElement {
   }
 
   private getIntelligenceSignupUrl(): string {
+    return this.appendRefParam(INTELLIGENCE_SIGNUP_URL, "cpk-inspector");
+  }
+
+  private getThreadsIntelligenceSignupUrl(): string {
     return this.appendThreadsOnboardingAttribution(
       INTELLIGENCE_SIGNUP_URL,
       "cpk-inspector",
@@ -4379,6 +4383,10 @@ export class WebInspectorElement extends LitElement {
   }
 
   private getTalkToEngineerUrl(): string {
+    return this.appendRefParam(TALK_TO_ENGINEER_URL, "cpk-inspector-threads");
+  }
+
+  private getThreadsTalkToEngineerUrl(): string {
     return this.appendThreadsOnboardingAttribution(
       TALK_TO_ENGINEER_URL,
       "cpk-inspector-threads",
@@ -6557,7 +6565,7 @@ ${argsString}</pre
                 this.selectedMenu === "threads"
                   ? html`
                       <a
-                        href=${this.getTalkToEngineerUrl()}
+                        href=${this.getThreadsTalkToEngineerUrl()}
                         target="_blank"
                         rel="noopener"
                         style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;border-radius:6px;border:1px solid #dbdbe5;background:#ffffff;padding:7px 10px;font-size:12px;font-weight:600;color:#57575b;text-decoration:none;"
@@ -8677,7 +8685,7 @@ ${argsString}</pre
             "
           >
             <a
-              href=${this.getIntelligenceSignupUrl()}
+              href=${this.getThreadsIntelligenceSignupUrl()}
               target="_blank"
               rel="noopener"
               style="

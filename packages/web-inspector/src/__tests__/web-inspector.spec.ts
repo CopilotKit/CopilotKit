@@ -2462,6 +2462,29 @@ describe("WebInspectorElement memories — view states", () => {
     ).toBeNull();
   });
 
+  it("does not use Threads onboarding UTM attribution for locked memory CTAs", async () => {
+    const core = makeCoreNoIntelligence();
+    const el = await mountMemories(core);
+
+    const talkToEngineer = el.shadowRoot?.querySelector<HTMLAnchorElement>(
+      'a[href^="https://www.copilotkit.ai/talk-to-an-engineer"]',
+    );
+    const signup = el.shadowRoot?.querySelector<HTMLAnchorElement>(
+      'a[href^="https://go.copilotkit.ai/intelligence-signup"]',
+    );
+
+    expect(talkToEngineer).not.toBeNull();
+    expect(signup).not.toBeNull();
+
+    for (const href of [talkToEngineer!.href, signup!.href]) {
+      const url = new URL(href);
+      expect(url.searchParams.get("ref")).toBeTruthy();
+      expect(url.searchParams.has("utm_source")).toBe(false);
+      expect(url.searchParams.has("utm_medium")).toBe(false);
+      expect(url.searchParams.has("utm_campaign")).toBe(false);
+    }
+  });
+
   it("renders the locked teaser when memories are unavailable", async () => {
     const core = makeCoreWithMemory([], { available: false });
     const el = await mountMemories(core);
