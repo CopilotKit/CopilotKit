@@ -119,6 +119,8 @@ const DOCKED_LEFT_WIDTH = 500; // Sensible width for left dock with collapsed si
 const MAX_AGENT_EVENTS = 200;
 const MAX_TOTAL_EVENTS = 500;
 const INTELLIGENCE_SIGNUP_URL = "https://go.copilotkit.ai/intelligence-signup";
+const THREADS_INTELLIGENCE_SIGNIN_URL =
+  "https://dashboard.operations.copilotkit.ai/sign-in";
 const TALK_TO_ENGINEER_URL = "https://www.copilotkit.ai/talk-to-an-engineer";
 const THREADS_DOCS_URL = "https://docs.copilotkit.ai/threads";
 const SELF_HOSTED_INTELLIGENCE_URL =
@@ -4377,7 +4379,7 @@ export class WebInspectorElement extends LitElement {
 
   private getThreadsIntelligenceSignupUrl(): string {
     return this.appendThreadsOnboardingAttribution(
-      INTELLIGENCE_SIGNUP_URL,
+      THREADS_INTELLIGENCE_SIGNIN_URL,
       "cpk-inspector",
     );
   }

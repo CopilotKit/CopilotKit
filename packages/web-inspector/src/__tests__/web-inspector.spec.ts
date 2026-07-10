@@ -1749,7 +1749,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     await inspector.updateComplete;
 
     const signup = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
-      'a[href^="https://go.copilotkit.ai/intelligence-signup"]',
+      'a[href^="https://dashboard.operations.copilotkit.ai/sign-in"]',
     );
     const engineer = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
       'a[href^="https://www.copilotkit.ai/talk-to-an-engineer"]',
@@ -1759,6 +1759,8 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     expect(engineer).not.toBeNull();
 
     const signupUrl = new URL(signup!.href);
+    expect(signupUrl.origin).toBe("https://dashboard.operations.copilotkit.ai");
+    expect(signupUrl.pathname).toBe("/sign-in");
     expect(signupUrl.searchParams.get("ref")).toBe("cpk-inspector");
     expectThreadsOnboardingUtmParams(signupUrl);
     const distinctId = signupUrl.searchParams.get("posthog_distinct_id");
