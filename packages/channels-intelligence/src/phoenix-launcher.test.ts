@@ -140,7 +140,9 @@ describe("startManagedBotsOverPhoenix — fail-fast validation (OSS-406)", () =>
     class NeverWebSocket {
       constructor() {
         socketConstructed = true;
-        throw new Error("startManagedBotsOverPhoenix should not have connected");
+        throw new Error(
+          "startManagedBotsOverPhoenix should not have connected",
+        );
       }
     }
     const a = createBot({ name: "dupe", agent: () => new FakeAgent() });

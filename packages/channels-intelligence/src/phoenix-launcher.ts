@@ -133,7 +133,10 @@ export async function startManagedBotsOverPhoenix(
     runtimeInstanceId: config.runtimeInstanceId,
     ...(config.env ?? {}),
   };
-  const activation = buildActivationMetadata(bots, resolveActivationEnv(envOverrides));
+  const activation = buildActivationMetadata(
+    bots,
+    resolveActivationEnv(envOverrides),
+  );
 
   const channel = await connectPhoenixHostedBotChannel({
     wsUrl: config.wsUrl,
@@ -149,7 +152,9 @@ export async function startManagedBotsOverPhoenix(
       })),
       runtimeMetadata: {
         runtimeEnv: activation.runtimeEnv,
-        ...(activation.nodeVersion ? { nodeVersion: activation.nodeVersion } : {}),
+        ...(activation.nodeVersion
+          ? { nodeVersion: activation.nodeVersion }
+          : {}),
         ...(activation.runtimePackageVersion
           ? { runtimePackageVersion: activation.runtimePackageVersion }
           : {}),
