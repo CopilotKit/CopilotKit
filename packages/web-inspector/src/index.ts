@@ -124,7 +124,7 @@ const THREADS_DOCS_URL = "https://docs.copilotkit.ai/threads";
 const SELF_HOSTED_INTELLIGENCE_URL =
   "https://docs.copilotkit.ai/premium/self-hosting";
 const THREADS_EXAMPLE_OVERVIEW_VIDEO_URL =
-  "https://www.copilotkit.ai/videos/copilotkit-generative-ui-agentic-frontend-demo.webm";
+  "https://cdn.copilotkit.ai/corp-site/videos/copilotkit-generative-ui-agentic-frontend-demo.webm";
 const THREADS_EXAMPLE_TOUR_STORAGE_KEY =
   "cpk:inspector:threads-example-tour:v1";
 const THREADS_EXAMPLE_AGENT_ID = "threads-feature";

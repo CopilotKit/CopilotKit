@@ -1906,7 +1906,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
       ".cpk-threads-overview-video",
     );
     expect(video?.src).toBe(
-      "https://www.copilotkit.ai/videos/copilotkit-generative-ui-agentic-frontend-demo.webm",
+      "https://cdn.copilotkit.ai/corp-site/videos/copilotkit-generative-ui-agentic-frontend-demo.webm",
     );
   });
 
