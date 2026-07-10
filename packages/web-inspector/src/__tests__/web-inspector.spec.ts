@@ -1542,6 +1542,11 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
   const threadListText = (inspector: WebInspectorElement) =>
     inspector.shadowRoot?.querySelector("cpk-thread-list")?.shadowRoot
       ?.textContent ?? "";
+  const expectThreadsOnboardingUtmParams = (url: URL) => {
+    expect(url.searchParams.get("utm_source")).toBe("copilotkit_inspector");
+    expect(url.searchParams.get("utm_medium")).toBe("in_product");
+    expect(url.searchParams.get("utm_campaign")).toBe("threads_onboarding");
+  };
 
   beforeEach(() => {
     document.body.innerHTML = "";
@@ -1721,7 +1726,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     ).toBe(false);
   });
 
-  it("adds ref and posthog distinct ID attribution to locked-state CTAs", async () => {
+  it("adds inspector attribution to locked-state CTAs", async () => {
     const { agent } = createMockAgent("alpha");
     const harness = createHeaderMockCore(
       { alpha: agent },
@@ -1755,6 +1760,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
 
     const signupUrl = new URL(signup!.href);
     expect(signupUrl.searchParams.get("ref")).toBe("cpk-inspector");
+    expectThreadsOnboardingUtmParams(signupUrl);
     const distinctId = signupUrl.searchParams.get("posthog_distinct_id");
     expect(distinctId).toMatch(/^[0-9a-f-]{36}$/);
 
@@ -1762,6 +1768,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     expect(engineerUrl.origin).toBe("https://www.copilotkit.ai");
     expect(engineerUrl.pathname).toBe("/talk-to-an-engineer");
     expect(engineerUrl.searchParams.get("ref")).toBe("cpk-inspector-threads");
+    expectThreadsOnboardingUtmParams(engineerUrl);
     expect(engineerUrl.searchParams.get("posthog_distinct_id")).toBe(
       distinctId,
     );
@@ -1842,15 +1849,29 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
       "Take a tour with the example threads in the sidebar.",
     );
     const threadsDocs = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
-      'a[href="https://docs.copilotkit.ai/threads"]',
+      'a[href^="https://docs.copilotkit.ai/threads"]',
     );
     expect(threadsDocs?.textContent?.trim()).toBe("Learn how Threads work");
+    const threadsDocsUrl = new URL(threadsDocs!.href);
+    expect(threadsDocsUrl.origin).toBe("https://docs.copilotkit.ai");
+    expect(threadsDocsUrl.pathname).toBe("/threads");
+    expect(threadsDocsUrl.searchParams.get("ref")).toBe(
+      "cpk-inspector-threads",
+    );
+    expectThreadsOnboardingUtmParams(threadsDocsUrl);
     const selfHosted = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
-      'a[href="https://docs.copilotkit.ai/premium/self-hosting"]',
+      'a[href^="https://docs.copilotkit.ai/premium/self-hosting"]',
     );
     expect(selfHosted?.textContent?.trim()).toBe(
       "Explore self-hosted Intelligence",
     );
+    const selfHostedUrl = new URL(selfHosted!.href);
+    expect(selfHostedUrl.origin).toBe("https://docs.copilotkit.ai");
+    expect(selfHostedUrl.pathname).toBe("/premium/self-hosting");
+    expect(selfHostedUrl.searchParams.get("ref")).toBe(
+      "cpk-inspector-threads",
+    );
+    expectThreadsOnboardingUtmParams(selfHostedUrl);
     expect(threadListText(inspector)).toContain("Example");
     expect(text).not.toContain("No threads yet");
     expect(
@@ -1863,9 +1884,13 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     const engineer = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
       'a[href^="https://www.copilotkit.ai/talk-to-an-engineer"]',
     );
-    expect(engineer?.href).toBe(
-      "https://www.copilotkit.ai/talk-to-an-engineer?ref=cpk-inspector-threads",
+    const engineerUrl = new URL(engineer!.href);
+    expect(engineerUrl.origin).toBe("https://www.copilotkit.ai");
+    expect(engineerUrl.pathname).toBe("/talk-to-an-engineer");
+    expect(engineerUrl.searchParams.get("ref")).toBe(
+      "cpk-inspector-threads",
     );
+    expectThreadsOnboardingUtmParams(engineerUrl);
     expect(engineer?.closest("#cpk-main-scroll")).toBeNull();
   });
 

@@ -128,6 +128,11 @@ const THREADS_EXAMPLE_OVERVIEW_VIDEO_URL =
 const THREADS_EXAMPLE_TOUR_STORAGE_KEY =
   "cpk:inspector:threads-example-tour:v1";
 const THREADS_EXAMPLE_AGENT_ID = "threads-feature";
+const INSPECTOR_UTM_PARAMS = {
+  utm_source: "copilotkit_inspector",
+  utm_medium: "in_product",
+  utm_campaign: "threads_onboarding",
+} as const;
 
 type ThreadServiceStatus = "available" | "unavailable" | "unknown" | "error";
 
@@ -4367,11 +4372,31 @@ export class WebInspectorElement extends LitElement {
   }
 
   private getIntelligenceSignupUrl(): string {
-    return this.appendRefParam(INTELLIGENCE_SIGNUP_URL, "cpk-inspector");
+    return this.appendThreadsOnboardingAttribution(
+      INTELLIGENCE_SIGNUP_URL,
+      "cpk-inspector",
+    );
   }
 
   private getTalkToEngineerUrl(): string {
-    return this.appendRefParam(TALK_TO_ENGINEER_URL, "cpk-inspector-threads");
+    return this.appendThreadsOnboardingAttribution(
+      TALK_TO_ENGINEER_URL,
+      "cpk-inspector-threads",
+    );
+  }
+
+  private getThreadsDocsUrl(): string {
+    return this.appendThreadsOnboardingAttribution(
+      THREADS_DOCS_URL,
+      "cpk-inspector-threads",
+    );
+  }
+
+  private getSelfHostedIntelligenceUrl(): string {
+    return this.appendThreadsOnboardingAttribution(
+      SELF_HOSTED_INTELLIGENCE_URL,
+      "cpk-inspector-threads",
+    );
   }
 
   private subscribeToThreadStore(agentId: string, store: ɵThreadStore): void {
@@ -8231,7 +8256,7 @@ ${argsString}</pre
           </p>
           <div style="display:flex;flex-wrap:wrap;gap:8px;">
             <a
-              href=${THREADS_DOCS_URL}
+              href=${this.getThreadsDocsUrl()}
               target="_blank"
               rel="noopener"
               style="
@@ -8252,7 +8277,7 @@ ${argsString}</pre
               Learn how Threads work
             </a>
             <a
-              href=${SELF_HOSTED_INTELLIGENCE_URL}
+              href=${this.getSelfHostedIntelligenceUrl()}
               target="_blank"
               rel="noopener"
               style="
@@ -11005,7 +11030,18 @@ ${prettyEvent}</pre
     }
   };
 
-  private appendRefParam(href: string, ref = "cpk-inspector"): string {
+  private appendThreadsOnboardingAttribution(
+    href: string,
+    ref = "cpk-inspector-threads",
+  ): string {
+    return this.appendRefParam(href, ref, INSPECTOR_UTM_PARAMS);
+  }
+
+  private appendRefParam(
+    href: string,
+    ref = "cpk-inspector",
+    utmParams?: Readonly<Record<string, string>>,
+  ): string {
     try {
       const isRootRelative = href.startsWith("/") && !href.startsWith("//");
       const url = new URL(
@@ -11016,6 +11052,13 @@ ${prettyEvent}</pre
       );
       if (!url.searchParams.has("ref")) {
         url.searchParams.append("ref", ref);
+      }
+      if (utmParams) {
+        for (const [key, value] of Object.entries(utmParams)) {
+          if (!url.searchParams.has(key)) {
+            url.searchParams.append(key, value);
+          }
+        }
       }
       // Propagate the inspector's anonymous distinct-ID so the website /
       // Ops API can call posthog.alias(...) on signup-flow landing and
