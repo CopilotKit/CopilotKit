@@ -24,7 +24,7 @@ type InspectorInternals = {
 
 type InspectorThreadViewInternals = {
   isOpen: boolean;
-  selectedMenu: "threads";
+  selectedMenu: "ag-ui-events" | "threads";
   selectedThreadId: string | null;
   _threads: Array<{
     id: string;
@@ -1542,6 +1542,10 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
   const threadListText = (inspector: WebInspectorElement) =>
     inspector.shadowRoot?.querySelector("cpk-thread-list")?.shadowRoot
       ?.textContent ?? "";
+  const menuButton = (inspector: WebInspectorElement, label: string) =>
+    Array.from(
+      inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ?? [],
+    ).find((button) => button.textContent?.trim() === label);
 
   beforeEach(() => {
     document.body.innerHTML = "";
@@ -1558,6 +1562,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
@@ -1866,6 +1871,127 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
       "https://www.copilotkit.ai/talk-to-an-engineer?ref=cpk-inspector-threads",
     );
     expect(engineer?.closest("#cpk-main-scroll")).toBeNull();
+  });
+
+  it("defers loading the empty overview video until after the overview paints", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("matchMedia", () => ({ matches: false }));
+
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore({ alpha: agent }, {}, {}, false);
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+
+    const internals = inspector as unknown as {
+      isOpen: boolean;
+      handleMenuSelect: (key: "threads") => void;
+    };
+    internals.isOpen = true;
+    internals.handleMenuSelect("threads");
+    await inspector.updateComplete;
+
+    expect(inspector.shadowRoot?.textContent ?? "").toContain(
+      "Threads are persistent, inspectable conversations",
+    );
+    expect(
+      inspector.shadowRoot?.querySelector(".cpk-threads-overview-video-frame"),
+    ).not.toBeNull();
+    expect(
+      inspector.shadowRoot?.querySelector(".cpk-threads-overview-video"),
+    ).toBeNull();
+
+    await vi.advanceTimersByTimeAsync(450);
+    await inspector.updateComplete;
+
+    const video = inspector.shadowRoot?.querySelector<HTMLVideoElement>(
+      ".cpk-threads-overview-video",
+    );
+    expect(video?.src).toBe(
+      "https://www.copilotkit.ai/videos/copilotkit-generative-ui-agentic-frontend-demo.webm",
+    );
+  });
+
+  it("only shimmers the Threads nav tab as a deselected locked or empty cue", async () => {
+    const renderWith = async (
+      core: CopilotKitCore,
+      setup?: (internals: InspectorThreadViewInternals) => void,
+    ) => {
+      const inspector = new WebInspectorElement();
+      document.body.appendChild(inspector);
+      inspector.core = core;
+      const internals = inspector as unknown as InspectorThreadViewInternals;
+      internals.isOpen = true;
+      internals.selectedMenu = "ag-ui-events";
+      setup?.(internals);
+      inspector.requestUpdate();
+      await inspector.updateComplete;
+      return inspector;
+    };
+
+    const locked = await renderWith(
+      createHeaderMockCore({}, {}, { list: false }, false)
+        .core as unknown as CopilotKitCore,
+    );
+    expect(menuButton(locked, "Threads")?.className).toContain(
+      "cpk-tab-threads-glimmer",
+    );
+
+    menuButton(locked, "Threads")!.click();
+    await locked.updateComplete;
+    expect(menuButton(locked, "Threads")?.className).not.toContain(
+      "cpk-tab-threads-glimmer",
+    );
+
+    const enabledEmpty = await renderWith(
+      createHeaderMockCore({}, {}, {}, false).core as unknown as CopilotKitCore,
+    );
+    expect(menuButton(enabledEmpty, "Threads")?.className).toContain(
+      "cpk-tab-threads-glimmer",
+    );
+
+    const populated = await renderWith(
+      createHeaderMockCore({}, {}, {}, false).core as unknown as CopilotKitCore,
+      (internals) => {
+        internals._threads = [
+          {
+            id: "real-thread",
+            name: "Real customer thread",
+            agentId: "alpha",
+            updatedAt: "2026-06-25T10:00:00.000Z",
+          },
+        ];
+        internals._threadsByAgent = new Map([["alpha", internals._threads]]);
+      },
+    );
+    expect(menuButton(populated, "Threads")?.className).not.toContain(
+      "cpk-tab-threads-glimmer",
+    );
+
+    const errored = await renderWith(
+      createHeaderMockCore({}, {}, {}, false).core as unknown as CopilotKitCore,
+      (internals) => {
+        (
+          internals as unknown as {
+            _threadsErrorByAgent: Map<string, Error>;
+          }
+        )._threadsErrorByAgent = new Map([
+          ["alpha", new Error("Thread list failed")],
+        ]);
+      },
+    );
+    expect(menuButton(errored, "Threads")?.className).not.toContain(
+      "cpk-tab-threads-glimmer",
+    );
+
+    const telemetryDisabled = await renderWith(
+      createHeaderMockCore({}, {}, {}, true).core as unknown as CopilotKitCore,
+    );
+    expect(menuButton(telemetryDisabled, "Threads")?.className).not.toContain(
+      "cpk-tab-threads-glimmer",
+    );
   });
 
   it("does not render example threads once real threads are present", async () => {

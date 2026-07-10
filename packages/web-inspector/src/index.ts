@@ -123,6 +123,8 @@ const TALK_TO_ENGINEER_URL = "https://www.copilotkit.ai/talk-to-an-engineer";
 const THREADS_DOCS_URL = "https://docs.copilotkit.ai/threads";
 const SELF_HOSTED_INTELLIGENCE_URL =
   "https://docs.copilotkit.ai/premium/self-hosting";
+const THREADS_EXAMPLE_OVERVIEW_VIDEO_URL =
+  "https://www.copilotkit.ai/videos/copilotkit-generative-ui-agentic-frontend-demo.webm";
 const THREADS_EXAMPLE_TOUR_STORAGE_KEY =
   "cpk:inspector:threads-example-tour:v1";
 const THREADS_EXAMPLE_AGENT_ID = "threads-feature";
@@ -4204,6 +4206,10 @@ export class WebInspectorElement extends LitElement {
   private exampleTourActive = false;
   private exampleTourStep = 0;
   private exampleTourAutoShown = false;
+  private threadsExampleOverviewVideoShouldLoad = false;
+  private threadsExampleOverviewVideoReady = false;
+  private threadsExampleOverviewVideoLoadTimer: number | null = null;
+  private threadsExampleOverviewVideoIdleCallbackId: number | null = null;
 
   get core(): CopilotKitCore | null {
     return this._core;
@@ -4296,6 +4302,51 @@ export class WebInspectorElement extends LitElement {
 
   private areThreadEndpointsAvailable(): boolean {
     return this.getThreadServiceStatus() !== "unavailable";
+  }
+
+  private getActiveThreadsState(): {
+    displayThreads: ɵThread[];
+    threadsErrorMessage: string | null;
+  } {
+    const displayThreads =
+      this.selectedContext === "all-agents"
+        ? this._threads
+        : (this._threadsByAgent.get(this.selectedContext) ?? []);
+
+    // Surface a thread-store load error inline. For "all-agents" we report
+    // the first error encountered across all agents (good enough for a
+    // debugging surface — the per-agent context filter narrows down the
+    // culprit). For a specific agent we use that agent's error directly.
+    let threadsErrorMessage: string | null = null;
+    if (this.selectedContext === "all-agents") {
+      const firstError = this._threadsErrorByAgent.values().next().value;
+      threadsErrorMessage = firstError?.message ?? null;
+    } else {
+      threadsErrorMessage =
+        this._threadsErrorByAgent.get(this.selectedContext)?.message ?? null;
+    }
+
+    return { displayThreads, threadsErrorMessage };
+  }
+
+  private shouldShowThreadsNavGlimmer(key: MenuKey): boolean {
+    if (key !== "threads" || this.selectedMenu === "threads") {
+      return false;
+    }
+    if (this.core?.telemetryDisabled) {
+      return false;
+    }
+
+    const threadServiceStatus = this.getThreadServiceStatus();
+    if (threadServiceStatus === "unavailable") {
+      return true;
+    }
+    if (threadServiceStatus !== "available") {
+      return false;
+    }
+
+    const { displayThreads, threadsErrorMessage } = this.getActiveThreadsState();
+    return !threadsErrorMessage && displayThreads.length === 0;
   }
 
   private getThreadsTelemetryProps(
@@ -5971,6 +6022,79 @@ ${argsString}</pre
       .cpk-tab-active {
         cursor: pointer;
       }
+      @keyframes cpkThreadsNavGlimmer {
+        0% {
+          background-position: 160% 50%;
+        }
+        48%,
+        100% {
+          background-position: -60% 50%;
+        }
+      }
+      @keyframes cpkThreadsNavPulse {
+        0%,
+        100% {
+          box-shadow:
+            inset 0 0 0 1px rgba(190, 194, 255, 0.28),
+            0 0 0 rgba(190, 194, 255, 0);
+        }
+        50% {
+          box-shadow:
+            inset 0 0 0 1px rgba(190, 194, 255, 0.42),
+            0 0 16px rgba(190, 194, 255, 0.22);
+        }
+      }
+      .cpk-tab-threads-glimmer {
+        overflow: hidden;
+        background-image: linear-gradient(
+          112deg,
+          rgba(190, 194, 255, 0.14) 0%,
+          rgba(190, 194, 255, 0.18) 34%,
+          rgba(255, 255, 255, 0.78) 45%,
+          rgba(133, 236, 206, 0.16) 54%,
+          rgba(190, 194, 255, 0.14) 70%
+        );
+        background-size: 240% 100%;
+        animation:
+          cpkThreadsNavGlimmer 3.2s ease-in-out infinite,
+          cpkThreadsNavPulse 4.6s ease-in-out infinite;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .cpk-tab-threads-glimmer {
+          animation: none;
+          background-position: 50% 50%;
+        }
+      }
+
+      .cpk-threads-overview-video-frame {
+        position: relative;
+        display: block;
+        width: 100%;
+        max-width: 440px;
+        aspect-ratio: 16 / 9;
+        margin: 0 0 14px;
+        overflow: hidden;
+        border: 1px solid #dbdbe5;
+        border-radius: 8px;
+        background:
+          linear-gradient(
+            135deg,
+            rgba(190, 194, 255, 0.18),
+            rgba(133, 236, 206, 0.12)
+          ),
+          #ffffff;
+        box-shadow: 0 8px 20px rgba(1, 5, 7, 0.08);
+      }
+      .cpk-threads-overview-video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0;
+        transition: opacity 220ms ease;
+      }
+      .cpk-threads-overview-video[data-ready="true"] {
+        opacity: 1;
+      }
 
       /* ── Header control buttons (dock, close) — first row only ───── */
       .drag-handle > div:first-child button {
@@ -6187,6 +6311,17 @@ ${argsString}</pre
     if (this.transitionTimeoutId !== null) {
       clearTimeout(this.transitionTimeoutId);
       this.transitionTimeoutId = null;
+    }
+    if (this.threadsExampleOverviewVideoLoadTimer !== null) {
+      clearTimeout(this.threadsExampleOverviewVideoLoadTimer);
+      this.threadsExampleOverviewVideoLoadTimer = null;
+    }
+    if (
+      this.threadsExampleOverviewVideoIdleCallbackId !== null &&
+      typeof window.cancelIdleCallback === "function"
+    ) {
+      window.cancelIdleCallback(this.threadsExampleOverviewVideoIdleCallbackId);
+      this.threadsExampleOverviewVideoIdleCallbackId = null;
     }
     this.removeDockStyles(true); // Clean up any docking styles, skip transition
     this.detachFromCore();
@@ -6437,6 +6572,9 @@ ${argsString}</pre
                 const tabClasses = [
                   "inline-flex items-center gap-2 rounded-md px-3 py-2 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300",
                   isSelected ? "cpk-tab-active" : "cpk-tab-inactive",
+                  this.shouldShowThreadsNavGlimmer(key)
+                    ? "cpk-tab-threads-glimmer"
+                    : "",
                 ].join(" ");
 
                 return html`
@@ -8057,6 +8195,70 @@ ${argsString}</pre
     }
   }
 
+  private scheduleThreadsExampleOverviewVideoLoad(): void {
+    if (
+      this.threadsExampleOverviewVideoShouldLoad ||
+      this.threadsExampleOverviewVideoLoadTimer !== null ||
+      this.threadsExampleOverviewVideoIdleCallbackId !== null ||
+      typeof window === "undefined"
+    ) {
+      return;
+    }
+
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      return;
+    }
+
+    const loadVideo = () => {
+      this.threadsExampleOverviewVideoLoadTimer = null;
+      this.threadsExampleOverviewVideoIdleCallbackId = null;
+      this.threadsExampleOverviewVideoShouldLoad = true;
+      this.requestUpdate();
+    };
+
+    if (typeof window.requestIdleCallback === "function") {
+      this.threadsExampleOverviewVideoIdleCallbackId =
+        window.requestIdleCallback(loadVideo, { timeout: 1200 });
+      return;
+    }
+
+    this.threadsExampleOverviewVideoLoadTimer = window.setTimeout(
+      loadVideo,
+      450,
+    );
+  }
+
+  private handleThreadsExampleOverviewVideoLoaded = (): void => {
+    this.threadsExampleOverviewVideoReady = true;
+    this.requestUpdate();
+  };
+
+  private renderThreadsExampleOverviewVideo() {
+    this.scheduleThreadsExampleOverviewVideoLoad();
+
+    return html`
+      <div class="cpk-threads-overview-video-frame" aria-hidden="true">
+        ${
+          this.threadsExampleOverviewVideoShouldLoad
+            ? html`
+                <video
+                  class="cpk-threads-overview-video"
+                  data-ready=${this.threadsExampleOverviewVideoReady}
+                  src=${THREADS_EXAMPLE_OVERVIEW_VIDEO_URL}
+                  autoplay
+                  loop
+                  muted
+                  playsinline
+                  preload="metadata"
+                  @loadeddata=${this.handleThreadsExampleOverviewVideoLoaded}
+                ></video>
+              `
+            : nothing
+        }
+      </div>
+    `;
+  }
+
   private renderThreadsExampleOverview() {
     return html`
       <div
@@ -8082,6 +8284,7 @@ ${argsString}</pre
           >
             Threads are persistent, inspectable conversations
           </h2>
+          ${this.renderThreadsExampleOverviewVideo()}
           <p
             style="
               margin: 0 0 16px;
