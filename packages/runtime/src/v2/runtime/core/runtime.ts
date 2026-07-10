@@ -181,7 +181,7 @@ export interface CopilotSseRuntimeOptions extends BaseCopilotRuntimeOptions {
   runner?: AgentRunner;
   intelligence?: undefined;
   generateThreadNames?: undefined;
-  /** Managed bots require the Intelligence runtime; not available in SSE mode. */
+  /** Intelligence Channels require the Intelligence runtime; not available in SSE mode. */
   bots?: undefined;
 }
 
@@ -358,7 +358,7 @@ export class CopilotSseRuntime
     if (Array.isArray(bots) && bots.length > 0) {
       throw new Error(
         "`bots` requires the Intelligence runtime (pass `intelligence`); " +
-          "managed bots are not available in SSE mode.",
+          "Intelligence Channels are not available in SSE mode.",
       );
     }
     super(options, options.runner ?? new InMemoryAgentRunner());
@@ -419,7 +419,7 @@ export class CopilotIntelligenceRuntime
     for (const b of this.bots) {
       if (!b.name) {
         throw new Error(
-          "managed bot is missing a `name` — pass createBot({ name }) for each bot in `bots`",
+          "Intelligence Channel Bot is missing a `name` — pass createBot({ name }) for each Bot in `bots`",
         );
       }
     }

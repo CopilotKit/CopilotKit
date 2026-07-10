@@ -127,11 +127,11 @@ describe("startChannels", () => {
     const sinks = new Map<string, InMemoryEgressSink>();
     const handle = await startChannels({
       bots: [a, b],
-      resolveTransport: (botName) => {
+      resolveTransport: (channelName) => {
         const source = new InMemoryDeliverySource();
         const egress = new InMemoryEgressSink();
-        sources.set(botName, source);
-        sinks.set(botName, egress);
+        sources.set(channelName, source);
+        sinks.set(channelName, egress);
         return { source, egress };
       },
       env: { runtimeEnv: "test" },
@@ -217,8 +217,8 @@ describe("startChannels", () => {
         bots: [a, b],
         // First bot wires fine; second bot's transport resolution throws
         // AFTER `a` is already live.
-        resolveTransport: (botName) => {
-          if (botName === "triage") throw new Error("boom");
+        resolveTransport: (channelName) => {
+          if (channelName === "triage") throw new Error("boom");
           return {
             source: new InMemoryDeliverySource(),
             egress: new InMemoryEgressSink(),
