@@ -376,8 +376,13 @@ export class HttpDeliverySource implements DeliverySource {
     const res = await this.http.post<ClaimResponse>(
       "/api/bots/listener/claim",
       {
+        // Claim provider-agnostically: the managed runtime emits abstract render
+        // frames and Intelligence renders per the delivery's own reply target, so
+        // a single runtime serves every channel its bot has attached (Slack,
+        // Teams, ...). Declaring a single adapter here made Intelligence withhold
+        // deliveries for the bot's other channels (e.g. a Slack-declared runtime
+        // never received the same bot's Teams messages).
         runtimeInstanceId: this.cfg.runtimeInstanceId,
-        adapters: [this.cfg.adapter],
       },
     );
     if (!res.claimed) return { pollAfterMs: res.pollAfterMs ?? 1000 };
