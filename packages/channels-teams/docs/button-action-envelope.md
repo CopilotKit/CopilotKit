@@ -21,10 +21,10 @@ the action's `data`:
   "type": "Action.Submit",
   "title": "Approve",
   "data": {
-    "ckActionId": "ck:approve",      // opaque id; present only when the Button had an onClick handler
-    "value": { "decision": "yes" }    // present only when the Button had a `value` prop
+    "ckActionId": "ck:approve", // opaque id; present only when the Button had an onClick handler
+    "value": { "decision": "yes" }, // present only when the Button had a `value` prop
   },
-  "style": "positive"                 // optional: "positive" (primary) | "destructive" (danger)
+  "style": "positive", // optional: "positive" (primary) | "destructive" (danger)
 }
 ```
 
@@ -41,12 +41,13 @@ The action's `data` becomes `activity.value`, and the message `text` is empty:
 ```jsonc
 {
   "type": "message",
-  "text": "",                          // empty — the payload is in `value`, not text
-  "value": {                           // === the emitted action `data` (merged with any card inputs)
+  "text": "", // empty — the payload is in `value`, not text
+  "value": {
+    // === the emitted action `data` (merged with any card inputs)
     "ckActionId": "ck:approve",
-    "value": { "decision": "yes" }
+    "value": { "decision": "yes" },
   },
-  "conversation": { "id": "<stable conversation id>" }
+  "conversation": { "id": "<stable conversation id>" },
 }
 ```
 
