@@ -4384,17 +4384,11 @@ export class WebInspectorElement extends LitElement {
   }
 
   private getThreadsTalkToEngineerUrl(): string {
-    return this.appendRefParam(
-      TALK_TO_ENGINEER_URL,
-      "cpk-inspector-threads",
-    );
+    return this.appendRefParam(TALK_TO_ENGINEER_URL, "cpk-inspector-threads");
   }
 
   private getThreadsDocsUrl(): string {
-    return this.appendRefParam(
-      THREADS_DOCS_URL,
-      "cpk-inspector-threads",
-    );
+    return this.appendRefParam(THREADS_DOCS_URL, "cpk-inspector-threads");
   }
 
   private getSelfHostedIntelligenceUrl(): string {
