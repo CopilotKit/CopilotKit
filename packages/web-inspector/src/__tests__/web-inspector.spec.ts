@@ -1868,9 +1868,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     const selfHostedUrl = new URL(selfHosted!.href);
     expect(selfHostedUrl.origin).toBe("https://docs.copilotkit.ai");
     expect(selfHostedUrl.pathname).toBe("/premium/self-hosting");
-    expect(selfHostedUrl.searchParams.get("ref")).toBe(
-      "cpk-inspector-threads",
-    );
+    expect(selfHostedUrl.searchParams.get("ref")).toBe("cpk-inspector-threads");
     expectThreadsOnboardingUtmParams(selfHostedUrl);
     expect(threadListText(inspector)).toContain("Example");
     expect(text).not.toContain("No threads yet");
@@ -1887,9 +1885,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     const engineerUrl = new URL(engineer!.href);
     expect(engineerUrl.origin).toBe("https://www.copilotkit.ai");
     expect(engineerUrl.pathname).toBe("/talk-to-an-engineer");
-    expect(engineerUrl.searchParams.get("ref")).toBe(
-      "cpk-inspector-threads",
-    );
+    expect(engineerUrl.searchParams.get("ref")).toBe("cpk-inspector-threads");
     expectThreadsOnboardingUtmParams(engineerUrl);
     expect(engineer?.closest("#cpk-main-scroll")).toBeNull();
   });
