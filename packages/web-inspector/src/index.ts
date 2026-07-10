@@ -6273,7 +6273,7 @@ ${argsString}</pre
       this.transitionTimeoutId = null;
     }
     if (this.threadsExampleOverviewVideoLoadTimer !== null) {
-      clearTimeout(this.threadsExampleOverviewVideoLoadTimer);
+      window.clearTimeout(this.threadsExampleOverviewVideoLoadTimer);
       this.threadsExampleOverviewVideoLoadTimer = null;
     }
     if (
@@ -8086,10 +8086,10 @@ ${argsString}</pre
 
   private dismissExampleTour(method: "skip" | "done"): void {
     if (!this.selectedThreadId) return;
-    const props = this.getThreadsTelemetryProps({
+    const props = {
       ...this.getCurrentExampleTourProps(),
       dismiss_method: method,
-    });
+    };
     this.exampleTourActive = false;
     this.exampleTourDismissed = true;
     this.writeThreadsExampleTourDismissed();
@@ -9049,23 +9049,8 @@ ${argsString}</pre
       return this.renderThreadsLockedView();
     }
 
-    const displayThreads =
-      this.selectedContext === "all-agents"
-        ? this._threads
-        : (this._threadsByAgent.get(this.selectedContext) ?? []);
-
-    // Surface a thread-store load error inline. For "all-agents" we report
-    // the first error encountered across all agents (good enough for a
-    // debugging surface — the per-agent context filter narrows down the
-    // culprit). For a specific agent we use that agent's error directly.
-    let threadsErrorMessage: string | null = null;
-    if (this.selectedContext === "all-agents") {
-      const firstError = this._threadsErrorByAgent.values().next().value;
-      threadsErrorMessage = firstError?.message ?? null;
-    } else {
-      threadsErrorMessage =
-        this._threadsErrorByAgent.get(this.selectedContext)?.message ?? null;
-    }
+    const { displayThreads, threadsErrorMessage } =
+      this.getActiveThreadsState();
 
     const showingExamples = this.shouldRenderExampleThreads(
       displayThreads,

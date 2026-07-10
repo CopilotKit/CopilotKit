@@ -1933,6 +1933,108 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     );
   });
 
+  it("does not load the empty overview video when reduced motion is preferred", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("matchMedia", () => ({ matches: true }));
+
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore({ alpha: agent }, {}, {}, false);
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+
+    const internals = inspector as unknown as {
+      isOpen: boolean;
+      handleMenuSelect: (key: "threads") => void;
+    };
+    internals.isOpen = true;
+    internals.handleMenuSelect("threads");
+    await inspector.updateComplete;
+
+    expect(inspector.shadowRoot?.textContent ?? "").toContain(
+      "Threads are persistent, inspectable conversations",
+    );
+    expect(
+      inspector.shadowRoot?.querySelector(".cpk-threads-overview-video-frame"),
+    ).not.toBeNull();
+
+    await vi.advanceTimersByTimeAsync(1200);
+    await inspector.updateComplete;
+
+    expect(
+      inspector.shadowRoot?.querySelector(".cpk-threads-overview-video"),
+    ).toBeNull();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("clears the deferred video timeout when disconnected before load", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("matchMedia", () => ({ matches: false }));
+    Object.defineProperty(window, "requestIdleCallback", {
+      configurable: true,
+      value: undefined,
+    });
+    const clearTimeoutSpy = vi.spyOn(window, "clearTimeout");
+
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore({ alpha: agent }, {}, {}, false);
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+
+    const internals = inspector as unknown as {
+      isOpen: boolean;
+      handleMenuSelect: (key: "threads") => void;
+    };
+    internals.isOpen = true;
+    internals.handleMenuSelect("threads");
+    await inspector.updateComplete;
+
+    expect(vi.getTimerCount()).toBe(1);
+    inspector.remove();
+    expect(clearTimeoutSpy).toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("cancels the deferred video idle callback when disconnected before load", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("matchMedia", () => ({ matches: false }));
+    const requestIdleCallback = vi.fn(() => 123);
+    const cancelIdleCallback = vi.fn();
+    Object.defineProperty(window, "requestIdleCallback", {
+      configurable: true,
+      value: requestIdleCallback,
+    });
+    Object.defineProperty(window, "cancelIdleCallback", {
+      configurable: true,
+      value: cancelIdleCallback,
+    });
+
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore({ alpha: agent }, {}, {}, false);
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+
+    const internals = inspector as unknown as {
+      isOpen: boolean;
+      handleMenuSelect: (key: "threads") => void;
+    };
+    internals.isOpen = true;
+    internals.handleMenuSelect("threads");
+    await inspector.updateComplete;
+
+    expect(requestIdleCallback).toHaveBeenCalledTimes(1);
+    inspector.remove();
+    expect(cancelIdleCallback).toHaveBeenCalledWith(123);
+  });
+
   it("does not render example threads once real threads are present", async () => {
     const inspector = new WebInspectorElement();
     document.body.appendChild(inspector);
