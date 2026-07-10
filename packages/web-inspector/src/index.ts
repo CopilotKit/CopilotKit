@@ -4329,27 +4329,6 @@ export class WebInspectorElement extends LitElement {
     return { displayThreads, threadsErrorMessage };
   }
 
-  private shouldShowThreadsNavGlimmer(key: MenuKey): boolean {
-    if (key !== "threads" || this.selectedMenu === "threads") {
-      return false;
-    }
-    if (this.core?.telemetryDisabled) {
-      return false;
-    }
-
-    const threadServiceStatus = this.getThreadServiceStatus();
-    if (threadServiceStatus === "unavailable") {
-      return true;
-    }
-    if (threadServiceStatus !== "available") {
-      return false;
-    }
-
-    const { displayThreads, threadsErrorMessage } =
-      this.getActiveThreadsState();
-    return !threadsErrorMessage && displayThreads.length === 0;
-  }
-
   private getThreadsTelemetryProps(
     extra: Partial<InspectorThreadTelemetryProps> = {},
     options: { includeUrlAttribution?: boolean } = {},
@@ -6023,50 +6002,6 @@ ${argsString}</pre
       .cpk-tab-active {
         cursor: pointer;
       }
-      @keyframes cpkThreadsNavGlimmer {
-        0% {
-          background-position: 160% 50%;
-        }
-        48%,
-        100% {
-          background-position: -60% 50%;
-        }
-      }
-      @keyframes cpkThreadsNavPulse {
-        0%,
-        100% {
-          box-shadow:
-            inset 0 0 0 1px rgba(190, 194, 255, 0.28),
-            0 0 0 rgba(190, 194, 255, 0);
-        }
-        50% {
-          box-shadow:
-            inset 0 0 0 1px rgba(190, 194, 255, 0.42),
-            0 0 16px rgba(190, 194, 255, 0.22);
-        }
-      }
-      .cpk-tab-threads-glimmer {
-        overflow: hidden;
-        background-image: linear-gradient(
-          112deg,
-          rgba(190, 194, 255, 0.14) 0%,
-          rgba(190, 194, 255, 0.18) 34%,
-          rgba(255, 255, 255, 0.78) 45%,
-          rgba(133, 236, 206, 0.16) 54%,
-          rgba(190, 194, 255, 0.14) 70%
-        );
-        background-size: 240% 100%;
-        animation:
-          cpkThreadsNavGlimmer 3.2s ease-in-out infinite,
-          cpkThreadsNavPulse 4.6s ease-in-out infinite;
-      }
-      @media (prefers-reduced-motion: reduce) {
-        .cpk-tab-threads-glimmer {
-          animation: none;
-          background-position: 50% 50%;
-        }
-      }
-
       .cpk-threads-overview-video-frame {
         position: relative;
         display: block;
@@ -6573,9 +6508,6 @@ ${argsString}</pre
                 const tabClasses = [
                   "inline-flex items-center gap-2 rounded-md px-3 py-2 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300",
                   isSelected ? "cpk-tab-active" : "cpk-tab-inactive",
-                  this.shouldShowThreadsNavGlimmer(key)
-                    ? "cpk-tab-threads-glimmer"
-                    : "",
                 ].join(" ");
 
                 return html`
