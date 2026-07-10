@@ -10,8 +10,8 @@ Import is a historical migration, not an ongoing replication job. To keep new co
 
 | Source | Import guide | Supported history |
 |---|---|---|
-| Google ADK | [Import ADK threads](/adk/threads-import) | Persisted ADK sessions from a database session service or Vertex/Agent Engine session service. |
-| LangGraph | [Import LangGraph threads](/langgraph/threads-import) | LangGraph Server, LangGraph Platform, or LangSmith Deployment threads exposed through the LangGraph SDK thread/run APIs. |
+| Google ADK | [Import ADK threads](/google-adk/threads-import) | Persisted ADK sessions from a database session service or Vertex/Agent Engine session service. |
+| LangGraph | [Import LangGraph threads](/langgraph-python/threads-import) | LangGraph Server, LangGraph Platform, or LangSmith Deployment threads exposed through the LangGraph SDK thread/run APIs. |
 
 You can still keep future conversations in sync by connecting the app to Enterprise Intelligence before users start new conversations.
 
@@ -82,8 +82,8 @@ It does not import agent state snapshots, framework transport noise, LangSmith t
 
     Run the source-specific import after the dry run looks right:
 
-    - [Import ADK threads](/adk/threads-import)
-    - [Import LangGraph threads](/langgraph/threads-import)
+    - [Import ADK threads](/google-adk/threads-import)
+    - [Import LangGraph threads](/langgraph-python/threads-import)
 
     Re-running the same import is safe: already-imported conversations are skipped. Use `--replace` when you intentionally want to refresh previously imported threads.
   </Step>
