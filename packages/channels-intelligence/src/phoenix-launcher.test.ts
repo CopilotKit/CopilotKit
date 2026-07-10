@@ -1,0 +1,373 @@
+import { describe, it, expect } from "vitest";
+import { createBot, FakeAgent } from "@copilotkit/channels";
+import { Section } from "@copilotkit/channels-ui";
+import {
+  startManagedBotsOnChannel,
+  startManagedBotsOverPhoenix,
+} from "./phoenix-launcher.js";
+import type { HostedBotChannel } from "./phoenix-transport.js";
+
+const scope = {
+  organizationId: "org_1",
+  projectId: 7,
+  botId: "bot_1",
+  botName: "opentag",
+};
+
+/** Fake gateway channel: records pushes, replies `render_accepted`, and exposes
+ * the server-push handlers so a test can simulate `delivery.available`. */
+function makeFakeChannel() {
+  const pushes: { event: string; payload: unknown }[] = [];
+  const handlers = new Map<string, (payload: unknown) => void>();
+  const channel: HostedBotChannel = {
+    push: async (event, payload) => {
+      pushes.push({ event, payload });
+      if (event === "hosted_bot.render_event.v1") {
+        const p = (payload as { payload: Record<string, unknown> }).payload;
+        return {
+          type: "hosted_bot.render_accepted.v1",
+          occurredAt: "2026-07-09T00:00:00.000Z",
+          payload: {
+            idempotencyKey: p.idempotencyKey,
+            acceptance: "accepted",
+            ...(p.event && (p.event as { kind: string }).kind === "finalize"
+              ? { egressOperationId: "eop_1" }
+              : {}),
+          },
+        };
+      }
+      return { status: "ok" };
+    },
+    on: (event, handler) => {
+      handlers.set(event, handler);
+    },
+  };
+  return { channel, pushes, handlers };
+}
+
+/** Simulate one leased text-turn delivery arriving over the channel. */
+function deliverText(handlers: Map<string, (p: unknown) => void>) {
+  handlers.get("hosted_bot.delivery.available.v1")?.({
+    payload: {
+      delivery: {
+        id: "dlv_1",
+        leaseToken: "lease_1",
+        adapter: "slack",
+        bot: { id: "bot_1", name: "opentag" },
+        turn: {
+          id: "turn_1",
+          eventId: "evt_1",
+          replyTarget: { adapter: "slack", teamId: "T1", channel: "C1" },
+          input: { kind: "text", text: "hi" },
+        },
+      },
+    },
+  });
+}
+
+/** The channel `delivery.available` handler is fire-and-forget, so poll until
+ * the async dispatch→render→ack chain has produced the terminal event. */
+async function waitFor(pred: () => boolean, tries = 50): Promise<void> {
+  for (let i = 0; i < tries; i++) {
+    if (pred()) return;
+    await new Promise((r) => setTimeout(r, 0));
+  }
+  throw new Error("waitFor: condition not met within the poll window");
+}
+
+describe("startManagedBotsOnChannel — managed runtime over Phoenix (OSS-406)", () => {
+  it("runs a delivered turn end-to-end: handler → render frame → completion intent, never self-ack", async () => {
+    const fake = makeFakeChannel();
+    let ran = false;
+    const bot = createBot({ name: "opentag", agent: () => new FakeAgent() });
+    bot.onMessage(async ({ thread }) => {
+      ran = true;
+      await thread.post(Section({ children: "reply" }));
+    });
+
+    const handle = await startManagedBotsOnChannel([bot], {
+      channel: fake.channel,
+      scope,
+      runtimeInstanceId: "rti_1",
+    });
+
+    deliverText(fake.handlers);
+    await waitFor(() =>
+      fake.pushes.some(
+        (p) => p.event === "hosted_bot.delivery.complete_requested.v1",
+      ),
+    );
+
+    const events = fake.pushes.map((p) => p.event);
+    expect(ran).toBe(true); // the bot's handler ran off a Phoenix-delivered turn
+    expect(events).toContain("hosted_bot.render_event.v1"); // rendered over the channel
+    expect(events).toContain("hosted_bot.delivery.complete_requested.v1"); // completion INTENT
+    expect(events).not.toContain("hosted_bot.delivery.ack.v1"); // SDK never commits the ack
+
+    await handle.stop();
+  });
+
+  it("nacks (fail intent) when the handler throws — no completion intent, no self-ack", async () => {
+    const fake = makeFakeChannel();
+    const bot = createBot({ name: "opentag", agent: () => new FakeAgent() });
+    bot.onMessage(async () => {
+      throw new Error("boom");
+    });
+
+    const handle = await startManagedBotsOnChannel([bot], {
+      channel: fake.channel,
+      scope,
+      runtimeInstanceId: "rti_1",
+    });
+
+    deliverText(fake.handlers);
+    await waitFor(() =>
+      fake.pushes.some((p) => p.event === "hosted_bot.delivery.fail.v1"),
+    );
+
+    const events = fake.pushes.map((p) => p.event);
+    expect(events).toContain("hosted_bot.delivery.fail.v1");
+    expect(events).not.toContain("hosted_bot.delivery.complete_requested.v1");
+    expect(events).not.toContain("hosted_bot.delivery.ack.v1");
+
+    await handle.stop();
+  });
+});
+
+describe("startManagedBotsOverPhoenix — fail-fast validation (OSS-406)", () => {
+  it("rejects a bad bot name before opening a socket (no leaked connection)", async () => {
+    let socketConstructed = false;
+    class NeverWebSocket {
+      constructor() {
+        socketConstructed = true;
+        throw new Error(
+          "startManagedBotsOverPhoenix should not have connected",
+        );
+      }
+    }
+    const a = createBot({ name: "dupe", agent: () => new FakeAgent() });
+    const b = createBot({ name: "dupe", agent: () => new FakeAgent() });
+
+    await expect(
+      startManagedBotsOverPhoenix([a, b], {
+        wsUrl: "wss://gateway.example/socket",
+        apiKey: "cpk-test",
+        scope,
+        runtimeInstanceId: "rti_1",
+        webSocket: NeverWebSocket,
+      }),
+    ).rejects.toThrow(/duplicate managed bot name/i);
+
+    expect(socketConstructed).toBe(false);
+  });
+
+  it("rejects >1 bot before opening a socket (Phase 1 is single-bot per channel)", async () => {
+    let socketConstructed = false;
+    class NeverWebSocket {
+      constructor() {
+        socketConstructed = true;
+        throw new Error(
+          "startManagedBotsOverPhoenix should not have connected",
+        );
+      }
+    }
+    const a = createBot({ name: "one", agent: () => new FakeAgent() });
+    const b = createBot({ name: "two", agent: () => new FakeAgent() });
+
+    await expect(
+      startManagedBotsOverPhoenix([a, b], {
+        wsUrl: "wss://gateway.example/socket",
+        apiKey: "cpk-test",
+        scope,
+        runtimeInstanceId: "rti_1",
+        webSocket: NeverWebSocket,
+      }),
+    ).rejects.toThrow(/exactly one bot per channel/i);
+
+    expect(socketConstructed).toBe(false);
+  });
+
+  it("startManagedBotsOnChannel also rejects >1 bot (shared-transport misrouting guard)", async () => {
+    const fake = makeFakeChannel();
+    const a = createBot({ name: "one", agent: () => new FakeAgent() });
+    const b = createBot({ name: "two", agent: () => new FakeAgent() });
+
+    await expect(
+      startManagedBotsOnChannel([a, b], {
+        channel: fake.channel,
+        scope,
+        runtimeInstanceId: "rti_1",
+      }),
+    ).rejects.toThrow(/exactly one bot per channel/i);
+  });
+});
+
+describe("startManagedBotsOnChannel — activation metadata (OSS-406)", () => {
+  it("forwards env overrides into handle.metadata (keeps join ↔ metadata in sync)", async () => {
+    const fake = makeFakeChannel();
+    const bot = createBot({ name: "opentag", agent: () => new FakeAgent() });
+
+    const handle = await startManagedBotsOnChannel([bot], {
+      channel: fake.channel,
+      scope,
+      runtimeInstanceId: "rti_1",
+      env: { runtimeEnv: "production", runtimePackageVersion: "9.9.9" },
+    });
+
+    expect(handle.metadata.runtimeEnv).toBe("production");
+    expect(handle.metadata.runtimePackageVersion).toBe("9.9.9");
+    expect(handle.metadata.declaredBotNames).toEqual(["opentag"]);
+
+    await handle.stop();
+  });
+
+  it("keeps the required runtimeInstanceId authoritative in handle.metadata", async () => {
+    const fake = makeFakeChannel();
+    const bot = createBot({ name: "opentag", agent: () => new FakeAgent() });
+
+    const handle = await startManagedBotsOnChannel([bot], {
+      channel: fake.channel,
+      scope,
+      runtimeInstanceId: "rti_authoritative",
+      env: { runtimeEnv: "staging" },
+    });
+
+    expect(handle.metadata.runtimeInstanceId).toBe("rti_authoritative");
+
+    await handle.stop();
+  });
+});
+
+/**
+ * Minimal Phoenix-compatible fake WebSocket that drives the v2-serializer join
+ * handshake so the connector's error/timeout cleanup can be exercised without a
+ * real gateway. `mode` controls the phx_join reply: "ok" → joined, "error" →
+ * rejected, "never" → no reply (the channel join times out). Records `close()`
+ * so a test can assert the socket was torn down.
+ */
+type JoinMode = "ok" | "error" | "never";
+function makeFakeWebSocket(mode: JoinMode) {
+  const instances: FakeWebSocket[] = [];
+  class FakeWebSocket {
+    static readonly CONNECTING = 0;
+    static readonly OPEN = 1;
+    static readonly CLOSING = 2;
+    static readonly CLOSED = 3;
+    readyState = 0;
+    onopen: ((ev?: unknown) => void) | null = null;
+    onmessage: ((ev: { data: string }) => void) | null = null;
+    onerror: ((ev?: unknown) => void) | null = null;
+    onclose: ((ev?: unknown) => void) | null = null;
+    closed = false;
+    constructor(public readonly url: string) {
+      instances.push(this);
+      queueMicrotask(() => {
+        this.readyState = 1;
+        this.onopen?.();
+      });
+    }
+    send(data: string): void {
+      if (mode === "never") return;
+      let frame: unknown;
+      try {
+        frame = JSON.parse(data);
+      } catch {
+        return;
+      }
+      if (!Array.isArray(frame)) return;
+      const [joinRef, ref, topic, event] = frame as [
+        string,
+        string,
+        string,
+        string,
+      ];
+      if (event !== "phx_join") return;
+      const status = mode === "ok" ? "ok" : "error";
+      const response = mode === "ok" ? {} : { reason: "unauthorized" };
+      const reply = JSON.stringify([
+        joinRef,
+        ref,
+        topic,
+        "phx_reply",
+        { status, response },
+      ]);
+      queueMicrotask(() => this.onmessage?.({ data: reply }));
+    }
+    close(): void {
+      this.closed = true;
+      this.readyState = 3;
+      this.onclose?.();
+    }
+  }
+  return { FakeWebSocket, instances };
+}
+
+describe("startManagedBotsOverPhoenix — socket lifecycle cleanup (OSS-406)", () => {
+  it("disconnects the socket when the channel join times out", async () => {
+    const { FakeWebSocket, instances } = makeFakeWebSocket("never");
+    const bot = createBot({ name: "opentag", agent: () => new FakeAgent() });
+
+    await expect(
+      startManagedBotsOverPhoenix([bot], {
+        wsUrl: "wss://gateway.example/socket",
+        apiKey: "cpk-test",
+        scope,
+        runtimeInstanceId: "rti_1",
+        webSocket: FakeWebSocket,
+        timeoutMs: 20,
+      }),
+    ).rejects.toThrow(/timed out/i);
+
+    expect(instances.length).toBe(1);
+    expect(instances[0]!.closed).toBe(true);
+  });
+
+  it("disconnects the socket when the channel join is rejected", async () => {
+    const { FakeWebSocket, instances } = makeFakeWebSocket("error");
+    const bot = createBot({ name: "opentag", agent: () => new FakeAgent() });
+
+    await expect(
+      startManagedBotsOverPhoenix([bot], {
+        wsUrl: "wss://gateway.example/socket",
+        apiKey: "cpk-test",
+        scope,
+        runtimeInstanceId: "rti_1",
+        webSocket: FakeWebSocket,
+        timeoutMs: 1000,
+      }),
+    ).rejects.toThrow(/join failed/i);
+
+    expect(instances.length).toBe(1);
+    expect(instances[0]!.closed).toBe(true);
+  });
+
+  it("disconnects the socket when bot startup fails after the channel joined", async () => {
+    const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
+    // Pre-start the bot so startManagedBots' addAdapter() throws ("adapter added
+    // after start") during the post-join startup — the exact failure the
+    // launcher's try/catch must clean up after.
+    const started = makeFakeChannel();
+    const bot = createBot({ name: "opentag", agent: () => new FakeAgent() });
+    const first = await startManagedBotsOnChannel([bot], {
+      channel: started.channel,
+      scope,
+      runtimeInstanceId: "rti_pre",
+    });
+
+    await expect(
+      startManagedBotsOverPhoenix([bot], {
+        wsUrl: "wss://gateway.example/socket",
+        apiKey: "cpk-test",
+        scope,
+        runtimeInstanceId: "rti_1",
+        webSocket: FakeWebSocket,
+        timeoutMs: 1000,
+      }),
+    ).rejects.toThrow();
+
+    expect(instances.length).toBe(1);
+    expect(instances[0]!.closed).toBe(true);
+
+    await first.stop();
+  });
+});

@@ -52,6 +52,16 @@ export type {
   PhoenixConnectConfig,
   ConnectedHostedBotChannel,
 } from "./phoenix-channel.js";
+// The managed-over-Phoenix launcher (OSS-406): the composition that runs a
+// managed bot over the realtime path (connect → transport → startManagedBots).
+export {
+  startManagedBotsOverPhoenix,
+  startManagedBotsOnChannel,
+} from "./phoenix-launcher.js";
+export type {
+  ManagedPhoenixConfig,
+  ManagedBotsOnChannelOptions,
+} from "./phoenix-launcher.js";
 
 // Undocumented fallbacks: the default HTTP transports + config resolver that
 // `intelligenceAdapter()` builds when no transports are injected. Not a public

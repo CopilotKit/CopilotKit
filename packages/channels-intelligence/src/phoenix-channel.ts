@@ -78,14 +78,18 @@ export async function connectPhoenixHostedBotChannel(
     channel
       .join(timeout)
       .receive("ok", () => resolve())
-      .receive("error", (reason: unknown) =>
+      .receive("error", (reason: unknown) => {
+        // The join failed, so the caller never gets a channel it could
+        // disconnect — tear the socket down here rather than leak it.
+        socket.disconnect();
         reject(
           new Error(`hosted-bot channel join failed: ${safeReason(reason)}`),
-        ),
-      )
-      .receive("timeout", () =>
-        reject(new Error("hosted-bot channel join timed out")),
-      );
+        );
+      })
+      .receive("timeout", () => {
+        socket.disconnect();
+        reject(new Error("hosted-bot channel join timed out"));
+      });
   });
 
   return {

@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "tsx watch app/index.ts",
     "start": "tsx app/index.ts",
+    "managed": "tsx app/managed.ts",
     "build": "pnpm exec nx run-many -t build -p \"@copilotkit/channels*\" @copilotkit/runtime",
     "runtime": "tsx runtime.ts",
     "notion-mcp": "tsx scripts/start-notion-mcp.ts",
@@ -20,6 +21,7 @@
   "dependencies": {
     "@copilotkit/channels": "workspace:*",
     "@copilotkit/channels-discord": "workspace:*",
+    "@copilotkit/channels-intelligence": "workspace:*",
     "@copilotkit/channels-slack": "workspace:*",
     "@copilotkit/channels-telegram": "workspace:*",
     "@copilotkit/channels-ui": "workspace:*",
