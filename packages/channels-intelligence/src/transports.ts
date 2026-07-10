@@ -89,7 +89,7 @@ export interface EgressSink {
  * {@link RenderAccepted} receipt for each before proceeding — the SDK never
  * assumes acceptance and never commits the delivery ack (app-api owns that;
  * the {@link DeliverySource} completion signal is the SDK's only terminal
- * intent). Implemented by the Realtime Gateway (Phoenix) client in production;
+ * intent). Implemented by the Realtime Gateway client in production;
  * headless/HTTP-fallback runs translate frames back to {@link EgressSink}
  * `post` operations so a Connector Outbox isn't required to see plain-text
  * replies.

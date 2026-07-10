@@ -38,30 +38,30 @@ export {
   InMemoryRenderEventSink,
 } from "./in-memory-transports.js";
 
-// Realtime-gateway (Phoenix) transport — the production render/delivery path
+// Realtime Gateway transport — the production render/delivery path
 // (OSS-402). Undocumented like the rest of the package; exported for the
 // managed-listener bootstrap and tests.
-export { PhoenixRealtimeTransport } from "./phoenix-transport.js";
+export { RealtimeGatewayTransport } from "./realtime-gateway-transport.js";
 export type {
-  PhoenixTransportConfig,
-  HostedBotChannel,
+  RealtimeGatewayTransportOptions,
   HostedBotRealtimeScope,
-} from "./phoenix-transport.js";
-export { connectPhoenixHostedBotChannel } from "./phoenix-channel.js";
+} from "./realtime-gateway-transport.js";
+export { connectRealtimeGateway } from "./realtime-gateway.js";
 export type {
-  PhoenixConnectConfig,
-  ConnectedHostedBotChannel,
-} from "./phoenix-channel.js";
-// The managed-over-Phoenix launcher (OSS-406): the composition that runs a
-// managed bot over the realtime path (connect → transport → startManagedBots).
+  ConnectRealtimeGatewayOptions,
+  RealtimeGatewaySession,
+  ConnectedRealtimeGatewaySession,
+} from "./realtime-gateway.js";
+// The managed-over-Realtime-Gateway launcher (OSS-406): the composition that
+// runs a managed channel over the realtime path.
 export {
-  startManagedBotsOverPhoenix,
-  startManagedBotsOnChannel,
-} from "./phoenix-launcher.js";
+  startChannelsOverRealtimeGateway,
+  startChannelsWithGatewaySession,
+} from "./realtime-gateway-launcher.js";
 export type {
-  ManagedPhoenixConfig,
-  ManagedBotsOnChannelOptions,
-} from "./phoenix-launcher.js";
+  StartChannelsOverRealtimeGatewayOptions,
+  StartChannelsWithGatewaySessionOptions,
+} from "./realtime-gateway-launcher.js";
 
 // Undocumented fallbacks: the default HTTP transports + config resolver that
 // `intelligenceAdapter()` builds when no transports are injected. Not a public

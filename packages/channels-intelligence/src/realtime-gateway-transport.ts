@@ -1,21 +1,18 @@
-// Realtime-gateway (Phoenix) transport for the managed-bot SDK (OSS-402).
+// Realtime Gateway transport for the managed Bot SDK (OSS-402).
 //
 // This is the production render/delivery path: the SDK joins the gateway's
-// per-project bot-IO channel, receives leased deliveries, streams semantic
-// `hosted_bot.render_event.v1` frames, waits for durable
-// `hosted_bot.render_accepted.v1` receipts, and — only after frames are
-// accepted — sends a `hosted_bot.delivery.complete_requested.v1` COMPLETION
-// INTENT (never a committed `hosted_bot.delivery.ack.v1`; app-api owns ack).
-// On failure it sends `hosted_bot.delivery.fail.v1`. The SDK never receives
+// per-project session, receives leased deliveries, streams semantic
+// `channel.render_event.v1` frames, waits for durable
+// `channel.render_accepted.v1` receipts, and — only after frames are
+// accepted — sends a `channel.delivery.complete_requested.v1` COMPLETION
+// INTENT (never a committed `channel.delivery.ack.v1`; app-api owns ack).
+// On failure it sends `channel.delivery.fail.v1`. The SDK never receives
 // Slack/provider credentials — rendering to the provider happens on the
 // gateway-side Connector Outbox.
 //
-// The Phoenix `Socket`/`Channel` boilerplate is intentionally NOT imported
-// here: the protocol (the risky part) is expressed against a minimal injected
-// {@link HostedBotChannel}, so it is fully unit-testable with a fake channel.
-// A deployment adapts its live Phoenix channel to this interface in a few
-// lines (`push` wraps `channel.push(...).receive("ok"/"error")`; `on` wraps
-// `channel.on(...)`).
+// The connector implementation is intentionally not imported here: the
+// protocol is expressed against an injected {@link RealtimeGatewaySession}, so
+// it is fully unit-testable with a fake gateway session.
 //
 // Scope (out of this checkpoint): discrete `EgressSink` posts from
 // command/interaction handlers are not yet streamed as `post`/`update` render
@@ -29,32 +26,22 @@ import type {
   RenderFrame,
   RenderAccepted,
 } from "./contracts.js";
+import type { RealtimeGatewaySession } from "./realtime-gateway.js";
 
-/** The org/project/bot scope every realtime envelope carries. */
+/** The org/project/channel scope every realtime envelope carries. */
 export interface HostedBotRealtimeScope {
   organizationId: string;
   projectId: number;
-  botId: string;
-  botName: string;
+  channelId: string;
+  channelName: string;
 }
 
-/**
- * Minimal Phoenix channel surface this transport needs. A deployment adapts a
- * live `phoenix` `Channel` to this: `push` resolves with the server's "ok"
- * reply payload (and rejects on "error"/"timeout"); `on` subscribes to a
- * server-pushed event.
- */
-export interface HostedBotChannel {
-  push(event: string, payload: unknown): Promise<unknown>;
-  on(event: string, handler: (payload: unknown) => void): void;
-}
-
-export interface PhoenixTransportConfig {
+export interface RealtimeGatewayTransportOptions {
   scope: HostedBotRealtimeScope;
   /** Unique per runtime instance (rti_…), echoed on every SDK->gateway event. */
   runtimeInstanceId: string;
-  /** The joined bot-IO channel (topic `hosted_bots:project:{projectId}`). */
-  channel: HostedBotChannel;
+  /** The joined Realtime Gateway session. */
+  session: RealtimeGatewaySession;
   /** ISO timestamp source; injectable for deterministic tests. */
   now?: () => string;
   /**
@@ -65,44 +52,44 @@ export interface PhoenixTransportConfig {
   log?: (message: string, meta?: unknown) => void;
 }
 
-const RENDER_EVENT = "hosted_bot.render_event.v1";
-const RENDER_ACCEPTED = "hosted_bot.render_accepted.v1";
-const DELIVERY_AVAILABLE = "hosted_bot.delivery.available.v1";
-const COMPLETE_REQUESTED = "hosted_bot.delivery.complete_requested.v1";
-const DELIVERY_FAIL = "hosted_bot.delivery.fail.v1";
+const RENDER_EVENT = "channel.render_event.v1";
+const RENDER_ACCEPTED = "channel.render_accepted.v1";
+const DELIVERY_AVAILABLE = "channel.delivery.available.v1";
+const COMPLETE_REQUESTED = "channel.delivery.complete_requested.v1";
+const DELIVERY_FAIL = "channel.delivery.fail.v1";
 
 /** Per-delivery state the transport needs to build completion/fail intents. */
 interface DeliveryState {
   turnId: string;
   /** app-api's per-delivery lease token, fences the complete/fail intent. */
   leaseToken: string;
-  /** Authoritative org/project/bot scope from the delivery (not the transport default). */
+  /** Authoritative org/project/channel scope from the delivery (not the transport default). */
   scope: HostedBotRealtimeScope;
   /** Highest accepted `seq` per render slot (the completion high-water mark). */
   accepted: Map<string, number>;
 }
 
 /**
- * Realtime-gateway transport implementing both the inbound {@link DeliverySource}
+ * Realtime Gateway transport implementing both the inbound {@link DeliverySource}
  * and the streaming {@link RenderEventSink}. `ack` maps to the completion
  * INTENT (`complete_requested`) and `nack` to `fail` — the SDK is never the
  * committed-ack authority.
  */
-export class PhoenixRealtimeTransport
+export class RealtimeGatewayTransport
   implements DeliverySource, RenderEventSink
 {
   private readonly scope: HostedBotRealtimeScope;
   private readonly runtimeInstanceId: string;
-  private readonly channel: HostedBotChannel;
+  private readonly session: RealtimeGatewaySession;
   private readonly now: () => string;
   private readonly log?: (message: string, meta?: unknown) => void;
   private readonly deliveries = new Map<string, DeliveryState>();
   private onDelivery?: (env: ManagedIngressEnvelope) => Promise<void>;
 
-  constructor(config: PhoenixTransportConfig) {
+  constructor(config: RealtimeGatewayTransportOptions) {
     this.scope = config.scope;
     this.runtimeInstanceId = config.runtimeInstanceId;
-    this.channel = config.channel;
+    this.session = config.session;
     this.now = config.now ?? (() => new Date().toISOString());
     this.log = config.log;
   }
@@ -111,7 +98,7 @@ export class PhoenixRealtimeTransport
     onDelivery: (env: ManagedIngressEnvelope) => Promise<void>,
   ): Promise<void> {
     this.onDelivery = onDelivery;
-    this.channel.on(DELIVERY_AVAILABLE, (payload) => {
+    this.session.on(DELIVERY_AVAILABLE, (payload) => {
       void this.handleDeliveryAvailable(payload);
     });
   }
@@ -133,7 +120,7 @@ export class PhoenixRealtimeTransport
    * Map a `delivery.available.v1`'s claimed delivery to the adapter's ingress
    * envelope plus the authoritative `scope` and `leaseToken` the transport
    * stashes for later complete/fail intents. Returns `undefined` (delivery
-   * dropped, logged via {@link PhoenixTransportConfig.log}) when the turn
+   * dropped, logged via {@link RealtimeGatewayTransportOptions.log}) when the turn
    * identity is missing/unmodeled or the delivery carries no `leaseToken` (a
    * fenced intent can't be built without it). Only the text-turn shape is
    * handled in V1; other input kinds are ignored until modeled.
@@ -163,7 +150,7 @@ export class PhoenixRealtimeTransport
       | undefined;
     if (!turn?.id || !turn.eventId) {
       // Malformed / unmodeled delivery shape — no turn identity to route on.
-      this.log?.("phoenix delivery dropped: missing turn id/eventId", {
+      this.log?.("realtime gateway delivery dropped: missing turn id/eventId", {
         deliveryId: delivery.id,
       });
       return undefined;
@@ -175,12 +162,14 @@ export class PhoenixRealtimeTransport
       // version-skew failure mode (gateway not yet emitting leaseToken); log it
       // loudly so it isn't an invisible, indefinitely re-looping outage.
       this.log?.(
-        "phoenix delivery dropped: no leaseToken on delivery.available (gateway/SDK version skew?) — will be re-leased",
+        "realtime gateway delivery dropped: no leaseToken on delivery.available (gateway/SDK version skew?) — will be re-leased",
         { deliveryId: delivery.id },
       );
       return undefined;
     }
-    const bot = delivery.bot as { id?: string; name?: string } | undefined;
+    const channel = delivery.channel as
+      | { id?: string; name?: string }
+      | undefined;
     const scope = {
       organizationId: String(
         delivery.organizationId ?? this.scope.organizationId,
@@ -189,8 +178,8 @@ export class PhoenixRealtimeTransport
         typeof delivery.projectId === "number"
           ? delivery.projectId
           : this.scope.projectId,
-      botId: String(bot?.id ?? this.scope.botId),
-      botName: String(bot?.name ?? this.scope.botName),
+      channelId: String(channel?.id ?? this.scope.channelId),
+      channelName: String(channel?.name ?? this.scope.channelName),
     };
     return {
       scope,
@@ -200,7 +189,9 @@ export class PhoenixRealtimeTransport
         deliveryId: String(delivery.id),
         eventId: String(turn.eventId),
         turnId: String(turn.id),
-        botName: scope.botName,
+        // The framework's ingress envelope still routes to a Bot by name;
+        // Intelligence's wire contract calls that delivery entity a channel.
+        botName: scope.channelName,
         platform: String(delivery.adapter ?? "slack"),
         conversationKey: String(turn.id),
         route: turn.replyTarget,
@@ -231,7 +222,7 @@ export class PhoenixRealtimeTransport
         sentAt: this.now(),
       },
     };
-    const reply = await this.channel.push(RENDER_EVENT, envelope);
+    const reply = await this.session.push(RENDER_EVENT, envelope);
     const receipt = this.parseAccepted(reply, idempotencyKey);
     // Record the completion high-water mark for this delivery/slot.
     if (state) {
@@ -260,7 +251,7 @@ export class PhoenixRealtimeTransport
     const payload = r?.payload;
     if (r?.type !== RENDER_ACCEPTED || !payload?.acceptance) {
       throw new Error(
-        `PhoenixRealtimeTransport: expected ${RENDER_ACCEPTED} for ${idempotencyKey}, got ${r?.type ?? "no reply"}`,
+        `RealtimeGatewayTransport: expected ${RENDER_ACCEPTED} for ${idempotencyKey}, got ${r?.type ?? "no reply"}`,
       );
     }
     return {
@@ -290,7 +281,7 @@ export class PhoenixRealtimeTransport
       this.deliveries.delete(deliveryId);
       return;
     }
-    await this.channel.push(COMPLETE_REQUESTED, {
+    await this.session.push(COMPLETE_REQUESTED, {
       type: COMPLETE_REQUESTED,
       occurredAt: this.now(),
       payload: {
@@ -315,7 +306,7 @@ export class PhoenixRealtimeTransport
       // be sent; app-api releases the delivery on lease lapse. Reachable only
       // for an already-terminal/evicted delivery today; log rather than drop
       // silently so an unexpected hit is diagnosable.
-      this.log?.("phoenix nack: no delivery state; dropping fail", {
+      this.log?.("realtime gateway nack: no delivery state; dropping fail", {
         deliveryId,
         reason,
       });
@@ -329,7 +320,7 @@ export class PhoenixRealtimeTransport
       }),
     );
     const lastAccepted = accepted[accepted.length - 1];
-    await this.channel.push(DELIVERY_FAIL, {
+    await this.session.push(DELIVERY_FAIL, {
       type: DELIVERY_FAIL,
       occurredAt: this.now(),
       payload: {

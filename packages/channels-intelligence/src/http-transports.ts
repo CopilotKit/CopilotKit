@@ -823,7 +823,7 @@ interface RenderAcceptedResponse {
  * @internal {@link RenderEventSink} that streams semantic render frames to
  * Intelligence's durable render-acceptance route
  * (`/api/channels/deliveries/:id/render-events/accept`). This is the HTTP-path
- * equivalent of the realtime {@link PhoenixRealtimeTransport}: each frame is
+ * equivalent of the realtime {@link RealtimeGatewayTransport}: each frame is
  * POSTed and the durable acceptance receipt is awaited before the next. The
  * gateway-side Connector Outbox then renders the accepted frames to Slack, so
  * this path reaches full reply-UX parity without a running realtime gateway.

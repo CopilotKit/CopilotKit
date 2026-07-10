@@ -119,7 +119,7 @@ export type EgressResult =
   | { ok: false; code: string };
 
 // ── Realtime render events (OSS-402) ──────────────────────────────────────
-// Mirrors the frozen `hosted_bot.render_event.v1` contract on the Intelligence
+// Mirrors the frozen `channel.render_event.v1` contract on the Intelligence
 // side (libs/app-api-contracts/src/hosted-bots.ts). The SDK streams these
 // semantic frames to the realtime-gateway; the gateway-side Connector Outbox
 // (OSS-404) renders them to the provider (Slack Block Kit, etc.).
