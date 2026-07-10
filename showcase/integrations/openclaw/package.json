@@ -13,6 +13,7 @@
     "@ag-ui/client": "0.0.48",
     "@ag-ui/core": "0.0.48",
     "@ag-ui/encoder": "0.0.48",
+    "@ag-ui/openclaw": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/openclaw@40533a7b",
     "@copilotkit/a2ui-renderer": "1.59.4",
     "@copilotkit/react-core": "1.59.4",
     "@copilotkit/runtime": "1.59.4",
