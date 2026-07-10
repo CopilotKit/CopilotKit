@@ -101,7 +101,7 @@ export interface IntelligenceAdapterOptions {
   /** Optional Intelligence-backed persistence the adapter exposes as `stateStore`. */
   store?: StateStore;
   /**
-   * Overrides for the default-transport config (baseUrl/apiKey/botName/…).
+   * Overrides for the default-transport config (baseUrl/apiKey/channelName/…).
    * Anything omitted is resolved from env. Ignored when both `source` and
    * `egress` are injected.
    */
@@ -265,7 +265,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
     if (!this.source || !this.egress) {
       const cfg = resolveTransportConfig({
         ...this.opts.config,
-        botName: this.opts.config?.botName ?? ctx?.botName,
+        channelName: this.opts.config?.channelName ?? ctx?.botName,
       });
       const source = (this.source ??= new HttpDeliverySource(cfg));
       this.egress ??= new HttpEgressSink(cfg);

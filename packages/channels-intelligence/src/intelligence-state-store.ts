@@ -14,7 +14,7 @@ export interface IntelligenceStateStoreConfig {
 
 /**
  * Durable {@link StateStore} for managed bots, backed by Intelligence app-api's
- * runtime-authed KV routes (`/api/bots/kv/*`). Only the `kv` facet is durable —
+ * runtime-authed KV routes (`/api/channels/kv/*`). Only the `kv` facet is durable —
  * that is what the action registry (button/`ck:` snapshots) and thread state
  * use, so a HITL card posted before a managed-loop restart still re-renders on
  * cold-cache dispatch and can be flipped in place.
@@ -71,7 +71,7 @@ export class IntelligenceStateStore implements StateStore {
      * the StateStore contract's `undefined`. */
     get: async <T>(key: string): Promise<T | undefined> => {
       const { value } = await this.post<{ value: T | null }>(
-        "/api/bots/kv/get",
+        "/api/channels/kv/get",
         { key },
       );
       // app-api returns `null` for a missing/expired key; normalize to the
@@ -82,7 +82,7 @@ export class IntelligenceStateStore implements StateStore {
     },
     /** Write a durable key, optionally with a TTL in ms (omitted → no expiry). */
     set: async <T>(key: string, value: T, ttlMs?: number): Promise<void> => {
-      await this.post("/api/bots/kv/set", {
+      await this.post("/api/channels/kv/set", {
         key,
         value,
         // `!== undefined` (not truthiness) so an explicit `ttlMs: 0` is still
@@ -92,7 +92,7 @@ export class IntelligenceStateStore implements StateStore {
     },
     /** Delete a durable key (no-op if absent). */
     delete: async (key: string): Promise<void> => {
-      await this.post("/api/bots/kv/delete", { key });
+      await this.post("/api/channels/kv/delete", { key });
     },
   };
 

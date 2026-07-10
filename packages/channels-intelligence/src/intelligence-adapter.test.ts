@@ -544,7 +544,7 @@ describe("intelligenceAdapter — default store resolution", () => {
 
     expect(adapter.stateStore).toBeInstanceOf(IntelligenceStateStore);
     await adapter.stateStore!.kv.get("k");
-    expect(calls[0]).toBe("http://intel.test/api/bots/kv/get");
+    expect(calls[0]).toBe("http://intel.test/api/channels/kv/get");
   });
 
   it("skips the default store when in-memory transports are injected", () => {
