@@ -187,7 +187,16 @@
         "docker-compose.test.yml",
         "entrypoint.sh",
         "serve.py",
-        "scripts/**"
+        "scripts/**",
+        "docker-route-override.ts",
+        "src/app/declarative-generative-ui/renderers.tsx",
+        "src/components/example-canvas/index.tsx",
+        "src/components/example-canvas/todo-list.tsx",
+        "src/components/example-layout/mode-toggle.tsx",
+        "src/components/generative-ui/charts/bar-chart.tsx",
+        "src/components/headless-chat.tsx",
+        "src/components/tool-rendering.tsx",
+        "src/components/ui/spinner.tsx"
       ],
       "packageJsonOverrides": {
         "scripts.dev:agent": "./scripts/run-agent.sh || scripts\\run-agent.bat",
@@ -208,7 +217,16 @@
         "docker-compose.test.yml",
         "entrypoint.sh",
         "serve.py",
-        "scripts/**"
+        "scripts/**",
+        "docker-route-override.ts",
+        "src/app/declarative-generative-ui/renderers.tsx",
+        "src/components/example-canvas/index.tsx",
+        "src/components/example-canvas/todo-list.tsx",
+        "src/components/example-layout/mode-toggle.tsx",
+        "src/components/generative-ui/charts/bar-chart.tsx",
+        "src/components/headless-chat.tsx",
+        "src/components/tool-rendering.tsx",
+        "src/components/ui/spinner.tsx"
       ],
       "packageJsonOverrides": {
         "scripts.dev:agent": "./scripts/run-agent.sh || scripts\\run-agent.bat",

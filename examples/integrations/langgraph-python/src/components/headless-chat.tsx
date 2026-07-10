@@ -26,20 +26,12 @@ export const HeadlessChat = () => {
           <p>{JSON.stringify(message.content)}</p>
         </div>
       ))}
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          sendMessage(message);
-        }}
-      >
-        <input
-          type="text"
-          aria-label="Message"
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-        />
-        <button type="submit">Send</button>
-      </form>
+      <input
+        type="text"
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+      />
+      <button onClick={() => sendMessage(message)}>Send</button>
     </div>
   );
 };

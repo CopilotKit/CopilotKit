@@ -71,10 +71,10 @@ export function TodoList({ todos, onUpdate, isAgentRunning }: TodoListProps) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4">
         <div className="text-5xl">✏️</div>
-        <p className="text-base font-semibold text-[var(--foreground)]">
+        <p className="text-base font-semibold text-[--foreground]">
           No todos yet
         </p>
-        <p className="text-sm text-[var(--muted-foreground)]">
+        <p className="text-sm text-[--muted-foreground]">
           Create your first task to get started
         </p>
         <Button onClick={addTodo} disabled={isAgentRunning} className="mt-2">

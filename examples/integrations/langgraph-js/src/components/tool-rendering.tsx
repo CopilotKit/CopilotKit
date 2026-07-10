@@ -6,7 +6,7 @@ import { Spinner } from "@/components/ui/spinner";
 
 interface ToolReasoningProps {
   name: string;
-  args?: unknown;
+  args?: object | unknown;
   status: string;
 }
 
