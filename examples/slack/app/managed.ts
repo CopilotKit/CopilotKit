@@ -139,17 +139,19 @@ async function main() {
 
   const shutdown = async (signal: string) => {
     console.log(`\n[bot] received ${signal}, stopping…`);
+    let exitCode = 0;
     try {
       await handle.stop();
     } catch (err) {
       console.error("[bot] error stopping managed runtime", err);
+      exitCode = 1;
     }
     // Browser teardown is best-effort, but still surface a failure rather than
     // swallow it silently.
     await closeBrowser().catch((err: unknown) =>
       console.error("[bot] browser cleanup failed (continuing shutdown)", err),
     );
-    process.exit(0);
+    process.exit(exitCode);
   };
   // A failed shutdown must not vanish — log it and exit nonzero.
   const runShutdown = (signal: string): void => {
