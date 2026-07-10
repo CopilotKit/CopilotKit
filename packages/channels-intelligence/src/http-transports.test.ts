@@ -252,7 +252,6 @@ describe("HttpDeliverySource", () => {
     expect(calls[0]!.url).toBe("http://x/api/channels/listener/claim");
     expect(calls[0]!.body).toEqual({
       runtimeInstanceId: "rti_test",
-      adapters: ["slack"],
     });
     expect(r.env).toMatchObject({
       kind: "turn",
