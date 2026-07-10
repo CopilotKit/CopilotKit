@@ -52,18 +52,23 @@ function fakeFetch(
  * `uploadFile` methods — so history tests stub `globalThis.fetch` instead.
  */
 function stubGlobalFetch(
-  handler: (url: string) => {
+  handler: (
+    url: string,
+    init?: RequestInit,
+  ) => {
     ok?: boolean;
     status?: number;
     json?: unknown;
     arrayBuffer?: ArrayBuffer;
     contentType?: string;
   },
-): { calls: string[] } {
+): { calls: string[]; requests: Array<{ url: string; init?: RequestInit }> } {
   const calls: string[] = [];
-  vi.stubGlobal("fetch", async (url: string) => {
+  const requests: Array<{ url: string; init?: RequestInit }> = [];
+  vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
     calls.push(url);
-    const r = handler(url);
+    requests.push({ url, init });
+    const r = handler(url, init);
     const status = r.status ?? (r.ok === false ? 500 : 200);
     return {
       ok: r.ok ?? status < 400,
@@ -77,7 +82,7 @@ function stubGlobalFetch(
       },
     };
   });
-  return { calls };
+  return { calls, requests };
 }
 
 function cfg(
@@ -86,7 +91,7 @@ function cfg(
   return resolveTransportConfig({
     baseUrl: "http://x",
     apiKey: "cpk-test",
-    botName: "opentagbot",
+    channelName: "opentagbot",
     runtimeInstanceId: "rti_test",
     adapter: "slack",
     sleep: async () => {},
@@ -102,7 +107,7 @@ const claimedDelivery = (over?: Record<string, unknown>) => ({
   attempt: 1,
   organizationId: "org_1",
   projectId: 7,
-  bot: { id: "bot_1", name: "opentagbot" },
+  channel: { id: "channel_1", name: "opentagbot" },
   adapter: "slack",
   leaseToken: "lease_z",
   leaseExpiresAt: "2026-06-30T00:00:00.000Z",
@@ -125,8 +130,22 @@ describe("resolveTransportConfig", () => {
   it("throws loudly when required fields are missing", () => {
     // No overrides + (assumed) no COPILOTKIT_* env in the test runner.
     expect(() =>
-      resolveTransportConfig({ baseUrl: "", apiKey: "", botName: "" }),
+      resolveTransportConfig({ baseUrl: "", apiKey: "", channelName: "" }),
     ).toThrow(/missing required transport config/);
+  });
+
+  it("requires COPILOTKIT_CHANNEL_NAME when no channel name is configured", () => {
+    vi.stubEnv("COPILOTKIT_INTELLIGENCE_URL", "http://x");
+    vi.stubEnv("COPILOTKIT_API_KEY", "cpk-test");
+    vi.stubEnv("COPILOTKIT_CHANNEL_NAME", "");
+
+    try {
+      expect(() => resolveTransportConfig()).toThrow(
+        /channelName.*COPILOTKIT_CHANNEL_NAME/,
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });
 
@@ -145,10 +164,10 @@ describe("HttpEgressSink", () => {
     };
     const res = await sink.emit(op);
     expect(res).toEqual({ ok: true, ref: "eop_1" });
-    expect(calls[0]!.url).toBe("http://x/api/bots/egress/messages");
+    expect(calls[0]!.url).toBe("http://x/api/channels/egress/messages");
     expect(calls[0]!.headers["authorization"]).toBe("Bearer cpk-test");
     expect(calls[0]!.body).toMatchObject({
-      botName: "opentagbot",
+      channelName: "opentagbot",
       adapter: "slack",
       deliveryId: "dlv_9",
       idempotencyKey: "turn_9:0",
@@ -203,38 +222,42 @@ describe("HttpEgressSink", () => {
 });
 
 describe("HttpDeliverySource", () => {
-  it("heartbeat declares the bot + adapter", async () => {
+  it("heartbeat declares the channel + adapter", async () => {
     const { fetch, calls } = fakeFetch(() => ({
       body: {
         runtimeInstanceId: "rti_test",
         receivedAt: "t",
         leaseExpiresAt: "t",
-        bots: [],
+        channels: [],
       },
     }));
     const src = new HttpDeliverySource(cfg({ fetch }));
     await src.heartbeat();
-    expect(calls[0]!.url).toBe("http://x/api/bots/listener/heartbeat");
+    expect(calls[0]!.url).toBe("http://x/api/channels/listener/heartbeat");
     expect(calls[0]!.body).toMatchObject({
       runtimeInstanceId: "rti_test",
-      declaredBots: [{ botName: "opentagbot", adapter: "slack" }],
+      declaredChannels: [{ channelName: "opentagbot", adapter: "slack" }],
     });
   });
 
-  it("claimOnce maps a claimed delivery to a turn envelope with a stable conversationKey", async () => {
-    const { fetch } = fakeFetch(() => ({
+  it("claims from the channels listener and maps a delivery to a turn envelope", async () => {
+    const { fetch, calls } = fakeFetch(() => ({
       body: { claimed: true, delivery: claimedDelivery() },
     }));
     const src = new HttpDeliverySource(cfg({ fetch }));
     const r = await src.claimOnce();
     expect("env" in r).toBe(true);
     if (!("env" in r)) throw new Error("expected env");
+    expect(calls[0]!.url).toBe("http://x/api/channels/listener/claim");
+    expect(calls[0]!.body).toEqual({
+      runtimeInstanceId: "rti_test",
+    });
     expect(r.env).toMatchObject({
       kind: "turn",
       deliveryId: "dlv_9",
       turnId: "turn_9",
       eventId: "evt_9",
-      botName: "opentagbot",
+      channelName: "opentagbot",
       platform: "slack",
       text: "hello",
       route: { teamId: "T1" },
@@ -318,7 +341,7 @@ describe("HttpDeliverySource", () => {
       deliveryId: "dlv_9",
       turnId: "turn_9",
       eventId: "evt_command",
-      botName: "opentagbot",
+      channelName: "opentagbot",
       platform: "slack",
       command: "/opentagbot",
       text: "summarize this channel",
@@ -363,7 +386,7 @@ describe("HttpDeliverySource", () => {
       deliveryId: "dlv_9",
       turnId: "turn_9",
       eventId: "evt_reaction",
-      botName: "opentagbot",
+      channelName: "opentagbot",
       platform: "slack",
       rawEmoji: "thumbsup",
       added: true,
@@ -409,7 +432,7 @@ describe("HttpDeliverySource", () => {
       deliveryId: "dlv_9",
       turnId: "turn_9",
       eventId: "evt_interaction",
-      botName: "opentagbot",
+      channelName: "opentagbot",
       platform: "slack",
       actionId: "ck:confirm_write:approve",
       value: { confirmed: true },
@@ -437,7 +460,9 @@ describe("HttpDeliverySource", () => {
     const src = new HttpDeliverySource(cfg({ fetch }));
     await src.claimOnce();
     await src.ack("dlv_9");
-    const ack = calls.find((c) => c.url.includes("/deliveries/dlv_9/ack"))!;
+    const ack = calls.find((c) =>
+      c.url.endsWith("/api/channels/deliveries/dlv_9/ack"),
+    )!;
     expect(ack.body).toMatchObject({
       turnId: "turn_9",
       leaseToken: "lease_z",
@@ -456,7 +481,9 @@ describe("HttpDeliverySource", () => {
     const src = new HttpDeliverySource(cfg({ fetch }));
     await src.claimOnce();
     await src.nack("dlv_9", "boom");
-    const fail = calls.find((c) => c.url.includes("/deliveries/dlv_9/fail"))!;
+    const fail = calls.find((c) =>
+      c.url.endsWith("/api/channels/deliveries/dlv_9/fail"),
+    )!;
     expect(fail.body["error"]).toMatchObject({
       code: "runtime_error",
       message: "boom",
@@ -542,7 +569,7 @@ describe("HttpDeliverySource.getHistory", () => {
   it("maps role/text and sends teamId/channel/threadTs/limit in the query", async () => {
     const { calls } = stubGlobalFetch((url) => {
       expect(url).toBe(
-        "http://x/api/bots/history?teamId=T1&channel=C1&threadTs=1.2&limit=5",
+        "http://x/api/channels/history?teamId=T1&channel=C1&threadTs=1.2&limit=5",
       );
       return {
         json: {
@@ -568,7 +595,7 @@ describe("HttpDeliverySource.getHistory", () => {
   it("hydrates a historical file ref into content parts (text inline + image data part)", async () => {
     const png = new Uint8Array([1, 2, 3, 4]);
     stubGlobalFetch((url) => {
-      if (url.includes("/api/bots/history")) {
+      if (url.includes("/api/channels/history")) {
         return {
           json: {
             messages: [
@@ -588,7 +615,7 @@ describe("HttpDeliverySource.getHistory", () => {
           },
         };
       }
-      if (url.includes("/api/bots/files/fileref_abc")) {
+      if (url.includes("/api/channels/files/fileref_abc")) {
         return { arrayBuffer: png.buffer, contentType: "image/png" };
       }
       throw new Error(`unexpected url in test: ${url}`);
@@ -679,6 +706,50 @@ describe("HttpDeliverySource.getHistory", () => {
     );
     expect(history).toEqual([]);
   });
+
+  it("downloads inbound files from the channels file route", async () => {
+    const bytes = new Uint8Array([1, 2, 3]);
+    const { calls } = stubGlobalFetch((url) => {
+      expect(url).toBe("http://x/api/channels/files/fileref_abc");
+      return { arrayBuffer: bytes.buffer, contentType: "application/pdf" };
+    });
+    const src = new HttpDeliverySource(cfg({}));
+
+    await expect(src.fetchFile("fileref_abc")).resolves.toEqual({
+      bytes,
+      mimeType: "application/pdf",
+    });
+    expect(calls).toEqual(["http://x/api/channels/files/fileref_abc"]);
+  });
+
+  it("uploads outbound files to the channels delivery route", async () => {
+    const bytes = new Uint8Array([1, 2, 3]);
+    const { requests } = stubGlobalFetch(() => ({
+      json: { handle: "fileref_uploaded" },
+    }));
+    const src = new HttpDeliverySource(cfg({}));
+
+    await expect(
+      src.uploadFile("dlv_9", {
+        bytes,
+        filename: "report.pdf",
+        title: "Report",
+        altText: "Quarterly report",
+      }),
+    ).resolves.toEqual({ handle: "fileref_uploaded" });
+
+    expect(requests[0]).toMatchObject({
+      url: "http://x/api/channels/deliveries/dlv_9/files?filename=report.pdf&title=Report&altText=Quarterly+report",
+      init: {
+        method: "POST",
+        headers: {
+          authorization: "Bearer cpk-test",
+          "content-type": "application/octet-stream",
+        },
+        body: bytes,
+      },
+    });
+  });
 });
 
 describe("HttpRenderEventSink", () => {
@@ -711,13 +782,13 @@ describe("HttpRenderEventSink", () => {
       acceptance: "accepted",
     });
     const accept = calls.find((c) =>
-      c.url.endsWith("/deliveries/dlv_9/render-events/accept"),
+      c.url.endsWith("/api/channels/deliveries/dlv_9/render-events/accept"),
     )!;
     expect(accept.body).toMatchObject({
       organizationId: "org_1",
       projectId: 7,
-      botId: "bot_1",
-      botName: "opentagbot",
+      channelId: "channel_1",
+      channelName: "opentagbot",
       turnId: "turn_9",
       runtimeInstanceId: "rti_test",
       slot: "main",
@@ -755,7 +826,7 @@ describe("intelligenceAdapter() — config-free default transports", () => {
     expect(adapter.platform).toBe("intelligence");
   });
 
-  it("builds HTTP transports and takes botName from createBot({ name })", async () => {
+  it("builds HTTP transports and uses the bot name as the declared channel name", async () => {
     const { fetch, calls } = fakeFetch((c) =>
       c.url.endsWith("/heartbeat")
         ? {
@@ -763,7 +834,7 @@ describe("intelligenceAdapter() — config-free default transports", () => {
               runtimeInstanceId: "rti_test",
               receivedAt: "t",
               leaseExpiresAt: "t",
-              bots: [],
+              channels: [],
             },
           }
         : { body: { claimed: false, pollAfterMs: 60000 } },
@@ -771,8 +842,8 @@ describe("intelligenceAdapter() — config-free default transports", () => {
     const bot = createBot({
       name: "opentagbot",
       agent: () => new FakeAgent(),
-      // No source/egress injected -> default HTTP transports; no botName in
-      // config -> must come from createBot({ name }) via the start() context.
+      // No source/egress injected -> default HTTP transports; no channelName in
+      // config -> it comes from createBot({ name }) via the start() context.
       adapters: [
         intelligenceAdapter({
           config: {
@@ -798,7 +869,7 @@ describe("intelligenceAdapter() — config-free default transports", () => {
 
     const hb = calls.find((c) => c.url.endsWith("/heartbeat"))!;
     expect(hb.body).toMatchObject({
-      declaredBots: [{ botName: "opentagbot", adapter: "slack" }],
+      declaredChannels: [{ channelName: "opentagbot", adapter: "slack" }],
     });
     expect(calls.some((c) => c.url.endsWith("/claim"))).toBe(true);
   });

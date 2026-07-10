@@ -25,10 +25,10 @@ import type {
   AgentMessage,
 } from "./transports.js";
 import type {
-  ManagedIngressEnvelope,
+  ChannelIngressEnvelope,
   EgressOp,
   EgressOperation,
-  HostedBotRenderEvent,
+  ChannelRenderEvent,
   RenderFrame,
   RenderAccepted,
 } from "./contracts.js";
@@ -43,14 +43,14 @@ import { IntelligenceStateStore } from "./intelligence-state-store.js";
 import { buildContentParts } from "./content-parts.js";
 
 /** Reply target the adapter mints during ingress and threads back to egress. */
-interface ManagedReplyTarget {
+interface ChannelReplyTarget {
   route: unknown;
   turnId: string;
   deliveryId: string;
 }
 
 /** Recover the routing a minted {@link MessageRef} carries (for update/delete). */
-function targetFromRef(ref: MessageRef): ManagedReplyTarget {
+function targetFromRef(ref: MessageRef): ChannelReplyTarget {
   if (ref.__deliveryId === undefined || ref.__turnId === undefined) {
     // A ref without stamped routing can't address an update/delete egress op.
     // This happens when a handler updates a ref that carries no delivery routing
@@ -101,7 +101,7 @@ export interface IntelligenceAdapterOptions {
   /** Optional Intelligence-backed persistence the adapter exposes as `stateStore`. */
   store?: StateStore;
   /**
-   * Overrides for the default-transport config (baseUrl/apiKey/botName/…).
+   * Overrides for the default-transport config (baseUrl/apiKey/channelName/…).
    * Anything omitted is resolved from env. Ignored when both `source` and
    * `egress` are injected.
    */
@@ -119,18 +119,18 @@ export interface IntelligenceAdapterOptions {
 /**
  * @internal Not a publicly documented API.
  *
- * Bridges Intelligence-delivered managed ingress to bot core and emits generic
+ * Bridges Intelligence-delivered Channel ingress to the framework Bot core and emits generic
  * egress operations — pure plumbing over the injected {@link DeliverySource} /
  * {@link EgressSink}, with no Slack/Intelligence credentials. Production wires
  * the Realtime Gateway + Connector Outbox transports; tests/headless runs wire
- * in-memory ones. Must be the only adapter on a bot (V1).
+ * in-memory ones. Must be the only adapter on a framework Bot (V1).
  */
 export class IntelligenceAdapter implements PlatformAdapter {
   readonly platform = "intelligence";
-  /** Marks this as the managed adapter (exclusivity guard + dedup opt-out). */
-  readonly __managed = true;
+  /** Marks this as the Intelligence Channel adapter (exclusivity guard + dedup opt-out). */
+  readonly __intelligenceChannel = true;
   /**
-   * Managed delivery is at-least-once and idempotency is enforced at egress
+   * Channel delivery is at-least-once and idempotency is enforced at egress
    * (deterministic operation ids → Connector Outbox dedupe), so bot core must
    * NOT drop redeliveries at ingress — that would lose a legitimate retry.
    */
@@ -151,12 +151,12 @@ export class IntelligenceAdapter implements PlatformAdapter {
   };
 
   /**
-   * Seeds a fresh agent's `messages` from the managed transport's conversation
+   * Seeds a fresh agent's `messages` from the Channel transport's conversation
    * history (parity with bot-slack/bot-discord/bot-whatsapp, whose stores
    * rebuild `agent.messages` from platform history every turn) — an arrow
    * function property so `this` resolves to the adapter instance (not this
    * object literal) when bot core calls `adapter.conversationStore.getOrCreate(…)`.
-   * `replyTarget` here is the {@link ManagedReplyTarget} bot core threads
+   * `replyTarget` here is the {@link ChannelReplyTarget} framework core threads
    * through from `dispatchTo`; `.route` is the opaque {@link EgressRoute} the
    * transport actually needs. Best-effort: `getHistory` degrading to `[]` (no
    * transport support, or a fetch failure) just means the turn starts fresh.
@@ -164,7 +164,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
   readonly conversationStore: ConversationStore = {
     getOrCreate: async (conversationKey, replyTarget, makeAgent) => {
       const agent = makeAgent(conversationKey);
-      const route = (replyTarget as ManagedReplyTarget).route;
+      const route = (replyTarget as ChannelReplyTarget).route;
       let history: AgentMessage[] = [];
       try {
         history =
@@ -192,7 +192,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
     },
   };
 
-  /** Persistence supplied by the managed transport (Intelligence-backed); picked
+  /** Persistence supplied by the Channel transport (Intelligence-backed); picked
    * up by createBot's `resolveBackend` when no explicit `store.adapter` is set. */
   readonly stateStore?: StateStore;
 
@@ -212,7 +212,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
     this.source = opts.source;
     this.egress = opts.egress;
     this.renderSink = opts.renderSink;
-    // Default to the Intelligence-backed durable KV store so managed bots
+    // Default to the Intelligence-backed durable KV store so Channel Bots
     // persist action-registry snapshots + thread state across restarts (HITL
     // cards survive). Skipped when a store is passed explicitly or when
     // in-memory transports are injected (tests) — a durable store hitting HTTP
@@ -265,7 +265,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
     if (!this.source || !this.egress) {
       const cfg = resolveTransportConfig({
         ...this.opts.config,
-        botName: this.opts.config?.botName ?? ctx?.botName,
+        channelName: this.opts.config?.channelName ?? ctx?.botName,
       });
       const source = (this.source ??= new HttpDeliverySource(cfg));
       this.egress ??= new HttpEgressSink(cfg);
@@ -284,7 +284,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
     await this.source?.stop();
   }
 
-  private async dispatch(env: ManagedIngressEnvelope): Promise<void> {
+  private async dispatch(env: ChannelIngressEnvelope): Promise<void> {
     // Reset the per-turn sequence so egress ids are deterministic across
     // redelivery (same turn id -> same op id sequence). Assumes the
     // DeliverySource delivers (and awaits) one envelope per turnId at a time —
@@ -302,15 +302,15 @@ export class IntelligenceAdapter implements PlatformAdapter {
     } finally {
       // Drop the per-turn counter once the turn is fully processed (renderer
       // chain drained inside dispatchTo) so the Map can't grow unbounded over a
-      // long-running managed bot. A redelivery re-seeds it at the top.
+      // long-running Channel Bot. A redelivery re-seeds it at the top.
       this.seq.delete(env.turnId);
     }
   }
 
-  private async dispatchTo(env: ManagedIngressEnvelope): Promise<void> {
+  private async dispatchTo(env: ChannelIngressEnvelope): Promise<void> {
     const sink = this.sink;
     if (!sink) throw new Error("IntelligenceAdapter: not started");
-    const replyTarget: ManagedReplyTarget = {
+    const replyTarget: ChannelReplyTarget = {
       route: env.route,
       turnId: env.turnId,
       deliveryId: env.deliveryId,
@@ -439,7 +439,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
     return seq;
   }
 
-  private mintOp(target: ManagedReplyTarget, op: EgressOp): EgressOperation {
+  private mintOp(target: ChannelReplyTarget, op: EgressOp): EgressOperation {
     const seq = this.nextFrameSeq(target.turnId);
     return {
       operationId: `${target.turnId}:${seq}`,
@@ -457,8 +457,8 @@ export class IntelligenceAdapter implements PlatformAdapter {
    * frame so a later update/delete can re-address it.
    */
   private async postRenderFrame(
-    target: ManagedReplyTarget,
-    event: HostedBotRenderEvent,
+    target: ChannelReplyTarget,
+    event: ChannelRenderEvent,
   ): Promise<MessageRef> {
     const seq = this.nextFrameSeq(target.turnId);
     const receipt = await this.requireRenderSink().push({
@@ -477,7 +477,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
   }
 
   private async emit(
-    target: ManagedReplyTarget,
+    target: ChannelReplyTarget,
     op: EgressOp,
   ): Promise<MessageRef> {
     const operation = this.mintOp(target, op);
@@ -503,12 +503,12 @@ export class IntelligenceAdapter implements PlatformAdapter {
     // Connector Outbox renders full Block Kit (rich JSX preserved). Fallback
     // (no render sink wired — e.g. in-memory tests): the egress op path.
     if (this.renderSink) {
-      return this.postRenderFrame(target as ManagedReplyTarget, {
+      return this.postRenderFrame(target as ChannelReplyTarget, {
         kind: "post",
         content: ir,
       });
     }
-    return this.emit(target as ManagedReplyTarget, { kind: "post", ir });
+    return this.emit(target as ChannelReplyTarget, { kind: "post", ir });
   }
 
   async update(ref: MessageRef, ir: BotNode[]): Promise<void> {
@@ -532,19 +532,19 @@ export class IntelligenceAdapter implements PlatformAdapter {
       altText?: string;
     },
   ): Promise<{ ok: boolean; fileId?: string; error?: string }> {
-    const mt = target as ManagedReplyTarget;
+    const channelTarget = target as ChannelReplyTarget;
     const uploadFile = this.source?.uploadFile?.bind(this.source);
     if (!uploadFile || !this.renderSink) {
       return {
         ok: false,
-        error: "managed adapter: outbound file upload is not available",
+        error: "Channel adapter: outbound file upload is not available",
       };
     }
     try {
       // Stream bytes to app-api first (durable in S3), then emit a `file` frame
       // referencing the handle; the Connector Outbox does the Slack uploadV2.
-      const { handle } = await uploadFile(mt.deliveryId, args);
-      await this.postRenderFrame(mt, {
+      const { handle } = await uploadFile(channelTarget.deliveryId, args);
+      await this.postRenderFrame(channelTarget, {
         kind: "file",
         handle,
         filename: args.filename,
@@ -567,7 +567,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
     // Non-streaming surface: accumulate the full reply and emit one post.
     let acc = "";
     for await (const c of chunks) acc += c;
-    const target = _target as ManagedReplyTarget;
+    const target = _target as ChannelReplyTarget;
     if (this.renderSink) {
       return this.postRenderFrame(target, {
         kind: "post",
@@ -582,7 +582,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
   }
 
   decodeInteraction(_raw: unknown): InteractionEvent | undefined {
-    // TODO(OSS-377): managed interaction decoding.
+    // TODO(OSS-377): Channel interaction decoding.
     return undefined;
   }
 
@@ -599,7 +599,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
    * any un-ended text on `finalize` (the interrupt path) with the interrupted
    * marker.
    */
-  private renderSinkFor(t: ManagedReplyTarget): RenderEventSink {
+  private renderSinkFor(t: ChannelReplyTarget): RenderEventSink {
     if (this.renderSink) return this.renderSink;
     const emit = (op: EgressOp) => this.emit(t, op);
     const acc = new Map<string, string>();
@@ -648,7 +648,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
   }
 
   createRunRenderer(target: ReplyTarget): RunRenderer {
-    const t = target as ManagedReplyTarget;
+    const t = target as ChannelReplyTarget;
     const sink = this.renderSinkFor(t);
     const interruptEventNames = new Set<string>(["on_interrupt"]);
     const capturedToolCalls: CapturedToolCall[] = [];
@@ -666,7 +666,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
     let chain: Promise<void> = Promise.resolve();
     let pushError: unknown;
 
-    const enqueue = (event: HostedBotRenderEvent): void => {
+    const enqueue = (event: ChannelRenderEvent): void => {
       const frame: RenderFrame = {
         deliveryId: t.deliveryId,
         turnId: t.turnId,
@@ -810,7 +810,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
 }
 
 /**
- * @internal Construct the managed bridge adapter. Production callers (the
+ * @internal Construct the Channel bridge adapter. Production callers (the
  * runtime) inject the Realtime Gateway + Connector Outbox transports; tests and
  * standalone runs inject in-memory ones. Must be the only adapter on a bot (V1).
  */

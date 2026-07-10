@@ -2,30 +2,30 @@ import { describe, it, expect } from "vitest";
 import { createBot, FakeAgent } from "@copilotkit/channels";
 import { Section } from "@copilotkit/channels-ui";
 import {
-  startManagedBotsOnChannel,
-  startManagedBotsOverPhoenix,
-} from "./phoenix-launcher.js";
-import type { HostedBotChannel } from "./phoenix-transport.js";
+  startChannelsWithGatewaySession,
+  startChannelsOverRealtimeGateway,
+} from "./realtime-gateway-launcher.js";
+import type { RealtimeGatewaySession } from "./realtime-gateway.js";
 
 const scope = {
   organizationId: "org_1",
   projectId: 7,
-  botId: "bot_1",
-  botName: "opentag",
+  channelId: "channel_1",
+  channelName: "opentag",
 };
 
-/** Fake gateway channel: records pushes, replies `render_accepted`, and exposes
+/** Fake gateway session: records pushes, replies `render_accepted`, and exposes
  * the server-push handlers so a test can simulate `delivery.available`. */
-function makeFakeChannel() {
+function makeFakeSession() {
   const pushes: { event: string; payload: unknown }[] = [];
   const handlers = new Map<string, (payload: unknown) => void>();
-  const channel: HostedBotChannel = {
+  const session: RealtimeGatewaySession = {
     push: async (event, payload) => {
       pushes.push({ event, payload });
-      if (event === "hosted_bot.render_event.v1") {
+      if (event === "channel.render_event.v1") {
         const p = (payload as { payload: Record<string, unknown> }).payload;
         return {
-          type: "hosted_bot.render_accepted.v1",
+          type: "channel.render_accepted.v1",
           occurredAt: "2026-07-09T00:00:00.000Z",
           payload: {
             idempotencyKey: p.idempotencyKey,
@@ -42,18 +42,18 @@ function makeFakeChannel() {
       handlers.set(event, handler);
     },
   };
-  return { channel, pushes, handlers };
+  return { session, pushes, handlers };
 }
 
-/** Simulate one leased text-turn delivery arriving over the channel. */
+/** Simulate one leased text-turn delivery arriving over the gateway session. */
 function deliverText(handlers: Map<string, (p: unknown) => void>) {
-  handlers.get("hosted_bot.delivery.available.v1")?.({
+  handlers.get("channel.delivery.available.v1")?.({
     payload: {
       delivery: {
         id: "dlv_1",
         leaseToken: "lease_1",
         adapter: "slack",
-        bot: { id: "bot_1", name: "opentag" },
+        channel: { id: "channel_1", name: "opentag" },
         turn: {
           id: "turn_1",
           eventId: "evt_1",
@@ -65,7 +65,7 @@ function deliverText(handlers: Map<string, (p: unknown) => void>) {
   });
 }
 
-/** The channel `delivery.available` handler is fire-and-forget, so poll until
+/** The gateway session `delivery.available` handler is fire-and-forget, so poll until
  * the async dispatch→render→ack chain has produced the terminal event. */
 async function waitFor(pred: () => boolean, tries = 50): Promise<void> {
   for (let i = 0; i < tries; i++) {
@@ -75,9 +75,9 @@ async function waitFor(pred: () => boolean, tries = 50): Promise<void> {
   throw new Error("waitFor: condition not met within the poll window");
 }
 
-describe("startManagedBotsOnChannel — managed runtime over Phoenix (OSS-406)", () => {
+describe("startChannelsWithGatewaySession — Channel runtime over Realtime Gateway (OSS-406)", () => {
   it("runs a delivered turn end-to-end: handler → render frame → completion intent, never self-ack", async () => {
-    const fake = makeFakeChannel();
+    const fake = makeFakeSession();
     let ran = false;
     const bot = createBot({ name: "opentag", agent: () => new FakeAgent() });
     bot.onMessage(async ({ thread }) => {
@@ -85,8 +85,8 @@ describe("startManagedBotsOnChannel — managed runtime over Phoenix (OSS-406)",
       await thread.post(Section({ children: "reply" }));
     });
 
-    const handle = await startManagedBotsOnChannel([bot], {
-      channel: fake.channel,
+    const handle = await startChannelsWithGatewaySession([bot], {
+      session: fake.session,
       scope,
       runtimeInstanceId: "rti_1",
     });
@@ -94,54 +94,79 @@ describe("startManagedBotsOnChannel — managed runtime over Phoenix (OSS-406)",
     deliverText(fake.handlers);
     await waitFor(() =>
       fake.pushes.some(
-        (p) => p.event === "hosted_bot.delivery.complete_requested.v1",
+        (p) => p.event === "channel.delivery.complete_requested.v1",
       ),
     );
 
     const events = fake.pushes.map((p) => p.event);
-    expect(ran).toBe(true); // the bot's handler ran off a Phoenix-delivered turn
-    expect(events).toContain("hosted_bot.render_event.v1"); // rendered over the channel
-    expect(events).toContain("hosted_bot.delivery.complete_requested.v1"); // completion INTENT
-    expect(events).not.toContain("hosted_bot.delivery.ack.v1"); // SDK never commits the ack
+    expect(ran).toBe(true); // the Bot handler ran off a gateway-delivered turn
+    expect(events).toContain("channel.render_event.v1"); // rendered over the gateway session
+    expect(events).toContain("channel.delivery.complete_requested.v1"); // completion INTENT
+    expect(events).not.toContain("channel.delivery.ack.v1"); // SDK never commits the ack
 
     await handle.stop();
   });
 
   it("nacks (fail intent) when the handler throws — no completion intent, no self-ack", async () => {
-    const fake = makeFakeChannel();
+    const fake = makeFakeSession();
     const bot = createBot({ name: "opentag", agent: () => new FakeAgent() });
     bot.onMessage(async () => {
       throw new Error("boom");
     });
 
-    const handle = await startManagedBotsOnChannel([bot], {
-      channel: fake.channel,
+    const handle = await startChannelsWithGatewaySession([bot], {
+      session: fake.session,
       scope,
       runtimeInstanceId: "rti_1",
     });
 
     deliverText(fake.handlers);
     await waitFor(() =>
-      fake.pushes.some((p) => p.event === "hosted_bot.delivery.fail.v1"),
+      fake.pushes.some((p) => p.event === "channel.delivery.fail.v1"),
     );
 
     const events = fake.pushes.map((p) => p.event);
-    expect(events).toContain("hosted_bot.delivery.fail.v1");
-    expect(events).not.toContain("hosted_bot.delivery.complete_requested.v1");
-    expect(events).not.toContain("hosted_bot.delivery.ack.v1");
+    expect(events).toContain("channel.delivery.fail.v1");
+    expect(events).not.toContain("channel.delivery.complete_requested.v1");
+    expect(events).not.toContain("channel.delivery.ack.v1");
 
     await handle.stop();
   });
 });
 
-describe("startManagedBotsOverPhoenix — fail-fast validation (OSS-406)", () => {
+describe("startChannelsOverRealtimeGateway — fail-fast validation (OSS-406)", () => {
+  it("rejects an invalid Channel scope before opening a socket", async () => {
+    let socketConstructed = false;
+    class NeverWebSocket {
+      constructor() {
+        socketConstructed = true;
+        throw new Error(
+          "startChannelsOverRealtimeGateway should not have connected",
+        );
+      }
+    }
+    const bot = createBot({ name: "opentag", agent: () => new FakeAgent() });
+
+    await expect(
+      startChannelsOverRealtimeGateway([bot], {
+        wsUrl: "wss://gateway.example/socket",
+        apiKey: "cpk-test",
+        scope: { ...scope, channelId: "bot_1" },
+        runtimeInstanceId: "rti_1",
+        webSocket: NeverWebSocket,
+      }),
+    ).rejects.toThrow(/channel_\* channelId/i);
+
+    expect(socketConstructed).toBe(false);
+  });
+
   it("rejects a bad bot name before opening a socket (no leaked connection)", async () => {
     let socketConstructed = false;
     class NeverWebSocket {
       constructor() {
         socketConstructed = true;
         throw new Error(
-          "startManagedBotsOverPhoenix should not have connected",
+          "startChannelsOverRealtimeGateway should not have connected",
         );
       }
     }
@@ -149,25 +174,25 @@ describe("startManagedBotsOverPhoenix — fail-fast validation (OSS-406)", () =>
     const b = createBot({ name: "dupe", agent: () => new FakeAgent() });
 
     await expect(
-      startManagedBotsOverPhoenix([a, b], {
+      startChannelsOverRealtimeGateway([a, b], {
         wsUrl: "wss://gateway.example/socket",
         apiKey: "cpk-test",
         scope,
         runtimeInstanceId: "rti_1",
         webSocket: NeverWebSocket,
       }),
-    ).rejects.toThrow(/duplicate managed bot name/i);
+    ).rejects.toThrow(/duplicate channel name/i);
 
     expect(socketConstructed).toBe(false);
   });
 
-  it("rejects >1 bot before opening a socket (Phase 1 is single-bot per channel)", async () => {
+  it("rejects >1 Bot before opening a socket (Phase 1 is single-Bot per gateway session)", async () => {
     let socketConstructed = false;
     class NeverWebSocket {
       constructor() {
         socketConstructed = true;
         throw new Error(
-          "startManagedBotsOverPhoenix should not have connected",
+          "startChannelsOverRealtimeGateway should not have connected",
         );
       }
     }
@@ -175,40 +200,40 @@ describe("startManagedBotsOverPhoenix — fail-fast validation (OSS-406)", () =>
     const b = createBot({ name: "two", agent: () => new FakeAgent() });
 
     await expect(
-      startManagedBotsOverPhoenix([a, b], {
+      startChannelsOverRealtimeGateway([a, b], {
         wsUrl: "wss://gateway.example/socket",
         apiKey: "cpk-test",
         scope,
         runtimeInstanceId: "rti_1",
         webSocket: NeverWebSocket,
       }),
-    ).rejects.toThrow(/exactly one bot per channel/i);
+    ).rejects.toThrow(/exactly one Bot per gateway session/i);
 
     expect(socketConstructed).toBe(false);
   });
 
-  it("startManagedBotsOnChannel also rejects >1 bot (shared-transport misrouting guard)", async () => {
-    const fake = makeFakeChannel();
+  it("startChannelsWithGatewaySession also rejects >1 Bot (shared-transport misrouting guard)", async () => {
+    const fake = makeFakeSession();
     const a = createBot({ name: "one", agent: () => new FakeAgent() });
     const b = createBot({ name: "two", agent: () => new FakeAgent() });
 
     await expect(
-      startManagedBotsOnChannel([a, b], {
-        channel: fake.channel,
+      startChannelsWithGatewaySession([a, b], {
+        session: fake.session,
         scope,
         runtimeInstanceId: "rti_1",
       }),
-    ).rejects.toThrow(/exactly one bot per channel/i);
+    ).rejects.toThrow(/exactly one Bot per gateway session/i);
   });
 });
 
-describe("startManagedBotsOnChannel — activation metadata (OSS-406)", () => {
+describe("startChannelsWithGatewaySession — activation metadata (OSS-406)", () => {
   it("forwards env overrides into handle.metadata (keeps join ↔ metadata in sync)", async () => {
-    const fake = makeFakeChannel();
+    const fake = makeFakeSession();
     const bot = createBot({ name: "opentag", agent: () => new FakeAgent() });
 
-    const handle = await startManagedBotsOnChannel([bot], {
-      channel: fake.channel,
+    const handle = await startChannelsWithGatewaySession([bot], {
+      session: fake.session,
       scope,
       runtimeInstanceId: "rti_1",
       env: { runtimeEnv: "production", runtimePackageVersion: "9.9.9" },
@@ -216,17 +241,17 @@ describe("startManagedBotsOnChannel — activation metadata (OSS-406)", () => {
 
     expect(handle.metadata.runtimeEnv).toBe("production");
     expect(handle.metadata.runtimePackageVersion).toBe("9.9.9");
-    expect(handle.metadata.declaredBotNames).toEqual(["opentag"]);
+    expect(handle.metadata.declaredChannelNames).toEqual(["opentag"]);
 
     await handle.stop();
   });
 
   it("keeps the required runtimeInstanceId authoritative in handle.metadata", async () => {
-    const fake = makeFakeChannel();
+    const fake = makeFakeSession();
     const bot = createBot({ name: "opentag", agent: () => new FakeAgent() });
 
-    const handle = await startManagedBotsOnChannel([bot], {
-      channel: fake.channel,
+    const handle = await startChannelsWithGatewaySession([bot], {
+      session: fake.session,
       scope,
       runtimeInstanceId: "rti_authoritative",
       env: { runtimeEnv: "staging" },
@@ -239,7 +264,7 @@ describe("startManagedBotsOnChannel — activation metadata (OSS-406)", () => {
 });
 
 /**
- * Minimal Phoenix-compatible fake WebSocket that drives the v2-serializer join
+ * Minimal gateway-compatible fake WebSocket that drives the v2-serializer join
  * handshake so the connector's error/timeout cleanup can be exercised without a
  * real gateway. `mode` controls the phx_join reply: "ok" → joined, "error" →
  * rejected, "never" → no reply (the channel join times out). Records `close()`
@@ -302,13 +327,13 @@ function makeFakeWebSocket(mode: JoinMode) {
   return { FakeWebSocket, instances };
 }
 
-describe("startManagedBotsOverPhoenix — socket lifecycle cleanup (OSS-406)", () => {
+describe("startChannelsOverRealtimeGateway — socket lifecycle cleanup (OSS-406)", () => {
   it("disconnects the socket when the channel join times out", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("never");
     const bot = createBot({ name: "opentag", agent: () => new FakeAgent() });
 
     await expect(
-      startManagedBotsOverPhoenix([bot], {
+      startChannelsOverRealtimeGateway([bot], {
         wsUrl: "wss://gateway.example/socket",
         apiKey: "cpk-test",
         scope,
@@ -327,7 +352,7 @@ describe("startManagedBotsOverPhoenix — socket lifecycle cleanup (OSS-406)", (
     const bot = createBot({ name: "opentag", agent: () => new FakeAgent() });
 
     await expect(
-      startManagedBotsOverPhoenix([bot], {
+      startChannelsOverRealtimeGateway([bot], {
         wsUrl: "wss://gateway.example/socket",
         apiKey: "cpk-test",
         scope,
@@ -343,19 +368,19 @@ describe("startManagedBotsOverPhoenix — socket lifecycle cleanup (OSS-406)", (
 
   it("disconnects the socket when bot startup fails after the channel joined", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
-    // Pre-start the bot so startManagedBots' addAdapter() throws ("adapter added
+    // Pre-start the Bot so startChannels' addAdapter() throws ("adapter added
     // after start") during the post-join startup — the exact failure the
     // launcher's try/catch must clean up after.
-    const started = makeFakeChannel();
+    const started = makeFakeSession();
     const bot = createBot({ name: "opentag", agent: () => new FakeAgent() });
-    const first = await startManagedBotsOnChannel([bot], {
-      channel: started.channel,
+    const first = await startChannelsWithGatewaySession([bot], {
+      session: started.session,
       scope,
       runtimeInstanceId: "rti_pre",
     });
 
     await expect(
-      startManagedBotsOverPhoenix([bot], {
+      startChannelsOverRealtimeGateway([bot], {
         wsUrl: "wss://gateway.example/socket",
         apiKey: "cpk-test",
         scope,

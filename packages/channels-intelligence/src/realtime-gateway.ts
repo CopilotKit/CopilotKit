@@ -1,22 +1,28 @@
 import { Socket } from "phoenix";
-import type { HostedBotChannel } from "./phoenix-transport.js";
 
 /**
- * @internal Config for {@link connectPhoenixHostedBotChannel} — the live
- * realtime-gateway connection behind {@link PhoenixRealtimeTransport}.
+ * Minimal Realtime Gateway session surface used by the delivery/render
+ * transport. The connector adapts its private socket implementation to this
+ * contract so callers never depend on a protocol client.
  */
-export interface PhoenixConnectConfig {
+export interface RealtimeGatewaySession {
+  push(event: string, payload: unknown): Promise<unknown>;
+  on(event: string, handler: (payload: unknown) => void): void;
+}
+
+/** @internal Options for {@link connectRealtimeGateway}. */
+export interface ConnectRealtimeGatewayOptions {
   /** Gateway socket URL, e.g. `wss://gateway.example/socket`. */
   wsUrl: string;
   /** Runtime API key (`cpk-…`) authenticating the socket. */
   apiKey: string;
-  /** Numeric project id — the channel topic is `hosted_bots:project:{id}`. */
+  /** Numeric project id — the session topic is `channels:project:{id}`. */
   projectId: number;
   /** Listener declaration sent as the channel join payload. */
   join: {
     runtimeInstanceId: string;
-    declaredBots: ReadonlyArray<{
-      botName: string;
+    declaredChannels: ReadonlyArray<{
+      channelName: string;
       adapter: string;
       renderCapabilities?: readonly string[];
     }>;
@@ -29,33 +35,36 @@ export interface PhoenixConnectConfig {
   webSocket?: unknown;
 }
 
-/** A connected {@link HostedBotChannel} plus a `disconnect()` for shutdown. */
-export interface ConnectedHostedBotChannel extends HostedBotChannel {
+/** A connected {@link RealtimeGatewaySession} plus a shutdown operation. */
+export interface ConnectedRealtimeGatewaySession extends RealtimeGatewaySession {
   disconnect(): void;
 }
 
 /**
- * @internal Connect the SDK to the realtime-gateway hosted-bot IO channel and
- * adapt the Phoenix `Channel` to the minimal {@link HostedBotChannel} contract
- * {@link PhoenixRealtimeTransport} consumes: `push` resolves with the server's
- * "ok" reply (rejects on "error"/"timeout"); `on` subscribes to a pushed event.
+ * @internal Connect the SDK to a Realtime Gateway session. Socket/client
+ * values stay private here; callers receive only {@link RealtimeGatewaySession}.
  *
- * The channel is joined (declaring the runtime's bots) before the promise
+ * The session is joined (declaring the runtime's channels) before the promise
  * resolves, so the caller can immediately stream render frames.
  *
  * @param config - Gateway URL, auth, project scope, and join declaration.
  * @returns The connected channel with a `disconnect()` teardown.
  */
-export async function connectPhoenixHostedBotChannel(
-  config: PhoenixConnectConfig,
-): Promise<ConnectedHostedBotChannel> {
+export async function connectRealtimeGateway(
+  config: ConnectRealtimeGatewayOptions,
+): Promise<ConnectedRealtimeGatewaySession> {
+  if (!Number.isInteger(config.projectId) || config.projectId <= 0) {
+    throw new Error(
+      "connectRealtimeGateway: projectId must be a positive integer",
+    );
+  }
   const timeout = config.timeoutMs ?? 10_000;
   const transport =
     config.webSocket ??
     (globalThis as unknown as { WebSocket?: unknown }).WebSocket;
   if (!transport) {
     throw new Error(
-      "connectPhoenixHostedBotChannel: no WebSocket available — pass config.webSocket or run on Node 22+",
+      "connectRealtimeGateway: no WebSocket available — pass config.webSocket or run on Node 22+",
     );
   }
 
@@ -70,7 +79,7 @@ export async function connectPhoenixHostedBotChannel(
   socket.connect();
 
   const channel = socket.channel(
-    `hosted_bots:project:${config.projectId}`,
+    `channels:project:${config.projectId}`,
     config.join as object,
   );
 
@@ -79,16 +88,18 @@ export async function connectPhoenixHostedBotChannel(
       .join(timeout)
       .receive("ok", () => resolve())
       .receive("error", (reason: unknown) => {
-        // The join failed, so the caller never gets a channel it could
+        // The join failed, so the caller never gets a session it could
         // disconnect — tear the socket down here rather than leak it.
         socket.disconnect();
         reject(
-          new Error(`hosted-bot channel join failed: ${safeReason(reason)}`),
+          new Error(
+            `realtime gateway session join failed: ${safeReason(reason)}`,
+          ),
         );
       })
       .receive("timeout", () => {
         socket.disconnect();
-        reject(new Error("hosted-bot channel join timed out"));
+        reject(new Error("realtime gateway session join timed out"));
       });
   });
 
@@ -99,10 +110,16 @@ export async function connectPhoenixHostedBotChannel(
           .push(event, payload as object, timeout)
           .receive("ok", (reply: unknown) => resolve(reply))
           .receive("error", (reason: unknown) =>
-            reject(new Error(`push ${event} failed: ${safeReason(reason)}`)),
+            reject(
+              new Error(
+                `realtime gateway session push ${event} failed: ${safeReason(reason)}`,
+              ),
+            ),
           )
           .receive("timeout", () =>
-            reject(new Error(`push ${event} timed out`)),
+            reject(
+              new Error(`realtime gateway session push ${event} timed out`),
+            ),
           );
       }),
     on: (event, handler) => {

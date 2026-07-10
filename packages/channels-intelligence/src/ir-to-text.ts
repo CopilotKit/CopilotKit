@@ -5,7 +5,7 @@ import type { BotNode } from "@copilotkit/channels-ui";
  * first slice, which accepts a plain `text` field only (Intelligence owns the
  * native platform rendering later via per-platform codecs — OSS-363/OSS-377).
  *
- * The dominant managed path — streamed agent text — is already a single
+ * The dominant Channel path — streamed agent text — is already a single
  * `{ type: "text", props: { value } }` node (see {@link IntelligenceAdapter}'s
  * run renderer), so this is usually a no-op concat. Richer IR (sections, lists)
  * is best-effort flattened by concatenating descendant text; formatting is lost

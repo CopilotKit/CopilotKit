@@ -109,7 +109,7 @@ describe("bot.onReaction", () => {
     ]);
   });
 
-  it("resolves <Message onReaction> by postedMessageId when the reaction id differs (managed path)", async () => {
+  it("resolves <Message onReaction> by postedMessageId when the reaction id differs (Channel path)", async () => {
     const fake = new FakeAdapter();
     const bot = createBot({ adapters: [fake] });
     const seen: string[] = [];
@@ -126,7 +126,7 @@ describe("bot.onReaction", () => {
     await bot.start();
     fake.emitTurn({});
     await tick();
-    // Managed delivery: the reaction arrives keyed by the provider ts (NOT the
+    // Channel delivery: the reaction arrives keyed by the provider ts (NOT the
     // post ref the handler was registered under), and the adapter supplies the
     // reverse-mapped post ref as `postedMessageId`. Resolution must prefer it.
     fake.emitReaction({

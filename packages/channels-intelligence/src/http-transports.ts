@@ -6,8 +6,9 @@ import type {
   AgentMessage,
 } from "./transports.js";
 import type {
-  ManagedIngressEnvelope,
-  ManagedFileRef,
+  ChannelIngressEnvelope,
+  ChannelDeliveryScope,
+  ChannelFileRef,
   EgressRoute,
   EgressOperation,
   EgressResult,
@@ -44,8 +45,8 @@ export interface IntelligenceTransportConfig {
   baseUrl: string;
   /** Project runtime API key (`cpk-…`), sent as `Authorization: Bearer`. */
   apiKey: string;
-  /** Project-unique bot name; matches `createBot({ name })`. */
-  botName: string;
+  /** Project-unique channel name; defaults from `createBot({ name })`. */
+  channelName: string;
   /** Stable runtime instance id (`rti_…`); generated when omitted. */
   runtimeInstanceId: string;
   /** Adapter kind. First slice is `"slack"`. */
@@ -70,7 +71,8 @@ export interface IntelligenceTransportConfig {
 /**
  * Resolve transport config from explicit overrides then environment, failing
  * loudly if a required field is missing. Env: `COPILOTKIT_INTELLIGENCE_URL`,
- * `COPILOTKIT_API_KEY`, `COPILOTKIT_BOT_NAME`, `COPILOTKIT_RUNTIME_INSTANCE_ID`.
+ * `COPILOTKIT_API_KEY`, `COPILOTKIT_CHANNEL_NAME`,
+ * `COPILOTKIT_RUNTIME_INSTANCE_ID`.
  */
 export function resolveTransportConfig(
   overrides: Partial<IntelligenceTransportConfig> = {},
@@ -83,7 +85,7 @@ export function resolveTransportConfig(
     overrides.baseUrl ?? env["COPILOTKIT_INTELLIGENCE_URL"]
   )?.replace(/\/+$/, "");
   const apiKey = overrides.apiKey ?? env["COPILOTKIT_API_KEY"];
-  const botName = overrides.botName ?? env["COPILOTKIT_BOT_NAME"];
+  const channelName = overrides.channelName ?? env["COPILOTKIT_CHANNEL_NAME"];
   const runtimeInstanceId =
     overrides.runtimeInstanceId ??
     env["COPILOTKIT_RUNTIME_INSTANCE_ID"] ??
@@ -93,8 +95,8 @@ export function resolveTransportConfig(
   const missing: string[] = [];
   if (!baseUrl) missing.push("baseUrl (COPILOTKIT_INTELLIGENCE_URL)");
   if (!apiKey) missing.push("apiKey (COPILOTKIT_API_KEY)");
-  if (!botName)
-    missing.push("botName (createBot({ name }) / COPILOTKIT_BOT_NAME)");
+  if (!channelName)
+    missing.push("channelName (createBot({ name }) / COPILOTKIT_CHANNEL_NAME)");
   if (missing.length > 0) {
     throw new Error(
       `intelligenceAdapter: missing required transport config: ${missing.join(", ")}`,
@@ -104,7 +106,7 @@ export function resolveTransportConfig(
   return {
     baseUrl: baseUrl!,
     apiKey: apiKey!,
-    botName: botName!,
+    channelName: channelName!,
     runtimeInstanceId,
     adapter,
     fetch: overrides.fetch,
@@ -176,7 +178,7 @@ interface TeamsReplyTarget {
 
 /**
  * The claim's reply target is provider-tagged (Intelligence app-api mints a
- * discriminated union — one managed runtime serves every channel its bot has
+ * discriminated union — one Channel runtime serves every channel its framework Bot has
  * attached now that claims are provider-agnostic).
  */
 type ReplyTarget = SlackReplyTarget | TeamsReplyTarget;
@@ -186,7 +188,7 @@ interface ClaimedDelivery {
   id: string;
   organizationId: string;
   projectId: number;
-  bot: { id: string; name: string };
+  channel: { id: string; name: string };
   adapter: string;
   leaseToken: string;
   turn: {
@@ -195,10 +197,10 @@ interface ClaimedDelivery {
     replyTarget: ReplyTarget;
     // NB: there is intentionally no `thread_started` variant here — the claim
     // path only carries turn/command/reaction/interaction. `thread_started`
-    // envelopes originate on the realtime/Phoenix path, not from `claim`, so a
+    // envelopes originate on the realtime gateway path, not from `claim`, so a
     // claimed delivery never maps to `kind:"thread_started"`.
     input?:
-      | { kind: "text"; text?: string; files?: ManagedFileRef[] }
+      | { kind: "text"; text?: string; files?: ChannelFileRef[] }
       | {
           kind: "command";
           command: string;
@@ -230,14 +232,7 @@ interface ClaimedDelivery {
   };
 }
 
-/** Per-delivery org/project/bot scope, echoed onto render frames. */
-export interface DeliveryScope {
-  organizationId: string;
-  projectId: number;
-  botId: string;
-  botName: string;
-}
-
+/** Per-delivery org/project/channel scope, echoed onto render frames. */
 type ClaimResponse =
   | { claimed: false; pollAfterMs: number }
   | { claimed: true; delivery: ClaimedDelivery };
@@ -308,12 +303,14 @@ function conversationKeyFromReplyTarget(rt: ReplyTarget): string {
   }
 }
 
-function mapDeliveryToEnvelope(d: ClaimedDelivery): ManagedIngressEnvelope {
+function mapDeliveryToEnvelope(d: ClaimedDelivery): ChannelIngressEnvelope {
   const base = {
     deliveryId: d.id,
     eventId: d.turn.eventId,
     turnId: d.turn.id,
-    botName: d.bot.name,
+    // `ChannelIngressEnvelope` remains aligned with the channels framework's
+    // Bot object; only the Intelligence HTTP wire contract calls this a channel.
+    channelName: d.channel.name,
     platform: d.adapter,
     conversationKey: conversationKeyFromReplyTarget(d.turn.replyTarget),
     route: d.turn.replyTarget,
@@ -375,7 +372,7 @@ function mapDeliveryToEnvelope(d: ClaimedDelivery): ManagedIngressEnvelope {
 interface LeaseRecord {
   turnId: string;
   leaseToken: string;
-  scope: DeliveryScope;
+  scope: ChannelDeliveryScope;
 }
 
 /**
@@ -399,11 +396,13 @@ export class HttpDeliverySource implements DeliverySource {
     return (this.cfg.sleep ?? defaultSleep)(ms);
   }
 
-  /** Declare this runtime + bot to Intelligence and keep the activation fresh. */
+  /** Declare this runtime + channel to Intelligence and keep the activation fresh. */
   async heartbeat(): Promise<void> {
-    await this.http.post("/api/bots/listener/heartbeat", {
+    await this.http.post("/api/channels/listener/heartbeat", {
       runtimeInstanceId: this.cfg.runtimeInstanceId,
-      declaredBots: [{ botName: this.cfg.botName, adapter: this.cfg.adapter }],
+      declaredChannels: [
+        { channelName: this.cfg.channelName, adapter: this.cfg.adapter },
+      ],
       observedAt: new Date().toISOString(),
     });
     this.lastHeartbeatAt = Date.now();
@@ -411,12 +410,12 @@ export class HttpDeliverySource implements DeliverySource {
 
   /** Claim a single delivery; returns the mapped envelope, or the idle backoff. */
   async claimOnce(): Promise<
-    { env: ManagedIngressEnvelope } | { pollAfterMs: number }
+    { env: ChannelIngressEnvelope } | { pollAfterMs: number }
   > {
     const res = await this.http.post<ClaimResponse>(
-      "/api/bots/listener/claim",
+      "/api/channels/listener/claim",
       {
-        // Claim provider-agnostically: the managed runtime emits abstract render
+        // Claim provider-agnostically: the Channel runtime emits abstract render
         // frames and Intelligence renders per the delivery's own reply target, so
         // a single runtime serves every channel its bot has attached (Slack,
         // Teams, ...). Declaring a single adapter here made Intelligence withhold
@@ -432,8 +431,8 @@ export class HttpDeliverySource implements DeliverySource {
       scope: {
         organizationId: res.delivery.organizationId,
         projectId: res.delivery.projectId,
-        botId: res.delivery.bot.id,
-        botName: res.delivery.bot.name,
+        channelId: res.delivery.channel.id,
+        channelName: res.delivery.channel.name,
       },
     });
     try {
@@ -461,8 +460,8 @@ export class HttpDeliverySource implements DeliverySource {
     }
   }
 
-  /** The org/project/bot scope for a leased delivery, for render-frame egress. */
-  scopeFor(deliveryId: string): DeliveryScope | undefined {
+  /** The org/project/channel scope for a leased delivery, for render-frame egress. */
+  scopeFor(deliveryId: string): ChannelDeliveryScope | undefined {
     return this.leases.get(deliveryId)?.scope;
   }
 
@@ -473,7 +472,7 @@ export class HttpDeliverySource implements DeliverySource {
   }
 
   async start(
-    onDelivery: (env: ManagedIngressEnvelope) => Promise<void>,
+    onDelivery: (env: ChannelIngressEnvelope) => Promise<void>,
   ): Promise<void> {
     this.running = true;
     await this.heartbeat();
@@ -481,7 +480,7 @@ export class HttpDeliverySource implements DeliverySource {
   }
 
   private async runLoop(
-    onDelivery: (env: ManagedIngressEnvelope) => Promise<void>,
+    onDelivery: (env: ChannelIngressEnvelope) => Promise<void>,
   ): Promise<void> {
     const cadence = this.cfg.heartbeatIntervalMs ?? 15000;
     while (this.running) {
@@ -537,7 +536,7 @@ export class HttpDeliverySource implements DeliverySource {
     // other sees none and no-ops — exactly one of ack XOR fail reaches app-api.
     this.leases.delete(deliveryId);
     await this.http.post(
-      `/api/bots/deliveries/${encodeURIComponent(deliveryId)}/ack`,
+      `/api/channels/deliveries/${encodeURIComponent(deliveryId)}/ack`,
       {
         turnId: lease.turnId,
         runtimeInstanceId: this.cfg.runtimeInstanceId,
@@ -560,7 +559,7 @@ export class HttpDeliverySource implements DeliverySource {
     // Delete-before-POST for the same reason as `ack`: single terminal signal.
     this.leases.delete(deliveryId);
     await this.http.post(
-      `/api/bots/deliveries/${encodeURIComponent(deliveryId)}/fail`,
+      `/api/channels/deliveries/${encodeURIComponent(deliveryId)}/fail`,
       {
         turnId: lease.turnId,
         runtimeInstanceId: this.cfg.runtimeInstanceId,
@@ -590,7 +589,7 @@ export class HttpDeliverySource implements DeliverySource {
         "intelligenceAdapter: no global fetch available for file download",
       );
     }
-    const url = `${this.cfg.baseUrl}/api/bots/files/${encodeURIComponent(handle)}`;
+    const url = `${this.cfg.baseUrl}/api/channels/files/${encodeURIComponent(handle)}`;
     const res = await gfetch(url, {
       method: "GET",
       headers: { authorization: `Bearer ${this.cfg.apiKey}` },
@@ -612,7 +611,7 @@ export class HttpDeliverySource implements DeliverySource {
   }
 
   /**
-   * Fetch prior thread turns from app-api's bot history route for
+   * Fetch prior thread turns from app-api's channel history route for
    * conversation-history seeding (parity with bot-slack/bot-discord/
    * bot-whatsapp's reconstructed-history conversation stores). A root-level
    * turn (no `threadTs`) has no prior thread to look up, so this returns `[]`
@@ -646,7 +645,7 @@ export class HttpDeliverySource implements DeliverySource {
         threadTs: rt.threadTs,
         limit: String(limit),
       });
-      const url = `${this.cfg.baseUrl}/api/bots/history?${qs.toString()}`;
+      const url = `${this.cfg.baseUrl}/api/channels/history?${qs.toString()}`;
       const res = await gfetch(url, {
         method: "GET",
         headers: { authorization: `Bearer ${this.cfg.apiKey}` },
@@ -658,7 +657,7 @@ export class HttpDeliverySource implements DeliverySource {
           // called out distinctly — surface it loudly so it doesn't hide
           // forever behind the best-effort degrade-to-`[]` below.
           this.cfg.log?.(
-            `[intelligence] getHistory ${res.status} for thread history — likely a misconfigured/unauthorized history endpoint (baseUrl/route/apiKey); managed bot will run WITHOUT prior-turn history`,
+            `[intelligence] getHistory ${res.status} for thread history — likely a misconfigured/unauthorized history endpoint (baseUrl/route/apiKey); Channel Bot will run WITHOUT prior-turn history`,
           );
         } else {
           // Transient (5xx/429) — quiet best-effort degradation, history is
@@ -672,7 +671,7 @@ export class HttpDeliverySource implements DeliverySource {
           id: string;
           role: "user" | "assistant";
           text: string;
-          files?: ManagedFileRef[];
+          files?: ChannelFileRef[];
         }>;
       };
       const out: AgentMessage[] = [];
@@ -729,7 +728,7 @@ export class HttpDeliverySource implements DeliverySource {
     const qs = new URLSearchParams({ filename: args.filename });
     if (args.title) qs.set("title", args.title);
     if (args.altText) qs.set("altText", args.altText);
-    const url = `${this.cfg.baseUrl}/api/bots/deliveries/${encodeURIComponent(
+    const url = `${this.cfg.baseUrl}/api/channels/deliveries/${encodeURIComponent(
       deliveryId,
     )}/files?${qs.toString()}`;
     const res = await gfetch(url, {
@@ -784,9 +783,9 @@ export class HttpEgressSink implements EgressSink {
 
     try {
       const res = await this.http.post<EgressResponse>(
-        "/api/bots/egress/messages",
+        "/api/channels/egress/messages",
         {
-          botName: this.cfg.botName,
+          channelName: this.cfg.channelName,
           adapter: this.cfg.adapter,
           deliveryId: op.deliveryId,
           idempotencyKey: op.operationId,
@@ -817,13 +816,13 @@ interface RenderAcceptedResponse {
 /**
  * @internal {@link RenderEventSink} that streams semantic render frames to
  * Intelligence's durable render-acceptance route
- * (`/api/bots/deliveries/:id/render-events/accept`). This is the HTTP-path
- * equivalent of the realtime {@link PhoenixRealtimeTransport}: each frame is
+ * (`/api/channels/deliveries/:id/render-events/accept`). This is the HTTP-path
+ * equivalent of the realtime {@link RealtimeGatewayTransport}: each frame is
  * POSTed and the durable acceptance receipt is awaited before the next. The
  * gateway-side Connector Outbox then renders the accepted frames to Slack, so
  * this path reaches full reply-UX parity without a running realtime gateway.
  *
- * Per-delivery org/project/bot scope is read from the {@link HttpDeliverySource}
+ * Per-delivery org/project/channel scope is read from the {@link HttpDeliverySource}
  * that leased the delivery (populated at claim). The `deliveryId` travels in the
  * URL only — the accept route rejects a body that also carries it.
  */
@@ -833,7 +832,7 @@ export class HttpRenderEventSink implements RenderEventSink {
   constructor(
     private readonly cfg: IntelligenceTransportConfig,
     private readonly scopeSource: {
-      scopeFor(deliveryId: string): DeliveryScope | undefined;
+      scopeFor(deliveryId: string): ChannelDeliveryScope | undefined;
       leaseTokenFor(deliveryId: string): string | undefined;
     },
   ) {
@@ -854,12 +853,12 @@ export class HttpRenderEventSink implements RenderEventSink {
     const leaseToken = this.scopeSource.leaseTokenFor(frame.deliveryId);
     const idempotencyKey = `${frame.turnId}:${frame.slot}:${frame.seq}`;
     const res = await this.http.post<RenderAcceptedResponse>(
-      `/api/bots/deliveries/${encodeURIComponent(frame.deliveryId)}/render-events/accept`,
+      `/api/channels/deliveries/${encodeURIComponent(frame.deliveryId)}/render-events/accept`,
       {
         organizationId: scope.organizationId,
         projectId: scope.projectId,
-        botId: scope.botId,
-        botName: scope.botName,
+        channelId: scope.channelId,
+        channelName: scope.channelName,
         turnId: frame.turnId,
         runtimeInstanceId: this.cfg.runtimeInstanceId,
         slot: frame.slot,

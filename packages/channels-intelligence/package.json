@@ -1,7 +1,7 @@
 {
   "name": "@copilotkit/channels-intelligence",
   "version": "0.1.0",
-  "description": "Intelligence-delivered managed-bot adapter for CopilotKit JSX channels (@copilotkit/channels).",
+  "description": "Intelligence-delivered Channel adapter for CopilotKit JSX channels (@copilotkit/channels).",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -12,9 +12,8 @@
   "keywords": [
     "ai",
     "agent",
-    "bot",
     "intelligence",
-    "managed-bots",
+    "channels",
     "copilotkit",
     "ag-ui"
   ],

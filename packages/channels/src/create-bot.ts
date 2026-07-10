@@ -175,15 +175,15 @@ export interface CreateBotOptions<
   TStateSchema extends StandardSchemaV1 | undefined = undefined,
 > {
   /**
-   * Project-unique bot identifier. Required for managed (Intelligence-delivered)
-   * bots — it ties the runtime declaration to the Intelligence setup — and
-   * optional for local/custom adapters. Validated by the managed runtime
-   * (`startManagedBots`), not here.
+   * Project-unique Intelligence Channel name. Required for Intelligence Channel
+   * Bots — it ties the runtime declaration to the Intelligence setup — and
+   * optional for local/custom adapters. Validated by the Channel runtime
+   * (`startChannels`), not here.
    */
   name?: string;
   /**
    * Adapters supplied at construction. Optional — adapters can also be attached
-   * before `start()` via {@link Bot.addAdapter} (the managed runtime uses this).
+   * before `start()` via {@link Bot.addAdapter} (the Channel runtime uses this).
    */
   adapters?: PlatformAdapter[];
   agent?: AbstractAgent | ((threadId: string) => AbstractAgent);
@@ -205,9 +205,9 @@ export interface CreateBotOptions<
 }
 
 export interface Bot<TState = unknown> {
-  /** Project-unique identifier from `createBot({ name })`; used by the managed runtime. */
+  /** Project-unique identifier from `createBot({ name })`; used by the Channel runtime. */
   readonly name?: string;
-  /** Declared slash-command names (normalized). Surfaced for managed activation metadata. */
+  /** Declared slash-command names (normalized). Surfaced for Channel activation metadata. */
   readonly commandNames: string[];
   onMention(h: BotHandler<TState>): void;
   onMessage(h: BotHandler<TState>): void;
@@ -272,15 +272,15 @@ function msgFromTurn(turn: IncomingTurn): IncomingMessage {
 }
 
 /**
- * Enforce V1 managed exclusivity: a managed adapter (`intelligenceAdapter`)
- * must be the only adapter on a bot. Managed and direct delivery are
+ * Enforce V1 Intelligence Channel exclusivity: an Intelligence Channel adapter
+ * (`intelligenceAdapter`) must be the only adapter on a bot. Channel and direct delivery are
  * alternative modes per platform — Intelligence holds the platform creds, or
  * the runtime does, never both.
  */
 function assertExclusive(adapters: PlatformAdapter[]): void {
-  if (adapters.some((a) => a.__managed) && adapters.length > 1) {
+  if (adapters.some((a) => a.__intelligenceChannel) && adapters.length > 1) {
     throw new Error(
-      "intelligenceAdapter() must be the only adapter on a bot — managed and " +
+      "intelligenceAdapter() must be the only adapter on a bot — Channel and " +
         "direct delivery are alternative modes. Use intelligenceAdapter() OR " +
         "direct adapters (slack/discord/...), not both.",
     );
@@ -324,7 +324,7 @@ export function createBot<
   }
 
   // Adapters can be supplied up front or added later via `bot.addAdapter`
-  // (before `start()`). The runtime uses the latter to attach managed delivery.
+  // (before `start()`). The runtime uses the latter to attach Channel delivery.
   const adapters: PlatformAdapter[] = [...(opts.adapters ?? [])];
   assertExclusive(adapters);
   let started = false;
@@ -664,7 +664,7 @@ export function createBot<
         // Per-message handler set via `<Message onReaction>` on the posted
         // message — hot cache, falling back to the durable snapshot after a
         // restart. Resolve by `postedMessageId` when the adapter supplies it
-        // (managed: the reaction arrives keyed by the provider ts, not the SDK
+        // (Intelligence Channel: the reaction arrives keyed by the provider ts, not the SDK
         // post ref the handler was persisted under); else by `messageId`.
         const perMessage = await registry!.resolveMessageReaction(
           evt.postedMessageId ?? evt.messageId,

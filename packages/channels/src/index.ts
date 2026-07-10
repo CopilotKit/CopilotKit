@@ -103,8 +103,8 @@ export { mintId, stableStringify } from "./mint-id.js";
 export { runAgentLoop } from "./run-loop.js";
 export type { RunLoopArgs } from "./run-loop.js";
 
-// Pure, per-platform codec seam (shared with the managed/Connector-Outbox path).
-// The Intelligence-delivered managed adapter itself lives in
+// Pure, per-platform codec seam (shared with the Channel/Connector-Outbox path).
+// The Intelligence Channel adapter itself lives in
 // `@copilotkit/channels-intelligence`.
 export type { PlatformCodec } from "./codec.js";
 
