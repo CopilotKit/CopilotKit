@@ -4345,7 +4345,8 @@ export class WebInspectorElement extends LitElement {
       return false;
     }
 
-    const { displayThreads, threadsErrorMessage } = this.getActiveThreadsState();
+    const { displayThreads, threadsErrorMessage } =
+      this.getActiveThreadsState();
     return !threadsErrorMessage && displayThreads.length === 0;
   }
 
