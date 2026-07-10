@@ -127,6 +127,10 @@ async function main() {
       process.env.INTELLIGENCE_RUNTIME_INSTANCE_ID ??
       `rti_${randomUUID().replace(/-/g, "")}`,
     adapter: "slack",
+    // DEBUG-ONLY logging. `meta` (and the raw `err` in the onMention catch
+    // above) can contain message content/payloads — the design says telemetry
+    // must not include raw message text. In production, drop this `log` or trim
+    // `meta` to safe fields (ids, counts) before emitting.
     log: (msg, meta) => console.log(`[managed] ${msg}`, meta ?? ""),
   });
   console.log(

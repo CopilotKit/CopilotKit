@@ -1,6 +1,11 @@
 import type { Bot } from "@copilotkit/channels";
-import { startManagedBots } from "./runtime.js";
-import type { ManagedBotsHandle } from "./runtime.js";
+import {
+  startManagedBots,
+  assertValidBotNames,
+  buildActivationMetadata,
+  resolveActivationEnv,
+} from "./runtime.js";
+import type { ManagedBotsHandle, ActivationEnv } from "./runtime.js";
 import { connectPhoenixHostedBotChannel } from "./phoenix-channel.js";
 import { PhoenixRealtimeTransport } from "./phoenix-transport.js";
 import type {
@@ -33,6 +38,10 @@ export interface ManagedBotsOnChannelOptions {
   scope: HostedBotRealtimeScope;
   /** Stable runtime instance id (`rti_…`), echoed on every envelope. */
   runtimeInstanceId: string;
+  /** Activation env overrides forwarded to the runtime (so `handle.metadata`
+   * matches what the caller declared on join); omitted fields are gathered from
+   * the process. */
+  env?: Partial<ActivationEnv>;
   /** Diagnostic sink for dropped deliveries / transport events. */
   log?: (message: string, meta?: unknown) => void;
 }
@@ -65,6 +74,7 @@ export async function startManagedBotsOnChannel(
       renderSink: transport,
       egress: phoenixEgress,
     }),
+    ...(opts.env ? { env: opts.env } : {}),
   });
 }
 
@@ -81,6 +91,10 @@ export interface ManagedPhoenixConfig {
   runtimeInstanceId: string;
   /** Adapter kind declared to the gateway on join (default `"slack"`). */
   adapter?: string;
+  /** Activation env overrides (package versions, runtimeEnv); omitted fields
+   * are gathered from the process. Included in the join's `runtimeMetadata` and
+   * in `handle.metadata`. */
+  env?: Partial<ActivationEnv>;
   /** Join timeout in ms. */
   timeoutMs?: number;
   /** Injectable `WebSocket` ctor (non-global hosts / tests). */
@@ -102,13 +116,50 @@ export async function startManagedBotsOverPhoenix(
   config: ManagedPhoenixConfig,
 ): Promise<ManagedBotsHandle> {
   const adapter = config.adapter ?? "slack";
+
+  // Fail fast BEFORE opening the socket: a missing/duplicate name would
+  // otherwise send a broken join (`botName: undefined`) and — because the same
+  // check inside startManagedBots runs only after we've connected — throw with
+  // the socket already open and never closed (a leak). Validating here means a
+  // bad declaration never opens a connection at all.
+  assertValidBotNames(bots);
+
+  // Build activation metadata up front so the join carries the Runtime
+  // Activation data Intelligence's health view expects (runtime env, node
+  // version, per-bot commands) rather than just name+adapter. The same
+  // `envOverrides` is forwarded to startManagedBots so `handle.metadata` agrees
+  // with what we declared on join.
+  const envOverrides: Partial<ActivationEnv> = {
+    runtimeInstanceId: config.runtimeInstanceId,
+    ...(config.env ?? {}),
+  };
+  const activation = buildActivationMetadata(bots, resolveActivationEnv(envOverrides));
+
   const channel = await connectPhoenixHostedBotChannel({
     wsUrl: config.wsUrl,
     apiKey: config.apiKey,
     projectId: config.scope.projectId,
     join: {
       runtimeInstanceId: config.runtimeInstanceId,
-      declaredBots: bots.map((bot) => ({ botName: bot.name!, adapter })),
+      declaredBots: activation.declaredBots.map((b) => ({
+        botName: b.name,
+        adapter,
+        // renderCapabilities: reserved — bots don't expose capabilities yet
+        // (tracked with the richer per-bot metadata in OSS-377).
+      })),
+      runtimeMetadata: {
+        runtimeEnv: activation.runtimeEnv,
+        ...(activation.nodeVersion ? { nodeVersion: activation.nodeVersion } : {}),
+        ...(activation.runtimePackageVersion
+          ? { runtimePackageVersion: activation.runtimePackageVersion }
+          : {}),
+        ...(activation.botPackageVersion
+          ? { botPackageVersion: activation.botPackageVersion }
+          : {}),
+        commands: Object.fromEntries(
+          activation.declaredBots.map((b) => [b.name, b.commands]),
+        ),
+      },
       observedAt: new Date().toISOString(),
     },
     ...(config.timeoutMs !== undefined ? { timeoutMs: config.timeoutMs } : {}),
@@ -118,15 +169,20 @@ export async function startManagedBotsOverPhoenix(
     channel,
     scope: config.scope,
     runtimeInstanceId: config.runtimeInstanceId,
+    env: envOverrides,
     ...(config.log ? { log: config.log } : {}),
   });
   return {
     ...handle,
     stop: async () => {
-      await handle.stop();
-      // The launcher owns the connection, so it closes it — the transport is
-      // handed the channel and doesn't disconnect it itself.
-      channel.disconnect();
+      // Always close the connection even if stopping the bots throws — the
+      // launcher owns the socket (the transport is handed the channel and does
+      // not disconnect it itself).
+      try {
+        await handle.stop();
+      } finally {
+        channel.disconnect();
+      }
     },
   };
 }

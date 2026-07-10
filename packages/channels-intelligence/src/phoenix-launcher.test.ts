@@ -1,7 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { createBot, FakeAgent } from "@copilotkit/channels";
 import { Section } from "@copilotkit/channels-ui";
-import { startManagedBotsOnChannel } from "./phoenix-launcher.js";
+import {
+  startManagedBotsOnChannel,
+  startManagedBotsOverPhoenix,
+} from "./phoenix-launcher.js";
 import type { HostedBotChannel } from "./phoenix-transport.js";
 
 const scope = {
@@ -128,5 +131,31 @@ describe("startManagedBotsOnChannel — managed runtime over Phoenix (OSS-406)",
     expect(events).not.toContain("hosted_bot.delivery.ack.v1");
 
     await handle.stop();
+  });
+});
+
+describe("startManagedBotsOverPhoenix — fail-fast validation (OSS-406)", () => {
+  it("rejects a bad bot name before opening a socket (no leaked connection)", async () => {
+    let socketConstructed = false;
+    class NeverWebSocket {
+      constructor() {
+        socketConstructed = true;
+        throw new Error("startManagedBotsOverPhoenix should not have connected");
+      }
+    }
+    const a = createBot({ name: "dupe", agent: () => new FakeAgent() });
+    const b = createBot({ name: "dupe", agent: () => new FakeAgent() });
+
+    await expect(
+      startManagedBotsOverPhoenix([a, b], {
+        wsUrl: "wss://gateway.example/socket",
+        apiKey: "cpk-test",
+        scope,
+        runtimeInstanceId: "rti_1",
+        webSocket: NeverWebSocket,
+      }),
+    ).rejects.toThrow(/duplicate managed bot name/i);
+
+    expect(socketConstructed).toBe(false);
   });
 });
