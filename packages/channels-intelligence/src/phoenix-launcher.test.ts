@@ -220,4 +220,154 @@ describe("startManagedBotsOnChannel — activation metadata (OSS-406)", () => {
 
     await handle.stop();
   });
+
+  it("keeps the required runtimeInstanceId authoritative in handle.metadata", async () => {
+    const fake = makeFakeChannel();
+    const bot = createBot({ name: "opentag", agent: () => new FakeAgent() });
+
+    const handle = await startManagedBotsOnChannel([bot], {
+      channel: fake.channel,
+      scope,
+      runtimeInstanceId: "rti_authoritative",
+      env: { runtimeEnv: "staging" },
+    });
+
+    expect(handle.metadata.runtimeInstanceId).toBe("rti_authoritative");
+
+    await handle.stop();
+  });
+});
+
+/**
+ * Minimal Phoenix-compatible fake WebSocket that drives the v2-serializer join
+ * handshake so the connector's error/timeout cleanup can be exercised without a
+ * real gateway. `mode` controls the phx_join reply: "ok" → joined, "error" →
+ * rejected, "never" → no reply (the channel join times out). Records `close()`
+ * so a test can assert the socket was torn down.
+ */
+type JoinMode = "ok" | "error" | "never";
+function makeFakeWebSocket(mode: JoinMode) {
+  const instances: FakeWebSocket[] = [];
+  class FakeWebSocket {
+    static readonly CONNECTING = 0;
+    static readonly OPEN = 1;
+    static readonly CLOSING = 2;
+    static readonly CLOSED = 3;
+    readyState = 0;
+    onopen: ((ev?: unknown) => void) | null = null;
+    onmessage: ((ev: { data: string }) => void) | null = null;
+    onerror: ((ev?: unknown) => void) | null = null;
+    onclose: ((ev?: unknown) => void) | null = null;
+    closed = false;
+    constructor(public readonly url: string) {
+      instances.push(this);
+      queueMicrotask(() => {
+        this.readyState = 1;
+        this.onopen?.();
+      });
+    }
+    send(data: string): void {
+      if (mode === "never") return;
+      let frame: unknown;
+      try {
+        frame = JSON.parse(data);
+      } catch {
+        return;
+      }
+      if (!Array.isArray(frame)) return;
+      const [joinRef, ref, topic, event] = frame as [
+        string,
+        string,
+        string,
+        string,
+      ];
+      if (event !== "phx_join") return;
+      const status = mode === "ok" ? "ok" : "error";
+      const response = mode === "ok" ? {} : { reason: "unauthorized" };
+      const reply = JSON.stringify([
+        joinRef,
+        ref,
+        topic,
+        "phx_reply",
+        { status, response },
+      ]);
+      queueMicrotask(() => this.onmessage?.({ data: reply }));
+    }
+    close(): void {
+      this.closed = true;
+      this.readyState = 3;
+      this.onclose?.();
+    }
+  }
+  return { FakeWebSocket, instances };
+}
+
+describe("startManagedBotsOverPhoenix — socket lifecycle cleanup (OSS-406)", () => {
+  it("disconnects the socket when the channel join times out", async () => {
+    const { FakeWebSocket, instances } = makeFakeWebSocket("never");
+    const bot = createBot({ name: "opentag", agent: () => new FakeAgent() });
+
+    await expect(
+      startManagedBotsOverPhoenix([bot], {
+        wsUrl: "wss://gateway.example/socket",
+        apiKey: "cpk-test",
+        scope,
+        runtimeInstanceId: "rti_1",
+        webSocket: FakeWebSocket,
+        timeoutMs: 20,
+      }),
+    ).rejects.toThrow(/timed out/i);
+
+    expect(instances.length).toBe(1);
+    expect(instances[0]!.closed).toBe(true);
+  });
+
+  it("disconnects the socket when the channel join is rejected", async () => {
+    const { FakeWebSocket, instances } = makeFakeWebSocket("error");
+    const bot = createBot({ name: "opentag", agent: () => new FakeAgent() });
+
+    await expect(
+      startManagedBotsOverPhoenix([bot], {
+        wsUrl: "wss://gateway.example/socket",
+        apiKey: "cpk-test",
+        scope,
+        runtimeInstanceId: "rti_1",
+        webSocket: FakeWebSocket,
+        timeoutMs: 1000,
+      }),
+    ).rejects.toThrow(/join failed/i);
+
+    expect(instances.length).toBe(1);
+    expect(instances[0]!.closed).toBe(true);
+  });
+
+  it("disconnects the socket when bot startup fails after the channel joined", async () => {
+    const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
+    // Pre-start the bot so startManagedBots' addAdapter() throws ("adapter added
+    // after start") during the post-join startup — the exact failure the
+    // launcher's try/catch must clean up after.
+    const started = makeFakeChannel();
+    const bot = createBot({ name: "opentag", agent: () => new FakeAgent() });
+    const first = await startManagedBotsOnChannel([bot], {
+      channel: started.channel,
+      scope,
+      runtimeInstanceId: "rti_pre",
+    });
+
+    await expect(
+      startManagedBotsOverPhoenix([bot], {
+        wsUrl: "wss://gateway.example/socket",
+        apiKey: "cpk-test",
+        scope,
+        runtimeInstanceId: "rti_1",
+        webSocket: FakeWebSocket,
+        timeoutMs: 1000,
+      }),
+    ).rejects.toThrow();
+
+    expect(instances.length).toBe(1);
+    expect(instances[0]!.closed).toBe(true);
+
+    await first.stop();
+  });
 });

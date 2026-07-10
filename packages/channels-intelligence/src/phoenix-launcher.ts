@@ -58,8 +58,11 @@ export interface ManagedBotsOnChannelOptions {
   runtimeInstanceId: string;
   /** Activation env overrides forwarded to the runtime (so `handle.metadata`
    * matches what the caller declared on join); omitted fields are gathered from
-   * the process. */
-  env?: Partial<ActivationEnv>;
+   * the process. `runtimeInstanceId` is excluded — the required
+   * {@link ManagedBotsOnChannelOptions.runtimeInstanceId} above is authoritative
+   * and is merged in, so the transport (which stamps it on every envelope) and
+   * `handle.metadata` always report the same id. */
+  env?: Partial<Omit<ActivationEnv, "runtimeInstanceId">>;
   /** Diagnostic sink for dropped deliveries / transport events. */
   log?: (message: string, meta?: unknown) => void;
 }
@@ -93,7 +96,10 @@ export async function startManagedBotsOnChannel(
       renderSink: transport,
       egress: phoenixEgress,
     }),
-    ...(opts.env ? { env: opts.env } : {}),
+    // The required runtimeInstanceId is authoritative: merge it in LAST so
+    // `handle.metadata` reports the same id the transport stamps on every
+    // envelope, regardless of any `env` overrides (which cannot carry it).
+    env: { ...(opts.env ?? {}), runtimeInstanceId: opts.runtimeInstanceId },
   });
 }
 
@@ -204,7 +210,9 @@ export async function startManagedBotsOverPhoenix(
       channel,
       scope: config.scope,
       runtimeInstanceId: config.runtimeInstanceId,
-      env: envOverrides,
+      // startManagedBotsOnChannel re-merges the authoritative runtimeInstanceId,
+      // so forward only the caller's overrides here (they cannot carry the id).
+      ...(config.env ? { env: config.env } : {}),
       ...(config.log ? { log: config.log } : {}),
     });
   } catch (err) {

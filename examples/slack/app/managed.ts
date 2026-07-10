@@ -139,12 +139,39 @@ async function main() {
 
   const shutdown = async (signal: string) => {
     console.log(`\n[bot] received ${signal}, stopping…`);
-    await handle.stop();
-    await closeBrowser().catch(() => {});
+    try {
+      await handle.stop();
+    } catch (err) {
+      console.error("[bot] error stopping managed runtime", err);
+    }
+    // Browser teardown is best-effort, but still surface a failure rather than
+    // swallow it silently.
+    await closeBrowser().catch((err: unknown) =>
+      console.error("[bot] browser cleanup failed (continuing shutdown)", err),
+    );
     process.exit(0);
   };
-  process.on("SIGINT", () => void shutdown("SIGINT"));
-  process.on("SIGTERM", () => void shutdown("SIGTERM"));
+  // A failed shutdown must not vanish — log it and exit nonzero.
+  const runShutdown = (signal: string): void => {
+    shutdown(signal).catch((err: unknown) => {
+      console.error(`[bot] fatal during ${signal} shutdown`, err);
+      process.exit(1);
+    });
+  };
+  process.on("SIGINT", () => runShutdown("SIGINT"));
+  process.on("SIGTERM", () => runShutdown("SIGTERM"));
 }
 
-void main();
+// Fail loud, not silent: surface any stray async error instead of letting it
+// kill the process with no log (mirrors the native entrypoint).
+process.on("unhandledRejection", (reason) => {
+  console.error("[bot] unhandledRejection:", reason);
+});
+process.on("uncaughtException", (err) => {
+  console.error("[bot] uncaughtException:", err);
+});
+
+main().catch((err: unknown) => {
+  console.error("[bot] fatal: failed to start managed runtime", err);
+  process.exit(1);
+});
