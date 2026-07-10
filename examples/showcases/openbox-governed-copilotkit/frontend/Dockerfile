@@ -1,4 +1,4 @@
-# Adapted from A's docker/Dockerfile.app for B's split frontend/ build context with multi-stage standalone Next.js build.
+# Next.js frontend — multi-stage build producing the standalone server output.
 FROM node:22-alpine AS builder
 
 WORKDIR /app
