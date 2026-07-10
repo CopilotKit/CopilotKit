@@ -64,6 +64,7 @@ export * from "./lib/components/chat/copilot-chat-view-disclaimer";
 export * from "./lib/components/chat/copilot-chat-view-feather";
 export * from "./lib/components/chat/copilot-chat-view-handlers";
 export * from "./lib/components/chat/copilot-chat-view-input-container";
+export * from "./lib/components/chat/copilot-chat-view-input-measure";
 export * from "./lib/components/chat/copilot-chat-view-scroll-to-bottom-button";
 export * from "./lib/components/chat/copilot-chat-view-scroll-view";
 export * from "./lib/components/chat/copilot-chat-view.types";
