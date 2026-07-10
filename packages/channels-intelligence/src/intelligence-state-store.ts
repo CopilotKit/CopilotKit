@@ -13,19 +13,19 @@ export interface IntelligenceStateStoreConfig {
 }
 
 /**
- * Durable {@link StateStore} for managed bots, backed by Intelligence app-api's
+ * Durable {@link StateStore} for Channel Bots, backed by Intelligence app-api's
  * runtime-authed KV routes (`/api/channels/kv/*`). Only the `kv` facet is durable —
  * that is what the action registry (button/`ck:` snapshots) and thread state
- * use, so a HITL card posted before a managed-loop restart still re-renders on
+ * use, so a HITL card posted before a Channel-loop restart still re-renders on
  * cold-cache dispatch and can be flipped in place.
  *
  * `list` / `lock` / `dedup` / `queue` delegate to an in-memory
- * {@link MemoryStore}. On the managed Slack path these are not durability
+ * {@link MemoryStore}. On the Channel Slack path these are not durability
  * critical: dedup is skipped at ingress (`adapter.skipIngressDedup`), the
- * per-conversation turn lock is process-local (a single managed runtime; the
+ * per-conversation turn lock is process-local (a single Channel runtime; the
  * app-api delivery lease already fences work cross-instance), and list/queue
  * (transcripts/proactive) are unused. // ponytail: promote these to durable KV
- * only if the managed runtime is ever horizontally scaled.
+ * only if the Channel runtime is ever horizontally scaled.
  */
 export class IntelligenceStateStore implements StateStore {
   private readonly local = new MemoryStore();

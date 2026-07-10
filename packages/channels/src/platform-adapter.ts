@@ -31,7 +31,7 @@ export interface SurfaceCapabilities {
   /**
    * Whether `Thread.awaitChoice` can block synchronously for a user's click
    * within a single run. `true`/undefined on interactive surfaces (Slack Socket
-   * Mode, Discord, …). Set `false` on ack-first surfaces like the managed
+   * Mode, Discord, …). Set `false` on ack-first surfaces like the Intelligence
    * Intelligence HTTP loop, where a run must end after posting the picker and
    * resume on the click's separate inbound delivery (a blocking wait would
    * deadlock the one-delivery-at-a-time claim loop). The HITL resume flow will
@@ -83,14 +83,14 @@ export interface IngressEventBase {
 
 /**
  * Idempotency ids carried by turn/command/interaction ingress. Set on the
- * managed (Intelligence-delivered) path; local adapters omit them.
+ * Intelligence Channel path; local adapters omit them.
  */
 export interface IngressIds {
   /** Stable platform event id for idempotency; omit if the platform provides none. */
   eventId?: string;
-  /** Stable per-turn id (managed/Intelligence path); local adapters omit it. */
+  /** Stable per-turn id (Intelligence Channel path); local adapters omit it. */
   turnId?: string;
-  /** Lease/delivery id (managed/Intelligence path); local adapters omit it. */
+  /** Lease/delivery id (Intelligence Channel path); local adapters omit it. */
   deliveryId?: string;
 }
 
@@ -235,7 +235,7 @@ export interface ConversationStore {
 /**
  * Optional context bot core passes to {@link PlatformAdapter.start}. Carries
  * the bot's declared identity so a transport that must announce itself (e.g.
- * the managed Intelligence adapter's heartbeat) can do so without separate
+ * the Intelligence Channel adapter's heartbeat) can do so without separate
  * config. Local adapters ignore it.
  */
 export interface AdapterStartContext {
@@ -268,11 +268,11 @@ export interface PlatformAdapter {
    * {@link conversationStore}.
    */
   readonly stateStore?: StateStore;
-  /** @internal Marks the managed adapter; bot core uses it for the V1 exclusivity guard. */
-  readonly __managed?: boolean;
+  /** @internal Marks the Intelligence Channel adapter for the V1 exclusivity guard. */
+  readonly __intelligenceChannel?: boolean;
   /**
    * When true, bot core skips its ingress dedup for events from this adapter.
-   * Set by at-least-once transports (managed delivery) that enforce
+   * Set by at-least-once transports (Channel delivery) that enforce
    * idempotency at egress instead — dropping a redelivery at ingress would lose
    * a legitimate retry.
    */

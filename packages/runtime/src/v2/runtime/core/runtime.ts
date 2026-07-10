@@ -35,8 +35,8 @@ import { IntelligenceAgentRunner } from "../runner/intelligence";
 import type { CopilotKitIntelligence } from "../intelligence-platform";
 // Type-only: @copilotkit/channels is pure-ESM, so a value import would break this
 // package's CJS output. The bots are validated + activated (wired to delivery
-// transports) by `startManagedBots` from @copilotkit/channels, called by the
-// managed-listener bootstrap — not here.
+// transports) by `startChannels` from @copilotkit/channels-intelligence, called
+// by the Channel-listener bootstrap — not here.
 import type { Bot } from "@copilotkit/channels";
 import telemetry from "../telemetry/telemetry-client";
 
@@ -203,11 +203,11 @@ export interface CopilotIntelligenceRuntimeOptions extends BaseCopilotRuntimeOpt
   /** Interval in seconds at which the runtime renews the thread lock. Clamped to a maximum of 3000 (50 minutes). @default 15 */
   lockHeartbeatIntervalSeconds?: number;
   /**
-   * Managed bots (Intelligence-delivered) declared by this runtime. Each is a
+   * Intelligence Channels declared by this runtime. Each is a
    * `createBot({ name })` instance. Only available on the Intelligence runtime
-   * path. Names are validated (required, identifier-style, unique) and wired to
-   * delivery/egress transports when activated via `startManagedBots` from
-   * `@copilotkit/channels` — not at construction.
+   * path. Names are validated (required, lowercase kebab-case, unique) and wired
+   * to delivery/egress transports when activated via `startChannels` from
+   * `@copilotkit/channels-intelligence` — not at construction.
    */
   bots?: Bot[];
 }
@@ -409,8 +409,8 @@ export class CopilotIntelligenceRuntime
       options.lockHeartbeatIntervalSeconds ?? 15,
       CopilotIntelligenceRuntime.MAX_HEARTBEAT_INTERVAL_SECONDS,
     );
-    // Declared managed bots. Full name validation (identifier shape +
-    // uniqueness) lives in `startManagedBots` (`assertValidBotNames`) at
+    // Declared Intelligence Channels. Full name validation (lowercase kebab-case +
+    // uniqueness) lives in `startChannels` (`assertValidChannelNames`) at
     // activation — it can't run here because it's a value import from the
     // pure-ESM `@copilotkit/channels-intelligence`, which this CJS package must not
     // pull in. Fail fast on the most common misconfiguration (a missing name)

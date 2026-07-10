@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "tsx watch app/index.ts",
     "start": "tsx app/index.ts",
-    "managed": "tsx app/managed.ts",
+    "channel": "tsx app/managed.ts",
     "build": "pnpm exec nx run-many -t build -p \"@copilotkit/channels*\" @copilotkit/runtime",
     "runtime": "tsx runtime.ts",
     "notion-mcp": "tsx scripts/start-notion-mcp.ts",

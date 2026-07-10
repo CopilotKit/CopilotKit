@@ -11,17 +11,17 @@ import {
 import { IntelligenceStateStore } from "./intelligence-state-store.js";
 import type { FetchLike } from "./http-transports.js";
 import type {
-  ManagedIngressEnvelope,
-  ManagedIngressBase,
+  ChannelIngressEnvelope,
+  ChannelIngressBase,
 } from "./contracts.js";
 
-type TurnEnvelope = Extract<ManagedIngressEnvelope, { kind: "turn" }>;
-function envelope(partial?: Partial<TurnEnvelope>): ManagedIngressEnvelope {
+type TurnEnvelope = Extract<ChannelIngressEnvelope, { kind: "turn" }>;
+function envelope(partial?: Partial<TurnEnvelope>): ChannelIngressEnvelope {
   return {
     deliveryId: "d1",
     eventId: "e1",
     turnId: "t1",
-    botName: "support",
+    channelName: "support",
     platform: "slack",
     conversationKey: "c1",
     kind: "turn",
@@ -32,7 +32,7 @@ function envelope(partial?: Partial<TurnEnvelope>): ManagedIngressEnvelope {
 }
 
 describe("intelligenceAdapter — ingress dispatch", () => {
-  it("dispatches a managed turn to the handler and emits a post egress op", async () => {
+  it("dispatches a channel turn to the handler and emits a post egress op", async () => {
     const source = new InMemoryDeliverySource();
     const egress = new InMemoryEgressSink();
     const bot = createBot({
@@ -242,7 +242,7 @@ describe("intelligenceAdapter — deterministic egress ids", () => {
     expect(egress.ops.map((o) => o.operationId)).toEqual(["t1:0", "t1:1"]);
 
     // Crash-before-ack redelivery: same turn id (and event id), new delivery id.
-    // The handler re-runs (no ingress dedup on the managed path) and re-emits
+    // The handler re-runs (no ingress dedup on the Channel path) and re-emits
     // the SAME op ids, so the Connector Outbox can dedupe the Slack output.
     egress.ops.length = 0;
     await source.deliver(envelope({ turnId: "t1", deliveryId: "d2" }));
@@ -281,11 +281,11 @@ describe("intelligenceAdapter — run renderer", () => {
 });
 
 describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
-  const base: ManagedIngressBase = {
+  const base: ChannelIngressBase = {
     deliveryId: "d1",
     eventId: "e1",
     turnId: "t1",
-    botName: "support",
+    channelName: "support",
     platform: "slack",
     conversationKey: "c1",
     route: { r: 1 },
@@ -429,7 +429,7 @@ describe("intelligenceAdapter — exclusivity (V1)", () => {
     ).toThrow(/only adapter|alternative modes/i);
   });
 
-  it("rejects adding a second adapter to a managed bot", () => {
+  it("rejects adding a second adapter to a Channel Bot", () => {
     const bot = createBot({ adapters: [ia()], agent: () => new FakeAgent() });
     expect(() => bot.addAdapter(new FakeAdapter())).toThrow(
       /only adapter|alternative modes/i,
@@ -474,7 +474,7 @@ describe("intelligenceAdapter — conversation-history seeding", () => {
     expect(agent.messages).toEqual(source.history);
   });
 
-  it("unwraps the ManagedReplyTarget to the raw route and defaults historyLimit to 20", async () => {
+  it("unwraps the ChannelReplyTarget to the raw route and defaults historyLimit to 20", async () => {
     const source = new InMemoryDeliverySource();
     const adapter = intelligenceAdapter({
       source,

@@ -68,6 +68,30 @@ function makeFakeWebSocket(mode: JoinMode) {
 }
 
 describe("connectRealtimeGateway", () => {
+  it("rejects a non-positive project id before constructing a WebSocket", async () => {
+    let socketConstructed = false;
+    class NeverWebSocket {
+      constructor() {
+        socketConstructed = true;
+      }
+    }
+
+    await expect(
+      connectRealtimeGateway({
+        wsUrl: "wss://gateway.example/socket",
+        apiKey: "cpk-test",
+        projectId: 0,
+        join: {
+          runtimeInstanceId: "rti_1",
+          declaredChannels: [],
+          observedAt: "2026-07-10T00:00:00.000Z",
+        },
+        webSocket: NeverWebSocket,
+      }),
+    ).rejects.toThrow(/projectId must be a positive integer/i);
+    expect(socketConstructed).toBe(false);
+  });
+
   it("joins the channel topic with declared channels and disconnects the gateway session", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const join = {

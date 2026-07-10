@@ -1,5 +1,5 @@
 // TODO(OSS-377): replace this module with the shared
-// `@copilotkit/managed-bot-contracts` package once it lands. This is a minimal,
+// `@copilotkit/channel-contracts` package once it lands. This is a minimal,
 // self-owned placeholder: ONLY the fields the bridge adapter actually reads or
 // writes are typed. The rest of the OSS-377 surface — Zod schemas, the full
 // event-kind set, bounded failure codes, health/read models — is intentionally
@@ -13,16 +13,24 @@ import type { BotNode, MessageRef } from "@copilotkit/channels-ui";
  */
 export type EgressRoute = unknown;
 
-/** Fields common to every managed ingress envelope. */
-export interface ManagedIngressBase {
+/** Authoritative org/project/channel scope that arrived with a delivery. */
+export interface ChannelDeliveryScope {
+  organizationId: string;
+  projectId: number;
+  channelId: string;
+  channelName: string;
+}
+
+/** Fields common to every Intelligence Channel ingress envelope. */
+export interface ChannelIngressBase {
   /** Unique per delivery attempt (lease). At-least-once: may be redelivered. */
   deliveryId: string;
   /** Stable platform event id (idempotency / dedup). */
   eventId: string;
   /** Stable per-logical-turn id. Egress operation ids derive from it. */
   turnId: string;
-  /** Project-unique bot identifier (matches `createBot({ name })`). */
-  botName: string;
+  /** Channel name, which routes to the framework `Bot` named by `createBot({ name })`. */
+  channelName: string;
   /** Originating platform (e.g. "slack"). Stamped onto the handler-facing message. */
   platform: string;
   conversationKey: string;
@@ -43,21 +51,21 @@ export interface ManagedIngressBase {
  * bytes). The adapter fetches the bytes lazily via
  * {@link DeliverySource.fetchFile} and builds `AgentContentPart`s from them.
  */
-export interface ManagedFileRef {
+export interface ChannelFileRef {
   handle: string;
   filename: string;
   mimeType?: string;
   byteSize?: number;
 }
 
-export type ManagedIngressEnvelope =
-  | (ManagedIngressBase & {
+export type ChannelIngressEnvelope =
+  | (ChannelIngressBase & {
       kind: "turn";
       text?: string;
       /** Inbound files attached to this turn (images, docs, …), in order. */
-      files?: ManagedFileRef[];
+      files?: ChannelFileRef[];
     })
-  | (ManagedIngressBase & {
+  | (ChannelIngressBase & {
       kind: "command";
       /** Command name as invoked (leading slash / case normalized by core). */
       command: string;
@@ -68,7 +76,7 @@ export type ManagedIngressEnvelope =
       /** Structured, pre-parsed options when the surface delivers them. */
       rawOptions?: Record<string, unknown>;
     })
-  | (ManagedIngressBase & {
+  | (ChannelIngressBase & {
       kind: "interaction";
       /** Minted action id (ck:...) the rendered control carries. */
       actionId: string;
@@ -77,8 +85,8 @@ export type ManagedIngressEnvelope =
       messageRef?: MessageRef;
       triggerId?: string;
     })
-  | (ManagedIngressBase & { kind: "thread_started" })
-  | (ManagedIngressBase & {
+  | (ChannelIngressBase & { kind: "thread_started" })
+  | (ChannelIngressBase & {
       kind: "reaction";
       /** Platform-native emoji token. */
       rawEmoji: string;
@@ -120,15 +128,15 @@ export type EgressResult =
 
 // ── Realtime render events (OSS-402) ──────────────────────────────────────
 // Mirrors the frozen `channel.render_event.v1` contract on the Intelligence
-// side (libs/app-api-contracts/src/hosted-bots.ts). The SDK streams these
+// side (libs/app-api-contracts/src/channels.ts). The SDK streams these
 // semantic frames to the realtime-gateway; the gateway-side Connector Outbox
 // (OSS-404) renders them to the provider (Slack Block Kit, etc.).
-// TODO(OSS-377): replace with the shared `@copilotkit/managed-bot-contracts`
+// TODO(OSS-377): replace with the shared `@copilotkit/channel-contracts`
 // package; `post`/`update` content is `BotNode[]` (SDK IR) here — the frozen
-// contract types it as opaque `HostedBotRenderContent`.
+// contract types it as opaque `ChannelRenderContent`.
 
 /** One semantic render frame the agent run emits. Matches the frozen kinds. */
-export type HostedBotRenderEvent =
+export type ChannelRenderEvent =
   | { kind: "run_started" }
   | { kind: "text_delta"; messageId: string; delta: string }
   | { kind: "text_end"; messageId: string }
@@ -153,11 +161,11 @@ export type HostedBotRenderEvent =
   | { kind: "finalize" };
 
 /** All render-event kinds, for exhaustive/ordering checks. */
-export type HostedBotRenderEventKind = HostedBotRenderEvent["kind"];
+export type ChannelRenderEventKind = ChannelRenderEvent["kind"];
 
 /**
  * The adapter-facing render frame. The {@link RenderEventSink} fills in the
- * org/project/bot scope, the `idempotencyKey` (`turnId:slot:seq`), the
+ * org/project/channel scope, the `idempotencyKey` (`turnId:slot:seq`), the
  * `runtimeInstanceId`, and `sentAt` before it hits the wire — the adapter only
  * supplies the delivery/turn identity, the render lane (`slot`), the monotonic
  * per-`(turn, slot)` `seq`, and the semantic `event`.
@@ -169,7 +177,7 @@ export interface RenderFrame {
   slot: string;
   /** Zero-based, monotonic within `(turnId, slot)`. */
   seq: number;
-  event: HostedBotRenderEvent;
+  event: ChannelRenderEvent;
 }
 
 /** Durable-acceptance receipt echoed back for each pushed {@link RenderFrame}. */

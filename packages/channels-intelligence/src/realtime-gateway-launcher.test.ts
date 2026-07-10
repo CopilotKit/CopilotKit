@@ -75,7 +75,7 @@ async function waitFor(pred: () => boolean, tries = 50): Promise<void> {
   throw new Error("waitFor: condition not met within the poll window");
 }
 
-describe("startChannelsWithGatewaySession — managed runtime over Realtime Gateway (OSS-406)", () => {
+describe("startChannelsWithGatewaySession — Channel runtime over Realtime Gateway (OSS-406)", () => {
   it("runs a delivered turn end-to-end: handler → render frame → completion intent, never self-ack", async () => {
     const fake = makeFakeSession();
     let ran = false;
@@ -135,6 +135,31 @@ describe("startChannelsWithGatewaySession — managed runtime over Realtime Gate
 });
 
 describe("startChannelsOverRealtimeGateway — fail-fast validation (OSS-406)", () => {
+  it("rejects an invalid Channel scope before opening a socket", async () => {
+    let socketConstructed = false;
+    class NeverWebSocket {
+      constructor() {
+        socketConstructed = true;
+        throw new Error(
+          "startChannelsOverRealtimeGateway should not have connected",
+        );
+      }
+    }
+    const bot = createBot({ name: "opentag", agent: () => new FakeAgent() });
+
+    await expect(
+      startChannelsOverRealtimeGateway([bot], {
+        wsUrl: "wss://gateway.example/socket",
+        apiKey: "cpk-test",
+        scope: { ...scope, channelId: "bot_1" },
+        runtimeInstanceId: "rti_1",
+        webSocket: NeverWebSocket,
+      }),
+    ).rejects.toThrow(/channel_\* channelId/i);
+
+    expect(socketConstructed).toBe(false);
+  });
+
   it("rejects a bad bot name before opening a socket (no leaked connection)", async () => {
     let socketConstructed = false;
     class NeverWebSocket {
@@ -156,7 +181,7 @@ describe("startChannelsOverRealtimeGateway — fail-fast validation (OSS-406)", 
         runtimeInstanceId: "rti_1",
         webSocket: NeverWebSocket,
       }),
-    ).rejects.toThrow(/duplicate managed bot name/i);
+    ).rejects.toThrow(/duplicate channel name/i);
 
     expect(socketConstructed).toBe(false);
   });
@@ -216,7 +241,7 @@ describe("startChannelsWithGatewaySession — activation metadata (OSS-406)", ()
 
     expect(handle.metadata.runtimeEnv).toBe("production");
     expect(handle.metadata.runtimePackageVersion).toBe("9.9.9");
-    expect(handle.metadata.declaredBotNames).toEqual(["opentag"]);
+    expect(handle.metadata.declaredChannelNames).toEqual(["opentag"]);
 
     await handle.stop();
   });
@@ -343,7 +368,7 @@ describe("startChannelsOverRealtimeGateway — socket lifecycle cleanup (OSS-406
 
   it("disconnects the socket when bot startup fails after the channel joined", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
-    // Pre-start the Bot so startManagedBots' addAdapter() throws ("adapter added
+    // Pre-start the Bot so startChannels' addAdapter() throws ("adapter added
     // after start") during the post-join startup — the exact failure the
     // launcher's try/catch must clean up after.
     const started = makeFakeSession();

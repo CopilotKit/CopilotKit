@@ -7,7 +7,7 @@ const fakes = vi.hoisted(() => {
   return {
     stop,
     closeBrowser: vi.fn(async () => {}),
-    startManagedBotsOverPhoenix: vi.fn(async () => ({ stop })),
+    startChannelsOverRealtimeGateway: vi.fn(async () => ({ stop })),
     bot: {
       onMention: vi.fn(),
       onModalSubmit: vi.fn(),
@@ -22,10 +22,10 @@ vi.mock("@copilotkit/channels", () => ({
 vi.mock("@copilotkit/channels-slack", () => ({
   defaultSlackTools: [],
   defaultSlackContext: [],
-  SanitizingHttpAgent: class {},
+  SanitizingHttpAgent: function SanitizingHttpAgent() {},
 }));
 vi.mock("@copilotkit/channels-intelligence", () => ({
-  startManagedBotsOverPhoenix: fakes.startManagedBotsOverPhoenix,
+  startChannelsOverRealtimeGateway: fakes.startChannelsOverRealtimeGateway,
 }));
 vi.mock("./tools/index.js", () => ({ appTools: [] }));
 vi.mock("./context/app-context.js", () => ({ appContext: [] }));
@@ -40,14 +40,14 @@ vi.mock("./render/browser.js", () => ({ closeBrowser: fakes.closeBrowser }));
 const envKeys = [
   "AGENT_URL",
   "INTELLIGENCE_PROJECT_ID",
-  "INTELLIGENCE_BOT_NAME",
+  "INTELLIGENCE_CHANNEL_NAME",
   "INTELLIGENCE_GATEWAY_WS_URL",
   "INTELLIGENCE_API_KEY",
   "INTELLIGENCE_ORG_ID",
-  "INTELLIGENCE_BOT_ID",
+  "INTELLIGENCE_CHANNEL_ID",
 ] as const;
 
-describe("managed entrypoint shutdown", () => {
+describe("channel entrypoint shutdown", () => {
   const previousEnv = new Map<string, string | undefined>();
 
   afterEach(() => {
@@ -60,15 +60,15 @@ describe("managed entrypoint shutdown", () => {
     previousEnv.clear();
   });
 
-  it("exits nonzero when stopping the managed runtime fails", async () => {
+  it("exits nonzero when stopping the channel runtime fails", async () => {
     for (const key of envKeys) previousEnv.set(key, process.env[key]);
     process.env.AGENT_URL = "http://agent.test/run";
     process.env.INTELLIGENCE_PROJECT_ID = "7";
-    process.env.INTELLIGENCE_BOT_NAME = "opentag";
+    process.env.INTELLIGENCE_CHANNEL_NAME = "opentag";
     process.env.INTELLIGENCE_GATEWAY_WS_URL = "wss://gateway.test/runner";
     process.env.INTELLIGENCE_API_KEY = "cpk-test";
     process.env.INTELLIGENCE_ORG_ID = "org_1";
-    process.env.INTELLIGENCE_BOT_ID = "bot_1";
+    process.env.INTELLIGENCE_CHANNEL_ID = "channel_1";
 
     let sigterm: (() => void) | undefined;
     vi.spyOn(process, "on").mockImplementation(((event, listener) => {
@@ -83,6 +83,15 @@ describe("managed entrypoint shutdown", () => {
 
     await import("./managed.js");
     await vi.waitFor(() => expect(sigterm).toBeTypeOf("function"));
+    expect(fakes.startChannelsOverRealtimeGateway).toHaveBeenCalledWith(
+      [fakes.bot],
+      expect.objectContaining({
+        scope: expect.objectContaining({
+          channelId: "channel_1",
+          channelName: "opentag",
+        }),
+      }),
+    );
     sigterm!();
     await vi.waitFor(() => expect(exit).toHaveBeenCalled());
 

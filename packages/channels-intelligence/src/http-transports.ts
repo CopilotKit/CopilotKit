@@ -6,8 +6,9 @@ import type {
   AgentMessage,
 } from "./transports.js";
 import type {
-  ManagedIngressEnvelope,
-  ManagedFileRef,
+  ChannelIngressEnvelope,
+  ChannelDeliveryScope,
+  ChannelFileRef,
   EgressRoute,
   EgressOperation,
   EgressResult,
@@ -177,7 +178,7 @@ interface TeamsReplyTarget {
 
 /**
  * The claim's reply target is provider-tagged (Intelligence app-api mints a
- * discriminated union — one managed runtime serves every channel its bot has
+ * discriminated union — one Channel runtime serves every channel its framework Bot has
  * attached now that claims are provider-agnostic).
  */
 type ReplyTarget = SlackReplyTarget | TeamsReplyTarget;
@@ -196,10 +197,10 @@ interface ClaimedDelivery {
     replyTarget: ReplyTarget;
     // NB: there is intentionally no `thread_started` variant here — the claim
     // path only carries turn/command/reaction/interaction. `thread_started`
-    // envelopes originate on the realtime/Phoenix path, not from `claim`, so a
+    // envelopes originate on the realtime gateway path, not from `claim`, so a
     // claimed delivery never maps to `kind:"thread_started"`.
     input?:
-      | { kind: "text"; text?: string; files?: ManagedFileRef[] }
+      | { kind: "text"; text?: string; files?: ChannelFileRef[] }
       | {
           kind: "command";
           command: string;
@@ -232,13 +233,6 @@ interface ClaimedDelivery {
 }
 
 /** Per-delivery org/project/channel scope, echoed onto render frames. */
-export interface DeliveryScope {
-  organizationId: string;
-  projectId: number;
-  channelId: string;
-  channelName: string;
-}
-
 type ClaimResponse =
   | { claimed: false; pollAfterMs: number }
   | { claimed: true; delivery: ClaimedDelivery };
@@ -309,14 +303,14 @@ function conversationKeyFromReplyTarget(rt: ReplyTarget): string {
   }
 }
 
-function mapDeliveryToEnvelope(d: ClaimedDelivery): ManagedIngressEnvelope {
+function mapDeliveryToEnvelope(d: ClaimedDelivery): ChannelIngressEnvelope {
   const base = {
     deliveryId: d.id,
     eventId: d.turn.eventId,
     turnId: d.turn.id,
-    // `ManagedIngressEnvelope` remains aligned with the channels framework's
+    // `ChannelIngressEnvelope` remains aligned with the channels framework's
     // Bot object; only the Intelligence HTTP wire contract calls this a channel.
-    botName: d.channel.name,
+    channelName: d.channel.name,
     platform: d.adapter,
     conversationKey: conversationKeyFromReplyTarget(d.turn.replyTarget),
     route: d.turn.replyTarget,
@@ -378,7 +372,7 @@ function mapDeliveryToEnvelope(d: ClaimedDelivery): ManagedIngressEnvelope {
 interface LeaseRecord {
   turnId: string;
   leaseToken: string;
-  scope: DeliveryScope;
+  scope: ChannelDeliveryScope;
 }
 
 /**
@@ -416,12 +410,12 @@ export class HttpDeliverySource implements DeliverySource {
 
   /** Claim a single delivery; returns the mapped envelope, or the idle backoff. */
   async claimOnce(): Promise<
-    { env: ManagedIngressEnvelope } | { pollAfterMs: number }
+    { env: ChannelIngressEnvelope } | { pollAfterMs: number }
   > {
     const res = await this.http.post<ClaimResponse>(
       "/api/channels/listener/claim",
       {
-        // Claim provider-agnostically: the managed runtime emits abstract render
+        // Claim provider-agnostically: the Channel runtime emits abstract render
         // frames and Intelligence renders per the delivery's own reply target, so
         // a single runtime serves every channel its bot has attached (Slack,
         // Teams, ...). Declaring a single adapter here made Intelligence withhold
@@ -467,7 +461,7 @@ export class HttpDeliverySource implements DeliverySource {
   }
 
   /** The org/project/channel scope for a leased delivery, for render-frame egress. */
-  scopeFor(deliveryId: string): DeliveryScope | undefined {
+  scopeFor(deliveryId: string): ChannelDeliveryScope | undefined {
     return this.leases.get(deliveryId)?.scope;
   }
 
@@ -478,7 +472,7 @@ export class HttpDeliverySource implements DeliverySource {
   }
 
   async start(
-    onDelivery: (env: ManagedIngressEnvelope) => Promise<void>,
+    onDelivery: (env: ChannelIngressEnvelope) => Promise<void>,
   ): Promise<void> {
     this.running = true;
     await this.heartbeat();
@@ -486,7 +480,7 @@ export class HttpDeliverySource implements DeliverySource {
   }
 
   private async runLoop(
-    onDelivery: (env: ManagedIngressEnvelope) => Promise<void>,
+    onDelivery: (env: ChannelIngressEnvelope) => Promise<void>,
   ): Promise<void> {
     const cadence = this.cfg.heartbeatIntervalMs ?? 15000;
     while (this.running) {
@@ -663,7 +657,7 @@ export class HttpDeliverySource implements DeliverySource {
           // called out distinctly — surface it loudly so it doesn't hide
           // forever behind the best-effort degrade-to-`[]` below.
           this.cfg.log?.(
-            `[intelligence] getHistory ${res.status} for thread history — likely a misconfigured/unauthorized history endpoint (baseUrl/route/apiKey); managed bot will run WITHOUT prior-turn history`,
+            `[intelligence] getHistory ${res.status} for thread history — likely a misconfigured/unauthorized history endpoint (baseUrl/route/apiKey); Channel Bot will run WITHOUT prior-turn history`,
           );
         } else {
           // Transient (5xx/429) — quiet best-effort degradation, history is
@@ -677,7 +671,7 @@ export class HttpDeliverySource implements DeliverySource {
           id: string;
           role: "user" | "assistant";
           text: string;
-          files?: ManagedFileRef[];
+          files?: ChannelFileRef[];
         }>;
       };
       const out: AgentMessage[] = [];
@@ -838,7 +832,7 @@ export class HttpRenderEventSink implements RenderEventSink {
   constructor(
     private readonly cfg: IntelligenceTransportConfig,
     private readonly scopeSource: {
-      scopeFor(deliveryId: string): DeliveryScope | undefined;
+      scopeFor(deliveryId: string): ChannelDeliveryScope | undefined;
       leaseTokenFor(deliveryId: string): string | undefined;
     },
   ) {

@@ -134,11 +134,10 @@ describe("resolveTransportConfig", () => {
     ).toThrow(/missing required transport config/);
   });
 
-  it("uses COPILOTKIT_CHANNEL_NAME and rejects the legacy bot-name environment variable", () => {
+  it("requires COPILOTKIT_CHANNEL_NAME when no channel name is configured", () => {
     vi.stubEnv("COPILOTKIT_INTELLIGENCE_URL", "http://x");
     vi.stubEnv("COPILOTKIT_API_KEY", "cpk-test");
     vi.stubEnv("COPILOTKIT_CHANNEL_NAME", "");
-    vi.stubEnv("COPILOTKIT_BOT_NAME", "legacy-bot");
 
     try {
       expect(() => resolveTransportConfig()).toThrow(
@@ -258,7 +257,7 @@ describe("HttpDeliverySource", () => {
       deliveryId: "dlv_9",
       turnId: "turn_9",
       eventId: "evt_9",
-      botName: "opentagbot",
+      channelName: "opentagbot",
       platform: "slack",
       text: "hello",
       route: { teamId: "T1" },
@@ -342,7 +341,7 @@ describe("HttpDeliverySource", () => {
       deliveryId: "dlv_9",
       turnId: "turn_9",
       eventId: "evt_command",
-      botName: "opentagbot",
+      channelName: "opentagbot",
       platform: "slack",
       command: "/opentagbot",
       text: "summarize this channel",
@@ -387,7 +386,7 @@ describe("HttpDeliverySource", () => {
       deliveryId: "dlv_9",
       turnId: "turn_9",
       eventId: "evt_reaction",
-      botName: "opentagbot",
+      channelName: "opentagbot",
       platform: "slack",
       rawEmoji: "thumbsup",
       added: true,
@@ -433,7 +432,7 @@ describe("HttpDeliverySource", () => {
       deliveryId: "dlv_9",
       turnId: "turn_9",
       eventId: "evt_interaction",
-      botName: "opentagbot",
+      channelName: "opentagbot",
       platform: "slack",
       actionId: "ck:confirm_write:approve",
       value: { confirmed: true },

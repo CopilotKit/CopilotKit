@@ -1,7 +1,7 @@
-// @copilotkit/channels-intelligence — Intelligence-delivered managed-bot adapter for
+// @copilotkit/channels-intelligence — Intelligence-delivered Channel adapter for
 // @copilotkit/channels. Bridges Intelligence-delivered ingress to bot core and emits
 // generic egress operations over injectable transports. Not a publicly
-// documented API; consumed by the runtime/managed-listener bootstrap and the
+// documented API; consumed by the runtime/Channel-listener bootstrap and the
 // Intelligence side.
 
 export {
@@ -20,14 +20,15 @@ export type {
 } from "./transports.js";
 
 export type {
-  ManagedIngressBase,
-  ManagedIngressEnvelope,
+  ChannelIngressBase,
+  ChannelIngressEnvelope,
+  ChannelDeliveryScope,
   EgressOperation,
   EgressOp,
   EgressResult,
   EgressRoute,
-  HostedBotRenderEvent,
-  HostedBotRenderEventKind,
+  ChannelRenderEvent,
+  ChannelRenderEventKind,
   RenderFrame,
   RenderAccepted,
 } from "./contracts.js";
@@ -40,11 +41,11 @@ export {
 
 // Realtime Gateway transport — the production render/delivery path
 // (OSS-402). Undocumented like the rest of the package; exported for the
-// managed-listener bootstrap and tests.
+// Channel-listener bootstrap and tests.
 export { RealtimeGatewayTransport } from "./realtime-gateway-transport.js";
 export type {
   RealtimeGatewayTransportOptions,
-  HostedBotRealtimeScope,
+  ChannelRealtimeScope,
 } from "./realtime-gateway-transport.js";
 export { connectRealtimeGateway } from "./realtime-gateway.js";
 export type {
@@ -52,8 +53,8 @@ export type {
   RealtimeGatewaySession,
   ConnectedRealtimeGatewaySession,
 } from "./realtime-gateway.js";
-// The managed-over-Realtime-Gateway launcher (OSS-406): the composition that
-// runs a managed channel over the realtime path.
+// The Channel-over-Realtime-Gateway launcher (OSS-406): the composition that
+// runs a Channel over the realtime path.
 export {
   startChannelsOverRealtimeGateway,
   startChannelsWithGatewaySession,
@@ -79,14 +80,14 @@ export type {
 export { irToText } from "./ir-to-text.js";
 
 export {
-  startManagedBots,
-  assertValidBotNames,
-  buildActivationMetadata,
+  startChannels,
+  assertValidChannelNames,
+  buildChannelActivationMetadata,
 } from "./runtime.js";
 export type {
-  ManagedTransport,
-  ManagedBotsHandle,
-  StartManagedBotsOptions,
-  ActivationEnv,
-  ActivationMetadata,
+  ChannelTransport,
+  ChannelsHandle,
+  StartChannelsOptions,
+  ChannelActivationEnv,
+  ChannelActivationMetadata,
 } from "./runtime.js";

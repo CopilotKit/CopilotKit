@@ -1,14 +1,17 @@
 import type { Bot } from "@copilotkit/channels";
 import {
-  startManagedBots,
-  assertValidBotNames,
-  buildActivationMetadata,
-  resolveActivationEnv,
+  startChannels,
+  assertValidChannelNames,
+  buildChannelActivationMetadata,
+  resolveChannelActivationEnv,
 } from "./runtime.js";
-import type { ManagedBotsHandle, ActivationEnv } from "./runtime.js";
+import type { ChannelsHandle, ChannelActivationEnv } from "./runtime.js";
 import { connectRealtimeGateway } from "./realtime-gateway.js";
-import { RealtimeGatewayTransport } from "./realtime-gateway-transport.js";
-import type { HostedBotRealtimeScope } from "./realtime-gateway-transport.js";
+import {
+  RealtimeGatewayTransport,
+  assertValidChannelRealtimeScope,
+} from "./realtime-gateway-transport.js";
+import type { ChannelRealtimeScope } from "./realtime-gateway-transport.js";
 import type { RealtimeGatewaySession } from "./realtime-gateway.js";
 import type { EgressSink } from "./transports.js";
 
@@ -40,9 +43,23 @@ const realtimeGatewayEgress: EgressSink = {
 function assertSingleBotForPhase1(bots: readonly Bot[]): void {
   if (bots.length !== 1) {
     throw new Error(
-      `managed Realtime Gateway runtime supports exactly one Bot per gateway session, got ${bots.length} — ` +
+      `Channel Realtime Gateway runtime supports exactly one Bot per gateway session, got ${bots.length} — ` +
         "multi-Bot routing over a shared RealtimeGatewayTransport is not implemented yet (OSS-459); " +
         "run one Bot per gateway session/runner",
+    );
+  }
+}
+
+function assertScopeMatchesChannel(
+  bots: readonly Bot[],
+  scope: ChannelRealtimeScope,
+): void {
+  assertValidChannelRealtimeScope(scope);
+  assertValidChannelNames(bots);
+  assertSingleBotForPhase1(bots);
+  if (bots[0]!.name !== scope.channelName) {
+    throw new Error(
+      `Channel Realtime Gateway scope channelName ${JSON.stringify(scope.channelName)} must match Bot name ${JSON.stringify(bots[0]!.name)}`,
     );
   }
 }
@@ -52,7 +69,7 @@ export interface StartChannelsWithGatewaySessionOptions {
   /** The joined Realtime Gateway session. */
   session: RealtimeGatewaySession;
   /** Authoritative org/project/channel scope echoed on every SDK→gateway envelope. */
-  scope: HostedBotRealtimeScope;
+  scope: ChannelRealtimeScope;
   /** Stable runtime instance id (`rti_…`), echoed on every envelope. */
   runtimeInstanceId: string;
   /** Activation env overrides forwarded to the runtime (so `handle.metadata`
@@ -61,15 +78,15 @@ export interface StartChannelsWithGatewaySessionOptions {
    * {@link StartChannelsWithGatewaySessionOptions.runtimeInstanceId} above is authoritative
    * and is merged in, so the transport (which stamps it on every envelope) and
    * `handle.metadata` always report the same id. */
-  env?: Partial<Omit<ActivationEnv, "runtimeInstanceId">>;
+  env?: Partial<Omit<ChannelActivationEnv, "runtimeInstanceId">>;
   /** Diagnostic sink for dropped deliveries / transport events. */
   log?: (message: string, meta?: unknown) => void;
 }
 
 /**
- * Compose the managed runtime over an already-connected gateway session: wrap
+ * Compose the Channel runtime over an already-connected gateway session: wrap
  * the session in a {@link RealtimeGatewayTransport} (delivery source + render
- * sink) and start the declared Bots against it via {@link startManagedBots}.
+ * sink) and start the declared Bots against it via {@link startChannels}.
  *
  * Split out from {@link startChannelsOverRealtimeGateway} so the composition —
  * the part with behavior — is unit-testable against a fake session, leaving the
@@ -80,15 +97,15 @@ export interface StartChannelsWithGatewaySessionOptions {
 export async function startChannelsWithGatewaySession(
   bots: Bot[],
   opts: StartChannelsWithGatewaySessionOptions,
-): Promise<ManagedBotsHandle> {
-  assertSingleBotForPhase1(bots);
+): Promise<ChannelsHandle> {
+  assertScopeMatchesChannel(bots, opts.scope);
   const transport = new RealtimeGatewayTransport({
     scope: opts.scope,
     runtimeInstanceId: opts.runtimeInstanceId,
     session: opts.session,
     ...(opts.log ? { log: opts.log } : {}),
   });
-  return startManagedBots({
+  return startChannels({
     bots,
     resolveTransport: () => ({
       source: transport,
@@ -110,7 +127,7 @@ export interface StartChannelsOverRealtimeGatewayOptions {
   /** Project runtime API key (`cpk-…`), presented as the socket `authToken`. */
   apiKey: string;
   /** Authoritative org/project/channel scope echoed on every SDK→gateway envelope. */
-  scope: HostedBotRealtimeScope;
+  scope: ChannelRealtimeScope;
   /** Stable runtime instance id (`rti_…`). */
   runtimeInstanceId: string;
   /** Adapter kind declared to the gateway on join (default `"slack"`). */
@@ -120,7 +137,7 @@ export interface StartChannelsOverRealtimeGatewayOptions {
    * in `handle.metadata`. `runtimeInstanceId` is intentionally excluded — the
    * required top-level {@link StartChannelsOverRealtimeGatewayOptions.runtimeInstanceId} is
    * authoritative for both the join and `handle.metadata` (they must agree). */
-  env?: Partial<Omit<ActivationEnv, "runtimeInstanceId">>;
+  env?: Partial<Omit<ChannelActivationEnv, "runtimeInstanceId">>;
   /** Join timeout in ms. */
   timeoutMs?: number;
   /** Injectable `WebSocket` ctor (non-global hosts / tests). */
@@ -132,38 +149,36 @@ export interface StartChannelsOverRealtimeGatewayOptions {
 /**
  * Connect a Realtime Gateway session, then run the declared framework Bots
  * against it via {@link startChannelsWithGatewaySession}. This is the
- * composition that runs a managed channel over the realtime path. The returned
+ * composition that runs a Channel over the realtime path. The returned
  * handle's `stop()` stops the Bots and then disconnects the session.
  */
 export async function startChannelsOverRealtimeGateway(
   bots: Bot[],
   config: StartChannelsOverRealtimeGatewayOptions,
-): Promise<ManagedBotsHandle> {
+): Promise<ChannelsHandle> {
   const adapter = config.adapter ?? "slack";
 
   // Fail fast BEFORE opening the socket: a missing/duplicate name would
   // otherwise send a broken channel declaration and — because the same
-  // check inside startManagedBots runs only after we've connected — throw with
+  // check inside startChannels runs only after we've connected — throw with
   // the socket already open and never closed (a leak). Validating here means a
   // bad declaration never opens a connection at all.
-  assertValidBotNames(bots);
-  // Fail fast before opening a socket for an unsupported multi-bot call.
-  assertSingleBotForPhase1(bots);
+  assertScopeMatchesChannel(bots, config.scope);
 
   // Build activation metadata up front so the join carries the Runtime
   // Activation data Intelligence's health view expects (runtime env, node
   // version, per-bot commands) rather than just name+adapter. The same
-  // `envOverrides` is forwarded to startManagedBots so `handle.metadata` agrees
+  // `envOverrides` is forwarded to startChannels so `handle.metadata` agrees
   // with what we declared on join. The required `config.runtimeInstanceId` is
   // spread LAST so it stays authoritative even though `config.env` cannot carry
   // it (type-excluded) — belt and suspenders for the join↔metadata invariant.
-  const envOverrides: Partial<ActivationEnv> = {
+  const envOverrides: Partial<ChannelActivationEnv> = {
     ...config.env,
     runtimeInstanceId: config.runtimeInstanceId,
   };
-  const activation = buildActivationMetadata(
+  const activation = buildChannelActivationMetadata(
     bots,
-    resolveActivationEnv(envOverrides),
+    resolveChannelActivationEnv(envOverrides),
   );
 
   const session = await connectRealtimeGateway({
@@ -172,8 +187,8 @@ export async function startChannelsOverRealtimeGateway(
     projectId: config.scope.projectId,
     join: {
       runtimeInstanceId: config.runtimeInstanceId,
-      declaredChannels: activation.declaredBots.map((b) => ({
-        channelName: b.name,
+      declaredChannels: activation.declaredChannels.map((channel) => ({
+        channelName: channel.channelName,
         adapter,
         // renderCapabilities: reserved — bots don't expose capabilities yet
         // (tracked with the richer per-bot metadata in OSS-377).
@@ -186,11 +201,14 @@ export async function startChannelsOverRealtimeGateway(
         ...(activation.runtimePackageVersion
           ? { runtimePackageVersion: activation.runtimePackageVersion }
           : {}),
-        ...(activation.botPackageVersion
-          ? { botPackageVersion: activation.botPackageVersion }
+        ...(activation.channelsPackageVersion
+          ? { channelsPackageVersion: activation.channelsPackageVersion }
           : {}),
         commands: Object.fromEntries(
-          activation.declaredBots.map((b) => [b.name, b.commands]),
+          activation.declaredChannels.map((channel) => [
+            channel.channelName,
+            channel.commands,
+          ]),
         ),
       },
       observedAt: new Date().toISOString(),
@@ -201,7 +219,7 @@ export async function startChannelsOverRealtimeGateway(
   // The session is now joined. If starting the Bots throws (e.g. a Bot was
   // already started, or a conflicting adapter), the caller never receives a
   // handle — so disconnect the socket here rather than leak it, then rethrow.
-  let handle: ManagedBotsHandle;
+  let handle: ChannelsHandle;
   try {
     handle = await startChannelsWithGatewaySession(bots, {
       session,

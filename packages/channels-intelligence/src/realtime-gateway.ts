@@ -53,6 +53,11 @@ export interface ConnectedRealtimeGatewaySession extends RealtimeGatewaySession 
 export async function connectRealtimeGateway(
   config: ConnectRealtimeGatewayOptions,
 ): Promise<ConnectedRealtimeGatewaySession> {
+  if (!Number.isInteger(config.projectId) || config.projectId <= 0) {
+    throw new Error(
+      "connectRealtimeGateway: projectId must be a positive integer",
+    );
+  }
   const timeout = config.timeoutMs ?? 10_000;
   const transport =
     config.webSocket ??

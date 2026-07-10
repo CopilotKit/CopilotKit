@@ -1,4 +1,4 @@
-// Realtime Gateway transport for the managed Bot SDK (OSS-402).
+// Realtime Gateway transport for the Channels SDK (OSS-402).
 //
 // This is the production render/delivery path: the SDK joins the gateway's
 // per-project session, receives leased deliveries, streams semantic
@@ -22,22 +22,52 @@
 
 import type { DeliverySource, RenderEventSink } from "./transports.js";
 import type {
-  ManagedIngressEnvelope,
+  ChannelIngressEnvelope,
+  ChannelDeliveryScope,
   RenderFrame,
   RenderAccepted,
 } from "./contracts.js";
 import type { RealtimeGatewaySession } from "./realtime-gateway.js";
 
 /** The org/project/channel scope every realtime envelope carries. */
-export interface HostedBotRealtimeScope {
-  organizationId: string;
-  projectId: number;
-  channelId: string;
-  channelName: string;
+export interface ChannelRealtimeScope extends ChannelDeliveryScope {}
+
+const CHANNEL_ID_RE = /^channel_[A-Za-z0-9_-]+$/;
+const ORGANIZATION_ID_RE = /^org_[A-Za-z0-9_-]+$/;
+const CHANNEL_NAME_RE = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
+
+/** @internal Validate the product scope before a realtime connection is opened. */
+export function assertValidChannelRealtimeScope(
+  scope: ChannelRealtimeScope,
+): void {
+  if (!Number.isInteger(scope.projectId) || scope.projectId <= 0) {
+    throw new Error(
+      "Realtime Gateway Channel scope requires a positive projectId",
+    );
+  }
+  if (!ORGANIZATION_ID_RE.test(scope.organizationId)) {
+    throw new Error(
+      `Realtime Gateway Channel scope requires an org_* organizationId, got ${JSON.stringify(scope.organizationId)}`,
+    );
+  }
+  if (!CHANNEL_ID_RE.test(scope.channelId)) {
+    throw new Error(
+      `Realtime Gateway Channel scope requires a channel_* channelId, got ${JSON.stringify(scope.channelId)}`,
+    );
+  }
+  if (
+    scope.channelName.length < 3 ||
+    scope.channelName.length > 64 ||
+    !CHANNEL_NAME_RE.test(scope.channelName)
+  ) {
+    throw new Error(
+      `Realtime Gateway Channel scope requires a lowercase kebab-case channelName, got ${JSON.stringify(scope.channelName)}`,
+    );
+  }
 }
 
 export interface RealtimeGatewayTransportOptions {
-  scope: HostedBotRealtimeScope;
+  scope: ChannelRealtimeScope;
   /** Unique per runtime instance (rti_…), echoed on every SDK->gateway event. */
   runtimeInstanceId: string;
   /** The joined Realtime Gateway session. */
@@ -64,7 +94,7 @@ interface DeliveryState {
   /** app-api's per-delivery lease token, fences the complete/fail intent. */
   leaseToken: string;
   /** Authoritative org/project/channel scope from the delivery (not the transport default). */
-  scope: HostedBotRealtimeScope;
+  scope: ChannelDeliveryScope;
   /** Highest accepted `seq` per render slot (the completion high-water mark). */
   accepted: Map<string, number>;
 }
@@ -78,15 +108,16 @@ interface DeliveryState {
 export class RealtimeGatewayTransport
   implements DeliverySource, RenderEventSink
 {
-  private readonly scope: HostedBotRealtimeScope;
+  private readonly scope: ChannelRealtimeScope;
   private readonly runtimeInstanceId: string;
   private readonly session: RealtimeGatewaySession;
   private readonly now: () => string;
   private readonly log?: (message: string, meta?: unknown) => void;
   private readonly deliveries = new Map<string, DeliveryState>();
-  private onDelivery?: (env: ManagedIngressEnvelope) => Promise<void>;
+  private onDelivery?: (env: ChannelIngressEnvelope) => Promise<void>;
 
   constructor(config: RealtimeGatewayTransportOptions) {
+    assertValidChannelRealtimeScope(config.scope);
     this.scope = config.scope;
     this.runtimeInstanceId = config.runtimeInstanceId;
     this.session = config.session;
@@ -95,7 +126,7 @@ export class RealtimeGatewayTransport
   }
 
   async start(
-    onDelivery: (env: ManagedIngressEnvelope) => Promise<void>,
+    onDelivery: (env: ChannelIngressEnvelope) => Promise<void>,
   ): Promise<void> {
     this.onDelivery = onDelivery;
     this.session.on(DELIVERY_AVAILABLE, (payload) => {
@@ -127,8 +158,8 @@ export class RealtimeGatewayTransport
    */
   private toIngressEnvelope(payload: unknown):
     | {
-        env: ManagedIngressEnvelope;
-        scope: HostedBotRealtimeScope;
+        env: ChannelIngressEnvelope;
+        scope: ChannelDeliveryScope;
         leaseToken: string;
       }
     | undefined {
@@ -189,9 +220,9 @@ export class RealtimeGatewayTransport
         deliveryId: String(delivery.id),
         eventId: String(turn.eventId),
         turnId: String(turn.id),
-        // The framework's ingress envelope still routes to a Bot by name;
-        // Intelligence's wire contract calls that delivery entity a channel.
-        botName: scope.channelName,
+        // This product-level field names the Channel; bot core attaches the
+        // adapter directly to the framework Bot named by `createBot({ name })`.
+        channelName: scope.channelName,
         platform: String(delivery.adapter ?? "slack"),
         conversationKey: String(turn.id),
         route: turn.replyTarget,

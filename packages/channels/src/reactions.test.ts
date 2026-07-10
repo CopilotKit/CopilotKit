@@ -109,7 +109,7 @@ describe("bot.onReaction", () => {
     ]);
   });
 
-  it("resolves <Message onReaction> by postedMessageId when the reaction id differs (managed path)", async () => {
+  it("resolves <Message onReaction> by postedMessageId when the reaction id differs (Channel path)", async () => {
     const fake = new FakeAdapter();
     const bot = createBot({ adapters: [fake] });
     const seen: string[] = [];
