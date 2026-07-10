@@ -1,4 +1,5 @@
 export * from "./telemetry-client";
+export type * from "./events";
 export {
   lambdaClient,
   parseTelemetryIdFromLicense,

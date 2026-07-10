@@ -35,6 +35,7 @@
       "require": "./dist/index.cjs"
     },
     "./package.json": "./package.json",
+    "./style.css": "./dist/style.css",
     "./styles.css": "./dist/index.css"
   },
   "publishConfig": {
@@ -47,7 +48,7 @@
     "dev": "tsdown --watch",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check-types": "tsc --noEmit",
+    "check-types": "tsgo --noEmit",
     "link:global": "pnpm link --global",
     "unlink:global": "pnpm unlink --global",
     "publint": "publint .",
@@ -90,7 +91,8 @@
     "tailwind-config": "workspace:*",
     "tailwindcss": "^3.3.0",
     "tsconfig": "workspace:*",
-    "tsdown": "^0.20.3",
+    "tsdown": "^0.22.4",
+    "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "typescript": "^5.2.3",
     "vitest": "^3.2.4"
   },

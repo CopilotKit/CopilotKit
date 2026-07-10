@@ -23,7 +23,7 @@
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
-    "check-types": "tsc --noEmit",
+    "check-types": "tsgo --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -40,7 +40,8 @@
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.15.3",
     "better-sqlite3": "^12.2.0",
-    "tsdown": "^0.20.3",
+    "tsdown": "^0.22.4",
+    "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "typescript": "5.8.2",
     "vitest": "^3.0.5"
   },

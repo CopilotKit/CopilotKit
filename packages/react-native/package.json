@@ -67,7 +67,7 @@
     "build": "tsdown",
     "dev": "tsdown --watch",
     "test": "vitest run",
-    "check-types": "tsc --noEmit",
+    "check-types": "tsgo --noEmit",
     "publint": "publint .",
     "attw": "attw --pack . --profile node16 --ignore-rules internal-resolution-error",
     "link:global": "pnpm link --global",
@@ -87,7 +87,8 @@
     "jsdom": "^26.1.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "tsdown": "^0.20.3",
+    "tsdown": "^0.22.4",
+    "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "typescript": "^5.8.3",
     "vitest": "^3.2.4"
   },

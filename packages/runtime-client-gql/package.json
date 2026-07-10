@@ -42,7 +42,7 @@
     "dev": "concurrently \"pnpm run graphql-codegen:watch\" \"tsdown --watch\"",
     "test": "pnpm run graphql-codegen && vitest run",
     "test:watch": "pnpm run graphql-codegen && vitest",
-    "check-types": "tsc --noEmit",
+    "check-types": "tsgo --noEmit",
     "graphql-codegen": "graphql-codegen -c codegen.ts",
     "graphql-codegen:watch": "graphql-codegen -c codegen.ts --watch",
     "link:global": "pnpm link --global",
@@ -71,7 +71,8 @@
     "esbuild": "^0.23.0",
     "graphql": "^16.8.1",
     "ts-node": "^10.9.2",
-    "tsdown": "^0.20.3",
+    "tsdown": "^0.22.4",
+    "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "typescript": "^5.4.5",
     "vitest": "^3.2.4"
   },

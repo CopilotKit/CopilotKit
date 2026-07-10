@@ -10,10 +10,9 @@ import type {
 import {
   LangGraphAgent as AGUILangGraphAgent,
   LangGraphHttpAgent,
-  type LangGraphAgentConfig,
-  type State,
 } from "@ag-ui/langgraph";
-import type { Message as LangGraphMessage } from "@langchain/langgraph-sdk/dist/types.messages";
+import type { LangGraphAgentConfig, State } from "@ag-ui/langgraph";
+import type { Message as LangGraphMessage } from "@langchain/langgraph-sdk";
 import type { ThreadState } from "@langchain/langgraph-sdk";
 
 interface CopilotKitStateEnrichment {

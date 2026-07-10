@@ -19,7 +19,7 @@
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
-    "check-types": "tsc --noEmit",
+    "check-types": "tsgo --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -31,7 +31,8 @@
   "devDependencies": {
     "@copilotkit/typescript-config": "workspace:*",
     "@types/node": "^22.10.5",
-    "tsdown": "^0.20.3",
+    "tsdown": "^0.22.4",
+    "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "typescript": "^5.8.2",
     "vitest": "^4.1.3"
   }
