@@ -9,6 +9,13 @@
     "frontend-tools",
     "shared-state",
     "---Intelligence Platform---",
-    "threads"
+    {
+      "title": "Threads",
+      "defaultOpen": true,
+      "pages": [
+        "threads",
+        "threads-import"
+      ]
+    }
   ]
 }
