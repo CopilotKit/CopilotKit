@@ -1,7 +1,7 @@
 # QA: Open-Ended Generative UI (Advanced) — OpenClaw
 
 Demo source: `src/app/demos/open-gen-ui-advanced/page.tsx`
-Route: `/demos/open-gen-ui-advanced`  ·  Agent: `open-gen-ui-advanced`
+Route: `/demos/open-gen-ui-advanced` · Agent: `open-gen-ui-advanced`
 Runtime: `/api/copilotkit-ogui` (dedicated OGUI runtime; see `route.ts`)
 Run against the real backend at `http://localhost:3119/demos/open-gen-ui-advanced`.
 

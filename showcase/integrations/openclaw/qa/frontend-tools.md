@@ -1,7 +1,7 @@
 # QA: Frontend Tools (OpenClaw)
 
 Demo source: `src/app/demos/frontend-tools/page.tsx`
-Route: `/demos/frontend-tools`  ·  Agent: `frontend_tools`
+Route: `/demos/frontend-tools` · Agent: `frontend_tools`
 Run against the real backend at `http://localhost:3119/demos/frontend-tools`.
 
 Status: **supported**, and verified end-to-end at the gateway level (see

@@ -1,7 +1,7 @@
 # QA: Tool Rendering — Custom Catch-all (OpenClaw)
 
 Demo source: `src/app/demos/tool-rendering-custom-catchall/page.tsx`
-Route: `/demos/tool-rendering-custom-catchall`  ·  Agent: `tool-rendering-custom-catchall`
+Route: `/demos/tool-rendering-custom-catchall` · Agent: `tool-rendering-custom-catchall`
 Run against the real backend at `http://localhost:3119/demos/tool-rendering-custom-catchall`.
 
 Status: **partial / known gap** on OpenClaw. The custom wildcard renderer is

@@ -1,7 +1,7 @@
 # QA: Frontend Tool Thread Round Trip (OpenClaw)
 
 Demo source: `src/app/demos/threadid-frontend-tool-roundtrip/page.tsx`
-Route: `/demos/threadid-frontend-tool-roundtrip`  ·  Agent: `threadid-frontend-tool-roundtrip`
+Route: `/demos/threadid-frontend-tool-roundtrip` · Agent: `threadid-frontend-tool-roundtrip`
 Run against the real backend at `http://localhost:3119/demos/threadid-frontend-tool-roundtrip`.
 
 Status: **supported** (mechanism-verified). Rides the same frontend-forwarded

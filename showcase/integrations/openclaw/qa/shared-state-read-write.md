@@ -1,7 +1,7 @@
 # QA: Shared State — Read + Write (OpenClaw)
 
 Demo source: `src/app/demos/shared-state-read-write/page.tsx`
-Route: `/demos/shared-state-read-write`  ·  Agent: `shared-state-read-write`
+Route: `/demos/shared-state-read-write` · Agent: `shared-state-read-write`
 Run against the real backend at `http://localhost:3119/demos/shared-state-read-write`.
 
 Status: **supported**, and verified end-to-end at the gateway level (with

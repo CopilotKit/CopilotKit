@@ -1,7 +1,7 @@
 # QA: Agentic Chat (OpenClaw)
 
 Demo source: `src/app/demos/agentic-chat/page.tsx`
-Route: `/demos/agentic-chat`  ·  Agent: `agentic_chat`
+Route: `/demos/agentic-chat` · Agent: `agentic_chat`
 
 ## What it exercises
 

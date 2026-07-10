@@ -59,9 +59,9 @@ test.describe("Declarative UI: json-render", () => {
     await expect(
       page.locator('[data-testid="metric-card"]').first(),
     ).toBeVisible({ timeout: 30000 });
-    await expect(
-      page.locator('[data-testid="bar-chart"]').first(),
-    ).toBeVisible({ timeout: 30000 });
+    await expect(page.locator('[data-testid="bar-chart"]').first()).toBeVisible(
+      { timeout: 30000 },
+    );
 
     // Fixture-specific values prove the aimock spec drove the render.
     const root = page.locator('[data-testid="json-render-root"]').first();
@@ -77,9 +77,9 @@ test.describe("Declarative UI: json-render", () => {
     await expect(
       page.locator('[data-testid="json-render-root"]').first(),
     ).toBeVisible({ timeout: 30000 });
-    await expect(
-      page.locator('[data-testid="pie-chart"]').first(),
-    ).toBeVisible({ timeout: 30000 });
+    await expect(page.locator('[data-testid="pie-chart"]').first()).toBeVisible(
+      { timeout: 30000 },
+    );
 
     // Fixture-specific slice labels. Scope to the rendered tree so the
     // "Revenue by category" suggestion pill (same text) can't shadow the assert.
@@ -96,9 +96,9 @@ test.describe("Declarative UI: json-render", () => {
     await expect(
       page.locator('[data-testid="json-render-root"]').first(),
     ).toBeVisible({ timeout: 30000 });
-    await expect(
-      page.locator('[data-testid="bar-chart"]').first(),
-    ).toBeVisible({ timeout: 30000 });
+    await expect(page.locator('[data-testid="bar-chart"]').first()).toBeVisible(
+      { timeout: 30000 },
+    );
 
     // Fixture-specific title.
     const root = page.locator('[data-testid="json-render-root"]').first();

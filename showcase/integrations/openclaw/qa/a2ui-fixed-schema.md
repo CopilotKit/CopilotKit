@@ -1,7 +1,7 @@
 # QA: Declarative Generative UI (A2UI — Fixed Schema) (OpenClaw)
 
 Demo source: `src/app/demos/a2ui-fixed-schema/page.tsx`
-Route: `/demos/a2ui-fixed-schema`  ·  Agent: `a2ui-fixed-schema`
+Route: `/demos/a2ui-fixed-schema` · Agent: `a2ui-fixed-schema`
 
 ## What it exercises
 

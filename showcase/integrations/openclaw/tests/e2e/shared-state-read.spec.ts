@@ -38,9 +38,10 @@ test.describe("Shared State (Reading)", () => {
       page.locator('[data-testid="instructions-container"]'),
     ).toBeVisible();
     // Default recipe seeded into agent state via agent.setState(INITIAL_RECIPE).
-    await expect(
-      page.locator('[data-testid="ingredient-card"]'),
-    ).toHaveCount(2, { timeout: 15000 });
+    await expect(page.locator('[data-testid="ingredient-card"]')).toHaveCount(
+      2,
+      { timeout: 15000 },
+    );
   });
 
   test("starter suggestions render", async ({ page }) => {

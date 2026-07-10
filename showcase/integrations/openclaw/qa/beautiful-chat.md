@@ -1,7 +1,7 @@
 # QA: Beautiful Chat (OpenClaw)
 
 Demo source: `src/app/demos/beautiful-chat/page.tsx`
-Route: `/demos/beautiful-chat`  ·  Agent: `beautiful-chat`
+Route: `/demos/beautiful-chat` · Agent: `beautiful-chat`
 Runtime: `/api/copilotkit-beautiful-chat` (dedicated combined runtime)
 
 ## What it exercises
@@ -42,7 +42,7 @@ does **not** wire on OpenClaw. Test against what the demo actually backs:
   `agent.setState`, but this demo declares no `manage_todos`
   `stateWriterTools` entry, so clicking the pill gives the model no tool to add
   todos to shared state. The To Do column will stay empty from the agent side.
-  (OpenClaw *does* support the state-writer path in general — see the
+  (OpenClaw _does_ support the state-writer path in general — see the
   `shared-state-read-write` cell — it is just not wired into this cell.) The
   App-pane read/write UI itself still functions on local state.
 - **Excalidraw / Calculator** depend on live third-party MCP reachability

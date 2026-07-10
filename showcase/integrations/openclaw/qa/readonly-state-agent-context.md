@@ -1,7 +1,7 @@
 # QA: Read-Only Agent Context (OpenClaw)
 
 Demo source: `src/app/demos/readonly-state-agent-context/page.tsx`
-Route: `/demos/readonly-state-agent-context`  ·  Agent: `readonly-state-agent-context`
+Route: `/demos/readonly-state-agent-context` · Agent: `readonly-state-agent-context`
 Run against the real backend at `http://localhost:3119/demos/readonly-state-agent-context`.
 
 Status: **supported** (see `PARITY_NOTES.md`, "State / context"). Not yet

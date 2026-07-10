@@ -152,9 +152,9 @@ test.describe("Multimodal Attachments", () => {
 
     // Second message is a clean PDF chip.
     await expect(second.userMsg.locator("img")).toHaveCount(0);
-    await expect(
-      second.userMsg.getByText(/Failed to load image/i),
-    ).toHaveCount(0);
+    await expect(second.userMsg.getByText(/Failed to load image/i)).toHaveCount(
+      0,
+    );
     await expect(second.userMsg.getByText(/^PDF$/)).toBeVisible();
   });
 
@@ -175,8 +175,8 @@ test.describe("Multimodal Attachments", () => {
 
     // Second message has exactly one image, no broken-image fallback.
     await expect(second.userMsg.locator("img")).toHaveCount(1);
-    await expect(
-      second.userMsg.getByText(/Failed to load image/i),
-    ).toHaveCount(0);
+    await expect(second.userMsg.getByText(/Failed to load image/i)).toHaveCount(
+      0,
+    );
   });
 });

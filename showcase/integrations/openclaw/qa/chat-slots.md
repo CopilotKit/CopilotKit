@@ -1,7 +1,7 @@
 # QA: Chat Slots (OpenClaw)
 
 Demo source: `src/app/demos/chat-slots/page.tsx`
-Route: `/demos/chat-slots`  ·  Agent: `chat-slots`
+Route: `/demos/chat-slots` · Agent: `chat-slots`
 
 ## What it exercises
 

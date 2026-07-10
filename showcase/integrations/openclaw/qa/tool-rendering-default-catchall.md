@@ -1,7 +1,7 @@
 # QA: Tool Rendering — Default Catch-all (OpenClaw)
 
 Demo source: `src/app/demos/tool-rendering-default-catchall/page.tsx`
-Route: `/demos/tool-rendering-default-catchall`  ·  Agent: `tool-rendering-default-catchall`
+Route: `/demos/tool-rendering-default-catchall` · Agent: `tool-rendering-default-catchall`
 Run against the real backend at `http://localhost:3119/demos/tool-rendering-default-catchall`.
 
 Status: **supported** (rendering path), with an OpenClaw-specific caveat about
@@ -33,7 +33,7 @@ gateway model itself has equivalent tools registered.
 
 The rendering path (wildcard `DefaultToolCallRenderer` paints whatever tool call
 arrives) is what this cell is verifying, and that is what the manual steps
-assert. Whether a *specific* named tool fires depends on the gateway config, not
+assert. Whether a _specific_ named tool fires depends on the gateway config, not
 this demo.
 
 ## Prerequisites

@@ -1,11 +1,11 @@
 # QA: In-App Human in the Loop (OpenClaw)
 
 Demo source: `src/app/demos/hitl-in-app/page.tsx`
-Route: `/demos/hitl-in-app`  ·  Agent: `hitl-in-app`
+Route: `/demos/hitl-in-app` · Agent: `hitl-in-app`
 Run against the real backend at `http://localhost:3119/demos/hitl-in-app`.
 
 Status: **supported** — tool-based, promise/`respond()` HITL (the fleet's
-`promise-based` pattern; see `PARITY_NOTES.md`). This is *not* LangGraph-native
+`promise-based` pattern; see `PARITY_NOTES.md`). This is _not_ LangGraph-native
 `interrupt()`; OpenClaw is a gateway, not a graph engine, so the pause lives in
 the frontend tool handler, not the backend.
 

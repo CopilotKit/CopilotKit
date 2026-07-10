@@ -39,9 +39,27 @@ const flightsData = (origin, destination) => ({
   origin,
   destination,
   flights: [
-    { airline: "United", flight: "UA231", depart: "08:15", arrive: "16:45", price_usd: 348 },
-    { airline: "Delta", flight: "DL412", depart: "11:20", arrive: "19:55", price_usd: 312 },
-    { airline: "JetBlue", flight: "B6722", depart: "17:05", arrive: "01:30", price_usd: 289 },
+    {
+      airline: "United",
+      flight: "UA231",
+      depart: "08:15",
+      arrive: "16:45",
+      price_usd: 348,
+    },
+    {
+      airline: "Delta",
+      flight: "DL412",
+      depart: "11:20",
+      arrive: "19:55",
+      price_usd: 312,
+    },
+    {
+      airline: "JetBlue",
+      flight: "B6722",
+      depart: "17:05",
+      arrive: "01:30",
+      price_usd: 289,
+    },
   ],
 });
 
@@ -85,19 +103,48 @@ const A2UI_CATALOG_ID = "copilotkit://flight-fixed-catalog";
 const A2UI_FLIGHT_SURFACE = "flight-fixed-schema";
 const FLIGHT_SCHEMA = [
   { id: "root", component: "Card", child: "content" },
-  { id: "content", component: "Column", children: ["title", "route", "meta", "bookButton"] },
+  {
+    id: "content",
+    component: "Column",
+    children: ["title", "route", "meta", "bookButton"],
+  },
   { id: "title", component: "Title", text: "Flight Details" },
-  { id: "route", component: "Row", justify: "spaceBetween", align: "center", children: ["from", "arrow", "to"] },
+  {
+    id: "route",
+    component: "Row",
+    justify: "spaceBetween",
+    align: "center",
+    children: ["from", "arrow", "to"],
+  },
   { id: "from", component: "Airport", code: { path: "/origin" } },
   { id: "arrow", component: "Arrow" },
   { id: "to", component: "Airport", code: { path: "/destination" } },
-  { id: "meta", component: "Row", justify: "spaceBetween", align: "center", children: ["airline", "price"] },
+  {
+    id: "meta",
+    component: "Row",
+    justify: "spaceBetween",
+    align: "center",
+    children: ["airline", "price"],
+  },
   { id: "airline", component: "AirlineBadge", name: { path: "/airline" } },
   { id: "price", component: "PriceTag", amount: { path: "/price" } },
-  { id: "bookButton", component: "Button", variant: "primary", child: "bookButtonLabel",
-    action: { event: { name: "book_flight", context: {
-      origin: { path: "/origin" }, destination: { path: "/destination" },
-      airline: { path: "/airline" }, price: { path: "/price" } } } } },
+  {
+    id: "bookButton",
+    component: "Button",
+    variant: "primary",
+    child: "bookButtonLabel",
+    action: {
+      event: {
+        name: "book_flight",
+        context: {
+          origin: { path: "/origin" },
+          destination: { path: "/destination" },
+          airline: { path: "/airline" },
+          price: { path: "/price" },
+        },
+      },
+    },
+  },
   { id: "bookButtonLabel", component: "Text", text: "Book flight" },
 ];
 
@@ -108,9 +155,28 @@ const FLIGHT_SCHEMA = [
 const displayFlightEnvelope = (origin, destination, airline, price) =>
   JSON.stringify({
     a2ui_operations: [
-      { version: "v0.9", createSurface: { surfaceId: A2UI_FLIGHT_SURFACE, catalogId: A2UI_CATALOG_ID } },
-      { version: "v0.9", updateComponents: { surfaceId: A2UI_FLIGHT_SURFACE, components: FLIGHT_SCHEMA } },
-      { version: "v0.9", updateDataModel: { surfaceId: A2UI_FLIGHT_SURFACE, path: "/", value: { origin, destination, airline, price } } },
+      {
+        version: "v0.9",
+        createSurface: {
+          surfaceId: A2UI_FLIGHT_SURFACE,
+          catalogId: A2UI_CATALOG_ID,
+        },
+      },
+      {
+        version: "v0.9",
+        updateComponents: {
+          surfaceId: A2UI_FLIGHT_SURFACE,
+          components: FLIGHT_SCHEMA,
+        },
+      },
+      {
+        version: "v0.9",
+        updateDataModel: {
+          surfaceId: A2UI_FLIGHT_SURFACE,
+          path: "/",
+          value: { origin, destination, airline, price },
+        },
+      },
     ],
   });
 
@@ -126,7 +192,9 @@ export default defineToolPlugin({
       description: "Get the current weather for a location.",
       parameters: {
         type: "object",
-        properties: { location: { type: "string", description: "City or place name." } },
+        properties: {
+          location: { type: "string", description: "City or place name." },
+        },
         required: ["location"],
         additionalProperties: false,
       },
@@ -139,7 +207,10 @@ export default defineToolPlugin({
         type: "object",
         properties: {
           origin: { type: "string", description: "Origin city or airport." },
-          destination: { type: "string", description: "Destination city or airport." },
+          destination: {
+            type: "string",
+            description: "Destination city or airport.",
+          },
         },
         required: ["origin", "destination"],
         additionalProperties: false,
@@ -153,20 +224,32 @@ export default defineToolPlugin({
         type: "object",
         properties: {
           ticker: { type: "string", description: "Stock ticker symbol." },
-          price_usd: { type: "number", description: "Optional scripted price." },
-          change_pct: { type: "number", description: "Optional scripted daily change percent." },
+          price_usd: {
+            type: "number",
+            description: "Optional scripted price.",
+          },
+          change_pct: {
+            type: "number",
+            description: "Optional scripted daily change percent.",
+          },
         },
         required: ["ticker"],
         additionalProperties: false,
       },
-      execute: async (params) => stockData(params.ticker, params.price_usd, params.change_pct),
+      execute: async (params) =>
+        stockData(params.ticker, params.price_usd, params.change_pct),
     }),
     tool({
       name: "roll_d20",
       description: "Roll a 20-sided die.",
       parameters: {
         type: "object",
-        properties: { value: { type: "integer", description: "Optional scripted face (1-20)." } },
+        properties: {
+          value: {
+            type: "integer",
+            description: "Optional scripted face (1-20).",
+          },
+        },
         additionalProperties: false,
       },
       execute: async (params) => d20Data(params.value),
@@ -174,7 +257,11 @@ export default defineToolPlugin({
     tool({
       name: "get_revenue_chart",
       description: "Get the last six months of revenue as chart data.",
-      parameters: { type: "object", properties: {}, additionalProperties: false },
+      parameters: {
+        type: "object",
+        properties: {},
+        additionalProperties: false,
+      },
       execute: async () => revenueChartData(),
     }),
     tool({
@@ -185,7 +272,10 @@ export default defineToolPlugin({
       parameters: {
         type: "object",
         properties: {
-          query: { type: "string", description: "Natural-language description of the data." },
+          query: {
+            type: "string",
+            description: "Natural-language description of the data.",
+          },
         },
         required: ["query"],
         additionalProperties: false,
@@ -210,7 +300,8 @@ export default defineToolPlugin({
         required: ["origin", "destination", "airline", "price"],
         additionalProperties: false,
       },
-      execute: async (p) => displayFlightEnvelope(p.origin, p.destination, p.airline, p.price),
+      execute: async (p) =>
+        displayFlightEnvelope(p.origin, p.destination, p.airline, p.price),
     }),
   ],
 });

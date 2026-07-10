@@ -1,7 +1,7 @@
 # QA: Declarative JSON Render (OpenClaw)
 
 Demo source: `src/app/demos/declarative-json-render/page.tsx`
-Route: `/demos/declarative-json-render`  ·  Runtime: `/api/copilotkit-declarative-json-render`  ·  Agent: `byoc_json_render`
+Route: `/demos/declarative-json-render` · Runtime: `/api/copilotkit-declarative-json-render` · Agent: `byoc_json_render`
 
 > **Status: KNOWN GAP — not yet wired on the gateway.** This demo depends on a
 > rendering system prompt that instructs the model to emit a `@json-render/react`
@@ -33,7 +33,7 @@ Run against the real backend at `http://localhost:3119/demos/declarative-json-re
    appear: **Sales dashboard**, **Revenue by category**, **Expense trend**.
    No console errors.
 2. Click **Sales dashboard** (`"Show me the sales dashboard with metrics and a
-   revenue chart"`).
+revenue chart"`).
 3. Click **Revenue by category** (`"Break down revenue by category as a pie chart"`).
 4. Click **Expense trend** (`"Show me monthly expenses as a bar chart"`).
 5. Free-form: type `"Show me a metric for quarterly revenue"` and send.

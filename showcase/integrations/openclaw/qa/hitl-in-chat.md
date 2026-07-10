@@ -1,7 +1,7 @@
 # QA: Human in the Loop, in chat (OpenClaw)
 
 Demo source: `src/app/demos/hitl-in-chat/page.tsx`
-Route: `/demos/hitl-in-chat`  ·  Agent: `hitl-in-chat`
+Route: `/demos/hitl-in-chat` · Agent: `hitl-in-chat`
 Run against the real backend at `http://localhost:3119/demos/hitl-in-chat`.
 
 Status: **supported** (tool-based HITL, the fleet's `promise-based` pattern —
@@ -34,8 +34,8 @@ resumes once the user submits — that resolution is the tool result.
 1. Open the demo. Confirm the `CopilotChat` renders centered in a `max-w-4xl`
    container, and the two suggestion chips are visible: **Book a call with
    sales** and **Schedule a 1:1 with Alice**.
-2. Click the **Book a call with sales** chip (or type: *"Please book an intro
-   call with the sales team to discuss pricing."*).
+2. Click the **Book a call with sales** chip (or type: _"Please book an intro
+   call with the sales team to discuss pricing."_).
 3. Expect: the agent calls `book_call` and a **Book a call** card renders inline
    in the chat (`data-testid="time-picker-card"`) — a topic heading, an optional
    "With …" attendee line, and a 2-column grid of time slots.

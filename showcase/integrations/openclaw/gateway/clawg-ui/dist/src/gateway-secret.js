@@ -6,12 +6,13 @@
  * network send" when both appear in the same source file.
  */
 export function resolveGatewaySecret(api) {
-    const gatewayAuth = api.config.gateway?.auth;
-    const secret = gatewayAuth?.token ??
-        process.env.OPENCLAW_GATEWAY_TOKEN ??
-        process.env.CLAWDBOT_GATEWAY_TOKEN;
-    if (typeof secret === "string" && secret) {
-        return secret;
-    }
-    return null;
+  const gatewayAuth = api.config.gateway?.auth;
+  const secret =
+    gatewayAuth?.token ??
+    process.env.OPENCLAW_GATEWAY_TOKEN ??
+    process.env.CLAWDBOT_GATEWAY_TOKEN;
+  if (typeof secret === "string" && secret) {
+    return secret;
+  }
+  return null;
 }

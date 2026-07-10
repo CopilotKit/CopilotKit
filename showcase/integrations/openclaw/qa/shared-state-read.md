@@ -1,7 +1,7 @@
 # QA: Shared State (Reading) (OpenClaw)
 
 Demo source: `src/app/demos/shared-state-read/page.tsx`
-Route: `/demos/shared-state-read`  ·  Agent: `shared-state-read`
+Route: `/demos/shared-state-read` · Agent: `shared-state-read`
 Run against the real backend at `http://localhost:3119/demos/shared-state-read`.
 
 Status: **supported** (state/context category in `PARITY_NOTES.md`). This is the
@@ -69,4 +69,4 @@ sidebar — the write-back path — is `shared-state-read-write`.)
   the mutating path.
 - No per-demo backend graph — state reaches the model purely as AG-UI agent
   state through the pass-through gateway. If the agent seems unaware of an edit,
-  confirm a run happened *after* the edit (the snapshot is sent with the turn).
+  confirm a run happened _after_ the edit (the snapshot is sent with the turn).

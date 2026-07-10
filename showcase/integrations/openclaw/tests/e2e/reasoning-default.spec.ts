@@ -43,9 +43,9 @@ test.describe("Reasoning: Default", () => {
     // signal is the header label ("Thinking…" while streaming, "Thought for …"
     // once complete). Either proves the reasoning collapsible mounted, which
     // only happens because the fixture returned a `reasoning` field.
-    await expect(
-      page.getByText(/Thinking…|Thought for/i).first(),
-    ).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText(/Thinking…|Thought for/i).first()).toBeVisible({
+      timeout: 60_000,
+    });
 
     // The assistant message renders and carries the fixture-specific answer
     // text, proving the aimock fixture (not a live model) drove the run.

@@ -13,58 +13,59 @@
  * Returns the tool when a sessionKey is present (i.e. within an AG-UI
  * request), or `null` otherwise.
  */
-export declare function cronReportToolFactory(ctx: {
-    sessionKey?: string;
-}): {
-    name: string;
-    label: string;
-    description: string;
-    parameters: {
-        type: "object";
-        properties: {
-            runs: {
-                type: "array";
-                items: {
-                    type: "object";
-                    properties: {
-                        id: {
-                            type: "string";
-                            description: string;
-                        };
-                        startedAt: {
-                            type: "string";
-                            description: string;
-                        };
-                        duration: {
-                            type: "string";
-                            description: string;
-                        };
-                        model: {
-                            type: "string";
-                            description: string;
-                        };
-                        tokensUsed: {
-                            type: "string";
-                            description: string;
-                        };
-                        summary: {
-                            type: "string";
-                            description: string;
-                        };
-                    };
-                    required: string[];
-                };
+export declare function cronReportToolFactory(ctx: { sessionKey?: string }): {
+  name: string;
+  label: string;
+  description: string;
+  parameters: {
+    type: "object";
+    properties: {
+      runs: {
+        type: "array";
+        items: {
+          type: "object";
+          properties: {
+            id: {
+              type: "string";
+              description: string;
             };
+            startedAt: {
+              type: "string";
+              description: string;
+            };
+            duration: {
+              type: "string";
+              description: string;
+            };
+            model: {
+              type: "string";
+              description: string;
+            };
+            tokensUsed: {
+              type: "string";
+              description: string;
+            };
+            summary: {
+              type: "string";
+              description: string;
+            };
+          };
+          required: string[];
         };
-        required: string[];
+      };
     };
-    execute(_toolCallId: string, args: unknown): Promise<{
-        content: {
-            type: "text";
-            text: string;
-        }[];
-        details: {
-            a2ui: boolean;
-        };
-    }>;
+    required: string[];
+  };
+  execute(
+    _toolCallId: string,
+    args: unknown,
+  ): Promise<{
+    content: {
+      type: "text";
+      text: string;
+    }[];
+    details: {
+      a2ui: boolean;
+    };
+  }>;
 } | null;

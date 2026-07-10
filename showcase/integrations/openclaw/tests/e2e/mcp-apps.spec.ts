@@ -86,9 +86,7 @@ test.describe("MCP Apps (Excalidraw activity iframe)", () => {
   test.skip("Sketch-a-system-diagram pill renders a sandboxed activity iframe", async ({
     page,
   }) => {
-    await page
-      .getByRole("button", { name: "Sketch a system diagram" })
-      .click();
+    await page.getByRole("button", { name: "Sketch a system diagram" }).click();
 
     const iframe = page.locator("iframe[sandbox]").first();
     await expect(iframe).toBeVisible({ timeout: 90_000 });

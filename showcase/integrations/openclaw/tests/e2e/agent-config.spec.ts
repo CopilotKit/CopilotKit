@@ -39,7 +39,9 @@ test.describe("Agent Config", () => {
       "expert",
     );
 
-    await page.getByTestId("agent-config-length-select").selectOption("detailed");
+    await page
+      .getByTestId("agent-config-length-select")
+      .selectOption("detailed");
     await expect(page.getByTestId("agent-config-length-select")).toHaveValue(
       "detailed",
     );

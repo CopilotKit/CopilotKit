@@ -1,7 +1,7 @@
 # QA: Sub-Agents (OpenClaw)
 
 Demo source: `src/app/demos/subagents/page.tsx`
-Route: `/demos/subagents`  ·  Agent: `subagents`  ·  Runtime: `/api/copilotkit-subagents`
+Route: `/demos/subagents` · Agent: `subagents` · Runtime: `/api/copilotkit-subagents`
 Run against the real backend at `http://localhost:3119/demos/subagents`.
 
 Status: **known gap** (Bucket-B). The frontend ships, but OpenClaw does not
@@ -63,7 +63,7 @@ forwarded for this demo and no supervisor loop to emit `STATE_SNAPSHOT`s.
 - The delegation log does **not** populate. `data-testid="delegation-count"`
   reads `0 calls`; there are no `data-testid="delegation-entry"` nodes. This is
   the expected failure for the gap, not a regression to file.
-- If any sub-agent tool *does* get called, its in-chat `SubAgentActivityCard`
+- If any sub-agent tool _does_ get called, its in-chat `SubAgentActivityCard`
   renders (the `useRenderTool` renderers work), but state-backed delegation still
   won't appear in the left pane.
 

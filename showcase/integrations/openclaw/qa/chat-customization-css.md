@@ -1,7 +1,7 @@
 # QA: Chat Customization (CSS) (OpenClaw)
 
 Demo source: `src/app/demos/chat-customization-css/page.tsx` (+ `theme.css`)
-Route: `/demos/chat-customization-css`  ·  Agent: `chat-customization-css`
+Route: `/demos/chat-customization-css` · Agent: `chat-customization-css`
 
 ## What it exercises
 

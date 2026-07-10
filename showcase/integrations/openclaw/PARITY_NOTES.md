@@ -57,7 +57,7 @@ The showcase ships the full demo set. Support by category:
   fleet path**, not anything OpenClaw-specific: the runtime `render_a2ui` tool is
   forwarded to the model, its calls are relayed through AG-UI, and the frontend
   `@copilotkit/a2ui-renderer` catalog renders the surface — exactly how every
-  other integration does A2UI. Note: OpenClaw *also* has a **native** A2UI system
+  other integration does A2UI. Note: OpenClaw _also_ has a **native** A2UI system
   (its own `a2ui_push` / `a2ui_reset` tools + hosted `/__openclaw__/a2ui` canvas),
   which the showcase demos do **not** use. Wiring that native surface through
   clawg-ui is a possible future differentiator (OpenClaw would drive A2UI
@@ -96,7 +96,7 @@ the same proven mechanisms but have not each been individually e2e-checked.
   `src/llm/providers/openai-responses.ts` + `openai-responses-shared.ts`). With
   `"auto"` the model itself decides whether to emit a summary. The
   langgraph-python reference instead forces `reasoning={"effort":"medium",
-  "summary":"detailed"}` in its agent (`src/agents/reasoning_agent.py`), so its
+"summary":"detailed"}` in its agent (`src/agents/reasoning_agent.py`), so its
   panel appears on every turn. Matching that would mean changing the summary
   mode **inside OpenClaw core** — the decision is made before clawg-ui sees any
   event, and we edit only clawg-ui here, so it's out of scope. `"auto"` is a

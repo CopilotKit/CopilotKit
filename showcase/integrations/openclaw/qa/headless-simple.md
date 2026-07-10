@@ -1,7 +1,7 @@
 # QA: Headless Chat — Simple (OpenClaw)
 
 Demo source: `src/app/demos/headless-simple/page.tsx` (+ `chat.tsx`)
-Route: `/demos/headless-simple`  ·  Agent: `headless-simple`
+Route: `/demos/headless-simple` · Agent: `headless-simple`
 Local: http://localhost:3119/demos/headless-simple
 
 ## What it exercises

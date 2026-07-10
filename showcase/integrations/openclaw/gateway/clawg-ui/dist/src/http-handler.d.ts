@@ -1,10 +1,12 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 export declare function parseDataUri(value: string): {
-    data: string;
-    mimeType: string;
+  data: string;
+  mimeType: string;
 } | null;
-export declare function createAguiHttpHandler(api: OpenClawPluginApi): (req: IncomingMessage, res: ServerResponse) => Promise<void>;
+export declare function createAguiHttpHandler(
+  api: OpenClawPluginApi,
+): (req: IncomingMessage, res: ServerResponse) => Promise<void>;
 /**
  * Factory for the operator-auth AG-UI route.
  *
@@ -17,4 +19,6 @@ export declare function createAguiHttpHandler(api: OpenClawPluginApi): (req: Inc
  * that already hold an OpenClaw gateway token via `ExtensionTabContext` and
  * should not need a second pairing flow.
  */
-export declare function createOperatorAguiHttpHandler(api: OpenClawPluginApi): (req: IncomingMessage, res: ServerResponse) => Promise<void>;
+export declare function createOperatorAguiHttpHandler(
+  api: OpenClawPluginApi,
+): (req: IncomingMessage, res: ServerResponse) => Promise<void>;

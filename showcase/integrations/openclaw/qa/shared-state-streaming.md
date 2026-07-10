@@ -1,7 +1,7 @@
 # QA: State Streaming (OpenClaw)
 
 Demo source: `src/app/demos/shared-state-streaming/page.tsx`
-Route: `/demos/shared-state-streaming`  ·  Agent: `shared-state-streaming`
+Route: `/demos/shared-state-streaming` · Agent: `shared-state-streaming`
 Run against the real backend at `http://localhost:3119/demos/shared-state-streaming`.
 
 Status: **not supported** — listed in `manifest.yaml` `not_supported_features`
@@ -56,6 +56,6 @@ Do not treat a filled chat transcript as the demo passing — the assertion is t
 - If OpenClaw ever grows a per-token argument-delta → state hook (analogous to
   `StateStreamingMiddleware`), this demo would light up unchanged — the frontend
   already subscribes via `useAgent({ updates: [OnStateChanged,
-  OnRunStatusChanged] })`. Until then it stays honestly marked not-supported.
-- For shared state that *does* work on OpenClaw, see `qa/shared-state-read.md`
+OnRunStatusChanged] })`. Until then it stays honestly marked not-supported.
+- For shared state that _does_ work on OpenClaw, see `qa/shared-state-read.md`
   and the read/write demo (snapshot-on-completion via `stateWriterTools`).

@@ -1,7 +1,7 @@
 # QA: Declarative Generative UI (A2UI — Dynamic Schema) (OpenClaw)
 
 Demo source: `src/app/demos/declarative-gen-ui/page.tsx`
-Route: `/demos/declarative-gen-ui`  ·  Agent: `declarative-gen-ui`
+Route: `/demos/declarative-gen-ui` · Agent: `declarative-gen-ui`
 Runtime: `/api/copilotkit-declarative-gen-ui`
 
 ## What it exercises
@@ -65,7 +65,7 @@ generic markup, no testid).
 ## Known caveats
 
 - **Ungrounded data** — there is no fixed dataset; the model fabricates
-  plausible numbers/labels. Assert on *component type and structure*, not exact
+  plausible numbers/labels. Assert on _component type and structure_, not exact
   values. Different runs will show different figures.
 - **Stateless gateway** — behaviour comes from the frontend catalog + runtime
   middleware, not a backend graph; the `page.tsx` header comment about a Python

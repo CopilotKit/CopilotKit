@@ -1,7 +1,7 @@
 # QA: Pre-Built Popup (OpenClaw)
 
 Demo source: `src/app/demos/prebuilt-popup/page.tsx`
-Route: `/demos/prebuilt-popup`  ·  Agent: `prebuilt-popup`
+Route: `/demos/prebuilt-popup` · Agent: `prebuilt-popup`
 Run against the real backend at `http://localhost:3119/demos/prebuilt-popup`.
 
 Status: **supported** (chat / presentation — see `PARITY_NOTES.md`).

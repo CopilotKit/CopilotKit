@@ -1,7 +1,7 @@
 # QA: Headless Chat (Complete) (OpenClaw)
 
 Demo source: `src/app/demos/headless-complete/page.tsx` (+ `chat/`, `hooks/`, `tools/`, `attachments/`)
-Route: `/demos/headless-complete`  ·  Agent: `headless-complete`  ·  Runtime: `/api/copilotkit-headless-complete`
+Route: `/demos/headless-complete` · Agent: `headless-complete` · Runtime: `/api/copilotkit-headless-complete`
 
 ## What it exercises
 

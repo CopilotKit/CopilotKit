@@ -1,7 +1,7 @@
 # QA: Frontend Tools — Async (OpenClaw)
 
 Demo source: `src/app/demos/frontend-tools-async/page.tsx`
-Route: `/demos/frontend-tools-async`  ·  Agent: `frontend-tools-async`
+Route: `/demos/frontend-tools-async` · Agent: `frontend-tools-async`
 
 ## What it exercises
 

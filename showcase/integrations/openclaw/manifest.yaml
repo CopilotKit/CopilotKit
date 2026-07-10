@@ -214,7 +214,8 @@ demos:
       - src/app/api/copilotkit/route.ts
   - id: frontend-tools-async
     name: "Frontend Tools: Async"
-    description: useFrontendTool with an async handler — agent awaits a client-side
+    description:
+      useFrontendTool with an async handler — agent awaits a client-side
       async operation (simulated notes DB query) and uses the returned result
     tags:
       - interactivity
@@ -238,7 +239,8 @@ demos:
       - src/app/api/copilotkit/route.ts
   - id: hitl-in-app
     name: "Human in the Loop: In-app"
-    description: Agent requests approval via useFrontendTool with an async handler;
+    description:
+      Agent requests approval via useFrontendTool with an async handler;
       the approval UI pops up as an app-level modal OUTSIDE the chat, and a
       completion callback resolves the pending tool Promise with the user's
       decision
@@ -264,7 +266,8 @@ demos:
       - src/app/api/copilotkit/route.ts
   - id: declarative-gen-ui
     name: "Declarative UI: Dynamic A2UI"
-    description: Canonical A2UI BYOC — custom catalog wired via a2ui.catalog on the
+    description:
+      Canonical A2UI BYOC — custom catalog wired via a2ui.catalog on the
       provider; runtime injects the render_a2ui tool automatically
     tags:
       - generative-ui
@@ -330,7 +333,8 @@ demos:
       - src/app/api/copilotkit-shared-state-read-write/route.ts
   - id: subagents
     name: Sub-Agents
-    description: Supervisor delegates to research / writing / critique sub-agents
+    description:
+      Supervisor delegates to research / writing / critique sub-agents
       (each a single secondary Anthropic Messages call); every delegation
       appears in a live log via shared state
     tags:
@@ -366,7 +370,8 @@ demos:
       - src/app/api/copilotkit-ogui/route.ts
   - id: open-gen-ui-advanced
     name: "Open Generative UI: Custom"
-    description: Agent-authored UI that can invoke frontend sandbox functions from
+    description:
+      Agent-authored UI that can invoke frontend sandbox functions from
       inside the iframe
     tags:
       - generative-ui
@@ -380,7 +385,8 @@ demos:
       - src/app/api/copilotkit-ogui/route.ts
   - id: declarative-json-render
     name: "Declarative UI: json-render"
-    description: Declarative generative UI via @json-render/react — Claude emits a
+    description:
+      Declarative generative UI via @json-render/react — Claude emits a
       flat element-tree spec the renderer consumes
     tags:
       - generative-ui
@@ -408,7 +414,8 @@ demos:
       - src/app/api/copilotkit-declarative-hashbrown/route.ts
   - id: mcp-apps
     name: MCP Apps
-    description: MCP server-driven UI via activity renderers — runtime auto-applies
+    description:
+      MCP server-driven UI via activity renderers — runtime auto-applies
       the MCP Apps middleware and the built-in MCPAppsActivityRenderer paints
       sandboxed iframes inline in the chat
     tags:
@@ -444,7 +451,8 @@ demos:
       - src/app/api/copilotkit-voice/[[...slug]]/route.ts
   - id: agent-config
     name: Agent Config Object
-    description: forwardedProps route provider-configured tone/expertise/length into
+    description:
+      forwardedProps route provider-configured tone/expertise/length into
       the Claude system prompt per turn
     tags:
       - platform
@@ -471,7 +479,8 @@ demos:
       - src/app/api/copilotkit-auth/[[...slug]]/route.ts
   - id: tool-rendering-default-catchall
     name: "Generative UI: Tool Rendering (Default)"
-    description: Zero-config wildcard renderer via useDefaultRenderTool — built-in
+    description:
+      Zero-config wildcard renderer via useDefaultRenderTool — built-in
       tool-call card paints every tool
     tags:
       - generative-ui
@@ -535,7 +544,8 @@ demos:
       - src/app/api/copilotkit-reasoning/route.ts
   - id: beautiful-chat
     name: Beautiful Chat
-    description: Polished brand-themed chat surface over the shared Claude SDK agent
+    description:
+      Polished brand-themed chat surface over the shared Claude SDK agent
       with seeded suggestion pills
     tags:
       - chat-ui
@@ -546,7 +556,8 @@ demos:
       - src/app/api/copilotkit/route.ts
   - id: hitl-in-chat
     name: "Human In the Loop: In-chat"
-    description: Interactive approval/decision surface rendered inline in the chat
+    description:
+      Interactive approval/decision surface rendered inline in the chat
       via the high-level `useHumanInTheLoop` hook
     tags:
       - interactivity
@@ -569,7 +580,8 @@ demos:
       - src/app/api/copilotkit/route.ts
   - id: gen-ui-interrupt
     name: "Human in the Loop: Interrupts"
-    description: Interactive time-picker component rendered inline in the chat via
+    description:
+      Interactive time-picker component rendered inline in the chat via
       useFrontendTool with an async handler — the Promise resolves only when the
       user picks a slot or cancels
     tags:
@@ -596,7 +608,8 @@ demos:
       - src/app/api/copilotkit/route.ts
   - id: headless-complete
     name: "Headless UI: Complete"
-    description: Full custom chat surface built on `useAgent` — exercises the full
+    description:
+      Full custom chat surface built on `useAgent` — exercises the full
       rendering stack (text, per-tool renderers, frontend components) with
       backend get_weather / get_stock_price tools and a frontend highlight_note
       tool

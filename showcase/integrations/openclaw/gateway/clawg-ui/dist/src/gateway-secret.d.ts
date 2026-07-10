@@ -6,4 +6,6 @@ import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
  * `process.env` references — plugin security scanners flag "env access +
  * network send" when both appear in the same source file.
  */
-export declare function resolveGatewaySecret(api: OpenClawPluginApi): string | null;
+export declare function resolveGatewaySecret(
+  api: OpenClawPluginApi,
+): string | null;

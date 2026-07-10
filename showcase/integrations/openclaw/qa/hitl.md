@@ -1,7 +1,7 @@
 # QA: Human in the Loop (OpenClaw)
 
 Demo source: `src/app/demos/hitl/page.tsx`
-Route: `/demos/hitl`  ·  Agent: `human_in_the_loop`
+Route: `/demos/hitl` · Agent: `human_in_the_loop`
 Run against the real backend at `http://localhost:3119/demos/hitl`.
 
 Status: **supported** via the tool-based (`promise`/`respond()`) HITL pattern —

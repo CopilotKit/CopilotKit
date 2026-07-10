@@ -1,7 +1,7 @@
 # QA: Reasoning (Default) — OpenClaw
 
 Demo source: `src/app/demos/reasoning-default/page.tsx`
-Route: `/demos/reasoning-default`  ·  Agent: `reasoning-default`
+Route: `/demos/reasoning-default` · Agent: `reasoning-default`
 Runtime: `/api/copilotkit-reasoning`
 Run against the real backend at `http://localhost:3119/demos/reasoning-default`.
 

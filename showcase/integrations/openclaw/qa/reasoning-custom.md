@@ -1,7 +1,7 @@
 # QA: Reasoning — Custom (OpenClaw)
 
 Demo source: `src/app/demos/reasoning-custom/page.tsx`
-Route: `/demos/reasoning-custom`  ·  Agent: `reasoning-custom`
+Route: `/demos/reasoning-custom` · Agent: `reasoning-custom`
 Runtime: `/api/copilotkit-reasoning`
 Run against the real backend at `http://localhost:3119/demos/reasoning-custom`.
 
@@ -38,8 +38,8 @@ pure-frontend concern driven by those relayed events.
 
 1. Open the demo. Confirm the `CopilotChat` renders and a **Show reasoning**
    suggestion chip is offered.
-2. Click **Show reasoning** (or type): *"Explain step by step why the sky
-   appears blue during the day but red at sunset."*
+2. Click **Show reasoning** (or type): _"Explain step by step why the sky
+   appears blue during the day but red at sunset."_
 3. Expect: while the run is active, a **Reasoning** banner appears with the
    label **"Thinking…"**, then fills with the agent's reasoning content (italic,
    pre-wrapped). After reasoning completes it reads **"Agent reasoning"**.

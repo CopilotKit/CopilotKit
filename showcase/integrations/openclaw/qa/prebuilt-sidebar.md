@@ -1,7 +1,7 @@
 # QA: Pre-Built Sidebar (OpenClaw)
 
 Demo source: `src/app/demos/prebuilt-sidebar/page.tsx`
-Route: `/demos/prebuilt-sidebar`  ·  Agent: `prebuilt-sidebar`
+Route: `/demos/prebuilt-sidebar` · Agent: `prebuilt-sidebar`
 Run against the real backend at `http://localhost:3119/demos/prebuilt-sidebar`.
 
 Status: **supported** (chat / presentation, pass-through). Every demo agent

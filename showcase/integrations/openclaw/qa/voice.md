@@ -1,7 +1,7 @@
 # QA: Voice Input (OpenClaw)
 
 Demo source: `src/app/demos/voice/page.tsx` (+ `voice-chat.tsx`, `sample-audio-button.tsx`)
-Route: `/demos/voice`  ·  Agent: `voice-demo`
+Route: `/demos/voice` · Agent: `voice-demo`
 Runtime: `/api/copilotkit-voice` (dedicated V2 runtime, `useSingleEndpoint={false}`)
 Run against the real backend at `http://localhost:3119/demos/voice`.
 
@@ -28,7 +28,7 @@ page:
 
 The chat itself is the standard pass-through path: once a message is sent, it
 runs against the single OpenClaw gateway endpoint like every other demo. Voice
-only governs how text *gets into* the composer.
+only governs how text _gets into_ the composer.
 
 ## Prerequisites
 
@@ -48,7 +48,7 @@ only governs how text *gets into* the composer.
    `/api/copilotkit-voice` (the button only renders when `/info` reports
    `audioFileTranscriptionEnabled: true`).
 3. **Sample path (no mic):** click **"Try a sample audio"**. Confirm the
-   composer textarea (`data-testid="copilot-chat-textarea"`) is *immediately*
+   composer textarea (`data-testid="copilot-chat-textarea"`) is _immediately_
    populated with `"What is the weather in Tokyo?"` — no async delay, no
    "Transcribing…" state.
 4. Send the message. Within ~10s the agent responds coherently about the weather

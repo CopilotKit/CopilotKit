@@ -21,13 +21,19 @@ export declare function extractToolResultText(content: unknown): string;
  * Supports the v0.9 wrapper format: `{ "a2ui_operations": [...] }`
  * Returns the operations array, or `null` if not valid A2UI JSON.
  */
-export declare function tryParseA2UIOperations(text: string): Array<Record<string, unknown>> | null;
+export declare function tryParseA2UIOperations(
+  text: string,
+): Array<Record<string, unknown>> | null;
 /**
  * Extract `surfaceId` from a single A2UI v0.9 operation.
  */
-export declare function getOperationSurfaceId(op: Record<string, unknown>): string | null;
+export declare function getOperationSurfaceId(
+  op: Record<string, unknown>,
+): string | null;
 /**
  * Group operations by `surfaceId`.  Operations without a surfaceId are
  * placed under the key `"default"`.
  */
-export declare function groupBySurface(ops: Array<Record<string, unknown>>): Map<string, Array<Record<string, unknown>>>;
+export declare function groupBySurface(
+  ops: Array<Record<string, unknown>>,
+): Map<string, Array<Record<string, unknown>>>;

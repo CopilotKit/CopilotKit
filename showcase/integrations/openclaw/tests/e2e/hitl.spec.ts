@@ -41,9 +41,7 @@ test.describe("HITL — task-steps review flow", () => {
     expect(await steps.count()).toBeGreaterThan(0);
 
     // The decision surface (Confirm/Reject) is present.
-    await expect(
-      page.locator('[data-testid="confirm-steps"]'),
-    ).toBeVisible();
+    await expect(page.locator('[data-testid="confirm-steps"]')).toBeVisible();
   });
 
   test("confirming the steps resolves the HITL and shows a decision badge", async ({
@@ -58,9 +56,9 @@ test.describe("HITL — task-steps review flow", () => {
     await confirm.click();
 
     // The decision badge replaces the Confirm/Reject controls.
-    await expect(
-      page.locator('[data-testid="steps-decision"]'),
-    ).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('[data-testid="steps-decision"]')).toBeVisible({
+      timeout: 10000,
+    });
 
     // The terminator fixture returns the agent's acknowledgement text.
     await expect(

@@ -31,7 +31,11 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     integration: "openclaw",
     uptime: `${Math.floor(uptime / 60)}m ${Math.floor(uptime % 60)}s`,
-    gateway: { url: GATEWAY_HEALTH_URL, status: agentStatus, detail: agentDetail },
+    gateway: {
+      url: GATEWAY_HEALTH_URL,
+      status: agentStatus,
+      detail: agentDetail,
+    },
     memory: {
       rss: `${Math.round(mem.rss / 1024 / 1024)}MB`,
       heapUsed: `${Math.round(mem.heapUsed / 1024 / 1024)}MB`,

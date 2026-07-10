@@ -1,13 +1,13 @@
 # QA: Tool Rendering — Reasoning Chain (OpenClaw)
 
 Demo source: `src/app/demos/tool-rendering-reasoning-chain/page.tsx`
-Route: `/demos/tool-rendering-reasoning-chain`  ·  Agent: `tool-rendering-reasoning-chain`
+Route: `/demos/tool-rendering-reasoning-chain` · Agent: `tool-rendering-reasoning-chain`
 Runtime: `/api/copilotkit-reasoning` (shared with `reasoning-default` / `reasoning-custom`).
 Run against the real backend at `http://localhost:3119/demos/tool-rendering-reasoning-chain`.
 
 Status: **supported with a known gap** — the individual pieces (custom
 reasoning slot, per-tool renderers, wildcard catch-all) all work, but
-reasoning co-emitted *inside the same turn* as a tool call depends on
+reasoning co-emitted _inside the same turn_ as a tool call depends on
 additional clawg-ui support that is not yet wired (see Caveats and
 `PARITY_NOTES.md`).
 
@@ -42,13 +42,13 @@ frontend + gateway relay.
 1. Open the demo. Confirm the chat renders and three suggestion chips appear:
    **Compare two stocks**, **Chain of dice rolls**, **Flights + destination
    weather**.
-2. Click **Compare two stocks** (or ask: *"Compare AAPL and MSFT stocks for
-   me."*). Expect a sequence of `get_stock_price` tool calls, each rendered by
+2. Click **Compare two stocks** (or ask: _"Compare AAPL and MSFT stocks for
+   me."_). Expect a sequence of `get_stock_price` tool calls, each rendered by
    the **catch-all card** (`data-testid="custom-catchall-card"`) showing the
    tool name, arguments, a status badge (streaming → running → done), and the
    result JSON.
-3. Click **Flights + destination weather** (or ask: *"Find flights from SFO to
-   JFK and show me the weather there."*). Expect:
+3. Click **Flights + destination weather** (or ask: _"Find flights from SFO to
+   JFK and show me the weather there."_). Expect:
    - a `search_flights` call rendered by the **FlightListCard**
      (`data-testid="flight-list-card"`) — origin → destination header and a
      list of flight rows;

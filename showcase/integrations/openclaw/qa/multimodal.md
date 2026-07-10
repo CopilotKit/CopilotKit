@@ -1,7 +1,7 @@
 # QA: Multimodal Attachments (OpenClaw)
 
 Demo source: `src/app/demos/multimodal/page.tsx`
-Route: `/demos/multimodal`  ·  Agent: `multimodal-demo`  ·  Runtime: `/api/copilotkit-multimodal`
+Route: `/demos/multimodal` · Agent: `multimodal-demo` · Runtime: `/api/copilotkit-multimodal`
 Run against the real backend at `http://localhost:3119/demos/multimodal`.
 
 Status: **supported**, and verified end-to-end at the gateway level (a solid-red

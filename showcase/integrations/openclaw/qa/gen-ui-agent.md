@@ -1,7 +1,7 @@
 # QA: Agentic Generative UI (OpenClaw)
 
 Demo source: `src/app/demos/gen-ui-agent/page.tsx`
-Route: `/demos/gen-ui-agent`  ·  Agent: `gen-ui-agent`
+Route: `/demos/gen-ui-agent` · Agent: `gen-ui-agent`
 
 ## What it exercises
 

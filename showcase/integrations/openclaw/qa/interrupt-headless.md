@@ -1,7 +1,7 @@
 # QA: Headless Interrupt (OpenClaw)
 
 Demo source: `src/app/demos/interrupt-headless/page.tsx`
-Route: `/demos/interrupt-headless`  ·  Agent: `interrupt-headless`
+Route: `/demos/interrupt-headless` · Agent: `interrupt-headless`
 Run against the real backend at `http://localhost:3119/demos/interrupt-headless`.
 
 Status: **not supported** on OpenClaw (intentional, fleet-normal). Listed under

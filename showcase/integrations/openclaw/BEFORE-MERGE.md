@@ -9,7 +9,7 @@ Owner: @markus · Last updated: 2026-07-08
 
 ---
 
-## 1. Publish `clawg-ui` and de-vendor it  — **BLOCKER**
+## 1. Publish `clawg-ui` and de-vendor it — **BLOCKER**
 
 The plugin source lives in a fork: `@contextableai/clawg-ui@0.7.0`
 (github.com/contextable/clawg-ui, branch `rd-53-showcase-fork`). It is **not
@@ -26,6 +26,7 @@ installs that build into the gateway.
   (because `plugins install` doesn't always bring deps).
 
 **To undo:** publish the fork (or merge it upstream into OpenClaw), then:
+
 - [ ] delete `gateway/clawg-ui/` entirely
 - [ ] in `setup.sh`, replace the vendored install with a versioned install
       (`openclaw plugins install @contextableai/clawg-ui@<version>`) or a normal
@@ -43,11 +44,11 @@ installs that build into the gateway.
 `src/lib/openclaw-agent.ts` defines a **local placeholder** client class:
 
 ```ts
-class OpenClawAgent extends HttpAgent {}   // zero added logic
+class OpenClawAgent extends HttpAgent {} // zero added logic
 ```
 
 Provenance: authored by Lukas directly in this showcase (commit `548047e40`,
-2026-07-05, *"route openclaw through an OpenClawAgent client class"*). It is
+2026-07-05, _"route openclaw through an OpenClawAgent client class"_). It is
 **not** an installed package — `@ag-ui/openclaw` is unpublished (npm 404) and no
 `integrations/openclaw` exists on any `ag-ui-protocol/ag-ui` branch or the
 Contextable forks. The file's own comment says it's a mirror to be deleted "once
@@ -57,6 +58,7 @@ The intended shape follows the real `@ag-ui/<framework>` convention (e.g.
 `@ag-ui/mastra` is a published integration package the showcase already uses).
 
 **To do:**
+
 - [ ] Create `integrations/openclaw` in `ag-ui-protocol/ag-ui` exporting
       `OpenClawAgent` (publish as `@ag-ui/openclaw`), mirroring `@ag-ui/mastra`.
       Carry over the operator-route URL + bearer-token wiring currently in
@@ -118,7 +120,7 @@ MaybePromise<NonEmptyRecord<...>> ...; fixed in source, pending release`
 
 ---
 
-## 6. Re-evaluate the excluded demos under Option B  — **important**
+## 6. Re-evaluate the excluded demos under Option B — **important**
 
 `manifest.yaml` `not_supported_features` excludes a set of demos (tool-rendering
 cluster, `gen-ui-tool-based`, `frontend-tools-async`, `a2ui-dynamic-schema`,

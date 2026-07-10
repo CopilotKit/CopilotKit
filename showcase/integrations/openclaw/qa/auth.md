@@ -1,7 +1,7 @@
 # QA: Authentication (OpenClaw)
 
 Demo source: `src/app/demos/auth/page.tsx`
-Route: `/demos/auth`  ·  Agent: `auth-demo`  ·  Runtime: `/api/copilotkit-auth`
+Route: `/demos/auth` · Agent: `auth-demo` · Runtime: `/api/copilotkit-auth`
 
 ## What it exercises
 
@@ -12,7 +12,7 @@ agent unless it exactly matches `Bearer demo-token-123` (`DEMO_TOKEN`). This is
 a **frontend + runtime** demo — the gate lives in the Next.js route, so it has
 **no clawg-ui gateway dependency**. The `auth-demo` agent behind the gate is the
 same stateless OpenClaw gateway agent every other demo proxies to; auth is about
-whether the request is *allowed through*, not about any per-demo backend.
+whether the request is _allowed through_, not about any per-demo backend.
 
 UX shape (differs from the Hermes/LangGraph reference): the demo defaults to
 **unauthenticated on first paint** so a fresh visitor lands on a sign-in card.

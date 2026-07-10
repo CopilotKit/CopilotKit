@@ -1,7 +1,7 @@
 # QA: Declarative UI — Hashbrown (OpenClaw)
 
 Demo source: `src/app/demos/declarative-hashbrown/page.tsx`
-Route: `/demos/declarative-hashbrown`  ·  Agent: `declarative-hashbrown-demo`
+Route: `/demos/declarative-hashbrown` · Agent: `declarative-hashbrown-demo`
 Runtime: `/api/copilotkit-declarative-hashbrown` (dedicated route)
 
 ## Status: KNOWN GAP — not reliably supported
@@ -49,7 +49,7 @@ model.
 - Multi-turn works — a follow-up render appears alongside prior renders without
   clearing them.
 - No uncaught errors; no `HashBrownRenderMessage must be used within
-  HashBrownDashboard`.
+HashBrownDashboard`.
 
 ## Caveats
 

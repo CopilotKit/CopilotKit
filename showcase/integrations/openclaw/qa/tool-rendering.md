@@ -1,7 +1,7 @@
 # QA: Tool Rendering (OpenClaw)
 
 Demo source: `src/app/demos/tool-rendering/page.tsx`
-Route: `/demos/tool-rendering`  ·  Agent: `tool-rendering`
+Route: `/demos/tool-rendering` · Agent: `tool-rendering`
 Run against the real backend at `http://localhost:3119/demos/tool-rendering`.
 
 Status: **supported** (in `manifest.yaml`), on the same forwarded-tools + event
@@ -15,13 +15,13 @@ registers four **render-only** tool renderers with `useRenderTool` — no handle
 just a `render(props)` keyed on `{ parameters, result, status }` — plus a
 wildcard catch-all via `useDefaultRenderTool`:
 
-| Tool              | Renderer                     | Card testid              |
-| ----------------- | ---------------------------- | ------------------------ |
-| `get_weather`     | `WeatherCard`                | `weather-card`           |
-| `search_flights`  | `FlightListCard`             | `flights-card`           |
-| `get_stock_price` | `StockCard`                  | `stock-card`             |
-| `roll_d20`        | `D20Card`                    | `d20-card`               |
-| `*` (anything)    | `CustomCatchallRenderer`     | `custom-catchall-card`   |
+| Tool              | Renderer                 | Card testid            |
+| ----------------- | ------------------------ | ---------------------- |
+| `get_weather`     | `WeatherCard`            | `weather-card`         |
+| `search_flights`  | `FlightListCard`         | `flights-card`         |
+| `get_stock_price` | `StockCard`              | `stock-card`           |
+| `roll_d20`        | `D20Card`                | `d20-card`             |
+| `*` (anything)    | `CustomCatchallRenderer` | `custom-catchall-card` |
 
 Unlike frontend-tools, these are **not** `useFrontendTool` tools — there is no
 browser-side handler. In the canonical LangGraph reference they are

@@ -24,7 +24,10 @@
 
 import React from "react";
 import { z } from "zod";
-import { useDefaultRenderTool, useFrontendTool } from "@copilotkit/react-core/v2";
+import {
+  useDefaultRenderTool,
+  useFrontendTool,
+} from "@copilotkit/react-core/v2";
 import { ChartCard, type ChartPoint } from "../tools/chart-card";
 import { GenericToolCard } from "../tools/generic-tool-card";
 import { StockCard } from "../tools/stock-card";
@@ -44,7 +47,10 @@ function mockWeather(location: string) {
 }
 
 function mockStock(ticker: string) {
-  const seed = [...ticker.toUpperCase()].reduce((n, c) => n + c.charCodeAt(0), 0);
+  const seed = [...ticker.toUpperCase()].reduce(
+    (n, c) => n + c.charCodeAt(0),
+    0,
+  );
   const change = ((seed % 800) - 400) / 100; // -4.00 .. +3.99
   return {
     ticker: ticker.toUpperCase(),

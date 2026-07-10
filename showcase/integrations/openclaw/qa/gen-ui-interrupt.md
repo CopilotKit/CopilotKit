@@ -1,9 +1,9 @@
 # QA: Gen UI Interrupt (OpenClaw)
 
 Demo source: `src/app/demos/gen-ui-interrupt/page.tsx`
-Route: `/demos/gen-ui-interrupt`  ·  Agent: `gen-ui-interrupt`
+Route: `/demos/gen-ui-interrupt` · Agent: `gen-ui-interrupt`
 
-> **Adapted, not native.** `gen-ui-interrupt` is listed under *Not supported* in
+> **Adapted, not native.** `gen-ui-interrupt` is listed under _Not supported_ in
 > `PARITY_NOTES.md`: OpenClaw is a stateless gateway, not a graph engine, so it
 > has **no LangGraph-style resumable `interrupt()`**. The LangGraph showcase's
 > `useInterrupt({ renderInChat: true })` hook is silently dead here — it waits

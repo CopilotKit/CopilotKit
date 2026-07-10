@@ -33,9 +33,9 @@ test.describe("Shared State (Read + Write)", () => {
   test("preferences panel and agent scratch pad both mount", async ({
     page,
   }) => {
-    await expect(
-      page.locator('[data-testid="preferences-card"]'),
-    ).toBeVisible({ timeout: 20000 });
+    await expect(page.locator('[data-testid="preferences-card"]')).toBeVisible({
+      timeout: 20000,
+    });
     await expect(page.locator('[data-testid="notes-card"]')).toBeVisible({
       timeout: 15000,
     });
@@ -63,9 +63,10 @@ test.describe("Shared State (Read + Write)", () => {
     await nameInput.fill("Atai");
 
     // The shared-state JSON preview reflects agent.setState() writes.
-    await expect(
-      page.locator('[data-testid="pref-state-json"]'),
-    ).toContainText('"name": "Atai"', { timeout: 15000 });
+    await expect(page.locator('[data-testid="pref-state-json"]')).toContainText(
+      '"name": "Atai"',
+      { timeout: 15000 },
+    );
   });
 
   test("Greet me pill returns a shared-state-aware greeting", async ({

@@ -1,7 +1,7 @@
 # QA: Agent Config Object (OpenClaw)
 
 Demo source: `src/app/demos/agent-config/page.tsx`
-Route: `/demos/agent-config`  ·  Agent: `agent-config-demo`  ·  Runtime: `/api/copilotkit-agent-config`
+Route: `/demos/agent-config` · Agent: `agent-config-demo` · Runtime: `/api/copilotkit-agent-config`
 Backend: real OpenClaw gateway at `http://localhost:3119/demos/agent-config`
 
 ## What it exercises
@@ -40,9 +40,9 @@ plumbing to bridge.
 
 ## Assertion bar
 
-- Dropdown changes appear in the DOM immediately; the *next* send reflects them.
+- Dropdown changes appear in the DOM immediately; the _next_ send reflects them.
 - Style/length/expertise differences are clear side-by-side (qualitative but
-  obvious). The model is being *steered*, so wording varies run to run.
+  obvious). The model is being _steered_, so wording varies run to run.
 - Transcript history is preserved when config changes mid-thread.
 - No console errors during any step.
 

@@ -1,7 +1,7 @@
 # QA: MCP Apps (OpenClaw)
 
 Demo source: `src/app/demos/mcp-apps/page.tsx` (+ `chat.tsx`, `suggestions.ts`)
-Route: `/demos/mcp-apps`  ·  Agent: `mcp-apps`  ·  Runtime: `/api/copilotkit-mcp-apps`
+Route: `/demos/mcp-apps` · Agent: `mcp-apps` · Runtime: `/api/copilotkit-mcp-apps`
 Run against the real backend at `http://localhost:3119/demos/mcp-apps`.
 
 Status: **supported** via the pass-through + runtime-middleware layer (see

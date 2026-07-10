@@ -1,7 +1,7 @@
 # QA: Tool-Based Generative UI (OpenClaw)
 
 Demo source: `src/app/demos/gen-ui-tool-based/page.tsx`
-Route: `/demos/gen-ui-tool-based`  ·  Agent: `gen-ui-tool-based`
+Route: `/demos/gen-ui-tool-based` · Agent: `gen-ui-tool-based`
 
 ## What it exercises
 
@@ -13,7 +13,7 @@ caller-provided **client tools** (`runtime.agent.runEmbeddedAgent({ clientTools 
 so the model can call them. When the model calls a chart tool, clawg-ui emits
 `TOOL_CALL_START/ARGS/END` and the page renders the matching chart component
 **inline in the chat transcript** from the tool args — the tool has no browser
-side effect, the rendered component *is* the result.
+side effect, the rendered component _is_ the result.
 
 OpenClaw is a single stateless gateway endpoint; per-demo behaviour comes from
 the frontend tools, not a per-demo backend graph. `PARITY_NOTES.md` lists this
@@ -23,13 +23,13 @@ demo as **supported** under "Tools & generative UI".
 
 1. Open the demo. Confirm the `CopilotChat` panel renders and three suggestion
    chips appear: **Sales bar chart**, **Traffic pie chart**, **Market share**.
-2. Click **Sales bar chart** (or ask: *"Show me a bar chart of quarterly sales
-   for Q1, Q2, Q3, Q4."*).
+2. Click **Sales bar chart** (or ask: _"Show me a bar chart of quarterly sales
+   for Q1, Q2, Q3, Q4."_).
 3. Expect: the model calls `render_bar_chart`, and a bar chart card renders
    inline in the transcript with a title, subtitle, and four animated bars
    (Q1–Q4) with tooltips on hover.
-4. Click **Traffic pie chart** (or ask: *"Show me a pie chart of website
-   traffic by source."*).
+4. Click **Traffic pie chart** (or ask: _"Show me a pie chart of website
+   traffic by source."_).
 5. Expect: the model calls `render_pie_chart`, and a donut chart card renders
    inline with color-coded slices plus a legend showing each label, value, and
    percentage.
@@ -50,8 +50,8 @@ demo as **supported** under "Tools & generative UI".
 
 Inside the running container, POST a `RunAgentInput` carrying the
 `render_bar_chart` tool to `http://127.0.0.1:8000/v1/clawg-ui/operator`
-(Bearer gateway token, `Accept: text/event-stream`) with a message like *"bar
-chart of Q1–Q4 sales"*. Confirm the SSE contains a single `TOOL_CALL_START` for
+(Bearer gateway token, `Accept: text/event-stream`) with a message like _"bar
+chart of Q1–Q4 sales"_. Confirm the SSE contains a single `TOOL_CALL_START` for
 `render_bar_chart`, its `TOOL_CALL_ARGS` carry a well-formed `data` array, then
 `RUN_FINISHED`.
 
