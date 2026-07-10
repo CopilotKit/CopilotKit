@@ -1,5 +1,9 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
+export declare function parseDataUri(value: string): {
+    data: string;
+    mimeType: string;
+} | null;
 export declare function createAguiHttpHandler(api: OpenClawPluginApi): (req: IncomingMessage, res: ServerResponse) => Promise<void>;
 /**
  * Factory for the operator-auth AG-UI route.

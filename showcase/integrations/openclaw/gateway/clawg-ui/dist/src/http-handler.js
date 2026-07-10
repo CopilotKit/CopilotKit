@@ -407,13 +407,18 @@ function stripDataUriPrefix(value) {
     const comma = value.indexOf(",");
     return comma >= 0 ? value.slice(comma + 1) : value;
 }
-function parseDataUri(value) {
+export function parseDataUri(value) {
     if (!value.startsWith("data:"))
         return null;
-    const match = /^data:([^;,]+)[^,]*,(.*)$/s.exec(value);
-    if (!match)
-        return null;
-    return { mimeType: match[1] || "image/png", data: match[2] };
+    const comma = value.indexOf(",");
+    if (comma < 0)
+        return null; // no separator → not a valid data URI
+    const header = value.slice(5, comma); // between "data:" and the first comma
+    const semi = header.indexOf(";");
+    const mimeType = semi >= 0 ? header.slice(0, semi) : header;
+    if (mimeType.length === 0)
+        return null; // old regex required >=1 mime char ([^;,]+)
+    return { mimeType, data: value.slice(comma + 1) };
 }
 /**
  * Turn one AG-UI content block into an OpenClaw image, or null if it is not an
@@ -721,7 +726,6 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
     const promptImages = extractImagesFromMessages(messages);
     const hasImages = promptImages.length > 0;
     if (!messageBody.trim()) {
-        console.log(`[clawg-ui] 400: empty extracted body, roles=[${messages.map((m) => m.role).join(",")}], contents=[${messages.map((m) => JSON.stringify(m.content)).join(",")}]`);
         sendJson(res, 400, {
             error: {
                 message: "Could not extract a prompt from `messages`.",

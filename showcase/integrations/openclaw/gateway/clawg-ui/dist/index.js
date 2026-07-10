@@ -3,7 +3,6 @@ import { randomUUID } from "node:crypto";
 import { EventType } from "@ag-ui/core";
 import { aguiChannelPlugin } from "./src/channel.js";
 import { createAguiHttpHandler, createOperatorAguiHttpHandler, } from "./src/http-handler.js";
-import { clawgUiToolFactory } from "./src/client-tools.js";
 import { getWriter, getMessageId, pushToolCallId, popToolCallId, isClientTool, } from "./src/tool-store.js";
 import { extractToolResultText, tryParseA2UIOperations, groupBySurface, A2UI_OPERATIONS_KEY, } from "./src/a2ui.js";
 /**
@@ -12,14 +11,11 @@ import { extractToolResultText, tryParseA2UIOperations, groupBySurface, A2UI_OPE
  */
 export function handleBeforeToolCall(event, ctx) {
     const sk = ctx.sessionKey;
-    console.log(`[clawg-ui] before_tool_call: tool=${event.toolName}, sessionKey=${sk ?? "none"}, hasParams=${!!(event.params && Object.keys(event.params).length > 0)}, params=${JSON.stringify(event.params ?? {})}`);
     if (!sk) {
-        console.log(`[clawg-ui] before_tool_call: skipping, no sessionKey`);
         return;
     }
     const writer = getWriter(sk);
     if (!writer) {
-        console.log(`[clawg-ui] before_tool_call: skipping, no writer for sessionKey=${sk}`);
         return;
     }
     // Marked client/frontend + state-writer tools are emitted by the HTTP
@@ -29,21 +25,18 @@ export function handleBeforeToolCall(event, ctx) {
     // tools — so skip the marked names here to avoid a duplicate TOOL_CALL_*
     // sequence for the same call.
     if (isClientTool(sk, event.toolName)) {
-        console.log(`[clawg-ui] before_tool_call: ${event.toolName} is a client/state-writer tool — skipping hook emission (handled by pendingToolCalls path)`);
         return;
     }
     // Server (backend) tool: emit START + ARGS and push the id so
     // tool_result_persist can emit TOOL_CALL_RESULT + TOOL_CALL_END after
     // execute() completes.
     const toolCallId = `tool-${randomUUID()}`;
-    console.log(`[clawg-ui] before_tool_call: emitting TOOL_CALL_START, toolCallId=${toolCallId}`);
     writer({
         type: EventType.TOOL_CALL_START,
         toolCallId,
         toolCallName: event.toolName,
     });
     if (event.params && Object.keys(event.params).length > 0) {
-        console.log(`[clawg-ui] before_tool_call: emitting TOOL_CALL_ARGS, params=${JSON.stringify(event.params)}`);
         writer({
             type: EventType.TOOL_CALL_ARGS,
             toolCallId,
@@ -58,22 +51,18 @@ export function handleBeforeToolCall(event, ctx) {
  */
 export function handleToolResultPersist(event, ctx) {
     const sk = ctx.sessionKey;
-    console.log(`[clawg-ui] tool_result_persist: sessionKey=${sk ?? "none"}, event=${JSON.stringify(event)}`);
     if (!sk) {
-        console.log(`[clawg-ui] tool_result_persist: skipping, no sessionKey`);
         return;
     }
     const writer = getWriter(sk);
     const toolCallId = popToolCallId(sk);
     const messageId = getMessageId(sk);
-    console.log(`[clawg-ui] tool_result_persist: writer=${writer ? "present" : "missing"}, toolCallId=${toolCallId ?? "none"}, messageId=${messageId ?? "none"}`);
     if (writer && toolCallId && messageId) {
         // Extract actual tool result text from event.message.content
         const msg = event.message;
         const resultText = msg?.content
             ? extractToolResultText(msg.content)
             : "";
-        console.log(`[clawg-ui] tool_result_persist: emitting TOOL_CALL_RESULT and TOOL_CALL_END`);
         // Use a dedicated messageId for the tool result so it doesn't collide
         // with the text message messageId. Tool events are linked via toolCallId.
         const toolResultMessageId = `msg-tool-${toolCallId}`;
@@ -110,7 +99,6 @@ const plugin = {
     configSchema: emptyPluginConfigSchema(),
     register(api) {
         api.registerChannel({ plugin: aguiChannelPlugin });
-        api.registerTool(clawgUiToolFactory);
         // Example tools (not published to npm — live in examples/)
         import("./examples/cron-report-tool.js")
             .then(({ cronReportToolFactory }) => {
