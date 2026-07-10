@@ -156,11 +156,30 @@ function withTimeout<T>(
 
 /** Slack reply target Intelligence mints at ingress and the sink echoes back. */
 interface SlackReplyTarget {
-  adapter: string;
+  adapter: "slack";
   teamId: string;
   channel: string;
   threadTs?: string;
 }
+
+/**
+ * Teams reply target Intelligence mints at ingress (Bot Connector coordinates).
+ * Distinct shape from Slack — no teamId/channel/threadTs — so conversation
+ * identity must be derived per-provider (see {@link conversationKeyFromReplyTarget}).
+ */
+interface TeamsReplyTarget {
+  adapter: "teams";
+  serviceUrl: string;
+  conversationId: string;
+  tenantId: string;
+}
+
+/**
+ * The claim's reply target is provider-tagged (Intelligence app-api mints a
+ * discriminated union — one managed runtime serves every channel its bot has
+ * attached now that claims are provider-agnostic).
+ */
+type ReplyTarget = SlackReplyTarget | TeamsReplyTarget;
 
 /** Successful `claim` delivery envelope (subset the bridge reads). */
 interface ClaimedDelivery {
@@ -173,7 +192,7 @@ interface ClaimedDelivery {
   turn: {
     id: string;
     eventId: string;
-    replyTarget: SlackReplyTarget;
+    replyTarget: ReplyTarget;
     // NB: there is intentionally no `thread_started` variant here — the claim
     // path only carries turn/command/reaction/interaction. `thread_started`
     // envelopes originate on the realtime/Phoenix path, not from `claim`, so a
@@ -263,9 +282,30 @@ class IntelligenceHttp {
   }
 }
 
-/** `slack:teamId:channel:thread:threadTs` — stable per Slack thread. */
-function conversationKeyFromReplyTarget(rt: SlackReplyTarget): string {
-  return `${rt.adapter}:${rt.teamId}:${rt.channel}:thread:${rt.threadTs ?? "root"}`;
+/**
+ * Stable per-conversation key, derived per provider — it keys the agent/session
+ * (`getOrCreate(conversationKey)`), so distinct conversations MUST get distinct
+ * keys or their state bleeds together. Slack: `slack:teamId:channel:thread:threadTs`.
+ * Teams: `teams:tenantId:conversationId`, matching app-api's `thread_key`
+ * (`teams:{tenantId}:{conversationId}`) so client and server agree on identity.
+ * Deriving from Slack-only fields would collapse every Teams conversation to one
+ * key — the bug this switch prevents now that claims are provider-agnostic.
+ */
+function conversationKeyFromReplyTarget(rt: ReplyTarget): string {
+  switch (rt.adapter) {
+    case "slack":
+      return `slack:${rt.teamId}:${rt.channel}:thread:${rt.threadTs ?? "root"}`;
+    case "teams":
+      return `teams:${rt.tenantId}:${rt.conversationId}`;
+    default: {
+      // A provider we don't model yet: fail loud rather than silently collide
+      // distinct conversations onto a shared agent/session.
+      const unknown = rt as { adapter?: string };
+      throw new Error(
+        `conversationKeyFromReplyTarget: unsupported reply-target adapter ${JSON.stringify(unknown.adapter)}`,
+      );
+    }
+  }
 }
 
 function mapDeliveryToEnvelope(d: ClaimedDelivery): ManagedIngressEnvelope {

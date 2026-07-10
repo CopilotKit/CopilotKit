@@ -242,6 +242,49 @@ describe("HttpDeliverySource", () => {
     expect(r.env.conversationKey).toBe("slack:T1:C1:thread:1.2");
   });
 
+  it("claimOnce derives a Teams conversationKey from tenantId+conversationId (provider-agnostic claim)", async () => {
+    // Now that the runtime claims provider-agnostically, a Teams delivery flows
+    // through the same bridge. Its reply target is a different shape (no
+    // teamId/channel), so the conversationKey must be derived per-provider —
+    // otherwise every Teams conversation collapses onto one agent/session.
+    const { fetch } = fakeFetch(() => ({
+      body: {
+        claimed: true,
+        delivery: claimedDelivery({
+          adapter: "teams",
+          turn: {
+            id: "turn_9",
+            eventId: "evt_9",
+            receivedAt: "2026-06-30T00:00:00.000Z",
+            replyTarget: {
+              adapter: "teams",
+              serviceUrl: "https://smba.trafficmanager.net/teams",
+              conversationId: "19:abc@thread.tacv2",
+              tenantId: "tenant-1",
+            },
+            input: { kind: "text", text: "hello" },
+          },
+        }),
+      },
+    }));
+    const src = new HttpDeliverySource(cfg({ fetch }));
+    const r = await src.claimOnce();
+    expect("env" in r).toBe(true);
+    if (!("env" in r)) throw new Error("expected env");
+    expect(r.env).toMatchObject({
+      kind: "turn",
+      platform: "teams",
+      text: "hello",
+    });
+    // Matches Intelligence app-api's thread_key = teams:{tenantId}:{conversationId}.
+    expect(r.env.conversationKey).toBe("teams:tenant-1:19:abc@thread.tacv2");
+    // Reply route is passed through verbatim for provider-agnostic egress.
+    expect(r.env.route).toMatchObject({
+      adapter: "teams",
+      conversationId: "19:abc@thread.tacv2",
+    });
+  });
+
   it("claimOnce maps a claimed slash command delivery to a command envelope", async () => {
     const { fetch } = fakeFetch(() => ({
       body: {
