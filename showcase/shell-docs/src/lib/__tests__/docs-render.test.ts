@@ -397,6 +397,7 @@ describe("framework nav", () => {
       false,
     );
     expect(navTree.some((node) => node.title === "Enterprise")).toBe(false);
+    expect(hasSectionPage(navTree, "Basics", "Threads")).toBe(true);
     expect(sectionPages(navTree, "Intelligence Platform")).toEqual([
       "Enterprise Intelligence Platform",
       "Cloud-Hosted Enterprise Intelligence",

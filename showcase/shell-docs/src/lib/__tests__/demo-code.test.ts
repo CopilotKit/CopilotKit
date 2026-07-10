@@ -268,6 +268,36 @@ describe("rewriteDemoCode", () => {
     expect(out).toContain("export const max = 2;");
   });
 
+  it("adds temporary highlight markers for DemoCode line ranges", () => {
+    plantSource(
+      "src/highlight.ts",
+      [
+        "// region: setup",
+        "const a = 1;",
+        "const b = 2;",
+        "const c = 3;",
+        "// endregion",
+      ].join("\n"),
+    );
+    const out = rewriteDemoCode(
+      '<DemoCode file="src/highlight.ts" region="setup" highlight="2-3" />',
+      tmp,
+    );
+    expect(out).toContain("// [!code highlight:2]\nconst b = 2;");
+  });
+
+  it("uses hash comments for Python DemoCode highlight markers", () => {
+    plantSource(
+      "src/highlight.py",
+      ["# region: setup", "a = 1", "b = 2", "# endregion"].join("\n"),
+    );
+    const out = rewriteDemoCode(
+      '<DemoCode file="src/highlight.py" region="setup" highlight="1" />',
+      tmp,
+    );
+    expect(out).toContain("# [!code highlight:1]\na = 1");
+  });
+
   it("leaves expression-valued <DemoCode> references intact", () => {
     const input = '<DemoCode file={someVar} region="x" />';
     expect(rewriteDemoCode(input, tmp)).toBe(input);

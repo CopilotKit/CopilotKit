@@ -10,6 +10,9 @@ export {
 } from "./intelligence-adapter.js";
 export type { IntelligenceAdapterOptions } from "./intelligence-adapter.js";
 
+export { IntelligenceStateStore } from "./intelligence-state-store.js";
+export type { IntelligenceStateStoreConfig } from "./intelligence-state-store.js";
+
 export type {
   DeliverySource,
   EgressSink,

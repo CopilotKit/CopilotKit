@@ -59,6 +59,77 @@ function formatFenceTitle(title: string): string {
 
 const DEMO_CODE_TAG_RX = /<DemoCode\b((?:"[^"]*"|'[^']*'|[^'"<>])*)\/>/g;
 
+function parseLineRange(input: string): [number, number] | null {
+  const trimmed = input.trim();
+  if (trimmed === "") return null;
+  const openEnded = trimmed.match(/^(\d+)\s*[-\u2013]\s*$/);
+  if (openEnded) {
+    const start = parseInt(openEnded[1], 10);
+    if (start > 0) return [start, Number.POSITIVE_INFINITY];
+    return null;
+  }
+  const dash = trimmed.match(/^(\d+)\s*[-\u2013]\s*(\d+)$/);
+  if (dash) {
+    const start = parseInt(dash[1], 10);
+    const end = parseInt(dash[2], 10);
+    if (start > 0 && end >= start) return [start, end];
+    return null;
+  }
+  const single = trimmed.match(/^(\d+)$/);
+  if (single) {
+    const n = parseInt(single[1], 10);
+    if (n > 0) return [n, n];
+  }
+  return null;
+}
+
+function notationComment(language: string): string {
+  return ["bash", "sh", "python", "py", "yaml", "yml"].includes(language)
+    ? "#"
+    : "//";
+}
+
+function applyHighlightMarkers(
+  body: string,
+  language: string,
+  highlight: string | undefined,
+): string {
+  if (!highlight) return body;
+  const lines = body.split("\n");
+  const ranges: Array<[number, number]> = [];
+  for (const part of highlight.split(",")) {
+    const range = parseLineRange(part);
+    if (!range) return body;
+    const [start, end] = range;
+    const effectiveEnd = Math.min(
+      end === Number.POSITIVE_INFINITY ? lines.length : end,
+      lines.length,
+    );
+    if (start <= effectiveEnd) ranges.push([start, effectiveEnd]);
+  }
+  if (ranges.length === 0) return body;
+
+  ranges.sort((a, b) => a[0] - b[0]);
+  const merged: Array<[number, number]> = [];
+  for (const range of ranges) {
+    const last = merged[merged.length - 1];
+    if (last && range[0] <= last[1] + 1) {
+      last[1] = Math.max(last[1], range[1]);
+    } else {
+      merged.push([...range]);
+    }
+  }
+
+  const marker = notationComment(language);
+  let offset = 0;
+  for (const [start, end] of merged) {
+    const count = end - start + 1;
+    lines.splice(start - 1 + offset, 0, `${marker} [!code highlight:${count}]`);
+    offset++;
+  }
+  return lines.join("\n");
+}
+
 export function rewriteDemoCode(
   source: string,
   packageRoot: string,
@@ -80,6 +151,7 @@ export function rewriteDemoCode(
 
     const language = matchAttr(attrs, "language");
     const title = matchAttr(attrs, "title");
+    const highlight = matchAttr(attrs, "highlight");
 
     const resolved = resolveWithinDir(packageRoot, file);
     if (!resolved || !fs.existsSync(resolved)) {
@@ -117,12 +189,13 @@ export function rewriteDemoCode(
     }
     const lang = language ?? inferLanguage(file);
     const fenceTitle = title ?? path.basename(file);
+    const highlightedBody = applyHighlightMarkers(body, lang, highlight);
     // 4-tilde fence so the embedded body can safely contain triple
     // backticks without prematurely closing the fence.
     return [
       "",
       `~~~~${lang} title=${formatFenceTitle(fenceTitle)}`,
-      body,
+      highlightedBody,
       "~~~~",
       "",
     ].join("\n");

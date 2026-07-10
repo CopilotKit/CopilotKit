@@ -71,7 +71,7 @@
     "link:global": "pnpm link --global",
     "unlink:global": "pnpm unlink --global",
     "publint": "publint .",
-    "attw": "attw --pack . --profile node16 --ignore-rules internal-resolution-error"
+    "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
     "@ag-ui/client": "0.0.57",

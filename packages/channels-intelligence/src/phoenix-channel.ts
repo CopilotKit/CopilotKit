@@ -60,7 +60,7 @@ export async function connectPhoenixHostedBotChannel(
   }
 
   const socket = new Socket(config.wsUrl, {
-    params: { token: config.apiKey },
+    authToken: config.apiKey,
     transport: transport as ConstructorParameters<typeof Socket>[1] extends {
       transport?: infer T;
     }

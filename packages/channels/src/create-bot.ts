@@ -662,9 +662,12 @@ export function createBot<
             await reg.handler(reactionEvt);
         }
         // Per-message handler set via `<Message onReaction>` on the posted
-        // message — hot cache, falling back to the durable snapshot after a restart.
+        // message — hot cache, falling back to the durable snapshot after a
+        // restart. Resolve by `postedMessageId` when the adapter supplies it
+        // (managed: the reaction arrives keyed by the provider ts, not the SDK
+        // post ref the handler was persisted under); else by `messageId`.
         const perMessage = await registry!.resolveMessageReaction(
-          evt.messageId,
+          evt.postedMessageId ?? evt.messageId,
         );
         if (perMessage) {
           await perMessage(value, {

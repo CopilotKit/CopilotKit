@@ -38,7 +38,7 @@
 import React from "react";
 import demoContent from "../data/demo-content.json";
 import catalogData from "../data/catalog.json";
-import { DynamicCodeBlock } from "fumadocs-ui/components/dynamic-codeblock";
+import { HighlightedDynamicCodeBlock } from "./highlighted-dynamic-codeblock";
 
 interface Region {
   file: string;
@@ -126,6 +126,11 @@ interface SnippetProps {
   title?: string;
   /** Hide the file-path caption. */
   noCaption?: boolean;
+  /**
+   * Line ranges to emphasize in the rendered snippet, relative to the
+   * extracted snippet body. Examples: "1-6", "3", "4-".
+   */
+  highlight?: string;
 }
 
 function WarningBox({ children }: { children: React.ReactNode }) {
@@ -232,6 +237,28 @@ function parseLineRange(input: string | undefined): [number, number] | null {
   return null;
 }
 
+function parseHighlightedLines(
+  input: string | undefined,
+  totalLines: number,
+): Set<number> | null {
+  if (!input) return null;
+  const highlighted = new Set<number>();
+  for (const part of input.split(",")) {
+    const range = parseLineRange(part);
+    if (!range) return null;
+    const [start, end] = range;
+    const clampedEnd = Math.min(
+      end === Number.POSITIVE_INFINITY ? totalLines : end,
+      totalLines,
+    );
+    if (start > clampedEnd) continue;
+    for (let line = start; line <= clampedEnd; line++) {
+      highlighted.add(line);
+    }
+  }
+  return highlighted.size > 0 ? highlighted : null;
+}
+
 /**
  * Build a synthetic Region from a DemoFile + optional line range. Used by the
  * file+lines lookup path so the rest of the render pipeline is unchanged.
@@ -301,6 +328,7 @@ export function Snippet({
   // path that's already implied by surrounding doc context.
   title: _title,
   noCaption,
+  highlight,
 }: SnippetProps) {
   const resolvedFramework = framework ?? defaultFramework;
   const resolvedCell = cell ?? defaultCell;
@@ -431,12 +459,19 @@ export function Snippet({
   // entirely so the figure's floating copy button sits alone.
   const basename = reg.file.split("/").pop() ?? reg.file;
   const caption = noCaption ? undefined : basename;
+  const highlightedLines = parseHighlightedLines(
+    highlight,
+    reg.code.split("\n").length,
+  );
 
   return (
-    <DynamicCodeBlock
+    <HighlightedDynamicCodeBlock
       lang={resolveShikiLanguage(reg.language)}
       code={reg.code}
       codeblock={caption ? { title: caption } : undefined}
+      highlightedLines={
+        highlightedLines ? Array.from(highlightedLines) : undefined
+      }
     />
   );
 }

@@ -1,6 +1,5 @@
 "use client";
 
-// @region[bar-chart-renderer]
 import React from "react";
 import {
   CopilotChat,
@@ -12,6 +11,7 @@ import { PieChart, pieChartPropsSchema } from "./pie-chart";
 import { useSuggestions } from "./suggestions";
 
 function Chat() {
+  // @region[bar-chart-renderer]
   useComponent({
     name: "render_bar_chart",
     description: "Display a bar chart with labeled numeric values.",

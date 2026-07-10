@@ -3,16 +3,20 @@ import type {
   DeliverySource,
   EgressSink,
   RenderEventSink,
+  AgentMessage,
 } from "./transports.js";
 import type {
   ManagedIngressEnvelope,
   ManagedFileRef,
+  EgressRoute,
   EgressOperation,
   EgressResult,
   RenderFrame,
   RenderAccepted,
 } from "./contracts.js";
+import type { MessageRef, AgentContentPart } from "@copilotkit/channels-ui";
 import { irToText } from "./ir-to-text.js";
+import { buildContentParts } from "./content-parts.js";
 
 /**
  * @internal Default HTTP transports for {@link intelligenceAdapter}.
@@ -118,6 +122,14 @@ const defaultSleep = (ms: number): Promise<void> =>
 const DEFAULT_TURN_TIMEOUT_MS = 120_000;
 
 /**
+ * Safety backstop on an inbound file download. app-api caps inbound files at
+ * 25 MiB, so this generous ceiling never rejects legitimate traffic — it just
+ * prevents an unbounded `arrayBuffer()` read if a served body is pathologically
+ * large (anomaly / misrouted endpoint) and advertises its size.
+ */
+const MAX_INBOUND_FILE_BYTES = 64 * 1024 * 1024;
+
+/**
  * Reject after `ms` if `p` hasn't settled, so a hung turn can't wedge the
  * single-delivery loop. The underlying promise keeps running in the background
  * (harmless — a rejection handler is attached), but the loop moves on.
@@ -162,7 +174,40 @@ interface ClaimedDelivery {
     id: string;
     eventId: string;
     replyTarget: SlackReplyTarget;
-    input?: { kind: string; text: string; files?: ManagedFileRef[] };
+    // NB: there is intentionally no `thread_started` variant here — the claim
+    // path only carries turn/command/reaction/interaction. `thread_started`
+    // envelopes originate on the realtime/Phoenix path, not from `claim`, so a
+    // claimed delivery never maps to `kind:"thread_started"`.
+    input?:
+      | { kind: "text"; text?: string; files?: ManagedFileRef[] }
+      | {
+          kind: "command";
+          command: string;
+          text?: string;
+          triggerId?: string;
+          rawOptions?: Record<string, unknown>;
+        }
+      | {
+          kind: "reaction";
+          rawEmoji: string;
+          added: boolean;
+          messageId: string;
+          threadId?: string;
+          /** SDK post-time ref the reacted message maps to (reverse-resolved by
+           * app-api), so a `<Message onReaction>` handler can be found. */
+          postedRef?: string;
+        }
+      | {
+          kind: "interaction";
+          /** Minted action id (ck:...) the clicked control carried. */
+          actionId: string;
+          /** The clicked control's value (block_actions value / selected options). */
+          value?: unknown;
+          /** The message the interaction occurred on (so a handler can update it). */
+          messageRef?: MessageRef;
+          /** Slack trigger id (for opening a modal off the interaction). */
+          triggerId?: string;
+        };
   };
 }
 
@@ -224,8 +269,7 @@ function conversationKeyFromReplyTarget(rt: SlackReplyTarget): string {
 }
 
 function mapDeliveryToEnvelope(d: ClaimedDelivery): ManagedIngressEnvelope {
-  return {
-    kind: "turn",
+  const base = {
     deliveryId: d.id,
     eventId: d.turn.eventId,
     turnId: d.turn.id,
@@ -233,9 +277,59 @@ function mapDeliveryToEnvelope(d: ClaimedDelivery): ManagedIngressEnvelope {
     platform: d.adapter,
     conversationKey: conversationKeyFromReplyTarget(d.turn.replyTarget),
     route: d.turn.replyTarget,
-    text: d.turn.input?.text ?? "",
-    ...(d.turn.input?.files?.length ? { files: d.turn.input.files } : {}),
   };
+  const input = d.turn.input;
+
+  if (input?.kind === "command") {
+    return {
+      ...base,
+      kind: "command",
+      command: input.command,
+      text: input.text ?? "",
+      ...(input.triggerId ? { triggerId: input.triggerId } : {}),
+      ...(input.rawOptions ? { rawOptions: input.rawOptions } : {}),
+    };
+  }
+
+  if (input?.kind === "reaction") {
+    return {
+      ...base,
+      kind: "reaction",
+      rawEmoji: input.rawEmoji,
+      added: input.added,
+      messageId: input.messageId,
+      ...(input.threadId ? { threadId: input.threadId } : {}),
+      ...(input.postedRef ? { postedRef: input.postedRef } : {}),
+    };
+  }
+
+  if (input?.kind === "interaction") {
+    return {
+      ...base,
+      kind: "interaction",
+      actionId: input.actionId,
+      ...(input.value !== undefined ? { value: input.value } : {}),
+      ...(input.messageRef ? { messageRef: input.messageRef } : {}),
+      ...(input.triggerId ? { triggerId: input.triggerId } : {}),
+    };
+  }
+
+  if (input === undefined || input.kind === "text") {
+    return {
+      ...base,
+      kind: "turn",
+      text: input?.text ?? "",
+      ...(input?.files?.length ? { files: input.files } : {}),
+    };
+  }
+
+  // Exhaustiveness guard: mirror the adapter's dispatch switch — an unknown wire
+  // kind must fail loud rather than be silently coerced into an empty turn (which
+  // would then ack as a processed no-op).
+  const unhandled: never = input;
+  throw new Error(
+    `intelligenceAdapter: unknown delivery input kind ${JSON.stringify(unhandled)}`,
+  );
 }
 
 interface LeaseRecord {
@@ -297,12 +391,40 @@ export class HttpDeliverySource implements DeliverySource {
         botName: res.delivery.bot.name,
       },
     });
-    return { env: mapDeliveryToEnvelope(res.delivery) };
+    try {
+      return { env: mapDeliveryToEnvelope(res.delivery) };
+    } catch (mapErr) {
+      // An unmappable/unknown delivery kind must fail loud, but must not wedge
+      // the single-delivery loop: the lease is already recorded, so nack it
+      // here (non-retryable — re-mapping the same payload fails identically, so
+      // let app-api dead-letter it rather than burn retries) and fall through to
+      // an idle poll so the loop keeps draining the queue. Without this the
+      // throw escapes to runLoop's catch, which only logs+sleeps, leaking the
+      // lease until the 120s expiry redelivers the same poison payload forever.
+      this.cfg.log?.("intelligence claim: unmappable delivery", mapErr);
+      await this.nack(
+        res.delivery.id,
+        mapErr instanceof Error ? mapErr.message : String(mapErr),
+        false,
+      ).catch((nackErr) =>
+        this.cfg.log?.(
+          "intelligence nack after unmappable delivery failed",
+          nackErr,
+        ),
+      );
+      return { pollAfterMs: 1000 };
+    }
   }
 
   /** The org/project/bot scope for a leased delivery, for render-frame egress. */
   scopeFor(deliveryId: string): DeliveryScope | undefined {
     return this.leases.get(deliveryId)?.scope;
+  }
+
+  /** The lease token for a leased delivery, so a render frame can fence its
+   * accept against `lease_token_hash` the same way ack/fail already do. */
+  leaseTokenFor(deliveryId: string): string | undefined {
+    return this.leases.get(deliveryId)?.leaseToken;
   }
 
   async start(
@@ -364,6 +486,11 @@ export class HttpDeliverySource implements DeliverySource {
       this.cfg.log?.(`intelligence ack: no lease for delivery ${deliveryId}`);
       return;
     }
+    // Claim the terminal signal BEFORE the wire call. A turn that completes in
+    // the background after a timeout-`nack` (both close over this lease) must
+    // not also ack: whichever of ack/nack runs first deletes the lease, so the
+    // other sees none and no-ops — exactly one of ack XOR fail reaches app-api.
+    this.leases.delete(deliveryId);
     await this.http.post(
       `/api/bots/deliveries/${encodeURIComponent(deliveryId)}/ack`,
       {
@@ -373,15 +500,20 @@ export class HttpDeliverySource implements DeliverySource {
         acknowledgedAt: new Date().toISOString(),
       },
     );
-    this.leases.delete(deliveryId);
   }
 
-  async nack(deliveryId: string, reason: string): Promise<void> {
+  async nack(
+    deliveryId: string,
+    reason: string,
+    retryable = true,
+  ): Promise<void> {
     const lease = this.leases.get(deliveryId);
     if (!lease) {
       this.cfg.log?.(`intelligence nack: no lease for delivery ${deliveryId}`);
       return;
     }
+    // Delete-before-POST for the same reason as `ack`: single terminal signal.
+    this.leases.delete(deliveryId);
     await this.http.post(
       `/api/bots/deliveries/${encodeURIComponent(deliveryId)}/fail`,
       {
@@ -392,11 +524,10 @@ export class HttpDeliverySource implements DeliverySource {
         error: {
           code: "runtime_error",
           message: (reason || "runtime error").slice(0, 500),
-          retryable: true,
+          retryable,
         },
       },
     );
-    this.leases.delete(deliveryId);
   }
 
   /**
@@ -422,9 +553,111 @@ export class HttpDeliverySource implements DeliverySource {
     if (!res.ok) {
       throw new Error(`intelligence file ${handle} -> ${res.status}`);
     }
+    // Bound the body read when the server advertises an oversize length, before
+    // pulling the whole thing into memory as an arrayBuffer.
+    const declaredLen = Number(res.headers.get("content-length") ?? "");
+    if (Number.isFinite(declaredLen) && declaredLen > MAX_INBOUND_FILE_BYTES) {
+      throw new Error(
+        `intelligence file ${handle} too large: ${declaredLen} bytes > ${MAX_INBOUND_FILE_BYTES} cap`,
+      );
+    }
     const bytes = new Uint8Array(await res.arrayBuffer());
     const mimeType = res.headers.get("content-type") ?? undefined;
     return { bytes, mimeType };
+  }
+
+  /**
+   * Fetch prior thread turns from app-api's bot history route for
+   * conversation-history seeding (parity with bot-slack/bot-discord/
+   * bot-whatsapp's reconstructed-history conversation stores). A root-level
+   * turn (no `threadTs`) has no prior thread to look up, so this returns `[]`
+   * without a request. Best-effort like {@link fetchFile}'s sibling paths — any
+   * non-2xx response or thrown error degrades to `[]`; missing history must
+   * never fail the turn. Logging is split by failure class: a 4xx (except
+   * 429) is a permanent misconfiguration (route not mounted / wrong baseUrl /
+   * bad runtime key) and is logged loudly and distinctly so it doesn't hide
+   * forever; a 5xx, 429, or thrown network error is a transient blip and gets
+   * the existing quiet degradation log.
+   */
+  async getHistory(
+    replyTarget: EgressRoute,
+    limit: number,
+  ): Promise<AgentMessage[]> {
+    // Slack-shaped for the V1 slice; `EgressRoute` is opaque, so a second
+    // adapter would need its own route→query mapping here.
+    const rt = replyTarget as
+      | { teamId?: string; channel?: string; threadTs?: string }
+      | undefined;
+    if (!rt?.threadTs) return [];
+    try {
+      const gfetch = (globalThis as unknown as { fetch?: typeof fetch }).fetch;
+      if (!gfetch) {
+        this.cfg.log?.("intelligence history fetch: no global fetch available");
+        return [];
+      }
+      const qs = new URLSearchParams({
+        teamId: rt.teamId ?? "",
+        channel: rt.channel ?? "",
+        threadTs: rt.threadTs,
+        limit: String(limit),
+      });
+      const url = `${this.cfg.baseUrl}/api/bots/history?${qs.toString()}`;
+      const res = await gfetch(url, {
+        method: "GET",
+        headers: { authorization: `Bearer ${this.cfg.apiKey}` },
+      });
+      if (!res.ok) {
+        if (res.status >= 400 && res.status < 500 && res.status !== 429) {
+          // A permanent misconfiguration (missing route, wrong baseUrl, bad
+          // runtime key) looks identical to a transient blip unless it's
+          // called out distinctly — surface it loudly so it doesn't hide
+          // forever behind the best-effort degrade-to-`[]` below.
+          this.cfg.log?.(
+            `[intelligence] getHistory ${res.status} for thread history — likely a misconfigured/unauthorized history endpoint (baseUrl/route/apiKey); managed bot will run WITHOUT prior-turn history`,
+          );
+        } else {
+          // Transient (5xx/429) — quiet best-effort degradation, history is
+          // just skipped for this turn.
+          this.cfg.log?.(`intelligence history fetch -> ${res.status}`);
+        }
+        return [];
+      }
+      const json = (await res.json()) as {
+        messages?: Array<{
+          id: string;
+          role: "user" | "assistant";
+          text: string;
+          files?: ManagedFileRef[];
+        }>;
+      };
+      const out: AgentMessage[] = [];
+      for (const m of json.messages ?? []) {
+        if (!m.files?.length) {
+          out.push({ id: m.id, role: m.role, content: m.text ?? "" });
+          continue;
+        }
+        // Hydrate historical file refs with the SAME logic as the live inbound
+        // turn path, so a past image attachment and a live one produce
+        // identical content parts (e.g. "what was the image I sent?" works).
+        const fileParts = await buildContentParts(
+          m.files,
+          this.fetchFile.bind(this),
+          this.cfg.log,
+        );
+        const content: AgentContentPart[] = [];
+        if (m.text) content.push({ type: "text", text: m.text });
+        content.push(...fileParts);
+        out.push({ id: m.id, role: m.role, content });
+      }
+      // Defensive parity with InMemoryDeliverySource.getHistory (`slice(-limit)`):
+      // the route contract is oldest→newest capped at `limit`, but don't trust
+      // the server to honor it — keep the most recent `limit` so an over-
+      // returning route can't seed more than `historyLimit` onto agent.messages.
+      return out.length > limit ? out.slice(-limit) : out;
+    } catch (err) {
+      this.cfg.log?.("intelligence history fetch failed", err);
+      return [];
+    }
   }
 
   /**
@@ -556,6 +789,7 @@ export class HttpRenderEventSink implements RenderEventSink {
     private readonly cfg: IntelligenceTransportConfig,
     private readonly scopeSource: {
       scopeFor(deliveryId: string): DeliveryScope | undefined;
+      leaseTokenFor(deliveryId: string): string | undefined;
     },
   ) {
     this.http = new IntelligenceHttp(cfg);
@@ -568,6 +802,11 @@ export class HttpRenderEventSink implements RenderEventSink {
         `intelligenceAdapter: no leased scope for delivery ${frame.deliveryId}`,
       );
     }
+    // Fence the render-accept on the delivery's lease token (OSS-446), the same
+    // way ack/fail already do. Optional: app-api falls back to instance-id +
+    // expiry when it's absent, so an older lease record without a token still
+    // renders — but supplying it lets app-api reject a stale/rotated lease.
+    const leaseToken = this.scopeSource.leaseTokenFor(frame.deliveryId);
     const idempotencyKey = `${frame.turnId}:${frame.slot}:${frame.seq}`;
     const res = await this.http.post<RenderAcceptedResponse>(
       `/api/bots/deliveries/${encodeURIComponent(frame.deliveryId)}/render-events/accept`,
@@ -582,6 +821,7 @@ export class HttpRenderEventSink implements RenderEventSink {
         seq: frame.seq,
         idempotencyKey,
         event: frame.event,
+        ...(leaseToken ? { leaseToken } : {}),
         sentAt: new Date().toISOString(),
       },
     );
