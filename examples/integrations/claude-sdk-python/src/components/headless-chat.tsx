@@ -29,6 +29,7 @@ export const HeadlessChat = () => {
       <form
         onSubmit={(e) => {
           e.preventDefault();
+          if (!message.trim()) return;
           sendMessage(message);
         }}
       >
@@ -38,7 +39,9 @@ export const HeadlessChat = () => {
           value={message}
           onChange={(e) => setMessage(e.target.value)}
         />
-        <button type="submit">Send</button>
+        <button type="submit" disabled={!message.trim()}>
+          Send
+        </button>
       </form>
     </div>
   );
