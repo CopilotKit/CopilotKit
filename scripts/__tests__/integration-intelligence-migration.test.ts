@@ -953,6 +953,7 @@ function expectAgentCoreLocalComposeContract(contents: string): void {
   expect(bridge).toMatch(rootManagedEnvFilePattern());
   expect(frontend).toMatch(rootManagedEnvFilePattern());
   expect(frontend).not.toContain(VITE_THREADS_GATE);
+  expect(frontend).not.toContain(OPTIONAL_TELEMETRY_ID);
   expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_API_KEY));
   expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_TELEMETRY_ID));
   expect(contents).not.toContain(MANAGED_LICENSE_TOKEN);
@@ -997,8 +998,13 @@ function expectAgentCoreRuntimeDeploymentContract(contents: string): void {
     environmentObject && ts.isObjectLiteralExpression(environmentObject)
       ? objectPropertyAssignment(environmentObject, MANAGED_API_KEY)
       : null;
+  const telemetryId =
+    environmentObject && ts.isObjectLiteralExpression(environmentObject)
+      ? objectPropertyAssignment(environmentObject, OPTIONAL_TELEMETRY_ID)
+      : null;
   expect(managedKey).not.toBeNull();
-  if (!managedKey) return;
+  expect(telemetryId).not.toBeNull();
+  if (!managedKey || !telemetryId) return;
 
   expect(
     expressionContainsPropertyPath(managedKey.initializer, [
@@ -1010,6 +1016,12 @@ function expectAgentCoreRuntimeDeploymentContract(contents: string): void {
   expect(
     expressionContainsEnvRead(managedKey.initializer, MANAGED_API_KEY),
   ).toBe(false);
+  expect(
+    expressionContainsEnvRead(telemetryId.initializer, OPTIONAL_TELEMETRY_ID),
+  ).toBe(true);
+  expect(expressionContainsSecretResolution(telemetryId.initializer)).toBe(
+    false,
+  );
   expect(contents).not.toContain(MANAGED_LICENSE_TOKEN);
 }
 
@@ -1047,6 +1059,9 @@ function expectAgentCoreFrontendDeploymentContract(contents: string): void {
     expressionContainsEnvRead(managedGate.initializer, MANAGED_API_KEY),
   ).toBe(false);
   expect(contents).not.toMatch(exactEnvIdentifierPattern(MANAGED_API_KEY));
+  expect(contents).not.toMatch(
+    exactEnvIdentifierPattern(OPTIONAL_TELEMETRY_ID),
+  );
   expect(contents).not.toContain(MANAGED_LICENSE_TOKEN);
 }
 
@@ -1076,12 +1091,16 @@ function expectAgentCoreDeployScriptContract(contents: string): void {
   const cdkDeployIndex = lines.findIndex((line) =>
     /npx\s+cdk(?:@\S+)?\s+deploy\b/.test(line),
   );
+  const telemetryExportIndex = lines.findIndex((line) =>
+    new RegExp(`^\\s*export\\s+${OPTIONAL_TELEMETRY_ID}(?:=|\\s|$)`).test(line),
+  );
 
   expect(rootEnvLoadIndex).toBeGreaterThanOrEqual(0);
   expect(secretNameVariable).toBeDefined();
   expect(secretCommands.length).toBeGreaterThan(0);
+  expect(telemetryExportIndex).toBeGreaterThan(rootEnvLoadIndex);
   expect(cdkDeployIndex).toBeGreaterThan(
-    Math.max(...secretCommands.map(({ index }) => index)),
+    Math.max(telemetryExportIndex, ...secretCommands.map(({ index }) => index)),
   );
   for (const { line } of secretCommands) {
     expect(line).toMatch(
@@ -1291,6 +1310,7 @@ test("AgentCore structural helpers accept linked root-env, secret, Lambda, and f
         ${MANAGED_API_KEY}: cdk.SecretValue.secretsManager(
           config.${MANAGED_API_KEY_SECRET_CONFIG},
         ).unsafeUnwrap(),
+        ${OPTIONAL_TELEMETRY_ID}: process.env.${OPTIONAL_TELEMETRY_ID} ?? "",
       },
     });
   `;
@@ -1305,6 +1325,7 @@ test("AgentCore structural helpers accept linked root-env, secret, Lambda, and f
   `;
   const deployScript = `
     source "$SCRIPT_DIR/.env"
+    export ${OPTIONAL_TELEMETRY_ID}
     CPK_SECRET_NAME=$(read_config ${MANAGED_API_KEY_SECRET_CONFIG})
     aws secretsmanager create-secret --name "$CPK_SECRET_NAME" --secret-string "$${MANAGED_API_KEY}"
     npx cdk deploy --all
@@ -1327,13 +1348,41 @@ test("AgentCore structural helpers reject comment, unrelated-secret, and disconn
     // ${MANAGED_API_KEY} uses config.${MANAGED_API_KEY_SECRET_CONFIG}
     const unrelated = cdk.SecretValue.secretsManager("other-secret");
     new lambda.Function(this, "CopilotKitRuntimeLambda", {
-      environment: { ${MANAGED_API_KEY}: "literal-key" },
+      environment: {
+        ${MANAGED_API_KEY}: "literal-key",
+        ${OPTIONAL_TELEMETRY_ID}: "literal-telemetry-id",
+      },
     });
   `;
   const frontendDecoy = `
     // ${VITE_THREADS_GATE} follows props.config.${MANAGED_API_KEY_SECRET_CONFIG}
     new amplify.App(this, "AmplifyApp", {
-      environmentVariables: { ${VITE_THREADS_GATE}: "enabled" },
+      environmentVariables: {
+        ${VITE_THREADS_GATE}: "enabled",
+        ${OPTIONAL_TELEMETRY_ID}: process.env.${OPTIONAL_TELEMETRY_ID},
+      },
+    });
+  `;
+  const runtimeTelemetrySecretDecoy = `
+    new lambda.Function(this, "CopilotKitRuntimeLambda", {
+      environment: {
+        ${MANAGED_API_KEY}: cdk.SecretValue.secretsManager(
+          config.${MANAGED_API_KEY_SECRET_CONFIG},
+        ).unsafeUnwrap(),
+        ${OPTIONAL_TELEMETRY_ID}: cdk.SecretValue.secretsManager(
+          config.${MANAGED_API_KEY_SECRET_CONFIG},
+        ).unsafeUnwrap(),
+      },
+    });
+  `;
+  const frontendTelemetryDecoy = `
+    new amplify.App(this, "AmplifyApp", {
+      environmentVariables: {
+        ${VITE_THREADS_GATE}: props.config.${MANAGED_API_KEY_SECRET_CONFIG}
+          ? "true"
+          : "false",
+        ${OPTIONAL_TELEMETRY_ID}: process.env.${OPTIONAL_TELEMETRY_ID},
+      },
     });
   `;
   const deployScriptDecoy = `
@@ -1342,6 +1391,14 @@ test("AgentCore structural helpers reject comment, unrelated-secret, and disconn
     echo "$${MANAGED_API_KEY}"
     aws secretsmanager create-secret --name unrelated --secret-string literal
     npx cdk deploy --all
+    export ${OPTIONAL_TELEMETRY_ID}
+  `;
+  const lateTelemetryExportDecoy = `
+    source "$SCRIPT_DIR/.env"
+    CPK_SECRET_NAME=$(read_config ${MANAGED_API_KEY_SECRET_CONFIG})
+    aws secretsmanager create-secret --name "$CPK_SECRET_NAME" --secret-string "$${MANAGED_API_KEY}"
+    npx cdk deploy --all
+    export ${OPTIONAL_TELEMETRY_ID}
   `;
 
   expect(() =>
@@ -1351,7 +1408,16 @@ test("AgentCore structural helpers reject comment, unrelated-secret, and disconn
     expectAgentCoreFrontendDeploymentContract(frontendDecoy),
   ).toThrow();
   expect(() =>
+    expectAgentCoreRuntimeDeploymentContract(runtimeTelemetrySecretDecoy),
+  ).toThrow();
+  expect(() =>
+    expectAgentCoreFrontendDeploymentContract(frontendTelemetryDecoy),
+  ).toThrow();
+  expect(() =>
     expectAgentCoreDeployScriptContract(deployScriptDecoy),
+  ).toThrow();
+  expect(() =>
+    expectAgentCoreDeployScriptContract(lateTelemetryExportDecoy),
   ).toThrow();
   expect(() =>
     expectAgentCoreDeploymentConfigContract(
