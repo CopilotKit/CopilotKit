@@ -1,406 +1,385 @@
-import { describe, expect, it, test } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
+
+import { expect, test } from "vitest";
 
 const repoRoot = path.resolve(__dirname, "..", "..");
 const integrationsDir = path.join(repoRoot, "examples", "integrations");
 
-const migratedIntegrations = [
-  "crewai-flows",
-  "llamaindex",
-  "langgraph-fastapi",
+const MANAGED_API_KEY = "CPK_INTELLIGENCE_API_KEY";
+const OPTIONAL_TELEMETRY_ID = "CPK_TELEMETRY_ID";
+const LEGACY_API_KEY = "INTELLIGENCE_API_KEY";
+const LEGACY_TELEMETRY_ID = "COPILOTKIT_TELEMETRY_ID";
+const MANAGED_LICENSE_TOKEN = "COPILOTKIT_LICENSE_TOKEN";
+
+const MANAGED_CLI_FRAMEWORKS = [
+  "langgraph-py",
+  "langgraph-js",
+  "claude-sdk-typescript",
+  "claude-sdk-python",
+  "flows",
+  "mastra",
   "pydantic-ai",
+  "llamaindex",
+  "agno",
+  "adk",
+  "aws-strands-py",
+  "a2a",
+  "microsoft-agent-framework-dotnet",
+  "microsoft-agent-framework-py",
   "mcp-apps",
-  "agent-spec",
-  "strands-python",
-  "crewai-crews",
+  "agentcore-langgraph",
+  "agentcore-strands",
+  "a2ui",
+  "opengenui",
 ] as const;
-const a2aMiddlewareRoot = path.join(integrationsDir, "a2a-middleware");
 
-const appRoots: Record<(typeof migratedIntegrations)[number], string> = {
-  "crewai-flows": "src/app",
-  llamaindex: "src/app",
-  "langgraph-fastapi": "src/app",
-  "pydantic-ai": "src/app",
-  "mcp-apps": "app",
-  "agent-spec": "src/app",
-  "strands-python": "src/app",
-  "crewai-crews": "src/app",
-};
+type ManagedCliFramework = (typeof MANAGED_CLI_FRAMEWORKS)[number];
 
-function readIntegrationFile(
-  integration: string,
+interface ManagedTemplateContract {
+  readonly directory: string;
+  readonly frameworks: readonly ManagedCliFramework[];
+  readonly runtimePath: string;
+  readonly gatePath: string;
+  readonly envPath: string;
+  readonly readmePath: string;
+}
+
+const MANAGED_TEMPLATE_CONTRACTS = [
+  {
+    directory: "langgraph-python",
+    frameworks: ["langgraph-py", "a2ui", "opengenui"],
+    runtimePath: "src/app/api/copilotkit/[[...slug]]/route.ts",
+    gatePath: "next.config.ts",
+    envPath: ".env.example",
+    readmePath: "README.md",
+  },
+  {
+    directory: "langgraph-js",
+    frameworks: ["langgraph-js"],
+    runtimePath: "src/app/api/copilotkit/[[...slug]]/route.ts",
+    gatePath: "next.config.ts",
+    envPath: ".env.example",
+    readmePath: "README.md",
+  },
+  {
+    directory: "claude-sdk-typescript",
+    frameworks: ["claude-sdk-typescript"],
+    runtimePath: "src/app/api/copilotkit/[[...slug]]/route.ts",
+    gatePath: "next.config.ts",
+    envPath: ".env.example",
+    readmePath: "README.md",
+  },
+  {
+    directory: "claude-sdk-python",
+    frameworks: ["claude-sdk-python"],
+    runtimePath: "src/app/api/copilotkit/[[...slug]]/route.ts",
+    gatePath: "next.config.ts",
+    envPath: ".env.example",
+    readmePath: "README.md",
+  },
+  {
+    directory: "crewai-flows",
+    frameworks: ["flows"],
+    runtimePath: "src/app/api/copilotkit/[[...slug]]/route.ts",
+    gatePath: "next.config.ts",
+    envPath: ".env.example",
+    readmePath: "README.md",
+  },
+  {
+    directory: "mastra",
+    frameworks: ["mastra"],
+    runtimePath: "src/app/api/copilotkit/[[...slug]]/route.ts",
+    gatePath: "next.config.ts",
+    envPath: ".env.example",
+    readmePath: "README.md",
+  },
+  {
+    directory: "pydantic-ai",
+    frameworks: ["pydantic-ai"],
+    runtimePath: "src/app/api/copilotkit/[[...slug]]/route.ts",
+    gatePath: "next.config.ts",
+    envPath: ".env.example",
+    readmePath: "README.md",
+  },
+  {
+    directory: "llamaindex",
+    frameworks: ["llamaindex"],
+    runtimePath: "src/app/api/copilotkit/[[...slug]]/route.ts",
+    gatePath: "next.config.ts",
+    envPath: ".env.example",
+    readmePath: "README.md",
+  },
+  {
+    directory: "agno",
+    frameworks: ["agno"],
+    runtimePath: "src/app/api/copilotkit/[[...slug]]/route.ts",
+    gatePath: "next.config.ts",
+    envPath: ".env.example",
+    readmePath: "README.md",
+  },
+  {
+    directory: "adk",
+    frameworks: ["adk"],
+    runtimePath: "src/app/api/copilotkit/[[...slug]]/route.ts",
+    gatePath: "next.config.ts",
+    envPath: ".env.example",
+    readmePath: "README.md",
+  },
+  {
+    directory: "strands-python",
+    frameworks: ["aws-strands-py"],
+    runtimePath: "src/app/api/copilotkit/[[...slug]]/route.ts",
+    gatePath: "next.config.ts",
+    envPath: ".env.example",
+    readmePath: "README.md",
+  },
+  {
+    directory: "a2a-middleware",
+    frameworks: ["a2a"],
+    runtimePath: "app/api/copilotkit/[[...slug]]/route.ts",
+    gatePath: "next.config.ts",
+    envPath: ".env.example",
+    readmePath: "README.md",
+  },
+  {
+    directory: "ms-agent-framework-dotnet",
+    frameworks: ["microsoft-agent-framework-dotnet"],
+    runtimePath: "src/app/api/copilotkit/[[...slug]]/route.ts",
+    gatePath: "next.config.ts",
+    envPath: ".env.example",
+    readmePath: "README.md",
+  },
+  {
+    directory: "ms-agent-framework-python",
+    frameworks: ["microsoft-agent-framework-py"],
+    runtimePath: "src/app/api/copilotkit/[[...slug]]/route.ts",
+    gatePath: "next.config.ts",
+    envPath: ".env.example",
+    readmePath: "README.md",
+  },
+  {
+    directory: "mcp-apps",
+    frameworks: ["mcp-apps"],
+    runtimePath: "app/api/copilotkit/[[...slug]]/route.ts",
+    gatePath: "next.config.ts",
+    envPath: ".env.example",
+    readmePath: "README.md",
+  },
+  {
+    directory: "agentcore",
+    frameworks: ["agentcore-langgraph", "agentcore-strands"],
+    runtimePath: "infra-cdk/lambdas/copilotkit-runtime/src/runtime.ts",
+    gatePath: "frontend/vite.config.ts",
+    envPath: "docker/.env.example",
+    readmePath: "README.md",
+  },
+] as const satisfies readonly ManagedTemplateContract[];
+
+/**
+ * Reads one required managed-template surface from its authoritative path.
+ *
+ * @param contract - Managed template and its exact surface paths.
+ * @param relativePath - Surface path relative to the integration directory.
+ * @param surface - Human-readable surface name used in assertion failures.
+ * @returns The UTF-8 contents, or an empty string after a missing-file assertion.
+ */
+function readManagedSurface(
+  contract: ManagedTemplateContract,
   relativePath: string,
+  surface: string,
 ): string {
-  return fs.readFileSync(
-    path.join(integrationsDir, integration, relativePath),
-    "utf8",
+  const filePath = path.join(integrationsDir, contract.directory, relativePath);
+  const exists = fs.existsSync(filePath);
+
+  expect(
+    exists,
+    `${contract.directory} ${surface} must exist at ${relativePath}`,
+  ).toBe(true);
+
+  return exists ? fs.readFileSync(filePath, "utf8") : "";
+}
+
+/**
+ * Matches an environment identifier without matching it inside a longer name.
+ *
+ * @param identifier - Exact uppercase environment identifier to match.
+ * @returns A pattern that excludes surrounding uppercase identifier characters.
+ */
+function exactEnvIdentifierPattern(identifier: string): RegExp {
+  return new RegExp(`(^|[^A-Z0-9_])${identifier}([^A-Z0-9_]|$)`);
+}
+
+/**
+ * Matches a documented environment assignment, including commented examples.
+ *
+ * @param identifier - Exact environment identifier expected before `=`.
+ * @returns A multiline assignment pattern.
+ */
+function envAssignmentPattern(identifier: string): RegExp {
+  return new RegExp(`^\\s*#?\\s*${identifier}\\s*=`, "m");
+}
+
+/**
+ * Matches documentation that labels an environment identifier as optional.
+ *
+ * @param identifier - Environment identifier whose optionality is documented.
+ * @returns A proximity pattern allowing a short comment or paragraph.
+ */
+function optionalEnvDocumentationPattern(identifier: string): RegExp {
+  return new RegExp(
+    `(?:optional[\\s\\S]{0,240}${identifier}|${identifier}[\\s\\S]{0,240}optional)`,
+    "i",
   );
 }
 
-function readOptionalIntegrationFile(
-  integration: string,
-  relativePath: string,
-): string {
-  const filePath = path.join(integrationsDir, integration, relativePath);
-  return fs.existsSync(filePath) ? fs.readFileSync(filePath, "utf8") : "";
-}
+/**
+ * Returns the Markdown section containing a managed credential marker.
+ *
+ * This scopes license-copy checks so explicit self-hosted or offline sections
+ * elsewhere in the README remain valid.
+ *
+ * @param markdown - README contents.
+ * @param marker - Managed credential identifier used to locate the section.
+ * @returns The matching heading section, or only the matching paragraph when
+ * no preceding Markdown heading exists.
+ */
+function markdownSectionContaining(markdown: string, marker: string): string {
+  const lines = markdown.split(/\r?\n/);
+  const markerLine = lines.findIndex((line) => line.includes(marker));
 
-function readA2AMiddlewareFile(pathFromRoot: string): string {
-  return fs.readFileSync(path.join(a2aMiddlewareRoot, pathFromRoot), "utf8");
-}
-
-describe("batch-2 Intelligence integration migration", () => {
-  for (const integration of migratedIntegrations) {
-    it(`${integration} has the env-gated Intelligence runtime route`, () => {
-      const route = readIntegrationFile(
-        integration,
-        `${appRoots[integration]}/api/copilotkit/[[...slug]]/route.ts`,
-      );
-
-      expect(route).toContain("CopilotKitIntelligence");
-      expect(route).toContain("process.env.COPILOTKIT_LICENSE_TOKEN");
-      expect(route).toContain(
-        "licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN",
-      );
-      expect(route).toContain('id: "demo-user"');
-      expect(route).toContain("new InMemoryAgentRunner()");
-      expect(route).toContain("export const GET = handle(app)");
-      expect(route).toContain("export const POST = handle(app)");
-      expect(route).toContain("export const PATCH = handle(app)");
-      expect(route).toContain("export const DELETE = handle(app)");
-    });
-
-    it(`${integration} forces REST transport for thread routes`, () => {
-      const layout = readIntegrationFile(
-        integration,
-        `${appRoots[integration]}/layout.tsx`,
-      );
-      const page = readIntegrationFile(
-        integration,
-        `${appRoots[integration]}/page.tsx`,
-      );
-
-      expect(`${layout}\n${page}`).toContain("useSingleEndpoint={false}");
-    });
-
-    it(`${integration} wires the threads drawer into the chat thread context`, () => {
-      const page = readIntegrationFile(
-        integration,
-        `${appRoots[integration]}/page.tsx`,
-      );
-
-      expect(page).toContain("ThreadsDrawer");
-      expect(page).toContain("ThreadsPanelGate");
-      expect(page).toContain("CopilotChatConfigurationProvider");
-      expect(page).toContain("threadId");
-      expect(page).toContain("onThreadChange={setThreadId}");
-
-      if (integration === "mcp-apps") {
-        expect(page).toContain('key={threadId ?? "new-thread"}');
-        expect(page).toContain("threadId={threadId}");
-
-        const drawer = readIntegrationFile(
-          integration,
-          "app/components/threads-drawer/threads-drawer.tsx",
-        );
-        expect(drawer).toContain("onThreadChange(undefined)");
-        expect(drawer).not.toContain("crypto.randomUUID()");
-      }
-    });
-
-    it(`${integration} exposes the client-safe threads enabled gate`, () => {
-      const nextConfig = readIntegrationFile(integration, "next.config.ts");
-
-      expect(nextConfig).toContain("NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED");
-      expect(nextConfig).toContain("process.env.COPILOTKIT_LICENSE_TOKEN");
-    });
-
-    it(`${integration} documents the local Intelligence environment`, () => {
-      const envExample = readOptionalIntegrationFile(
-        integration,
-        ".env.example",
-      );
-
-      expect(envExample).toContain("COPILOTKIT_LICENSE_TOKEN");
-      expect(envExample).toContain("INTELLIGENCE_API_KEY");
-      expect(envExample).toContain("INTELLIGENCE_API_URL");
-      expect(envExample).toContain("INTELLIGENCE_GATEWAY_WS_URL");
-    });
-
-    it(`${integration} pins CopilotKit packages to the threads-capable release`, () => {
-      const packageJson = JSON.parse(
-        readIntegrationFile(integration, "package.json"),
-      ) as { dependencies?: Record<string, string> };
-
-      expect(packageJson.dependencies?.["@copilotkit/react-core"]).toBe(
-        "1.59.3",
-      );
-      expect(packageJson.dependencies?.["@copilotkit/runtime"]).toBe("1.59.3");
-    });
+  if (markerLine < 0) {
+    return "";
   }
-});
 
-test("a2a-middleware runtime route is gated for Intelligence threads", () => {
-  const route = readA2AMiddlewareFile(
-    "app/api/copilotkit/[[...slug]]/route.ts",
-  );
+  let headingLine = -1;
+  let headingLevel = 0;
 
-  expect(route).toContain("CopilotKitIntelligence");
-  expect(route).toContain(
-    "class RuntimeA2AMiddlewareAgent extends A2AMiddlewareAgent",
-  );
-  expect(route).toContain("const isolatedAgent = new A2AMiddlewareAgent");
-  expect(route).toContain("new HttpAgent({");
-  expect(route).toContain("isolatedAgent.setMessages(parameters.messages)");
-  expect(route).toContain("return isolatedAgent.runAgent(");
-  expect(route).toContain("process.env.COPILOTKIT_LICENSE_TOKEN");
-  expect(route).toContain("process.env.INTELLIGENCE_API_KEY");
-  expect(route).toContain("process.env.INTELLIGENCE_API_URL");
-  expect(route).toContain("process.env.INTELLIGENCE_GATEWAY_WS_URL");
-  expect(route).toContain('id: "demo-user"');
-  expect(route).toContain("licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN");
-  expect(route).toContain(": { runner: new InMemoryAgentRunner() }");
-  expect(route).toContain("export const GET = handle(app);");
-  expect(route).toContain("export const POST = handle(app);");
-  expect(route).toContain("export const PATCH = handle(app);");
-  expect(route).toContain("export const DELETE = handle(app);");
-});
-
-test("a2a-middleware preserves its three-agent URL configuration", () => {
-  const route = readA2AMiddlewareFile(
-    "app/api/copilotkit/[[...slug]]/route.ts",
-  );
-
-  expect(route).toContain("process.env.RESEARCH_AGENT_URL");
-  expect(route).toContain("process.env.ANALYSIS_AGENT_URL");
-  expect(route).toContain("process.env.ORCHESTRATOR_URL");
-  expect(route).toContain('agentId: "a2a_chat"');
-  expect(route).toContain("agentUrls: [researchAgentUrl, analysisAgentUrl]");
-  expect(route).toContain("orchestrationAgentUrl: orchestratorUrl");
-});
-
-test("a2a-middleware page uses REST transport for Threads APIs", () => {
-  const page = readA2AMiddlewareFile("app/page.tsx");
-
-  expect(page).toContain('runtimeUrl="/api/copilotkit"');
-  expect(page).toContain("useSingleEndpoint={false}");
-  expect(page).toContain('agentId="a2a_chat"');
-  expect(page).toContain("ThreadsDrawer");
-  expect(page).toContain("ThreadsPanelGate");
-  expect(page).toContain("CopilotChatConfigurationProvider");
-  expect(page).toContain("const [threadId, setThreadId]");
-  expect(page).toContain("threadId={threadId}");
-});
-
-test("a2a-middleware chat keeps A2A visualization tools inside the configured chat", () => {
-  const chat = readA2AMiddlewareFile("components/chat.tsx");
-
-  expect(chat).toContain("useFrontendTool");
-  expect(chat).toContain('name: "send_message_to_a2a_agent"');
-  expect(chat).toContain("MessageToA2A");
-  expect(chat).toContain("MessageFromA2A");
-  expect(chat).not.toContain("<CopilotKit");
-});
-
-test("a2a-middleware exposes local Intelligence env documentation", () => {
-  const envExample = readA2AMiddlewareFile(".env.example");
-
-  expect(envExample).toContain("GOOGLE_API_KEY=");
-  expect(envExample).toContain("OPENAI_API_KEY=");
-  expect(envExample).toContain("COPILOTKIT_LICENSE_TOKEN=");
-  expect(envExample).toContain("INTELLIGENCE_API_KEY=");
-  expect(envExample).toContain("INTELLIGENCE_API_URL=http://localhost:4201");
-  expect(envExample).toContain(
-    "INTELLIGENCE_GATEWAY_WS_URL=ws://localhost:4401",
-  );
-});
-
-test("a2a-middleware package is pinned to the Intelligence-ready CopilotKit SDK", () => {
-  const packageJson = JSON.parse(readA2AMiddlewareFile("package.json")) as {
-    dependencies: Record<string, string>;
-  };
-
-  expect(packageJson.dependencies["@copilotkit/react-core"]).toBe("1.59.3");
-  expect(packageJson.dependencies["@copilotkit/runtime"]).toBe("1.59.3");
-  expect(packageJson.dependencies["lucide-react"]).toBeDefined();
-});
-
-test("a2a-middleware Next config enables the Threads feature flag", () => {
-  const nextConfig = readA2AMiddlewareFile("next.config.ts");
-
-  expect(nextConfig).toContain('output: "standalone"');
-  expect(nextConfig).toContain("NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED");
-  expect(nextConfig).toContain("process.env");
-  expect(nextConfig).toContain("COPILOTKIT_LICENSE_TOKEN");
-});
-
-const a2aA2uiRoot = path.join(integrationsDir, "a2a-a2ui");
-
-function readA2AA2uiFile(pathFromRoot: string): string {
-  return fs.readFileSync(path.join(a2aA2uiRoot, pathFromRoot), "utf8");
-}
-
-test("a2a-a2ui runtime route is gated for Intelligence threads", () => {
-  const route = readA2AA2uiFile("app/api/copilotkit/[[...slug]]/route.tsx");
-
-  expect(route).toContain("CopilotKitIntelligence");
-  expect(route).toContain("class RuntimeA2AAgent extends A2AAgent");
-  expect(route).toContain("const isolatedAgent = new A2AAgent");
-  expect(route).toContain("isolatedAgent.setMessages(parameters.messages)");
-  expect(route).toContain("return isolatedAgent.runAgent(");
-  expect(route).toContain("process.env.COPILOTKIT_LICENSE_TOKEN");
-  expect(route).toContain("process.env.INTELLIGENCE_API_KEY");
-  expect(route).toContain("process.env.INTELLIGENCE_API_URL");
-  expect(route).toContain("process.env.INTELLIGENCE_GATEWAY_WS_URL");
-  expect(route).toContain('id: "demo-user"');
-  expect(route).toContain("licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN");
-  expect(route).toContain(": { runner: new InMemoryAgentRunner() }");
-  expect(route).toContain("a2ui: {}");
-  expect(route).toContain("export const GET = handle(app);");
-  expect(route).toContain("export const POST = handle(app);");
-  expect(route).toContain("export const PATCH = handle(app);");
-  expect(route).toContain("export const DELETE = handle(app);");
-});
-
-test("a2a-a2ui page uses REST transport for Threads APIs", () => {
-  const page = readA2AA2uiFile("app/page.tsx");
-
-  expect(page).toContain('runtimeUrl="/api/copilotkit"');
-  expect(page).toContain('agentId="default"');
-  expect(page).toContain("useSingleEndpoint={false}");
-  expect(page).toContain("a2ui={{ theme }}");
-  expect(page).toContain("const activityRenderers = [a2uiV08Renderer];");
-  expect(page).toContain("renderActivityMessages={activityRenderers}");
-});
-
-test("a2a-a2ui page wires a threads drawer into the active chat thread", () => {
-  const page = readA2AA2uiFile("app/page.tsx");
-
-  expect(page).toContain("ThreadsDrawer");
-  expect(page).toContain("ThreadsPanelGate");
-  expect(page).toContain("CopilotChatConfigurationProvider");
-  expect(page).toContain("const [threadId, setThreadId]");
-  expect(page).toContain('agentId="default"');
-  expect(page).toContain("threadId={threadId}");
-});
-
-test("a2a-a2ui exposes local Intelligence env documentation", () => {
-  const envExample = readA2AA2uiFile(".env.example");
-  const gitignore = readA2AA2uiFile(".gitignore");
-
-  expect(envExample).toContain("OPENAI_API_KEY=");
-  expect(envExample).toContain("COPILOTKIT_LICENSE_TOKEN=");
-  expect(envExample).toContain("INTELLIGENCE_API_KEY=");
-  expect(envExample).toContain("INTELLIGENCE_API_URL=http://localhost:4201");
-  expect(envExample).toContain(
-    "INTELLIGENCE_GATEWAY_WS_URL=ws://localhost:4401",
-  );
-  expect(gitignore).toContain("!.env.example");
-});
-
-test("a2a-a2ui package is pinned to the Intelligence-ready CopilotKit SDK", () => {
-  const packageJson = JSON.parse(readA2AA2uiFile("package.json")) as {
-    dependencies: Record<string, string>;
-  };
-
-  expect(packageJson.dependencies["@copilotkit/a2ui-renderer"]).toBe("1.59.3");
-  expect(packageJson.dependencies["@copilotkit/react-core"]).toBe("1.59.3");
-  expect(packageJson.dependencies["@copilotkit/runtime"]).toBe("1.59.3");
-  expect(packageJson.dependencies["lucide-react"]).toBeDefined();
-});
-
-test("a2a-a2ui Next config enables the Threads feature flag", () => {
-  const nextConfig = readA2AA2uiFile("next.config.js");
-
-  expect(nextConfig).toContain('output: "standalone"');
-  expect(nextConfig).toContain(
-    "NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED: process.env.COPILOTKIT_LICENSE_TOKEN",
-  );
-});
-
-const agentcoreRoot = path.join(integrationsDir, "agentcore");
-
-function readAgentcoreFile(pathFromRoot: string): string {
-  return fs.readFileSync(path.join(agentcoreRoot, pathFromRoot), "utf8");
-}
-
-describe("agentcore Intelligence integration migration", () => {
-  it("gates the Hono runtime bridge with CopilotKit Intelligence", () => {
-    const runtime = readAgentcoreFile(
-      "infra-cdk/lambdas/copilotkit-runtime/src/runtime.ts",
-    );
-
-    expect(runtime).toContain("CopilotKitIntelligence");
-    expect(runtime).toContain("process.env.COPILOTKIT_LICENSE_TOKEN");
-    expect(runtime).toContain("process.env.INTELLIGENCE_API_KEY");
-    expect(runtime).toContain("process.env.INTELLIGENCE_API_URL");
-    expect(runtime).toContain("process.env.INTELLIGENCE_GATEWAY_WS_URL");
-    expect(runtime).toContain(
-      "licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN",
-    );
-    expect(runtime).toContain('id: "demo-user"');
-    expect(runtime).toContain(": { runner: new AgentCoreRunner() }");
-    expect(runtime).toContain('basePath: "/copilotkit"');
-  });
-
-  it("forces REST transport and threads context in the Vite frontend", () => {
-    const chat = readAgentcoreFile(
-      "frontend/src/components/chat/CopilotKit/index.tsx",
-    );
-
-    expect(chat).toContain("useSingleEndpoint={false}");
-    expect(chat).toContain("ThreadsDrawer");
-    expect(chat).toContain("ThreadsPanelGate");
-    expect(chat).toContain("CopilotChatConfigurationProvider");
-    expect(chat).toContain("const [threadId, setThreadId]");
-    expect(chat).toContain("threadId={threadId}");
-    expect(chat).toContain("runtimeUrl={runtimeUrl}");
-    expect(chat).toContain("headers={headers}");
-  });
-
-  it("exposes the client-safe threads enabled gate for Vite", () => {
-    const viteConfig = readAgentcoreFile("frontend/vite.config.ts");
-    const lockedState = readAgentcoreFile(
-      "frontend/src/components/threads-drawer/locked-state.tsx",
-    );
-
-    expect(viteConfig).toContain("VITE_COPILOTKIT_THREADS_ENABLED");
-    expect(viteConfig).toContain("process.env.COPILOTKIT_LICENSE_TOKEN");
-    expect(lockedState).toContain(
-      "import.meta.env.VITE_COPILOTKIT_THREADS_ENABLED",
-    );
-  });
-
-  it("documents and wires local Intelligence environment variables", () => {
-    const dockerEnv = readAgentcoreFile("docker/.env.example");
-    const compose = readAgentcoreFile("docker/docker-compose.yml");
-
-    for (const envName of [
-      "COPILOTKIT_LICENSE_TOKEN",
-      "INTELLIGENCE_API_KEY",
-      "INTELLIGENCE_API_URL",
-      "INTELLIGENCE_GATEWAY_WS_URL",
-    ]) {
-      expect(dockerEnv).toContain(envName);
-      expect(compose).toContain(envName);
+  for (let index = markerLine; index >= 0; index -= 1) {
+    const heading = lines[index]?.match(/^(#{1,6})\s+/);
+    if (heading) {
+      headingLine = index;
+      headingLevel = heading[1]?.length ?? 0;
+      break;
     }
-  });
+  }
 
-  it("pins AgentCore frontend and runtime packages to threads-capable versions", () => {
-    const frontendPackageJson = JSON.parse(
-      readAgentcoreFile("frontend/package.json"),
-    ) as { dependencies?: Record<string, string> };
-    const runtimePackageJson = JSON.parse(
-      readAgentcoreFile("infra-cdk/lambdas/copilotkit-runtime/package.json"),
-    ) as { dependencies?: Record<string, string> };
+  if (headingLine < 0) {
+    const paragraphs = markdown.split(/\r?\n\s*\r?\n/);
+    return paragraphs.find((paragraph) => paragraph.includes(marker)) ?? "";
+  }
 
-    expect(frontendPackageJson.dependencies?.["@copilotkit/react-core"]).toBe(
-      "1.59.3",
-    );
-    expect(runtimePackageJson.dependencies?.["@copilotkit/runtime"]).toBe(
-      "1.59.3",
-    );
-    expect(runtimePackageJson.dependencies?.["@ag-ui/client"]).toBe("0.0.53");
-  });
+  let endLine = lines.length;
+  for (let index = markerLine + 1; index < lines.length; index += 1) {
+    const heading = lines[index]?.match(/^(#{1,6})\s+/);
+    if (heading && (heading[1]?.length ?? 0) <= headingLevel) {
+      endLine = index;
+      break;
+    }
+  }
+
+  return lines.slice(headingLine, endLine).join("\n");
+}
+
+/**
+ * Asserts the managed runtime reads only the managed project credential.
+ *
+ * @param contents - Runtime route or bridge source.
+ */
+function expectManagedRuntimeContract(contents: string): void {
+  expect(contents).toMatch(exactEnvIdentifierPattern(MANAGED_API_KEY));
+  expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_API_KEY));
+  expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_TELEMETRY_ID));
+  expect(contents).not.toContain(MANAGED_LICENSE_TOKEN);
+  expect(contents).not.toMatch(/\blicenseToken\s*:/);
+}
+
+/**
+ * Asserts the browser-safe feature gate follows the managed project credential.
+ *
+ * @param contents - Next.js or Vite gate configuration source.
+ */
+function expectManagedGateContract(contents: string): void {
+  expect(contents).toMatch(exactEnvIdentifierPattern(MANAGED_API_KEY));
+  expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_API_KEY));
+  expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_TELEMETRY_ID));
+  expect(contents).not.toContain(MANAGED_LICENSE_TOKEN);
+}
+
+/**
+ * Asserts an env example documents the managed key and optional telemetry ID.
+ *
+ * @param contents - Managed template environment example contents.
+ */
+function expectManagedEnvContract(contents: string): void {
+  expect(contents).toMatch(envAssignmentPattern(MANAGED_API_KEY));
+  expect(contents).toMatch(envAssignmentPattern(OPTIONAL_TELEMETRY_ID));
+  expect(contents).toMatch(
+    optionalEnvDocumentationPattern(OPTIONAL_TELEMETRY_ID),
+  );
+  expect(contents).not.toMatch(envAssignmentPattern(LEGACY_API_KEY));
+  expect(contents).not.toMatch(envAssignmentPattern(LEGACY_TELEMETRY_ID));
+  expect(contents).not.toMatch(envAssignmentPattern(MANAGED_LICENSE_TOKEN));
+}
+
+/**
+ * Asserts a README documents the managed key and optional telemetry identity.
+ *
+ * @param contents - Managed template README contents.
+ */
+function expectManagedReadmeContract(contents: string): void {
+  expect(contents).toMatch(exactEnvIdentifierPattern(MANAGED_API_KEY));
+  expect(contents).toMatch(exactEnvIdentifierPattern(OPTIONAL_TELEMETRY_ID));
+  expect(contents).toMatch(
+    optionalEnvDocumentationPattern(OPTIONAL_TELEMETRY_ID),
+  );
+  expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_API_KEY));
+  expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_TELEMETRY_ID));
+
+  const managedSection = markdownSectionContaining(contents, MANAGED_API_KEY);
+  expect(managedSection).not.toContain(MANAGED_LICENSE_TOKEN);
+}
+
+test("the 16 managed template directories back all 19 in-repo CLI frameworks", () => {
+  const frameworks = MANAGED_TEMPLATE_CONTRACTS.flatMap(
+    (contract) => contract.frameworks,
+  );
+
+  expect(MANAGED_TEMPLATE_CONTRACTS).toHaveLength(16);
+  expect(new Set(frameworks).size).toBe(19);
+  expect([...frameworks].sort()).toEqual([...MANAGED_CLI_FRAMEWORKS].sort());
 });
+
+for (const contract of MANAGED_TEMPLATE_CONTRACTS) {
+  test(`${contract.directory} runtime uses the managed Intelligence API key`, () => {
+    const runtime = readManagedSurface(
+      contract,
+      contract.runtimePath,
+      "runtime",
+    );
+
+    expectManagedRuntimeContract(runtime);
+  });
+
+  test(`${contract.directory} client gate uses the managed Intelligence API key`, () => {
+    const gate = readManagedSurface(contract, contract.gatePath, "client gate");
+
+    expectManagedGateContract(gate);
+  });
+
+  test(`${contract.directory} env example documents managed Intelligence credentials`, () => {
+    const envExample = readManagedSurface(
+      contract,
+      contract.envPath,
+      "env example",
+    );
+
+    expectManagedEnvContract(envExample);
+  });
+
+  test(`${contract.directory} README documents managed Intelligence credentials`, () => {
+    const readme = readManagedSurface(contract, contract.readmePath, "README");
+
+    expectManagedReadmeContract(readme);
+  });
+}
