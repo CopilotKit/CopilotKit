@@ -4,8 +4,10 @@ import {
   ɵCpkThreadDetails,
 } from "../index.js";
 import type { ThreadDebuggerProvider } from "../index.js";
-import type { CopilotKitCore } from "@copilotkit/core";
-import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
+import {
+  CopilotKitCore,
+  CopilotKitCoreRuntimeConnectionStatus,
+} from "@copilotkit/core";
 import type { CopilotKitCoreSubscriber } from "@copilotkit/core";
 import type { Memory } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
@@ -1561,26 +1563,85 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     threadListAvailable: boolean,
     diagnostics: Pick<HeaderMockCore, "runtimeEntitlements" | "licenseStatus">,
   ): Promise<WebInspectorElement> {
-    const { agent } = createMockAgent("alpha");
-    const harness = createHeaderMockCore(
-      { alpha: agent },
-      {},
-      { list: threadListAvailable },
-      true,
-      diagnostics,
-    );
+    fetchMock.mockImplementation((input) => {
+      const url = String(input);
+      if (url.endsWith("/info")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              version: "1.0.0",
+              agents: {
+                alpha: {
+                  name: "alpha",
+                  className: "HttpAgent",
+                  description: "Alpha",
+                },
+              },
+              audioFileTranscriptionEnabled: false,
+              mode: "intelligence",
+              threadEndpoints: {
+                list: threadListAvailable,
+                inspect: true,
+                mutations: true,
+                realtimeMetadata: true,
+              },
+              telemetryDisabled: true,
+              ...diagnostics,
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          ),
+        );
+      }
+      if (url.includes("/threads?")) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ threads: [] }), { status: 200 }),
+        );
+      }
+      if (url.includes("announcement.json")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              timestamp: "2026-07-11T00:00:00.000Z",
+              previewText: "",
+              announcement: "Inspector",
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          ),
+        );
+      }
+      return Promise.reject(new Error(`Unexpected URL ${url}`));
+    });
+    const core = new CopilotKitCore({
+      runtimeUrl: "http://localhost/api",
+      runtimeTransport: "rest",
+    });
+    await vi.waitFor(() => {
+      expect(core.runtimeConnectionStatus).toBe(
+        CopilotKitCoreRuntimeConnectionStatus.Connected,
+      );
+    });
+
+    localStorage.removeItem("cpk:inspector:state");
     const inspector = new WebInspectorElement();
     document.body.appendChild(inspector);
-    inspector.core = harness.core as unknown as WebInspectorElement["core"];
-    harness.emitAgentsChanged();
-
-    const internals = inspector as unknown as {
-      isOpen: boolean;
-      handleMenuSelect: (key: "threads") => void;
-    };
-    internals.isOpen = true;
-    internals.handleMenuSelect("threads");
+    inspector.core = core;
     await inspector.updateComplete;
+
+    const openInspector =
+      inspector.shadowRoot?.querySelector<HTMLButtonElement>(
+        'button[aria-label="Web Inspector"]',
+      );
+    expect(openInspector).not.toBeNull();
+    openInspector?.click();
+    await inspector.updateComplete;
+
+    const threadsButton = Array.from(
+      inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ?? [],
+    ).find((button) => button.textContent?.trim() === "Threads");
+    expect(threadsButton).toBeDefined();
+    threadsButton?.click();
+    await inspector.updateComplete;
+
     return inspector;
   }
 
@@ -1764,6 +1825,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
 
   it.each([
     {
+      diagnostic: "ready entitlement",
       status: "ready",
       legacyStatus: "expired",
       runtimeEntitlements: {
@@ -1780,46 +1842,64 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
       errorMessage: undefined,
     },
     {
+      diagnostic: "expired self-hosted entitlement",
       status: "degraded",
       legacyStatus: "valid",
       runtimeEntitlements: {
         status: "degraded",
         error: {
-          code: "self_hosted_license_expired",
-          message: "Deployment license expired; reduced capabilities apply.",
+          code: "RUNTIME_ENTITLEMENTS_SELF_HOSTED_EXPIRED",
+          message: "Self-hosted license has expired.",
           retryable: false,
         },
       },
-      errorMessage: "Deployment license expired; reduced capabilities apply.",
+      errorMessage: "Self-hosted license has expired.",
     },
     {
+      diagnostic: "misconfigured self-hosted entitlement",
       status: "misconfigured",
       legacyStatus: "valid",
       runtimeEntitlements: {
         status: "misconfigured",
         error: {
-          code: "self_hosted_license_invalid",
-          message: "Self-hosted license configuration is invalid.",
+          code: "RUNTIME_ENTITLEMENTS_SELF_HOSTED_MISCONFIGURED",
+          message: "Self-hosted license configuration is missing or invalid.",
           retryable: false,
         },
       },
-      errorMessage: "Self-hosted license configuration is invalid.",
+      errorMessage: "Self-hosted license configuration is missing or invalid.",
     },
     {
+      diagnostic: "unavailable managed entitlement",
+      status: "unavailable",
+      legacyStatus: "valid",
+      runtimeEntitlements: {
+        status: "unavailable",
+        error: {
+          code: "RUNTIME_ENTITLEMENTS_MANAGED_UNAVAILABLE",
+          message: "Managed entitlement resolution is temporarily unavailable.",
+          retryable: true,
+        },
+      },
+      errorMessage:
+        "Managed entitlement resolution is temporarily unavailable.",
+    },
+    {
+      diagnostic: "SDK fail-soft entitlement lookup",
       status: "unavailable",
       legacyStatus: "valid",
       runtimeEntitlements: {
         status: "unavailable",
         error: {
           code: "runtime_entitlements_unavailable",
-          message: "Runtime entitlement lookup failed.",
+          message: "Runtime entitlement lookup failed",
           retryable: true,
         },
       },
-      errorMessage: "Runtime entitlement lookup failed.",
+      errorMessage: "Runtime entitlement lookup failed",
     },
   ] as const)(
-    "renders structured Runtime entitlement diagnostics for $status",
+    "renders structured Runtime entitlement diagnostics for $diagnostic",
     async ({ status, legacyStatus, runtimeEntitlements, errorMessage }) => {
       const inspector = await mountThreadsWithCapability(false, {
         runtimeEntitlements,
@@ -1875,8 +1955,8 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
         runtimeEntitlements: {
           status: "misconfigured",
           error: {
-            code: "self_hosted_license_invalid",
-            message: "Self-hosted license configuration is invalid.",
+            code: "RUNTIME_ENTITLEMENTS_SELF_HOSTED_MISCONFIGURED",
+            message: "Self-hosted license configuration is missing or invalid.",
             retryable: false,
           },
         },
