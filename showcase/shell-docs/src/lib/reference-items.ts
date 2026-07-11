@@ -52,6 +52,7 @@ export const REFERENCE_CATEGORIES = [
   "SDKs",
   "Slack",
   "Discord",
+  "Intelligence",
 ] as const;
 export type ReferenceCategory = (typeof REFERENCE_CATEGORIES)[number];
 
@@ -66,7 +67,8 @@ type ReferenceSubdir =
   | "enums"
   | "sdk"
   | "slack"
-  | "discord";
+  | "discord"
+  | "intelligence";
 
 const VERSION_SUBDIRS: Record<ReferenceVersion, ReferenceSubdir[]> = {
   v2: ["components", "hooks"],
@@ -75,7 +77,15 @@ const VERSION_SUBDIRS: Record<ReferenceVersion, ReferenceSubdir[]> = {
   vue: ["components", "hooks"],
   angular: ["components", "functions", "services", "directives"],
   core: ["classes", "types", "enums"],
-  channels: ["components", "functions", "classes", "types", "slack", "discord"],
+  channels: [
+    "components",
+    "functions",
+    "classes",
+    "types",
+    "slack",
+    "discord",
+    "intelligence",
+  ],
 };
 
 const CATEGORY_BY_SUBDIR: Record<ReferenceSubdir, ReferenceCategory> = {
@@ -90,6 +100,7 @@ const CATEGORY_BY_SUBDIR: Record<ReferenceSubdir, ReferenceCategory> = {
   sdk: "SDKs",
   slack: "Slack",
   discord: "Discord",
+  intelligence: "Intelligence",
 };
 
 export type ReferenceItem = {
@@ -400,6 +411,19 @@ function buildChannelsPageTree(): PageTree.Root {
           },
         ];
 
+  const intelligenceItems = loadReferenceItems("channels", "intelligence");
+  const intelligenceCoreFolder: PageTree.Folder[] =
+    intelligenceItems.length === 0
+      ? []
+      : [
+          {
+            type: "folder",
+            name: "Core",
+            defaultOpen: false,
+            children: intelligenceItems.map(itemToPage),
+          },
+        ];
+
   return {
     name: referenceRootName(),
     children: [
@@ -421,6 +445,11 @@ function buildChannelsPageTree(): PageTree.Root {
         "@copilotkit/channels-discord",
       ),
       ...discordCoreFolder,
+      packageSeparator(
+        React.createElement(CopilotKitMark),
+        "@copilotkit/channels-intelligence",
+      ),
+      ...intelligenceCoreFolder,
     ],
   };
 }

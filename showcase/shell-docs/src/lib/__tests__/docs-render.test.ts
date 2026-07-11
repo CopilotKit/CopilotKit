@@ -257,6 +257,29 @@ describe("Managed Channels docs", () => {
 
     expect(loadDoc("frontends/slack")?.source).toContain("/channels/managed");
   });
+
+  it("discovers the channels-intelligence reference", () => {
+    const reference = path.join(
+      CONTENT_DIR,
+      "..",
+      "reference/channels/intelligence/index.mdx",
+    );
+    const source = fs.readFileSync(reference, "utf8");
+    const tree = buildReferencePageTree("channels");
+    const pageUrls: string[] = [];
+
+    const visit = (nodes: typeof tree.children): void => {
+      for (const node of nodes) {
+        if (node.type === "page") pageUrls.push(node.url);
+        if (node.type === "folder") visit(node.children);
+      }
+    };
+    visit(tree.children);
+
+    expect(source).toContain("doc_type: reference");
+    expect(source).toContain("startChannelsOverRealtimeGateway");
+    expect(pageUrls).toContain("/reference/channels/intelligence");
+  });
 });
 
 describe("migration docs", () => {
