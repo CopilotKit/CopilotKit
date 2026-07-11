@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
+import * as ts from "typescript";
 import { expect, test } from "vitest";
 
 const repoRoot = path.resolve(__dirname, "..", "..");
@@ -210,6 +211,98 @@ function exactEnvIdentifierPattern(identifier: string): RegExp {
   return new RegExp(`(^|[^A-Z0-9_])${identifier}([^A-Z0-9_]|$)`);
 }
 
+/** Returns whether a node is the `process.env` object expression. */
+function isProcessEnvObject(node: ts.Node): boolean {
+  return (
+    ts.isPropertyAccessExpression(node) &&
+    ts.isIdentifier(node.expression) &&
+    node.expression.text === "process" &&
+    node.name.text === "env"
+  );
+}
+
+/**
+ * Returns whether a node is a dot or bracket read from `process.env`.
+ *
+ * @param node - TypeScript syntax node under inspection.
+ * @param identifier - Exact environment identifier that must be read.
+ */
+function isProcessEnvRead(node: ts.Node, identifier: string): boolean {
+  if (ts.isPropertyAccessExpression(node)) {
+    return isProcessEnvObject(node.expression) && node.name.text === identifier;
+  }
+
+  return (
+    ts.isElementAccessExpression(node) &&
+    isProcessEnvObject(node.expression) &&
+    ts.isStringLiteral(node.argumentExpression) &&
+    node.argumentExpression.text === identifier
+  );
+}
+
+/** Returns the static text of an object-literal property name when available. */
+function propertyNameText(name: ts.PropertyName): string | null {
+  if (ts.isIdentifier(name) || ts.isStringLiteral(name)) {
+    return name.text;
+  }
+
+  return null;
+}
+
+/**
+ * Returns whether a configured property initializer contains the required read.
+ *
+ * Parsing the source excludes comments and unused string literals by construction;
+ * traversing only the matched initializer excludes unrelated executable reads.
+ */
+function hasConfiguredEnvRead(
+  contents: string,
+  identifier: string,
+  matchesProperty: (name: string) => boolean,
+): boolean {
+  const sourceFile = ts.createSourceFile(
+    "managed-integration-contract.tsx",
+    contents,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
+  let found = false;
+
+  /** Visits one configured initializer looking for the required env read. */
+  function initializerContainsEnvRead(node: ts.Node): boolean {
+    if (isProcessEnvRead(node, identifier)) {
+      return true;
+    }
+
+    return node.getChildren(sourceFile).some(initializerContainsEnvRead);
+  }
+
+  /** Visits object-literal properties until the configured read is found. */
+  function visit(node: ts.Node): void {
+    if (found) {
+      return;
+    }
+
+    if (ts.isPropertyAssignment(node)) {
+      const name = propertyNameText(node.name);
+      if (
+        name !== null &&
+        matchesProperty(name) &&
+        initializerContainsEnvRead(node.initializer)
+      ) {
+        found = true;
+        return;
+      }
+    }
+
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sourceFile);
+  return found;
+}
+
 /**
  * Matches a documented environment assignment, including commented examples.
  *
@@ -231,6 +324,18 @@ function optionalEnvDocumentationPattern(identifier: string): RegExp {
     `(?:optional[\\s\\S]{0,240}${identifier}|${identifier}[\\s\\S]{0,240}optional)`,
     "i",
   );
+}
+
+/**
+ * Returns the blank-line-delimited text block containing a marker.
+ *
+ * @param contents - Environment example or other block-oriented text.
+ * @param marker - Managed credential identifier used to locate the block.
+ * @returns The matching block, or an empty string when the marker is absent.
+ */
+function textBlockContaining(contents: string, marker: string): string {
+  const blocks = contents.split(/\r?\n\s*\r?\n/);
+  return blocks.find((block) => block.includes(marker)) ?? "";
 }
 
 /**
@@ -271,8 +376,15 @@ function markdownSectionContaining(markdown: string, marker: string): string {
 
   let endLine = lines.length;
   for (let index = markerLine + 1; index < lines.length; index += 1) {
-    const heading = lines[index]?.match(/^(#{1,6})\s+/);
-    if (heading && (heading[1]?.length ?? 0) <= headingLevel) {
+    const heading = lines[index]?.match(/^(#{1,6})\s+(.+?)\s*$/);
+    const subsequentLevel = heading?.[1]?.length ?? 0;
+    const subsequentTitle = heading?.[2] ?? "";
+    const startsSeparateLicenseGuidance =
+      /\b(?:self[ -]?hosted|offline)\b/i.test(subsequentTitle);
+    if (
+      heading &&
+      (subsequentLevel <= headingLevel || startsSeparateLicenseGuidance)
+    ) {
       endLine = index;
       break;
     }
@@ -287,7 +399,13 @@ function markdownSectionContaining(markdown: string, marker: string): string {
  * @param contents - Runtime route or bridge source.
  */
 function expectManagedRuntimeContract(contents: string): void {
-  expect(contents).toMatch(exactEnvIdentifierPattern(MANAGED_API_KEY));
+  expect(
+    hasConfiguredEnvRead(
+      contents,
+      MANAGED_API_KEY,
+      (name) => name === "apiKey",
+    ),
+  ).toBe(true);
   expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_API_KEY));
   expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_TELEMETRY_ID));
   expect(contents).not.toContain(MANAGED_LICENSE_TOKEN);
@@ -300,7 +418,16 @@ function expectManagedRuntimeContract(contents: string): void {
  * @param contents - Next.js or Vite gate configuration source.
  */
 function expectManagedGateContract(contents: string): void {
-  expect(contents).toMatch(exactEnvIdentifierPattern(MANAGED_API_KEY));
+  expect(
+    hasConfiguredEnvRead(
+      contents,
+      MANAGED_API_KEY,
+      (name) =>
+        name === "NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED" ||
+        name === "VITE_COPILOTKIT_THREADS_ENABLED" ||
+        name.endsWith(".VITE_COPILOTKIT_THREADS_ENABLED"),
+    ),
+  ).toBe(true);
   expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_API_KEY));
   expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_TELEMETRY_ID));
   expect(contents).not.toContain(MANAGED_LICENSE_TOKEN);
@@ -319,7 +446,9 @@ function expectManagedEnvContract(contents: string): void {
   );
   expect(contents).not.toMatch(envAssignmentPattern(LEGACY_API_KEY));
   expect(contents).not.toMatch(envAssignmentPattern(LEGACY_TELEMETRY_ID));
-  expect(contents).not.toMatch(envAssignmentPattern(MANAGED_LICENSE_TOKEN));
+
+  const managedBlock = textBlockContaining(contents, MANAGED_API_KEY);
+  expect(managedBlock).not.toMatch(envAssignmentPattern(MANAGED_LICENSE_TOKEN));
 }
 
 /**
@@ -339,6 +468,88 @@ function expectManagedReadmeContract(contents: string): void {
   const managedSection = markdownSectionContaining(contents, MANAGED_API_KEY);
   expect(managedSection).not.toContain(MANAGED_LICENSE_TOKEN);
 }
+
+test("managed TypeScript helpers reject API-key identifiers outside configured expressions", () => {
+  const unusedRuntimeRead = `
+    const unused = process.env.CPK_INTELLIGENCE_API_KEY;
+    // apiKey: process.env.CPK_INTELLIGENCE_API_KEY
+    const intelligence = { apiKey: "CPK_INTELLIGENCE_API_KEY" };
+  `;
+  const unusedGateRead = `
+    const unused = process.env["CPK_INTELLIGENCE_API_KEY"];
+    // NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED: process.env.CPK_INTELLIGENCE_API_KEY
+    export default {
+      env: { NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED: "false" },
+    };
+  `;
+
+  expect(() => expectManagedRuntimeContract(unusedRuntimeRead)).toThrow();
+  expect(() => expectManagedGateContract(unusedGateRead)).toThrow();
+});
+
+test("managed TypeScript helpers accept configured dot and bracket env reads", () => {
+  const configuredRuntimeRead = `
+    const intelligence = {
+      apiKey: process.env["CPK_INTELLIGENCE_API_KEY"] ?? "",
+    };
+  `;
+  const configuredGateRead = `
+    export default {
+      env: {
+        NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED:
+          process.env.CPK_INTELLIGENCE_API_KEY ? "true" : "false",
+      },
+    };
+  `;
+
+  expect(() =>
+    expectManagedRuntimeContract(configuredRuntimeRead),
+  ).not.toThrow();
+  expect(() => expectManagedGateContract(configuredGateRead)).not.toThrow();
+});
+
+test("managed documentation helpers reject license guidance inside the managed block", () => {
+  const envExample = `
+    # Managed Intelligence credentials
+    CPK_INTELLIGENCE_API_KEY=
+    # Optional stable telemetry identity
+    CPK_TELEMETRY_ID=
+    COPILOTKIT_LICENSE_TOKEN=
+  `;
+  const readme = [
+    "## Managed Intelligence credentials",
+    "",
+    "Set CPK_INTELLIGENCE_API_KEY for the project. CPK_TELEMETRY_ID is optional.",
+    "COPILOTKIT_LICENSE_TOKEN is not a managed credential.",
+  ].join("\n");
+
+  expect(() => expectManagedEnvContract(envExample)).toThrow();
+  expect(() => expectManagedReadmeContract(readme)).toThrow();
+});
+
+test("managed documentation helpers allow separate self-hosted and offline license guidance", () => {
+  const envExample = `
+    # Managed Intelligence credentials
+    CPK_INTELLIGENCE_API_KEY=
+    # Optional stable telemetry identity
+    CPK_TELEMETRY_ID=
+
+    # Self-hosted / offline license
+    COPILOTKIT_LICENSE_TOKEN=
+  `;
+  const readme = [
+    "## Managed Intelligence credentials",
+    "",
+    "Set CPK_INTELLIGENCE_API_KEY for the project. CPK_TELEMETRY_ID is optional.",
+    "",
+    "### Self-hosted / offline license",
+    "",
+    "Offline deployments may set COPILOTKIT_LICENSE_TOKEN instead.",
+  ].join("\n");
+
+  expect(() => expectManagedEnvContract(envExample)).not.toThrow();
+  expect(() => expectManagedReadmeContract(readme)).not.toThrow();
+});
 
 test("the 16 managed template directories back all 19 in-repo CLI frameworks", () => {
   const frameworks = MANAGED_TEMPLATE_CONTRACTS.flatMap(
