@@ -52,6 +52,62 @@ interface RuntimeEntitlementContractCase {
   detailKeys: readonly string[];
 }
 
+/** Build a ready response case with only the supplied optional metadata. */
+function readyContractCase(
+  label: string,
+  optionalMetadata: {
+    planCode?: string;
+    entitlementSource?: string;
+  },
+  detailKeys: readonly string[],
+): RuntimeEntitlementContractCase {
+  return {
+    label,
+    response: {
+      status: "ready",
+      entitlement: {
+        active: true,
+        source: "managedOrgSubscription",
+        features: { msteams: true },
+        limits: { "threads.retention_hours": 120 },
+        ...optionalMetadata,
+      },
+    },
+    topLevelKeys: ["entitlement", "status"],
+    detailKeys,
+  };
+}
+
+/** Build an error response case with only the supplied optional trace metadata. */
+function errorContractCase(
+  label: string,
+  status: "degraded" | "misconfigured" | "unavailable",
+  error: {
+    code: string;
+    message: string;
+    retryable: boolean;
+    requestId?: string;
+    traceId?: string;
+  },
+  detailKeys: readonly string[],
+): RuntimeEntitlementContractCase {
+  return {
+    label,
+    response: { status, error },
+    topLevelKeys: ["error", "status"],
+    detailKeys,
+  };
+}
+
+const REQUIRED_READY_DETAIL_KEYS = [
+  "active",
+  "features",
+  "limits",
+  "source",
+] as const;
+
+const REQUIRED_ERROR_DETAIL_KEYS = ["code", "message", "retryable"] as const;
+
 export const RUNTIME_ENTITLEMENT_CONTRACT_CASES = [
   {
     label: "ready",
@@ -84,6 +140,116 @@ export const RUNTIME_ENTITLEMENT_CONTRACT_CASES = [
     topLevelKeys: ["error", "status"],
     detailKeys: ["code", "message", "requestId", "retryable", "traceId"],
   },
+  readyContractCase(
+    "ready without planCode",
+    { entitlementSource: "clerk_subscription" },
+    [...REQUIRED_READY_DETAIL_KEYS, "entitlementSource"],
+  ),
+  readyContractCase("ready without entitlementSource", { planCode: "pro" }, [
+    ...REQUIRED_READY_DETAIL_KEYS,
+    "planCode",
+  ]),
+  readyContractCase(
+    "ready without planCode or entitlementSource",
+    {},
+    REQUIRED_READY_DETAIL_KEYS,
+  ),
+  errorContractCase(
+    "degraded without requestId",
+    "degraded",
+    {
+      code: "RUNTIME_ENTITLEMENTS_SELF_HOSTED_EXPIRED",
+      message: "Self-hosted license has expired.",
+      retryable: false,
+      traceId: "trace-degraded",
+    },
+    [...REQUIRED_ERROR_DETAIL_KEYS, "traceId"],
+  ),
+  errorContractCase(
+    "degraded without traceId",
+    "degraded",
+    {
+      code: "RUNTIME_ENTITLEMENTS_SELF_HOSTED_EXPIRED",
+      message: "Self-hosted license has expired.",
+      retryable: false,
+      requestId: "req-degraded",
+    },
+    [...REQUIRED_ERROR_DETAIL_KEYS, "requestId"],
+  ),
+  errorContractCase(
+    "degraded without requestId or traceId",
+    "degraded",
+    {
+      code: "RUNTIME_ENTITLEMENTS_SELF_HOSTED_EXPIRED",
+      message: "Self-hosted license has expired.",
+      retryable: false,
+    },
+    REQUIRED_ERROR_DETAIL_KEYS,
+  ),
+  errorContractCase(
+    "misconfigured without requestId",
+    "misconfigured",
+    {
+      code: "RUNTIME_ENTITLEMENTS_SELF_HOSTED_MISCONFIGURED",
+      message: "Self-hosted license configuration is missing or invalid.",
+      retryable: false,
+      traceId: "trace-misconfigured",
+    },
+    [...REQUIRED_ERROR_DETAIL_KEYS, "traceId"],
+  ),
+  errorContractCase(
+    "misconfigured without traceId",
+    "misconfigured",
+    {
+      code: "RUNTIME_ENTITLEMENTS_SELF_HOSTED_MISCONFIGURED",
+      message: "Self-hosted license configuration is missing or invalid.",
+      retryable: false,
+      requestId: "req-misconfigured",
+    },
+    [...REQUIRED_ERROR_DETAIL_KEYS, "requestId"],
+  ),
+  errorContractCase(
+    "misconfigured without requestId or traceId",
+    "misconfigured",
+    {
+      code: "RUNTIME_ENTITLEMENTS_SELF_HOSTED_MISCONFIGURED",
+      message: "Self-hosted license configuration is missing or invalid.",
+      retryable: false,
+    },
+    REQUIRED_ERROR_DETAIL_KEYS,
+  ),
+  errorContractCase(
+    "unavailable without requestId",
+    "unavailable",
+    {
+      code: "RUNTIME_ENTITLEMENTS_MANAGED_UNAVAILABLE",
+      message: "Managed entitlement resolution is temporarily unavailable.",
+      retryable: true,
+      traceId: "trace-unavailable",
+    },
+    [...REQUIRED_ERROR_DETAIL_KEYS, "traceId"],
+  ),
+  errorContractCase(
+    "unavailable without traceId",
+    "unavailable",
+    {
+      code: "RUNTIME_ENTITLEMENTS_MANAGED_UNAVAILABLE",
+      message: "Managed entitlement resolution is temporarily unavailable.",
+      retryable: true,
+      requestId: "req-unavailable",
+    },
+    [...REQUIRED_ERROR_DETAIL_KEYS, "requestId"],
+  ),
+  errorContractCase(
+    "unavailable without requestId or traceId",
+    "unavailable",
+    {
+      code: "RUNTIME_ENTITLEMENTS_MANAGED_UNAVAILABLE",
+      message: "Managed entitlement resolution is temporarily unavailable.",
+      retryable: true,
+    },
+    REQUIRED_ERROR_DETAIL_KEYS,
+  ),
 ] as const satisfies readonly RuntimeEntitlementContractCase[];
 
 const FORBIDDEN_PUBLIC_KEYS = new Set([
