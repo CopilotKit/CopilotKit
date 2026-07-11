@@ -95,6 +95,11 @@ describe("v1 TelemetryClient", () => {
     endpointTypes: [],
     "cloud.api_key_provided": false,
   } as const;
+  const flattenedBaseInstanceEvent = {
+    actionsAmount: 0,
+    endpointsAmount: 0,
+    "cloud.api_key_provided": false,
+  } as const;
 
   test("capture sends to both sinks when sampled in (anonymous, one decision gates both)", async () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
@@ -157,7 +162,7 @@ describe("v1 TelemetryClient", () => {
           sampleWeight: 1,
         },
       });
-      expect(lambdaEvent.properties).toEqual(baseInstanceEvent);
+      expect(lambdaEvent.properties).toEqual(flattenedBaseInstanceEvent);
       expect(lambdaEvent.globalProperties).toEqual({
         "copilotkit.package.name": "@copilotkit/shared",
         "copilotkit.package.version": "1.0.0",
@@ -171,7 +176,7 @@ describe("v1 TelemetryClient", () => {
         anonymousId: expect.stringMatching(/^anon_/),
         event: "oss.runtime.instance_created",
         properties: {
-          ...baseInstanceEvent,
+          ...flattenedBaseInstanceEvent,
           "copilotkit.package.name": "@copilotkit/shared",
           "copilotkit.package.version": "1.0.0",
           sampleRate: 1,
