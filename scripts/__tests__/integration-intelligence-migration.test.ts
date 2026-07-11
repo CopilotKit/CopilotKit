@@ -392,6 +392,16 @@ function expressionContainsEnvRead(
   return found;
 }
 
+/** Returns whether an expression uses the managed key without telemetry. */
+function expressionUsesManagedKeyWithoutTelemetry(
+  expression: ts.Expression,
+): boolean {
+  return (
+    expressionContainsEnvRead(expression, MANAGED_API_KEY) &&
+    !expressionContainsEnvRead(expression, OPTIONAL_TELEMETRY_ID)
+  );
+}
+
 /** Returns whether a CopilotKit Intelligence constructor owns the API-key read. */
 function hasRuntimeApiKeyRead(sourceFile: ts.SourceFile): boolean {
   let found = false;
@@ -413,7 +423,7 @@ function hasRuntimeApiKeyRead(sourceFile: ts.SourceFile): boolean {
         const apiKey = objectPropertyAssignment(unwrappedOptions, "apiKey");
         if (
           apiKey &&
-          expressionContainsEnvRead(apiKey.initializer, MANAGED_API_KEY)
+          expressionUsesManagedKeyWithoutTelemetry(apiKey.initializer)
         ) {
           found = true;
           return;
@@ -504,8 +514,7 @@ function nestedPropertyContainsEnvRead(
   }
   const property = objectPropertyAssignment(containerInitializer, propertyName);
   return Boolean(
-    property &&
-    expressionContainsEnvRead(property.initializer, MANAGED_API_KEY),
+    property && expressionUsesManagedKeyWithoutTelemetry(property.initializer),
   );
 }
 
@@ -555,19 +564,6 @@ function envAssignmentPattern(identifier: string): RegExp {
 }
 
 /**
- * Matches documentation that labels an environment identifier as optional.
- *
- * @param identifier - Environment identifier whose optionality is documented.
- * @returns A proximity pattern allowing a short comment or paragraph.
- */
-function optionalEnvDocumentationPattern(identifier: string): RegExp {
-  return new RegExp(
-    `(?:optional[\\s\\S]{0,240}${identifier}|${identifier}[\\s\\S]{0,240}optional)`,
-    "i",
-  );
-}
-
-/**
  * Returns the blank-line-delimited text block containing a marker.
  *
  * @param contents - Environment example or other block-oriented text.
@@ -577,6 +573,19 @@ function optionalEnvDocumentationPattern(identifier: string): RegExp {
 function textBlockContaining(contents: string, marker: string): string {
   const blocks = contents.split(/\r?\n\s*\r?\n/);
   return blocks.find((block) => block.includes(marker)) ?? "";
+}
+
+/** Asserts telemetry copy describes identity without prerequisite semantics. */
+function expectTelemetryIdentityDocumentation(contents: string): void {
+  const telemetryBlock = textBlockContaining(contents, OPTIONAL_TELEMETRY_ID);
+
+  expect(telemetryBlock).toMatch(/\boptional\b/i);
+  expect(telemetryBlock).toMatch(/\bnon[- ]?secret\b/i);
+  expect(telemetryBlock).toMatch(/\banalytics\b/i);
+  expect(telemetryBlock).toMatch(/\bidentity\b/i);
+  expect(telemetryBlock).not.toMatch(
+    /\b(?:auth(?:entication|orization)?|entitlements?|enabl(?:e[sd]?|ing|ement)|consent(?:s|ed|ing)?|send(?:s|ing)?|sent|transmit(?:s|ted|ting)?)\b/i,
+  );
 }
 
 /**
@@ -671,9 +680,7 @@ function expectManagedGateContract(contents: string): void {
 function expectManagedEnvContract(contents: string): void {
   expect(contents).toMatch(envAssignmentPattern(MANAGED_API_KEY));
   expect(contents).toMatch(envAssignmentPattern(OPTIONAL_TELEMETRY_ID));
-  expect(contents).toMatch(
-    optionalEnvDocumentationPattern(OPTIONAL_TELEMETRY_ID),
-  );
+  expectTelemetryIdentityDocumentation(contents);
   expect(contents).not.toMatch(envAssignmentPattern(LEGACY_API_KEY));
   expect(contents).not.toMatch(envAssignmentPattern(LEGACY_TELEMETRY_ID));
 
@@ -689,9 +696,7 @@ function expectManagedEnvContract(contents: string): void {
 function expectManagedReadmeContract(contents: string): void {
   expect(contents).toMatch(exactEnvIdentifierPattern(MANAGED_API_KEY));
   expect(contents).toMatch(exactEnvIdentifierPattern(OPTIONAL_TELEMETRY_ID));
-  expect(contents).toMatch(
-    optionalEnvDocumentationPattern(OPTIONAL_TELEMETRY_ID),
-  );
+  expectTelemetryIdentityDocumentation(contents);
   expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_API_KEY));
   expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_TELEMETRY_ID));
 
@@ -822,13 +827,15 @@ test("managed TypeScript helpers reject malformed source", () => {
   expect(() => expectManagedGateContract(malformedGate)).toThrow();
 });
 
-test("managed TypeScript helpers accept configured dot and bracket env reads", () => {
+test("managed TypeScript helpers accept independent telemetry reads", () => {
   const configuredRuntimeRead = `
+    const telemetryId = process.env.CPK_TELEMETRY_ID;
     const intelligence = new CopilotKitIntelligence({
       apiKey: process.env["CPK_INTELLIGENCE_API_KEY"] ?? "",
     });
   `;
   const configuredGateRead = `
+    const telemetryId = process.env["CPK_TELEMETRY_ID"];
     const nextConfig = {
       env: {
         NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED:
@@ -838,6 +845,7 @@ test("managed TypeScript helpers accept configured dot and bracket env reads", (
     export default nextConfig;
   `;
   const configuredViteGateRead = `
+    const telemetryId = process.env.CPK_TELEMETRY_ID;
     export default defineConfig({
       define: {
         "import.meta.env.VITE_COPILOTKIT_THREADS_ENABLED": JSON.stringify(
@@ -854,18 +862,103 @@ test("managed TypeScript helpers accept configured dot and bracket env reads", (
   expect(() => expectManagedGateContract(configuredViteGateRead)).not.toThrow();
 });
 
+test("managed TypeScript helpers reject telemetry prerequisites", () => {
+  const telemetryGatedRuntime = `
+    const intelligence = new CopilotKitIntelligence({
+      apiKey:
+        process.env.CPK_INTELLIGENCE_API_KEY &&
+        process.env.CPK_TELEMETRY_ID,
+    });
+  `;
+  const telemetryGatedNextConfig = `
+    const nextConfig = {
+      env: {
+        NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED:
+          process.env.CPK_INTELLIGENCE_API_KEY &&
+          process.env.CPK_TELEMETRY_ID
+            ? "true"
+            : "false",
+      },
+    };
+    export default nextConfig;
+  `;
+  const telemetryGatedViteConfig = `
+    export default defineConfig({
+      define: {
+        "import.meta.env.VITE_COPILOTKIT_THREADS_ENABLED": JSON.stringify(
+          process.env.CPK_INTELLIGENCE_API_KEY &&
+            process.env.CPK_TELEMETRY_ID
+            ? "true"
+            : "false",
+        ),
+      },
+    });
+  `;
+
+  expect(() => expectManagedRuntimeContract(telemetryGatedRuntime)).toThrow();
+  expect(() => expectManagedGateContract(telemetryGatedNextConfig)).toThrow();
+  expect(() => expectManagedGateContract(telemetryGatedViteConfig)).toThrow();
+});
+
+test("managed documentation helpers reject misleading telemetry semantics", () => {
+  const misleadingDescriptions = [
+    "authentication credential",
+    "entitlement identity",
+    "feature enablement identity",
+    "analytics consent identity",
+    "telemetry send-policy identity",
+  ];
+
+  for (const description of misleadingDescriptions) {
+    const envExample = `
+      CPK_INTELLIGENCE_API_KEY=
+      # Optional, non-secret analytics ${description}.
+      CPK_TELEMETRY_ID=
+    `;
+    const readme = [
+      "## Managed Intelligence credentials",
+      "",
+      "Set `CPK_INTELLIGENCE_API_KEY` for the project.",
+      "",
+      `\`CPK_TELEMETRY_ID\` is an optional, non-secret analytics ${description}.`,
+    ].join("\n");
+
+    expect(() => expectManagedEnvContract(envExample)).toThrow();
+    expect(() => expectManagedReadmeContract(readme)).toThrow();
+  }
+});
+
+test("managed documentation helpers accept an optional non-secret analytics identity", () => {
+  const envExample = `
+    CPK_INTELLIGENCE_API_KEY=
+    # Optional, non-secret analytics identity.
+    CPK_TELEMETRY_ID=
+  `;
+  const readme = [
+    "## Managed Intelligence credentials",
+    "",
+    "Set `CPK_INTELLIGENCE_API_KEY` for the project.",
+    "",
+    "`CPK_TELEMETRY_ID` is an optional, non-secret analytics identity.",
+  ].join("\n");
+
+  expect(() => expectManagedEnvContract(envExample)).not.toThrow();
+  expect(() => expectManagedReadmeContract(readme)).not.toThrow();
+});
+
 test("managed documentation helpers reject license guidance inside the managed block", () => {
   const envExample = `
     # Managed Intelligence credentials
     CPK_INTELLIGENCE_API_KEY=
-    # Optional stable telemetry identity
+    # Optional, non-secret analytics identity
     CPK_TELEMETRY_ID=
     COPILOTKIT_LICENSE_TOKEN=
   `;
   const readme = [
     "## Managed Intelligence credentials",
     "",
-    "Set CPK_INTELLIGENCE_API_KEY for the project. CPK_TELEMETRY_ID is optional.",
+    "Set CPK_INTELLIGENCE_API_KEY for the project.",
+    "CPK_TELEMETRY_ID is an optional, non-secret analytics identity.",
     "COPILOTKIT_LICENSE_TOKEN is not a managed credential.",
   ].join("\n");
 
@@ -877,7 +970,7 @@ test("managed documentation helpers allow separate self-hosted and offline licen
   const envExample = `
     # Managed Intelligence credentials
     CPK_INTELLIGENCE_API_KEY=
-    # Optional stable telemetry identity
+    # Optional, non-secret analytics identity
     CPK_TELEMETRY_ID=
 
     # Self-hosted / offline license
@@ -886,7 +979,8 @@ test("managed documentation helpers allow separate self-hosted and offline licen
   const readme = [
     "## Managed Intelligence credentials",
     "",
-    "Set CPK_INTELLIGENCE_API_KEY for the project. CPK_TELEMETRY_ID is optional.",
+    "Set CPK_INTELLIGENCE_API_KEY for the project.",
+    "CPK_TELEMETRY_ID is an optional, non-secret analytics identity.",
     "",
     "### Self-hosted / offline license",
     "",
