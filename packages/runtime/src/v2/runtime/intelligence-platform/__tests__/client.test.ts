@@ -1,29 +1,165 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { CopilotKitIntelligence } from "../client";
+import { describe, it, expect, test, vi, beforeEach } from "vitest";
+import { CopilotKitIntelligence, PlatformRequestError } from "../client";
 
 const fetchMock = vi.fn();
-globalThis.fetch = fetchMock as unknown as typeof fetch;
+vi.stubGlobal("fetch", fetchMock);
 const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
+/** Build a real JSON response for the shared platform fetch mock. */
 function jsonResponse(body: unknown, status = 200) {
-  return Promise.resolve({
-    ok: status >= 200 && status < 300,
-    status,
-    statusText: status === 200 ? "OK" : "Error",
-    json: () => Promise.resolve(body),
-    text: () => Promise.resolve(JSON.stringify(body)),
-  } as Response);
+  return Promise.resolve(
+    new Response(JSON.stringify(body), {
+      status,
+      statusText: status === 200 ? "OK" : "Error",
+      headers: { "content-type": "application/json" },
+    }),
+  );
 }
 
-function emptyResponse(status = 204) {
-  return Promise.resolve({
-    ok: status >= 200 && status < 300,
-    status,
-    statusText: "No Content",
-    json: () => Promise.resolve(null),
-    text: () => Promise.resolve(""),
-  } as Response);
+/** Build a real text response for response-parser failure coverage. */
+function textResponse(body: string, status = 200) {
+  return Promise.resolve(
+    new Response(body, {
+      status,
+      statusText: status === 200 ? "OK" : "Error",
+      headers: { "content-type": "text/plain" },
+    }),
+  );
 }
+
+/** Build a real empty response for successful no-content client operations. */
+function emptyResponse(status = 204) {
+  return Promise.resolve(
+    new Response(null, {
+      status,
+      statusText: "No Content",
+    }),
+  );
+}
+
+/** Build an entitlement client with a trailing-slash URL and project API key. */
+function runtimeEntitlementsClient() {
+  fetchMock.mockReset();
+  return new CopilotKitIntelligence({
+    apiUrl: "https://api.example.com/",
+    wsUrl: "wss://ws.example.com/socket",
+    apiKey: "cpk-project-key",
+  });
+}
+
+/** Return a complete ready managed-entitlement wire response. */
+function readyRuntimeEntitlements() {
+  return {
+    status: "ready",
+    entitlement: {
+      active: true,
+      source: "managedOrgSubscription",
+      features: { msteams: true },
+      limits: { "threads.retention_hours": 120 },
+      planCode: "pro",
+      entitlementSource: "clerk_subscription",
+    },
+  } as const;
+}
+
+test("getRuntimeEntitlements requests the exact App API endpoint with the project key", async () => {
+  const client = runtimeEntitlementsClient();
+  const payload = readyRuntimeEntitlements();
+  fetchMock.mockReturnValue(jsonResponse(payload));
+
+  const result = await client.getRuntimeEntitlements();
+
+  expect(result).toEqual(payload);
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  expect(fetchMock).toHaveBeenCalledWith(
+    "https://api.example.com/api/entitlements/runtime",
+    expect.objectContaining({
+      method: "GET",
+      headers: expect.objectContaining({
+        Authorization: "Bearer cpk-project-key",
+      }),
+    }),
+  );
+});
+
+test("getRuntimeEntitlements aborts a bounded request with a typed timeout error", async () => {
+  vi.useFakeTimers();
+  try {
+    const client = runtimeEntitlementsClient();
+    fetchMock.mockImplementation(
+      (_input: RequestInfo | URL, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => {
+            reject(
+              new DOMException("The operation was aborted.", "AbortError"),
+            );
+          });
+        }),
+    );
+
+    const request = client.getRuntimeEntitlements();
+    const rejection = expect(request).rejects.toMatchObject({ status: 504 });
+
+    await vi.runAllTimersAsync();
+
+    await rejection;
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const signal = fetchMock.mock.calls[0][1].signal;
+    expect(signal).toBeInstanceOf(AbortSignal);
+    expect(signal.aborted).toBe(true);
+    await expect(request).rejects.toBeInstanceOf(PlatformRequestError);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test.each([
+  ["non-JSON", () => textResponse("not json")],
+  [
+    "off-contract",
+    () =>
+      jsonResponse({
+        ...readyRuntimeEntitlements(),
+        entitlement: {
+          ...readyRuntimeEntitlements().entitlement,
+          active: "yes",
+        },
+      }),
+  ],
+])(
+  "getRuntimeEntitlements rejects %s successful body with a typed validation error",
+  async (_label, response) => {
+    const client = runtimeEntitlementsClient();
+    fetchMock.mockReturnValue(response());
+
+    const request = client.getRuntimeEntitlements();
+
+    await expect(request).rejects.toBeInstanceOf(PlatformRequestError);
+    await expect(request).rejects.toMatchObject({ status: 502 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  },
+);
+
+test.each([300, 401, 503, 599])(
+  "getRuntimeEntitlements rejects non-OK status %i without retrying",
+  async (status) => {
+    const client = runtimeEntitlementsClient();
+    const detail = `unavailable-${status}`;
+    fetchMock.mockReturnValue(jsonResponse({ error: detail }, status));
+
+    const request = client.getRuntimeEntitlements();
+
+    await expect(request).rejects.toBeInstanceOf(PlatformRequestError);
+    await expect(request).rejects.toMatchObject({ status });
+    await expect(request).rejects.toThrow(detail);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  },
+);
+
+/*
+ * Existing client coverage follows. These tests predate the repository's flat
+ * test convention; new Runtime entitlement coverage above remains flat.
+ */
 
 describe("CopilotKitIntelligence", () => {
   let client: CopilotKitIntelligence;
