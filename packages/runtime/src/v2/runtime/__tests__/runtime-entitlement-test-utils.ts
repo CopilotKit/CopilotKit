@@ -12,6 +12,28 @@ export const READY_RUNTIME_ENTITLEMENTS = {
   },
 } as const satisfies RuntimeEntitlementResponse;
 
+export const MANAGED_INACTIVE_RUNTIME_ENTITLEMENTS = {
+  status: "ready",
+  entitlement: {
+    active: false,
+    source: "managedOrgSubscription",
+    features: {},
+    limits: {},
+  },
+} as const satisfies RuntimeEntitlementResponse;
+
+export const SELF_HOSTED_READY_RUNTIME_ENTITLEMENTS = {
+  status: "ready",
+  entitlement: {
+    active: true,
+    source: "selfHostedDeploymentLicense",
+    features: { deployment_via_helm_chart: true },
+    limits: { "threads.retention_hours": 336 },
+    planCode: "team_self_hosted",
+    entitlementSource: "enterprise_override",
+  },
+} as const satisfies RuntimeEntitlementResponse;
+
 export const DEGRADED_RUNTIME_ENTITLEMENTS = {
   status: "degraded",
   error: {
@@ -55,6 +77,7 @@ interface RuntimeEntitlementContractCase {
 /** Build a ready response case with only the supplied optional metadata. */
 function readyContractCase(
   label: string,
+  source: "managedOrgSubscription" | "selfHostedDeploymentLicense",
   optionalMetadata: {
     planCode?: string;
     entitlementSource?: string;
@@ -67,7 +90,7 @@ function readyContractCase(
       status: "ready",
       entitlement: {
         active: true,
-        source: "managedOrgSubscription",
+        source,
         features: { msteams: true },
         limits: { "threads.retention_hours": 120 },
         ...optionalMetadata,
@@ -123,6 +146,25 @@ export const RUNTIME_ENTITLEMENT_CONTRACT_CASES = [
     ],
   },
   {
+    label: "ready managed inactive",
+    response: MANAGED_INACTIVE_RUNTIME_ENTITLEMENTS,
+    topLevelKeys: ["entitlement", "status"],
+    detailKeys: REQUIRED_READY_DETAIL_KEYS,
+  },
+  {
+    label: "ready self-hosted",
+    response: SELF_HOSTED_READY_RUNTIME_ENTITLEMENTS,
+    topLevelKeys: ["entitlement", "status"],
+    detailKeys: [
+      "active",
+      "entitlementSource",
+      "features",
+      "limits",
+      "planCode",
+      "source",
+    ],
+  },
+  {
     label: "degraded",
     response: DEGRADED_RUNTIME_ENTITLEMENTS,
     topLevelKeys: ["error", "status"],
@@ -141,16 +183,38 @@ export const RUNTIME_ENTITLEMENT_CONTRACT_CASES = [
     detailKeys: ["code", "message", "requestId", "retryable", "traceId"],
   },
   readyContractCase(
-    "ready without planCode",
+    "ready managed without planCode",
+    "managedOrgSubscription",
     { entitlementSource: "clerk_subscription" },
     [...REQUIRED_READY_DETAIL_KEYS, "entitlementSource"],
   ),
-  readyContractCase("ready without entitlementSource", { planCode: "pro" }, [
-    ...REQUIRED_READY_DETAIL_KEYS,
-    "planCode",
-  ]),
   readyContractCase(
-    "ready without planCode or entitlementSource",
+    "ready managed without entitlementSource",
+    "managedOrgSubscription",
+    { planCode: "pro" },
+    [...REQUIRED_READY_DETAIL_KEYS, "planCode"],
+  ),
+  readyContractCase(
+    "ready managed without planCode or entitlementSource",
+    "managedOrgSubscription",
+    {},
+    REQUIRED_READY_DETAIL_KEYS,
+  ),
+  readyContractCase(
+    "ready self-hosted without planCode",
+    "selfHostedDeploymentLicense",
+    { entitlementSource: "enterprise_override" },
+    [...REQUIRED_READY_DETAIL_KEYS, "entitlementSource"],
+  ),
+  readyContractCase(
+    "ready self-hosted without entitlementSource",
+    "selfHostedDeploymentLicense",
+    { planCode: "team_self_hosted" },
+    [...REQUIRED_READY_DETAIL_KEYS, "planCode"],
+  ),
+  readyContractCase(
+    "ready self-hosted without planCode or entitlementSource",
+    "selfHostedDeploymentLicense",
     {},
     REQUIRED_READY_DETAIL_KEYS,
   ),
