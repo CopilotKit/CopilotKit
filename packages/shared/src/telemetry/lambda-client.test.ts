@@ -1,6 +1,37 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
 import { send } from "./lambda-client";
 
+/**
+ * Captures the telemetry request without replacing fetch with an untyped mock.
+ */
+function setupCapturedRequest() {
+  const fetchMock = vi
+    .spyOn(globalThis, "fetch")
+    .mockResolvedValue(new Response("", { status: 202 }));
+
+  const readRequest = () => {
+    const call = fetchMock.mock.calls.at(-1);
+    if (!call) {
+      throw new Error("Expected telemetry send to call fetch");
+    }
+
+    const [, init] = call;
+    if (typeof init?.body !== "string") {
+      throw new Error("Expected telemetry request body to be a string");
+    }
+
+    return {
+      bodyText: init.body,
+      headers: new Headers(init.headers),
+    };
+  };
+
+  return {
+    readRequest,
+    teardown: () => fetchMock.mockRestore(),
+  };
+}
+
 describe("lambda-client send()", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
   let originalFetch: typeof fetch;
@@ -108,4 +139,65 @@ describe("lambda-client send()", () => {
       send({ event: "oss.runtime.instance_created" }),
     ).resolves.toBeUndefined();
   });
+});
+
+test("prefers explicit telemetry identity over license-derived identity", async () => {
+  const explicitTelemetryId = "explicit-telemetry-id";
+  const licenseTelemetryId = "license-telemetry-id";
+  const payload = Buffer.from(
+    JSON.stringify({ telemetry_id: licenseTelemetryId }),
+  ).toString("base64url");
+  const licenseToken = `header.${payload}.sig`;
+  const { readRequest, teardown } = setupCapturedRequest();
+
+  try {
+    await send({
+      event: "oss.runtime.instance_created",
+      properties: { requestType: "run" },
+      globalProperties: { sampleRate: 0.25 },
+      packageName: "@copilotkit/runtime",
+      packageVersion: "1.2.3",
+      licenseToken,
+      telemetryId: explicitTelemetryId,
+    });
+
+    const { bodyText, headers } = readRequest();
+    expect(headers.get("X-CopilotKit-Telemetry-Id")).toBe(explicitTelemetryId);
+    expect(JSON.parse(bodyText)).toEqual({
+      event: "oss.runtime.instance_created",
+      properties: { requestType: "run" },
+      global_properties: { sampleRate: 0.25 },
+      package: {
+        name: "@copilotkit/runtime",
+        version: "1.2.3",
+      },
+      ts: expect.any(Number),
+    });
+    expect(bodyText).not.toContain(explicitTelemetryId);
+    expect(bodyText).not.toContain(licenseTelemetryId);
+  } finally {
+    teardown();
+  }
+});
+
+test("does not treat COPILOTKIT_TELEMETRY_ID as an identity alias", async () => {
+  const originalTelemetryId = process.env.COPILOTKIT_TELEMETRY_ID;
+  const envTelemetryId = "environment-telemetry-id";
+  process.env.COPILOTKIT_TELEMETRY_ID = envTelemetryId;
+  const { readRequest, teardown } = setupCapturedRequest();
+
+  try {
+    await send({ event: "oss.runtime.instance_created" });
+
+    const { bodyText, headers } = readRequest();
+    expect(headers.get("X-CopilotKit-Telemetry-Id")).toBeNull();
+    expect(bodyText).not.toContain(envTelemetryId);
+  } finally {
+    if (originalTelemetryId === undefined) {
+      delete process.env.COPILOTKIT_TELEMETRY_ID;
+    } else {
+      process.env.COPILOTKIT_TELEMETRY_ID = originalTelemetryId;
+    }
+    teardown();
+  }
 });
