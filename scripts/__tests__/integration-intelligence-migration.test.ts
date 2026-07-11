@@ -16,6 +16,8 @@ const MANAGED_API_KEY_SECRET_CONFIG =
   "copilotkit_intelligence_api_key_secret_name";
 const NEXT_THREADS_GATE = "NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED";
 const VITE_THREADS_GATE = "VITE_COPILOTKIT_THREADS_ENABLED";
+const MANAGED_DOCUMENTATION_LABEL = /\bmanaged\b/i;
+const SELF_HOSTED_OR_OFFLINE_LABEL = /\b(?:self[ -]?hosted|offline)\b/i;
 
 const MANAGED_CLI_FRAMEWORKS = [
   "langgraph-py",
@@ -563,16 +565,14 @@ function envAssignmentPattern(identifier: string): RegExp {
   return new RegExp(`^\\s*#?\\s*${identifier}\\s*=`, "m");
 }
 
-/**
- * Returns the blank-line-delimited text block containing a marker.
- *
- * @param contents - Environment example or other block-oriented text.
- * @param marker - Managed credential identifier used to locate the block.
- * @returns The matching block, or an empty string when the marker is absent.
- */
+/** Returns every blank-line-delimited block in block-oriented text. */
+function textBlocks(contents: string): readonly string[] {
+  return contents.split(/\r?\n\s*\r?\n/);
+}
+
+/** Returns the first blank-line-delimited text block containing a marker. */
 function textBlockContaining(contents: string, marker: string): string {
-  const blocks = contents.split(/\r?\n\s*\r?\n/);
-  return blocks.find((block) => block.includes(marker)) ?? "";
+  return textBlocks(contents).find((block) => block.includes(marker)) ?? "";
 }
 
 /** Asserts telemetry copy describes identity without prerequisite semantics. */
@@ -588,59 +588,107 @@ function expectTelemetryIdentityDocumentation(contents: string): void {
   );
 }
 
-/**
- * Returns the Markdown section containing a managed credential marker.
- *
- * This scopes license-copy checks so explicit self-hosted or offline sections
- * elsewhere in the README remain valid.
- *
- * @param markdown - README contents.
- * @param marker - Managed credential identifier used to locate the section.
- * @returns The matching heading section, or only the matching paragraph when
- * no preceding Markdown heading exists.
- */
-function markdownSectionContaining(markdown: string, marker: string): string {
+/** Returns whether an env block has an explicit comment label. */
+function envBlockHasLabel(block: string, label: RegExp): boolean {
+  return block
+    .split(/\r?\n/)
+    .some((line) => /^\s*#/.test(line) && label.test(line));
+}
+
+/** Returns the explicitly labeled managed env block containing both fields. */
+function managedEnvBlock(contents: string): string {
+  return (
+    textBlocks(contents).find(
+      (block) =>
+        envBlockHasLabel(block, MANAGED_DOCUMENTATION_LABEL) &&
+        envAssignmentPattern(MANAGED_API_KEY).test(block) &&
+        envAssignmentPattern(OPTIONAL_TELEMETRY_ID).test(block),
+    ) ?? ""
+  );
+}
+
+/** Asserts every env license occurrence has a deployment-mode label. */
+function expectEnvLicenseOccurrencesClassified(contents: string): void {
+  const licenseBlocks = textBlocks(contents).filter((block) =>
+    block.includes(MANAGED_LICENSE_TOKEN),
+  );
+
+  expect(
+    licenseBlocks.every((block) =>
+      envBlockHasLabel(block, SELF_HOSTED_OR_OFFLINE_LABEL),
+    ),
+  ).toBe(true);
+}
+
+/** Returns the managed Markdown heading section containing both fields. */
+function managedMarkdownSection(markdown: string): string {
   const lines = markdown.split(/\r?\n/);
-  const markerLine = lines.findIndex((line) => line.includes(marker));
 
-  if (markerLine < 0) {
-    return "";
-  }
-
-  let headingLine = -1;
-  let headingLevel = 0;
-
-  for (let index = markerLine; index >= 0; index -= 1) {
-    const heading = lines[index]?.match(/^(#{1,6})\s+/);
-    if (heading) {
-      headingLine = index;
-      headingLevel = heading[1]?.length ?? 0;
-      break;
+  for (let start = 0; start < lines.length; start += 1) {
+    const heading = lines[start]?.match(/^(#{1,6})\s+(.+?)\s*$/);
+    if (!heading || !MANAGED_DOCUMENTATION_LABEL.test(heading[2] ?? "")) {
+      continue;
     }
-  }
 
-  if (headingLine < 0) {
-    const paragraphs = markdown.split(/\r?\n\s*\r?\n/);
-    return paragraphs.find((paragraph) => paragraph.includes(marker)) ?? "";
-  }
+    const headingLevel = heading[1]?.length ?? 0;
+    let end = lines.length;
+    for (let index = start + 1; index < lines.length; index += 1) {
+      const subsequent = lines[index]?.match(/^(#{1,6})\s+/);
+      if (subsequent && (subsequent[1]?.length ?? 0) <= headingLevel) {
+        end = index;
+        break;
+      }
+    }
 
-  let endLine = lines.length;
-  for (let index = markerLine + 1; index < lines.length; index += 1) {
-    const heading = lines[index]?.match(/^(#{1,6})\s+(.+?)\s*$/);
-    const subsequentLevel = heading?.[1]?.length ?? 0;
-    const subsequentTitle = heading?.[2] ?? "";
-    const startsSeparateLicenseGuidance =
-      /\b(?:self[ -]?hosted|offline)\b/i.test(subsequentTitle);
+    const section = lines.slice(start, end).join("\n");
     if (
-      heading &&
-      (subsequentLevel <= headingLevel || startsSeparateLicenseGuidance)
+      exactEnvIdentifierPattern(MANAGED_API_KEY).test(section) &&
+      exactEnvIdentifierPattern(OPTIONAL_TELEMETRY_ID).test(section)
     ) {
-      endLine = index;
-      break;
+      return section;
     }
   }
 
-  return lines.slice(headingLine, endLine).join("\n");
+  return "";
+}
+
+/** Returns whether a Markdown line has a heading ancestor with the label. */
+function markdownLineHasLabeledAncestor(
+  lines: readonly string[],
+  lineIndex: number,
+  label: RegExp,
+): boolean {
+  let childLevel = 7;
+  for (let index = lineIndex; index >= 0; index -= 1) {
+    const heading = lines[index]?.match(/^(#{1,6})\s+(.+?)\s*$/);
+    const headingLevel = heading?.[1]?.length ?? 0;
+    if (heading && headingLevel < childLevel) {
+      if (label.test(heading[2] ?? "")) {
+        return true;
+      }
+      childLevel = headingLevel;
+    }
+  }
+
+  return false;
+}
+
+/** Asserts every README license mention has a deployment-mode heading. */
+function expectMarkdownLicenseOccurrencesClassified(markdown: string): void {
+  const lines = markdown.split(/\r?\n/);
+  const licenseLines = lines.flatMap((line, index) =>
+    line.includes(MANAGED_LICENSE_TOKEN) ? [index] : [],
+  );
+
+  expect(
+    licenseLines.every((index) =>
+      markdownLineHasLabeledAncestor(
+        lines,
+        index,
+        SELF_HOSTED_OR_OFFLINE_LABEL,
+      ),
+    ),
+  ).toBe(true);
 }
 
 /**
@@ -678,14 +726,13 @@ function expectManagedGateContract(contents: string): void {
  * @param contents - Managed template environment example contents.
  */
 function expectManagedEnvContract(contents: string): void {
-  expect(contents).toMatch(envAssignmentPattern(MANAGED_API_KEY));
-  expect(contents).toMatch(envAssignmentPattern(OPTIONAL_TELEMETRY_ID));
-  expectTelemetryIdentityDocumentation(contents);
+  const managedBlock = managedEnvBlock(contents);
+
+  expect(managedBlock).not.toBe("");
+  expectTelemetryIdentityDocumentation(managedBlock);
   expect(contents).not.toMatch(envAssignmentPattern(LEGACY_API_KEY));
   expect(contents).not.toMatch(envAssignmentPattern(LEGACY_TELEMETRY_ID));
-
-  const managedBlock = textBlockContaining(contents, MANAGED_API_KEY);
-  expect(managedBlock).not.toMatch(envAssignmentPattern(MANAGED_LICENSE_TOKEN));
+  expectEnvLicenseOccurrencesClassified(contents);
 }
 
 /**
@@ -694,14 +741,13 @@ function expectManagedEnvContract(contents: string): void {
  * @param contents - Managed template README contents.
  */
 function expectManagedReadmeContract(contents: string): void {
-  expect(contents).toMatch(exactEnvIdentifierPattern(MANAGED_API_KEY));
-  expect(contents).toMatch(exactEnvIdentifierPattern(OPTIONAL_TELEMETRY_ID));
-  expectTelemetryIdentityDocumentation(contents);
+  const managedSection = managedMarkdownSection(contents);
+
+  expect(managedSection).not.toBe("");
+  expectTelemetryIdentityDocumentation(managedSection);
   expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_API_KEY));
   expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_TELEMETRY_ID));
-
-  const managedSection = markdownSectionContaining(contents, MANAGED_API_KEY);
-  expect(managedSection).not.toContain(MANAGED_LICENSE_TOKEN);
+  expectMarkdownLicenseOccurrencesClassified(contents);
 }
 
 /** Assert AgentCore local services consume the CLI-managed root env safely. */
@@ -911,6 +957,7 @@ test("managed documentation helpers reject misleading telemetry semantics", () =
 
   for (const description of misleadingDescriptions) {
     const envExample = `
+      # Managed Intelligence credentials
       CPK_INTELLIGENCE_API_KEY=
       # Optional, non-secret analytics ${description}.
       CPK_TELEMETRY_ID=
@@ -930,6 +977,7 @@ test("managed documentation helpers reject misleading telemetry semantics", () =
 
 test("managed documentation helpers accept an optional non-secret analytics identity", () => {
   const envExample = `
+    # Managed Intelligence credentials
     CPK_INTELLIGENCE_API_KEY=
     # Optional, non-secret analytics identity.
     CPK_TELEMETRY_ID=
@@ -960,6 +1008,60 @@ test("managed documentation helpers reject license guidance inside the managed b
     "Set CPK_INTELLIGENCE_API_KEY for the project.",
     "CPK_TELEMETRY_ID is an optional, non-secret analytics identity.",
     "COPILOTKIT_LICENSE_TOKEN is not a managed credential.",
+  ].join("\n");
+
+  expect(() => expectManagedEnvContract(envExample)).toThrow();
+  expect(() => expectManagedReadmeContract(readme)).toThrow();
+});
+
+test("managed documentation helpers reject separated unlabeled license guidance", () => {
+  const envExample = `
+    # Managed Intelligence credentials
+    CPK_INTELLIGENCE_API_KEY=
+    # Optional, non-secret analytics identity
+    CPK_TELEMETRY_ID=
+
+    # Self-hosted / offline license
+    COPILOTKIT_LICENSE_TOKEN=
+
+    # Troubleshooting
+    COPILOTKIT_LICENSE_TOKEN=
+  `;
+  const readme = [
+    "## Managed Intelligence credentials",
+    "",
+    "Set CPK_INTELLIGENCE_API_KEY for the project.",
+    "CPK_TELEMETRY_ID is an optional, non-secret analytics identity.",
+    "",
+    "## Self-hosted / offline license",
+    "",
+    "Offline deployments may set COPILOTKIT_LICENSE_TOKEN.",
+    "",
+    "## Troubleshooting",
+    "",
+    "Set COPILOTKIT_LICENSE_TOKEN if the managed integration is unavailable.",
+  ].join("\n");
+
+  expect(() => expectManagedEnvContract(envExample)).toThrow();
+  expect(() => expectManagedReadmeContract(readme)).toThrow();
+});
+
+test("managed documentation helpers require credentials in one managed block", () => {
+  const envExample = `
+    # Managed Intelligence credentials
+    CPK_INTELLIGENCE_API_KEY=
+
+    # Optional, non-secret analytics identity
+    CPK_TELEMETRY_ID=
+  `;
+  const readme = [
+    "## Managed Intelligence credentials",
+    "",
+    "Set CPK_INTELLIGENCE_API_KEY for the project.",
+    "",
+    "## Analytics identity",
+    "",
+    "CPK_TELEMETRY_ID is an optional, non-secret analytics identity.",
   ].join("\n");
 
   expect(() => expectManagedEnvContract(envExample)).toThrow();
