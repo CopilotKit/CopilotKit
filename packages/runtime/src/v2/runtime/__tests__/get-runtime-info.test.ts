@@ -78,6 +78,66 @@ function installRuntimeEntitlementsLookup(
   });
 }
 
+/** Install and return cleanup for a wished client-wide entitlement lookup. */
+function installRuntimeEntitlementsLookupPrototype(
+  lookup: () => Promise<unknown>,
+): () => void {
+  const methodName = "getRuntimeEntitlements";
+  const previousDescriptor = Object.getOwnPropertyDescriptor(
+    CopilotKitIntelligence.prototype,
+    methodName,
+  );
+  Object.defineProperty(CopilotKitIntelligence.prototype, methodName, {
+    configurable: true,
+    value: lookup,
+  });
+
+  return () => {
+    if (previousDescriptor) {
+      Object.defineProperty(
+        CopilotKitIntelligence.prototype,
+        methodName,
+        previousDescriptor,
+      );
+      return;
+    }
+    Reflect.deleteProperty(CopilotKitIntelligence.prototype, methodName);
+  };
+}
+
+test("does not request Runtime entitlements for an SSE-only Runtime", async () => {
+  const getRuntimeEntitlements = vi
+    .fn()
+    .mockResolvedValue(readyRuntimeEntitlements());
+  const restoreRuntimeEntitlementsLookup =
+    installRuntimeEntitlementsLookupPrototype(getRuntimeEntitlements);
+  const legacyLicenseToken = `header.${Buffer.from(
+    '{"telemetry_id":"legacy-license-id"}',
+  ).toString("base64url")}.signature`;
+
+  try {
+    const runtime = new CopilotRuntime({
+      agents: {},
+      licenseToken: legacyLicenseToken,
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+    const data: RuntimeInfo = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.mode).toBe("sse");
+    expect(data.runtimeEntitlements).toBeUndefined();
+    expect(data.licenseStatus).toBeUndefined();
+    expect(data.telemetryDisabled).toBe(false);
+    expect(getRuntimeEntitlements).not.toHaveBeenCalled();
+  } finally {
+    restoreRuntimeEntitlementsLookup();
+  }
+});
+
 test("returns Runtime entitlements while preserving compatibility license status", async () => {
   const payload = readyRuntimeEntitlements();
   const getRuntimeEntitlements = vi.fn().mockResolvedValue(payload);
