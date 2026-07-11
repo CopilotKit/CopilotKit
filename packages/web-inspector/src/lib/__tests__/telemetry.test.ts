@@ -1,8 +1,8 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, test, vi } from "vitest";
 import type { MockInstance } from "vitest";
 
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { resolve as resolvePath } from "node:path";
 
 import {
   TELEMETRY_DOCS_URL,
@@ -37,8 +37,31 @@ import {
 let fetchMock: MockInstance<typeof fetch>;
 let consoleInfoSpy: MockInstance<typeof console.info>;
 const webInspectorPackage = JSON.parse(
-  readFileSync(resolve(process.cwd(), "package.json"), "utf8"),
+  readFileSync(resolvePath(process.cwd(), "package.json"), "utf8"),
 ) as { version: string };
+const telemetryIdModes = [
+  { label: "absent", telemetryId: undefined },
+  { label: "present", telemetryId: "standalone-runtime-telemetry-id" },
+] as const;
+const persistedBrowserId = "11111111-1111-4111-8111-111111111111";
+
+/** Set one standalone telemetry-ID mode and return its exact environment restore. */
+function setTelemetryIdMode(telemetryId: string | undefined): () => void {
+  const previousTelemetryId = process.env.CPK_TELEMETRY_ID;
+  if (telemetryId === undefined) {
+    delete process.env.CPK_TELEMETRY_ID;
+  } else {
+    process.env.CPK_TELEMETRY_ID = telemetryId;
+  }
+
+  return () => {
+    if (previousTelemetryId === undefined) {
+      delete process.env.CPK_TELEMETRY_ID;
+    } else {
+      process.env.CPK_TELEMETRY_ID = previousTelemetryId;
+    }
+  };
+}
 
 beforeEach(() => {
   // Each test starts from a clean localStorage so distinct-ID + opt-out
@@ -61,6 +84,100 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+test.each(telemetryIdModes)(
+  "keeps Inspector telemetry direct and browser-identified when CPK_TELEMETRY_ID is $label",
+  async ({ telemetryId }) => {
+    const restoreTelemetryId = setTelemetryIdMode(telemetryId);
+    window.localStorage.setItem(
+      "cpk:inspector:telemetry:distinct_id",
+      persistedBrowserId,
+    );
+
+    try {
+      trackBannerViewed({ banner_id: "release-banner" });
+      trackThreadsIntelligenceSignupClicked({
+        cta: "signup",
+        cta_surface: "threads_locked",
+        posthog_distinct_id: "existing-website-alias",
+      });
+      trackTalkToEngineerClicked({
+        cta: "talk_to_engineer",
+        cta_surface: "threads_header",
+        posthog_distinct_id: "existing-website-alias",
+      });
+      await Promise.resolve();
+
+      const payloads = fetchMock.mock.calls.map(([url, init]) => {
+        expect(url).toBe(TELEMETRY_INGEST_URL);
+        expect(init?.method).toBe("POST");
+        expect(
+          new Headers(init?.headers).get("X-CopilotKit-Telemetry-Id"),
+        ).toBe(persistedBrowserId);
+        if (typeof init?.body !== "string") {
+          throw new Error("Expected Inspector telemetry to send a JSON body");
+        }
+        const payload: {
+          event: string;
+          properties: {
+            distinct_id: string;
+            inspector_distinct_id?: string;
+            posthog_distinct_id?: string;
+          };
+        } = JSON.parse(init.body);
+        return payload;
+      });
+
+      expect(payloads.map(({ event }) => event)).toEqual([
+        TELEMETRY_EVENTS.bannerViewed,
+        TELEMETRY_EVENTS.threadsIntelligenceSignupClicked,
+        TELEMETRY_EVENTS.talkToEngineerClicked,
+      ]);
+      expect(payloads.map(({ properties }) => properties.distinct_id)).toEqual([
+        persistedBrowserId,
+        persistedBrowserId,
+        persistedBrowserId,
+      ]);
+      expect(payloads[1]?.properties).toMatchObject({
+        inspector_distinct_id: persistedBrowserId,
+        posthog_distinct_id: "existing-website-alias",
+      });
+      expect(payloads[2]?.properties).toMatchObject({
+        inspector_distinct_id: persistedBrowserId,
+        posthog_distinct_id: "existing-website-alias",
+      });
+      expect(
+        window.localStorage.getItem("cpk:inspector:telemetry:distinct_id"),
+      ).toBe(persistedBrowserId);
+      expect(getTelemetryDistinctIdForUrl()).toBe(persistedBrowserId);
+    } finally {
+      restoreTelemetryId();
+    }
+  },
+);
+
+test.each(telemetryIdModes)(
+  "keeps Inspector send and CTA propagation opted out when CPK_TELEMETRY_ID is $label",
+  async ({ telemetryId }) => {
+    const restoreTelemetryId = setTelemetryIdMode(telemetryId);
+    window.localStorage.setItem(
+      "cpk:inspector:telemetry:distinct_id",
+      persistedBrowserId,
+    );
+
+    try {
+      setTelemetryOptOut(true);
+
+      trackBannerClicked({ banner_id: "release-banner", cta: "body" });
+      await Promise.resolve();
+
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(getTelemetryDistinctIdForUrl()).toBeNull();
+    } finally {
+      restoreTelemetryId();
+    }
+  },
+);
+
 // ─── Wire body shape ────────────────────────────────────────────────────────
 
 describe("track()", () => {
@@ -75,12 +192,9 @@ describe("track()", () => {
     const [url, init] = fetchMock.mock.calls[0]!;
     expect(url).toBe(TELEMETRY_INGEST_URL);
     expect(init?.method).toBe("POST");
-    expect((init?.headers as Record<string, string>)["Content-Type"]).toBe(
-      "application/json",
-    );
-    expect(
-      (init?.headers as Record<string, string>)["X-CopilotKit-Telemetry-Id"],
-    ).toMatch(/^[0-9a-f-]{36}$/);
+    const headers = new Headers(init?.headers);
+    expect(headers.get("Content-Type")).toBe("application/json");
+    expect(headers.get("X-CopilotKit-Telemetry-Id")).toMatch(/^[0-9a-f-]{36}$/);
 
     // Ben confirmed shape (telemetry-sink-ingest/index.ts:127-134):
     // package is a top-level object { name, version? }, NOT inside properties.
@@ -132,7 +246,7 @@ describe("track()", () => {
 
     expect(() => track(TELEMETRY_EVENTS.threadsTabClicked)).not.toThrow();
 
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((done) => setTimeout(done, 0));
   });
 
   it("does not send when fetch is unavailable (SSR / pre-fetch environment)", async () => {
