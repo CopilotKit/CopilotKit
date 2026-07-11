@@ -686,6 +686,269 @@ function constructOptions(
   return matches;
 }
 
+/** Returns every object-literal options argument for one constructor. */
+function newExpressionOptions(
+  sourceFile: ts.SourceFile,
+  constructorName: string,
+): readonly ts.ObjectLiteralExpression[] {
+  const matches: ts.ObjectLiteralExpression[] = [];
+
+  /** Visits constructor calls for exact constructor ownership. */
+  function visit(node: ts.Node): void {
+    if (
+      ts.isNewExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === constructorName
+    ) {
+      const options = node.arguments?.[0]
+        ? unwrapExpression(node.arguments[0])
+        : null;
+      if (options && ts.isObjectLiteralExpression(options)) {
+        matches.push(options);
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sourceFile);
+  return matches;
+}
+
+/** Returns whether source constructs one exact class. */
+function sourceContainsNewExpression(
+  sourceFile: ts.SourceFile,
+  constructorName: string,
+): boolean {
+  let found = false;
+
+  /** Visits constructor calls until the required class is found. */
+  function visit(node: ts.Node): void {
+    if (found) return;
+    if (
+      ts.isNewExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === constructorName
+    ) {
+      found = true;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sourceFile);
+  return found;
+}
+
+/** Returns whether a source contains a call to one exact function or method. */
+function sourceContainsCall(
+  sourceFile: ts.SourceFile,
+  calleePath: readonly string[],
+): boolean {
+  let found = false;
+
+  /** Visits call expressions until the required callee is found. */
+  function visit(node: ts.Node): void {
+    if (found) return;
+    if (
+      ts.isCallExpression(node) &&
+      propertyAccessParts(node.expression).join(".") === calleePath.join(".")
+    ) {
+      found = true;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sourceFile);
+  return found;
+}
+
+/** Returns calls to one exact function or method. */
+function sourceCalls(
+  sourceFile: ts.SourceFile,
+  calleePath: readonly string[],
+): readonly ts.CallExpression[] {
+  const matches: ts.CallExpression[] = [];
+
+  /** Visits source nodes for the required callee. */
+  function visit(node: ts.Node): void {
+    if (
+      ts.isCallExpression(node) &&
+      propertyAccessParts(node.expression).join(".") === calleePath.join(".")
+    ) {
+      matches.push(node);
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sourceFile);
+  return matches;
+}
+
+/** Returns whether source contains an exact environment read. */
+function sourceContainsEnvRead(
+  sourceFile: ts.SourceFile,
+  identifier: string,
+): boolean {
+  let found = false;
+
+  /** Visits source nodes for the required environment read. */
+  function visit(node: ts.Node): void {
+    if (found) return;
+    if (isProcessEnvRead(node, identifier)) {
+      found = true;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sourceFile);
+  return found;
+}
+
+/** Returns the exported HTTP methods assigned to `handle(app)`. */
+function exportedEndpointHandlers(
+  sourceFile: ts.SourceFile,
+): ReadonlySet<string> {
+  const methods = new Set<string>();
+
+  for (const statement of sourceFile.statements) {
+    if (
+      !ts.isVariableStatement(statement) ||
+      !statement.modifiers?.some(
+        (modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword,
+      )
+    ) {
+      continue;
+    }
+
+    for (const declaration of statement.declarationList.declarations) {
+      const initializer = declaration.initializer
+        ? unwrapExpression(declaration.initializer)
+        : null;
+      if (
+        ts.isIdentifier(declaration.name) &&
+        initializer &&
+        ts.isCallExpression(initializer) &&
+        ts.isIdentifier(initializer.expression) &&
+        initializer.expression.text === "handle" &&
+        initializer.arguments.length === 1 &&
+        ts.isIdentifier(initializer.arguments[0]) &&
+        initializer.arguments[0].text === "app"
+      ) {
+        methods.add(declaration.name.text);
+      }
+    }
+  }
+
+  return methods;
+}
+
+/** Returns static JSX tag text when the tag is not computed. */
+function jsxTagNameText(name: ts.JsxTagNameExpression): string | null {
+  if (ts.isIdentifier(name)) {
+    return name.text;
+  }
+  if (ts.isPropertyAccessExpression(name)) {
+    return propertyAccessParts(name).join(".");
+  }
+
+  return null;
+}
+
+/** Returns all JSX elements and self-closing elements with one tag name. */
+function jsxNodesWithTag(
+  root: ts.Node,
+  tagName: string,
+): readonly (ts.JsxElement | ts.JsxSelfClosingElement)[] {
+  const matches: (ts.JsxElement | ts.JsxSelfClosingElement)[] = [];
+
+  /** Visits JSX nodes for the exact tag name. */
+  function visit(node: ts.Node): void {
+    if (
+      ts.isJsxElement(node) &&
+      jsxTagNameText(node.openingElement.tagName) === tagName
+    ) {
+      matches.push(node);
+    } else if (
+      ts.isJsxSelfClosingElement(node) &&
+      jsxTagNameText(node.tagName) === tagName
+    ) {
+      matches.push(node);
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(root);
+  return matches;
+}
+
+/** Returns the opening-like node for a JSX element. */
+function jsxOpeningLikeElement(
+  node: ts.JsxElement | ts.JsxSelfClosingElement,
+): ts.JsxOpeningLikeElement {
+  return ts.isJsxElement(node) ? node.openingElement : node;
+}
+
+/** Returns one exact JSX attribute. */
+function jsxAttribute(
+  node: ts.JsxElement | ts.JsxSelfClosingElement,
+  attributeName: string,
+): ts.JsxAttribute | null {
+  const opening = jsxOpeningLikeElement(node);
+  for (const property of opening.attributes.properties) {
+    if (
+      ts.isJsxAttribute(property) &&
+      property.name.getText() === attributeName
+    ) {
+      return property;
+    }
+  }
+
+  return null;
+}
+
+/** Returns a stable structural identity for one JSX attribute value. */
+function jsxAttributeIdentity(
+  attribute: ts.JsxAttribute | null,
+): string | null {
+  if (!attribute?.initializer) {
+    return attribute ? "true" : null;
+  }
+  if (ts.isStringLiteral(attribute.initializer)) {
+    return JSON.stringify(attribute.initializer.text);
+  }
+  if (
+    ts.isJsxExpression(attribute.initializer) &&
+    attribute.initializer.expression
+  ) {
+    return attribute.initializer.expression.getText();
+  }
+
+  return null;
+}
+
+/** Returns whether a JSX attribute is the boolean literal `false`. */
+function jsxAttributeIsFalse(attribute: ts.JsxAttribute | null): boolean {
+  return Boolean(
+    attribute?.initializer &&
+    ts.isJsxExpression(attribute.initializer) &&
+    attribute.initializer.expression?.kind === ts.SyntaxKind.FalseKeyword,
+  );
+}
+
+/** Returns whether an object property is one exact string literal. */
+function objectPropertyIsString(
+  objectLiteral: ts.ObjectLiteralExpression,
+  propertyName: string,
+  expected: string,
+): boolean {
+  const property = objectPropertyAssignment(objectLiteral, propertyName);
+  if (!property) return false;
+  const initializer = unwrapExpression(property.initializer);
+  return ts.isStringLiteral(initializer) && initializer.text === expected;
+}
+
 /**
  * Matches a documented environment assignment, including commented examples.
  *
@@ -943,6 +1206,357 @@ function expectManagedReadmeContract(contents: string): void {
   expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_API_KEY));
   expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_TELEMETRY_ID));
   expectMarkdownLicenseOccurrencesClassified(contents);
+}
+
+/** Asserts a Next/Hono runtime preserves its complete REST handler surface. */
+function expectEndpointHandlerContract(contents: string): void {
+  const handlers = exportedEndpointHandlers(parseManagedSource(contents));
+
+  expect([...handlers].sort()).toEqual(["DELETE", "GET", "PATCH", "POST"]);
+}
+
+/** Asserts a frontend preserves REST transport and shared thread ownership. */
+function expectFrontendThreadContract(
+  providerContents: string,
+  threadContents: string,
+): void {
+  const providerSource = parseManagedSource(providerContents);
+  const threadSource = parseManagedSource(threadContents);
+  const providers = [
+    ...jsxNodesWithTag(providerSource, "CopilotKit"),
+    ...jsxNodesWithTag(providerSource, "CopilotKitProvider"),
+  ];
+  const configurationProviders = jsxNodesWithTag(
+    threadSource,
+    "CopilotChatConfigurationProvider",
+  );
+  const drawers = jsxNodesWithTag(threadSource, "CopilotThreadsDrawer");
+
+  expect(providers).toHaveLength(1);
+  expect(configurationProviders).toHaveLength(1);
+  expect(drawers).toHaveLength(1);
+  if (
+    providers.length !== 1 ||
+    configurationProviders.length !== 1 ||
+    drawers.length !== 1
+  ) {
+    return;
+  }
+
+  const provider = providers[0]!;
+  const configurationProvider = configurationProviders[0]!;
+  const drawer = drawers[0]!;
+  const configuredAgent = jsxAttributeIdentity(
+    jsxAttribute(configurationProvider, "agentId"),
+  );
+  const drawerAgent = jsxAttributeIdentity(jsxAttribute(drawer, "agentId"));
+
+  expect(jsxAttribute(provider, "runtimeUrl")).not.toBeNull();
+  expect(jsxAttributeIsFalse(jsxAttribute(provider, "useSingleEndpoint"))).toBe(
+    true,
+  );
+  expect(jsxAttribute(configurationProvider, "threadId")).toBeNull();
+  expect(configuredAgent).not.toBeNull();
+  expect(drawerAgent).toBe(configuredAgent);
+  expect(
+    jsxNodesWithTag(configurationProvider, "CopilotThreadsDrawer"),
+  ).toHaveLength(1);
+
+  const configuredChatCount = [
+    "CopilotChat",
+    "CopilotSidebar",
+    "Chat",
+    "ResearchAssistant",
+  ].reduce(
+    (count, tagName) =>
+      count + jsxNodesWithTag(configurationProvider, tagName).length,
+    0,
+  );
+  expect(configuredChatCount).toBeGreaterThan(0);
+}
+
+/** Asserts MCP Apps retains its client middleware configuration. */
+function expectMcpAppsRuntimeBehavior(contents: string): void {
+  const sourceFile = parseManagedSource(contents);
+  const middlewareOptions = newExpressionOptions(
+    sourceFile,
+    "MCPAppsMiddleware",
+  );
+  const agentOptions = newExpressionOptions(sourceFile, "BuiltInAgent");
+
+  expect(middlewareOptions).toHaveLength(1);
+  expect(agentOptions).toHaveLength(1);
+  expect(sourceContainsCall(sourceFile, ["agent", "use"])).toBe(true);
+  if (middlewareOptions.length !== 1) return;
+
+  const serversProperty = objectPropertyAssignment(
+    middlewareOptions[0]!,
+    "mcpServers",
+  );
+  const servers = serversProperty
+    ? unwrapExpression(serversProperty.initializer)
+    : null;
+  expect(servers && ts.isArrayLiteralExpression(servers)).toBe(true);
+  if (!servers || !ts.isArrayLiteralExpression(servers)) return;
+
+  const configuredServers = servers.elements.filter(
+    ts.isObjectLiteralExpression,
+  );
+  expect(configuredServers).toHaveLength(1);
+  if (configuredServers.length !== 1) return;
+  expect(objectPropertyIsString(configuredServers[0]!, "type", "http")).toBe(
+    true,
+  );
+  expect(
+    objectPropertyIsString(configuredServers[0]!, "serverId", "threejs"),
+  ).toBe(true);
+  expect(
+    objectPropertyIsString(
+      configuredServers[0]!,
+      "url",
+      "http://localhost:3108/mcp",
+    ),
+  ).toBe(true);
+}
+
+/** Asserts the bundled MCP server retains its tools and UI resource. */
+function expectMcpServerBehavior(
+  serverContents: string,
+  transportContents: string,
+): void {
+  const serverSource = parseManagedSource(serverContents);
+  const transportSource = parseManagedSource(transportContents);
+  const appToolCalls = sourceCalls(serverSource, ["registerAppTool"]);
+  const toolCalls = sourceCalls(serverSource, ["server", "registerTool"]);
+  const resourceCalls = sourceCalls(serverSource, ["registerAppResource"]);
+  const routeCalls = sourceCalls(transportSource, ["app", "all"]);
+
+  expect(appToolCalls).toHaveLength(1);
+  expect(toolCalls).toHaveLength(1);
+  expect(resourceCalls).toHaveLength(1);
+  expect(routeCalls).toHaveLength(1);
+  expect(appToolCalls[0]?.arguments[1]).toMatchObject({
+    text: "show_threejs_scene",
+  });
+  expect(toolCalls[0]?.arguments[0]).toMatchObject({ text: "learn_threejs" });
+  expect(sourceContainsCall(serverSource, ["startServer"])).toBe(true);
+  expect(sourceContainsCall(transportSource, ["server", "connect"])).toBe(true);
+  expect(
+    sourceContainsCall(transportSource, ["transport", "handleRequest"]),
+  ).toBe(true);
+  expect(routeCalls[0]?.arguments[0]).toMatchObject({ text: "/mcp" });
+
+  const resourceArgument = resourceCalls[0]?.arguments[1];
+  expect(resourceArgument && ts.isIdentifier(resourceArgument)).toBe(true);
+  expect(serverContents).toContain(
+    'const resourceUri = "ui://threejs/mcp-app.html"',
+  );
+}
+
+/** Returns whether source declares one class extending the expected base. */
+function sourceContainsClassExtension(
+  sourceFile: ts.SourceFile,
+  className: string,
+  baseName: string,
+): boolean {
+  let found = false;
+
+  /** Visits class declarations for the exact inheritance edge. */
+  function visit(node: ts.Node): void {
+    if (found) return;
+    if (
+      ts.isClassDeclaration(node) &&
+      node.name?.text === className &&
+      node.heritageClauses?.some(
+        (clause) =>
+          clause.token === ts.SyntaxKind.ExtendsKeyword &&
+          clause.types.some(
+            (type) =>
+              ts.isIdentifier(type.expression) &&
+              type.expression.text === baseName,
+          ),
+      )
+    ) {
+      found = true;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sourceFile);
+  return found;
+}
+
+/** Asserts A2A retains isolated multi-agent routing and URL ownership. */
+function expectA2ARuntimeBehavior(contents: string): void {
+  const sourceFile = parseManagedSource(contents);
+  const runtimeOptions = newExpressionOptions(
+    sourceFile,
+    "RuntimeA2AMiddlewareAgent",
+  ).find((options) => objectPropertyAssignment(options, "agentUrls"));
+
+  expect(
+    sourceContainsClassExtension(
+      sourceFile,
+      "RuntimeA2AMiddlewareAgent",
+      "A2AMiddlewareAgent",
+    ),
+  ).toBe(true);
+  expect(newExpressionOptions(sourceFile, "A2AMiddlewareAgent")).toHaveLength(
+    1,
+  );
+  expect(
+    newExpressionOptions(sourceFile, "HttpAgent").length,
+  ).toBeGreaterThanOrEqual(2);
+  expect(sourceContainsCall(sourceFile, ["isolatedAgent", "setMessages"])).toBe(
+    true,
+  );
+  expect(sourceContainsCall(sourceFile, ["isolatedAgent", "runAgent"])).toBe(
+    true,
+  );
+  for (const identifier of [
+    "RESEARCH_AGENT_URL",
+    "ANALYSIS_AGENT_URL",
+    "ORCHESTRATOR_URL",
+  ]) {
+    expect(sourceContainsEnvRead(sourceFile, identifier)).toBe(true);
+  }
+
+  expect(runtimeOptions).toBeDefined();
+  if (!runtimeOptions) return;
+  expect(objectPropertyIsString(runtimeOptions, "agentId", "a2a_chat")).toBe(
+    true,
+  );
+  const agentUrls = objectPropertyAssignment(runtimeOptions, "agentUrls");
+  const orchestrationAgentUrl = objectPropertyAssignment(
+    runtimeOptions,
+    "orchestrationAgentUrl",
+  );
+  expect(agentUrls?.initializer.getText()).toBe(
+    "[researchAgentUrl, analysisAgentUrl]",
+  );
+  expect(orchestrationAgentUrl?.initializer.getText()).toBe("orchestratorUrl");
+}
+
+/** Asserts A2A visualization stays registered inside the configured chat. */
+function expectA2AVisualizationBehavior(contents: string): void {
+  const sourceFile = parseManagedSource(contents);
+  const toolCalls = sourceCalls(sourceFile, ["useFrontendTool"]);
+  const visualizationTool = toolCalls.find((call) => {
+    const options = call.arguments[0]
+      ? unwrapExpression(call.arguments[0])
+      : null;
+    return (
+      options &&
+      ts.isObjectLiteralExpression(options) &&
+      objectPropertyIsString(options, "name", "send_message_to_a2a_agent")
+    );
+  });
+
+  expect(visualizationTool).toBeDefined();
+  expect(jsxNodesWithTag(sourceFile, "MessageToA2A")).toHaveLength(1);
+  expect(jsxNodesWithTag(sourceFile, "MessageFromA2A")).toHaveLength(1);
+  expect(jsxNodesWithTag(sourceFile, "CopilotChat")).toHaveLength(1);
+  expect(jsxNodesWithTag(sourceFile, "CopilotKit")).toHaveLength(0);
+  expect(jsxNodesWithTag(sourceFile, "CopilotKitProvider")).toHaveLength(0);
+}
+
+/** Asserts AgentCore retains its custom runner and bridge endpoint behavior. */
+function expectAgentCoreRuntimeBehavior(contents: string): void {
+  const sourceFile = parseManagedSource(contents);
+  const endpointCalls = sourceCalls(sourceFile, ["createCopilotEndpoint"]);
+  const requiredAgentUrl = sourceCalls(sourceFile, ["requireEnv"]).some(
+    (call) =>
+      call.arguments[0] &&
+      ts.isStringLiteral(call.arguments[0]) &&
+      call.arguments[0].text === "AGENTCORE_AG_UI_URL",
+  );
+
+  expect(
+    sourceContainsClassExtension(
+      sourceFile,
+      "AgentCoreRunner",
+      "InMemoryAgentRunner",
+    ),
+  ).toBe(true);
+  expect(requiredAgentUrl).toBe(true);
+  expect(newExpressionOptions(sourceFile, "HttpAgent")).toHaveLength(1);
+  expect(newExpressionOptions(sourceFile, "MCPAppsMiddleware")).toHaveLength(1);
+  expect(sourceContainsNewExpression(sourceFile, "AgentCoreRunner")).toBe(true);
+  expect(endpointCalls).toHaveLength(1);
+  const endpointOptions = endpointCalls[0]?.arguments[0];
+  const unwrappedOptions = endpointOptions
+    ? unwrapExpression(endpointOptions)
+    : null;
+  expect(
+    unwrappedOptions && ts.isObjectLiteralExpression(unwrappedOptions),
+  ).toBe(true);
+  if (!unwrappedOptions || !ts.isObjectLiteralExpression(unwrappedOptions)) {
+    return;
+  }
+  expect(
+    objectPropertyIsString(unwrappedOptions, "basePath", "/copilotkit"),
+  ).toBe(true);
+}
+
+/** Asserts AgentCore local services retain bridge routing and one network. */
+function expectAgentCoreNetworkingBehavior(contents: string): void {
+  const agent = yamlMappingSection(contents, "agent");
+  const bridge = yamlMappingSection(contents, "bridge");
+  const frontend = yamlMappingSection(contents, "frontend");
+
+  expect(agent).toMatch(/networks:\s*\n\s*- agentcore-network/);
+  expect(bridge).toContain("AGENTCORE_AG_UI_URL=http://agent:8080/invocations");
+  expect(bridge).toMatch(
+    /depends_on:\s*\n\s*agent:\s*\n\s*condition: service_healthy/,
+  );
+  expect(bridge).toMatch(/networks:\s*\n\s*- agentcore-network/);
+  expect(frontend).toMatch(
+    /depends_on:\s*\n\s*bridge:\s*\n\s*condition: service_started/,
+  );
+  expect(frontend).toMatch(/networks:\s*\n\s*- agentcore-network/);
+  expect(contents).toMatch(
+    /^networks:\s*\n\s*agentcore-network:\s*\n\s*driver: bridge\s*$/m,
+  );
+}
+
+/** Asserts an AgentCore deploy script preserves one framework variant. */
+function expectAgentCoreVariantBehavior(
+  contents: string,
+  pattern: string,
+  suffix: string,
+): void {
+  expect(contents).toMatch(new RegExp(`^PATTERN="${pattern}"$`, "m"));
+  expect(contents).toMatch(new RegExp(`^SUFFIX="${suffix}"$`, "m"));
+  expect(contents).toMatch(/^CONFIG="\$SCRIPT_DIR\/config\.yaml"$/m);
+  expect(contents).toMatch(
+    /npx cdk@latest deploy --all --require-approval never/,
+  );
+  expect(contents).toMatch(
+    /python3 scripts\/deploy-frontend\.py "\$STACK_NAME"/,
+  );
+}
+
+/** Returns the provider and thread-owning frontend surfaces for a template. */
+function frontendBehaviorPaths(contract: ManagedTemplateContract): {
+  readonly providerPath: string;
+  readonly threadPath: string;
+} {
+  if (contract.directory === "agentcore") {
+    const chatPath = "frontend/src/components/chat/CopilotKit/index.tsx";
+    return { providerPath: chatPath, threadPath: chatPath };
+  }
+  if (contract.directory === "a2a-middleware") {
+    return { providerPath: "app/page.tsx", threadPath: "app/page.tsx" };
+  }
+  if (contract.directory === "mcp-apps") {
+    return { providerPath: "app/layout.tsx", threadPath: "app/page.tsx" };
+  }
+
+  return {
+    providerPath: "src/app/layout.tsx",
+    threadPath: "src/app/page.tsx",
+  };
 }
 
 /** Assert AgentCore local services consume the CLI-managed root env safely. */
@@ -1721,6 +2335,76 @@ test("managed documentation helpers allow generic license-gating copy only in se
   expect(() => expectManagedReadmeContract(readme)).not.toThrow();
 });
 
+test("route preservation helper rejects an incomplete handler export set", () => {
+  const route = `
+    const app = createCopilotEndpoint({ runtime, basePath: "/api/copilotkit" });
+    export const GET = handle(app);
+    export const POST = handle(app);
+    export const PATCH = handle(app);
+  `;
+
+  expect(() => expectEndpointHandlerContract(route)).toThrow();
+});
+
+test("frontend preservation helper rejects controlled thread state and single-endpoint transport", () => {
+  const frontend = `
+    export function App() {
+      return (
+        <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={true}>
+          <CopilotChatConfigurationProvider agentId="default" threadId="thread-1">
+            <CopilotThreadsDrawer agentId="default" />
+            <CopilotChat />
+          </CopilotChatConfigurationProvider>
+        </CopilotKit>
+      );
+    }
+  `;
+
+  expect(() => expectFrontendThreadContract(frontend, frontend)).toThrow();
+});
+
+test("MCP preservation helper rejects a middleware-only scaffold without server behavior", () => {
+  const server = `
+    export function createServer() {
+      return new McpServer({ name: "Three.js Server", version: "1.0.0" });
+    }
+  `;
+  const transport = `
+    export function startServer() {
+      const app = createMcpExpressApp();
+      app.all("/mcp", () => undefined);
+    }
+  `;
+
+  expect(() => expectMcpServerBehavior(server, transport)).toThrow();
+});
+
+test("A2A preservation helper rejects collapsed single-agent routing", () => {
+  const route = `
+    const agent = new RuntimeA2AMiddlewareAgent({
+      agentId: "a2a_chat",
+      agentUrls: [],
+      orchestrationAgentUrl: "http://localhost:9000",
+    });
+  `;
+
+  expect(() => expectA2ARuntimeBehavior(route)).toThrow();
+});
+
+test("AgentCore preservation helper rejects disconnected local services", () => {
+  const compose = `
+services:
+  agent:
+    image: agent
+  bridge:
+    image: bridge
+  frontend:
+    image: frontend
+`;
+
+  expect(() => expectAgentCoreNetworkingBehavior(compose)).toThrow();
+});
+
 test("integration parity workflow preserves filters and runs parity before the expected-red managed contract", () => {
   const workflow = fs.readFileSync(INTEGRATION_PARITY_WORKFLOW, "utf8");
 
@@ -1769,6 +2453,34 @@ test("the 16 managed template directories back all 19 in-repo CLI frameworks", (
 });
 
 for (const contract of MANAGED_TEMPLATE_CONTRACTS) {
+  if (contract.directory !== "agentcore") {
+    test(`${contract.directory} runtime preserves all REST endpoint handlers`, () => {
+      const runtime = readManagedSurface(
+        contract,
+        contract.runtimePath,
+        "runtime",
+      );
+
+      expectEndpointHandlerContract(runtime);
+    });
+  }
+
+  test(`${contract.directory} frontend preserves REST transport and shared thread context`, () => {
+    const frontendPaths = frontendBehaviorPaths(contract);
+    const provider = readManagedSurface(
+      contract,
+      frontendPaths.providerPath,
+      "frontend provider",
+    );
+    const threadSurface = readManagedSurface(
+      contract,
+      frontendPaths.threadPath,
+      "thread surface",
+    );
+
+    expectFrontendThreadContract(provider, threadSurface);
+  });
+
   test(`${contract.directory} runtime uses the managed Intelligence API key`, () => {
     const runtime = readManagedSurface(
       contract,
@@ -1801,8 +2513,115 @@ for (const contract of MANAGED_TEMPLATE_CONTRACTS) {
     expectManagedReadmeContract(readme);
   });
 
+  if (contract.directory === "mcp-apps") {
+    test("mcp-apps runtime preserves its MCP Apps client middleware", () => {
+      const runtime = readManagedSurface(
+        contract,
+        contract.runtimePath,
+        "runtime",
+      );
+
+      expectMcpAppsRuntimeBehavior(runtime);
+    });
+
+    test("mcp-apps preserves its streamable HTTP tools and UI resource server", () => {
+      const server = readManagedSurface(
+        contract,
+        "threejs-server/server.ts",
+        "MCP server",
+      );
+      const transport = readManagedSurface(
+        contract,
+        "threejs-server/server-utils.ts",
+        "MCP transport",
+      );
+
+      expectMcpServerBehavior(server, transport);
+    });
+  }
+
+  if (contract.directory === "a2a-middleware") {
+    test("a2a-middleware preserves isolated multi-agent routing", () => {
+      const runtime = readManagedSurface(
+        contract,
+        contract.runtimePath,
+        "runtime",
+      );
+
+      expectA2ARuntimeBehavior(runtime);
+    });
+
+    test("a2a-middleware preserves its configured chat visualization tool", () => {
+      const chat = readManagedSurface(
+        contract,
+        "components/chat.tsx",
+        "A2A chat",
+      );
+
+      expectA2AVisualizationBehavior(chat);
+    });
+  }
+
   if ("supportedPaths" in contract) {
     const supportedPaths = contract.supportedPaths;
+    test(`${contract.directory} runtime preserves AgentCore bridge behavior`, () => {
+      const runtime = readManagedSurface(
+        contract,
+        contract.runtimePath,
+        "runtime",
+      );
+
+      expectAgentCoreRuntimeBehavior(runtime);
+    });
+
+    test(`${contract.directory} local Compose preserves service networking`, () => {
+      const compose = readManagedSurface(
+        contract,
+        supportedPaths.localComposePath,
+        "local Compose config",
+      );
+
+      expectAgentCoreNetworkingBehavior(compose);
+    });
+
+    test(`${contract.directory} deploy scripts preserve LangGraph and Strands variants`, () => {
+      const variants = [
+        {
+          path: supportedPaths.deployScriptPaths[0]!,
+          pattern: "langgraph-single-agent",
+          suffix: "-lg",
+        },
+        {
+          path: supportedPaths.deployScriptPaths[1]!,
+          pattern: "strands-single-agent",
+          suffix: "-st",
+        },
+      ];
+
+      for (const variant of variants) {
+        const deployScript = readManagedSurface(
+          contract,
+          variant.path,
+          "deploy script",
+        );
+        expectAgentCoreVariantBehavior(
+          deployScript,
+          variant.pattern,
+          variant.suffix,
+        );
+        expect(
+          fs.existsSync(
+            path.join(
+              integrationsDir,
+              contract.directory,
+              "agents",
+              variant.pattern,
+            ),
+          ),
+        ).toBe(true);
+      }
+    });
+
     test(`${contract.directory} local Compose consumes the root managed env`, () => {
       const compose = readManagedSurface(
         contract,
