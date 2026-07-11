@@ -4,11 +4,13 @@ on:
   pull_request:
     paths:
       - "examples/integrations/**"
+      - "scripts/__tests__/integration-intelligence-migration.test.ts"
       - ".github/workflows/integrations_parity.yml"
   push:
     branches: [main]
     paths:
       - "examples/integrations/**"
+      - "scripts/__tests__/integration-intelligence-migration.test.ts"
       - ".github/workflows/integrations_parity.yml"
 
 permissions:
@@ -41,6 +43,9 @@ jobs:
 
       - name: Install root dev dependencies (tsx)
         run: pnpm install --frozen-lockfile --ignore-scripts --filter=.
+
+      - name: Verify managed integration credential contracts
+        run: pnpm exec vitest run scripts/__tests__/integration-intelligence-migration.test.ts
 
       - name: Verify integration-demo parity
         run: |
