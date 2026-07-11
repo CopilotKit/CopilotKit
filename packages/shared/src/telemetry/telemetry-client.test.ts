@@ -124,17 +124,22 @@ describe("v1 TelemetryClient", () => {
   test.each([
     {
       identity: { telemetryId: "standalone-telemetry-id" },
+      identityValues: ["standalone-telemetry-id"],
       label: "standalone",
     },
     {
       identity: {
         licenseToken: jwtWith({ telemetry_id: "legacy-telemetry-id" }),
       },
+      identityValues: [
+        "legacy-telemetry-id",
+        jwtWith({ telemetry_id: "legacy-telemetry-id" }),
+      ],
       label: "legacy license",
     },
   ])(
     "$label identity bypasses sampling for both sinks with the effective rate",
-    async ({ identity }) => {
+    async ({ identity, identityValues }) => {
       const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.99);
       const client = makeClient({ sampleRate: 0.05 });
       client.setTelemetryIdentity(identity);
@@ -143,7 +148,8 @@ describe("v1 TelemetryClient", () => {
 
       expect(randomSpy).not.toHaveBeenCalled();
       expect(lambdaSpy).toHaveBeenCalledTimes(1);
-      expect(lambdaSpy.mock.calls[0][0]).toMatchObject({
+      const lambdaEvent = lambdaSpy.mock.calls[0][0];
+      expect(lambdaEvent).toMatchObject({
         ...identity,
         globalProperties: {
           sampleRate: 1,
@@ -151,14 +157,32 @@ describe("v1 TelemetryClient", () => {
           sampleWeight: 1,
         },
       });
-      expect(segmentTrackMock).toHaveBeenCalledTimes(1);
-      expect(segmentTrackMock.mock.calls[0][0]).toMatchObject({
-        properties: expect.objectContaining({
-          sampleRate: 1,
-          sampleRateAdjustmentFactor: 0,
-          sampleWeight: 1,
-        }),
+      expect(lambdaEvent.properties).toEqual(baseInstanceEvent);
+      expect(lambdaEvent.globalProperties).toEqual({
+        "copilotkit.package.name": "@copilotkit/shared",
+        "copilotkit.package.version": "1.0.0",
+        sampleRate: 1,
+        sampleRateAdjustmentFactor: 0,
+        sampleWeight: 1,
       });
+      expect(segmentTrackMock).toHaveBeenCalledTimes(1);
+      const segmentEvent = segmentTrackMock.mock.calls[0][0];
+      expect(segmentEvent.properties).toEqual({
+        ...baseInstanceEvent,
+        "copilotkit.package.name": "@copilotkit/shared",
+        "copilotkit.package.version": "1.0.0",
+        sampleRate: 1,
+        sampleRateAdjustmentFactor: 0,
+        sampleWeight: 1,
+      });
+      const eventPayload = JSON.stringify({
+        lambdaGlobalProperties: lambdaEvent.globalProperties,
+        lambdaProperties: lambdaEvent.properties,
+        segmentProperties: segmentEvent.properties,
+      });
+      for (const identityValue of identityValues) {
+        expect(eventPayload).not.toContain(identityValue);
+      }
     },
   );
 
