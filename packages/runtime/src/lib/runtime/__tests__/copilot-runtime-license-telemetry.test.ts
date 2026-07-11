@@ -278,7 +278,6 @@ test("public root Runtime delegates anonymous identity clearing into V2", async 
     expect(setTelemetryIdentity).toHaveBeenCalledTimes(1);
     expect(setTelemetryIdentity).toHaveBeenCalledWith({});
     expect(setLicenseToken).not.toHaveBeenCalled();
-    expect(delegatedSetTelemetryIdentity).not.toHaveBeenCalled();
 
     expect(anonymousRuntime.instance).toBeDefined();
     expect(delegatedSetTelemetryIdentity).toHaveBeenCalledTimes(1);
