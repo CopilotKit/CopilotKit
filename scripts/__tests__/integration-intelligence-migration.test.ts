@@ -51,6 +51,24 @@ const MANAGED_CLI_FRAMEWORKS = [
 
 type ManagedCliFramework = (typeof MANAGED_CLI_FRAMEWORKS)[number];
 
+interface AgentOptionContract {
+  readonly property: string;
+  readonly environmentReads?: readonly string[];
+  readonly stringLiterals?: readonly string[];
+}
+
+type RuntimeAgentContract =
+  | {
+      readonly registration: "default";
+      readonly constructorName: string;
+      readonly options: readonly AgentOptionContract[];
+    }
+  | {
+      readonly registration: "factory";
+      readonly calleePath: readonly string[];
+      readonly argumentIdentifier: string;
+    };
+
 interface ManagedTemplateContract {
   readonly directory: string;
   readonly frameworks: readonly ManagedCliFramework[];
@@ -58,6 +76,7 @@ interface ManagedTemplateContract {
   readonly gatePath: string;
   readonly envPath: string;
   readonly readmePath: string;
+  readonly runtimeAgent?: RuntimeAgentContract;
   readonly supportedPaths?: {
     readonly localComposePath: string;
     readonly deploymentConfigPath: string;
@@ -67,6 +86,89 @@ interface ManagedTemplateContract {
   };
 }
 
+const LANGGRAPH_RUNTIME_AGENT_CONTRACT = {
+  registration: "default",
+  constructorName: "LangGraphAgent",
+  options: [
+    {
+      property: "deploymentUrl",
+      environmentReads: ["AGENT_URL", "LANGGRAPH_DEPLOYMENT_URL"],
+      stringLiterals: ["http://localhost:8123"],
+    },
+    { property: "graphId", stringLiterals: ["sample_agent"] },
+    {
+      property: "langsmithApiKey",
+      environmentReads: ["LANGSMITH_API_KEY"],
+    },
+  ],
+} as const satisfies RuntimeAgentContract;
+
+const HTTP_LOCALHOST_RUNTIME_AGENT_CONTRACT = {
+  registration: "default",
+  constructorName: "HttpAgent",
+  options: [
+    {
+      property: "url",
+      environmentReads: ["AGENT_URL"],
+      stringLiterals: ["http://localhost:8000"],
+    },
+  ],
+} as const satisfies RuntimeAgentContract;
+
+const HTTP_LOCALHOST_SLASH_RUNTIME_AGENT_CONTRACT = {
+  registration: "default",
+  constructorName: "HttpAgent",
+  options: [
+    {
+      property: "url",
+      environmentReads: ["AGENT_URL"],
+      stringLiterals: ["http://localhost:8000/"],
+    },
+  ],
+} as const satisfies RuntimeAgentContract;
+
+const MASTRA_RUNTIME_AGENT_CONTRACT = {
+  registration: "factory",
+  calleePath: ["MastraAgent", "getLocalAgents"],
+  argumentIdentifier: "mastra",
+} as const satisfies RuntimeAgentContract;
+
+const LLAMAINDEX_RUNTIME_AGENT_CONTRACT = {
+  registration: "default",
+  constructorName: "LlamaIndexAgent",
+  options: [
+    {
+      property: "url",
+      environmentReads: ["AGENT_URL"],
+      stringLiterals: ["http://127.0.0.1:9000", "/run"],
+    },
+  ],
+} as const satisfies RuntimeAgentContract;
+
+const AGNO_RUNTIME_AGENT_CONTRACT = {
+  registration: "default",
+  constructorName: "HttpAgent",
+  options: [
+    {
+      property: "url",
+      environmentReads: ["AGENT_URL"],
+      stringLiterals: ["http://localhost:8000", "/agui"],
+    },
+  ],
+} as const satisfies RuntimeAgentContract;
+
+const STRANDS_RUNTIME_AGENT_CONTRACT = {
+  registration: "default",
+  constructorName: "HttpAgent",
+  options: [
+    {
+      property: "url",
+      environmentReads: ["AGENT_URL", "STRANDS_AGENT_URL"],
+      stringLiterals: ["http://localhost:8000"],
+    },
+  ],
+} as const satisfies RuntimeAgentContract;
+
 const MANAGED_TEMPLATE_CONTRACTS = [
   {
     directory: "langgraph-python",
@@ -75,6 +177,7 @@ const MANAGED_TEMPLATE_CONTRACTS = [
     gatePath: "next.config.ts",
     envPath: ".env.example",
     readmePath: "README.md",
+    runtimeAgent: LANGGRAPH_RUNTIME_AGENT_CONTRACT,
   },
   {
     directory: "langgraph-js",
@@ -83,6 +186,7 @@ const MANAGED_TEMPLATE_CONTRACTS = [
     gatePath: "next.config.ts",
     envPath: ".env.example",
     readmePath: "README.md",
+    runtimeAgent: LANGGRAPH_RUNTIME_AGENT_CONTRACT,
   },
   {
     directory: "claude-sdk-typescript",
@@ -91,6 +195,7 @@ const MANAGED_TEMPLATE_CONTRACTS = [
     gatePath: "next.config.ts",
     envPath: ".env.example",
     readmePath: "README.md",
+    runtimeAgent: HTTP_LOCALHOST_RUNTIME_AGENT_CONTRACT,
   },
   {
     directory: "claude-sdk-python",
@@ -99,6 +204,7 @@ const MANAGED_TEMPLATE_CONTRACTS = [
     gatePath: "next.config.ts",
     envPath: ".env.example",
     readmePath: "README.md",
+    runtimeAgent: HTTP_LOCALHOST_RUNTIME_AGENT_CONTRACT,
   },
   {
     directory: "crewai-flows",
@@ -107,6 +213,7 @@ const MANAGED_TEMPLATE_CONTRACTS = [
     gatePath: "next.config.ts",
     envPath: ".env.example",
     readmePath: "README.md",
+    runtimeAgent: HTTP_LOCALHOST_RUNTIME_AGENT_CONTRACT,
   },
   {
     directory: "mastra",
@@ -115,6 +222,7 @@ const MANAGED_TEMPLATE_CONTRACTS = [
     gatePath: "next.config.ts",
     envPath: ".env.example",
     readmePath: "README.md",
+    runtimeAgent: MASTRA_RUNTIME_AGENT_CONTRACT,
   },
   {
     directory: "pydantic-ai",
@@ -123,6 +231,7 @@ const MANAGED_TEMPLATE_CONTRACTS = [
     gatePath: "next.config.ts",
     envPath: ".env.example",
     readmePath: "README.md",
+    runtimeAgent: HTTP_LOCALHOST_SLASH_RUNTIME_AGENT_CONTRACT,
   },
   {
     directory: "llamaindex",
@@ -131,6 +240,7 @@ const MANAGED_TEMPLATE_CONTRACTS = [
     gatePath: "next.config.ts",
     envPath: ".env.example",
     readmePath: "README.md",
+    runtimeAgent: LLAMAINDEX_RUNTIME_AGENT_CONTRACT,
   },
   {
     directory: "agno",
@@ -139,6 +249,7 @@ const MANAGED_TEMPLATE_CONTRACTS = [
     gatePath: "next.config.ts",
     envPath: ".env.example",
     readmePath: "README.md",
+    runtimeAgent: AGNO_RUNTIME_AGENT_CONTRACT,
   },
   {
     directory: "adk",
@@ -147,6 +258,7 @@ const MANAGED_TEMPLATE_CONTRACTS = [
     gatePath: "next.config.ts",
     envPath: ".env.example",
     readmePath: "README.md",
+    runtimeAgent: HTTP_LOCALHOST_SLASH_RUNTIME_AGENT_CONTRACT,
   },
   {
     directory: "strands-python",
@@ -155,6 +267,7 @@ const MANAGED_TEMPLATE_CONTRACTS = [
     gatePath: "next.config.ts",
     envPath: ".env.example",
     readmePath: "README.md",
+    runtimeAgent: STRANDS_RUNTIME_AGENT_CONTRACT,
   },
   {
     directory: "a2a-middleware",
@@ -171,6 +284,7 @@ const MANAGED_TEMPLATE_CONTRACTS = [
     gatePath: "next.config.ts",
     envPath: ".env.example",
     readmePath: "README.md",
+    runtimeAgent: HTTP_LOCALHOST_SLASH_RUNTIME_AGENT_CONTRACT,
   },
   {
     directory: "ms-agent-framework-python",
@@ -179,6 +293,7 @@ const MANAGED_TEMPLATE_CONTRACTS = [
     gatePath: "next.config.ts",
     envPath: ".env.example",
     readmePath: "README.md",
+    runtimeAgent: HTTP_LOCALHOST_SLASH_RUNTIME_AGENT_CONTRACT,
   },
   {
     directory: "mcp-apps",
@@ -390,6 +505,31 @@ function expressionContainsEnvRead(
   return found;
 }
 
+/** Returns whether an expression contains one exact string literal. */
+function expressionContainsStringLiteral(
+  expression: ts.Expression,
+  expected: string,
+): boolean {
+  let found = false;
+
+  /** Visits one initializer node looking for the required literal. */
+  function visit(node: ts.Node): void {
+    if (found) return;
+    if (
+      (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) &&
+      node.text === expected
+    ) {
+      found = true;
+      return;
+    }
+
+    ts.forEachChild(node, visit);
+  }
+
+  visit(expression);
+  return found;
+}
+
 /** Returns whether an expression uses the managed key without telemetry. */
 function expressionUsesManagedKeyWithoutTelemetry(
   expression: ts.Expression,
@@ -492,6 +632,43 @@ function topLevelVariableInitializer(
   }
 
   return null;
+}
+
+/** Resolves one registered agent through an optional top-level identifier. */
+function registeredAgentExpression(
+  sourceFile: ts.SourceFile,
+  expression: ts.Expression,
+): ts.Expression {
+  const unwrapped = unwrapExpression(expression);
+  if (!ts.isIdentifier(unwrapped)) return unwrapped;
+
+  const initializer = topLevelVariableInitializer(sourceFile, unwrapped.text);
+  return initializer ? unwrapExpression(initializer) : unwrapped;
+}
+
+/** Returns whether an object property carries one exact identifier. */
+function objectPropertyIsIdentifier(
+  objectLiteral: ts.ObjectLiteralExpression,
+  propertyName: string,
+  identifier: string,
+): boolean {
+  return objectLiteral.properties.some((property) => {
+    if (
+      ts.isShorthandPropertyAssignment(property) &&
+      property.name.text === propertyName
+    ) {
+      return property.name.text === identifier;
+    }
+    if (
+      ts.isPropertyAssignment(property) &&
+      propertyNameText(property.name) === propertyName
+    ) {
+      const initializer = unwrapExpression(property.initializer);
+      return ts.isIdentifier(initializer) && initializer.text === identifier;
+    }
+
+    return false;
+  });
 }
 
 /** Resolves a default-exported object literal through top-level variables. */
@@ -1206,6 +1383,79 @@ function expectManagedReadmeContract(contents: string): void {
   expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_API_KEY));
   expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_TELEMETRY_ID));
   expectMarkdownLicenseOccurrencesClassified(contents);
+}
+
+/** Asserts one ordinary template retains its framework-specific Runtime agent. */
+function expectRuntimeAgentContract(
+  contents: string,
+  contract: RuntimeAgentContract,
+): void {
+  const sourceFile = parseManagedSource(contents);
+  const runtimeOptions = newExpressionOptions(sourceFile, "CopilotRuntime");
+
+  expect(runtimeOptions).toHaveLength(1);
+  if (runtimeOptions.length !== 1) return;
+  const agents = objectPropertyAssignment(runtimeOptions[0]!, "agents");
+  expect(agents).not.toBeNull();
+  if (!agents) return;
+  const registeredAgents = unwrapExpression(agents.initializer);
+
+  if (contract.registration === "factory") {
+    expect(ts.isCallExpression(registeredAgents)).toBe(true);
+    if (!ts.isCallExpression(registeredAgents)) return;
+    expect(propertyAccessParts(registeredAgents.expression)).toEqual(
+      contract.calleePath,
+    );
+    const argument = registeredAgents.arguments[0]
+      ? unwrapExpression(registeredAgents.arguments[0])
+      : null;
+    expect(argument && ts.isObjectLiteralExpression(argument)).toBe(true);
+    if (!argument || !ts.isObjectLiteralExpression(argument)) return;
+    expect(
+      objectPropertyIsIdentifier(
+        argument,
+        contract.argumentIdentifier,
+        contract.argumentIdentifier,
+      ),
+    ).toBe(true);
+    return;
+  }
+
+  expect(ts.isObjectLiteralExpression(registeredAgents)).toBe(true);
+  if (!ts.isObjectLiteralExpression(registeredAgents)) return;
+  const defaultAgent = objectPropertyAssignment(registeredAgents, "default");
+  expect(defaultAgent).not.toBeNull();
+  if (!defaultAgent) return;
+  const agent = registeredAgentExpression(sourceFile, defaultAgent.initializer);
+  expect(ts.isNewExpression(agent)).toBe(true);
+  if (!ts.isNewExpression(agent)) return;
+  expect(propertyAccessParts(agent.expression)).toEqual([
+    contract.constructorName,
+  ]);
+  const agentOptions = agent.arguments?.[0]
+    ? unwrapExpression(agent.arguments[0])
+    : null;
+  expect(agentOptions && ts.isObjectLiteralExpression(agentOptions)).toBe(true);
+  if (!agentOptions || !ts.isObjectLiteralExpression(agentOptions)) return;
+
+  for (const optionContract of contract.options) {
+    const option = objectPropertyAssignment(
+      agentOptions,
+      optionContract.property,
+    );
+    expect(option).not.toBeNull();
+    if (!option) continue;
+    for (const identifier of optionContract.environmentReads ?? []) {
+      expect(expressionContainsEnvRead(option.initializer, identifier)).toBe(
+        true,
+      );
+    }
+    for (const literal of optionContract.stringLiterals ?? []) {
+      expect(expressionContainsStringLiteral(option.initializer, literal)).toBe(
+        true,
+      );
+    }
+  }
 }
 
 /** Asserts a Next/Hono runtime preserves its complete REST handler surface. */
@@ -2446,13 +2696,76 @@ test("the 16 managed template directories back all 19 in-repo CLI frameworks", (
   const frameworks = MANAGED_TEMPLATE_CONTRACTS.flatMap(
     (contract) => contract.frameworks,
   );
+  const ordinaryRuntimeContracts = MANAGED_TEMPLATE_CONTRACTS.filter(
+    (contract) => "runtimeAgent" in contract,
+  );
 
   expect(MANAGED_TEMPLATE_CONTRACTS).toHaveLength(16);
+  expect(ordinaryRuntimeContracts).toHaveLength(13);
   expect(new Set(frameworks).size).toBe(19);
   expect([...frameworks].sort()).toEqual([...MANAGED_CLI_FRAMEWORKS].sort());
 });
 
+test.each([
+  {
+    defect: "registered constructor changes",
+    contents: `
+      const defaultAgent = new WrongAgent({
+        url: process.env.AGENT_URL || "http://localhost:8000/",
+      });
+      new CopilotRuntime({ agents: { default: defaultAgent } });
+    `,
+    contract: HTTP_LOCALHOST_SLASH_RUNTIME_AGENT_CONTRACT,
+  },
+  {
+    defect: "required endpoint configuration disappears",
+    contents: `
+      const defaultAgent = new HttpAgent({
+        url: "http://localhost:8000/",
+      });
+      new CopilotRuntime({ agents: { default: defaultAgent } });
+    `,
+    contract: HTTP_LOCALHOST_SLASH_RUNTIME_AGENT_CONTRACT,
+  },
+  {
+    defect: "constructed agent is no longer registered",
+    contents: `
+      const defaultAgent = new HttpAgent({
+        url: process.env.AGENT_URL || "http://localhost:8000/",
+      });
+      new CopilotRuntime({ agents: { default: unregisteredAgent } });
+    `,
+    contract: HTTP_LOCALHOST_SLASH_RUNTIME_AGENT_CONTRACT,
+  },
+  {
+    defect: "framework factory changes",
+    contents: `
+      new CopilotRuntime({
+        agents: MastraAgent.getRemoteAgents({ mastra }),
+      });
+    `,
+    contract: MASTRA_RUNTIME_AGENT_CONTRACT,
+  },
+])(
+  "the ordinary Runtime agent helper rejects when $defect",
+  ({ contents, contract }) => {
+    expect(() => expectRuntimeAgentContract(contents, contract)).toThrow();
+  },
+);
+
 for (const contract of MANAGED_TEMPLATE_CONTRACTS) {
+  if ("runtimeAgent" in contract) {
+    test(`${contract.directory} runtime preserves its framework-specific agent wiring`, () => {
+      const runtime = readManagedSurface(
+        contract,
+        contract.runtimePath,
+        "runtime",
+      );
+
+      expectRuntimeAgentContract(runtime, contract.runtimeAgent);
+    });
+  }
+
   if (contract.directory !== "agentcore") {
     test(`${contract.directory} runtime preserves all REST endpoint handlers`, () => {
       const runtime = readManagedSurface(
