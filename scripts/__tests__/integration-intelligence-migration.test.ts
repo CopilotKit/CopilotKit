@@ -575,40 +575,59 @@ function expressionUsesManagedBooleanGate(expression: ts.Expression): boolean {
   );
 }
 
-/** Returns whether a CopilotKit Intelligence constructor owns the API-key read. */
-function hasRuntimeApiKeyRead(sourceFile: ts.SourceFile): boolean {
-  let found = false;
-
-  /** Visits constructors until the managed Intelligence API-key option is found. */
-  function visit(node: ts.Node): void {
-    if (found) {
-      return;
-    }
-
+/** Returns the expression assigned to one exact object-literal property. */
+function objectPropertyExpression(
+  objectLiteral: ts.ObjectLiteralExpression,
+  name: string,
+): ts.Expression | null {
+  for (const property of objectLiteral.properties) {
     if (
-      ts.isNewExpression(node) &&
-      ts.isIdentifier(node.expression) &&
-      node.expression.text === "CopilotKitIntelligence"
+      ts.isPropertyAssignment(property) &&
+      propertyNameText(property.name) === name
     ) {
-      const options = node.arguments?.[0];
-      const unwrappedOptions = options ? unwrapExpression(options) : null;
-      if (unwrappedOptions && ts.isObjectLiteralExpression(unwrappedOptions)) {
-        const apiKey = objectPropertyAssignment(unwrappedOptions, "apiKey");
-        if (
-          apiKey &&
-          expressionUsesManagedKeyWithoutTelemetry(apiKey.initializer)
-        ) {
-          found = true;
-          return;
-        }
-      }
+      return property.initializer;
     }
-
-    ts.forEachChild(node, visit);
+    if (
+      ts.isShorthandPropertyAssignment(property) &&
+      property.name.text === name
+    ) {
+      return property.name;
+    }
   }
 
-  visit(sourceFile);
-  return found;
+  return null;
+}
+
+/** Returns whether the Runtime's Intelligence client owns the API-key read. */
+function hasRuntimeApiKeyRead(sourceFile: ts.SourceFile): boolean {
+  return newExpressionOptions(sourceFile, "CopilotRuntime").some(
+    (runtimeOptions) => {
+      const intelligence = objectPropertyExpression(
+        runtimeOptions,
+        "intelligence",
+      );
+      if (!intelligence) return false;
+
+      const client = resolveTopLevelExpression(sourceFile, intelligence);
+      if (
+        !ts.isNewExpression(client) ||
+        !ts.isIdentifier(client.expression) ||
+        client.expression.text !== "CopilotKitIntelligence"
+      ) {
+        return false;
+      }
+
+      const options = client.arguments?.[0]
+        ? unwrapExpression(client.arguments[0])
+        : null;
+      if (!options || !ts.isObjectLiteralExpression(options)) return false;
+
+      const apiKey = objectPropertyAssignment(options, "apiKey");
+      return Boolean(
+        apiKey && expressionUsesManagedKeyWithoutTelemetry(apiKey.initializer),
+      );
+    },
+  );
 }
 
 /** Returns the initializer for one top-level variable identifier. */
@@ -632,6 +651,27 @@ function topLevelVariableInitializer(
   }
 
   return null;
+}
+
+/** Resolves transparent wrappers and top-level variable aliases. */
+function resolveTopLevelExpression(
+  sourceFile: ts.SourceFile,
+  expression: ts.Expression,
+  seenIdentifiers: ReadonlySet<string> = new Set(),
+): ts.Expression {
+  const unwrapped = unwrapExpression(expression);
+  if (!ts.isIdentifier(unwrapped) || seenIdentifiers.has(unwrapped.text)) {
+    return unwrapped;
+  }
+
+  const initializer = topLevelVariableInitializer(sourceFile, unwrapped.text);
+  if (!initializer) return unwrapped;
+
+  return resolveTopLevelExpression(
+    sourceFile,
+    initializer,
+    new Set([...seenIdentifiers, unwrapped.text]),
+  );
 }
 
 /** Resolves one registered agent through an optional top-level identifier. */
@@ -2119,6 +2159,47 @@ test("managed TypeScript helpers reject decoy configured properties", () => {
   expect(() => expectManagedGateContract(decoyViteGateRead)).toThrow();
 });
 
+test.each([
+  {
+    name: "inline client",
+    source: `
+      const runtime = new CopilotRuntime({
+        agents: {},
+        intelligence: new CopilotKitIntelligence({
+          apiKey: process.env.CPK_INTELLIGENCE_API_KEY,
+        }),
+      });
+    `,
+  },
+  {
+    name: "bound client",
+    source: `
+      const intelligence = new CopilotKitIntelligence({
+        apiKey: process.env.CPK_INTELLIGENCE_API_KEY,
+      });
+      const runtime = new CopilotRuntime({ agents: {}, intelligence });
+    `,
+  },
+])(
+  "managed Runtime helper accepts a $name wired into the Runtime",
+  ({ source }) => {
+    expect(() => expectManagedRuntimeContract(source)).not.toThrow();
+  },
+);
+
+test("managed Runtime helper rejects a configured Intelligence client that is not wired into the Runtime", () => {
+  const unusedConfiguredClient = `
+    const intelligence = new CopilotKitIntelligence({
+      apiKey: process.env.CPK_INTELLIGENCE_API_KEY,
+    });
+    const runtime = new CopilotRuntime({
+      agents: { default: new HttpAgent({ url: "http://localhost:8000" }) },
+    });
+  `;
+
+  expect(() => expectManagedRuntimeContract(unusedConfiguredClient)).toThrow();
+});
+
 test("managed gate helpers reject direct, concatenated, comment-only, and decoy key exposure", () => {
   const invalidGateSources = [
     `export default { env: { ${NEXT_THREADS_GATE}: process.env.${MANAGED_API_KEY} } };`,
@@ -2314,6 +2395,7 @@ test("managed TypeScript helpers accept independent telemetry reads", () => {
     const intelligence = new CopilotKitIntelligence({
       apiKey: process.env["CPK_INTELLIGENCE_API_KEY"] ?? "",
     });
+    const runtime = new CopilotRuntime({ agents: {}, intelligence });
   `;
   const configuredGateRead = `
     const telemetryId = process.env["CPK_TELEMETRY_ID"];
@@ -2350,6 +2432,7 @@ test("managed TypeScript helpers reject telemetry prerequisites", () => {
         process.env.CPK_INTELLIGENCE_API_KEY &&
         process.env.CPK_TELEMETRY_ID,
     });
+    const runtime = new CopilotRuntime({ agents: {}, intelligence });
   `;
   const telemetryGatedNextConfig = `
     const nextConfig = {
