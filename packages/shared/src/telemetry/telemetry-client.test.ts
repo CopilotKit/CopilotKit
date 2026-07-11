@@ -24,6 +24,47 @@ function jwtWith(payload: {
   return `header.${b64}.sig`;
 }
 
+type TelemetryIdentityMode =
+  | { label: "standalone"; telemetryId: string }
+  | { label: "legacy license"; licenseToken: string }
+  | { label: "anonymous" };
+
+/** Applies the identity path under test without conflating legacy and standalone APIs. */
+function applyTelemetryIdentity(
+  client: TelemetryClient,
+  identity: TelemetryIdentityMode,
+) {
+  if ("telemetryId" in identity) {
+    client.setTelemetryIdentity({ telemetryId: identity.telemetryId });
+    return;
+  }
+
+  if ("licenseToken" in identity) {
+    client.setLicenseToken(identity.licenseToken);
+  }
+}
+
+const telemetryIdentityModes = [
+  {
+    label: "standalone",
+    telemetryId: "standalone-telemetry-id",
+  },
+  {
+    label: "legacy license",
+    licenseToken: jwtWith({ telemetry_id: "legacy-telemetry-id" }),
+  },
+  { label: "anonymous" },
+] satisfies readonly TelemetryIdentityMode[];
+
+const telemetryOptOuts = [
+  { environmentVariable: "COPILOTKIT_TELEMETRY_DISABLED", value: "true" },
+  { environmentVariable: "DO_NOT_TRACK", value: "1" },
+] as const;
+
+const telemetryOptOutCases = telemetryOptOuts.flatMap((optOut) =>
+  telemetryIdentityModes.map((identity) => ({ identity, optOut })),
+);
+
 describe("v1 TelemetryClient", () => {
   let lambdaSpy: MockInstance<typeof lambdaClient.send>;
 
@@ -34,6 +75,7 @@ describe("v1 TelemetryClient", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
   });
 
   function makeClient(
@@ -179,6 +221,20 @@ describe("v1 TelemetryClient", () => {
     expect(lambdaSpy).not.toHaveBeenCalled();
     expect(segmentTrackMock).not.toHaveBeenCalled();
   });
+
+  test.each(telemetryOptOutCases)(
+    "$optOut.environmentVariable disables both sinks for $identity.label telemetry",
+    async ({ identity, optOut }) => {
+      vi.stubEnv(optOut.environmentVariable, optOut.value);
+      const client = makeClient();
+      applyTelemetryIdentity(client, identity);
+
+      await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+      expect(lambdaSpy).not.toHaveBeenCalled();
+      expect(segmentTrackMock).not.toHaveBeenCalled();
+    },
+  );
 
   test("setLicenseToken forwards the token in subsequent capture", async () => {
     const token = jwtWith({ telemetry_id: "abc-123" });
