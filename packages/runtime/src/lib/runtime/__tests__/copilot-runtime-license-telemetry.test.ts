@@ -238,9 +238,16 @@ test.each(rootRuntimeTelemetryIdentityCases)(
   },
 );
 
-test("public root Runtime delegates anonymous identity clearing into V2", () => {
+test("public root Runtime delegates anonymous identity clearing into V2", async () => {
   const { setTelemetryIdentity, setLicenseToken, restore } =
     installTelemetryIdentitySpies();
+  const {
+    fetchMock,
+    send,
+    setLicenseToken: delegatedSetLicenseToken,
+    setTelemetryIdentity: delegatedSetTelemetryIdentity,
+    restore: restoreDelegatedTelemetry,
+  } = installDelegatedTelemetryIdentitySpies();
   let activeIdentity: TelemetryIdentity = {};
   setTelemetryIdentity.mockImplementation((identity) => {
     activeIdentity = identity;
@@ -258,16 +265,44 @@ test("public root Runtime delegates anonymous identity clearing into V2", () => 
     });
     expect(identifiedRuntime.instance).toBeDefined();
 
-    const anonymousRuntime = new CopilotRuntime({ agents: {} });
     setTelemetryIdentity.mockClear();
     setLicenseToken.mockClear();
+    delegatedSetTelemetryIdentity.mockClear();
+    delegatedSetLicenseToken.mockClear();
+    send.mockClear();
+    fetchMock.mockClear();
 
-    expect(anonymousRuntime.instance).toBeDefined();
+    const anonymousRuntime = new CopilotRuntime({ agents: {} });
+
     expect(activeIdentity).toEqual({});
     expect(setTelemetryIdentity).toHaveBeenCalledTimes(1);
     expect(setTelemetryIdentity).toHaveBeenCalledWith({});
     expect(setLicenseToken).not.toHaveBeenCalled();
+    expect(delegatedSetTelemetryIdentity).not.toHaveBeenCalled();
+
+    expect(anonymousRuntime.instance).toBeDefined();
+    expect(delegatedSetTelemetryIdentity).toHaveBeenCalledTimes(1);
+    expect(delegatedSetTelemetryIdentity).toHaveBeenCalledWith({});
+    expect(delegatedSetLicenseToken).not.toHaveBeenCalled();
+
+    await delegatedTelemetry.capture("oss.runtime.instance_created", {
+      actionsAmount: 0,
+      endpointTypes: [],
+      endpointsAmount: 0,
+      "cloud.api_key_provided": false,
+    });
+
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        licenseToken: undefined,
+        telemetryId: undefined,
+      }),
+    );
+    const headers = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
+    expect(headers.get("X-CopilotKit-Telemetry-Id")).toBeNull();
   } finally {
+    restoreDelegatedTelemetry();
     restore();
   }
 });
