@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, test, vi } from "vitest";
 
+import { lambdaClient, parseTelemetryIdFromLicense } from "@copilotkit/shared";
 import { CopilotRuntime } from "../copilot-runtime";
 import telemetry from "../../telemetry-client";
+import { telemetry as delegatedTelemetry } from "../../../v2/runtime/telemetry";
 
 /**
  * The v1 (GraphQL) CopilotRuntime is a separate endpoint path from the v2
@@ -94,6 +96,54 @@ function installTelemetryIdentitySpies() {
   };
 }
 
+/** Installs identity setters that expose the final delegated V2 sink state. */
+function installDelegatedTelemetryIdentitySpies() {
+  const applyIdentity = (identity: TelemetryIdentity) => {
+    Reflect.set(
+      delegatedTelemetry,
+      "licenseToken",
+      identity.licenseToken ?? null,
+    );
+    Reflect.set(
+      delegatedTelemetry,
+      "telemetryId",
+      identity.telemetryId ??
+        parseTelemetryIdFromLicense(identity.licenseToken) ??
+        null,
+    );
+  };
+  const setTelemetryIdentity = vi.fn(applyIdentity);
+  Object.defineProperty(delegatedTelemetry, "setTelemetryIdentity", {
+    configurable: true,
+    value: setTelemetryIdentity,
+  });
+  const setLicenseToken = vi
+    .spyOn(delegatedTelemetry, "setLicenseToken")
+    .mockImplementation((licenseToken) => applyIdentity({ licenseToken }));
+  const send = vi.spyOn(lambdaClient, "send");
+  const random = vi.spyOn(Math, "random").mockReturnValue(0);
+  const fetchMock = vi.fn(
+    (_input: string | URL | Request, _init?: RequestInit) =>
+      Promise.resolve(new Response(null, { status: 200 })),
+  );
+  vi.stubGlobal("fetch", fetchMock);
+
+  return {
+    fetchMock,
+    send,
+    setLicenseToken,
+    setTelemetryIdentity,
+    restore: () => {
+      applyIdentity({});
+      random.mockRestore();
+      send.mockRestore();
+      setLicenseToken.mockRestore();
+      Reflect.deleteProperty(delegatedTelemetry, "setTelemetryIdentity");
+      vi.unstubAllGlobals();
+    },
+  };
+}
+
 const LEGACY_IDENTITY_TOKEN = `header.${Buffer.from(
   '{"telemetry_id":"legacy-license-id"}',
 ).toString("base64url")}.sig`;
@@ -125,9 +175,21 @@ const rootRuntimeTelemetryIdentityCases = [
 
 test.each(rootRuntimeTelemetryIdentityCases)(
   "public root Runtime resolves $label through one atomic telemetry configuration",
-  ({ telemetryId, environmentTelemetryId, licenseToken, expectedIdentity }) => {
+  async ({
+    telemetryId,
+    environmentTelemetryId,
+    licenseToken,
+    expectedIdentity,
+  }) => {
     const { setTelemetryIdentity, setLicenseToken, restore } =
       installTelemetryIdentitySpies();
+    const {
+      fetchMock,
+      send,
+      setLicenseToken: delegatedSetLicenseToken,
+      setTelemetryIdentity: delegatedSetTelemetryIdentity,
+      restore: restoreDelegatedTelemetry,
+    } = installDelegatedTelemetryIdentitySpies();
     vi.stubEnv("CPK_TELEMETRY_ID", environmentTelemetryId);
     vi.stubEnv("COPILOTKIT_TELEMETRY_ID", "unsupported-alias");
     vi.stubEnv("COPILOTKIT_LICENSE_TOKEN", undefined);
@@ -140,10 +202,37 @@ test.each(rootRuntimeTelemetryIdentityCases)(
       });
 
       expect(runtime).toBeInstanceOf(CopilotRuntime);
+      expect(runtime.instance).toBeDefined();
       expect(setTelemetryIdentity).toHaveBeenCalledTimes(1);
       expect(setTelemetryIdentity).toHaveBeenCalledWith(expectedIdentity);
       expect(setLicenseToken).not.toHaveBeenCalled();
+      expect(delegatedSetTelemetryIdentity).toHaveBeenCalledTimes(1);
+      expect(delegatedSetTelemetryIdentity).toHaveBeenCalledWith(
+        expectedIdentity,
+      );
+      expect(delegatedSetLicenseToken).not.toHaveBeenCalled();
+
+      await delegatedTelemetry.capture("oss.runtime.instance_created", {
+        actionsAmount: 0,
+        endpointTypes: [],
+        endpointsAmount: 0,
+        "cloud.api_key_provided": false,
+      });
+
+      expect(send).toHaveBeenCalledTimes(1);
+      expect(send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          licenseToken: expectedIdentity.licenseToken,
+          telemetryId: expectedIdentity.telemetryId,
+        }),
+      );
+      const headers = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
+      expect(headers.get("X-CopilotKit-Telemetry-Id")).toBe(
+        expectedIdentity.telemetryId ??
+          parseTelemetryIdFromLicense(expectedIdentity.licenseToken),
+      );
     } finally {
+      restoreDelegatedTelemetry();
       restore();
     }
   },
