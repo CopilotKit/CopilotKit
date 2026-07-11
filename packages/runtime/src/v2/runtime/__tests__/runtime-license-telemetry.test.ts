@@ -5,6 +5,7 @@ import {
   CopilotRuntime,
   CopilotSseRuntime,
 } from "../core/runtime";
+import { lambdaClient } from "@copilotkit/shared";
 import type { CopilotKitIntelligence } from "../intelligence-platform";
 import { telemetry } from "../telemetry";
 
@@ -222,3 +223,43 @@ it.each(runtimeTelemetryIdentityCases)(
     }
   },
 );
+
+it("clears an earlier singleton identity when a later Runtime is anonymous", async () => {
+  const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+  const sendSpy = vi.spyOn(lambdaClient, "send").mockResolvedValue(undefined);
+  const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+  vi.stubEnv("CPK_TELEMETRY_ID", undefined);
+  vi.stubEnv("COPILOTKIT_LICENSE_TOKEN", undefined);
+
+  try {
+    const identifiedRuntime = new CopilotRuntime({
+      agents: {},
+      licenseToken: LEGACY_IDENTITY_TOKEN,
+    });
+    const anonymousRuntime = new CopilotRuntime({ agents: {} });
+
+    await telemetry.capture("oss.runtime.instance_created", {
+      actionsAmount: 0,
+      endpointTypes: [],
+      endpointsAmount: 0,
+      "cloud.api_key_provided": false,
+    });
+
+    expect([identifiedRuntime.mode, anonymousRuntime.mode]).toEqual([
+      "sse",
+      "sse",
+    ]);
+    expect(randomSpy).toHaveBeenCalledTimes(1);
+    expect(sendSpy).toHaveBeenCalledTimes(1);
+    expect(sendSpy.mock.calls[0][0]).toMatchObject({
+      licenseToken: undefined,
+      telemetryId: undefined,
+    });
+  } finally {
+    telemetry.setLicenseToken("not-a-jwt");
+    randomSpy.mockRestore();
+    sendSpy.mockRestore();
+    warnSpy.mockRestore();
+    vi.unstubAllEnvs();
+  }
+});
