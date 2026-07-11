@@ -15,12 +15,17 @@ const telemetryEnvironment = vi.hoisted(() => {
   };
 });
 
-import { expectInspectorTelemetryTransportContract } from "./telemetry-transport-contract.js";
+import {
+  CANONICAL_INSPECTOR_TELEMETRY_REQUESTS,
+  captureInspectorTelemetryTransportContract,
+} from "./telemetry-transport-contract.js";
 
-test("Inspector telemetry keeps its browser identity when CPK_TELEMETRY_ID is absent at import", async () => {
+test("Inspector telemetry matches canonical direct-sink requests when CPK_TELEMETRY_ID is absent at import", async () => {
   try {
     expect(process.env.CPK_TELEMETRY_ID).toBeUndefined();
-    await expectInspectorTelemetryTransportContract();
+    const requests = await captureInspectorTelemetryTransportContract();
+
+    expect(requests).toEqual(CANONICAL_INSPECTOR_TELEMETRY_REQUESTS);
   } finally {
     telemetryEnvironment.restore();
   }

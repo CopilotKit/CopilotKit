@@ -2,8 +2,6 @@ import { expect, vi } from "vitest";
 
 import webInspectorPackage from "../../../package.json" with { type: "json" };
 import {
-  TELEMETRY_EVENTS,
-  TELEMETRY_INGEST_URL,
   getTelemetryDistinctIdForUrl,
   trackBannerClicked,
   trackBannerViewed,
@@ -19,6 +17,79 @@ const PERSISTED_BROWSER_ID = "11111111-1111-4111-8111-111111111111";
 const FIXED_TELEMETRY_TIME_MS = Date.parse("2026-07-11T12:34:56.000Z");
 const FIXED_TELEMETRY_TIME_SECONDS = Math.floor(FIXED_TELEMETRY_TIME_MS / 1000);
 const WEBSITE_ALIAS = "existing-website-alias";
+
+// These URL and event-name literals intentionally belong to the test. Importing
+// their production constants here would let environment-dependent drift change
+// the implementation and its expectation together.
+export const CANONICAL_INSPECTOR_TELEMETRY_REQUESTS = [
+  {
+    url: "https://telemetry.copilotkit.ai/ingest",
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-copilotkit-telemetry-id": PERSISTED_BROWSER_ID,
+    },
+    body: {
+      event: "oss.inspector.banner_viewed",
+      properties: {
+        banner_id: "release-banner",
+        distinct_id: PERSISTED_BROWSER_ID,
+      },
+      package: { name: "@copilotkit/web-inspector" },
+      ts: FIXED_TELEMETRY_TIME_SECONDS,
+    },
+  },
+  {
+    url: "https://telemetry.copilotkit.ai/ingest",
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-copilotkit-telemetry-id": PERSISTED_BROWSER_ID,
+    },
+    body: {
+      event: "oss.inspector.threads_intelligence_signup_clicked",
+      properties: {
+        cta: "signup",
+        cta_surface: "threads_locked",
+        posthog_distinct_id: WEBSITE_ALIAS,
+        package_name: "@copilotkit/web-inspector",
+        package_version: webInspectorPackage.version,
+        inspector_distinct_id: PERSISTED_BROWSER_ID,
+        distinct_id: PERSISTED_BROWSER_ID,
+      },
+      package: {
+        name: "@copilotkit/web-inspector",
+        version: webInspectorPackage.version,
+      },
+      ts: FIXED_TELEMETRY_TIME_SECONDS,
+    },
+  },
+  {
+    url: "https://telemetry.copilotkit.ai/ingest",
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-copilotkit-telemetry-id": PERSISTED_BROWSER_ID,
+    },
+    body: {
+      event: "oss.inspector.talk_to_engineer_clicked",
+      properties: {
+        cta: "talk_to_engineer",
+        cta_surface: "threads_header",
+        posthog_distinct_id: WEBSITE_ALIAS,
+        package_name: "@copilotkit/web-inspector",
+        package_version: webInspectorPackage.version,
+        inspector_distinct_id: PERSISTED_BROWSER_ID,
+        distinct_id: PERSISTED_BROWSER_ID,
+      },
+      package: {
+        name: "@copilotkit/web-inspector",
+        version: webInspectorPackage.version,
+      },
+      ts: FIXED_TELEMETRY_TIME_SECONDS,
+    },
+  },
+] as const;
 
 interface InspectorTelemetryPayload {
   event: string;
@@ -56,8 +127,8 @@ function normalizeRequest(call: Parameters<typeof fetch>) {
   };
 }
 
-/** Assert the complete Inspector transport and opt-out contract for one module graph. */
-export async function expectInspectorTelemetryTransportContract(): Promise<void> {
+/** Capture the complete Inspector transport while asserting its opt-out contract. */
+export async function captureInspectorTelemetryTransportContract() {
   window.localStorage.clear();
   _resetTelemetryPersistenceForTesting();
   window.localStorage.setItem(
@@ -86,75 +157,6 @@ export async function expectInspectorTelemetryTransportContract(): Promise<void>
     await Promise.resolve();
 
     const requests = fetchMock.mock.calls.map(normalizeRequest);
-    expect(requests).toEqual([
-      {
-        url: TELEMETRY_INGEST_URL,
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-copilotkit-telemetry-id": PERSISTED_BROWSER_ID,
-        },
-        body: {
-          event: TELEMETRY_EVENTS.bannerViewed,
-          properties: {
-            banner_id: "release-banner",
-            distinct_id: PERSISTED_BROWSER_ID,
-          },
-          package: { name: "@copilotkit/web-inspector" },
-          ts: FIXED_TELEMETRY_TIME_SECONDS,
-        },
-      },
-      {
-        url: TELEMETRY_INGEST_URL,
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-copilotkit-telemetry-id": PERSISTED_BROWSER_ID,
-        },
-        body: {
-          event: TELEMETRY_EVENTS.threadsIntelligenceSignupClicked,
-          properties: {
-            cta: "signup",
-            cta_surface: "threads_locked",
-            posthog_distinct_id: WEBSITE_ALIAS,
-            package_name: "@copilotkit/web-inspector",
-            package_version: webInspectorPackage.version,
-            inspector_distinct_id: PERSISTED_BROWSER_ID,
-            distinct_id: PERSISTED_BROWSER_ID,
-          },
-          package: {
-            name: "@copilotkit/web-inspector",
-            version: webInspectorPackage.version,
-          },
-          ts: FIXED_TELEMETRY_TIME_SECONDS,
-        },
-      },
-      {
-        url: TELEMETRY_INGEST_URL,
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-copilotkit-telemetry-id": PERSISTED_BROWSER_ID,
-        },
-        body: {
-          event: TELEMETRY_EVENTS.talkToEngineerClicked,
-          properties: {
-            cta: "talk_to_engineer",
-            cta_surface: "threads_header",
-            posthog_distinct_id: WEBSITE_ALIAS,
-            package_name: "@copilotkit/web-inspector",
-            package_version: webInspectorPackage.version,
-            inspector_distinct_id: PERSISTED_BROWSER_ID,
-            distinct_id: PERSISTED_BROWSER_ID,
-          },
-          package: {
-            name: "@copilotkit/web-inspector",
-            version: webInspectorPackage.version,
-          },
-          ts: FIXED_TELEMETRY_TIME_SECONDS,
-        },
-      },
-    ]);
     expect(
       window.localStorage.getItem("cpk:inspector:telemetry:distinct_id"),
     ).toBe(PERSISTED_BROWSER_ID);
@@ -170,6 +172,8 @@ export async function expectInspectorTelemetryTransportContract(): Promise<void>
     expect(
       window.localStorage.getItem("cpk:inspector:telemetry:distinct_id"),
     ).toBe(PERSISTED_BROWSER_ID);
+
+    return requests;
   } finally {
     fetchMock.mockRestore();
     dateNow.mockRestore();
