@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, test, vi } from "vitest";
 
 import { CopilotRuntime } from "../copilot-runtime";
 import telemetry from "../../telemetry-client";
@@ -58,3 +58,77 @@ describe("v1 CopilotRuntime — telemetry license token", () => {
     expect(setLicenseTokenSpy).not.toHaveBeenCalled();
   });
 });
+
+interface RootRuntimeTelemetryIdentityCase {
+  label: string;
+  telemetryId?: string;
+  environmentTelemetryId?: string;
+  licenseToken?: string;
+  expectedIdentity: {
+    telemetryId?: string;
+    licenseToken?: string;
+  };
+}
+
+const LEGACY_IDENTITY_TOKEN = `header.${Buffer.from(
+  '{"telemetry_id":"legacy-license-id"}',
+).toString("base64url")}.sig`;
+
+const rootRuntimeTelemetryIdentityCases = [
+  {
+    label: "explicit telemetryId over environment and legacy license",
+    telemetryId: "explicit-telemetry-id",
+    environmentTelemetryId: "environment-telemetry-id",
+    licenseToken: LEGACY_IDENTITY_TOKEN,
+    expectedIdentity: { telemetryId: "explicit-telemetry-id" },
+  },
+  {
+    label: "CPK_TELEMETRY_ID over legacy license",
+    environmentTelemetryId: "environment-telemetry-id",
+    licenseToken: LEGACY_IDENTITY_TOKEN,
+    expectedIdentity: { telemetryId: "environment-telemetry-id" },
+  },
+  {
+    label: "legacy license when no standalone identity exists",
+    licenseToken: LEGACY_IDENTITY_TOKEN,
+    expectedIdentity: { licenseToken: LEGACY_IDENTITY_TOKEN },
+  },
+  {
+    label: "anonymous identity when no identity source exists",
+    expectedIdentity: {},
+  },
+] satisfies readonly RootRuntimeTelemetryIdentityCase[];
+
+test.each(rootRuntimeTelemetryIdentityCases)(
+  "public root Runtime resolves $label through one atomic telemetry configuration",
+  ({ telemetryId, environmentTelemetryId, licenseToken, expectedIdentity }) => {
+    const setTelemetryIdentity = vi.fn();
+    Object.defineProperty(telemetry, "setTelemetryIdentity", {
+      configurable: true,
+      value: setTelemetryIdentity,
+    });
+    const setLicenseToken = vi
+      .spyOn(telemetry, "setLicenseToken")
+      .mockImplementation(() => {});
+    vi.stubEnv("CPK_TELEMETRY_ID", environmentTelemetryId);
+    vi.stubEnv("COPILOTKIT_TELEMETRY_ID", "unsupported-alias");
+    vi.stubEnv("COPILOTKIT_LICENSE_TOKEN", undefined);
+
+    try {
+      const runtime = new CopilotRuntime({
+        agents: {},
+        telemetryId,
+        licenseToken,
+      });
+
+      expect(runtime).toBeInstanceOf(CopilotRuntime);
+      expect(setTelemetryIdentity).toHaveBeenCalledTimes(1);
+      expect(setTelemetryIdentity).toHaveBeenCalledWith(expectedIdentity);
+      expect(setLicenseToken).not.toHaveBeenCalled();
+    } finally {
+      setLicenseToken.mockRestore();
+      Reflect.deleteProperty(telemetry, "setTelemetryIdentity");
+      vi.unstubAllEnvs();
+    }
+  },
+);
