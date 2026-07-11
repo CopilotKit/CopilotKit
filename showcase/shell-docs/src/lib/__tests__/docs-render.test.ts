@@ -215,6 +215,30 @@ describe("reference nav", () => {
   });
 });
 
+describe("Managed Channels docs", () => {
+  it("publishes Channels navigation and the managed overview", () => {
+    const channelsMeta = JSON.parse(
+      fs.readFileSync(path.join(CONTENT_DIR, "channels/meta.json"), "utf8"),
+    ) as { title: string; pages: string[] };
+
+    expect(channelsMeta.title).toBe("Channels");
+    expect(channelsMeta.pages).toEqual([
+      "index",
+      "managed",
+      "persistence",
+      "transcripts",
+    ]);
+
+    const landing = loadDoc("channels");
+    const managed = loadDoc("channels/managed");
+
+    expect(landing?.source).toContain("doc_type: explanation");
+    expect(landing?.source).toContain("/channels/managed");
+    expect(managed?.source).toContain("doc_type: explanation");
+    expect(managed?.source).toContain("your infrastructure runs the agent");
+  });
+});
+
 describe("migration docs", () => {
   it("recommends CopilotKit from the v2 entrypoint instead of CopilotKitProvider", () => {
     const snippet = fs.readFileSync(

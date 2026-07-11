@@ -1,40 +1,44 @@
 ---
 title: Channels
-description: Build durable, cross-platform AI bots with CopilotKit — a platform adapter, an AG-UI agent, and optional persistence wired together in a single createBot call.
-icon: "lucide/Bot"
+description: Build AI agents for Slack, Microsoft Teams, Discord, Telegram, and WhatsApp with the CopilotKit Channels SDK, or let Managed Channels operate the provider connection and durable delivery.
+icon: "lucide/MessagesSquare"
 hideTOC: true
+doc_type: explanation
 ---
 
-The channel stack is three pieces: **`@copilotkit/channels`** (core runtime), a **platform adapter** (e.g. `@copilotkit/channels-slack`), and an **AG-UI agent** — any CopilotKit runtime or compatible backend. Plug them together with `createBot` and you get a bot that streams agent replies into the platform, handles interactive buttons, and — once you add a store — survives restarts and spans multiple instances.
+Channels brings the same CopilotKit agent behavior into workplace and messaging platforms. You keep your agent, tools, and application logic; choose whether your application owns the provider connection or CopilotKit Intelligence manages that edge for you.
 
-<OpsPlatformCTA
-  variant="inline"
-  title="Join the waitlist for managed Slack and Teams agents"
-  body="Start here when you want to own the adapter, runtime, and store. Join the waitlist if you want CopilotKit Intelligence to manage Slack and Teams setup, identity, durable state, approvals, and production operations."
-  ctaLabel="Join the waitlist"
-  surface="docs_bots_managed_agents_waitlist"
-  href="https://www.copilotkit.ai/opentag-managed"
-/>
+## Choose how your Channel runs
 
 <Cards>
   <Card
-    title="Slack quickstart"
+    title="Run Channels in your stack"
     href="/slack"
-    description="From zero to a working Slack bot in minutes — Socket Mode, streaming replies, and interactive Block Kit buttons."
+    description="Use the open-source Channels SDK and own the platform adapter, provider credentials, runtime, and persistence."
   />
   <Card
-    title="Persistence"
-    href="/channels/persistence"
-    description="Persist actions, locks, and per-thread state across restarts by backing the store with a durable StateStore implementation."
+    title="Use Managed Channels"
+    href="/channels/managed"
+    description="Let Intelligence manage Slack setup, credentials, durable delivery, retries, and egress while your infrastructure runs the agent."
   />
-  <Card
-    title="Transcripts"
-    href="/channels/transcripts"
-    description="Give the agent a cross-platform memory that follows users from Slack to any other channel — with GDPR-ready delete support."
-  />
-  <Card
-    title="Channels reference"
-    href="/reference/channels"
-    description="Full API reference — createBot, Thread, StateStore, ActionStore, and the Slack adapter."
-  />
+</Cards>
+
+## Same agent, different edge
+
+| | OSS Channels | Managed Channels |
+|---|---|---|
+| Agent and tools | Your infrastructure | Your infrastructure |
+| Provider credentials and connection | Your application | Intelligence |
+| Durable inbound delivery and retries | You provide it | Intelligence |
+| Provider replies and operational timeline | You provide it | Intelligence |
+
+The public SDK still uses API names such as `createBot`, `Bot`, and `BotTool` where “bot” describes the framework object. The product and documentation call the capability Channels.
+
+## Keep building
+
+<Cards>
+  <Card title="Managed Channels" href="/channels/managed" description="Understand the ownership boundary and connect Managed Slack." />
+  <Card title="Persistence" href="/channels/persistence" description="Persist actions, locks, and per-thread state for OSS Channels." />
+  <Card title="Transcripts" href="/channels/transcripts" description="Build cross-platform history for OSS Channels." />
+  <Card title="API reference" href="/reference/channels" description="Look up the Channels SDK, UI vocabulary, and adapters." />
 </Cards>
