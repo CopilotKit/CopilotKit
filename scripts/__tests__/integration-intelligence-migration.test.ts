@@ -18,6 +18,14 @@ const NEXT_THREADS_GATE = "NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED";
 const VITE_THREADS_GATE = "VITE_COPILOTKIT_THREADS_ENABLED";
 const MANAGED_DOCUMENTATION_LABEL = /\bmanaged\b/i;
 const SELF_HOSTED_OR_OFFLINE_LABEL = /\b(?:self[ -]?hosted|offline)\b/i;
+const LICENSE_GATING_LANGUAGE =
+  /(?:\blicen[cs]e\b[\s\S]{0,160}\b(?:activat(?:e[sd]?|ing)|unlock(?:s|ed|ing)?|enabl(?:e[sd]?|ing))\b[\s\S]{0,160}\b(?:threads?|inspector)\b|\b(?:threads?|inspector)\b[\s\S]{0,160}\b(?:activat(?:e[sd]?|ing)|unlock(?:s|ed|ing)?|enabl(?:e[sd]?|ing))\b[\s\S]{0,160}\blicen[cs]e\b)/i;
+const INTEGRATION_PARITY_WORKFLOW = path.join(
+  repoRoot,
+  ".github",
+  "workflows",
+  "integrations_parity.yml",
+);
 
 const MANAGED_CLI_FRAMEWORKS = [
   "langgraph-py",
@@ -247,18 +255,6 @@ function rootManagedEnvFilePattern(): RegExp {
   return /env_file:\s*(?:\r?\n\s*-\s*)?\.\.\/\.env\b/;
 }
 
-/** Matches a deployment config key without constraining its safe reference. */
-function deploymentConfigReferencePattern(identifier: string): RegExp {
-  return new RegExp(`^\\s*${identifier}\\s*:`, "m");
-}
-
-/** Matches two required terms close enough to belong to one configuration. */
-function nearbyTermsPattern(first: string, second: string): RegExp {
-  return new RegExp(
-    `(?:${first}[\\s\\S]{0,400}${second}|${second}[\\s\\S]{0,400}${first})`,
-  );
-}
-
 /**
  * Matches an environment identifier without matching it inside a longer name.
  *
@@ -404,6 +400,41 @@ function expressionUsesManagedKeyWithoutTelemetry(
   );
 }
 
+/** Returns whether an expression is a literal boolean string projection. */
+function isBooleanStringProjection(expression: ts.Expression): boolean {
+  const unwrapped = unwrapExpression(expression);
+  if (ts.isStringLiteral(unwrapped)) {
+    return unwrapped.text === "true" || unwrapped.text === "false";
+  }
+  if (ts.isConditionalExpression(unwrapped)) {
+    return (
+      isBooleanStringProjection(unwrapped.whenTrue) &&
+      isBooleanStringProjection(unwrapped.whenFalse)
+    );
+  }
+  if (
+    ts.isCallExpression(unwrapped) &&
+    ts.isPropertyAccessExpression(unwrapped.expression) &&
+    ts.isIdentifier(unwrapped.expression.expression) &&
+    unwrapped.expression.expression.text === "JSON" &&
+    unwrapped.expression.name.text === "stringify" &&
+    unwrapped.arguments.length === 1
+  ) {
+    return isBooleanStringProjection(unwrapped.arguments[0]!);
+  }
+
+  return false;
+}
+
+/** Returns whether the public gate is boolean-only and keyed by the CPK credential. */
+function expressionUsesManagedBooleanGate(expression: ts.Expression): boolean {
+  return (
+    expressionContainsEnvRead(expression, MANAGED_API_KEY) &&
+    !expressionContainsEnvRead(expression, OPTIONAL_TELEMETRY_ID) &&
+    isBooleanStringProjection(expression)
+  );
+}
+
 /** Returns whether a CopilotKit Intelligence constructor owns the API-key read. */
 function hasRuntimeApiKeyRead(sourceFile: ts.SourceFile): boolean {
   let found = false;
@@ -500,26 +531,6 @@ function defaultExportExpression(
   return null;
 }
 
-/** Returns whether a nested object property owns the managed env read. */
-function nestedPropertyContainsEnvRead(
-  objectLiteral: ts.ObjectLiteralExpression,
-  containerName: string,
-  propertyName: string,
-): boolean {
-  const container = objectPropertyAssignment(objectLiteral, containerName);
-  if (!container) {
-    return false;
-  }
-  const containerInitializer = unwrapExpression(container.initializer);
-  if (!ts.isObjectLiteralExpression(containerInitializer)) {
-    return false;
-  }
-  const property = objectPropertyAssignment(containerInitializer, propertyName);
-  return Boolean(
-    property && expressionUsesManagedKeyWithoutTelemetry(property.initializer),
-  );
-}
-
 /** Returns whether the exported Next or Vite thread gate owns the key read. */
 function hasExportedGateApiKeyRead(sourceFile: ts.SourceFile): boolean {
   const exported = defaultExportExpression(sourceFile);
@@ -530,7 +541,12 @@ function hasExportedGateApiKeyRead(sourceFile: ts.SourceFile): boolean {
   const nextConfig = exportedObjectLiteral(exported, sourceFile);
   if (
     nextConfig &&
-    nestedPropertyContainsEnvRead(nextConfig, "env", NEXT_THREADS_GATE)
+    nestedPropertyMatches(
+      nextConfig,
+      "env",
+      NEXT_THREADS_GATE,
+      expressionUsesManagedBooleanGate,
+    )
   ) {
     return true;
   }
@@ -544,15 +560,130 @@ function hasExportedGateApiKeyRead(sourceFile: ts.SourceFile): boolean {
     const config = unwrapped.arguments[0];
     const unwrappedConfig = config ? unwrapExpression(config) : null;
     if (unwrappedConfig && ts.isObjectLiteralExpression(unwrappedConfig)) {
-      return nestedPropertyContainsEnvRead(
+      return nestedPropertyMatches(
         unwrappedConfig,
         "define",
         `import.meta.env.${VITE_THREADS_GATE}`,
+        expressionUsesManagedBooleanGate,
       );
     }
   }
 
   return false;
+}
+
+/** Returns whether a nested object property satisfies an expression predicate. */
+function nestedPropertyMatches(
+  objectLiteral: ts.ObjectLiteralExpression,
+  containerName: string,
+  propertyName: string,
+  predicate: (expression: ts.Expression) => boolean,
+): boolean {
+  const container = objectPropertyAssignment(objectLiteral, containerName);
+  if (!container) {
+    return false;
+  }
+  const containerInitializer = unwrapExpression(container.initializer);
+  if (!ts.isObjectLiteralExpression(containerInitializer)) {
+    return false;
+  }
+  const property = objectPropertyAssignment(containerInitializer, propertyName);
+  return Boolean(property && predicate(property.initializer));
+}
+
+/** Returns the exact dotted parts of a property-access expression. */
+function propertyAccessParts(expression: ts.Expression): readonly string[] {
+  const unwrapped = unwrapExpression(expression);
+  if (ts.isIdentifier(unwrapped)) {
+    return [unwrapped.text];
+  }
+  if (ts.isPropertyAccessExpression(unwrapped)) {
+    return [...propertyAccessParts(unwrapped.expression), unwrapped.name.text];
+  }
+
+  return [];
+}
+
+/** Returns whether an expression contains an exact dotted property path. */
+function expressionContainsPropertyPath(
+  expression: ts.Expression,
+  expectedPath: readonly string[],
+): boolean {
+  let found = false;
+
+  /** Visits one expression node for the exact configured path. */
+  function visit(node: ts.Node): void {
+    if (found) return;
+    if (
+      ts.isExpression(node) &&
+      propertyAccessParts(node).join(".") === expectedPath.join(".")
+    ) {
+      found = true;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(expression);
+  return found;
+}
+
+/** Returns whether an expression resolves a value through Secrets Manager. */
+function expressionContainsSecretResolution(
+  expression: ts.Expression,
+): boolean {
+  let found = false;
+
+  /** Visits one expression node for an explicit Secrets Manager call. */
+  function visit(node: ts.Node): void {
+    if (found) return;
+    if (ts.isCallExpression(node)) {
+      const callee = propertyAccessParts(node.expression);
+      if (
+        callee.at(-1) === "secretsManager" &&
+        callee.includes("SecretValue")
+      ) {
+        found = true;
+        return;
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(expression);
+  return found;
+}
+
+/** Returns all new-expression option objects matching a construct name and id. */
+function constructOptions(
+  sourceFile: ts.SourceFile,
+  constructorPath: readonly string[],
+  constructId: string,
+): readonly ts.ObjectLiteralExpression[] {
+  const matches: ts.ObjectLiteralExpression[] = [];
+
+  /** Visits construct calls for exact constructor and id ownership. */
+  function visit(node: ts.Node): void {
+    if (
+      ts.isNewExpression(node) &&
+      propertyAccessParts(node.expression).join(".") ===
+        constructorPath.join(".") &&
+      node.arguments?.[1] &&
+      ts.isStringLiteral(node.arguments[1]) &&
+      node.arguments[1].text === constructId
+    ) {
+      const options = node.arguments[2]
+        ? unwrapExpression(node.arguments[2])
+        : null;
+      if (options && ts.isObjectLiteralExpression(options)) {
+        matches.push(options);
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sourceFile);
+  return matches;
 }
 
 /**
@@ -609,8 +740,10 @@ function managedEnvBlock(contents: string): string {
 
 /** Asserts every env license occurrence has a deployment-mode label. */
 function expectEnvLicenseOccurrencesClassified(contents: string): void {
-  const licenseBlocks = textBlocks(contents).filter((block) =>
-    block.includes(MANAGED_LICENSE_TOKEN),
+  const licenseBlocks = textBlocks(contents).filter(
+    (block) =>
+      block.includes(MANAGED_LICENSE_TOKEN) ||
+      LICENSE_GATING_LANGUAGE.test(block),
   );
 
   expect(
@@ -618,6 +751,28 @@ function expectEnvLicenseOccurrencesClassified(contents: string): void {
       envBlockHasLabel(block, SELF_HOSTED_OR_OFFLINE_LABEL),
     ),
   ).toBe(true);
+}
+
+/** Returns Markdown paragraph starts containing license literals or gating copy. */
+function markdownLicenseOccurrenceLines(lines: readonly string[]): number[] {
+  const occurrences: number[] = [];
+  let start = 0;
+  while (start < lines.length) {
+    while (start < lines.length && lines[start]?.trim() === "") start += 1;
+    if (start >= lines.length) break;
+    let end = start + 1;
+    while (end < lines.length && lines[end]?.trim() !== "") end += 1;
+    const block = lines.slice(start, end).join("\n");
+    if (
+      block.includes(MANAGED_LICENSE_TOKEN) ||
+      LICENSE_GATING_LANGUAGE.test(block)
+    ) {
+      occurrences.push(start);
+    }
+    start = end + 1;
+  }
+
+  return occurrences;
 }
 
 /** Returns the managed Markdown heading section containing both fields. */
@@ -676,9 +831,7 @@ function markdownLineHasLabeledAncestor(
 /** Asserts every README license mention has a deployment-mode heading. */
 function expectMarkdownLicenseOccurrencesClassified(markdown: string): void {
   const lines = markdown.split(/\r?\n/);
-  const licenseLines = lines.flatMap((line, index) =>
-    line.includes(MANAGED_LICENSE_TOKEN) ? [index] : [],
-  );
+  const licenseLines = markdownLicenseOccurrenceLines(lines);
 
   expect(
     licenseLines.every((index) =>
@@ -765,44 +918,230 @@ function expectAgentCoreLocalComposeContract(contents: string): void {
 
 /** Assert AgentCore deploy configuration carries only a secret reference. */
 function expectAgentCoreDeploymentConfigContract(contents: string): void {
-  expect(contents).toMatch(
-    deploymentConfigReferencePattern(MANAGED_API_KEY_SECRET_CONFIG),
-  );
+  const configuredSecretNames = contents.split(/\r?\n/).flatMap((line) => {
+    const match = line.match(
+      new RegExp(
+        `^${MANAGED_API_KEY_SECRET_CONFIG}\\s*:\\s*([^#\\s][^#]*?)\\s*(?:#.*)?$`,
+      ),
+    );
+    return match?.[1] ? [match[1].trim()] : [];
+  });
+
+  expect(configuredSecretNames).toHaveLength(1);
+  expect(configuredSecretNames[0]).not.toMatch(/^\$\{|^process\.env\b/);
   expect(contents).not.toMatch(exactEnvIdentifierPattern(MANAGED_API_KEY));
   expect(contents).not.toContain(MANAGED_LICENSE_TOKEN);
 }
 
 /** Assert AgentCore's deployed Lambda resolves the managed key from a secret. */
 function expectAgentCoreRuntimeDeploymentContract(contents: string): void {
-  expect(contents).toMatch(
-    nearbyTermsPattern(MANAGED_API_KEY, MANAGED_API_KEY_SECRET_CONFIG),
+  const sourceFile = parseManagedSource(contents);
+  const lambdaOptions = constructOptions(
+    sourceFile,
+    ["lambda", "Function"],
+    "CopilotKitRuntimeLambda",
   );
-  expect(contents).toMatch(/\b(?:SecretValue|secretsmanager|secretName)\b/i);
-  expect(contents).not.toMatch(
-    new RegExp(`${MANAGED_API_KEY}\\s*:\\s*["'\\x60]`),
-  );
+  expect(lambdaOptions).toHaveLength(1);
+  const environment = lambdaOptions[0]
+    ? objectPropertyAssignment(lambdaOptions[0], "environment")
+    : null;
+  const environmentObject = environment
+    ? unwrapExpression(environment.initializer)
+    : null;
+  expect(
+    environmentObject && ts.isObjectLiteralExpression(environmentObject),
+  ).toBe(true);
+  const managedKey =
+    environmentObject && ts.isObjectLiteralExpression(environmentObject)
+      ? objectPropertyAssignment(environmentObject, MANAGED_API_KEY)
+      : null;
+  expect(managedKey).not.toBeNull();
+  if (!managedKey) return;
+
+  expect(
+    expressionContainsPropertyPath(managedKey.initializer, [
+      "config",
+      MANAGED_API_KEY_SECRET_CONFIG,
+    ]),
+  ).toBe(true);
+  expect(expressionContainsSecretResolution(managedKey.initializer)).toBe(true);
+  expect(
+    expressionContainsEnvRead(managedKey.initializer, MANAGED_API_KEY),
+  ).toBe(false);
   expect(contents).not.toContain(MANAGED_LICENSE_TOKEN);
 }
 
 /** Assert AgentCore's frontend receives only the key-derived public gate. */
 function expectAgentCoreFrontendDeploymentContract(contents: string): void {
-  expect(contents).toMatch(
-    nearbyTermsPattern(VITE_THREADS_GATE, MANAGED_API_KEY_SECRET_CONFIG),
+  const sourceFile = parseManagedSource(contents);
+  const appOptions = constructOptions(
+    sourceFile,
+    ["amplify", "App"],
+    "AmplifyApp",
   );
+  expect(appOptions).toHaveLength(1);
+  const environmentVariables = appOptions[0]
+    ? objectPropertyAssignment(appOptions[0], "environmentVariables")
+    : null;
+  const environmentObject = environmentVariables
+    ? unwrapExpression(environmentVariables.initializer)
+    : null;
+  const managedGate =
+    environmentObject && ts.isObjectLiteralExpression(environmentObject)
+      ? objectPropertyAssignment(environmentObject, VITE_THREADS_GATE)
+      : null;
+  expect(managedGate).not.toBeNull();
+  if (!managedGate) return;
+
+  expect(isBooleanStringProjection(managedGate.initializer)).toBe(true);
+  expect(
+    expressionContainsPropertyPath(managedGate.initializer, [
+      "props",
+      "config",
+      MANAGED_API_KEY_SECRET_CONFIG,
+    ]),
+  ).toBe(true);
+  expect(
+    expressionContainsEnvRead(managedGate.initializer, MANAGED_API_KEY),
+  ).toBe(false);
   expect(contents).not.toMatch(exactEnvIdentifierPattern(MANAGED_API_KEY));
   expect(contents).not.toContain(MANAGED_LICENSE_TOKEN);
 }
 
 /** Assert an AgentCore variant deploy script safely materializes its key secret. */
 function expectAgentCoreDeployScriptContract(contents: string): void {
-  expect(contents).toContain(".env");
-  expect(contents).toMatch(exactEnvIdentifierPattern(MANAGED_API_KEY));
-  expect(contents).toContain(MANAGED_API_KEY_SECRET_CONFIG);
-  expect(contents).toMatch(
-    /aws\s+secretsmanager\s+(?:create-secret|put-secret-value)/,
+  const normalized = contents.replace(/\\\r?\n\s*/g, " ");
+  const lines = normalized.split(/\r?\n/);
+  const rootEnvLoadIndex = lines.findIndex((line) =>
+    /(?:^|\s)(?:source|\.)\s+["']?\$\{?SCRIPT_DIR\}?\/\.env["']?(?:\s|$)/.test(
+      line,
+    ),
   );
-  expect(contents).toMatch(/npx\s+cdk(?:@\S+)?\s+deploy/);
+  const secretConfigAssignment = lines
+    .map((line, index) => ({
+      index,
+      match: line.match(
+        new RegExp(`^\\s*([A-Z][A-Z0-9_]*)=.*${MANAGED_API_KEY_SECRET_CONFIG}`),
+      ),
+    }))
+    .find(({ match }) => match?.[1]);
+  const secretNameVariable = secretConfigAssignment?.match?.[1];
+  const secretCommands = lines
+    .map((line, index) => ({ index, line }))
+    .filter(({ line }) =>
+      /aws\s+secretsmanager\s+(?:create-secret|put-secret-value)\b/.test(line),
+    );
+  const cdkDeployIndex = lines.findIndex((line) =>
+    /npx\s+cdk(?:@\S+)?\s+deploy\b/.test(line),
+  );
+
+  expect(rootEnvLoadIndex).toBeGreaterThanOrEqual(0);
+  expect(secretNameVariable).toBeDefined();
+  expect(secretCommands.length).toBeGreaterThan(0);
+  expect(cdkDeployIndex).toBeGreaterThan(
+    Math.max(...secretCommands.map(({ index }) => index)),
+  );
+  for (const { line } of secretCommands) {
+    expect(line).toMatch(
+      new RegExp(
+        `--secret-string(?:=|\\s+)["']?\\$\\{?${MANAGED_API_KEY}\\}?["']?(?:\\s|$)`,
+      ),
+    );
+    expect(line).toMatch(
+      new RegExp(
+        `--(?:name|secret-id)(?:=|\\s+)["']?\\$\\{?${secretNameVariable}\\}?["']?(?:\\s|$)`,
+      ),
+    );
+  }
+  expect(rootEnvLoadIndex).toBeLessThan(secretCommands[0]!.index);
+  expect(secretConfigAssignment!.index).toBeLessThan(secretCommands[0]!.index);
   expect(contents).not.toContain(MANAGED_LICENSE_TOKEN);
+}
+
+/** Returns exact path filters for one top-level workflow event. */
+function workflowEventPaths(contents: string, eventName: string): string[] {
+  const lines = contents.split(/\r?\n/);
+  const eventStart = lines.findIndex((line) => line === `  ${eventName}:`);
+  if (eventStart < 0) return [];
+  const relativeEventEnd = lines
+    .slice(eventStart + 1)
+    .findIndex((line) => /^(?:\S| {2}\S).*:\s*$/.test(line));
+  const eventEnd =
+    relativeEventEnd < 0 ? lines.length : eventStart + relativeEventEnd + 1;
+  const eventLines = lines.slice(eventStart, eventEnd);
+  const pathsStart = eventLines.findIndex((line) => line === "    paths:");
+  if (pathsStart < 0) return [];
+
+  const paths: string[] = [];
+  for (const line of eventLines.slice(pathsStart + 1)) {
+    const match = line.match(/^      - ["']?(.+?)["']?\s*$/);
+    if (!match?.[1]) break;
+    paths.push(match[1]);
+  }
+  return paths;
+}
+
+interface WorkflowStep {
+  readonly name: string;
+  readonly run: string;
+}
+
+/** Returns named workflow steps with their complete run scripts. */
+function workflowSteps(contents: string): WorkflowStep[] {
+  const lines = contents.split(/\r?\n/);
+  const stepStarts = lines.flatMap((line, index) =>
+    /^      - name:\s*/.test(line) ? [index] : [],
+  );
+
+  return stepStarts.map((start, position) => {
+    const end = stepStarts[position + 1] ?? lines.length;
+    const stepLines = lines.slice(start, end);
+    const name = stepLines[0]!
+      .replace(/^      - name:\s*/, "")
+      .replace(/^["']|["']$/g, "");
+    const runStart = stepLines.findIndex((line) =>
+      line.startsWith("        run:"),
+    );
+    const run =
+      runStart < 0
+        ? ""
+        : stepLines
+            .slice(runStart)
+            .join("\n")
+            .replace(/^\s*run:\s*[|>-]?\s*/m, "")
+            .trim();
+    return { name, run };
+  });
+}
+
+/** Assert the parity workflow preserves filters and runs red contracts second. */
+function expectIntegrationParityWorkflowContract(contents: string): void {
+  const expectedPaths = [
+    "examples/integrations/**",
+    "scripts/__tests__/integration-intelligence-migration.test.ts",
+    ".github/workflows/integrations_parity.yml",
+  ];
+  expect(workflowEventPaths(contents, "pull_request")).toEqual(expectedPaths);
+  expect(workflowEventPaths(contents, "push")).toEqual(expectedPaths);
+
+  const steps = workflowSteps(contents);
+  const parityIndex = steps.findIndex(
+    ({ name }) => name === "Verify integration-demo parity",
+  );
+  const contractIndex = steps.findIndex(
+    ({ name }) => name === "Verify managed integration credential contracts",
+  );
+  expect(parityIndex).toBeGreaterThanOrEqual(0);
+  expect(contractIndex).toBeGreaterThan(parityIndex);
+  expect(steps[parityIndex]?.run).toContain("pnpm parity:check");
+  expect(steps[contractIndex]?.run).toContain(
+    "pnpm exec vitest run scripts/__tests__/integration-intelligence-migration.test.ts",
+  );
+}
+
+/** Renders an exact workflow path-filter list for helper self-tests. */
+function renderWorkflowPaths(values: readonly string[]): string {
+  return values.map((value) => `      - "${value}"`).join("\n");
 }
 
 test("managed TypeScript helpers reject API-key identifiers outside configured expressions", () => {
@@ -853,6 +1192,130 @@ test("managed TypeScript helpers reject decoy configured properties", () => {
   expect(() => expectManagedRuntimeContract(decoyRuntimeRead)).toThrow();
   expect(() => expectManagedGateContract(decoyNextGateRead)).toThrow();
   expect(() => expectManagedGateContract(decoyViteGateRead)).toThrow();
+});
+
+test("managed gate helpers reject direct, concatenated, comment-only, and decoy key exposure", () => {
+  const invalidGateSources = [
+    `export default { env: { ${NEXT_THREADS_GATE}: process.env.${MANAGED_API_KEY} } };`,
+    `export default { env: { ${NEXT_THREADS_GATE}: "enabled-" + process.env.${MANAGED_API_KEY} } };`,
+    `
+      // ${NEXT_THREADS_GATE}: process.env.${MANAGED_API_KEY} ? "true" : "false"
+      export default { env: { ${NEXT_THREADS_GATE}: "false" } };
+    `,
+    `
+      const decoy = process.env.${MANAGED_API_KEY} ? "true" : "false";
+      export default { env: { ${NEXT_THREADS_GATE}: "false" } };
+    `,
+  ];
+
+  for (const source of invalidGateSources) {
+    expect(() => expectManagedGateContract(source)).toThrow();
+  }
+});
+
+test("managed gate helpers accept normalized Next and Vite boolean projections", () => {
+  const nextGate = `
+    export default {
+      env: {
+        ${NEXT_THREADS_GATE}: process.env.${MANAGED_API_KEY}
+          ? "true"
+          : "false",
+      },
+    };
+  `;
+  const viteGateWithOverride = `
+    export default defineConfig({
+      define: {
+        "import.meta.env.${VITE_THREADS_GATE}": JSON.stringify(
+          process.env.${VITE_THREADS_GATE} === "true"
+            ? "true"
+            : process.env.${MANAGED_API_KEY}
+              ? "true"
+              : "false",
+        ),
+      },
+    });
+  `;
+
+  expect(() => expectManagedGateContract(nextGate)).not.toThrow();
+  expect(() => expectManagedGateContract(viteGateWithOverride)).not.toThrow();
+});
+
+test("AgentCore structural helpers accept linked root-env, secret, Lambda, and frontend wiring", () => {
+  const deploymentConfig = `${MANAGED_API_KEY_SECRET_CONFIG}: cpk-managed-key`;
+  const runtimeDeployment = `
+    new lambda.Function(this, "CopilotKitRuntimeLambda", {
+      environment: {
+        ${MANAGED_API_KEY}: cdk.SecretValue.secretsManager(
+          config.${MANAGED_API_KEY_SECRET_CONFIG},
+        ).unsafeUnwrap(),
+      },
+    });
+  `;
+  const frontendDeployment = `
+    new amplify.App(this, "AmplifyApp", {
+      environmentVariables: {
+        ${VITE_THREADS_GATE}: props.config.${MANAGED_API_KEY_SECRET_CONFIG}
+          ? "true"
+          : "false",
+      },
+    });
+  `;
+  const deployScript = `
+    source "$SCRIPT_DIR/.env"
+    CPK_SECRET_NAME=$(read_config ${MANAGED_API_KEY_SECRET_CONFIG})
+    aws secretsmanager create-secret --name "$CPK_SECRET_NAME" --secret-string "$${MANAGED_API_KEY}"
+    npx cdk deploy --all
+  `;
+
+  expect(() =>
+    expectAgentCoreDeploymentConfigContract(deploymentConfig),
+  ).not.toThrow();
+  expect(() =>
+    expectAgentCoreRuntimeDeploymentContract(runtimeDeployment),
+  ).not.toThrow();
+  expect(() =>
+    expectAgentCoreFrontendDeploymentContract(frontendDeployment),
+  ).not.toThrow();
+  expect(() => expectAgentCoreDeployScriptContract(deployScript)).not.toThrow();
+});
+
+test("AgentCore structural helpers reject comment, unrelated-secret, and disconnected-command decoys", () => {
+  const runtimeDecoy = `
+    // ${MANAGED_API_KEY} uses config.${MANAGED_API_KEY_SECRET_CONFIG}
+    const unrelated = cdk.SecretValue.secretsManager("other-secret");
+    new lambda.Function(this, "CopilotKitRuntimeLambda", {
+      environment: { ${MANAGED_API_KEY}: "literal-key" },
+    });
+  `;
+  const frontendDecoy = `
+    // ${VITE_THREADS_GATE} follows props.config.${MANAGED_API_KEY_SECRET_CONFIG}
+    new amplify.App(this, "AmplifyApp", {
+      environmentVariables: { ${VITE_THREADS_GATE}: "enabled" },
+    });
+  `;
+  const deployScriptDecoy = `
+    # source "$SCRIPT_DIR/.env"
+    CPK_SECRET_NAME=$(read_config ${MANAGED_API_KEY_SECRET_CONFIG})
+    echo "$${MANAGED_API_KEY}"
+    aws secretsmanager create-secret --name unrelated --secret-string literal
+    npx cdk deploy --all
+  `;
+
+  expect(() =>
+    expectAgentCoreRuntimeDeploymentContract(runtimeDecoy),
+  ).toThrow();
+  expect(() =>
+    expectAgentCoreFrontendDeploymentContract(frontendDecoy),
+  ).toThrow();
+  expect(() =>
+    expectAgentCoreDeployScriptContract(deployScriptDecoy),
+  ).toThrow();
+  expect(() =>
+    expectAgentCoreDeploymentConfigContract(
+      `${MANAGED_API_KEY_SECRET_CONFIG}: \${${MANAGED_API_KEY}}`,
+    ),
+  ).toThrow();
 });
 
 test("managed TypeScript helpers reject malformed source", () => {
@@ -1091,6 +1554,93 @@ test("managed documentation helpers allow separate self-hosted and offline licen
 
   expect(() => expectManagedEnvContract(envExample)).not.toThrow();
   expect(() => expectManagedReadmeContract(readme)).not.toThrow();
+});
+
+test("managed documentation helpers reject unlabeled generic license-gating copy without an env literal", () => {
+  const envExample = `
+    # Managed Intelligence credentials
+    CPK_INTELLIGENCE_API_KEY=
+    # Optional, non-secret analytics identity
+    CPK_TELEMETRY_ID=
+
+    # Product capabilities
+    # A license unlocks Threads and enables Inspector.
+  `;
+  const readme = [
+    "## Managed Intelligence credentials",
+    "",
+    "Set CPK_INTELLIGENCE_API_KEY for the project.",
+    "CPK_TELEMETRY_ID is an optional, non-secret analytics identity.",
+    "",
+    "## Product capabilities",
+    "",
+    "A license activates Threads and unlocks Inspector.",
+  ].join("\n");
+
+  expect(() => expectManagedEnvContract(envExample)).toThrow();
+  expect(() => expectManagedReadmeContract(readme)).toThrow();
+});
+
+test("managed documentation helpers allow generic license-gating copy only in self-hosted or offline sections", () => {
+  const envExample = `
+    # Managed Intelligence credentials
+    CPK_INTELLIGENCE_API_KEY=
+    # Optional, non-secret analytics identity
+    CPK_TELEMETRY_ID=
+
+    # Self-hosted / offline license behavior
+    # A deployment license enables Threads and Inspector offline.
+  `;
+  const readme = [
+    "## Managed Intelligence credentials",
+    "",
+    "Set CPK_INTELLIGENCE_API_KEY for the project.",
+    "CPK_TELEMETRY_ID is an optional, non-secret analytics identity.",
+    "",
+    "## Self-hosted / offline license behavior",
+    "",
+    "A deployment license enables Threads and Inspector offline.",
+  ].join("\n");
+
+  expect(() => expectManagedEnvContract(envExample)).not.toThrow();
+  expect(() => expectManagedReadmeContract(readme)).not.toThrow();
+});
+
+test("integration parity workflow preserves filters and runs parity before the expected-red managed contract", () => {
+  const workflow = fs.readFileSync(INTEGRATION_PARITY_WORKFLOW, "utf8");
+
+  expectIntegrationParityWorkflowContract(workflow);
+});
+
+test("integration parity workflow helper rejects missing filters and reversed contract order", () => {
+  const paths = [
+    "examples/integrations/**",
+    "scripts/__tests__/integration-intelligence-migration.test.ts",
+    ".github/workflows/integrations_parity.yml",
+  ];
+  const workflow = (eventPaths: readonly string[], reversed: boolean) => `
+on:
+  pull_request:
+    paths:
+${renderWorkflowPaths(eventPaths)}
+  push:
+    paths:
+${renderWorkflowPaths(paths)}
+jobs:
+  parity-check:
+    steps:
+      - name: ${reversed ? "Verify managed integration credential contracts" : "Verify integration-demo parity"}
+        run: ${reversed ? "pnpm exec vitest run scripts/__tests__/integration-intelligence-migration.test.ts" : "pnpm parity:check"}
+      - name: ${reversed ? "Verify integration-demo parity" : "Verify managed integration credential contracts"}
+        run: ${reversed ? "pnpm parity:check" : "pnpm exec vitest run scripts/__tests__/integration-intelligence-migration.test.ts"}
+`;
+
+  expect(() =>
+    expectIntegrationParityWorkflowContract(workflow(paths, true)),
+  ).toThrow();
+  expect(() =>
+    expectIntegrationParityWorkflowContract(workflow(paths.slice(0, 2), false)),
+  ).toThrow();
 });
 
 test("the 16 managed template directories back all 19 in-repo CLI frameworks", () => {
