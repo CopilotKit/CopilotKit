@@ -10,7 +10,6 @@ import {
 const fetchMock = vi.fn();
 vi.stubGlobal("fetch", fetchMock);
 const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-const RUNTIME_ENTITLEMENTS_TIMEOUT_MS = 3_000;
 
 /** Build a real JSON response for the shared platform fetch mock. */
 function jsonResponse(body: unknown, status = 200) {
@@ -139,34 +138,35 @@ test("recursive forbidden-key control detects identity and credential leaks", ()
 test("getRuntimeEntitlements aborts a bounded request with a typed timeout error", async () => {
   vi.useFakeTimers();
   try {
+    const privateAbortDetail = "private-upstream-timeout-detail";
     const client = runtimeEntitlementsClient();
     fetchMock.mockImplementation(
       (_input: RequestInfo | URL, init?: RequestInit) =>
         new Promise<Response>((_resolve, reject) => {
           init?.signal?.addEventListener("abort", () => {
-            reject(
-              new DOMException("The operation was aborted.", "AbortError"),
-            );
+            reject(new DOMException(privateAbortDetail, "AbortError"));
           });
         }),
     );
 
     const request = client.getRuntimeEntitlements();
-    const rejection = expect(request).rejects.toMatchObject({ status: 504 });
+    const capturedError = request.catch((error: unknown) => error);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const signal = fetchMock.mock.calls[0][1].signal;
     expect(signal).toBeInstanceOf(AbortSignal);
     expect(signal.aborted).toBe(false);
+    expect(vi.getTimerCount()).toBeGreaterThan(0);
 
-    await vi.advanceTimersByTimeAsync(RUNTIME_ENTITLEMENTS_TIMEOUT_MS - 1);
-
-    expect(signal.aborted).toBe(false);
-
-    await vi.advanceTimersByTimeAsync(1);
+    await vi.advanceTimersToNextTimerAsync();
 
     expect(signal.aborted).toBe(true);
-    await rejection;
-    await expect(request).rejects.toBeInstanceOf(PlatformRequestError);
+    const error = await capturedError;
+    expect(error).toBeInstanceOf(PlatformRequestError);
+    if (!(error instanceof PlatformRequestError)) {
+      throw new Error("Expected a typed Runtime entitlement timeout error");
+    }
+    expect(error.status).toBe(504);
+    expect(error.message).not.toContain(privateAbortDetail);
   } finally {
     vi.useRealTimers();
   }
