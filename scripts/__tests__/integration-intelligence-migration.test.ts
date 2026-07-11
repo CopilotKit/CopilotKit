@@ -726,16 +726,56 @@ function envBlockHasLabel(block: string, label: RegExp): boolean {
     .some((line) => /^\s*#/.test(line) && label.test(line));
 }
 
-/** Returns the explicitly labeled managed env block containing both fields. */
-function managedEnvBlock(contents: string): string {
-  return (
-    textBlocks(contents).find(
-      (block) =>
-        envBlockHasLabel(block, MANAGED_DOCUMENTATION_LABEL) &&
-        envAssignmentPattern(MANAGED_API_KEY).test(block) &&
-        envAssignmentPattern(OPTIONAL_TELEMETRY_ID).test(block),
-    ) ?? ""
-  );
+interface ManagedEnvSections {
+  readonly apiKey: string;
+  readonly telemetry: string;
+}
+
+/** Returns the exact ordered managed dotenv sections from the public contract. */
+function managedEnvSections(contents: string): ManagedEnvSections | null {
+  const lines = contents.replaceAll("\r\n", "\n").split("\n");
+  const apiHeader = "# Your CopilotKit Enterprise Intelligence API Key";
+  const telemetryHeader = "# CopilotKit Telemetry ID";
+  if (
+    lines.filter((line) => line === apiHeader).length !== 1 ||
+    lines.filter((line) => line === telemetryHeader).length !== 1 ||
+    lines.filter((line) => envAssignmentPattern(MANAGED_API_KEY).test(line))
+      .length !== 1 ||
+    lines.filter((line) =>
+      envAssignmentPattern(OPTIONAL_TELEMETRY_ID).test(line),
+    ).length !== 1
+  ) {
+    return null;
+  }
+  const apiHeaderIndex = lines.findIndex((line) => line === apiHeader);
+  if (apiHeaderIndex < 0) return null;
+
+  const projectName = lines[apiHeaderIndex + 1] ?? "";
+  const apiKeyAssignment = lines[apiHeaderIndex + 2] ?? "";
+  const separator = lines[apiHeaderIndex + 3];
+  const telemetryHeaderIndex = apiHeaderIndex + 4;
+  if (
+    !/^# Project Name: \S.*$/u.test(projectName) ||
+    !envAssignmentPattern(MANAGED_API_KEY).test(apiKeyAssignment) ||
+    separator !== "" ||
+    lines[telemetryHeaderIndex] !== telemetryHeader
+  ) {
+    return null;
+  }
+
+  let telemetryEnd = telemetryHeaderIndex + 1;
+  while (telemetryEnd < lines.length && lines[telemetryEnd] !== "") {
+    telemetryEnd += 1;
+  }
+  const telemetry = lines.slice(telemetryHeaderIndex, telemetryEnd).join("\n");
+  if (!envAssignmentPattern(OPTIONAL_TELEMETRY_ID).test(telemetry)) {
+    return null;
+  }
+
+  return {
+    apiKey: lines.slice(apiHeaderIndex, apiHeaderIndex + 3).join("\n"),
+    telemetry,
+  };
 }
 
 /** Asserts every env license occurrence has a deployment-mode label. */
@@ -879,10 +919,12 @@ function expectManagedGateContract(contents: string): void {
  * @param contents - Managed template environment example contents.
  */
 function expectManagedEnvContract(contents: string): void {
-  const managedBlock = managedEnvBlock(contents);
+  const managedSections = managedEnvSections(contents);
 
-  expect(managedBlock).not.toBe("");
-  expectTelemetryIdentityDocumentation(managedBlock);
+  expect(managedSections).not.toBeNull();
+  if (!managedSections) return;
+  expect(managedSections.apiKey).toMatch(envAssignmentPattern(MANAGED_API_KEY));
+  expectTelemetryIdentityDocumentation(managedSections.telemetry);
   expect(contents).not.toMatch(envAssignmentPattern(LEGACY_API_KEY));
   expect(contents).not.toMatch(envAssignmentPattern(LEGACY_TELEMETRY_ID));
   expectEnvLicenseOccurrencesClassified(contents);
@@ -1409,6 +1451,21 @@ test("managed TypeScript helpers reject telemetry prerequisites", () => {
   expect(() => expectManagedGateContract(telemetryGatedViteConfig)).toThrow();
 });
 
+/** Build the exact managed dotenv sections with telemetry semantics documented. */
+function managedEnvExample(
+  telemetryDescription = "Optional, non-secret analytics identity.",
+): string {
+  return [
+    "# Your CopilotKit Enterprise Intelligence API Key",
+    "# Project Name: xxxxxxxxxx",
+    "CPK_INTELLIGENCE_API_KEY=xxxxx",
+    "",
+    "# CopilotKit Telemetry ID",
+    `# ${telemetryDescription}`,
+    "CPK_TELEMETRY_ID=xxxxx",
+  ].join("\n");
+}
+
 test("managed documentation helpers reject misleading telemetry semantics", () => {
   const misleadingDescriptions = [
     "authentication credential",
@@ -1419,12 +1476,9 @@ test("managed documentation helpers reject misleading telemetry semantics", () =
   ];
 
   for (const description of misleadingDescriptions) {
-    const envExample = `
-      # Managed Intelligence credentials
-      CPK_INTELLIGENCE_API_KEY=
-      # Optional, non-secret analytics ${description}.
-      CPK_TELEMETRY_ID=
-    `;
+    const envExample = managedEnvExample(
+      `Optional, non-secret analytics ${description}.`,
+    );
     const readme = [
       "## Managed Intelligence credentials",
       "",
@@ -1439,12 +1493,7 @@ test("managed documentation helpers reject misleading telemetry semantics", () =
 });
 
 test("managed documentation helpers accept an optional non-secret analytics identity", () => {
-  const envExample = `
-    # Managed Intelligence credentials
-    CPK_INTELLIGENCE_API_KEY=
-    # Optional, non-secret analytics identity.
-    CPK_TELEMETRY_ID=
-  `;
+  const envExample = managedEnvExample();
   const readme = [
     "## Managed Intelligence credentials",
     "",
@@ -1457,14 +1506,24 @@ test("managed documentation helpers accept an optional non-secret analytics iden
   expect(() => expectManagedReadmeContract(readme)).not.toThrow();
 });
 
-test("managed documentation helpers reject license guidance inside the managed block", () => {
-  const envExample = `
-    # Managed Intelligence credentials
-    CPK_INTELLIGENCE_API_KEY=
-    # Optional, non-secret analytics identity
-    CPK_TELEMETRY_ID=
-    COPILOTKIT_LICENSE_TOKEN=
-  `;
+test.each([
+  {
+    invalidLayout: "two blank lines between sections",
+    envExample: managedEnvExample().replace(
+      "CPK_INTELLIGENCE_API_KEY=xxxxx\n\n# CopilotKit",
+      "CPK_INTELLIGENCE_API_KEY=xxxxx\n\n\n# CopilotKit",
+    ),
+  },
+  {
+    invalidLayout: "duplicate telemetry section",
+    envExample: `${managedEnvExample()}\n\n# CopilotKit Telemetry ID\nCPK_TELEMETRY_ID=duplicate`,
+  },
+])("managed documentation helpers reject $invalidLayout", ({ envExample }) => {
+  expect(() => expectManagedEnvContract(envExample)).toThrow();
+});
+
+test("managed documentation helpers reject license guidance inside the telemetry section", () => {
+  const envExample = `${managedEnvExample()}\nCOPILOTKIT_LICENSE_TOKEN=`;
   const readme = [
     "## Managed Intelligence credentials",
     "",
@@ -1478,18 +1537,15 @@ test("managed documentation helpers reject license guidance inside the managed b
 });
 
 test("managed documentation helpers reject separated unlabeled license guidance", () => {
-  const envExample = `
-    # Managed Intelligence credentials
-    CPK_INTELLIGENCE_API_KEY=
-    # Optional, non-secret analytics identity
-    CPK_TELEMETRY_ID=
-
-    # Self-hosted / offline license
-    COPILOTKIT_LICENSE_TOKEN=
-
-    # Troubleshooting
-    COPILOTKIT_LICENSE_TOKEN=
-  `;
+  const envExample = [
+    managedEnvExample(),
+    "",
+    "# Self-hosted / offline license",
+    "COPILOTKIT_LICENSE_TOKEN=",
+    "",
+    "# Troubleshooting",
+    "COPILOTKIT_LICENSE_TOKEN=",
+  ].join("\n");
   const readme = [
     "## Managed Intelligence credentials",
     "",
@@ -1509,14 +1565,16 @@ test("managed documentation helpers reject separated unlabeled license guidance"
   expect(() => expectManagedReadmeContract(readme)).toThrow();
 });
 
-test("managed documentation helpers require credentials in one managed block", () => {
-  const envExample = `
-    # Managed Intelligence credentials
-    CPK_INTELLIGENCE_API_KEY=
-
-    # Optional, non-secret analytics identity
-    CPK_TELEMETRY_ID=
-  `;
+test("managed documentation helpers reject reordered managed dotenv sections", () => {
+  const envExample = [
+    "# CopilotKit Telemetry ID",
+    "# Optional, non-secret analytics identity.",
+    "CPK_TELEMETRY_ID=xxxxx",
+    "",
+    "# Your CopilotKit Enterprise Intelligence API Key",
+    "# Project Name: xxxxxxxxxx",
+    "CPK_INTELLIGENCE_API_KEY=xxxxx",
+  ].join("\n");
   const readme = [
     "## Managed Intelligence credentials",
     "",
@@ -1532,15 +1590,12 @@ test("managed documentation helpers require credentials in one managed block", (
 });
 
 test("managed documentation helpers allow separate self-hosted and offline license guidance", () => {
-  const envExample = `
-    # Managed Intelligence credentials
-    CPK_INTELLIGENCE_API_KEY=
-    # Optional, non-secret analytics identity
-    CPK_TELEMETRY_ID=
-
-    # Self-hosted / offline license
-    COPILOTKIT_LICENSE_TOKEN=
-  `;
+  const envExample = [
+    managedEnvExample(),
+    "",
+    "# Self-hosted / offline license",
+    "COPILOTKIT_LICENSE_TOKEN=",
+  ].join("\n");
   const readme = [
     "## Managed Intelligence credentials",
     "",
@@ -1557,15 +1612,12 @@ test("managed documentation helpers allow separate self-hosted and offline licen
 });
 
 test("managed documentation helpers reject unlabeled generic license-gating copy without an env literal", () => {
-  const envExample = `
-    # Managed Intelligence credentials
-    CPK_INTELLIGENCE_API_KEY=
-    # Optional, non-secret analytics identity
-    CPK_TELEMETRY_ID=
-
-    # Product capabilities
-    # A license unlocks Threads and enables Inspector.
-  `;
+  const envExample = [
+    managedEnvExample(),
+    "",
+    "# Product capabilities",
+    "# A license unlocks Threads and enables Inspector.",
+  ].join("\n");
   const readme = [
     "## Managed Intelligence credentials",
     "",
@@ -1582,15 +1634,12 @@ test("managed documentation helpers reject unlabeled generic license-gating copy
 });
 
 test("managed documentation helpers allow generic license-gating copy only in self-hosted or offline sections", () => {
-  const envExample = `
-    # Managed Intelligence credentials
-    CPK_INTELLIGENCE_API_KEY=
-    # Optional, non-secret analytics identity
-    CPK_TELEMETRY_ID=
-
-    # Self-hosted / offline license behavior
-    # A deployment license enables Threads and Inspector offline.
-  `;
+  const envExample = [
+    managedEnvExample(),
+    "",
+    "# Self-hosted / offline license behavior",
+    "# A deployment license enables Threads and Inspector offline.",
+  ].join("\n");
   const readme = [
     "## Managed Intelligence credentials",
     "",
