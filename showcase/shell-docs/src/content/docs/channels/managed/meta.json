@@ -1,5 +1,5 @@
 {
   "title": "Managed Channels",
   "icon": "lucide/Radio",
-  "pages": ["index"]
+  "pages": ["index", "slack"]
 }

@@ -280,6 +280,17 @@ describe("Managed Channels docs", () => {
     expect(source).toContain("startChannelsOverRealtimeGateway");
     expect(pageUrls).toContain("/reference/channels/intelligence");
   });
+
+  it("publishes the Managed Slack tutorial with the supported API", () => {
+    const tutorial = loadDoc("channels/managed/slack")?.source ?? "";
+
+    expect(tutorial).toContain("doc_type: tutorial");
+    expect(tutorial).toContain("startChannelsOverRealtimeGateway");
+    expect(tutorial).toContain("message.contentParts");
+    expect(tutorial).toContain("your infrastructure runs the agent");
+    expect(tutorial).not.toContain('@copilotkit/channel"');
+    expect(tutorial).not.toContain("createChannel(");
+  });
 });
 
 describe("migration docs", () => {
