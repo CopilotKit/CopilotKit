@@ -167,21 +167,26 @@ describe("v1 TelemetryClient", () => {
       });
       expect(segmentTrackMock).toHaveBeenCalledTimes(1);
       const segmentEvent = segmentTrackMock.mock.calls[0][0];
-      expect(segmentEvent.properties).toEqual({
-        ...baseInstanceEvent,
-        "copilotkit.package.name": "@copilotkit/shared",
-        "copilotkit.package.version": "1.0.0",
-        sampleRate: 1,
-        sampleRateAdjustmentFactor: 0,
-        sampleWeight: 1,
+      expect(segmentEvent).toEqual({
+        anonymousId: expect.stringMatching(/^anon_/),
+        event: "oss.runtime.instance_created",
+        properties: {
+          ...baseInstanceEvent,
+          "copilotkit.package.name": "@copilotkit/shared",
+          "copilotkit.package.version": "1.0.0",
+          sampleRate: 1,
+          sampleRateAdjustmentFactor: 0,
+          sampleWeight: 1,
+        },
       });
-      const eventPayload = JSON.stringify({
+      expect(segmentEvent).not.toHaveProperty("userId");
+      const transportPayload = JSON.stringify({
         lambdaGlobalProperties: lambdaEvent.globalProperties,
         lambdaProperties: lambdaEvent.properties,
-        segmentProperties: segmentEvent.properties,
+        segmentEvent,
       });
       for (const identityValue of identityValues) {
-        expect(eventPayload).not.toContain(identityValue);
+        expect(transportPayload).not.toContain(identityValue);
       }
     },
   );
