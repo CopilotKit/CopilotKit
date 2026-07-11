@@ -1,5 +1,10 @@
 import { describe, it, expect, test, vi, beforeEach } from "vitest";
 import { CopilotKitIntelligence, PlatformRequestError } from "../client";
+import {
+  findForbiddenPublicKeyPaths,
+  READY_RUNTIME_ENTITLEMENTS,
+  RUNTIME_ENTITLEMENT_CONTRACT_CASES,
+} from "../../__tests__/runtime-entitlement-test-utils";
 
 const fetchMock = vi.fn();
 vi.stubGlobal("fetch", fetchMock);
@@ -48,29 +53,13 @@ function runtimeEntitlementsClient() {
   });
 }
 
-/** Return a complete ready managed-entitlement wire response. */
-function readyRuntimeEntitlements() {
-  return {
-    status: "ready",
-    entitlement: {
-      active: true,
-      source: "managedOrgSubscription",
-      features: { msteams: true },
-      limits: { "threads.retention_hours": 120 },
-      planCode: "pro",
-      entitlementSource: "clerk_subscription",
-    },
-  } as const;
-}
-
 test("getRuntimeEntitlements requests the exact App API endpoint with the project key", async () => {
   const client = runtimeEntitlementsClient();
-  const payload = readyRuntimeEntitlements();
-  fetchMock.mockReturnValue(jsonResponse(payload));
+  fetchMock.mockReturnValue(jsonResponse(READY_RUNTIME_ENTITLEMENTS));
 
   const result = await client.getRuntimeEntitlements();
 
-  expect(result).toEqual(payload);
+  expect(result).toEqual(READY_RUNTIME_ENTITLEMENTS);
   expect(fetchMock).toHaveBeenCalledTimes(1);
   expect(fetchMock).toHaveBeenCalledWith(
     "https://api.example.com/api/entitlements/runtime",
@@ -81,6 +70,45 @@ test("getRuntimeEntitlements requests the exact App API endpoint with the projec
       }),
     }),
   );
+});
+
+test.each(RUNTIME_ENTITLEMENT_CONTRACT_CASES)(
+  "getRuntimeEntitlements preserves the exact $label response union shape",
+  async ({ response, topLevelKeys, detailKeys }) => {
+    const client = runtimeEntitlementsClient();
+    fetchMock.mockReturnValue(jsonResponse(response));
+
+    const result = await client.getRuntimeEntitlements();
+
+    expect(result).toEqual(response);
+    expect(Object.keys(result).sort()).toEqual([...topLevelKeys].sort());
+    if (result.entitlement !== undefined) {
+      expect(Object.keys(result.entitlement).sort()).toEqual(
+        [...detailKeys].sort(),
+      );
+    }
+    if (result.error !== undefined) {
+      expect(Object.keys(result.error).sort()).toEqual([...detailKeys].sort());
+    }
+    expect(findForbiddenPublicKeyPaths(result)).toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  },
+);
+
+test("recursive forbidden-key control detects identity and credential leaks", () => {
+  const leakedProjection = {
+    organizationId: "org-leaked",
+    entitlement: {
+      nested: [{ telemetry_id: "telemetry-leaked" }],
+      licenseToken: "license-leaked",
+    },
+  };
+
+  expect(findForbiddenPublicKeyPaths(leakedProjection)).toEqual([
+    "$.organizationId",
+    "$.entitlement.nested[0].telemetry_id",
+    "$.entitlement.licenseToken",
+  ]);
 });
 
 test("getRuntimeEntitlements aborts a bounded request with a typed timeout error", async () => {
@@ -125,10 +153,67 @@ test.each([
     "off-contract",
     () =>
       jsonResponse({
-        ...readyRuntimeEntitlements(),
+        ...READY_RUNTIME_ENTITLEMENTS,
         entitlement: {
-          ...readyRuntimeEntitlements().entitlement,
+          ...READY_RUNTIME_ENTITLEMENTS.entitlement,
           active: "yes",
+        },
+      }),
+  ],
+  [
+    "unknown top-level organizationId",
+    () =>
+      jsonResponse({
+        ...READY_RUNTIME_ENTITLEMENTS,
+        organizationId: "org-forbidden",
+      }),
+  ],
+  [
+    "unknown top-level telemetryId",
+    () =>
+      jsonResponse({
+        ...READY_RUNTIME_ENTITLEMENTS,
+        telemetryId: "telemetry-forbidden",
+      }),
+  ],
+  [
+    "unknown top-level licenseToken",
+    () =>
+      jsonResponse({
+        ...READY_RUNTIME_ENTITLEMENTS,
+        licenseToken: "license-forbidden",
+      }),
+  ],
+  [
+    "unknown nested organizationId",
+    () =>
+      jsonResponse({
+        ...READY_RUNTIME_ENTITLEMENTS,
+        entitlement: {
+          ...READY_RUNTIME_ENTITLEMENTS.entitlement,
+          organizationId: "org-forbidden",
+        },
+      }),
+  ],
+  [
+    "unknown nested telemetryId",
+    () =>
+      jsonResponse({
+        ...READY_RUNTIME_ENTITLEMENTS,
+        entitlement: {
+          ...READY_RUNTIME_ENTITLEMENTS.entitlement,
+          telemetryId: "telemetry-forbidden",
+        },
+      }),
+  ],
+  [
+    "unknown nested licenseToken",
+    () =>
+      jsonResponse({
+        ...READY_RUNTIME_ENTITLEMENTS,
+        entitlement: {
+          ...READY_RUNTIME_ENTITLEMENTS.entitlement,
+          licenseToken: "license-forbidden",
         },
       }),
   ],

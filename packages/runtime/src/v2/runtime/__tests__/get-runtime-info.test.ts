@@ -12,6 +12,10 @@ import { TranscriptionService } from "../transcription-service/transcription-ser
 import { describe, it, expect, test, vi, beforeEach, afterEach } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 import type { RuntimeInfo } from "@copilotkit/shared";
+import {
+  findForbiddenPublicKeyPaths,
+  READY_RUNTIME_ENTITLEMENTS,
+} from "./runtime-entitlement-test-utils";
 
 // Mock transcription service
 class MockTranscriptionService extends TranscriptionService {
@@ -21,21 +25,6 @@ class MockTranscriptionService extends TranscriptionService {
 }
 
 const mockRequest = new Request("https://example.com/info");
-
-/** Return a complete ready managed-entitlement wire response. */
-function readyRuntimeEntitlements() {
-  return {
-    status: "ready",
-    entitlement: {
-      active: true,
-      source: "managedOrgSubscription",
-      features: { msteams: true },
-      limits: { "threads.retention_hours": 120 },
-      planCode: "pro",
-      entitlementSource: "clerk_subscription",
-    },
-  } as const;
-}
 
 /** Build the typed Intelligence runtime fixture shared by `/info` tests. */
 function createIntelligenceRuntimeLike(
@@ -108,7 +97,7 @@ function installRuntimeEntitlementsLookupPrototype(
 test("does not request Runtime entitlements for an SSE-only Runtime", async () => {
   const getRuntimeEntitlements = vi
     .fn()
-    .mockResolvedValue(readyRuntimeEntitlements());
+    .mockResolvedValue(READY_RUNTIME_ENTITLEMENTS);
   const restoreRuntimeEntitlementsLookup =
     installRuntimeEntitlementsLookupPrototype(getRuntimeEntitlements);
   const legacyLicenseToken = `header.${Buffer.from(
@@ -139,8 +128,9 @@ test("does not request Runtime entitlements for an SSE-only Runtime", async () =
 });
 
 test("returns Runtime entitlements while preserving compatibility license status", async () => {
-  const payload = readyRuntimeEntitlements();
-  const getRuntimeEntitlements = vi.fn().mockResolvedValue(payload);
+  const getRuntimeEntitlements = vi
+    .fn()
+    .mockResolvedValue(READY_RUNTIME_ENTITLEMENTS);
   const runtime = createIntelligenceRuntimeLike();
   installRuntimeEntitlementsLookup(runtime, getRuntimeEntitlements);
 
@@ -151,8 +141,9 @@ test("returns Runtime entitlements while preserving compatibility license status
   const data: RuntimeInfo = await response.json();
 
   expect(response.status).toBe(200);
-  expect(data.runtimeEntitlements).toEqual(payload);
+  expect(data.runtimeEntitlements).toEqual(READY_RUNTIME_ENTITLEMENTS);
   expect(data.licenseStatus).toBe("none");
+  expect(findForbiddenPublicKeyPaths(data)).toEqual([]);
   expect(getRuntimeEntitlements).toHaveBeenCalledOnce();
 });
 
@@ -179,6 +170,7 @@ test("keeps `/info` successful when Runtime entitlement lookup fails", async () 
     },
   });
   expect(data.licenseStatus).toBe("none");
+  expect(findForbiddenPublicKeyPaths(data)).toEqual([]);
   expect(getRuntimeEntitlements).toHaveBeenCalledOnce();
 });
 
