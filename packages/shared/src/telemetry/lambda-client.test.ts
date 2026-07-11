@@ -1,6 +1,11 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
 import { send } from "./lambda-client";
 
+const EXPECTED_TELEMETRY_SINK_URL =
+  process.env.COPILOTKIT_TELEMETRY_URL ??
+  "https://telemetry.copilotkit.ai/ingest";
+const TELEMETRY_ID_HEADER = "x-copilotkit-telemetry-id";
+
 /**
  * Captures the telemetry request without replacing fetch with an untyped mock.
  */
@@ -15,14 +20,15 @@ function setupCapturedRequest() {
       throw new Error("Expected telemetry send to call fetch");
     }
 
-    const [, init] = call;
+    const [input, init] = call;
     if (typeof init?.body !== "string") {
       throw new Error("Expected telemetry request body to be a string");
     }
 
     return {
       bodyText: init.body,
-      headers: new Headers(init.headers),
+      headers: Object.fromEntries(new Headers(init.headers).entries()),
+      url: String(input),
     };
   };
 
@@ -141,44 +147,74 @@ describe("lambda-client send()", () => {
   });
 });
 
-test("prefers explicit telemetry identity over license-derived identity", async () => {
-  const explicitTelemetryId = "explicit-telemetry-id";
-  const licenseTelemetryId = "license-telemetry-id";
-  const payload = Buffer.from(
-    JSON.stringify({ telemetry_id: licenseTelemetryId }),
-  ).toString("base64url");
-  const licenseToken = `header.${payload}.sig`;
-  const { readRequest, teardown } = setupCapturedRequest();
+const lambdaIdentityTransportCases = [
+  {
+    label: "standalone identity over a legacy license identity",
+    explicitTelemetryId: "explicit-telemetry-id",
+    licenseTelemetryId: "license-telemetry-id",
+    expectedTelemetryId: "explicit-telemetry-id",
+  },
+  {
+    label: "legacy license identity without a standalone identity",
+    explicitTelemetryId: undefined,
+    licenseTelemetryId: "license-telemetry-id",
+    expectedTelemetryId: "license-telemetry-id",
+  },
+] as const;
 
-  try {
-    await send({
-      event: "oss.runtime.instance_created",
-      properties: { requestType: "run" },
-      globalProperties: { sampleRate: 0.25 },
-      packageName: "@copilotkit/runtime",
-      packageVersion: "1.2.3",
-      licenseToken,
-      telemetryId: explicitTelemetryId,
-    });
+test.each(lambdaIdentityTransportCases)(
+  "sends $label only through the telemetry identity header",
+  async ({ explicitTelemetryId, licenseTelemetryId, expectedTelemetryId }) => {
+    const payload = Buffer.from(
+      JSON.stringify({ telemetry_id: licenseTelemetryId }),
+    ).toString("base64url");
+    const licenseToken = `header.${payload}.sig`;
+    const { readRequest, teardown } = setupCapturedRequest();
 
-    const { bodyText, headers } = readRequest();
-    expect(headers.get("X-CopilotKit-Telemetry-Id")).toBe(explicitTelemetryId);
-    expect(JSON.parse(bodyText)).toEqual({
-      event: "oss.runtime.instance_created",
-      properties: { requestType: "run" },
-      global_properties: { sampleRate: 0.25 },
-      package: {
-        name: "@copilotkit/runtime",
-        version: "1.2.3",
-      },
-      ts: expect.any(Number),
-    });
-    expect(bodyText).not.toContain(explicitTelemetryId);
-    expect(bodyText).not.toContain(licenseTelemetryId);
-  } finally {
-    teardown();
-  }
-});
+    try {
+      await send({
+        event: "oss.runtime.instance_created",
+        properties: { requestType: "run" },
+        globalProperties: { sampleRate: 0.25 },
+        packageName: "@copilotkit/runtime",
+        packageVersion: "1.2.3",
+        licenseToken,
+        telemetryId: explicitTelemetryId,
+      });
+
+      const { bodyText, headers, url } = readRequest();
+      expect(url).toBe(EXPECTED_TELEMETRY_SINK_URL);
+      expect(headers).toEqual({
+        "content-type": "application/json",
+        [TELEMETRY_ID_HEADER]: expectedTelemetryId,
+        "user-agent": "CopilotKit-Runtime/1.2.3 (@copilotkit/runtime)",
+      });
+      expect(JSON.parse(bodyText)).toEqual({
+        event: "oss.runtime.instance_created",
+        properties: { requestType: "run" },
+        global_properties: { sampleRate: 0.25 },
+        package: {
+          name: "@copilotkit/runtime",
+          version: "1.2.3",
+        },
+        ts: expect.any(Number),
+      });
+
+      const nonIdentityHeaders = Object.entries(headers).filter(
+        ([name]) => name !== TELEMETRY_ID_HEADER,
+      );
+      const nonIdentityHeaderText = JSON.stringify(nonIdentityHeaders);
+      for (const identity of [explicitTelemetryId, licenseTelemetryId]) {
+        if (identity === undefined) continue;
+        expect(url).not.toContain(identity);
+        expect(bodyText).not.toContain(identity);
+        expect(nonIdentityHeaderText).not.toContain(identity);
+      }
+    } finally {
+      teardown();
+    }
+  },
+);
 
 test("does not treat COPILOTKIT_TELEMETRY_ID as an identity alias", async () => {
   const originalTelemetryId = process.env.COPILOTKIT_TELEMETRY_ID;
@@ -190,7 +226,7 @@ test("does not treat COPILOTKIT_TELEMETRY_ID as an identity alias", async () => 
     await send({ event: "oss.runtime.instance_created" });
 
     const { bodyText, headers } = readRequest();
-    expect(headers.get("X-CopilotKit-Telemetry-Id")).toBeNull();
+    expect(headers[TELEMETRY_ID_HEADER]).toBeUndefined();
     expect(bodyText).not.toContain(envTelemetryId);
   } finally {
     if (originalTelemetryId === undefined) {
