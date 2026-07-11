@@ -54,6 +54,30 @@ function runtimeEntitlementsClient() {
   });
 }
 
+/** Require one HTTP-success body to fail strict Runtime entitlement parsing. */
+async function expectRuntimeEntitlementValidationError(
+  response: Promise<Response>,
+): Promise<PlatformRequestError> {
+  const client = runtimeEntitlementsClient();
+  fetchMock.mockReturnValue(response);
+
+  const error: unknown = await client
+    .getRuntimeEntitlements()
+    .catch((caught: unknown) => caught);
+
+  expect(error).toBeInstanceOf(PlatformRequestError);
+  if (!(error instanceof PlatformRequestError)) {
+    throw new Error("Expected a typed Runtime entitlement validation error");
+  }
+  expect({ name: error.name, status: error.status }).toEqual({
+    name: "PlatformRequestError",
+    status: 502,
+  });
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+
+  return error;
+}
+
 test("getRuntimeEntitlements requests the exact App API endpoint with the project key", async () => {
   const client = runtimeEntitlementsClient();
   fetchMock.mockReturnValue(jsonResponse(READY_RUNTIME_ENTITLEMENTS));
@@ -181,23 +205,88 @@ test.each([
 ])(
   "getRuntimeEntitlements rejects a generic unknown property in the $label without leaking its value",
   async ({ response }) => {
-    const client = runtimeEntitlementsClient();
-    fetchMock.mockReturnValue(jsonResponse(response));
+    const error = await expectRuntimeEntitlementValidationError(
+      jsonResponse(response),
+    );
 
-    const error: unknown = await client
-      .getRuntimeEntitlements()
-      .catch((caught: unknown) => caught);
-
-    expect(error).toBeInstanceOf(PlatformRequestError);
-    if (!(error instanceof PlatformRequestError)) {
-      throw new Error("Expected a typed Runtime entitlement validation error");
-    }
-    expect({ name: error.name, status: error.status }).toEqual({
-      name: "PlatformRequestError",
-      status: 502,
-    });
     expect(error.message).not.toContain(UNKNOWN_FIELD_PRIVATE_VALUE);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+  },
+);
+
+const BRANCH_COHERENCE_PRIVATE_VALUE =
+  "private-runtime-entitlement-branch-value";
+const ERROR_RUNTIME_ENTITLEMENT_STATUSES = [
+  "degraded",
+  "misconfigured",
+  "unavailable",
+] as const;
+const PRIVATE_READY_ENTITLEMENT = {
+  ...READY_RUNTIME_ENTITLEMENTS.entitlement,
+  planCode: BRANCH_COHERENCE_PRIVATE_VALUE,
+} as const;
+const PRIVATE_RUNTIME_ENTITLEMENT_ERROR = {
+  ...UNAVAILABLE_RUNTIME_ENTITLEMENTS.error,
+  message: BRANCH_COHERENCE_PRIVATE_VALUE,
+} as const;
+
+interface InvalidRuntimeEntitlementBranchCase {
+  readonly label: string;
+  readonly response: {
+    readonly status:
+      | "ready"
+      | (typeof ERROR_RUNTIME_ENTITLEMENT_STATUSES)[number];
+    readonly entitlement?: typeof PRIVATE_READY_ENTITLEMENT;
+    readonly error?: typeof PRIVATE_RUNTIME_ENTITLEMENT_ERROR;
+  };
+}
+
+const INVALID_RUNTIME_ENTITLEMENT_BRANCH_CASES = [
+  {
+    label: "ready without entitlement",
+    response: { status: "ready" },
+  },
+  {
+    label: "ready with only an error branch",
+    response: { status: "ready", error: PRIVATE_RUNTIME_ENTITLEMENT_ERROR },
+  },
+  {
+    label: "ready with both branches",
+    response: {
+      status: "ready",
+      entitlement: PRIVATE_READY_ENTITLEMENT,
+      error: PRIVATE_RUNTIME_ENTITLEMENT_ERROR,
+    },
+  },
+  ...ERROR_RUNTIME_ENTITLEMENT_STATUSES.flatMap(
+    (status): readonly InvalidRuntimeEntitlementBranchCase[] => [
+      {
+        label: `${status} without error`,
+        response: { status },
+      },
+      {
+        label: `${status} with only an entitlement branch`,
+        response: { status, entitlement: PRIVATE_READY_ENTITLEMENT },
+      },
+      {
+        label: `${status} with both branches`,
+        response: {
+          status,
+          entitlement: PRIVATE_READY_ENTITLEMENT,
+          error: PRIVATE_RUNTIME_ENTITLEMENT_ERROR,
+        },
+      },
+    ],
+  ),
+] as const satisfies readonly InvalidRuntimeEntitlementBranchCase[];
+
+test.each(INVALID_RUNTIME_ENTITLEMENT_BRANCH_CASES)(
+  "getRuntimeEntitlements rejects branch-incoherent $label without leaking values",
+  async ({ response }) => {
+    const error = await expectRuntimeEntitlementValidationError(
+      jsonResponse(response),
+    );
+
+    expect(error.message).not.toContain(BRANCH_COHERENCE_PRIVATE_VALUE);
   },
 );
 
@@ -274,14 +363,7 @@ test.each([
 ])(
   "getRuntimeEntitlements rejects %s successful body with a typed validation error",
   async (_label, response) => {
-    const client = runtimeEntitlementsClient();
-    fetchMock.mockReturnValue(response());
-
-    const request = client.getRuntimeEntitlements();
-
-    await expect(request).rejects.toBeInstanceOf(PlatformRequestError);
-    await expect(request).rejects.toMatchObject({ status: 502 });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await expectRuntimeEntitlementValidationError(response());
   },
 );
 
