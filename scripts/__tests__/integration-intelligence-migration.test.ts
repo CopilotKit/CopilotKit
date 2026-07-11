@@ -305,17 +305,26 @@ function propertyNameText(name: ts.PropertyName): string | null {
   return null;
 }
 
-/**
- * Returns whether a configured property initializer contains the required read.
- *
- * Parsing the source excludes comments and unused string literals by construction;
- * traversing only the matched initializer excludes unrelated executable reads.
- */
-function hasConfiguredEnvRead(
-  contents: string,
-  identifier: string,
-  matchesProperty: (name: string) => boolean,
-): boolean {
+/** Parses managed scaffold TypeScript and rejects parser-recovered source. */
+function parseManagedSource(contents: string): ts.SourceFile {
+  const transpiled = ts.transpileModule(contents, {
+    compilerOptions: {
+      jsx: ts.JsxEmit.Preserve,
+      module: ts.ModuleKind.ESNext,
+      target: ts.ScriptTarget.Latest,
+    },
+    fileName: "managed-integration-contract.tsx",
+    reportDiagnostics: true,
+  });
+  const parseDiagnostics =
+    transpiled.diagnostics?.filter(
+      (diagnostic) => diagnostic.category === ts.DiagnosticCategory.Error,
+    ) ?? [];
+  expect(
+    parseDiagnostics,
+    "managed scaffold source must parse without diagnostics",
+  ).toHaveLength(0);
+
   const sourceFile = ts.createSourceFile(
     "managed-integration-contract.tsx",
     contents,
@@ -323,32 +332,92 @@ function hasConfiguredEnvRead(
     true,
     ts.ScriptKind.TSX,
   );
-  let found = false;
 
-  /** Visits one configured initializer looking for the required env read. */
-  function initializerContainsEnvRead(node: ts.Node): boolean {
-    if (isProcessEnvRead(node, identifier)) {
-      return true;
-    }
+  return sourceFile;
+}
 
-    return node.getChildren(sourceFile).some(initializerContainsEnvRead);
+/** Returns an expression without transparent TypeScript wrappers. */
+function unwrapExpression(expression: ts.Expression): ts.Expression {
+  if (
+    ts.isParenthesizedExpression(expression) ||
+    ts.isAsExpression(expression) ||
+    ts.isTypeAssertionExpression(expression) ||
+    ts.isSatisfiesExpression(expression) ||
+    ts.isNonNullExpression(expression)
+  ) {
+    return unwrapExpression(expression.expression);
   }
 
-  /** Visits object-literal properties until the configured read is found. */
+  return expression;
+}
+
+/** Returns one exact object-literal property assignment when present. */
+function objectPropertyAssignment(
+  objectLiteral: ts.ObjectLiteralExpression,
+  name: string,
+): ts.PropertyAssignment | null {
+  for (const property of objectLiteral.properties) {
+    if (
+      ts.isPropertyAssignment(property) &&
+      propertyNameText(property.name) === name
+    ) {
+      return property;
+    }
+  }
+
+  return null;
+}
+
+/** Returns whether one expression contains the exact managed env read. */
+function expressionContainsEnvRead(
+  expression: ts.Expression,
+  identifier: string,
+): boolean {
+  let found = false;
+
+  /** Visits one initializer node looking for the required env read. */
+  function visit(node: ts.Node): void {
+    if (found) {
+      return;
+    }
+    if (isProcessEnvRead(node, identifier)) {
+      found = true;
+      return;
+    }
+
+    ts.forEachChild(node, visit);
+  }
+
+  visit(expression);
+  return found;
+}
+
+/** Returns whether a CopilotKit Intelligence constructor owns the API-key read. */
+function hasRuntimeApiKeyRead(sourceFile: ts.SourceFile): boolean {
+  let found = false;
+
+  /** Visits constructors until the managed Intelligence API-key option is found. */
   function visit(node: ts.Node): void {
     if (found) {
       return;
     }
 
-    if (ts.isPropertyAssignment(node)) {
-      const name = propertyNameText(node.name);
-      if (
-        name !== null &&
-        matchesProperty(name) &&
-        initializerContainsEnvRead(node.initializer)
-      ) {
-        found = true;
-        return;
+    if (
+      ts.isNewExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === "CopilotKitIntelligence"
+    ) {
+      const options = node.arguments?.[0];
+      const unwrappedOptions = options ? unwrapExpression(options) : null;
+      if (unwrappedOptions && ts.isObjectLiteralExpression(unwrappedOptions)) {
+        const apiKey = objectPropertyAssignment(unwrappedOptions, "apiKey");
+        if (
+          apiKey &&
+          expressionContainsEnvRead(apiKey.initializer, MANAGED_API_KEY)
+        ) {
+          found = true;
+          return;
+        }
       }
     }
 
@@ -357,6 +426,122 @@ function hasConfiguredEnvRead(
 
   visit(sourceFile);
   return found;
+}
+
+/** Returns the initializer for one top-level variable identifier. */
+function topLevelVariableInitializer(
+  sourceFile: ts.SourceFile,
+  identifier: string,
+): ts.Expression | null {
+  for (const statement of sourceFile.statements) {
+    if (!ts.isVariableStatement(statement)) {
+      continue;
+    }
+
+    for (const declaration of statement.declarationList.declarations) {
+      if (
+        ts.isIdentifier(declaration.name) &&
+        declaration.name.text === identifier
+      ) {
+        return declaration.initializer ?? null;
+      }
+    }
+  }
+
+  return null;
+}
+
+/** Resolves a default-exported object literal through top-level variables. */
+function exportedObjectLiteral(
+  expression: ts.Expression,
+  sourceFile: ts.SourceFile,
+  seenIdentifiers: ReadonlySet<string> = new Set(),
+): ts.ObjectLiteralExpression | null {
+  const unwrapped = unwrapExpression(expression);
+  if (ts.isObjectLiteralExpression(unwrapped)) {
+    return unwrapped;
+  }
+  if (ts.isIdentifier(unwrapped) && !seenIdentifiers.has(unwrapped.text)) {
+    const initializer = topLevelVariableInitializer(sourceFile, unwrapped.text);
+    if (initializer) {
+      return exportedObjectLiteral(
+        initializer,
+        sourceFile,
+        new Set([...seenIdentifiers, unwrapped.text]),
+      );
+    }
+  }
+
+  return null;
+}
+
+/** Returns the source's default export expression when it has one. */
+function defaultExportExpression(
+  sourceFile: ts.SourceFile,
+): ts.Expression | null {
+  for (const statement of sourceFile.statements) {
+    if (ts.isExportAssignment(statement) && !statement.isExportEquals) {
+      return statement.expression;
+    }
+  }
+
+  return null;
+}
+
+/** Returns whether a nested object property owns the managed env read. */
+function nestedPropertyContainsEnvRead(
+  objectLiteral: ts.ObjectLiteralExpression,
+  containerName: string,
+  propertyName: string,
+): boolean {
+  const container = objectPropertyAssignment(objectLiteral, containerName);
+  if (!container) {
+    return false;
+  }
+  const containerInitializer = unwrapExpression(container.initializer);
+  if (!ts.isObjectLiteralExpression(containerInitializer)) {
+    return false;
+  }
+  const property = objectPropertyAssignment(containerInitializer, propertyName);
+  return Boolean(
+    property &&
+    expressionContainsEnvRead(property.initializer, MANAGED_API_KEY),
+  );
+}
+
+/** Returns whether the exported Next or Vite thread gate owns the key read. */
+function hasExportedGateApiKeyRead(sourceFile: ts.SourceFile): boolean {
+  const exported = defaultExportExpression(sourceFile);
+  if (!exported) {
+    return false;
+  }
+
+  const nextConfig = exportedObjectLiteral(exported, sourceFile);
+  if (
+    nextConfig &&
+    nestedPropertyContainsEnvRead(nextConfig, "env", NEXT_THREADS_GATE)
+  ) {
+    return true;
+  }
+
+  const unwrapped = unwrapExpression(exported);
+  if (
+    ts.isCallExpression(unwrapped) &&
+    ts.isIdentifier(unwrapped.expression) &&
+    unwrapped.expression.text === "defineConfig"
+  ) {
+    const config = unwrapped.arguments[0];
+    const unwrappedConfig = config ? unwrapExpression(config) : null;
+    if (unwrappedConfig && ts.isObjectLiteralExpression(unwrappedConfig)) {
+      return nestedPropertyContainsEnvRead(
+        unwrappedConfig,
+        "define",
+        `import.meta.env.${VITE_THREADS_GATE}`,
+      );
+    }
+  }
+
+  return false;
 }
 
 /**
@@ -455,13 +640,9 @@ function markdownSectionContaining(markdown: string, marker: string): string {
  * @param contents - Runtime route or bridge source.
  */
 function expectManagedRuntimeContract(contents: string): void {
-  expect(
-    hasConfiguredEnvRead(
-      contents,
-      MANAGED_API_KEY,
-      (name) => name === "apiKey",
-    ),
-  ).toBe(true);
+  const sourceFile = parseManagedSource(contents);
+
+  expect(hasRuntimeApiKeyRead(sourceFile)).toBe(true);
   expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_API_KEY));
   expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_TELEMETRY_ID));
   expect(contents).not.toContain(MANAGED_LICENSE_TOKEN);
@@ -474,16 +655,9 @@ function expectManagedRuntimeContract(contents: string): void {
  * @param contents - Next.js or Vite gate configuration source.
  */
 function expectManagedGateContract(contents: string): void {
-  expect(
-    hasConfiguredEnvRead(
-      contents,
-      MANAGED_API_KEY,
-      (name) =>
-        name === NEXT_THREADS_GATE ||
-        name === VITE_THREADS_GATE ||
-        name.endsWith(`.${VITE_THREADS_GATE}`),
-    ),
-  ).toBe(true);
+  const sourceFile = parseManagedSource(contents);
+
+  expect(hasExportedGateApiKeyRead(sourceFile)).toBe(true);
   expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_API_KEY));
   expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_TELEMETRY_ID));
   expect(contents).not.toContain(MANAGED_LICENSE_TOKEN);
@@ -598,25 +772,86 @@ test("managed TypeScript helpers reject API-key identifiers outside configured e
   expect(() => expectManagedGateContract(unusedGateRead)).toThrow();
 });
 
-test("managed TypeScript helpers accept configured dot and bracket env reads", () => {
-  const configuredRuntimeRead = `
-    const intelligence = {
-      apiKey: process.env["CPK_INTELLIGENCE_API_KEY"] ?? "",
-    };
+test("managed TypeScript helpers reject decoy configured properties", () => {
+  const decoyRuntimeRead = `
+    const decoy = { apiKey: process.env.CPK_INTELLIGENCE_API_KEY };
+    const intelligence = new CopilotKitIntelligence({ apiKey: "" });
   `;
-  const configuredGateRead = `
+  const decoyNextGateRead = `
+    const decoy = {
+      NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED:
+        process.env.CPK_INTELLIGENCE_API_KEY ? "true" : "false",
+    };
+    const nextConfig = {
+      env: { NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED: "false" },
+    };
+    export default nextConfig;
+  `;
+  const decoyViteGateRead = `
+    const decoy = {
+      "import.meta.env.VITE_COPILOTKIT_THREADS_ENABLED":
+        process.env.CPK_INTELLIGENCE_API_KEY ? "true" : "false",
+    };
+    export default defineConfig({
+      define: {
+        "import.meta.env.VITE_COPILOTKIT_THREADS_ENABLED": "false",
+      },
+    });
+  `;
+
+  expect(() => expectManagedRuntimeContract(decoyRuntimeRead)).toThrow();
+  expect(() => expectManagedGateContract(decoyNextGateRead)).toThrow();
+  expect(() => expectManagedGateContract(decoyViteGateRead)).toThrow();
+});
+
+test("managed TypeScript helpers reject malformed source", () => {
+  const malformedRuntime = `
+    const intelligence = new CopilotKitIntelligence({
+      apiKey: process.env.CPK_INTELLIGENCE_API_KEY,
+    });
+  }`;
+  const malformedGate = `
     export default {
       env: {
         NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED:
           process.env.CPK_INTELLIGENCE_API_KEY ? "true" : "false",
       },
+    `;
+
+  expect(() => expectManagedRuntimeContract(malformedRuntime)).toThrow();
+  expect(() => expectManagedGateContract(malformedGate)).toThrow();
+});
+
+test("managed TypeScript helpers accept configured dot and bracket env reads", () => {
+  const configuredRuntimeRead = `
+    const intelligence = new CopilotKitIntelligence({
+      apiKey: process.env["CPK_INTELLIGENCE_API_KEY"] ?? "",
+    });
+  `;
+  const configuredGateRead = `
+    const nextConfig = {
+      env: {
+        NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED:
+          process.env.CPK_INTELLIGENCE_API_KEY ? "true" : "false",
+      },
     };
+    export default nextConfig;
+  `;
+  const configuredViteGateRead = `
+    export default defineConfig({
+      define: {
+        "import.meta.env.VITE_COPILOTKIT_THREADS_ENABLED": JSON.stringify(
+          process.env["CPK_INTELLIGENCE_API_KEY"] ? "true" : "false",
+        ),
+      },
+    });
   `;
 
   expect(() =>
     expectManagedRuntimeContract(configuredRuntimeRead),
   ).not.toThrow();
   expect(() => expectManagedGateContract(configuredGateRead)).not.toThrow();
+  expect(() => expectManagedGateContract(configuredViteGateRead)).not.toThrow();
 });
 
 test("managed documentation helpers reject license guidance inside the managed block", () => {
