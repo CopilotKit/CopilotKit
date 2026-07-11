@@ -4,6 +4,7 @@ import {
   findForbiddenPublicKeyPaths,
   READY_RUNTIME_ENTITLEMENTS,
   RUNTIME_ENTITLEMENT_CONTRACT_CASES,
+  UNAVAILABLE_RUNTIME_ENTITLEMENTS,
 } from "../../__tests__/runtime-entitlement-test-utils";
 
 const fetchMock = vi.fn();
@@ -146,6 +147,59 @@ test("getRuntimeEntitlements aborts a bounded request with a typed timeout error
     vi.useRealTimers();
   }
 });
+
+const UNKNOWN_FIELD_PRIVATE_VALUE = "private-runtime-entitlement-value";
+
+test.each([
+  {
+    label: "top-level response",
+    response: {
+      ...READY_RUNTIME_ENTITLEMENTS,
+      unexpected: UNKNOWN_FIELD_PRIVATE_VALUE,
+    },
+  },
+  {
+    label: "ready entitlement detail",
+    response: {
+      ...READY_RUNTIME_ENTITLEMENTS,
+      entitlement: {
+        ...READY_RUNTIME_ENTITLEMENTS.entitlement,
+        unexpected: UNKNOWN_FIELD_PRIVATE_VALUE,
+      },
+    },
+  },
+  {
+    label: "error detail",
+    response: {
+      ...UNAVAILABLE_RUNTIME_ENTITLEMENTS,
+      error: {
+        ...UNAVAILABLE_RUNTIME_ENTITLEMENTS.error,
+        unexpected: UNKNOWN_FIELD_PRIVATE_VALUE,
+      },
+    },
+  },
+])(
+  "getRuntimeEntitlements rejects a generic unknown property in the $label without leaking its value",
+  async ({ response }) => {
+    const client = runtimeEntitlementsClient();
+    fetchMock.mockReturnValue(jsonResponse(response));
+
+    const error: unknown = await client
+      .getRuntimeEntitlements()
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(PlatformRequestError);
+    if (!(error instanceof PlatformRequestError)) {
+      throw new Error("Expected a typed Runtime entitlement validation error");
+    }
+    expect({ name: error.name, status: error.status }).toEqual({
+      name: "PlatformRequestError",
+      status: 502,
+    });
+    expect(error.message).not.toContain(UNKNOWN_FIELD_PRIVATE_VALUE);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  },
+);
 
 test.each([
   ["non-JSON", () => textResponse("not json")],
