@@ -1,6 +1,7 @@
 ---
 title: "Channels"
 description: "API reference for the CopilotKit channel stack — @copilotkit/channels, @copilotkit/channels-ui, @copilotkit/channels-slack, and @copilotkit/channels-discord."
+doc_type: reference
 ---
 
 The channel stack turns any [AG-UI](https://docs.ag-ui.com) agent into a chat-platform bot. Three packages, three jobs:
@@ -22,14 +23,9 @@ pnpm add @copilotkit/channels @copilotkit/channels-ui @copilotkit/channels-disco
   New to the stack? Start with the [Slack quickstart](/slack) — zero to a working bot, then come back here for the API surface.
 </Callout>
 
-<OpsPlatformCTA
-  variant="inline"
-  title="Join the waitlist for managed Slack and Teams agents"
-  body="The APIs below let you own the adapter, runtime, platform credentials, tools, and storage. Join the waitlist if you want CopilotKit Intelligence to manage Slack and Teams rollout, identity, durable state, approvals, observability, and release workflows."
-  ctaLabel="Join the waitlist"
-  surface="reference_bot_managed_agents_waitlist"
-  href="https://www.copilotkit.ai/opentag-managed"
-/>
+<Callout type="info" title="Looking for Managed Channels?">
+  Start with the [Managed Channels ownership model](/channels/managed). Intelligence manages Slack setup, credentials, durable delivery, retries, realtime transport, and egress while your infrastructure runs the agent.
+</Callout>
 
 ## Setup
 
@@ -81,5 +77,6 @@ A turn flows through three stages. The adapter normalizes a platform event into 
 
 ## Related
 
+- [Managed Channels](/channels/managed) — understand the Intelligence-managed provider edge and customer-owned agent boundary
 - [Slack quickstart](/slack) — create the Slack app, install, and run your first bot
 - [On-call triage example](https://github.com/CopilotKit/CopilotKit/tree/main/examples/slack) — a full bot over Linear + Notion MCP with HITL and slash commands

@@ -237,6 +237,28 @@ describe("Managed Channels docs", () => {
     expect(managed?.source).toContain("doc_type: explanation");
     expect(managed?.source).toContain("your infrastructure runs the agent");
   });
+
+  it("links existing Channels pages to Managed Slack without the old waitlist promise", () => {
+    const slugs = [
+      "channels",
+      "channels/persistence",
+      "channels/transcripts",
+      "frontends/slack",
+      "frontends/teams",
+    ];
+
+    for (const slug of slugs) {
+      const source = loadDoc(slug)?.source ?? "";
+      expect(source).not.toContain(
+        "Join the waitlist for managed Slack and Teams agents",
+      );
+      expect(source).not.toContain("open source Bot SDK");
+    }
+
+    expect(loadDoc("frontends/slack")?.source).toContain(
+      "/channels/managed",
+    );
+  });
 });
 
 describe("migration docs", () => {

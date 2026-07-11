@@ -18,6 +18,8 @@ CopilotKit ships in two layers: an **open-source frontend stack** (npm packages,
 |---|---|---|
 | Agent chat, frontend tools, agent state, gen-UI | Yes | |
 | Any AG-UI integration (LangGraph, Mastra, Built-in, custom) | Yes | |
+| Run a Slack adapter and credentials in your own application | Yes | |
+| Intelligence-managed Slack connection and durable channel delivery | | Yes |
 | Conversation history that survives reloads / devices | | Yes |
 | `useThreads` + realtime sync across tabs / devices | | Yes |
 | Hosted inspector, admin console, multi-tenancy | | Yes |
@@ -41,6 +43,7 @@ Apache 2.0 licensed. Run it on any host, in any cloud, with any LLM provider.
 A separate **backend service** that sits beside your runtime and unlocks the capabilities that need durable, multi-tenant infrastructure to be honest about:
 
 - **Threads & Persistence** — durable, resumable conversations that survive page reloads, span devices, and sync in realtime via WebSocket. Backed by Postgres + Redis with single-writer locks on active runs.
+- **[Managed Channels](/channels/managed)** — Intelligence manages Slack setup, encrypted credentials, durable delivery, retries, realtime transport, and egress while your infrastructure runs the agent.
 - **Inspection & history** — project-scoped thread history, event timelines, admin views, and API key management in the hosted web app.
 - **Inspector & Admin Console** — a hosted web UI for browsing thread history, inspecting agent traces, rotating API keys, and managing projects and organizations.
 - **Multi-tenancy** — three-level isolation (organizations, projects, users) so a single deployment can host production and staging side by side without one reading the other's data.
