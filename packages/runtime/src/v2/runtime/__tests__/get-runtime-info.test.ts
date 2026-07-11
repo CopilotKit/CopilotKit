@@ -11,10 +11,14 @@ import { CopilotKitIntelligence } from "../intelligence-platform";
 import { TranscriptionService } from "../transcription-service/transcription-service";
 import { describe, it, expect, test, vi, beforeEach, afterEach } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
+import { createLicenseChecker } from "@copilotkit/license-verifier";
 import type { RuntimeInfo } from "@copilotkit/shared";
 import {
+  DEGRADED_RUNTIME_ENTITLEMENTS,
   findForbiddenPublicKeyPaths,
+  MISCONFIGURED_RUNTIME_ENTITLEMENTS,
   READY_RUNTIME_ENTITLEMENTS,
+  UNAVAILABLE_RUNTIME_ENTITLEMENTS,
 } from "./runtime-entitlement-test-utils";
 
 // Mock transcription service
@@ -25,6 +29,9 @@ class MockTranscriptionService extends TranscriptionService {
 }
 
 const mockRequest = new Request("https://example.com/info");
+const INVALID_LEGACY_LICENSE_TOKEN = `header.${Buffer.from(
+  '{"telemetry_id":"legacy-license-id"}',
+).toString("base64url")}.signature`;
 
 /** Build the typed Intelligence runtime fixture shared by `/info` tests. */
 function createIntelligenceRuntimeLike(
@@ -94,20 +101,39 @@ function installRuntimeEntitlementsLookupPrototype(
   };
 }
 
+/** Request Runtime info with one injectable entitlement lookup result. */
+async function requestRuntimeInfoWithLookup(
+  lookup: () => Promise<unknown>,
+  options: { readonly licenseToken?: string } = {},
+) {
+  const runtime = createIntelligenceRuntimeLike({
+    licenseChecker:
+      options.licenseToken === undefined
+        ? undefined
+        : createLicenseChecker(options.licenseToken),
+  });
+  installRuntimeEntitlementsLookup(runtime, lookup);
+
+  const response = await handleGetRuntimeInfo({
+    runtime,
+    request: mockRequest,
+  });
+  const data: RuntimeInfo = await response.json();
+
+  return { data, response };
+}
+
 test("does not request Runtime entitlements for an SSE-only Runtime", async () => {
   const getRuntimeEntitlements = vi
     .fn()
     .mockResolvedValue(READY_RUNTIME_ENTITLEMENTS);
   const restoreRuntimeEntitlementsLookup =
     installRuntimeEntitlementsLookupPrototype(getRuntimeEntitlements);
-  const legacyLicenseToken = `header.${Buffer.from(
-    '{"telemetry_id":"legacy-license-id"}',
-  ).toString("base64url")}.signature`;
 
   try {
     const runtime = new CopilotRuntime({
       agents: {},
-      licenseToken: legacyLicenseToken,
+      licenseToken: INVALID_LEGACY_LICENSE_TOKEN,
     });
 
     const response = await handleGetRuntimeInfo({
@@ -131,14 +157,9 @@ test("returns Runtime entitlements while preserving compatibility license status
   const getRuntimeEntitlements = vi
     .fn()
     .mockResolvedValue(READY_RUNTIME_ENTITLEMENTS);
-  const runtime = createIntelligenceRuntimeLike();
-  installRuntimeEntitlementsLookup(runtime, getRuntimeEntitlements);
-
-  const response = await handleGetRuntimeInfo({
-    runtime,
-    request: mockRequest,
-  });
-  const data: RuntimeInfo = await response.json();
+  const { data, response } = await requestRuntimeInfoWithLookup(
+    getRuntimeEntitlements,
+  );
 
   expect(response.status).toBe(200);
   expect(data.runtimeEntitlements).toEqual(READY_RUNTIME_ENTITLEMENTS);
@@ -147,18 +168,65 @@ test("returns Runtime entitlements while preserving compatibility license status
   expect(getRuntimeEntitlements).toHaveBeenCalledOnce();
 });
 
+test.each([
+  {
+    label: "degraded",
+    runtimeEntitlements: DEGRADED_RUNTIME_ENTITLEMENTS,
+  },
+  {
+    label: "misconfigured",
+    runtimeEntitlements: MISCONFIGURED_RUNTIME_ENTITLEMENTS,
+  },
+  {
+    label: "unavailable",
+    runtimeEntitlements: UNAVAILABLE_RUNTIME_ENTITLEMENTS,
+  },
+] as const)(
+  "passes through resolved $label Runtime entitlements without losing backend error detail",
+  async ({ runtimeEntitlements }) => {
+    const getRuntimeEntitlements = vi
+      .fn()
+      .mockResolvedValue(runtimeEntitlements);
+    const { data, response } = await requestRuntimeInfoWithLookup(
+      getRuntimeEntitlements,
+    );
+
+    expect(response.status).toBe(200);
+    expect(data.runtimeEntitlements).toEqual(runtimeEntitlements);
+    expect(findForbiddenPublicKeyPaths(data)).toEqual([]);
+    expect(getRuntimeEntitlements).toHaveBeenCalledOnce();
+  },
+);
+
+test.each([
+  {
+    outcome: "succeeds",
+    lookup: () => Promise.resolve(READY_RUNTIME_ENTITLEMENTS),
+  },
+  {
+    outcome: "fails",
+    lookup: () =>
+      Promise.reject(new Error("dependency details must stay private")),
+  },
+] as const)(
+  "preserves non-none legacy license status when entitlement lookup $outcome",
+  async ({ lookup }) => {
+    const { data, response } = await requestRuntimeInfoWithLookup(lookup, {
+      licenseToken: INVALID_LEGACY_LICENSE_TOKEN,
+    });
+
+    expect(response.status).toBe(200);
+    expect(data.licenseStatus).toBe("invalid");
+  },
+);
+
 test("keeps `/info` successful when Runtime entitlement lookup fails", async () => {
   const getRuntimeEntitlements = vi
     .fn()
     .mockRejectedValue(new Error("dependency details must stay private"));
-  const runtime = createIntelligenceRuntimeLike();
-  installRuntimeEntitlementsLookup(runtime, getRuntimeEntitlements);
-
-  const response = await handleGetRuntimeInfo({
-    runtime,
-    request: mockRequest,
-  });
-  const data: RuntimeInfo = await response.json();
+  const { data, response } = await requestRuntimeInfoWithLookup(
+    getRuntimeEntitlements,
+  );
 
   expect(response.status).toBe(200);
   expect(data.runtimeEntitlements).toEqual({
