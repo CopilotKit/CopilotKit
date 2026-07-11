@@ -12,6 +12,10 @@ const OPTIONAL_TELEMETRY_ID = "CPK_TELEMETRY_ID";
 const LEGACY_API_KEY = "INTELLIGENCE_API_KEY";
 const LEGACY_TELEMETRY_ID = "COPILOTKIT_TELEMETRY_ID";
 const MANAGED_LICENSE_TOKEN = "COPILOTKIT_LICENSE_TOKEN";
+const MANAGED_API_KEY_SECRET_CONFIG =
+  "copilotkit_intelligence_api_key_secret_name";
+const NEXT_THREADS_GATE = "NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED";
+const VITE_THREADS_GATE = "VITE_COPILOTKIT_THREADS_ENABLED";
 
 const MANAGED_CLI_FRAMEWORKS = [
   "langgraph-py",
@@ -44,6 +48,13 @@ interface ManagedTemplateContract {
   readonly gatePath: string;
   readonly envPath: string;
   readonly readmePath: string;
+  readonly supportedPaths?: {
+    readonly localComposePath: string;
+    readonly deploymentConfigPath: string;
+    readonly runtimeDeploymentPath: string;
+    readonly frontendDeploymentPath: string;
+    readonly deployScriptPaths: readonly string[];
+  };
 }
 
 const MANAGED_TEMPLATE_CONTRACTS = [
@@ -172,8 +183,15 @@ const MANAGED_TEMPLATE_CONTRACTS = [
     frameworks: ["agentcore-langgraph", "agentcore-strands"],
     runtimePath: "infra-cdk/lambdas/copilotkit-runtime/src/runtime.ts",
     gatePath: "frontend/vite.config.ts",
-    envPath: "docker/.env.example",
+    envPath: ".env.example",
     readmePath: "README.md",
+    supportedPaths: {
+      localComposePath: "docker/docker-compose.yml",
+      deploymentConfigPath: "config.yaml.example",
+      runtimeDeploymentPath: "infra-cdk/lib/backend-stack.ts",
+      frontendDeploymentPath: "infra-cdk/lib/amplify-hosting-stack.ts",
+      deployScriptPaths: ["deploy-langgraph.sh", "deploy-strands.sh"],
+    },
   },
 ] as const satisfies readonly ManagedTemplateContract[];
 
@@ -199,6 +217,44 @@ function readManagedSurface(
   ).toBe(true);
 
   return exists ? fs.readFileSync(filePath, "utf8") : "";
+}
+
+/**
+ * Returns one two-space-indented YAML mapping section.
+ *
+ * @param contents - YAML source containing service-style mappings.
+ * @param name - Mapping key whose complete section should be returned.
+ * @returns The mapping section, or an empty string when it is absent.
+ */
+function yamlMappingSection(contents: string, name: string): string {
+  const lines = contents.split(/\r?\n/);
+  const start = lines.findIndex((line) => line === `  ${name}:`);
+  if (start < 0) {
+    return "";
+  }
+
+  const relativeEnd = lines
+    .slice(start + 1)
+    .findIndex((line) => /^  [^\s].*:\s*$/.test(line));
+  const end = relativeEnd < 0 ? lines.length : start + relativeEnd + 1;
+  return lines.slice(start, end).join("\n");
+}
+
+/** Matches a service-level reference to the generated project's root env. */
+function rootManagedEnvFilePattern(): RegExp {
+  return /env_file:\s*(?:\r?\n\s*-\s*)?\.\.\/\.env\b/;
+}
+
+/** Matches a deployment config key without constraining its safe reference. */
+function deploymentConfigReferencePattern(identifier: string): RegExp {
+  return new RegExp(`^\\s*${identifier}\\s*:`, "m");
+}
+
+/** Matches two required terms close enough to belong to one configuration. */
+function nearbyTermsPattern(first: string, second: string): RegExp {
+  return new RegExp(
+    `(?:${first}[\\s\\S]{0,400}${second}|${second}[\\s\\S]{0,400}${first})`,
+  );
 }
 
 /**
@@ -423,9 +479,9 @@ function expectManagedGateContract(contents: string): void {
       contents,
       MANAGED_API_KEY,
       (name) =>
-        name === "NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED" ||
-        name === "VITE_COPILOTKIT_THREADS_ENABLED" ||
-        name.endsWith(".VITE_COPILOTKIT_THREADS_ENABLED"),
+        name === NEXT_THREADS_GATE ||
+        name === VITE_THREADS_GATE ||
+        name.endsWith(`.${VITE_THREADS_GATE}`),
     ),
   ).toBe(true);
   expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_API_KEY));
@@ -467,6 +523,61 @@ function expectManagedReadmeContract(contents: string): void {
 
   const managedSection = markdownSectionContaining(contents, MANAGED_API_KEY);
   expect(managedSection).not.toContain(MANAGED_LICENSE_TOKEN);
+}
+
+/** Assert AgentCore local services consume the CLI-managed root env safely. */
+function expectAgentCoreLocalComposeContract(contents: string): void {
+  const bridge = yamlMappingSection(contents, "bridge");
+  const frontend = yamlMappingSection(contents, "frontend");
+
+  expect(bridge).toMatch(rootManagedEnvFilePattern());
+  expect(frontend).toMatch(rootManagedEnvFilePattern());
+  expect(frontend).not.toContain(VITE_THREADS_GATE);
+  expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_API_KEY));
+  expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_TELEMETRY_ID));
+  expect(contents).not.toContain(MANAGED_LICENSE_TOKEN);
+}
+
+/** Assert AgentCore deploy configuration carries only a secret reference. */
+function expectAgentCoreDeploymentConfigContract(contents: string): void {
+  expect(contents).toMatch(
+    deploymentConfigReferencePattern(MANAGED_API_KEY_SECRET_CONFIG),
+  );
+  expect(contents).not.toMatch(exactEnvIdentifierPattern(MANAGED_API_KEY));
+  expect(contents).not.toContain(MANAGED_LICENSE_TOKEN);
+}
+
+/** Assert AgentCore's deployed Lambda resolves the managed key from a secret. */
+function expectAgentCoreRuntimeDeploymentContract(contents: string): void {
+  expect(contents).toMatch(
+    nearbyTermsPattern(MANAGED_API_KEY, MANAGED_API_KEY_SECRET_CONFIG),
+  );
+  expect(contents).toMatch(/\b(?:SecretValue|secretsmanager|secretName)\b/i);
+  expect(contents).not.toMatch(
+    new RegExp(`${MANAGED_API_KEY}\\s*:\\s*["'\\x60]`),
+  );
+  expect(contents).not.toContain(MANAGED_LICENSE_TOKEN);
+}
+
+/** Assert AgentCore's frontend receives only the key-derived public gate. */
+function expectAgentCoreFrontendDeploymentContract(contents: string): void {
+  expect(contents).toMatch(
+    nearbyTermsPattern(VITE_THREADS_GATE, MANAGED_API_KEY_SECRET_CONFIG),
+  );
+  expect(contents).not.toMatch(exactEnvIdentifierPattern(MANAGED_API_KEY));
+  expect(contents).not.toContain(MANAGED_LICENSE_TOKEN);
+}
+
+/** Assert an AgentCore variant deploy script safely materializes its key secret. */
+function expectAgentCoreDeployScriptContract(contents: string): void {
+  expect(contents).toContain(".env");
+  expect(contents).toMatch(exactEnvIdentifierPattern(MANAGED_API_KEY));
+  expect(contents).toContain(MANAGED_API_KEY_SECRET_CONFIG);
+  expect(contents).toMatch(
+    /aws\s+secretsmanager\s+(?:create-secret|put-secret-value)/,
+  );
+  expect(contents).toMatch(/npx\s+cdk(?:@\S+)?\s+deploy/);
+  expect(contents).not.toContain(MANAGED_LICENSE_TOKEN);
 }
 
 test("managed TypeScript helpers reject API-key identifiers outside configured expressions", () => {
@@ -593,4 +704,58 @@ for (const contract of MANAGED_TEMPLATE_CONTRACTS) {
 
     expectManagedReadmeContract(readme);
   });
+
+  if ("supportedPaths" in contract) {
+    const supportedPaths = contract.supportedPaths;
+    test(`${contract.directory} local Compose consumes the root managed env`, () => {
+      const compose = readManagedSurface(
+        contract,
+        supportedPaths.localComposePath,
+        "local Compose config",
+      );
+
+      expectAgentCoreLocalComposeContract(compose);
+    });
+
+    test(`${contract.directory} deployment config stores a managed key secret reference`, () => {
+      const deploymentConfig = readManagedSurface(
+        contract,
+        supportedPaths.deploymentConfigPath,
+        "deployment config",
+      );
+
+      expectAgentCoreDeploymentConfigContract(deploymentConfig);
+    });
+
+    test(`${contract.directory} deployed Lambda resolves the managed key secret`, () => {
+      const runtimeDeployment = readManagedSurface(
+        contract,
+        supportedPaths.runtimeDeploymentPath,
+        "runtime deployment config",
+      );
+
+      expectAgentCoreRuntimeDeploymentContract(runtimeDeployment);
+    });
+
+    test(`${contract.directory} deployed frontend receives only the key-derived gate`, () => {
+      const frontendDeployment = readManagedSurface(
+        contract,
+        supportedPaths.frontendDeploymentPath,
+        "frontend deployment config",
+      );
+
+      expectAgentCoreFrontendDeploymentContract(frontendDeployment);
+    });
+
+    test(`${contract.directory} deploy scripts materialize the configured managed key secret`, () => {
+      for (const deployScriptPath of supportedPaths.deployScriptPaths) {
+        const deployScript = readManagedSurface(
+          contract,
+          deployScriptPath,
+          "deploy script",
+        );
+        expectAgentCoreDeployScriptContract(deployScript);
+      }
+    });
+  }
 }
