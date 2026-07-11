@@ -52,9 +52,7 @@ const channel = createBot({
 
 channel.onMention(async ({ thread, message }) => {
   await thread.runAgent({
-    prompt: message.contentParts?.length
-      ? message.contentParts
-      : message.text,
+    prompt: message.contentParts?.length ? message.contentParts : message.text,
   });
 });
 
@@ -94,15 +92,15 @@ Run the process with `npx tsx channel.ts`, mention the app in Slack, and verify 
 
 ## Configuration
 
-| Environment variable | Description |
-|---|---|
-| `AGENT_URL` | AG-UI endpoint that runs your agent. |
-| `INTELLIGENCE_GATEWAY_WS_URL` | Outbound Realtime Gateway WebSocket URL from the Channel handoff. |
-| `INTELLIGENCE_API_KEY` | Project runtime API key. |
-| `INTELLIGENCE_ORG_ID` | Intelligence organization ID, prefixed with `org_`. |
-| `INTELLIGENCE_PROJECT_ID` | Positive integer project ID. |
-| `INTELLIGENCE_CHANNEL_ID` | Intelligence Channel ID, prefixed with `channel_`. |
-| `INTELLIGENCE_CHANNEL_NAME` | Lowercase kebab-case Channel name. It must match the bot name and handoff exactly. |
+| Environment variable          | Description                                                                        |
+| ----------------------------- | ---------------------------------------------------------------------------------- |
+| `AGENT_URL`                   | AG-UI endpoint that runs your agent.                                               |
+| `INTELLIGENCE_GATEWAY_WS_URL` | Outbound Realtime Gateway WebSocket URL from the Channel handoff.                  |
+| `INTELLIGENCE_API_KEY`        | Project runtime API key.                                                           |
+| `INTELLIGENCE_ORG_ID`         | Intelligence organization ID, prefixed with `org_`.                                |
+| `INTELLIGENCE_PROJECT_ID`     | Positive integer project ID.                                                       |
+| `INTELLIGENCE_CHANNEL_ID`     | Intelligence Channel ID, prefixed with `channel_`.                                 |
+| `INTELLIGENCE_CHANNEL_NAME`   | Lowercase kebab-case Channel name. It must match the bot name and handoff exactly. |
 
 ## Lifecycle and reconnect behavior
 

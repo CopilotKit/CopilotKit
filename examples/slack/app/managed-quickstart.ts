@@ -27,9 +27,7 @@ const channel = createBot({
 
 channel.onMention(async ({ thread, message }) => {
   await thread.runAgent({
-    prompt: message.contentParts?.length
-      ? message.contentParts
-      : message.text,
+    prompt: message.contentParts?.length ? message.contentParts : message.text,
   });
 });
 
