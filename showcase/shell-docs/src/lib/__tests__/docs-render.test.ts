@@ -255,9 +255,7 @@ describe("Managed Channels docs", () => {
       expect(source).not.toContain("open source Bot SDK");
     }
 
-    expect(loadDoc("frontends/slack")?.source).toContain(
-      "/channels/managed",
-    );
+    expect(loadDoc("frontends/slack")?.source).toContain("/channels/managed");
   });
 });
 
