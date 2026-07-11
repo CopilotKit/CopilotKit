@@ -6,8 +6,23 @@ import {
   CopilotSseRuntime,
 } from "../core/runtime";
 import { lambdaClient, parseTelemetryIdFromLicense } from "@copilotkit/shared";
-import type { CopilotKitIntelligence } from "../intelligence-platform";
+import { CopilotKitIntelligence } from "../intelligence-platform";
 import { telemetry } from "../telemetry";
+import type { RuntimeInstanceCreatedInfo } from "../telemetry/events";
+
+const AGENTS = {};
+const IDENTIFY_USER = vi
+  .fn()
+  .mockResolvedValue({ id: "user-1", name: "User One" });
+
+/** Create a real typed Intelligence client without opening a connection. */
+function createIntelligenceClient(): CopilotKitIntelligence {
+  return new CopilotKitIntelligence({
+    apiUrl: "https://api.example.com",
+    wsUrl: "wss://ws.example.com",
+    apiKey: "cpk-project-key",
+  });
+}
 
 /**
  * Every runtime construction path feeds the same endpoints, and all endpoints
@@ -21,17 +36,6 @@ import { telemetry } from "../telemetry";
  * token, so self-hosted SSE users never got a telemetry_id on their events.
  */
 describe("runtime construction — telemetry license token", () => {
-  const agents = {};
-  const identifyUser = vi
-    .fn()
-    .mockResolvedValue({ id: "user-1", name: "User One" });
-  const createMockIntelligence = (): CopilotKitIntelligence =>
-    ({
-      ɵgetRunnerWsUrl: vi.fn().mockReturnValue("ws://runner.example"),
-      ɵgetRunnerAuthToken: vi.fn().mockReturnValue("token-123"),
-      ɵgetClientWsUrl: vi.fn().mockReturnValue("ws://client.example"),
-    }) as unknown as CopilotKitIntelligence;
-
   // Real JWT shape with telemetry_id so the parser doesn't warn.
   const TOKEN = `header.${Buffer.from('{"telemetry_id":"abc-123"}').toString(
     "base64url",
@@ -61,7 +65,10 @@ describe("runtime construction — telemetry license token", () => {
 
   describe("CopilotSseRuntime (self-hosted, direct)", () => {
     it("forwards an explicit licenseToken option to telemetry", () => {
-      const runtime = new CopilotSseRuntime({ agents, licenseToken: TOKEN });
+      const runtime = new CopilotSseRuntime({
+        agents: AGENTS,
+        licenseToken: TOKEN,
+      });
 
       expect(runtime.mode).toBe("sse");
       expect(setLicenseTokenSpy).toHaveBeenCalledTimes(1);
@@ -71,7 +78,7 @@ describe("runtime construction — telemetry license token", () => {
     it("falls back to COPILOTKIT_LICENSE_TOKEN when no option is given", () => {
       process.env.COPILOTKIT_LICENSE_TOKEN = TOKEN;
 
-      const runtime = new CopilotSseRuntime({ agents });
+      const runtime = new CopilotSseRuntime({ agents: AGENTS });
 
       expect(runtime.mode).toBe("sse");
       expect(setLicenseTokenSpy).toHaveBeenCalledTimes(1);
@@ -79,7 +86,7 @@ describe("runtime construction — telemetry license token", () => {
     });
 
     it("does not set a token when none is provided", () => {
-      const runtime = new CopilotSseRuntime({ agents });
+      const runtime = new CopilotSseRuntime({ agents: AGENTS });
 
       expect(runtime.mode).toBe("sse");
       expect(setLicenseTokenSpy).not.toHaveBeenCalled();
@@ -88,7 +95,10 @@ describe("runtime construction — telemetry license token", () => {
 
   describe("CopilotRuntime shim — SSE delegate (self-hosted, default entrypoint)", () => {
     it("forwards an explicit licenseToken option to telemetry", () => {
-      const runtime = new CopilotRuntime({ agents, licenseToken: TOKEN });
+      const runtime = new CopilotRuntime({
+        agents: AGENTS,
+        licenseToken: TOKEN,
+      });
 
       expect(runtime.mode).toBe("sse");
       expect(setLicenseTokenSpy).toHaveBeenCalledTimes(1);
@@ -98,7 +108,7 @@ describe("runtime construction — telemetry license token", () => {
     it("falls back to COPILOTKIT_LICENSE_TOKEN when no option is given", () => {
       process.env.COPILOTKIT_LICENSE_TOKEN = TOKEN;
 
-      const runtime = new CopilotRuntime({ agents });
+      const runtime = new CopilotRuntime({ agents: AGENTS });
 
       expect(runtime.mode).toBe("sse");
       expect(setLicenseTokenSpy).toHaveBeenCalledTimes(1);
@@ -109,9 +119,9 @@ describe("runtime construction — telemetry license token", () => {
   describe("CopilotIntelligenceRuntime (direct)", () => {
     it("forwards the licenseToken exactly once (no double-set after hoist)", () => {
       const runtime = new CopilotIntelligenceRuntime({
-        agents,
-        intelligence: createMockIntelligence(),
-        identifyUser,
+        agents: AGENTS,
+        intelligence: createIntelligenceClient(),
+        identifyUser: IDENTIFY_USER,
         licenseToken: TOKEN,
       });
 
@@ -124,9 +134,9 @@ describe("runtime construction — telemetry license token", () => {
       process.env.COPILOTKIT_LICENSE_TOKEN = TOKEN;
 
       const runtime = new CopilotIntelligenceRuntime({
-        agents,
-        intelligence: createMockIntelligence(),
-        identifyUser,
+        agents: AGENTS,
+        intelligence: createIntelligenceClient(),
+        identifyUser: IDENTIFY_USER,
       });
 
       expect(runtime.mode).toBe("intelligence");
@@ -138,9 +148,9 @@ describe("runtime construction — telemetry license token", () => {
   describe("CopilotRuntime shim — Intelligence delegate", () => {
     it("forwards the licenseToken exactly once", () => {
       const runtime = new CopilotRuntime({
-        agents,
-        intelligence: createMockIntelligence(),
-        identifyUser,
+        agents: AGENTS,
+        intelligence: createIntelligenceClient(),
+        identifyUser: IDENTIFY_USER,
         licenseToken: TOKEN,
       });
 
@@ -160,6 +170,15 @@ interface RuntimeTelemetryIdentityCase {
     telemetryId?: string;
     licenseToken?: string;
   };
+}
+
+interface RuntimeConstructorCase {
+  label: string;
+  expectedMode: "sse" | "intelligence";
+  construct(options: {
+    telemetryId?: string;
+    licenseToken?: string;
+  }): CopilotRuntime | CopilotSseRuntime | CopilotIntelligenceRuntime;
 }
 
 interface RuntimeTelemetryIdentity {
@@ -197,6 +216,7 @@ function installRuntimeTelemetryIdentitySpies() {
 
   return {
     fetchMock,
+    random,
     send,
     setLicenseToken,
     setTelemetryIdentity,
@@ -241,50 +261,119 @@ const runtimeTelemetryIdentityCases: readonly RuntimeTelemetryIdentityCase[] = [
   },
 ];
 
-test.each(runtimeTelemetryIdentityCases)(
-  "resolves $label through one atomic telemetry configuration",
-  async ({
-    telemetryId,
-    environmentTelemetryId,
-    licenseToken,
-    expectedIdentity,
-  }) => {
-    const { fetchMock, send, setLicenseToken, setTelemetryIdentity, restore } =
-      installRuntimeTelemetryIdentitySpies();
-    vi.stubEnv("CPK_TELEMETRY_ID", environmentTelemetryId);
+const runtimeConstructorCases = [
+  {
+    label: "CopilotRuntime SSE shim",
+    expectedMode: "sse",
+    construct: ({ telemetryId, licenseToken }) =>
+      new CopilotRuntime({
+        agents: AGENTS,
+        telemetryId,
+        licenseToken,
+      }),
+  },
+  {
+    label: "direct CopilotSseRuntime",
+    expectedMode: "sse",
+    construct: ({ telemetryId, licenseToken }) =>
+      new CopilotSseRuntime({
+        agents: AGENTS,
+        telemetryId,
+        licenseToken,
+      }),
+  },
+  {
+    label: "direct CopilotIntelligenceRuntime",
+    expectedMode: "intelligence",
+    construct: ({ telemetryId, licenseToken }) =>
+      new CopilotIntelligenceRuntime({
+        agents: AGENTS,
+        intelligence: createIntelligenceClient(),
+        identifyUser: IDENTIFY_USER,
+        telemetryId,
+        licenseToken,
+      }),
+  },
+] satisfies readonly RuntimeConstructorCase[];
+
+const runtimeConstructorIdentityCases = runtimeConstructorCases.flatMap(
+  (constructorCase) =>
+    runtimeTelemetryIdentityCases.map((identityCase) => ({
+      constructorCase,
+      identityCase,
+    })),
+);
+
+const INSTANCE_CREATED_PROPERTIES = {
+  actionsAmount: 0,
+  endpointTypes: [],
+  endpointsAmount: 0,
+  "cloud.api_key_provided": false,
+} satisfies RuntimeInstanceCreatedInfo;
+
+test.each(runtimeConstructorIdentityCases)(
+  "$constructorCase.label resolves $identityCase.label through one atomic telemetry configuration",
+  async ({ constructorCase, identityCase }) => {
+    const {
+      fetchMock,
+      random,
+      send,
+      setLicenseToken,
+      setTelemetryIdentity,
+      restore,
+    } = installRuntimeTelemetryIdentitySpies();
+    vi.stubEnv("CPK_TELEMETRY_ID", identityCase.environmentTelemetryId);
     vi.stubEnv("COPILOTKIT_TELEMETRY_ID", "unsupported-alias");
     vi.stubEnv("COPILOTKIT_LICENSE_TOKEN", undefined);
 
     try {
-      const runtime = new CopilotRuntime({
-        agents: {},
-        telemetryId,
-        licenseToken,
+      const runtime = constructorCase.construct({
+        telemetryId: identityCase.telemetryId,
+        licenseToken: identityCase.licenseToken,
       });
 
-      expect(runtime.mode).toBe("sse");
+      expect(runtime.mode).toBe(constructorCase.expectedMode);
       expect(setTelemetryIdentity).toHaveBeenCalledTimes(1);
-      expect(setTelemetryIdentity).toHaveBeenCalledWith(expectedIdentity);
+      expect(setTelemetryIdentity).toHaveBeenCalledWith(
+        identityCase.expectedIdentity,
+      );
       expect(setLicenseToken).not.toHaveBeenCalled();
 
-      await telemetry.capture("oss.runtime.instance_created", {
-        actionsAmount: 0,
-        endpointTypes: [],
-        endpointsAmount: 0,
-        "cloud.api_key_provided": false,
-      });
+      await telemetry.capture(
+        "oss.runtime.instance_created",
+        INSTANCE_CREATED_PROPERTIES,
+      );
 
       expect(send).toHaveBeenCalledTimes(1);
+      const identified =
+        identityCase.expectedIdentity.telemetryId !== undefined ||
+        identityCase.expectedIdentity.licenseToken !== undefined;
+      expect(random).toHaveBeenCalledTimes(identified ? 0 : 1);
       expect(send).toHaveBeenCalledWith(
         expect.objectContaining({
-          licenseToken: expectedIdentity.licenseToken,
-          telemetryId: expectedIdentity.telemetryId,
+          licenseToken: identityCase.expectedIdentity.licenseToken,
+          telemetryId: identityCase.expectedIdentity.telemetryId,
+          globalProperties: expect.objectContaining(
+            identified
+              ? {
+                  sampleRate: 1,
+                  sampleRateAdjustmentFactor: 0,
+                  sampleWeight: 1,
+                }
+              : {
+                  sampleRate: 0.05,
+                  sampleRateAdjustmentFactor: 0.95,
+                  sampleWeight: 20,
+                },
+          ),
         }),
       );
       const headers = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
       expect(headers.get("X-CopilotKit-Telemetry-Id")).toBe(
-        expectedIdentity.telemetryId ??
-          parseTelemetryIdFromLicense(expectedIdentity.licenseToken),
+        identityCase.expectedIdentity.telemetryId ??
+          parseTelemetryIdFromLicense(
+            identityCase.expectedIdentity.licenseToken,
+          ),
       );
     } finally {
       restore();
@@ -292,42 +381,59 @@ test.each(runtimeTelemetryIdentityCases)(
   },
 );
 
-test("clears an earlier singleton identity when a later Runtime is anonymous", async () => {
-  const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
-  const sendSpy = vi.spyOn(lambdaClient, "send").mockResolvedValue(undefined);
-  const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-  vi.stubEnv("CPK_TELEMETRY_ID", undefined);
-  vi.stubEnv("COPILOTKIT_LICENSE_TOKEN", undefined);
+test.each(runtimeConstructorCases)(
+  "$label clears an earlier singleton identity before an anonymous send",
+  async (constructorCase) => {
+    const {
+      fetchMock,
+      random,
+      send,
+      setLicenseToken,
+      setTelemetryIdentity,
+      restore,
+    } = installRuntimeTelemetryIdentitySpies();
+    vi.stubEnv("CPK_TELEMETRY_ID", undefined);
+    vi.stubEnv("COPILOTKIT_LICENSE_TOKEN", undefined);
 
-  try {
-    const identifiedRuntime = new CopilotRuntime({
-      agents: {},
-      licenseToken: LEGACY_IDENTITY_TOKEN,
-    });
-    const anonymousRuntime = new CopilotRuntime({ agents: {} });
+    try {
+      const identifiedRuntime = constructorCase.construct({
+        licenseToken: LEGACY_IDENTITY_TOKEN,
+      });
+      setTelemetryIdentity.mockClear();
+      setLicenseToken.mockClear();
+      send.mockClear();
+      fetchMock.mockClear();
 
-    await telemetry.capture("oss.runtime.instance_created", {
-      actionsAmount: 0,
-      endpointTypes: [],
-      endpointsAmount: 0,
-      "cloud.api_key_provided": false,
-    });
+      const anonymousRuntime = constructorCase.construct({});
 
-    expect([identifiedRuntime.mode, anonymousRuntime.mode]).toEqual([
-      "sse",
-      "sse",
-    ]);
-    expect(randomSpy).toHaveBeenCalledTimes(1);
-    expect(sendSpy).toHaveBeenCalledTimes(1);
-    expect(sendSpy.mock.calls[0][0]).toMatchObject({
-      licenseToken: undefined,
-      telemetryId: undefined,
-    });
-  } finally {
-    telemetry.setLicenseToken("not-a-jwt");
-    randomSpy.mockRestore();
-    sendSpy.mockRestore();
-    warnSpy.mockRestore();
-    vi.unstubAllEnvs();
-  }
-});
+      expect([identifiedRuntime.mode, anonymousRuntime.mode]).toEqual([
+        constructorCase.expectedMode,
+        constructorCase.expectedMode,
+      ]);
+      expect(setTelemetryIdentity).toHaveBeenCalledTimes(1);
+      expect(setTelemetryIdentity).toHaveBeenCalledWith({});
+      expect(setLicenseToken).not.toHaveBeenCalled();
+
+      await telemetry.capture(
+        "oss.runtime.instance_created",
+        INSTANCE_CREATED_PROPERTIES,
+      );
+
+      expect(random).toHaveBeenCalledTimes(1);
+      expect(send).toHaveBeenCalledTimes(1);
+      expect(send.mock.calls[0]?.[0]).toMatchObject({
+        licenseToken: undefined,
+        telemetryId: undefined,
+        globalProperties: expect.objectContaining({
+          sampleRate: 0.05,
+          sampleRateAdjustmentFactor: 0.95,
+          sampleWeight: 20,
+        }),
+      });
+      const headers = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
+      expect(headers.get("X-CopilotKit-Telemetry-Id")).toBeNull();
+    } finally {
+      restore();
+    }
+  },
+);
