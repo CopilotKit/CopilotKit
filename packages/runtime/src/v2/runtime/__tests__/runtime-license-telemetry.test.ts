@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, test, vi } from "vitest";
 
 import {
   CopilotIntelligenceRuntime,
@@ -241,7 +241,7 @@ const runtimeTelemetryIdentityCases: readonly RuntimeTelemetryIdentityCase[] = [
   },
 ];
 
-it.each(runtimeTelemetryIdentityCases)(
+test.each(runtimeTelemetryIdentityCases)(
   "resolves $label through one atomic telemetry configuration",
   async ({
     telemetryId,
@@ -292,7 +292,7 @@ it.each(runtimeTelemetryIdentityCases)(
   },
 );
 
-it("clears an earlier singleton identity when a later Runtime is anonymous", async () => {
+test("clears an earlier singleton identity when a later Runtime is anonymous", async () => {
   const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
   const sendSpy = vi.spyOn(lambdaClient, "send").mockResolvedValue(undefined);
   const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
