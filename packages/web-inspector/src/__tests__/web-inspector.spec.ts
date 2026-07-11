@@ -1556,15 +1556,16 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     expect(url.searchParams.has("utm_campaign")).toBe(false);
   };
 
-  /** Mount the locked Threads view with one entitlement diagnostic state. */
-  async function mountLockedThreadsDiagnostics(
+  /** Mount the Threads view with one capability and entitlement state. */
+  async function mountThreadsWithCapability(
+    threadListAvailable: boolean,
     diagnostics: Pick<HeaderMockCore, "runtimeEntitlements" | "licenseStatus">,
   ): Promise<WebInspectorElement> {
     const { agent } = createMockAgent("alpha");
     const harness = createHeaderMockCore(
       { alpha: agent },
       {},
-      { list: false },
+      { list: threadListAvailable },
       true,
       diagnostics,
     );
@@ -1820,7 +1821,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
   ] as const)(
     "renders structured Runtime entitlement diagnostics for $status",
     async ({ status, legacyStatus, runtimeEntitlements, errorMessage }) => {
-      const inspector = await mountLockedThreadsDiagnostics({
+      const inspector = await mountThreadsWithCapability(false, {
         runtimeEntitlements,
         licenseStatus: legacyStatus,
       });
@@ -1849,7 +1850,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
   );
 
   it("falls back to expired legacy license diagnostics when structured entitlements are omitted", async () => {
-    const inspector = await mountLockedThreadsDiagnostics({
+    const inspector = await mountThreadsWithCapability(false, {
       licenseStatus: "expired",
     });
 
@@ -1866,6 +1867,88 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
       "Enable Intelligence to inspect Threads.",
     );
   });
+
+  it.each([
+    {
+      diagnostic: "structured misconfiguration",
+      diagnostics: {
+        runtimeEntitlements: {
+          status: "misconfigured",
+          error: {
+            code: "self_hosted_license_invalid",
+            message: "Self-hosted license configuration is invalid.",
+            retryable: false,
+          },
+        },
+        licenseStatus: "valid",
+      },
+    },
+    {
+      diagnostic: "legacy expired license",
+      diagnostics: { licenseStatus: "expired" },
+    },
+  ] as const)(
+    "keeps Threads available for $diagnostic when the Runtime advertises list capability",
+    async ({ diagnostics }) => {
+      const inspector = await mountThreadsWithCapability(true, diagnostics);
+
+      const threadsButton = Array.from(
+        inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ??
+          [],
+      ).find((button) => button.textContent?.trim() === "Threads");
+      expect(threadsButton).toBeDefined();
+      await vi.waitFor(() => {
+        expect(threadListText(inspector)).toContain("Realtime thread sync");
+      });
+      expect(inspector.shadowRoot?.textContent ?? "").toContain(
+        "Threads are persistent, inspectable conversations",
+      );
+      expect(inspector.shadowRoot?.textContent ?? "").not.toContain(
+        "Enable Intelligence to inspect Threads.",
+      );
+      expect(threadListCalls().length).toBeGreaterThan(0);
+    },
+  );
+
+  it.each([
+    {
+      diagnostic: "structured ready entitlement",
+      diagnostics: {
+        runtimeEntitlements: {
+          status: "ready",
+          entitlement: {
+            active: true,
+            source: "managedOrgSubscription",
+            features: { msteams: true },
+            limits: { "threads.retention_hours": 120 },
+          },
+        },
+        licenseStatus: "expired",
+      },
+    },
+    {
+      diagnostic: "legacy valid license",
+      diagnostics: { licenseStatus: "valid" },
+    },
+  ] as const)(
+    "keeps Threads unavailable for $diagnostic when the Runtime omits list capability",
+    async ({ diagnostics }) => {
+      const inspector = await mountThreadsWithCapability(false, diagnostics);
+
+      const threadsButton = Array.from(
+        inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ??
+          [],
+      ).find((button) => button.textContent?.trim() === "Threads");
+      expect(threadsButton).toBeDefined();
+      expect(inspector.shadowRoot?.textContent ?? "").toContain(
+        "Enable Intelligence to inspect Threads.",
+      );
+      expect(threadListText(inspector)).not.toContain(
+        "Threads are persistent, inspectable conversations",
+      );
+      expect(threadListCalls()).toHaveLength(0);
+    },
+  );
 
   it("adds inspector attribution to locked-state CTAs", async () => {
     const { agent } = createMockAgent("alpha");
