@@ -257,31 +257,51 @@ describe("TelemetryClient", () => {
     expect(lambdaSpy).not.toHaveBeenCalled();
   });
 
-  it("identified callers bypass the sample gate", async () => {
-    // Math.random would land above the gate for anonymous callers, but
-    // a parsed telemetry_id makes the caller identified — the gate is
-    // skipped and the event still rides to the lambda.
-    vi.spyOn(Math, "random").mockReturnValue(0.99);
-    const payload = Buffer.from('{"telemetry_id":"abc-123"}').toString(
-      "base64url",
-    );
-    const token = `header.${payload}.sig`;
+  it.each([
+    {
+      configureIdentity: (client: TelemetryClient) =>
+        client.setTelemetryIdentity({ telemetryId: "standalone-id" }),
+      expectedSinkIdentity: { telemetryId: "standalone-id" },
+      label: "standalone",
+    },
+    {
+      configureIdentity: (client: TelemetryClient) => {
+        const payload = Buffer.from(
+          '{"telemetry_id":"legacy-license-id"}',
+        ).toString("base64url");
+        client.setLicenseToken(`header.${payload}.sig`);
+      },
+      expectedSinkIdentity: {
+        licenseToken: `header.${Buffer.from(
+          '{"telemetry_id":"legacy-license-id"}',
+        ).toString("base64url")}.sig`,
+      },
+      label: "legacy license",
+    },
+  ])(
+    "$label identity bypasses anonymous sampling with its resolved sink identity",
+    async ({ configureIdentity, expectedSinkIdentity }) => {
+      // Math.random would land above the anonymous gate. Resolved standalone
+      // and legacy identities both bypass it and reach the sink at full rate.
+      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.99);
+      const client = new TelemetryClient({
+        telemetryDisabled: false,
+        sampleRate: 0.05,
+      });
+      configureIdentity(client);
 
-    const client = new TelemetryClient({
-      telemetryDisabled: false,
-      sampleRate: 0.05,
-    });
-    client.setLicenseToken(token);
+      await client.capture("oss.runtime.instance_created", {
+        actionsAmount: 0,
+        endpointTypes: [],
+        endpointsAmount: 0,
+        "cloud.api_key_provided": false,
+      });
 
-    await client.capture("oss.runtime.instance_created", {
-      actionsAmount: 0,
-      endpointTypes: [],
-      endpointsAmount: 0,
-      "cloud.api_key_provided": false,
-    });
-
-    expect(lambdaSpy).toHaveBeenCalledTimes(1);
-  });
+      expect(randomSpy).not.toHaveBeenCalled();
+      expect(lambdaSpy).toHaveBeenCalledTimes(1);
+      expect(lambdaSpy.mock.calls[0][0]).toMatchObject(expectedSinkIdentity);
+    },
+  );
 
   it("identified callers send on every capture", async () => {
     // Default sampleRate is 0.05, but identified callers (telemetry_id

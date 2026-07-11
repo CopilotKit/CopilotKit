@@ -149,3 +149,76 @@ describe("runtime construction — telemetry license token", () => {
     });
   });
 });
+
+interface RuntimeTelemetryIdentityCase {
+  label: string;
+  telemetryId?: string;
+  environmentTelemetryId?: string;
+  licenseToken?: string;
+  expectedIdentity: {
+    telemetryId?: string;
+    licenseToken?: string;
+  };
+}
+
+const LEGACY_IDENTITY_TOKEN = `header.${Buffer.from(
+  '{"telemetry_id":"legacy-license-id"}',
+).toString("base64url")}.sig`;
+
+const runtimeTelemetryIdentityCases: readonly RuntimeTelemetryIdentityCase[] = [
+  {
+    label: "explicit telemetryId over environment and legacy license",
+    telemetryId: "explicit-telemetry-id",
+    environmentTelemetryId: "environment-telemetry-id",
+    licenseToken: LEGACY_IDENTITY_TOKEN,
+    expectedIdentity: { telemetryId: "explicit-telemetry-id" },
+  },
+  {
+    label: "CPK_TELEMETRY_ID over legacy license",
+    environmentTelemetryId: "environment-telemetry-id",
+    licenseToken: LEGACY_IDENTITY_TOKEN,
+    expectedIdentity: { telemetryId: "environment-telemetry-id" },
+  },
+  {
+    label: "legacy license when no standalone identity exists",
+    licenseToken: LEGACY_IDENTITY_TOKEN,
+    expectedIdentity: { licenseToken: LEGACY_IDENTITY_TOKEN },
+  },
+  {
+    label: "anonymous identity when no identity source exists",
+    expectedIdentity: {},
+  },
+];
+
+it.each(runtimeTelemetryIdentityCases)(
+  "resolves $label through one atomic telemetry configuration",
+  ({ telemetryId, environmentTelemetryId, licenseToken, expectedIdentity }) => {
+    const setTelemetryIdentity = vi.fn();
+    Object.defineProperty(telemetry, "setTelemetryIdentity", {
+      configurable: true,
+      value: setTelemetryIdentity,
+    });
+    const setLicenseToken = vi
+      .spyOn(telemetry, "setLicenseToken")
+      .mockImplementation(() => {});
+    vi.stubEnv("CPK_TELEMETRY_ID", environmentTelemetryId);
+    vi.stubEnv("COPILOTKIT_TELEMETRY_ID", "unsupported-alias");
+    vi.stubEnv("COPILOTKIT_LICENSE_TOKEN", undefined);
+
+    try {
+      const runtime = new CopilotRuntime({
+        agents: {},
+        telemetryId,
+        licenseToken,
+      });
+
+      expect(runtime.mode).toBe("sse");
+      expect(setTelemetryIdentity).toHaveBeenCalledTimes(1);
+      expect(setTelemetryIdentity).toHaveBeenCalledWith(expectedIdentity);
+    } finally {
+      setLicenseToken.mockRestore();
+      Reflect.deleteProperty(telemetry, "setTelemetryIdentity");
+      vi.unstubAllEnvs();
+    }
+  },
+);
