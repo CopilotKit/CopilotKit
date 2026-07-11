@@ -11,7 +11,7 @@ import type {
 import { CopilotKitCore, CopilotKitCoreRuntimeConnectionStatus } from "../core";
 import { waitForCondition } from "./test-utils";
 
-const runtimeEntitlements: RuntimeEntitlementResponse = {
+const initialRuntimeEntitlements: RuntimeEntitlementResponse = {
   status: "ready",
   entitlement: {
     active: true,
@@ -23,9 +23,24 @@ const runtimeEntitlements: RuntimeEntitlementResponse = {
   },
 };
 
+const refreshedRuntimeEntitlements: RuntimeEntitlementResponse = {
+  status: "ready",
+  entitlement: {
+    active: true,
+    source: "managedOrgSubscription",
+    features: { msteams: false },
+    limits: { "threads.retention_hours": 240 },
+    planCode: "enterprise",
+    entitlementSource: "clerk_subscription",
+  },
+};
+
 interface RuntimeInfoOptions {
   agents?: RuntimeInfo["agents"];
-  includeRuntimeEntitlements?: boolean;
+  includeRuntimeAuthority?: boolean;
+  licenseStatus?: RuntimeLicenseStatus;
+  runtimeEntitlements?: RuntimeEntitlementResponse;
+  version?: string;
 }
 
 /** Build a complete Runtime `/info` response with structured entitlements. */
@@ -37,18 +52,22 @@ function runtimeInfo({
       description: "Assistant",
     },
   },
-  includeRuntimeEntitlements = true,
+  includeRuntimeAuthority = true,
+  licenseStatus = "valid",
+  runtimeEntitlements:
+    advertisedRuntimeEntitlements = initialRuntimeEntitlements,
+  version = "1.0.0",
 }: RuntimeInfoOptions = {}): RuntimeInfo {
   return {
-    version: "1.0.0",
+    version,
     agents,
     audioFileTranscriptionEnabled: false,
     mode: "intelligence",
     intelligence: { wsUrl: "wss://runtime.example/client" },
-    runtimeEntitlements: includeRuntimeEntitlements
-      ? runtimeEntitlements
+    runtimeEntitlements: includeRuntimeAuthority
+      ? advertisedRuntimeEntitlements
       : undefined,
-    licenseStatus: "valid",
+    licenseStatus: includeRuntimeAuthority ? licenseStatus : undefined,
   };
 }
 
@@ -93,11 +112,13 @@ async function waitForConnected(core: CopilotKitCore): Promise<void> {
   );
 }
 
-/** Read the typed public entitlement state without duplicating access logic. */
-function readRuntimeEntitlements(
-  core: CopilotKitCore,
-): RuntimeEntitlementResponse | undefined {
-  return core.runtimeEntitlements;
+/** Read both typed public Runtime authority diagnostics. */
+function readRuntimeAuthority(core: CopilotKitCore) {
+  const runtimeEntitlements: RuntimeEntitlementResponse | undefined =
+    core.runtimeEntitlements;
+  const licenseStatus: RuntimeLicenseStatus | undefined = core.licenseStatus;
+
+  return { licenseStatus, runtimeEntitlements };
 }
 
 test("ingests Runtime entitlements from `/info` through the typed public getter", async () => {
@@ -108,27 +129,28 @@ test("ingests Runtime entitlements from `/info` through the typed public getter"
   try {
     await waitForConnected(core);
 
-    const legacyLicenseStatus: RuntimeLicenseStatus | undefined =
-      core.licenseStatus;
-    const publicRuntimeEntitlements = readRuntimeEntitlements(core);
+    const authority = readRuntimeAuthority(core);
 
-    expect(legacyLicenseStatus).toBe("valid");
+    expect(authority.licenseStatus).toBe("valid");
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(fetchMock).toHaveBeenCalledWith("https://runtime.example/info", {
       headers: {},
     });
-    expect(publicRuntimeEntitlements).toEqual(runtimeEntitlements);
+    expect(authority.runtimeEntitlements).toEqual(initialRuntimeEntitlements);
   } finally {
     teardown();
   }
 });
 
-test("clears Runtime entitlements when the Runtime disconnects", async () => {
+test("clears Runtime authority when the Runtime disconnects", async () => {
   const { core, teardown } = setupCore(runtimeInfoResponse(runtimeInfo()));
 
   try {
     await waitForConnected(core);
-    expect(readRuntimeEntitlements(core)).toEqual(runtimeEntitlements);
+    expect(readRuntimeAuthority(core)).toEqual({
+      licenseStatus: "valid",
+      runtimeEntitlements: initialRuntimeEntitlements,
+    });
 
     core.setRuntimeUrl(undefined);
     await waitForCondition(
@@ -137,13 +159,16 @@ test("clears Runtime entitlements when the Runtime disconnects", async () => {
         CopilotKitCoreRuntimeConnectionStatus.Disconnected,
     );
 
-    expect(readRuntimeEntitlements(core)).toBeUndefined();
+    expect(readRuntimeAuthority(core)).toEqual({
+      licenseStatus: undefined,
+      runtimeEntitlements: undefined,
+    });
   } finally {
     teardown();
   }
 });
 
-test("clears Runtime entitlements when a refresh fails", async () => {
+test("clears Runtime authority when a refresh fails", async () => {
   const { core, teardown } = setupCore(
     runtimeInfoResponse(runtimeInfo()),
     new Response("Runtime unavailable", {
@@ -154,7 +179,10 @@ test("clears Runtime entitlements when a refresh fails", async () => {
 
   try {
     await waitForConnected(core);
-    expect(readRuntimeEntitlements(core)).toEqual(runtimeEntitlements);
+    expect(readRuntimeAuthority(core)).toEqual({
+      licenseStatus: "valid",
+      runtimeEntitlements: initialRuntimeEntitlements,
+    });
 
     core.setRuntimeTransport("single");
     await waitForCondition(
@@ -163,16 +191,19 @@ test("clears Runtime entitlements when a refresh fails", async () => {
         CopilotKitCoreRuntimeConnectionStatus.Error,
     );
 
-    expect(readRuntimeEntitlements(core)).toBeUndefined();
+    expect(readRuntimeAuthority(core)).toEqual({
+      licenseStatus: undefined,
+      runtimeEntitlements: undefined,
+    });
   } finally {
     teardown();
   }
 });
 
-test("clears Runtime entitlements when a refresh removes the advertised agent", async () => {
+test("clears stale Runtime authority when a successful refresh omits it", async () => {
   const refreshedInfo = runtimeInfo({
-    agents: {},
-    includeRuntimeEntitlements: false,
+    includeRuntimeAuthority: false,
+    version: "2.0.0",
   });
   const { core, fetchMock, teardown } = setupCore(
     runtimeInfoResponse(runtimeInfo()),
@@ -181,14 +212,52 @@ test("clears Runtime entitlements when a refresh removes the advertised agent", 
 
   try {
     await waitForConnected(core);
-    expect(readRuntimeEntitlements(core)).toEqual(runtimeEntitlements);
+    expect(readRuntimeAuthority(core)).toEqual({
+      licenseStatus: "valid",
+      runtimeEntitlements: initialRuntimeEntitlements,
+    });
 
     core.setRuntimeTransport("single");
     await waitForCondition(() => fetchMock.mock.calls.length === 2);
+    await waitForCondition(() => core.runtimeVersion === "2.0.0");
+
+    expect(readRuntimeAuthority(core)).toEqual({
+      licenseStatus: undefined,
+      runtimeEntitlements: undefined,
+    });
+  } finally {
+    teardown();
+  }
+});
+
+test("keeps updated Runtime authority when a refresh removes an agent", async () => {
+  const refreshedInfo = runtimeInfo({
+    agents: {},
+    licenseStatus: "expiring",
+    runtimeEntitlements: refreshedRuntimeEntitlements,
+    version: "2.0.0",
+  });
+  const { core, fetchMock, teardown } = setupCore(
+    runtimeInfoResponse(runtimeInfo()),
+    runtimeInfoResponse(refreshedInfo),
+  );
+
+  try {
+    await waitForConnected(core);
+    expect(readRuntimeAuthority(core)).toEqual({
+      licenseStatus: "valid",
+      runtimeEntitlements: initialRuntimeEntitlements,
+    });
+
+    core.setRuntimeTransport("single");
+    await waitForCondition(() => fetchMock.mock.calls.length === 2);
+    await waitForCondition(() => core.runtimeVersion === "2.0.0");
     await waitForCondition(() => core.agents.assistant === undefined);
 
-    expect(readRuntimeEntitlements(core)).toBeUndefined();
-    expect(core.licenseStatus).toBe("valid");
+    expect(readRuntimeAuthority(core)).toEqual({
+      licenseStatus: "expiring",
+      runtimeEntitlements: refreshedRuntimeEntitlements,
+    });
   } finally {
     teardown();
   }
