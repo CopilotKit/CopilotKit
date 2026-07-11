@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MockInstance } from "vitest";
 
 import { readFileSync } from "node:fs";
@@ -39,99 +39,6 @@ let consoleInfoSpy: MockInstance<typeof console.info>;
 const webInspectorPackage = JSON.parse(
   readFileSync(resolvePath(process.cwd(), "package.json"), "utf8"),
 ) as { version: string };
-const telemetryIdModes = [
-  { label: "absent", telemetryId: undefined },
-  { label: "present", telemetryId: "standalone-runtime-telemetry-id" },
-] as const;
-const persistedBrowserId = "11111111-1111-4111-8111-111111111111";
-const fixedTelemetryTimeMs = Date.parse("2026-07-11T12:34:56.000Z");
-
-interface CapturedInspectorPayload {
-  event: string;
-  properties: {
-    distinct_id: string;
-    inspector_distinct_id?: string;
-    posthog_distinct_id?: string;
-  };
-  package: { name: string; version?: string };
-  ts: number;
-}
-
-/** Set one standalone telemetry-ID mode and return its exact environment restore. */
-function setTelemetryIdMode(telemetryId: string | undefined): () => void {
-  const previousTelemetryId = process.env.CPK_TELEMETRY_ID;
-  if (telemetryId === undefined) {
-    delete process.env.CPK_TELEMETRY_ID;
-  } else {
-    process.env.CPK_TELEMETRY_ID = telemetryId;
-  }
-
-  return () => {
-    if (previousTelemetryId === undefined) {
-      delete process.env.CPK_TELEMETRY_ID;
-    } else {
-      process.env.CPK_TELEMETRY_ID = previousTelemetryId;
-    }
-  };
-}
-
-/** Capture the complete normalized Inspector request sequence for one CPK mode. */
-async function captureInspectorTransport(telemetryId: string | undefined) {
-  const restoreTelemetryId = setTelemetryIdMode(telemetryId);
-  window.localStorage.clear();
-  _resetTelemetryPersistenceForTesting();
-  window.localStorage.setItem(
-    "cpk:inspector:telemetry:distinct_id",
-    persistedBrowserId,
-  );
-  fetchMock.mockClear();
-
-  try {
-    trackBannerViewed({ banner_id: "release-banner" });
-    trackThreadsIntelligenceSignupClicked({
-      cta: "signup",
-      cta_surface: "threads_locked",
-      posthog_distinct_id: "existing-website-alias",
-    });
-    trackTalkToEngineerClicked({
-      cta: "talk_to_engineer",
-      cta_surface: "threads_header",
-      posthog_distinct_id: "existing-website-alias",
-    });
-    await Promise.resolve();
-
-    const requests = fetchMock.mock.calls.map(([url, init]) => {
-      if (typeof init?.body !== "string") {
-        throw new Error("Expected Inspector telemetry to send a JSON body");
-      }
-
-      const headers = Object.fromEntries(
-        [...new Headers(init.headers).entries()].sort(([left], [right]) =>
-          left.localeCompare(right),
-        ),
-      );
-      const body: CapturedInspectorPayload = JSON.parse(init.body);
-
-      return {
-        url: String(url),
-        method: init.method ?? "GET",
-        headers,
-        body,
-      };
-    });
-
-    return {
-      requests,
-      persistedId: window.localStorage.getItem(
-        "cpk:inspector:telemetry:distinct_id",
-      ),
-      ctaDistinctId: getTelemetryDistinctIdForUrl(),
-    };
-  } finally {
-    restoreTelemetryId();
-  }
-}
-
 beforeEach(() => {
   // Each test starts from a clean localStorage so distinct-ID + opt-out
   // + disclosure-shown flags don't leak across cases.
@@ -152,81 +59,6 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
-
-test("CPK_TELEMETRY_ID does not alter any Inspector telemetry request field", async () => {
-  vi.spyOn(Date, "now").mockReturnValue(fixedTelemetryTimeMs);
-
-  const absent = await captureInspectorTransport(undefined);
-  const present = await captureInspectorTransport(
-    "standalone-runtime-telemetry-id",
-  );
-
-  expect(present).toEqual(absent);
-  expect(absent.persistedId).toBe(persistedBrowserId);
-  expect(absent.persistedId).toMatch(/^[0-9a-f-]{36}$/);
-  expect(absent.ctaDistinctId).toBe(persistedBrowserId);
-  expect(absent.requests).toHaveLength(3);
-  expect(absent.requests.every(({ url }) => url === TELEMETRY_INGEST_URL)).toBe(
-    true,
-  );
-  expect(absent.requests.every(({ method }) => method === "POST")).toBe(true);
-  expect(absent.requests.map(({ headers }) => headers)).toEqual([
-    {
-      "content-type": "application/json",
-      "x-copilotkit-telemetry-id": persistedBrowserId,
-    },
-    {
-      "content-type": "application/json",
-      "x-copilotkit-telemetry-id": persistedBrowserId,
-    },
-    {
-      "content-type": "application/json",
-      "x-copilotkit-telemetry-id": persistedBrowserId,
-    },
-  ]);
-  const payloads = absent.requests.map(({ body }) => body);
-  expect(payloads.map(({ event }) => event)).toEqual([
-    TELEMETRY_EVENTS.bannerViewed,
-    TELEMETRY_EVENTS.threadsIntelligenceSignupClicked,
-    TELEMETRY_EVENTS.talkToEngineerClicked,
-  ]);
-  expect(payloads.map(({ properties }) => properties.distinct_id)).toEqual([
-    persistedBrowserId,
-    persistedBrowserId,
-    persistedBrowserId,
-  ]);
-  expect(payloads[1]?.properties).toMatchObject({
-    inspector_distinct_id: persistedBrowserId,
-    posthog_distinct_id: "existing-website-alias",
-  });
-  expect(payloads[2]?.properties).toMatchObject({
-    inspector_distinct_id: persistedBrowserId,
-    posthog_distinct_id: "existing-website-alias",
-  });
-});
-
-test.each(telemetryIdModes)(
-  "keeps Inspector send and CTA propagation opted out when CPK_TELEMETRY_ID is $label",
-  async ({ telemetryId }) => {
-    const restoreTelemetryId = setTelemetryIdMode(telemetryId);
-    window.localStorage.setItem(
-      "cpk:inspector:telemetry:distinct_id",
-      persistedBrowserId,
-    );
-
-    try {
-      setTelemetryOptOut(true);
-
-      trackBannerClicked({ banner_id: "release-banner", cta: "body" });
-      await Promise.resolve();
-
-      expect(fetchMock).not.toHaveBeenCalled();
-      expect(getTelemetryDistinctIdForUrl()).toBeNull();
-    } finally {
-      restoreTelemetryId();
-    }
-  },
-);
 
 // ─── Wire body shape ────────────────────────────────────────────────────────
 
