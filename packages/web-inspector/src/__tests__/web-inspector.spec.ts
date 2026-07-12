@@ -3175,10 +3175,10 @@ describe("cpk-memory-list", () => {
     const el = await mountList(threeMemories);
     const cards = el.shadowRoot?.querySelectorAll(".cpk-ml__card");
     expect(cards?.length).toBe(3);
-    const contents = Array.from(cards ?? []).map((card) =>
+    const renderedMemoryText = Array.from(cards ?? []).map((card) =>
       card.querySelector(".cpk-ml__content")?.textContent?.trim(),
     );
-    expect(contents).toEqual([
+    expect(renderedMemoryText).toEqual([
       "Likes cats",
       "First login was on a Monday",
       "Deploys on Thursdays",
