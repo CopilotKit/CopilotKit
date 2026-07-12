@@ -4,6 +4,9 @@
 # Stack: <stack_name_base>-lg  (isolated from deploy-strands.sh)
 # Using Terraform instead? See infra-terraform/README.md
 set -euo pipefail
+set +a
+set +x
+export -n CPK_INTELLIGENCE_API_KEY
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PATTERN="langgraph-single-agent"
@@ -29,9 +32,9 @@ if [ "${INTELLIGENCE_GATEWAY_WS_URL+x}" = x ]; then
   INTELLIGENCE_GATEWAY_WS_URL_OVERRIDE_SET=true
 fi
 
-set -a
 source "$SCRIPT_DIR/.env"
 set +a
+set +x
 if [ "$INTELLIGENCE_API_URL_OVERRIDE_SET" = true ]; then
   export INTELLIGENCE_API_URL="$INTELLIGENCE_API_URL_OVERRIDE"
 fi
@@ -39,7 +42,11 @@ if [ "$INTELLIGENCE_GATEWAY_WS_URL_OVERRIDE_SET" = true ]; then
   export INTELLIGENCE_GATEWAY_WS_URL="$INTELLIGENCE_GATEWAY_WS_URL_OVERRIDE"
 fi
 : "${CPK_INTELLIGENCE_API_KEY:?CPK_INTELLIGENCE_API_KEY is required in .env}"
+export -n CPK_INTELLIGENCE_API_KEY
+export INTELLIGENCE_API_URL="${INTELLIGENCE_API_URL:-}"
+export INTELLIGENCE_GATEWAY_WS_URL="${INTELLIGENCE_GATEWAY_WS_URL:-}"
 export CPK_TELEMETRY_ID="${CPK_TELEMETRY_ID:-}"
+export VITE_COPILOTKIT_THREADS_ENABLED=true
 
 for arg in "$@"; do
   [[ "$arg" == "--skip-frontend" ]] && SKIP_FRONTEND=true
@@ -96,15 +103,17 @@ PYEOF
 
 # ── CDK deploy ───────────────────────────────────────────────────────────────
 if [ "$SKIP_BACKEND" = true ]; then
+  unset CPK_INTELLIGENCE_API_KEY
   echo "⚡ Skipping backend deploy (--skip-backend)"
 else
   # Materialize the managed key only when backend resources are being deployed.
   CPK_INTELLIGENCE_API_KEY_SECRET_NAME=$(python3 -c "import re; c=open('$CONFIG').read(); print(re.search(r'^copilotkit_intelligence_api_key_secret_name:\s*([^#\s]+)', c, re.MULTILINE).group(1))")
   if aws secretsmanager describe-secret --secret-id "$CPK_INTELLIGENCE_API_KEY_SECRET_NAME" >/dev/null 2>&1; then
-    CPK_INTELLIGENCE_API_KEY_SECRET_VERSION_ID=$(aws secretsmanager put-secret-value --secret-id "$CPK_INTELLIGENCE_API_KEY_SECRET_NAME" --secret-string "$CPK_INTELLIGENCE_API_KEY" --query VersionId --output text)
+    CPK_INTELLIGENCE_API_KEY_SECRET_VERSION_ID=$(printf '%s' "$CPK_INTELLIGENCE_API_KEY" | aws secretsmanager put-secret-value --secret-id "$CPK_INTELLIGENCE_API_KEY_SECRET_NAME" --secret-string file:///dev/stdin --query VersionId --output text)
   else
-    CPK_INTELLIGENCE_API_KEY_SECRET_VERSION_ID=$(aws secretsmanager create-secret --name "$CPK_INTELLIGENCE_API_KEY_SECRET_NAME" --secret-string "$CPK_INTELLIGENCE_API_KEY" --query VersionId --output text)
+    CPK_INTELLIGENCE_API_KEY_SECRET_VERSION_ID=$(printf '%s' "$CPK_INTELLIGENCE_API_KEY" | aws secretsmanager create-secret --name "$CPK_INTELLIGENCE_API_KEY_SECRET_NAME" --secret-string file:///dev/stdin --query VersionId --output text)
   fi
+  unset CPK_INTELLIGENCE_API_KEY
   : "${CPK_INTELLIGENCE_API_KEY_SECRET_VERSION_ID:?Secrets Manager did not return a managed key version ID}"
   export CPK_INTELLIGENCE_API_KEY_SECRET_VERSION_ID
   echo "✓ Managed Intelligence key stored in Secrets Manager"

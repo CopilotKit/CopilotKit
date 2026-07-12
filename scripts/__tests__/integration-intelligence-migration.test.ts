@@ -123,6 +123,7 @@ interface AgentCoreDeployHarnessOptions {
   readonly callerEnvironment?: AgentCoreDeployEnvironment;
   readonly skipBackend?: boolean;
   readonly skipFrontend?: boolean;
+  readonly xtrace?: boolean;
 }
 
 interface AgentCoreDeployHarnessResult {
@@ -134,6 +135,9 @@ interface AgentCoreDeployHarnessResult {
   readonly npmCommands: readonly string[];
   readonly frontendStackName: string | null;
   readonly frontendSecretVersionId: string | null;
+  readonly frontendThreadsEnabled: string | null;
+  readonly secretExposureObservations: readonly string[];
+  readonly secretInputObservations: readonly string[];
 }
 
 const LANGGRAPH_RUNTIME_AGENT_CONTRACT = {
@@ -2354,6 +2358,22 @@ function expectAgentCoreDeployScriptContract(contents: string): void {
   const telemetryExportIndex = lines.findIndex((line) =>
     new RegExp(`^\\s*export\\s+${OPTIONAL_TELEMETRY_ID}(?:=|\\s|$)`).test(line),
   );
+  const disableAllexportIndex = lines.findIndex((line) =>
+    /^\s*set\s+\+a\s*$/.test(line),
+  );
+  const disableXtraceIndex = lines.findIndex((line) =>
+    /^\s*set\s+\+x\s*$/.test(line),
+  );
+  const managedKeyUnexportIndices = lines.flatMap((line, index) =>
+    new RegExp(`^\\s*export\\s+-n\\s+${MANAGED_API_KEY}\\s*$`).test(line)
+      ? [index]
+      : [],
+  );
+  const managedKeyUnsetIndices = lines.flatMap((line, index) =>
+    new RegExp(`^\\s*unset\\s+${MANAGED_API_KEY}\\s*$`).test(line)
+      ? [index]
+      : [],
+  );
   const secretVersionExportIndex = lines.findIndex((line) =>
     new RegExp(
       `^\\s*export\\s+${MANAGED_API_KEY_SECRET_VERSION_ID}(?:=|\\s|$)`,
@@ -2371,6 +2391,19 @@ function expectAgentCoreDeployScriptContract(contents: string): void {
     throw new Error("AgentCore secret materialization contract is incomplete");
   }
   expect(skipBackendGuardIndex).toBeGreaterThanOrEqual(0);
+  expect(disableAllexportIndex).toBeGreaterThanOrEqual(0);
+  expect(disableAllexportIndex).toBeLessThan(rootEnvLoadIndex);
+  expect(disableXtraceIndex).toBeGreaterThanOrEqual(0);
+  expect(disableXtraceIndex).toBeLessThan(rootEnvLoadIndex);
+  expect(contents).not.toMatch(/^\s*set\s+-a\s*$/m);
+  expect(
+    managedKeyUnexportIndices.some((index) => index < rootEnvLoadIndex),
+  ).toBe(true);
+  expect(
+    managedKeyUnexportIndices.some(
+      (index) => index > rootEnvLoadIndex && index < skipBackendGuardIndex,
+    ),
+  ).toBe(true);
   expect(backendDeployElseIndex).toBeGreaterThan(skipBackendGuardIndex);
   expect(secretConfigAssignment.index).toBeGreaterThan(backendDeployElseIndex);
   expect(secretVersionExportIndex).toBeGreaterThan(backendDeployElseIndex);
@@ -2381,6 +2414,14 @@ function expectAgentCoreDeployScriptContract(contents: string): void {
   );
   for (const { line } of secretCommands) {
     expect(line).toMatch(
+      new RegExp(
+        `printf\\s+['"]%s['"]\\s+["']\\$\\{?${MANAGED_API_KEY}\\}?["']\\s*\\|\\s*aws\\s+secretsmanager`,
+      ),
+    );
+    expect(line).toMatch(
+      /--secret-string(?:=|\s+)file:\/\/\/dev\/stdin(?:\s|$)/,
+    );
+    expect(line).not.toMatch(
       new RegExp(
         `--secret-string(?:=|\\s+)["']?\\$\\{?${MANAGED_API_KEY}\\}?["']?(?:\\s|$)`,
       ),
@@ -2393,6 +2434,17 @@ function expectAgentCoreDeployScriptContract(contents: string): void {
   }
   expect(rootEnvLoadIndex).toBeLessThan(secretCommands[0].index);
   expect(secretConfigAssignment.index).toBeLessThan(secretCommands[0].index);
+  expect(
+    managedKeyUnsetIndices.some(
+      (index) =>
+        index > skipBackendGuardIndex && index < backendDeployElseIndex,
+    ),
+  ).toBe(true);
+  expect(
+    managedKeyUnsetIndices.some(
+      (index) => index > secretCommands[0].index && index < cdkDeployIndex,
+    ),
+  ).toBe(true);
   for (const backendOwnedIndex of [
     secretConfigAssignment.index,
     ...secretCommands.map(({ index: commandIndex }) => commandIndex),
@@ -2703,13 +2755,20 @@ test("AgentCore structural helpers accept linked root-env, secret, Lambda, and f
     });
   `;
   const deployScript = `
+    set +a
+    set +x
+    export -n ${MANAGED_API_KEY}
     source "$SCRIPT_DIR/.env"
+    export -n ${MANAGED_API_KEY}
     export ${OPTIONAL_TELEMETRY_ID}
+    export ${VITE_THREADS_GATE}=true
     if [ "$SKIP_BACKEND" = true ]; then
+      unset ${MANAGED_API_KEY}
       echo "Skipping backend"
     else
       CPK_SECRET_NAME=$(read_config ${MANAGED_API_KEY_SECRET_CONFIG})
-      aws secretsmanager create-secret --name "$CPK_SECRET_NAME" --secret-string "$${MANAGED_API_KEY}"
+      printf '%s' "$${MANAGED_API_KEY}" | aws secretsmanager create-secret --name "$CPK_SECRET_NAME" --secret-string file:///dev/stdin
+      unset ${MANAGED_API_KEY}
       export ${MANAGED_API_KEY_SECRET_VERSION_ID}
       npx cdk deploy --all
     fi
@@ -2927,6 +2986,26 @@ for (const scriptName of [
     expect(result.output).not.toContain(MANAGED_API_KEY_SENTINEL);
   });
 
+  test(`${scriptName} delivers the managed key only through Secrets Manager stdin`, () => {
+    const result = runAgentCoreDeployHarness({
+      scriptName,
+      envFile: {
+        apiUrl: "https://intelligence.example.com/api",
+        gatewayWsUrl: "wss://gateway.example.com/runtime",
+      },
+      skipFrontend: false,
+      xtrace: true,
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.secretInputObservations).toEqual(["aws:stdin-match"]);
+    expect(result.secretExposureObservations).toEqual([]);
+    expect(result.awsCommands.join("\n")).not.toContain(
+      MANAGED_API_KEY_SENTINEL,
+    );
+    expect(result.frontendThreadsEnabled).toBe("true");
+  });
+
   test(`${scriptName} --skip-backend leaves backend secret state untouched while deploying the frontend`, () => {
     const result = runAgentCoreDeployHarness({
       scriptName,
@@ -2951,6 +3030,9 @@ for (const scriptName of [
         : "agentcore-contract-st",
     );
     expect(result.frontendSecretVersionId).toBe("");
+    expect(result.frontendThreadsEnabled).toBe("true");
+    expect(result.secretExposureObservations).toEqual([]);
+    expect(result.secretInputObservations).toEqual([]);
     expect(result.output).toContain("Skipping backend deploy (--skip-backend)");
     expect(result.output).not.toContain("Managed Intelligence key stored");
     expect(result.output).not.toContain(MANAGED_API_KEY_SENTINEL);
@@ -3832,6 +3914,18 @@ function readAgentCoreHarnessLines(capturePath: string): string[] {
     .filter((line) => line.length > 0);
 }
 
+/** Emit a shell probe that records any managed-key environment or argv leak. */
+function agentCoreSecretExposureProbe(command: string): string {
+  return [
+    `if [[ -n "\${${MANAGED_API_KEY}-}" ]]; then`,
+    `  printf '%s\\n' '${command}:env' >> "\${SECRET_EXPOSURE_CAPTURE:?}"`,
+    "fi",
+    `if [[ "$*" == *'${MANAGED_API_KEY_SENTINEL}'* ]]; then`,
+    `  printf '%s\\n' '${command}:argv' >> "\${SECRET_EXPOSURE_CAPTURE:?}"`,
+    "fi",
+  ].join("\n");
+}
+
 /** Execute one real AgentCore deploy script against non-networking command stubs. */
 function runAgentCoreDeployHarness(
   options: AgentCoreDeployHarnessOptions,
@@ -3848,6 +3942,14 @@ function runAgentCoreDeployHarness(
     const frontendCapturePath = path.join(
       harnessDirectory,
       "frontend-environment.txt",
+    );
+    const secretExposureCapturePath = path.join(
+      harnessDirectory,
+      "secret-exposure.txt",
+    );
+    const secretInputCapturePath = path.join(
+      harnessDirectory,
+      "secret-input.txt",
     );
     const scriptPath = path.join(harnessDirectory, options.scriptName);
     fs.mkdirSync(fakeBin);
@@ -3891,6 +3993,7 @@ function runAgentCoreDeployHarness(
       [
         "#!/usr/bin/env bash\n",
         "set -eu\n",
+        `${agentCoreSecretExposureProbe("npm")}\n`,
         'printf \'%s\\n\' "$*" >> "${NPM_COMMAND_CAPTURE:?}"\n',
       ].join(""),
     );
@@ -3900,8 +4003,15 @@ function runAgentCoreDeployHarness(
       [
         "#!/usr/bin/env bash\n",
         "set -eu\n",
+        `${agentCoreSecretExposureProbe("aws")}\n`,
         'printf \'%s\\n\' "$*" >> "${AWS_COMMAND_CAPTURE:?}"\n',
         'if [[ "$*" == *"secretsmanager put-secret-value"* || "$*" == *"secretsmanager create-secret"* ]]; then\n',
+        "  secret_input=$(cat)\n",
+        `  if [[ "$secret_input" == '${MANAGED_API_KEY_SENTINEL}' ]]; then\n`,
+        "    printf '%s\\n' 'aws:stdin-match' >> \"${SECRET_INPUT_CAPTURE:?}\"\n",
+        "  else\n",
+        "    printf '%s\\n' 'aws:stdin-missing' >> \"${SECRET_INPUT_CAPTURE:?}\"\n",
+        "  fi\n",
         `  printf '%s\\n' '${MANAGED_API_KEY_SECRET_VERSION_SENTINEL}'\n`,
         "fi\n",
       ].join(""),
@@ -3912,6 +4022,7 @@ function runAgentCoreDeployHarness(
       [
         "#!/usr/bin/env bash\n",
         "set -eu\n",
+        `${agentCoreSecretExposureProbe("npx")}\n`,
         `printf '%s\\n%s\\n%s\\n' "\${${INTELLIGENCE_API_URL}-}" "\${${INTELLIGENCE_GATEWAY_WS_URL}-}" "\${${MANAGED_API_KEY_SECRET_VERSION_ID}-}" > "\${CDK_ENV_CAPTURE:?}"\n`,
       ].join(""),
     );
@@ -3921,13 +4032,17 @@ function runAgentCoreDeployHarness(
         "import os\n",
         "import pathlib\n",
         "import sys\n",
+        `if os.environ.get('${MANAGED_API_KEY}'):\n`,
+        '    with pathlib.Path(os.environ["SECRET_EXPOSURE_CAPTURE"]).open("a") as capture:\n',
+        '        capture.write("frontend:env\\n")\n',
         'pathlib.Path(os.environ["FRONTEND_CAPTURE"]).write_text(\n',
-        `    f"{sys.argv[1]}\\n{os.environ.get('${MANAGED_API_KEY_SECRET_VERSION_ID}', '')}\\n"\n`,
+        `    f"{sys.argv[1]}\\n{os.environ.get('${MANAGED_API_KEY_SECRET_VERSION_ID}', '')}\\n{os.environ.get('${VITE_THREADS_GATE}', '')}\\n"\n`,
         ")\n",
       ].join(""),
     );
 
     const environment = { ...process.env };
+    environment[MANAGED_API_KEY] = MANAGED_API_KEY_SENTINEL;
     delete environment[INTELLIGENCE_API_URL];
     delete environment[INTELLIGENCE_GATEWAY_WS_URL];
     delete environment[MANAGED_API_KEY_SECRET_VERSION_ID];
@@ -3936,6 +4051,8 @@ function runAgentCoreDeployHarness(
     environment.AWS_COMMAND_CAPTURE = awsCapturePath;
     environment.NPM_COMMAND_CAPTURE = npmCapturePath;
     environment.FRONTEND_CAPTURE = frontendCapturePath;
+    environment.SECRET_EXPOSURE_CAPTURE = secretExposureCapturePath;
+    environment.SECRET_INPUT_CAPTURE = secretInputCapturePath;
     if (options.callerEnvironment?.apiUrl !== undefined) {
       environment[INTELLIGENCE_API_URL] = options.callerEnvironment.apiUrl;
     }
@@ -3945,6 +4062,7 @@ function runAgentCoreDeployHarness(
     }
 
     const scriptArguments = [
+      ...(options.xtrace === true ? ["-x"] : []),
       scriptPath,
       ...(options.skipFrontend === false ? [] : ["--skip-frontend"]),
       ...(options.skipBackend === true ? ["--skip-backend"] : []),
@@ -3977,6 +4095,13 @@ function runAgentCoreDeployHarness(
       npmCommands: readAgentCoreHarnessLines(npmCapturePath),
       frontendStackName: frontendEnvironment?.[0] ?? null,
       frontendSecretVersionId: frontendEnvironment?.[1] ?? null,
+      frontendThreadsEnabled: frontendEnvironment?.[2] ?? null,
+      secretExposureObservations: readAgentCoreHarnessLines(
+        secretExposureCapturePath,
+      ),
+      secretInputObservations: readAgentCoreHarnessLines(
+        secretInputCapturePath,
+      ),
     };
   } finally {
     fs.rmSync(harnessDirectory, { force: true, recursive: true });
