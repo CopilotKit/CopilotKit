@@ -183,6 +183,12 @@ Both patterns use the same catalog on the frontend — the difference is where t
 
 Feel free to submit issues and enhancement requests! This starter is designed to be easily extensible.
 
+## Managed CopilotKit Intelligence
+
+`copilotkit init` writes `CPK_INTELLIGENCE_API_KEY` for the selected managed
+project. `CPK_TELEMETRY_ID` is an optional, non-secret analytics identity.
+Keep both values in `.env`; the telemetry ID is not a credential.
+
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
