@@ -1,4 +1,6 @@
+import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import * as vm from "node:vm";
 
@@ -102,6 +104,25 @@ interface EvaluatedAgentCoreViteConfig {
   readonly define?: {
     readonly [VITE_THREADS_GATE_DEFINITION]?: string;
   };
+}
+
+type AgentCoreDeployScriptName = "deploy-langgraph.sh" | "deploy-strands.sh";
+
+interface AgentCoreDeployEnvironment {
+  readonly apiUrl?: string;
+  readonly gatewayWsUrl?: string;
+}
+
+interface AgentCoreDeployHarnessOptions {
+  readonly scriptName: AgentCoreDeployScriptName;
+  readonly envFile: AgentCoreDeployEnvironment;
+  readonly callerEnvironment?: AgentCoreDeployEnvironment;
+}
+
+interface AgentCoreDeployHarnessResult {
+  readonly status: number | null;
+  readonly output: string;
+  readonly cdkEnvironment: string | null;
 }
 
 const LANGGRAPH_RUNTIME_AGENT_CONTRACT = {
@@ -2747,6 +2768,107 @@ test("AgentCore deployment helper rejects endpoint literals disconnected from th
   ).toThrow();
 });
 
+test("AgentCore README documents caller-overridden remote endpoints for both AWS deploy variants", () => {
+  const readme = fs.readFileSync(
+    path.join(integrationsDir, "agentcore", "README.md"),
+    "utf8",
+  );
+
+  expectAgentCoreAwsEndpointReadmeContract(readme);
+});
+
+for (const scriptName of [
+  "deploy-langgraph.sh",
+  "deploy-strands.sh",
+] as const) {
+  test(`${scriptName} validates AWS endpoint overrides before secret or CDK commands`, () => {
+    const deployScript = fs.readFileSync(
+      path.join(integrationsDir, "agentcore", scriptName),
+      "utf8",
+    );
+
+    expectAgentCoreAwsEndpointDeployContract(deployScript);
+  });
+
+  for (const invalidEndpoint of [
+    {
+      label: "localhost API URL",
+      envFile: {
+        apiUrl: "http://localhost:4201",
+        gatewayWsUrl: "wss://gateway.example.com/runtime",
+      },
+      expectedVariable: INTELLIGENCE_API_URL,
+    },
+    {
+      label: "127.0.0.1 gateway URL",
+      envFile: {
+        apiUrl: "https://intelligence.example.com/api",
+        gatewayWsUrl: "ws://127.0.0.1:4401",
+      },
+      expectedVariable: INTELLIGENCE_GATEWAY_WS_URL,
+    },
+    {
+      label: "empty gateway URL",
+      envFile: {
+        apiUrl: "https://intelligence.example.com/api",
+        gatewayWsUrl: "",
+      },
+      expectedVariable: INTELLIGENCE_GATEWAY_WS_URL,
+    },
+  ] as const) {
+    test(`${scriptName} rejects ${invalidEndpoint.label} without exposing the managed key`, () => {
+      const result = runAgentCoreDeployHarness({
+        scriptName,
+        envFile: invalidEndpoint.envFile,
+      });
+
+      expect(result.status).toBe(1);
+      expect(result.output).toContain(invalidEndpoint.expectedVariable);
+      expect(result.output).toMatch(/reachable from AWS/i);
+      expect(result.output).not.toContain(MANAGED_API_KEY_SENTINEL);
+      expect(result.cdkEnvironment).toBeNull();
+    });
+  }
+
+  test(`${scriptName} accepts sourced HTTPS and WSS endpoints and passes them to CDK`, () => {
+    const result = runAgentCoreDeployHarness({
+      scriptName,
+      envFile: {
+        apiUrl: "https://intelligence.example.com/api",
+        gatewayWsUrl: "wss://gateway.example.com/runtime",
+      },
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.cdkEnvironment).toBe(
+      "https://intelligence.example.com/api\n" +
+        "wss://gateway.example.com/runtime\n",
+    );
+    expect(result.output).not.toContain(MANAGED_API_KEY_SENTINEL);
+  });
+
+  test(`${scriptName} preserves documented caller endpoint overrides over root localhost defaults`, () => {
+    const result = runAgentCoreDeployHarness({
+      scriptName,
+      envFile: {
+        apiUrl: "http://localhost:4201",
+        gatewayWsUrl: "ws://localhost:4401",
+      },
+      callerEnvironment: {
+        apiUrl: "https://managed-intelligence.example.com/api",
+        gatewayWsUrl: "wss://managed-gateway.example.com/runtime",
+      },
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.cdkEnvironment).toBe(
+      "https://managed-intelligence.example.com/api\n" +
+        "wss://managed-gateway.example.com/runtime\n",
+    );
+    expect(result.output).not.toContain(MANAGED_API_KEY_SENTINEL);
+  });
+}
+
 test("managed TypeScript helpers reject malformed source", () => {
   const malformedRuntime = `
     const intelligence = new CopilotKitIntelligence({
@@ -3510,5 +3632,162 @@ for (const contract of MANAGED_TEMPLATE_CONTRACTS) {
         expectAgentCoreDeployScriptContract(deployScript);
       }
     });
+  }
+}
+
+/** Assert AgentCore's AWS instructions require caller-provided remote endpoints. */
+function expectAgentCoreAwsEndpointReadmeContract(contents: string): void {
+  expect(contents).toMatch(/managed or self-hosted Intelligence endpoints/i);
+  expect(contents).toMatch(/reachable from AWS/i);
+  expect(contents).toMatch(
+    /must not use[\s`]*localhost[\s\S]{0,40}127\.0\.0\.1/i,
+  );
+
+  for (const scriptName of [
+    "deploy-langgraph.sh",
+    "deploy-strands.sh",
+  ] as const) {
+    expect(contents).toMatch(
+      new RegExp(
+        `INTELLIGENCE_API_URL=https://[^\\s]+[\\s\\S]{0,200}` +
+          `INTELLIGENCE_GATEWAY_WS_URL=wss://[^\\s]+[\\s\\S]{0,200}` +
+          `\\./${scriptName.replace(".", "\\.")}`,
+      ),
+    );
+  }
+}
+
+/** Assert one AgentCore deploy script validates remote endpoints before AWS writes. */
+function expectAgentCoreAwsEndpointDeployContract(contents: string): void {
+  const normalized = contents.replace(/\\\r?\n\s*/g, " ");
+  const lines = normalized.split(/\r?\n/);
+  const rootEnvLoadIndex = lines.findIndex((line) =>
+    /(?:^|\s)(?:source|\.)\s+["']?\$\{?SCRIPT_DIR\}?\/\.env["']?(?:\s|$)/.test(
+      line,
+    ),
+  );
+  const apiGuardIndex = lines.findIndex((line) =>
+    /require_remote_endpoint\s+INTELLIGENCE_API_URL\b/.test(line),
+  );
+  const gatewayGuardIndex = lines.findIndex((line) =>
+    /require_remote_endpoint\s+INTELLIGENCE_GATEWAY_WS_URL\b/.test(line),
+  );
+  const firstAwsWriteIndex = lines.findIndex((line) =>
+    /aws\s+secretsmanager\s+(?:create-secret|put-secret-value)\b/.test(line),
+  );
+  const cdkDeployIndex = lines.findIndex((line) =>
+    /npx\s+cdk(?:@\S+)?\s+deploy\b/.test(line),
+  );
+
+  expect(contents).toContain("${INTELLIGENCE_API_URL+x}");
+  expect(contents).toContain("${INTELLIGENCE_GATEWAY_WS_URL+x}");
+  expect(contents).toContain("localhost");
+  expect(contents).toContain("127\\.0\\.0\\.1");
+  expect(apiGuardIndex).toBeGreaterThan(rootEnvLoadIndex);
+  expect(gatewayGuardIndex).toBeGreaterThan(rootEnvLoadIndex);
+  expect(firstAwsWriteIndex).toBeGreaterThan(
+    Math.max(apiGuardIndex, gatewayGuardIndex),
+  );
+  expect(cdkDeployIndex).toBeGreaterThan(
+    Math.max(apiGuardIndex, gatewayGuardIndex),
+  );
+}
+
+/** Write one executable command stub into an AgentCore deploy harness. */
+function writeAgentCoreCommandStub(
+  directory: string,
+  command: string,
+  contents = "#!/usr/bin/env bash\nexit 0\n",
+): void {
+  const commandPath = path.join(directory, command);
+  fs.writeFileSync(commandPath, contents);
+  fs.chmodSync(commandPath, 0o755);
+}
+
+/** Render one optional endpoint into a shell environment assignment. */
+function agentCoreEndpointAssignment(name: string, value?: string): string {
+  return value === undefined ? "" : `${name}=${value}\n`;
+}
+
+/** Execute one real AgentCore deploy script against non-networking command stubs. */
+function runAgentCoreDeployHarness(
+  options: AgentCoreDeployHarnessOptions,
+): AgentCoreDeployHarnessResult {
+  const harnessDirectory = fs.mkdtempSync(
+    path.join(os.tmpdir(), "agentcore-deploy-contract-"),
+  );
+  try {
+    const fakeBin = path.join(harnessDirectory, "bin");
+    const cdkDirectory = path.join(harnessDirectory, "infra-cdk");
+    const capturePath = path.join(harnessDirectory, "cdk-environment.txt");
+    const scriptPath = path.join(harnessDirectory, options.scriptName);
+    fs.mkdirSync(fakeBin);
+    fs.mkdirSync(cdkDirectory);
+    fs.copyFileSync(
+      path.join(integrationsDir, "agentcore", options.scriptName),
+      scriptPath,
+    );
+    fs.writeFileSync(
+      path.join(harnessDirectory, ".env"),
+      [
+        `${MANAGED_API_KEY}=${MANAGED_API_KEY_SENTINEL}\n`,
+        `${OPTIONAL_TELEMETRY_ID}=agentcore-test-telemetry\n`,
+        agentCoreEndpointAssignment(
+          INTELLIGENCE_API_URL,
+          options.envFile.apiUrl,
+        ),
+        agentCoreEndpointAssignment(
+          INTELLIGENCE_GATEWAY_WS_URL,
+          options.envFile.gatewayWsUrl,
+        ),
+      ].join(""),
+    );
+    fs.writeFileSync(
+      path.join(harnessDirectory, "config.yaml"),
+      [
+        "stack_name_base: agentcore-contract\n",
+        `${MANAGED_API_KEY_SECRET_CONFIG}: agentcore/contract/key\n`,
+        "backend:\n",
+        "  pattern: placeholder\n",
+      ].join(""),
+    );
+
+    for (const command of ["aws", "docker", "node", "npm"]) {
+      writeAgentCoreCommandStub(fakeBin, command);
+    }
+    writeAgentCoreCommandStub(
+      fakeBin,
+      "npx",
+      [
+        "#!/usr/bin/env bash\n",
+        "set -eu\n",
+        `printf '%s\\n%s\\n' "\${${INTELLIGENCE_API_URL}-}" "\${${INTELLIGENCE_GATEWAY_WS_URL}-}" > "\${CDK_ENV_CAPTURE:?}"\n`,
+      ].join(""),
+    );
+
+    const environment = { ...process.env };
+    delete environment[INTELLIGENCE_API_URL];
+    delete environment[INTELLIGENCE_GATEWAY_WS_URL];
+    environment.PATH = `${fakeBin}:${process.env.PATH ?? ""}`;
+    environment.CDK_ENV_CAPTURE = capturePath;
+    if (options.callerEnvironment?.apiUrl !== undefined) {
+      environment[INTELLIGENCE_API_URL] = options.callerEnvironment.apiUrl;
+    }
+    if (options.callerEnvironment?.gatewayWsUrl !== undefined) {
+      environment[INTELLIGENCE_GATEWAY_WS_URL] =
+        options.callerEnvironment.gatewayWsUrl;
+    }
+
+    const result = spawnSync("/bin/bash", [scriptPath, "--skip-frontend"], {
+      encoding: "utf8",
+      env: environment,
+    });
+    const output = `${result.stdout}${result.stderr}`;
+    const cdkEnvironment = fs.existsSync(capturePath)
+      ? fs.readFileSync(capturePath, "utf8")
+      : null;
+    return { status: result.status, output, cdkEnvironment };
+  } finally {
+    fs.rmSync(harnessDirectory, { force: true, recursive: true });
   }
 }

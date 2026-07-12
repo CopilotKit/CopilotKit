@@ -18,9 +18,26 @@ if [ ! -f "$SCRIPT_DIR/.env" ]; then
   exit 1
 fi
 
+INTELLIGENCE_API_URL_OVERRIDE_SET=false
+if [ "${INTELLIGENCE_API_URL+x}" = x ]; then
+  INTELLIGENCE_API_URL_OVERRIDE="$INTELLIGENCE_API_URL"
+  INTELLIGENCE_API_URL_OVERRIDE_SET=true
+fi
+INTELLIGENCE_GATEWAY_WS_URL_OVERRIDE_SET=false
+if [ "${INTELLIGENCE_GATEWAY_WS_URL+x}" = x ]; then
+  INTELLIGENCE_GATEWAY_WS_URL_OVERRIDE="$INTELLIGENCE_GATEWAY_WS_URL"
+  INTELLIGENCE_GATEWAY_WS_URL_OVERRIDE_SET=true
+fi
+
 set -a
 source "$SCRIPT_DIR/.env"
 set +a
+if [ "$INTELLIGENCE_API_URL_OVERRIDE_SET" = true ]; then
+  export INTELLIGENCE_API_URL="$INTELLIGENCE_API_URL_OVERRIDE"
+fi
+if [ "$INTELLIGENCE_GATEWAY_WS_URL_OVERRIDE_SET" = true ]; then
+  export INTELLIGENCE_GATEWAY_WS_URL="$INTELLIGENCE_GATEWAY_WS_URL_OVERRIDE"
+fi
 : "${CPK_INTELLIGENCE_API_KEY:?CPK_INTELLIGENCE_API_KEY is required in .env}"
 export CPK_TELEMETRY_ID="${CPK_TELEMETRY_ID:-}"
 
@@ -35,6 +52,17 @@ echo "── CopilotKit + AWS AgentCore (Strands) ──────────
 check_command() {
   command -v "$1" >/dev/null 2>&1 || { echo "ERROR: $1 is required but not installed."; exit 1; }
 }
+require_remote_endpoint() {
+  local name="$1"
+  local value="$2"
+  local example="$3"
+  if [[ -z "$value" || "$value" =~ ^[a-zA-Z][a-zA-Z0-9+.-]*://(localhost|127\.0\.0\.1)([:/]|$) ]]; then
+    echo "ERROR: $name must be a non-local endpoint reachable from AWS (for example, $example). Set it in .env or prefix the deploy command."
+    exit 1
+  fi
+}
+require_remote_endpoint INTELLIGENCE_API_URL "${INTELLIGENCE_API_URL:-}" "https://intelligence.example.com"
+require_remote_endpoint INTELLIGENCE_GATEWAY_WS_URL "${INTELLIGENCE_GATEWAY_WS_URL:-}" "wss://gateway.example.com"
 check_command aws
 check_command node
 check_command python3

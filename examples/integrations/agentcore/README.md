@@ -33,17 +33,25 @@ Set `CPK_INTELLIGENCE_API_KEY` to the API key for your managed CopilotKit Intell
 
    Set `stack_name_base` and `admin_user_email` in `config.yaml`. The deploy script stores the managed key from `.env` in the configured AWS Secrets Manager secret; CDK resolves it only for the CopilotKit runtime Lambda.
 
+   Before deploying, provide managed or self-hosted Intelligence endpoints that are reachable from AWS. AWS deployments must not use `localhost` or `127.0.0.1`; the localhost defaults in `.env.example` are only for local Docker Compose.
+
 2. **Deploy:**
 
    ```bash
+   INTELLIGENCE_API_URL=https://intelligence.example.com \
+   INTELLIGENCE_GATEWAY_WS_URL=wss://gateway.example.com \
    ./deploy-langgraph.sh                    # LangGraph agent (infra + frontend)
    ./deploy-langgraph.sh --skip-frontend    # infra/agent only
    ./deploy-langgraph.sh --skip-backend     # frontend only
    # or
+   INTELLIGENCE_API_URL=https://intelligence.example.com \
+   INTELLIGENCE_GATEWAY_WS_URL=wss://gateway.example.com \
    ./deploy-strands.sh                      # AWS Strands agent
    ./deploy-strands.sh --skip-frontend
    ./deploy-strands.sh --skip-backend
    ```
+
+   The command-prefixed endpoint values override the local defaults sourced from `.env`. Use the same prefix with `--skip-frontend` or `--skip-backend` when needed.
 
 3. **Open** the Amplify URL printed at the end. Sign in with your email.
 
