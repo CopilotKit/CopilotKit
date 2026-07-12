@@ -11,8 +11,8 @@ import * as bedrockagentcore from "aws-cdk-lib/aws-bedrockagentcore";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as ecr_assets from "aws-cdk-lib/aws-ecr-assets";
 import * as cr from "aws-cdk-lib/custom-resources";
-import { Construct } from "constructs";
-import { AppConfig } from "./utils/config-manager";
+import type { Construct } from "constructs";
+import type { AppConfig } from "./utils/config-manager";
 import { AgentCoreRole } from "./utils/agentcore-role";
 import * as path from "path";
 import * as fs from "fs";
@@ -426,6 +426,10 @@ export class BackendStack extends cdk.NestedStack {
           AGENTCORE_AG_UI_URL: agentCoreAgUiUrl,
           COPILOTKIT_AGENT_NAME:
             config.backend?.pattern || "langgraph-single-agent",
+          CPK_INTELLIGENCE_API_KEY: cdk.SecretValue.secretsManager(
+            config.copilotkit_intelligence_api_key_secret_name,
+          ).unsafeUnwrap(),
+          CPK_TELEMETRY_ID: process.env.CPK_TELEMETRY_ID ?? "",
         },
         timeout: cdk.Duration.seconds(30),
         memorySize: 1024,

@@ -38,21 +38,7 @@ export function buildAgents(): Record<string, HttpAgent> {
   return { [agentName]: agent };
 }
 
-/**
- * AgentCore stores conversation history in its own memory layer (AgentCoreMemorySaver /
- * AgentCoreMemorySessionManager). When CopilotKit reconnects to an existing thread
- * (e.g. page refresh), it calls `connect()` which replays that stored history as a
- * MESSAGES_SNAPSHOT event. Two issues arise from this that this runner fixes:
- *
- * 1. Unknown threads — CopilotKit may call `connect()` for a thread it has never
- *    `run()` against (e.g. on first load). The base runner would error; instead we
- *    return an empty snapshot so the UI initialises cleanly.
- *
- * 2. Missing tool-call results — AgentCore's snapshot includes assistant messages
- *    with tool calls, but the corresponding TOOL_CALL_RESULT events are absent.
- *    CopilotKit needs those results to reconcile its internal message state. We
- *    synthesise empty results for every past tool call before emitting the snapshot.
- */
+/** Preserves AgentCore snapshot replay behavior for local and managed threads. */
 export class AgentCoreRunner extends InMemoryAgentRunner {
   private readonly knownThreadIds = new Set<string>();
 
@@ -67,7 +53,6 @@ export class AgentCoreRunner extends InMemoryAgentRunner {
     request: Parameters<InMemoryAgentRunner["connect"]>[0],
   ): ReturnType<InMemoryAgentRunner["connect"]> {
     if (!request.threadId || !this.knownThreadIds.has(request.threadId)) {
-      // Unknown thread — return an empty snapshot instead of erroring.
       const runId =
         typeof (request as { runId?: unknown }).runId === "string"
           ? ((request as { runId?: string }).runId ?? randomUUID())
@@ -88,8 +73,6 @@ export class AgentCoreRunner extends InMemoryAgentRunner {
       ) as unknown as ReturnType<InMemoryAgentRunner["connect"]>;
     }
 
-    // Known thread — replay synthetic tool-call results before the snapshot so
-    // CopilotKit can reconcile its message state correctly.
     return (super.connect(request) as any).pipe(
       concatMap((event: any) => {
         if (
@@ -128,22 +111,15 @@ export function buildApp() {
 
   const runtime = new CopilotRuntime({
     agents: { ...agents, default: defaultAgent },
-    // --- copilotkit:intelligence (remove this block to opt out) ---
-    ...(process.env.COPILOTKIT_LICENSE_TOKEN
-      ? {
-          intelligence: new CopilotKitIntelligence({
-            apiKey: process.env.INTELLIGENCE_API_KEY ?? "",
-            apiUrl: process.env.INTELLIGENCE_API_URL ?? "http://localhost:4201",
-            wsUrl:
-              process.env.INTELLIGENCE_GATEWAY_WS_URL ?? "ws://localhost:4401",
-          }),
-          // Demo stub — replace with your real auth-derived user identity before any
-          // multi-user deployment, or all users share one thread history.
-          identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
-          licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN,
-        }
-      : { runner: new AgentCoreRunner() }),
-    // --- /copilotkit:intelligence ---
+    runner: new AgentCoreRunner(),
+    intelligence: new CopilotKitIntelligence({
+      apiKey: process.env.CPK_INTELLIGENCE_API_KEY ?? "",
+      apiUrl: process.env.INTELLIGENCE_API_URL ?? "http://localhost:4201",
+      wsUrl: process.env.INTELLIGENCE_GATEWAY_WS_URL ?? "ws://localhost:4401",
+    }),
+    // Demo stub — replace with your real auth-derived user identity before any
+    // multi-user deployment, or all users share one thread history.
+    identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
   });
 
   return createCopilotEndpoint({ runtime, basePath: "/copilotkit" });

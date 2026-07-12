@@ -63,12 +63,11 @@ services:
       dockerfile: ../../../docker/Dockerfile.bridge.dev
     ports:
       - "3001:3001"
+    env_file: ../.env
     environment:
       - AGENTCORE_AG_UI_URL=http://agent:8080/invocations
       - PORT=3001
       - OTEL_SDK_DISABLED=true
-      - COPILOTKIT_LICENSE_TOKEN=${COPILOTKIT_LICENSE_TOKEN}
-      - INTELLIGENCE_API_KEY=${INTELLIGENCE_API_KEY}
       - INTELLIGENCE_API_URL=${INTELLIGENCE_API_URL:-http://localhost:4201}
       - INTELLIGENCE_GATEWAY_WS_URL=${INTELLIGENCE_GATEWAY_WS_URL:-ws://localhost:4401}
     depends_on:
@@ -86,9 +85,9 @@ services:
     volumes:
       - ../frontend:/app
       - /app/node_modules
+    env_file: ../.env
     environment:
       - NODE_ENV=development
-      - VITE_COPILOTKIT_THREADS_ENABLED=${COPILOTKIT_LICENSE_TOKEN:+true}
     depends_on:
       bridge:
         condition: service_started

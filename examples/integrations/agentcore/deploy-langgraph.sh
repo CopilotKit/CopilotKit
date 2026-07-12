@@ -13,6 +13,17 @@ CDK_DIR="$SCRIPT_DIR/infra-cdk"
 SKIP_FRONTEND=false
 SKIP_BACKEND=false
 
+if [ ! -f "$SCRIPT_DIR/.env" ]; then
+  echo "ERROR: $SCRIPT_DIR/.env is required. Copy .env.example and add your managed project credentials."
+  exit 1
+fi
+
+set -a
+source "$SCRIPT_DIR/.env"
+set +a
+: "${CPK_INTELLIGENCE_API_KEY:?CPK_INTELLIGENCE_API_KEY is required in .env}"
+export CPK_TELEMETRY_ID="${CPK_TELEMETRY_ID:-}"
+
 for arg in "$@"; do
   [[ "$arg" == "--skip-frontend" ]] && SKIP_FRONTEND=true
   [[ "$arg" == "--skip-backend" ]] && SKIP_BACKEND=true
@@ -54,6 +65,15 @@ with open(config_path, "w") as f:
 stack = re.search(r"stack_name_base:\s*([\w-]+)", content).group(1)
 print(f"✓ config.yaml → pattern: {pattern}, stack: {stack}")
 PYEOF
+
+# ── Managed Intelligence secret ──────────────────────────────────────────────
+CPK_INTELLIGENCE_API_KEY_SECRET_NAME=$(python3 -c "import re; c=open('$CONFIG').read(); print(re.search(r'^copilotkit_intelligence_api_key_secret_name:\s*([^#\s]+)', c, re.MULTILINE).group(1))")
+if aws secretsmanager describe-secret --secret-id "$CPK_INTELLIGENCE_API_KEY_SECRET_NAME" >/dev/null 2>&1; then
+  aws secretsmanager put-secret-value --secret-id "$CPK_INTELLIGENCE_API_KEY_SECRET_NAME" --secret-string "$CPK_INTELLIGENCE_API_KEY" >/dev/null
+else
+  aws secretsmanager create-secret --name "$CPK_INTELLIGENCE_API_KEY_SECRET_NAME" --secret-string "$CPK_INTELLIGENCE_API_KEY" >/dev/null
+fi
+echo "✓ Managed Intelligence key stored in Secrets Manager"
 
 # ── CDK deploy ───────────────────────────────────────────────────────────────
 if [ "$SKIP_BACKEND" = true ]; then
