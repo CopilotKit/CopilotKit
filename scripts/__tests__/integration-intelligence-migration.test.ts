@@ -1923,11 +1923,14 @@ function expectAgentCoreRuntimeBehavior(contents: string): void {
   expect(objectPropertyExpression(localOptions, "intelligence")).toBeNull();
   const localRunner = objectPropertyExpression(localOptions, "runner");
   expect(localRunner).not.toBeNull();
+  const unwrappedLocalRunner = localRunner
+    ? unwrapExpression(localRunner)
+    : null;
   expect(
-    localRunner &&
-      ts.isNewExpression(unwrapExpression(localRunner)) &&
-      ts.isIdentifier(unwrapExpression(localRunner).expression) &&
-      unwrapExpression(localRunner).expression.text === "AgentCoreRunner",
+    unwrappedLocalRunner &&
+      ts.isNewExpression(unwrappedLocalRunner) &&
+      ts.isIdentifier(unwrappedLocalRunner.expression) &&
+      unwrappedLocalRunner.expression.text === "AgentCoreRunner",
   ).toBe(true);
   expect(endpointCalls).toHaveLength(1);
   const endpointOptions = endpointCalls[0]?.arguments[0];
