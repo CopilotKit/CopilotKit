@@ -428,6 +428,9 @@ export class BackendStack extends cdk.NestedStack {
             config.backend?.pattern || "langgraph-single-agent",
           CPK_INTELLIGENCE_API_KEY: cdk.SecretValue.secretsManager(
             config.copilotkit_intelligence_api_key_secret_name,
+            {
+              versionId: process.env.CPK_INTELLIGENCE_API_KEY_SECRET_VERSION_ID,
+            },
           ).unsafeUnwrap(),
           CPK_TELEMETRY_ID: process.env.CPK_TELEMETRY_ID ?? "",
           INTELLIGENCE_API_URL:

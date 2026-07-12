@@ -18,6 +18,10 @@ const LEGACY_TELEMETRY_ID = "COPILOTKIT_TELEMETRY_ID";
 const MANAGED_LICENSE_TOKEN = "COPILOTKIT_LICENSE_TOKEN";
 const MANAGED_API_KEY_SECRET_CONFIG =
   "copilotkit_intelligence_api_key_secret_name";
+const MANAGED_API_KEY_SECRET_VERSION_ID =
+  "CPK_INTELLIGENCE_API_KEY_SECRET_VERSION_ID";
+const MANAGED_API_KEY_SECRET_VERSION_SENTINEL =
+  "agentcore-secret-version-contract";
 const INTELLIGENCE_API_URL = "INTELLIGENCE_API_URL";
 const INTELLIGENCE_GATEWAY_WS_URL = "INTELLIGENCE_GATEWAY_WS_URL";
 const NEXT_THREADS_GATE = "NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED";
@@ -123,6 +127,7 @@ interface AgentCoreDeployHarnessResult {
   readonly status: number | null;
   readonly output: string;
   readonly cdkEnvironment: string | null;
+  readonly secretVersionId: string | null;
 }
 
 const LANGGRAPH_RUNTIME_AGENT_CONTRACT = {
@@ -2093,6 +2098,12 @@ function expectAgentCoreRuntimeDeploymentContract(contents: string): void {
   ).toBe(true);
   expect(expressionContainsSecretResolution(managedKey.initializer)).toBe(true);
   expect(
+    expressionContainsEnvRead(
+      managedKey.initializer,
+      MANAGED_API_KEY_SECRET_VERSION_ID,
+    ),
+  ).toBe(true);
+  expect(
     expressionContainsEnvRead(managedKey.initializer, MANAGED_API_KEY),
   ).toBe(false);
   expect(
@@ -2633,6 +2644,7 @@ test("AgentCore structural helpers accept linked root-env, secret, Lambda, and f
       environment: {
         ${MANAGED_API_KEY}: cdk.SecretValue.secretsManager(
           config.${MANAGED_API_KEY_SECRET_CONFIG},
+          { versionId: process.env.${MANAGED_API_KEY_SECRET_VERSION_ID} },
         ).unsafeUnwrap(),
         ${OPTIONAL_TELEMETRY_ID}: process.env.${OPTIONAL_TELEMETRY_ID} ?? "",
         ${INTELLIGENCE_API_URL}: process.env.${INTELLIGENCE_API_URL} ?? "http://localhost:4201",
@@ -2846,6 +2858,25 @@ for (const scriptName of [
     expect(result.cdkEnvironment).toBe(
       "https://intelligence.example.com/api\n" +
         "wss://gateway.example.com/runtime\n",
+    );
+    expect(result.output).not.toContain(MANAGED_API_KEY_SENTINEL);
+  });
+
+  test(`${scriptName} passes the updated secret version to CDK without logging it`, () => {
+    const result = runAgentCoreDeployHarness({
+      scriptName,
+      envFile: {
+        apiUrl: "https://intelligence.example.com/api",
+        gatewayWsUrl: "wss://gateway.example.com/runtime",
+      },
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.secretVersionId).toBe(
+      MANAGED_API_KEY_SECRET_VERSION_SENTINEL,
+    );
+    expect(result.output).not.toContain(
+      MANAGED_API_KEY_SECRET_VERSION_SENTINEL,
     );
     expect(result.output).not.toContain(MANAGED_API_KEY_SENTINEL);
   });
@@ -3755,16 +3786,27 @@ function runAgentCoreDeployHarness(
       ].join(""),
     );
 
-    for (const command of ["aws", "docker", "node", "npm"]) {
+    for (const command of ["docker", "node", "npm"]) {
       writeAgentCoreCommandStub(fakeBin, command);
     }
+    writeAgentCoreCommandStub(
+      fakeBin,
+      "aws",
+      [
+        "#!/usr/bin/env bash\n",
+        "set -eu\n",
+        'if [[ "$*" == *"secretsmanager put-secret-value"* || "$*" == *"secretsmanager create-secret"* ]]; then\n',
+        `  printf '%s\\n' '${MANAGED_API_KEY_SECRET_VERSION_SENTINEL}'\n`,
+        "fi\n",
+      ].join(""),
+    );
     writeAgentCoreCommandStub(
       fakeBin,
       "npx",
       [
         "#!/usr/bin/env bash\n",
         "set -eu\n",
-        `printf '%s\\n%s\\n' "\${${INTELLIGENCE_API_URL}-}" "\${${INTELLIGENCE_GATEWAY_WS_URL}-}" > "\${CDK_ENV_CAPTURE:?}"\n`,
+        `printf '%s\\n%s\\n%s\\n' "\${${INTELLIGENCE_API_URL}-}" "\${${INTELLIGENCE_GATEWAY_WS_URL}-}" "\${${MANAGED_API_KEY_SECRET_VERSION_ID}-}" > "\${CDK_ENV_CAPTURE:?}"\n`,
       ].join(""),
     );
 
@@ -3786,10 +3828,17 @@ function runAgentCoreDeployHarness(
       env: environment,
     });
     const output = `${result.stdout}${result.stderr}`;
-    const cdkEnvironment = fs.existsSync(capturePath)
+    const capturedEnvironment = fs.existsSync(capturePath)
       ? fs.readFileSync(capturePath, "utf8")
       : null;
-    return { status: result.status, output, cdkEnvironment };
+    const capturedLines = capturedEnvironment?.split("\n") ?? [];
+    const cdkEnvironment = capturedEnvironment
+      ? `${capturedLines[0] ?? ""}\n${capturedLines[1] ?? ""}\n`
+      : null;
+    const secretVersionId = capturedEnvironment
+      ? (capturedLines[2] ?? null)
+      : null;
+    return { status: result.status, output, cdkEnvironment, secretVersionId };
   } finally {
     fs.rmSync(harnessDirectory, { force: true, recursive: true });
   }

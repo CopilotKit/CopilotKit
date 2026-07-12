@@ -97,10 +97,12 @@ PYEOF
 # ── Managed Intelligence secret ──────────────────────────────────────────────
 CPK_INTELLIGENCE_API_KEY_SECRET_NAME=$(python3 -c "import re; c=open('$CONFIG').read(); print(re.search(r'^copilotkit_intelligence_api_key_secret_name:\s*([^#\s]+)', c, re.MULTILINE).group(1))")
 if aws secretsmanager describe-secret --secret-id "$CPK_INTELLIGENCE_API_KEY_SECRET_NAME" >/dev/null 2>&1; then
-  aws secretsmanager put-secret-value --secret-id "$CPK_INTELLIGENCE_API_KEY_SECRET_NAME" --secret-string "$CPK_INTELLIGENCE_API_KEY" >/dev/null
+  CPK_INTELLIGENCE_API_KEY_SECRET_VERSION_ID=$(aws secretsmanager put-secret-value --secret-id "$CPK_INTELLIGENCE_API_KEY_SECRET_NAME" --secret-string "$CPK_INTELLIGENCE_API_KEY" --query VersionId --output text)
 else
-  aws secretsmanager create-secret --name "$CPK_INTELLIGENCE_API_KEY_SECRET_NAME" --secret-string "$CPK_INTELLIGENCE_API_KEY" >/dev/null
+  CPK_INTELLIGENCE_API_KEY_SECRET_VERSION_ID=$(aws secretsmanager create-secret --name "$CPK_INTELLIGENCE_API_KEY_SECRET_NAME" --secret-string "$CPK_INTELLIGENCE_API_KEY" --query VersionId --output text)
 fi
+: "${CPK_INTELLIGENCE_API_KEY_SECRET_VERSION_ID:?Secrets Manager did not return a managed key version ID}"
+export CPK_INTELLIGENCE_API_KEY_SECRET_VERSION_ID
 echo "✓ Managed Intelligence key stored in Secrets Manager"
 
 # ── CDK deploy ───────────────────────────────────────────────────────────────
