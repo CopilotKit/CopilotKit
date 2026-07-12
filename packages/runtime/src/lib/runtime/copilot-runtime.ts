@@ -141,6 +141,8 @@ interface Middleware {
 export interface CopilotRuntimeConstructorParams_BASE<
   T extends Parameter[] | [] = [],
 > {
+  /** Standalone telemetry identity. Falls back to CPK_TELEMETRY_ID before legacy license identity. */
+  telemetryId?: string;
   /**
    * Middleware to be used by the runtime.
    *
@@ -383,22 +385,25 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       ? baseRunner
       : new TelemetryAgentRunner({ runner: baseRunner });
 
-    // Match license-verifier's env fallback so telemetry attribution
-    // resolves the same way as feature gating — otherwise customers who
-    // set only COPILOTKIT_LICENSE_TOKEN would get a working license but
-    // anonymous telemetry. Only used here for the telemetry setter; the
-    // v2 runtime applies the same fallback to runtimeArgs.licenseToken
-    // on its own.
+    // Resolve the complete identity once for this compatibility boundary and
+    // atomically replace its telemetry singleton, including anonymous clears.
     const resolvedLicenseToken =
       params?.licenseToken ?? process.env.COPILOTKIT_LICENSE_TOKEN;
-    if (resolvedLicenseToken) {
-      telemetry.setLicenseToken(resolvedLicenseToken);
-    }
+    const resolvedTelemetryId =
+      params?.telemetryId ?? process.env.CPK_TELEMETRY_ID;
+    const resolvedTelemetryIdentity =
+      resolvedTelemetryId !== undefined
+        ? { telemetryId: resolvedTelemetryId }
+        : resolvedLicenseToken !== undefined
+          ? { licenseToken: resolvedLicenseToken }
+          : {};
+    telemetry.setTelemetryIdentity(resolvedTelemetryIdentity);
 
     this.runtimeArgs = {
       agents: mergedAgents,
       runner,
-      licenseToken: params?.licenseToken,
+      telemetryId: resolvedTelemetryId,
+      licenseToken: resolvedLicenseToken,
       debug: params?.debug,
       // TODO: add support for transcriptionService from CopilotRuntimeOptionsVNext once it is ready
       // transcriptionService: params?.transcriptionService,
