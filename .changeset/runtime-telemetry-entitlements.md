@@ -2,7 +2,7 @@
 "@copilotkit/shared": minor
 "@copilotkit/runtime": minor
 "@copilotkit/core": minor
-"@copilotkit/web-inspector": patch
+"@copilotkit/web-inspector": minor
 ---
 
 feat(runtime): add standalone telemetry identity and entitlement diagnostics
