@@ -32,8 +32,14 @@ const FORBIDDEN = [
   // A forwardingFetch-only file has no other listed identifier, so without
   // these a forgotten marker would ship a broken "../header-forwarding" import.
   "forwardingFetch",
-  "header-forwarding",
   "diagOutboundHeaders",
+  // Match the header-forwarding *import path* (always quote-terminated), not the
+  // bare word — reader-facing prose in kept snippets legitimately mentions
+  // "header-forwarding" (e.g. a comment describing the policy), and a bare
+  // substring would flag that. These catch `../header-forwarding`,
+  // `@/lib/header-forwarding` and the `.js` specifier form.
+  'header-forwarding"',
+  'header-forwarding.js"',
 ];
 
 const BUNDLES = [
