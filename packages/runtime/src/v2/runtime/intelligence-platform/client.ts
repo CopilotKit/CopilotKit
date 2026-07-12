@@ -587,13 +587,12 @@ export class CopilotKitIntelligence {
       });
 
       if (!response.ok) {
-        const detail = await response.text().catch(() => "");
         logger.error(
           { status: response.status, path },
           "Runtime entitlement request failed",
         );
         throw new PlatformRequestError(
-          `Intelligence platform error ${response.status}: ${detail || response.statusText}`,
+          `Runtime entitlement request failed with status ${response.status}`,
           response.status,
         );
       }

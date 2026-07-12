@@ -368,17 +368,30 @@ test.each([
 );
 
 test.each([300, 401, 503, 599])(
-  "getRuntimeEntitlements rejects non-OK status %i without retrying",
+  "getRuntimeEntitlements rejects non-OK status %i without reading or leaking its body",
   async (status) => {
     const client = runtimeEntitlementsClient();
-    const detail = `unavailable-${status}`;
-    fetchMock.mockReturnValue(jsonResponse({ error: detail }, status));
+    const privateUpstreamDetail = `private-upstream-detail-${status}`;
+    const upstreamResponse = new Response(
+      JSON.stringify({ error: privateUpstreamDetail }),
+      { status },
+    );
+    fetchMock.mockResolvedValue(upstreamResponse);
 
-    const request = client.getRuntimeEntitlements();
+    const error: unknown = await client
+      .getRuntimeEntitlements()
+      .catch((caught: unknown) => caught);
 
-    await expect(request).rejects.toBeInstanceOf(PlatformRequestError);
-    await expect(request).rejects.toMatchObject({ status });
-    await expect(request).rejects.toThrow(detail);
+    expect(error).toBeInstanceOf(PlatformRequestError);
+    if (!(error instanceof PlatformRequestError)) {
+      throw new Error("Expected a typed Runtime entitlement status error");
+    }
+    expect(error.status).toBe(status);
+    expect(error.message).toBe(
+      `Runtime entitlement request failed with status ${status}`,
+    );
+    expect(error.message).not.toContain(privateUpstreamDetail);
+    expect(upstreamResponse.bodyUsed).toBe(false);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   },
 );
