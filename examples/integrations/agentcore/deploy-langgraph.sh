@@ -94,21 +94,21 @@ stack = re.search(r"stack_name_base:\s*([\w-]+)", content).group(1)
 print(f"✓ config.yaml → pattern: {pattern}, stack: {stack}")
 PYEOF
 
-# ── Managed Intelligence secret ──────────────────────────────────────────────
-CPK_INTELLIGENCE_API_KEY_SECRET_NAME=$(python3 -c "import re; c=open('$CONFIG').read(); print(re.search(r'^copilotkit_intelligence_api_key_secret_name:\s*([^#\s]+)', c, re.MULTILINE).group(1))")
-if aws secretsmanager describe-secret --secret-id "$CPK_INTELLIGENCE_API_KEY_SECRET_NAME" >/dev/null 2>&1; then
-  CPK_INTELLIGENCE_API_KEY_SECRET_VERSION_ID=$(aws secretsmanager put-secret-value --secret-id "$CPK_INTELLIGENCE_API_KEY_SECRET_NAME" --secret-string "$CPK_INTELLIGENCE_API_KEY" --query VersionId --output text)
-else
-  CPK_INTELLIGENCE_API_KEY_SECRET_VERSION_ID=$(aws secretsmanager create-secret --name "$CPK_INTELLIGENCE_API_KEY_SECRET_NAME" --secret-string "$CPK_INTELLIGENCE_API_KEY" --query VersionId --output text)
-fi
-: "${CPK_INTELLIGENCE_API_KEY_SECRET_VERSION_ID:?Secrets Manager did not return a managed key version ID}"
-export CPK_INTELLIGENCE_API_KEY_SECRET_VERSION_ID
-echo "✓ Managed Intelligence key stored in Secrets Manager"
-
 # ── CDK deploy ───────────────────────────────────────────────────────────────
 if [ "$SKIP_BACKEND" = true ]; then
   echo "⚡ Skipping backend deploy (--skip-backend)"
 else
+  # Materialize the managed key only when backend resources are being deployed.
+  CPK_INTELLIGENCE_API_KEY_SECRET_NAME=$(python3 -c "import re; c=open('$CONFIG').read(); print(re.search(r'^copilotkit_intelligence_api_key_secret_name:\s*([^#\s]+)', c, re.MULTILINE).group(1))")
+  if aws secretsmanager describe-secret --secret-id "$CPK_INTELLIGENCE_API_KEY_SECRET_NAME" >/dev/null 2>&1; then
+    CPK_INTELLIGENCE_API_KEY_SECRET_VERSION_ID=$(aws secretsmanager put-secret-value --secret-id "$CPK_INTELLIGENCE_API_KEY_SECRET_NAME" --secret-string "$CPK_INTELLIGENCE_API_KEY" --query VersionId --output text)
+  else
+    CPK_INTELLIGENCE_API_KEY_SECRET_VERSION_ID=$(aws secretsmanager create-secret --name "$CPK_INTELLIGENCE_API_KEY_SECRET_NAME" --secret-string "$CPK_INTELLIGENCE_API_KEY" --query VersionId --output text)
+  fi
+  : "${CPK_INTELLIGENCE_API_KEY_SECRET_VERSION_ID:?Secrets Manager did not return a managed key version ID}"
+  export CPK_INTELLIGENCE_API_KEY_SECRET_VERSION_ID
+  echo "✓ Managed Intelligence key stored in Secrets Manager"
+
   echo "Deploying infrastructure (this takes ~10–15 min on first run)..."
   cd "$CDK_DIR"
   npm install --silent
