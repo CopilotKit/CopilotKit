@@ -73,7 +73,7 @@ See `docs/LOCAL_DEVELOPMENT.md` for full details.
 | `agents/langgraph-single-agent/` | LangGraph agent with tools + shared todo state             |
 | `agents/strands-single-agent/`   | Strands agent with tools + shared todo state               |
 | `infra-cdk/`                     | CDK: Cognito, AgentCore, CopilotKit Lambda bridge, Amplify |
-| `infra-terraform/`               | Terraform equivalent — see `infra-terraform/README.md`     |
+| `infra-terraform/`               | Base AgentCore infrastructure without managed Intelligence |
 | `docker/`                        | Local dev via Docker Compose                               |
 | `docs/`                          | LOCAL_DEVELOPMENT.md, LOCAL_DOCKER_TESTING.md              |
 

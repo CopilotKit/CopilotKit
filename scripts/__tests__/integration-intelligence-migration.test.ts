@@ -14,6 +14,8 @@ const LEGACY_TELEMETRY_ID = "COPILOTKIT_TELEMETRY_ID";
 const MANAGED_LICENSE_TOKEN = "COPILOTKIT_LICENSE_TOKEN";
 const MANAGED_API_KEY_SECRET_CONFIG =
   "copilotkit_intelligence_api_key_secret_name";
+const INTELLIGENCE_API_URL = "INTELLIGENCE_API_URL";
+const INTELLIGENCE_GATEWAY_WS_URL = "INTELLIGENCE_GATEWAY_WS_URL";
 const NEXT_THREADS_GATE = "NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED";
 const VITE_THREADS_GATE = "VITE_COPILOTKIT_THREADS_ENABLED";
 const MANAGED_DOCUMENTATION_LABEL = /\bmanaged\b/i;
@@ -82,6 +84,8 @@ interface ManagedTemplateContract {
     readonly deploymentConfigPath: string;
     readonly runtimeDeploymentPath: string;
     readonly frontendDeploymentPath: string;
+    readonly terraformRuntimeDeploymentPath: string;
+    readonly terraformReadmePath: string;
     readonly deployScriptPaths: readonly string[];
   };
 }
@@ -336,6 +340,9 @@ const MANAGED_TEMPLATE_CONTRACTS = [
       deploymentConfigPath: "config.yaml.example",
       runtimeDeploymentPath: "infra-cdk/lib/backend-stack.ts",
       frontendDeploymentPath: "infra-cdk/lib/amplify-hosting-stack.ts",
+      terraformRuntimeDeploymentPath:
+        "infra-terraform/modules/backend/copilotkit_runtime.tf",
+      terraformReadmePath: "infra-terraform/README.md",
       deployScriptPaths: ["deploy-langgraph.sh", "deploy-strands.sh"],
     },
   },
@@ -1938,6 +1945,12 @@ function expectAgentCoreLocalComposeContract(contents: string): void {
   expect(frontend).toMatch(rootManagedEnvFilePattern());
   expect(frontend).not.toContain(VITE_THREADS_GATE);
   expect(frontend).not.toContain(OPTIONAL_TELEMETRY_ID);
+  expect(bridge).not.toMatch(
+    new RegExp(`^\\s*-\\s*${INTELLIGENCE_API_URL}=`, "m"),
+  );
+  expect(bridge).not.toMatch(
+    new RegExp(`^\\s*-\\s*${INTELLIGENCE_GATEWAY_WS_URL}=`, "m"),
+  );
   expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_API_KEY));
   expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_TELEMETRY_ID));
   expect(contents).not.toContain(MANAGED_LICENSE_TOKEN);
@@ -1986,9 +1999,19 @@ function expectAgentCoreRuntimeDeploymentContract(contents: string): void {
     environmentObject && ts.isObjectLiteralExpression(environmentObject)
       ? objectPropertyAssignment(environmentObject, OPTIONAL_TELEMETRY_ID)
       : null;
+  const apiUrl =
+    environmentObject && ts.isObjectLiteralExpression(environmentObject)
+      ? objectPropertyAssignment(environmentObject, INTELLIGENCE_API_URL)
+      : null;
+  const gatewayWsUrl =
+    environmentObject && ts.isObjectLiteralExpression(environmentObject)
+      ? objectPropertyAssignment(environmentObject, INTELLIGENCE_GATEWAY_WS_URL)
+      : null;
   expect(managedKey).not.toBeNull();
   expect(telemetryId).not.toBeNull();
-  if (!managedKey || !telemetryId) return;
+  expect(apiUrl).not.toBeNull();
+  expect(gatewayWsUrl).not.toBeNull();
+  if (!managedKey || !telemetryId || !apiUrl || !gatewayWsUrl) return;
 
   expect(
     expressionContainsPropertyPath(managedKey.initializer, [
@@ -2006,7 +2029,31 @@ function expectAgentCoreRuntimeDeploymentContract(contents: string): void {
   expect(expressionContainsSecretResolution(telemetryId.initializer)).toBe(
     false,
   );
+  expect(
+    expressionContainsEnvRead(apiUrl.initializer, INTELLIGENCE_API_URL),
+  ).toBe(true);
+  expect(
+    expressionContainsEnvRead(
+      gatewayWsUrl.initializer,
+      INTELLIGENCE_GATEWAY_WS_URL,
+    ),
+  ).toBe(true);
   expect(contents).not.toContain(MANAGED_LICENSE_TOKEN);
+}
+
+/** Assert Terraform clearly excludes the managed Intelligence credential path. */
+function expectAgentCoreTerraformExclusionContract(
+  runtimeDeployment: string,
+  readme: string,
+): void {
+  expect(runtimeDeployment).not.toMatch(
+    exactEnvIdentifierPattern(MANAGED_API_KEY),
+  );
+  expect(runtimeDeployment).not.toMatch(
+    exactEnvIdentifierPattern(OPTIONAL_TELEMETRY_ID),
+  );
+  expect(readme).toMatch(/does not project managed Intelligence credentials/i);
+  expect(readme).toMatch(/use the CDK deployment path/i);
 }
 
 /** Assert AgentCore's frontend receives only the key-derived public gate. */
@@ -2336,6 +2383,8 @@ test("AgentCore structural helpers accept linked root-env, secret, Lambda, and f
           config.${MANAGED_API_KEY_SECRET_CONFIG},
         ).unsafeUnwrap(),
         ${OPTIONAL_TELEMETRY_ID}: process.env.${OPTIONAL_TELEMETRY_ID} ?? "",
+        ${INTELLIGENCE_API_URL}: process.env.${INTELLIGENCE_API_URL} ?? "http://localhost:4201",
+        ${INTELLIGENCE_GATEWAY_WS_URL}: process.env.${INTELLIGENCE_GATEWAY_WS_URL} ?? "ws://localhost:4401",
       },
     });
   `;
@@ -2448,6 +2497,25 @@ test("AgentCore structural helpers reject comment, unrelated-secret, and disconn
     expectAgentCoreDeploymentConfigContract(
       `${MANAGED_API_KEY_SECRET_CONFIG}: \${${MANAGED_API_KEY}}`,
     ),
+  ).toThrow();
+});
+
+test("AgentCore deployment helper rejects endpoint literals disconnected from the root env", () => {
+  const runtimeDeployment = `
+    new lambda.Function(this, "CopilotKitRuntimeLambda", {
+      environment: {
+        ${MANAGED_API_KEY}: cdk.SecretValue.secretsManager(
+          config.${MANAGED_API_KEY_SECRET_CONFIG},
+        ).unsafeUnwrap(),
+        ${OPTIONAL_TELEMETRY_ID}: process.env.${OPTIONAL_TELEMETRY_ID} ?? "",
+        ${INTELLIGENCE_API_URL}: "https://hard-coded.example",
+        ${INTELLIGENCE_GATEWAY_WS_URL}: "wss://hard-coded.example",
+      },
+    });
+  `;
+
+  expect(() =>
+    expectAgentCoreRuntimeDeploymentContract(runtimeDeployment),
   ).toThrow();
 });
 
@@ -3167,6 +3235,24 @@ for (const contract of MANAGED_TEMPLATE_CONTRACTS) {
       );
 
       expectAgentCoreFrontendDeploymentContract(frontendDeployment);
+    });
+
+    test(`${contract.directory} explicitly excludes managed credentials from Terraform`, () => {
+      const terraformRuntimeDeployment = readManagedSurface(
+        contract,
+        supportedPaths.terraformRuntimeDeploymentPath,
+        "Terraform runtime deployment",
+      );
+      const terraformReadme = readManagedSurface(
+        contract,
+        supportedPaths.terraformReadmePath,
+        "Terraform README",
+      );
+
+      expectAgentCoreTerraformExclusionContract(
+        terraformRuntimeDeployment,
+        terraformReadme,
+      );
     });
 
     test(`${contract.directory} deploy scripts materialize the configured managed key secret`, () => {

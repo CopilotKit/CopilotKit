@@ -68,8 +68,6 @@ services:
       - AGENTCORE_AG_UI_URL=http://agent:8080/invocations
       - PORT=3001
       - OTEL_SDK_DISABLED=true
-      - INTELLIGENCE_API_URL=${INTELLIGENCE_API_URL:-http://localhost:4201}
-      - INTELLIGENCE_GATEWAY_WS_URL=${INTELLIGENCE_GATEWAY_WS_URL:-ws://localhost:4401}
     depends_on:
       agent:
         condition: service_healthy

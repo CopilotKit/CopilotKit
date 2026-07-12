@@ -430,6 +430,10 @@ export class BackendStack extends cdk.NestedStack {
             config.copilotkit_intelligence_api_key_secret_name,
           ).unsafeUnwrap(),
           CPK_TELEMETRY_ID: process.env.CPK_TELEMETRY_ID ?? "",
+          INTELLIGENCE_API_URL:
+            process.env.INTELLIGENCE_API_URL ?? "http://localhost:4201",
+          INTELLIGENCE_GATEWAY_WS_URL:
+            process.env.INTELLIGENCE_GATEWAY_WS_URL ?? "ws://localhost:4401",
         },
         timeout: cdk.Duration.seconds(30),
         memorySize: 1024,
