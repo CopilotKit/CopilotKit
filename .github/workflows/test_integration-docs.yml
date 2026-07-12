@@ -62,14 +62,16 @@ jobs:
         with:
           python-version: "3.12"
       - run: pnpm install --frozen-lockfile
-      - name: Install and start aimock
+      - name: Start aimock
         run: |
-          npm install -g @copilotkit/aimock@1.24.1
-          AIMOCK_BIN=$(npm root -g)/../bin/aimock
-          echo "aimock binary: $AIMOCK_BIN"
-          ls -la "$AIMOCK_BIN" || echo "binary not found at expected path"
-          which aimock || echo "aimock not on PATH"
-          nohup node $(npm root -g)/@copilotkit/aimock/dist/cli.js --fixtures scripts/doc-tests/fixtures --validate-on-load > /tmp/aimock.log 2>&1 &
+          # aimock is pinned as a workspace dependency (@copilotkit/showcase-scripts)
+          # and installed from the frozen lockfile above — no ad-hoc `npm install -g`.
+          # The `llmock` bin is aimock's fixtures-based CLI (the package also ships an
+          # `aimock` bin, which is the newer config-only CLI that does NOT accept
+          # --fixtures). Invoke the workspace-installed bin directly from the repo
+          # root so the root-relative --fixtures path resolves correctly (a
+          # `pnpm --filter exec` would run inside showcase/scripts and break the path).
+          nohup ./showcase/scripts/node_modules/.bin/llmock --fixtures scripts/doc-tests/fixtures --validate-on-load > /tmp/aimock.log 2>&1 &
           for i in $(seq 1 60); do
             if curl -sf http://localhost:4010/health; then
               echo "aimock ready"

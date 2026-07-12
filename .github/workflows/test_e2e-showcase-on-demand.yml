@@ -267,35 +267,34 @@ jobs:
             exit 1
           fi
 
+      - name: Install aimock
+        run: |
+          # aimock is pinned as a workspace dependency (@copilotkit/showcase-scripts)
+          # and installed from the frozen lockfile — no ad-hoc `npm install -g`.
+          # A frozen install guarantees the exact pinned version resolves (the old
+          # caret floor could drift to a bad publish); this keeps the CI signal
+          # reproducible AND satisfies zizmor's adhoc-packages audit.
+          #
+          # `--ignore-scripts`: a trusted commenter can run this workflow on a PR
+          # whose package.json is untrusted content, so we never execute install-time
+          # scripts. aimock's `llmock` bin runs fine without them.
+          #
+          # `--filter` scopes the install to just the aimock owner package so we
+          # don't pay for the full monorepo install here (the per-slug package deps
+          # are installed later in "Install package dependencies").
+          pnpm --filter @copilotkit/showcase-scripts install --frozen-lockfile --ignore-scripts
+
       - name: Start aimock
         run: |
-          # Pin aimock to a known-good floor (caret = safe patch/minor).
-          # An unrestricted `@latest` means a bad aimock publish silently
-          # poisons CI for everyone; pinning makes the upgrade explicit and
-          # keeps this PR's CI signal reproducible.
-          npm install -g "@copilotkit/aimock@^1.16.4" --ignore-scripts
-          # Invoke the installed global binary directly rather than `npx`.
-          # `npx @copilotkit/aimock@^1.16.4` re-resolves the spec against the
-          # registry and MAY re-fetch a package even when an identical global
-          # install exists — which would defeat `--ignore-scripts` on the
-          # npm-install step above (npx's transient install does not inherit
-          # that flag) and would also defeat the caret pin if a new patch
-          # published between those two invocations.
-          #
-          # `npm prefix -g` returns the npm global prefix; its `bin/` subdir
-          # holds globally-installed binaries. We deliberately avoid `npm bin
-          # -g` here: the `bin` subcommand was removed in npm 9.0.0 and
-          # `setup-node@v4` with node 22.x ships npm 10+, so `npm bin -g`
-          # would exit with "Unknown command: 'bin'" and the existence check
-          # below would fire every run. `npm prefix -g` has been stable since
-          # npm 7 and returns the prefix on every supported version. The
-          # `$(npm prefix -g)/bin` dir is also on PATH via setup-node, so we
-          # could call `aimock` directly — keeping the absolute-path pattern
-          # + existence check as defense-in-depth against a PATH-shadowing
-          # binary sneaking in from a prior step on the runner.
-          AIMOCK_BIN="$(npm prefix -g)/bin/aimock"
+          # Invoke the workspace-installed `llmock` bin directly from the repo root.
+          # `llmock` is aimock's fixtures-based CLI (the package also ships an
+          # `aimock` bin, which is the newer config-only CLI that does NOT accept
+          # --fixtures). Running from the repo root keeps the root-relative
+          # --fixtures paths correct (a `pnpm --filter exec` would run inside
+          # showcase/scripts and break them).
+          AIMOCK_BIN="./showcase/scripts/node_modules/.bin/llmock"
           if [ ! -x "$AIMOCK_BIN" ]; then
-            echo "::error::aimock binary not found at $AIMOCK_BIN after global install"
+            echo "::error::aimock binary not found at $AIMOCK_BIN after workspace install"
             exit 1
           fi
           # Fixture layout matches docker-compose.local.yml: feature-parity.json
