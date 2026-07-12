@@ -17,19 +17,22 @@ describe("v1 CopilotRuntime — telemetry license token", () => {
     "base64url",
   )}.sig`;
 
+  let setTelemetryIdentitySpy: ReturnType<typeof vi.spyOn>;
   let setLicenseTokenSpy: ReturnType<typeof vi.spyOn>;
   let originalEnv: string | undefined;
 
   beforeEach(() => {
-    setLicenseTokenSpy = vi
-      .spyOn(telemetry, "setLicenseToken")
+    setTelemetryIdentitySpy = vi
+      .spyOn(telemetry, "setTelemetryIdentity")
       .mockImplementation(() => {});
+    setLicenseTokenSpy = vi.spyOn(telemetry, "setLicenseToken");
     originalEnv = process.env.COPILOTKIT_LICENSE_TOKEN;
     delete process.env.COPILOTKIT_LICENSE_TOKEN;
   });
 
   afterEach(() => {
     setLicenseTokenSpy.mockRestore();
+    setTelemetryIdentitySpy.mockRestore();
     if (originalEnv === undefined) {
       delete process.env.COPILOTKIT_LICENSE_TOKEN;
     } else {
@@ -41,7 +44,10 @@ describe("v1 CopilotRuntime — telemetry license token", () => {
     const runtime = new CopilotRuntime({ agents: {}, licenseToken: TOKEN });
 
     expect(runtime).toBeInstanceOf(CopilotRuntime);
-    expect(setLicenseTokenSpy).toHaveBeenCalledWith(TOKEN);
+    expect(setTelemetryIdentitySpy).toHaveBeenCalledWith({
+      licenseToken: TOKEN,
+    });
+    expect(setLicenseTokenSpy).not.toHaveBeenCalled();
   });
 
   it("falls back to COPILOTKIT_LICENSE_TOKEN when no option is given", () => {
@@ -50,7 +56,10 @@ describe("v1 CopilotRuntime — telemetry license token", () => {
     const runtime = new CopilotRuntime({ agents: {} });
 
     expect(runtime).toBeInstanceOf(CopilotRuntime);
-    expect(setLicenseTokenSpy).toHaveBeenCalledWith(TOKEN);
+    expect(setTelemetryIdentitySpy).toHaveBeenCalledWith({
+      licenseToken: TOKEN,
+    });
+    expect(setLicenseTokenSpy).not.toHaveBeenCalled();
   });
 
   it("does not set a token when none is provided", () => {

@@ -41,21 +41,24 @@ describe("runtime construction — telemetry license token", () => {
     "base64url",
   )}.sig`;
 
+  let setTelemetryIdentitySpy: ReturnType<typeof vi.spyOn>;
   let setLicenseTokenSpy: ReturnType<typeof vi.spyOn>;
   let originalEnv: string | undefined;
 
   beforeEach(() => {
     // Spy with a no-op impl so the shared singleton's identified/anonymous
     // state is never mutated across tests — we assert the call, not state.
-    setLicenseTokenSpy = vi
-      .spyOn(telemetry, "setLicenseToken")
+    setTelemetryIdentitySpy = vi
+      .spyOn(telemetry, "setTelemetryIdentity")
       .mockImplementation(() => {});
+    setLicenseTokenSpy = vi.spyOn(telemetry, "setLicenseToken");
     originalEnv = process.env.COPILOTKIT_LICENSE_TOKEN;
     delete process.env.COPILOTKIT_LICENSE_TOKEN;
   });
 
   afterEach(() => {
     setLicenseTokenSpy.mockRestore();
+    setTelemetryIdentitySpy.mockRestore();
     if (originalEnv === undefined) {
       delete process.env.COPILOTKIT_LICENSE_TOKEN;
     } else {
@@ -71,8 +74,11 @@ describe("runtime construction — telemetry license token", () => {
       });
 
       expect(runtime.mode).toBe("sse");
-      expect(setLicenseTokenSpy).toHaveBeenCalledTimes(1);
-      expect(setLicenseTokenSpy).toHaveBeenCalledWith(TOKEN);
+      expect(setTelemetryIdentitySpy).toHaveBeenCalledTimes(1);
+      expect(setTelemetryIdentitySpy).toHaveBeenCalledWith({
+        licenseToken: TOKEN,
+      });
+      expect(setLicenseTokenSpy).not.toHaveBeenCalled();
     });
 
     it("falls back to COPILOTKIT_LICENSE_TOKEN when no option is given", () => {
@@ -81,8 +87,11 @@ describe("runtime construction — telemetry license token", () => {
       const runtime = new CopilotSseRuntime({ agents: AGENTS });
 
       expect(runtime.mode).toBe("sse");
-      expect(setLicenseTokenSpy).toHaveBeenCalledTimes(1);
-      expect(setLicenseTokenSpy).toHaveBeenCalledWith(TOKEN);
+      expect(setTelemetryIdentitySpy).toHaveBeenCalledTimes(1);
+      expect(setTelemetryIdentitySpy).toHaveBeenCalledWith({
+        licenseToken: TOKEN,
+      });
+      expect(setLicenseTokenSpy).not.toHaveBeenCalled();
     });
 
     it("does not set a token when none is provided", () => {
@@ -101,8 +110,11 @@ describe("runtime construction — telemetry license token", () => {
       });
 
       expect(runtime.mode).toBe("sse");
-      expect(setLicenseTokenSpy).toHaveBeenCalledTimes(1);
-      expect(setLicenseTokenSpy).toHaveBeenCalledWith(TOKEN);
+      expect(setTelemetryIdentitySpy).toHaveBeenCalledTimes(1);
+      expect(setTelemetryIdentitySpy).toHaveBeenCalledWith({
+        licenseToken: TOKEN,
+      });
+      expect(setLicenseTokenSpy).not.toHaveBeenCalled();
     });
 
     it("falls back to COPILOTKIT_LICENSE_TOKEN when no option is given", () => {
@@ -111,8 +123,11 @@ describe("runtime construction — telemetry license token", () => {
       const runtime = new CopilotRuntime({ agents: AGENTS });
 
       expect(runtime.mode).toBe("sse");
-      expect(setLicenseTokenSpy).toHaveBeenCalledTimes(1);
-      expect(setLicenseTokenSpy).toHaveBeenCalledWith(TOKEN);
+      expect(setTelemetryIdentitySpy).toHaveBeenCalledTimes(1);
+      expect(setTelemetryIdentitySpy).toHaveBeenCalledWith({
+        licenseToken: TOKEN,
+      });
+      expect(setLicenseTokenSpy).not.toHaveBeenCalled();
     });
   });
 
@@ -126,8 +141,11 @@ describe("runtime construction — telemetry license token", () => {
       });
 
       expect(runtime.mode).toBe("intelligence");
-      expect(setLicenseTokenSpy).toHaveBeenCalledTimes(1);
-      expect(setLicenseTokenSpy).toHaveBeenCalledWith(TOKEN);
+      expect(setTelemetryIdentitySpy).toHaveBeenCalledTimes(1);
+      expect(setTelemetryIdentitySpy).toHaveBeenCalledWith({
+        licenseToken: TOKEN,
+      });
+      expect(setLicenseTokenSpy).not.toHaveBeenCalled();
     });
 
     it("falls back to COPILOTKIT_LICENSE_TOKEN when no option is given", () => {
@@ -140,8 +158,11 @@ describe("runtime construction — telemetry license token", () => {
       });
 
       expect(runtime.mode).toBe("intelligence");
-      expect(setLicenseTokenSpy).toHaveBeenCalledTimes(1);
-      expect(setLicenseTokenSpy).toHaveBeenCalledWith(TOKEN);
+      expect(setTelemetryIdentitySpy).toHaveBeenCalledTimes(1);
+      expect(setTelemetryIdentitySpy).toHaveBeenCalledWith({
+        licenseToken: TOKEN,
+      });
+      expect(setLicenseTokenSpy).not.toHaveBeenCalled();
     });
   });
 
@@ -155,8 +176,11 @@ describe("runtime construction — telemetry license token", () => {
       });
 
       expect(runtime.mode).toBe("intelligence");
-      expect(setLicenseTokenSpy).toHaveBeenCalledTimes(1);
-      expect(setLicenseTokenSpy).toHaveBeenCalledWith(TOKEN);
+      expect(setTelemetryIdentitySpy).toHaveBeenCalledTimes(1);
+      expect(setTelemetryIdentitySpy).toHaveBeenCalledWith({
+        licenseToken: TOKEN,
+      });
+      expect(setLicenseTokenSpy).not.toHaveBeenCalled();
     });
   });
 });
