@@ -2870,6 +2870,15 @@ test("the 16 managed template directories back all 19 in-repo CLI frameworks", (
   expect([...frameworks].sort()).toEqual([...MANAGED_CLI_FRAMEWORKS].sort());
 });
 
+test("Mastra explicitly includes its generated managed env example", () => {
+  const gitignore = fs.readFileSync(
+    path.join(integrationsDir, "mastra", ".gitignore"),
+    "utf8",
+  );
+
+  expect(gitignore).toMatch(/^!\.env\.example$/m);
+});
+
 test.each([
   {
     defect: "registered constructor changes",
