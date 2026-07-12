@@ -109,18 +109,23 @@ export function buildApp() {
   if (!defaultAgent)
     throw new Error("At least one CopilotKit agent URL must be configured");
 
-  const runtime = new CopilotRuntime({
-    agents: { ...agents, default: defaultAgent },
-    runner: new AgentCoreRunner(),
-    intelligence: new CopilotKitIntelligence({
-      apiKey: process.env.CPK_INTELLIGENCE_API_KEY ?? "",
-      apiUrl: process.env.INTELLIGENCE_API_URL ?? "http://localhost:4201",
-      wsUrl: process.env.INTELLIGENCE_GATEWAY_WS_URL ?? "ws://localhost:4401",
-    }),
-    // Demo stub — replace with your real auth-derived user identity before any
-    // multi-user deployment, or all users share one thread history.
-    identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
-  });
+  const runtime = process.env.CPK_INTELLIGENCE_API_KEY
+    ? new CopilotRuntime({
+        agents: { ...agents, default: defaultAgent },
+        intelligence: new CopilotKitIntelligence({
+          apiKey: process.env.CPK_INTELLIGENCE_API_KEY,
+          apiUrl: process.env.INTELLIGENCE_API_URL ?? "http://localhost:4201",
+          wsUrl:
+            process.env.INTELLIGENCE_GATEWAY_WS_URL ?? "ws://localhost:4401",
+        }),
+        // Demo stub — replace with your real auth-derived user identity before any
+        // multi-user deployment, or all users share one thread history.
+        identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
+      })
+    : new CopilotRuntime({
+        agents: { ...agents, default: defaultAgent },
+        runner: new AgentCoreRunner(),
+      });
 
   return createCopilotEndpoint({ runtime, basePath: "/copilotkit" });
 }

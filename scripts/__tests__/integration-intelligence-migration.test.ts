@@ -653,6 +653,30 @@ function topLevelVariableInitializer(
   return null;
 }
 
+/** Returns every variable initializer with one exact identifier in a source tree. */
+function variableInitializers(
+  root: ts.Node,
+  identifier: string,
+): readonly ts.Expression[] {
+  const matches: ts.Expression[] = [];
+
+  /** Visits variable declarations for the requested identifier. */
+  function visit(node: ts.Node): void {
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.name.text === identifier &&
+      node.initializer
+    ) {
+      matches.push(node.initializer);
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(root);
+  return matches;
+}
+
 /** Resolves transparent wrappers and top-level variable aliases. */
 function resolveTopLevelExpression(
   sourceFile: ts.SourceFile,
@@ -931,29 +955,24 @@ function newExpressionOptions(
   return matches;
 }
 
-/** Returns whether source constructs one exact class. */
-function sourceContainsNewExpression(
-  sourceFile: ts.SourceFile,
+/** Returns one constructor's object-literal options from an exact expression. */
+function constructorOptionsFromExpression(
+  expression: ts.Expression,
   constructorName: string,
-): boolean {
-  let found = false;
-
-  /** Visits constructor calls until the required class is found. */
-  function visit(node: ts.Node): void {
-    if (found) return;
-    if (
-      ts.isNewExpression(node) &&
-      ts.isIdentifier(node.expression) &&
-      node.expression.text === constructorName
-    ) {
-      found = true;
-      return;
-    }
-    ts.forEachChild(node, visit);
+): ts.ObjectLiteralExpression | null {
+  const unwrapped = unwrapExpression(expression);
+  if (
+    !ts.isNewExpression(unwrapped) ||
+    !ts.isIdentifier(unwrapped.expression) ||
+    unwrapped.expression.text !== constructorName
+  ) {
+    return null;
   }
 
-  visit(sourceFile);
-  return found;
+  const options = unwrapped.arguments?.[0]
+    ? unwrapExpression(unwrapped.arguments[0])
+    : null;
+  return options && ts.isObjectLiteralExpression(options) ? options : null;
 }
 
 /** Returns whether a source contains a call to one exact function or method. */
@@ -1751,7 +1770,7 @@ function expectA2AVisualizationBehavior(contents: string): void {
   expect(jsxNodesWithTag(sourceFile, "CopilotKitProvider")).toHaveLength(0);
 }
 
-/** Asserts AgentCore retains its custom runner and bridge endpoint behavior. */
+/** Asserts AgentCore selects managed Intelligence or its custom local runner. */
 function expectAgentCoreRuntimeBehavior(contents: string): void {
   const sourceFile = parseManagedSource(contents);
   const endpointCalls = sourceCalls(sourceFile, ["createCopilotEndpoint"]);
@@ -1772,7 +1791,47 @@ function expectAgentCoreRuntimeBehavior(contents: string): void {
   expect(requiredAgentUrl).toBe(true);
   expect(newExpressionOptions(sourceFile, "HttpAgent")).toHaveLength(1);
   expect(newExpressionOptions(sourceFile, "MCPAppsMiddleware")).toHaveLength(1);
-  expect(sourceContainsNewExpression(sourceFile, "AgentCoreRunner")).toBe(true);
+
+  const runtimeInitializers = variableInitializers(sourceFile, "runtime");
+  expect(runtimeInitializers).toHaveLength(1);
+  const runtimeSelection = runtimeInitializers[0]
+    ? unwrapExpression(runtimeInitializers[0])
+    : null;
+  expect(runtimeSelection && ts.isConditionalExpression(runtimeSelection)).toBe(
+    true,
+  );
+  if (!runtimeSelection || !ts.isConditionalExpression(runtimeSelection)) {
+    return;
+  }
+
+  expect(
+    expressionUsesManagedKeyWithoutTelemetry(runtimeSelection.condition),
+  ).toBe(true);
+  const managedOptions = constructorOptionsFromExpression(
+    runtimeSelection.whenTrue,
+    "CopilotRuntime",
+  );
+  const localOptions = constructorOptionsFromExpression(
+    runtimeSelection.whenFalse,
+    "CopilotRuntime",
+  );
+  expect(managedOptions).not.toBeNull();
+  expect(localOptions).not.toBeNull();
+  if (!managedOptions || !localOptions) return;
+
+  expect(
+    objectPropertyExpression(managedOptions, "intelligence"),
+  ).not.toBeNull();
+  expect(objectPropertyExpression(managedOptions, "runner")).toBeNull();
+  expect(objectPropertyExpression(localOptions, "intelligence")).toBeNull();
+  const localRunner = objectPropertyExpression(localOptions, "runner");
+  expect(localRunner).not.toBeNull();
+  expect(
+    localRunner &&
+      ts.isNewExpression(unwrapExpression(localRunner)) &&
+      ts.isIdentifier(unwrapExpression(localRunner).expression) &&
+      unwrapExpression(localRunner).expression.text === "AgentCoreRunner",
+  ).toBe(true);
   expect(endpointCalls).toHaveLength(1);
   const endpointOptions = endpointCalls[0]?.arguments[0];
   const unwrappedOptions = endpointOptions
@@ -2736,6 +2795,28 @@ services:
 `;
 
   expect(() => expectAgentCoreNetworkingBehavior(compose)).toThrow();
+});
+
+test("AgentCore preservation helper rejects a custom runner disconnected from Runtime selection", () => {
+  const runtime = `
+    class AgentCoreRunner extends InMemoryAgentRunner {}
+    const disconnectedRunner = new AgentCoreRunner();
+    const runtime = process.env.${MANAGED_API_KEY}
+      ? new CopilotRuntime({
+          agents: {},
+          intelligence: new CopilotKitIntelligence({
+            apiKey: process.env.${MANAGED_API_KEY},
+          }),
+          identifyUser: () => ({ id: "demo-user" }),
+        })
+      : new CopilotRuntime({
+          agents: {},
+          runner: new InMemoryAgentRunner(),
+        });
+    const app = createCopilotEndpoint({ runtime, basePath: "/copilotkit" });
+  `;
+
+  expect(() => expectAgentCoreRuntimeBehavior(runtime)).toThrow();
 });
 
 test("integration parity workflow preserves filters and runs parity before the expected-red managed contract", () => {
