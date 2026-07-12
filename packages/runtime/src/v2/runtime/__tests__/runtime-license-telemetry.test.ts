@@ -405,21 +405,9 @@ test.each(runtimeConstructorIdentityCases)(
         expect.objectContaining({
           licenseToken: identityCase.expectedIdentity.licenseToken,
           telemetryId: identityCase.expectedIdentity.telemetryId,
-          globalProperties: expect.objectContaining(
-            identified
-              ? {
-                  sampleRate: 1,
-                  sampleRateAdjustmentFactor: 0,
-                  sampleWeight: 1,
-                }
-              : {
-                  sampleRate: 0.05,
-                  sampleRateAdjustmentFactor: 0.95,
-                  sampleWeight: 20,
-                },
-          ),
         }),
       );
+      expect(send.mock.calls[0]?.[0]).not.toHaveProperty("globalProperties");
       const headers = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
       const expectedHeaders = new Headers();
       const expectedTelemetryId =
@@ -480,12 +468,8 @@ test.each(runtimeConstructorCases)(
       expect(send.mock.calls[0]?.[0]).toMatchObject({
         licenseToken: undefined,
         telemetryId: undefined,
-        globalProperties: expect.objectContaining({
-          sampleRate: 0.05,
-          sampleRateAdjustmentFactor: 0.95,
-          sampleWeight: 20,
-        }),
       });
+      expect(send.mock.calls[0]?.[0]).not.toHaveProperty("globalProperties");
       const headers = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
       expect(headers.get("X-CopilotKit-Telemetry-Id")).toBeNull();
     } finally {

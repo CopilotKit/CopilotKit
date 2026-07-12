@@ -86,17 +86,9 @@ export class TelemetryClient {
     // (telemetry_id present) bypass the gate and always send.
     if (!this.telemetryId && !this.shouldSendEvent()) return;
 
-    const effectiveSampleRate = this.telemetryId ? 1 : this.sampleRate;
-    const samplingMetadata = {
-      sampleRate: effectiveSampleRate,
-      sampleRateAdjustmentFactor: 1 - effectiveSampleRate,
-      sampleWeight: 1 / effectiveSampleRate,
-    };
-
     await lambdaClient.send({
       event,
       properties: properties as Record<string, unknown>,
-      globalProperties: samplingMetadata,
       packageName: packageJson.name,
       packageVersion: packageJson.version,
       telemetryId:
