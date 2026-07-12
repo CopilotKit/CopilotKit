@@ -103,6 +103,18 @@ const LANGGRAPH_RUNTIME_AGENT_CONTRACT = {
   ],
 } as const satisfies RuntimeAgentContract;
 
+const LANGGRAPH_FASTAPI_RUNTIME_AGENT_CONTRACT = {
+  registration: "default",
+  constructorName: "LangGraphHttpAgent",
+  options: [
+    {
+      property: "url",
+      environmentReads: ["AGENT_URL"],
+      stringLiterals: ["http://localhost:8123"],
+    },
+  ],
+} as const satisfies RuntimeAgentContract;
+
 const HTTP_LOCALHOST_RUNTIME_AGENT_CONTRACT = {
   registration: "default",
   constructorName: "HttpAgent",
@@ -187,6 +199,15 @@ const MANAGED_TEMPLATE_CONTRACTS = [
     envPath: ".env.example",
     readmePath: "README.md",
     runtimeAgent: LANGGRAPH_RUNTIME_AGENT_CONTRACT,
+  },
+  {
+    directory: "langgraph-fastapi",
+    frameworks: [],
+    runtimePath: "src/app/api/copilotkit/[[...slug]]/route.ts",
+    gatePath: "next.config.ts",
+    envPath: ".env.example",
+    readmePath: "README.md",
+    runtimeAgent: LANGGRAPH_FASTAPI_RUNTIME_AGENT_CONTRACT,
   },
   {
     directory: "claude-sdk-typescript",
@@ -2856,7 +2877,7 @@ jobs:
   ).toThrow();
 });
 
-test("the 16 managed template directories back all 19 in-repo CLI frameworks", () => {
+test("the 17 managed template directories back all 19 in-repo CLI frameworks", () => {
   const frameworks = MANAGED_TEMPLATE_CONTRACTS.flatMap(
     (contract) => contract.frameworks,
   );
@@ -2864,8 +2885,8 @@ test("the 16 managed template directories back all 19 in-repo CLI frameworks", (
     (contract) => "runtimeAgent" in contract,
   );
 
-  expect(MANAGED_TEMPLATE_CONTRACTS).toHaveLength(16);
-  expect(ordinaryRuntimeContracts).toHaveLength(13);
+  expect(MANAGED_TEMPLATE_CONTRACTS).toHaveLength(17);
+  expect(ordinaryRuntimeContracts).toHaveLength(14);
   expect(new Set(frameworks).size).toBe(19);
   expect([...frameworks].sort()).toEqual([...MANAGED_CLI_FRAMEWORKS].sort());
 });
