@@ -11,7 +11,13 @@ export default defineConfig({
 
   define: {
     "import.meta.env.VITE_COPILOTKIT_THREADS_ENABLED": JSON.stringify(
-      process.env.CPK_INTELLIGENCE_API_KEY ? "true" : "false",
+      process.env.VITE_COPILOTKIT_THREADS_ENABLED === "true"
+        ? "true"
+        : process.env.VITE_COPILOTKIT_THREADS_ENABLED === "false"
+          ? "false"
+          : process.env.CPK_INTELLIGENCE_API_KEY
+            ? "true"
+            : "false",
     ),
   },
 

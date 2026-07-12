@@ -1,5 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import * as vm from "node:vm";
 
 import * as ts from "typescript";
 import { expect, test } from "vitest";
@@ -8,6 +9,7 @@ const repoRoot = path.resolve(__dirname, "..", "..");
 const integrationsDir = path.join(repoRoot, "examples", "integrations");
 
 const MANAGED_API_KEY = "CPK_INTELLIGENCE_API_KEY";
+const MANAGED_API_KEY_SENTINEL = "cpk_secret_must_not_reach_browser_assets";
 const OPTIONAL_TELEMETRY_ID = "CPK_TELEMETRY_ID";
 const LEGACY_API_KEY = "INTELLIGENCE_API_KEY";
 const LEGACY_TELEMETRY_ID = "COPILOTKIT_TELEMETRY_ID";
@@ -18,6 +20,7 @@ const INTELLIGENCE_API_URL = "INTELLIGENCE_API_URL";
 const INTELLIGENCE_GATEWAY_WS_URL = "INTELLIGENCE_GATEWAY_WS_URL";
 const NEXT_THREADS_GATE = "NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED";
 const VITE_THREADS_GATE = "VITE_COPILOTKIT_THREADS_ENABLED";
+const VITE_THREADS_GATE_DEFINITION = `import.meta.env.${VITE_THREADS_GATE}`;
 const MANAGED_DOCUMENTATION_LABEL = /\bmanaged\b/i;
 const SELF_HOSTED_OR_OFFLINE_LABEL = /\b(?:self[ -]?hosted|offline)\b/i;
 const LICENSE_GATING_LANGUAGE =
@@ -87,6 +90,17 @@ interface ManagedTemplateContract {
     readonly terraformRuntimeDeploymentPath: string;
     readonly terraformReadmePath: string;
     readonly deployScriptPaths: readonly string[];
+  };
+}
+
+interface AgentCoreViteEnvironment {
+  readonly [MANAGED_API_KEY]?: string;
+  readonly [VITE_THREADS_GATE]?: string;
+}
+
+interface EvaluatedAgentCoreViteConfig {
+  readonly define?: {
+    readonly [VITE_THREADS_GATE_DEFINITION]?: string;
   };
 }
 
@@ -2090,8 +2104,10 @@ function expectAgentCoreTerraformExclusionContract(
   expect(readme).toMatch(/use the CDK deployment path/i);
 }
 
-/** Assert AgentCore's frontend receives only the key-derived public gate. */
-function expectAgentCoreFrontendDeploymentContract(contents: string): void {
+/** Returns AgentCore's Amplify public-gate initializer. */
+function agentCoreFrontendGateInitializer(
+  contents: string,
+): ts.Expression | null {
   const sourceFile = parseManagedSource(contents);
   const appOptions = constructOptions(
     sourceFile,
@@ -2109,25 +2125,154 @@ function expectAgentCoreFrontendDeploymentContract(contents: string): void {
     environmentObject && ts.isObjectLiteralExpression(environmentObject)
       ? objectPropertyAssignment(environmentObject, VITE_THREADS_GATE)
       : null;
+
+  return managedGate?.initializer ?? null;
+}
+
+/** Assert AgentCore's frontend receives only the key-derived public gate. */
+function expectAgentCoreFrontendDeploymentContract(contents: string): void {
+  const managedGate = agentCoreFrontendGateInitializer(contents);
   expect(managedGate).not.toBeNull();
   if (!managedGate) return;
 
-  expect(isBooleanStringProjection(managedGate.initializer)).toBe(true);
+  expect(isBooleanStringProjection(managedGate)).toBe(true);
   expect(
-    expressionContainsPropertyPath(managedGate.initializer, [
+    expressionContainsPropertyPath(managedGate, [
       "props",
       "config",
       MANAGED_API_KEY_SECRET_CONFIG,
     ]),
   ).toBe(true);
-  expect(
-    expressionContainsEnvRead(managedGate.initializer, MANAGED_API_KEY),
-  ).toBe(false);
+  expect(expressionContainsEnvRead(managedGate, MANAGED_API_KEY)).toBe(false);
   expect(contents).not.toMatch(exactEnvIdentifierPattern(MANAGED_API_KEY));
   expect(contents).not.toMatch(
     exactEnvIdentifierPattern(OPTIONAL_TELEMETRY_ID),
   );
   expect(contents).not.toContain(MANAGED_LICENSE_TOKEN);
+}
+
+/**
+ * Resolves the public AgentCore frontend gate emitted by the Amplify stack.
+ *
+ * @param contents - Amplify stack source.
+ * @param hasManagedSecret - Whether the managed key secret reference is configured.
+ * @returns The projected boolean string, or null for an unsupported expression.
+ */
+function agentCoreFrontendGateProjection(
+  contents: string,
+  hasManagedSecret: boolean,
+): string | null {
+  const gate = agentCoreFrontendGateInitializer(contents);
+  const initializer = gate ? unwrapExpression(gate) : null;
+  if (!initializer || !ts.isConditionalExpression(initializer)) {
+    return null;
+  }
+
+  const selected = unwrapExpression(
+    hasManagedSecret ? initializer.whenTrue : initializer.whenFalse,
+  );
+  return ts.isStringLiteral(selected) ? selected.text : null;
+}
+
+/**
+ * Executes the real AgentCore Vite config with a controlled environment.
+ *
+ * @param contents - AgentCore Vite config source.
+ * @param environment - Managed environment visible to the config process.
+ * @returns The literal replacement Vite would emit for the public gate.
+ */
+function evaluateAgentCoreViteGate(
+  contents: string,
+  environment: AgentCoreViteEnvironment,
+): string {
+  const transpiled = ts.transpileModule(contents, {
+    compilerOptions: {
+      esModuleInterop: true,
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+    },
+    fileName: "agentcore-vite.config.ts",
+    reportDiagnostics: true,
+  });
+  const diagnostics =
+    transpiled.diagnostics?.filter(
+      (diagnostic) => diagnostic.category === ts.DiagnosticCategory.Error,
+    ) ?? [];
+  expect(diagnostics, "AgentCore Vite config must transpile").toHaveLength(0);
+
+  const evaluatedModule: {
+    exports: { default?: EvaluatedAgentCoreViteConfig };
+  } = { exports: {} };
+
+  /** Supplies only the config-time modules needed by the real Vite source. */
+  function configRequire(identifier: string): unknown {
+    if (identifier === "vite") {
+      return {
+        defineConfig: (config: EvaluatedAgentCoreViteConfig) => config,
+      };
+    }
+    if (identifier === "@vitejs/plugin-react") {
+      return {
+        __esModule: true,
+        default: () => ({ name: "react" }),
+      };
+    }
+    if (identifier === "path") {
+      return path;
+    }
+    throw new Error(`Unexpected AgentCore Vite dependency: ${identifier}`);
+  }
+
+  vm.runInNewContext(transpiled.outputText, {
+    __dirname: path.join(integrationsDir, "agentcore", "frontend"),
+    exports: evaluatedModule.exports,
+    module: evaluatedModule,
+    process: { env: environment },
+    require: configRequire,
+  });
+
+  const definition =
+    evaluatedModule.exports.default?.define?.[VITE_THREADS_GATE_DEFINITION];
+  expect(
+    definition,
+    "AgentCore Vite config must define the public gate",
+  ).toBeDefined();
+  return definition ?? "";
+}
+
+/**
+ * Applies the configured Vite replacement to a representative browser asset.
+ *
+ * @param definition - Literal public-gate replacement from the Vite config.
+ * @returns Browser asset text after Vite's configured replacement.
+ */
+function emitAgentCoreBrowserGateAsset(definition: string): string {
+  return `window.__agentCoreThreadsEnabled = ${VITE_THREADS_GATE_DEFINITION};`.replaceAll(
+    VITE_THREADS_GATE_DEFINITION,
+    definition,
+  );
+}
+
+/** Reads the linked AgentCore Vite and Amplify gate surfaces. */
+function readAgentCoreFrontendGateSurfaces(): {
+  readonly deployment: string;
+  readonly vite: string;
+} {
+  const contract = MANAGED_TEMPLATE_CONTRACTS.find(
+    ({ directory }) => directory === "agentcore",
+  );
+  if (!contract || !("supportedPaths" in contract)) {
+    throw new Error("AgentCore managed template contract is missing");
+  }
+
+  return {
+    deployment: readManagedSurface(
+      contract,
+      contract.supportedPaths.frontendDeploymentPath,
+      "frontend deployment config",
+    ),
+    vite: readManagedSurface(contract, contract.gatePath, "client gate"),
+  };
 }
 
 /** Assert an AgentCore variant deploy script safely materializes its key secret. */
@@ -2406,6 +2551,55 @@ test("managed gate helpers accept normalized Next and Vite boolean projections",
 
   expect(() => expectManagedGateContract(nextGate)).not.toThrow();
   expect(() => expectManagedGateContract(viteGateWithOverride)).not.toThrow();
+});
+
+test("AgentCore Vite honors the Amplify public gate before local key presence", () => {
+  const { deployment, vite } = readAgentCoreFrontendGateSurfaces();
+
+  expectAgentCoreFrontendDeploymentContract(deployment);
+  const enabledGate = agentCoreFrontendGateProjection(deployment, true);
+  const disabledGate = agentCoreFrontendGateProjection(deployment, false);
+  expect(enabledGate).toBe("true");
+  expect(disabledGate).toBe("false");
+  if (!enabledGate || !disabledGate) {
+    throw new Error("AgentCore Amplify gate projection is incomplete");
+  }
+
+  expect(
+    evaluateAgentCoreViteGate(vite, {
+      [VITE_THREADS_GATE]: enabledGate,
+    }),
+  ).toBe(JSON.stringify("true"));
+  expect(
+    evaluateAgentCoreViteGate(vite, {
+      [MANAGED_API_KEY]: MANAGED_API_KEY_SENTINEL,
+      [VITE_THREADS_GATE]: disabledGate,
+    }),
+  ).toBe(JSON.stringify("false"));
+});
+
+test("AgentCore Vite falls back to local managed-key presence", () => {
+  const { vite } = readAgentCoreFrontendGateSurfaces();
+
+  expect(
+    evaluateAgentCoreViteGate(vite, {
+      [MANAGED_API_KEY]: MANAGED_API_KEY_SENTINEL,
+    }),
+  ).toBe(JSON.stringify("true"));
+  expect(evaluateAgentCoreViteGate(vite, {})).toBe(JSON.stringify("false"));
+});
+
+test("AgentCore emitted browser gate omits the managed key value", () => {
+  const { vite } = readAgentCoreFrontendGateSurfaces();
+
+  const definition = evaluateAgentCoreViteGate(vite, {
+    [MANAGED_API_KEY]: MANAGED_API_KEY_SENTINEL,
+  });
+  const browserAsset = emitAgentCoreBrowserGateAsset(definition);
+
+  expect(browserAsset).toContain(JSON.stringify("true"));
+  expect(browserAsset).not.toContain(MANAGED_API_KEY_SENTINEL);
+  expect(browserAsset).not.toContain(MANAGED_API_KEY);
 });
 
 test("AgentCore structural helpers accept linked root-env, secret, Lambda, and frontend wiring", () => {
