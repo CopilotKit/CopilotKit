@@ -70,6 +70,12 @@ agent updates through the adapter's built-in `ag_ui_update_state` tool.
 project. `CPK_TELEMETRY_ID` is an optional, non-secret analytics identity.
 Keep both values in `.env`; the telemetry ID is not a credential.
 
+## Offline or self-hosted licensing
+
+For an offline or self-hosted deployment that requires a license token, set
+`COPILOTKIT_LICENSE_TOKEN` separately. It is not part of the managed project
+credential contract above.
+
 ## Available scripts
 
 - `npm run dev` — start the UI and agent together (dev mode)

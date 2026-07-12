@@ -1342,15 +1342,21 @@ function markdownLicenseOccurrenceLines(lines: readonly string[]): number[] {
   return occurrences;
 }
 
-/** Returns the managed Markdown heading section containing both fields. */
-function managedMarkdownSection(markdown: string): string {
+interface MarkdownHeadingSection {
+  readonly heading: string;
+  readonly contents: string;
+}
+
+/** Returns every Markdown heading section through its next peer heading. */
+function markdownHeadingSections(
+  markdown: string,
+): readonly MarkdownHeadingSection[] {
   const lines = markdown.split(/\r?\n/);
+  const sections: MarkdownHeadingSection[] = [];
 
   for (let start = 0; start < lines.length; start += 1) {
     const heading = lines[start]?.match(/^(#{1,6})\s+(.+?)\s*$/);
-    if (!heading || !MANAGED_DOCUMENTATION_LABEL.test(heading[2] ?? "")) {
-      continue;
-    }
+    if (!heading) continue;
 
     const headingLevel = heading[1]?.length ?? 0;
     let end = lines.length;
@@ -1362,16 +1368,37 @@ function managedMarkdownSection(markdown: string): string {
       }
     }
 
-    const section = lines.slice(start, end).join("\n");
-    if (
-      exactEnvIdentifierPattern(MANAGED_API_KEY).test(section) &&
-      exactEnvIdentifierPattern(OPTIONAL_TELEMETRY_ID).test(section)
-    ) {
-      return section;
-    }
+    sections.push({
+      heading: heading[2] ?? "",
+      contents: lines.slice(start, end).join("\n"),
+    });
   }
 
-  return "";
+  return sections;
+}
+
+/** Returns the managed Markdown section containing both managed fields. */
+function managedMarkdownSection(markdown: string): string {
+  return (
+    markdownHeadingSections(markdown).find(
+      ({ heading, contents }) =>
+        MANAGED_DOCUMENTATION_LABEL.test(heading) &&
+        exactEnvIdentifierPattern(MANAGED_API_KEY).test(contents) &&
+        exactEnvIdentifierPattern(OPTIONAL_TELEMETRY_ID).test(contents),
+    )?.contents ?? ""
+  );
+}
+
+/** Returns distinct offline or self-hosted license-token guidance. */
+function offlineOrSelfHostedLicenseSection(markdown: string): string {
+  return (
+    markdownHeadingSections(markdown).find(
+      ({ heading, contents }) =>
+        SELF_HOSTED_OR_OFFLINE_LABEL.test(heading) &&
+        (exactEnvIdentifierPattern(MANAGED_LICENSE_TOKEN).test(contents) ||
+          /\blicen[cs]e\s+token\b/i.test(contents)),
+    )?.contents ?? ""
+  );
 }
 
 /** Returns whether a Markdown line has a heading ancestor with the label. */
@@ -1464,9 +1491,16 @@ function expectManagedEnvContract(contents: string): void {
  */
 function expectManagedReadmeContract(contents: string): void {
   const managedSection = managedMarkdownSection(contents);
+  const offlineOrSelfHostedSection =
+    offlineOrSelfHostedLicenseSection(contents);
 
   expect(managedSection).not.toBe("");
+  expect(managedSection).not.toContain(MANAGED_LICENSE_TOKEN);
   expectTelemetryIdentityDocumentation(managedSection);
+  expect(offlineOrSelfHostedSection).not.toBe("");
+  if (offlineOrSelfHostedSection) {
+    expect(managedSection).not.toContain(offlineOrSelfHostedSection);
+  }
   expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_API_KEY));
   expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_TELEMETRY_ID));
   expectMarkdownLicenseOccurrencesClassified(contents);
@@ -2661,10 +2695,26 @@ test("managed documentation helpers accept an optional non-secret analytics iden
     "Set `CPK_INTELLIGENCE_API_KEY` for the project.",
     "",
     "`CPK_TELEMETRY_ID` is an optional, non-secret analytics identity.",
+    "",
+    "## Offline or self-hosted licensing",
+    "",
+    "Set `COPILOTKIT_LICENSE_TOKEN` only for an offline deployment.",
   ].join("\n");
 
   expect(() => expectManagedEnvContract(envExample)).not.toThrow();
   expect(() => expectManagedReadmeContract(readme)).not.toThrow();
+});
+
+test("managed README helper rejects missing offline or self-hosted license guidance", () => {
+  const readme = [
+    "## Managed Intelligence credentials",
+    "",
+    "Set `CPK_INTELLIGENCE_API_KEY` for the project.",
+    "",
+    "`CPK_TELEMETRY_ID` is an optional, non-secret analytics identity.",
+  ].join("\n");
+
+  expect(() => expectManagedReadmeContract(readme)).toThrow();
 });
 
 test.each([
@@ -2763,7 +2813,7 @@ test("managed documentation helpers allow separate self-hosted and offline licen
     "Set CPK_INTELLIGENCE_API_KEY for the project.",
     "CPK_TELEMETRY_ID is an optional, non-secret analytics identity.",
     "",
-    "### Self-hosted / offline license",
+    "## Self-hosted / offline license",
     "",
     "Offline deployments may set COPILOTKIT_LICENSE_TOKEN instead.",
   ].join("\n");
@@ -2809,6 +2859,7 @@ test("managed documentation helpers allow generic license-gating copy only in se
     "",
     "## Self-hosted / offline license behavior",
     "",
+    "Set COPILOTKIT_LICENSE_TOKEN only for this deployment mode.",
     "A deployment license enables Threads and Inspector offline.",
   ].join("\n");
 

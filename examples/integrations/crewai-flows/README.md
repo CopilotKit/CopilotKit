@@ -94,6 +94,12 @@ Feel free to submit issues and enhancement requests! This starter is designed to
 project. `CPK_TELEMETRY_ID` is an optional, non-secret analytics identity.
 Keep both values in `.env`; the telemetry ID is not a credential.
 
+## Offline or self-hosted licensing
+
+For an offline or self-hosted deployment that requires a license token, set
+`COPILOTKIT_LICENSE_TOKEN` separately. It is not part of the managed project
+credential contract above.
+
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.

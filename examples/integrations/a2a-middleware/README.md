@@ -262,6 +262,12 @@ The **A2A Middleware** (in `app/api/copilotkit/route.ts`) is the magic that conn
 project. `CPK_TELEMETRY_ID` is an optional, non-secret analytics identity.
 Keep both values in `.env`; the telemetry ID is not a credential.
 
+## Offline or self-hosted licensing
+
+For an offline or self-hosted deployment that requires a license token, set
+`COPILOTKIT_LICENSE_TOKEN` separately. It is not part of the managed project
+credential contract above.
+
 ## License
 
 MIT
