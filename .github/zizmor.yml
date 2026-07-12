@@ -77,3 +77,20 @@ rules:
       # pkg-pr-new posts snapshot comments on the PR using the repo token
       # — credentials must remain persisted for the action to authenticate.
       - publish-commit.yml
+
+  # `adhoc-packages` flags `npm install -g <pkg>` style ad-hoc installs of
+  # tools that aren't declared in a lockfile. The installs below are
+  # intentional global CLI tools fetched in CI-only jobs — they are dev
+  # tooling invoked by the workflow itself, not application dependencies,
+  # so there is no lockfile to pin them against. Each is scoped to its
+  # exact file:line so a new, unrelated ad-hoc install still gets flagged.
+  adhoc-packages:
+    ignore:
+      # @anthropic-ai/claude-code CLI, used by the social-copy generator job.
+      - social_copy-generator.yml:209
+      # oxfmt formatter CLI, used by the static-quality format check.
+      - static_quality.yml:54
+      # @copilotkit/aimock CLI, used by the on-demand showcase e2e job.
+      - test_e2e-showcase-on-demand.yml:276
+      # @copilotkit/aimock CLI, used by the docs integration test job.
+      - test_integration-docs.yml:67
