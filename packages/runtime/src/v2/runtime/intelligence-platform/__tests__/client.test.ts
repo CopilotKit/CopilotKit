@@ -368,8 +368,9 @@ test.each([
 );
 
 test.each([300, 401, 503, 599])(
-  "getRuntimeEntitlements rejects non-OK status %i without reading or leaking its body",
+  "getRuntimeEntitlements rejects non-OK status %i after disposing without reading or leaking its body",
   async (status) => {
+    consoleErrorSpy.mockClear();
     const client = runtimeEntitlementsClient();
     const privateUpstreamDetail = `private-upstream-detail-${status}`;
     const upstreamResponse = new Response(
@@ -391,10 +392,77 @@ test.each([300, 401, 503, 599])(
       `Runtime entitlement request failed with status ${status}`,
     );
     expect(error.message).not.toContain(privateUpstreamDetail);
-    expect(upstreamResponse.bodyUsed).toBe(false);
+    expect(upstreamResponse.bodyUsed).toBe(true);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(consoleErrorSpy.mock.calls)).not.toContain(
+      privateUpstreamDetail,
+    );
   },
 );
+
+test("getRuntimeEntitlements bounds stalled non-OK response disposal without leaking its body", async () => {
+  vi.useFakeTimers();
+  try {
+    consoleErrorSpy.mockClear();
+    const privateUpstreamDetail = "private-stalled-error-body-detail";
+    let requestSignal: AbortSignal | null | undefined;
+    let disposalStarted = false;
+    const upstreamResponse = new Response(
+      new ReadableStream<Uint8Array>({
+        cancel() {
+          disposalStarted = true;
+          return new Promise<void>((_resolve, reject) => {
+            /** Reject stalled disposal when the request deadline aborts. */
+            const rejectOnAbort = () => {
+              reject(new DOMException(privateUpstreamDetail, "AbortError"));
+            };
+            if (requestSignal?.aborted === true) {
+              rejectOnAbort();
+            } else {
+              requestSignal?.addEventListener("abort", rejectOnAbort, {
+                once: true,
+              });
+            }
+          });
+        },
+      }),
+      { status: 503 },
+    );
+    const client = runtimeEntitlementsClient();
+    fetchMock.mockImplementation(
+      (_input: RequestInfo | URL, init?: RequestInit) => {
+        requestSignal = init?.signal;
+        return Promise.resolve(upstreamResponse);
+      },
+    );
+
+    const request = client.getRuntimeEntitlements();
+    const capturedError = request.catch((error: unknown) => error);
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(disposalStarted).toBe(true);
+    expect(requestSignal?.aborted).toBe(false);
+
+    await vi.advanceTimersToNextTimerAsync();
+
+    const error = await capturedError;
+    expect(error).toBeInstanceOf(PlatformRequestError);
+    if (!(error instanceof PlatformRequestError)) {
+      throw new Error("Expected a typed Runtime entitlement timeout error");
+    }
+    expect(error.status).toBe(504);
+    expect(error.message).toBe("Runtime entitlement request timed out");
+    expect(error.message).not.toContain(privateUpstreamDetail);
+    expect(upstreamResponse.bodyUsed).toBe(true);
+    expect(requestSignal?.aborted).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(consoleErrorSpy.mock.calls)).not.toContain(
+      privateUpstreamDetail,
+    );
+  } finally {
+    vi.useRealTimers();
+  }
+});
 
 /*
  * Existing client coverage follows. These tests predate the repository's flat

@@ -587,6 +587,7 @@ export class CopilotKitIntelligence {
       });
 
       if (!response.ok) {
+        await response.body?.cancel();
         logger.error(
           { status: response.status, path },
           "Runtime entitlement request failed",
