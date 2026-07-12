@@ -1,6 +1,7 @@
 import type { AnalyticsEvents } from "./events";
 import { lambdaClient, parseAndWarnTelemetryId } from "@copilotkit/shared";
 import * as packageJson from "../../../../package.json";
+import { firstNonBlankTelemetryId } from "./telemetry-identity";
 
 export function isTelemetryDisabled(): boolean {
   return (
@@ -54,8 +55,9 @@ export class TelemetryClient {
     telemetryId?: string;
     licenseToken?: string;
   }): void {
-    if (identity.telemetryId !== undefined) {
-      this.telemetryId = identity.telemetryId;
+    const telemetryId = firstNonBlankTelemetryId(identity.telemetryId);
+    if (telemetryId !== undefined) {
+      this.telemetryId = telemetryId;
       this.licenseToken = null;
       return;
     }

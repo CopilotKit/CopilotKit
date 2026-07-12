@@ -39,6 +39,7 @@ import type { CopilotKitIntelligence } from "../intelligence-platform";
 // by the Channel-listener bootstrap — not here.
 import type { Bot } from "@copilotkit/channels";
 import telemetry from "../telemetry/telemetry-client";
+import { firstNonBlankTelemetryId } from "../telemetry/telemetry-identity";
 
 export const VERSION = pkg.version;
 
@@ -318,8 +319,10 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
     // Replace the singleton identity atomically for every construction. This
     // includes the anonymous case so a prior runtime cannot leak its identity
     // into a later runtime in the same process.
-    const resolvedTelemetryId =
-      options.telemetryId ?? process.env.CPK_TELEMETRY_ID;
+    const resolvedTelemetryId = firstNonBlankTelemetryId(
+      options.telemetryId,
+      process.env.CPK_TELEMETRY_ID,
+    );
     telemetry.setTelemetryIdentity(
       resolvedTelemetryId !== undefined
         ? { telemetryId: resolvedTelemetryId }

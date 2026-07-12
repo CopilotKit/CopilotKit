@@ -172,6 +172,34 @@ const rootRuntimeTelemetryIdentityCases = [
     expectedIdentity: { telemetryId: "environment-telemetry-id" },
   },
   {
+    label: "CPK_TELEMETRY_ID when the explicit telemetryId is empty",
+    telemetryId: "",
+    environmentTelemetryId: "environment-telemetry-id",
+    licenseToken: LEGACY_IDENTITY_TOKEN,
+    expectedIdentity: { telemetryId: "environment-telemetry-id" },
+  },
+  {
+    label: "legacy license when standalone option and environment are blank",
+    telemetryId: " \t ",
+    environmentTelemetryId: "",
+    licenseToken: LEGACY_IDENTITY_TOKEN,
+    expectedIdentity: { licenseToken: LEGACY_IDENTITY_TOKEN },
+  },
+  {
+    label:
+      "anonymous identity when standalone option and environment are blank",
+    telemetryId: "",
+    environmentTelemetryId: " \t ",
+    expectedIdentity: {},
+  },
+  {
+    label: "opaque nonblank explicit telemetryId bytes without trimming",
+    telemetryId: " explicit-telemetry-id ",
+    environmentTelemetryId: "environment-telemetry-id",
+    licenseToken: LEGACY_IDENTITY_TOKEN,
+    expectedIdentity: { telemetryId: " explicit-telemetry-id " },
+  },
+  {
     label: "legacy license when no standalone identity exists",
     licenseToken: LEGACY_IDENTITY_TOKEN,
     expectedIdentity: { licenseToken: LEGACY_IDENTITY_TOKEN },
@@ -236,9 +264,15 @@ test.each(rootRuntimeTelemetryIdentityCases)(
         }),
       );
       const headers = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
-      expect(headers.get("X-CopilotKit-Telemetry-Id")).toBe(
+      const expectedHeaders = new Headers();
+      const expectedTelemetryId =
         expectedIdentity.telemetryId ??
-          parseTelemetryIdFromLicense(expectedIdentity.licenseToken),
+        parseTelemetryIdFromLicense(expectedIdentity.licenseToken);
+      if (expectedTelemetryId !== null && expectedTelemetryId !== undefined) {
+        expectedHeaders.set("X-CopilotKit-Telemetry-Id", expectedTelemetryId);
+      }
+      expect(headers.get("X-CopilotKit-Telemetry-Id")).toBe(
+        expectedHeaders.get("X-CopilotKit-Telemetry-Id"),
       );
     } finally {
       restoreDelegatedTelemetry();

@@ -46,6 +46,24 @@ export interface LambdaSendOptions {
   licenseToken?: string;
 }
 
+/**
+ * Return the first configured standalone telemetry identity without rewriting it.
+ *
+ * Empty and whitespace-only values are unconfigured placeholders and must not
+ * suppress a later identity source. A nonblank value remains opaque: trimming
+ * is used only for the presence check, and the original string is returned.
+ *
+ * @internal
+ */
+export function firstNonBlankTelemetryId(
+  ...candidates: ReadonlyArray<string | undefined>
+): string | undefined {
+  return candidates.find(
+    (candidate): candidate is string =>
+      candidate !== undefined && candidate.trim().length > 0,
+  );
+}
+
 // These fields aren't used by the telemetry service, so we strip them
 // at the wire boundary rather than rely on every caller to omit them.
 // Both the snake_case and camelCase variants are listed because callers
@@ -125,7 +143,8 @@ export async function send(opts: LambdaSendOptions): Promise<void> {
     });
 
     const telemetryId =
-      opts.telemetryId ?? parseTelemetryIdFromLicense(opts.licenseToken);
+      firstNonBlankTelemetryId(opts.telemetryId) ??
+      parseTelemetryIdFromLicense(opts.licenseToken);
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       "User-Agent": opts.packageName

@@ -225,6 +225,50 @@ describe("v1 TelemetryClient", () => {
     });
   });
 
+  test.each(["", " \t "])(
+    "blank standalone identity %j falls through to a supplied legacy identity",
+    async (blankTelemetryId) => {
+      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.99);
+      const licenseToken = jwtWith({ telemetry_id: "legacy-telemetry-id" });
+      const client = makeClient({ sampleRate: 0.05 });
+      client.setTelemetryIdentity({
+        telemetryId: blankTelemetryId,
+        licenseToken,
+      });
+
+      await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+      expect(randomSpy).not.toHaveBeenCalled();
+      expect(lambdaSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          licenseToken,
+          telemetryId: undefined,
+          globalProperties: expect.objectContaining({ sampleRate: 1 }),
+        }),
+      );
+    },
+  );
+
+  test.each(["", " \t "])(
+    "blank standalone identity %j without a legacy identity remains anonymously sampled",
+    async (blankTelemetryId) => {
+      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+      const client = makeClient({ sampleRate: 0.05 });
+      client.setTelemetryIdentity({ telemetryId: blankTelemetryId });
+
+      await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+      expect(randomSpy).toHaveBeenCalledTimes(1);
+      expect(lambdaSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          licenseToken: undefined,
+          telemetryId: undefined,
+          globalProperties: expect.objectContaining({ sampleRate: 0.05 }),
+        }),
+      );
+    },
+  );
+
   test("identified callers bypass the sample gate (lambda + segment fire even when Math.random would fail)", async () => {
     vi.spyOn(Math, "random").mockReturnValue(0.99);
     const client = makeClient({ sampleRate: 0.05 });

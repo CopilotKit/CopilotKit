@@ -2,7 +2,11 @@ import { Analytics } from "@segment/analytics-node";
 import type { AnalyticsEvents } from "./events";
 import { flattenObject } from "./utils";
 import { v4 as uuidv4 } from "uuid";
-import { lambdaClient, parseAndWarnTelemetryId } from "./lambda-client";
+import {
+  firstNonBlankTelemetryId,
+  lambdaClient,
+  parseAndWarnTelemetryId,
+} from "./lambda-client";
 
 /**
  * Checks if telemetry is disabled via environment variables.
@@ -185,10 +189,11 @@ export class TelemetryClient {
     telemetryId?: string;
     licenseToken?: string;
   }): void {
-    if (identity.telemetryId !== undefined) {
-      this.telemetryId = identity.telemetryId;
+    const telemetryId = firstNonBlankTelemetryId(identity.telemetryId);
+    if (telemetryId !== undefined) {
+      this.telemetryId = telemetryId;
       this.licenseToken = null;
-      this.resolvedTelemetryId = identity.telemetryId;
+      this.resolvedTelemetryId = telemetryId;
       return;
     }
 

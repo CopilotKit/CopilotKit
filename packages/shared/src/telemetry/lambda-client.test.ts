@@ -160,6 +160,18 @@ const lambdaIdentityTransportCases = [
     licenseTelemetryId: "license-telemetry-id",
     expectedTelemetryId: "license-telemetry-id",
   },
+  {
+    label: "legacy license identity with an empty standalone identity",
+    explicitTelemetryId: "",
+    licenseTelemetryId: "license-telemetry-id",
+    expectedTelemetryId: "license-telemetry-id",
+  },
+  {
+    label: "legacy license identity with a whitespace-only standalone identity",
+    explicitTelemetryId: " \t ",
+    licenseTelemetryId: "license-telemetry-id",
+    expectedTelemetryId: "license-telemetry-id",
+  },
 ] as const;
 
 test.each(lambdaIdentityTransportCases)(
@@ -205,11 +217,29 @@ test.each(lambdaIdentityTransportCases)(
       );
       const nonIdentityHeaderText = JSON.stringify(nonIdentityHeaders);
       for (const identity of [explicitTelemetryId, licenseTelemetryId]) {
-        if (identity === undefined) continue;
+        if (identity === undefined || identity.trim().length === 0) continue;
         expect(url).not.toContain(identity);
         expect(bodyText).not.toContain(identity);
         expect(nonIdentityHeaderText).not.toContain(identity);
       }
+    } finally {
+      teardown();
+    }
+  },
+);
+
+test.each(["", " \t "])(
+  "blank standalone identity %j without a legacy identity sends no identity header",
+  async (blankTelemetryId) => {
+    const { readRequest, teardown } = setupCapturedRequest();
+
+    try {
+      await send({
+        event: "oss.runtime.instance_created",
+        telemetryId: blankTelemetryId,
+      });
+
+      expect(readRequest().headers[TELEMETRY_ID_HEADER]).toBeUndefined();
     } finally {
       teardown();
     }

@@ -66,6 +66,74 @@ test.each(resolvedTelemetryIdentityCases)(
   },
 );
 
+test.each(["", " \t "])(
+  "V2 blank standalone identity %j falls through to a supplied legacy identity",
+  async (blankTelemetryId) => {
+    const { lambdaSpy, teardown } = setupTelemetrySink();
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const payload = Buffer.from(
+      '{"telemetry_id":"legacy-license-id"}',
+    ).toString("base64url");
+    const licenseToken = `header.${payload}.sig`;
+    const client = new TelemetryClient({
+      telemetryDisabled: false,
+      sampleRate: 0.05,
+    });
+    client.setTelemetryIdentity({
+      telemetryId: blankTelemetryId,
+      licenseToken,
+    });
+
+    try {
+      await client.capture("oss.runtime.instance_created", {
+        actionsAmount: 0,
+        endpointTypes: [],
+        endpointsAmount: 0,
+        "cloud.api_key_provided": false,
+      });
+
+      expect(randomSpy).not.toHaveBeenCalled();
+      expect(lambdaSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ licenseToken, telemetryId: undefined }),
+      );
+    } finally {
+      teardown();
+    }
+  },
+);
+
+test.each(["", " \t "])(
+  "V2 blank standalone identity %j without a legacy identity remains anonymously sampled",
+  async (blankTelemetryId) => {
+    const { lambdaSpy, teardown } = setupTelemetrySink();
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    const client = new TelemetryClient({
+      telemetryDisabled: false,
+      sampleRate: 0.05,
+    });
+    client.setTelemetryIdentity({ telemetryId: blankTelemetryId });
+
+    try {
+      await client.capture("oss.runtime.instance_created", {
+        actionsAmount: 0,
+        endpointTypes: [],
+        endpointsAmount: 0,
+        "cloud.api_key_provided": false,
+      });
+
+      expect(randomSpy).toHaveBeenCalledTimes(1);
+      expect(lambdaSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          licenseToken: undefined,
+          telemetryId: undefined,
+        }),
+      );
+    } finally {
+      teardown();
+    }
+  },
+);
+
 describe("TelemetryClient", () => {
   let lambdaSpy: ReturnType<typeof vi.spyOn>;
 

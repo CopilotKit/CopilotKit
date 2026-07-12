@@ -67,6 +67,7 @@ import type {
   LLMResponseData,
 } from "../observability";
 import type { AbstractAgent } from "@ag-ui/client";
+import { firstNonBlankTelemetryId } from "../../v2/runtime/telemetry/telemetry-identity";
 
 // +++ MCP Imports +++
 import { extractParametersFromSchema } from "./mcp-tools-utils";
@@ -389,8 +390,10 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     // atomically replace its telemetry singleton, including anonymous clears.
     const resolvedLicenseToken =
       params?.licenseToken ?? process.env.COPILOTKIT_LICENSE_TOKEN;
-    const resolvedTelemetryId =
-      params?.telemetryId ?? process.env.CPK_TELEMETRY_ID;
+    const resolvedTelemetryId = firstNonBlankTelemetryId(
+      params?.telemetryId,
+      process.env.CPK_TELEMETRY_ID,
+    );
     const resolvedTelemetryIdentity =
       resolvedTelemetryId !== undefined
         ? { telemetryId: resolvedTelemetryId }
