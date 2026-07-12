@@ -75,6 +75,12 @@ The following scripts can also be run using your preferred package manager:
 
 Feel free to submit issues and enhancement requests!
 
+## Managed CopilotKit Intelligence
+
+`copilotkit init` writes `CPK_INTELLIGENCE_API_KEY` for the selected managed
+project. `CPK_TELEMETRY_ID` is an optional, non-secret analytics identity.
+Keep both values in `.env`; the telemetry ID is not a credential.
+
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
