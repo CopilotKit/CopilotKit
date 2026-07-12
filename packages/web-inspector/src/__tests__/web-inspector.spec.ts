@@ -1656,6 +1656,9 @@ test.each([
       },
     },
     errorMessage: undefined,
+    errorCode: undefined,
+    requestId: undefined,
+    traceId: undefined,
   },
   {
     diagnostic: "expired self-hosted entitlement",
@@ -1667,9 +1670,14 @@ test.each([
         code: "RUNTIME_ENTITLEMENTS_SELF_HOSTED_EXPIRED",
         message: "Self-hosted license has expired.",
         retryable: false,
+        requestId: "req-expired",
+        traceId: "trace-expired",
       },
     },
     errorMessage: "Self-hosted license has expired.",
+    errorCode: "RUNTIME_ENTITLEMENTS_SELF_HOSTED_EXPIRED",
+    requestId: "req-expired",
+    traceId: "trace-expired",
   },
   {
     diagnostic: "misconfigured self-hosted entitlement",
@@ -1684,6 +1692,9 @@ test.each([
       },
     },
     errorMessage: "Self-hosted license configuration is missing or invalid.",
+    errorCode: "RUNTIME_ENTITLEMENTS_SELF_HOSTED_MISCONFIGURED",
+    requestId: undefined,
+    traceId: undefined,
   },
   {
     diagnostic: "unavailable managed entitlement",
@@ -1698,6 +1709,9 @@ test.each([
       },
     },
     errorMessage: "Managed entitlement resolution is temporarily unavailable.",
+    errorCode: "RUNTIME_ENTITLEMENTS_MANAGED_UNAVAILABLE",
+    requestId: undefined,
+    traceId: undefined,
   },
   {
     diagnostic: "SDK fail-soft entitlement lookup",
@@ -1712,10 +1726,21 @@ test.each([
       },
     },
     errorMessage: "Runtime entitlement lookup failed",
+    errorCode: "runtime_entitlements_unavailable",
+    requestId: undefined,
+    traceId: undefined,
   },
 ] as const)(
   "renders structured Runtime entitlement diagnostics for $diagnostic",
-  async ({ status, legacyStatus, runtimeEntitlements, errorMessage }) => {
+  async ({
+    status,
+    legacyStatus,
+    runtimeEntitlements,
+    errorMessage,
+    errorCode,
+    requestId,
+    traceId,
+  }) => {
     const fixture = setupRuntimeDiagnostics();
 
     try {
@@ -1735,6 +1760,15 @@ test.each([
       expect(diagnostic).not.toBeNull();
       if (errorMessage) {
         expect(diagnostic?.textContent).toContain(errorMessage);
+      }
+      if (errorCode) {
+        expect(diagnostic?.textContent).toContain(errorCode);
+      }
+      if (requestId) {
+        expect(diagnostic?.textContent).toContain(requestId);
+      }
+      if (traceId) {
+        expect(diagnostic?.textContent).toContain(traceId);
       }
       expect(inspector.shadowRoot?.textContent ?? "").toContain(
         "Enable Intelligence to inspect Threads.",
