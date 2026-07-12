@@ -8,6 +8,7 @@ import {
 import type {
   AgentDescription,
   RuntimeInfo,
+  RuntimeEntitlementResponse,
   ThreadEndpointRuntimeInfo,
 } from "@copilotkit/shared";
 import type { RuntimeLicenseStatus } from "@copilotkit/shared";
@@ -32,6 +33,34 @@ interface HandleGetRuntimeInfoParameters {
   runtime: CopilotRuntimeLike;
   request: Request;
   threadEndpointsEnabled?: boolean;
+}
+
+/**
+ * Resolve structured Runtime entitlements for configured Intelligence runtimes.
+ *
+ * Dependency failures are deliberately converted to a stable unavailable
+ * diagnostic so `/info` remains an availability endpoint. The underlying
+ * error is not exposed because it may contain upstream response details.
+ */
+async function resolveRuntimeEntitlements(
+  runtime: CopilotRuntimeLike,
+): Promise<RuntimeEntitlementResponse | undefined> {
+  if (!isIntelligenceRuntime(runtime)) {
+    return undefined;
+  }
+
+  try {
+    return await runtime.intelligence.getRuntimeEntitlements();
+  } catch {
+    return {
+      status: "unavailable",
+      error: {
+        code: "runtime_entitlements_unavailable",
+        message: "Runtime entitlement lookup failed",
+        retryable: true,
+      },
+    };
+  }
 }
 
 export async function handleGetRuntimeInfo({
@@ -72,6 +101,7 @@ export async function handleGetRuntimeInfo({
 
     const agentsDict: Record<string, AgentDescription> =
       Object.fromEntries(agentEntries);
+    const runtimeEntitlements = await resolveRuntimeEntitlements(runtime);
 
     const runtimeInfo: RuntimeInfo = {
       version: VERSION,
@@ -112,6 +142,7 @@ export async function handleGetRuntimeInfo({
       ...(isIntelligenceRuntime(runtime)
         ? { licenseStatus: resolveLicenseStatus(runtime) }
         : {}),
+      ...(runtimeEntitlements ? { runtimeEntitlements } : {}),
       telemetryDisabled: isTelemetryDisabled(),
     };
 
