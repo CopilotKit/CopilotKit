@@ -1,18 +1,24 @@
 """Subprocess tests for entrypoint.sh watchdog / persistence-bounding mechanism.
 
-Covers:
-  C1 - Under set -e, TRUNC_RESPONSE=$(curl -fsS ...) exits the subshell on
-       first non-2xx, making the truncate loop dead code.
-  C2 - /internal/truncate exists in @langchain/langgraph-api@1.1.17 but wipes
-       ALL in-flight runs/threads (R7-C1), making a fixed-interval timer unsafe.
-  Fix verification:
-    - Boot-purge (.langgraph_api removal) still fires on every start.
-    - No fixed-interval POST to /internal/truncate in watchdog.
-    - Size-gated restart mechanism: fires restart only when dir exceeds threshold,
-      NOT on a fixed timer; watchdog kills the agent (triggering container restart
-      which re-runs boot-purge).
-    - Failure escalation: size-check errors are logged, not silently swallowed.
-    - Behavioral: the size-gate logic actually executes under test (not just grep).
+Current mechanism (permanent LGT outage fix):
+  - Persistence disable: `LANGGRAPH_DISABLE_FILE_PERSISTENCE=true` is exported
+    before the agent starts, and src/agent/disable-file-persistence.mjs (a
+    `node --import` preload) neutralises every @langchain/langgraph-api fs write
+    surface for the `.langgraph_api` persist dir, so it never grows on disk.
+  - Boot-purge: any pre-existing `.langgraph_api` is removed on every start.
+  - Size-gated restart: a defense-in-depth watchdog sub-loop kills the agent
+    (triggering a container restart + boot-purge) only if the persist dir ever
+    DOES exceed SIZE_THRESHOLD_MB — not on a fixed timer.
+  - Sub-loop reaping: the watchdog subshell arms `trap _reap_watchdog_children
+    EXIT`, which reaps the size sub-loop via a `$BASHPID` PPID-walk plus a direct
+    `kill "$SIZE_PID"` backstop, so no orphan outlives the watchdog.
+
+Historical context (guarded against regression, no longer the mechanism):
+  - An earlier design POSTed to /internal/truncate on a fixed timer. That was
+    removed: under `set -e` a bare `TRUNC_RESPONSE=$(curl -fsS ...)` exited the
+    subshell on the first non-2xx (dead code), and /internal/truncate wipes ALL
+    in-flight runs/threads. The truncate-absence tests below assert that dead
+    code stays gone.
 
 We stub node/npm/npx/curl via PATH prepend (same pattern as google-adk tests).
 The stub executables exit 0 immediately so the script can progress through the
@@ -29,12 +35,18 @@ du|awk extraction.
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 from pathlib import Path
 from textwrap import dedent
 from typing import NamedTuple
 
 import pytest
+
+
+def _indent(text, spaces):
+    pad = " " * spaces
+    return "\n".join(pad + line if line else line for line in text.splitlines())
 
 
 _PKG_ROOT = Path(__file__).resolve().parents[2]
@@ -187,7 +199,21 @@ def _run_check_size_once(
         # Capture whether the gate killed the dummy BEFORE the finally reaper
         # runs — once finally calls dummy.kill(), poll() would always be non-None
         # regardless of whether the script killed it.
-        dummy_was_killed = dummy.poll() is not None
+        #
+        # The gate's kill (`kill -9` in _kill_agent_tree) is issued asynchronously
+        # right before the entrypoint exits, so `subprocess.run` can return before
+        # SIGKILL delivery + zombie reaping have completed. A single-shot poll()
+        # can therefore observe the dummy as still alive on a loaded machine (a
+        # flaky false-negative). Poll in a bounded retry loop (up to ~1s) to let
+        # the async signal land, mirroring the orphan-guard behavioral test.
+        import time
+
+        dummy_was_killed = False
+        for _ in range(20):
+            if dummy.poll() is not None:
+                dummy_was_killed = True
+                break
+            time.sleep(0.05)
         return CheckSizeResult(result=result, dummy_was_killed=dummy_was_killed)
     finally:
         # Reap the dummy process (may already be dead if kill -9 landed).
@@ -353,6 +379,110 @@ class TestFilePersistenceDisabled:
         assert start.index("disable-file-persistence.mjs") < start.index(
             "liveness.mjs"
         ), "disable-file-persistence.mjs must be preloaded BEFORE liveness.mjs"
+
+    def test_real_package_writes_are_suppressed_behavioral(self, tmp_path):
+        """BEHAVIORAL (real package): with the preload active and the flag ON, the
+        REAL @langchain/langgraph-api FileSystemPersistence flush must NOT grow
+        `.langgraph_api` on disk, AND an in-memory write/read round-trip must still
+        return the value (persistence disabled != conversation capability removed).
+
+        Skipped if the agent's node_modules is not installed (CI matrices that do
+        not `npm ci` the agent). When installed, this is the proof that closes the
+        stubbed-fs gap: it drives the real writer, not a fake.
+        """
+        import json
+        import shutil
+
+        agent_dir = _PKG_ROOT / "src" / "agent"
+        persist_pkg = (
+            agent_dir
+            / "node_modules"
+            / "@langchain"
+            / "langgraph-api"
+            / "dist"
+            / "storage"
+            / "persist.mjs"
+        )
+        if not persist_pkg.exists():
+            pytest.skip("agent node_modules not installed (@langchain/langgraph-api)")
+        node = shutil.which("node")
+        if node is None:
+            pytest.skip("node not on PATH")
+
+        run_cwd = tmp_path / "run"
+        run_cwd.mkdir()
+        driver = tmp_path / "driver.mjs"
+        driver.write_text(
+            dedent(r"""
+            import { pathToFileURL } from "node:url";
+            import * as fsSync from "node:fs";
+            import * as path from "node:path";
+            const persistAbs = process.env.PERSIST_ABS;
+            const cwd = process.env.RUN_CWD;
+            const { FileSystemPersistence } =
+              await import(pathToFileURL(persistAbs).href);
+            const conn = new FileSystemPersistence(
+              ".langgraphjs_api.checkpointer.json", () => ({ threads: {} }));
+            await conn.initialize(cwd);
+            await conn.with(async (data) => {
+              for (let i = 0; i < 500; i++)
+                data.threads["t" + i] =
+                  { messages: [{ role: "assistant", content: "reply-" + i }] };
+            });
+            let readBack;
+            await conn.with(async (data) => {
+              readBack = data.threads["t0"]?.messages?.[0]?.content;
+            });
+            await conn.flush();
+            await new Promise((r) => setTimeout(r, 3500));
+            const dir = path.join(cwd, ".langgraph_api");
+            let bytes = 0;
+            if (fsSync.existsSync(dir))
+              for (const e of fsSync.readdirSync(dir))
+                bytes += fsSync.statSync(path.join(dir, e)).size;
+            console.log(JSON.stringify({ readBack, bytes }));
+        """)
+        )
+
+        env = {
+            "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+            "HOME": os.environ.get("HOME", "/tmp"),
+            "LANGGRAPH_DISABLE_FILE_PERSISTENCE": "true",
+            "PERSIST_ABS": str(persist_pkg),
+            "RUN_CWD": str(run_cwd),
+        }
+        preload = agent_dir / "disable-file-persistence.mjs"
+        result = subprocess.run(
+            [node, "--import", str(preload), str(driver)],
+            cwd=str(agent_dir),
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        assert result.returncode == 0, (
+            f"driver failed rc={result.returncode}\n"
+            f"stdout={result.stdout!r}\nstderr={result.stderr!r}"
+        )
+        # Last JSON line of stdout carries the result.
+        payload = None
+        for line in reversed(result.stdout.strip().splitlines()):
+            try:
+                payload = json.loads(line)
+                break
+            except ValueError:
+                continue
+        assert payload is not None, f"no JSON result. stdout={result.stdout!r}"
+        assert payload["bytes"] == 0, (
+            "REAL @langchain/langgraph-api persist flush grew .langgraph_api to "
+            f"{payload['bytes']} bytes despite the disable flag — the fix does not "
+            "cover the package's real write path."
+        )
+        assert payload["readBack"] == "reply-0", (
+            "In-memory round-trip broke: expected 'reply-0', got "
+            f"{payload['readBack']!r}. Persistence disable must not remove "
+            "in-lifetime conversation state."
+        )
 
 
 @pytest.mark.skipif(not _ENTRYPOINT.exists(), reason="entrypoint.sh not found")
@@ -586,25 +716,41 @@ class TestSizePidOrphanGuard:
         )
 
     def test_size_pid_reaped_by_in_subshell_trap(self):
-        """SIZE_PID must be reaped by an EXIT trap INSIDE the watchdog subshell.
+        """SIZE_PID sub-loop must be reaped by an EXIT trap INSIDE the watchdog subshell.
 
-        Source-level check: the trap must appear inside the ( ) & block,
-        after SIZE_PID=$!, not in the outer cleanup() function.
+        Source-level check of the SHIPPED mechanism: the watchdog subshell
+        registers `trap _reap_watchdog_children EXIT`, and
+        `_reap_watchdog_children` reaps the sub-loop via a `$BASHPID` PPID-walk
+        (`_agent_descendants "$BASHPID"`) plus a belt-and-suspenders direct
+        `kill "$SIZE_PID"`.  (The older `trap 'kill "$SIZE_PID"' EXIT` form is
+        NO LONGER used — it survives only in an explanatory comment describing
+        why the arm-then-spawn ordering was changed.)
         """
         source = _ENTRYPOINT.read_text()
-        # The trap must be registered inside the watchdog subshell (after SIZE_PID=$!)
-        # and must reference SIZE_PID.
-        assert (
-            'trap \'kill "$SIZE_PID"' in source or "trap 'kill \"$SIZE_PID\"'" in source
-        ), (
-            "Expected `trap 'kill \"$SIZE_PID\" ...' EXIT` inside watchdog subshell "
-            "(I1: SIZE_PID is subshell-local, outer cleanup cannot reach it)"
+        # The shipped trap installs the reaper helper (not an inline kill).
+        assert "trap _reap_watchdog_children EXIT" in source, (
+            "Expected `trap _reap_watchdog_children EXIT` inside the watchdog "
+            "subshell (the shipped reaping mechanism)"
+        )
+        # The reaper helper must exist and reap by a $BASHPID PPID-walk.
+        assert "_reap_watchdog_children()" in source, (
+            "Expected _reap_watchdog_children() helper to be defined"
+        )
+        reaper_match = re.search(
+            r"_reap_watchdog_children\(\)\s*\{(.*?)\n  \}", source, re.DOTALL
+        )
+        assert reaper_match, "Could not locate _reap_watchdog_children() body"
+        reaper_body = reaper_match.group(1)
+        assert '_agent_descendants "$BASHPID"' in reaper_body, (
+            "Reaper must PPID-walk THIS subshell ($BASHPID) to find the sub-loop"
+        )
+        # Belt-and-suspenders direct kill of the captured SIZE_PID is RETAINED.
+        assert 'kill "$SIZE_PID"' in reaper_body, (
+            'Reaper must retain the direct `kill "$SIZE_PID"` backstop'
         )
         # The outer cleanup() must NOT contain an EXECUTABLE kill for SIZE_PID
         # (it would be dead code since SIZE_PID is never set in the outer shell).
         # Comments mentioning SIZE_PID are acceptable (they explain WHY it's absent).
-        import re
-
         cleanup_match = re.search(r"cleanup\(\)\s*\{([^}]*)\}", source, re.DOTALL)
         if cleanup_match:
             cleanup_body = cleanup_match.group(1)
@@ -621,65 +767,92 @@ class TestSizePidOrphanGuard:
                 "Any kill of SIZE_PID here would be dead code."
             )
 
-    def test_size_pid_reaped_on_watchdog_exit_behavioral(self, tmp_path):
-        """BEHAVIORAL: size sub-loop is actually reaped when its parent subshell exits.
+    def test_reap_watchdog_children_reaps_real_sub_loop_behavioral(self, tmp_path):
+        """BEHAVIORAL: the SHIPPED _reap_watchdog_children reaper actually reaps a
+        forked sub-loop when its parent subshell exits.
 
-        Simulates the watchdog subshell lifecycle:
-          1. Fork a long-running "size sub-loop" process (sleep 60, stands in for the
-             real size-check loop).
-          2. Register `trap 'kill "$SIZE_PID" 2>/dev/null || true' EXIT` in a subshell,
-             exactly as the fixed entrypoint does.
-          3. Send SIGTERM to the subshell (simulating the outer cleanup() killing the
-             watchdog).
-          4. Assert the size sub-loop was reaped (poll() is not None).
-
-        This exercises the trap FIRING, not just its registration.
+        Rather than re-implementing the reaper in a mock (which would validate a
+        copy, not the shipped code), this extracts the REAL _agent_descendants +
+        _reap_watchdog_children helpers from entrypoint.sh and drives them in a
+        subshell whose lifecycle mirrors the watchdog: fork a long-lived sub-loop,
+        capture SIZE_PID, arm `trap _reap_watchdog_children EXIT`, then SIGTERM the
+        subshell and assert the sub-loop is reaped.
         """
         import time
 
-        # Spawn the "size sub-loop" process (long-lived, safe to kill).
-        size_loop = subprocess.Popen(["sleep", "60"])
-        size_pid = size_loop.pid
+        source = _ENTRYPOINT.read_text()
 
-        # Write a minimal shell that mimics the fixed watchdog subshell:
-        # register the in-subshell EXIT trap, then sleep (simulating the
-        # watchdog's health-probe loop blocked in sleep).
-        watchdog_script = dedent(f"""\
-            #!/bin/bash
-            set -e
-            SIZE_PID={size_pid}
-            trap 'kill "$SIZE_PID" 2>/dev/null || true' EXIT
-            # Simulate watchdog blocked in health-probe sleep.
-            sleep 60
-        """)
-        script_path = tmp_path / "mock_watchdog.sh"
-        script_path.write_text(watchdog_script)
+        def _extract(func_name):
+            m = re.search(
+                r"^(?:  )?" + re.escape(func_name) + r"\(\)\s*\{.*?^(?:  )?\}",
+                source,
+                re.DOTALL | re.MULTILINE,
+            )
+            assert m, "Could not extract %s() from entrypoint.sh" % func_name
+            return m.group(0)
+
+        agent_descendants = _extract("_agent_descendants")
+        reaper = _extract("_reap_watchdog_children")
+
+        driver = (
+            "#!/bin/bash\n"
+            "set -u\n"
+            + _indent(agent_descendants, 0)
+            + "\n"
+            + _indent(reaper, 0)
+            + "\n"
+            + "( while :; do sleep 30; done ) &\n"
+            + "SIZE_PID=$!\n"
+            + 'echo "$SIZE_PID" > "'
+            + str(tmp_path)
+            + '/size_pid"\n'
+            + "trap _reap_watchdog_children EXIT\n"
+            + "while :; do sleep 30; done\n"
+        )
+        script_path = tmp_path / "real_watchdog.sh"
+        script_path.write_text(driver)
         script_path.chmod(0o755)
 
+        def _alive(pid):
+            try:
+                os.kill(pid, 0)
+                return True
+            except OSError:
+                return False
+
         watchdog = subprocess.Popen(["/bin/bash", str(script_path)])
-        # Let the script register its trap.
-        time.sleep(0.1)
+        size_pid = None
+        for _ in range(40):
+            pid_file = tmp_path / "size_pid"
+            if pid_file.exists() and pid_file.read_text().strip():
+                size_pid = int(pid_file.read_text().strip())
+                break
+            time.sleep(0.05)
+        assert size_pid is not None, "watchdog driver never reported SIZE_PID"
+        assert _alive(size_pid), "sub-loop should be alive before watchdog exits"
 
-        # Simulate outer cleanup() sending SIGTERM to the watchdog.
+        # Simulate outer cleanup() SIGTERMing the watchdog subshell.
         watchdog.terminate()
-        watchdog.wait(timeout=3)
+        watchdog.wait(timeout=5)
 
-        # The EXIT trap should have reaped the size sub-loop.
-        # Give the OS a moment to deliver the kill.
-        for _ in range(20):
-            if size_loop.poll() is not None:
+        # Bounded poll for the async reap signal to land.
+        reaped = False
+        for _ in range(40):
+            if not _alive(size_pid):
+                reaped = True
                 break
             time.sleep(0.05)
 
-        size_exit = size_loop.poll()
-        assert size_exit is not None, (
-            f"Size sub-loop (PID {size_pid}) is still alive after watchdog subshell "
-            "exited — EXIT trap did NOT fire or did not kill it.  "
-            "This is the I1 orphan: the sub-loop outlives the watchdog."
+        if _alive(size_pid):
+            try:
+                os.kill(size_pid, 9)
+            except OSError:
+                pass
+
+        assert reaped, (
+            "Sub-loop (PID %d) still alive after the watchdog subshell exited — "
+            "the SHIPPED _reap_watchdog_children EXIT trap did NOT reap it." % size_pid
         )
-        # Clean up in case assertion is skipped.
-        size_loop.kill()
-        size_loop.wait()
 
 
 @pytest.mark.skipif(not _ENTRYPOINT.exists(), reason="entrypoint.sh not found")
@@ -696,8 +869,6 @@ class TestSetECorrectness:
           b) explicit rc check with || true
         But removal is the correct fix.
         """
-        import re
-
         source = _ENTRYPOINT.read_text()
         # Old broken pattern from C1 finding:
         bad_pattern = re.search(r"TRUNC_RESPONSE=\$\(curl\s+-fsS", source)
@@ -712,8 +883,6 @@ class TestSetECorrectness:
         source = _ENTRYPOINT.read_text()
         # The size-check uses du -sm ... | awk, and must guard against du failures.
         # Skip comment lines (lines whose first non-whitespace char is #).
-        import re
-
         du_lines = [
             line
             for line in source.splitlines()
