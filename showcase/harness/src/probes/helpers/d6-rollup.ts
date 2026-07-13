@@ -37,7 +37,7 @@
  * ## Inputs
  *
  * - `slug`           — integration slug (key into mapping and skipList)
- * - `mapping`        — SpecCellMapping (slug → spec-path → cell[])
+ * - `slugMapping`    — RESOLVED per-slug mapping (spec-path → cell[])
  * - `reporterVerdicts` — Map of specPath → SpecVerdict (from pw-json-reporter)
  * - `skipList`       — skip-list map (slug → cell[]) from loadSkipList()
  *
@@ -57,7 +57,15 @@
  */
 
 import type { D5FeatureType } from "./d5-registry.js";
-import type { SpecCellMapping } from "./spec-cell-mapping.js";
+
+/**
+ * Resolved per-slug mapping: spec-path -> cell list. This is the output of
+ * `loadSpecCellMapping(slug, deps)` (base ⊕ override ⊖ auto-omit, restricted to
+ * on-disk specs). Both rollup functions consume this resolved map DIRECTLY —
+ * `runSpecDrivenD6` resolves ONCE and feeds the SAME resolved slug-map to every
+ * consumer so they cannot diverge (no internal `mapping[slug]` lookup).
+ */
+export type ResolvedSlugMapping = Record<string, D5FeatureType[]>;
 
 // ── Reporter verdict contract ─────────────────────────────────────────────────
 //
@@ -231,23 +239,27 @@ function buildInverseIndex(
  * Use `rollupDiagnostics` to surface data-model inconsistencies (e.g.
  * inert skip entries, skip-masked reds) without altering this return contract.
  *
- * @param slug             - Integration slug (e.g. "langgraph-python").
- * @param mapping          - Full SpecCellMapping (all slugs).
+ * @param slug             - Integration slug (used only for the skip-list lookup).
+ * @param slugMapping      - RESOLVED per-slug mapping (spec-path → cells),
+ *                           already resolved by loadSpecCellMapping(slug, deps).
  * @param reporterVerdicts - Per-spec verdict map from pw-json-reporter.
  * @param skipList         - Skip-list map (slug → D5FeatureType strings).
  * @returns Map from D5FeatureType to CellVerdict for this slug's cells only.
  */
 export function rollupVerdicts(
   slug: string,
-  mapping: SpecCellMapping,
+  slugMapping: ResolvedSlugMapping,
   reporterVerdicts: ReporterVerdictMap,
   skipList: Readonly<Record<string, readonly string[]>>,
 ): Map<D5FeatureType, CellVerdict> {
   const result = new Map<D5FeatureType, CellVerdict>();
 
-  const slugMapping = mapping[slug];
   if (slugMapping == null) {
-    // Slug has no mapping — return empty (all cells UNKNOWN by absence)
+    // Empty resolved map — return empty (all cells UNKNOWN by absence).
+    // Note: a slug with specs on disk resolves to a NON-empty map, so this
+    // branch is now reached only for a genuinely-empty resolved map (zero
+    // specs on disk / runner error) — the fail-closed backstop, not the
+    // "unmapped slug" case (which no longer exists under base+delta).
     return result;
   }
 
@@ -321,8 +333,9 @@ export function rollupVerdicts(
  *                      stays with the skip-list — but callers can alert that
  *                      a skip is hiding an active regression.
  *
- * @param slug             - Integration slug (e.g. "langgraph-python").
- * @param mapping          - Full SpecCellMapping (all slugs).
+ * @param slug             - Integration slug (used only for the skip-list lookup).
+ * @param slugMapping      - RESOLVED per-slug mapping (spec-path → cells),
+ *                           already resolved by loadSpecCellMapping(slug, deps).
  * @param skipList         - Skip-list map (slug → D5FeatureType strings).
  * @param reporterVerdicts - Optional per-spec verdict map; required for
  *                           skipMaskedRed computation.
@@ -330,13 +343,12 @@ export function rollupVerdicts(
  */
 export function rollupDiagnostics(
   slug: string,
-  mapping: SpecCellMapping,
+  slugMapping: ResolvedSlugMapping,
   skipList: Readonly<Record<string, readonly string[]>>,
   reporterVerdicts?: ReporterVerdictMap,
 ): RollupDiagnostics {
-  const slugMapping = mapping[slug];
   if (slugMapping == null) {
-    // Slug has no mapping — skip-list entries have nothing to cross-reference.
+    // Empty resolved map — skip-list entries have nothing to cross-reference.
     return { inertSkipEntries: [], skipMaskedRed: [] };
   }
 

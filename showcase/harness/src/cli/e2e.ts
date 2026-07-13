@@ -88,7 +88,10 @@ import path from "node:path";
 import yaml from "js-yaml";
 
 import { createLogger } from "../logger.js";
-import { loadDefaultSpecCellMapping } from "../probes/helpers/spec-cell-mapping.js";
+import {
+  loadDefaultSpecCellMapping,
+  loadDefaultResolvedMapping,
+} from "../probes/helpers/spec-cell-mapping.js";
 import { parsePlaywrightJsonReport } from "../probes/helpers/pw-json-reporter.js";
 import type { PlaywrightJsonReport } from "../probes/helpers/pw-json-reporter.js";
 import {
@@ -182,6 +185,26 @@ export interface RunSpecDrivenD6Options {
    */
   specRunner?: SpecRunner;
   /**
+   * Injectable on-disk spec lister (default: scans
+   * `<integrationDir>/tests/e2e/*.spec.ts` and returns `tests/e2e/<file>`
+   * relpaths). The resolver restricts the base+delta mapping to the specs a
+   * slug actually carries on disk. Overridden in unit tests so a fake
+   * integration dir need not contain real files.
+   *
+   * @internal Overridden in unit tests.
+   */
+  listPresentSpecs?: (slug: string) => string[];
+  /**
+   * Injectable pre-resolved slug-map (spec-path → cells). When provided, the
+   * pipeline uses it verbatim and SKIPS the base+delta resolver entirely — the
+   * production path never sets this; it exists so unit tests can pin an exact
+   * resolved mapping (including pathological shapes like a spec-path with zero
+   * cells) without staging on-disk files or base.json entries.
+   *
+   * @internal Overridden in unit tests.
+   */
+  resolvedMapping?: Record<string, D5FeatureType[]>;
+  /**
    * Abort signal — when signalled, the pipeline exits early without emitting.
    * Optional and safe to omit; provided by the driver agent when threading
    * cancellation.
@@ -255,8 +278,25 @@ export async function runSpecDrivenD6(
   const { backendUrl, integrationDir, timeoutMs, ctx, signal } = opts;
   const runner = opts.specRunner ?? defaultSpecRunner;
 
-  // 1. Load mapping + skip-list ───────────────────────────────────────────
-  const mapping = await loadDefaultSpecCellMapping();
+  // 1. Resolve the slug-map ONCE + build skip-list ─────────────────────────
+  //
+  // Under the base+delta model we RESOLVE the slug's mapping once here
+  // (base ⊕ override ⊖ auto-omit, restricted to on-disk specs) and feed the
+  // SAME resolved slug-map to every consumer below (specPaths, rollupVerdicts,
+  // rollupDiagnostics) so they cannot diverge. The old "slug absent from the
+  // single-slug JSON → e2e.no-mapping bail" reason no longer exists — every
+  // slug with specs on disk resolves to a non-empty map. The empty-verdicts
+  // guard is RETAINED below as a genuine-failure backstop (zero specs on disk /
+  // runner error).
+  const listPresentSpecs =
+    opts.listPresentSpecs ?? defaultListPresentSpecs(integrationDir);
+  const slugMapping =
+    opts.resolvedMapping ??
+    (await loadDefaultResolvedMapping(slug, {
+      listPresentSpecs,
+      notSupportedFeatures: opts.notSupportedFeatures,
+    }));
+
   // Merge notSupportedFeatures from the manifest into the skip-list so NSF
   // cells roll up as SKIPPED (green) rather than UNKNOWN (red).
   // mergeSkipList is pure; it returns a new map without mutating base.
@@ -265,8 +305,9 @@ export async function runSpecDrivenD6(
     skipList = mergeSkipList(skipList, slug, opts.notSupportedFeatures);
   }
 
-  const slugMapping = mapping[slug];
-  if (slugMapping == null || Object.keys(slugMapping).length === 0) {
+  if (Object.keys(slugMapping).length === 0) {
+    // Genuine-failure backstop: zero specs on disk (or all unmapped/quarantined).
+    // NOT the old "unmapped slug" case — that reason is gone. F3 still reds.
     log.warn("e2e.no-mapping", { slug });
     // Return empty — no cells to emit.
     return {
@@ -344,7 +385,8 @@ export async function runSpecDrivenD6(
   }
 
   // 5. Rollup → per-cell CellVerdict ────────────────────────────────────
-  const verdicts = rollupVerdicts(slug, mapping, verdictMap, skipList);
+  // Consumer 2: rollupVerdicts consumes the ONE resolved slug-map.
+  const verdicts = rollupVerdicts(slug, slugMapping, verdictMap, skipList);
 
   // Fail-closed zero-cells seam: guard on MAPPED (spec-derived) cells only.
   //
@@ -376,7 +418,15 @@ export async function runSpecDrivenD6(
   // 5b. Diagnostics — wire rollupDiagnostics after rollup ─────────────────
   // rollupDiagnostics surfaces data-model inconsistencies without altering
   // the verdict contract. Previously dead code (never called). Now wired in.
-  const diagnostics = rollupDiagnostics(slug, mapping, skipList, verdictMap);
+  // Consumer 3: rollupDiagnostics consumes the SAME resolved slug-map (not raw
+  // mapping) — otherwise a newly-flipped slug silently drops skip-mask /
+  // inert-skip diagnostics.
+  const diagnostics = rollupDiagnostics(
+    slug,
+    slugMapping,
+    skipList,
+    verdictMap,
+  );
 
   // Emit WARNs for each skip-masked-red cell (skip hiding active regression).
   for (const maskedCell of diagnostics.skipMaskedRed) {
@@ -549,6 +599,32 @@ export async function runSpecDrivenD6(
     redCells,
     skipMaskedRed: [...diagnostics.skipMaskedRed],
     inertSkipEntries: [...diagnostics.inertSkipEntries],
+  };
+}
+
+// ── default on-disk spec lister ──────────────────────────────────────────────
+
+/**
+ * Build the default present-spec lister for a slug rooted at `integrationDir`.
+ * Scans `<integrationDir>/tests/e2e/*.spec.ts` and returns `tests/e2e/<file>`
+ * relpaths (matching the mapping key shape and Playwright's report grouping).
+ * A missing dir yields an empty list (the empty-verdicts backstop then fires).
+ */
+export function defaultListPresentSpecs(
+  integrationDir: string,
+): (slug: string) => string[] {
+  return () => {
+    const e2eDir = path.join(integrationDir, "tests", "e2e");
+    let entries: string[];
+    try {
+      entries = fs.readdirSync(e2eDir);
+    } catch {
+      return [];
+    }
+    return entries
+      .filter((f) => f.endsWith(".spec.ts"))
+      .map((f) => `tests/e2e/${f}`)
+      .sort();
   };
 }
 

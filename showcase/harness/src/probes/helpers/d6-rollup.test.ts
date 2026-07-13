@@ -29,7 +29,6 @@
  */
 
 import { describe, it, expect } from "vitest";
-import type { SpecCellMapping } from "./spec-cell-mapping.js";
 import SEEDED_MAPPING from "./spec-cell-mapping.json" with { type: "json" };
 import SEEDED_SKIP_LIST from "./skip-list.json" with { type: "json" };
 import {
@@ -37,17 +36,28 @@ import {
   rollupDiagnostics,
   type ReporterVerdictMap,
   type CellVerdict,
+  type ResolvedSlugMapping,
 } from "./d6-rollup.js";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-/** Build a minimal SpecCellMapping for a single slug */
+/**
+ * Build a RESOLVED per-slug mapping. Under base+delta, rollupVerdicts /
+ * rollupDiagnostics consume the resolved slug-map DIRECTLY (not a full
+ * SpecCellMapping keyed by slug), so this returns the inner spec-path → cells
+ * map. The `slug` arg is retained for readability at call sites.
+ */
 function makeMapping(
-  slug: string,
+  _slug: string,
   specPaths: Record<string, string[]>,
-): SpecCellMapping {
-  return { [slug]: specPaths } as unknown as SpecCellMapping;
+): ResolvedSlugMapping {
+  return specPaths as unknown as ResolvedSlugMapping;
 }
+
+/** The resolved langgraph-python slug-map from the committed golden JSON. */
+const SEEDED_LGP_MAPPING = (
+  SEEDED_MAPPING as unknown as Record<string, ResolvedSlugMapping>
+)["langgraph-python"];
 
 /** Build a ReporterVerdictMap with one entry */
 function oneVerdict(
@@ -158,7 +168,7 @@ describe("rollupVerdicts: no mapping → UNKNOWN", () => {
   });
 
   it("slug absent from mapping entirely returns empty map", () => {
-    const mapping: SpecCellMapping = {}; // no slug at all
+    const mapping: ResolvedSlugMapping = {}; // empty resolved map (backstop)
     const verdicts = oneVerdict("tests/e2e/agentic-chat.spec.ts", "PASS");
     const skipList = {};
 
@@ -425,12 +435,23 @@ describe("rollupDiagnostics: inert skip entries", () => {
     expect(diag.inertSkipEntries).toHaveLength(0);
   });
 
-  it("slug absent from mapping returns empty inertSkipEntries (no mapping to cross-reference)", () => {
-    const mapping: SpecCellMapping = {};
+  it("empty resolved map + skip-list entry → the entry is inert (nothing to skip over)", () => {
+    // Under base+delta the resolved slug-map is passed directly. An EMPTY
+    // resolved map with a skip-list entry means that cell has no spec backing
+    // in the resolved mapping → it is correctly surfaced as inert. (The old
+    // `mapping[slug]==null` early-return that dropped diagnostics for an
+    // "absent slug" is gone — that was the very drop this migration fixes.)
+    const mapping: ResolvedSlugMapping = {};
     const skipList = { lgp: ["auth"] };
 
     const diag = rollupDiagnostics("lgp", mapping, skipList);
 
+    expect(diag.inertSkipEntries).toEqual(["auth"]);
+  });
+
+  it("truly-empty resolved map + empty skip-list → empty inertSkipEntries", () => {
+    const mapping: ResolvedSlugMapping = {};
+    const diag = rollupDiagnostics("lgp", mapping, {});
     expect(diag.inertSkipEntries).toHaveLength(0);
   });
 
@@ -454,7 +475,7 @@ describe("rollupDiagnostics: inert skip entries", () => {
     // no unexpected inert entries exist.
     const diag = rollupDiagnostics(
       "langgraph-python",
-      SEEDED_MAPPING as SpecCellMapping,
+      SEEDED_LGP_MAPPING,
       SEEDED_SKIP_LIST,
     );
 
@@ -498,7 +519,7 @@ describe("rollupVerdicts: skip-listed unmapped cell → SKIPPED (G1)", () => {
     const verdicts: ReporterVerdictMap = {}; // no specs ran for these cells
     const result = rollupVerdicts(
       "langgraph-python",
-      SEEDED_MAPPING as SpecCellMapping,
+      SEEDED_LGP_MAPPING,
       verdicts,
       SEEDED_SKIP_LIST,
     );
@@ -605,5 +626,54 @@ describe("rollupDiagnostics: skip-masked red cells (G2)", () => {
 
     expect(diag.skipMaskedRed).toBeDefined();
     expect(diag.skipMaskedRed).toHaveLength(0);
+  });
+});
+
+// ── Task 6: resolved-map consumers (all-three unification) ──────────────────
+//
+// Under base+delta, rollupVerdicts / rollupDiagnostics consume the RESOLVED
+// slug-map directly. A slug absent from the OLD single-slug JSON — but with
+// specs on disk — now resolves to a NON-EMPTY map and must produce non-empty
+// verdicts AND non-empty diagnostics (proving Consumers 2 AND 3 are rewired).
+
+describe("(6a) rollupVerdicts consumes resolved map for a flipped slug", () => {
+  it("a specs-on-disk slug absent from the old JSON yields a NON-EMPTY cell map", () => {
+    // "agno" is not in the old single-slug JSON; its resolved slug-map is
+    // passed directly. With matching reporter verdicts, the cell is GREEN —
+    // NOT the empty Map the old `mapping[slug]==null` branch returned.
+    const resolvedAgno = makeMapping("agno", {
+      "tests/e2e/agentic-chat.spec.ts": ["agentic-chat"],
+    });
+    const verdicts = oneVerdict("tests/e2e/agentic-chat.spec.ts", "PASS");
+
+    const result = rollupVerdicts("agno", resolvedAgno, verdicts, {});
+
+    expect(result.size).toBeGreaterThan(0);
+    expect(result.get("agentic-chat")).toBe<CellVerdict>("GREEN");
+  });
+});
+
+describe("(6b) rollupDiagnostics returns NON-EMPTY diagnostics for a flipped slug (M1)", () => {
+  it("skip-mask / inert-skip diagnostics are present for a slug absent from the old JSON", () => {
+    // Resolved map for a flipped slug. A skip-listed cell whose spec FAILs must
+    // surface in skipMaskedRed; a skip-listed cell with no mapping entry must
+    // surface in inertSkipEntries. Under the old `mapping[slug]` code, an
+    // unmapped slug returned EMPTY diagnostics — this is the regression guard.
+    const resolvedAgno = makeMapping("agno", {
+      "tests/e2e/auth.spec.ts": ["auth"],
+    });
+    // auth is skip-listed AND its spec FAILed → skipMaskedRed;
+    // "phantom" is skip-listed with no mapping entry → inertSkipEntries.
+    const skipList = { agno: ["auth", "phantom-feature"] };
+    const verdicts = oneVerdict("tests/e2e/auth.spec.ts", "FAIL");
+
+    const diag = rollupDiagnostics("agno", resolvedAgno, skipList, verdicts);
+
+    // Consumer 3 rewired: diagnostics are NON-EMPTY for the flipped slug.
+    expect(
+      diag.skipMaskedRed.length + diag.inertSkipEntries.length,
+    ).toBeGreaterThan(0);
+    expect(diag.skipMaskedRed).toContain("auth");
+    expect(diag.inertSkipEntries).toContain("phantom-feature");
   });
 });

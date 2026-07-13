@@ -32,10 +32,8 @@ import {
   __overrideSkipListForTesting,
   loadSkipList,
 } from "../probes/helpers/skip-list.js";
-import {
-  loadDefaultSpecCellMapping,
-  __overrideSpecCellMappingForTesting,
-} from "../probes/helpers/spec-cell-mapping.js";
+import { loadDefaultSpecCellMapping } from "../probes/helpers/spec-cell-mapping.js";
+import type { D5FeatureType } from "../probes/helpers/d5-registry.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -141,6 +139,29 @@ const TEST_SLUG = "langgraph-python";
 const SPEC_PATH_AGENTIC = "tests/e2e/agentic-chat.spec.ts";
 const CELL_AGENTIC = "agentic-chat";
 
+// Under the base+delta resolver, runSpecDrivenD6 resolves the slug-map from
+// base.json + delta + skip-list restricted to ON-DISK specs. The tests below
+// use a fake `integrationDir`, so we inject `listPresentSpecs` returning the
+// REAL langgraph-python spec relpaths (read once from the golden JSON keys, which
+// are byte-identical to lgp's on-disk mapped set). This yields the same resolved
+// lgp mapping the old `loadDefaultSpecCellMapping()` path produced, PLUS the two
+// on-disk-but-unmapped/quarantined stems (gen-ui-interrupt, threadid) so the
+// resolver's auto-omit + WARN paths are exercised faithfully.
+import LGP_GOLDEN from "../probes/helpers/spec-cell-mapping.json" with { type: "json" };
+const LGP_PRESENT_SPECS: string[] = (() => {
+  const lgp = (LGP_GOLDEN as Record<string, Record<string, unknown>>)[
+    "langgraph-python"
+  ];
+  const set = new Set<string>(Object.keys(lgp));
+  // The golden JSON already excludes gen-ui-interrupt (skip-listed) and
+  // threadid (no registry key); add them back as on-disk present so the resolver
+  // sees the full 39-file disk reality and applies auto-omit / WARN itself.
+  set.add("tests/e2e/gen-ui-interrupt.spec.ts");
+  set.add("tests/e2e/threadid-frontend-tool-roundtrip.spec.ts");
+  return [...set].sort();
+})();
+const listLgpPresent = (): string[] => LGP_PRESENT_SPECS;
+
 // All spec basenames for langgraph-python — derived from spec-cell-mapping.json.
 // Using the real mapping at test time means this list stays correct when the
 // mapping changes; we never hard-code the count here.
@@ -243,6 +264,7 @@ describe("runSpecDrivenD6 — partial run (one spec PASS, others UNKNOWN)", () =
     const opts: RunSpecDrivenD6Options = {
       backendUrl: "https://lgp.example.com",
       integrationDir: "/fake/langgraph-python",
+      listPresentSpecs: listLgpPresent,
       ctx,
       specRunner: stubRunner,
     };
@@ -283,6 +305,7 @@ describe("runSpecDrivenD6 — partial run (one spec PASS, others UNKNOWN)", () =
     );
 
     const result = await runSpecDrivenD6(TEST_SLUG, {
+      listPresentSpecs: listLgpPresent,
       backendUrl: "https://lgp.example.com",
       integrationDir: "/fake/lgp",
       ctx,
@@ -320,6 +343,7 @@ describe("runSpecDrivenD6 — all-green path (all specs PASS -> aggregate GREEN)
     );
 
     const result = await runSpecDrivenD6(TEST_SLUG, {
+      listPresentSpecs: listLgpPresent,
       backendUrl: "https://lgp.example.com",
       integrationDir: "/fake/lgp",
       ctx,
@@ -364,6 +388,7 @@ describe("runSpecDrivenD6 — all-green path (all specs PASS -> aggregate GREEN)
     );
 
     const result = await runSpecDrivenD6(TEST_SLUG, {
+      listPresentSpecs: listLgpPresent,
       backendUrl: "https://lgp.example.com",
       integrationDir: "/fake/lgp",
       ctx,
@@ -390,6 +415,7 @@ describe("runSpecDrivenD6 — red path", () => {
     );
 
     const result = await runSpecDrivenD6(TEST_SLUG, {
+      listPresentSpecs: listLgpPresent,
       backendUrl: "https://lgp.example.com",
       integrationDir: "/fake/lgp",
       ctx,
@@ -417,6 +443,7 @@ describe("runSpecDrivenD6 — red path", () => {
     );
 
     await runSpecDrivenD6(TEST_SLUG, {
+      listPresentSpecs: listLgpPresent,
       backendUrl: "https://lgp.example.com",
       integrationDir: "/fake/lgp",
       ctx,
@@ -442,6 +469,7 @@ describe("runSpecDrivenD6 — UNKNOWN (fail-closed) path", () => {
     const stubRunner: SpecRunner = vi.fn(() => makeEmpty());
 
     const result = await runSpecDrivenD6(TEST_SLUG, {
+      listPresentSpecs: listLgpPresent,
       backendUrl: "https://lgp.example.com",
       integrationDir: "/fake/lgp",
       ctx,
@@ -467,6 +495,7 @@ describe("runSpecDrivenD6 — UNKNOWN (fail-closed) path", () => {
     const stubRunner: SpecRunner = vi.fn(() => makeEmpty());
 
     const result = await runSpecDrivenD6(TEST_SLUG, {
+      listPresentSpecs: listLgpPresent,
       backendUrl: "https://lgp.example.com",
       integrationDir: "/fake/lgp",
       ctx,
@@ -491,6 +520,7 @@ describe("runSpecDrivenD6 — UNKNOWN (fail-closed) path", () => {
     );
 
     const result = await runSpecDrivenD6(TEST_SLUG, {
+      listPresentSpecs: listLgpPresent,
       backendUrl: "https://lgp.example.com",
       integrationDir: "/fake/lgp",
       ctx,
@@ -526,6 +556,7 @@ describe("runSpecDrivenD6 — SKIPPED path", () => {
     const stubRunner: SpecRunner = vi.fn(() => makeEmpty());
 
     const result = await runSpecDrivenD6(TEST_SLUG, {
+      listPresentSpecs: listLgpPresent,
       backendUrl: "https://lgp.example.com",
       integrationDir: "/fake/lgp",
       ctx,
@@ -557,6 +588,7 @@ describe("runSpecDrivenD6 — notSupportedFeatures (NSF) skip wiring", () => {
     const stubRunner: SpecRunner = vi.fn(() => makeEmpty());
 
     const result = await runSpecDrivenD6(TEST_SLUG, {
+      listPresentSpecs: listLgpPresent,
       backendUrl: "https://lgp.example.com",
       integrationDir: "/fake/lgp",
       ctx,
@@ -583,6 +615,7 @@ describe("runSpecDrivenD6 — notSupportedFeatures (NSF) skip wiring", () => {
     const stubRunner: SpecRunner = vi.fn(() => makeEmpty());
 
     const result = await runSpecDrivenD6(TEST_SLUG, {
+      listPresentSpecs: listLgpPresent,
       backendUrl: "https://lgp.example.com",
       integrationDir: "/fake/lgp",
       ctx,
@@ -602,6 +635,7 @@ describe("runSpecDrivenD6 — notSupportedFeatures (NSF) skip wiring", () => {
     const stubRunner: SpecRunner = vi.fn(() => makeEmpty());
 
     const resultWithEmpty = await runSpecDrivenD6(TEST_SLUG, {
+      listPresentSpecs: listLgpPresent,
       backendUrl: "https://lgp.example.com",
       integrationDir: "/fake/lgp",
       ctx,
@@ -611,6 +645,7 @@ describe("runSpecDrivenD6 — notSupportedFeatures (NSF) skip wiring", () => {
 
     const stubRunner2: SpecRunner = vi.fn(() => makeEmpty());
     const resultWithout = await runSpecDrivenD6(TEST_SLUG, {
+      listPresentSpecs: listLgpPresent,
       backendUrl: "https://lgp.example.com",
       integrationDir: "/fake/lgp",
       ctx: makeCtx(makeWriter().writer),
@@ -636,6 +671,7 @@ describe("row key shape", () => {
     );
 
     await runSpecDrivenD6(TEST_SLUG, {
+      listPresentSpecs: listLgpPresent,
       backendUrl: "https://lgp.example.com",
       integrationDir: "/fake/lgp",
       ctx,
@@ -660,6 +696,7 @@ describe("row key shape", () => {
     const stubRunner: SpecRunner = vi.fn(() => makeEmpty());
 
     await runSpecDrivenD6(TEST_SLUG, {
+      listPresentSpecs: listLgpPresent,
       backendUrl: "https://lgp.example.com",
       integrationDir: "/fake/lgp",
       ctx,
@@ -727,6 +764,7 @@ describe("specRunner invocation", () => {
     });
 
     await runSpecDrivenD6(TEST_SLUG, {
+      listPresentSpecs: listLgpPresent,
       backendUrl: "https://lgp.example.com",
       integrationDir: "/path/to/lgp",
       ctx,
@@ -752,6 +790,7 @@ describe("specRunner invocation", () => {
     });
 
     await runSpecDrivenD6(TEST_SLUG, {
+      listPresentSpecs: listLgpPresent,
       backendUrl: "https://lgp.example.com",
       integrationDir: "/path/to/lgp",
       timeoutMs: 30000,
@@ -774,6 +813,7 @@ describe("specRunner invocation", () => {
     });
 
     await runSpecDrivenD6(TEST_SLUG, {
+      listPresentSpecs: listLgpPresent,
       backendUrl: "https://lgp.example.com",
       integrationDir: "/path/to/lgp",
       ctx,
@@ -800,6 +840,7 @@ describe("runSpecDrivenD6 — abort signal", () => {
 
     await expect(
       runSpecDrivenD6(TEST_SLUG, {
+      listPresentSpecs: listLgpPresent,
         backendUrl: "https://lgp.example.com",
         integrationDir: "/fake/lgp",
         ctx,
@@ -829,6 +870,7 @@ describe("runSpecDrivenD6 — abort signal", () => {
 
     await expect(
       runSpecDrivenD6(TEST_SLUG, {
+      listPresentSpecs: listLgpPresent,
         backendUrl: "https://lgp.example.com",
         integrationDir: "/fake/lgp",
         ctx,
@@ -866,6 +908,7 @@ describe("specRunner env hygiene", () => {
 
     try {
       await runSpecDrivenD6(TEST_SLUG, {
+      listPresentSpecs: listLgpPresent,
         backendUrl: "https://lgp.example.com",
         integrationDir: "/fake/lgp",
         ctx,
@@ -905,6 +948,7 @@ describe("runSpecDrivenD6 — SKIPPED partition is non-vacuous with injected NSF
     );
 
     const result = await runSpecDrivenD6(TEST_SLUG, {
+      listPresentSpecs: listLgpPresent,
       backendUrl: "https://lgp.example.com",
       integrationDir: "/fake/lgp",
       ctx,
@@ -963,6 +1007,7 @@ describe("env filtering — secrets must not reach runner env (Fix 1)", () => {
 
       try {
         await runSpecDrivenD6(TEST_SLUG, {
+      listPresentSpecs: listLgpPresent,
           backendUrl: "https://lgp.example.com",
           integrationDir: "/fake/lgp",
           ctx: makeCtx(makeWriter().writer),
@@ -989,6 +1034,7 @@ describe("env filtering — secrets must not reach runner env (Fix 1)", () => {
     });
 
     await runSpecDrivenD6(TEST_SLUG, {
+      listPresentSpecs: listLgpPresent,
       backendUrl: "https://lgp.example.com",
       integrationDir: "/fake/lgp",
       ctx: makeCtx(makeWriter().writer),
@@ -1587,6 +1633,7 @@ describe("R4-J1 Fix 1 — OPENAI_BASE_URL passthrough / OPENAI_API_KEY exclusion
 
     try {
       await runSpecDrivenD6(TEST_SLUG, {
+      listPresentSpecs: listLgpPresent,
         backendUrl: "https://lgp.example.com",
         integrationDir: "/fake/lgp",
         ctx: makeCtx(makeWriter().writer),
@@ -1617,6 +1664,7 @@ describe("R4-J1 Fix 1 — OPENAI_BASE_URL passthrough / OPENAI_API_KEY exclusion
 
     try {
       await runSpecDrivenD6(TEST_SLUG, {
+      listPresentSpecs: listLgpPresent,
         backendUrl: "https://lgp.example.com",
         integrationDir: "/fake/lgp",
         ctx: makeCtx(makeWriter().writer),
@@ -1647,6 +1695,7 @@ describe("R4-J1 Fix 1 — OPENAI_BASE_URL passthrough / OPENAI_API_KEY exclusion
 
     try {
       await runSpecDrivenD6(TEST_SLUG, {
+      listPresentSpecs: listLgpPresent,
         backendUrl: "https://lgp.example.com",
         integrationDir: "/fake/lgp",
         ctx: makeCtx(makeWriter().writer),
@@ -1677,6 +1726,7 @@ describe("R4-J1 Fix 1 — OPENAI_BASE_URL passthrough / OPENAI_API_KEY exclusion
 
     try {
       await runSpecDrivenD6(TEST_SLUG, {
+      listPresentSpecs: listLgpPresent,
         backendUrl: "https://lgp.example.com",
         integrationDir: "/fake/lgp",
         ctx: makeCtx(makeWriter().writer),
@@ -1744,6 +1794,7 @@ describe("R4-J1 Fix 2 — ctx.env uses filtered env without cast", () => {
 
     try {
       await runSpecDrivenD6(TEST_SLUG, {
+      listPresentSpecs: listLgpPresent,
         backendUrl: "https://lgp.example.com",
         integrationDir: "/fake/lgp",
         ctx: makeCtx(makeWriter().writer),
@@ -2108,31 +2159,25 @@ describe("R4-J1 Fix 6 — zero-cells seam: non-empty mapping → zero cells = re
     const { writer } = makeWriter();
     const ctx = makeCtx(writer);
 
-    // Inject a mapping where "zc-test-slug" has one specPath but maps to zero cells.
-    // This causes rollupVerdicts to return an empty Map: inverseIndex is empty
-    // (no cells for any specPath), unmappedSkipCells is empty (no skip list) →
-    // verdict map stays empty despite specPaths.length === 1.
-    __overrideSpecCellMappingForTesting({
-      "zc-test-slug": {
-        "tests/e2e/dummy.spec.ts": [], // specPath exists, but NO cells mapped
-      },
-    });
-
-    try {
-      await expect(
-        runSpecDrivenD6("zc-test-slug", {
-          backendUrl: "https://zc-test.example.com",
-          integrationDir: "/fake/zc-test",
-          ctx,
-          // specRunner returns an empty report — doesn't matter, rollup sees 0 cells
-          specRunner: () => ({ suites: [], errors: [] }),
-        }),
-        "zero-cells seam: runSpecDrivenD6 must throw when specPaths non-empty but rollup yields no verdicts",
-      ).rejects.toThrow(/zero cells/);
-    } finally {
-      // Always restore the real mapping so sibling tests are unaffected.
-      __overrideSpecCellMappingForTesting(undefined);
-    }
+    // Inject a RESOLVED slug-map with one specPath but zero mapped cells via the
+    // `resolvedMapping` seam. Under the base+delta resolver a zero-cell specPath
+    // cannot be produced organically (unmapped stems are dropped with a WARN),
+    // so we pin the pathological resolved shape directly. This causes
+    // rollupVerdicts to return an empty Map (inverseIndex empty, no skip list) →
+    // verdict map stays empty despite specPaths.length === 1 → zero-cells guard.
+    await expect(
+      runSpecDrivenD6("zc-test-slug", {
+        backendUrl: "https://zc-test.example.com",
+        integrationDir: "/fake/zc-test",
+        resolvedMapping: {
+          "tests/e2e/dummy.spec.ts": [] as unknown as D5FeatureType[], // specPath exists, but NO cells mapped
+        },
+        ctx,
+        // specRunner returns an empty report — doesn't matter, rollup sees 0 cells
+        specRunner: () => ({ suites: [], errors: [] }),
+      }),
+      "zero-cells seam: runSpecDrivenD6 must throw when specPaths non-empty but rollup yields no verdicts",
+    ).rejects.toThrow(/zero cells/);
   });
 });
 
@@ -2172,6 +2217,7 @@ describe("R4-J1 Fix 7 — suppress per-cell writer-missing warns (writer intenti
 
     try {
       await runSpecDrivenD6(TEST_SLUG, {
+      listPresentSpecs: listLgpPresent,
         backendUrl: "https://lgp.example.com",
         integrationDir: "/fake/lgp",
         ctx,
@@ -2319,13 +2365,8 @@ describe("R6-L-A Fix 2 — zero-cells guard checks mapped cells, not pre-seeded 
     const { writer } = makeWriter();
     const ctx = makeCtx(writer);
 
-    // Inject a mapping where the slug has one specPath but maps to NO cells.
-    // Also inject a skip-list entry for that slug.
-    __overrideSpecCellMappingForTesting({
-      "skip-only-slug": {
-        "tests/e2e/dummy.spec.ts": [], // specPath exists, NO cells mapped
-      },
-    });
+    // Inject a RESOLVED slug-map with one specPath but NO cells (via the seam),
+    // plus a skip-list entry that pre-seeds a SKIPPED verdict.
     __overrideSkipListForTesting({
       "skip-only-slug": ["some-feature"], // unmapped skip entry → pre-seeded SKIPPED
     });
@@ -2337,13 +2378,15 @@ describe("R6-L-A Fix 2 — zero-cells guard checks mapped cells, not pre-seeded 
         runSpecDrivenD6("skip-only-slug", {
           backendUrl: "https://example.com",
           integrationDir: "/fake/skip-only",
+          resolvedMapping: {
+            "tests/e2e/dummy.spec.ts": [] as unknown as D5FeatureType[], // specPath exists, NO cells mapped
+          },
           ctx,
           specRunner: () => ({ suites: [], errors: [] }),
         }),
         "zero-cells guard must detect evasion via pre-seeded SKIPPED",
       ).rejects.toThrow(/zero.*mapped|no.*spec.*cell|zero cells/i);
     } finally {
-      __overrideSpecCellMappingForTesting(undefined);
       __overrideSkipListForTesting(undefined);
     }
   });
@@ -2353,11 +2396,6 @@ describe("R6-L-A Fix 2 — zero-cells guard checks mapped cells, not pre-seeded 
     const { writer } = makeWriter();
     const ctx = makeCtx(writer);
 
-    __overrideSpecCellMappingForTesting({
-      "real-slug": {
-        "tests/e2e/real.spec.ts": ["real-feature" as any], // real cell mapped
-      },
-    });
     __overrideSkipListForTesting({
       "real-slug": ["skipped-feature"], // unmapped skip entry → pre-seeded SKIPPED
     });
@@ -2367,6 +2405,9 @@ describe("R6-L-A Fix 2 — zero-cells guard checks mapped cells, not pre-seeded 
       const result = await runSpecDrivenD6("real-slug", {
         backendUrl: "https://example.com",
         integrationDir: "/fake/real",
+        resolvedMapping: {
+          "tests/e2e/real.spec.ts": ["real-feature" as unknown as D5FeatureType], // real cell mapped
+        },
         ctx,
         specRunner: () => ({ suites: [], errors: [] }),
       });
@@ -2374,7 +2415,6 @@ describe("R6-L-A Fix 2 — zero-cells guard checks mapped cells, not pre-seeded 
       expect(result.verdicts.get("real-feature" as any)).toBe("UNKNOWN");
       expect(result.verdicts.get("skipped-feature" as any)).toBe("SKIPPED");
     } finally {
-      __overrideSpecCellMappingForTesting(undefined);
       __overrideSkipListForTesting(undefined);
     }
   });
@@ -2395,6 +2435,7 @@ describe("R6-L-A Fix 3 — rollupDiagnostics and skipMaskedRed wired into runSpe
     const ctx = makeCtx(writer);
 
     const result = await runSpecDrivenD6(TEST_SLUG, {
+      listPresentSpecs: listLgpPresent,
       backendUrl: "https://lgp.example.com",
       integrationDir: "/fake/lgp",
       ctx,
@@ -2411,6 +2452,7 @@ describe("R6-L-A Fix 3 — rollupDiagnostics and skipMaskedRed wired into runSpe
     const ctx = makeCtx(writer);
 
     const result = await runSpecDrivenD6(TEST_SLUG, {
+      listPresentSpecs: listLgpPresent,
       backendUrl: "https://lgp.example.com",
       integrationDir: "/fake/lgp",
       ctx,
@@ -2425,6 +2467,13 @@ describe("R6-L-A Fix 3 — rollupDiagnostics and skipMaskedRed wired into runSpe
   it("RED: skipMaskedRed contains cells whose skip masks a real FAIL verdict", async () => {
     // Set up: skip agentic-chat for lgp, but make the spec FAIL.
     // After fix: skipMaskedRed should contain agentic-chat.
+    //
+    // NOTE: under the base+delta resolver a fully-skipped single-cell spec is
+    // AUTO-OMITTED from the resolved map, so it would never reach rollup. To
+    // test the skipMaskedRed WIRING (that runSpecDrivenD6 calls rollupDiagnostics
+    // and surfaces the result) we pin a resolved map that still contains the
+    // skip-listed cell via the `resolvedMapping` seam (the state a multi-cell
+    // spec with a partially-skipped cell would leave).
     __overrideSkipListForTesting({
       "langgraph-python": ["agentic-chat"],
     });
@@ -2433,6 +2482,11 @@ describe("R6-L-A Fix 3 — rollupDiagnostics and skipMaskedRed wired into runSpe
     const ctx = makeCtx(writer);
 
     const result = await runSpecDrivenD6(TEST_SLUG, {
+      resolvedMapping: {
+        "tests/e2e/agentic-chat.spec.ts": [
+          "agentic-chat" as unknown as D5FeatureType,
+        ],
+      },
       backendUrl: "https://lgp.example.com",
       integrationDir: "/fake/lgp",
       ctx,
@@ -2445,6 +2499,7 @@ describe("R6-L-A Fix 3 — rollupDiagnostics and skipMaskedRed wired into runSpe
 
   it("RED: skipMaskedRed cell emits WARN in logs", async () => {
     // When skipMaskedRed is non-empty, a WARN must be emitted per cell.
+    // (see note above re: the resolvedMapping seam + auto-omit interaction)
     __overrideSkipListForTesting({
       "langgraph-python": ["agentic-chat"],
     });
@@ -2466,6 +2521,11 @@ describe("R6-L-A Fix 3 — rollupDiagnostics and skipMaskedRed wired into runSpe
 
     try {
       await runSpecDrivenD6(TEST_SLUG, {
+        resolvedMapping: {
+          "tests/e2e/agentic-chat.spec.ts": [
+            "agentic-chat" as unknown as D5FeatureType,
+          ],
+        },
         backendUrl: "https://lgp.example.com",
         integrationDir: "/fake/lgp",
         ctx,
@@ -2538,6 +2598,7 @@ describe("R6-L-A Fix 4 — unified SECRET_KEY_RE includes _PASSWORD, _PAT, AWS_ 
 
     try {
       await runSpecDrivenD6(TEST_SLUG, {
+      listPresentSpecs: listLgpPresent,
         backendUrl: "https://lgp.example.com",
         integrationDir: "/fake/lgp",
         ctx: makeCtx(makeWriter().writer),
@@ -2614,6 +2675,7 @@ describe("R6-L-A Fix 5 — location-less error blast radius annotation", () => {
     );
 
     await runSpecDrivenD6(TEST_SLUG, {
+      listPresentSpecs: listLgpPresent,
       backendUrl: "https://lgp.example.com",
       integrationDir: "/fake/lgp",
       ctx,
@@ -2654,6 +2716,7 @@ describe("R6-L-A Fix 5 — location-less error blast radius annotation", () => {
 
     try {
       await runSpecDrivenD6(TEST_SLUG, {
+      listPresentSpecs: listLgpPresent,
         backendUrl: "https://lgp.example.com",
         integrationDir: "/fake/lgp",
         ctx,
@@ -2681,6 +2744,7 @@ describe("R6-L-A Fix 5 — location-less error blast radius annotation", () => {
     const stubRunner: SpecRunner = vi.fn(() => makeEmpty());
 
     await runSpecDrivenD6(TEST_SLUG, {
+      listPresentSpecs: listLgpPresent,
       backendUrl: "https://lgp.example.com",
       integrationDir: "/fake/lgp",
       ctx,
@@ -2695,5 +2759,70 @@ describe("R6-L-A Fix 5 — location-less error blast radius annotation", () => {
     const signal = agenticRow!.signal as any;
     // errorClass should be "unknown" (not "global-error-promotion") when no global error.
     expect(signal.errorClass).toBe("unknown");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Task 5: runSpecDrivenD6 resolves base+delta ONCE and feeds all THREE
+// consumers (specPaths, rollupVerdicts, rollupDiagnostics). A slug NOT in the
+// old single-slug JSON but WITH specs on disk must be measured — no
+// e2e.no-mapping bail, non-empty specPaths, and NON-EMPTY diagnostics (proving
+// Consumer 3 / rollupDiagnostics is rewired, not just Consumer 2).
+// ---------------------------------------------------------------------------
+
+describe("Task 5 — flipped slug (absent from old JSON) is measured via the resolver", () => {
+  it("does NOT bail on e2e.no-mapping and produces specPaths + NON-EMPTY diagnostics", async () => {
+    // "agno" is NOT a key in spec-cell-mapping.json. Its base+delta resolution
+    // from ≥1 mapped on-disk stem must yield a non-empty mapping. We inject a
+    // fake present-list with one mapped stem (agentic-chat) plus a skip-listed
+    // unmapped cell so rollupDiagnostics has a non-empty inertSkipEntries to
+    // return (Consumer 3 proof).
+    __overrideSkipListForTesting({
+      agno: ["phantom-incapable-feature"], // unmapped skip entry → inert diagnostic
+    });
+
+    const stderrLines: string[] = [];
+    const origWrite = process.stderr.write.bind(process.stderr);
+    const spy = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation(
+        (...args: Parameters<typeof process.stderr.write>) => {
+          const chunk = args[0];
+          stderrLines.push(typeof chunk === "string" ? chunk : String(chunk));
+          return origWrite(...args);
+        },
+      );
+
+    const { writer } = makeWriter();
+    const ctx = makeCtx(writer);
+
+    let result;
+    try {
+      result = await runSpecDrivenD6("agno", {
+        backendUrl: "https://agno.example.com",
+        integrationDir: "/fake/agno",
+        // agno carries agentic-chat.spec.ts on disk (mapped in base).
+        listPresentSpecs: () => ["tests/e2e/agentic-chat.spec.ts"],
+        notSupportedFeatures: ["phantom-incapable-feature"],
+        ctx,
+        specRunner: () => makePassing("agentic-chat.spec.ts"),
+      });
+    } finally {
+      spy.mockRestore();
+      __overrideSkipListForTesting(undefined);
+    }
+
+    // The empty-verdicts early-return (e2e.no-mapping bail) was NOT taken.
+    const bailed = stderrLines.some((l) => l.includes("e2e.no-mapping"));
+    expect(bailed).toBe(false);
+
+    // specPaths derivation (Consumer 1) produced ≥1 cell → verdicts non-empty.
+    expect(result!.verdicts.size).toBeGreaterThan(0);
+    expect(result!.verdicts.get("agentic-chat" as any)).toBe("GREEN");
+
+    // Consumer 3 rewired: rollupDiagnostics returns NON-EMPTY diagnostics for
+    // this flipped slug (the inert skip entry). With the old mapping[slug]
+    // lookup for a slug absent from the JSON this would be EMPTY.
+    expect(result!.inertSkipEntries).toContain("phantom-incapable-feature");
   });
 });
