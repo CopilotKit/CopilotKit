@@ -258,7 +258,15 @@ describe("fixture collision detection", () => {
     // (interrupt/gen-ui-interrupt, declarative/render_a2ui, and copied
     // LangGraph headless/feature-parity routes) that are disambiguated by
     // fixtureFile/demo route like the existing integration parity copies above.
-    const KNOWN_DUPLICATE_CEILING = 297;
+    //
+    // Bumped 297 → 301 (+4) after merging main into the Mastra Partner Refresh
+    // branch: main added cross-demo fixture aliases (e.g. ag2
+    // headless-complete/gen-ui-headless-complete + prebuilt-popup/agentic-chat
+    // greeting reuse) of the same runtime-disambiguated-by-fixtureFile kind.
+    // Verified the +4 are NOT in the mastra context (the refresh's new fixtures —
+    // a2ui-recovery unique prompts, interrupt cells — introduce zero new exact
+    // dupes); they are the merged main integrations' existing alias pattern.
+    const KNOWN_DUPLICATE_CEILING = 301;
 
     const collisions: string[] = [];
 
