@@ -69,6 +69,22 @@ function hasPageTitle(navTree: NavNode[], page: string): boolean {
   });
 }
 
+function groupPageTitles(navTree: NavNode[], groupTitle: string): string[] {
+  for (const node of navTree) {
+    if (node.type !== "group") continue;
+    if (node.title === groupTitle) {
+      return node.children.flatMap((child) =>
+        child.type === "page" ? [child.title] : [],
+      );
+    }
+
+    const nested = groupPageTitles(node.children, groupTitle);
+    if (nested.length > 0) return nested;
+  }
+
+  return [];
+}
+
 function sectionPages(navTree: NavNode[], section: string): string[] {
   const pages: string[] = [];
   let inSection = false;
@@ -172,6 +188,15 @@ describe("loadDoc", () => {
 
     expect(doc?.filePath).toContain(
       "integrations/aws-strands/(other)/telemetry/index.mdx",
+    );
+  });
+
+  it("keeps the Threads overview and headless implementation on separate routes", () => {
+    expect(loadDoc("threads")?.fm.title).toBe("Threads");
+    expect(loadDoc("headless-threads")?.fm.title).toBe("Headless Threads");
+    expect(loadDoc("integrations/mastra/threads")?.fm.title).toBe("Threads");
+    expect(loadDoc("integrations/mastra/headless-threads")?.fm.title).toBe(
+      "Headless Threads",
     );
   });
 });
@@ -395,6 +420,27 @@ describe("framework nav", () => {
     expect(hasPageTitle(generatedNav, "CopilotKit CLI")).toBe(true);
     expect(hasPageTitle(authoredNav, "CopilotKit CLI")).toBe(true);
     expect(hasPageTitle(sharedFolderAuthoredNav, "CopilotKit CLI")).toBe(true);
+  });
+
+  it("orders the Threads job routes consistently across framework modes", () => {
+    const generatedNav = buildFrameworkNav(
+      "langgraph",
+      "LangGraph (Python)",
+      "langgraph-python",
+    );
+    const authoredNav = buildFrameworkOnlyNav("mastra");
+    const builtInNav = buildFrameworkOnlyNav("built-in-agent");
+
+    const expected = [
+      "Threads",
+      "Threads Drawer",
+      "Headless Threads",
+      "Import Thread History",
+    ];
+
+    expect(groupPageTitles(generatedNav, "Threads")).toEqual(expected);
+    expect(groupPageTitles(authoredNav, "Threads")).toEqual(expected);
+    expect(groupPageTitles(builtInNav, "Threads")).toEqual(expected);
   });
 
   it("uses the generated Intelligence Platform section for authored framework nav", () => {

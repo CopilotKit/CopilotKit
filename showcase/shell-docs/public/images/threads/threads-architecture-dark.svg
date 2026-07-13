@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1000" viewBox="0 0 900 1000" role="img" aria-labelledby="title desc">
+  <title id="title">How CopilotKit Threads work</title>
+  <desc id="desc">Threads Drawer and a custom useThreads interface both connect through CopilotChat and CopilotRuntime to an agent framework and Enterprise Intelligence.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#AFAFB7"/>
+    </marker>
+    <marker id="arrow-accent" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#BEC2FF"/>
+    </marker>
+  </defs>
+  <rect x="1" y="1" width="898" height="998" rx="28" fill="#010507" stroke="#57575B" stroke-width="2"/>
+  <text x="450" y="62" text-anchor="middle" font-family="Plus Jakarta Sans, Arial, sans-serif" font-size="30" font-weight="700" fill="#FFFFFF">Choose your thread UI</text>
+  <text x="450" y="96" text-anchor="middle" font-family="Plus Jakarta Sans, Arial, sans-serif" font-size="19" fill="#AFAFB7">Both paths use the same durable Threads infrastructure</text>
+
+  <rect x="55" y="135" width="360" height="125" rx="18" fill="#25243D" stroke="#BEC2FF" stroke-width="2"/>
+  <text x="235" y="185" text-anchor="middle" font-family="Plus Jakarta Sans, Arial, sans-serif" font-size="27" font-weight="700" fill="#FFFFFF">Threads Drawer</text>
+  <text x="235" y="222" text-anchor="middle" font-family="Plus Jakarta Sans, Arial, sans-serif" font-size="19" fill="#DBDBE5">Ready-made conversation UI</text>
+
+  <rect x="485" y="135" width="360" height="125" rx="18" fill="#17362F" stroke="#85ECCE" stroke-width="2"/>
+  <text x="665" y="185" text-anchor="middle" font-family="Plus Jakarta Sans, Arial, sans-serif" font-size="27" font-weight="700" fill="#FFFFFF">Custom thread UI</text>
+  <text x="665" y="222" text-anchor="middle" font-family="Plus Jakarta Sans, Arial, sans-serif" font-size="19" fill="#DBDBE5">useThreads + your components</text>
+
+  <path d="M 235 260 L 235 300 L 450 340" fill="none" stroke="#AFAFB7" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M 665 260 L 665 300 L 450 340" fill="none" stroke="#AFAFB7" stroke-width="3" marker-end="url(#arrow)"/>
+  <text x="450" y="312" text-anchor="middle" font-family="Spline Sans Mono, monospace" font-size="17" fill="#AFAFB7">stable threadId</text>
+
+  <rect x="270" y="345" width="360" height="115" rx="18" fill="#2B2B2B" stroke="#57575B" stroke-width="2"/>
+  <text x="450" y="395" text-anchor="middle" font-family="Plus Jakarta Sans, Arial, sans-serif" font-size="28" font-weight="700" fill="#FFFFFF">CopilotChat</text>
+  <text x="450" y="429" text-anchor="middle" font-family="Plus Jakarta Sans, Arial, sans-serif" font-size="18" fill="#DBDBE5">Opens, replays, and streams the conversation</text>
+
+  <line x1="450" y1="460" x2="450" y2="525" stroke="#AFAFB7" stroke-width="3" marker-end="url(#arrow)"/>
+
+  <rect x="270" y="530" width="360" height="115" rx="18" fill="#2B2B2B" stroke="#57575B" stroke-width="2"/>
+  <text x="450" y="580" text-anchor="middle" font-family="Plus Jakarta Sans, Arial, sans-serif" font-size="28" font-weight="700" fill="#FFFFFF">CopilotRuntime</text>
+  <text x="450" y="614" text-anchor="middle" font-family="Plus Jakarta Sans, Arial, sans-serif" font-size="18" fill="#DBDBE5">Runs the agent and relays events</text>
+
+  <rect x="655" y="530" width="190" height="115" rx="18" fill="#2B2B2B" stroke="#57575B" stroke-width="2"/>
+  <text x="750" y="579" text-anchor="middle" font-family="Plus Jakarta Sans, Arial, sans-serif" font-size="23" font-weight="700" fill="#FFFFFF">Your agent</text>
+  <text x="750" y="612" text-anchor="middle" font-family="Plus Jakarta Sans, Arial, sans-serif" font-size="17" fill="#DBDBE5">Any framework</text>
+  <line x1="630" y1="574" x2="650" y2="574" stroke="#AFAFB7" stroke-width="3" marker-end="url(#arrow)"/>
+  <line x1="655" y1="613" x2="635" y2="613" stroke="#AFAFB7" stroke-width="3" marker-end="url(#arrow)"/>
+
+  <line x1="450" y1="645" x2="450" y2="720" stroke="#BEC2FF" stroke-width="4" marker-end="url(#arrow-accent)"/>
+  <text x="470" y="690" font-family="Spline Sans Mono, monospace" font-size="17" fill="#BEC2FF">events + lifecycle</text>
+
+  <rect x="90" y="725" width="720" height="205" rx="22" fill="#25243D" stroke="#BEC2FF" stroke-width="2"/>
+  <text x="450" y="778" text-anchor="middle" font-family="Plus Jakarta Sans, Arial, sans-serif" font-size="29" font-weight="700" fill="#FFFFFF">Enterprise Intelligence</text>
+  <text x="450" y="812" text-anchor="middle" font-family="Plus Jakarta Sans, Arial, sans-serif" font-size="18" fill="#DBDBE5">Cloud-hosted or self-hosted</text>
+  <text x="250" y="868" text-anchor="middle" font-family="Plus Jakarta Sans, Arial, sans-serif" font-size="19" font-weight="600" fill="#FFFFFF">Durable event history</text>
+  <text x="450" y="868" text-anchor="middle" font-family="Plus Jakarta Sans, Arial, sans-serif" font-size="19" font-weight="600" fill="#FFFFFF">Realtime sync</text>
+  <text x="650" y="868" text-anchor="middle" font-family="Plus Jakarta Sans, Arial, sans-serif" font-size="19" font-weight="600" fill="#FFFFFF">Thread locking</text>
+  <text x="450" y="905" text-anchor="middle" font-family="Plus Jakarta Sans, Arial, sans-serif" font-size="17" fill="#DBDBE5">Replay stored events, then reconnect to the live run</text>
+
+  <path d="M 110 725 L 60 725 L 60 405 L 265 405" fill="none" stroke="#BEC2FF" stroke-width="3" stroke-dasharray="8 8" marker-end="url(#arrow-accent)"/>
+  <text x="83" y="570" transform="rotate(-90 83 570)" text-anchor="middle" font-family="Spline Sans Mono, monospace" font-size="17" fill="#BEC2FF">replay + realtime sync</text>
+</svg>

@@ -1,0 +1,138 @@
+## Persistent conversations without the persistence project
+
+Threads give your users a durable home for every agent conversation. They can close the browser, return on another device, reopen a conversation, and continue from the same event history while active runs reconnect in realtime.
+
+Without CopilotKit Threads, your team has to design the storage model, replay historical events, reconnect live streams, synchronize thread lists, coordinate concurrent runs, and build lifecycle APIs before you can ship the conversation experience itself. Enterprise Intelligence handles that infrastructure so you can focus on your agent and product UI.
+
+<OpsPlatformCTA
+  variant="inline"
+  title="Ship persistent conversations without building the backend"
+  body="Enterprise Intelligence handles durable history, replay, realtime sync, and thread lifecycle on the free Developer tier."
+  ctaLabel="Get Enterprise Intelligence free"
+  surface="docs_threads_overview"
+/>
+
+<Frame description="Threads Drawer beside an active CopilotChat. Selecting a saved conversation replays its history without separate active-thread state wiring.">
+  <img
+    src="/images/copilot-threads-drawer-preview.png"
+    alt="Threads Drawer listing saved conversations beside a resumed CopilotChat conversation"
+    className="w-full rounded-lg"
+  />
+</Frame>
+
+## Why use CopilotKit Threads?
+
+Threads turn a streamed agent run into a product experience users can leave and return to. They provide:
+
+- durable event history across reloads, sessions, and devices
+- seamless replay before a conversation reconnects to a live run
+- realtime thread-list updates without polling
+- generated names plus rename, archive, unarchive, delete, and pagination APIs
+- thread-level locking that prevents concurrent runs from interleaving events
+- the same persistence model across agent frameworks
+
+### What CopilotKit handles
+
+| CopilotKit handles | You control |
+|---|---|
+| Durable event storage and replay | Your agent's behavior and tools |
+| Replay-to-live stream reconnection | The conversation experience and layout |
+| Realtime thread metadata synchronization | Which thread actions your users can access |
+| Naming, pagination, archive, and delete semantics | Application authorization and permissions |
+| Runtime-to-platform event plumbing and thread locks | Mapping to native framework sessions when needed |
+| Cloud-hosted or self-hosted platform infrastructure | The deployment model that fits your organization |
+
+## How Threads work
+
+Both UI paths use the same Threads infrastructure. A stable `threadId` connects the visible conversation to the runtime and its durable event history.
+
+<Image
+  src="/images/threads/threads-architecture-light.svg"
+  alt="Threads Drawer and a custom useThreads interface both connect through CopilotChat and CopilotRuntime to an agent framework and the Enterprise Intelligence thread store."
+  width={900}
+  height={1000}
+  className="block dark:hidden my-6 w-full mx-auto"
+/>
+<Image
+  src="/images/threads/threads-architecture-dark.svg"
+  alt="Threads Drawer and a custom useThreads interface both connect through CopilotChat and CopilotRuntime to an agent framework and the Enterprise Intelligence thread store."
+  width={900}
+  height={1000}
+  className="hidden dark:block my-6 w-full mx-auto"
+/>
+
+1. Your UI opens a conversation with a stable `threadId`.
+2. `CopilotChat` sends the conversation through `CopilotRuntime` to your agent.
+3. Enterprise Intelligence stores the event history and thread metadata.
+4. Returning clients replay stored events, then reconnect to any active run.
+5. Thread lifecycle changes synchronize to connected clients over WebSocket.
+
+<Callout type="info" title="Headless means custom UI, not custom infrastructure">
+  Threads Drawer and Headless Threads use the same persistence, replay, synchronization, and locking infrastructure. Choose Headless Threads when you want to build the interface yourself, not when you want to rebuild the Threads backend.
+</Callout>
+
+## Choose how to build the UI
+
+<Cards>
+  <Card
+    title="Threads Drawer"
+    href="/prebuilt-components/copilot-threads-drawer"
+    description="Ship a ready-made, mobile-friendly conversation sidebar with switching, new conversations, archive, delete, and pagination already wired to your chat."
+  />
+  <Card
+    title="Headless Threads"
+    href="/headless-threads"
+    description="Build your own thread UI with useThreads while CopilotKit continues to handle persistence, replay, realtime sync, and lifecycle APIs."
+  />
+</Cards>
+
+Use **Threads Drawer** when the standard conversation-history pattern fits your product and you want the shortest path to production. Use **Headless Threads** when your product needs a custom layout, workflow, permission model, or thread action UI.
+
+## Bring existing conversations
+
+Threads capture new CopilotKit conversations once your app uses Enterprise Intelligence. If you already have persisted conversations, import supported history into the same thread store so users can resume it through the same UI.
+
+<Card
+  title="Import Thread History"
+  href="/threads-import"
+  description="Move supported Google ADK and LangGraph conversation history into Enterprise Intelligence, then keep future CopilotKit conversations continuous with stable thread IDs."
+/>
+
+CopilotKit Threads are separate from native framework session or checkpoint stores. Your backend can keep a stable mapping when the agent framework also needs its own conversation identifier.
+
+<WhenFrameworkHas flag="thread_persistence_pattern" equals="langgraph">
+  <Callout type="info" title="LangGraph thread IDs">
+    CopilotKit passes the active `threadId` to your LangGraph backend through AG-UI. You can use it directly or persist a mapping to a LangGraph thread or checkpoint identifier. LangGraph Platform thread IDs must be UUIDs.
+  </Callout>
+</WhenFrameworkHas>
+
+<WhenFrameworkHas flag="thread_persistence_pattern" equals="adk-session">
+  <Callout type="info" title="ADK sessions">
+    CopilotKit passes the active `threadId` to your ADK backend through AG-UI. Keep a stable mapping when you also use a durable ADK session service; CopilotKit thread lifecycle actions do not mutate the native ADK session store.
+  </Callout>
+</WhenFrameworkHas>
+
+## Go deeper
+
+<Cards>
+  <Card
+    title="Threads & Persistence Architecture"
+    href="/premium/threads-explained"
+    description="Understand event replay, live reconnection, synchronization, locking, and lifecycle behavior."
+  />
+  <Card
+    title="Cloud-Hosted Enterprise Intelligence"
+    href="/premium/managed-intelligence-platform"
+    description="Create and manage the hosted project where your app stores threads and runtime credentials."
+  />
+  <Card
+    title="Self-Hosting Enterprise Intelligence"
+    href="/premium/self-hosting"
+    description="Run the same Threads platform in your own Kubernetes environment."
+  />
+  <Card
+    title="Threads API reference"
+    href="/reference/hooks/useThreads"
+    description="Look up useThreads parameters, lifecycle methods, pagination, and return types."
+  />
+</Cards>

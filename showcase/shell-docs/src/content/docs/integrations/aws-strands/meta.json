@@ -9,7 +9,11 @@
     "build-with-agents",
     "---Basics---",
     "prebuilt-components",
-    "threads",
+    {
+      "title": "Threads",
+      "defaultOpen": true,
+      "pages": ["threads", "headless-threads"]
+    },
     "custom-look-and-feel",
     "programmatic-control",
     "inspector",
