@@ -38,6 +38,14 @@ export interface ConnectRealtimeGatewayOptions {
 /** A connected {@link RealtimeGatewaySession} plus a shutdown operation. */
 export interface ConnectedRealtimeGatewaySession extends RealtimeGatewaySession {
   disconnect(): void;
+  /**
+   * Register a callback to fire when the underlying Phoenix connection drops
+   * unexpectedly (a real network/server-side disconnect), NOT when it drops as
+   * a result of our own {@link disconnect}. Phoenix surfaces a drop through
+   * both the socket's `onClose`/`onError` and the channel's `onError` for the
+   * very same event, so the callback fires exactly once per drop.
+   */
+  onClose(cb: () => void): void;
 }
 
 /**
@@ -103,6 +111,28 @@ export async function connectRealtimeGateway(
       });
   });
 
+  // Drop notification: Phoenix fires the socket's `onClose`/`onError` AND the
+  // channel's `onError` for the same underlying drop (see `socket.js`'s
+  // `onConnClose` → `triggerChanError`), so guard with a fired flag rather
+  // than invoking every registered callback once per event. `disconnect()`
+  // below flips `closingIntentionally` first, so our own teardown — which
+  // also runs these same Phoenix close/error hooks — is never mistaken for an
+  // unexpected drop.
+  let closingIntentionally = false;
+  let closeFired = false;
+  const closeCallbacks: Array<() => void> = [];
+  const notifyClose = (): void => {
+    if (closingIntentionally || closeFired) return;
+    closeFired = true;
+    for (const cb of closeCallbacks) {
+      cb();
+    }
+  };
+  socket.onClose(() => notifyClose());
+  socket.onError(() => notifyClose());
+  channel.onClose(() => notifyClose());
+  channel.onError(() => notifyClose());
+
   return {
     push: (event, payload) =>
       new Promise((resolve, reject) => {
@@ -125,7 +155,13 @@ export async function connectRealtimeGateway(
     on: (event, handler) => {
       channel.on(event, handler);
     },
-    disconnect: () => socket.disconnect(),
+    onClose: (cb) => {
+      closeCallbacks.push(cb);
+    },
+    disconnect: () => {
+      closingIntentionally = true;
+      socket.disconnect();
+    },
   };
 }
 

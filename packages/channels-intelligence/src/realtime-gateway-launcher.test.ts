@@ -474,3 +474,112 @@ describe("startChannelsOverRealtimeGateway — socket lifecycle cleanup (OSS-406
     await first.stop();
   });
 });
+
+describe("startChannelsOverRealtimeGateway — onClose drop notification (OSS-473)", () => {
+  it("exposes onClose on the returned handle, firing on an unexpected socket drop", async () => {
+    const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
+    const bot = createChannel({
+      name: "opentag",
+      agent: () => new FakeAgent(),
+    });
+
+    const handle = await startChannelsOverRealtimeGateway([bot], {
+      wsUrl: "wss://gateway.example/socket",
+      apiKey: "cpk-test",
+      scope,
+      runtimeInstanceId: "rti_1",
+      webSocket: FakeWebSocket,
+    });
+
+    let calls = 0;
+    handle.onClose?.(() => {
+      calls += 1;
+    });
+
+    // Simulate an unexpected transport drop — not our own handle.stop().
+    instances[0]!.onclose?.();
+
+    expect(calls).toBe(1);
+
+    await handle.stop();
+  });
+
+  it("does not fire onClose when the caller calls handle.stop() (intentional teardown)", async () => {
+    const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
+    const bot = createChannel({
+      name: "opentag",
+      agent: () => new FakeAgent(),
+    });
+
+    const handle = await startChannelsOverRealtimeGateway([bot], {
+      wsUrl: "wss://gateway.example/socket",
+      apiKey: "cpk-test",
+      scope,
+      runtimeInstanceId: "rti_1",
+      webSocket: FakeWebSocket,
+    });
+
+    let calls = 0;
+    handle.onClose?.(() => {
+      calls += 1;
+    });
+
+    await handle.stop();
+
+    expect(instances[0]!.closed).toBe(true);
+    expect(calls).toBe(0);
+  });
+});
+
+describe("startChannelsWithGatewaySession — onClose passthrough (OSS-473)", () => {
+  it("forwards handle.onClose to a session that exposes onClose", async () => {
+    const fake = makeFakeSession();
+    const closeCallbacks: Array<() => void> = [];
+    const sessionWithOnClose: RealtimeGatewaySession & {
+      onClose(cb: () => void): void;
+    } = {
+      ...fake.session,
+      onClose: (cb: () => void) => {
+        closeCallbacks.push(cb);
+      },
+    };
+    const bot = createChannel({
+      name: "opentag",
+      agent: () => new FakeAgent(),
+    });
+
+    const handle = await startChannelsWithGatewaySession([bot], {
+      session: sessionWithOnClose,
+      scope,
+      runtimeInstanceId: "rti_1",
+    });
+
+    let calls = 0;
+    handle.onClose?.(() => {
+      calls += 1;
+    });
+    expect(closeCallbacks).toHaveLength(1);
+    closeCallbacks[0]!();
+    expect(calls).toBe(1);
+
+    await handle.stop();
+  });
+
+  it("omits handle.onClose when the session does not expose onClose", async () => {
+    const fake = makeFakeSession();
+    const bot = createChannel({
+      name: "opentag",
+      agent: () => new FakeAgent(),
+    });
+
+    const handle = await startChannelsWithGatewaySession([bot], {
+      session: fake.session,
+      scope,
+      runtimeInstanceId: "rti_1",
+    });
+
+    expect(handle.onClose).toBeUndefined();
+
+    await handle.stop();
+  });
+});

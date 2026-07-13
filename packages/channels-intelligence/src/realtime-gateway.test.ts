@@ -119,3 +119,57 @@ describe("connectRealtimeGateway", () => {
     expect(instances[0]!.closed).toBe(true);
   });
 });
+
+describe("connectRealtimeGateway — onClose drop notification (OSS-473)", () => {
+  it("fires a registered onClose callback exactly once when the socket drops unexpectedly", async () => {
+    const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/socket",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: {
+        runtimeInstanceId: "rti_1",
+        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
+        observedAt: "2026-07-10T00:00:00.000Z",
+      },
+      webSocket: FakeWebSocket,
+    });
+
+    let calls = 0;
+    session.onClose(() => {
+      calls += 1;
+    });
+
+    // Simulate an unexpected transport drop (not our own disconnect()) — this
+    // fires Phoenix's socket `onClose` AND (via triggerChanError) the
+    // channel's `onError` for the very same event.
+    instances[0]!.onclose?.();
+
+    expect(calls).toBe(1);
+  });
+
+  it("does not fire onClose when the drop is our own disconnect()", async () => {
+    const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/socket",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: {
+        runtimeInstanceId: "rti_1",
+        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
+        observedAt: "2026-07-10T00:00:00.000Z",
+      },
+      webSocket: FakeWebSocket,
+    });
+
+    let calls = 0;
+    session.onClose(() => {
+      calls += 1;
+    });
+
+    session.disconnect();
+
+    expect(instances[0]!.closed).toBe(true);
+    expect(calls).toBe(0);
+  });
+});

@@ -130,6 +130,14 @@ export interface StartChannelsOptions {
 export interface ChannelsHandle {
   metadata: ChannelActivationMetadata;
   stop(): Promise<void>;
+  /**
+   * Optional seam: register a callback the handle fires when its managed
+   * session drops unexpectedly, so a supervising `ChannelManager` can begin a
+   * reconnect. Not fired by the handle's own `stop()`. Present when the
+   * underlying session supports drop notification (see
+   * `ConnectedRealtimeGatewaySession.onClose` in `realtime-gateway.ts`).
+   */
+  onClose?(cb: () => void): void;
 }
 
 /**

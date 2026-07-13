@@ -105,7 +105,7 @@ export async function startChannelsWithGatewaySession(
     session: opts.session,
     ...(opts.log ? { log: opts.log } : {}),
   });
-  return startChannels({
+  const handle = await startChannels({
     channels,
     resolveTransport: () => ({
       source: transport,
@@ -117,6 +117,22 @@ export async function startChannelsWithGatewaySession(
     // envelope, regardless of any `env` overrides (which cannot carry it).
     env: { ...opts.env, runtimeInstanceId: opts.runtimeInstanceId },
   });
+  // This variant does not own the socket (the caller passed an
+  // already-joined session), so it neither connects nor disconnects it. Still
+  // pass through drop notification when the session supports it (it does not
+  // own teardown either way — the caller's session decides when `onClose`
+  // fires), so callers composing over a session they manage themselves still
+  // get reconnect signaling.
+  const sessionOnClose = (
+    opts.session as Partial<{ onClose(cb: () => void): void }>
+  ).onClose;
+  if (sessionOnClose) {
+    return {
+      ...handle,
+      onClose: (cb: () => void) => sessionOnClose(cb),
+    };
+  }
+  return handle;
 }
 
 /** Config for {@link startChannelsOverRealtimeGateway}. */
@@ -236,10 +252,15 @@ export async function startChannelsOverRealtimeGateway(
   }
   return {
     ...handle,
+    // Delegate explicitly to the launcher's own `session` (rather than relying
+    // on `handle.onClose` passed through from `startChannelsWithGatewaySession`
+    // above) so this seam stays correct even if that helper's internals change.
+    onClose: (cb: () => void) => session.onClose(cb),
     stop: async () => {
       // Always close the connection even if stopping the channels throws — the
       // launcher owns the socket (the transport is handed the session and does
-      // not disconnect it itself).
+      // not disconnect it itself). `session.disconnect()` marks the drop
+      // intentional internally, so this teardown never fires `onClose`.
       try {
         await handle.stop();
       } finally {
