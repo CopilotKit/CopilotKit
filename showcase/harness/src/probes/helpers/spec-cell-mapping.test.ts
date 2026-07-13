@@ -238,3 +238,175 @@ describe("spec-cell-mapping loader", () => {
     );
   });
 });
+
+// ── resolver: loadSpecCellMapping(slug, deps) ────────────────────────────────
+//
+// The resolver computes  base ⊕ override(slug) ⊖ auto-omit(slug)  restricted to
+// the slug's on-disk specs. All dependencies are injected (present-specs lister,
+// base map, delta map, merged skip-list) so it is unit-testable without disk.
+
+import {
+  loadSpecCellMapping,
+  type ResolveDeps,
+} from "./spec-cell-mapping.js";
+import type { D5FeatureType } from "./d5-registry.js";
+
+describe("loadSpecCellMapping(slug, deps) resolver", () => {
+  /** Build a ResolveDeps with sensible empty defaults, overridable per test. */
+  function deps(over: Partial<ResolveDeps> = {}): ResolveDeps {
+    return {
+      base: {},
+      delta: {},
+      listPresentSpecs: () => [],
+      mergedSkipList: () => new Set<string>(),
+      ...over,
+    };
+  }
+
+  it("(1) base pass-through: present specs mapped by base", () => {
+    const resolved = loadSpecCellMapping(
+      "slug",
+      deps({
+        base: {
+          "a2ui-recovery": ["a2ui-recovery"] as D5FeatureType[],
+          "agentic-chat": ["agentic-chat"] as D5FeatureType[],
+        },
+        listPresentSpecs: () => [
+          "tests/e2e/a2ui-recovery.spec.ts",
+          "tests/e2e/agentic-chat.spec.ts",
+        ],
+      }),
+    );
+    expect(resolved).toEqual({
+      "tests/e2e/a2ui-recovery.spec.ts": ["a2ui-recovery"],
+      "tests/e2e/agentic-chat.spec.ts": ["agentic-chat"],
+    });
+  });
+
+  it("(2) on-disk restriction: base cell absent when spec not present", () => {
+    const resolved = loadSpecCellMapping(
+      "slug",
+      deps({
+        base: {
+          hitl: ["hitl-text-input"] as D5FeatureType[],
+          "agentic-chat": ["agentic-chat"] as D5FeatureType[],
+        },
+        // hitl.spec.ts is NOT present on disk for this slug
+        listPresentSpecs: () => ["tests/e2e/agentic-chat.spec.ts"],
+      }),
+    );
+    expect(Object.keys(resolved)).toEqual(["tests/e2e/agentic-chat.spec.ts"]);
+    expect(resolved["tests/e2e/hitl.spec.ts"]).toBeUndefined();
+  });
+
+  it("(3) auto-omit: present + in base but cell in merged skip-list is dropped", () => {
+    const resolved = loadSpecCellMapping(
+      "slug",
+      deps({
+        base: {
+          "gen-ui-interrupt": ["gen-ui-interrupt"] as D5FeatureType[],
+          "agentic-chat": ["agentic-chat"] as D5FeatureType[],
+        },
+        listPresentSpecs: () => [
+          "tests/e2e/gen-ui-interrupt.spec.ts",
+          "tests/e2e/agentic-chat.spec.ts",
+        ],
+        mergedSkipList: () => new Set<string>(["gen-ui-interrupt"]),
+      }),
+    );
+    expect(Object.keys(resolved)).toEqual(["tests/e2e/agentic-chat.spec.ts"]);
+  });
+
+  it("(4) unmapped WARN: present spec with no base cell + no override calls onUnmapped once, absent from resolved", () => {
+    const warned: Array<[string, string]> = [];
+    const resolved = loadSpecCellMapping(
+      "slug",
+      deps({
+        base: { "agentic-chat": ["agentic-chat"] as D5FeatureType[] },
+        listPresentSpecs: () => [
+          "tests/e2e/agentic-chat.spec.ts",
+          "tests/e2e/agentic-chat-reasoning.spec.ts",
+        ],
+        onUnmapped: (slug, rel) => warned.push([slug, rel]),
+      }),
+    );
+    expect(warned).toEqual([["slug", "tests/e2e/agentic-chat-reasoning.spec.ts"]]);
+    expect(resolved["tests/e2e/agentic-chat-reasoning.spec.ts"]).toBeUndefined();
+    expect(Object.keys(resolved)).toEqual(["tests/e2e/agentic-chat.spec.ts"]);
+  });
+
+  it("(5) override supplies a missing cell (no base entry): resolved maps it, no WARN", () => {
+    const warned: string[] = [];
+    const resolved = loadSpecCellMapping(
+      "slug",
+      deps({
+        base: {}, // shared-state-write has no base cell
+        delta: {
+          slug: {
+            overrides: {
+              "shared-state-write": {
+                cells: ["shared-state-write"] as D5FeatureType[],
+              },
+            },
+          },
+        },
+        listPresentSpecs: () => ["tests/e2e/shared-state-write.spec.ts"],
+        onUnmapped: (_s, rel) => warned.push(rel),
+      }),
+    );
+    expect(resolved).toEqual({
+      "tests/e2e/shared-state-write.spec.ts": ["shared-state-write"],
+    });
+    expect(warned).toHaveLength(0);
+  });
+
+  it("(6) override force re-maps a base-mapped stem to a different cell", () => {
+    const resolved = loadSpecCellMapping(
+      "slug",
+      deps({
+        base: { "some-stem": ["agentic-chat"] as D5FeatureType[] },
+        delta: {
+          slug: {
+            overrides: {
+              "some-stem": { cells: ["auth"] as D5FeatureType[], force: true },
+            },
+          },
+        },
+        listPresentSpecs: () => ["tests/e2e/some-stem.spec.ts"],
+      }),
+    );
+    expect(resolved).toEqual({ "tests/e2e/some-stem.spec.ts": ["auth"] });
+  });
+
+  it("(7) explicit omit escape hatch drops a stem even when partially skipped", () => {
+    const resolved = loadSpecCellMapping(
+      "slug",
+      deps({
+        base: {
+          "multi-cell": ["agentic-chat", "auth"] as D5FeatureType[],
+          "agentic-chat": ["agentic-chat"] as D5FeatureType[],
+        },
+        delta: { slug: { omit: ["multi-cell"] } },
+        listPresentSpecs: () => [
+          "tests/e2e/multi-cell.spec.ts",
+          "tests/e2e/agentic-chat.spec.ts",
+        ],
+        // only ONE of multi-cell's two cells is skipped → auto-omit would NOT
+        // drop it, so the explicit omit is what removes it.
+        mergedSkipList: () => new Set<string>(["auth"]),
+      }),
+    );
+    expect(Object.keys(resolved)).toEqual(["tests/e2e/agentic-chat.spec.ts"]);
+  });
+
+  it("(8) non-empty guarantee: any present mapped non-quarantined stem yields non-empty resolved", () => {
+    const resolved = loadSpecCellMapping(
+      "slug",
+      deps({
+        base: { "agentic-chat": ["agentic-chat"] as D5FeatureType[] },
+        listPresentSpecs: () => ["tests/e2e/agentic-chat.spec.ts"],
+      }),
+    );
+    expect(Object.keys(resolved).length).toBeGreaterThan(0);
+  });
+});

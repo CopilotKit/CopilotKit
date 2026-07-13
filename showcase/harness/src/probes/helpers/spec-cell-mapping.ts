@@ -51,7 +51,13 @@
  *   Track for future addition if a "thread-id" D5FeatureType is introduced.
  */
 
+import { basename } from "node:path";
+
 import type { D5FeatureType } from "./d5-registry.js";
+import { createLogger } from "../../logger.js";
+import { loadSkipList, mergeSkipList } from "./skip-list.js";
+
+const log = createLogger({ component: "spec-cell-mapping" });
 
 /**
  * Mapping type:  slug → spec-path → cell list.
@@ -215,4 +221,161 @@ export function __overrideSpecCellMappingForTesting(
   // Validate the override through the real load path (round-trip through JSON
   // so the validator sees the same shape as a real JSON load would).
   _mappingOverride = parseSpecCellMapping(JSON.stringify(override));
+}
+
+// ── base+delta resolver: loadSpecCellMapping(slug, deps) ─────────────────────
+//
+// The resolver replaces the single-slug JSON lookup. For a slug it computes the
+// resolved per-spec mapping  base ⊕ override(slug) ⊖ auto-omit(slug)  restricted
+// to the spec files actually present in that slug's tests/e2e/ dir:
+//
+//   - base[stem]                — the shared authority (generated from
+//                                 REGISTRY_TO_D5, keyed by spec-filename stem).
+//   - delta.overrides[stem]     — a per-slug cell for a stem the base can't map
+//                                 (no base cell), or a `force`d re-map.
+//   - auto-derived omit         — any on-disk mapped stem whose cell set is
+//                                 fully in the merged skip-list is dropped
+//                                 (the gen-ui-interrupt class); never hand-authored.
+//   - explicit delta.omit       — rare escape hatch for partial-quarantine.
+//
+// Because base covers the shared surface, the resolved mapping is non-empty for
+// EVERY slug that has ≥1 present, mapped, non-quarantined spec → the
+// empty-verdicts / F3 mass-red path is unreachable for them.
+
+/** Per-slug departures from the shared base. */
+export interface SlugDelta {
+  /**
+   * stem -> cell override. Permitted when the stem has no base cell
+   * (supplies a missing cell) or is `force`d (re-maps a base-mapped stem to a
+   * different cell). Without `force`, an override whose stem already has a
+   * DIFFERENT base cell is a delta-collision (caught by the guard).
+   */
+  overrides?: Record<string, { cells: D5FeatureType[]; force?: boolean }>;
+  /**
+   * Rare explicit partial-quarantine escape hatch: stems to drop even when the
+   * auto-derived skip-list omit would NOT remove them (only some of a
+   * multi-cell stem's cells are skipped).
+   */
+  omit?: string[];
+}
+
+/** Delta map:  slug -> SlugDelta. */
+export type SpecCellDelta = Record<string, SlugDelta>;
+
+/** Dependencies injected into the resolver so it is unit-testable without disk. */
+export interface ResolveDeps {
+  /** stem -> cells (from base.json). */
+  base: Record<string, D5FeatureType[]>;
+  /** slug -> delta (from spec-cell-delta.json). */
+  delta: SpecCellDelta;
+  /** On-disk "tests/e2e/*.spec.ts" relpaths for the slug. */
+  listPresentSpecs: (slug: string) => string[];
+  /** loadSkipList ∪ manifest NSF, per slug (the merged skip-list). */
+  mergedSkipList: (slug: string) => Set<string>;
+  /** WARN sink for on-disk specs whose stem has no cell (default: log.warn). */
+  onUnmapped?: (slug: string, specRelPath: string) => void;
+}
+
+function defaultWarn(slug: string, specRelPath: string): void {
+  log.warn("spec-cell-mapping.unmapped-onDisk-spec", {
+    slug,
+    spec: specRelPath,
+    note: "on-disk spec stem has no base cell and no override — coverage hole (spec runs, feeds no cell)",
+  });
+}
+
+/**
+ * Resolve a slug's spec→cell mapping from base + delta + auto-derived omit,
+ * restricted to on-disk specs. Pure over its injected `deps` (no I/O).
+ *
+ * @param slug  Integration slug (e.g. "langgraph-python").
+ * @param deps  Injected base map, delta map, present-spec lister, merged
+ *              skip-list, and optional WARN sink.
+ * @returns     spec-relpath -> cells, non-empty whenever the slug has ≥1
+ *              present, mapped, non-quarantined spec.
+ */
+export function loadSpecCellMapping(
+  slug: string,
+  deps: ResolveDeps,
+): Record<string, D5FeatureType[]> {
+  const skipped = deps.mergedSkipList(slug);
+  const delta = deps.delta[slug] ?? {};
+  const explicitOmit = new Set(delta.omit ?? []);
+  const out: Record<string, D5FeatureType[]> = {};
+  for (const rel of deps.listPresentSpecs(slug)) {
+    const stem = basename(rel).replace(/\.spec\.ts$/, "");
+    if (explicitOmit.has(stem)) continue;
+    const override = delta.overrides?.[stem];
+    const cells: D5FeatureType[] | undefined =
+      override && (override.force || !deps.base[stem])
+        ? override.cells
+        : deps.base[stem];
+    if (!cells || cells.length === 0) {
+      (deps.onUnmapped ?? defaultWarn)(slug, rel);
+      continue;
+    }
+    // AUTO-DERIVED omit: drop any stem whose cell set is fully skip/NSF-quarantined.
+    if (cells.every((c) => skipped.has(c))) continue;
+    out[rel] = [...cells];
+  }
+  return out;
+}
+
+// ── default loaders (wire base.json, spec-cell-delta.json, skip-list) ────────
+
+let _deltaOverride: SpecCellDelta | undefined;
+
+/**
+ * Load the committed `spec-cell-delta.json` (slug -> SlugDelta). Dynamic import
+ * mirrors the base loader so the JSON stays out of the top-level module graph.
+ */
+export async function loadDelta(): Promise<SpecCellDelta> {
+  if (_deltaOverride !== undefined) return _deltaOverride;
+  const mod = await import("./spec-cell-delta.json", {
+    with: { type: "json" },
+  });
+  return mod.default as SpecCellDelta;
+}
+
+/**
+ * Override the delta map for testing. Pass `undefined` to restore the JSON.
+ * @internal Testing only.
+ */
+export function __overrideSpecCellDeltaForTesting(
+  override: SpecCellDelta | undefined,
+): void {
+  _deltaOverride = override;
+}
+
+/**
+ * Convenience wrapper that wires the resolver against the committed
+ * `base.json`, `spec-cell-delta.json`, and the merged skip-list
+ * (`loadSkipList()` ∪ manifest NSF). Callers supply a present-spec lister
+ * (rooted at the slug's integration dir) and the slug's manifest
+ * `not_supported_features`.
+ */
+export async function loadDefaultResolvedMapping(
+  slug: string,
+  opts: {
+    listPresentSpecs: (slug: string) => string[];
+    notSupportedFeatures?: string[];
+    onUnmapped?: (slug: string, specRelPath: string) => void;
+  },
+): Promise<Record<string, D5FeatureType[]>> {
+  const baseMod = await import("./spec-cell-mapping.base.json", {
+    with: { type: "json" },
+  });
+  const base = baseMod.default as Record<string, D5FeatureType[]>;
+  const delta = await loadDelta();
+  let skipList = loadSkipList();
+  if (opts.notSupportedFeatures && opts.notSupportedFeatures.length > 0) {
+    skipList = mergeSkipList(skipList, slug, opts.notSupportedFeatures);
+  }
+  return loadSpecCellMapping(slug, {
+    base,
+    delta,
+    listPresentSpecs: opts.listPresentSpecs,
+    mergedSkipList: (s) => new Set<string>(skipList[s] ?? []),
+    onUnmapped: opts.onUnmapped,
+  });
 }
