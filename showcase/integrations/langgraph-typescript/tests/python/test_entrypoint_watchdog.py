@@ -403,10 +403,33 @@ class TestFilePersistenceDisabled:
             / "storage"
             / "persist.mjs"
         )
+        # In CI, LGT_REQUIRE_BEHAVIORAL=1 makes a missing runtime a FAILURE, not
+        # a skip: the merge-gating job is SUPPOSED to have the package installed,
+        # so a silent skip there would let the suite go green without ever
+        # exercising the real writer — the exact false-confidence mode this fix
+        # exists to prevent. Local dev machines (flag unset) still skip
+        # gracefully when the agent deps legitimately are not installed.
+        require_behavioral = os.environ.get("LGT_REQUIRE_BEHAVIORAL") == "1"
         if not persist_pkg.exists():
-            pytest.skip("agent node_modules not installed (@langchain/langgraph-api)")
+            msg = (
+                "agent node_modules not installed (@langchain/langgraph-api) at "
+                f"{persist_pkg}"
+            )
+            if require_behavioral:
+                pytest.fail(
+                    "LGT_REQUIRE_BEHAVIORAL=1 but " + msg + " — the CI job that "
+                    "gates this fix MUST install the agent deps (npm install in "
+                    "src/agent) so the real-package interception is actually "
+                    "exercised. Refusing to skip the sole behavioral proof."
+                )
+            pytest.skip(msg)
         node = shutil.which("node")
         if node is None:
+            if require_behavioral:
+                pytest.fail(
+                    "LGT_REQUIRE_BEHAVIORAL=1 but node is not on PATH — the CI job "
+                    "must set up Node before running the behavioral proof."
+                )
             pytest.skip("node not on PATH")
 
         run_cwd = tmp_path / "run"
@@ -482,6 +505,87 @@ class TestFilePersistenceDisabled:
             "In-memory round-trip broke: expected 'reply-0', got "
             f"{payload['readBack']!r}. Persistence disable must not remove "
             "in-lifetime conversation state."
+        )
+
+    def test_boot_fails_if_namespace_binding_not_patched_high1(self, tmp_path):
+        """HIGH-1 negative proof: if node:fs/promises is LINKED before the
+        preload's property reassignments run, the ESM namespace snapshots the
+        ORIGINAL (unpatched) function reference and a consumer's fs.writeFile
+        would silently bypass the no-op. The preload's runtime binding-identity
+        assertion MUST catch this and FAIL BOOT (non-zero exit) naming the
+        affected members — never continue silently into a disk-growth outage.
+
+        We simulate the fragile ordering with an earlier `--import` module that
+        links node:fs/promises before the disable module, then assert the
+        process exits non-zero with the FATAL identity-mismatch message. A
+        control run (correct ordering) is covered by
+        test_real_package_writes_are_suppressed_behavioral above.
+        """
+        import shutil
+
+        node = shutil.which("node")
+        require_behavioral = os.environ.get("LGT_REQUIRE_BEHAVIORAL") == "1"
+        if node is None:
+            if require_behavioral:
+                pytest.fail(
+                    "LGT_REQUIRE_BEHAVIORAL=1 but node is not on PATH — cannot "
+                    "run the HIGH-1 guard-fires proof."
+                )
+            pytest.skip("node not on PATH")
+
+        agent_dir = _PKG_ROOT / "src" / "agent"
+        preload = agent_dir / "disable-file-persistence.mjs"
+        assert preload.exists(), f"preload missing at {preload}"
+
+        # Earlier-ordered --import that links node:fs/promises FIRST, forcing the
+        # namespace binding to snapshot the pre-patch original.
+        early = tmp_path / "early_link_fs_promises.mjs"
+        early.write_text(
+            dedent(
+                """
+                import * as _fsp from "node:fs/promises";
+                void _fsp.writeFile; // force the namespace binding to resolve now
+                """
+            )
+        )
+
+        env = {
+            "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+            "HOME": os.environ.get("HOME", "/tmp"),
+            "LANGGRAPH_DISABLE_FILE_PERSISTENCE": "true",
+        }
+        result = subprocess.run(
+            [
+                node,
+                "--import",
+                str(early),
+                "--import",
+                str(preload),
+                "-e",
+                "console.log('SHOULD-NOT-REACH')",
+            ],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        combined = result.stdout + result.stderr
+        assert result.returncode != 0, (
+            "Expected boot to FAIL when node:fs/promises is linked before the "
+            "patch (namespace snapshots the original fn), but the process exited "
+            f"0. stdout={result.stdout!r} stderr={result.stderr!r}"
+        )
+        assert "SHOULD-NOT-REACH" not in result.stdout, (
+            "Boot continued past the identity guard despite the namespace binding "
+            "NOT reflecting the patch — this is the silent-bypass failure mode."
+        )
+        assert "namespace binding does NOT reflect the installed patch" in combined, (
+            "Expected the FATAL binding-identity message naming the unpatched "
+            f"members. output={combined!r}"
+        )
+        assert "writeFile" in combined, (
+            "The identity-guard failure must name the writeFile member (the "
+            f"primary persist write surface). output={combined!r}"
         )
 
 
