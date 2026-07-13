@@ -4,7 +4,11 @@ import {
   CopilotChatConfigurationProvider,
   CopilotKitProvider,
   useConfigureSuggestions,
+  type ReactActivityMessageRenderer,
 } from "@copilotkit/react-core/v2";
+import { z } from "zod";
+import { catalog } from "@/a2ui/catalog";
+import { CanvasProvider } from "@/components/canvas/canvas-context";
 import CopilotContext from "@/components/copilot-context";
 import { useAuthContext } from "@/components/auth-context";
 import { useThreadSelection } from "@/components/threads/use-thread-selection";
@@ -14,6 +18,58 @@ import { RecordingProvider } from "@/components/recording-context";
 import { RecordingVignette } from "@/components/recording-vignette";
 import { ProactiveNotice } from "@/components/wow/proactive-notice";
 import { ReportCopilotTools } from "@/components/wow/report-tool";
+import { GlassEngineProvider } from "@/components/glass-engine-context";
+import { InspectorStoreProvider } from "@/lib/inspector/store";
+import { InspectorPane } from "@/components/inspector/inspector-pane";
+import { sandboxFunctions } from "@/opengen/sandbox-functions";
+import { SandboxDataSync } from "@/opengen/sandbox-data-sync";
+
+// The agent's render_report tool result becomes an `a2ui-surface` activity that
+// <ReportCanvas/> renders full-screen (it reads the ops from the agent message
+// stream). In the chat we leave only a small handoff pill in place of the
+// built-in inline surface renderer. Module-level so the array reference stays
+// stable across renders (CopilotKitProvider requires a stable
+// `renderActivityMessages` array).
+function ReportHandoffPill() {
+  return (
+    <div className="my-1.5 inline-flex max-w-fit items-center gap-2 rounded-full border border-hairline bg-surface px-3 py-2 text-xs font-medium text-ink">
+      <span className="h-2 w-2 rounded-full bg-brand" />
+      <span className="uppercase tracking-wide text-ink-muted">report</span>
+      <span aria-hidden className="text-ink-muted">
+        →
+      </span>
+      <span>rendered on the canvas</span>
+    </div>
+  );
+}
+
+// Same handoff treatment for Open Generative UI: the sandboxed iframe renders
+// full-region on the canvas (see <ReportCanvas/>), so the chat shows only this
+// pill. Registering it OVERRIDES the built-in inline OGUI renderer (user-provided
+// renderers take precedence).
+function OguiHandoffPill() {
+  return (
+    <div className="my-1.5 inline-flex max-w-fit items-center gap-2 rounded-full border border-hairline bg-surface px-3 py-2 text-xs font-medium text-ink">
+      <span className="h-2 w-2 rounded-full bg-brand" />
+      <span className="uppercase tracking-wide text-ink-muted">
+        interactive
+      </span>
+      <span aria-hidden className="text-ink-muted">
+        →
+      </span>
+      <span>rendered on the canvas</span>
+    </div>
+  );
+}
+
+const A2UI_RENDERERS: ReactActivityMessageRenderer<unknown>[] = [
+  { activityType: "a2ui-surface", content: z.any(), render: ReportHandoffPill },
+  {
+    activityType: "open-generative-ui",
+    content: z.any(),
+    render: OguiHandoffPill,
+  },
+];
 
 // Static suggestion pills — the demo's full use-case catalog, available at
 // ALL times (`available: "always"`), not just the welcome screen: the demo
@@ -44,6 +100,22 @@ import { ReportCopilotTools } from "@/components/wow/report-tool";
 // Page-scoped fire-and-forget tools (spend alert, card replacement, flag for
 // review) are deliberately NOT pilled: they only exist on the home route, so
 // a global pill for them would be a broken promise on every other page.
+
+// Design brief handed to generateSandboxedUi so generated UIs match the demo's
+// look instead of the generic DEFAULT_DESIGN_SKILL. Dark-mode aware, brand accent,
+// glass surfaces, Geist type — the same language as the curated cards.
+const NORTHWIND_DESIGN_SKILL = `You are designing UI for Northwind Finance, a
+corporate banking dashboard. Match its aesthetic:
+- Surfaces: rounded-2xl cards, subtle hairline borders, soft shadow, a translucent
+  "glass" surface over the page background. Generous padding.
+- Type: the Geist sans-serif family; clear hierarchy (semibold headings, muted
+  secondary text). Currency in USD with thousands separators.
+- Color: a restrained neutral base with a single indigo/violet brand accent for
+  emphasis, positive = green, negative/over-limit = red. Never rainbow palettes.
+- Dark-mode aware: read colors from CSS variables / prefers-color-scheme; never
+  hardcode white backgrounds.
+- Keep it calm, precise, and enterprise-appropriate — this is a finance tool.`;
+
 function BankingSuggestions() {
   useConfigureSuggestions({
     available: "always",
@@ -81,6 +153,12 @@ function BankingSuggestions() {
         title: "Add an expense card",
         message: "Add a new expense card",
       },
+      // ── A2UI report canvas ───────────────────────────────────────────────
+      {
+        title: "Build a spend report on the canvas",
+        message:
+          "Build a full spend report on the canvas: KPIs, the spending trend, budget usage, and a spend breakdown by team.",
+      },
       // ── Gen-UI charts ────────────────────────────────────────────────────
       {
         title: "Show the spending trend",
@@ -98,6 +176,20 @@ function BankingSuggestions() {
       {
         title: "How's our cash flow?",
         message: "Compare our income vs expenses — how is our cash flow?",
+      },
+      // ── Open Generative UI (custom interactive surfaces) ─────────────────
+      {
+        // OGUI-only: an interactive explorer the fixed catalog can't express.
+        // "interactive"/"explorer" (not "build") is what routes this to
+        // generateSandboxedUi; figures come from the sandbox functions.
+        title: "Build an interactive spend explorer",
+        message:
+          "Build an interactive spend explorer I can filter and play with — pull the real transactions and policies.",
+      },
+      {
+        title: "Prototype a cash-flow what-if calculator",
+        message:
+          "Prototype an interactive what-if calculator for our cash flow using our real income and expense figures.",
       },
       {
         title: "How do approvals work?",
@@ -123,7 +215,15 @@ function BankingSuggestions() {
   return null;
 }
 
-export function CopilotKitWrapper({ children }: { children: React.ReactNode }) {
+export function CopilotKitWrapper({
+  children,
+  glassAvailable = false,
+  resetEnabled = false,
+}: {
+  children: React.ReactNode;
+  glassAvailable?: boolean;
+  resetEnabled?: boolean;
+}) {
   const { currentUser } = useAuthContext();
   const { threadId, selectThread, createThread } = useThreadSelection();
 
@@ -136,7 +236,20 @@ export function CopilotKitWrapper({ children }: { children: React.ReactNode }) {
       // POSTs to /api/copilotkit and 404s against this handler, so stay in REST
       // (multi-route) mode.
       useSingleEndpoint={false}
-      properties={{ userRole: currentUser?.role }}
+      properties={{ userRole: currentUser?.role, userId: currentUser?.id }}
+      // A2UI report canvas. The agent calls the backend render_report tool,
+      // whose ops the A2UI middleware turns into an `a2ui-surface` activity; the
+      // banking catalog here lets the client render those ops. The agent selects
+      // widgets via render_report's typed params, so it does NOT need the raw
+      // A2UI component schema (no includeSchema). `renderActivityMessages`
+      // replaces the built-in inline surface renderer with a small handoff pill —
+      // the surface itself renders full-screen in <ReportCanvas/>.
+      a2ui={{ catalog }}
+      renderActivityMessages={A2UI_RENDERERS}
+      openGenerativeUI={{
+        sandboxFunctions,
+        designSkill: NORTHWIND_DESIGN_SKILL,
+      }}
       // Use the v2-native CopilotKitProvider, NOT the v1 `CopilotKit`
       // compatibility bridge. The bridge wraps the chat in a heavier stack (its
       // own ThreadsProvider + a second CopilotChatConfigurationProvider +
@@ -162,6 +275,7 @@ export function CopilotKitWrapper({ children }: { children: React.ReactNode }) {
       */}
       <CopilotChatConfigurationProvider agentId="default" threadId={threadId}>
         <BankingSuggestions />
+        <SandboxDataSync />
         {/*
           ChatInboxProvider carries the inbox open/closed state + the thread
           actions (select/create) so the panel header and the inbox rows can
@@ -178,19 +292,34 @@ export function CopilotKitWrapper({ children }: { children: React.ReactNode }) {
             RecordingProvider exposes the teach-mode `isRecording` flag; the
             <RecordingVignette/> reads it to pulse a soft violet glow around the
             canvas while an officer demonstration is being recorded. It wraps
-            BOTH the page content and the chat panel so every `recordUserAction`
+            BOTH the page content and the chat panel so every demonstration
             call site (the transactions list approve/deny, the inline policy
             exception card) is inside it.
           */}
-          <RecordingProvider>
-            <LayoutComponent>
-              <CopilotContext>{children}</CopilotContext>
-            </LayoutComponent>
-            <ChatPanel threadId={threadId} />
-            <ProactiveNotice />
-            <ReportCopilotTools />
-            <RecordingVignette />
-          </RecordingProvider>
+          <GlassEngineProvider available={glassAvailable}>
+            <InspectorStoreProvider>
+              <RecordingProvider>
+                {/*
+                  CanvasProvider derives whether a report surface is active from
+                  the agent message stream (+ a local dismiss for the "← Back"
+                  control). It must be an ancestor of LayoutComponent, which calls
+                  useCanvas() to render <ReportCanvas/> in place of the page body.
+                */}
+                <CanvasProvider>
+                  <LayoutComponent resetEnabled={resetEnabled}>
+                    <CopilotContext>{children}</CopilotContext>
+                  </LayoutComponent>
+                  <ChatPanel threadId={threadId} />
+                  <ProactiveNotice />
+                  <ReportCopilotTools />
+                </CanvasProvider>
+                {/* Mount the pane (and its AG-UI subscription) ONLY where the
+                    deployment opted in. Public hosts never subscribe. */}
+                {glassAvailable && <InspectorPane />}
+                <RecordingVignette />
+              </RecordingProvider>
+            </InspectorStoreProvider>
+          </GlassEngineProvider>
         </ChatInboxProvider>
       </CopilotChatConfigurationProvider>
     </CopilotKitProvider>

@@ -2,14 +2,18 @@ import {
   CUSTOM_ELEMENTS_SCHEMA,
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   Directive,
   ElementRef,
+  EventEmitter,
+  Output,
   TemplateRef,
   computed,
   contentChild,
   effect,
   inject,
   input,
+  signal,
   viewChild,
 } from "@angular/core";
 import { NgTemplateOutlet } from "@angular/common";
@@ -17,21 +21,27 @@ import {
   DEFAULT_AGENT_ID,
   createLicenseContextValue,
 } from "@copilotkit/shared";
-import {
-  CopilotKitThreadsDrawer as CopilotKitThreadsDrawerElement,
-  defineCopilotKitThreadsDrawer,
-} from "@copilotkit/web-components/threads-drawer";
+import { defineCopilotKitThreadsDrawer } from "@copilotkit/web-components/threads-drawer";
 import type {
   ArchiveDetail,
   DeleteDetail,
   DrawerThread,
+  OpenChangeDetail,
   RetryDetail,
   ThreadSelectedDetail,
   UnarchiveDetail,
+  CopilotKitThreadsDrawer as CopilotKitThreadsDrawerElement,
 } from "@copilotkit/web-components/threads-drawer";
+// TODO(ENT-1051): import `CollapseChangeDetail` from
+// "@copilotkit/web-components/threads-drawer" once the parallel element PR that
+// adds the collapse feature (property `collapsible` + event `collapse-change`)
+// lands and is published; declared locally here because the built element types
+// in this worktree predate it.
+type CollapseChangeDetail = { collapsed: boolean };
 import { COPILOT_CHAT_CONFIGURATION } from "../../chat-configuration";
 import { CopilotKit } from "../../copilotkit";
-import { injectThreads, type Thread } from "../../threads";
+import { injectThreads } from "../../threads";
+import type { Thread } from "../../threads";
 
 /**
  * Maps a {@link Thread} from the platform store onto the minimal
@@ -50,6 +60,45 @@ function toDrawerThread(thread: Thread): DrawerThread {
     updatedAt: thread.updatedAt,
     ...(thread.lastRunAt !== undefined ? { lastRunAt: thread.lastRunAt } : {}),
   };
+}
+
+/**
+ * The Angular chat view container's element selector. Used to scope the
+ * focus-return lookup so a multi-chat page focuses THIS drawer's composer.
+ */
+const CHAT_CONTAINER_SELECTOR = "copilot-chat-view";
+/**
+ * The Angular chat input's element selector (`<textarea copilotChatTextarea>`).
+ * Note: this is the Angular chat input, NOT React's `copilot-chat-textarea` or
+ * Vue's `copilot-chat-input-textarea` `data-testid` — the Angular chat
+ * components identify by element/attribute selector rather than `data-testid`.
+ */
+const CHAT_INPUT_SELECTOR = "textarea[copilotChatTextarea]";
+
+/**
+ * Returns the chat input element for focus-return after a thread is selected.
+ *
+ * Best-effort and SCOPED: walks up from the drawer element looking for an
+ * ancestor chat-view container ({@link CHAT_CONTAINER_SELECTOR}), then returns
+ * the chat input ({@link CHAT_INPUT_SELECTOR}) within that subtree. This avoids
+ * focusing the wrong composer on a page hosting more than one chat, where a
+ * document-global lookup would grab whichever input appears first in DOM order.
+ *
+ * Falls back to a document-global lookup when no scoping ancestor is found
+ * (e.g. the drawer and chat share no common container, or headless usage), and
+ * returns `null` when there is no chat input at all. Mirrors the React and Vue
+ * wrappers' `findChatInput`, scoped to the Angular chat selectors.
+ *
+ * @param origin - The drawer element to scope the search from.
+ */
+function findChatInput(origin: Element | null): HTMLElement | null {
+  if (typeof document === "undefined") return null;
+  const container = origin?.closest?.(CHAT_CONTAINER_SELECTOR);
+  if (container) {
+    const scoped = container.querySelector<HTMLElement>(CHAT_INPUT_SELECTOR);
+    if (scoped) return scoped;
+  }
+  return document.querySelector<HTMLElement>(CHAT_INPUT_SELECTOR);
 }
 
 /**
@@ -106,14 +155,17 @@ export class CopilotThreadsDrawerRow {
     <copilotkit-threads-drawer
       #drawer
       [attr.data-testid]="dataTestId()"
+      [attr.recent-label]="recentLabel() ?? null"
       (thread-selected)="onThreadSelected($event)"
       (new-thread)="onNewThread()"
       (archive)="onArchive($event)"
       (unarchive)="onUnarchive($event)"
       (delete)="onDelete($event)"
       (filter-change)="onFilterChange()"
+      (collapse-change)="onCollapseChange($event)"
       (retry)="onRetry($event)"
       (load-more)="onLoadMore()"
+      (open-change)="onOpenChange($event)"
       (licensed)="onLicensed()"
       ><ng-content></ng-content>
       @if (rowDirective(); as row) {
@@ -151,6 +203,28 @@ export class CopilotThreadsDrawer {
    * `label` property; defaults to the element's own `"Threads"` when unset.
    */
   readonly label = input<string | undefined>();
+
+  /**
+   * Optional heading for the "Recent Conversations" section, forwarded to the
+   * element's `recent-label` attribute; defaults to the element's own
+   * `"Recent Conversations"` when unset.
+   */
+  readonly recentLabel = input<string | undefined>();
+
+  /**
+   * Whether the drawer offers a collapse toggle. Pushed onto the element's
+   * `collapsible` PROPERTY (a default-true boolean, exactly like `licensed` — a
+   * string attribute cannot represent it since any non-empty value is truthy).
+   * When `false`, the drawer has no collapse toggle and is always expanded.
+   * Defaults to the element's own `true` when unset.
+   */
+  readonly collapsible = input<boolean | undefined>();
+
+  /**
+   * Emits the new collapsed state whenever the drawer's collapsed state changes
+   * (mirrors the element's `collapse-change` event).
+   */
+  @Output() readonly collapseChange = new EventEmitter<boolean>();
 
   /**
    * Optional host override for the thread-select action.
@@ -296,8 +370,45 @@ export class CopilotThreadsDrawer {
     () => this.config?.threadId() ?? null,
   );
 
+  /**
+   * User-facing fetch-more error message from the dedicated fetch-more error
+   * signal, or `null`. Drives the element's inline "couldn't load more — retry"
+   * panel without disturbing the loaded list or the initial-list `error`.
+   */
+  protected readonly fetchMoreErrorMessage = computed(
+    () => this.threads.fetchMoreError()?.message ?? null,
+  );
+
+  private readonly destroyRef = inject(DestroyRef);
+
+  /**
+   * Provider-less fallback open-state. Without a surrounding chat configuration
+   * there is no shared open-state to bind to, so the wrapper keeps its own
+   * local state. Starts CLOSED — matching the configuration's own default — so
+   * the element does not spring open (and scroll-lock the page on mobile) on
+   * load, and the element's `open-change` events still toggle it.
+   */
+  private readonly localDrawerOpen = signal(false);
+
+  /**
+   * The effective drawer open-state: the ambient chat configuration's
+   * `drawerOpen` when present, else the provider-less {@link localDrawerOpen}.
+   * Pushed onto the element's controlled `open` property in the effect below.
+   */
+  protected readonly drawerOpen = computed(() =>
+    this.config ? this.config.drawerOpen() : this.localDrawerOpen(),
+  );
+
   constructor() {
     defineCopilotKitThreadsDrawer();
+
+    // Announce drawer presence to the surrounding chat configuration so a
+    // future header launcher can render, and de-register on destroy. Mirrors
+    // the React (`registerDrawer()` effect) and Vue (`onScopeDispose`) wrappers.
+    const unregisterDrawer = this.config?.registerDrawer();
+    if (unregisterDrawer) {
+      this.destroyRef.onDestroy(unregisterDrawer);
+    }
 
     // Push signal-derived values onto the element's JS properties every time
     // any reactive dependency changes. Using an effect (rather than template
@@ -311,9 +422,13 @@ export class CopilotThreadsDrawer {
       // element shows its spinner instead of an empty/locked body.
       el.loading = this.threads.isLoading() || this.licensePending();
       el.error = this.errorMessage();
+      el.fetchMoreError = this.fetchMoreErrorMessage();
       el.activeThreadId = this.activeThreadId();
       el.hasMore = this.threads.hasMoreThreads();
       el.fetchingMore = this.threads.isFetchingMoreThreads();
+      // Drive the element's controlled `open` from the (config-backed or local)
+      // open-state so the element does not default open=true on load.
+      el.open = this.drawerOpen();
       // Pending counts as licensed for rendering: the element shows the locked
       // view only when `licensed` is false, so keeping it true until the status
       // resolves prevents the locked view from flashing mid-resolution.
@@ -321,6 +436,16 @@ export class CopilotThreadsDrawer {
       if (this.label() !== undefined) el.label = this.label() as string;
       const licenseUrl = this.licenseUrl();
       if (licenseUrl !== undefined) el.licenseUrl = licenseUrl;
+      // `collapsible` is a default-true boolean PROPERTY (like `licensed`);
+      // leave the element's own default in place when the input is unset.
+      const collapsible = this.collapsible();
+      if (collapsible !== undefined) {
+        // TODO(ENT-1051): drop the intersection cast once the published element
+        // type declares `collapsible` (see the local CollapseChangeDetail note).
+        (
+          el as CopilotKitThreadsDrawerElement & { collapsible: boolean }
+        ).collapsible = collapsible;
+      }
     });
   }
 
@@ -340,6 +465,29 @@ export class CopilotThreadsDrawer {
       handler(threadId);
     } else {
       this.config?.setActiveThreadId(threadId, { explicit: true });
+    }
+    // Return focus to the chat input so keyboard users land in the composer.
+    // Scope the lookup to this drawer's own chat (not document-global). Mirrors
+    // the React (`findChatInput(...).focus()`) and Vue (`focusChatInput()`)
+    // wrappers.
+    findChatInput(this.drawerRef()?.nativeElement ?? null)?.focus();
+  }
+
+  /**
+   * Handles the `open-change` event from the drawer element.
+   *
+   * Drives the ambient chat configuration's `setDrawerOpen` when present, else
+   * the provider-less {@link localDrawerOpen} fallback — mirroring the React
+   * and Vue wrappers so the element's open-state stays coordinated.
+   *
+   * @param event - The raw DOM event; cast to `CustomEvent<OpenChangeDetail>` to extract `open`.
+   */
+  protected onOpenChange(event: Event): void {
+    const { open } = (event as CustomEvent<OpenChangeDetail>).detail;
+    if (this.config) {
+      this.config.setDrawerOpen(open);
+    } else {
+      this.localDrawerOpen.set(open);
     }
   }
 
@@ -432,6 +580,18 @@ export class CopilotThreadsDrawer {
    */
   protected onFilterChange(): void {
     this.threads.refetchThreads();
+  }
+
+  /**
+   * Handles the `collapse-change` event from the drawer element — re-emits the
+   * new collapsed state through the component's `collapseChange` output so hosts
+   * can observe (or persist) the drawer's collapsed state.
+   *
+   * @param event - The raw DOM event; cast to `CustomEvent<CollapseChangeDetail>` to extract `collapsed`.
+   */
+  protected onCollapseChange(event: Event): void {
+    const { collapsed } = (event as CustomEvent<CollapseChangeDetail>).detail;
+    this.collapseChange.emit(collapsed);
   }
 
   /**

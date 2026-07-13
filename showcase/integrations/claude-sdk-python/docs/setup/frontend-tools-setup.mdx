@@ -1,0 +1,16 @@
+<Steps>
+  <Step>
+    ### Forward browser tools to Claude
+
+    Frontend tools registered with `useFrontendTool` arrive in the AG-UI run
+    input. Convert each AG-UI tool definition into an Anthropic Messages API
+    tool schema before calling the model. Runs that carry frontend tools use
+    the direct Messages API path rather than the Claude Agent SDK.
+
+    <DemoCode
+      file="src/agents/agent.py"
+      region="frontend-tools-setup"
+      highlight="23-29"
+    />
+  </Step>
+</Steps>

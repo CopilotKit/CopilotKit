@@ -28,6 +28,12 @@ function makeThread(overrides: Partial<DrawerThread> = {}): DrawerThread {
 type SetupOptions = {
   threads?: DrawerThread[];
   mobile?: boolean;
+  /**
+   * Initial `open` state. The element defaults `open` to `false` (so a mobile
+   * first render never flashes the modal), so mobile-modal tests that want the
+   * drawer open at mount must opt in explicitly.
+   */
+  open?: boolean;
 };
 
 function setMatchMedia(matches: boolean) {
@@ -62,6 +68,7 @@ async function setup(options: SetupOptions = {}) {
     COPILOTKIT_THREADS_DRAWER_TAG,
   ) as CopilotKitThreadsDrawer;
   element.threads = options.threads ?? [makeThread()];
+  if (options.open !== undefined) element.open = options.open;
   document.body.appendChild(element);
   await flush(element);
 
@@ -74,6 +81,7 @@ async function setup(options: SetupOptions = {}) {
     "new-thread",
     "filter-change",
     "open-change",
+    "collapse-change",
     "retry",
     "licensed",
     "load-more",
@@ -125,72 +133,6 @@ test("renders a row per visible thread into the shadow root", async () => {
   teardown();
 });
 
-test("a named row carries the full name as a data-tooltip (CPK bubble; shown when clipped)", async () => {
-  const longName = "A very long thread name that gets clipped with an ellipsis";
-  const { q, teardown } = await setup({
-    threads: [makeThread({ id: "a", name: longName })],
-  });
-
-  // The full name rides on the row-name as data-tooltip (the same instant-bubble
-  // mechanism as the row actions); CSS reveals it only when `.name-clipped`.
-  const name = q('[part="row-name"]') as HTMLElement;
-  expect(name.getAttribute("data-tooltip")).toBe(longName);
-  expect(name.querySelector(".row-name-text")?.textContent).toBe(longName);
-  teardown();
-});
-
-test("a clipped name marks BOTH the row-name and the owning row (tooltip + z-index stacking contract)", async () => {
-  const longName = "A very long thread name that gets clipped with an ellipsis";
-  const { element, q, teardown } = await setup({
-    threads: [makeThread({ id: "a", name: longName })],
-  });
-
-  const row = q("li.row") as HTMLElement;
-  const name = q('[part="row-name"]') as HTMLElement;
-  const text = name.querySelector(".row-name-text") as HTMLElement;
-
-  // jsdom has no layout, so simulate a truncated text node.
-  Object.defineProperty(text, "scrollWidth", {
-    value: 200,
-    configurable: true,
-  });
-  Object.defineProperty(text, "clientWidth", {
-    value: 100,
-    configurable: true,
-  });
-  (element as unknown as { _syncNameClipping(): void })._syncNameClipping();
-
-  // The tooltip bubble keys off `.row-name.name-clipped`; the z-index lift that
-  // frees the bubble from the row's transform stacking context keys off
-  // `.row.name-clipped`. BOTH elements must carry the flag — if it only landed
-  // on `.row-name` (the original bug), the z-lift selector never matched and the
-  // tooltip stayed trapped under later rows.
-  expect(name.classList.contains("name-clipped")).toBe(true);
-  expect(row.classList.contains("name-clipped")).toBe(true);
-
-  // And it clears on both when the name fits (no stale bubble / z-lift).
-  Object.defineProperty(text, "scrollWidth", {
-    value: 100,
-    configurable: true,
-  });
-  (element as unknown as { _syncNameClipping(): void })._syncNameClipping();
-  expect(name.classList.contains("name-clipped")).toBe(false);
-  expect(row.classList.contains("name-clipped")).toBe(false);
-
-  teardown();
-});
-
-test("a placeholder (unnamed) row has no name tooltip", async () => {
-  const { q, teardown } = await setup({
-    threads: [makeThread({ id: "a", name: null })],
-  });
-
-  const name = q('[part="row-name"]') as HTMLElement;
-  expect(name.classList.contains("placeholder")).toBe(true);
-  expect(name.hasAttribute("data-tooltip")).toBe(false);
-  teardown();
-});
-
 test("emits thread-selected with the thread id on row click", async () => {
   const { q, events, teardown } = await setup({
     threads: [makeThread({ id: "abc", name: "Pick me" })],
@@ -224,6 +166,9 @@ test("active filter hides archived threads; All shows them and emits filter-chan
 
   expect(qa("li.row")).toHaveLength(1);
 
+  // The Active/All options live in the funnel popover — open it first.
+  (q('[part="filter-toggle"]') as HTMLElement).click();
+  await flush(element);
   (q('[part="filter-all"]') as HTMLElement).click();
   await flush(element);
 
@@ -262,13 +207,20 @@ test("emits archive for an active row and unarchive for an archived row", async 
     threads: [makeThread({ id: "a", name: "A", archived: false })],
   });
 
+  // Row actions live in the per-row kebab menu — open it before acting.
+  (q('[part="row-menu"]') as HTMLElement).click();
+  await flush(element);
   (q('[part="row-archive"]') as HTMLElement).click();
   expect(events).toContainEqual({ type: "archive", detail: { threadId: "a" } });
 
   element.threads = [makeThread({ id: "a", name: "A", archived: true })];
   await flush(element);
-  // switch to All filter so the archived row is visible
+  // switch to All filter (via the funnel popover) so the archived row is visible
+  (q('[part="filter-toggle"]') as HTMLElement).click();
+  await flush(element);
   (q('[part="filter-all"]') as HTMLElement).click();
+  await flush(element);
+  (q('[part="row-menu"]') as HTMLElement).click();
   await flush(element);
   (q('[part="row-unarchive"]') as HTMLElement).click();
 
@@ -284,10 +236,19 @@ test("delete is gated behind a confirm dialog and only fires on confirm", async 
     threads: [makeThread({ id: "del", name: "Delete me" })],
   });
 
+  (q('[part="row-menu"]') as HTMLElement).click();
+  await flush(element);
   (q('[part="row-delete"]') as HTMLElement).click();
   await flush(element);
 
-  expect(q('[data-testid="drawer-confirm-delete"]')).not.toBeNull();
+  // The <dialog> is always in the DOM now; the confirm state is its OPEN state.
+  // jsdom lacks showModal(), so the element falls back to the `open` attribute,
+  // which `HTMLDialogElement.open` reflects.
+  const dialog = q(
+    '[data-testid="drawer-confirm-delete"]',
+  ) as HTMLDialogElement;
+  expect(dialog).not.toBeNull();
+  expect(dialog.open).toBe(true);
   expect(events.some((e) => e.type === "delete")).toBe(false);
 
   (q('[part="confirm-delete"]') as HTMLElement).click();
@@ -297,7 +258,7 @@ test("delete is gated behind a confirm dialog and only fires on confirm", async 
     type: "delete",
     detail: { threadId: "del" },
   });
-  expect(q('[data-testid="drawer-confirm-delete"]')).toBeNull();
+  expect(dialog.open).toBe(false);
   teardown();
 });
 
@@ -306,33 +267,121 @@ test("confirm dialog can be cancelled without emitting delete", async () => {
     threads: [makeThread({ id: "del", name: "Delete me" })],
   });
 
+  (q('[part="row-menu"]') as HTMLElement).click();
+  await flush(element);
   (q('[part="row-delete"]') as HTMLElement).click();
   await flush(element);
+  const dialog = q(
+    '[data-testid="drawer-confirm-delete"]',
+  ) as HTMLDialogElement;
+  expect(dialog.open).toBe(true);
   (q('[part="confirm-cancel"]') as HTMLElement).click();
   await flush(element);
 
-  expect(q('[data-testid="drawer-confirm-delete"]')).toBeNull();
+  expect(dialog.open).toBe(false);
   expect(events.some((e) => e.type === "delete")).toBe(false);
   teardown();
 });
 
-test("opening the confirm dialog marks the root `confirming` so row-action tooltips are suppressed", async () => {
-  const { q, element, teardown } = await setup({
+test("native dialog cancel (Escape) resets the confirm state without deleting", async () => {
+  const { q, events, element, teardown } = await setup({
     threads: [makeThread({ id: "del", name: "Delete me" })],
   });
 
-  const root = () => q('[part="root"]') as HTMLElement;
-  expect(root().classList.contains("confirming")).toBe(false);
-
+  (q('[part="row-menu"]') as HTMLElement).click();
+  await flush(element);
   (q('[part="row-delete"]') as HTMLElement).click();
   await flush(element);
-  // While the dialog is open the clicked trash button keeps :focus-visible; the
-  // `confirming` class is what hides its lingering "Delete" tooltip via CSS.
-  expect(root().classList.contains("confirming")).toBe(true);
+  const dialog = q(
+    '[data-testid="drawer-confirm-delete"]',
+  ) as HTMLDialogElement;
+  expect(dialog.open).toBe(true);
 
-  (q('[part="confirm-cancel"]') as HTMLElement).click();
+  // Simulate the browser's native Escape dismissal, which fires `cancel`.
+  dialog.dispatchEvent(new Event("cancel", { cancelable: true }));
   await flush(element);
-  expect(root().classList.contains("confirming")).toBe(false);
+
+  expect(dialog.open).toBe(false);
+  expect(events.some((e) => e.type === "delete")).toBe(false);
+  teardown();
+});
+
+test("opening a row menu marks the list so other rows are shielded from hover", async () => {
+  const { q, qa, element, teardown } = await setup({
+    threads: [
+      makeThread({ id: "a", name: "Thread A" }),
+      makeThread({ id: "b", name: "Thread B" }),
+    ],
+  });
+  const list = q('[part="list"]') as HTMLElement;
+  expect(list.classList.contains("menu-open")).toBe(false);
+
+  // Open the first row's kebab menu. The list gains `menu-open`, which the
+  // stylesheet uses to freeze pointer events on every non-owner row so hover
+  // affordances no longer bleed around/behind the open popover.
+  (qa('[part="row-menu"]')[0] as HTMLElement).click();
+  await flush(element);
+  expect(list.classList.contains("menu-open")).toBe(true);
+  const rows = qa(".row");
+  expect(rows[0].classList.contains("menu-open")).toBe(true);
+  expect(rows[1].classList.contains("menu-open")).toBe(false);
+
+  // Selecting a row (or otherwise closing the menu) clears the shield.
+  (rows[1] as HTMLElement).click();
+  await flush(element);
+  expect(list.classList.contains("menu-open")).toBe(false);
+  teardown();
+});
+
+test("clicking the confirm dialog's backdrop dismisses it without deleting", async () => {
+  const { q, events, element, teardown } = await setup({
+    threads: [makeThread({ id: "del", name: "Delete me" })],
+  });
+
+  (q('[part="row-menu"]') as HTMLElement).click();
+  await flush(element);
+  (q('[part="row-delete"]') as HTMLElement).click();
+  await flush(element);
+  const dialog = q(
+    '[data-testid="drawer-confirm-delete"]',
+  ) as HTMLDialogElement;
+  expect(dialog.open).toBe(true);
+
+  // A click whose target is the <dialog> itself lands on the ::backdrop (not
+  // the inner card) and must dismiss without emitting delete.
+  dialog.click();
+  await flush(element);
+
+  expect(dialog.open).toBe(false);
+  expect(events.some((e) => e.type === "delete")).toBe(false);
+  teardown();
+});
+
+test("Escape while confirming delete on mobile does NOT close the drawer", async () => {
+  const { q, element, teardown } = await setup({
+    mobile: true,
+    open: true,
+    threads: [makeThread({ id: "del", name: "Delete me" })],
+  });
+
+  (q('[part="row-menu"]') as HTMLElement).click();
+  await flush(element);
+  (q('[part="row-delete"]') as HTMLElement).click();
+  await flush(element);
+  const dialog = q(
+    '[data-testid="drawer-confirm-delete"]',
+  ) as HTMLDialogElement;
+  expect(dialog.open).toBe(true);
+
+  // The Escape keydown bubbles from the modal dialog to the host handler. It
+  // must be consumed by the confirm guard, NOT fall through to the mobile-close
+  // branch — otherwise dismissing the confirmation also closes the drawer.
+  element.dispatchEvent(
+    new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+  );
+  await flush(element);
+
+  expect(element.open).toBe(true);
   teardown();
 });
 
@@ -471,10 +520,12 @@ test("a list error with threads present keeps the list visible (failed mutation 
   element.error = "Delete failed";
   await flush(element);
 
-  // The list and filters stay; the full error panel does NOT replace them.
+  // The list and filter affordance stay; the full error panel does NOT replace
+  // them. The funnel toggle is the always-present filter control (the Active/All
+  // options live inside its popover).
   expect(qa("li.row")).toHaveLength(1);
   expect(q('[data-testid="drawer-error"]')).toBeNull();
-  expect(q('[part="filters"]')).not.toBeNull();
+  expect(q('[part="filter-toggle"]')).not.toBeNull();
   teardown();
 });
 
@@ -575,7 +626,10 @@ test("async name arrival marks the row name as revealed", async () => {
 });
 
 test("open is externally controllable and emits open-change when changed via backdrop", async () => {
-  const { element, q, events, teardown } = await setup({ mobile: true });
+  const { element, q, events, teardown } = await setup({
+    mobile: true,
+    open: true,
+  });
 
   expect(element.open).toBe(true);
   (q(".backdrop") as HTMLElement).click();
@@ -589,8 +643,30 @@ test("open is externally controllable and emits open-change when changed via bac
   teardown();
 });
 
+test("mobile open drawer shows a header close button that closes it (open-change); desktop has none", async () => {
+  const { element, q, events, teardown } = await setup({
+    mobile: true,
+    open: true,
+  });
+  const close = q('[part="close-toggle"]') as HTMLElement | null;
+  expect(close).not.toBeNull();
+  close!.click();
+  await flush(element);
+  expect(element.open).toBe(false);
+  expect(events).toContainEqual({
+    type: "open-change",
+    detail: { open: false },
+  });
+  teardown();
+
+  // Desktop is a persistent sidebar — no close affordance.
+  const desktop = await setup({ mobile: false });
+  expect(desktop.q('[part="close-toggle"]')).toBeNull();
+  desktop.teardown();
+});
+
 test("mobile overlay applies scroll-lock when open and releases it when closed", async () => {
-  const { element, teardown } = await setup({ mobile: true });
+  const { element, teardown } = await setup({ mobile: true, open: true });
 
   expect(document.body.style.overflow).toBe("hidden");
 
@@ -608,8 +684,26 @@ test("desktop does NOT apply scroll-lock (not a modal)", async () => {
   teardown();
 });
 
+test("defaults to closed on a mobile first render — no backdrop, no scroll-lock until opened", async () => {
+  // Regression guard for the mobile open-flash: a freshly-created element must
+  // default `open` to false so a mobile-width first render does NOT paint the
+  // modal (backdrop + body scroll-lock) before a wrapper can close it.
+  const { element, q, teardown } = await setup({ mobile: true });
+
+  expect(element.open).toBe(false);
+  expect(q(".backdrop")).toBeNull();
+  expect(document.body.style.overflow).not.toBe("hidden");
+
+  // Opening it explicitly now applies the mobile-modal treatment.
+  element.open = true;
+  await flush(element);
+  expect(q(".backdrop")).not.toBeNull();
+  expect(document.body.style.overflow).toBe("hidden");
+  teardown();
+});
+
 test("Escape closes the mobile overlay", async () => {
-  const { element, teardown } = await setup({ mobile: true });
+  const { element, teardown } = await setup({ mobile: true, open: true });
 
   element.dispatchEvent(
     new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
@@ -621,7 +715,7 @@ test("Escape closes the mobile overlay", async () => {
 });
 
 test("Escape on desktop does NOT close the drawer (no modal behavior)", async () => {
-  const { element, teardown } = await setup({ mobile: false });
+  const { element, teardown } = await setup({ mobile: false, open: true });
 
   element.dispatchEvent(
     new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
@@ -635,6 +729,7 @@ test("Escape on desktop does NOT close the drawer (no modal behavior)", async ()
 test("mobile modal traps Tab at both boundaries, including the out-of-root backdrop", async () => {
   const { element, teardown } = await setup({
     mobile: true,
+    open: true,
     threads: [makeThread({ id: "a", name: "A" })],
   });
   await flush(element);
@@ -684,6 +779,7 @@ test("mobile modal traps Tab at both boundaries, including the out-of-root backd
 test("mobile root carries dialog role + aria-modal; desktop is a region", async () => {
   const { element, q, mediaController, teardown } = await setup({
     mobile: true,
+    open: true,
   });
 
   let root = q('[part="root"]') as HTMLElement;
@@ -759,7 +855,10 @@ test("per-row slot projects wrapper row content while keeping selection chrome",
   const slot = q('slot[name="row:row-a"]') as HTMLSlotElement;
   expect(slot).not.toBeNull();
   expect(slot.assignedElements().map((el) => el.id)).toContain("custom-row-a");
-  // chrome (archive + delete affordances) still rendered around the slot
+  // chrome (archive + delete affordances) still rendered around the slot —
+  // they now live in the per-row kebab menu, so open it first.
+  (q('[part="row-menu"]') as HTMLElement).click();
+  await flush(element);
   expect(q('[part="row-archive"]')).not.toBeNull();
   expect(q('[part="row-delete"]')).not.toBeNull();
   teardown();
@@ -776,8 +875,8 @@ test("empty-string error does NOT trigger the error state — list still renders
 
   expect(q('[data-testid="drawer-error"]')).toBeNull();
   expect(qa("li.row")).toHaveLength(1);
-  // filters stay visible (not hidden behind a phantom error)
-  expect(q('[part="filter-active"]')).not.toBeNull();
+  // filter affordance stays visible (not hidden behind a phantom error)
+  expect(q('[part="filter-toggle"]')).not.toBeNull();
   teardown();
 });
 
@@ -832,7 +931,8 @@ test("reveal class is dropped on the next unrelated re-render (fires once)", asy
   ).toBe(true);
 
   // An unrelated re-render (no threads change) must NOT re-apply `revealed`.
-  element.collapsed = !element.collapsed;
+  // (Uses a label change to trigger a re-render without touching `threads`.)
+  element.label = "Renamed";
   await flush(element);
 
   expect(
@@ -872,17 +972,22 @@ test("pending confirm-delete auto-dismisses when its thread leaves the list", as
     ],
   });
 
+  (q('li.row[data-thread-id="del"] [part="row-menu"]') as HTMLElement).click();
+  await flush(element);
   (
     q('li.row[data-thread-id="del"] [part="row-delete"]') as HTMLElement
   ).click();
   await flush(element);
-  expect(q('[data-testid="drawer-confirm-delete"]')).not.toBeNull();
+  const dialog = q(
+    '[data-testid="drawer-confirm-delete"]',
+  ) as HTMLDialogElement;
+  expect(dialog.open).toBe(true);
 
   // consumer removes the thread under confirmation
   element.threads = [makeThread({ id: "keep", name: "Keep" })];
   await flush(element);
 
-  expect(q('[data-testid="drawer-confirm-delete"]')).toBeNull();
+  expect(dialog.open).toBe(false);
   teardown();
 });
 
@@ -891,13 +996,17 @@ test("confirm-delete survives an unrelated thread change (same id still present)
     threads: [makeThread({ id: "del", name: "Delete me" })],
   });
 
+  (q('[part="row-menu"]') as HTMLElement).click();
+  await flush(element);
   (q('[part="row-delete"]') as HTMLElement).click();
   await flush(element);
 
   // unrelated change: the same id is still present
   element.threads = [makeThread({ id: "del", name: "Renamed" })];
   await flush(element);
-  expect(q('[data-testid="drawer-confirm-delete"]')).not.toBeNull();
+  expect(
+    (q('[data-testid="drawer-confirm-delete"]') as HTMLDialogElement).open,
+  ).toBe(true);
 
   (q('[part="confirm-delete"]') as HTMLElement).click();
   await flush(element);
@@ -980,19 +1089,23 @@ test("a safe thread id still emits its row slot for projection", async () => {
   teardown();
 });
 
-test("row actions render icons (not text) with instant tooltips", async () => {
-  const { q, teardown } = await setup({
+test("kebab menu items render icons with visible text labels", async () => {
+  const { q, element, teardown } = await setup({
     threads: [makeThread({ id: "a", name: "A", archived: false })],
   });
+
+  // The archive/delete actions now live in the per-row kebab menu.
+  (q('[part="row-menu"]') as HTMLElement).click();
+  await flush(element);
 
   const archive = q('[part="row-archive"]') as HTMLElement;
   const del = q('[part="row-delete"]') as HTMLElement;
 
   expect(archive.querySelector("svg.row-action-icon")).not.toBeNull();
   expect(del.querySelector("svg.row-action-icon")).not.toBeNull();
-  // tooltip carried on a data attribute (CSS instant tooltip), NOT native title
-  expect(archive.getAttribute("data-tooltip")).toBe("Archive");
-  expect(del.getAttribute("data-tooltip")).toBe("Delete");
+  // Menu items carry a visible text label (not a hover tooltip / native title).
+  expect(archive.textContent).toContain("Archive");
+  expect(del.textContent).toContain("Delete");
   expect(archive.hasAttribute("title")).toBe(false);
   teardown();
 });
@@ -1001,14 +1114,25 @@ test("archived rows are muted, not struck through", async () => {
   const { q, element, teardown } = await setup({
     threads: [makeThread({ id: "a", name: "A", archived: true })],
   });
+  // Open the funnel popover, then switch to All so the archived row is visible.
+  (q('[part="filter-toggle"]') as HTMLElement).click();
+  await flush(element);
   (q('[part="filter-all"]') as HTMLElement).click();
   await flush(element);
 
   const name = q(".row.archived .row-name") as HTMLElement;
   expect(name).not.toBeNull();
-  expect(getComputedStyle(name).textDecorationLine).not.toContain(
-    "line-through",
-  );
+  // jsdom's getComputedStyle never resolves an adopted-stylesheet rule, so a
+  // `textDecorationLine` assertion is vacuous (it returns ""). Assert the CSS
+  // contract directly instead: the archived-name rule mutes the color and does
+  // NOT strike the name through.
+  const cssText = (CopilotKitThreadsDrawer.styles as { cssText: string })
+    .cssText;
+  const archivedRule =
+    cssText.match(/\.row\.archived\s+\.row-name\s*\{([^}]*)\}/)?.[1] ?? "";
+  expect(archivedRule).not.toBe("");
+  expect(archivedRule).toContain("color: var(--_muted-fg)");
+  expect(archivedRule).not.toContain("line-through");
   teardown();
 });
 
@@ -1071,22 +1195,21 @@ test("desktop does NOT render the mobile launcher", async () => {
 // label property
 // ---------------------------------------------------------------------------
 
-test("label defaults to Threads: root panel aria-label, listbox aria-label, and default header text are all Threads", async () => {
+test("label defaults to Threads: root panel aria-label and listbox aria-label are both Threads", async () => {
   const { element, q, teardown } = await setup();
 
   const root = q("[part='root']") as HTMLElement;
   const list = q("[role='listbox']") as HTMLElement;
-  const headerSpan = q("slot[name='header'] span") as HTMLElement;
 
+  // The redesign has no visible title — `label` drives accessible names only.
   expect(root.getAttribute("aria-label")).toBe("Threads");
   expect(list.getAttribute("aria-label")).toBe("Threads");
-  expect(headerSpan.textContent?.trim()).toBe("Threads");
   expect(element.label).toBe("Threads");
 
   teardown();
 });
 
-test("setting label updates root panel aria-label, listbox aria-label, and default header text", async () => {
+test("setting label updates root panel aria-label and listbox aria-label", async () => {
   const { element, q, teardown } = await setup();
 
   element.label = "My Conversations";
@@ -1094,11 +1217,10 @@ test("setting label updates root panel aria-label, listbox aria-label, and defau
 
   const root = q("[part='root']") as HTMLElement;
   const list = q("[role='listbox']") as HTMLElement;
-  const headerSpan = q("slot[name='header'] span") as HTMLElement;
 
+  // `label` is accessible-name only; there is no visible title span to update.
   expect(root.getAttribute("aria-label")).toBe("My Conversations");
   expect(list.getAttribute("aria-label")).toBe("My Conversations");
-  expect(headerSpan.textContent?.trim()).toBe("My Conversations");
 
   teardown();
 });
@@ -1116,11 +1238,439 @@ test("list is scrollable in a bounded container — CSS contract: :host has heig
   const sheets = (CopilotKitThreadsDrawer.styles as { cssText: string })
     .cssText;
 
-  // :host block must contain height: 100%
-  expect(sheets).toContain("height: 100%");
+  // `height: 100%` appears more than once in the sheet (both `:host` and
+  // `.root` set it), so a bare `toContain("height: 100%")` doesn't prove the
+  // declaration lives on `:host`. Match the `:host` block + declaration as a
+  // unit. Likewise scope `min-height: 0` to the `.list` block.
+  expect(sheets).toMatch(/:host\s*\{[^}]*height:\s*100%[^}]*\}/);
+  expect(sheets).toMatch(/\.list\s*\{[^}]*min-height:\s*0[^}]*\}/);
+});
 
-  // .list block must contain min-height: 0
-  // We check both declarations are present; the ordering within the block is
-  // not significant for correctness.
-  expect(sheets).toContain("min-height: 0");
+// --- ENT-1051 Task 1: header gating ---------------------------------------
+
+test("desktop header shows the collapse toggle by default (collapsible)", async () => {
+  const { element } = await setup({ threads: [makeThread()] });
+  // Default desktop (collapsible=true) renders the header with the collapse
+  // toggle, so the header is visible even without projected slot content.
+  const header = element.shadowRoot!.querySelector('[part="header"]')!;
+  expect((header as HTMLElement).hidden).toBe(false);
+  expect(
+    element.shadowRoot!.querySelector('[part="collapse-toggle"]'),
+  ).not.toBeNull();
+});
+
+test("with collapsible=false the header stays hidden until slot=header content is projected", async () => {
+  const { element } = await setup({ threads: [makeThread()] });
+  // With no collapse toggle (collapsible=false) and no projected header content,
+  // the empty header bar stays hidden so no padded bar renders above the
+  // "New Conversation" row.
+  element.collapsible = false;
+  await flush(element);
+  const header = element.shadowRoot!.querySelector('[part="header"]')!;
+  expect((header as HTMLElement).hidden).toBe(true);
+  expect(
+    element.shadowRoot!.querySelector('[part="collapse-toggle"]'),
+  ).toBeNull();
+
+  const headerContent = document.createElement("div");
+  headerContent.slot = "header";
+  element.appendChild(headerContent);
+  await flush(element);
+  expect((header as HTMLElement).hidden).toBe(false);
+});
+
+// --- ENT-1051: desktop collapse + floating cluster ------------------------
+
+test("desktop collapse toggle collapses to the cluster and emits collapse-change", async () => {
+  const { element, events } = await setup({ threads: [makeThread()] });
+  element
+    .shadowRoot!.querySelector<HTMLButtonElement>('[part="collapse-toggle"]')!
+    .click();
+  await flush(element);
+  expect(element.collapsed).toBe(true);
+  expect(events).toContainEqual({
+    type: "collapse-change",
+    detail: { collapsed: true },
+  });
+  // Panel is replaced by the floating cluster (sidebar toggle + New Conversation).
+  const cluster = element.shadowRoot!.querySelector(
+    '[part="launcher-cluster"]',
+  );
+  expect(cluster).not.toBeNull();
+  expect(
+    element.shadowRoot!.querySelector('[part="launcher-new-thread"]'),
+  ).not.toBeNull();
+});
+
+test("collapsed cluster expand toggle restores the panel and emits collapse-change", async () => {
+  const { element, events } = await setup({ threads: [makeThread()] });
+  element.collapsed = true;
+  await flush(element);
+  element
+    .shadowRoot!.querySelector<HTMLButtonElement>('[part="launcher"]')!
+    .click();
+  await flush(element);
+  expect(element.collapsed).toBe(false);
+  expect(events).toContainEqual({
+    type: "collapse-change",
+    detail: { collapsed: false },
+  });
+});
+
+test("collapsed cluster New Conversation button fires new-thread", async () => {
+  const { element, events } = await setup({ threads: [makeThread()] });
+  element.collapsed = true;
+  await flush(element);
+  element
+    .shadowRoot!.querySelector<HTMLButtonElement>(
+      '[part="launcher-new-thread"]',
+    )!
+    .click();
+  expect(events).toContainEqual({ type: "new-thread", detail: {} });
+});
+
+test("collapsible=false never renders the collapsed cluster on desktop", async () => {
+  const { element } = await setup({ threads: [makeThread()] });
+  element.collapsible = false;
+  element.collapsed = true;
+  await flush(element);
+  expect(
+    element.shadowRoot!.querySelector('[part="launcher-cluster"]'),
+  ).toBeNull();
+  // Panel stays rendered.
+  expect(
+    element.shadowRoot!.querySelector('[part="new-thread-button"]'),
+  ).not.toBeNull();
+});
+
+test("mobile closed state renders the cluster with a New Conversation button", async () => {
+  const { element, events } = await setup({
+    threads: [makeThread()],
+    mobile: true,
+  });
+  // Mobile closed → cluster launcher opens the off-canvas modal.
+  const cluster = element.shadowRoot!.querySelector(
+    '[part="launcher-cluster"]',
+  );
+  expect(cluster).not.toBeNull();
+  const newThread = element.shadowRoot!.querySelector<HTMLButtonElement>(
+    '[part="launcher-new-thread"]',
+  )!;
+  expect(newThread).not.toBeNull();
+  newThread.click();
+  expect(events).toContainEqual({ type: "new-thread", detail: {} });
+
+  element
+    .shadowRoot!.querySelector<HTMLButtonElement>('[part="launcher"]')!
+    .click();
+  expect(events).toContainEqual({
+    type: "open-change",
+    detail: { open: true },
+  });
+});
+
+// --- ENT-1051 Task 2: New Conversation row --------------------------------
+
+test("New Conversation row fires new-thread and keeps part=new-thread-button", async () => {
+  const { element } = await setup({ threads: [makeThread()] });
+  const btn = element.shadowRoot!.querySelector<HTMLButtonElement>(
+    '[part="new-thread-button"]',
+  )!;
+  expect(btn.textContent).toContain("New Conversation");
+  const onNew = vi.fn();
+  element.addEventListener("new-thread", onNew);
+  btn.click();
+  expect(onNew).toHaveBeenCalledTimes(1);
+});
+
+// --- ENT-1051 Task 3: Recent Conversations heading + funnel filter --------
+
+test("funnel opens a popover; choosing All emits filter-change and switches filter", async () => {
+  const { element } = await setup({ threads: [makeThread()] });
+  element
+    .shadowRoot!.querySelector<HTMLButtonElement>('[part="filter-toggle"]')!
+    .click();
+  await flush(element);
+  const all = element.shadowRoot!.querySelector<HTMLButtonElement>(
+    '[part="filter-all"]',
+  )!;
+  const onFilter = vi.fn();
+  element.addEventListener("filter-change", onFilter);
+  all.click();
+  await flush(element);
+  expect(onFilter).toHaveBeenCalledWith(
+    expect.objectContaining({ detail: { filter: "all" } }),
+  );
+});
+
+test("section heading text is configurable via recentLabel", async () => {
+  const { element } = await setup({ threads: [makeThread()] });
+  element.recentLabel = "History";
+  await flush(element);
+  expect(
+    element.shadowRoot!.querySelector('[part="section-heading"]')!.textContent,
+  ).toContain("History");
+});
+
+test("filter-applied indicator dot shows only when a non-default filter is active", async () => {
+  const { element } = await setup({ threads: [makeThread()] });
+  // Default filter ("active") → no indicator.
+  expect(
+    element.shadowRoot!.querySelector('[part="filter-indicator"]'),
+  ).toBeNull();
+  // Switch to "All" via the funnel popover → indicator appears on the toggle.
+  element
+    .shadowRoot!.querySelector<HTMLButtonElement>('[part="filter-toggle"]')!
+    .click();
+  await flush(element);
+  element
+    .shadowRoot!.querySelector<HTMLButtonElement>('[part="filter-all"]')!
+    .click();
+  await flush(element);
+  expect(
+    element.shadowRoot!.querySelector('[part="filter-indicator"]'),
+  ).not.toBeNull();
+});
+
+// --- ENT-1051 Task 5: per-row kebab menu ----------------------------------
+
+test("row kebab opens a menu; Archive fires archive with the row id", async () => {
+  const { element } = await setup({
+    threads: [makeThread({ id: "x", name: "X" })],
+  });
+  const kebab =
+    element.shadowRoot!.querySelector<HTMLButtonElement>('[part="row-menu"]')!;
+  kebab.click();
+  await flush(element);
+  const onArchive = vi.fn();
+  element.addEventListener("archive", onArchive);
+  element
+    .shadowRoot!.querySelector<HTMLButtonElement>('[part="row-archive"]')!
+    .click();
+  await flush(element);
+  expect(onArchive).toHaveBeenCalledWith(
+    expect.objectContaining({ detail: { threadId: "x" } }),
+  );
+});
+
+test("row kebab Delete routes through the confirm dialog (no immediate delete)", async () => {
+  const { element } = await setup({ threads: [makeThread({ id: "x" })] });
+  element
+    .shadowRoot!.querySelector<HTMLButtonElement>('[part="row-menu"]')!
+    .click();
+  await flush(element);
+  const onDelete = vi.fn();
+  element.addEventListener("delete", onDelete);
+  element
+    .shadowRoot!.querySelector<HTMLButtonElement>('[part="row-delete"]')!
+    .click();
+  await flush(element);
+  expect(onDelete).not.toHaveBeenCalled();
+  expect(
+    element.shadowRoot!.querySelector<HTMLDialogElement>(
+      '[data-testid="drawer-confirm-delete"]',
+    )!.open,
+  ).toBe(true);
+});
+
+// --- ENT-1051 Task 6: archived italic -------------------------------------
+
+test("archived row name renders italic-muted in All view", async () => {
+  const { element } = await setup({
+    threads: [makeThread({ id: "a", name: "Archived one", archived: true })],
+  });
+  // switch to All via the funnel popover
+  element
+    .shadowRoot!.querySelector<HTMLButtonElement>('[part="filter-toggle"]')!
+    .click();
+  await flush(element);
+  element
+    .shadowRoot!.querySelector<HTMLButtonElement>('[part="filter-all"]')!
+    .click();
+  await flush(element);
+  const row = element.shadowRoot!.querySelector(".row.archived .row-name")!;
+  expect(row).not.toBeNull();
+  // jsdom has no real cascade engine, so getComputedStyle never resolves an
+  // adopted-stylesheet rule (the "muted, not struck through" test above only
+  // passes because "" trivially lacks "line-through"). Assert the CSS contract
+  // directly against the adopted stylesheet — the same approach the
+  // ":host height" / "::part hooks" tests use.
+  //
+  // `font-style: italic` appears more than once in the sheet (placeholder rows
+  // are italic too), so a bare `toContain("font-style: italic")` would not lock
+  // the declaration to THIS selector. Match the selector + declaration together
+  // as a unit instead.
+  const cssText = (CopilotKitThreadsDrawer.styles as { cssText: string })
+    .cssText;
+  expect(cssText).toMatch(
+    /\.row\.archived\s+\.row-name\s*\{[^}]*font-style:\s*italic[^}]*\}/,
+  );
+  expect(cssText).toMatch(
+    /\.row\.archived\s+\.row-name\s*\{[^}]*color:\s*var\(--_muted-fg\)[^}]*\}/,
+  );
+});
+
+// --- CR round 1, Finding 3: outside-click dismissal + row-select closes menu --
+
+test("an outside pointerdown closes the open funnel filter popover", async () => {
+  const { element, q, teardown } = await setup({ threads: [makeThread()] });
+
+  (q('[part="filter-toggle"]') as HTMLElement).click();
+  await flush(element);
+  expect(q('[part="filters"]')).not.toBeNull();
+
+  document.dispatchEvent(
+    new MouseEvent("pointerdown", { bubbles: true, composed: true }),
+  );
+  await flush(element);
+
+  expect(q('[part="filters"]')).toBeNull();
+  teardown();
+});
+
+test("an outside pointerdown closes an open row kebab menu", async () => {
+  const { element, q, teardown } = await setup({
+    threads: [makeThread({ id: "a", name: "A" })],
+  });
+
+  (q('[part="row-menu"]') as HTMLElement).click();
+  await flush(element);
+  expect(q('[part="row-menu-popover"]')).not.toBeNull();
+
+  document.dispatchEvent(
+    new MouseEvent("pointerdown", { bubbles: true, composed: true }),
+  );
+  await flush(element);
+
+  expect(q('[part="row-menu-popover"]')).toBeNull();
+  teardown();
+});
+
+test("selecting a thread row closes an open kebab menu", async () => {
+  const { element, q, teardown } = await setup({
+    threads: [makeThread({ id: "a", name: "A" })],
+  });
+
+  (q('[part="row-menu"]') as HTMLElement).click();
+  await flush(element);
+  expect(q('[part="row-menu-popover"]')).not.toBeNull();
+
+  (q('li.row[data-thread-id="a"]') as HTMLElement).click();
+  await flush(element);
+
+  expect(q('[part="row-menu-popover"]')).toBeNull();
+  teardown();
+});
+
+// --- CR round 1, Finding 4: kebab popover must not be clipped by list overflow --
+
+test("kebab menu on a lower-half row opens upward to escape the list overflow clip", async () => {
+  const { element, qa, teardown } = await setup({
+    threads: [
+      makeThread({ id: "a", name: "A", updatedAt: "2026-06-04T00:00:00.000Z" }),
+      makeThread({ id: "b", name: "B", updatedAt: "2026-06-03T00:00:00.000Z" }),
+      makeThread({ id: "c", name: "C", updatedAt: "2026-06-02T00:00:00.000Z" }),
+      makeThread({ id: "d", name: "D", updatedAt: "2026-06-01T00:00:00.000Z" }),
+    ],
+  });
+
+  const lastRow = qa("li.row")[3] as HTMLElement;
+  (lastRow.querySelector('[part="row-menu"]') as HTMLElement).click();
+  await flush(element);
+
+  // The row is flagged `menu-up`, which flips the popover to bottom-anchored so
+  // it renders ABOVE the button (toward the list interior) rather than below it
+  // where the list's overflow would clip a bottom row's downward menu.
+  expect(lastRow.classList.contains("menu-up")).toBe(true);
+  teardown();
+});
+
+test("kebab menu on a top row opens downward (no menu-up flag)", async () => {
+  const { element, qa, teardown } = await setup({
+    threads: [
+      makeThread({ id: "a", name: "A", updatedAt: "2026-06-04T00:00:00.000Z" }),
+      makeThread({ id: "b", name: "B", updatedAt: "2026-06-03T00:00:00.000Z" }),
+      makeThread({ id: "c", name: "C", updatedAt: "2026-06-02T00:00:00.000Z" }),
+      makeThread({ id: "d", name: "D", updatedAt: "2026-06-01T00:00:00.000Z" }),
+    ],
+  });
+
+  const firstRow = qa("li.row")[0] as HTMLElement;
+  (firstRow.querySelector('[part="row-menu"]') as HTMLElement).click();
+  await flush(element);
+
+  expect(firstRow.classList.contains("menu-up")).toBe(false);
+  teardown();
+});
+
+test("menu-up flips the popover to open upward (CSS contract: bottom-anchored)", () => {
+  const cssText = (CopilotKitThreadsDrawer.styles as { cssText: string })
+    .cssText;
+  // The upward variant must anchor to the button's top edge via `bottom` and
+  // clear the default `top` anchor.
+  expect(cssText).toMatch(
+    /\.row\.menu-up\s+\.row-menu-popover\s*\{[^}]*bottom:\s*calc\(100% - 4px\)[^}]*\}/,
+  );
+});
+
+// --- CR round 1, Finding 5: locked view hides feature chrome ----------------
+
+test("locked view hides the New Conversation chrome", async () => {
+  const { element, q, teardown } = await setup({ threads: [makeThread()] });
+  element.licensed = false;
+  await flush(element);
+
+  expect(q('[data-testid="drawer-licensed"]')).not.toBeNull();
+  // The feature chrome (New Conversation row) is absent — only the Upgrade
+  // panel is offered.
+  expect(q('[part="new-thread-button"]')).toBeNull();
+  teardown();
+});
+
+test("licensed view still renders the New Conversation chrome", async () => {
+  const { q, teardown } = await setup({ threads: [makeThread()] });
+  // default licensed=true
+  expect(q('[part="new-thread-button"]')).not.toBeNull();
+  teardown();
+});
+
+// --- CR round 1, Finding 6: aria-labels fall back for empty-string names ----
+
+test("row-action aria-labels fall back to 'New thread' for an empty-string name", async () => {
+  const { element, q, teardown } = await setup({
+    threads: [makeThread({ id: "e", name: "" })],
+  });
+
+  const kebab = q('[part="row-menu"]') as HTMLElement;
+  expect(kebab.getAttribute("aria-label")).toBe("Actions for New thread");
+
+  kebab.click();
+  await flush(element);
+
+  expect(
+    (q('[part="row-archive"]') as HTMLElement).getAttribute("aria-label"),
+  ).toBe("Archive thread New thread");
+  expect(
+    (q('[part="row-delete"]') as HTMLElement).getAttribute("aria-label"),
+  ).toBe("Delete thread New thread");
+  teardown();
+});
+
+test("unarchive aria-label falls back to 'New thread' for an empty-string name", async () => {
+  const { element, q, teardown } = await setup({
+    threads: [makeThread({ id: "e", name: "", archived: true })],
+  });
+  // reveal the archived row via the All filter
+  (q('[part="filter-toggle"]') as HTMLElement).click();
+  await flush(element);
+  (q('[part="filter-all"]') as HTMLElement).click();
+  await flush(element);
+
+  (q('[part="row-menu"]') as HTMLElement).click();
+  await flush(element);
+
+  expect(
+    (q('[part="row-unarchive"]') as HTMLElement).getAttribute("aria-label"),
+  ).toBe("Unarchive thread New thread");
+  teardown();
 });

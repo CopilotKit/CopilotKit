@@ -8,7 +8,6 @@ import {
   isJustifying,
   labelForExceptionCode,
 } from "@/app/api/v1/policy-exception-codes";
-import { useRecordUserActionInCurrentThread } from "@/lib/record-user-action";
 import { useRecording } from "@/components/recording-context";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -60,10 +59,7 @@ interface Props {
  * Behaviour is identical to the modal:
  *  - shows the human label per code (codes persisted; the agent only ever sees
  *    the code, never the label — the learning invariant),
- *  - opens the exception via REST then immediately finalizes it,
- *  - emits the SAME two `recordUserAction` calls (`policy_exception.opened` →
- *    `policy_exception.finalized`) verbatim — the recording payloads do not
- *    change, only where the UI lives.
+ *  - opens the exception via REST then immediately finalizes it.
  *
  * The submission is bracketed by `beginRecording()` / `endRecording()` so the
  * canvas recording vignette pulses while the demonstration is captured.
@@ -74,7 +70,6 @@ export function PolicyExceptionInline(props: Props) {
   const [busy, setBusy] = useState(false);
   const [doneId, setDoneId] = useState<string | null>(null);
 
-  const recordUserAction = useRecordUserActionInCurrentThread();
   const { beginRecording, endRecording, noteDemonstratedCode, logStep } =
     useRecording();
 
@@ -95,43 +90,11 @@ export function PolicyExceptionInline(props: Props) {
       }
       const exceptionId = opened.data.id;
 
-      recordUserAction({
-        title: "policy_exception.opened",
-        description: "Opened a policy exception from the transactions view.",
-        previousData: {
-          transactionActiveExceptionId: null,
-          approvePermitted: false,
-        },
-        newData: {
-          exceptionId,
-          exceptionStatus: "draft",
-          exceptionCode: code,
-        },
-        metadata: { transactionId: props.transactionId },
-      }).catch(console.error);
-
       const finalized = await props.finalizePolicyException({ exceptionId });
       if (!finalized.ok) {
         setError(finalized.error ?? "Failed to finalize policy exception");
         return;
       }
-
-      recordUserAction({
-        title: "policy_exception.finalized",
-        description:
-          "Finalized the policy exception; links it to the transaction.",
-        previousData: {
-          exceptionId,
-          exceptionStatus: "draft",
-        },
-        newData: {
-          exceptionId,
-          exceptionStatus: "approved",
-          transactionActiveExceptionId: exceptionId,
-          exceptionCode: code,
-        },
-        metadata: { transactionId: props.transactionId },
-      }).catch(console.error);
 
       // Surface the demonstrated code to the teach-mode context so the chat's
       // awaitDashboardDemonstration card can report it to the agent — the

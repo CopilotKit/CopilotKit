@@ -11,6 +11,11 @@ import { createLicenseChecker } from "@copilotkit/license-verifier";
 import type { LicenseChecker } from "@copilotkit/license-verifier";
 import { resolveDebugConfig } from "@copilotkit/shared";
 import type { ResolvedDebugConfig, DebugConfig } from "@copilotkit/shared";
+import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
+import type {
+  ForwardHeadersConfig,
+  ResolvedForwardHeadersPolicy,
+} from "../handlers/header-utils";
 import type { AbstractAgent } from "@ag-ui/client";
 import type { MCPClientConfig } from "@ag-ui/mcp-apps-middleware";
 import type { A2UIMiddlewareConfig } from "@ag-ui/a2ui-middleware";
@@ -28,6 +33,11 @@ import type { AgentRunner } from "../runner/agent-runner";
 import { InMemoryAgentRunner } from "../runner/in-memory";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
 import type { CopilotKitIntelligence } from "../intelligence-platform";
+// Type-only: @copilotkit/channels is pure-ESM, so a value import would break this
+// package's CJS output. The bots are validated + activated (wired to delivery
+// transports) by `startChannels` from @copilotkit/channels-intelligence, called
+// by the Channel-listener bootstrap — not here.
+import type { Bot } from "@copilotkit/channels";
 import telemetry from "../telemetry/telemetry-client";
 
 export const VERSION = pkg.version;
@@ -146,6 +156,15 @@ interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
   licenseToken?: string;
   /** Enable debug logging for the event pipeline. */
   debug?: DebugConfig;
+  /**
+   * Policy controlling which inbound HTTP headers are forwarded onto the
+   * outgoing agent call. By default a built-in denylist strips known
+   * infrastructure/proxy/platform headers (`x-forwarded-*`, `x-real-ip`,
+   * `x-vercel-*`, `x-copilotcloud-*`, etc.) while `authorization` and custom
+   * `x-*` application headers continue to forward (#5712). Set
+   * `{ useDefaultDenylist: false }` to restore the previous wide-open behavior.
+   */
+  forwardHeaders?: ForwardHeadersConfig;
 }
 
 export interface CopilotRuntimeUser {
@@ -162,6 +181,8 @@ export interface CopilotSseRuntimeOptions extends BaseCopilotRuntimeOptions {
   runner?: AgentRunner;
   intelligence?: undefined;
   generateThreadNames?: undefined;
+  /** Intelligence Channels require the Intelligence runtime; not available in SSE mode. */
+  bots?: undefined;
 }
 
 export interface CopilotIntelligenceRuntimeOptions extends BaseCopilotRuntimeOptions {
@@ -181,6 +202,14 @@ export interface CopilotIntelligenceRuntimeOptions extends BaseCopilotRuntimeOpt
   lockKeyPrefix?: string;
   /** Interval in seconds at which the runtime renews the thread lock. Clamped to a maximum of 3000 (50 minutes). @default 15 */
   lockHeartbeatIntervalSeconds?: number;
+  /**
+   * Intelligence Channels declared by this runtime. Each is a
+   * `createBot({ name })` instance. Only available on the Intelligence runtime
+   * path. Names are validated (required, lowercase kebab-case, unique) and wired
+   * to delivery/egress transports when activated via `startChannels` from
+   * `@copilotkit/channels-intelligence` — not at construction.
+   */
+  bots?: Bot[];
 }
 
 export type CopilotRuntimeOptions =
@@ -203,6 +232,15 @@ export interface CopilotRuntimeLike {
   debugEventBus?: DebugEventBus;
   debug: ResolvedDebugConfig;
   debugLogger?: CopilotRuntimeLogger;
+  /**
+   * Resolved inbound-header forwarding policy read by the /run and /connect call
+   * sites. Optional on the published interface so an external `CopilotRuntimeLike`
+   * implementor predating this field stays source-compatible (non-breaking minor
+   * release). Concrete runtimes (`BaseCopilotRuntime`) always resolve and set it;
+   * the call sites coalesce a missing value to the default resolved policy
+   * (`resolveForwardHeadersPolicy(undefined)` — default-on denylist).
+   */
+  forwardHeadersPolicy?: ResolvedForwardHeadersPolicy;
 }
 
 export interface CopilotSseRuntimeLike extends CopilotRuntimeLike {
@@ -217,6 +255,7 @@ export interface CopilotIntelligenceRuntimeLike extends CopilotRuntimeLike {
   lockTtlSeconds: number;
   lockKeyPrefix?: string;
   lockHeartbeatIntervalSeconds: number;
+  bots: Bot[];
   mode: typeof RUNTIME_MODE_INTELLIGENCE;
 }
 
@@ -233,6 +272,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   public readonly debugEventBus?: DebugEventBus;
   public debug: ResolvedDebugConfig;
   public debugLogger?: CopilotRuntimeLogger;
+  public readonly forwardHeadersPolicy: ResolvedForwardHeadersPolicy;
 
   /**
    * License token resolved once with the env fallback, so telemetry
@@ -285,6 +325,13 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
     if (process.env.NODE_ENV !== "production") {
       this.debugEventBus = new DebugEventBus();
     }
+    // Resolve the inbound-header forwarding policy once (mirroring the
+    // `debug` → `ResolvedDebugConfig` resolve-once above) so both the /run and
+    // /connect call sites read the exact same resolved policy off the runtime
+    // and can never diverge.
+    this.forwardHeadersPolicy = resolveForwardHeadersPolicy(
+      options.forwardHeaders,
+    );
     this.debug = resolveDebugConfig(options.debug);
     if (this.debug.enabled) {
       this.debugLogger = createLogger({
@@ -303,6 +350,17 @@ export class CopilotSseRuntime
   readonly mode = RUNTIME_MODE_SSE;
 
   constructor(options: CopilotSseRuntimeOptions) {
+    // Runtime guard mirroring the discriminated-union type: the SSE runtime has
+    // no Intelligence delivery path, so `bots` cannot be honored here. The type
+    // forbids it, but a JS / `as any` caller passing `{ agents, bots }` would
+    // otherwise land here and have `bots` silently dropped — fail loud instead.
+    const bots = (options as { bots?: unknown[] }).bots;
+    if (Array.isArray(bots) && bots.length > 0) {
+      throw new Error(
+        "`bots` requires the Intelligence runtime (pass `intelligence`); " +
+          "Intelligence Channels are not available in SSE mode.",
+      );
+    }
     super(options, options.runner ?? new InMemoryAgentRunner());
   }
 }
@@ -317,6 +375,7 @@ export class CopilotIntelligenceRuntime
   readonly lockTtlSeconds: number;
   readonly lockKeyPrefix?: string;
   readonly lockHeartbeatIntervalSeconds: number;
+  readonly bots: Bot[];
   readonly mode = RUNTIME_MODE_INTELLIGENCE;
 
   /** Maximum allowed lock TTL in seconds (1 hour). */
@@ -350,6 +409,20 @@ export class CopilotIntelligenceRuntime
       options.lockHeartbeatIntervalSeconds ?? 15,
       CopilotIntelligenceRuntime.MAX_HEARTBEAT_INTERVAL_SECONDS,
     );
+    // Declared Intelligence Channels. Full name validation (lowercase kebab-case +
+    // uniqueness) lives in `startChannels` (`assertValidChannelNames`) at
+    // activation — it can't run here because it's a value import from the
+    // pure-ESM `@copilotkit/channels-intelligence`, which this CJS package must not
+    // pull in. Fail fast on the most common misconfiguration (a missing name)
+    // right here at construction, though, rather than only at activation.
+    this.bots = options.bots ?? [];
+    for (const b of this.bots) {
+      if (!b.name) {
+        throw new Error(
+          "Intelligence Channel Bot is missing a `name` — pass createBot({ name }) for each Bot in `bots`",
+        );
+      }
+    }
   }
 }
 
@@ -460,6 +533,12 @@ export class CopilotRuntime implements CopilotRuntimeLike {
       : undefined;
   }
 
+  get bots(): Bot[] | undefined {
+    return isIntelligenceRuntime(this.delegate)
+      ? this.delegate.bots
+      : undefined;
+  }
+
   get mode(): RuntimeMode {
     return this.delegate.mode;
   }
@@ -478,5 +557,9 @@ export class CopilotRuntime implements CopilotRuntimeLike {
 
   get debugLogger(): CopilotRuntimeLogger | undefined {
     return this.delegate.debugLogger;
+  }
+
+  get forwardHeadersPolicy(): ResolvedForwardHeadersPolicy {
+    return this.delegate.forwardHeadersPolicy;
   }
 }

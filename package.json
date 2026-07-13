@@ -39,6 +39,7 @@
     "parity:check": "tsx examples/integrations/_parity/verify.ts --no-color"
   },
   "devDependencies": {
+    "@anthropic-ai/claude-code": "2.1.207",
     "@arethetypeswrong/cli": "^0.18.2",
     "@commitlint/cli": "^20.3.0",
     "@commitlint/config-conventional": "^20.3.0",

@@ -8,7 +8,7 @@ partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/claude-sdk-typescript
 copilotkit_version: 2.0.0
 deployed: true
-docs_mode: hidden
+docs_mode: generated
 sort_order: 80
 generative_ui:
   - constrained-explicit
@@ -19,7 +19,6 @@ interaction_modalities:
   - embedded
   - chat
 not_supported_features:
-  - shared-state-streaming
   # QUARANTINED pending a @copilotkit/react-core release. gen-ui-interrupt /
   # interrupt-headless fail turn-2 on a useInterrupt/useHeadlessInterrupt
   # RESUME-PATH hook bug in @copilotkit/react-core/v2: backend resumes + streams
@@ -29,47 +28,44 @@ not_supported_features:
   # green, not red) rather than a regression. Demos remain wired below.
   - gen-ui-interrupt
   - interrupt-headless
-  - reasoning-default-render
-  - agentic-chat-reasoning
-  - tool-rendering-reasoning-chain
 features:
+  - beautiful-chat
   - cli-start
   - agentic-chat
-  - beautiful-chat
   - prebuilt-sidebar
   - prebuilt-popup
   - chat-slots
   - chat-customization-css
   - headless-simple
-  - frontend-tools
-  - frontend-tools-async
-  - hitl
-  - hitl-in-app
-  - hitl-in-chat
-  - hitl-in-chat-booking
   - headless-complete
-  - tool-rendering
-  - tool-rendering-default-catchall
-  - tool-rendering-custom-catchall
   - reasoning-custom
   - reasoning-default
+  - frontend-tools
+  - frontend-tools-async
+  - hitl-in-chat
+  - hitl-in-app
   - declarative-gen-ui
+  - a2ui-fixed-schema
+  - mcp-apps
   - gen-ui-agent
   - gen-ui-tool-based
+  - tool-rendering-default-catchall
+  - tool-rendering-custom-catchall
+  - tool-rendering
+  - tool-rendering-reasoning-chain
+  - shared-state-read
   - shared-state-read-write
-  - subagents
+  - shared-state-streaming
   - readonly-state-agent-context
+  - subagents
+  - multimodal
+  - auth
+  - declarative-hashbrown
+  - declarative-json-render
   - open-gen-ui
   - open-gen-ui-advanced
-  - declarative-json-render
-  - declarative-hashbrown
-  - mcp-apps
-  - multimodal
   - voice
   - agent-config
-  - auth
-  - a2ui-fixed-schema
-  - shared-state-read
 agent_config_pattern: shared-state
 interrupt_pattern: promise-based
 a2ui_pattern: schema-loading
@@ -172,17 +168,6 @@ demos:
       - src/app/demos/frontend-tools-async/page.tsx
       - src/app/demos/frontend-tools-async/notes-card.tsx
       - src/app/api/copilotkit/route.ts
-  - id: hitl
-    name: In-Chat Human in the Loop
-    description: User approves agent actions before execution
-    tags:
-      - interactivity
-    route: /demos/hitl
-    animated_preview_url:
-    highlight:
-      - src/agent_server.ts
-      - src/app/demos/hitl/page.tsx
-      - src/app/api/copilotkit/route.ts
   - id: hitl-in-app
     name: In-App Human in the Loop (Frontend Tools + async HITL)
     description: Agent requests approval via useFrontendTool with an async handler; the approval UI pops up as an app-level modal OUTSIDE the chat, and a completion callback resolves the pending tool Promise with the user's decision
@@ -208,7 +193,7 @@ demos:
       - src/app/api/copilotkit/route.ts
   - id: declarative-gen-ui
     name: Declarative Generative UI (A2UI)
-    description: Canonical A2UI BYOC — custom catalog wired via a2ui.catalog on the provider; runtime injects the render_a2ui tool automatically
+    description: Canonical A2UI BYOC — custom catalog wired via a2ui.catalog on the provider; backend agent owns the generate_a2ui tool with injectA2UITool false
     tags:
       - generative-ui
     route: /demos/declarative-gen-ui
@@ -268,6 +253,18 @@ demos:
       - src/app/demos/shared-state-read-write/preferences-card.tsx
       - src/app/demos/shared-state-read-write/notes-card.tsx
       - src/app/api/copilotkit-shared-state-read-write/route.ts
+  - id: shared-state-read
+    name: Shared State (Read)
+    description: Agent reads frontend-provided state as context
+    tags:
+      - agent-state
+    route: /demos/shared-state-read
+    animated_preview_url:
+    highlight:
+      - src/agent_server.ts
+      - src/app/demos/shared-state-read/page.tsx
+      - src/app/demos/shared-state-read/recipe-card.tsx
+      - src/app/api/copilotkit/route.ts
   - id: subagents
     name: Sub-Agents
     description: Supervisor delegates to research / writing / critique sub-agents (each a single secondary Anthropic Messages call); every delegation appears in a live log via shared state
@@ -478,17 +475,6 @@ demos:
   - id: hitl-in-chat
     name: In-Chat HITL (useHumanInTheLoop — ergonomic API)
     description: Interactive approval/decision surface rendered inline in the chat via the high-level `useHumanInTheLoop` hook
-    tags:
-      - interactivity
-    route: /demos/hitl-in-chat
-    animated_preview_url:
-    highlight:
-      - src/app/demos/hitl-in-chat/page.tsx
-      - src/app/demos/hitl-in-chat/time-picker-card.tsx
-      - src/app/api/copilotkit/route.ts
-  - id: hitl-in-chat-booking
-    name: In-Chat HITL (Booking)
-    description: Time-picker card rendered inline via useHumanInTheLoop for a booking flow
     tags:
       - interactivity
     route: /demos/hitl-in-chat

@@ -151,6 +151,14 @@ interface ThreadState {
   isLoading: boolean;
   isFetchingNextPage: boolean;
   error: Error | null;
+  /**
+   * Error from the most recent failed next-page (`fetchMore`) load, or `null`.
+   * Tracked SEPARATELY from `error` so a paginated-load failure surfaces an
+   * inline "couldn't load more" affordance without replacing the already-loaded
+   * list with a full-panel error. Cleared when a fetch-more is retried or when
+   * one succeeds; reset on context change / stop.
+   */
+  fetchMoreError: Error | null;
   context: ThreadRuntimeContext | null;
   sessionId: number;
   metadataCredentialsRequested: boolean;
@@ -173,6 +181,7 @@ const initialThreadState: ThreadState = {
   isLoading: false,
   isFetchingNextPage: false,
   error: null,
+  fetchMoreError: null,
   context: null,
   sessionId: 0,
   metadataCredentialsRequested: false,
@@ -309,6 +318,7 @@ const threadReducer = createReducer(
     isLoading: Boolean(context),
     isFetchingNextPage: false,
     error: null,
+    fetchMoreError: null,
     metadataCredentialsRequested: false,
     metadataJoinCode: null,
     nextCursor: null,
@@ -321,6 +331,7 @@ const threadReducer = createReducer(
     isLoading: false,
     isFetchingNextPage: false,
     error: null,
+    fetchMoreError: null,
     metadataCredentialsRequested: false,
     metadataJoinCode: null,
     nextCursor: null,
@@ -336,6 +347,10 @@ const threadReducer = createReducer(
       ...state,
       isLoading: true,
       error: null,
+      // A full-list refetch supersedes any prior fetch-more failure: the whole
+      // list is being reloaded, so the stale inline "couldn't load more" banner
+      // must not survive onto the fresh list.
+      fetchMoreError: null,
     };
   }),
   on(
@@ -351,6 +366,9 @@ const threadReducer = createReducer(
         threads: sortThreadsByRecency(threads),
         isLoading: false,
         error: null,
+        // The fresh full list also clears any lingering fetch-more error, in
+        // case the list arrived without passing through `listRequested`.
+        fetchMoreError: null,
         metadataJoinCode: joinCode,
         metadataCredentialsRequested: joinCodeChanged
           ? false
@@ -389,6 +407,8 @@ const threadReducer = createReducer(
         ...state,
         threads: merged,
         isFetchingNextPage: false,
+        // A successful next page clears any prior fetch-more error.
+        fetchMoreError: null,
         nextCursor,
       };
     },
@@ -400,10 +420,14 @@ const threadReducer = createReducer(
         return state;
       }
 
+      // A failed next-page load records the error on the DEDICATED fetch-more
+      // channel — NOT `state.error` — so the already-loaded list is preserved
+      // and the drawer renders an inline "couldn't load more — retry" panel
+      // rather than replacing the whole list with a full-panel error.
       return {
         ...state,
         isFetchingNextPage: false,
-        error,
+        fetchMoreError: error,
       };
     },
   ),
@@ -449,6 +473,9 @@ const threadReducer = createReducer(
     return {
       ...state,
       isFetchingNextPage: true,
+      // Clear any prior fetch-more error so a retry dismisses the inline panel
+      // immediately while the next-page request is in flight.
+      fetchMoreError: null,
     };
   }),
   on(
@@ -616,6 +643,7 @@ interface ThreadSelectors {
   threads: (state: ThreadState) => ThreadRecord[];
   isLoading: (state: ThreadState) => boolean;
   error: (state: ThreadState) => Error | null;
+  fetchMoreError: (state: ThreadState) => Error | null;
   hasNextPage: (state: ThreadState) => boolean;
   isFetchingNextPage: (state: ThreadState) => boolean;
   isMutating: (state: ThreadState) => boolean;
@@ -637,6 +665,9 @@ function createThreadSelectors(): ThreadSelectors {
     threads: createSelector((state: ThreadState) => state.threads),
     isLoading: createSelector((state: ThreadState) => state.isLoading),
     error: createSelector((state: ThreadState) => state.error),
+    fetchMoreError: createSelector(
+      (state: ThreadState) => state.fetchMoreError,
+    ),
     hasNextPage: createSelector(
       (state: ThreadState) => state.nextCursor != null,
     ),
@@ -657,6 +688,7 @@ const standaloneSelectors = createThreadSelectors();
 const selectThreads = standaloneSelectors.threads;
 const selectThreadsIsLoading = standaloneSelectors.isLoading;
 const selectThreadsError = standaloneSelectors.error;
+const selectFetchMoreError = standaloneSelectors.fetchMoreError;
 const selectHasNextPage = standaloneSelectors.hasNextPage;
 const selectIsFetchingNextPage = standaloneSelectors.isFetchingNextPage;
 const selectIsMutating = standaloneSelectors.isMutating;
@@ -1545,6 +1577,7 @@ export const ɵcreateThreadSelectors = createThreadSelectors;
 export const ɵselectThreads = selectThreads;
 export const ɵselectThreadsIsLoading = selectThreadsIsLoading;
 export const ɵselectThreadsError = selectThreadsError;
+export const ɵselectFetchMoreError = selectFetchMoreError;
 export const ɵselectHasNextPage = selectHasNextPage;
 export const ɵselectIsFetchingNextPage = selectIsFetchingNextPage;
 export const ɵselectIsMutating = selectIsMutating;

@@ -46,7 +46,10 @@ jobs:
     # typically reduces to ~5-8m. 25m timeout retained as headroom.
     runs-on: depot-ubuntu-24.04-4
     timeout-minutes: 25
+    outputs:
+      inline_slack_notifier_reached: ${{ steps.inline_slack_marker.outputs.reached }}
     permissions:
+      actions: read
       contents: read
       # id-token: write is required for Depot OIDC auth (runs-on: depot-ubuntu-*).
       id-token: write
@@ -59,7 +62,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           persist-credentials: false
 
@@ -76,7 +79,7 @@ jobs:
         # Pinned to a specific minor rather than floating @v4 so that a
         # silent upstream major/minor change can't alter install semantics
         # on a random CI run. Bump deliberately when refreshing the toolchain.
-        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
 
       - name: Verify lockfile is up to date
         run: pnpm install --frozen-lockfile --ignore-scripts
@@ -517,9 +520,14 @@ jobs:
 
           exit 0  # belt-and-suspenders: never propagate a failure
 
+      - name: Mark inline Slack notifier reached
+        id: inline_slack_marker
+        if: failure() && github.event_name == 'push' && env.SLACK_WEBHOOK != ''
+        run: echo "reached=true" >> "$GITHUB_OUTPUT"
+
       - name: Notify Slack (failure)
         if: failure() && github.event_name == 'push' && env.SLACK_WEBHOOK != ''
-        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
+        uses: slackapi/slack-github-action@0d95c9a7becc1e6e297d76df9bc735c44f4cbcbc # v3.0.5
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
@@ -549,17 +557,28 @@ jobs:
     # These tests gate the promote-fleet.sh best-effort loop + succeeded_csv
     # export that the promote → verify-prod handoff depends on.
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # The bats suite runs ~4.5min and keeps growing; at the old 5min job cap it
+    # raced the deadline and intermittently got cancelled mid-suite (all steps
+    # passing) rather than reported. Give headroom so a green suite reports green.
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           persist-credentials: false
 
       - name: Install bats
         run: |
+          # GitHub's ubuntu-latest runner image preconfigures third-party apt
+          # repos (Microsoft / azure-cli) for preinstalled tooling this job does
+          # not use. When one of those repos serves invalid release metadata,
+          # `apt-get update` exits non-zero and `bash -e` aborts the step —
+          # even though bats comes from Ubuntu's own `universe` repo, which is
+          # unaffected. This job only needs Ubuntu packages, so drop those unused
+          # third-party repos before updating.
+          sudo rm -f /etc/apt/sources.list.d/*microsoft* /etc/apt/sources.list.d/*azure-cli*
           sudo apt-get update
           sudo apt-get install -y bats
 
@@ -591,12 +610,12 @@ jobs:
         python-version: ["3.10", "3.12"]
     steps:
       - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           persist-credentials: false
 
       - name: Setup Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
@@ -646,13 +665,15 @@ jobs:
             # (not matrix exclusion) so the rest of the packages continue
             # to exercise the 3.10 typing_extensions fallback path.
             #
+            # claude-sdk-python: ag-ui-claude-sdk declares `requires-python >=3.11`;
+            # the package Dockerfile and production runner use Python 3.12.
             # strands: ag_ui_strands==0.1.0 declares `requires-python >=3.12,<3.14`,
             # so `pip install` fails on 3.10 before pytest even runs.
             # langroid: tests import `typing.Self` (3.11+); on 3.10 the import fails
             # at collection time. typing_extensions.Self would fix it but the tests
             # are tightly coupled to the modern typing module.
             # Revisit when ag_ui_strands relaxes its floor or when 3.10 is dropped.
-            if [ "$py_mm" = "3.10" ] && { [ "$pkg" = "strands" ] || [ "$pkg" = "langroid" ]; }; then
+            if [ "$py_mm" = "3.10" ] && { [ "$pkg" = "claude-sdk-python" ] || [ "$pkg" = "strands" ] || [ "$pkg" = "langroid" ]; }; then
               echo "--- pytest: $pkg --- SKIPPED on Python $py_mm (requires >=3.11/3.12)"
               continue
             fi
@@ -689,7 +710,7 @@ jobs:
     # SLACK_WEBHOOK_OSS_ALERTS secret does not break the shell or red the
     # workflow on this step.
     needs: [validate, python-unit-tests, shell-script-tests]
-    if: always() && github.event_name == 'push'
+    if: always() && github.event_name == 'push' && !(needs.validate.result == 'failure' && needs.validate.outputs.inline_slack_notifier_reached == 'true' && needs.python-unit-tests.result == 'success' && needs.shell-script-tests.result == 'success')
     runs-on: ubuntu-latest
     timeout-minutes: 3
     permissions:
@@ -717,7 +738,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
       - name: Post to #oss-alerts
         if: steps.state.outputs.state == 'failure' && env.SLACK_WEBHOOK != ''
-        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
+        uses: slackapi/slack-github-action@0d95c9a7becc1e6e297d76df9bc735c44f4cbcbc # v3.0.5
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook

@@ -204,7 +204,7 @@ To use A2A agents with CopilotKit, you need to first install the CopilotKit midd
 
     Now we define the rendering for a message sent from the orchestrator to the a2a agents.
     Notice that the status can be `executing` or `complete`. When it's executing, the orchestrator has sent a message to the a2a agent,
-    but not recieved a response yet. When it's complete, the orchestrator has received a response from the a2a agent. In both cases, we render the message.
+    but not received a response yet. When it's complete, the orchestrator has received a response from the a2a agent. In both cases, we render the message.
     If status is "inProgress", we've been informed that a message will be sent, but it hasn't finished sending yet, so we don't render anything.
 
     ```tsx title="components/a2a/MessageToA2A.tsx"

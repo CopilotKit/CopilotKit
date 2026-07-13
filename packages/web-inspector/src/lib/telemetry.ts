@@ -38,6 +38,15 @@ export const TELEMETRY_EVENTS = {
   talkToEngineerClicked: "oss.inspector.talk_to_engineer_clicked",
   threadsEmptyEnabledViewed: "oss.inspector.threads_empty_enabled_viewed",
   threadsEnabledViewed: "oss.inspector.threads_enabled_viewed",
+  threadsExampleViewed: "oss.inspector.threads_example_viewed",
+  threadsExampleSelected: "oss.inspector.threads_example_selected",
+  threadsExampleTourStarted: "oss.inspector.threads_example_tour_started",
+  threadsExampleTourStepViewed:
+    "oss.inspector.threads_example_tour_step_viewed",
+  threadsExampleTourDismissed: "oss.inspector.threads_example_tour_dismissed",
+  threadsExampleTourCompleted: "oss.inspector.threads_example_tour_completed",
+  threadsExampleTourReopened: "oss.inspector.threads_example_tour_reopened",
+  memoriesTabClicked: "oss.inspector.memories_tab_clicked",
 } as const;
 
 export type TelemetryEvent =
@@ -68,7 +77,15 @@ function isThreadsTelemetryEvent(event: TelemetryEvent): boolean {
     event === TELEMETRY_EVENTS.threadsTalkToEngineerClicked ||
     event === TELEMETRY_EVENTS.talkToEngineerClicked ||
     event === TELEMETRY_EVENTS.threadsEmptyEnabledViewed ||
-    event === TELEMETRY_EVENTS.threadsEnabledViewed
+    event === TELEMETRY_EVENTS.threadsEnabledViewed ||
+    event === TELEMETRY_EVENTS.threadsExampleViewed ||
+    event === TELEMETRY_EVENTS.threadsExampleSelected ||
+    event === TELEMETRY_EVENTS.threadsExampleTourStarted ||
+    event === TELEMETRY_EVENTS.threadsExampleTourStepViewed ||
+    event === TELEMETRY_EVENTS.threadsExampleTourDismissed ||
+    event === TELEMETRY_EVENTS.threadsExampleTourCompleted ||
+    event === TELEMETRY_EVENTS.threadsExampleTourReopened ||
+    event === TELEMETRY_EVENTS.memoriesTabClicked
   );
 }
 
@@ -201,6 +218,10 @@ export type InspectorThreadTelemetryProps = {
   cta?: "signup" | "talk_to_engineer";
   telemetry_disabled?: boolean;
   thread_count?: number;
+  example_thread_id?: string;
+  tour_step?: number;
+  tour_tab?: "timeline" | "raw-events" | "state";
+  dismiss_method?: "skip" | "done";
 };
 
 export function trackThreadsTabClicked(
@@ -243,6 +264,63 @@ export function trackThreadsEnabledViewed(
   props: InspectorThreadTelemetryProps,
 ): void {
   track(TELEMETRY_EVENTS.threadsEnabledViewed, props);
+}
+
+export function trackThreadsExampleViewed(
+  props: InspectorThreadTelemetryProps,
+): void {
+  track(TELEMETRY_EVENTS.threadsExampleViewed, props);
+}
+
+export function trackThreadsExampleSelected(
+  props: InspectorThreadTelemetryProps,
+): void {
+  track(TELEMETRY_EVENTS.threadsExampleSelected, props);
+}
+
+export function trackThreadsExampleTourStarted(
+  props: InspectorThreadTelemetryProps,
+): void {
+  track(TELEMETRY_EVENTS.threadsExampleTourStarted, props);
+}
+
+export function trackThreadsExampleTourStepViewed(
+  props: InspectorThreadTelemetryProps,
+): void {
+  track(TELEMETRY_EVENTS.threadsExampleTourStepViewed, props);
+}
+
+export function trackThreadsExampleTourDismissed(
+  props: InspectorThreadTelemetryProps,
+): void {
+  track(TELEMETRY_EVENTS.threadsExampleTourDismissed, props);
+}
+
+export function trackThreadsExampleTourCompleted(
+  props: InspectorThreadTelemetryProps,
+): void {
+  track(TELEMETRY_EVENTS.threadsExampleTourCompleted, props);
+}
+
+export function trackThreadsExampleTourReopened(
+  props: InspectorThreadTelemetryProps,
+): void {
+  track(TELEMETRY_EVENTS.threadsExampleTourReopened, props);
+}
+
+export type InspectorMemoryTelemetryProps = {
+  package_name?: typeof PACKAGE_NAME;
+  package_version?: string;
+  inspector_distinct_id?: string;
+  posthog_distinct_id?: string;
+  memory_count?: number;
+  available?: boolean;
+};
+
+export function trackMemoriesTabClicked(
+  props: InspectorMemoryTelemetryProps = {},
+): void {
+  track(TELEMETRY_EVENTS.memoriesTabClicked, props);
 }
 
 /**

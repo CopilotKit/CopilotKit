@@ -213,8 +213,9 @@ export function getDocsMode(slug: string): "generated" | "authored" | "hidden" {
  *   in-page `<Tabs>` and `<TailoredContent>` handling the per-variant
  *   code examples. The URL slug determines which tab opens by default
  *   (see TAB_DEFAULTS_BY_SLUG below).
- * - `microsoft-agent-framework/` serves both `ms-agent-dotnet` and
- *   `ms-agent-python`, same in-page-tabs pattern.
+ * - `microsoft-agent-framework/` serves `ms-agent-dotnet`,
+ *   `ms-agent-python`, and `ms-agent-harness-dotnet`, same in-page-tabs
+ *   pattern.
  * - `google-adk` / `strands` are legacy renames — the slug changed in
  *   the registry but the docs folder still uses the earlier name.
  *
@@ -231,6 +232,7 @@ const DOCS_FOLDER_OVERRIDES: Record<string, string> = {
   "strands-typescript": "aws-strands",
   "ms-agent-dotnet": "microsoft-agent-framework",
   "ms-agent-python": "microsoft-agent-framework",
+  "ms-agent-harness-dotnet": "microsoft-agent-framework",
 };
 
 export function getDocsFolder(slug: string): string {
@@ -276,6 +278,9 @@ const TAB_DEFAULTS_BY_SLUG: Record<string, Record<string, string>> = {
   },
   "ms-agent-python": {
     "language_microsoft-agent-framework_agent": "Python",
+  },
+  "ms-agent-harness-dotnet": {
+    "language_microsoft-agent-framework_agent": ".NET",
   },
 };
 

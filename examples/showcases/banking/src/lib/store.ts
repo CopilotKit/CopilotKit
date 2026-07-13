@@ -45,6 +45,28 @@ const db: DB = {
 // Guarantee it exists so the accessors/mutators below never hit undefined.
 if (!db.exceptions) db.exceptions = [];
 
+/**
+ * Dev-only: restore the in-memory store to the original seed snapshot.
+ * Mutations (approvals, filed exceptions, new cards, policy spend) live for the
+ * server process only; this re-seeds them in place so the over-limit demo (e.g.
+ * the $5,000 Google Ads charge) can be re-run without restarting the server.
+ * Exposed via `POST /api/v1/dev/reset`. Re-assigns array contents (the `db`
+ * binding is const but its properties are mutable, and the read accessors
+ * return the live `db.*` references, so callers see the fresh data).
+ */
+export const reset = (): void => {
+  // Reports are copilot-generated at runtime and never seeded (same seam as
+  // module-init above), so the cast covers only the seeded collections and
+  // reports re-seed to empty.
+  const fresh = structuredClone(seed) as Omit<DB, "reports">;
+  db.cards = fresh.cards;
+  db.team = fresh.team;
+  db.policies = fresh.policies;
+  db.transactions = fresh.transactions;
+  db.exceptions = fresh.exceptions ?? [];
+  db.reports = [];
+};
+
 // ---- Reads --------------------------------------------------------------
 
 export const cards = (): Card[] => db.cards;

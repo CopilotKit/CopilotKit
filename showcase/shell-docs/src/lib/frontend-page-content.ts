@@ -33,7 +33,7 @@ const FRONTEND_REFERENCE_SLUGS = {
   vue: "reference",
   "react-native": "reference/react-native",
   angular: "reference",
-  slack: "reference/bot",
+  slack: "reference/channels",
   teams: "reference",
 } satisfies Record<FrontendPageId, string>;
 

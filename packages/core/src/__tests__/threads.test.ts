@@ -661,6 +661,141 @@ describe("thread store", () => {
     expect(ɵselectIsFetchingNextPage(store.getState())).toBe(false);
   });
 
+  it("records a failed fetch-more on fetchMoreError (not error) and preserves the list; a later success clears it", async () => {
+    const { ɵselectFetchMoreError } = await import("../threads");
+    const page2Thread: ThreadRecord = {
+      id: "thread-3",
+      organizationId: "organization-1",
+      agentId: "agent-1",
+      createdById: "user-1",
+      name: "Page 2 Thread",
+      archived: false,
+      createdAt: "2025-12-01T00:00:00Z",
+      updatedAt: "2025-12-01T00:00:00Z",
+    };
+    const fetchMock = vi
+      .fn()
+      // initial list
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          threads: sampleThreads,
+          joinCode: "jc-1",
+          nextCursor: "cursor-abc",
+        }),
+      })
+      // metadata credentials
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1" }),
+      })
+      // first fetch-more: FAILS
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({}),
+      })
+      // retried fetch-more: SUCCEEDS
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: [page2Thread], nextCursor: null }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      wsUrl: "ws://localhost:4000/client",
+      agentId: "agent-1",
+      limit: 2,
+    });
+
+    await flushEffects();
+    expect(ɵselectThreads(store.getState())).toHaveLength(2);
+    expect(ɵselectHasNextPage(store.getState())).toBe(true);
+
+    // Failed fetch-more.
+    store.fetchNextPage();
+    await flushEffects();
+
+    // The failure lands on the dedicated fetch-more channel, NOT `error`, and
+    // the already-loaded list is preserved.
+    expect(ɵselectFetchMoreError(store.getState())).toBeInstanceOf(Error);
+    expect(ɵselectThreadsError(store.getState())).toBeNull();
+    expect(ɵselectThreads(store.getState())).toHaveLength(2);
+    expect(ɵselectIsFetchingNextPage(store.getState())).toBe(false);
+    // A failed fetch-more keeps the cursor so the load can be retried.
+    expect(ɵselectHasNextPage(store.getState())).toBe(true);
+
+    // Successful retry clears the fetch-more error and appends the page.
+    store.fetchNextPage();
+    await flushEffects();
+
+    expect(ɵselectFetchMoreError(store.getState())).toBeNull();
+    expect(ɵselectThreads(store.getState())).toHaveLength(3);
+    expect(ɵselectHasNextPage(store.getState())).toBe(false);
+  });
+
+  it("clears a lingering fetchMoreError when a full list refetch succeeds", async () => {
+    const { ɵselectFetchMoreError } = await import("../threads");
+    const fetchMock = vi
+      .fn()
+      // initial list
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          threads: sampleThreads,
+          joinCode: "jc-1",
+          nextCursor: "cursor-abc",
+        }),
+      })
+      // metadata credentials
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1" }),
+      })
+      // fetch-more: FAILS
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({}),
+      })
+      // full refetch: SUCCEEDS
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      wsUrl: "ws://localhost:4000/client",
+      agentId: "agent-1",
+      limit: 2,
+    });
+
+    await flushEffects();
+
+    // Fetch-more fails → error lands on the dedicated channel.
+    store.fetchNextPage();
+    await flushEffects();
+    expect(ɵselectFetchMoreError(store.getState())).toBeInstanceOf(Error);
+
+    // A full refetch (e.g. filter-change / retry) replaces the list; the stale
+    // fetch-more banner must NOT survive onto the fresh list.
+    store.refetchThreads();
+    await flushEffects();
+    expect(ɵselectFetchMoreError(store.getState())).toBeNull();
+    expect(ɵselectThreads(store.getState())).toHaveLength(2);
+  });
+
   it("removes thread on archived WS event when includeArchived is false", async () => {
     const fetchMock = vi
       .fn()

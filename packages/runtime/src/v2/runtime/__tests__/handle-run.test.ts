@@ -5,6 +5,7 @@ import { AbstractAgent, EventType, HttpAgent } from "@ag-ui/client";
 import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { handleRunAgent } from "../handlers/handle-run";
 import { CopilotRuntime } from "../core/runtime";
+import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
 import { InMemoryAgentRunner } from "../runner/in-memory";
 
@@ -17,6 +18,7 @@ describe("handleRunAgent", () => {
       transcriptionService: undefined,
       beforeRequestMiddleware: undefined,
       afterRequestMiddleware: undefined,
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
     } as unknown as CopilotRuntime;
   };
 
@@ -53,6 +55,7 @@ describe("handleRunAgent", () => {
       transcriptionService: undefined,
       beforeRequestMiddleware: undefined,
       afterRequestMiddleware: undefined,
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
     } as unknown as CopilotRuntime;
     const request = createMockRequest();
     const agentId = "test-agent";
@@ -108,6 +111,7 @@ describe("handleRunAgent", () => {
       transcriptionService: undefined,
       beforeRequestMiddleware: undefined,
       afterRequestMiddleware: undefined,
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
       runner: {
         run: ({ agent }: { agent: AbstractAgent }) =>
           new Observable<BaseEvent>((subscriber) => {
@@ -208,6 +212,7 @@ describe("handleRunAgent", () => {
       transcriptionService: undefined,
       beforeRequestMiddleware: undefined,
       afterRequestMiddleware: undefined,
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
       runner: createMockRunner(),
       a2ui: { enabled: true, injectA2UITool: true },
     } as unknown as CopilotRuntime;
@@ -233,6 +238,7 @@ describe("handleRunAgent", () => {
         transcriptionService: undefined,
         beforeRequestMiddleware: undefined,
         afterRequestMiddleware: undefined,
+        forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
         runner: createMockRunner(),
         a2ui: { enabled: true, agents: ["my-agent"] },
       }) as unknown as CopilotRuntime;
@@ -275,6 +281,7 @@ describe("handleRunAgent", () => {
       transcriptionService: undefined,
       beforeRequestMiddleware: undefined,
       afterRequestMiddleware: undefined,
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
       runner: createMockRunner(),
     } as unknown as CopilotRuntime;
 
@@ -295,6 +302,7 @@ describe("handleRunAgent", () => {
       transcriptionService: undefined,
       beforeRequestMiddleware: undefined,
       afterRequestMiddleware: undefined,
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
       runner: createMockRunner(),
       // Config object present but explicitly disabled — the run path must
       // honor the opt-out, not just `!!runtime.a2ui`.
@@ -341,6 +349,7 @@ describe("handleRunAgent", () => {
       transcriptionService: undefined,
       beforeRequestMiddleware: undefined,
       afterRequestMiddleware: undefined,
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
       runner: createMockRunner(),
       // No `a2ui` config at all — the provider's catalog alone must enable it.
     } as unknown as CopilotRuntime;
@@ -367,6 +376,7 @@ describe("handleRunAgent", () => {
       transcriptionService: undefined,
       beforeRequestMiddleware: undefined,
       afterRequestMiddleware: undefined,
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
       runner: createMockRunner(),
       // Deeper, explicit opt-out — the catalog default must NOT override it.
       a2ui: { enabled: true, injectA2UITool: false },
@@ -394,6 +404,7 @@ describe("handleRunAgent", () => {
       transcriptionService: undefined,
       beforeRequestMiddleware: undefined,
       afterRequestMiddleware: undefined,
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
       runner: createMockRunner(),
       a2ui: { enabled: false },
     } as unknown as CopilotRuntime;
@@ -415,6 +426,7 @@ describe("handleRunAgent", () => {
       transcriptionService: undefined,
       beforeRequestMiddleware: undefined,
       afterRequestMiddleware: undefined,
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
       runner: createMockRunner(),
       a2ui: { enabled: true },
     } as unknown as CopilotRuntime;
@@ -441,6 +453,7 @@ describe("handleRunAgent", () => {
       transcriptionService: undefined,
       beforeRequestMiddleware: undefined,
       afterRequestMiddleware: undefined,
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
       runner: createMockRunner(),
     } as unknown as CopilotRuntime;
 
@@ -485,6 +498,7 @@ describe("handleRunAgent", () => {
         transcriptionService: undefined,
         beforeRequestMiddleware: undefined,
         afterRequestMiddleware: undefined,
+        forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
         runner,
         mode: "intelligence",
         generateThreadNames: options?.generateThreadNames ?? false,

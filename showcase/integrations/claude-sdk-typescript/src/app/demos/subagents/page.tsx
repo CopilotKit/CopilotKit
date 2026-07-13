@@ -9,11 +9,9 @@ import {
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 
-import { Delegation } from "./delegation-log";
-import {
-  SubAgentActivityCard,
-  type SubAgentToolStatus,
-} from "./subagent-activity-card";
+import type { Delegation } from "./delegation-log";
+import { SubAgentActivityCard } from "./subagent-activity-card";
+import type { SubAgentToolStatus } from "./subagent-activity-card";
 import { DemoLayout } from "./demo-layout";
 import { inferActiveSubAgent } from "./active-subagent";
 import { useSubagentsSuggestions } from "./suggestions";
@@ -24,7 +22,7 @@ interface SubagentsAgentState {
 
 export default function SubagentsDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit-subagents" agent="subagents">
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="subagents">
       <DemoContent />
     </CopilotKit>
   );

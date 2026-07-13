@@ -17,13 +17,11 @@ on:
       - ".github/workflows/**"
       - ".github/actions/**"
       - ".github/zizmor.yml"
-      - ".github/dependabot.yml"
   pull_request:
     paths:
       - ".github/workflows/**"
       - ".github/actions/**"
       - ".github/zizmor.yml"
-      - ".github/dependabot.yml"
   schedule:
     # Catch findings introduced by newly-published advisories even when no
     # workflow file changed this week.
@@ -47,7 +45,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           persist-credentials: false
 
@@ -55,7 +53,7 @@ jobs:
         # `min-severity: low` blocks PRs on the broadest set of findings
         # without flagging hypothetical-only `informational` notes. Drop
         # to `medium` if low-severity churn becomes a problem.
-        uses: zizmorcore/zizmor-action@5f14fd08f7cf1cb1609c1e344975f152c7ee938d # v0.5.6
+        uses: zizmorcore/zizmor-action@192e21d79ab29983730a13d1382995c2307fbcaa # v0.5.7
         with:
           min-severity: low
           advanced-security: false

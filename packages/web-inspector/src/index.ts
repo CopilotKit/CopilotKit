@@ -13,12 +13,19 @@ import {
   ɵselectThreads,
   ɵselectThreadsError,
   ɵcreateThreadStore,
+  ɵselectMemories,
+  ɵselectMemoriesIsLoading,
+  ɵselectMemoriesError,
+  ɵselectMemoriesAvailable,
+  ɵselectMemoriesRealtimeStatus,
 } from "@copilotkit/core";
 import type {
   CopilotKitCoreSubscriber,
   CopilotKitCoreErrorCode,
   ɵThreadStore,
   ɵThread,
+  Memory,
+  MemoryRealtimeStatus,
 } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
 import type {
@@ -58,12 +65,23 @@ import {
   trackTalkToEngineerClicked,
   trackThreadsEmptyEnabledViewed,
   trackThreadsEnabledViewed,
+  trackThreadsExampleSelected,
+  trackThreadsExampleTourCompleted,
+  trackThreadsExampleTourDismissed,
+  trackThreadsExampleTourReopened,
+  trackThreadsExampleTourStarted,
+  trackThreadsExampleTourStepViewed,
+  trackThreadsExampleViewed,
   trackThreadsIntelligenceSignupClicked,
   trackThreadsLockedViewed,
+  trackMemoriesTabClicked,
   trackThreadsTabClicked,
   trackThreadsTalkToEngineerClicked,
 } from "./lib/telemetry.js";
-import type { InspectorThreadTelemetryProps } from "./lib/telemetry.js";
+import type {
+  InspectorMemoryTelemetryProps,
+  InspectorThreadTelemetryProps,
+} from "./lib/telemetry.js";
 
 export type { Anchor } from "./lib/types.js";
 
@@ -78,6 +96,7 @@ type MenuKey =
   | "frontend-tools"
   | "agent-context"
   | "threads"
+  | "memories"
   | "settings";
 
 type MenuItem = {
@@ -100,7 +119,17 @@ const DOCKED_LEFT_WIDTH = 500; // Sensible width for left dock with collapsed si
 const MAX_AGENT_EVENTS = 200;
 const MAX_TOTAL_EVENTS = 500;
 const INTELLIGENCE_SIGNUP_URL = "https://go.copilotkit.ai/intelligence-signup";
+const THREADS_INTELLIGENCE_SIGNIN_URL =
+  "https://dashboard.operations.copilotkit.ai/sign-in";
 const TALK_TO_ENGINEER_URL = "https://www.copilotkit.ai/talk-to-an-engineer";
+const THREADS_DOCS_URL = "https://docs.copilotkit.ai/threads";
+const SELF_HOSTED_INTELLIGENCE_URL =
+  "https://docs.copilotkit.ai/premium/self-hosting";
+const THREADS_EXAMPLE_OVERVIEW_VIDEO_URL =
+  "https://cdn.copilotkit.ai/corp-site/videos/copilotkit-generative-ui-agentic-frontend-demo.webm";
+const THREADS_EXAMPLE_TOUR_STORAGE_KEY =
+  "cpk:inspector:threads-example-tour:v1";
+const THREADS_EXAMPLE_AGENT_ID = "threads-feature";
 
 type ThreadServiceStatus = "available" | "unavailable" | "unknown" | "error";
 
@@ -364,6 +393,235 @@ type RuntimeStateFetchResult =
   | { status: "available"; state: Record<string, unknown> | null }
   | { status: "not-available" };
 
+type ExampleThread = ɵThread & { isExample: true };
+
+type ExampleThreadDetails = {
+  messages: ThreadDebuggerMessage[];
+  events: ThreadDebuggerEvent[];
+  state: Record<string, unknown>;
+};
+
+const THREADS_EXAMPLE_THREADS: ExampleThread[] = [
+  {
+    id: "example-realtime-sync",
+    name: "Realtime thread sync",
+    agentId: THREADS_EXAMPLE_AGENT_ID,
+    organizationId: "example-organization",
+    createdById: "example-user",
+    archived: false,
+    createdAt: "2026-07-08T16:00:00.000Z",
+    updatedAt: "2026-07-08T16:30:00.000Z",
+    isExample: true,
+  },
+  {
+    id: "example-manage-history",
+    name: "Manage saved conversations",
+    agentId: THREADS_EXAMPLE_AGENT_ID,
+    organizationId: "example-organization",
+    createdById: "example-user",
+    archived: false,
+    createdAt: "2026-07-07T17:45:00.000Z",
+    updatedAt: "2026-07-07T18:15:00.000Z",
+    isExample: true,
+  },
+  {
+    id: "example-inspect-runs",
+    name: "Inspect durable run history",
+    agentId: THREADS_EXAMPLE_AGENT_ID,
+    organizationId: "example-organization",
+    createdById: "example-user",
+    archived: false,
+    createdAt: "2026-07-06T20:15:00.000Z",
+    updatedAt: "2026-07-06T20:45:00.000Z",
+    isExample: true,
+  },
+];
+
+const THREADS_EXAMPLE_DETAILS: Record<string, ExampleThreadDetails> = {
+  "example-realtime-sync": {
+    messages: [
+      {
+        id: "example-sync-user",
+        role: "user",
+        content: "Resume the checkout support thread from yesterday.",
+      },
+      {
+        id: "example-sync-assistant",
+        role: "assistant",
+        content:
+          "I found the saved thread, restored the cart state, and continued from the latest user message.",
+      },
+    ],
+    events: [
+      {
+        type: "RUN_STARTED",
+        timestamp: "2026-07-08T16:30:00.000Z",
+        payload: {
+          threadId: "example-realtime-sync",
+          agentId: THREADS_EXAMPLE_AGENT_ID,
+        },
+      },
+      {
+        type: "MESSAGES_SNAPSHOT",
+        timestamp: "2026-07-08T16:30:01.000Z",
+        payload: {
+          messageCount: 6,
+          source: "thread-history",
+        },
+      },
+      {
+        type: "STATE_SNAPSHOT",
+        timestamp: "2026-07-08T16:30:02.000Z",
+        payload: {
+          cartId: "cart_demo_42",
+          checkoutStep: "shipping",
+          resumed: true,
+        },
+      },
+      {
+        type: "RUN_FINISHED",
+        timestamp: "2026-07-08T16:30:04.000Z",
+        payload: {
+          status: "completed",
+        },
+      },
+    ],
+    state: {
+      cartId: "cart_demo_42",
+      checkoutStep: "shipping",
+      userIntent: "resume_previous_checkout",
+      persistedThread: true,
+    },
+  },
+  "example-manage-history": {
+    messages: [
+      {
+        id: "example-history-user",
+        role: "user",
+        content: "Rename this saved support conversation for the handoff.",
+      },
+      {
+        id: "example-history-assistant",
+        role: "assistant",
+        content:
+          "Renamed the thread and kept the prior messages available for the next session.",
+      },
+    ],
+    events: [
+      {
+        type: "RUN_STARTED",
+        timestamp: "2026-07-07T18:15:00.000Z",
+        payload: {
+          threadId: "example-manage-history",
+          agentId: THREADS_EXAMPLE_AGENT_ID,
+        },
+      },
+      {
+        type: "CUSTOM_EVENT",
+        timestamp: "2026-07-07T18:15:01.000Z",
+        payload: {
+          action: "thread_renamed",
+          previousName: "Untitled",
+          name: "Billing escalation handoff",
+        },
+      },
+      {
+        type: "RUN_FINISHED",
+        timestamp: "2026-07-07T18:15:03.000Z",
+        payload: {
+          status: "completed",
+        },
+      },
+    ],
+    state: {
+      name: "Billing escalation handoff",
+      savedMessages: 14,
+      lastHandoff: "support-team",
+    },
+  },
+  "example-inspect-runs": {
+    messages: [
+      {
+        id: "example-inspect-user",
+        role: "user",
+        content: "Why did the assistant recommend the enterprise plan?",
+      },
+      {
+        id: "example-inspect-assistant",
+        role: "assistant",
+        content:
+          "The recommendation came from the account size, SSO requirement, and audit-log constraint in state.",
+      },
+    ],
+    events: [
+      {
+        type: "RUN_STARTED",
+        timestamp: "2026-07-06T20:45:00.000Z",
+        payload: {
+          threadId: "example-inspect-runs",
+          agentId: THREADS_EXAMPLE_AGENT_ID,
+        },
+      },
+      {
+        type: "TOOL_CALL_START",
+        timestamp: "2026-07-06T20:45:01.000Z",
+        payload: {
+          toolCallId: "call_account_lookup",
+          toolName: "lookupAccount",
+        },
+      },
+      {
+        type: "TOOL_CALL_RESULT",
+        timestamp: "2026-07-06T20:45:02.000Z",
+        payload: {
+          toolCallId: "call_account_lookup",
+          seats: 220,
+          requiresSso: true,
+        },
+      },
+      {
+        type: "RUN_FINISHED",
+        timestamp: "2026-07-06T20:45:04.000Z",
+        payload: {
+          status: "completed",
+        },
+      },
+    ],
+    state: {
+      accountTier: "growth",
+      seats: 220,
+      requiresSso: true,
+      auditLogsRequired: true,
+    },
+  },
+};
+
+const THREADS_EXAMPLE_TOUR_STEPS: ReadonlyArray<{
+  tab: ThreadDetailsTab;
+  label: string;
+  title: string;
+  body: string;
+}> = [
+  {
+    tab: "timeline",
+    label: "Timeline",
+    title: "Read the run as a story",
+    body: "The timeline turns messages, tool calls, state changes, and run markers into a scannable debugging trail.",
+  },
+  {
+    tab: "raw-events",
+    label: "Raw AG-UI Events",
+    title: "Drop into the protocol payloads",
+    body: "Raw events show the exact AG-UI stream behind the timeline when you need to verify ordering or payload shape.",
+  },
+  {
+    tab: "state",
+    label: "State",
+    title: "Check the durable state",
+    body: "The state tab shows the saved values that make a thread resumable across sessions.",
+  },
+];
+
 // ─── JSON syntax highlighter ─────────────────────────────────────────────────
 // Inline-styled so shadow DOM encapsulation preserves colors when the output
 // is injected via unsafeHTML. Only for structured data — never raw user HTML.
@@ -590,6 +848,11 @@ class CpkThreadList extends LitElement {
       color: #57575b;
     }
 
+    .cpk-tl__pill--example {
+      background: rgba(133, 236, 206, 0.22);
+      color: #189370;
+    }
+
     /* ── Empty state ── */
     .cpk-tl__empty {
       padding: 32px 16px;
@@ -685,6 +948,13 @@ class CpkThreadList extends LitElement {
                 </div>
                 <div class="cpk-tl__meta">
                   <span class="cpk-tl__pill">${thread.agentId}</span>
+                  ${
+                    (thread as Partial<ExampleThread>).isExample
+                      ? html`
+                          <span class="cpk-tl__pill cpk-tl__pill--example">Example</span>
+                        `
+                      : nothing
+                  }
                 </div>
               </div>
             `,
@@ -779,6 +1049,8 @@ export class CpkThreadInspector extends LitElement {
     _stateError: { state: true },
     _expandedTools: { state: true },
     _expandedMessages: { state: true },
+    _expandedTimelineDetails: { state: true },
+    _expandedRawEvents: { state: true },
     _showDetailPanel: { state: true },
     _detailPanelWidth: { state: true },
     _eventsNotAvailable: { state: true },
@@ -816,6 +1088,8 @@ export class CpkThreadInspector extends LitElement {
   private _stateError: string | null = null;
   private _expandedTools = new Set<string>();
   private _expandedMessages = new Set<string>();
+  private _expandedTimelineDetails = new Set<string>();
+  private _expandedRawEvents = new Set<string>();
   private _showDetailPanel = false;
   private _detailPanelWidth = 250;
   /** True when the /events endpoint returned 501 — don't fall back to live data. */
@@ -955,6 +1229,10 @@ export class CpkThreadInspector extends LitElement {
       });
     }
     this.maybeFetchTabData(id);
+  }
+
+  selectTab(id: ThreadDetailsTab): void {
+    this.activateTab(id);
   }
 
   private maybeFetchTabData(id: ThreadDetailsTab): void {
@@ -1102,12 +1380,21 @@ export class CpkThreadInspector extends LitElement {
 
     .cpk-td__metadata-strip {
       display: flex;
+      align-items: center;
       gap: 6px;
       flex-wrap: wrap;
       padding: 10px 16px;
       border-bottom: 1px solid #e9e9ef;
       background: #fbfbfd;
       flex-shrink: 0;
+    }
+
+    .cpk-td__metadata-pills {
+      display: flex;
+      gap: 6px;
+      flex: 1;
+      flex-wrap: wrap;
+      min-width: 0;
     }
 
     .cpk-td__metadata-pill {
@@ -1404,13 +1691,44 @@ export class CpkThreadInspector extends LitElement {
     }
 
     .cpk-td__timeline-body {
-      padding: 9px 10px;
+      margin: 0;
+      padding: 0 10px 9px;
       font-size: 12px;
       line-height: 1.55;
       color: #57575b;
       white-space: pre-wrap;
       word-break: break-word;
-      border-top: 1px solid #e9e9ef;
+    }
+
+    .cpk-td__timeline-toolbar {
+      display: flex;
+      gap: 6px;
+      margin-left: auto;
+    }
+
+    .cpk-td__timeline-bulk-toggle {
+      margin: 0;
+      padding: 4px 8px;
+      border: 1px solid #dcdce8;
+      border-radius: 6px;
+      background: #ffffff;
+      color: #36363a;
+      cursor: pointer;
+      font-family: "Inter", sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.2;
+    }
+
+    .cpk-td__timeline-bulk-toggle:hover {
+      border-color: rgba(85, 88, 178, 0.38);
+      background: #f7f7ff;
+      color: #010507;
+    }
+
+    .cpk-td__timeline-bulk-toggle:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
     }
 
     .cpk-td__source-link {
@@ -1429,6 +1747,34 @@ export class CpkThreadInspector extends LitElement {
 
     .cpk-td__source-link:hover {
       color: #010507;
+    }
+
+    .cpk-td__timeline-details-toggle {
+      margin: 0;
+      padding: 5px 10px;
+      border: none;
+      background: #ffffff;
+      color: #5558b2;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-family: "Inter", sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.2;
+      width: 100%;
+    }
+
+    .cpk-td__timeline-details-toggle:hover {
+      background: #f7f7ff;
+      color: #010507;
+    }
+
+    .cpk-td__timeline-details-toggle svg {
+      width: 12px;
+      height: 12px;
+      stroke-width: 2;
     }
 
     /* ── Generative UI ──────────────────────────────────────────────── */
@@ -1720,6 +2066,8 @@ export class CpkThreadInspector extends LitElement {
     this._liveEventsWithSourceIndexCache = null;
     this._expandedTools = new Set();
     this._expandedMessages = new Set();
+    this._expandedTimelineDetails = new Set();
+    this._expandedRawEvents = new Set();
     this._metadataAbort?.abort();
     this._metadataAbort = null;
     this._messagesAbort?.abort();
@@ -2391,6 +2739,47 @@ export class CpkThreadInspector extends LitElement {
     this._expandedMessages = next;
   }
 
+  private toggleTimelineDetails(id: string): void {
+    const next = new Set(this._expandedTimelineDetails);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    this._expandedTimelineDetails = next;
+  }
+
+  private expandTimelineDetails(ids: string[]): void {
+    this._expandedTimelineDetails = new Set([
+      ...this._expandedTimelineDetails,
+      ...ids,
+    ]);
+  }
+
+  private collapseTimelineDetails(ids: string[]): void {
+    const next = new Set(this._expandedTimelineDetails);
+    for (const id of ids) next.delete(id);
+    this._expandedTimelineDetails = next;
+  }
+
+  private toggleRawEventDetails(id: string): void {
+    const next = new Set(this._expandedRawEvents);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    this._expandedRawEvents = next;
+  }
+
+  private expandRawEventDetails(ids: string[]): void {
+    this._expandedRawEvents = new Set([...this._expandedRawEvents, ...ids]);
+  }
+
+  private collapseRawEventDetails(ids: string[]): void {
+    const next = new Set(this._expandedRawEvents);
+    for (const id of ids) next.delete(id);
+    this._expandedRawEvents = next;
+  }
+
+  private rawEventId(event: ApiAgentEvent): string {
+    return `raw-event-${event.sourceIndex ?? event.timestamp ?? event.type}`;
+  }
+
   private get activeEvents(): ApiAgentEvent[] {
     // When the endpoint explicitly returned 501 we report no events rather
     // than leaking the parent's agent-keyed live events across historical
@@ -2562,23 +2951,93 @@ export class CpkThreadInspector extends LitElement {
       },
       { label: "Status", value: metadata?.status },
     ].filter((pill) => pill.value != null && pill.value !== "");
+    const bulkControls = this.renderActiveBulkControls();
 
-    if (pills.length === 0) return nothing;
+    if (pills.length === 0 && bulkControls === nothing) return nothing;
 
     return html`
       <div class="cpk-td__metadata-strip" aria-label="Thread metadata">
-        ${pills.map(
-          (pill) => html`
-            <span class="cpk-td__metadata-pill" title=${pill.value ?? ""}>
-              <span class="cpk-td__metadata-label">${pill.label}</span>
-              <span class="cpk-td__metadata-value"
-                >${this.shortId(pill.value)}</span
-              >
-            </span>
-          `,
-        )}
+        <div class="cpk-td__metadata-pills">
+          ${pills.map(
+            (pill) => html`
+              <span class="cpk-td__metadata-pill" title=${pill.value ?? ""}>
+                <span class="cpk-td__metadata-label">${pill.label}</span>
+                <span class="cpk-td__metadata-value"
+                  >${this.shortId(pill.value)}</span
+                >
+              </span>
+            `,
+          )}
+        </div>
+        ${bulkControls}
       </div>
     `;
+  }
+
+  private renderActiveBulkControls() {
+    if (this._eventsNotAvailable) return nothing;
+    if (this._tab === "raw-events") return this.renderRawEventBulkControls();
+    if (this._tab !== "timeline") return nothing;
+
+    const detailIds = this.timelineItemsForEvents(this.activeEvents)
+      .filter((item) => item.details)
+      .map((item) => item.id);
+    if (detailIds.length <= 1) return nothing;
+
+    const allExpanded = detailIds.every((id) =>
+      this._expandedTimelineDetails.has(id),
+    );
+    const allCollapsed = detailIds.every(
+      (id) => !this._expandedTimelineDetails.has(id),
+    );
+
+    return html`<div class="cpk-td__timeline-toolbar">
+      <button
+        type="button"
+        class="cpk-td__timeline-bulk-toggle"
+        ?disabled=${allExpanded}
+        @click=${() => this.expandTimelineDetails(detailIds)}
+      >
+        Expand all
+      </button>
+      <button
+        type="button"
+        class="cpk-td__timeline-bulk-toggle"
+        ?disabled=${allCollapsed}
+        @click=${() => this.collapseTimelineDetails(detailIds)}
+      >
+        Collapse all
+      </button>
+    </div>`;
+  }
+
+  private renderRawEventBulkControls() {
+    const eventIds = this.activeEvents.map((event) => this.rawEventId(event));
+    if (eventIds.length <= 1) return nothing;
+
+    const allExpanded = eventIds.every((id) => this._expandedRawEvents.has(id));
+    const allCollapsed = eventIds.every(
+      (id) => !this._expandedRawEvents.has(id),
+    );
+
+    return html`<div class="cpk-td__timeline-toolbar">
+      <button
+        type="button"
+        class="cpk-td__timeline-bulk-toggle"
+        ?disabled=${allExpanded}
+        @click=${() => this.expandRawEventDetails(eventIds)}
+      >
+        Expand all
+      </button>
+      <button
+        type="button"
+        class="cpk-td__timeline-bulk-toggle"
+        ?disabled=${allCollapsed}
+        @click=${() => this.collapseRawEventDetails(eventIds)}
+      >
+        Collapse all
+      </button>
+    </div>`;
   }
 
   private revealSourceEvent(sourceIndex: number): void {
@@ -2619,7 +3078,10 @@ export class CpkThreadInspector extends LitElement {
     }
 
     const events = this.activeEvents;
-    const cachedTimeline = this.getCachedPanelTpl("timeline", [events]);
+    const cachedTimeline = this.getCachedPanelTpl("timeline", [
+      events,
+      this._expandedTimelineDetails,
+    ]);
     if (cachedTimeline) return cachedTimeline;
 
     const timelineItems = this.timelineItemsForEvents(events);
@@ -2637,13 +3099,16 @@ export class CpkThreadInspector extends LitElement {
       `;
     }
 
-    return this.cachedPanelTpl("timeline", [events], () => {
-      return html`${timelineItems.map((item) => this.renderTimelineItem(item))}`;
-    });
+    return this.cachedPanelTpl(
+      "timeline",
+      [events, this._expandedTimelineDetails],
+      () => html`${timelineItems.map((item) => this.renderTimelineItem(item))}`,
+    );
   }
 
   private renderTimelineItem(item: TimelineItem) {
     const isWarning = item.kind === "warning";
+    const detailsExpanded = this._expandedTimelineDetails.has(item.id);
     return html`
       <div
         class="cpk-td__timeline-item ${
@@ -2667,13 +3132,55 @@ export class CpkThreadInspector extends LitElement {
           >
         </div>
         ${
+          item.details
+            ? html`<button
+                type="button"
+                class="cpk-td__timeline-details-toggle"
+                aria-expanded=${detailsExpanded ? "true" : "false"}
+                @click=${() => this.toggleTimelineDetails(item.id)}
+              >
+                ${
+                  detailsExpanded
+                    ? html`
+                        <svg
+                          aria-hidden="true"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
+                          <path d="m6 9 6 6 6-6" />
+                        </svg>
+                      `
+                    : html`
+                        <svg
+                          aria-hidden="true"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
+                          <path d="m9 18 6-6-6-6" />
+                        </svg>
+                      `
+                }
+                <span>${detailsExpanded ? "Hide details" : "Show details"}</span>
+              </button>`
+            : nothing
+        }
+        ${
           item.body
             ? html`<div class="cpk-td__timeline-body">${item.body}</div>`
-            : item.details
-              ? html`<pre class="cpk-td__timeline-body">
-${unsafeHTML(highlightedJson(item.details))}</pre
-              >`
-              : nothing
+            : nothing
+        }
+        ${
+          item.details && detailsExpanded
+            ? html`<pre class="cpk-td__timeline-body">${unsafeHTML(
+                highlightedJson(item.details),
+              )}</pre>`
+            : nothing
         }
       </div>
     `;
@@ -3011,10 +3518,15 @@ ${unsafeHTML(highlightedJson(stateValue))}</pre
         </div>
       `;
     }
-    return this.cachedPanelTpl("raw-events", [events], () => {
-      return html`${events.map((event) => {
-        const { bg, fg } = eventColors(event.type);
-        return html`
+    return this.cachedPanelTpl(
+      "raw-events",
+      [events, this._expandedRawEvents],
+      () => {
+        return html`${events.map((event) => {
+          const { bg, fg } = eventColors(event.type);
+          const eventId = this.rawEventId(event);
+          const detailsExpanded = this._expandedRawEvents.has(eventId);
+          return html`
           <div class="cpk-td__event" data-source-index=${event.sourceIndex}>
             <div class="cpk-td__event-header" style="background:${bg}">
               <span class="cpk-td__event-type" style="color:${fg}"
@@ -3024,13 +3536,53 @@ ${unsafeHTML(highlightedJson(stateValue))}</pre
                 >${formatTimestamp(event.timestamp)}</span
               >
             </div>
-            <pre class="cpk-td__event-payload">
-${unsafeHTML(highlightedJson(event.rawEvent ?? event))}</pre
+            <button
+              type="button"
+              class="cpk-td__timeline-details-toggle"
+              aria-expanded=${detailsExpanded ? "true" : "false"}
+              @click=${() => this.toggleRawEventDetails(eventId)}
             >
+              ${
+                detailsExpanded
+                  ? html`
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
+                    `
+                  : html`
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="m9 18 6-6-6-6" />
+                      </svg>
+                    `
+              }
+              <span>${detailsExpanded ? "Hide details" : "Show details"}</span>
+            </button>
+            ${
+              detailsExpanded
+                ? html`<pre class="cpk-td__event-payload">${unsafeHTML(
+                    highlightedJson(event.rawEvent ?? event),
+                  )}</pre>`
+                : nothing
+            }
           </div>
         `;
-      })}`;
-    });
+        })}`;
+      },
+    );
   }
 
   private renderPanelToggle() {
@@ -3140,6 +3692,368 @@ ${unsafeHTML(highlightedJson(event.rawEvent ?? event))}</pre
   }
 }
 
+// ─── cpk-memory-list ─────────────────────────────────────────────────────────
+
+/** Memory kind values including the "all" sentinel used by the filter UI. */
+type MemoryKindFilter = "all" | "topical" | "episodic" | "operational";
+
+class CpkMemoryList extends LitElement {
+  static properties = {
+    memories: { attribute: false },
+    search: { state: true },
+    kind: { state: true },
+  };
+
+  /** Ordered (newest-first) list of memories supplied by the parent. */
+  memories: Memory[] = [];
+  private search = "";
+  private kind: MemoryKindFilter = "all";
+
+  static styles = css`
+    @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500&display=swap");
+
+    :host {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .cpk-ml {
+      font-family: "Plus Jakarta Sans", sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+      background: #f7f7f9;
+    }
+
+    /* ── Search ── */
+    .cpk-ml__search {
+      padding: 10px 12px;
+      border-bottom: 1px solid #dbdbe5;
+      flex-shrink: 0;
+    }
+
+    .cpk-ml__search-input {
+      width: 100%;
+      box-sizing: border-box;
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-size: 12px;
+      padding: 7px 10px;
+      border-radius: 6px;
+      border: 1px solid #dbdbe5;
+      background: #ffffff;
+      color: #010507;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .cpk-ml__search-input:focus {
+      border-color: #bec2ff;
+    }
+
+    /* ── Kind filter ── */
+    .cpk-ml__filter {
+      display: flex;
+      gap: 4px;
+      padding: 8px 12px;
+      border-bottom: 1px solid #dbdbe5;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    .cpk-ml__filter-seg {
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 3px 9px;
+      border-radius: 5px;
+      border: 1px solid #dbdbe5;
+      background: #ffffff;
+      color: #57575b;
+      cursor: pointer;
+      transition:
+        background 0.1s,
+        border-color 0.1s,
+        color 0.1s;
+      user-select: none;
+    }
+
+    .cpk-ml__filter-seg:hover {
+      background: #f0f0f5;
+    }
+
+    .cpk-ml__filter-seg--active {
+      background: #bec2ff1a;
+      border-color: #bec2ff;
+      color: #010507;
+    }
+
+    .cpk-ml__filter-count {
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 9px;
+      margin-left: 4px;
+      color: #838389;
+    }
+
+    /* ── List ── */
+    .cpk-ml__list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    /* ── Card ── */
+    .cpk-ml__card {
+      background: #ffffff;
+      border: 1px solid #e9e9ef;
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .cpk-ml__card-badges {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    /* Kind badge — color per kind */
+    .cpk-ml__kind-badge {
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 9px;
+      padding: 1px 7px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .cpk-ml__kind-badge--topical {
+      background: #eee6fe;
+      color: #57575b;
+    }
+
+    .cpk-ml__kind-badge--episodic {
+      background: #e6f4fe;
+      color: #2d5f80;
+    }
+
+    .cpk-ml__kind-badge--operational {
+      background: #e6feee;
+      color: #2d6645;
+    }
+
+    /* Scope badge */
+    .cpk-ml__scope-badge {
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 9px;
+      padding: 1px 7px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      font-weight: 500;
+      white-space: nowrap;
+      background: #f0f0f5;
+      color: #838389;
+    }
+
+    /* Content */
+    .cpk-ml__content {
+      font-size: 12px;
+      color: #010507;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    /* Footer */
+    .cpk-ml__footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 2px;
+    }
+
+    .cpk-ml__footer-threads {
+      font-size: 10px;
+      color: #838389;
+    }
+
+    .cpk-ml__footer-id {
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 9px;
+      color: #c0c0c8;
+    }
+
+    /* ── Empty state ── */
+    .cpk-ml__empty {
+      padding: 32px 16px;
+      text-align: center;
+      color: #838389;
+      font-size: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .cpk-ml__empty-icon {
+      color: #c0c0c8;
+    }
+  `;
+
+  /** Memories that pass the current text search (before kind filter). */
+  private get searchFiltered(): Memory[] {
+    const q = this.search.trim().toLowerCase();
+    if (!q) return this.memories;
+    return this.memories.filter((m) => m.content.toLowerCase().includes(q));
+  }
+
+  /** Memories that pass both search and kind filter. */
+  private get filtered(): Memory[] {
+    const searched = this.searchFiltered;
+    if (this.kind === "all") return searched;
+    return searched.filter((m) => m.kind === this.kind);
+  }
+
+  /** Count of search-filtered memories for a given kind (for segment labels). */
+  private countForKind(kind: Exclude<MemoryKindFilter, "all">): number {
+    return this.searchFiltered.filter((m) => m.kind === kind).length;
+  }
+
+  private onSearchInput = (event: Event): void => {
+    this.search = (event.target as HTMLInputElement).value;
+  };
+
+  private onKindClick = (event: Event): void => {
+    const seg = (event.target as HTMLElement).closest("[data-kind]");
+    if (!seg) return;
+    const k = (seg as HTMLElement).dataset["kind"] as MemoryKindFilter;
+    this.kind = k;
+  };
+
+  /** Truncate an id to first-4…last-4 characters. */
+  private shortId(id: string): string {
+    if (id.length <= 12) return id;
+    return `${id.slice(0, 4)}…${id.slice(-4)}`;
+  }
+
+  private renderKindBadge(kind: string): TemplateResult {
+    return html`<span class="cpk-ml__kind-badge cpk-ml__kind-badge--${kind}"
+      >${kind}</span
+    >`;
+  }
+
+  private renderEmpty(): TemplateResult {
+    const q = this.search.trim();
+    if (this.memories.length === 0) {
+      return html`
+        <div class="cpk-ml__empty">
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="cpk-ml__empty-icon"
+          >
+            <ellipse cx="12" cy="5" rx="9" ry="3" />
+            <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+            <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+          </svg>
+          No memories yet — tell the agent a durable fact and watch it appear.
+        </div>
+      `;
+    }
+    if (q) {
+      return html`
+        <div class="cpk-ml__empty">
+          No memories match &ldquo;${q}&rdquo;.
+        </div>
+      `;
+    }
+    return html`
+      <div class="cpk-ml__empty">No ${this.kind} memories yet.</div>
+    `;
+  }
+
+  render() {
+    const filtered = this.filtered;
+    const kinds: Array<Exclude<MemoryKindFilter, "all">> = [
+      "topical",
+      "episodic",
+      "operational",
+    ];
+
+    return html`
+      <div class="cpk-ml">
+        <!-- Search -->
+        <div class="cpk-ml__search">
+          <input
+            type="text"
+            placeholder="Search memories…"
+            .value=${this.search}
+            @input=${this.onSearchInput}
+            class="cpk-ml__search-input"
+          />
+        </div>
+
+        <!-- Kind filter -->
+        <div class="cpk-ml__filter" @click=${this.onKindClick}>
+          <button
+            class="cpk-ml__filter-seg ${this.kind === "all" ? "cpk-ml__filter-seg--active" : ""}"
+            data-kind="all"
+          >
+            All<span class="cpk-ml__filter-count">${this.searchFiltered.length}</span>
+          </button>
+          ${kinds.map(
+            (k) => html`
+              <button
+                class="cpk-ml__filter-seg ${this.kind === k ? "cpk-ml__filter-seg--active" : ""}"
+                data-kind="${k}"
+              >
+                ${k}<span class="cpk-ml__filter-count">${this.countForKind(k)}</span>
+              </button>
+            `,
+          )}
+        </div>
+
+        <!-- Memory list -->
+        <div class="cpk-ml__list">
+          ${filtered.map(
+            (m) => html`
+              <div class="cpk-ml__card">
+                <div class="cpk-ml__card-badges">
+                  ${this.renderKindBadge(m.kind)}
+                  <span class="cpk-ml__scope-badge">${m.scope}</span>
+                </div>
+                <div class="cpk-ml__content">${m.content}</div>
+                <div class="cpk-ml__footer">
+                  <span class="cpk-ml__footer-threads"
+                    >${m.sourceThreadIds.length} source thread${m.sourceThreadIds.length === 1 ? "" : "s"}</span
+                  >
+                  <span class="cpk-ml__footer-id">${this.shortId(m.id)}</span>
+                </div>
+              </div>
+            `,
+          )}
+          ${filtered.length === 0 ? this.renderEmpty() : nothing}
+        </div>
+      </div>
+    `;
+  }
+}
+
 // Backwards-compatible internal element name used by the full CopilotKit
 // Inspector shell. Keep this class thin so the public body remains the single
 // implementation.
@@ -3154,6 +4068,9 @@ if (!customElements.get(THREAD_INSPECTOR_TAG)) {
 if (!customElements.get("cpk-thread-details")) {
   customElements.define("cpk-thread-details", ɵCpkThreadDetails);
 }
+if (!customElements.get("cpk-memory-list")) {
+  customElements.define("cpk-memory-list", CpkMemoryList);
+}
 
 export class WebInspectorElement extends LitElement {
   static properties = {
@@ -3164,6 +4081,25 @@ export class WebInspectorElement extends LitElement {
   private _core: CopilotKitCore | null = null;
   private coreSubscriber: CopilotKitCoreSubscriber | null = null;
   private coreUnsubscribe: (() => void) | null = null;
+  private _memories: Memory[] = [];
+  private _memoriesLoading = false;
+  private _memoriesError: Error | null = null;
+  private _memoriesAvailable = true;
+  // Realtime-connection health, independent of `_memoriesAvailable` (the REST
+  // list route). Drives the "live" indicator: only "connected" shows "live".
+  private _memoriesRealtimeStatus: MemoryRealtimeStatus = "connecting";
+  private _memoryUnsub: (() => void) | null = null;
+  // Lazy-subscription guard. The memory store is created + started + opens
+  // realtime the first time `core.getMemoryStore()` is called, so we defer
+  // that call until the user actually activates the Memories tab (see
+  // `ensureMemorySubscription`). This flag prevents a repeated tab click from
+  // double-subscribing; `detachFromCore` resets it so a later attach + tab
+  // activation re-subscribes cleanly.
+  private _memorySubscribed = false;
+  // True when the attached core predates `getMemoryStore` (older @copilotkit
+  // SDK). Distinct from `_memoriesAvailable` (memory not enabled on an
+  // otherwise-current deployment) so the teaser can show upgrade-the-SDK copy.
+  private _memoryStoreUnsupported = false;
   private runtimeStatus: CopilotKitCoreRuntimeConnectionStatus | null = null;
   private coreProperties: Readonly<Record<string, unknown>> = {};
   private lastCoreError: {
@@ -3263,6 +4199,19 @@ export class WebInspectorElement extends LitElement {
   // don't inflate funnel counts beyond one signal per intent type per banner.
   private clickedBannerIds: Set<string> = new Set();
   private viewedThreadsTelemetryStates: Set<string> = new Set();
+  private viewedExampleThreadIds: Set<string> = new Set();
+  private selectedExampleThreadIds: Set<string> = new Set();
+  private viewedExampleTourSteps: Set<string> = new Set();
+  private exampleThreadProviders: Map<string, ThreadDebuggerProvider> =
+    new Map();
+  private exampleTourDismissed = false;
+  private exampleTourActive = false;
+  private exampleTourStep = 0;
+  private exampleTourAutoShown = false;
+  private threadsExampleOverviewVideoShouldLoad = false;
+  private threadsExampleOverviewVideoReady = false;
+  private threadsExampleOverviewVideoLoadTimer: number | null = null;
+  private threadsExampleOverviewVideoIdleCallbackId: number | null = null;
 
   get core(): CopilotKitCore | null {
     return this._core;
@@ -3341,6 +4290,7 @@ export class WebInspectorElement extends LitElement {
         label: "Threads",
         icon: "MessageSquare" as LucideIconName,
       },
+      { key: "memories", label: "Learning", icon: "Brain" as LucideIconName },
     ];
   }
 
@@ -3354,6 +4304,31 @@ export class WebInspectorElement extends LitElement {
 
   private areThreadEndpointsAvailable(): boolean {
     return this.getThreadServiceStatus() !== "unavailable";
+  }
+
+  private getActiveThreadsState(): {
+    displayThreads: ɵThread[];
+    threadsErrorMessage: string | null;
+  } {
+    const displayThreads =
+      this.selectedContext === "all-agents"
+        ? this._threads
+        : (this._threadsByAgent.get(this.selectedContext) ?? []);
+
+    // Surface a thread-store load error inline. For "all-agents" we report
+    // the first error encountered across all agents (good enough for a
+    // debugging surface — the per-agent context filter narrows down the
+    // culprit). For a specific agent we use that agent's error directly.
+    let threadsErrorMessage: string | null = null;
+    if (this.selectedContext === "all-agents") {
+      const firstError = this._threadsErrorByAgent.values().next().value;
+      threadsErrorMessage = firstError?.message ?? null;
+    } else {
+      threadsErrorMessage =
+        this._threadsErrorByAgent.get(this.selectedContext)?.message ?? null;
+    }
+
+    return { displayThreads, threadsErrorMessage };
   }
 
   private getThreadsTelemetryProps(
@@ -3382,12 +4357,45 @@ export class WebInspectorElement extends LitElement {
     };
   }
 
+  private getMemoriesTelemetryProps(): InspectorMemoryTelemetryProps {
+    const distinctId = !this.core?.telemetryDisabled
+      ? getTelemetryDistinctIdForUrl()
+      : null;
+    return {
+      posthog_distinct_id: distinctId ?? undefined,
+      memory_count: this._memories.length,
+      available: this._memoriesAvailable,
+    };
+  }
+
   private getIntelligenceSignupUrl(): string {
     return this.appendRefParam(INTELLIGENCE_SIGNUP_URL, "cpk-inspector");
   }
 
+  private getThreadsIntelligenceSignupUrl(): string {
+    return this.appendRefParam(
+      THREADS_INTELLIGENCE_SIGNIN_URL,
+      "cpk-inspector",
+    );
+  }
+
   private getTalkToEngineerUrl(): string {
     return this.appendRefParam(TALK_TO_ENGINEER_URL, "cpk-inspector-threads");
+  }
+
+  private getThreadsTalkToEngineerUrl(): string {
+    return this.appendRefParam(TALK_TO_ENGINEER_URL, "cpk-inspector-threads");
+  }
+
+  private getThreadsDocsUrl(): string {
+    return this.appendRefParam(THREADS_DOCS_URL, "cpk-inspector-threads");
+  }
+
+  private getSelfHostedIntelligenceUrl(): string {
+    return this.appendRefParam(
+      SELF_HOSTED_INTELLIGENCE_URL,
+      "cpk-inspector-threads",
+    );
   }
 
   private subscribeToThreadStore(agentId: string, store: ɵThreadStore): void {
@@ -3428,6 +4436,7 @@ export class WebInspectorElement extends LitElement {
     if (this._threads.length === 0) return;
     const stillValid =
       this.selectedThreadId != null &&
+      !this.isExampleThreadId(this.selectedThreadId) &&
       this._threads.some((t) => t.id === this.selectedThreadId);
     if (!stillValid) {
       // Threads are sorted most-recently-updated first
@@ -3608,6 +4617,91 @@ export class WebInspectorElement extends LitElement {
     if (core.context) {
       this.contextStore = this.normalizeContextStore(core.context);
     }
+
+    // NOTE: the memory store is intentionally NOT touched here. Calling
+    // `core.getMemoryStore()` lazily creates + `.start()`s the store and opens
+    // a realtime connection, so merely attaching the inspector would spin up a
+    // memory store + realtime even in apps that never use memory. Instead, the
+    // store is created + subscribed on first Memories-tab activation via
+    // `ensureMemorySubscription` (user-initiated, acceptable). Attaching the
+    // inspector creates nothing.
+    //
+    // Exception: if the Memories tab is ALREADY the active tab when core is
+    // wired (e.g. core attaches after `firstUpdated` restored a persisted
+    // `selectedMenu: "memories"`), subscribe now so the live store + realtime
+    // status paint instead of the stuck defaults. This preserves INSP-1 (no
+    // unconditional subscribe on attach) because it is gated on the active tab,
+    // and is safe to call when already subscribed — `ensureMemorySubscription`
+    // early-returns on `_memorySubscribed`.
+    if (this.selectedMenu === "memories") {
+      this.ensureMemorySubscription();
+    }
+  }
+
+  /**
+   * Lazily subscribes to the singleton memory store the first time the user
+   * activates the Memories tab. This is deferred out of `attachToCore` because
+   * `core.getMemoryStore()` is what creates + starts the store and opens
+   * realtime — doing it on attach would start memory for apps that never use
+   * it. Idempotent: repeated tab activations are guarded by
+   * `_memorySubscribed`. On an older @copilotkit/core without `getMemoryStore`,
+   * records the unsupported state so the teaser can guide an SDK upgrade.
+   */
+  private ensureMemorySubscription(): void {
+    if (this._memorySubscribed) {
+      return;
+    }
+    const core = this._core;
+    if (!core) {
+      return;
+    }
+
+    // Guard like getThreadStores: older @copilotkit/core has no getMemoryStore.
+    // When absent, flag the unsupported state so the teaser shows upgrade copy
+    // instead of throwing a TypeError that would break the entire inspector.
+    if (typeof core.getMemoryStore !== "function") {
+      this._memoryStoreUnsupported = true;
+      this._memoriesAvailable = false;
+      this.requestUpdate();
+      return;
+    }
+
+    this._memorySubscribed = true;
+    this._memoryStoreUnsupported = false;
+
+    // First touch of getMemoryStore() — creates + starts the store, opens realtime.
+    const memoryStore = core.getMemoryStore();
+    const ms = memoryStore.getState();
+    this._memories = ɵselectMemories(ms);
+    this._memoriesLoading = ɵselectMemoriesIsLoading(ms);
+    this._memoriesError = ɵselectMemoriesError(ms);
+    this._memoriesAvailable = ɵselectMemoriesAvailable(ms);
+    this._memoriesRealtimeStatus = ɵselectMemoriesRealtimeStatus(ms);
+    const memSubs = [
+      memoryStore.select(ɵselectMemories).subscribe((v) => {
+        this._memories = v;
+        this.requestUpdate();
+      }),
+      memoryStore.select(ɵselectMemoriesIsLoading).subscribe((v) => {
+        this._memoriesLoading = v;
+        this.requestUpdate();
+      }),
+      memoryStore.select(ɵselectMemoriesError).subscribe((v) => {
+        this._memoriesError = v;
+        this.requestUpdate();
+      }),
+      memoryStore.select(ɵselectMemoriesAvailable).subscribe((v) => {
+        this._memoriesAvailable = v;
+        this.requestUpdate();
+      }),
+      // Group E — realtime connection health.
+      memoryStore.select(ɵselectMemoriesRealtimeStatus).subscribe((v) => {
+        this._memoriesRealtimeStatus = v;
+        this.requestUpdate();
+      }),
+    ];
+    this._memoryUnsub = () => memSubs.forEach((s) => s.unsubscribe());
+    this.requestUpdate();
   }
 
   private detachFromCore(): void {
@@ -3615,6 +4709,17 @@ export class WebInspectorElement extends LitElement {
       this.coreUnsubscribe();
       this.coreUnsubscribe = null;
     }
+    this._memoryUnsub?.();
+    this._memoryUnsub = null;
+    this._memories = [];
+    this._memoriesLoading = false;
+    this._memoriesError = null;
+    this._memoriesAvailable = true;
+    this._memoriesRealtimeStatus = "connecting";
+    // Reset the lazy-subscription guards so a later attach + Memories-tab
+    // activation re-subscribes (and re-evaluates SDK support) cleanly.
+    this._memorySubscribed = false;
+    this._memoryStoreUnsupported = false;
     this.coreSubscriber = null;
     this.runtimeStatus = null;
     this.lastCoreError = null;
@@ -4921,6 +6026,35 @@ ${argsString}</pre
       .cpk-tab-active {
         cursor: pointer;
       }
+      .cpk-threads-overview-video-frame {
+        position: relative;
+        display: block;
+        width: 100%;
+        max-width: 440px;
+        aspect-ratio: 16 / 9;
+        margin: 0 0 14px;
+        overflow: hidden;
+        border: 1px solid #dbdbe5;
+        border-radius: 8px;
+        background:
+          linear-gradient(
+            135deg,
+            rgba(190, 194, 255, 0.18),
+            rgba(133, 236, 206, 0.12)
+          ),
+          #ffffff;
+        box-shadow: 0 8px 20px rgba(1, 5, 7, 0.08);
+      }
+      .cpk-threads-overview-video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0;
+        transition: opacity 220ms ease;
+      }
+      .cpk-threads-overview-video[data-ready="true"] {
+        opacity: 1;
+      }
 
       /* ── Header control buttons (dock, close) — first row only ───── */
       .drag-handle > div:first-child button {
@@ -5103,6 +6237,7 @@ ${argsString}</pre
 
       // Load state early (before first render) so menu selection is correct
       this.hydrateStateFromStorageEarly();
+      this.exampleTourDismissed = this.readThreadsExampleTourDismissed();
       this.tryAutoAttachCore();
       this.ensureAnnouncementLoading();
     }
@@ -5137,6 +6272,17 @@ ${argsString}</pre
       clearTimeout(this.transitionTimeoutId);
       this.transitionTimeoutId = null;
     }
+    if (this.threadsExampleOverviewVideoLoadTimer !== null) {
+      window.clearTimeout(this.threadsExampleOverviewVideoLoadTimer);
+      this.threadsExampleOverviewVideoLoadTimer = null;
+    }
+    if (
+      this.threadsExampleOverviewVideoIdleCallbackId !== null &&
+      typeof window.cancelIdleCallback === "function"
+    ) {
+      window.cancelIdleCallback(this.threadsExampleOverviewVideoIdleCallbackId);
+      this.threadsExampleOverviewVideoIdleCallbackId = null;
+    }
     this.removeDockStyles(true); // Clean up any docking styles, skip transition
     this.detachFromCore();
   }
@@ -5160,6 +6306,18 @@ ${argsString}</pre
     this.contextState.window.anchorOffset = { x: EDGE_MARGIN, y: EDGE_MARGIN };
 
     this.hydrateStateFromStorage();
+
+    // `hydrateStateFromStorage` may have restored `selectedMenu: "memories"`.
+    // The memory subscription is normally created on a Memories-tab CLICK via
+    // `handleMenuSelect`, which never fires when the tab boots already active —
+    // leaving the realtime indicator stuck on the default "connecting" and the
+    // list empty until the user toggles tabs. Subscribe now when the Memories
+    // tab is the active tab. Gated on the active tab to preserve INSP-1 (no
+    // unconditional subscribe), and safe if core is not yet attached or already
+    // subscribed — `ensureMemorySubscription` early-returns in both cases.
+    if (this.selectedMenu === "memories") {
+      this.ensureMemorySubscription();
+    }
 
     // Apply docking styles if open and docked (skip transition on initial load)
     if (this.isOpen && this.dockMode !== "floating") {
@@ -5394,6 +6552,21 @@ ${argsString}</pre
                   </button>
                 `;
               })}
+              ${
+                this.selectedMenu === "threads"
+                  ? html`
+                      <a
+                        href=${this.getThreadsTalkToEngineerUrl()}
+                        target="_blank"
+                        rel="noopener"
+                        style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;border-radius:6px;border:1px solid #dbdbe5;background:#ffffff;padding:7px 10px;font-size:12px;font-weight:600;color:#57575b;text-decoration:none;"
+                        @click=${this.handleTalkToEngineerClick}
+                      >
+                        Talk to an Engineer
+                      </a>
+                    `
+                  : nothing
+              }
             </div>
           </div>
           <div class="flex flex-1 flex-col overflow-hidden">
@@ -6618,6 +7791,10 @@ ${argsString}</pre
       return this.renderThreadsView();
     }
 
+    if (this.selectedMenu === "memories") {
+      return this.renderMemoriesView();
+    }
+
     if (this.selectedMenu === "settings") {
       return this.renderSettingsPanel();
     }
@@ -6766,6 +7943,490 @@ ${argsString}</pre
     } else {
       trackThreadsEnabledViewed(props);
     }
+  }
+
+  private shouldRenderExampleThreads(
+    displayThreads: ɵThread[],
+    threadsErrorMessage: string | null,
+  ): boolean {
+    return (
+      this.areThreadEndpointsAvailable() &&
+      !threadsErrorMessage &&
+      displayThreads.length === 0
+    );
+  }
+
+  private getVisibleThreads(
+    displayThreads: ɵThread[],
+    threadsErrorMessage: string | null,
+  ): ɵThread[] {
+    return this.shouldRenderExampleThreads(displayThreads, threadsErrorMessage)
+      ? THREADS_EXAMPLE_THREADS
+      : displayThreads;
+  }
+
+  private isExampleThreadId(threadId: string | null | undefined): boolean {
+    return THREADS_EXAMPLE_THREADS.some((thread) => thread.id === threadId);
+  }
+
+  private getExampleThreadProvider(threadId: string): ThreadDebuggerProvider {
+    const cached = this.exampleThreadProviders.get(threadId);
+    if (cached) return cached;
+    const thread = THREADS_EXAMPLE_THREADS.find((item) => item.id === threadId);
+    const details = THREADS_EXAMPLE_DETAILS[threadId];
+    const provider: ThreadDebuggerProvider = {
+      getThreadMetadata: async () =>
+        thread
+          ? {
+              id: thread.id,
+              name: thread.name,
+              agentId: thread.agentId,
+              endUserId: "example-user",
+              status: "completed",
+              updatedAt: thread.updatedAt,
+            }
+          : null,
+      getMessages: async () => details?.messages ?? [],
+      getEvents: async () => details?.events ?? [],
+      getState: async () => details?.state ?? null,
+    };
+    this.exampleThreadProviders.set(threadId, provider);
+    return provider;
+  }
+
+  private trackThreadsExampleViewedOnce(): void {
+    if (this.core?.telemetryDisabled) return;
+    for (const thread of THREADS_EXAMPLE_THREADS) {
+      if (this.viewedExampleThreadIds.has(thread.id)) continue;
+      this.viewedExampleThreadIds.add(thread.id);
+      trackThreadsExampleViewed(
+        this.getThreadsTelemetryProps({
+          example_thread_id: thread.id,
+          thread_count: 0,
+        }),
+      );
+    }
+  }
+
+  private trackThreadsExampleSelectedOnce(threadId: string): void {
+    if (this.core?.telemetryDisabled) return;
+    if (this.selectedExampleThreadIds.has(threadId)) return;
+    this.selectedExampleThreadIds.add(threadId);
+    trackThreadsExampleSelected(
+      this.getThreadsTelemetryProps({
+        example_thread_id: threadId,
+        thread_count: 0,
+      }),
+    );
+  }
+
+  private getCurrentExampleTourProps(): InspectorThreadTelemetryProps {
+    const step =
+      THREADS_EXAMPLE_TOUR_STEPS[this.exampleTourStep] ??
+      THREADS_EXAMPLE_TOUR_STEPS[0]!;
+    return this.getThreadsTelemetryProps({
+      example_thread_id: this.selectedThreadId ?? undefined,
+      thread_count: 0,
+      tour_step: this.exampleTourStep + 1,
+      tour_tab: step?.tab,
+    });
+  }
+
+  private trackThreadsExampleTourStepViewedOnce(): void {
+    if (this.core?.telemetryDisabled || !this.selectedThreadId) return;
+    const step =
+      THREADS_EXAMPLE_TOUR_STEPS[this.exampleTourStep] ??
+      THREADS_EXAMPLE_TOUR_STEPS[0]!;
+    if (!step) return;
+    const key = `${this.selectedThreadId}:${this.exampleTourStep}`;
+    if (this.viewedExampleTourSteps.has(key)) return;
+    this.viewedExampleTourSteps.add(key);
+    trackThreadsExampleTourStepViewed(this.getCurrentExampleTourProps());
+  }
+
+  private syncExampleTourTab(): void {
+    const step =
+      THREADS_EXAMPLE_TOUR_STEPS[this.exampleTourStep] ??
+      THREADS_EXAMPLE_TOUR_STEPS[0]!;
+    if (!step) return;
+    void this.updateComplete.then(() => {
+      const details = this.shadowRoot?.querySelector("cpk-thread-details") as
+        | (ɵCpkThreadDetails & { selectTab?: (id: ThreadDetailsTab) => void })
+        | null;
+      details?.selectTab?.(step.tab);
+    });
+  }
+
+  private startExampleTour(autoStarted: boolean): void {
+    if (!this.selectedThreadId) return;
+    this.exampleTourActive = true;
+    this.exampleTourStep = 0;
+    if (autoStarted) {
+      this.exampleTourAutoShown = true;
+      if (!this.core?.telemetryDisabled) {
+        trackThreadsExampleTourStarted(this.getCurrentExampleTourProps());
+      }
+    } else if (!this.core?.telemetryDisabled) {
+      trackThreadsExampleTourReopened(this.getCurrentExampleTourProps());
+    }
+    this.trackThreadsExampleTourStepViewedOnce();
+    this.syncExampleTourTab();
+    this.requestUpdate();
+  }
+
+  private setExampleTourStep(nextStep: number): void {
+    this.exampleTourStep = Math.max(
+      0,
+      Math.min(THREADS_EXAMPLE_TOUR_STEPS.length - 1, nextStep),
+    );
+    this.trackThreadsExampleTourStepViewedOnce();
+    this.syncExampleTourTab();
+    this.requestUpdate();
+  }
+
+  private dismissExampleTour(method: "skip" | "done"): void {
+    if (!this.selectedThreadId) return;
+    const props = {
+      ...this.getCurrentExampleTourProps(),
+      dismiss_method: method,
+    };
+    this.exampleTourActive = false;
+    this.exampleTourDismissed = true;
+    this.writeThreadsExampleTourDismissed();
+    if (!this.core?.telemetryDisabled) {
+      if (method === "done") {
+        trackThreadsExampleTourCompleted(props);
+      } else {
+        trackThreadsExampleTourDismissed(props);
+      }
+    }
+    this.requestUpdate();
+  }
+
+  private handleThreadsThreadSelected(
+    threadId: string,
+    showingExamples: boolean,
+  ): void {
+    if (showingExamples && this.selectedThreadId === threadId) {
+      this.selectedThreadId = null;
+      this.exampleTourActive = false;
+      this.requestUpdate();
+      return;
+    }
+
+    this.selectedThreadId = threadId;
+    if (showingExamples && this.isExampleThreadId(threadId)) {
+      this.trackThreadsExampleSelectedOnce(threadId);
+      if (!this.exampleTourDismissed && !this.exampleTourAutoShown) {
+        this.startExampleTour(true);
+      } else {
+        this.exampleTourActive = false;
+      }
+    } else {
+      this.exampleTourActive = false;
+    }
+    this.requestUpdate();
+  }
+
+  private readThreadsExampleTourDismissed(): boolean {
+    if (typeof window === "undefined") return false;
+    try {
+      const raw = window.localStorage.getItem(THREADS_EXAMPLE_TOUR_STORAGE_KEY);
+      if (!raw) return false;
+      const value = JSON.parse(raw) as { dismissed?: unknown };
+      return value.dismissed === true;
+    } catch {
+      return false;
+    }
+  }
+
+  private writeThreadsExampleTourDismissed(): void {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        THREADS_EXAMPLE_TOUR_STORAGE_KEY,
+        JSON.stringify({ dismissed: true }),
+      );
+    } catch {
+      // Persistence is best-effort; the inspector should keep working without it.
+    }
+  }
+
+  private scheduleThreadsExampleOverviewVideoLoad(): void {
+    if (
+      this.threadsExampleOverviewVideoShouldLoad ||
+      this.threadsExampleOverviewVideoLoadTimer !== null ||
+      this.threadsExampleOverviewVideoIdleCallbackId !== null ||
+      typeof window === "undefined"
+    ) {
+      return;
+    }
+
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      return;
+    }
+
+    const loadVideo = () => {
+      this.threadsExampleOverviewVideoLoadTimer = null;
+      this.threadsExampleOverviewVideoIdleCallbackId = null;
+      this.threadsExampleOverviewVideoShouldLoad = true;
+      this.requestUpdate();
+    };
+
+    if (typeof window.requestIdleCallback === "function") {
+      this.threadsExampleOverviewVideoIdleCallbackId =
+        window.requestIdleCallback(loadVideo, { timeout: 1200 });
+      return;
+    }
+
+    this.threadsExampleOverviewVideoLoadTimer = window.setTimeout(
+      loadVideo,
+      450,
+    );
+  }
+
+  private handleThreadsExampleOverviewVideoLoaded = (): void => {
+    this.threadsExampleOverviewVideoReady = true;
+    this.requestUpdate();
+  };
+
+  private renderThreadsExampleOverviewVideo() {
+    this.scheduleThreadsExampleOverviewVideoLoad();
+
+    return html`
+      <div class="cpk-threads-overview-video-frame" aria-hidden="true">
+        ${
+          this.threadsExampleOverviewVideoShouldLoad
+            ? html`
+                <video
+                  class="cpk-threads-overview-video"
+                  data-ready=${this.threadsExampleOverviewVideoReady}
+                  src=${THREADS_EXAMPLE_OVERVIEW_VIDEO_URL}
+                  autoplay
+                  loop
+                  muted
+                  playsinline
+                  preload="metadata"
+                  @loadeddata=${this.handleThreadsExampleOverviewVideoLoaded}
+                ></video>
+              `
+            : nothing
+        }
+      </div>
+    `;
+  }
+
+  private renderThreadsExampleOverview() {
+    return html`
+      <div
+        style="
+          flex: 1;
+          min-width: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 32px;
+          background: #f7f7f9;
+        "
+      >
+        <div style="max-width: 440px; color: #57575b;">
+          <h2
+            style="
+              margin: 0 0 10px;
+              font-size: 20px;
+              line-height: 1.25;
+              font-weight: 600;
+              color: #010507;
+            "
+          >
+            Threads are persistent, inspectable conversations
+          </h2>
+          ${this.renderThreadsExampleOverviewVideo()}
+          <p
+            style="
+              margin: 0 0 16px;
+              font-size: 13px;
+              line-height: 1.55;
+              color: #57575b;
+            "
+          >
+            Take a tour with the example threads in the sidebar. Then, start
+            chatting in your app to create the first real thread.
+          </p>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;">
+            <a
+              href=${this.getThreadsDocsUrl()}
+              target="_blank"
+              rel="noopener"
+              style="
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                min-height: 34px;
+                border-radius: 6px;
+                background: #010507;
+                padding: 8px 12px;
+                font-size: 12px;
+                font-weight: 600;
+                color: #ffffff;
+                text-decoration: none;
+              "
+            >
+              Learn how Threads work
+            </a>
+            <a
+              href=${this.getSelfHostedIntelligenceUrl()}
+              target="_blank"
+              rel="noopener"
+              style="
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                min-height: 34px;
+                border-radius: 6px;
+                border: 1px solid #dbdbe5;
+                background: #ffffff;
+                padding: 8px 12px;
+                font-size: 12px;
+                font-weight: 600;
+                color: #010507;
+                text-decoration: none;
+              "
+            >
+              Explore self-hosted Intelligence
+            </a>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderThreadsExampleTour() {
+    if (
+      !this.selectedThreadId ||
+      !this.isExampleThreadId(this.selectedThreadId)
+    ) {
+      return nothing;
+    }
+
+    if (!this.exampleTourActive) {
+      return html`
+        <button
+          type="button"
+          style="
+            position: absolute;
+            right: 16px;
+            bottom: 16px;
+            z-index: 2;
+            border: 1px solid #dbdbe5;
+            border-radius: 6px;
+            background: #ffffff;
+            padding: 7px 10px;
+            color: #57575b;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 8px 18px rgba(1, 5, 7, 0.08);
+          "
+          @click=${() => this.startExampleTour(false)}
+        >
+          Show tour
+        </button>
+      `;
+    }
+
+    const step =
+      THREADS_EXAMPLE_TOUR_STEPS[this.exampleTourStep] ??
+      THREADS_EXAMPLE_TOUR_STEPS[0]!;
+    const isFirst = this.exampleTourStep === 0;
+    const isLast =
+      this.exampleTourStep === THREADS_EXAMPLE_TOUR_STEPS.length - 1;
+
+    return html`
+      <div
+        role="dialog"
+        aria-label="Example thread tour"
+        style="
+          position: absolute;
+          right: 16px;
+          bottom: 16px;
+          z-index: 3;
+          width: min(340px, calc(100% - 32px));
+          border: 1px solid #dbdbe5;
+          border-radius: 8px;
+          background: #ffffff;
+          padding: 14px;
+          box-shadow: 0 16px 36px rgba(1, 5, 7, 0.14);
+          color: #57575b;
+        "
+      >
+        <div
+          style="
+            margin-bottom: 8px;
+            font-family: 'Spline Sans Mono', monospace;
+            font-size: 10px;
+            font-weight: 600;
+            color: #189370;
+            text-transform: uppercase;
+          "
+        >
+          ${this.exampleTourStep + 1}/${THREADS_EXAMPLE_TOUR_STEPS.length}
+          ${step.label}
+        </div>
+        <div
+          style="
+            margin-bottom: 6px;
+            font-size: 14px;
+            line-height: 1.35;
+            font-weight: 600;
+            color: #010507;
+          "
+        >
+          ${step.title}
+        </div>
+        <div style="font-size: 12px; line-height: 1.5; color: #57575b;">
+          ${step.body}
+        </div>
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            margin-top: 14px;
+          "
+        >
+          <button
+            type="button"
+            style="border:0;background:transparent;color:#838389;font-size:12px;font-weight:600;cursor:pointer;padding:7px 0;"
+            @click=${() => this.dismissExampleTour("skip")}
+          >
+            Skip
+          </button>
+          <div style="display:flex;gap:8px;">
+            <button
+              type="button"
+              style="border:1px solid #dbdbe5;border-radius:6px;background:#ffffff;color:#57575b;font-size:12px;font-weight:600;cursor:pointer;padding:7px 10px;"
+              ?disabled=${isFirst}
+              @click=${() => this.setExampleTourStep(this.exampleTourStep - 1)}
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              style="border:1px solid #010507;border-radius:6px;background:#010507;color:#ffffff;font-size:12px;font-weight:600;cursor:pointer;padding:7px 10px;"
+              @click=${() =>
+                isLast
+                  ? this.dismissExampleTour("done")
+                  : this.setExampleTourStep(this.exampleTourStep + 1)}
+            >
+              ${isLast ? "Done" : "Next"}
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   private renderThreadsLockedBackgroundMockup() {
@@ -7015,29 +8676,7 @@ ${argsString}</pre
             "
           >
             <a
-              href=${this.getTalkToEngineerUrl()}
-              target="_blank"
-              rel="noopener"
-              style="
-                display: inline-flex;
-                min-height: 34px;
-                align-items: center;
-                justify-content: center;
-                gap: 6px;
-                border-radius: 6px;
-                background: #010507;
-                padding: 8px 12px;
-                font-size: 12px;
-                font-weight: 600;
-                color: #ffffff;
-                text-decoration: none;
-              "
-              @click=${this.handleThreadsTalkToEngineerClick}
-            >
-              Talk to an Engineer
-            </a>
-            <a
-              href=${this.getIntelligenceSignupUrl()}
+              href=${this.getThreadsIntelligenceSignupUrl()}
               target="_blank"
               rel="noopener"
               style="
@@ -7065,33 +8704,371 @@ ${argsString}</pre
     `;
   }
 
+  /**
+   * Renders the realtime-connection indicator in the memory-store header.
+   * Only `"connected"` shows the live (green-dot) state; `"connecting"` shows a
+   * muted amber "reconnecting" and `"unavailable"` a muted grey "offline", so
+   * the indicator never claims "live" over a frozen snapshot once the realtime
+   * socket has permanently given up.
+   */
+  private renderMemoryRealtimeIndicator() {
+    const status = this._memoriesRealtimeStatus;
+    const connected = status === "connected";
+    const dotColor = connected
+      ? "#22c55e"
+      : status === "connecting"
+        ? "#f59e0b"
+        : "#9ca3af";
+    const label =
+      status === "connected"
+        ? "live"
+        : status === "connecting"
+          ? "reconnecting"
+          : "offline";
+    return html`
+      <span
+        style="
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 10px;
+          font-weight: 500;
+          color: ${connected ? "#57575b" : "#838389"};
+        "
+      >
+        <span
+          style="
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: ${dotColor};
+          "
+        ></span>
+        ${label}
+      </span>
+    `;
+  }
+
+  private renderMemoriesView() {
+    // 1. Locked teaser — intelligence not configured or memories not available.
+    if (!this.core?.intelligence || !this._memoriesAvailable) {
+      return html`
+        <div
+          style="
+            position: relative;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 32px;
+            overflow: hidden;
+            background: #ffffff;
+          "
+        >
+          ${this.renderThreadsLockedBackgroundMockup()}
+          <div
+            aria-hidden="true"
+            style="
+              position: absolute;
+              inset: 0;
+              pointer-events: none;
+              background:
+                radial-gradient(circle at center, rgba(255,255,255,0.9) 0, rgba(255,255,255,0.78) 24%, rgba(255,255,255,0.34) 48%, rgba(255,255,255,0.56) 100%);
+            "
+          ></div>
+          <div
+            style="
+              position: relative;
+              z-index: 1;
+              max-width: 440px;
+              text-align: center;
+              color: #57575b;
+            "
+          >
+            <div
+              aria-hidden="true"
+              style="
+                margin: 0 auto 18px;
+                display: flex;
+                justify-content: center;
+              "
+            >
+              <div
+                style="
+                  display: flex;
+                  height: 44px;
+                  width: 44px;
+                  align-items: center;
+                  justify-content: center;
+                  border: 1px solid #dfd6fb;
+                  border-radius: 8px;
+                  background: #eee6fe;
+                  color: #57575b;
+                  box-shadow: 0 8px 18px rgba(87, 87, 91, 0.14);
+                "
+              >
+                ${this.renderIcon("Lock")}
+              </div>
+            </div>
+            <h2
+              style="
+                margin: 0 0 8px;
+                font-size: 16px;
+                line-height: 1.35;
+                font-weight: 600;
+                color: #010507;
+              "
+            >
+              Long-term memory
+            </h2>
+            <p
+              style="
+                margin: 0 auto 18px;
+                max-width: 380px;
+                font-size: 13px;
+                line-height: 1.55;
+                color: #57575b;
+              "
+            >
+              ${
+                this._memoryStoreUnsupported
+                  ? "Long-term memory isn't available in this version of the @copilotkit SDK. Upgrade @copilotkit/core (and @copilotkit/react) to a version that supports memory."
+                  : "Long-term memory isn't enabled on this deployment."
+              }
+            </p>
+            <div
+              style="
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 8px;
+              "
+            >
+              <a
+                href=${this.getTalkToEngineerUrl()}
+                target="_blank"
+                rel="noopener"
+                style="
+                  display: inline-flex;
+                  min-height: 34px;
+                  align-items: center;
+                  justify-content: center;
+                  gap: 6px;
+                  border-radius: 6px;
+                  background: #010507;
+                  padding: 8px 12px;
+                  font-size: 12px;
+                  font-weight: 600;
+                  color: #ffffff;
+                  text-decoration: none;
+                "
+                @click=${this.handleThreadsTalkToEngineerClick}
+              >
+                Talk to an Engineer
+              </a>
+              <a
+                href=${this.getIntelligenceSignupUrl()}
+                target="_blank"
+                rel="noopener"
+                style="
+                  display: inline-flex;
+                  min-height: 34px;
+                  align-items: center;
+                  justify-content: center;
+                  gap: 6px;
+                  border-radius: 6px;
+                  border: 1px solid #dbdbe5;
+                  background: #ffffff;
+                  padding: 8px 12px;
+                  font-size: 12px;
+                  font-weight: 600;
+                  color: #57575b;
+                  text-decoration: none;
+                "
+                @click=${this.handleThreadsIntelligenceSignupClick}
+              >
+                Sign up for Intelligence
+              </a>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // 2. Full-screen error — only for a snapshot-LOAD failure (no memories
+    // loaded). A mutation failure that arrives while memories are already on
+    // screen must NOT blank the list; it is surfaced inline below (step 4).
+    if (this._memoriesError && this._memories.length === 0) {
+      return html`
+        <div
+          style="
+            display: flex;
+            height: 100%;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            color: #838389;
+          "
+        >
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#c0333a"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          <span style="font-size: 13px; color: #c0333a;">
+            Failed to load memories
+          </span>
+          <span
+            style="
+              max-width: 320px;
+              text-align: center;
+              font-size: 11px;
+              line-height: 1.5;
+              color: #c0333a;
+            "
+          >
+            ${this._memoriesError.message}
+          </span>
+        </div>
+      `;
+    }
+
+    // 3. Initial loading placeholder (no memories yet to show behind it).
+    if (this._memoriesLoading && this._memories.length === 0) {
+      return html`
+        <div
+          style="
+            display: flex;
+            height: 100%;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            color: #838389;
+          "
+        >
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#c0c0c8"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+          </svg>
+          <span style="font-size: 13px">Loading memories…</span>
+        </div>
+      `;
+    }
+
+    // 4. Content — header + memory list.
+    return html`
+      <div style="display:flex;height:100%;overflow:hidden;flex-direction:column;">
+        <div class="cpk-section-header" style="display:flex;align-items:center;justify-content:space-between;">
+          <h4>Learning</h4>
+          <div style="display:flex;align-items:center;gap:6px;">
+            ${this.renderMemoryRealtimeIndicator()}
+            <span
+              style="
+                font-size: 11px;
+                font-weight: 500;
+                color: #57575b;
+                background: rgba(0,0,0,0.07);
+                border-radius: 9999px;
+                padding: 1px 7px;
+              "
+            >
+              ${this._memories.length}
+            </span>
+          </div>
+        </div>
+        ${
+          this._memoriesError
+            ? html`
+                <div
+                  role="alert"
+                  style="
+                    display: flex;
+                    align-items: flex-start;
+                    gap: 8px;
+                    flex-shrink: 0;
+                    border-bottom: 1px solid #f1c7c9;
+                    background: #fdf3f3;
+                    padding: 8px 12px;
+                    color: #c0333a;
+                    font-size: 12px;
+                    line-height: 1.45;
+                  "
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#c0333a"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    style="flex-shrink:0;margin-top:1px;"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                  <span>Action failed: ${this._memoriesError.message}</span>
+                </div>
+              `
+            : nothing
+        }
+        <div style="flex:1;min-height:0;overflow:hidden;">
+          <cpk-memory-list
+            style="height:100%;"
+            .memories=${this._memories}
+          ></cpk-memory-list>
+        </div>
+      </div>
+    `;
+  }
+
   private renderThreadsView() {
     if (!this.areThreadEndpointsAvailable()) {
       return this.renderThreadsLockedView();
     }
 
-    const displayThreads =
-      this.selectedContext === "all-agents"
-        ? this._threads
-        : (this._threadsByAgent.get(this.selectedContext) ?? []);
+    const { displayThreads, threadsErrorMessage } =
+      this.getActiveThreadsState();
 
-    // Surface a thread-store load error inline. For "all-agents" we report
-    // the first error encountered across all agents (good enough for a
-    // debugging surface — the per-agent context filter narrows down the
-    // culprit). For a specific agent we use that agent's error directly.
-    let threadsErrorMessage: string | null = null;
-    if (this.selectedContext === "all-agents") {
-      const firstError = this._threadsErrorByAgent.values().next().value;
-      threadsErrorMessage = firstError?.message ?? null;
-    } else {
-      threadsErrorMessage =
-        this._threadsErrorByAgent.get(this.selectedContext)?.message ?? null;
+    const showingExamples = this.shouldRenderExampleThreads(
+      displayThreads,
+      threadsErrorMessage,
+    );
+    const visibleThreads = this.getVisibleThreads(
+      displayThreads,
+      threadsErrorMessage,
+    );
+    if (showingExamples) {
+      this.trackThreadsExampleViewedOnce();
     }
 
     const selectedThread =
       this.selectedThreadId != null
-        ? (displayThreads.find((t) => t.id === this.selectedThreadId) ?? null)
+        ? (visibleThreads.find((t) => t.id === this.selectedThreadId) ?? null)
         : null;
+    const selectedThreadIsExample = this.isExampleThreadId(selectedThread?.id);
 
     if (!threadsErrorMessage) {
       this.trackThreadsViewStateOnce(
@@ -7102,19 +9079,6 @@ ${argsString}</pre
 
     return html`
       <div style="display:flex;height:100%;overflow:hidden;flex-direction:column;">
-        <div
-          style="display:flex;align-items:center;justify-content:flex-end;border-bottom:1px solid #DBDBE5;background:#ffffff;padding:8px 12px;flex-shrink:0;"
-        >
-          <a
-            href=${this.getTalkToEngineerUrl()}
-            target="_blank"
-            rel="noopener"
-            style="display:inline-flex;align-items:center;gap:6px;border-radius:6px;border:1px solid #dbdbe5;background:#ffffff;padding:7px 10px;font-size:12px;font-weight:600;color:#57575b;text-decoration:none;"
-            @click=${this.handleTalkToEngineerClick}
-          >
-            Talk to an Engineer
-          </a>
-        </div>
         <div style="display:flex;min-height:0;flex:1;overflow:hidden;">
           <!-- Left sidebar: thread list -->
           <div
@@ -7122,12 +9086,11 @@ ${argsString}</pre
           >
             <cpk-thread-list
               style="height:100%;"
-              .threads=${displayThreads}
+              .threads=${visibleThreads}
               .selectedThreadId=${this.selectedThreadId}
               .errorMessage=${threadsErrorMessage}
               @threadSelected=${(e: CustomEvent<string>) => {
-                this.selectedThreadId = e.detail;
-                this.requestUpdate();
+                this.handleThreadsThreadSelected(e.detail, showingExamples);
               }}
             ></cpk-thread-list>
           </div>
@@ -7142,16 +9105,22 @@ ${argsString}</pre
           ></div>
 
           <!-- Center + right: thread details or empty state -->
-          <div style="flex:1;min-width:0;overflow:hidden;display:flex;">
+          <div style="flex:1;min-width:0;overflow:hidden;display:flex;position:relative;">
             ${
               selectedThread
                 ? html`<cpk-thread-details
                     style="flex:1;min-width:0;"
                     .threadId=${selectedThread.id}
                     .thread=${selectedThread}
+                    .provider=${
+                      selectedThreadIsExample
+                        ? this.getExampleThreadProvider(selectedThread.id)
+                        : null
+                    }
                     .runtimeUrl=${this._core?.runtimeUrl ?? ""}
                     .headers=${this._core?.headers ?? {}}
                     .threadInspectionAvailable=${
+                      selectedThreadIsExample ||
                       this._core?.threadEndpoints?.inspect !== false
                     }
                     .liveMessageVersion=${
@@ -7163,8 +9132,11 @@ ${argsString}</pre
                     .agentEventsInput=${
                       this.agentEvents.get(selectedThread.agentId) ?? []
                     }
-                  ></cpk-thread-details>`
-                : html`
+                  ></cpk-thread-details>
+                  ${selectedThreadIsExample ? this.renderThreadsExampleTour() : nothing}`
+                : showingExamples
+                  ? this.renderThreadsExampleOverview()
+                  : html`
                     <div
                       style="
                         flex: 1;
@@ -7882,6 +9854,16 @@ ${prettyEvent}</pre
         trackThreadsTabClicked(this.getThreadsTelemetryProps());
       }
       this.autoSelectLatestThread();
+    }
+
+    if (key === "memories") {
+      // Lazily create + subscribe to the memory store on first activation. This
+      // is the only place that touches getMemoryStore(), so the store/realtime
+      // are never started just by attaching the inspector.
+      this.ensureMemorySubscription();
+      if (previousMenu !== "memories" && !this.core?.telemetryDisabled) {
+        trackMemoriesTabClicked(this.getMemoriesTelemetryProps());
+      }
     }
 
     if (key === "ag-ui-events" || key === "agents") {

@@ -32,6 +32,8 @@ from ag_ui.core import (
 )
 from ag_ui.encoder import EventEncoder
 
+from agents.claude_agent_sdk_adapter import normalize_claude_model
+
 
 SYSTEM_PROMPT = dedent("""
     You help users book an onboarding call with the sales team. When they
@@ -234,7 +236,9 @@ async def run_hitl_in_chat_agent(input_data: RunAgentInput) -> AsyncIterator[str
     )
 
     stream_kwargs: dict[str, Any] = {
-        "model": os.getenv("ANTHROPIC_MODEL", "claude-opus-4-5"),
+        "model": normalize_claude_model(
+            os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4.6")
+        ),
         "max_tokens": 1024,
         "system": SYSTEM_PROMPT,
         "messages": messages,

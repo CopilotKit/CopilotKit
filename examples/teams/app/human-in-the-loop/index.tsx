@@ -8,7 +8,7 @@
  * `send_announcement`, so a consequential action is always gated on a human.
  */
 import { z } from "zod";
-import { defineBotTool } from "@copilotkit/bot";
+import { defineBotTool } from "@copilotkit/channels";
 import { ConfirmAction } from "./confirm-action.js";
 
 /** The HITL gate: ask the user to approve before a consequential action. */
