@@ -1,7 +1,7 @@
 {
   "name": "@copilotkit/channels",
   "version": "0.1.1",
-  "description": "Batteries-included CopilotKit Channels distribution.",
+  "description": "Batteries-included CopilotKit Channels package with the core engine, JSX UI, and every supported platform adapter.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -15,6 +15,13 @@
     "bot",
     "chatbot",
     "channels",
+    "slack",
+    "microsoft-teams",
+    "teams",
+    "intelligence",
+    "discord",
+    "telegram",
+    "whatsapp",
     "copilotkit",
     "ag-ui"
   ],
@@ -40,6 +47,46 @@
     "./jsx-dev-runtime": {
       "types": "./dist/jsx-dev-runtime.d.ts",
       "import": "./dist/jsx-dev-runtime.js"
+    },
+    "./ui": {
+      "types": "./dist/ui.d.ts",
+      "import": "./dist/ui.js"
+    },
+    "./slack": {
+      "types": "./dist/slack.d.ts",
+      "import": "./dist/slack.js"
+    },
+    "./slack/codec": {
+      "types": "./dist/slack/codec.d.ts",
+      "import": "./dist/slack/codec.js"
+    },
+    "./slack/render": {
+      "types": "./dist/slack/render.d.ts",
+      "import": "./dist/slack/render.js"
+    },
+    "./teams": {
+      "types": "./dist/teams.d.ts",
+      "import": "./dist/teams.js"
+    },
+    "./teams/render": {
+      "types": "./dist/teams/render.d.ts",
+      "import": "./dist/teams/render.js"
+    },
+    "./intelligence": {
+      "types": "./dist/intelligence.d.ts",
+      "import": "./dist/intelligence.js"
+    },
+    "./discord": {
+      "types": "./dist/discord.d.ts",
+      "import": "./dist/discord.js"
+    },
+    "./telegram": {
+      "types": "./dist/telegram.d.ts",
+      "import": "./dist/telegram.js"
+    },
+    "./whatsapp": {
+      "types": "./dist/whatsapp.d.ts",
+      "import": "./dist/whatsapp.js"
     }
   },
   "files": [
@@ -54,7 +101,14 @@
     "attw": "attw --pack . --profile esm-only"
   },
   "dependencies": {
-    "@copilotkit/channels-core": "workspace:*"
+    "@copilotkit/channels-core": "workspace:*",
+    "@copilotkit/channels-ui": "workspace:*",
+    "@copilotkit/channels-slack": "workspace:*",
+    "@copilotkit/channels-teams": "workspace:*",
+    "@copilotkit/channels-intelligence": "workspace:*",
+    "@copilotkit/channels-discord": "workspace:*",
+    "@copilotkit/channels-telegram": "workspace:*",
+    "@copilotkit/channels-whatsapp": "workspace:*"
   },
   "devDependencies": {
     "@copilotkit/typescript-config": "workspace:^",
