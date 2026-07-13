@@ -123,13 +123,17 @@ export async function startChannelsWithGatewaySession(
   // own teardown either way — the caller's session decides when `onClose`
   // fires), so callers composing over a session they manage themselves still
   // get reconnect signaling.
-  const sessionOnClose = (
-    opts.session as Partial<{ onClose(cb: () => void): void }>
-  ).onClose;
-  if (sessionOnClose) {
+  const sessionWithOnClose = opts.session as Partial<{
+    onClose(cb: () => void): void;
+  }>;
+  if (sessionWithOnClose.onClose) {
     return {
       ...handle,
-      onClose: (cb: () => void) => sessionOnClose(cb),
+      // Call `onClose` ON the session (not via a detached reference) so a
+      // class-based RealtimeGatewaySession whose `onClose` reads `this` still
+      // works — the interface permits class-based implementations even though
+      // the concrete closure-based session happens not to need `this`.
+      onClose: (cb: () => void) => sessionWithOnClose.onClose!(cb),
     };
   }
   return handle;

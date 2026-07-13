@@ -161,8 +161,11 @@ export class RealtimeGatewayTransport
    * stashes for later complete/fail intents. Returns `undefined` (delivery
    * dropped, logged via {@link RealtimeGatewayTransportOptions.log}) when the turn
    * identity is missing/unmodeled or the delivery carries no `leaseToken` (a
-   * fenced intent can't be built without it). Only the text-turn shape is
-   * handled in V1; other input kinds are ignored until modeled.
+   * fenced intent can't be built without it). V1 assumes every leased delivery
+   * is a text turn and does not discriminate on `input.kind` — non-text kinds
+   * (command/interaction/reaction) are not yet modeled on the realtime path
+   * and will be mis-handled (coerced into a text turn) until they are
+   * (tracked for the event-parity follow-up).
    */
   private toIngressEnvelope(payload: unknown):
     | {

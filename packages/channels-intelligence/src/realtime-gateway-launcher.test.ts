@@ -582,4 +582,46 @@ describe("startChannelsWithGatewaySession — onClose passthrough (OSS-473)", ()
 
     await handle.stop();
   });
+
+  it("preserves the session receiver for a class-based onClose that reads `this` (OSS-473 CR fix)", async () => {
+    const fake = makeFakeSession();
+    // A class-based RealtimeGatewaySession implementation whose `onClose`
+    // relies on `this` — the interface permits this even though the
+    // concrete closure-based fake used elsewhere in this file does not
+    // exercise it. Calling `onClose` via a detached function reference
+    // (rather than as `session.onClose(cb)`) loses `this` and breaks this
+    // implementation.
+    class ClassBasedSession {
+      readonly push = fake.session.push;
+      readonly on = fake.session.on;
+      closeCbs: Array<() => void> = [];
+      onClose(cb: () => void): void {
+        this.closeCbs.push(cb);
+      }
+      fireClose(): void {
+        this.closeCbs.forEach((cb) => cb());
+      }
+    }
+    const classBasedSession = new ClassBasedSession();
+    const bot = createChannel({
+      name: "opentag",
+      agent: () => new FakeAgent(),
+    });
+
+    const handle = await startChannelsWithGatewaySession([bot], {
+      session: classBasedSession,
+      scope,
+      runtimeInstanceId: "rti_1",
+    });
+
+    let calls = 0;
+    handle.onClose?.(() => {
+      calls += 1;
+    });
+    classBasedSession.fireClose();
+
+    expect(calls).toBe(1);
+
+    await handle.stop();
+  });
 });
