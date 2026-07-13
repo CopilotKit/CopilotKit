@@ -195,15 +195,23 @@ export interface RunSpecDrivenD6Options {
    */
   listPresentSpecs?: (slug: string) => string[];
   /**
-   * Injectable pre-resolved slug-map (spec-path → cells). When provided, the
-   * pipeline uses it verbatim and SKIPS the base+delta resolver entirely — the
-   * production path never sets this; it exists so unit tests can pin an exact
-   * resolved mapping (including pathological shapes like a spec-path with zero
-   * cells) without staging on-disk files or base.json entries.
+   * Test-only injection seams. The production path never sets this field;
+   * nesting all test hooks here makes it unrepresentable in normal production
+   * option construction — a future production caller cannot accidentally inject
+   * a bypass mapping at the top level.
    *
-   * @internal Overridden in unit tests.
+   * @internal Overridden in unit tests ONLY.
    */
-  resolvedMapping?: Record<string, D5FeatureType[]>;
+  __testSeams?: {
+    /**
+     * Pre-resolved slug-map (spec-path → cells). When provided, the pipeline
+     * uses it verbatim and SKIPS the base+delta resolver entirely — exists so
+     * unit tests can pin an exact resolved mapping (including pathological
+     * shapes like a spec-path with zero cells) without staging on-disk files
+     * or base.json entries.
+     */
+    resolvedMapping?: Record<string, D5FeatureType[]>;
+  };
   /**
    * Abort signal — when signalled, the pipeline exits early without emitting.
    * Optional and safe to omit; provided by the driver agent when threading
@@ -291,7 +299,7 @@ export async function runSpecDrivenD6(
   const listPresentSpecs =
     opts.listPresentSpecs ?? defaultListPresentSpecs(integrationDir);
   const slugMapping =
-    opts.resolvedMapping ??
+    opts.__testSeams?.resolvedMapping ??
     (await loadDefaultResolvedMapping(slug, {
       listPresentSpecs,
       notSupportedFeatures: opts.notSupportedFeatures,

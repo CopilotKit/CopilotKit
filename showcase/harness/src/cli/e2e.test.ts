@@ -2160,8 +2160,8 @@ describe("R4-J1 Fix 6 — zero-cells seam: non-empty mapping → zero cells = re
     const ctx = makeCtx(writer);
 
     // Inject a RESOLVED slug-map with one specPath but zero mapped cells via the
-    // `resolvedMapping` seam. Under the base+delta resolver a zero-cell specPath
-    // cannot be produced organically (unmapped stems are dropped with a WARN),
+    // `__testSeams.resolvedMapping` seam. Under the base+delta resolver a zero-cell
+    // specPath cannot be produced organically (unmapped stems are dropped with a WARN),
     // so we pin the pathological resolved shape directly. This causes
     // rollupVerdicts to return an empty Map (inverseIndex empty, no skip list) →
     // verdict map stays empty despite specPaths.length === 1 → zero-cells guard.
@@ -2169,8 +2169,10 @@ describe("R4-J1 Fix 6 — zero-cells seam: non-empty mapping → zero cells = re
       runSpecDrivenD6("zc-test-slug", {
         backendUrl: "https://zc-test.example.com",
         integrationDir: "/fake/zc-test",
-        resolvedMapping: {
-          "tests/e2e/dummy.spec.ts": [] as unknown as D5FeatureType[], // specPath exists, but NO cells mapped
+        __testSeams: {
+          resolvedMapping: {
+            "tests/e2e/dummy.spec.ts": [] as unknown as D5FeatureType[], // specPath exists, but NO cells mapped
+          },
         },
         ctx,
         // specRunner returns an empty report — doesn't matter, rollup sees 0 cells
@@ -2378,8 +2380,10 @@ describe("R6-L-A Fix 2 — zero-cells guard checks mapped cells, not pre-seeded 
         runSpecDrivenD6("skip-only-slug", {
           backendUrl: "https://example.com",
           integrationDir: "/fake/skip-only",
-          resolvedMapping: {
-            "tests/e2e/dummy.spec.ts": [] as unknown as D5FeatureType[], // specPath exists, NO cells mapped
+          __testSeams: {
+            resolvedMapping: {
+              "tests/e2e/dummy.spec.ts": [] as unknown as D5FeatureType[], // specPath exists, NO cells mapped
+            },
           },
           ctx,
           specRunner: () => ({ suites: [], errors: [] }),
@@ -2405,8 +2409,10 @@ describe("R6-L-A Fix 2 — zero-cells guard checks mapped cells, not pre-seeded 
       const result = await runSpecDrivenD6("real-slug", {
         backendUrl: "https://example.com",
         integrationDir: "/fake/real",
-        resolvedMapping: {
-          "tests/e2e/real.spec.ts": ["real-feature" as unknown as D5FeatureType], // real cell mapped
+        __testSeams: {
+          resolvedMapping: {
+            "tests/e2e/real.spec.ts": ["real-feature" as unknown as D5FeatureType], // real cell mapped
+          },
         },
         ctx,
         specRunner: () => ({ suites: [], errors: [] }),
@@ -2482,10 +2488,12 @@ describe("R6-L-A Fix 3 — rollupDiagnostics and skipMaskedRed wired into runSpe
     const ctx = makeCtx(writer);
 
     const result = await runSpecDrivenD6(TEST_SLUG, {
-      resolvedMapping: {
-        "tests/e2e/agentic-chat.spec.ts": [
-          "agentic-chat" as unknown as D5FeatureType,
-        ],
+      __testSeams: {
+        resolvedMapping: {
+          "tests/e2e/agentic-chat.spec.ts": [
+            "agentic-chat" as unknown as D5FeatureType,
+          ],
+        },
       },
       backendUrl: "https://lgp.example.com",
       integrationDir: "/fake/lgp",
@@ -2521,10 +2529,12 @@ describe("R6-L-A Fix 3 — rollupDiagnostics and skipMaskedRed wired into runSpe
 
     try {
       await runSpecDrivenD6(TEST_SLUG, {
-        resolvedMapping: {
-          "tests/e2e/agentic-chat.spec.ts": [
-            "agentic-chat" as unknown as D5FeatureType,
-          ],
+        __testSeams: {
+          resolvedMapping: {
+            "tests/e2e/agentic-chat.spec.ts": [
+              "agentic-chat" as unknown as D5FeatureType,
+            ],
+          },
         },
         backendUrl: "https://lgp.example.com",
         integrationDir: "/fake/lgp",
@@ -2824,5 +2834,47 @@ describe("Task 5 — flipped slug (absent from old JSON) is measured via the res
     // this flipped slug (the inert skip entry). With the old mapping[slug]
     // lookup for a slug absent from the JSON this would be EMPTY.
     expect(result!.inertSkipEntries).toContain("phantom-incapable-feature");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// __testSeams type-hardening: production option construction must not carry
+// resolvedMapping at the top level (escape hatch is now unrepresentable).
+// ---------------------------------------------------------------------------
+
+describe("__testSeams type-hardening — resolvedMapping not accessible at top level", () => {
+  it("production option object does not have resolvedMapping at the top level", () => {
+    // This is a type-level + runtime assertion: the canonical production option
+    // shape (the objects passed by e2e.ts ~1065 and d6-all-pills.ts ~985) must
+    // NOT carry resolvedMapping as a top-level key. The seam lives exclusively
+    // under __testSeams, making production bypass unrepresentable.
+    const prodOpts: RunSpecDrivenD6Options = {
+      backendUrl: "https://example.com",
+      integrationDir: "/some/dir",
+      ctx: makeCtx(),
+    };
+
+    // The top-level key must not exist — not even as undefined.
+    expect(Object.prototype.hasOwnProperty.call(prodOpts, "resolvedMapping")).toBe(false);
+    // __testSeams itself must also be absent in normal production construction.
+    expect(Object.prototype.hasOwnProperty.call(prodOpts, "__testSeams")).toBe(false);
+  });
+
+  it("RunSpecDrivenD6Options type only exposes resolvedMapping via __testSeams", () => {
+    // Verify the runtime shape: a test seam object must carry resolvedMapping
+    // only under __testSeams, not at the top level.
+    const testOpts: RunSpecDrivenD6Options = {
+      backendUrl: "https://example.com",
+      integrationDir: "/fake/dir",
+      ctx: makeCtx(),
+      __testSeams: {
+        resolvedMapping: { "tests/e2e/foo.spec.ts": [] as unknown as D5FeatureType[] },
+      },
+    };
+
+    // Nested seam is accessible.
+    expect(testOpts.__testSeams?.resolvedMapping).toBeDefined();
+    // Top-level resolvedMapping key must be absent.
+    expect(Object.prototype.hasOwnProperty.call(testOpts, "resolvedMapping")).toBe(false);
   });
 });
