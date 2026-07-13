@@ -81,12 +81,22 @@ function goneRows(slug: string, atMs: number): StatusRow[] {
   ];
 }
 
-/** All rows to make a slug's cell GREEN-D0-fresh (D3 e2e + chat/tools green). */
+/**
+ * All rows to make a slug's cell a GENUINE GREEN LADDER (chipColor green,
+ * achievedDepth 6) — a POSITIVE-green recovery signal. B-F1: the D5/D6 per-cell
+ * rows (`d5:<slug>/agentic-chat`, `d6:<slug>/agentic-chat`) are MANDATORY —
+ * without them `buildCellModel` collapses to gray/no-data (achievedDepth 4,
+ * chipColor gray), which is UNKNOWN, not healthy, and must NOT count as
+ * recovery. `agentic-chat` maps to the single D5/D6 featureType `agentic-chat`
+ * (CATALOG_TO_D5_KEY), so one d5 + one d6 green row completes the ladder.
+ */
 function healthyRows(slug: string, atMs: number): StatusRow[] {
   return [
     row(slug, keyFor("e2e", slug, "agentic-chat"), "green", atMs),
     row(slug, keyFor("chat", slug), "green", atMs),
     row(slug, keyFor("tools", slug), "green", atMs),
+    row(slug, keyFor("d5", slug, "agentic-chat"), "green", atMs),
+    row(slug, keyFor("d6", slug, "agentic-chat"), "green", atMs),
   ];
 }
 
@@ -349,6 +359,47 @@ describe("D0-gone monitor — hourly dedup (§10.3)", () => {
   });
 });
 
+describe("D0-gone monitor — B-flap: an open outage keeps re-posting despite an inconclusive confirm", () => {
+  /** e2e/chat/tools green but NO d5/d6 → gray no-data (inconclusive). */
+  function noDataRows(slug: string, atMs: number): StatusRow[] {
+    return [
+      row(slug, keyFor("e2e", slug, "agentic-chat"), "green", atMs),
+      row(slug, keyFor("chat", slug), "green", atMs),
+      row(slug, keyFor("tools", slug), "green", atMs),
+    ];
+  }
+
+  it("re-post is due but the confirm scan flaps to inconclusive → STILL re-posts (held open)", async () => {
+    const f = makeFakes();
+    f.setSummary(f.liveProducer());
+    f.setStatusRows(goneRows("alpha", T0));
+    const m = createD0GoneMonitor(f.deps);
+    await m.tick(); // OPEN at T0
+    expect(f.posted).toHaveLength(1);
+
+    // 60m later a re-post is due. FIRST scan reads gone, but the CONFIRM re-read
+    // flaps to inconclusive (gray/no-data — neither gone nor fresh-healthy). The
+    // OLD code gated re-posts on the double-confirmed set (empty here) → the
+    // open outage went silent forever. The fix keeps an already-open column in
+    // the alert cadence unless a CONFIRMED recovery closes it → it re-posts.
+    f.setClock(T0 + 60 * MIN);
+    f.setSummary(f.liveProducer(T0 + 60 * MIN));
+    f.setStatusRows(goneRows("alpha", T0));
+    const depsFlapInconclusive = {
+      ...f.deps,
+      sleep: async () => {
+        f.setStatusRows(noDataRows("alpha", T0 + 60 * MIN)); // confirm: inconclusive
+      },
+    };
+    const m2 = createD0GoneMonitor(depsFlapInconclusive);
+    await m2.tick();
+    expect(f.posted).toHaveLength(2); // re-posted despite inconclusive confirm
+    expect(f.posted[1]).toContain("`alpha`");
+    // still open in state
+    expect(JSON.parse(f.getState().hash!).alpha).toBeDefined();
+  });
+});
+
 describe("D0-gone monitor — recovery/clear (§10.4)", () => {
   it("open outage → fresh-healthy read → ONE recovery post, state cleared; next tick silent", async () => {
     const f = makeFakes();
@@ -373,6 +424,48 @@ describe("D0-gone monitor — recovery/clear (§10.4)", () => {
     f.setStatusRows(healthyRows("alpha", T0 + 40 * MIN));
     await m.tick();
     expect(f.posted).toHaveLength(2);
+  });
+});
+
+describe("D0-gone monitor — B-F1 gone→no-data must NOT auto-recover", () => {
+  /** e2e/chat/tools green but NO d5/d6 → chipColor gray (no-data), NOT green. */
+  function noDataRows(slug: string, atMs: number): StatusRow[] {
+    return [
+      row(slug, keyFor("e2e", slug, "agentic-chat"), "green", atMs),
+      row(slug, keyFor("chat", slug), "green", atMs),
+      row(slug, keyFor("tools", slug), "green", atMs),
+    ];
+  }
+
+  it("open outage → column decays to NO-DATA (gray) → NO recovery, held open", async () => {
+    const f = makeFakes();
+    f.setSummary(f.liveProducer());
+    f.setStatusRows(goneRows("alpha", T0));
+    const m = createD0GoneMonitor(f.deps);
+    await m.tick(); // OPEN
+    expect(f.posted).toHaveLength(1);
+
+    // The producer is LIVE, but alpha's ladder decays to no-data (gray) — e.g.
+    // the d5/d6 rows stopped being written while the earlier green ones aged
+    // out, or a partial re-sweep. Under the OLD `columnFreshHealthy`
+    // (!some cellGone), a gray/no-data column read as fresh-healthy → a FALSE
+    // recovery. With the positive-green classifier it is UNKNOWN → HOLD.
+    for (const mins of [20, 40, 60]) {
+      f.setClock(T0 + mins * MIN);
+      f.setSummary(f.liveProducer(T0 + mins * MIN));
+      f.setStatusRows(noDataRows("alpha", T0 + mins * MIN));
+      await m.tick();
+    }
+    expect(f.posted.every((p) => !p.includes("recovered"))).toBe(true);
+    expect(JSON.parse(f.getState().hash!).alpha).toBeDefined(); // still open
+
+    // A genuine GREEN ladder finally clears it (positive evidence).
+    f.setClock(T0 + 80 * MIN);
+    f.setSummary(f.liveProducer(T0 + 80 * MIN));
+    f.setStatusRows(healthyRows("alpha", T0 + 80 * MIN));
+    await m.tick();
+    expect(f.posted.some((p) => p.includes("recovered"))).toBe(true);
+    expect(JSON.parse(f.getState().hash!).alpha).toBeUndefined();
   });
 });
 
@@ -519,6 +612,57 @@ describe("D0-gone monitor — failure modes (§10.6)", () => {
   });
 });
 
+describe("D0-gone monitor — B-cadence: overflow slugs keep their re-post clock", () => {
+  const THREE_SLUG_REGISTRY: RegistryDoc = {
+    feature_registry: { features: [{ id: "agentic-chat" }] },
+    integrations: ["alpha", "beta", "gamma"].map((slug) => ({
+      slug,
+      features: ["agentic-chat"],
+      demos: [{ id: "agentic-chat", route: "/demos/agentic-chat" }],
+    })),
+  };
+
+  it("only SHOWN slugs advance lastAlertAt; an overflow (+N more) slug re-posts next tick", async () => {
+    const f = makeFakes();
+    f.deps.registry = THREE_SLUG_REGISTRY;
+    f.setSummary(f.liveProducer());
+    f.setStatusRows([
+      ...goneRows("alpha", T0),
+      ...goneRows("beta", T0),
+      ...goneRows("gamma", T0),
+    ]);
+    // Cap the message at 2 slugs → the 3rd (gamma, sorted last) is overflow.
+    const m = createD0GoneMonitor({
+      ...f.deps,
+      config: { maxSlugsInMessage: 2 },
+    });
+    await m.tick(); // OPEN — message names alpha+beta, "+1 more" (gamma)
+    expect(f.posted).toHaveLength(1);
+    expect(f.posted[0]).toContain("+1 more");
+
+    const map1 = JSON.parse(f.getState().hash!);
+    // Shown slugs got a lastAlertAt; the overflow slug (gamma) did NOT — the OLD
+    // code advanced EVERY open slug's clock (including unshown overflow), muting
+    // gamma for an hour without ever naming it. B-cadence keeps its clock unset.
+    expect(map1.alpha.lastAlertAt).not.toBe("");
+    expect(map1.beta.lastAlertAt).not.toBe("");
+    expect(map1.gamma.lastAlertAt).toBe("");
+
+    // Next tick well BEFORE the 60m re-post window: alpha/beta are NOT due
+    // (their clock is fresh), but gamma's unset clock means it IS due → a
+    // message re-posts this tick (it was never actually reported by name).
+    f.setClock(T0 + 15 * MIN);
+    f.setSummary(f.liveProducer(T0 + 15 * MIN));
+    f.setStatusRows([
+      ...goneRows("alpha", T0),
+      ...goneRows("beta", T0),
+      ...goneRows("gamma", T0),
+    ]);
+    await m.tick();
+    expect(f.posted).toHaveLength(2); // gamma still pending → re-posted
+  });
+});
+
 describe("D0-gone monitor — aggregation (§4.1)", () => {
   it("both slugs gone → ONE message with both bullets, not two messages", async () => {
     const f = makeFakes();
@@ -577,6 +721,31 @@ describe("D0-gone monitor — A1 onset key match (prefix collision)", () => {
     expect(map["strands-typescript"].sinceAt).toBe(
       new Date(strandsTsOnset).toISOString(),
     );
+  });
+});
+
+describe("D0-gone monitor — B-onset derived from the folded verdict", () => {
+  it("onset = earliest failure among the LADDER rows the fold used, not a raw non-ladder red row", async () => {
+    const f = makeFakes();
+    f.setSummary(f.liveProducer());
+    // alpha is gone: its e2e/chat/tools ladder rows went red at T0. A STRAY
+    // `health:alpha` row is red much EARLIER (T0 - 3h). `health` is the D1/D2
+    // liveness dimension — buildCellModel's resolveD3 does NOT fold it into the
+    // gone verdict, so it is NOT a contributing ladder row. The OLD raw-row
+    // onset scan (`row.state === "red" && keyBelongsToSlug`) matched
+    // `health:alpha` and mis-timed the onset to T0-3h. The folded derivation
+    // takes onset only from the D3/D4/D5/D6 winner rows → T0.
+    const strayEarly = T0 - 3 * HOUR;
+    f.setStatusRows([
+      ...goneRows("alpha", T0),
+      row("alpha", keyFor("health", "alpha"), "red", strayEarly),
+    ]);
+    const m = createD0GoneMonitor(f.deps);
+    await m.tick();
+    expect(f.posted).toHaveLength(1);
+    const map = JSON.parse(f.getState().hash!);
+    // GREEN: onset is the ladder's own T0, NOT the stray non-ladder T0-3h.
+    expect(map.alpha.sinceAt).toBe(new Date(T0).toISOString());
   });
 });
 
@@ -696,6 +865,54 @@ describe("D0-gone monitor — A5 registry-load failure is not permanent", () => 
     expect(errs).toHaveLength(1);
     expect(errs[0].msg).toContain("registry-load-failed");
     expect((errs[0].meta as { errorId?: string }).errorId).toBeTruthy();
+  });
+
+  it("B-A5gap: a registry with integrations but ZERO wired cells logs no-wired-cells + self-heals", async () => {
+    // The silent-disable case the OLD `size === 0` guard MISSED:
+    // wiredSupportedCells keys every integration slug even with an empty wired
+    // array, so this registry has size > 0 but not one wired cell. The monitor
+    // enumerates only empty arrays → can never page. It must log LOUDLY every
+    // tick while empty, and (loader thunk) re-load so a fixed registry heals.
+    const errs: Array<{ msg: string; meta: unknown }> = [];
+    const logger = {
+      info() {},
+      warn() {},
+      error(msg: string, meta: unknown) {
+        errs.push({ msg, meta });
+      },
+      debug() {},
+    };
+    const f = makeFakes();
+    f.setSummary(f.liveProducer());
+    f.setStatusRows(goneRows("alpha", T0));
+    // Registry lists an integration whose only demo has NO route → zero wired
+    // cells, but the slug IS keyed (empty array) → map.size === 1, not 0.
+    const zeroWired: RegistryDoc = {
+      feature_registry: { features: [{ id: "agentic-chat" }] },
+      integrations: [
+        {
+          slug: "alpha",
+          features: ["agentic-chat"],
+          demos: [{ id: "agentic-chat" }],
+        },
+      ],
+    };
+    let doc: RegistryDoc = zeroWired;
+    const deps = { ...f.deps, logger, registry: () => doc };
+    const m = createD0GoneMonitor(deps);
+
+    await m.tick();
+    expect(f.posted).toHaveLength(0); // no wired cell → nothing to page
+    // GREEN: the loud no-wired-cells error fired (old size-based guard did NOT).
+    expect(errs.some((e) => e.msg.includes("no-wired-cells"))).toBe(true);
+
+    // Fix the registry (add a route → alpha's cell becomes wired) → self-heals.
+    doc = REGISTRY;
+    f.setClock(T0 + 15 * MIN);
+    f.setSummary(f.liveProducer(T0 + 15 * MIN));
+    f.setStatusRows(goneRows("alpha", T0));
+    await m.tick();
+    expect(f.posted).toHaveLength(1); // self-healed and paged
   });
 
   it("loader-thunk registry: an initially-empty registry self-heals on a later tick (no redeploy)", async () => {

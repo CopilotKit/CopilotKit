@@ -30,6 +30,8 @@ import {
 import { E2E_STALE_AFTER_MS } from "../../shared/cell-model/staleness.js";
 import {
   cellGone,
+  cellHealthy,
+  classifyCell,
   columnGone,
   columnFreshHealthy,
   wiredSupportedCells,
@@ -253,6 +255,76 @@ describe("d0-gone-predicate — no divergence from buildCellModel (§10.1)", () 
     // stale column is inconclusive — neither gone NOR fresh-healthy
     expect(columnGone(modelsFor(stale))).toBe(false);
     expect(columnFreshHealthy(modelsFor(stale))).toBe(false);
+  });
+});
+
+describe("B-F1 — recovery requires POSITIVE green, never mere absence/no-data", () => {
+  // A "partial-ladder no-data" cell: e2e/chat/tools green but NO d5/d6 rows →
+  // buildCellModel yields { achievedDepth: 4, chipColor: "gray" } (the D5
+  // exists-but-unemitted no-data collapse). This is EXACTLY the shape a gone
+  // column decays into when the producer stops writing d5/d6 rows — the cell
+  // goes to NO-DATA (gray), NOT green. The OLD `columnFreshHealthy` (`!some
+  // cellGone`) marked this gray cell as recovered; the fixed predicate must NOT.
+  const noDataLive = mergeRowsToMap([
+    row(keyFor("e2e", SLUG, "agentic-chat"), "green"),
+    row(keyFor("chat", SLUG), "green"),
+    row(keyFor("tools", SLUG), "green"),
+  ]);
+  const noDataInput: CellModelInput = wired("agentic-chat");
+  function noDataModel(): CellGoneInput {
+    const m = buildCellModel(noDataLive, noDataInput, NOW);
+    return {
+      achievedDepth: m.achievedDepth,
+      chipColor: m.chipColor,
+      isStaleCell: m.isStaleCell,
+      surfaceState: m.surfaceState,
+    };
+  }
+
+  it("a gray/no-data cell classifies UNKNOWN (not gone, not healthy)", () => {
+    const model = noDataModel();
+    // Guard the fixture actually IS the gray/no-data shape we intend.
+    expect(model.chipColor).toBe("gray");
+    expect(cellGone(model)).toBe(false);
+    expect(cellHealthy(model)).toBe(false);
+    expect(classifyCell(model)).toBe("unknown");
+  });
+
+  it("a gone column going to NO-DATA does NOT count as fresh-healthy (no auto-recover)", () => {
+    // The whole column is gray/no-data → columnFreshHealthy must be false: a
+    // gone→no-data transition can no longer masquerade as recovered. The OLD
+    // `!some cellGone` rule returned TRUE here (the B-F1 bug).
+    expect(columnFreshHealthy([noDataModel()])).toBe(false);
+    // And it is not gone either (gray, not red) — inconclusive, HOLDs.
+    expect(columnGone([noDataModel()])).toBe(false);
+  });
+
+  it("only a REAL green ladder recovers (positive evidence)", () => {
+    const greenLive = mergeRowsToMap(greenLadder("agentic-chat", FRESH));
+    const m = buildCellModel(greenLive, wired("agentic-chat"), NOW);
+    const model: CellGoneInput = {
+      achievedDepth: m.achievedDepth,
+      chipColor: m.chipColor,
+      isStaleCell: m.isStaleCell,
+      surfaceState: m.surfaceState,
+    };
+    expect(m.chipColor).toBe("green");
+    expect(cellHealthy(model)).toBe(true);
+    expect(classifyCell(model)).toBe("healthy");
+    expect(columnFreshHealthy([model])).toBe(true);
+  });
+
+  it("amber (degraded) classifies UNKNOWN — not recovery", () => {
+    // A stale-green ladder folds to amber at the depth level; an amber cell is
+    // not a positive green, so it must not recover.
+    const amber: CellGoneInput = {
+      achievedDepth: 4,
+      chipColor: "amber",
+      isStaleCell: false,
+      surfaceState: "amber",
+    };
+    expect(classifyCell(amber)).toBe("unknown");
+    expect(columnFreshHealthy([amber])).toBe(false);
   });
 });
 

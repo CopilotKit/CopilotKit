@@ -107,10 +107,15 @@ export interface D0GoneMonitorConfig {
 export function resolveConfig(
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): D0GoneMonitorConfig {
-  const num = (raw: string | undefined, fallback: number): number => {
+  // `min` is the smallest accepted value: 0 for the time-windows (a 0ms confirm
+  // delay / 0-minute re-post are degenerate but harmless), but 1 for
+  // `maxSlugsInMessage` — a 0 there would render an outage message that names
+  // ZERO gone slugs (all folded into "+N more"), a useless page. Below `min`
+  // (or NaN / non-finite / empty) falls back to the default.
+  const num = (raw: string | undefined, fallback: number, min = 0): number => {
     if (raw === undefined || raw.trim() === "") return fallback;
     const n = Number(raw);
-    return Number.isFinite(n) && n >= 0 ? n : fallback;
+    return Number.isFinite(n) && n >= min ? n : fallback;
   };
   return {
     confirmDelayMs: num(
@@ -124,6 +129,7 @@ export function resolveConfig(
     maxSlugsInMessage: num(
       env.PROD_D0_MONITOR_MAX_SLUGS_IN_MESSAGE,
       DEFAULT_MAX_SLUGS_IN_MESSAGE,
+      1,
     ),
   };
 }
@@ -133,6 +139,44 @@ export function isEnabled(
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): boolean {
   return env.PROD_D0_MONITOR_ENABLED?.trim().toLowerCase() !== "false";
+}
+
+/**
+ * B-env: resolve the deploy environment for the prod gate. The raw
+ * `SHOWCASE_ENV ?? RAILWAY_ENVIRONMENT_NAME` had two silent-disable bugs:
+ *   1. `SHOWCASE_ENV=""` (empty but SET) SHADOWS Railway via `??` (nullish
+ *      only, not falsy), so an empty explicit override left the monitor
+ *      disabled even on a prod Railway service. Treat an empty/whitespace
+ *      value as UNSET so it falls through to `RAILWAY_ENVIRONMENT_NAME`.
+ *   2. A mis-cased / space-padded value (`"Production"`, `" production "`)
+ *      failed the exact `=== "production"` compare and silently disabled the
+ *      monitor in prod. Normalize (trim + lowercase) before comparing.
+ * Mirrors the kill-switch's own `?.trim().toLowerCase()` parse. Returns the
+ * normalized env string, or `undefined` when neither var resolves a non-empty
+ * value.
+ */
+export function resolveMonitorEnv(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): string | undefined {
+  const norm = (raw: string | undefined): string | undefined => {
+    const v = raw?.trim().toLowerCase();
+    return v ? v : undefined; // empty/whitespace → unset (falls through)
+  };
+  return norm(env.SHOWCASE_ENV) ?? norm(env.RAILWAY_ENVIRONMENT_NAME);
+}
+
+/**
+ * The prod-only + kill-switch registration predicate — the SINGLE source of
+ * truth `orchestrator.ts` calls AND the gate test exercises (B-gatetest), so an
+ * env-precedence / kill-switch / normalization regression fails a test instead
+ * of shipping the monitor to the wrong environment (or silently disabling it in
+ * prod). Registers iff the resolved env normalizes to `"production"` AND the
+ * kill-switch is not `false`.
+ */
+export function shouldRegister(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): boolean {
+  return resolveMonitorEnv(env) === "production" && isEnabled(env);
 }
 
 /**
@@ -213,22 +257,6 @@ function iso(ms: number): string {
 function parseIso(value: string | null | undefined): number {
   if (!value) return Number.NaN;
   return Date.parse(value);
-}
-
-/**
- * True iff `key` names the given `slug`'s column. Status keys are
- * `<dimension>:<slug>` or `<dimension>:<slug>/<featureId>` (see `keyFor`). We
- * take the segment after the FIRST `:` up to the `/` (or end) and compare it
- * EXACTLY to the slug — an anchored match so `strands` never matches a
- * `strands-typescript` key (the substring bug this replaces).
- */
-function keyBelongsToSlug(key: string, slug: string): boolean {
-  const colon = key.indexOf(":");
-  if (colon < 0) return false;
-  const afterColon = key.slice(colon + 1);
-  const slash = afterColon.indexOf("/");
-  const slugSegment = slash < 0 ? afterColon : afterColon.slice(0, slash);
-  return slugSegment === slug;
 }
 
 /** Humanize a millisecond duration as e.g. "1h 03m" / "18m" / "45s". */
@@ -323,24 +351,54 @@ export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
   let cellsBySlug = wiredSupportedCells(loadRegistry());
 
   /**
-   * A5: the wired-cell set for this tick. An EMPTY set means the monitor
-   * enumerates nothing and can never page — a silent self-disable. If the
-   * registry is a loader thunk, re-load and re-enumerate each tick while empty
-   * so a transiently-missing `registry.json` self-heals without a redeploy.
-   * Whenever the set is empty we log LOUDLY (error + errorId) so the gap is
-   * greppable rather than a permanent silent no-op.
+   * B-A5gap: "no wired cell anywhere". `wiredSupportedCells` keys EVERY
+   * integration slug even when that slug has ZERO wired cells (present with an
+   * empty array — see its doc), so `map.size` is > 0 for any registry that
+   * lists integrations, even one with no wired cells at all. Guarding self-heal
+   * / the loud log on `size === 0` therefore MISSES the real silent-disable
+   * case: a registry that parsed fine and has integrations but not a single
+   * wired cell → the monitor enumerates only empty arrays and can never page,
+   * yet never self-heals or logs. The correct emptiness test is "no slug has
+   * ANY wired cell" — every value array is empty (which also covers the
+   * genuinely-empty `size === 0` map).
+   */
+  function hasNoWiredCell(map: Map<string, WiredCell[]>): boolean {
+    for (const cells of map.values()) {
+      if (cells.length > 0) return false;
+    }
+    return true;
+  }
+
+  /**
+   * A5: the wired-cell set for this tick. An empty set (no slug has any wired
+   * cell) means the monitor enumerates nothing and can never page — a silent
+   * self-disable. If the registry is a loader thunk, re-load and re-enumerate
+   * while empty so a transiently-missing `registry.json` self-heals without a
+   * redeploy. This function is PURE-of-logging (no side effects beyond the
+   * re-load) — `scan()` calls it up to TWICE per tick (first + confirm), so the
+   * loud no-wired-cells log lives in `logEmptyCellsOnce` (once per tick), not
+   * here, to avoid a double-log per tick.
    */
   function resolveCells(): Map<string, WiredCell[]> {
-    if (cellsBySlug.size === 0 && registryIsLoader) {
+    if (hasNoWiredCell(cellsBySlug) && registryIsLoader) {
       cellsBySlug = wiredSupportedCells(loadRegistry());
     }
-    if (cellsBySlug.size === 0) {
+    return cellsBySlug;
+  }
+
+  /**
+   * Emit the loud no-wired-cells error at most ONCE per tick (called from
+   * `runTick`, not from the twice-per-tick `scan`/`resolveCells` path). Runs a
+   * re-load first (via `resolveCells`) so it reflects the freshest registry.
+   */
+  function logEmptyCellsOnce(): void {
+    if (hasNoWiredCell(resolveCells())) {
       logger.error("d0-monitor.no-wired-cells", {
         errorId: "d0-monitor-no-wired-cells",
         reloadable: registryIsLoader,
+        slugCount: cellsBySlug.size,
       });
     }
-    return cellsBySlug;
   }
 
   // Re-entrancy guard — the 60s confirm delay means a slow tick could otherwise
@@ -439,8 +497,11 @@ export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
 
     for (const [slug, cells] of resolveCells()) {
       if (cells.length === 0) continue; // zero-wired column fails safe (§2.4)
-      const models: CellGoneInput[] = cells.map((c) => {
-        const m = buildCellModel(
+      // Keep the FULL CellModel per cell (not just the gone-input pick) so the
+      // onset below can be derived from the SAME fold that decides gone — the
+      // model's own contributing rows — never a separate raw-row re-scan.
+      const models = cells.map((c) =>
+        buildCellModel(
           live,
           {
             slug: c.slug,
@@ -449,32 +510,41 @@ export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
             isWired: true,
           },
           nowMs,
-        );
-        return {
-          achievedDepth: m.achievedDepth,
-          chipColor: m.chipColor,
-          isStaleCell: m.isStaleCell,
-          surfaceState: m.surfaceState,
-        };
-      });
-      if (columnGone(models)) {
+        ),
+      );
+      const goneInputs: CellGoneInput[] = models.map((m) => ({
+        achievedDepth: m.achievedDepth,
+        chipColor: m.chipColor,
+        isStaleCell: m.isStaleCell,
+        surfaceState: m.surfaceState,
+      }));
+      if (columnGone(goneInputs)) {
         gone.add(slug);
-        // Earliest red-D0 onset among THIS slug's contributing rows (§2.4).
-        // Keys are `<dimension>:<slug>` or `<dimension>:<slug>/<featureId>`
-        // (see `keyFor`), so a substring `:${slug}` match would mis-attribute a
-        // prefix-colliding sibling's rows (e.g. `strands` pulling in
-        // `strands-typescript`'s earlier onset). Match the slug segment EXACTLY.
+        // B-onset: derive `sinceAt` from the FOLDED verdict, NOT a raw
+        // `row.state === "red"` re-scan of `live`. The old raw scan could
+        // disagree with the fold — a red row on a dimension the ladder does not
+        // count toward "gone" (or a prefix-colliding sibling's row) could set an
+        // earlier/wrong onset, and when the fold said gone but no raw red row
+        // matched the slug it silently fell back to `nowMs` (re-timing the
+        // onset every tick). Instead we take the earliest `first_failure_at`
+        // across the SAME rows `buildCellModel` folded into each gone cell —
+        // the effective D3/D4/D5/D6 winner rows (`.row`), which are exactly the
+        // red rungs that produced the red-D0 verdict. These rows are already
+        // slug-scoped by construction (buildCellModel keys by this slug), so no
+        // substring/prefix mis-attribution is possible.
         let earliest = Number.NaN;
-        for (const row of live.values()) {
-          if (row.state === "red" && keyBelongsToSlug(row.key, slug)) {
-            const t = parseIso(row.first_failure_at ?? row.observed_at);
+        for (const m of models) {
+          for (const level of [m.d3, m.d4, m.d5, m.d6]) {
+            const r = level?.row;
+            if (!r || r.state !== "red") continue;
+            const t = parseIso(r.first_failure_at ?? r.observed_at);
             if (!Number.isNaN(t) && (Number.isNaN(earliest) || t < earliest)) {
               earliest = t;
             }
           }
         }
         onsetBySlug.set(slug, Number.isNaN(earliest) ? nowMs : earliest);
-      } else if (columnFreshHealthy(models)) {
+      } else if (columnFreshHealthy(goneInputs)) {
         healthy.add(slug);
       }
       // else: inconclusive (stale / mixed-with-stale) — neither gone nor healthy.
@@ -570,6 +640,11 @@ export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
     }
     suspendedLogged = false;
 
+    // A5/B-A5gap: log the no-wired-cells gap at most ONCE per tick (scan()
+    // resolves the cell set up to twice per tick, so the loud log cannot live
+    // there without double-logging). This also drives the loader-thunk re-load.
+    logEmptyCellsOnce();
+
     // §3 FIRST SCAN.
     let rows1: StatusRow[];
     try {
@@ -651,15 +726,31 @@ export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
     const healthy = confirmedHealthy;
     const repostMs = config.repostMinutes * 60_000;
 
-    // OPEN + hourly re-post: build the set of slugs to include in an alert this
-    // tick (new opens OR due re-posts).
-    const openNow = [...confirmed].sort();
+    // B-flap: the set of slugs OPEN this tick is NOT just the double-confirmed
+    // gone set. Confirm is required to OPEN a NEW outage and to CLOSE an
+    // existing one, but an ALREADY-OPEN column must NOT silently drop out of
+    // the alert cadence just because a later scan was inconclusive (it flapped
+    // gone↔inconclusive across the two confirm reads). If we gated re-posts on
+    // `confirmed` alone, such a column would stop re-posting hourly while still
+    // open — the outage would go quiet without ever recovering. So:
+    //   - CONFIRMED-gone slugs (new or still-gone) are open.
+    //   - ALREADY-OPEN map slugs that are NOT confirmed-healthy stay open too
+    //     (a confirmed recovery is the ONLY thing that closes them, handled
+    //     below); an inconclusive later scan holds the outage open.
+    const openNow = [
+      ...new Set([
+        ...confirmed,
+        ...Object.keys(map).filter((slug) => !healthy.has(slug)),
+      ]),
+    ].sort();
+
     const toAlert: string[] = [];
     for (const slug of openNow) {
       const existing = map[slug];
       if (!existing) {
-        // OPEN: record sinceAt (earliest onset, fallback now). lastAlertAt set
-        // AFTER a successful send below.
+        // OPEN: a genuinely new outage (only reachable for a CONFIRMED-gone
+        // slug — an already-open slug has a map entry). Record sinceAt (earliest
+        // onset, fallback now). lastAlertAt set AFTER a successful send below.
         map[slug] = {
           sinceAt: iso(s1.onsetBySlug.get(slug) ?? nowMs),
           lastAlertAt: "",
@@ -674,25 +765,35 @@ export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
       }
     }
 
-    // POST the ONE aggregated outage message (all currently-gone slugs). Only
-    // advance lastAlertAt AFTER a successful send (§7 dedupe discipline).
+    // POST the ONE aggregated outage message. Only advance lastAlertAt AFTER a
+    // successful send (§7 dedupe discipline).
     if (toAlert.length > 0) {
+      // B-cadence: the message names only the FIRST `maxSlugsInMessage` slugs;
+      // any overflow is folded into a "+N more" line (see `outageMessage`).
+      // Advance `lastAlertAt` ONLY for the slugs actually NAMED in the message —
+      // an overflow slug that was NOT shown by name must keep its own re-post
+      // clock so it is not silently muted for another hour without ever being
+      // reported. `shownSlugs` mirrors `outageMessage`'s `slugs.slice(0, N)`.
+      const shownSlugs = openNow.slice(0, config.maxSlugsInMessage);
       const text = outageMessage(openNow, map, nowMs);
       try {
         await deps.postAlert(text);
-        for (const slug of openNow) {
-          // INTENTIONAL aggregate cadence: the outage message lists ALL
-          // currently-open slugs in ONE post, so a single successful send
-          // advances EVERY open slug's `lastAlertAt` to a common clock. This is
-          // by design — one hourly message drives one shared re-post gate, so a
-          // slug that joined an existing outage does not spawn its own
-          // out-of-phase hourly cadence (which would fragment the aggregate into
-          // multiple staggered messages).
-          if (map[slug]) map[slug].lastAlertAt = iso(nowMs);
+        for (const slug of shownSlugs) {
+          // INTENTIONAL aggregate cadence: the outage message lists the shown
+          // open slugs in ONE post, so a single successful send advances every
+          // SHOWN slug's `lastAlertAt` to a common clock — one hourly message
+          // drives one shared re-post gate, so a slug that joined an existing
+          // outage does not spawn its own out-of-phase hourly cadence.
+          // Overflow (+N more) slugs are deliberately excluded (B-cadence).
+          // Stamp `evidenceMs` (the confirm-scan instant when a confirm ran,
+          // else the tick-start) — the instant the evidence was actually
+          // observed — not the tick-start `nowMs`, mirroring the recovery post.
+          if (map[slug]) map[slug].lastAlertAt = iso(evidenceMs);
         }
         logger.warn("d0-monitor.outage-alerted", {
-          slugs: openNow,
-          newlyOpened: openNow.filter((s) => toAlert.includes(s)),
+          slugs: shownSlugs,
+          overflow: openNow.length - shownSlugs.length,
+          newlyOpened: shownSlugs.filter((s) => toAlert.includes(s)),
         });
       } catch (err) {
         // Leave lastAlertAt unadvanced → next 15m tick retries (§7/F9). The

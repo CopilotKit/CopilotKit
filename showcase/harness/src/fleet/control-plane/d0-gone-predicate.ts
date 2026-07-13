@@ -58,29 +58,89 @@ export function cellGone(model: CellGoneInput): boolean {
 }
 
 /**
- * §2.4 column-gone predicate: a column is fully gone ONLY when it has at least
- * one wired+supported cell AND every such cell is `cellGone`. Fails safe: a
- * zero-wired column, an all-gray/no-data column, or a stale column returns
- * `false` (those are the producer-idle / no-data case, handled by the §2.5
- * producer-liveness gate — never paged as an outage).
+ * §5.2 per-cell "fresh-healthy" verdict — the POSITIVE-GREEN signature a human
+ * reads as a genuinely-recovered cell. This is the mirror-image of `cellGone`:
+ * where `cellGone` requires a POSITIVE red-D0 (ran-and-failed, not gray no-data),
+ * `cellHealthy` requires a POSITIVE green (an intact ladder that actually
+ * passed), NOT mere absence of red.
+ *
+ *   chipColor === "green"  — the ladder reported a real GREEN (a passing
+ *                            verification), NOT gray no-data / amber / stale
+ *   achievedDepth >= 3     — at least the D3 rung genuinely passed (a real
+ *                            ladder, not a floor-0 collapse). A green chip
+ *                            implies achievedDepth >= 3 in `buildCellModel`
+ *                            today, but asserting it here keeps "healthy" a
+ *                            POSITIVE ladder claim by construction, so a future
+ *                            fold that ever painted a floor-0 cell green cannot
+ *                            silently count as recovery.
+ *   !isStaleCell           — fresh evidence (a stale green folds to gray in
+ *                            buildCellModel, so this is belt-and-braces)
+ *   surfaceState ∉ { "unreachable", "pending" }
+ *                          — no comm-error overlay masking the result
+ *
+ * The KEY property (B-F1): a GRAY / no-data / stale / amber cell is NEVER
+ * `cellHealthy`. Recovery/CLOSE therefore requires REAL green evidence, never
+ * the mere absence of red — a gone column going to NO-DATA can no longer
+ * masquerade as recovered.
  */
-export function columnGone(cells: readonly CellGoneInput[]): boolean {
-  if (cells.length === 0) return false;
-  return cells.every(cellGone);
+export function cellHealthy(model: CellGoneInput): boolean {
+  return (
+    model.chipColor === "green" &&
+    model.achievedDepth >= 3 &&
+    !model.isStaleCell &&
+    model.surfaceState !== "unreachable" &&
+    model.surfaceState !== "pending"
+  );
 }
 
 /**
- * §5.2 fresh-healthy predicate: a column is fresh-healthy when it has ≥1
- * wired+supported cell, NO cell is `cellGone`, and NO cell is stale (the whole
- * column has fresh evidence). This is the positive evidence a CLOSE/recovery
- * requires (§2.5/§5.2 F1 hardening) — absence-of-gone is NOT recovery when the
- * evidence itself went stale. A column with any stale cell is neither gone nor
- * fresh-healthy — it is inconclusive and HOLDs.
+ * The single per-cell classification every monitor state derives from (the
+ * structural lever, §2.3/§2.4/§5.2). A cell is EXACTLY one of:
+ *   - `"gone"`    — `cellGone`: positive red-D0 (backend gone).
+ *   - `"healthy"` — `cellHealthy`: positive green (real ladder recovered).
+ *   - `"unknown"` — EVERYTHING else: gray / no-data / stale / amber / a
+ *                   comm-error overlay. UNKNOWN is neither gone nor recovered;
+ *                   it is inconclusive and HOLDs.
+ *
+ * `cellGone` and `cellHealthy` are mutually exclusive by construction (one
+ * needs chipColor red, the other chipColor green), so the order here is only
+ * for exhaustiveness — a cell can never satisfy both.
+ */
+export type CellVerdict = "gone" | "healthy" | "unknown";
+export function classifyCell(model: CellGoneInput): CellVerdict {
+  if (cellGone(model)) return "gone";
+  if (cellHealthy(model)) return "healthy";
+  return "unknown";
+}
+
+/**
+ * §2.4 column-gone predicate: a column is fully gone ONLY when it has at least
+ * one wired+supported cell AND every such cell classifies `"gone"`. Fails safe:
+ * a zero-wired column, an all-gray/no-data column, or a stale column returns
+ * `false` (those classify `"unknown"` — the producer-idle / no-data case,
+ * handled by the §2.5 producer-liveness gate, never paged as an outage).
+ */
+export function columnGone(cells: readonly CellGoneInput[]): boolean {
+  if (cells.length === 0) return false;
+  return cells.every((c) => classifyCell(c) === "gone");
+}
+
+/**
+ * §5.2 fresh-healthy predicate: a column is fresh-healthy (positive recovery
+ * evidence) ONLY when it has ≥1 wired+supported cell AND every such cell
+ * classifies `"healthy"` (POSITIVE green — a real, fresh, passing ladder). This
+ * is the positive evidence a CLOSE/recovery requires (§2.5/§5.2 F1 hardening):
+ * absence-of-gone is NOT recovery.
+ *
+ * B-F1: a column with ANY `"unknown"` cell (gray / no-data / stale / amber /
+ * comm-error) is NOT fresh-healthy — it is inconclusive and HOLDs. In
+ * particular a gone column that goes to NO-DATA (every cell gray) classifies
+ * every cell `"unknown"`, so it can no longer auto-recover; it stays open (or
+ * SUSPENDED, per the producer-liveness gate).
  */
 export function columnFreshHealthy(cells: readonly CellGoneInput[]): boolean {
   if (cells.length === 0) return false;
-  if (cells.some((c) => c.isStaleCell)) return false;
-  return !cells.some(cellGone);
+  return cells.every((c) => classifyCell(c) === "healthy");
 }
 
 // ───────────────────────────────────────────────────────────────────────

@@ -13,18 +13,21 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { isEnabled } from "./d0-gone-monitor.js";
+import {
+  isEnabled,
+  resolveConfig,
+  resolveMonitorEnv,
+  shouldRegister,
+  DEFAULT_CONFIRM_DELAY_MS,
+  DEFAULT_REPOST_MINUTES,
+  DEFAULT_MAX_SLUGS_IN_MESSAGE,
+} from "./d0-gone-monitor.js";
 
-/**
- * The orchestrator registration predicate, replicated verbatim from
- * `orchestrator.ts` so this test pins the gate.
- */
-function shouldRegister(
-  env: Readonly<Record<string, string | undefined>>,
-): boolean {
-  const resolved = env.SHOWCASE_ENV ?? env.RAILWAY_ENVIRONMENT_NAME;
-  return resolved === "production" && isEnabled(env);
-}
+// B-gatetest: this test exercises the REAL orchestrator registration predicate
+// (`shouldRegister`, imported from the monitor module — the SAME function
+// `orchestrator.ts` calls), NOT a hand-copied replica. So any env-precedence,
+// kill-switch, or normalization drift fails HERE instead of shipping the
+// monitor to the wrong environment (or silently disabling it in prod).
 
 describe("prod-d0-gone monitor registration gate (§10.7)", () => {
   it("registers when SHOWCASE_ENV=production", () => {
@@ -71,5 +74,115 @@ describe("prod-d0-gone monitor registration gate (§10.7)", () => {
     expect(isEnabled({ PROD_D0_MONITOR_ENABLED: "1" })).toBe(true);
     expect(isEnabled({ PROD_D0_MONITOR_ENABLED: "false" })).toBe(false);
     expect(isEnabled({ PROD_D0_MONITOR_ENABLED: "FALSE" })).toBe(false);
+  });
+});
+
+describe("B-env — env resolution normalizes and treats empty as unset", () => {
+  it("empty-string SHOWCASE_ENV does NOT shadow a prod Railway env (falls through)", () => {
+    // The `??` bug: SHOWCASE_ENV="" is SET (not nullish), so the old
+    // `SHOWCASE_ENV ?? RAILWAY_ENVIRONMENT_NAME` returned "" and disabled the
+    // monitor on a real prod Railway service. Empty must be treated as unset.
+    expect(
+      resolveMonitorEnv({
+        SHOWCASE_ENV: "",
+        RAILWAY_ENVIRONMENT_NAME: "production",
+      }),
+    ).toBe("production");
+    expect(
+      shouldRegister({
+        SHOWCASE_ENV: "",
+        RAILWAY_ENVIRONMENT_NAME: "production",
+      }),
+    ).toBe(true);
+  });
+
+  it("whitespace-only SHOWCASE_ENV also falls through to Railway", () => {
+    expect(
+      shouldRegister({
+        SHOWCASE_ENV: "   ",
+        RAILWAY_ENVIRONMENT_NAME: "production",
+      }),
+    ).toBe(true);
+  });
+
+  it("mis-cased / space-padded 'production' still registers (normalized)", () => {
+    expect(shouldRegister({ SHOWCASE_ENV: "Production" })).toBe(true);
+    expect(shouldRegister({ SHOWCASE_ENV: " production " })).toBe(true);
+    expect(shouldRegister({ RAILWAY_ENVIRONMENT_NAME: "PRODUCTION" })).toBe(
+      true,
+    );
+  });
+
+  it("both unset / both empty → not registered", () => {
+    expect(resolveMonitorEnv({})).toBeUndefined();
+    expect(
+      resolveMonitorEnv({ SHOWCASE_ENV: "", RAILWAY_ENVIRONMENT_NAME: "" }),
+    ).toBeUndefined();
+    expect(shouldRegister({})).toBe(false);
+  });
+});
+
+describe("resolveConfig — negative / NaN / empty parse falls back (§8, slot3 F3)", () => {
+  it("defaults when env vars are absent", () => {
+    const c = resolveConfig({});
+    expect(c.confirmDelayMs).toBe(DEFAULT_CONFIRM_DELAY_MS);
+    expect(c.repostMinutes).toBe(DEFAULT_REPOST_MINUTES);
+    expect(c.maxSlugsInMessage).toBe(DEFAULT_MAX_SLUGS_IN_MESSAGE);
+  });
+
+  it("empty / whitespace-only values fall back to defaults", () => {
+    const c = resolveConfig({
+      PROD_D0_MONITOR_CONFIRM_DELAY_MS: "",
+      PROD_D0_MONITOR_REPOST_MINUTES: "   ",
+      PROD_D0_MONITOR_MAX_SLUGS_IN_MESSAGE: "",
+    });
+    expect(c.confirmDelayMs).toBe(DEFAULT_CONFIRM_DELAY_MS);
+    expect(c.repostMinutes).toBe(DEFAULT_REPOST_MINUTES);
+    expect(c.maxSlugsInMessage).toBe(DEFAULT_MAX_SLUGS_IN_MESSAGE);
+  });
+
+  it("NaN / non-numeric values fall back to defaults", () => {
+    const c = resolveConfig({
+      PROD_D0_MONITOR_CONFIRM_DELAY_MS: "abc",
+      PROD_D0_MONITOR_REPOST_MINUTES: "1e",
+      PROD_D0_MONITOR_MAX_SLUGS_IN_MESSAGE: "NaN",
+    });
+    expect(c.confirmDelayMs).toBe(DEFAULT_CONFIRM_DELAY_MS);
+    expect(c.repostMinutes).toBe(DEFAULT_REPOST_MINUTES);
+    expect(c.maxSlugsInMessage).toBe(DEFAULT_MAX_SLUGS_IN_MESSAGE);
+  });
+
+  it("negative and non-finite values fall back to defaults", () => {
+    const c = resolveConfig({
+      PROD_D0_MONITOR_CONFIRM_DELAY_MS: "-1",
+      PROD_D0_MONITOR_REPOST_MINUTES: "-60",
+      PROD_D0_MONITOR_MAX_SLUGS_IN_MESSAGE: "Infinity",
+    });
+    expect(c.confirmDelayMs).toBe(DEFAULT_CONFIRM_DELAY_MS);
+    expect(c.repostMinutes).toBe(DEFAULT_REPOST_MINUTES);
+    expect(c.maxSlugsInMessage).toBe(DEFAULT_MAX_SLUGS_IN_MESSAGE);
+  });
+
+  it("valid non-negative numbers are respected", () => {
+    const c = resolveConfig({
+      PROD_D0_MONITOR_CONFIRM_DELAY_MS: "30000",
+      PROD_D0_MONITOR_REPOST_MINUTES: "0",
+      PROD_D0_MONITOR_MAX_SLUGS_IN_MESSAGE: "10",
+    });
+    expect(c.confirmDelayMs).toBe(30000);
+    expect(c.repostMinutes).toBe(0); // 0 minutes is a valid (min 0) window
+    expect(c.maxSlugsInMessage).toBe(10);
+  });
+
+  it("maxSlugsInMessage = 0 falls back (min 1 — a 0-slug page is useless)", () => {
+    // Unlike the time windows (min 0), maxSlugsInMessage below 1 would render
+    // an outage message naming ZERO slugs, so it floors at 1.
+    const c = resolveConfig({ PROD_D0_MONITOR_MAX_SLUGS_IN_MESSAGE: "0" });
+    expect(c.maxSlugsInMessage).toBe(DEFAULT_MAX_SLUGS_IN_MESSAGE);
+    // But 1 is accepted.
+    expect(
+      resolveConfig({ PROD_D0_MONITOR_MAX_SLUGS_IN_MESSAGE: "1" })
+        .maxSlugsInMessage,
+    ).toBe(1);
   });
 });

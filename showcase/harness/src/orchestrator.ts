@@ -142,6 +142,8 @@ import {
   createD0GoneMonitor,
   isEnabled as isD0MonitorEnabled,
   loadRegistryDoc,
+  resolveMonitorEnv as resolveD0MonitorEnv,
+  shouldRegister as shouldRegisterD0Monitor,
 } from "./fleet/control-plane/d0-gone-monitor.js";
 
 export interface BootOptions {
@@ -2991,9 +2993,12 @@ export async function runControlPlane(
   // dashboard renders by construction. Registered as an `internal:` orchestrator
   // cron (the `internal:s3-backup` block is the template), gated on the resolved
   // env being production and the `PROD_D0_MONITOR_ENABLED` kill-switch.
-  const d0MonitorEnv =
-    process.env.SHOWCASE_ENV ?? process.env.RAILWAY_ENVIRONMENT_NAME;
-  if (d0MonitorEnv === "production" && isD0MonitorEnabled()) {
+  // B-env: the env gate + kill-switch are resolved by the monitor module's
+  // OWN `shouldRegister` / `resolveMonitorEnv` (the gate test exercises the
+  // same functions), so env-precedence, empty-string-shadow, and case/space
+  // normalization can never drift between here and the test.
+  const d0MonitorEnv = resolveD0MonitorEnv();
+  if (shouldRegisterD0Monitor()) {
     const d0GoneMonitor = createD0GoneMonitor({
       pb,
       alertState: alertStateStore,
