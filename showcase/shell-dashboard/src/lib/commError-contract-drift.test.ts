@@ -35,7 +35,24 @@ const HARNESS_CONTRACTS_FILE = resolve(
   "../../../harness/src/fleet/contracts.ts",
 );
 
-const DASHBOARD_CELL_MODEL_FILE = resolve(__dirname, "./cell-model.ts");
+// The pure cell-classification fold cluster (cell-model / live-status) was
+// relocated INTO the harness (`showcase/harness/src/shared/cell-model/`) so the
+// dashboard AND the harness monitor import ONE copy; the dashboard's
+// `./cell-model.ts` / `./live-status.ts` are now thin re-export barrels. This
+// drift guard parses SOURCE TEXT, so it reads the canonical harness copies —
+// the barrels carry no derivation body to match.
+const SHARED_CELL_MODEL_DIR = resolve(
+  __dirname,
+  "../../../harness/src/shared/cell-model",
+);
+const DASHBOARD_CELL_MODEL_FILE = resolve(
+  SHARED_CELL_MODEL_DIR,
+  "./cell-model.ts",
+);
+const DASHBOARD_LIVE_STATUS_FILE = resolve(
+  SHARED_CELL_MODEL_DIR,
+  "./live-status.ts",
+);
 
 function harnessSource(): string {
   return readFileSync(HARNESS_CONTRACTS_FILE, "utf8");
@@ -248,10 +265,7 @@ describe("pool comm-error contract cross-package drift", () => {
     // structural mirror of the harness reader, and a fix landing on one side
     // only (e.g. the Array.isArray rejection) silently re-opens the gap on
     // the other. Pin the FULL function source byte-for-byte.
-    const dashboardSource = readFileSync(
-      resolve(__dirname, "./live-status.ts"),
-      "utf8",
-    );
+    const dashboardSource = readFileSync(DASHBOARD_LIVE_STATUS_FILE, "utf8");
     expect(parseCommErrorDecoder(dashboardSource, "live-status.ts")).toBe(
       parseCommErrorDecoder(harnessSource(), "contracts.ts"),
     );
