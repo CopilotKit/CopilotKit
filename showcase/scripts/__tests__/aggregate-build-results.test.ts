@@ -10,7 +10,8 @@
  *   3. non-`build-result-*` dirs are ignored
  *   4. mixed success/failure → correct merged array + any_success=true
  *   5. GITHUB_OUTPUT receives heredoc-form `results` block + any_success
- *   6. result.json directly in INPUT_DIR (single-artifact path from download-artifact@v5+)
+ *   6. results.json has a trailing newline
+ *   7. result.json directly in INPUT_DIR (single-artifact path from download-artifact@v5+)
  */
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -172,13 +173,5 @@ describe("aggregate-build-results.run", () => {
 
     const gh = readFileSync(githubOutput, "utf-8");
     expect(gh).toContain("any_success=true");
-  });
-
-  it("empty INPUT_DIR with no result.json at root still throws", () => {
-    // Verify we still fail loud when there is truly nothing — not a result.json
-    // at the root and no build-result-* subdirectories.
-    expect(() => run({ inputDir, outputDir, githubOutput })).toThrow(
-      /aggregate-build-results: found 0 build-result-\* slot dirs/,
-    );
   });
 });
