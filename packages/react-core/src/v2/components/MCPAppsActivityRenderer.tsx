@@ -3,7 +3,90 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { z } from "zod";
 import type { AbstractAgent, RunAgentResult } from "@ag-ui/client";
+import { ProxiedCopilotRuntimeAgent } from "@copilotkit/core";
 import { useCopilotKit } from "../providers/CopilotKitProvider";
+
+/**
+ * The subset of `CopilotKitCore` that {@link ɵrunMcpFollowUp} depends on.
+ * Declared structurally so the runner can be unit-tested without a full core.
+ */
+export interface ɵMcpFollowUpHost {
+  runAgent(params: { agent: AbstractAgent }): Promise<RunAgentResult>;
+  registerProxiedAgent(params: { agentId: string; runtimeAgentId: string }): {
+    agent: AbstractAgent;
+    unregister: () => void;
+  };
+}
+
+/**
+ * Run an MCP app `ui/message` follow-up, preserving the thread it was enqueued
+ * for (issue #5819).
+ *
+ * The MCP request queue delays follow-up work until the agent is idle. If the
+ * host switches threads in the meantime, the single shared registry agent has
+ * already had its `threadId`/`messages` overwritten — so running the follow-up
+ * on it would execute against, and stream into, the now-foreground thread.
+ *
+ * - **Same thread** (the common case): run live on the shared agent, unchanged.
+ * - **Thread changed + runtime-backed agent**: re-home the run onto an isolated
+ *   proxied agent (`registerProxiedAgent`) pinned to the original thread. Its own
+ *   event stream keeps it out of the current view, and the run — tagged with the
+ *   original `threadId` — persists so it reconciles when the user returns. Note
+ *   this background run executes under a distinct proxy `agentId`, so it does not
+ *   carry the original agent's registered frontend tools/readable context — an
+ *   acceptable trade-off, since frontend tools can't execute against a thread the
+ *   user has navigated away from anyway.
+ * - **Thread changed + non-runtime agent**: there is no runtime agent to proxy
+ *   to, so drop the follow-up rather than leak it into the current thread.
+ *
+ * @internal exported for testing.
+ */
+export async function ɵrunMcpFollowUp({
+  host,
+  agent,
+  capturedThreadId,
+  capturedMessages,
+  capturedState,
+}: {
+  host: ɵMcpFollowUpHost;
+  agent: AbstractAgent;
+  capturedThreadId: string;
+  capturedMessages: AbstractAgent["messages"];
+  capturedState: AbstractAgent["state"];
+}): Promise<RunAgentResult> {
+  const currentThreadId = agent.threadId || "default";
+  const originThreadId = capturedThreadId || "default";
+
+  if (currentThreadId === originThreadId) {
+    return host.runAgent({ agent });
+  }
+
+  if (agent instanceof ProxiedCopilotRuntimeAgent) {
+    const runtimeAgentId = agent.runtimeAgentId ?? agent.agentId;
+    if (runtimeAgentId) {
+      const proxyId = `${agent.agentId ?? runtimeAgentId}::mcp-followup::${capturedThreadId}::${crypto.randomUUID()}`;
+      const { agent: scopedAgent, unregister } = host.registerProxiedAgent({
+        agentId: proxyId,
+        runtimeAgentId,
+      });
+      try {
+        scopedAgent.threadId = capturedThreadId;
+        scopedAgent.setMessages(capturedMessages);
+        scopedAgent.setState(capturedState);
+        return await host.runAgent({ agent: scopedAgent });
+      } finally {
+        unregister();
+      }
+    }
+  }
+
+  console.warn(
+    "[MCPAppsRenderer] ui/message follow-up dropped: the thread changed since it was " +
+      "enqueued and the agent is not runtime-backed, so it cannot be re-homed to the " +
+      "original thread.",
+  );
+  return { result: undefined, newMessages: [] };
+}
 
 // Protocol version supported
 const PROTOCOL_VERSION = "2025-06-18";
@@ -570,12 +653,28 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
                     const shouldFollowUp = params.followUp ?? role === "user";
 
                     if (shouldFollowUp && textContent) {
+                      // Capture the thread context NOW, at enqueue time. The
+                      // queue delays this work until the agent is idle; if the
+                      // host switches threads in the meantime, the shared agent's
+                      // threadId/messages are overwritten. ɵrunMcpFollowUp uses
+                      // the snapshot to keep the run scoped to the originating
+                      // thread instead of leaking into the new one (issue #5819).
+                      const capturedThreadId =
+                        currentAgent.threadId || "default";
+                      const capturedMessages = [...currentAgent.messages];
+                      const capturedState = { ...currentAgent.state };
                       // Use copilotkit.runAgent to go through RunHandler — provides
                       // frontend tools, context, tool execution, and abort support.
                       // Fire-and-forget: errors are handled by RunHandler's error emission.
                       mcpAppsRequestQueue
                         .enqueue(currentAgent, () =>
-                          copilotkit.runAgent({ agent: currentAgent }),
+                          ɵrunMcpFollowUp({
+                            host: copilotkit,
+                            agent: currentAgent,
+                            capturedThreadId,
+                            capturedMessages,
+                            capturedState,
+                          }),
                         )
                         .catch((err) =>
                           console.error(
