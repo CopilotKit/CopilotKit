@@ -452,7 +452,6 @@ export class AgentRegistry {
   }
 
   private async performRuntimeConnection(): Promise<void> {
-
     if (!this.runtimeUrl) {
       this._runtimeConnectionStatus =
         CopilotKitCoreRuntimeConnectionStatus.Disconnected;
