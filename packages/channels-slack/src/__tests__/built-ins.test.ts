@@ -6,7 +6,7 @@ import {
   slackFormattingContext,
   slackConversationModelContext,
 } from "../built-in-context.js";
-import type { BotToolContext } from "@copilotkit/channels";
+import type { ChannelToolContext } from "@copilotkit/channels";
 import type { PlatformUser, Thread } from "@copilotkit/channels-ui";
 
 /**
@@ -14,13 +14,13 @@ import type { PlatformUser, Thread } from "@copilotkit/channels-ui";
  * the lookup tool touches. The fake resolves to whatever `user` we hand it.
  */
 function makeCtx(user?: PlatformUser): {
-  ctx: BotToolContext;
+  ctx: ChannelToolContext;
   lookupUser: ReturnType<typeof vi.fn>;
 } {
   const lookupUser = vi.fn(async (_query: string) => user);
   const thread = { lookupUser } as unknown as Thread;
   return {
-    ctx: { thread, platform: "slack" } as BotToolContext,
+    ctx: { thread, platform: "slack" } as ChannelToolContext,
     lookupUser,
   };
 }

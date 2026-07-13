@@ -26,7 +26,7 @@ import { buildContentParts } from "./content-parts.js";
  * {@link HttpDeliverySource} polls the listener `claim` route and lease-fences
  * ack/fail; the {@link HttpEgressSink} posts replies to the egress route.
  * `intelligenceAdapter()` builds them by default (config from env), so a
- * consumer only writes `createBot({ adapters: [intelligenceAdapter()] })`.
+ * consumer only writes `createChannel({ adapters: [intelligenceAdapter()] })`.
  * Exported as undocumented fallbacks — the whole package is `@internal`.
  */
 
@@ -45,7 +45,7 @@ export interface IntelligenceTransportConfig {
   baseUrl: string;
   /** Project runtime API key (`cpk-…`), sent as `Authorization: Bearer`. */
   apiKey: string;
-  /** Project-unique channel name; defaults from `createBot({ name })`. */
+  /** Project-unique channel name; defaults from `createChannel({ name })`. */
   channelName: string;
   /** Stable runtime instance id (`rti_…`); generated when omitted. */
   runtimeInstanceId: string;
@@ -96,7 +96,9 @@ export function resolveTransportConfig(
   if (!baseUrl) missing.push("baseUrl (COPILOTKIT_INTELLIGENCE_URL)");
   if (!apiKey) missing.push("apiKey (COPILOTKIT_API_KEY)");
   if (!channelName)
-    missing.push("channelName (createBot({ name }) / COPILOTKIT_CHANNEL_NAME)");
+    missing.push(
+      "channelName (createChannel({ name }) / COPILOTKIT_CHANNEL_NAME)",
+    );
   if (missing.length > 0) {
     throw new Error(
       `intelligenceAdapter: missing required transport config: ${missing.join(", ")}`,

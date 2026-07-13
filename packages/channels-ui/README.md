@@ -135,7 +135,7 @@ UI, swap the message in place, or run a HITL flow:
 ```
 
 It's durable on the same terms as a component `onClick`: when the `<Message>`
-comes from a component registered via `createBot({ components: [...] })` and a
+comes from a component registered via `createChannel({ components: [...] })` and a
 durable `store` is configured, a reaction after a restart re-renders the
 component to re-derive the handler. Inline handlers (and `<Message>` used
 directly) route in-process but don't survive a restart. For durable, filtered

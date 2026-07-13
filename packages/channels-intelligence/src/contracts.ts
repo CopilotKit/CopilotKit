@@ -29,7 +29,7 @@ export interface ChannelIngressBase {
   eventId: string;
   /** Stable per-logical-turn id. Egress operation ids derive from it. */
   turnId: string;
-  /** Channel name, which routes to the framework `Bot` named by `createBot({ name })`. */
+  /** Channel name, which routes to the framework `Channel` named by `createChannel({ name })`. */
   channelName: string;
   /** Originating platform (e.g. "slack"). Stamped onto the handler-facing message. */
   platform: string;

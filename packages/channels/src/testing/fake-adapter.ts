@@ -182,7 +182,7 @@ export class FakeAdapter implements PlatformAdapter {
   messages: ThreadMessage[] = [];
   /** User returned by lookupUser(); override in tests. */
   user?: PlatformUser;
-  /** Optional persistence backend the adapter provides (test-only); exercises createBot's store resolution. */
+  /** Optional persistence backend the adapter provides (test-only); exercises createChannel's store resolution. */
   stateStore?: StateStore;
   private sink?: IngressSink;
   private counter = 0;

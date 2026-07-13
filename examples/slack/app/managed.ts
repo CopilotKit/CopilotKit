@@ -14,15 +14,15 @@
  * is exclusive, so the Channel Bot is created WITHOUT a native adapter and
  * {@link startChannelsOverRealtimeGateway} attaches the Channel transport.
  *
- *   native:   createBot({ adapters: [slack({ botToken, appToken }) ] })  // index.ts
- *   channel:  startChannelsOverRealtimeGateway([ createBot({ … }) ], { … })   // this file
+ *   native:   createChannel({ adapters: [slack({ botToken, appToken }) ] })  // index.ts
+ *   channel:  startChannelsOverRealtimeGateway([ createChannel({ … }) ], { … })   // this file
  *
  * Run: `pnpm --filter slack-example channel` with the INTELLIGENCE_* env set
  * (see `.env.example`).
  */
 import "dotenv/config";
 import { randomUUID } from "node:crypto";
-import { createBot } from "@copilotkit/channels";
+import { createChannel } from "@copilotkit/channels";
 import {
   defaultSlackTools,
   defaultSlackContext,
@@ -64,7 +64,7 @@ async function main() {
   // attached by startChannelsOverRealtimeGateway. Slack is the only Channel provider
   // here, so it always ships the Slack tools/context (the native example adds
   // these conditionally per active adapter).
-  const bot = createBot({
+  const bot = createChannel({
     name: channelName,
     agent: (threadId) => {
       const a = new SanitizingHttpAgent({

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { z } from "zod";
-import { createBot } from "./create-bot.js";
-import { defineBotCommand } from "./commands.js";
+import { createChannel } from "./create-channel.js";
+import { defineChannelCommand } from "./commands.js";
 import { FakeAdapter } from "./testing/fake-adapter.js";
 import { FakeAgent } from "./testing/fake-agent.js";
 import { MemoryStore } from "./state/memory-store.js";
@@ -16,7 +16,7 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
  * `ctx.action.value`.
  */
 const __handlerTypeGuards = () => {
-  const bot = createBot({ adapters: [new FakeAdapter()] });
+  const bot = createChannel({ adapters: [new FakeAdapter()] });
   bot.onInterrupt<{ question: string }>("ask", ({ payload }) => {
     payload.question.toUpperCase();
     // @ts-expect-error 'missing' is not on the payload type
@@ -55,11 +55,11 @@ function collectText(nodes: BotNode[]): string {
   return out;
 }
 
-describe("createBot", () => {
+describe("createChannel", () => {
   it("routes a mention to a handler that posts UI", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    const bot = createBot({ adapters: [fake], agent: () => agent });
+    const bot = createChannel({ adapters: [fake], agent: () => agent });
 
     bot.onMention(async ({ thread }) => {
       await thread.post(Section({ children: "hi" }));
@@ -78,7 +78,7 @@ describe("createBot", () => {
   it("calls renderer.finish() once after a turn's run-loop resolves", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    const bot = createBot({ adapters: [fake], agent: () => agent });
+    const bot = createChannel({ adapters: [fake], agent: () => agent });
 
     bot.onMention(async ({ thread }) => {
       await thread.runAgent();
@@ -104,7 +104,7 @@ describe("createBot", () => {
       added.push(m);
       return origAddMessage(m);
     };
-    const bot = createBot({ adapters: [fake], agent: () => agent });
+    const bot = createChannel({ adapters: [fake], agent: () => agent });
 
     const parts = [
       { type: "text" as const, text: "look" },
@@ -141,7 +141,7 @@ describe("createBot", () => {
   it("dispatches a bound onClick handler on interaction", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    const bot = createBot({ adapters: [fake], agent: () => agent });
+    const bot = createChannel({ adapters: [fake], agent: () => agent });
 
     let clicked = false;
     bot.onMention(async ({ thread }) => {
@@ -177,7 +177,7 @@ describe("createBot", () => {
   it("resolves a HITL awaitChoice with the element value when the event carries none (Telegram)", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    const bot = createBot({ adapters: [fake], agent: () => agent });
+    const bot = createChannel({ adapters: [fake], agent: () => agent });
 
     let chosen: unknown;
     bot.onMention(async ({ thread }) => {
@@ -226,7 +226,7 @@ describe("createBot", () => {
       return origRunAgent(parameters, subscriber);
     };
 
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [fake],
       agent: () => agent,
       context: [{ description: "bot-level", value: "always here" }],
@@ -252,7 +252,7 @@ describe("createBot", () => {
   it("thread.postFile returns a capability-gated error when the adapter can't upload", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    const bot = createBot({ adapters: [fake], agent: () => agent });
+    const bot = createChannel({ adapters: [fake], agent: () => agent });
 
     let result: { ok: boolean; error?: string } | undefined;
     bot.onMention(async ({ thread }) => {
@@ -279,7 +279,7 @@ describe("createBot", () => {
     ];
     fake.user = { id: "u1", name: "Ada" };
     const agent = new FakeAgent();
-    const bot = createBot({ adapters: [fake], agent: () => agent });
+    const bot = createChannel({ adapters: [fake], agent: () => agent });
 
     let history: unknown;
     let resolved: unknown;
@@ -301,7 +301,7 @@ describe("createBot", () => {
   it("resolves awaitChoice when a matching interaction arrives", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    const bot = createBot({ adapters: [fake], agent: () => agent });
+    const bot = createChannel({ adapters: [fake], agent: () => agent });
 
     let choicePromise: Promise<unknown> | undefined;
     bot.onMention(async ({ thread }) => {
@@ -344,7 +344,7 @@ describe("createBot", () => {
 
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [fake],
       agent: () => agent,
       store: { adapter: state, onLockConflict: "drop" },
@@ -381,7 +381,7 @@ describe("createBot", () => {
 
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [fake],
       agent: () => agent,
       store: { adapter: state, onLockConflict: "force" },
@@ -416,7 +416,7 @@ describe("createBot", () => {
 
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [fake],
       agent: () => agent,
       store: { adapter: state },
@@ -448,24 +448,24 @@ describe("createBot", () => {
   it("throws when identity is set without transcripts", () => {
     const fake = new FakeAdapter();
     expect(() =>
-      createBot({
+      createChannel({
         adapters: [fake],
         store: { identity: () => "key" },
       }),
     ).toThrow(
-      "createBot: `identity` and `transcripts` must be configured together.",
+      "createChannel: `identity` and `transcripts` must be configured together.",
     );
   });
 
   it("throws when transcripts is set without identity", () => {
     const fake = new FakeAdapter();
     expect(() =>
-      createBot({
+      createChannel({
         adapters: [fake],
         store: { transcripts: { maxPerUser: 100 } },
       }),
     ).toThrow(
-      "createBot: `identity` and `transcripts` must be configured together.",
+      "createChannel: `identity` and `transcripts` must be configured together.",
     );
   });
 
@@ -473,7 +473,7 @@ describe("createBot", () => {
     const state = new MemoryStore();
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [fake],
       agent: () => agent,
       store: {
@@ -505,7 +505,7 @@ describe("createBot", () => {
     const state = new MemoryStore();
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [fake],
       agent: () => agent,
       store: {
@@ -552,7 +552,7 @@ describe("createBot", () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
 
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [fake],
       agent: () => agent,
       store: {
@@ -627,7 +627,7 @@ describe("createBot", () => {
   it("typesafe state: setState validates against store.state schema and round-trips", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [fake],
       agent: () => agent,
       store: {
@@ -659,7 +659,7 @@ describe("createBot", () => {
   });
 });
 
-describe("createBot lock and dedup edge cases", () => {
+describe("createChannel lock and dedup edge cases", () => {
   it("releases the lock after the handler throws", async () => {
     const state = new MemoryStore();
     let release!: () => void;
@@ -667,7 +667,7 @@ describe("createBot lock and dedup edge cases", () => {
 
     const fake = new FakeAdapter();
     // Use a separate bot so the throwing handler is isolated.
-    const bot1 = createBot({
+    const bot1 = createChannel({
       adapters: [fake],
       store: { adapter: state, onLockConflict: "drop", lockTtl: 5000 },
     });
@@ -710,7 +710,7 @@ describe("createBot lock and dedup edge cases", () => {
     let callbackMessageText: string | undefined;
 
     const fake = new FakeAdapter();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [fake],
       store: {
         adapter: state,
@@ -752,7 +752,7 @@ describe("createBot lock and dedup edge cases", () => {
     const gate = new Promise<void>((r) => (release = r));
 
     const fake = new FakeAdapter();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [fake],
       store: {
         adapter: state,
@@ -784,7 +784,7 @@ describe("createBot lock and dedup edge cases", () => {
   it("identity throws: handler still runs and userKey is undefined", async () => {
     const state = new MemoryStore();
     const fake = new FakeAdapter();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [fake],
       store: {
         adapter: state,
@@ -815,7 +815,7 @@ describe("createBot lock and dedup edge cases", () => {
   it("identity returns null: userKey is undefined", async () => {
     const state = new MemoryStore();
     const fake = new FakeAdapter();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [fake],
       store: { adapter: state, identity: () => null, transcripts: {} },
     });
@@ -842,7 +842,7 @@ describe("createBot lock and dedup edge cases", () => {
     let runs = 0;
 
     const fake = new FakeAdapter();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [fake],
       store: { adapter: state, onLockConflict: "drop" },
     });
@@ -886,7 +886,7 @@ describe("createBot lock and dedup edge cases", () => {
 
     let runs = 0;
     const fake = new FakeAdapter();
-    const bot = createBot({ adapters: [fake], store: { adapter: state } });
+    const bot = createChannel({ adapters: [fake], store: { adapter: state } });
     bot.onMention(async () => {
       runs++;
     });
@@ -912,7 +912,7 @@ describe("createBot lock and dedup edge cases", () => {
     const gate = new Promise<void>((r) => (releaseGate = r));
 
     const fake = new FakeAdapter();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [fake],
       store: { adapter: state, onLockConflict: "drop" },
     });
@@ -961,7 +961,7 @@ describe("createBot lock and dedup edge cases", () => {
     let runs = 0;
 
     const fake = new FakeAdapter();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [fake],
       store: { adapter: state },
     });
@@ -989,10 +989,10 @@ describe("createBot lock and dedup edge cases", () => {
   });
 });
 
-describe("createBot slash commands", () => {
+describe("createChannel slash commands", () => {
   it("routes a command to its handler with the raw text", async () => {
     const fake = new FakeAdapter();
-    const bot = createBot({ adapters: [fake] });
+    const bot = createChannel({ adapters: [fake] });
     let seen: { command: string; text: string } | undefined;
     bot.onCommand("triage", ({ command, text }) => {
       seen = { command, text };
@@ -1004,7 +1004,7 @@ describe("createBot slash commands", () => {
 
   it("ignores a command with no registered handler", async () => {
     const fake = new FakeAdapter();
-    const bot = createBot({ adapters: [fake] });
+    const bot = createChannel({ adapters: [fake] });
     let fired = false;
     bot.onCommand("triage", () => {
       fired = true;
@@ -1017,10 +1017,10 @@ describe("createBot slash commands", () => {
   it("parses rawOptions through the command's schema into ctx.options", async () => {
     let captured: { seat: string } | undefined;
     const fake = new FakeAdapter();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [fake],
       commands: [
-        defineBotCommand({
+        defineChannelCommand({
           name: "book",
           options: z.object({ seat: z.string() }),
           handler: ({ options }) => {
@@ -1040,7 +1040,7 @@ describe("createBot slash commands", () => {
 
   it("hands declared commands to adapters that implement registerCommands", async () => {
     const fake = new FakeAdapter();
-    const bot = createBot({ adapters: [fake] });
+    const bot = createChannel({ adapters: [fake] });
     bot.onCommand("triage", () => {});
     bot.onCommand("status", () => {});
     await bot.start();
@@ -1055,7 +1055,7 @@ describe("createBot slash commands", () => {
     try {
       const bad = new FakeAdapter({ platform: "telegram", failStart: true });
       const good = new FakeAdapter({ platform: "slack" });
-      const bot = createBot({ adapters: [bad, good] });
+      const bot = createChannel({ adapters: [bad, good] });
       await expect(bot.start()).resolves.toBeUndefined();
       expect(good.started).toBe(true);
       expect(
@@ -1074,7 +1074,7 @@ describe("createBot slash commands", () => {
         failRegisterCommands: true,
       });
       const good = new FakeAdapter({ platform: "slack" });
-      const bot = createBot({ adapters: [bad, good] });
+      const bot = createChannel({ adapters: [bad, good] });
       bot.onCommand("triage", () => {});
       await expect(bot.start()).resolves.toBeUndefined();
       expect(good.started).toBe(true);
@@ -1093,7 +1093,7 @@ describe("createBot slash commands", () => {
       const bad = new FakeAdapter({ platform: "telegram", failStop: true });
       const good = new FakeAdapter({ platform: "slack" });
       const stopSpy = vi.spyOn(good, "stop");
-      const bot = createBot({ adapters: [bad, good] });
+      const bot = createChannel({ adapters: [bad, good] });
       await bot.start();
       await expect(bot.stop()).resolves.toBeUndefined();
       expect(stopSpy).toHaveBeenCalled();

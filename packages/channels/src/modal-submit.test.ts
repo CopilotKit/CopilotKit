@@ -1,12 +1,12 @@
 // packages/channels/src/modal-submit.test.ts
 import { describe, it, expect } from "vitest";
-import { createBot } from "./create-bot.js";
+import { createChannel } from "./create-channel.js";
 import { FakeAdapter } from "./testing/fake-adapter.js";
 
 describe("bot.onModalSubmit / onModalClose", () => {
   it("routes a submission by callbackId and parses values; thread present when conversation context exists", async () => {
     const fake = new FakeAdapter();
-    const bot = createBot({ adapters: [fake] });
+    const bot = createChannel({ adapters: [fake] });
     const seen: {
       values: Record<string, unknown>;
       user?: string;
@@ -42,7 +42,7 @@ describe("bot.onModalSubmit / onModalClose", () => {
 
   it("returns the handler's field errors so the adapter can keep the modal open", async () => {
     const fake = new FakeAdapter();
-    const bot = createBot({ adapters: [fake] });
+    const bot = createChannel({ adapters: [fake] });
     bot.onModalSubmit("triage", (evt) =>
       evt.values.summary ? undefined : { errors: { summary: "Required" } },
     );
@@ -56,7 +56,7 @@ describe("bot.onModalSubmit / onModalClose", () => {
 
   it("ignores submissions with no registered handler", async () => {
     const fake = new FakeAdapter();
-    const bot = createBot({ adapters: [fake] });
+    const bot = createChannel({ adapters: [fake] });
     await bot.start();
     const res = await fake.emitModalSubmit({
       callbackId: "unknown",
@@ -67,7 +67,7 @@ describe("bot.onModalSubmit / onModalClose", () => {
 
   it("routes a close by callbackId", async () => {
     const fake = new FakeAdapter();
-    const bot = createBot({ adapters: [fake] });
+    const bot = createChannel({ adapters: [fake] });
     const closed: string[] = [];
     bot.onModalClose("triage", (evt) => {
       closed.push(evt.callbackId);

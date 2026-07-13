@@ -239,7 +239,7 @@ export interface ConversationStore {
  * config. Local adapters ignore it.
  */
 export interface AdapterStartContext {
-  /** The bot's declared name (`createBot({ name })`), when set. */
+  /** The bot's declared name (`createChannel({ name })`), when set. */
   botName?: string;
 }
 
@@ -262,9 +262,9 @@ export interface PlatformAdapter {
   lookupUser(q: UserQuery): Promise<PlatformUser | undefined>;
   readonly conversationStore: ConversationStore;
   /**
-   * Optional persistence backend supplied by the adapter. `createBot` uses it
+   * Optional persistence backend supplied by the adapter. `createChannel` uses it
    * only when no explicit `store.adapter` is configured; if more than one
-   * adapter provides one, `createBot` warns and uses the first. Distinct from
+   * adapter provides one, `createChannel` warns and uses the first. Distinct from
    * {@link conversationStore}.
    */
   readonly stateStore?: StateStore;

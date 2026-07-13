@@ -193,7 +193,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
   };
 
   /** Persistence supplied by the Channel transport (Intelligence-backed); picked
-   * up by createBot's `resolveBackend` when no explicit `store.adapter` is set. */
+   * up by createChannel's `resolveBackend` when no explicit `store.adapter` is set. */
   readonly stateStore?: StateStore;
 
   private sink?: IngressSink;
@@ -216,7 +216,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
     // persist action-registry snapshots + thread state across restarts (HITL
     // cards survive). Skipped when a store is passed explicitly or when
     // in-memory transports are injected (tests) — a durable store hitting HTTP
-    // would be wrong there. Falls back to createBot's MemoryStore if baseUrl /
+    // would be wrong there. Falls back to createChannel's MemoryStore if baseUrl /
     // apiKey can't be resolved.
     this.stateStore = opts.store ?? this.buildDefaultStore();
   }
@@ -261,7 +261,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
   async start(sink: IngressSink, ctx?: { botName?: string }): Promise<void> {
     this.sink = sink;
     // Config-free default: build the HTTP transports from env (+ the bot's
-    // name from createBot, passed by bot core) when none were injected.
+    // name from createChannel, passed by bot core) when none were injected.
     if (!this.source || !this.egress) {
       const cfg = resolveTransportConfig({
         ...this.opts.config,

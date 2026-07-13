@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { CopilotRuntime, CopilotIntelligenceRuntime } from "../core/runtime";
 import { CopilotKitIntelligence } from "../intelligence-platform";
-import { createBot } from "@copilotkit/channels";
+import { createChannel } from "@copilotkit/channels";
 
 const intelligence = () =>
   new CopilotKitIntelligence({
@@ -13,7 +13,7 @@ const identifyUser = vi.fn().mockResolvedValue({ id: "u", name: "U" });
 
 describe("CopilotRuntime — managed bots option", () => {
   it("stores declared bots on the intelligence runtime and exposes them via the facade", () => {
-    const bot = createBot({ name: "support" });
+    const bot = createChannel({ name: "support" });
     const rt = new CopilotRuntime({
       agents: {},
       intelligence: intelligence(),
@@ -45,7 +45,7 @@ describe("CopilotRuntime — managed bots option", () => {
       () =>
         new CopilotRuntime({
           agents: {},
-          bots: [createBot({ name: "support" })],
+          bots: [createChannel({ name: "support" })],
         } as unknown as ConstructorParameters<typeof CopilotRuntime>[0]),
     ).toThrow(/Intelligence runtime/i);
   });
@@ -57,7 +57,7 @@ describe("CopilotRuntime — managed bots option", () => {
           agents: {},
           intelligence: intelligence(),
           identifyUser,
-          bots: [createBot({})],
+          bots: [createChannel({})],
         }),
     ).toThrow(/name/i);
   });

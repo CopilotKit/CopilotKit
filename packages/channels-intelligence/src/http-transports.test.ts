@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { createBot, FakeAgent } from "@copilotkit/channels";
+import { createChannel, FakeAgent } from "@copilotkit/channels";
 import type { BotNode } from "@copilotkit/channels-ui";
 import {
   HttpDeliverySource,
@@ -821,7 +821,7 @@ describe("HttpRenderEventSink", () => {
 describe("intelligenceAdapter() — config-free default transports", () => {
   it("is callable with zero arguments (config-free)", () => {
     // Compile-time + runtime guard: intelligenceAdapter() must take no required
-    // args so consumers can write createBot({ adapters: [intelligenceAdapter()] }).
+    // args so consumers can write createChannel({ adapters: [intelligenceAdapter()] }).
     const adapter = intelligenceAdapter();
     expect(adapter.platform).toBe("intelligence");
   });
@@ -839,11 +839,11 @@ describe("intelligenceAdapter() — config-free default transports", () => {
           }
         : { body: { claimed: false, pollAfterMs: 60000 } },
     );
-    const bot = createBot({
+    const bot = createChannel({
       name: "opentagbot",
       agent: () => new FakeAgent(),
       // No source/egress injected -> default HTTP transports; no channelName in
-      // config -> it comes from createBot({ name }) via the start() context.
+      // config -> it comes from createChannel({ name }) via the start() context.
       adapters: [
         intelligenceAdapter({
           config: {

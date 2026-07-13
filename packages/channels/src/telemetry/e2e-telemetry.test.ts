@@ -10,7 +10,7 @@ vi.mock("@copilotkit/shared", async (importOriginal) => {
   return { ...actual, lambdaClient: { send: sendSpy } };
 });
 
-import { createBot } from "../create-bot.js";
+import { createChannel } from "../create-channel.js";
 import { FakeAdapter } from "../testing/fake-adapter.js";
 import { FakeAgent } from "../testing/fake-agent.js";
 
@@ -38,7 +38,10 @@ describe("oss.bot.* end-to-end (real BotTelemetry, only network boundary stubbed
 
   it("flows configured -> started -> agent_run with anonymous_id + bot_session_id and no env config", async () => {
     const fake = new FakeAdapter();
-    const bot = createBot({ adapters: [fake], agent: () => new FakeAgent() });
+    const bot = createChannel({
+      adapters: [fake],
+      agent: () => new FakeAgent(),
+    });
     bot.onMention(async ({ thread }) => {
       await thread.runAgent();
     });

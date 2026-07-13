@@ -19,7 +19,7 @@ import {
   Row,
   Cell,
 } from "@copilotkit/channels-ui";
-import { defineBotTool } from "@copilotkit/channels";
+import { defineChannelTool } from "@copilotkit/channels";
 
 const schema = z.object({
   title: z
@@ -95,7 +95,7 @@ export function toMonospaceTable(cols: Column[], dataRows: string[][]): string {
   return "```\n" + [fmt(header), ...body.map(fmt)].join("\n") + "\n```";
 }
 
-export const renderTableTool = defineBotTool({
+export const renderTableTool = defineChannelTool({
   name: "render_table",
   description:
     "Render tabular data as a table posted to the conversation thread. Pass " +

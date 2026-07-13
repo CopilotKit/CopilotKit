@@ -1,7 +1,7 @@
 // packages/channels/src/open-modal.test.tsx
 import { describe, it, expect } from "vitest";
 import { Modal, TextInput } from "@copilotkit/channels-ui";
-import { createBot } from "./create-bot.js";
+import { createChannel } from "./create-channel.js";
 import { FakeAdapter } from "./testing/fake-adapter.js";
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
@@ -14,7 +14,7 @@ const view = (
 describe("ctx.openModal", () => {
   it("opens a modal from an interaction when a triggerId is present", async () => {
     const fake = new FakeAdapter();
-    const bot = createBot({ adapters: [fake] });
+    const bot = createChannel({ adapters: [fake] });
     let res: unknown;
     bot.onInteraction("ck:open", async (ctx) => {
       res = await ctx.openModal!(view);
@@ -30,7 +30,7 @@ describe("ctx.openModal", () => {
 
   it("opens a modal from a command", async () => {
     const fake = new FakeAdapter();
-    const bot = createBot({ adapters: [fake] });
+    const bot = createChannel({ adapters: [fake] });
     let res: unknown;
     bot.onCommand("triage", async (ctx) => {
       res = await ctx.openModal!(view);
@@ -43,7 +43,7 @@ describe("ctx.openModal", () => {
 
   it("omits openModal when no triggerId is present", async () => {
     const fake = new FakeAdapter();
-    const bot = createBot({ adapters: [fake] });
+    const bot = createChannel({ adapters: [fake] });
     let hasOpen = true;
     bot.onInteraction("ck:noop", (ctx) => {
       hasOpen = typeof ctx.openModal === "function";
@@ -56,7 +56,7 @@ describe("ctx.openModal", () => {
 
   it("omits openModal when the adapter has no modal support", async () => {
     const fake = new FakeAdapter({ modals: false });
-    const bot = createBot({ adapters: [fake] });
+    const bot = createChannel({ adapters: [fake] });
     let hasOpen = true;
     bot.onInteraction("ck:x", (ctx) => {
       hasOpen = typeof ctx.openModal === "function";

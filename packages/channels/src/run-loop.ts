@@ -6,8 +6,8 @@ import type {
   CapturedInterrupt,
 } from "./platform-adapter.js";
 import type {
-  BotTool,
-  BotToolContext,
+  ChannelTool,
+  ChannelToolContext,
   AgentToolDescriptor,
   ContextEntry,
 } from "./tools.js";
@@ -16,11 +16,11 @@ import { parseToolArgs, stringifyHandlerResult } from "./tools.js";
 export interface RunLoopArgs {
   agent: AbstractAgent;
   renderer: RunRenderer;
-  tools: Map<string, BotTool>;
+  tools: Map<string, ChannelTool>;
   toolDescriptors: AgentToolDescriptor[];
   context: ContextEntry[];
   /** ctx passed to tool.handler (thread + platform). */
-  makeToolCtx: (call: CapturedToolCall) => BotToolContext;
+  makeToolCtx: (call: CapturedToolCall) => ChannelToolContext;
   /** Invoke the registered onInterrupt handler (posts a picker); the loop then ends. */
   handleInterrupt?: (interrupt: CapturedInterrupt) => Promise<void> | void;
   isAborted?: () => boolean;

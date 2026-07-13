@@ -16,8 +16,8 @@ import { errorClass, normalizePlatform } from "./telemetry/sanitize-error.js";
 import type { Transcripts } from "./transcripts.js";
 import { toAgentToolDescriptors } from "./tools.js";
 import type {
-  BotTool,
-  BotToolContext,
+  ChannelTool,
+  ChannelToolContext,
   ContextEntry,
   AgentToolDescriptor,
 } from "./tools.js";
@@ -32,7 +32,7 @@ export interface ThreadDeps {
   conversationKey: string;
   registry: ActionRegistry;
   agentFactory: (threadId: string) => AbstractAgent;
-  tools: Map<string, BotTool>;
+  tools: Map<string, ChannelTool>;
   toolDescriptors: AgentToolDescriptor[];
   context: ContextEntry[];
   registerWaiter: (
@@ -43,7 +43,7 @@ export interface ThreadDeps {
     string,
     (args: { payload: unknown; thread: Thread }) => void | Promise<void>
   >;
-  /** Pluggable persistence. Injected by createBot; always required. */
+  /** Pluggable persistence. Injected by createChannel; always required. */
   state: StateStore;
   /**
    * Optional Standard Schema for per-thread state. When set, `setState`
@@ -290,7 +290,7 @@ export class Thread implements ThreadInterface {
 
   async runAgent(input?: {
     context?: ContextEntry[];
-    tools?: BotTool[];
+    tools?: ChannelTool[];
     /**
      * A user message to inject before running. Needed when the input isn't
      * already in the conversation history the adapter reconstructs — e.g. a
@@ -324,7 +324,7 @@ export class Thread implements ThreadInterface {
     initialResume?: { resume: unknown },
     extra?: {
       context?: ContextEntry[];
-      tools?: BotTool[];
+      tools?: ChannelTool[];
       prompt?: string | AgentContentPart[];
       transcript?: boolean | { limit?: number };
     },
@@ -420,7 +420,7 @@ export class Thread implements ThreadInterface {
         tools,
         toolDescriptors,
         context,
-        makeToolCtx: (): BotToolContext => ({
+        makeToolCtx: (): ChannelToolContext => ({
           thread: this,
           platform: this.platform,
         }),

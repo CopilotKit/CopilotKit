@@ -17,7 +17,7 @@ const fakes = vi.hoisted(() => {
 });
 
 vi.mock("@copilotkit/channels", () => ({
-  createBot: vi.fn(() => fakes.bot),
+  createChannel: vi.fn(() => fakes.bot),
 }));
 vi.mock("@copilotkit/channels-slack", () => ({
   defaultSlackTools: [],

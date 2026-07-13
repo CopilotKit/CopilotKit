@@ -5,7 +5,7 @@
  * that runs on the chat-platform side of the bot for this deployment.
  *
  * MULTI-PLATFORM: this single app drives Slack, Discord, Telegram, and/or
- * WhatsApp from one process. `@copilotkit/channels`'s `createBot` accepts an array
+ * WhatsApp from one process. `@copilotkit/channels`'s `createChannel` accepts an array
  * of adapters and starts them all, so we include each platform's adapter only
  * when its secrets are present. Drop in `SLACK_*` to run Slack, `DISCORD_*` for
  * Discord, `TELEGRAM_BOT_TOKEN` for Telegram, `WHATSAPP_*` for WhatsApp — or any
@@ -17,10 +17,10 @@
  * here in the file you copy from to start a new bot.
  */
 import "dotenv/config";
-import { createBot } from "@copilotkit/channels";
+import { createChannel } from "@copilotkit/channels";
 import type {
   PlatformAdapter,
-  BotTool,
+  ChannelTool,
   ContextEntry,
 } from "@copilotkit/channels";
 import {
@@ -76,7 +76,7 @@ async function main() {
   // formatting guidance), added only when that platform is active so the model
   // isn't handed a different platform's conventions.
   const adapters: PlatformAdapter[] = [];
-  const tools: BotTool[] = [...appTools];
+  const tools: ChannelTool[] = [...appTools];
   const context: ContextEntry[] = [...appContext];
 
   if (have("SLACK_BOT_TOKEN", "SLACK_APP_TOKEN")) {
@@ -183,7 +183,7 @@ async function main() {
     process.exit(1);
   }
 
-  const bot = createBot({
+  const bot = createChannel({
     adapters,
     // One AG-UI agent per conversation. The backend is a CopilotKit
     // `BuiltInAgent` (CopilotSseRuntime), which does NOT require a UUID-format
@@ -201,7 +201,7 @@ async function main() {
     },
     // `appTools` adds this bot's tools (read_thread, render_*, issue/page
     // cards); the per-platform `default*Tools` add `lookup_*_user`. All are
-    // plain `BotTool`s — the active adapter supplies `thread`/`message`/`user`
+    // plain `ChannelTool`s — the active adapter supplies `thread`/`message`/`user`
     // per call. `default*Context` ships tagging/formatting/thread-model
     // guidance; `appContext` adds identity + triage policy.
     tools,
@@ -215,7 +215,7 @@ async function main() {
 
   // The turn handler. Each adapter pre-filters ingress to the turns this bot
   // should answer — DMs, explicit mentions, and every WhatsApp message.
-  // createBot is mention-preferred: a single handler covers them across every
+  // createChannel is mention-preferred: a single handler covers them across every
   // active platform. `senderContext` names the
   // requesting user per `thread.platform`, so the label is correct on whichever
   // surface the turn arrived from. Additional feature demos below add their own

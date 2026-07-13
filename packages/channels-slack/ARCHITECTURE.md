@@ -98,7 +98,7 @@ tool-status rows (`showToolStatus`), and captures frontend tool calls and
 
 When the agent calls a registered frontend tool, the loop validates the args
 (Standard Schema) and invokes `tool.handler(args, ctx)`. `ctx` is the single
-shared `BotToolContext` (`{ thread, message?, user?, signal?, platform }`) —
+shared `ChannelToolContext` (`{ thread, message?, user?, signal?, platform }`) —
 there is no Slack-specific context. Slack power is reached only through
 capability-gated `thread` methods the adapter backs (`getMessages`,
 `lookupUser`, `postFile`). A render-tool handler renders JSX with
@@ -202,7 +202,7 @@ src/
 ├── auto-close-streaming.ts   # mid-stream bracket closer
 ├── download-files.ts         # inbound file → multimodal content parts
 ├── sanitizing-http-agent.ts  # sanitizing AG-UI HTTP agent
-├── built-in-tools.ts         # lookup_slack_user + defaultSlackTools (as BotTools)
+├── built-in-tools.ts         # lookup_slack_user + defaultSlackTools (as ChannelTools)
 ├── built-in-context.ts       # tagging / mrkdwn / convo-model context entries
 └── types.ts                  # IncomingTurn, ReplyTarget, ConversationKey, DM_SCOPE, SlackAssistantOptions
 ```

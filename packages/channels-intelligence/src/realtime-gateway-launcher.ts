@@ -1,4 +1,4 @@
-import type { Bot } from "@copilotkit/channels";
+import type { Channel } from "@copilotkit/channels";
 import {
   startChannels,
   assertValidChannelNames,
@@ -32,34 +32,34 @@ const realtimeGatewayEgress: EgressSink = {
 };
 
 /**
- * Phase 1 runs exactly one framework {@link Bot} per gateway session.
+ * Phase 1 runs exactly one framework {@link Channel} per gateway session.
  * {@link RealtimeGatewayTransport} is a single-delivery-callback object bound
- * to one session; attaching more than one Bot's `intelligenceAdapter` to the
- * same transport would make every delivery dispatch through the last Bot's
- * callback (and earlier Bots receive
- * nothing). Multi-Bot routing over a shared session is not implemented yet —
- * until then, run one Bot per gateway session/runner and fail loudly on more.
+ * to one session; attaching more than one Channel's `intelligenceAdapter` to the
+ * same transport would make every delivery dispatch through the last Channel's
+ * callback (and earlier Channels receive
+ * nothing). Multi-Channel routing over a shared session is not implemented yet —
+ * until then, run one Channel per gateway session/runner and fail loudly on more.
  */
-function assertSingleBotForPhase1(bots: readonly Bot[]): void {
-  if (bots.length !== 1) {
+function assertSingleChannelForPhase1(channels: readonly Channel[]): void {
+  if (channels.length !== 1) {
     throw new Error(
-      `Channel Realtime Gateway runtime supports exactly one Bot per gateway session, got ${bots.length} — ` +
-        "multi-Bot routing over a shared RealtimeGatewayTransport is not implemented yet (OSS-459); " +
-        "run one Bot per gateway session/runner",
+      `Channel Realtime Gateway runtime supports exactly one Channel per gateway session, got ${channels.length} — ` +
+        "multi-Channel routing over a shared RealtimeGatewayTransport is not implemented yet (OSS-459); " +
+        "run one Channel per gateway session/runner",
     );
   }
 }
 
 function assertScopeMatchesChannel(
-  bots: readonly Bot[],
+  channels: readonly Channel[],
   scope: ChannelRealtimeScope,
 ): void {
   assertValidChannelRealtimeScope(scope);
-  assertValidChannelNames(bots);
-  assertSingleBotForPhase1(bots);
-  if (bots[0]!.name !== scope.channelName) {
+  assertValidChannelNames(channels);
+  assertSingleChannelForPhase1(channels);
+  if (channels[0]!.name !== scope.channelName) {
     throw new Error(
-      `Channel Realtime Gateway scope channelName ${JSON.stringify(scope.channelName)} must match Bot name ${JSON.stringify(bots[0]!.name)}`,
+      `Channel Realtime Gateway scope channelName ${JSON.stringify(scope.channelName)} must match Channel name ${JSON.stringify(channels[0]!.name)}`,
     );
   }
 }
@@ -86,19 +86,19 @@ export interface StartChannelsWithGatewaySessionOptions {
 /**
  * Compose the Channel runtime over an already-connected gateway session: wrap
  * the session in a {@link RealtimeGatewayTransport} (delivery source + render
- * sink) and start the declared Bots against it via {@link startChannels}.
+ * sink) and start the declared Channels against it via {@link startChannels}.
  *
  * Split out from {@link startChannelsOverRealtimeGateway} so the composition —
  * the part with behavior — is unit-testable against a fake session, leaving the
  * connector as thin glue. `intelligenceAdapter` is exclusive, so the gateway
- * transport is each Bot's ONLY adapter; egress is served by the render sink,
+ * transport is each Channel's ONLY adapter; egress is served by the render sink,
  * not the generic {@link EgressSink} (see {@link realtimeGatewayEgress}).
  */
 export async function startChannelsWithGatewaySession(
-  bots: Bot[],
+  channels: Channel[],
   opts: StartChannelsWithGatewaySessionOptions,
 ): Promise<ChannelsHandle> {
-  assertScopeMatchesChannel(bots, opts.scope);
+  assertScopeMatchesChannel(channels, opts.scope);
   const transport = new RealtimeGatewayTransport({
     scope: opts.scope,
     runtimeInstanceId: opts.runtimeInstanceId,
@@ -106,7 +106,7 @@ export async function startChannelsWithGatewaySession(
     ...(opts.log ? { log: opts.log } : {}),
   });
   return startChannels({
-    bots,
+    channels,
     resolveTransport: () => ({
       source: transport,
       renderSink: transport,
@@ -147,13 +147,13 @@ export interface StartChannelsOverRealtimeGatewayOptions {
 }
 
 /**
- * Connect a Realtime Gateway session, then run the declared framework Bots
+ * Connect a Realtime Gateway session, then run the declared framework Channels
  * against it via {@link startChannelsWithGatewaySession}. This is the
  * composition that runs a Channel over the realtime path. The returned
- * handle's `stop()` stops the Bots and then disconnects the session.
+ * handle's `stop()` stops the Channels and then disconnects the session.
  */
 export async function startChannelsOverRealtimeGateway(
-  bots: Bot[],
+  channels: Channel[],
   config: StartChannelsOverRealtimeGatewayOptions,
 ): Promise<ChannelsHandle> {
   const adapter = config.adapter ?? "slack";
@@ -163,11 +163,11 @@ export async function startChannelsOverRealtimeGateway(
   // check inside startChannels runs only after we've connected — throw with
   // the socket already open and never closed (a leak). Validating here means a
   // bad declaration never opens a connection at all.
-  assertScopeMatchesChannel(bots, config.scope);
+  assertScopeMatchesChannel(channels, config.scope);
 
   // Build activation metadata up front so the join carries the Runtime
   // Activation data Intelligence's health view expects (runtime env, node
-  // version, per-bot commands) rather than just name+adapter. The same
+  // version, per-channel commands) rather than just name+adapter. The same
   // `envOverrides` is forwarded to startChannels so `handle.metadata` agrees
   // with what we declared on join. The required `config.runtimeInstanceId` is
   // spread LAST so it stays authoritative even though `config.env` cannot carry
@@ -177,7 +177,7 @@ export async function startChannelsOverRealtimeGateway(
     runtimeInstanceId: config.runtimeInstanceId,
   };
   const activation = buildChannelActivationMetadata(
-    bots,
+    channels,
     resolveChannelActivationEnv(envOverrides),
   );
 
@@ -190,8 +190,8 @@ export async function startChannelsOverRealtimeGateway(
       declaredChannels: activation.declaredChannels.map((channel) => ({
         channelName: channel.channelName,
         adapter,
-        // renderCapabilities: reserved — bots don't expose capabilities yet
-        // (tracked with the richer per-bot metadata in OSS-377).
+        // renderCapabilities: reserved — channels don't expose capabilities yet
+        // (tracked with the richer per-channel metadata in OSS-377).
       })),
       runtimeMetadata: {
         runtimeEnv: activation.runtimeEnv,
@@ -216,12 +216,12 @@ export async function startChannelsOverRealtimeGateway(
     ...(config.timeoutMs !== undefined ? { timeoutMs: config.timeoutMs } : {}),
     ...(config.webSocket !== undefined ? { webSocket: config.webSocket } : {}),
   });
-  // The session is now joined. If starting the Bots throws (e.g. a Bot was
-  // already started, or a conflicting adapter), the caller never receives a
+  // The session is now joined. If starting the Channels throws (e.g. a Channel
+  // was already started, or a conflicting adapter), the caller never receives a
   // handle — so disconnect the socket here rather than leak it, then rethrow.
   let handle: ChannelsHandle;
   try {
-    handle = await startChannelsWithGatewaySession(bots, {
+    handle = await startChannelsWithGatewaySession(channels, {
       session,
       scope: config.scope,
       runtimeInstanceId: config.runtimeInstanceId,
@@ -237,7 +237,7 @@ export async function startChannelsOverRealtimeGateway(
   return {
     ...handle,
     stop: async () => {
-      // Always close the connection even if stopping the bots throws — the
+      // Always close the connection even if stopping the channels throws — the
       // launcher owns the socket (the transport is handed the session and does
       // not disconnect it itself).
       try {

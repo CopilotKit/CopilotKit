@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const capture = vi.fn();
 vi.mock("./bot-telemetry.js", () => ({
-  // A `function` (not an arrow) so `new BotTelemetry(...)` in create-bot.ts is
+  // A `function` (not an arrow) so `new BotTelemetry(...)` in create-channel.ts is
   // constructible under vitest's mock — an arrow implementation throws
   // "is not a constructor".
   BotTelemetry: vi.fn().mockImplementation(function () {
@@ -11,21 +11,21 @@ vi.mock("./bot-telemetry.js", () => ({
   BOT_TELEMETRY_EVENTS: [],
 }));
 
-import { createBot } from "../create-bot.js";
+import { createChannel } from "../create-channel.js";
 import { FakeAdapter } from "../testing/fake-adapter.js";
 import { FakeAgent } from "../testing/fake-agent.js";
 import { Section } from "@copilotkit/channels-ui";
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
-describe("createBot telemetry wiring", () => {
+describe("createChannel telemetry wiring", () => {
   beforeEach(() => capture.mockClear());
 
   it("emits oss.bot.configured with a config snapshot", async () => {
     // The config snapshot is captured at start() — the backend (and therefore
     // telemetry) is resolved there, not at construction, so an adapter attached
     // via addAdapter can still provide the persistence backend.
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [new FakeAdapter()],
       components: [
         function Card() {
@@ -43,7 +43,7 @@ describe("createBot telemetry wiring", () => {
 
   it("emits oss.bot.started on start, start_failed (category only) on a throwing adapter", async () => {
     const ok = new FakeAdapter();
-    const bot = createBot({ adapters: [ok] });
+    const bot = createChannel({ adapters: [ok] });
     await bot.start();
     expect(
       capture.mock.calls.find((c) => c[0] === "oss.bot.started")?.[1]
@@ -56,7 +56,7 @@ describe("createBot telemetry wiring", () => {
       Promise.reject(
         Object.assign(new Error("xoxb-SECRET token bad"), { code: "EAUTH" }),
       );
-    const bot2 = createBot({ adapters: [bad] });
+    const bot2 = createChannel({ adapters: [bad] });
     await bot2.start();
     const f = capture.mock.calls.find((c) => c[0] === "oss.bot.start_failed");
     expect(f).toBeDefined();
@@ -66,7 +66,10 @@ describe("createBot telemetry wiring", () => {
 
   it("emits oss.bot.agent_run on a successful run", async () => {
     const fake = new FakeAdapter();
-    const bot = createBot({ adapters: [fake], agent: () => new FakeAgent() });
+    const bot = createChannel({
+      adapters: [fake],
+      agent: () => new FakeAgent(),
+    });
     bot.onMention(async ({ thread }) => {
       await thread.runAgent();
     });

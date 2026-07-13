@@ -1,11 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { createBot } from "./create-bot.js";
+import { createChannel } from "./create-channel.js";
 import { FakeAdapter } from "./testing/fake-adapter.js";
 
 describe("onThreadStarted routing", () => {
   it("invokes registered handlers with the thread and user", async () => {
     const fake = new FakeAdapter();
-    const bot = createBot({ adapters: [fake] });
+    const bot = createChannel({ adapters: [fake] });
     const seen: { user?: string; platform: string }[] = [];
     bot.onThreadStarted(({ thread, user }) => {
       seen.push({ user: user?.id, platform: thread.platform });
@@ -18,7 +18,7 @@ describe("onThreadStarted routing", () => {
 
   it("invokes every registered handler in order", async () => {
     const fake = new FakeAdapter();
-    const bot = createBot({ adapters: [fake] });
+    const bot = createChannel({ adapters: [fake] });
     const order: number[] = [];
     bot.onThreadStarted(() => {
       order.push(1);
@@ -33,7 +33,7 @@ describe("onThreadStarted routing", () => {
 
   it("is a no-op when no handler is registered", async () => {
     const fake = new FakeAdapter();
-    const bot = createBot({ adapters: [fake] });
+    const bot = createChannel({ adapters: [fake] });
     await bot.start();
     // Should not throw.
     await expect(
@@ -45,7 +45,7 @@ describe("onThreadStarted routing", () => {
 describe("Thread.setSuggestedPrompts / setTitle capability gating", () => {
   it("delegates to the adapter when supported", async () => {
     const fake = new FakeAdapter();
-    const bot = createBot({ adapters: [fake] });
+    const bot = createChannel({ adapters: [fake] });
     const results: { ok: boolean; error?: string }[] = [];
     bot.onThreadStarted(async ({ thread }) => {
       results.push(
@@ -73,7 +73,7 @@ describe("Thread.setSuggestedPrompts / setTitle capability gating", () => {
 
   it("returns { ok: false } without throwing when unsupported", async () => {
     const fake = new FakeAdapter({ paneMethods: false });
-    const bot = createBot({ adapters: [fake] });
+    const bot = createChannel({ adapters: [fake] });
     const results: { ok: boolean; error?: string }[] = [];
     bot.onThreadStarted(async ({ thread }) => {
       results.push(await thread.setSuggestedPrompts([]));

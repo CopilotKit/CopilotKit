@@ -37,7 +37,7 @@ import type { CopilotKitIntelligence } from "../intelligence-platform";
 // package's CJS output. The bots are validated + activated (wired to delivery
 // transports) by `startChannels` from @copilotkit/channels-intelligence, called
 // by the Channel-listener bootstrap — not here.
-import type { Bot } from "@copilotkit/channels";
+import type { Channel } from "@copilotkit/channels";
 import telemetry from "../telemetry/telemetry-client";
 
 export const VERSION = pkg.version;
@@ -204,12 +204,12 @@ export interface CopilotIntelligenceRuntimeOptions extends BaseCopilotRuntimeOpt
   lockHeartbeatIntervalSeconds?: number;
   /**
    * Intelligence Channels declared by this runtime. Each is a
-   * `createBot({ name })` instance. Only available on the Intelligence runtime
+   * `createChannel({ name })` instance. Only available on the Intelligence runtime
    * path. Names are validated (required, lowercase kebab-case, unique) and wired
    * to delivery/egress transports when activated via `startChannels` from
    * `@copilotkit/channels-intelligence` — not at construction.
    */
-  bots?: Bot[];
+  bots?: Channel[];
 }
 
 export type CopilotRuntimeOptions =
@@ -255,7 +255,7 @@ export interface CopilotIntelligenceRuntimeLike extends CopilotRuntimeLike {
   lockTtlSeconds: number;
   lockKeyPrefix?: string;
   lockHeartbeatIntervalSeconds: number;
-  bots: Bot[];
+  bots: Channel[];
   mode: typeof RUNTIME_MODE_INTELLIGENCE;
 }
 
@@ -375,7 +375,7 @@ export class CopilotIntelligenceRuntime
   readonly lockTtlSeconds: number;
   readonly lockKeyPrefix?: string;
   readonly lockHeartbeatIntervalSeconds: number;
-  readonly bots: Bot[];
+  readonly bots: Channel[];
   readonly mode = RUNTIME_MODE_INTELLIGENCE;
 
   /** Maximum allowed lock TTL in seconds (1 hour). */
@@ -419,7 +419,7 @@ export class CopilotIntelligenceRuntime
     for (const b of this.bots) {
       if (!b.name) {
         throw new Error(
-          "Intelligence Channel Bot is missing a `name` — pass createBot({ name }) for each Bot in `bots`",
+          "Intelligence Channel Bot is missing a `name` — pass createChannel({ name }) for each Bot in `bots`",
         );
       }
     }
@@ -533,7 +533,7 @@ export class CopilotRuntime implements CopilotRuntimeLike {
       : undefined;
   }
 
-  get bots(): Bot[] | undefined {
+  get bots(): Channel[] | undefined {
     return isIntelligenceRuntime(this.delegate)
       ? this.delegate.bots
       : undefined;

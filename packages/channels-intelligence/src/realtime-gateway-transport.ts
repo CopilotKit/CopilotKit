@@ -221,7 +221,7 @@ export class RealtimeGatewayTransport
         eventId: String(turn.eventId),
         turnId: String(turn.id),
         // This product-level field names the Channel; bot core attaches the
-        // adapter directly to the framework Bot named by `createBot({ name })`.
+        // adapter directly to the framework Channel named by `createChannel({ name })`.
         channelName: scope.channelName,
         platform: String(delivery.adapter ?? "slack"),
         conversationKey: String(turn.id),

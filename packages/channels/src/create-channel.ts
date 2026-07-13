@@ -16,9 +16,9 @@ import { MemoryStore } from "./state/memory-store.js";
 import { kvActionStore } from "./state/kv-action-store.js";
 import type { StateStore } from "./state/state-store.js";
 import { toAgentToolDescriptors, parseToolArgs } from "./tools.js";
-import type { BotTool, ContextEntry } from "./tools.js";
+import type { ChannelTool, ContextEntry } from "./tools.js";
 import { normalizeCommandName, toCommandSpec } from "./commands.js";
-import type { BotCommand, CommandContext } from "./commands.js";
+import type { ChannelCommand, CommandContext } from "./commands.js";
 import { Thread } from "./thread.js";
 import type { ThreadDeps } from "./thread.js";
 import type { AbstractAgent } from "@ag-ui/client";
@@ -73,12 +73,12 @@ export type LockConflictDecision = "drop" | "force";
  * Any `@copilotkit/channels-ui` component function, regardless of its props type.
  * Accepting `(props: never)` lets a component with required, strongly-typed
  * props (e.g. `({ title }: { title: string }) => …`) be passed to
- * `createBot({ components })` without a cast — the registry only ever calls it
+ * `createChannel({ components })` without a cast — the registry only ever calls it
  * with the props persisted in the store, so the specific shape isn't needed here.
  */
-export type BotComponent = (props: never) => ReturnType<ComponentFn>;
+export type ChannelComponent = (props: never) => ReturnType<ComponentFn>;
 
-export type BotHandler<TState = unknown> = (ctx: {
+export type ChannelHandler<TState = unknown> = (ctx: {
   thread: StatefulThread<TState>;
   message: IncomingMessage;
 }) => void | Promise<void>;
@@ -171,7 +171,7 @@ export interface StoreConfig<
   dedupTtl?: number;
 }
 
-export interface CreateBotOptions<
+export interface CreateChannelOptions<
   TStateSchema extends StandardSchemaV1 | undefined = undefined,
 > {
   /**
@@ -183,13 +183,13 @@ export interface CreateBotOptions<
   name?: string;
   /**
    * Adapters supplied at construction. Optional — adapters can also be attached
-   * before `start()` via {@link Bot.addAdapter} (the Channel runtime uses this).
+   * before `start()` via {@link Channel.addAdapter} (the Channel runtime uses this).
    */
   adapters?: PlatformAdapter[];
   agent?: AbstractAgent | ((threadId: string) => AbstractAgent);
   /** @deprecated Pass `store.adapter` instead. */
   actionStore?: ActionStore;
-  tools?: BotTool[];
+  tools?: ChannelTool[];
   context?: ContextEntry[];
   /**
    * Named JSX components used in interactive messages. Registering them here
@@ -197,20 +197,20 @@ export interface CreateBotOptions<
    * actions); without registration, a click on a message posted before the
    * restart degrades to "action expired".
    */
-  components?: BotComponent[];
+  components?: ChannelComponent[];
   /** Slash commands. Forwarded to adapters that support them; ignored elsewhere. */
-  commands?: BotCommand[];
+  commands?: ChannelCommand[];
   /** Persistence, per-thread state schema, transcripts, and lock/dedup tuning. */
   store?: StoreConfig<TStateSchema>;
 }
 
-export interface Bot<TState = unknown> {
-  /** Project-unique identifier from `createBot({ name })`; used by the Channel runtime. */
+export interface Channel<TState = unknown> {
+  /** Project-unique identifier from `createChannel({ name })`; used by the Channel runtime. */
   readonly name?: string;
   /** Declared slash-command names (normalized). Surfaced for Channel activation metadata. */
   readonly commandNames: string[];
-  onMention(h: BotHandler<TState>): void;
-  onMessage(h: BotHandler<TState>): void;
+  onMention(h: ChannelHandler<TState>): void;
+  onMessage(h: ChannelHandler<TState>): void;
   /**
    * A conversation surface opened (e.g. the Slack assistant pane). Greet, set
    * suggested prompts, set a title, or run the agent. Adapters without the
@@ -235,7 +235,7 @@ export interface Bot<TState = unknown> {
     }) => void | Promise<void>,
   ): void;
   /** Register a slash command (with optional typed options). */
-  onCommand(command: BotCommand): void;
+  onCommand(command: ChannelCommand): void;
   /** Register a free-text slash command by name. */
   onCommand(
     name: string,
@@ -248,7 +248,7 @@ export interface Bot<TState = unknown> {
   onModalSubmit(callbackId: string, handler: ModalSubmitHandler): void;
   /** Handle a modal dismissal for `callbackId` (Slack `view_closed`). */
   onModalClose(callbackId: string, handler: ModalCloseHandler): void;
-  tool(t: BotTool): void;
+  tool(t: ChannelTool): void;
   /** Attach an adapter before `start()`. Throws if called after the bot has started. */
   addAdapter(adapter: PlatformAdapter): void;
   start(): Promise<void>;
@@ -310,16 +310,18 @@ function resolveBackend(
   return providers[0]?.stateStore ?? new MemoryStore();
 }
 
-export function createBot<
+export function createChannel<
   TStateSchema extends StandardSchemaV1 | undefined = undefined,
->(opts: CreateBotOptions<TStateSchema>): Bot<ThreadStateOf<TStateSchema>> {
+>(
+  opts: CreateChannelOptions<TStateSchema>,
+): Channel<ThreadStateOf<TStateSchema>> {
   const cfg = opts.store ?? {};
   if (
     (cfg.identity && !cfg.transcripts) ||
     (!cfg.identity && cfg.transcripts)
   ) {
     throw new Error(
-      "createBot: `identity` and `transcripts` must be configured together.",
+      "createChannel: `identity` and `transcripts` must be configured together.",
     );
   }
 
@@ -331,7 +333,7 @@ export function createBot<
 
   // Backend, transcripts, telemetry, the action registry, and component
   // registration are resolved in `start()` — not at construction — so an
-  // adapter added via `addAdapter` after `createBot` can still supply the
+  // adapter added via `addAdapter` after `createChannel` can still supply the
   // persistence backend (see `resolveBackend`). Nothing reads these before the
   // first event, which can only arrive after `start()`.
   let backend: StateStore | undefined;
@@ -346,17 +348,17 @@ export function createBot<
     if (a) return () => a;
     return () => {
       throw new Error(
-        "createBot: no agent configured (pass `agent` to use runAgent)",
+        "createChannel: no agent configured (pass `agent` to use runAgent)",
       );
     };
   })();
 
-  const toolMap = new Map<string, BotTool>();
+  const toolMap = new Map<string, ChannelTool>();
   for (const t of opts.tools ?? []) toolMap.set(t.name, t);
   const context = opts.context ?? [];
 
-  const mentionHandlers: BotHandler[] = [];
-  const messageHandlers: BotHandler[] = [];
+  const mentionHandlers: ChannelHandler[] = [];
+  const messageHandlers: ChannelHandler[] = [];
   const threadStartedHandlers: ThreadStartHandler[] = [];
   const interactionHandlers = new Map<
     string,
@@ -366,7 +368,7 @@ export function createBot<
     string,
     (args: { payload: unknown; thread: Thread }) => void | Promise<void>
   >();
-  const commandHandlers = new Map<string, BotCommand>();
+  const commandHandlers = new Map<string, ChannelCommand>();
   for (const c of opts.commands ?? [])
     commandHandlers.set(normalizeCommandName(c.name), c);
   const reactionHandlers: {
@@ -711,7 +713,7 @@ export function createBot<
     };
   }
 
-  const bot: Bot<ThreadStateOf<TStateSchema>> = {
+  const bot: Channel<ThreadStateOf<TStateSchema>> = {
     name: opts.name,
     get commandNames() {
       return [...commandHandlers.keys()];
@@ -731,13 +733,13 @@ export function createBot<
     },
     onMention(h) {
       // The public surface narrows `thread` to StatefulThread<TState>; the
-      // internal arrays hold the loose `BotHandler` shape. A real Thread is
+      // internal arrays hold the loose `ChannelHandler` shape. A real Thread is
       // assignable to StatefulThread<TState> (its generic setState/state
       // satisfy the narrowed signatures), so the cast is sound.
-      mentionHandlers.push(h as BotHandler);
+      mentionHandlers.push(h as ChannelHandler);
     },
     onMessage(h) {
-      messageHandlers.push(h as BotHandler);
+      messageHandlers.push(h as ChannelHandler);
     },
     onThreadStarted(h) {
       threadStartedHandlers.push(h as ThreadStartHandler);
@@ -767,12 +769,15 @@ export function createBot<
       );
     },
     onCommand(
-      commandOrName: BotCommand | string,
+      commandOrName: ChannelCommand | string,
       handler?: (ctx: CommandContext) => void | Promise<void>,
     ) {
-      const command: BotCommand =
+      const command: ChannelCommand =
         typeof commandOrName === "string"
-          ? { name: commandOrName, handler: handler as BotCommand["handler"] }
+          ? {
+              name: commandOrName,
+              handler: handler as ChannelCommand["handler"],
+            }
           : commandOrName;
       commandHandlers.set(normalizeCommandName(command.name), command);
     },
@@ -830,7 +835,7 @@ export function createBot<
       for (const c of opts.components ?? []) {
         if (!c.name) {
           console.warn(
-            "[bot] createBot: skipping anonymous component — give it a name to enable durable actions after restart.",
+            "[bot] createChannel: skipping anonymous component — give it a name to enable durable actions after restart.",
           );
           continue;
         }
