@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import time
 from pathlib import Path
 from textwrap import dedent
 from typing import NamedTuple
@@ -41,13 +42,50 @@ _PKG_ROOT = Path(__file__).resolve().parents[2]
 _ENTRYPOINT = _PKG_ROOT / "entrypoint.sh"
 
 
+def _wait_process_exited(proc: subprocess.Popen, timeout: float = 3.0) -> bool:
+    """Return True if `proc` has exited within `timeout` seconds, else False.
+
+    A single `proc.poll()` immediately after the killer returns is racy: the
+    gate delivers SIGKILL asynchronously (and the kernel reaps the child on its
+    own schedule), so `poll()` can still read ``None`` for a process that WILL
+    die momentarily.  This bounded loop polls until the child is reaped or the
+    timeout elapses, making the "was it killed?" assertion deterministic:
+      - killed:     the loop observes a non-None returncode within the timeout.
+      - not killed: the loop runs the full timeout and returns False (the
+                    process is genuinely still alive, e.g. gate under threshold).
+    """
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if proc.poll() is not None:
+            return True
+        time.sleep(0.02)
+    return proc.poll() is not None
+
+
+def _assert_still_alive(proc: subprocess.Popen, settle: float = 0.3) -> bool:
+    """Return True if `proc` is STILL alive after a short settle window.
+
+    Symmetric to _wait_process_exited for the negative case (gate must NOT
+    fire): a single immediate poll could read ``None`` simply because a kill in
+    flight has not landed yet.  We give any in-flight kill a brief window to
+    take effect and only then conclude the process survived.
+    """
+    deadline = time.monotonic() + settle
+    while time.monotonic() < deadline:
+        if proc.poll() is not None:
+            return False
+        time.sleep(0.02)
+    return proc.poll() is None
+
+
 class CheckSizeResult(NamedTuple):
     """Return value of _run_check_size_once.
 
     result:          CompletedProcess from the entrypoint --check-size-once run.
-    dummy_was_killed: True if the dummy agent process was killed by the gate
-                      (poll() returned non-None before the finally reaper ran);
-                      False if it was still alive (gate did not fire).
+    dummy_was_killed: True if the dummy agent process was killed by the gate,
+                      determined by a BOUNDED poll loop (not a single-shot
+                      poll()) BEFORE the finally reaper ran; False if it stayed
+                      alive through the settle window (gate did not fire).
     """
 
     result: subprocess.CompletedProcess
@@ -187,7 +225,18 @@ def _run_check_size_once(
         # Capture whether the gate killed the dummy BEFORE the finally reaper
         # runs — once finally calls dummy.kill(), poll() would always be non-None
         # regardless of whether the script killed it.
-        dummy_was_killed = dummy.poll() is not None
+        #
+        # A single-shot dummy.poll() here is racy: the gate's SIGKILL is
+        # delivered/reaped asynchronously, so an immediate poll can read None
+        # for a process that is about to die (false "not killed").  Use bounded
+        # helpers so the result is deterministic regardless of scheduling:
+        #   - gate fired  (rc == 1): the kill lands — wait until reaped.
+        #   - gate skipped (rc == 0): no kill issued — confirm it stays alive
+        #                              through a short settle window.
+        if result.returncode == 1:
+            dummy_was_killed = _wait_process_exited(dummy, timeout=3.0)
+        else:
+            dummy_was_killed = not _assert_still_alive(dummy, settle=0.3)
         return CheckSizeResult(result=result, dummy_was_killed=dummy_was_killed)
     finally:
         # Reap the dummy process (may already be dead if kill -9 landed).
@@ -566,16 +615,20 @@ class TestSizeGatedRestart:
 
 @pytest.mark.skipif(not _ENTRYPOINT.exists(), reason="entrypoint.sh not found")
 class TestSizePidOrphanGuard:
-    """The size-check sub-loop PID must be captured and cleaned up on watchdog exit.
+    """The size-check sub-loop must be reaped on watchdog exit.
 
     I1/I3: SIZE_PID is assigned INSIDE the watchdog subshell ( ) & so it is
-    never visible in the outer shell.  The fix: register
-    `trap 'kill "$SIZE_PID" 2>/dev/null || true' EXIT` INSIDE the watchdog
-    subshell right after SIZE_PID=$!, so the sub-loop is reaped on any
-    watchdog exit path (normal, kill from outer cleanup, SIGTERM).
+    never visible in the outer shell.  The SHIPPED fix registers
+    `trap _reap_watchdog_children EXIT` INSIDE the watchdog subshell, and
+    `_reap_watchdog_children` reaps the sub-loop via a $BASHPID PPID-walk
+    (through _agent_descendants) PLUS a direct `kill "$SIZE_PID"` backstop —
+    armed BEFORE the sub-loop is spawned so there is no leak window.  This runs
+    on any watchdog exit path (normal, kill from outer cleanup, SIGTERM).
 
     The outer cleanup() must NOT contain a dead SIZE_PID block since it will
-    never be reached.
+    never be reached.  These tests assert the SHIPPED handler+registration and
+    exercise the SHIPPED reap function directly (not a hand-rolled mock of an
+    older `trap 'kill "$SIZE_PID"'` shape).
     """
 
     def test_size_pid_captured_in_watchdog(self):
@@ -586,19 +639,35 @@ class TestSizePidOrphanGuard:
         )
 
     def test_size_pid_reaped_by_in_subshell_trap(self):
-        """SIZE_PID must be reaped by an EXIT trap INSIDE the watchdog subshell.
+        """A reaping EXIT trap must be REGISTERED (runtime) inside the watchdog subshell.
 
-        Source-level check: the trap must appear inside the ( ) & block,
-        after SIZE_PID=$!, not in the outer cleanup() function.
+        Source-level check on EXECUTABLE lines only.  The previous version
+        asserted the literal `trap 'kill "$SIZE_PID"'` string was present in the
+        source — but that exact string also appears in an explanatory COMMENT
+        describing the old design, so the assertion passed even when the real
+        `trap ... EXIT` registration was deleted (comment-only match).  We now
+        assert the SHIPPED registration line (`trap _reap_watchdog_children
+        EXIT`) exists on a non-comment line AND that the handler it names is a
+        real function definition — so removing the runtime trap fails the test.
         """
         source = _ENTRYPOINT.read_text()
-        # The trap must be registered inside the watchdog subshell (after SIZE_PID=$!)
-        # and must reference SIZE_PID.
-        assert (
-            'trap \'kill "$SIZE_PID"' in source or "trap 'kill \"$SIZE_PID\"'" in source
-        ), (
-            "Expected `trap 'kill \"$SIZE_PID\" ...' EXIT` inside watchdog subshell "
-            "(I1: SIZE_PID is subshell-local, outer cleanup cannot reach it)"
+        exec_lines = [
+            line
+            for line in source.splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        ]
+        exec_source = "\n".join(exec_lines)
+        # The reaping trap must be registered as EXECUTABLE code, not merely
+        # mentioned in a comment.
+        assert "trap _reap_watchdog_children EXIT" in exec_source, (
+            "Expected the runtime registration `trap _reap_watchdog_children "
+            "EXIT` on an executable line inside the watchdog subshell "
+            "(I1: SIZE_PID is subshell-local, outer cleanup cannot reach it). "
+            "A comment mentioning a trap is NOT a registration."
+        )
+        # The named handler must actually be defined (not a dangling reference).
+        assert "_reap_watchdog_children()" in exec_source, (
+            "trap names _reap_watchdog_children but no such function is defined."
         )
         # The outer cleanup() must NOT contain an EXECUTABLE kill for SIZE_PID
         # (it would be dead code since SIZE_PID is never set in the outer shell).
@@ -621,65 +690,132 @@ class TestSizePidOrphanGuard:
                 "Any kill of SIZE_PID here would be dead code."
             )
 
-    def test_size_pid_reaped_on_watchdog_exit_behavioral(self, tmp_path):
-        """BEHAVIORAL: size sub-loop is actually reaped when its parent subshell exits.
+    @staticmethod
+    def _extract_shell_function(source: str, name: str) -> str:
+        """Return the verbatim brace-balanced body of shell function `name`.
 
-        Simulates the watchdog subshell lifecycle:
-          1. Fork a long-running "size sub-loop" process (sleep 60, stands in for the
-             real size-check loop).
-          2. Register `trap 'kill "$SIZE_PID" 2>/dev/null || true' EXIT` in a subshell,
-             exactly as the fixed entrypoint does.
-          3. Send SIGTERM to the subshell (simulating the outer cleanup() killing the
-             watchdog).
-          4. Assert the size sub-loop was reaped (poll() is not None).
-
-        This exercises the trap FIRING, not just its registration.
+        Pulls the ACTUAL shipped function definition out of entrypoint.sh so the
+        behavioral test below runs the real handler — not a hand-rolled mock that
+        can silently diverge from shipped code.  Handles leading indentation
+        (the watchdog reaper is defined inside the ( ) & subshell).
         """
-        import time
+        import re
 
-        # Spawn the "size sub-loop" process (long-lived, safe to kill).
-        size_loop = subprocess.Popen(["sleep", "60"])
-        size_pid = size_loop.pid
+        m = re.search(rf"^\s*{re.escape(name)}\(\)\s*\{{", source, re.MULTILINE)
+        assert m is not None, f"function {name}() not found in entrypoint.sh"
+        open_idx = source.index("{", m.start())
+        depth = 0
+        for j in range(open_idx, len(source)):
+            if source[j] == "{":
+                depth += 1
+            elif source[j] == "}":
+                depth -= 1
+                if depth == 0:
+                    return dedent(source[m.start() : j + 1])
+        raise AssertionError(f"unbalanced braces extracting {name}()")
 
-        # Write a minimal shell that mimics the fixed watchdog subshell:
-        # register the in-subshell EXIT trap, then sleep (simulating the
-        # watchdog's health-probe loop blocked in sleep).
-        watchdog_script = dedent(f"""\
+    def test_size_pid_reaped_on_watchdog_exit_behavioral(self, tmp_path):
+        """BEHAVIORAL: the SHIPPED reaper actually reaps the sub-loop on exit.
+
+        The previous version wrote its OWN mock watchdog that registered
+        `trap 'kill "$SIZE_PID"' EXIT` — an OLDER shape that no longer matches the
+        shipped code (which registers `trap _reap_watchdog_children EXIT`, and the
+        reaper reaps via a $BASHPID PPID-walk plus a SIZE_PID backstop).  Because
+        the mock never touched shipped code, it passed even when the shipped
+        reaper was fully broken — proving nothing about what ships.
+
+        This version extracts the REAL `_agent_descendants` and
+        `_reap_watchdog_children` definitions verbatim from entrypoint.sh, wires
+        them up with the SHIPPED registration order (arm trap, then spawn +
+        SIZE_PID=$!), sends SIGTERM to the subshell, and asserts the sub-loop was
+        reaped.  If the shipped reaper is gutted or the registration removed, the
+        sub-loop survives and this test fails.
+        """
+        source = _ENTRYPOINT.read_text()
+        agent_descendants = self._extract_shell_function(source, "_agent_descendants")
+        reap = self._extract_shell_function(source, "_reap_watchdog_children")
+
+        # Compose a watchdog subshell using the SHIPPED functions verbatim, in the
+        # SHIPPED order: define reaper -> arm `trap _reap_watchdog_children EXIT`
+        # BEFORE spawning the sub-loop -> spawn sub-loop -> SIZE_PID=$! -> block.
+        # A marker file lets us know when the trap is armed and SIZE_PID is set,
+        # so we do not SIGTERM before the reaper can fire (no arm-race in the test).
+        ready = tmp_path / "ready"
+        watchdog_script = dedent(
+            """\
             #!/bin/bash
             set -e
-            SIZE_PID={size_pid}
-            trap 'kill "$SIZE_PID" 2>/dev/null || true' EXIT
-            # Simulate watchdog blocked in health-probe sleep.
+            {agent_descendants}
+            {reap}
+            trap _reap_watchdog_children EXIT
+            # Spawn the stand-in size sub-loop as a CHILD of this subshell so the
+            # $BASHPID PPID-walk (and the SIZE_PID backstop) can find it.
+            sleep 60 &
+            SIZE_PID=$!
+            echo "$SIZE_PID" > "{ready}"
+            # Simulate the watchdog blocked in its health-probe sleep.
             sleep 60
-        """)
-        script_path = tmp_path / "mock_watchdog.sh"
+            """
+        ).format(
+            agent_descendants=agent_descendants,
+            reap=reap,
+            ready=ready,
+        )
+        script_path = tmp_path / "shipped_watchdog.sh"
         script_path.write_text(watchdog_script)
         script_path.chmod(0o755)
 
         watchdog = subprocess.Popen(["/bin/bash", str(script_path)])
-        # Let the script register its trap.
-        time.sleep(0.1)
+        try:
+            # Wait until the subshell has armed its trap and recorded the child PID.
+            size_pid = None
+            deadline = time.monotonic() + 3.0
+            while time.monotonic() < deadline:
+                if ready.exists():
+                    txt = ready.read_text().strip()
+                    if txt:
+                        size_pid = int(txt)
+                        break
+                time.sleep(0.02)
+            assert size_pid is not None, (
+                "watchdog subshell never recorded SIZE_PID — trap/spawn setup failed"
+            )
 
-        # Simulate outer cleanup() sending SIGTERM to the watchdog.
-        watchdog.terminate()
-        watchdog.wait(timeout=3)
+            def _pid_alive(pid: int) -> bool:
+                try:
+                    os.kill(pid, 0)
+                except ProcessLookupError:
+                    return False
+                except PermissionError:
+                    return True
+                return True
 
-        # The EXIT trap should have reaped the size sub-loop.
-        # Give the OS a moment to deliver the kill.
-        for _ in range(20):
-            if size_loop.poll() is not None:
-                break
-            time.sleep(0.05)
+            assert _pid_alive(size_pid), "size sub-loop should be alive before SIGTERM"
 
-        size_exit = size_loop.poll()
-        assert size_exit is not None, (
-            f"Size sub-loop (PID {size_pid}) is still alive after watchdog subshell "
-            "exited — EXIT trap did NOT fire or did not kill it.  "
-            "This is the I1 orphan: the sub-loop outlives the watchdog."
-        )
-        # Clean up in case assertion is skipped.
-        size_loop.kill()
-        size_loop.wait()
+            # Simulate outer cleanup() sending SIGTERM to the watchdog; the SHIPPED
+            # reaper's EXIT trap must fire and reap the child sub-loop.
+            watchdog.terminate()
+            watchdog.wait(timeout=3)
+
+            # Bounded wait for the reap to land (deterministic, not single-shot).
+            deadline = time.monotonic() + 3.0
+            reaped = False
+            while time.monotonic() < deadline:
+                if not _pid_alive(size_pid):
+                    reaped = True
+                    break
+                time.sleep(0.02)
+            assert reaped, (
+                f"Size sub-loop (PID {size_pid}) is still alive after the watchdog "
+                "subshell exited — the SHIPPED _reap_watchdog_children EXIT trap did "
+                "NOT reap it.  This is the I1 orphan: the sub-loop outlives the watchdog."
+            )
+        finally:
+            watchdog.kill()
+            try:
+                watchdog.wait(timeout=2)
+            except Exception:
+                pass
 
 
 @pytest.mark.skipif(not _ENTRYPOINT.exists(), reason="entrypoint.sh not found")
