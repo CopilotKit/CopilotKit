@@ -413,9 +413,10 @@ def install_executor_contextvar_propagation() -> None:
 
     Why this exists
     ---------------
-    autogen's ``ConversableAgent.a_generate_oai_reply`` dispatches the
-    underlying (sync) OpenAI/LiteLLM call onto the default thread pool
-    via ``loop.run_in_executor(None, functools.partial(...))``. The stock
+    Pre-1.0 autogen dispatched its (sync) LLM call onto the default
+    thread pool via ``loop.run_in_executor(None, functools.partial(...))``;
+    ag2 1.0 is natively async, so this patch is defense-in-depth for any
+    remaining sync-in-executor code path. The stock
     ``run_in_executor`` does NOT copy the caller's :pep:`567` context to
     the worker thread — so the :class:`HeaderForwardingHTTPMiddleware`
     ContextVar (set on the inbound request task) is empty inside the

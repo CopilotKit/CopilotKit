@@ -121,6 +121,55 @@ Before you begin, you'll need the following:
 
 ---
 
+## Connect your own AG2 agent
+
+The samples repository is a ready-made example. To expose any AG2 agent over AG-UI, install AG2 (1.0+) with the AG-UI and OpenAI extras and wrap the agent in `AGUIStream`:
+
+```bash
+pip install "ag2[ag-ui,openai]"
+```
+
+```python title="run_ag_ui.py"
+from fastapi import FastAPI, Header
+from fastapi.responses import StreamingResponse
+
+from ag2 import Agent
+from ag2.ag_ui import AGUIStream, RunAgentInput
+from ag2.config import OpenAIConfig
+
+agent = Agent(
+    name="support_bot",
+    prompt="You help users with billing questions.",
+    config=OpenAIConfig(model="gpt-4o-mini"),
+)
+
+stream = AGUIStream(agent)
+app = FastAPI()
+
+@app.post("/chat")
+async def run_agent(
+    message: RunAgentInput,
+    accept: str | None = Header(None),
+) -> StreamingResponse:
+    return StreamingResponse(
+        stream.dispatch(message, accept=accept),
+        media_type=accept or "text/event-stream",
+    )
+```
+
+If you don't need custom auth, logging, or middleware around the endpoint, `AGUIStream.build_asgi()` builds a ready-to-mount ASGI endpoint instead:
+
+```python
+from fastapi import FastAPI
+from ag2.ag_ui import AGUIStream
+
+app = FastAPI()
+stream = AGUIStream(agent)
+app.mount("/chat", stream.build_asgi())
+```
+
+Point the `HttpAgent` in your Copilot Runtime at `http://localhost:8000/chat` and your agent is live in the UI. See the <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a> for supported protocol events, human-in-the-loop checkpoints, and shared-state details.
+
 ## What's next?
 
 You've now got a Weather Agent running with CopilotKit! This demonstrates how quickly you can build practical AI applications by combining AG2's `AGUIStream` with CopilotKit's user interface components.

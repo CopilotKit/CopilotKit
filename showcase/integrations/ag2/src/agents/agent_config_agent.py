@@ -1,30 +1,30 @@
 """AG2 agent backing the Agent Config Object demo.
 
 Reads three forwarded properties — tone, expertise, responseLength — from
-shared state (ContextVariables on each run) and adapts its responses
-accordingly.
+shared state (merged into Context.variables from ``RunAgentInput.state`` at
+the start of each run) and adapts its responses accordingly.
 
 Wire format
 -----------
 The frontend uses `agent.setState({ tone, expertise, responseLength })` from
-the demo page. AG2's AGUIStream maps that initial state into ContextVariables
-on every run. The agent has a `get_current_config` tool that returns the
-current rulebook for the assistant to consult before answering.
+the demo page. AG2 1.0's AGUIStream merges that incoming state into
+`Context.variables` at run start. The agent has a `get_current_config` tool
+that returns the current rulebook for the assistant to consult before
+answering.
 
 The system prompt instructs the agent to call `get_current_config` once at
 the start of every conversation turn so the response style adapts to the
 latest UI selection.
 
 References:
-- src/agents/shared_state_read_write.py — same ContextVariables pattern.
+- src/agents/shared_state_read_write.py — same Context.variables pattern.
 """
 
 import logging
 
-from autogen import ConversableAgent, LLMConfig
-from autogen.ag_ui import AGUIStream
-from autogen.agentchat import ContextVariables
-from autogen.tools import tool
+from ag2 import Agent, Context, tool
+from ag2.ag_ui import AGUIStream
+from ag2.config import OpenAIConfig
 from fastapi import FastAPI
 
 logger = logging.getLogger(__name__)
@@ -69,15 +69,15 @@ SYSTEM_PROMPT = (
 )
 
 
-@tool()
-def get_current_config(context_variables: ContextVariables) -> str:
+@tool
+def get_current_config(context: Context) -> str:
     """Return the current rulebook (tone / expertise / length) for the assistant.
 
     Reads the forwarded ``tone``, ``expertise``, and ``responseLength``
     properties from shared state, falling back to defaults for any missing
     or unrecognized value.
     """
-    data = context_variables.data or {}
+    data = context.variables or {}
     tone = data.get("tone", DEFAULT_TONE)
     expertise = data.get("expertise", DEFAULT_EXPERTISE)
     response_length = data.get("responseLength", DEFAULT_RESPONSE_LENGTH)
@@ -96,13 +96,11 @@ def get_current_config(context_variables: ContextVariables) -> str:
     )
 
 
-agent_config_agent = ConversableAgent(
+agent_config_agent = Agent(
     name="agent_config_assistant",
-    system_message=SYSTEM_PROMPT,
-    llm_config=LLMConfig({"model": "gpt-4o-mini", "stream": True}),
-    human_input_mode="NEVER",
-    max_consecutive_auto_reply=5,
-    functions=[get_current_config],
+    prompt=SYSTEM_PROMPT,
+    config=OpenAIConfig(model="gpt-4o-mini", streaming=True),
+    tools=[get_current_config],
 )
 
 agent_config_stream = AGUIStream(agent_config_agent)

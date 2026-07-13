@@ -51,7 +51,7 @@ Without frontend actions, agents are limited to just processing and returning da
     <Step>
         ### Create a frontend action
 
-        First, you'll need to create a frontend action using the [useFrontendTool](/reference/v1/hooks/useFrontendTool) hook. Here's a simple one to get you started
+        First, you'll need to create a frontend action using the [useFrontendTool](/reference/v2/hooks/useFrontendTool) hook. Here's a simple one to get you started
         that says hello to the user.
 
         ```tsx title="page.tsx"
@@ -61,11 +61,10 @@ Without frontend actions, agents are limited to just processing and returning da
         export function Page() {
           // ...
 
-          // [!code highlight:13]
+          // [!code highlight:12]
           useFrontendTool({
             name: "sayHello",
             description: "Say hello to the user",
-            available: "remote", // optional, makes it so the action is *only* available to the AG2 backend over AG-UI
             parameters: z.object({
               name: z.string().describe("The name of the user to say hello to"),
             }),
@@ -93,14 +92,15 @@ Without frontend actions, agents are limited to just processing and returning da
                 ```python title="agent.py"
                 from fastapi import FastAPI, Header
                 from fastapi.responses import StreamingResponse
-                from autogen import ConversableAgent, LLMConfig
-                from autogen.ag_ui import AGUIStream, RunAgentInput
 
-                agent = ConversableAgent(
+                from ag2 import Agent
+                from ag2.ag_ui import AGUIStream, RunAgentInput
+                from ag2.config import OpenAIConfig
+
+                agent = Agent(
                     name="assistant",
-                    system_message="You are a helpful assistant.",
-                    llm_config=LLMConfig({"model": "gpt-5.4-mini"}),
-                    human_input_mode="NEVER",
+                    prompt="You are a helpful assistant.",
+                    config=OpenAIConfig(model="gpt-4o-mini"),
                 )
 
                 stream = AGUIStream(agent)
@@ -110,7 +110,7 @@ Without frontend actions, agents are limited to just processing and returning da
                 async def run_agent(
                     message: RunAgentInput,
                     accept: str | None = Header(None),
-                ):
+                ) -> StreamingResponse:
                     return StreamingResponse(
                         stream.dispatch(message, accept=accept),
                         media_type=accept or "text/event-stream",

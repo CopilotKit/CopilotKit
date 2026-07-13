@@ -10,15 +10,16 @@ implementation is registered -- the tool is provided entirely by the frontend
 via `useFrontendTool` with an async handler that returns a Promise resolving
 only once the user picks a time slot (or cancels).
 
-See `src/agents/agent.py` for the shared ConversableAgent used by most other
+See `src/agents/agent.py` for the shared Agent used by most other
 AG2 demos.
 """
 
 # @region[backend-interrupt-tool]
 from __future__ import annotations
 
-from autogen import ConversableAgent, LLMConfig
-from autogen.ag_ui import AGUIStream
+from ag2 import Agent
+from ag2.config import OpenAIConfig
+from ag2.ag_ui import AGUIStream
 from fastapi import FastAPI
 
 
@@ -38,19 +39,20 @@ SYSTEM_PROMPT = (
     "the message persists."
 )
 
-interrupt_agent = ConversableAgent(
+interrupt_agent = Agent(
     name="scheduling_agent",
-    system_message=SYSTEM_PROMPT,
-    llm_config=LLMConfig({"model": "gpt-4o-mini", "stream": True}),
-    human_input_mode="NEVER",
-    max_consecutive_auto_reply=5,
+    prompt=SYSTEM_PROMPT,
+    config=OpenAIConfig(model="gpt-4o-mini", streaming=True),
+    # Guard-rationale note: the 0.x port capped tool-call loops with
+    # max_consecutive_auto_reply=5; ag2 1.0 has no direct per-turn
+    # auto-reply cap, so no equivalent parameter is set here.
     # No backend tools. `schedule_meeting` is registered on the frontend
     # via `useFrontendTool` and dispatched through the CopilotKit runtime.
     # When the agent calls `schedule_meeting`, the request is routed to
     # the frontend handler, which returns a Promise that only resolves
     # once the user picks a slot -- equivalent to `interrupt()` in the
     # LangGraph reference.
-    functions=[],
+    tools=[],
 )
 # @endregion[backend-tool-call]
 # @endregion[backend-interrupt-tool]

@@ -19,8 +19,9 @@ import logging
 from typing import cast
 
 import openai
-from autogen import ConversableAgent, LLMConfig
-from autogen.ag_ui import AGUIStream  # type: ignore[import-not-found]  # runtime-only submodule (ag2[ag-ui] extra); not present in static type stubs
+from ag2 import Agent
+from ag2.config import OpenAIConfig
+from ag2.ag_ui import AGUIStream  # type: ignore[import-not-found]  # runtime-only submodule (ag2[ag-ui] extra); not present in static type stubs
 from fastapi import FastAPI
 from openai.types.chat import ChatCompletionFunctionToolParam
 from openai.types.shared_params import FunctionDefinition
@@ -85,8 +86,9 @@ async def generate_a2ui() -> str:
     #
     # The prompt is read from a per-request ContextVar populated by
     # ``RequestUserMessageMiddleware`` at the inbound HTTP boundary — NOT
-    # from ``agent.chat_messages`` (which is shared module-level mutable
-    # state racing across concurrent requests). If the middleware did not
+    # from any agent-held conversation state (which would be shared
+    # module-level mutable state racing across concurrent requests). If the
+    # middleware did not
     # capture anything (non-AG-UI request, parse failure already logged at
     # WARNING) we fall back to the original hardcoded prompt so the inner
     # LLM call still produces a sensible default.
@@ -174,13 +176,14 @@ async def generate_a2ui() -> str:
         )
 
 
-agent = ConversableAgent(
+agent = Agent(
     name="declarative_gen_ui_assistant",
-    system_message=SYSTEM_PROMPT,
-    llm_config=LLMConfig({"model": "gpt-4o-mini", "stream": True}),
-    human_input_mode="NEVER",
-    max_consecutive_auto_reply=8,
-    functions=[generate_a2ui],
+    prompt=SYSTEM_PROMPT,
+    config=OpenAIConfig(model="gpt-4o-mini", streaming=True),
+    # Guard-rationale note: the 0.x port capped tool-call loops with
+    # max_consecutive_auto_reply=8; ag2 1.0 has no direct per-turn
+    # auto-reply cap, so no equivalent parameter is set here.
+    tools=[generate_a2ui],
 )
 
 stream = AGUIStream(agent)

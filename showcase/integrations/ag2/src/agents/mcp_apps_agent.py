@@ -14,8 +14,9 @@ relies entirely on the runtime to inject MCP-backed tools.
 
 from __future__ import annotations
 
-from autogen import ConversableAgent, LLMConfig
-from autogen.ag_ui import AGUIStream
+from ag2 import Agent
+from ag2.config import OpenAIConfig
+from ag2.ag_ui import AGUIStream
 from fastapi import FastAPI
 
 
@@ -54,16 +55,17 @@ particular layout), follow their lead — but still in ONE call.
 """
 
 
-agent = ConversableAgent(
+agent = Agent(
     name="mcp_apps_assistant",
-    system_message=SYSTEM_PROMPT,
+    prompt=SYSTEM_PROMPT,
     # gpt-4o-mini for speed, mirroring the langgraph reference.
-    llm_config=LLMConfig({"model": "gpt-4o-mini", "stream": True}),
-    human_input_mode="NEVER",
-    max_consecutive_auto_reply=6,
+    config=OpenAIConfig(model="gpt-4o-mini", streaming=True),
+    # Guard-rationale note: the 0.x port capped tool-call loops with
+    # max_consecutive_auto_reply=6; ag2 1.0 has no direct per-turn
+    # auto-reply cap, so no equivalent parameter is set here.
     # No bespoke tools — MCP server tools are injected by the runtime
     # middleware at request time.
-    functions=[],
+    tools=[],
 )
 
 stream = AGUIStream(agent)

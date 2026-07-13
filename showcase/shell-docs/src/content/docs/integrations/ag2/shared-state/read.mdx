@@ -39,43 +39,38 @@ state updates, you can reflect these updates natively in your application.
   <Step>
     ### Define the Agent State
 
-    Create your AG2 backend with `ContextVariables` and emit `StateSnapshotEvent` whenever the state changes:
+    In AG2, shared state lives in the agent's **conversation variables**. `AGUIStream` handles the synchronization for you: incoming state from the UI is merged into the variables for the run (agent-defined `variables` take precedence for the keys they set), and the variables are streamed back as `STATE_SNAPSHOT` events — at the start of the run and, if a tool changed `context.variables`, at the end of the run. No manual event construction needed.
 
     ```python title="agent.py"
     from typing import Annotated
 
-    from ag_ui.core import EventType, StateSnapshotEvent
     from fastapi import FastAPI, Header
     from fastapi.responses import StreamingResponse
-    from autogen import ConversableAgent, LLMConfig
-    from autogen.agentchat import ContextVariables
-    from autogen.ag_ui import AGUIStream, RunAgentInput
+    from pydantic import Field
 
-    def read_state(context: ContextVariables) -> dict:
-        return context.get("agent_state", {"language": "english"})
+    from ag2 import Agent, Context, tool
+    from ag2.ag_ui import AGUIStream, RunAgentInput
+    from ag2.config import OpenAIConfig
 
-    def write_state(context: ContextVariables, state: dict) -> StateSnapshotEvent:
-        context["agent_state"] = state
-        return StateSnapshotEvent(type=EventType.STATE_SNAPSHOT, snapshot=state)
+    @tool
+    def set_language(
+        language: Annotated[str, Field(description="language such as english or spanish")],
+        context: Context,
+    ) -> str:
+        """Update the language in shared state."""
+        context.variables["language"] = language.lower()
+        return f"Language set to {language}"
 
-    agent = ConversableAgent(
+    agent = Agent(
         name="assistant",
-        system_message=(
+        prompt=(
             "You are a helpful assistant for tracking language. "
             "Always respond in the current language."
         ),
-        llm_config=LLMConfig({"model": "gpt-5.4-mini"}),
-        human_input_mode="NEVER",
+        config=OpenAIConfig(model="gpt-4o-mini"),
+        variables={"language": "english"},
+        tools=[set_language],
     )
-
-    @agent.register_for_llm(description="Update the language in shared state.")
-    def set_language(
-        context: ContextVariables,
-        language: Annotated[str, "language such as english or spanish"],
-    ) -> StateSnapshotEvent:
-        return write_state(context, {"language": language.lower()})
-
-    agent.register_for_execution(name="set_language")(set_language)
 
     stream = AGUIStream(agent)
     app = FastAPI()
@@ -84,7 +79,7 @@ state updates, you can reflect these updates natively in your application.
     async def run_agent(
         message: RunAgentInput,
         accept: str | None = Header(None),
-    ):
+    ) -> StreamingResponse:
         return StreamingResponse(
             stream.dispatch(message, accept=accept),
             media_type=accept or "text/event-stream",
@@ -94,8 +89,8 @@ state updates, you can reflect these updates natively in your application.
   </Step>
   <Step>
     ### Use the `useAgent` Hook
-    With your agent connected and running all that is left is to call the [useAgent](/reference/v1/hooks/useAgent) hook, pass the agent's ID, and
-    optionally provide an initial state.
+    With your agent connected and running all that is left is to call the `useAgent` hook, pass the agent's ID, and
+    read the state.
 
     ```tsx title="ui/app/page.tsx"
     import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
@@ -106,11 +101,12 @@ state updates, you can reflect these updates natively in your application.
     }
 
     function YourMainContent() {
-      // [!code highlight:4]
+      // [!code highlight:3]
       const { agent } = useAgent({
         agentId: "my_agent", // MUST match the agent name in CopilotRuntime
-        initialState: { language: "english" }  // optionally provide an initial state
       });
+
+      const language = (agent.state.language as AgentState["language"]) ?? "english";
 
       // ...
 
@@ -119,7 +115,7 @@ state updates, you can reflect these updates natively in your application.
         <div>
           <h1>Your main content</h1>
           {/* [!code highlight:1] */}
-          <p>Language: {agent.state.language}</p>
+          <p>Language: {language}</p>
         </div>
       );
     }
@@ -143,8 +139,7 @@ state updates, you can reflect these updates natively in your application.
 
 ## Rendering agent state in the chat
 
-You can also render the agent's state in the chat UI. This is useful for informing the user about the agent's state in a
-more in-context way. To do this, you can use the `useAgent` hook with a `render` function.
+You can also render the agent's state in the chat UI using `useRenderTool` or by accessing `agent.state` from `useAgent`. The state is reactive and updates automatically.
 
 ```tsx title="ui/app/page.tsx"
 import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
@@ -155,29 +150,39 @@ type AgentState = {
 };
 
 function YourMainContent() {
-  // ...
-  // [!code highlight:7]
-  useAgent({
+  // [!code highlight:3]
+  const { agent } = useAgent({
     agentId: "my_agent",
-    render: ({ state }) => {
-      if (!state.language) return null;
-      return <div>Language: {state.language}</div>;
-    },
   });
-  // ...
+
+  const language = (agent.state.language as AgentState["language"]) ?? "english";
+
+  return (
+    <div>
+      <p>Language: {language}</p>
+    </div>
+  );
 }
 ```
 
-<Callout type="warn" title="Important">
-  The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
-</Callout>
-
-<Callout type="info">
-  The `agent.state` in `useAgent` is reactive and will automatically
-  update when the agent's state changes.
-</Callout>
-
 ## Intermediately Stream and Render Agent State
 
-By default, AG2 state updates are visible to CopilotKit whenever your backend emits `StateSnapshotEvent`.
-For smoother long-running workflows, emit additional intermediate snapshots from your backend tools.
+By default, `AGUIStream` emits a `STATE_SNAPSHOT` at the start of the run (only when the agent or `dispatch()` defines initial variables) and at the end of the run (if `context.variables` changed during the run).
+For smoother long-running workflows, emit intermediate snapshots from an async tool with `context.send`:
+
+```python title="agent.py"
+from ag_ui.core import StateSnapshotEvent
+
+from ag2 import Context, tool
+from ag2.ag_ui import AGUIEvent
+
+@tool
+async def long_running_task(context: Context) -> str:
+    """A long task that streams state updates as it progresses."""
+    for step in range(3):
+        context.variables["progress"] = step
+        await context.send(
+            AGUIEvent(StateSnapshotEvent(snapshot=dict(context.variables)))
+        )
+    return "Done"
+```
