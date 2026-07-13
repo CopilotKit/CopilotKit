@@ -41,12 +41,23 @@ export function serializeBase(
   return JSON.stringify(sorted, null, 2) + "\n";
 }
 
+/**
+ * Core freshness check: compare the file at `basePath` against the canonical
+ * serialization of `REGISTRY_TO_D5`.  Returns `true` when fresh, `false` when
+ * stale.  Exported so tests can exercise the check seam with a temp file path
+ * instead of the committed base.json — keeps the test self-contained without
+ * modifying committed fixtures.
+ */
+export function checkFreshness(basePath: string): boolean {
+  const expected = serializeBase(REGISTRY_TO_D5);
+  const actual = readFileSync(basePath, "utf-8");
+  return actual === expected;
+}
+
 function main(): void {
   const check = process.argv.includes("--check");
-  const expected = serializeBase(REGISTRY_TO_D5);
   if (check) {
-    const actual = readFileSync(BASE_PATH, "utf-8");
-    if (actual !== expected) {
+    if (!checkFreshness(BASE_PATH)) {
       console.error(
         "stale-base-mapping: spec-cell-mapping.base.json != REGISTRY_TO_D5 serialized. " +
           "Run generate-spec-cell-mapping.ts to regenerate.",
@@ -56,6 +67,7 @@ function main(): void {
     console.log("base.json fresh");
     return;
   }
+  const expected = serializeBase(REGISTRY_TO_D5);
   writeFileSync(BASE_PATH, expected);
   console.log(`wrote ${BASE_PATH}`);
 }
