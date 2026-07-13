@@ -1,9 +1,19 @@
 {
-  "a2ui-fixed-schema": ["gen-ui-a2ui-fixed"],
-  "a2ui-recovery": ["a2ui-recovery"],
-  "agent-config": ["agent-config"],
-  "agentic-chat": ["agentic-chat"],
-  "auth": ["auth"],
+  "a2ui-fixed-schema": [
+    "gen-ui-a2ui-fixed"
+  ],
+  "a2ui-recovery": [
+    "a2ui-recovery"
+  ],
+  "agent-config": [
+    "agent-config"
+  ],
+  "agentic-chat": [
+    "agentic-chat"
+  ],
+  "auth": [
+    "auth"
+  ],
   "beautiful-chat": [
     "beautiful-chat-toggle-theme",
     "beautiful-chat-pie-chart",
@@ -11,41 +21,115 @@
     "beautiful-chat-search-flights",
     "beautiful-chat-schedule-meeting"
   ],
-  "byoc-hashbrown": ["byoc"],
-  "byoc-json-render": ["byoc"],
-  "chat-customization-css": ["chat-css"],
-  "chat-slots": ["chat-slots"],
-  "declarative-gen-ui": ["gen-ui-declarative"],
-  "declarative-hashbrown": ["byoc"],
-  "declarative-json-render": ["byoc"],
-  "frontend-tools": ["frontend-tools"],
-  "frontend-tools-async": ["frontend-tools-async"],
-  "gen-ui-agent": ["gen-ui-agent"],
-  "gen-ui-interrupt": ["gen-ui-interrupt"],
-  "gen-ui-tool-based": ["gen-ui-custom"],
-  "headless-complete": ["gen-ui-headless-complete"],
-  "headless-simple": ["headless-simple"],
-  "hitl": ["hitl-text-input"],
-  "hitl-in-app": ["hitl-approve-deny"],
-  "hitl-in-chat": ["hitl-text-input"],
-  "hitl-in-chat-booking": ["hitl-text-input"],
-  "interrupt-headless": ["interrupt-headless"],
-  "mcp-apps": ["mcp-apps"],
-  "multimodal": ["multimodal"],
-  "open-gen-ui": ["gen-ui-open"],
-  "open-gen-ui-advanced": ["gen-ui-open-advanced"],
-  "prebuilt-popup": ["prebuilt-popup"],
-  "prebuilt-sidebar": ["prebuilt-sidebar"],
-  "readonly-state-agent-context": ["readonly-state-context"],
-  "reasoning-custom": ["reasoning-display"],
-  "reasoning-default": ["reasoning-display"],
-  "shared-state-read": ["shared-state-read"],
-  "shared-state-read-write": ["shared-state-write"],
-  "shared-state-streaming": ["shared-state-streaming"],
-  "subagents": ["subagents"],
-  "tool-rendering": ["tool-rendering"],
-  "tool-rendering-custom-catchall": ["tool-rendering-custom-catchall"],
-  "tool-rendering-default-catchall": ["tool-rendering-default-catchall"],
-  "tool-rendering-reasoning-chain": ["tool-rendering-reasoning-chain"],
-  "voice": ["voice"]
+  "byoc-hashbrown": [
+    "byoc"
+  ],
+  "byoc-json-render": [
+    "byoc"
+  ],
+  "chat-customization-css": [
+    "chat-css"
+  ],
+  "chat-slots": [
+    "chat-slots"
+  ],
+  "declarative-gen-ui": [
+    "gen-ui-declarative"
+  ],
+  "declarative-hashbrown": [
+    "byoc"
+  ],
+  "declarative-json-render": [
+    "byoc"
+  ],
+  "frontend-tools": [
+    "frontend-tools"
+  ],
+  "frontend-tools-async": [
+    "frontend-tools-async"
+  ],
+  "gen-ui-agent": [
+    "gen-ui-agent"
+  ],
+  "gen-ui-interrupt": [
+    "gen-ui-interrupt"
+  ],
+  "gen-ui-tool-based": [
+    "gen-ui-custom"
+  ],
+  "headless-complete": [
+    "gen-ui-headless-complete"
+  ],
+  "headless-simple": [
+    "headless-simple"
+  ],
+  "hitl": [
+    "hitl-text-input"
+  ],
+  "hitl-in-app": [
+    "hitl-approve-deny"
+  ],
+  "hitl-in-chat": [
+    "hitl-text-input"
+  ],
+  "hitl-in-chat-booking": [
+    "hitl-text-input"
+  ],
+  "interrupt-headless": [
+    "interrupt-headless"
+  ],
+  "mcp-apps": [
+    "mcp-apps"
+  ],
+  "multimodal": [
+    "multimodal"
+  ],
+  "open-gen-ui": [
+    "gen-ui-open"
+  ],
+  "open-gen-ui-advanced": [
+    "gen-ui-open-advanced"
+  ],
+  "prebuilt-popup": [
+    "prebuilt-popup"
+  ],
+  "prebuilt-sidebar": [
+    "prebuilt-sidebar"
+  ],
+  "readonly-state-agent-context": [
+    "readonly-state-context"
+  ],
+  "reasoning-custom": [
+    "reasoning-display"
+  ],
+  "reasoning-default": [
+    "reasoning-display"
+  ],
+  "shared-state-read": [
+    "shared-state-read"
+  ],
+  "shared-state-read-write": [
+    "shared-state-write"
+  ],
+  "shared-state-streaming": [
+    "shared-state-streaming"
+  ],
+  "subagents": [
+    "subagents"
+  ],
+  "tool-rendering": [
+    "tool-rendering"
+  ],
+  "tool-rendering-custom-catchall": [
+    "tool-rendering-custom-catchall"
+  ],
+  "tool-rendering-default-catchall": [
+    "tool-rendering-default-catchall"
+  ],
+  "tool-rendering-reasoning-chain": [
+    "tool-rendering-reasoning-chain"
+  ],
+  "voice": [
+    "voice"
+  ]
 }
