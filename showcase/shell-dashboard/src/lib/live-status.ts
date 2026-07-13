@@ -6,10 +6,7 @@
  * established precedent for this repo. This barrel keeps every existing
  * `@/lib/live-status` / relative import site resolving unchanged.
  *
- * `export *` forwards every named value AND type export (all exports here are
- * named — no default / `export =`), so both value symbols (`keyFor`,
- * `resolveCell`, `mergeRowsToMap`, `CATALOG_TO_D5_KEY`, …) and type symbols
- * (`StatusRow`, `LiveStatusMap`, `State`, `PoolCommError`, `FleetSurfaceState`,
- * `CellState`, …) resolve through this barrel unchanged.
+ * `export *` forwards every named value AND type export from the canonical
+ * module unchanged, so existing import sites resolve identically.
  */
 export * from "../../../harness/src/shared/cell-model/live-status";

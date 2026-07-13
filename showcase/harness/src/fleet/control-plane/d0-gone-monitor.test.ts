@@ -20,6 +20,8 @@ import type { RegistryDoc } from "./d0-gone-predicate.js";
 import {
   createD0GoneMonitor,
   isProducerLive,
+  loadRegistryDoc,
+  MAX_STATUS_PAGES,
   PRODUCER_IDLE_PERIOD_MULTIPLIER,
 } from "./d0-gone-monitor.js";
 
@@ -527,5 +529,227 @@ describe("D0-gone monitor — aggregation (§4.1)", () => {
     expect(f.posted).toHaveLength(1);
     expect(f.posted[0]).toContain("`alpha`");
     expect(f.posted[0]).toContain("`beta`");
+  });
+});
+
+// ── CR Round 1 fixes (bucket-a) ─────────────────────────────────────────
+
+describe("D0-gone monitor — A1 onset key match (prefix collision)", () => {
+  // Two wired slugs where one slug's name is a PREFIX of the other:
+  // `strands` and `strands-typescript`. The substring `:strands` matches keys
+  // for BOTH slugs, so a substring onset match mis-attributes the (earlier)
+  // `strands-typescript` onset to `strands`.
+  const PREFIX_REGISTRY: RegistryDoc = {
+    feature_registry: { features: [{ id: "agentic-chat" }] },
+    integrations: [
+      {
+        slug: "strands",
+        features: ["agentic-chat"],
+        demos: [{ id: "agentic-chat", route: "/demos/agentic-chat" }],
+      },
+      {
+        slug: "strands-typescript",
+        features: ["agentic-chat"],
+        demos: [{ id: "agentic-chat", route: "/demos/agentic-chat" }],
+      },
+    ],
+  };
+
+  it("attributes onset per-slug by EXACT key, not substring (strands ≠ strands-typescript)", async () => {
+    const f = makeFakes();
+    f.deps.registry = PREFIX_REGISTRY;
+    f.setSummary(f.liveProducer());
+    // `strands-typescript` went red EARLIER (T0 - 2h); `strands` went red at T0.
+    // A substring `:strands` match pulls the strands-typescript rows into the
+    // strands onset scan → strands' sinceAt would wrongly be T0-2h.
+    const strandsTsOnset = T0 - 2 * HOUR;
+    f.setStatusRows([
+      ...goneRows("strands", T0),
+      ...goneRows("strands-typescript", strandsTsOnset),
+    ]);
+    const m = createD0GoneMonitor(f.deps);
+    await m.tick();
+    expect(f.posted).toHaveLength(1);
+    const map = JSON.parse(f.getState().hash!);
+    // GREEN: exact key match → strands' onset is its OWN T0, not the earlier
+    // strands-typescript onset.
+    expect(map.strands.sinceAt).toBe(new Date(T0).toISOString());
+    expect(map["strands-typescript"].sinceAt).toBe(
+      new Date(strandsTsOnset).toISOString(),
+    );
+  });
+});
+
+describe("D0-gone monitor — A2 recovery requires a confirm (symmetric with OPEN)", () => {
+  it("single transient healthy read does NOT fire recovery; a second agreeing healthy read does", async () => {
+    const f = makeFakes();
+    f.setSummary(f.liveProducer());
+    f.setStatusRows(goneRows("alpha", T0));
+    const m = createD0GoneMonitor(f.deps);
+    await m.tick(); // OPEN
+    expect(f.posted).toHaveLength(1);
+
+    // First scan reads healthy, but the confirm re-read flips back to gone →
+    // this is a transient blip, NOT a recovery. A single healthy read must not
+    // fire "recovered" (symmetric with the double-confirmed OPEN). Use a
+    // `sleep` hook that flips rows back to gone DURING the confirm delay.
+    f.setClock(T0 + 20 * MIN);
+    f.setSummary(f.liveProducer(T0 + 20 * MIN));
+    f.setStatusRows(healthyRows("alpha", T0 + 20 * MIN));
+    const depsFlipBackToGone = {
+      ...f.deps,
+      sleep: async () => {
+        // Confirm re-read: alpha is gone again (the healthy read was a blip).
+        f.setStatusRows(goneRows("alpha", T0));
+      },
+    };
+    const m2 = createD0GoneMonitor(depsFlipBackToGone);
+    // Shares the same in-memory alertState blob (via `f.deps`) → sees the OPEN.
+    await m2.tick();
+    expect(f.posted).toHaveLength(1); // NO premature recovery
+    expect(JSON.parse(f.getState().hash!).alpha).toBeDefined(); // still open
+
+    // Now a fully-confirmed healthy (both reads agree) → recovery fires. Use the
+    // base monitor whose no-op `sleep` leaves the (healthy) rows in place across
+    // the confirm scan.
+    const m3 = createD0GoneMonitor(f.deps);
+    f.setClock(T0 + 40 * MIN);
+    f.setSummary(f.liveProducer(T0 + 40 * MIN));
+    f.setStatusRows(healthyRows("alpha", T0 + 40 * MIN));
+    await m3.tick();
+    expect(f.posted).toHaveLength(2);
+    expect(f.posted[1]).toContain("recovered");
+  });
+});
+
+describe("D0-gone monitor — A3 empty/degenerate schedule guard", () => {
+  it("empty schedules → idle window falls back to a sane default, does NOT trap SUSPENDED forever", async () => {
+    const f = makeFakes();
+    f.setSummary(f.liveProducer());
+    f.setStatusRows(goneRows("alpha", T0));
+    // No schedules → longestPeriodMs would be 0 → idleWindowMs 0 → every fresh
+    // read is "outside the window" → isProducerLive always false → the monitor
+    // is permanently SUSPENDED and NEVER pages (the A3 trap). The guard must use
+    // a sane default window so a live-producer fresh-gone read still OPENs.
+    const deps = { ...f.deps, schedules: [] };
+    const m = createD0GoneMonitor(deps);
+    await m.tick();
+    expect(f.posted).toHaveLength(1); // GREEN: pages despite empty schedules
+    expect(f.posted[0]).toContain("`alpha`");
+  });
+});
+
+describe("D0-gone monitor — A4 pagination bounded", () => {
+  it("NaN totalPages + a full page terminates (hard page cap), no infinite loop", async () => {
+    const f = makeFakes();
+    f.setSummary(f.liveProducer());
+    let calls = 0;
+    // Every page returns a FULL page (== perPage) with NaN totalPages. Without a
+    // cap AND a NaN guard the `page >= totalPages` break never trips (NaN
+    // comparisons are always false) and items.length always == perPage → the
+    // loop runs forever.
+    const perPage = 500;
+    const deps = {
+      ...f.deps,
+      pb: {
+        async list<T>() {
+          calls += 1;
+          const full = Array.from({ length: perPage }, (_, i) =>
+            row("alpha", `e2e:pad-${calls}-${i}`, "green", T0),
+          );
+          return {
+            page: calls,
+            perPage,
+            totalPages: Number.NaN,
+            totalItems: Number.NaN,
+            items: full as unknown as T[],
+          };
+        },
+      },
+    };
+    const m = createD0GoneMonitor(deps as never);
+    await m.tick();
+    // GREEN: bounded — the loop terminated (the test itself completing proves
+    // no infinite loop). Assert we stopped at the hard page cap.
+    expect(calls).toBe(MAX_STATUS_PAGES);
+  });
+});
+
+describe("D0-gone monitor — A5 registry-load failure is not permanent", () => {
+  it("loadRegistryDoc logs at error with an errorId on parse failure", async () => {
+    const errs: Array<{ msg: string; meta: unknown }> = [];
+    const logger = {
+      info() {},
+      warn() {},
+      error(msg: string, meta: unknown) {
+        errs.push({ msg, meta });
+      },
+      debug() {},
+    };
+    // Point REGISTRY_JSON_PATH at a nonexistent file → read throws → the loader
+    // must log at ERROR (not warn) with an errorId so the gap is loud and
+    // greppable, not a silent warn-once permanent no-op.
+    const doc = loadRegistryDoc(logger, {
+      REGISTRY_JSON_PATH: "/nonexistent/registry-does-not-exist.json",
+    });
+    expect(doc).toEqual({});
+    expect(errs).toHaveLength(1);
+    expect(errs[0].msg).toContain("registry-load-failed");
+    expect((errs[0].meta as { errorId?: string }).errorId).toBeTruthy();
+  });
+
+  it("loader-thunk registry: an initially-empty registry self-heals on a later tick (no redeploy)", async () => {
+    const f = makeFakes();
+    f.setSummary(f.liveProducer());
+    f.setStatusRows(goneRows("alpha", T0));
+    // Registry is a THUNK that starts empty (missing file) then resolves once
+    // the "file" appears — the monitor must re-load while the cell set is empty
+    // and page once the registry is present, without reconstructing the monitor.
+    let doc: RegistryDoc = {};
+    const deps = { ...f.deps, registry: () => doc };
+    const m = createD0GoneMonitor(deps);
+
+    await m.tick();
+    expect(f.posted).toHaveLength(0); // empty registry → zero wired cells → no page
+
+    doc = REGISTRY; // registry.json now present
+    f.setClock(T0 + 15 * MIN);
+    f.setSummary(f.liveProducer(T0 + 15 * MIN));
+    f.setStatusRows(goneRows("alpha", T0));
+    await m.tick();
+    expect(f.posted).toHaveLength(1); // self-healed: re-loaded, enumerated, paged
+    expect(f.posted[0]).toContain("`alpha`");
+  });
+});
+
+describe("D0-gone monitor — A6 no state advance when Slack target throws (verified)", () => {
+  // A6 verified: createSlackWebhookTarget already throws on every non-2xx
+  // (4xx/5xx/429/3xx/network-exhausted). This asserts the monitor honors that
+  // contract — a throwing post must NOT advance lastAlertAt nor delete recovery
+  // state (else a silently-failed post would poison the dedupe cadence).
+  it("recovery post throws → entry NOT deleted; next tick retries", async () => {
+    const f = makeFakes();
+    f.setSummary(f.liveProducer());
+    f.setStatusRows(goneRows("alpha", T0));
+    const m = createD0GoneMonitor(f.deps);
+    await m.tick(); // OPEN
+    expect(f.posted).toHaveLength(1);
+
+    // Fresh-healthy but Slack throws on the recovery post → entry must persist.
+    f.setSendThrows(true);
+    f.setClock(T0 + 20 * MIN);
+    f.setSummary(f.liveProducer(T0 + 20 * MIN));
+    f.setStatusRows(healthyRows("alpha", T0 + 20 * MIN));
+    await m.tick();
+    expect(JSON.parse(f.getState().hash!).alpha).toBeDefined(); // NOT deleted
+
+    // Slack recovers → recovery retried and clears.
+    f.setSendThrows(false);
+    f.setClock(T0 + 40 * MIN);
+    f.setSummary(f.liveProducer(T0 + 40 * MIN));
+    f.setStatusRows(healthyRows("alpha", T0 + 40 * MIN));
+    await m.tick();
+    expect(f.posted.some((p) => p.includes("recovered"))).toBe(true);
+    expect(JSON.parse(f.getState().hash!).alpha).toBeUndefined();
   });
 });

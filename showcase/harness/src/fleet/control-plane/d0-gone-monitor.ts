@@ -55,7 +55,11 @@ import {
   columnFreshHealthy,
   wiredSupportedCells,
 } from "./d0-gone-predicate.js";
-import type { CellGoneInput, RegistryDoc } from "./d0-gone-predicate.js";
+import type {
+  CellGoneInput,
+  RegistryDoc,
+  WiredCell,
+} from "./d0-gone-predicate.js";
 
 /** §5.1 stable synthetic rule id (the monitor is a bespoke cron, not a YAML rule). */
 export const PROD_D0_GONE_RULE_ID = "prod-d0-gone-monitor";
@@ -66,10 +70,22 @@ export const PROD_D0_GONE_RULE_ID = "prod-d0-gone-monitor";
  *  cannot disagree about whether the fleet is producing. */
 export const PRODUCER_IDLE_PERIOD_MULTIPLIER = 3;
 
+/** A3 fallback idle window when no producer schedule resolves a period —
+ *  3× the standard 15m fleet cadence (45m). Keeps the liveness gate meaningful
+ *  (fails toward alerting) instead of trapping the monitor SUSPENDED forever. */
+export const DEFAULT_IDLE_WINDOW_MS =
+  PRODUCER_IDLE_PERIOD_MULTIPLIER * 15 * 60_000;
+
 /** §8 defaults (all overridable via `PROD_D0_MONITOR_*`). */
 export const DEFAULT_CONFIRM_DELAY_MS = 60_000;
 export const DEFAULT_REPOST_MINUTES = 60;
 export const DEFAULT_MAX_SLUGS_IN_MESSAGE = 25;
+
+/** A4 hard pagination ceiling — a defensive cap so a misbehaving PocketBase
+ *  (missing/NaN `totalPages` while always returning a full page) cannot spin
+ *  `readStatusRows` into an unbounded loop. 200 × 500 = 100k rows, far above the
+ *  real `status` collection; hitting it means PB is misbehaving (logged). */
+export const MAX_STATUS_PAGES = 200;
 
 /** Per-slug outage record persisted in the serialized JSON map (§5.1). */
 interface OutageEntry {
@@ -123,9 +139,15 @@ export function isEnabled(
  * Load the generated `registry.json` the monitor enumerates wired cells from.
  * Mirrors the established probe-driver resolver (`d4-chat-roundtrip.ts`):
  * `REGISTRY_JSON_PATH` env override, fallback `/app/data/registry.json` (copied
- * in by the harness Dockerfile). Degrades to an empty doc on missing/parse
- * error and logs — a misconfigured image must not crash the control-plane; the
- * monitor then enumerates zero wired cells (fails safe: never pages).
+ * in by the harness Dockerfile). Returns an empty doc on missing/parse error —
+ * a misconfigured image must not crash the control-plane.
+ *
+ * A5: a load failure is logged at ERROR with a stable `errorId` (not a
+ * warn-once), because an empty registry silently disables the monitor for the
+ * whole process (zero wired cells → never pages). The loud error surfaces the
+ * gap in log-based alerting, and the monitor re-invokes this loader on every
+ * tick while the cell set is empty (see `resolveCells`) so a transiently
+ * missing file (slow volume mount, race at boot) self-heals without a redeploy.
  */
 export function loadRegistryDoc(
   logger: Logger,
@@ -137,8 +159,14 @@ export function loadRegistryDoc(
     const raw = readFileSync(registryPath, "utf-8");
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === "object") return parsed as RegistryDoc;
+    logger.error("d0-monitor.registry-load-failed", {
+      errorId: "d0-monitor-registry-load",
+      registryPath,
+      reason: "parsed-non-object",
+    });
   } catch (err) {
-    logger.warn("d0-monitor.registry-load-failed", {
+    logger.error("d0-monitor.registry-load-failed", {
+      errorId: "d0-monitor-registry-load",
       registryPath,
       err: err instanceof Error ? err.message : String(err),
     });
@@ -157,8 +185,13 @@ export interface D0GoneMonitorDeps {
   summary: Pick<MemoizedFamilySummary, "get">;
   /** Resolved producer schedules — the idle-window period source (§2.5). */
   schedules: readonly ProducerSchedule[];
-  /** The wired+supported cell universe, keyed by slug (§2.4 / page-stats). */
-  registry: RegistryDoc;
+  /**
+   * The wired+supported cell universe source (§2.4 / page-stats). Either a
+   * fixed `RegistryDoc`, or a loader thunk. A5: a thunk lets the monitor
+   * re-load on subsequent ticks while the resolved cell set is empty, so a
+   * transiently-missing `registry.json` self-heals without a redeploy.
+   */
+  registry: RegistryDoc | (() => RegistryDoc);
   /** Resolved dashboard URL for the alert footer (may be undefined). */
   dashboardUrl?: string;
   logger: Logger;
@@ -180,6 +213,22 @@ function iso(ms: number): string {
 function parseIso(value: string | null | undefined): number {
   if (!value) return Number.NaN;
   return Date.parse(value);
+}
+
+/**
+ * True iff `key` names the given `slug`'s column. Status keys are
+ * `<dimension>:<slug>` or `<dimension>:<slug>/<featureId>` (see `keyFor`). We
+ * take the segment after the FIRST `:` up to the `/` (or end) and compare it
+ * EXACTLY to the slug — an anchored match so `strands` never matches a
+ * `strands-typescript` key (the substring bug this replaces).
+ */
+function keyBelongsToSlug(key: string, slug: string): boolean {
+  const colon = key.indexOf(":");
+  if (colon < 0) return false;
+  const afterColon = key.slice(colon + 1);
+  const slash = afterColon.indexOf("/");
+  const slugSegment = slash < 0 ? afterColon : afterColon.slice(0, slash);
+  return slugSegment === slug;
 }
 
 /** Humanize a millisecond duration as e.g. "1h 03m" / "18m" / "45s". */
@@ -243,13 +292,56 @@ export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
   // at construction (schedules are fixed).
   const longestPeriodMs = deps.schedules.reduce((max, s) => {
     const p = periodMsFromCron(s.cron);
-    return p > max ? p : max;
+    return Number.isFinite(p) && p > max ? p : max;
   }, 0);
-  const idleWindowMs = PRODUCER_IDLE_PERIOD_MULTIPLIER * longestPeriodMs;
+  // A3 guard: an empty/degenerate schedule set (or all-unparseable crons) yields
+  // longestPeriodMs === 0 → idleWindowMs 0 → EVERY fresh read is "outside the
+  // window" → isProducerLive is permanently false → the monitor SUSPENDS forever
+  // and NEVER pages (a silent trap that fails toward SILENCE). Fall back to a
+  // sane default window (3× the 15m fleet cadence = 45m) so the liveness gate
+  // stays meaningful and the monitor fails toward ALERTING, and log loudly.
+  const idleWindowMs =
+    longestPeriodMs > 0
+      ? PRODUCER_IDLE_PERIOD_MULTIPLIER * longestPeriodMs
+      : DEFAULT_IDLE_WINDOW_MS;
+  if (longestPeriodMs <= 0) {
+    logger.error("d0-monitor.no-producer-schedule", {
+      errorId: "d0-monitor-no-schedule",
+      scheduleCount: deps.schedules.length,
+      fallbackIdleWindowMs: idleWindowMs,
+    });
+  }
 
   // The wired+supported cell universe (§2.4) — same enumeration the dashboard's
-  // page-stats iterates. Fixed at construction (registry is generated at boot).
-  const cellsBySlug = wiredSupportedCells(deps.registry);
+  // page-stats iterates. Resolved once at construction from a fixed registry, or
+  // re-loaded per-tick from a loader thunk while empty (A5 self-heal).
+  const registryIsLoader = typeof deps.registry === "function";
+  const loadRegistry = (): RegistryDoc =>
+    registryIsLoader
+      ? (deps.registry as () => RegistryDoc)()
+      : (deps.registry as RegistryDoc);
+  let cellsBySlug = wiredSupportedCells(loadRegistry());
+
+  /**
+   * A5: the wired-cell set for this tick. An EMPTY set means the monitor
+   * enumerates nothing and can never page — a silent self-disable. If the
+   * registry is a loader thunk, re-load and re-enumerate each tick while empty
+   * so a transiently-missing `registry.json` self-heals without a redeploy.
+   * Whenever the set is empty we log LOUDLY (error + errorId) so the gap is
+   * greppable rather than a permanent silent no-op.
+   */
+  function resolveCells(): Map<string, WiredCell[]> {
+    if (cellsBySlug.size === 0 && registryIsLoader) {
+      cellsBySlug = wiredSupportedCells(loadRegistry());
+    }
+    if (cellsBySlug.size === 0) {
+      logger.error("d0-monitor.no-wired-cells", {
+        errorId: "d0-monitor-no-wired-cells",
+        reloadable: registryIsLoader,
+      });
+    }
+    return cellsBySlug;
+  }
 
   // Re-entrancy guard — the 60s confirm delay means a slow tick could otherwise
   // stack with the next 15m tick (belt-and-braces atop the scheduler's guard).
@@ -300,7 +392,27 @@ export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
         skipTotal: false,
       });
       rows.push(...res.items);
-      if (page >= res.totalPages || res.items.length === 0) break;
+      if (res.items.length === 0) break;
+      // A4: guard a NaN/undefined `totalPages` — a `page >= NaN` comparison is
+      // always false, so a full page + bad totalPages would loop forever
+      // accumulating duplicate rows (OOM). Treat a non-finite totalPages as
+      // "unknown" and rely on the empty-page break + hard cap below.
+      const totalPages = Number(res.totalPages);
+      if (Number.isFinite(totalPages) && page >= totalPages) break;
+      // A4: hard page cap — a defensive ceiling so a misbehaving PB (missing/
+      // NaN totalPages while always returning a full page) cannot wedge the
+      // control-plane. 200 pages × 500 = 100k rows, far beyond the real status
+      // collection; hitting it means PB is misbehaving, so log loudly.
+      if (page >= MAX_STATUS_PAGES) {
+        logger.error("d0-monitor.status-page-cap-hit", {
+          errorId: "d0-monitor-page-cap",
+          page,
+          maxPages: MAX_STATUS_PAGES,
+          totalPages: res.totalPages,
+          rowsSoFar: rows.length,
+        });
+        break;
+      }
       page += 1;
     }
     return rows;
@@ -325,7 +437,7 @@ export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
     const healthy = new Set<string>();
     const onsetBySlug = new Map<string, number>();
 
-    for (const [slug, cells] of cellsBySlug) {
+    for (const [slug, cells] of resolveCells()) {
       if (cells.length === 0) continue; // zero-wired column fails safe (§2.4)
       const models: CellGoneInput[] = cells.map((c) => {
         const m = buildCellModel(
@@ -347,19 +459,17 @@ export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
       });
       if (columnGone(models)) {
         gone.add(slug);
-        // Earliest red-D0 onset among the column's contributing rows (§2.4).
+        // Earliest red-D0 onset among THIS slug's contributing rows (§2.4).
+        // Keys are `<dimension>:<slug>` or `<dimension>:<slug>/<featureId>`
+        // (see `keyFor`), so a substring `:${slug}` match would mis-attribute a
+        // prefix-colliding sibling's rows (e.g. `strands` pulling in
+        // `strands-typescript`'s earlier onset). Match the slug segment EXACTLY.
         let earliest = Number.NaN;
-        for (const cell of cells) {
-          for (const row of live.values()) {
-            // A row belongs to this slug's column when its key names the slug.
-            if (row.state === "red" && row.key.includes(`:${cell.slug}`)) {
-              const t = parseIso(row.first_failure_at ?? row.observed_at);
-              if (
-                !Number.isNaN(t) &&
-                (Number.isNaN(earliest) || t < earliest)
-              ) {
-                earliest = t;
-              }
+        for (const row of live.values()) {
+          if (row.state === "red" && keyBelongsToSlug(row.key, slug)) {
+            const t = parseIso(row.first_failure_at ?? row.observed_at);
+            if (!Number.isNaN(t) && (Number.isNaN(earliest) || t < earliest)) {
+              earliest = t;
             }
           }
         }
@@ -473,13 +583,33 @@ export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
     }
     const s1 = scan(rows1, nowMs);
 
-    // §3: if S1 empty, no confirm scan — go straight to recovery-check with S1.
+    // Load the durable outage map up front so the confirm-scan decision can
+    // account for RECOVERY candidates (A2), not just OPEN candidates. A slug is
+    // a recovery candidate this tick when it is currently open AND s1 read it
+    // fresh-healthy.
+    const map = await loadMap();
+    const openSlugs = new Set(Object.keys(map));
+    const recoveryCandidates = [...s1.healthy].filter((slug) =>
+      openSlugs.has(slug),
+    );
+
+    // §3 CONFIRM SCAN — run when EITHER there is a candidate-gone slug (OPEN
+    // confirm) OR a currently-open slug read fresh-healthy (RECOVERY confirm).
+    // A2: recovery/CLOSE is now SYMMETRIC with OPEN — both require a second
+    // agreeing read, so a single transient healthy read can no longer fire a
+    // false "recovered" (mirrors the double-confirmed OPEN blip-rejection).
     let confirmed = new Set<string>(s1.gone);
+    // Confirmed-healthy for recovery: healthy in s1 AND (once confirmed) scan2.
+    let confirmedHealthy = new Set<string>(s1.healthy);
     let scan2 = s1;
-    if (s1.gone.size > 0) {
+    // The instant the recovery/outage evidence was last observed — the
+    // confirm-scan instant when a confirm ran, else the tick-start (no confirm).
+    let evidenceMs = nowMs;
+    if (s1.gone.size > 0 || recoveryCandidates.length > 0) {
       // §3 CONFIRM SCAN — wait, then re-READ (never re-probe). Both must agree.
       await sleep(config.confirmDelayMs);
       const now2 = deps.now();
+      evidenceMs = now2;
       let rows2: StatusRow[];
       try {
         rows2 = await readStatusRows();
@@ -488,10 +618,14 @@ export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
           err: err instanceof Error ? err.message : String(err),
           phase: "confirm",
         });
-        return; // inconclusive confirm read — do not OPEN this tick.
+        return; // inconclusive confirm read — do not OPEN/CLOSE this tick.
       }
       scan2 = scan(rows2, now2);
       confirmed = new Set([...s1.gone].filter((slug) => scan2.gone.has(slug)));
+      // A2: a recovery requires BOTH reads to agree healthy.
+      confirmedHealthy = new Set(
+        [...s1.healthy].filter((slug) => scan2.healthy.has(slug)),
+      );
       const blips = [...s1.gone].filter((slug) => !scan2.gone.has(slug));
       if (blips.length > 0) {
         logger.info("d0-monitor.blip-rejected", {
@@ -500,12 +634,21 @@ export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
           scan2At: iso(now2),
         });
       }
+      const healthyBlips = recoveryCandidates.filter(
+        (slug) => !scan2.healthy.has(slug),
+      );
+      if (healthyBlips.length > 0) {
+        logger.info("d0-monitor.recovery-blip-rejected", {
+          slugs: healthyBlips,
+          scan1At: iso(nowMs),
+          scan2At: iso(now2),
+        });
+      }
     }
 
-    // §5.2 STATE MACHINE. Confirmed-gone = C; fresh-healthy = H (from the LATEST
-    // authoritative scan — scan2 when a confirm ran, else s1).
-    const healthy = scan2.healthy;
-    const map = await loadMap();
+    // §5.2 STATE MACHINE. Confirmed-gone = C; confirmed-fresh-healthy = H (both
+    // reads agreed). `now2` is the confirm-scan instant when a confirm ran.
+    const healthy = confirmedHealthy;
     const repostMs = config.repostMinutes * 60_000;
 
     // OPEN + hourly re-post: build the set of slugs to include in an alert this
@@ -538,7 +681,13 @@ export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
       try {
         await deps.postAlert(text);
         for (const slug of openNow) {
-          // Every currently-open slug's cadence advances on a successful post.
+          // INTENTIONAL aggregate cadence: the outage message lists ALL
+          // currently-open slugs in ONE post, so a single successful send
+          // advances EVERY open slug's `lastAlertAt` to a common clock. This is
+          // by design — one hourly message drives one shared re-post gate, so a
+          // slug that joined an existing outage does not spawn its own
+          // out-of-phase hourly cadence (which would fragment the aggregate into
+          // multiple staggered messages).
           if (map[slug]) map[slug].lastAlertAt = iso(nowMs);
         }
         logger.warn("d0-monitor.outage-alerted", {
@@ -567,7 +716,9 @@ export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
       // else HOLD: inconclusive (stale/no fresh evidence) — do not clear.
     }
     if (recovered.length > 0) {
-      const text = recoveryMessage(recovered, nowMs);
+      // Stamp the confirm-scan instant (when the recovery was actually
+      // observed), not the tick-start — the two differ by the confirm delay.
+      const text = recoveryMessage(recovered, evidenceMs);
       try {
         await deps.postAlert(text);
         for (const r of recovered) delete map[r.slug]; // clear AFTER send (§5.2)

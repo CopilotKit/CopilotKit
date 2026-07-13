@@ -3010,7 +3010,11 @@ export async function runControlPlane(
       // — the §2.5 producer-liveness source.
       summary: familySummary,
       schedules,
-      registry: loadRegistryDoc(logger),
+      // A5: pass a LOADER thunk (not a fixed doc) so the monitor re-reads
+      // `registry.json` on subsequent ticks while the wired-cell set is empty —
+      // a transiently-missing file (slow volume mount / boot race) self-heals
+      // without a redeploy instead of silently disabling the monitor forever.
+      registry: () => loadRegistryDoc(logger),
       dashboardUrl:
         process.env.DASHBOARD_URL ?? "https://dashboard.showcase.copilotkit.ai",
       logger,
@@ -3020,16 +3024,35 @@ export async function runControlPlane(
       id: "internal:prod-d0-gone-monitor",
       cron: "*/15 * * * *",
       handler: async () => {
-        await d0GoneMonitor.tick();
+        // Defense-in-depth: `tick()` already swallows its own errors, but wrap
+        // the scheduler handler too so a rejection here (e.g. a future refactor
+        // that lets tick throw) is caught + logged with an errorId and never
+        // wedges the control-plane scheduler.
+        try {
+          await d0GoneMonitor.tick();
+        } catch (err) {
+          logger.error("orchestrator.prod-d0-gone-monitor-tick-failed", {
+            errorId: "d0-monitor-scheduler-tick",
+            err: err instanceof Error ? err.message : String(err),
+          });
+        }
       },
     });
     logger.info("orchestrator.prod-d0-gone-monitor-registered", {
       env: d0MonitorEnv,
     });
   } else {
-    logger.info("orchestrator.prod-d0-gone-monitor-skipped", {
+    // Log at WARN so an env-gate misconfig (a prod deploy whose SHOWCASE_ENV /
+    // RAILWAY_ENVIRONMENT_NAME is not exactly "production", or the kill-switch
+    // left off) is visible in log-based alerting — a silent info-level skip is
+    // how the whole-column-gone blind spot goes unnoticed in the first place.
+    logger.warn("orchestrator.prod-d0-gone-monitor-skipped", {
       env: d0MonitorEnv ?? "(unset)",
       enabled: isD0MonitorEnabled(),
+      reason:
+        d0MonitorEnv !== "production"
+          ? "env-not-production"
+          : "kill-switch-disabled",
     });
   }
 
