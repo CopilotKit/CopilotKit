@@ -3,6 +3,20 @@ import type { CopilotRuntimeLike } from "../core/runtime";
 import { createCopilotRuntimeHandler } from "../core/fetch-handler";
 import type { CopilotCorsConfig } from "../core/fetch-cors";
 import type { CopilotRuntimeHooks } from "../core/hooks";
+import type {
+  ActivateChannelEngine,
+  ChannelsControl,
+} from "../core/channel-manager";
+
+/**
+ * A Hono app that may also carry an optional {@link ChannelsControl} surface.
+ * Hono's app object is request-scoped routing config, not a long-running
+ * process owner — Node (`createCopilotNodeListener`) is the lifecycle-owning
+ * surface for `.channels`. It is attached here too, best-effort, for callers
+ * that mount the Hono app directly and want to observe/stop managed Channel
+ * activation without also standing up a Node listener.
+ */
+export type CopilotHonoApp = Hono & { channels?: ChannelsControl };
 
 /**
  * CORS configuration for CopilotKit endpoints.
@@ -48,6 +62,19 @@ interface CopilotEndpointParams {
    * Lifecycle hooks for request processing.
    */
   hooks?: CopilotRuntimeHooks;
+
+  /**
+   * Whether the underlying handler activates the runtime's declared managed
+   * Channels at creation time. Defaults to `true`. See
+   * `CopilotRuntimeHandlerOptions.activateChannels`.
+   */
+  activateChannels?: boolean;
+
+  /**
+   * @internal Test seam: inject a fake Channel activation engine. Forwarded
+   * to `createCopilotRuntimeHandler`. Not part of the public API.
+   */
+  __channelEngine?: ActivateChannelEngine;
 }
 /** @deprecated Use `createCopilotHonoHandler` instead. */
 export const createCopilotEndpoint = createCopilotHonoHandler;
@@ -58,18 +85,26 @@ export function createCopilotHonoHandler({
   mode = "multi-route",
   cors: corsConfig,
   hooks,
-}: CopilotEndpointParams) {
+  activateChannels,
+  __channelEngine,
+}: CopilotEndpointParams): CopilotHonoApp {
   const handler = createCopilotRuntimeHandler({
     runtime,
     basePath,
     mode,
     cors: corsConfig ? toFetchCorsConfig(corsConfig) : true,
     hooks,
+    activateChannels,
+    __channelEngine,
   });
 
   const app = new Hono();
 
-  return app.basePath(basePath).all("*", async (c) => handler(c.req.raw));
+  const scopedApp: CopilotHonoApp = app
+    .basePath(basePath)
+    .all("*", async (c) => handler(c.req.raw));
+  scopedApp.channels = handler.channels;
+  return scopedApp;
 }
 
 /**
