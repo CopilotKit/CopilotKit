@@ -12,8 +12,10 @@
 // built on top of `useAgent` + `useCopilotKit` that reads LangGraph's native
 // `interrupt()` event from the AG-UI stream and resumes via
 // `copilotkit.runAgent({ forwardedProps: { command: { resume, ... } } })`.
-// Microsoft Agent Framework has no interrupt primitive, so we instead
-// register `schedule_meeting` as a frontend tool and gate the UI on
+// agent-framework-ag-ui supports standard interrupts, but the pinned
+// CopilotKit package has a post-resume chat-rendering issue for this demo.
+// Until that package fix ships, we register `schedule_meeting` as a frontend
+// tool and gate the UI on
 // whether the tool is currently awaiting a user decision. The async handler
 // returns a Promise that only resolves when the user interacts with the
 // external popup — equivalent UX, different mechanism.
