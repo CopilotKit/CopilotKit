@@ -6,76 +6,182 @@
 // entrypoint so langgraph_runtime_inmem never flushes its unbounded pickle
 // state to `.langgraph_api/*.pckl`. Python reads that env var at import time
 // inside the runtime package; the TypeScript stack (`@langchain/langgraph-api`)
-// has NO such switch, so we neutralise the flush ourselves at the fs layer.
+// has NO such switch, so we neutralise the flush ourselves.
 //
-// Why the fs layer (and not the class):
+// MECHANISM — patch the FileSystemPersistence PROTOTYPE (not the fs layer):
 //   @langchain/langgraph-api's `FileSystemPersistence` (dist/storage/persist.mjs)
-//   is the single writer. Its module singletons (checkpointer, store, ops) are
-//   constructed at import time and are NOT exported, and the package's exports
-//   map blocks a deep import of persist.mjs (ERR_PACKAGE_PATH_NOT_EXPORTED), so
-//   the class prototype cannot be patched from here. The only disk-write surface
-//   in persist.mjs is `fs.writeFile` (the flush) and `fs.mkdir` (dir create),
-//   both from `node:fs/promises`. Intercepting those two calls for the
-//   `.langgraph_api` path fully stops disk growth while leaving the in-memory
-//   store — the actual runtime state — untouched. Conversation/thread/run state
-//   still works within a container's lifetime; it just never persists to disk.
-//   This matches python's behaviour: in-memory state bounded by process memory,
-//   discarded on restart, nothing accumulating on disk to trip the size
-//   watchdog.
+//   is the single writer of `.langgraph_api`. Verified against the pinned 1.1.17
+//   source, ALL disk growth funnels through exactly one method:
+//       async persist() { ... await fs.writeFile(this.filepath, serialize(...)) }
+//   with `flush()` -> `persist()` and `schedulePersist()` arming a 3s timer that
+//   also calls `persist()`. `initialize()` additionally does an empty-dir
+//   `mkdir(...,{recursive:true})` (harmless, but we skip it so no dir appears).
 //
-// Why the CJS handle (and not `import * as fs from "node:fs/promises"`):
-//   An ESM namespace object is sealed — `fsPromises.writeFile = ...` throws
-//   "Cannot assign to read only property". The writable seam is the CJS
-//   `require("node:fs").promises` object; the package's ESM
-//   `import * as fs from "node:fs/promises"` named exports are backed by that
-//   same object, so patching it there IS observed by the package (verified:
-//   `esmNs.writeFile === require("node:fs").promises.writeFile`).
+//   The three consumers (checkpoint.mjs, store.mjs, server.mjs's ops) all
+//   `import { FileSystemPersistence } from "./persist.mjs"` — the SAME cached ESM
+//   module singleton. So patching the class prototype ONCE at preload is
+//   observed by every instance they construct at import time.
 //
-// Loaded via `node --import` BEFORE liveness.mjs/server.mjs, so the patch is in
-// place before any langgraph code touches the filesystem.
+//   WHY NOT patch fs (the previous mechanism, which was BROKEN):
+//   persist.mjs does `import * as fs from "node:fs/promises"` and calls
+//   `fs.writeFile(...)`. ESM named imports are LIVE BINDINGS resolved at import
+//   time; reassigning `require("node:fs").promises.writeFile` does NOT rebind
+//   the consumer's `fs.writeFile` (verified: after the reassignment,
+//   `esmNs.writeFile !== cjs.writeFile` and the consumer still calls the
+//   original). The ESM namespace's own bindings are non-configurable, so they
+//   cannot be redefined either. The prior fs-monkeypatch therefore never
+//   intercepted the real writer at all — disk still grew. This module fixes that
+//   by neutralising the writer at its own prototype method, which is binding-
+//   semantics-independent and robust.
+//
+//   We deep-import persist.mjs by RESOLVED FILE PATH (the package exports map
+//   blocks `@langchain/langgraph-api/.../persist.mjs`, but a direct file URL
+//   import bypasses the map and lands on the SAME module the package's internal
+//   relative imports resolve to — verified: the two module objects are ===).
+//
+// F1 (scope / no data loss): patching `persist`/`schedulePersist`/`initialize`
+//   touches ONLY the FileSystemPersistence class. No global fs method is
+//   replaced, so there is ZERO risk of no-oping an unrelated write — the
+//   over-broad-substring hazard of the old approach is gone by construction.
+//
+// F2 (contract + version guard): we preserve each method's async signature and
+//   return type (persist/flush resolve void; initialize resolves `this`).
+//   The interception is validated against 1.1.17; at preload we read the
+//   installed version and, if it differs, still apply the patch (fail-safe:
+//   writes disabled is the safe direction) but log a prominent WARNING to
+//   re-validate persist.mjs's writer on upgrade. If the class or method is
+//   missing (a major refactor), we log and leave the package untouched rather
+//   than crash the agent boot.
+//
+// F9 (robust env parse + observable logging): LANGGRAPH_DISABLE_FILE_PERSISTENCE
+//   is parsed case-insensitively for 1/true/yes/on; we log ONCE whether
+//   persistence is DISABLED (with the version) or LEFT ON, so a misconfig is
+//   visible in the logs.
+//
+// Loaded via `node --import` BEFORE liveness.mjs/server.mjs, so the prototype is
+// patched before any langgraph code constructs a persistence instance.
 
 import { createRequire } from "node:module";
+import { pathToFileURL } from "node:url";
+import * as nodePath from "node:path";
 
-const PERSIST_MARKER = ".langgraph_api";
-const disabled =
-  String(process.env.LANGGRAPH_DISABLE_FILE_PERSISTENCE ?? "").toLowerCase() ===
-  "true";
+const require = createRequire(import.meta.url);
 
-if (disabled) {
-  const require = createRequire(import.meta.url);
-  const fsPromises = require("node:fs").promises;
+const PINNED_PACKAGE_VERSION = "1.1.17";
 
-  // Only paths under `.langgraph_api` are short-circuited; every other fs write
-  // (Next.js caches, tmp files, langgraph worker caches, etc.) is untouched.
-  const targetsPersistDir = (p) =>
-    // p may be a string, Buffer, URL, or file handle. Only the path-like string
-    // form addresses the persistence dir; anything else falls through to the
-    // real implementation unchanged.
-    typeof p === "string" && p.includes(PERSIST_MARKER);
+// F9: robust env parse — accept common truthy spellings, case-insensitive.
+function parseBoolEnv(raw) {
+  const v = String(raw ?? "")
+    .trim()
+    .toLowerCase();
+  return v === "true" || v === "1" || v === "yes" || v === "on";
+}
 
-  const realWriteFile = fsPromises.writeFile;
-  const realMkdir = fsPromises.mkdir;
+const disabled = parseBoolEnv(process.env.LANGGRAPH_DISABLE_FILE_PERSISTENCE);
 
-  fsPromises.writeFile = function writeFile(file, ...rest) {
-    if (targetsPersistDir(file)) {
-      // No-op: the flush is skipped, matching python's disabled-persistence
-      // behaviour. Resolve so the caller's `await` completes normally.
-      return Promise.resolve();
-    }
-    return realWriteFile.call(this, file, ...rest);
+async function applyPatch() {
+  // Resolve the installed package + its version for the guard.
+  let version = "unknown";
+  let pkgJsonPath;
+  try {
+    pkgJsonPath = require.resolve("@langchain/langgraph-api/package.json");
+    version = require(pkgJsonPath).version ?? "unknown";
+  } catch {
+    console.warn(
+      `[persistence] WARNING: could not resolve @langchain/langgraph-api (expected ${PINNED_PACKAGE_VERSION}) — persistence NOT disabled. Verify the dependency is installed.`,
+    );
+    return;
+  }
+  if (version !== PINNED_PACKAGE_VERSION) {
+    console.warn(
+      `[persistence] WARNING: @langchain/langgraph-api is ${version}, but the FileSystemPersistence flush interception was validated against ${PINNED_PACKAGE_VERSION}. Applying it anyway (fail-safe: writes disabled), but re-verify persist.mjs's writer for this version.`,
+    );
+  }
+
+  // Deep-import persist.mjs by resolved file path (bypasses the exports map,
+  // lands on the same cached module the package's relative imports use).
+  const persistMjs = nodePath.join(
+    nodePath.dirname(pkgJsonPath),
+    "dist",
+    "storage",
+    "persist.mjs",
+  );
+  let mod;
+  try {
+    mod = await import(pathToFileURL(persistMjs).href);
+  } catch (err) {
+    console.warn(
+      `[persistence] WARNING: could not import ${persistMjs} (${err?.message ?? err}) — persistence NOT disabled.`,
+    );
+    return;
+  }
+
+  const FSP = mod.FileSystemPersistence;
+  if (typeof FSP !== "function" || typeof FSP.prototype?.persist !== "function") {
+    console.warn(
+      `[persistence] WARNING: FileSystemPersistence.persist not found in ${persistMjs} — package internals changed; persistence NOT disabled.`,
+    );
+    return;
+  }
+
+  // persist(): the ONLY disk writer. No-op it (preserve async void contract).
+  // We do NOT call clearTimeout here; schedulePersist below never arms a timer.
+  FSP.prototype.persist = async function persist() {
+    return undefined;
   };
 
-  fsPromises.mkdir = function mkdir(dir, ...rest) {
-    if (targetsPersistDir(dir)) {
-      // No-op: no persistence dir is created, so `du` finds nothing to grow.
-      // mkdir({recursive:true}) resolves to the first created path or undefined;
-      // callers of this path ignore the result, so undefined is safe.
-      return Promise.resolve(undefined);
+  // schedulePersist(): would arm a 3s setTimeout(() => this.persist()). With
+  // persist() no-oped this is harmless, but leaving live timers dangling keeps
+  // the event loop churning and holds `this.data` referenced; make it a no-op so
+  // no background flush is ever scheduled.
+  if (typeof FSP.prototype.schedulePersist === "function") {
+    FSP.prototype.schedulePersist = function schedulePersist() {
+      return undefined;
+    };
+  }
+
+  // flush() calls persist(); it already becomes a no-op through the patch above.
+  // (Left unpatched intentionally so its `await this.persist()` contract holds.)
+
+  // initialize(cwd): keep the read path (so any pre-existing state a prior
+  // boot left is still LOADED into memory — matches the boot-purge + in-memory
+  // model), but skip the empty-dir mkdir so no `.langgraph_api` dir is even
+  // created on disk. Preserve the `=> this` return contract.
+  const realInitialize = FSP.prototype.initialize;
+  FSP.prototype.initialize = async function initialize(cwd) {
+    // Reproduce the read-then-default behaviour WITHOUT the mkdir. We resolve
+    // filepath the same way the real method does and try to load; on any error
+    // fall back to the default schema. Field names mirror persist.mjs 1.1.17.
+    this.filepath = nodePath.resolve(cwd, ".langgraph_api", `${this.name}`);
+    try {
+      this.data = await mod.deserialize(
+        await require("node:fs").promises.readFile(this.filepath, "utf-8"),
+      );
+    } catch {
+      this.data = this.defaultSchema();
     }
-    return realMkdir.call(this, dir, ...rest);
+    // Deliberately NO mkdir: nothing is written to disk, so no dir to create.
+    return this;
   };
+  // Belt-and-suspenders: if a future refactor makes our re-implementation drift
+  // from the real read semantics, the writer no-op (persist) still guarantees
+  // zero disk growth. realInitialize retained only to avoid an unused-var lint
+  // if a maintainer wants to delegate; not called by design.
+  void realInitialize;
 
   console.log(
-    "[persistence] LANGGRAPH_DISABLE_FILE_PERSISTENCE=true — FileSystemPersistence disk flush disabled (in-memory only)",
+    `[persistence] LANGGRAPH_DISABLE_FILE_PERSISTENCE enabled — FileSystemPersistence disk flush DISABLED at the class writer (in-memory only). package @langchain/langgraph-api@${version}`,
+  );
+}
+
+if (disabled) {
+  await applyPatch();
+} else {
+  // F9: make a misconfig visible. If persistence is LEFT ON, say so once — a
+  // silent no-log here was how a `LANGGRAPH_DISABLE_FILE_PERSISTENCE=1` typo
+  // (truthy but not the literal "true") used to leave the flush enabled with no
+  // trace in the logs.
+  console.log(
+    `[persistence] LANGGRAPH_DISABLE_FILE_PERSISTENCE not set to a truthy value (got: ${JSON.stringify(process.env.LANGGRAPH_DISABLE_FILE_PERSISTENCE ?? null)}) — FileSystemPersistence disk flush LEFT ON. Disk state under .langgraph_api will accumulate.`,
   );
 }
