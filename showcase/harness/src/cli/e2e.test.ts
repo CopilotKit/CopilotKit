@@ -1265,7 +1265,10 @@ describe("JSON summary coherence — ok field and slugErrors in total (Fix 3)", 
     fs.writeFileSync(`${lgpDir}/tests/e2e/agentic-chat.spec.ts`, "// stub\n");
     // Fake playwright bin that exits 1 with no JSON → runSpecDrivenD6 throws.
     fs.mkdirSync(`${lgpDir}/node_modules/.bin`, { recursive: true });
-    fs.writeFileSync(`${lgpDir}/node_modules/.bin/playwright`, "#!/bin/sh\nexit 1\n");
+    fs.writeFileSync(
+      `${lgpDir}/node_modules/.bin/playwright`,
+      "#!/bin/sh\nexit 1\n",
+    );
     fs.chmodSync(`${lgpDir}/node_modules/.bin/playwright`, 0o755);
 
     const origShowcaseDir = process.env["SHOWCASE_DIR"];
