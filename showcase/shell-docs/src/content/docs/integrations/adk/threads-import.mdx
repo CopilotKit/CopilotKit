@@ -11,11 +11,11 @@ import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
 The ADK importer reads already-persisted Google ADK sessions and writes them into Enterprise Intelligence as CopilotKit threads. It supports ADK database session stores and Vertex/Agent Engine session history.
 
-Import is a one-time migration for existing sessions. After import, keep new conversations synced by connecting your app to Enterprise Intelligence and using CopilotKit threads normally.
+Import is a one-time migration for existing sessions. Run it from a CopilotKit app created with the CLI and Enterprise Intelligence enabled.
 
 ## Prerequisites
 
-- A CopilotKit app connected to Enterprise Intelligence.
+- A CopilotKit app created with the CLI and Enterprise Intelligence enabled.
 - Persisted ADK sessions. In-memory ADK sessions cannot be exported.
 - ADK source credentials in environment variables.
 - An agent map from ADK `app_name` values to your live CopilotKit `agentId`s.
@@ -23,6 +23,18 @@ Import is a one-time migration for existing sessions. After import, keep new con
 <Callout type="warning" title="Legacy ADK pickle stores">
   Legacy ADK pickle stores are not parsed by the importer. Migrate those sessions with ADK's session migration command first, then re-run the import against the migrated store.
 </Callout>
+
+## Select the target project
+
+The importer uses the Enterprise Intelligence project selected when you created the app with the CopilotKit CLI. If that is the project that should receive the ADK sessions, continue to source configuration.
+
+To target a different cloud-hosted project, select it before the dry run:
+
+```bash title="Terminal"
+npx copilotkit@latest project select
+```
+
+The command updates the project selected for the current directory and provisions its project-scoped runtime key.
 
 ## Configure the source
 
@@ -122,11 +134,9 @@ npx copilotkit@latest import \
 
 ## Keep future ADK conversations synced
 
-Historical import does not keep polling ADK. For future conversations, wire your app to Enterprise Intelligence:
+Historical import does not keep polling ADK. Your CLI-created app already sends new CopilotKit conversations to the selected Enterprise Intelligence project. To keep each conversation continuous, reopen it with the same CopilotKit `threadId` using one of these UI paths:
 
-1. Configure your CopilotKit runtime with the Enterprise Intelligence API URL and project-scoped runtime key.
-2. Pass a stable CopilotKit `threadId` into your chat UI.
-3. If your ADK backend maps CopilotKit thread IDs to ADK session IDs, keep that mapping stable so resumed conversations reach the expected ADK session.
-4. Use [`useThreads`](/threads) or [`CopilotThreadsDrawer`](/prebuilt-components/copilot-threads-drawer) for thread switching.
+- **Threads Drawer:** follow the [Threads Drawer guide](/prebuilt-components/copilot-threads-drawer). The drawer and chat share a `CopilotChatConfigurationProvider`, so selecting a conversation updates the active `threadId` without separate state wiring.
+- **Headless Threads:** follow the [Headless Threads guide](/threads). Select a thread with `useThreads`, store its `thread.id`, and pass that value to your chat component as `threadId`.
 
-For the broader migration model, see [Import thread history](/threads-import).
+If your ADK backend maps CopilotKit thread IDs to ADK session IDs, keep that mapping stable so a resumed CopilotKit thread reaches the expected ADK session.
