@@ -165,7 +165,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
 
 ## Backend-native approval interrupts (Python)
 
-Use this path when the operation is implemented on the server and Microsoft Agent Framework must pause before executing it. `agent-framework-ag-ui>=1.0.0rc8` maps tool approvals and workflow `request_info(...)` pauses to the standard AG-UI lifecycle:
+Use this path when the operation is implemented on the server and Microsoft Agent Framework must pause before executing it. `agent-framework-ag-ui` maps tool approvals and workflow `request_info(...)` pauses to the standard AG-UI lifecycle:
 
 <Callout type="warning">
   The currently pinned CopilotKit showcase release has a known post-resume rendering issue for this integration: the backend resumes and streams successfully, but the final confirmation message may not appear in chat. The shared Microsoft Agent Framework demos therefore continue to use the frontend-tool approval path above until a CopilotKit package release contains the UI fix. The canonical adapter contract below is available now for direct integrations and testing.
@@ -181,7 +181,7 @@ RunAgentInput.resume = [{ interruptId, status, payload? }]
         ### Install the interrupt-aware adapter
 
         ```bash
-        uv add "agent-framework-ag-ui>=1.0.0rc8" agent-framework-openai python-dotenv uvicorn
+        uv add agent-framework-ag-ui agent-framework-openai python-dotenv uvicorn
         ```
 
         `agent-framework-openai` is explicit because the AG-UI adapter does not install model providers transitively.
