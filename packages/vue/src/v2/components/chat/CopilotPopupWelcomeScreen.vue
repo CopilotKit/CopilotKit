@@ -37,6 +37,30 @@ defineSlots<{
 const config = useCopilotChatConfiguration();
 const labels = computed(() => config.value?.labels ?? CopilotChatDefaultLabels);
 
+function handleStop() {
+  props.onStop?.();
+}
+
+function handleAddFile() {
+  props.onAddFile?.();
+}
+
+function handleStartTranscribe() {
+  props.onStartTranscribe?.();
+}
+
+function handleCancelTranscribe() {
+  props.onCancelTranscribe?.();
+}
+
+function handleFinishTranscribe() {
+  props.onFinishTranscribe?.();
+}
+
+async function handleFinishTranscribeWithAudio(audioBlob: Blob) {
+  await props.onFinishTranscribeWithAudio?.(audioBlob);
+}
+
 const inputSlotProps = computed<CopilotPopupWelcomeScreenInputSlotProps>(
   () => ({
     modelValue: props.modelValue,
@@ -45,12 +69,12 @@ const inputSlotProps = computed<CopilotPopupWelcomeScreenInputSlotProps>(
     inputToolsMenu: props.inputToolsMenu,
     onUpdateModelValue: props.onUpdateModelValue,
     onSubmitMessage: props.onSubmitMessage,
-    onStop: props.onStop,
-    onAddFile: props.onAddFile,
-    onStartTranscribe: props.onStartTranscribe,
-    onCancelTranscribe: props.onCancelTranscribe,
-    onFinishTranscribe: props.onFinishTranscribe,
-    onFinishTranscribeWithAudio: props.onFinishTranscribeWithAudio,
+    onStop: handleStop,
+    onAddFile: handleAddFile,
+    onStartTranscribe: handleStartTranscribe,
+    onCancelTranscribe: handleCancelTranscribe,
+    onFinishTranscribe: handleFinishTranscribe,
+    onFinishTranscribeWithAudio: handleFinishTranscribeWithAudio,
   }),
 );
 const suggestionViewSlotProps =

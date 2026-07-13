@@ -585,23 +585,35 @@ function handleAddFile() {
 }
 
 function handleStartTranscribe() {
+  if (!showTranscription.value) {
+    return;
+  }
   transcriptionError.value = null;
   transcribeMode.value = "transcribe";
   emit("start-transcribe");
 }
 
 function handleCancelTranscribe() {
+  if (!showTranscription.value) {
+    return;
+  }
   transcriptionError.value = null;
   transcribeMode.value = "input";
   emit("cancel-transcribe");
 }
 
 function handleFinishTranscribe() {
+  if (!showTranscription.value) {
+    return;
+  }
   transcribeMode.value = "input";
   emit("finish-transcribe");
 }
 
 async function handleFinishTranscribeWithAudio(audioBlob: Blob) {
+  if (!showTranscription.value) {
+    return;
+  }
   if (props.onFinishTranscribeWithAudio) {
     await props.onFinishTranscribeWithAudio(audioBlob);
     return;
@@ -672,27 +684,22 @@ const chatViewSlotProps = computed<CopilotChatViewOverrideSlotProps>(() => ({
   inputToolsMenu: props.inputToolsMenu,
   isConnecting: isConnecting.value,
   hasExplicitThreadId: hasExplicitThreadId.value,
+  canStop: shouldAllowStop.value,
+  canAddFile: attachmentsEnabled.value,
+  canTranscribe: showTranscription.value,
   onSubmitMessage: handleSubmitMessage,
-  onStop: shouldAllowStop.value ? handleStop : undefined,
+  onStop: handleStop,
   onInputChange: handleInputChange,
   onSelectSuggestion: handleSelectSuggestion,
   onRemoveAttachment: removeAttachment,
-  onAddFile: attachmentsEnabled.value ? handleAddFile : undefined,
+  onAddFile: handleAddFile,
   onDragOver: attachmentsEnabled.value ? handleDragOver : undefined,
   onDragLeave: attachmentsEnabled.value ? handleDragLeave : undefined,
   onDrop: attachmentsEnabled.value ? handleDrop : undefined,
-  onStartTranscribe: showTranscription.value
-    ? handleStartTranscribe
-    : undefined,
-  onCancelTranscribe: showTranscription.value
-    ? handleCancelTranscribe
-    : undefined,
-  onFinishTranscribe: showTranscription.value
-    ? handleFinishTranscribe
-    : undefined,
-  onFinishTranscribeWithAudio: showTranscription.value
-    ? handleFinishTranscribeWithAudio
-    : undefined,
+  onStartTranscribe: handleStartTranscribe,
+  onCancelTranscribe: handleCancelTranscribe,
+  onFinishTranscribe: handleFinishTranscribe,
+  onFinishTranscribeWithAudio: handleFinishTranscribeWithAudio,
 }));
 
 const defaultChatViewBindings = computed(() => {
