@@ -52,7 +52,6 @@ export function getFrontendQuickstartNavTree(id: FrontendPageId): NavNode[] {
       type: "page",
       title: getFrontendGuidanceTitle(id),
       slug: "using-these-docs",
-      icon: "lucide/Wrench",
     },
     {
       type: "page",

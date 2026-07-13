@@ -67,9 +67,9 @@ const SDK_CHOICES: { name: string; description: string; href: string }[] = [
     href: referenceVersionHref("core"),
   },
   {
-    name: "Channels",
+    name: "Channels SDK",
     description:
-      "The bot stack — createBot, JSX message components, and the Slack adapter.",
+      "Build chat-platform agents with createBot, JSX message components, and platform adapters.",
     href: referenceVersionHref("channels"),
   },
 ];
