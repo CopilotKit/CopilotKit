@@ -1,5 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { deriveChannelActivationConfig } from "./channel-activation-config";
+import {
+  ChannelConfigError,
+  deriveChannelActivationConfig,
+} from "./channel-activation-config";
 import type { ChannelActivationConfig } from "./channel-activation-config";
 import type { CopilotKitIntelligence } from "../intelligence-platform";
 // Type-only: @copilotkit/channels is pure-ESM, so a value import would break this
@@ -93,11 +96,10 @@ export interface ChannelsHandle {
   stop(): Promise<void>;
   /**
    * Optional seam: register a callback the handle fires when its managed
-   * session drops, so the manager can begin a supervised reconnect. The real
-   * Realtime Gateway launcher handle has NO reconnect today — supervised
-   * reconnect is net-new here, and the launcher handle will grow this method in
-   * a sibling task. The manager must work whether or not it is present, so it is
-   * always invoked as `handle.onClose?.(cb)`.
+   * session drops, so the manager can begin a supervised reconnect. The Realtime
+   * Gateway launcher handle provides `onClose` (it delegates to the session's
+   * `onClose`); this stays optional only for non-gateway or test handles that do
+   * not implement it, so the manager always invokes it as `handle.onClose?.(cb)`.
    */
   onClose?(cb: () => void): void;
 }
@@ -307,6 +309,12 @@ export class ChannelManager implements ChannelsControl {
     if (this.activated) {
       return;
     }
+    // Reject duplicate Channel names BEFORE kicking off any engine call. The
+    // manager keys `entries` by name, so a duplicate would let the second
+    // activation's entry silently overwrite the first — leaking the first
+    // Channel's live session out of status()/ready()/stop(). Fail loud here so
+    // nothing is ever activated in that state.
+    this.assertUniqueChannelNames();
     this.activated = true;
 
     for (const channel of this.channels) {
@@ -352,8 +360,17 @@ export class ChannelManager implements ChannelsControl {
         channel,
         config,
         promise: activation.then(
-          (handle) => {
+          async (handle) => {
             entry.handle = handle;
+            if (this.stopped) {
+              // stop() ran before this activation settled, so it could not tear
+              // down a handle that did not exist yet. Release it now and keep the
+              // Channel `stopped` — mirrors the reconnect loop's post-settle guard.
+              entry.status = "stopped";
+              resolveSettled();
+              await handle.stop().catch(() => {});
+              return;
+            }
             entry.status = "online";
             this.registerOnClose(name, entry);
             resolveSettled();
@@ -373,6 +390,28 @@ export class ChannelManager implements ChannelsControl {
       };
 
       this.entries.set(name, entry);
+    }
+  }
+
+  /**
+   * Throw if two declared Channels share a `name`. `entries` is keyed by name,
+   * so a duplicate would overwrite the first Channel's entry and leak its live
+   * session. Called at the very start of {@link activate}, before any engine
+   * call, so a misconfiguration fails loud instead of silently.
+   *
+   * @throws {ChannelConfigError} If any Channel name appears more than once.
+   */
+  private assertUniqueChannelNames(): void {
+    const seen = new Set<string>();
+    for (const channel of this.channels) {
+      const name = channel.name!;
+      if (seen.has(name)) {
+        throw new ChannelConfigError(
+          `Duplicate managed Channel name "${name}" — every declared Channel ` +
+            `must have a unique name.`,
+        );
+      }
+      seen.add(name);
     }
   }
 
@@ -501,8 +540,12 @@ export class ChannelManager implements ChannelsControl {
         }
         entry.handle = handle;
         entry.status = "online";
-        this.registerOnClose(name, entry);
+        // Clear the loop marker BEFORE re-arming onClose. If the fresh handle
+        // fires onClose synchronously during registration, onChannelClosed must
+        // see no in-flight loop so it can start a new one — otherwise the Channel
+        // would be stuck `reconnecting` with no loop driving it.
         this.reconnectLoops.delete(name);
+        this.registerOnClose(name, entry);
         this.log?.(`channel "${name}" reconnected`);
         return;
       } catch (err) {
@@ -524,9 +567,15 @@ export class ChannelManager implements ChannelsControl {
 
   /**
    * Stop every activated Channel exactly once and mark all statuses `stopped`.
-   * Idempotent — a second call is a no-op. Waits for in-flight activations to
-   * settle first so their handles exist, and skips Channels that never produced
-   * a handle (`setup_required`/`error`).
+   * Idempotent — a second call is a no-op.
+   *
+   * Resolves promptly: it stops only the handles that already exist and never
+   * blocks on activations that have not settled. A hung connect (which
+   * `ready({ timeoutMs })` tolerates) has no handle to stop yet, and awaiting it
+   * here would hang teardown — and thus SIGTERM shutdown — forever. Any handle
+   * that arrives after this point is torn down by the post-settle guards on the
+   * initial-activation and reconnect paths, so nothing leaks. Channels that
+   * never produced a handle (`setup_required`/`error`) are skipped.
    */
   async stop(): Promise<void> {
     if (this.stopped) {
@@ -538,9 +587,6 @@ export class ChannelManager implements ChannelsControl {
     this.resolveStopped();
 
     const entries = [...this.entries.values()];
-    // Let in-flight activations settle so any handle is assigned before we stop.
-    await Promise.allSettled(entries.map((e) => e.promise));
-
     const handles = entries
       .map((e) => e.handle)
       .filter((h): h is ChannelsHandle => h !== undefined);

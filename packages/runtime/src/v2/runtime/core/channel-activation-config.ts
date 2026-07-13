@@ -41,8 +41,8 @@ const API_KEY_PROJECT_ID_PATTERN = /^cpk-(\d+)_/;
  * @param apiKey - The Intelligence API key to parse.
  * @returns The parsed project id.
  * @throws {ChannelConfigError} If `apiKey` does not match the expected
- *   `cpk-{projectId}_...` format (wrong prefix, or an empty project id
- *   segment).
+ *   `cpk-{projectId}_...` format — a wrong/missing prefix or an absent project
+ *   id segment all fail the same match.
  */
 export function parseProjectIdFromApiKey(apiKey: string): number {
   const match = API_KEY_PROJECT_ID_PATTERN.exec(apiKey);

@@ -410,12 +410,15 @@ export class CopilotIntelligenceRuntime
       options.lockHeartbeatIntervalSeconds ?? 15,
       CopilotIntelligenceRuntime.MAX_HEARTBEAT_INTERVAL_SECONDS,
     );
-    // Declared Intelligence Channels. Full name validation (lowercase kebab-case +
-    // uniqueness) lives in `startChannels` (`assertValidChannelNames`) at
-    // activation — it can't run here because it's a value import from the
-    // pure-ESM `@copilotkit/channels-intelligence`, which this CJS package must not
-    // pull in. Fail fast on the most common misconfiguration (a missing name)
-    // right here at construction, though, rather than only at activation.
+    // Declared Intelligence Channels. Lowercase kebab-case name-shape validation
+    // (`assertValidChannelNames`) lives in the channels-intelligence launcher —
+    // it can't run here because it's a value import from the pure-ESM
+    // `@copilotkit/channels-intelligence`, which this CJS package must not pull in.
+    // Name UNIQUENESS across declared Channels is enforced by
+    // `ChannelManager.activate()`, not the launcher: the managed path activates
+    // one Channel per launcher call, so the launcher never sees the full set.
+    // Fail fast on the most common misconfiguration (a missing name) right here
+    // at construction, though, rather than only at activation.
     this.channels = options.channels ?? [];
     for (const c of this.channels) {
       if (!c.name) {

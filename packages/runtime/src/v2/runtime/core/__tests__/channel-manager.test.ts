@@ -181,6 +181,52 @@ describe("ChannelManager", () => {
     expect(mgr.status().overall).toBe("connecting");
   });
 
+  it("activate() throws on duplicate channel names before any engine call (no leak)", () => {
+    const engine: ActivateChannelEngine = vi.fn(async () => fakeHandle());
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [
+        createChannel({ name: "support" }),
+        createChannel({ name: "support" }),
+      ],
+      activateChannel: engine,
+    });
+
+    expect(() => mgr.activate()).toThrow(/support/);
+    expect(engine).not.toHaveBeenCalled();
+  });
+
+  it("stop() resolves promptly when an activation never settles, and tears down a handle that settles after stop()", async () => {
+    const handle = fakeHandle();
+    let resolveActivation!: (h: ChannelsHandle) => void;
+    const engine: ActivateChannelEngine = vi.fn(
+      () =>
+        new Promise<ChannelsHandle>((resolve) => {
+          resolveActivation = resolve;
+        }),
+    );
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [createChannel({ name: "support" })],
+      activateChannel: engine,
+    });
+    mgr.activate();
+
+    await expect(
+      Promise.race([
+        mgr.stop(),
+        new Promise((_resolve, reject) =>
+          setTimeout(() => reject(new Error("stop() hung")), 1000),
+        ),
+      ]),
+    ).resolves.toBeUndefined();
+    expect(mgr.status().channels.support).toBe("stopped");
+
+    resolveActivation(handle);
+    await vi.waitFor(() => expect(handle.stop).toHaveBeenCalledTimes(1));
+    expect(mgr.status().channels.support).toBe("stopped");
+  });
+
   it("stop() does not throw when a channel never produced a handle (setup_required)", async () => {
     const engine: ActivateChannelEngine = async () => {
       throw new ChannelSetupRequiredError("no provider");

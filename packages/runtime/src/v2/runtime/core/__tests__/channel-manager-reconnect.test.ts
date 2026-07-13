@@ -106,6 +106,40 @@ describe("ChannelManager reconnect", () => {
     expect(engine).toHaveBeenCalledTimes(3);
   });
 
+  it("does not get stuck reconnecting when the reconnected handle fires onClose synchronously on re-arm", async () => {
+    const first = reconnectableHandle();
+    const third = reconnectableHandle();
+    // The reconnected handle re-fires its onClose callback synchronously the
+    // moment the manager re-arms it — a hostile-but-legal handle.
+    const second: ChannelsHandle & { stop: ReturnType<typeof vi.fn> } = {
+      metadata: {},
+      stop: vi.fn(async () => {}),
+      onClose(fn: () => void) {
+        fn();
+      },
+    };
+    const handles = [first, second, third];
+    let i = 0;
+    const engine: ActivateChannelEngine = vi.fn(async () => handles[i++]!);
+    const sleep = vi.fn(async (_ms: number) => {});
+
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [createChannel({ name: "support" })],
+      activateChannel: engine,
+      sleep,
+    });
+    mgr.activate();
+    await mgr.ready();
+
+    first.fireClose();
+
+    await vi.waitFor(() =>
+      expect(mgr.status().channels.support).toBe("online"),
+    );
+    expect(mgr.status().overall).not.toBe("reconnecting");
+  });
+
   it("bounds reconnect backoff and gives up to error after the max attempt count", async () => {
     const handle = reconnectableHandle();
     let call = 0;
