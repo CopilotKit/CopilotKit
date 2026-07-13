@@ -15,6 +15,7 @@ import {
   inlineSnippets,
   loadDoc,
   readIcon,
+  readTitle,
   SNIPPET_MAP,
   SNIPPETS_DIR,
 } from "../docs-render";
@@ -235,6 +236,26 @@ describe("readIcon", () => {
   });
 });
 
+describe("readTitle", () => {
+  it("uses nav_title for navigation without changing the page title", () => {
+    const filePath = path.join(tempDir, "nav-title.mdx");
+    fs.writeFileSync(
+      filePath,
+      [
+        "---",
+        'title: "Threads"',
+        'nav_title: "Overview"',
+        "---",
+        "",
+        "Body",
+      ].join("\n"),
+    );
+
+    expect(readTitle(filePath)).toBe("Overview");
+    expect(loadDoc("threads")?.fm.title).toBe("Threads");
+  });
+});
+
 describe("reference nav", () => {
   it("renders the Reference root entry with a book icon", () => {
     const tree = buildReferencePageTree("v2");
@@ -432,7 +453,7 @@ describe("framework nav", () => {
     const builtInNav = buildFrameworkOnlyNav("built-in-agent");
 
     const expected = [
-      "Threads",
+      "Overview",
       "Threads Drawer",
       "Headless Threads",
       "Import Thread History",

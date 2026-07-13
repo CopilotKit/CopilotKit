@@ -49,15 +49,15 @@ Both UI paths use the same Threads infrastructure. A stable `threadId` connects 
 <Image
   src="/images/threads/threads-architecture-light.svg"
   alt="Threads Drawer and a custom useThreads interface both connect through CopilotChat and CopilotRuntime to an agent framework and the Enterprise Intelligence thread store."
-  width={900}
-  height={1000}
+  width={1200}
+  height={640}
   className="block dark:hidden my-6 w-full mx-auto"
 />
 <Image
   src="/images/threads/threads-architecture-dark.svg"
   alt="Threads Drawer and a custom useThreads interface both connect through CopilotChat and CopilotRuntime to an agent framework and the Enterprise Intelligence thread store."
-  width={900}
-  height={1000}
+  width={1200}
+  height={640}
   className="hidden dark:block my-6 w-full mx-auto"
 />
 
@@ -73,30 +73,16 @@ Both UI paths use the same Threads infrastructure. A stable `threadId` connects 
 
 ## Choose how to build the UI
 
-<Cards>
-  <Card
-    title="Threads Drawer"
-    href="/prebuilt-components/copilot-threads-drawer"
-    description="Ship a ready-made, mobile-friendly conversation sidebar with switching, new conversations, archive, delete, and pagination already wired to your chat."
-  />
-  <Card
-    title="Headless Threads"
-    href="/headless-threads"
-    description="Build your own thread UI with useThreads while CopilotKit continues to handle persistence, replay, realtime sync, and lifecycle APIs."
-  />
-</Cards>
-
-Use **Threads Drawer** when the standard conversation-history pattern fits your product and you want the shortest path to production. Use **Headless Threads** when your product needs a custom layout, workflow, permission model, or thread action UI.
+| If you want to... | Choose | Start here |
+|---|---|---|
+| Ship a mobile-friendly conversation sidebar with switching, new conversations, archive, delete, and pagination already wired to your chat | **Threads Drawer** | [Set up the Threads Drawer →](/prebuilt-components/copilot-threads-drawer) |
+| Build a custom layout, workflow, permission model, or thread action UI while CopilotKit continues to handle the backend | **Headless Threads** | [Build a custom thread UI →](/headless-threads) |
 
 ## Bring existing conversations
 
 Threads capture new CopilotKit conversations once your app uses Enterprise Intelligence. If you already have persisted conversations, import supported history into the same thread store so users can resume it through the same UI.
 
-<Card
-  title="Import Thread History"
-  href="/threads-import"
-  description="Move supported Google ADK and LangGraph conversation history into Enterprise Intelligence, then keep future CopilotKit conversations continuous with stable thread IDs."
-/>
+**Migrating existing history?** [Import supported Google ADK and LangGraph conversations →](/threads-import)
 
 CopilotKit Threads are separate from native framework session or checkpoint stores. Your backend can keep a stable mapping when the agent framework also needs its own conversation identifier.
 
@@ -112,27 +98,9 @@ CopilotKit Threads are separate from native framework session or checkpoint stor
   </Callout>
 </WhenFrameworkHas>
 
-## Go deeper
+## Next steps
 
-<Cards>
-  <Card
-    title="Threads & Persistence Architecture"
-    href="/premium/threads-explained"
-    description="Understand event replay, live reconnection, synchronization, locking, and lifecycle behavior."
-  />
-  <Card
-    title="Cloud-Hosted Enterprise Intelligence"
-    href="/premium/managed-intelligence-platform"
-    description="Create and manage the hosted project where your app stores threads and runtime credentials."
-  />
-  <Card
-    title="Self-Hosting Enterprise Intelligence"
-    href="/premium/self-hosting"
-    description="Run the same Threads platform in your own Kubernetes environment."
-  />
-  <Card
-    title="Threads API reference"
-    href="/reference/hooks/useThreads"
-    description="Look up useThreads parameters, lifecycle methods, pagination, and return types."
-  />
-</Cards>
+- **Understand the architecture:** [Threads & Persistence Architecture](/premium/threads-explained) — event replay, live reconnection, synchronization, locking, and lifecycle behavior
+- **Use the hosted platform:** [Cloud-Hosted Enterprise Intelligence](/premium/managed-intelligence-platform) — create and manage the project where your app stores threads and runtime credentials
+- **Run it in your infrastructure:** [Self-Hosting Enterprise Intelligence](/premium/self-hosting) — operate the Threads platform in your own Kubernetes environment
+- **Look up the API:** [useThreads reference](/reference/hooks/useThreads) — parameters, lifecycle methods, pagination, and return types
