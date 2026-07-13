@@ -456,6 +456,7 @@ describe("framework nav", () => {
       "Overview",
       "Threads Drawer",
       "Headless Threads",
+      "Threads & Persistence Architecture",
       "Import Thread History",
     ];
 
@@ -477,7 +478,6 @@ describe("framework nav", () => {
       "Cloud-Hosted Enterprise Intelligence",
       "Self-Hosting Enterprise Intelligence",
       "Enterprise Intelligence Architecture",
-      "Threads & Persistence Architecture",
     ]);
   });
 });

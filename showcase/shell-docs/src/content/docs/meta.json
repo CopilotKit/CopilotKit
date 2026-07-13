@@ -18,6 +18,7 @@
         "threads",
         "prebuilt-components/copilot-threads-drawer",
         "headless-threads",
+        "premium/threads-explained",
         "threads-import"
       ]
     },
@@ -54,7 +55,6 @@
     "premium/managed-intelligence-platform",
     "premium/self-hosting",
     "premium/intelligence-platform",
-    "premium/threads-explained",
     "---Channels---",
     "channels",
     "---Deploy---",

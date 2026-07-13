@@ -643,7 +643,9 @@ export function buildFrameworkOnlyNav(
     return node;
   };
   return dropEmptySections(
-    appendSharedRootSections(nodes.map(rewrite), sharedSections),
+    appendSharedThreadArchitecturePage(
+      appendSharedRootSections(nodes.map(rewrite), sharedSections),
+    ),
   );
 }
 
@@ -729,6 +731,48 @@ function hasPageSlug(navTree: NavNode[], slug: string): boolean {
     if (node.type === "page") return node.slug === slug;
     if (node.type === "group") return hasPageSlug(node.children, slug);
     return false;
+  });
+}
+
+function findPageBySlug(navTree: NavNode[], slug: string): NavNode | null {
+  for (const node of navTree) {
+    if (node.type === "page" && node.slug === slug) return node;
+    if (node.type === "group") {
+      const match = findPageBySlug(node.children, slug);
+      if (match) return match;
+    }
+  }
+  return null;
+}
+
+function appendSharedThreadArchitecturePage(navTree: NavNode[]): NavNode[] {
+  const rootGroup = buildNavTree(CONTENT_DIR).find(
+    (node): node is Extract<NavNode, { type: "group" }> =>
+      node.type === "group" && node.title === "Threads",
+  );
+  if (!rootGroup) return navTree;
+
+  const architecturePage = findPageBySlug(
+    rootGroup.children,
+    "premium/threads-explained",
+  );
+  if (architecturePage?.type !== "page") return navTree;
+
+  return navTree.map((node) => {
+    if (node.type !== "group" || node.title !== "Threads") return node;
+    if (hasPageSlug(node.children, architecturePage.slug)) return node;
+
+    const importIndex = node.children.findIndex(
+      (child) => child.type === "page" && child.slug === "threads-import",
+    );
+    const insertAt = importIndex === -1 ? node.children.length : importIndex;
+    const children = [
+      ...node.children.slice(0, insertAt),
+      architecturePage,
+      ...node.children.slice(insertAt),
+    ];
+
+    return { ...node, children };
   });
 }
 
