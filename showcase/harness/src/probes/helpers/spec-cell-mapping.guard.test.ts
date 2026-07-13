@@ -70,7 +70,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import yaml from "js-yaml";
-import type { SpecCellMapping } from "./spec-cell-mapping.js";
+import type { SpecCellMapping, SlugDelta } from "./spec-cell-mapping.js";
 import {
   __overrideSpecDrivenSlugsForTesting,
   __getSpecDrivenSlugsForTesting,
@@ -98,11 +98,13 @@ export interface GuardFinding {
     | "missing-file" // FILE-EXISTENCE: spec path absent on disk
     | "mapped-and-skipped" // CONSISTENCY: cell is both mapped and in skip-list
     | "stale-skip-list-entry" // DRIFT: skip-list cell no longer in manifest NSF
-    | "unexpected-mapped-cell"; // INVERSE-COMPLETENESS: mapped cell not in expected set
+    | "unexpected-mapped-cell" // INVERSE-COMPLETENESS: mapped cell not in expected set
+    | "unmapped-onDisk-spec" // COVERAGE-HOLE (advisory WARN): on-disk spec whose stem has no base cell + no override
+    | "delta-collision"; // DELTA: override without `force` contradicts a DIFFERENT base cell
   slug: string;
-  /** Populated for spec-anchored findings (orphan-spec, missing-file). */
+  /** Populated for spec-anchored findings (orphan-spec, missing-file, unmapped-onDisk-spec). */
   spec?: string;
-  /** Populated for cell-anchored findings (uncovered-cell, invalid-cell, mapped-and-skipped, stale-skip-list-entry). */
+  /** Populated for cell-anchored findings (uncovered-cell, invalid-cell, mapped-and-skipped, stale-skip-list-entry, delta-collision). */
   cell?: string;
 }
 
@@ -113,8 +115,11 @@ export interface GuardFinding {
  */
 export interface MappingGuardOptions {
   /**
-   * The full `SpecCellMapping` to audit — typically the output of
-   * `loadDefaultSpecCellMapping()` but injectable for fixtures.
+   * The RESOLVED per-slug mapping to audit. Under the base+delta model this is
+   * the output of `loadSpecCellMapping(slug, deps)` (base ⊕ override ⊖ auto-omit,
+   * restricted to on-disk specs), keyed as `{ [slug]: { specPath: cells } }`.
+   * Fixtures inject a synthetic already-resolved map directly. `mapping[slug]`
+   * is the resolved slug map — the guard never resolves internally.
    */
   mapping: SpecCellMapping;
 
@@ -167,6 +172,31 @@ export interface MappingGuardOptions {
    * For the live LGP test this is `LGP_MANIFEST.not_supported_features`.
    */
   getManifestNsf?: (slug: string) => string[];
+
+  /**
+   * On-disk spec relpaths for a slug whose stem has NO base cell and NO
+   * override — i.e. the resolver's `unmapped-onDisk-spec` WARN sink surfaced
+   * (or a re-scan). Each yields an advisory `unmapped-onDisk-spec` finding.
+   *
+   * Advisory only: the guard does NOT fail the gate on these (the spec still
+   * runs, it just feeds no cell). When absent, no such finding is emitted.
+   */
+  getUnmappedOnDiskSpecs?: (slug: string) => string[];
+
+  /**
+   * The per-slug delta (`SlugDelta`) for the `delta-collision` (RED) check.
+   * A `delta.overrides[stem]` WITHOUT `force` whose stem already has a base
+   * cell for a DIFFERENT cell silently contradicts the base — the guard fires
+   * `delta-collision`. When either `getDelta` or `getBaseCell` is absent the
+   * collision check is skipped (backward-compatible).
+   */
+  getDelta?: (slug: string) => SlugDelta | undefined;
+
+  /**
+   * The base cell(s) for a stem (from base.json) — paired with `getDelta` for
+   * the `delta-collision` check.
+   */
+  getBaseCell?: (stem: string) => readonly string[] | undefined;
 }
 
 /**
@@ -202,6 +232,9 @@ export function runMappingGuard(opts: MappingGuardOptions): GuardFinding[] {
     resolveSpecPath,
     fileExists = existsSync,
     getManifestNsf,
+    getUnmappedOnDiskSpecs,
+    getDelta,
+    getBaseCell,
   } = opts;
 
   const findings: GuardFinding[] = [];
@@ -323,6 +356,45 @@ export function runMappingGuard(opts: MappingGuardOptions): GuardFinding[] {
       for (const cell of skippedCells) {
         if (!manifestNsf.has(cell)) {
           findings.push({ kind: "stale-skip-list-entry", slug, cell });
+        }
+      }
+    }
+
+    // ── COVERAGE-HOLE (advisory): unmapped on-disk spec → WARN, never silent ──
+    //
+    // An on-disk spec whose stem has no base cell and no override runs but
+    // feeds no dashboard cell. Surface it as an advisory `unmapped-onDisk-spec`
+    // finding so the hole is visible in CI. This does NOT fail the gate — the
+    // spec still runs; it simply certifies nothing. (agentic-chat-reasoning on
+    // 7 slugs, shared-state-write before its alias, etc.)
+    if (getUnmappedOnDiskSpecs !== undefined) {
+      for (const spec of getUnmappedOnDiskSpecs(slug)) {
+        findings.push({ kind: "unmapped-onDisk-spec", slug, spec });
+      }
+    }
+
+    // ── DELTA-COLLISION (RED): override without `force` contradicts base ─────
+    //
+    // A `delta.overrides[stem]` is permitted when the stem has NO base cell
+    // (supplies a missing cell) or is `force`d (deliberately re-maps). An
+    // override that silently re-maps a base-mapped stem to a DIFFERENT cell
+    // WITHOUT `force` is a delta-collision — the two disagree and one is wrong.
+    if (getDelta !== undefined && getBaseCell !== undefined) {
+      const delta = getDelta(slug);
+      const overrides = delta?.overrides ?? {};
+      for (const [stem, ov] of Object.entries(overrides)) {
+        if (ov.force) continue; // deliberate re-map is allowed
+        const baseCells = getBaseCell(stem);
+        if (baseCells === undefined || baseCells.length === 0) continue; // no base cell → supplies a missing cell, fine
+        // Base has a cell for this stem AND the override differs (not force) → collision.
+        const baseSet = new Set<string>(baseCells);
+        const sameAsBase =
+          ov.cells.length === baseCells.length &&
+          ov.cells.every((c) => baseSet.has(c));
+        if (!sameAsBase) {
+          for (const cell of ov.cells) {
+            findings.push({ kind: "delta-collision", slug, cell });
+          }
         }
       }
     }
@@ -1200,6 +1272,231 @@ describe("spec-cell-mapping CI guard", () => {
         );
       }
       expect(unexpected).toHaveLength(0);
+    });
+  });
+
+  // ── base+delta model: resolved-map audit + new finding kinds ──────────────
+
+  // (new-4) auto-omit satisfies CONSISTENCY: a resolved map (auto-omit already
+  // applied) presents no mapped-and-skipped cell for a quarantined stem.
+  describe("(new-4) auto-omit → resolved map fires no mapped-and-skipped", () => {
+    it("GREEN: resolver dropped the quarantined stem, so CONSISTENCY does not fire", () => {
+      const TEST_SLUG = "test-fixture-slug";
+      __overrideSpecDrivenSlugsForTesting([TEST_SLUG]);
+
+      // Resolved map — gen-ui-interrupt already auto-omitted (absent), even
+      // though it is in the skip-list. Only non-quarantined cells remain.
+      const resolved: SpecCellMapping = {
+        [TEST_SLUG]: {
+          "tests/e2e/agentic-chat.spec.ts": ["agentic-chat"],
+        },
+      };
+
+      const findings = runMappingGuard({
+        mapping: resolved,
+        flaggedSlugs: __getSpecDrivenSlugsForTesting(),
+        getExpectedCells: () => ["agentic-chat"],
+        skipList: { [TEST_SLUG]: ["gen-ui-interrupt"] }, // quarantined but NOT in resolved
+        resolveSpecPath: () => "/fake",
+        fileExists: () => true,
+      });
+
+      expect(
+        findings.filter((f) => f.kind === "mapped-and-skipped"),
+      ).toHaveLength(0);
+    });
+  });
+
+  // (new-4b) resolver bug backstop: a resolved map that STILL contains a
+  // skip-listed cell → mapped-and-skipped RED (CONSISTENCY retained).
+  describe("(new-4b) resolver bug leaves mapped-and-skipped → RED backstop", () => {
+    it("RED: a resolved map that still contains a skip-listed cell fires mapped-and-skipped", () => {
+      const TEST_SLUG = "test-fixture-slug";
+      __overrideSpecDrivenSlugsForTesting([TEST_SLUG]);
+
+      // Buggy resolved map: gen-ui-interrupt survived despite being skip-listed.
+      const resolved: SpecCellMapping = {
+        [TEST_SLUG]: {
+          "tests/e2e/gen-ui-interrupt.spec.ts": ["gen-ui-interrupt"],
+        },
+      };
+
+      const findings = runMappingGuard({
+        mapping: resolved,
+        flaggedSlugs: __getSpecDrivenSlugsForTesting(),
+        getExpectedCells: () => [],
+        skipList: { [TEST_SLUG]: ["gen-ui-interrupt"] },
+        resolveSpecPath: () => "/fake",
+        fileExists: () => true,
+      });
+
+      const consistency = findings.filter(
+        (f) => f.kind === "mapped-and-skipped",
+      );
+      expect(consistency).toHaveLength(1);
+      expect(consistency[0].cell).toBe("gen-ui-interrupt");
+    });
+  });
+
+  // (new-5) omit is derived → no orphan-omit kind can fire from a declared omit.
+  describe("(new-5) omit is derived — no declared omit, DRIFT is the coherence check", () => {
+    it("no 'orphan-omit' kind exists in the finding union (omit is auto-derived)", () => {
+      // There is no declared omit in the normal path, so an orphan-omit finding
+      // is structurally impossible. DRIFT (stale-skip-list-entry) remains the
+      // coherence check. This is a documentation-as-assertion fixture: assert
+      // no finding of an 'orphan-omit' kind is ever produced.
+      const TEST_SLUG = "test-fixture-slug";
+      __overrideSpecDrivenSlugsForTesting([TEST_SLUG]);
+
+      const findings = runMappingGuard({
+        mapping: { [TEST_SLUG]: { "tests/e2e/a.spec.ts": ["agentic-chat"] } },
+        flaggedSlugs: __getSpecDrivenSlugsForTesting(),
+        getExpectedCells: () => ["agentic-chat"],
+        skipList: {},
+        resolveSpecPath: () => "/fake",
+        fileExists: () => true,
+      });
+
+      expect(
+        findings.filter((f) => (f.kind as string) === "orphan-omit"),
+      ).toHaveLength(0);
+    });
+  });
+
+  // (new-6) unmapped on-disk spec → advisory WARN, does NOT fail the gate.
+  describe("(new-6) unmapped-onDisk-spec → advisory WARN", () => {
+    it("RED-for-detection: exactly one unmapped-onDisk-spec finding, advisory (no other findings)", () => {
+      const TEST_SLUG = "test-fixture-slug";
+      __overrideSpecDrivenSlugsForTesting([TEST_SLUG]);
+
+      const resolved: SpecCellMapping = {
+        [TEST_SLUG]: {
+          "tests/e2e/agentic-chat.spec.ts": ["agentic-chat"],
+        },
+      };
+
+      const findings = runMappingGuard({
+        mapping: resolved,
+        flaggedSlugs: __getSpecDrivenSlugsForTesting(),
+        getExpectedCells: () => ["agentic-chat"],
+        skipList: {},
+        resolveSpecPath: () => "/fake",
+        fileExists: () => true,
+        // agentic-chat-reasoning ran but maps to no cell → coverage hole.
+        getUnmappedOnDiskSpecs: () => [
+          "tests/e2e/agentic-chat-reasoning.spec.ts",
+        ],
+      });
+
+      const holes = findings.filter((f) => f.kind === "unmapped-onDisk-spec");
+      expect(holes).toHaveLength(1);
+      expect(holes[0].slug).toBe(TEST_SLUG);
+      expect(holes[0].spec).toBe("tests/e2e/agentic-chat-reasoning.spec.ts");
+      // Advisory: no OTHER (gate-failing) findings caused by the hole.
+      expect(
+        findings.filter((f) => f.kind !== "unmapped-onDisk-spec"),
+      ).toHaveLength(0);
+    });
+
+    it("GREEN: no unmapped specs → no unmapped-onDisk-spec finding", () => {
+      const TEST_SLUG = "test-fixture-slug";
+      __overrideSpecDrivenSlugsForTesting([TEST_SLUG]);
+
+      const findings = runMappingGuard({
+        mapping: { [TEST_SLUG]: { "tests/e2e/a.spec.ts": ["agentic-chat"] } },
+        flaggedSlugs: __getSpecDrivenSlugsForTesting(),
+        getExpectedCells: () => ["agentic-chat"],
+        skipList: {},
+        resolveSpecPath: () => "/fake",
+        fileExists: () => true,
+        getUnmappedOnDiskSpecs: () => [],
+      });
+
+      expect(
+        findings.filter((f) => f.kind === "unmapped-onDisk-spec"),
+      ).toHaveLength(0);
+    });
+  });
+
+  // (new-collision) delta override without `force` contradicting base → RED.
+  describe("(new-collision) delta-collision — override w/o force contradicts base", () => {
+    it("RED: override (no force) re-maps a base-mapped stem to a DIFFERENT cell", () => {
+      const TEST_SLUG = "test-fixture-slug";
+      __overrideSpecDrivenSlugsForTesting([TEST_SLUG]);
+
+      const delta: SlugDelta = {
+        overrides: {
+          // base["agentic-chat"] === ["agentic-chat"], override says ["auth"] w/o force.
+          "agentic-chat": { cells: ["auth"] },
+        },
+      };
+
+      const findings = runMappingGuard({
+        mapping: { [TEST_SLUG]: {} },
+        flaggedSlugs: __getSpecDrivenSlugsForTesting(),
+        getExpectedCells: () => [],
+        skipList: {},
+        resolveSpecPath: () => "/fake",
+        fileExists: () => true,
+        getDelta: () => delta,
+        getBaseCell: (stem) =>
+          stem === "agentic-chat" ? ["agentic-chat"] : undefined,
+      });
+
+      const collisions = findings.filter((f) => f.kind === "delta-collision");
+      expect(collisions).toHaveLength(1);
+      expect(collisions[0].cell).toBe("auth");
+    });
+
+    it("GREEN: override with force → no collision (deliberate re-map)", () => {
+      const TEST_SLUG = "test-fixture-slug";
+      __overrideSpecDrivenSlugsForTesting([TEST_SLUG]);
+
+      const delta: SlugDelta = {
+        overrides: { "agentic-chat": { cells: ["auth"], force: true } },
+      };
+
+      const findings = runMappingGuard({
+        mapping: { [TEST_SLUG]: {} },
+        flaggedSlugs: __getSpecDrivenSlugsForTesting(),
+        getExpectedCells: () => [],
+        skipList: {},
+        resolveSpecPath: () => "/fake",
+        fileExists: () => true,
+        getDelta: () => delta,
+        getBaseCell: (stem) =>
+          stem === "agentic-chat" ? ["agentic-chat"] : undefined,
+      });
+
+      expect(
+        findings.filter((f) => f.kind === "delta-collision"),
+      ).toHaveLength(0);
+    });
+
+    it("GREEN: override for a stem with no base cell → supplies missing cell, no collision", () => {
+      const TEST_SLUG = "test-fixture-slug";
+      __overrideSpecDrivenSlugsForTesting([TEST_SLUG]);
+
+      const delta: SlugDelta = {
+        overrides: {
+          "shared-state-write": { cells: ["shared-state-write"] },
+        },
+      };
+
+      const findings = runMappingGuard({
+        mapping: { [TEST_SLUG]: {} },
+        flaggedSlugs: __getSpecDrivenSlugsForTesting(),
+        getExpectedCells: () => [],
+        skipList: {},
+        resolveSpecPath: () => "/fake",
+        fileExists: () => true,
+        getDelta: () => delta,
+        getBaseCell: () => undefined, // no base cell for shared-state-write
+      });
+
+      expect(
+        findings.filter((f) => f.kind === "delta-collision"),
+      ).toHaveLength(0);
     });
   });
 });
