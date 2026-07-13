@@ -357,6 +357,15 @@ jobs:
           fi
           echo "Pin drift unchanged at baseline ($baseline, hash $baseline_hash)."
 
+      - name: Check base spec-cell-mapping is fresh (generated == REGISTRY_TO_D5)
+        working-directory: showcase/harness
+        # Additive gate (does NOT modify any pre-existing behavioral-parity step).
+        # Diffs the committed spec-cell-mapping.base.json against REGISTRY_TO_D5
+        # serialized ONLY (no filesystem scan of integrations) — non-circular.
+        # Fails `stale-base-mapping` if the base drifted from the registry map.
+        # Placed before the vitest step so a stale base fails fast.
+        run: pnpm exec tsx scripts/generate-spec-cell-mapping.ts --check
+
       - name: Run build pipeline tests
         working-directory: showcase/scripts
         # Use pnpm to resolve the workspace-installed vitest (pinned via
