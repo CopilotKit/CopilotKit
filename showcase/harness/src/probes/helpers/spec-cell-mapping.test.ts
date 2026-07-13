@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { loadSpecCellMapping } from "./spec-cell-mapping.js";
+import { parseSpecCellMapping } from "./spec-cell-mapping.js";
 import type { SpecCellMapping } from "./spec-cell-mapping.js";
 
 describe("spec-cell-mapping loader", () => {
@@ -27,7 +27,7 @@ describe("spec-cell-mapping loader", () => {
       },
     };
 
-    const mapping = loadSpecCellMapping(JSON.stringify(raw));
+    const mapping = parseSpecCellMapping(JSON.stringify(raw));
 
     // Slug key present
     expect(mapping["langgraph-python"]).toBeDefined();
@@ -55,18 +55,18 @@ describe("spec-cell-mapping loader", () => {
   });
 
   it("throws on malformed JSON", () => {
-    expect(() => loadSpecCellMapping("{not valid json")).toThrow();
+    expect(() => parseSpecCellMapping("{not valid json")).toThrow();
   });
 
   it("throws when top-level value is not an object", () => {
-    expect(() => loadSpecCellMapping(JSON.stringify([1, 2, 3]))).toThrow(
+    expect(() => parseSpecCellMapping(JSON.stringify([1, 2, 3]))).toThrow(
       /SpecCellMapping/,
     );
   });
 
   it("throws when a slug's value is not an object", () => {
     const bad = { "langgraph-python": "not-an-object" };
-    expect(() => loadSpecCellMapping(JSON.stringify(bad))).toThrow(
+    expect(() => parseSpecCellMapping(JSON.stringify(bad))).toThrow(
       /SpecCellMapping/,
     );
   });
@@ -77,7 +77,7 @@ describe("spec-cell-mapping loader", () => {
         "tests/e2e/agentic-chat.spec.ts": "agentic-chat",
       },
     };
-    expect(() => loadSpecCellMapping(JSON.stringify(bad))).toThrow(
+    expect(() => parseSpecCellMapping(JSON.stringify(bad))).toThrow(
       /SpecCellMapping/,
     );
   });
@@ -88,24 +88,24 @@ describe("spec-cell-mapping loader", () => {
         "tests/e2e/agentic-chat.spec.ts": [42],
       },
     };
-    expect(() => loadSpecCellMapping(JSON.stringify(bad))).toThrow(
+    expect(() => parseSpecCellMapping(JSON.stringify(bad))).toThrow(
       /SpecCellMapping/,
     );
   });
 
   it("accepts an empty mapping (no slugs mapped yet)", () => {
-    const mapping = loadSpecCellMapping(JSON.stringify({}));
+    const mapping = parseSpecCellMapping(JSON.stringify({}));
     expect(Object.keys(mapping)).toHaveLength(0);
   });
 
   it("accepts a slug with no spec paths yet (empty inner object)", () => {
     const raw = { "langgraph-python": {} };
-    const mapping = loadSpecCellMapping(JSON.stringify(raw));
+    const mapping = parseSpecCellMapping(JSON.stringify(raw));
     expect(mapping["langgraph-python"]).toEqual({});
   });
 
   it("type-checks: SpecCellMapping is assignable without cast", () => {
-    const mapping: SpecCellMapping = loadSpecCellMapping(
+    const mapping: SpecCellMapping = parseSpecCellMapping(
       JSON.stringify({ "some-slug": { "a/b.spec.ts": ["agentic-chat"] } }),
     );
     expect(mapping["some-slug"]["a/b.spec.ts"]).toEqual(["agentic-chat"]);
@@ -119,7 +119,7 @@ describe("spec-cell-mapping loader", () => {
     // an object that has an own key "slug-a" only; then we verify that an
     // inherited-via-prototype key ("inheritedSlug") is absent from the output.
     //
-    // Seeded defect proof: if loadSpecCellMapping iterated prototype-chain keys
+    // Seeded defect proof: if parseSpecCellMapping iterated prototype-chain keys
     // (e.g. `for ... in` instead of Object.entries/Object.keys), an Object.create
     // payload passed after JSON.parse reconstruction would leak prototype keys.
     // JSON.parse itself strips the prototype, so the real guard is that the loader
@@ -130,7 +130,7 @@ describe("spec-cell-mapping loader", () => {
     // reconstructed object could expose prototype keys; we verify the output has
     // ONLY own keys from the parsed JSON.
     const crafted = JSON.stringify({ "slug-a": { "a.spec.ts": ["cell-a"] } });
-    const mapping = loadSpecCellMapping(crafted);
+    const mapping = parseSpecCellMapping(crafted);
 
     // Only own keys must appear in the output.
     expect(Object.keys(mapping)).toEqual(["slug-a"]);
@@ -160,26 +160,26 @@ describe("spec-cell-mapping loader", () => {
     // __proto__ as a slug key must be explicitly rejected to prevent prototype
     // pollution via the spec-cell-mapping load path.
     expect(() =>
-      loadSpecCellMapping('{"__proto__": {"a.spec.ts": ["agentic-chat"]}}'),
+      parseSpecCellMapping('{"__proto__": {"a.spec.ts": ["agentic-chat"]}}'),
     ).toThrow(/dangerous key|__proto__|SpecCellMapping/i);
   });
 
   it("throws when a top-level slug key is 'constructor'", () => {
     expect(() =>
-      loadSpecCellMapping('{"constructor": {"a.spec.ts": ["agentic-chat"]}}'),
+      parseSpecCellMapping('{"constructor": {"a.spec.ts": ["agentic-chat"]}}'),
     ).toThrow(/dangerous key|constructor|SpecCellMapping/i);
   });
 
   it("throws when a top-level slug key is 'prototype'", () => {
     expect(() =>
-      loadSpecCellMapping('{"prototype": {"a.spec.ts": ["agentic-chat"]}}'),
+      parseSpecCellMapping('{"prototype": {"a.spec.ts": ["agentic-chat"]}}'),
     ).toThrow(/dangerous key|prototype|SpecCellMapping/i);
   });
 
   it("throws when an inner spec-path key is '__proto__'", () => {
     // __proto__ nested inside a slug value must also be rejected.
     expect(() =>
-      loadSpecCellMapping('{"slug-a": {"__proto__": ["agentic-chat"]}}'),
+      parseSpecCellMapping('{"slug-a": {"__proto__": ["agentic-chat"]}}'),
     ).toThrow(/dangerous key|__proto__|SpecCellMapping/i);
   });
 
@@ -193,15 +193,15 @@ describe("spec-cell-mapping loader", () => {
 
     // All dangerous-key payloads must throw.
     expect(() =>
-      loadSpecCellMapping('{"__proto__": {"a.spec.ts": ["agentic-chat"]}}'),
+      parseSpecCellMapping('{"__proto__": {"a.spec.ts": ["agentic-chat"]}}'),
     ).toThrow();
     expect(() =>
-      loadSpecCellMapping('{"slug-a": {"__proto__": ["agentic-chat"]}}'),
+      parseSpecCellMapping('{"slug-a": {"__proto__": ["agentic-chat"]}}'),
     ).toThrow();
 
     // Payload: JSON string with literal "__proto__" as a cell value inside an array.
     // This is valid shape (string value, not a key) — must be stored as own data only.
-    const p3 = loadSpecCellMapping('{"slug-a": {"a.spec.ts": ["__proto__"]}}');
+    const p3 = parseSpecCellMapping('{"slug-a": {"a.spec.ts": ["__proto__"]}}');
     expect(p3["slug-a"]["a.spec.ts"]).toEqual(["__proto__"]);
 
     // Critical invariant: Object.prototype must not have been poisoned.
@@ -221,7 +221,7 @@ describe("spec-cell-mapping loader", () => {
         "tests/e2e/agentic-chat.spec.ts": ["agentic-chat", ""],
       },
     };
-    expect(() => loadSpecCellMapping(JSON.stringify(bad))).toThrow(
+    expect(() => parseSpecCellMapping(JSON.stringify(bad))).toThrow(
       /empty.*cell|SpecCellMapping/i,
     );
   });
@@ -233,7 +233,7 @@ describe("spec-cell-mapping loader", () => {
         "tests/e2e/agentic-chat.spec.ts": ["agentic-chat", "agentic-chat"],
       },
     };
-    expect(() => loadSpecCellMapping(JSON.stringify(bad))).toThrow(
+    expect(() => parseSpecCellMapping(JSON.stringify(bad))).toThrow(
       /duplicate.*cell|SpecCellMapping/i,
     );
   });

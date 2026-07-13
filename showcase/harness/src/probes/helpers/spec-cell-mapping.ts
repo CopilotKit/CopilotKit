@@ -88,7 +88,7 @@ const DANGEROUS_KEYS = new Set(["__proto__", "constructor", "prototype"]);
  * @throws {SyntaxError}  on invalid JSON.
  * @throws {TypeError}    on shape violations (message includes "SpecCellMapping").
  */
-export function loadSpecCellMapping(json: string): SpecCellMapping {
+export function parseSpecCellMapping(json: string): SpecCellMapping {
   // Step 1: parse — throws SyntaxError on bad JSON (native, intentional).
   const parsed: unknown = JSON.parse(json);
 
@@ -180,7 +180,7 @@ export function loadSpecCellMapping(json: string): SpecCellMapping {
 /**
  * Load the default `spec-cell-mapping.json` bundled with the harness.
  *
- * Callers that need to load a custom path should use `loadSpecCellMapping`
+ * Callers that need to load a custom path should use `parseSpecCellMapping`
  * directly with `fs.readFileSync(path, "utf-8")`.
  */
 
@@ -194,13 +194,13 @@ export async function loadDefaultSpecCellMapping(): Promise<SpecCellMapping> {
   const mod = await import("./spec-cell-mapping.json", {
     with: { type: "json" },
   });
-  return loadSpecCellMapping(JSON.stringify(mod.default));
+  return parseSpecCellMapping(JSON.stringify(mod.default));
 }
 
 /**
  * Override the default mapping for testing. Pass `undefined` to restore
  * the bundled JSON. The override value is validated through the same
- * `loadSpecCellMapping` validator as the real JSON load path — callers
+ * `parseSpecCellMapping` validator as the real JSON load path — callers
  * cannot bypass validation by supplying a raw untested object.
  *
  * @internal Testing only.
@@ -214,5 +214,5 @@ export function __overrideSpecCellMappingForTesting(
   }
   // Validate the override through the real load path (round-trip through JSON
   // so the validator sees the same shape as a real JSON load would).
-  _mappingOverride = loadSpecCellMapping(JSON.stringify(override));
+  _mappingOverride = parseSpecCellMapping(JSON.stringify(override));
 }
