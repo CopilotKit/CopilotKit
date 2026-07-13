@@ -33,7 +33,9 @@ describe("Streamdown table controls DOM (#5775)", () => {
     expect(wrapper).not.toBeNull();
 
     // The table scroll container is the last child and holds the <table>.
-    expect(wrapper!.querySelector(":scope > div:last-child table")).not.toBeNull();
+    expect(
+      wrapper!.querySelector(":scope > div:last-child table"),
+    ).not.toBeNull();
 
     // The controls row is the first child AND distinct from the last child —
     // exactly what `> div:first-child:not(:last-child)` scopes.
@@ -47,7 +49,9 @@ describe("Streamdown table controls DOM (#5775)", () => {
 
     // ...and it contains the copy/download trigger buttons the CSS styles, each
     // wrapped in a positioned <div> (matching `> div > button`).
-    const triggerButtons = controlsRow!.querySelectorAll(":scope > div > button");
+    const triggerButtons = controlsRow!.querySelectorAll(
+      ":scope > div > button",
+    );
     expect(triggerButtons.length).toBeGreaterThanOrEqual(1);
   });
 });
