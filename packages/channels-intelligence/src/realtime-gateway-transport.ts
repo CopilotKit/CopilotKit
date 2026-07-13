@@ -36,7 +36,12 @@ const CHANNEL_ID_RE = /^channel_[A-Za-z0-9_-]+$/;
 const ORGANIZATION_ID_RE = /^org_[A-Za-z0-9_-]+$/;
 const CHANNEL_NAME_RE = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 
-/** @internal Validate the product scope before a realtime connection is opened. */
+/**
+ * @internal Validate the product scope before a realtime connection is
+ * opened. The live gateway join contract keys only on `projectId` +
+ * `channelName` (OSS-473) — `organizationId`/`channelId` are optional and
+ * are format-checked only when present.
+ */
 export function assertValidChannelRealtimeScope(
   scope: ChannelRealtimeScope,
 ): void {
@@ -45,12 +50,15 @@ export function assertValidChannelRealtimeScope(
       "Realtime Gateway Channel scope requires a positive projectId",
     );
   }
-  if (!ORGANIZATION_ID_RE.test(scope.organizationId)) {
+  if (
+    scope.organizationId !== undefined &&
+    !ORGANIZATION_ID_RE.test(scope.organizationId)
+  ) {
     throw new Error(
       `Realtime Gateway Channel scope requires an org_* organizationId, got ${JSON.stringify(scope.organizationId)}`,
     );
   }
-  if (!CHANNEL_ID_RE.test(scope.channelId)) {
+  if (scope.channelId !== undefined && !CHANNEL_ID_RE.test(scope.channelId)) {
     throw new Error(
       `Realtime Gateway Channel scope requires a channel_* channelId, got ${JSON.stringify(scope.channelId)}`,
     );
@@ -201,15 +209,22 @@ export class RealtimeGatewayTransport
     const channel = delivery.channel as
       | { id?: string; name?: string }
       | undefined;
-    const scope = {
-      organizationId: String(
-        delivery.organizationId ?? this.scope.organizationId,
-      ),
+    // organizationId/channelId are optional on the scope (OSS-473): fall back
+    // to the transport default only when present, rather than coercing an
+    // absent value to the literal string "undefined".
+    const organizationId =
+      delivery.organizationId !== undefined
+        ? String(delivery.organizationId)
+        : this.scope.organizationId;
+    const channelId =
+      channel?.id !== undefined ? String(channel.id) : this.scope.channelId;
+    const scope: ChannelDeliveryScope = {
+      ...(organizationId !== undefined ? { organizationId } : {}),
       projectId:
         typeof delivery.projectId === "number"
           ? delivery.projectId
           : this.scope.projectId,
-      channelId: String(channel?.id ?? this.scope.channelId),
+      ...(channelId !== undefined ? { channelId } : {}),
       channelName: String(channel?.name ?? this.scope.channelName),
     };
     return {

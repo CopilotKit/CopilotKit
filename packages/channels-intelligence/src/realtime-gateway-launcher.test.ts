@@ -5,6 +5,7 @@ import {
   startChannelsWithGatewaySession,
   startChannelsOverRealtimeGateway,
 } from "./realtime-gateway-launcher.js";
+import { assertValidChannelRealtimeScope } from "./realtime-gateway-transport.js";
 import type { RealtimeGatewaySession } from "./realtime-gateway.js";
 
 const scope = {
@@ -233,6 +234,59 @@ describe("startChannelsOverRealtimeGateway — fail-fast validation (OSS-406)", 
         runtimeInstanceId: "rti_1",
       }),
     ).rejects.toThrow(/exactly one Channel per gateway session/i);
+  });
+});
+
+describe("assertValidChannelRealtimeScope — optional organizationId/channelId (OSS-473)", () => {
+  it("validates a scope carrying only projectId + channelName (no organizationId/channelId)", () => {
+    expect(() =>
+      assertValidChannelRealtimeScope({
+        projectId: 7,
+        channelName: "opentag",
+      }),
+    ).not.toThrow();
+  });
+
+  it("still validates a fully-populated scope (organizationId/channelId present)", () => {
+    expect(() => assertValidChannelRealtimeScope(scope)).not.toThrow();
+  });
+
+  it("still rejects a malformed organizationId when present", () => {
+    expect(() =>
+      assertValidChannelRealtimeScope({
+        projectId: 7,
+        channelName: "opentag",
+        organizationId: "not-an-org-id",
+      }),
+    ).toThrow(/org_\* organizationId/i);
+  });
+
+  it("still rejects a malformed channelId when present", () => {
+    expect(() =>
+      assertValidChannelRealtimeScope({
+        projectId: 7,
+        channelName: "opentag",
+        channelId: "not-a-channel-id",
+      }),
+    ).toThrow(/channel_\* channelId/i);
+  });
+
+  it("still requires a valid positive projectId regardless of organizationId/channelId presence", () => {
+    expect(() =>
+      assertValidChannelRealtimeScope({
+        projectId: 0,
+        channelName: "opentag",
+      }),
+    ).toThrow(/positive projectId/i);
+  });
+
+  it("still requires a valid lowercase kebab-case channelName regardless of organizationId/channelId presence", () => {
+    expect(() =>
+      assertValidChannelRealtimeScope({
+        projectId: 7,
+        channelName: "Not_Valid",
+      }),
+    ).toThrow(/lowercase kebab-case channelName/i);
   });
 });
 
