@@ -26,7 +26,13 @@
  * ```
  */
 
-import type { CopilotRuntimeLike } from "./runtime";
+import type {
+  CopilotRuntimeLike,
+  CopilotIntelligenceRuntimeLike,
+} from "./runtime";
+import { isIntelligenceRuntime } from "./runtime";
+import { ChannelManager } from "./channel-manager";
+import type { ChannelsControl, ActivateChannelEngine } from "./channel-manager";
 import type { CopilotRuntimeHooks, RouteInfo, HookContext } from "./hooks";
 import {
   runOnRequest,
@@ -112,11 +118,75 @@ export interface CopilotRuntimeHandlerOptions {
    * Lifecycle hooks for request processing.
    */
   hooks?: CopilotRuntimeHooks;
+
+  /**
+   * Whether the handler activates the runtime's declared managed Channels at
+   * creation time. Defaults to `true`. Set `false` to skip activation entirely:
+   * no {@link ChannelManager} is constructed and the returned handler has no
+   * `.channels`. Non-intelligence or channel-less runtimes never activate
+   * regardless of this flag.
+   */
+  activateChannels?: boolean;
+
+  /**
+   * @internal Test seam: inject a fake Channel activation engine so channel
+   * activation runs without opening a real transport. Not part of the public
+   * API and may change or be removed without notice.
+   */
+  __channelEngine?: ActivateChannelEngine;
 }
 
-export type CopilotRuntimeFetchHandler = (
+/**
+ * A framework-agnostic runtime handler: a `(Request) => Promise<Response>`
+ * function that is also a callable object carrying an optional {@link channels}
+ * control surface. A plain function is assignable to this type, so existing
+ * call sites that treat it as `(Request) => Promise<Response>` keep working.
+ */
+export type CopilotRuntimeFetchHandler = ((
   request: Request,
-) => Promise<Response>;
+) => Promise<Response>) & {
+  /**
+   * Present only when the handler activated managed Channels for an
+   * Intelligence runtime; the lifecycle control surface for those Channels.
+   */
+  channels?: ChannelsControl;
+};
+
+/**
+ * Managed Channel managers keyed by runtime instance. Guarantees a single
+ * activation per runtime: creating the handler more than once for the same
+ * runtime reuses the existing manager instead of activating a second time.
+ */
+const channelManagers = new WeakMap<object, ChannelManager>();
+
+/**
+ * Look up (or lazily create + activate) the {@link ChannelManager} for an
+ * Intelligence runtime. First creation constructs the manager and calls
+ * {@link ChannelManager.activate}; subsequent lookups reuse it so activation
+ * happens exactly once per runtime instance.
+ *
+ * @param runtime - The Intelligence runtime whose Channels to activate.
+ * @param engine - Optional injected activation engine (test seam); when
+ *   omitted the manager uses its default Realtime Gateway engine.
+ * @returns The runtime's activated Channel manager.
+ */
+function getOrCreateChannelManager(
+  runtime: CopilotIntelligenceRuntimeLike,
+  engine: ActivateChannelEngine | undefined,
+): ChannelManager {
+  const existing = channelManagers.get(runtime);
+  if (existing) {
+    return existing;
+  }
+  const manager = new ChannelManager({
+    intelligence: runtime.intelligence,
+    channels: runtime.channels,
+    ...(engine ? { activateChannel: engine } : {}),
+  });
+  channelManagers.set(runtime, manager);
+  manager.activate();
+  return manager;
+}
 
 /* ------------------------------------------------------------------------------------------------
  * Handler factory
@@ -131,7 +201,9 @@ export function createCopilotRuntimeHandler(
 
   const corsConfig = resolveCorsConfig(cors);
 
-  return async (request: Request): Promise<Response> => {
+  const handler: CopilotRuntimeFetchHandler = async (
+    request: Request,
+  ): Promise<Response> => {
     const url = new URL(request.url, "http://localhost");
     const path = url.pathname;
     const requestOrigin = request.headers.get("origin");
@@ -300,6 +372,24 @@ export function createCopilotRuntimeHandler(
       );
     }
   };
+
+  // Managed Channel activation happens here — at handler-creation time, not in
+  // the Runtime constructor and not inside the per-request closure above (the
+  // first HTTP request must not trigger activation). Only for an Intelligence
+  // runtime that declares Channels and hasn't opted out via activateChannels.
+  if (
+    isIntelligenceRuntime(runtime) &&
+    runtime.channels &&
+    runtime.channels.length > 0 &&
+    options.activateChannels !== false
+  ) {
+    handler.channels = getOrCreateChannelManager(
+      runtime,
+      options.__channelEngine,
+    );
+  }
+
+  return handler;
 }
 
 /* ------------------------------------------------------------------------------------------------
