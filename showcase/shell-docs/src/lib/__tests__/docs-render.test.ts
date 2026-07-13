@@ -50,6 +50,13 @@ function hasSectionPage(navTree: NavNode[], section: string, page: string) {
       continue;
     }
     if (inSection && node.type === "page" && node.title === page) return true;
+    if (
+      inSection &&
+      node.type === "group" &&
+      hasPageTitle(node.children, page)
+    ) {
+      return true;
+    }
   }
   return false;
 }
@@ -397,7 +404,7 @@ describe("framework nav", () => {
       false,
     );
     expect(navTree.some((node) => node.title === "Enterprise")).toBe(false);
-    expect(hasSectionPage(navTree, "Basics", "Threads")).toBe(true);
+    expect(hasSectionPage(navTree, "Basics", "Headless Threads")).toBe(true);
     expect(sectionPages(navTree, "Intelligence Platform")).toEqual([
       "Enterprise Intelligence Platform",
       "Cloud-Hosted Enterprise Intelligence",
