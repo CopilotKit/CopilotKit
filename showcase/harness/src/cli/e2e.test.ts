@@ -15,7 +15,12 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { runSpecDrivenD6, defaultSpecRunner, runE2eCommand } from "./e2e.js";
+import {
+  runSpecDrivenD6,
+  defaultSpecRunner,
+  runE2eCommand,
+  defaultListPresentSpecs,
+} from "./e2e.js";
 import type { RunSpecDrivenD6Options, SpecRunner } from "./e2e.js";
 import type { PlaywrightJsonReport } from "../probes/helpers/pw-json-reporter.js";
 import type {
@@ -26,6 +31,7 @@ import type {
 import { logger } from "../logger.js";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import path from "node:path";
 import { __overrideSpecDrivenSlugsForTesting } from "../probes/helpers/spec-driven-slugs.js";
 import { isSpecDriven } from "../probes/helpers/spec-driven-slugs.js";
 import {
@@ -34,6 +40,7 @@ import {
 } from "../probes/helpers/skip-list.js";
 import {
   loadDefaultSpecCellMapping,
+  loadDefaultResolvedMapping,
   __overrideSpecCellMappingForTesting,
   __overrideSpecCellDeltaForTesting,
 } from "../probes/helpers/spec-cell-mapping.js";
@@ -1097,6 +1104,14 @@ describe("manifest read/parse failure — warning with error logged (Fix 2)", ()
     fs.mkdirSync(intDir, { recursive: true });
     fs.writeFileSync(`${intDir}/manifest.yaml`, "invalid: yaml: {{{");
 
+    // Stage an on-disk spec whose stem maps to a base cell so the resolver-based
+    // slug-validation gate resolves langgraph-python (non-empty mapping) and the
+    // command proceeds to the manifest read. (agentic-chat.spec.ts → ["agentic-chat"]
+    // in base.json.) Without this, the gate would reject before reaching the manifest.
+    const e2eDir = `${intDir}/tests/e2e`;
+    fs.mkdirSync(e2eDir, { recursive: true });
+    fs.writeFileSync(`${e2eDir}/agentic-chat.spec.ts`, "// stub spec\n");
+
     // Write a fake playwright bin that exits 1 (no JSON) so runSpecDrivenD6 fails.
     const binDir = `${intDir}/node_modules/.bin`;
     fs.mkdirSync(binDir, { recursive: true });
@@ -1237,9 +1252,24 @@ describe("JSON summary coherence — ok field and slugErrors in total (Fix 3)", 
       exitCode = code;
     };
 
-    // Set SHOWCASE_DIR to a non-existent path so every slug fails with "dir missing"
+    // Stage a tmp showcase dir with a discoverable, resolvable langgraph-python
+    // integration (on-disk spec stem mapping to a base cell) but NO real
+    // playwright — so the no-slug discovery path finds + resolves the flagged
+    // slug, the gate accepts it, and the RUN fails (slugError). This exercises
+    // slugErrors > 0 under the resolver-based discovery contract. (A bare
+    // nonexistent showcase dir would yield ZERO discovered slugs, not a slug
+    // error, since discovery now enumerates on-disk integration dirs.)
+    const tmpShowcase = fs.mkdtempSync("/tmp/fix3-slugerr-");
+    const lgpDir = `${tmpShowcase}/integrations/langgraph-python`;
+    fs.mkdirSync(`${lgpDir}/tests/e2e`, { recursive: true });
+    fs.writeFileSync(`${lgpDir}/tests/e2e/agentic-chat.spec.ts`, "// stub\n");
+    // Fake playwright bin that exits 1 with no JSON → runSpecDrivenD6 throws.
+    fs.mkdirSync(`${lgpDir}/node_modules/.bin`, { recursive: true });
+    fs.writeFileSync(`${lgpDir}/node_modules/.bin/playwright`, "#!/bin/sh\nexit 1\n");
+    fs.chmodSync(`${lgpDir}/node_modules/.bin/playwright`, 0o755);
+
     const origShowcaseDir = process.env["SHOWCASE_DIR"];
-    process.env["SHOWCASE_DIR"] = "/nonexistent-showcase-dir";
+    process.env["SHOWCASE_DIR"] = tmpShowcase;
 
     // Override spec-driven-slugs to have one slug flagged:
     const { __overrideSpecDrivenSlugsForTesting } =
@@ -1260,6 +1290,7 @@ describe("JSON summary coherence — ok field and slugErrors in total (Fix 3)", 
         process.env["SHOWCASE_DIR"] = origShowcaseDir;
       }
       __overrideSpecDrivenSlugsForTesting(undefined);
+      fs.rmSync(tmpShowcase, { recursive: true, force: true });
     }
 
     const jsonLine = logs.find((l) => {
@@ -1381,9 +1412,12 @@ describe("unmapped --slug exits 1 with clear message (Fix 5)", () => {
     expect(errorText).toMatch(/no-such-slug-ever/);
   });
 
-  it("does NOT exit 1 when explicit --slug has a real mapping entry", async () => {
-    // langgraph-python has a mapping entry — should NOT fail due to missing mapping.
-    // It may still fail (integration dir missing, etc.) but NOT with an "unmapped slug" error.
+  it("does NOT exit 1 when explicit --slug resolves via the resolver", async () => {
+    // langgraph-python resolves through the base⊕delta resolver (mapped on-disk
+    // specs) — should NOT fail due to a missing/empty mapping. It may still fail
+    // (no live playwright) but NOT with an "unknown slug" / "no mapping" error.
+    // Point SHOWCASE_DIR at the REAL showcase dir so the resolver finds lgp's
+    // on-disk specs (../.. from the harness cwd).
     const origExit = process.exit;
     let exitCode: number | undefined;
     (process as any).exit = (code?: number) => {
@@ -1398,10 +1432,11 @@ describe("unmapped --slug exits 1 with clear message (Fix 5)", () => {
     };
     console.log = () => {};
 
-    // Ensure integration dir exists but run will fail naturally (no playwright).
-    // We just want to confirm there's no "unmapped slug" exit 1.
+    // Ensure the resolver finds real specs so the gate passes; the run then
+    // fails naturally (no live playwright). We just want to confirm there's no
+    // "unknown slug" / "no mapping" gate rejection.
     const origShowcaseDir = process.env["SHOWCASE_DIR"];
-    process.env["SHOWCASE_DIR"] = "/nonexistent-dir";
+    process.env["SHOWCASE_DIR"] = path.resolve(process.cwd(), "..");
 
     try {
       await runE2eCommand({
@@ -1423,6 +1458,136 @@ describe("unmapped --slug exits 1 with clear message (Fix 5)", () => {
     const errorText = errorLines.join("\n");
     expect(errorText).not.toMatch(/no mapping/i);
     expect(errorText).not.toMatch(/unknown.*slug/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// CLI slug-validation gate uses the RESOLVER (not the legacy single-slug JSON)
+//
+// The RUN pipeline uses loadDefaultResolvedMapping (base⊕delta, all slugs).
+// The CLI slug-validation gate MUST agree: an explicit --slug for any real
+// integration slug (with mapped on-disk specs) must be ACCEPTED, even though
+// it is absent from the legacy spec-cell-mapping.json (which only carries
+// langgraph-python). The no-slug auto-discovery path must STILL be gated by
+// isSpecDriven(spec-driven-slugs.json) — which is empty in prod → nothing
+// auto-runs (prod no-op invariant preserved).
+// ---------------------------------------------------------------------------
+
+describe("CLI slug gate uses resolver, not legacy single-slug mapping", () => {
+  it("accepts an explicit --slug for a resolvable non-langgraph-python slug (does NOT exit 1 unknown-slug)", async () => {
+    // claude-sdk-typescript is NOT a key in the legacy spec-cell-mapping.json
+    // (only langgraph-python is), but it carries mapped on-disk specs so the
+    // resolver produces a non-empty mapping for it. The gate must accept it.
+    //
+    // We point SHOWCASE_DIR at the REAL showcase dir (../.. from the harness
+    // cwd) so the resolver finds claude-sdk-typescript's on-disk specs and
+    // resolves them via base⊕delta. The RUN then fails naturally (no live
+    // playwright/backend) — a DIFFERENT failure from the slug-validation gate.
+    //
+    // RED (pre-fix): the legacy gate rejects with exit 1 + "unknown slug
+    //   ... not found in spec-cell-mapping. Known slugs: langgraph-python".
+    // GREEN (post-fix): the gate accepts it (resolver resolves it) and proceeds.
+    const showcaseDir = path.resolve(process.cwd(), "..");
+
+    // Confirm the slug actually resolves on disk so the test is not vacuous:
+    // if it did not resolve, "accepted" would be indistinguishable from a
+    // hollow pass. This asserts the resolver produces a non-empty mapping.
+    const listPresent = defaultListPresentSpecs(
+      path.join(showcaseDir, "integrations", "claude-sdk-typescript"),
+    );
+    const resolved = await loadDefaultResolvedMapping("claude-sdk-typescript", {
+      listPresentSpecs: listPresent,
+    });
+    expect(Object.keys(resolved).length).toBeGreaterThan(0);
+
+    const origExit = process.exit;
+    let exitCode: number | undefined;
+    (process as any).exit = (code?: number) => {
+      exitCode = code;
+    };
+
+    const errorLines: string[] = [];
+    const origConsoleError = console.error;
+    const origLog = console.log;
+    console.error = (...args: unknown[]) => {
+      errorLines.push(args.join(" "));
+    };
+    console.log = () => {};
+
+    const origShowcaseDir = process.env["SHOWCASE_DIR"];
+    process.env["SHOWCASE_DIR"] = showcaseDir;
+
+    try {
+      await runE2eCommand({
+        backendUrl: "https://csdk.example.com",
+        slug: "claude-sdk-typescript",
+      });
+    } finally {
+      (process as any).exit = origExit;
+      console.error = origConsoleError;
+      console.log = origLog;
+      if (origShowcaseDir === undefined) {
+        delete process.env["SHOWCASE_DIR"];
+      } else {
+        process.env["SHOWCASE_DIR"] = origShowcaseDir;
+      }
+    }
+
+    const errorText = errorLines.join("\n");
+    // The slug-validation gate must NOT have rejected it as unknown/unresolvable.
+    expect(errorText).not.toMatch(/unknown slug/i);
+    expect(errorText).not.toMatch(/not found in spec-cell-mapping/i);
+    expect(errorText).not.toMatch(/resolver produced no mapping/i);
+    // It must NOT list langgraph-python as the only "known slug".
+    expect(errorText).not.toMatch(/Known slugs: langgraph-python\b/);
+  });
+
+  it("no-slug auto-discovery yields NO spec-driven slugs when spec-driven-slugs.json is empty (prod no-op preserved)", async () => {
+    // The committed spec-driven-slugs.json ships EMPTY. With no explicit --slug,
+    // the discovery path must select ZERO slugs (nothing auto-runs spec-driven
+    // in prod), regardless of how many slugs the resolver could resolve.
+    __overrideSpecDrivenSlugsForTesting([]);
+
+    const logs: string[] = [];
+    const origLog = console.log;
+    console.log = (...args: unknown[]) => {
+      logs.push(args.join(" "));
+    };
+    const origExit = process.exit;
+    let exitCode: number | undefined;
+    (process as any).exit = (code?: number) => {
+      exitCode = code;
+    };
+
+    try {
+      await runE2eCommand({
+        backendUrl: "https://lgp.example.com",
+        json: true,
+        // no slug → auto-discovery path
+      });
+    } finally {
+      console.log = origLog;
+      (process as any).exit = origExit;
+      __overrideSpecDrivenSlugsForTesting(undefined);
+    }
+
+    const jsonLine = logs.find((l) => {
+      try {
+        JSON.parse(l);
+        return true;
+      } catch {
+        return false;
+      }
+    });
+    expect(jsonLine).toBeDefined();
+    const parsed = JSON.parse(jsonLine!) as Record<string, unknown>;
+
+    // Zero slugs discovered → empty slugs array, zero totals, ok:true, no exit(1).
+    expect(parsed["slugs"]).toEqual([]);
+    expect(parsed["total"]).toBe(0);
+    expect(parsed["slugErrors"]).toBe(0);
+    expect(parsed["ok"]).toBe(true);
+    expect(exitCode).toBeUndefined();
   });
 });
 

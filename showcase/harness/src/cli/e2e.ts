@@ -88,10 +88,7 @@ import path from "node:path";
 import yaml from "js-yaml";
 
 import { createLogger } from "../logger.js";
-import {
-  loadDefaultSpecCellMapping,
-  loadDefaultResolvedMapping,
-} from "../probes/helpers/spec-cell-mapping.js";
+import { loadDefaultResolvedMapping } from "../probes/helpers/spec-cell-mapping.js";
 import { parsePlaywrightJsonReport } from "../probes/helpers/pw-json-reporter.js";
 import type { PlaywrightJsonReport } from "../probes/helpers/pw-json-reporter.js";
 import {
@@ -927,36 +924,76 @@ export async function runE2eCommand(opts: E2eCommandOptions): Promise<void> {
   }
 
   // Collect slugs to run ──────────────────────────────────────────────────
+  //
+  // Both paths use the SAME resolver the RUN pipeline uses
+  // (loadDefaultResolvedMapping — base⊕delta restricted to on-disk specs).
+  // A slug is "resolvable" iff the resolver produces a NON-EMPTY mapping for
+  // it (it has mapped, non-quarantined specs on disk). This replaces the
+  // legacy single-slug spec-cell-mapping.json lookup (which only carried
+  // langgraph-python and rejected every other real integration slug).
+  const showcaseDir =
+    process.env["SHOWCASE_DIR"] ?? path.join(process.cwd(), "showcase");
+  const integrationsRoot = path.join(showcaseDir, "integrations");
+
+  // Return the resolved base⊕delta mapping for `slug` rooted at its
+  // integration dir, or an empty object if the dir/specs are absent.
+  const resolveSlugMapping = async (
+    slug: string,
+  ): Promise<Record<string, D5FeatureType[]>> => {
+    const integrationDir = path.join(integrationsRoot, slug);
+    return loadDefaultResolvedMapping(slug, {
+      listPresentSpecs: defaultListPresentSpecs(integrationDir),
+    });
+  };
+
+  // Enumerate on-disk integration slugs (real dirs, minus the `_shared`
+  // helper dir). Used both to derive the "resolvable slugs" hint on an
+  // unknown-slug error and for the no-slug auto-discovery path.
+  const listIntegrationSlugs = (): string[] => {
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(integrationsRoot, { withFileTypes: true });
+    } catch {
+      return [];
+    }
+    return entries
+      .filter((e) => e.isDirectory() && !e.name.startsWith("_"))
+      .map((e) => e.name)
+      .sort();
+  };
+
   let slugsToRun: string[];
 
-  // Always load mapping — needed for both explicit-slug validation and
-  // the no-slug discovery path.
-  const mapping = await loadDefaultSpecCellMapping();
-
   if (opts.slug) {
-    // Explicit slug: validate it has a mapping entry before proceeding.
-    // An unknown slug returns all-zero counts and exits 0 — that is a
-    // false-green that hides operator typos. Instead, fail immediately.
-    if (
-      mapping[opts.slug] == null ||
-      Object.keys(mapping[opts.slug]!).length === 0
-    ) {
-      const knownSlugs = Object.keys(mapping).sort().join(", ");
+    // Explicit slug is a DEV OVERRIDE: validate it against the RESOLVER's
+    // resolvable-slug set (not spec-driven-slugs.json, not the legacy JSON).
+    // A slug is valid if the resolver can produce a non-empty mapping for it.
+    // An unknown/unresolvable slug returns all-zero counts and exits 0 — that
+    // is a false-green that hides operator typos; fail immediately instead.
+    const resolved = await resolveSlugMapping(opts.slug);
+    if (Object.keys(resolved).length === 0) {
+      // Derive the "known slugs" hint from slugs the resolver can actually
+      // resolve (has mapped on-disk specs), NOT the legacy JSON.
+      const resolvable: string[] = [];
+      for (const slug of listIntegrationSlugs()) {
+        const m = await resolveSlugMapping(slug);
+        if (Object.keys(m).length > 0) resolvable.push(slug);
+      }
       console.error(
-        `\x1b[31m[showcase e2e]\x1b[0m unknown slug "${opts.slug}" — not found in spec-cell-mapping.\n` +
-          `  Known slugs: ${knownSlugs || "(none)"}`,
+        `\x1b[31m[showcase e2e]\x1b[0m unknown slug "${opts.slug}" — the resolver produced no mapping (no mapped specs on disk).\n` +
+          `  Resolvable slugs: ${resolvable.join(", ") || "(none)"}`,
       );
       process.exit(1);
       return;
     }
     slugsToRun = [opts.slug];
   } else {
-    // No explicit slug: discover all slugs via spec-cell-mapping (public API)
-    // and filter by isSpecDriven. This avoids the test-only
-    // __getSpecDrivenSlugsForTesting() accessor in production code.
-    // In Phase 0 isSpecDriven always returns false (empty JSON), so this
-    // is a no-op — intentional; wired for Task 5.1.
-    slugsToRun = Object.keys(mapping).filter(isSpecDriven);
+    // No explicit slug: discover on-disk integration slugs and filter by
+    // isSpecDriven (authoritative from spec-driven-slugs.json). This PRESERVES
+    // the prod no-op invariant: the committed spec-driven-slugs.json ships
+    // EMPTY, so isSpecDriven returns false for every slug → nothing auto-runs.
+    // (Wired for Task 5.1; a slug only auto-runs once flagged via a reviewed PR.)
+    slugsToRun = listIntegrationSlugs().filter(isSpecDriven);
   }
 
   if (slugsToRun.length === 0) {
@@ -1029,9 +1066,8 @@ export async function runE2eCommand(opts: E2eCommandOptions): Promise<void> {
     }
 
     // Resolve integrationDir: showcase/integrations/<slug>
-    const showcaseDir =
-      process.env["SHOWCASE_DIR"] ?? path.join(process.cwd(), "showcase");
-    const integrationDir = path.join(showcaseDir, "integrations", slug);
+    // (integrationsRoot is hoisted above and honors SHOWCASE_DIR).
+    const integrationDir = path.join(integrationsRoot, slug);
 
     if (!fs.existsSync(integrationDir)) {
       log.warn("e2e.integration-dir-missing", { slug, integrationDir });
