@@ -242,6 +242,126 @@ export function __overrideSpecCellMappingForTesting(
 // EVERY slug that has ≥1 present, mapped, non-quarantined spec → the
 // empty-verdicts / F3 mass-red path is unreachable for them.
 
+/**
+ * Parse and validate a raw JSON string into a `SpecCellDelta`.
+ *
+ * Validation rules (symmetric to `parseSpecCellMapping`):
+ *   1. Must be valid JSON (throws SyntaxError on parse failure).
+ *   2. Top level must be a plain object.
+ *   3. Each slug key must not be a dangerous prototype key.
+ *   4. Each slug value must be a plain object.
+ *   5. `overrides`, if present, must be a plain object (not array/null).
+ *   6. Each override stem key must not be a dangerous prototype key.
+ *   7. Each override entry must be a plain object.
+ *   8. `cells` in each override entry must be an array of strings.
+ *   9. `omit`, if present, must be an array of strings.
+ *
+ * @throws {SyntaxError}  on invalid JSON.
+ * @throws {TypeError}    on shape violations (message includes "SpecCellDelta").
+ */
+export function parseSpecCellDelta(json: string): SpecCellDelta {
+  // Step 1: parse.
+  const parsed: unknown = JSON.parse(json);
+
+  // Step 2: top-level must be a plain object.
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new TypeError(
+      `SpecCellDelta: top-level value must be a plain object, got ${
+        Array.isArray(parsed) ? "array" : parsed === null ? "null" : typeof parsed
+      }`,
+    );
+  }
+
+  const top = parsed as Record<string, unknown>;
+
+  for (const [slug, slugVal] of Object.entries(top)) {
+    // Step 3: reject dangerous keys at slug level.
+    if (DANGEROUS_KEYS.has(slug)) {
+      throw new TypeError(
+        `SpecCellDelta: dangerous key "${slug}" is not allowed as a slug key`,
+      );
+    }
+
+    // Step 4: each slug value must be a plain object.
+    if (typeof slugVal !== "object" || slugVal === null || Array.isArray(slugVal)) {
+      throw new TypeError(
+        `SpecCellDelta: value for slug "${slug}" must be a plain object, got ${
+          Array.isArray(slugVal) ? "array" : slugVal === null ? "null" : typeof slugVal
+        }`,
+      );
+    }
+
+    const slugObj = slugVal as Record<string, unknown>;
+
+    // Step 5: validate overrides if present.
+    if ("overrides" in slugObj) {
+      const overrides = slugObj["overrides"];
+      if (typeof overrides !== "object" || overrides === null || Array.isArray(overrides)) {
+        throw new TypeError(
+          `SpecCellDelta: "overrides" for slug "${slug}" must be a plain object, got ${
+            Array.isArray(overrides) ? "array" : overrides === null ? "null" : typeof overrides
+          }`,
+        );
+      }
+
+      const overridesObj = overrides as Record<string, unknown>;
+
+      for (const [stem, entry] of Object.entries(overridesObj)) {
+        // Step 6: reject dangerous stem keys.
+        if (DANGEROUS_KEYS.has(stem)) {
+          throw new TypeError(
+            `SpecCellDelta: dangerous key "${stem}" is not allowed as an override stem key in slug "${slug}"`,
+          );
+        }
+
+        // Step 7: each override entry must be a plain object.
+        if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+          throw new TypeError(
+            `SpecCellDelta: override entry for stem "${stem}" in slug "${slug}" must be a plain object, got ${
+              Array.isArray(entry) ? "array" : entry === null ? "null" : typeof entry
+            }`,
+          );
+        }
+
+        const entryObj = entry as Record<string, unknown>;
+
+        // Step 8: cells must be an array of strings.
+        if (!Array.isArray(entryObj["cells"])) {
+          throw new TypeError(
+            `SpecCellDelta: "cells" for stem "${stem}" in slug "${slug}" must be an array, got ${typeof entryObj["cells"]}`,
+          );
+        }
+        for (const cell of entryObj["cells"] as unknown[]) {
+          if (typeof cell !== "string") {
+            throw new TypeError(
+              `SpecCellDelta: cell entry for stem "${stem}" in slug "${slug}" must be a string, got ${typeof cell}`,
+            );
+          }
+        }
+      }
+    }
+
+    // Step 9: validate omit if present.
+    if ("omit" in slugObj) {
+      const omit = slugObj["omit"];
+      if (!Array.isArray(omit)) {
+        throw new TypeError(
+          `SpecCellDelta: "omit" for slug "${slug}" must be an array, got ${typeof omit}`,
+        );
+      }
+      for (const item of omit as unknown[]) {
+        if (typeof item !== "string") {
+          throw new TypeError(
+            `SpecCellDelta: "omit" entry for slug "${slug}" must be a string, got ${typeof item}`,
+          );
+        }
+      }
+    }
+  }
+
+  return top as SpecCellDelta;
+}
+
 /** Per-slug departures from the shared base. */
 export interface SlugDelta {
   /**
@@ -274,6 +394,8 @@ export interface ResolveDeps {
   mergedSkipList: (slug: string) => Set<string>;
   /** WARN sink for on-disk specs whose stem has no cell (default: log.warn). */
   onUnmapped?: (slug: string, specRelPath: string) => void;
+  /** WARN sink for stems dropped because all cells are in the merged skip-list (default: log.warn). */
+  onAutoOmit?: (slug: string, stem: string) => void;
 }
 
 function defaultWarn(slug: string, specRelPath: string): void {
@@ -281,6 +403,14 @@ function defaultWarn(slug: string, specRelPath: string): void {
     slug,
     spec: specRelPath,
     note: "on-disk spec stem has no base cell and no override — coverage hole (spec runs, feeds no cell)",
+  });
+}
+
+function defaultAutoOmitWarn(slug: string, stem: string): void {
+  log.warn("spec-cell-mapping.auto-omit", {
+    slug,
+    stem,
+    note: "all cells for this stem are in the merged skip-list (NSF-quarantined) — stem dropped from resolved mapping",
   });
 }
 
@@ -315,7 +445,10 @@ export function loadSpecCellMapping(
       continue;
     }
     // AUTO-DERIVED omit: drop any stem whose cell set is fully skip/NSF-quarantined.
-    if (cells.every((c) => skipped.has(c))) continue;
+    if (cells.every((c) => skipped.has(c))) {
+      (deps.onAutoOmit ?? defaultAutoOmitWarn)(slug, stem);
+      continue;
+    }
     out[rel] = [...cells];
   }
   return out;
@@ -334,7 +467,7 @@ export async function loadDelta(): Promise<SpecCellDelta> {
   const mod = await import("./spec-cell-delta.json", {
     with: { type: "json" },
   });
-  return mod.default as SpecCellDelta;
+  return parseSpecCellDelta(JSON.stringify(mod.default));
 }
 
 /**

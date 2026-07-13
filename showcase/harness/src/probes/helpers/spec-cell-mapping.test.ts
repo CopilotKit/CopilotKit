@@ -449,3 +449,295 @@ describe("claude-sdk-python shared-state-write alias (committed base+delta)", ()
     expect(warned).toHaveLength(0);
   });
 });
+
+// ── Fix 1: parseSpecCellDelta validator ──────────────────────────────────────
+//
+// loadDelta must validate the spec-cell-delta.json shape (overrides is a map of
+// stem → {cells:string[], force?:boolean}; reject dangerous keys; reject
+// non-string-array cells; reject non-object). A malformed delta must throw, not
+// load silently.
+
+import { parseSpecCellDelta } from "./spec-cell-mapping.js";
+
+describe("parseSpecCellDelta validator", () => {
+  it("accepts a well-formed delta (valid committed shape)", () => {
+    const valid = JSON.stringify({
+      "claude-sdk-python": {
+        overrides: {
+          "shared-state-write": { cells: ["shared-state-write"] },
+        },
+      },
+    });
+    const result = parseSpecCellDelta(valid);
+    expect(result["claude-sdk-python"].overrides?.["shared-state-write"]?.cells).toEqual(
+      ["shared-state-write"],
+    );
+  });
+
+  it("accepts empty delta object", () => {
+    const result = parseSpecCellDelta("{}");
+    expect(result).toEqual({});
+  });
+
+  it("accepts delta with force flag", () => {
+    const valid = JSON.stringify({
+      "some-slug": {
+        overrides: { "some-stem": { cells: ["agentic-chat"], force: true } },
+      },
+    });
+    const result = parseSpecCellDelta(valid);
+    expect(result["some-slug"].overrides?.["some-stem"]?.force).toBe(true);
+  });
+
+  it("accepts delta with omit array", () => {
+    const valid = JSON.stringify({ "some-slug": { omit: ["foo-stem"] } });
+    const result = parseSpecCellDelta(valid);
+    expect(result["some-slug"].omit).toEqual(["foo-stem"]);
+  });
+
+  it("throws on malformed JSON", () => {
+    expect(() => parseSpecCellDelta("{not valid")).toThrow();
+  });
+
+  it("throws when top-level value is not an object", () => {
+    expect(() => parseSpecCellDelta(JSON.stringify([1, 2, 3]))).toThrow(
+      /SpecCellDelta/,
+    );
+  });
+
+  it("throws when a slug delta value is not an object", () => {
+    expect(() =>
+      parseSpecCellDelta(JSON.stringify({ "some-slug": "not-an-object" })),
+    ).toThrow(/SpecCellDelta/);
+  });
+
+  it("throws when overrides is not an object (e.g. is an array)", () => {
+    expect(() =>
+      parseSpecCellDelta(
+        JSON.stringify({ "some-slug": { overrides: ["bad"] } }),
+      ),
+    ).toThrow(/SpecCellDelta/);
+  });
+
+  it("throws when an override entry cells is not an array", () => {
+    expect(() =>
+      parseSpecCellDelta(
+        JSON.stringify({
+          "some-slug": { overrides: { stem: { cells: "not-array" } } },
+        }),
+      ),
+    ).toThrow(/SpecCellDelta/);
+  });
+
+  it("throws when an override entry cells contains a non-string", () => {
+    expect(() =>
+      parseSpecCellDelta(
+        JSON.stringify({
+          "some-slug": { overrides: { stem: { cells: [42] } } },
+        }),
+      ),
+    ).toThrow(/SpecCellDelta/);
+  });
+
+  it("throws when a top-level slug key is a dangerous key (__proto__)", () => {
+    expect(() =>
+      parseSpecCellDelta('{"__proto__": {"overrides": {}}}'),
+    ).toThrow(/dangerous|__proto__|SpecCellDelta/i);
+  });
+
+  it("throws when an override stem key is a dangerous key (constructor)", () => {
+    expect(() =>
+      parseSpecCellDelta(
+        JSON.stringify({
+          "slug": { overrides: { constructor: { cells: ["agentic-chat"] } } },
+        }),
+      ),
+    ).toThrow(/dangerous|constructor|SpecCellDelta/i);
+  });
+
+  it("throws when override entry is not an object", () => {
+    expect(() =>
+      parseSpecCellDelta(
+        JSON.stringify({ "slug": { overrides: { stem: "bad" } } }),
+      ),
+    ).toThrow(/SpecCellDelta/);
+  });
+
+  it("throws when omit is not an array", () => {
+    expect(() =>
+      parseSpecCellDelta(JSON.stringify({ "slug": { omit: "bad" } })),
+    ).toThrow(/SpecCellDelta/);
+  });
+
+  it("throws when omit contains a non-string", () => {
+    expect(() =>
+      parseSpecCellDelta(JSON.stringify({ "slug": { omit: [42] } })),
+    ).toThrow(/SpecCellDelta/);
+  });
+});
+
+// ── Fix 2: auto-omit symmetric WARN ──────────────────────────────────────────
+//
+// When a stem is auto-omitted (all cells in the merged skip-list), a WARN must
+// be emitted for observability. The sibling unmapped-drop already WARNs; this
+// pins the symmetric behaviour.
+
+describe("auto-omit symmetric WARN", () => {
+  it("emits a WARN via onAutoOmit when a fully-skipped stem is dropped (no warn without it)", () => {
+    // RED: resolver currently drops auto-omitted stems with no log/callback.
+    // After the fix: accepts an optional onAutoOmit callback in ResolveDeps.
+    const autoOmitted: Array<[string, string]> = [];
+    loadSpecCellMapping(
+      "slug",
+      deps({
+        base: {
+          "gen-ui-interrupt": ["gen-ui-interrupt"] as D5FeatureType[],
+          "agentic-chat": ["agentic-chat"] as D5FeatureType[],
+        },
+        listPresentSpecs: () => [
+          "tests/e2e/gen-ui-interrupt.spec.ts",
+          "tests/e2e/agentic-chat.spec.ts",
+        ],
+        mergedSkipList: () => new Set<string>(["gen-ui-interrupt"]),
+        onAutoOmit: (slug, stem) => autoOmitted.push([slug, stem]),
+      }),
+    );
+    expect(autoOmitted).toEqual([["slug", "gen-ui-interrupt"]]);
+  });
+
+  function deps(over: Partial<ResolveDeps> = {}): ResolveDeps {
+    return {
+      base: {},
+      delta: {},
+      listPresentSpecs: () => [],
+      mergedSkipList: () => new Set<string>(),
+      ...over,
+    };
+  }
+});
+
+// ── Fix 3: defaultListPresentSpecs production lister test ────────────────────
+//
+// Tests the real `defaultListPresentSpecs` exported from e2e.ts against the
+// actual langgraph-python tests/e2e directory. A relpath/glob-shape bug must
+// fail this test.
+
+import { defaultListPresentSpecs } from "../../cli/e2e.js";
+import { join as pathJoin, dirname as pathDirname } from "node:path";
+import { fileURLToPath } from "node:url";
+
+describe("defaultListPresentSpecs production lister", () => {
+  // Resolve the harness root then traverse to the integration dir.
+  // The harness lives at showcase/harness/; integrations at showcase/integrations/.
+  const HARNESS_DIR = pathDirname(pathDirname(pathDirname(pathDirname(
+    fileURLToPath(import.meta.url),
+  ))));
+  const LGP_DIR = pathJoin(HARNESS_DIR, "..", "integrations", "langgraph-python");
+
+  it("returns sorted tests/e2e/<file>.spec.ts relpaths for langgraph-python", () => {
+    const lister = defaultListPresentSpecs(LGP_DIR);
+    const specs = lister("langgraph-python");
+
+    // Must return an array
+    expect(Array.isArray(specs)).toBe(true);
+    expect(specs.length).toBeGreaterThan(0);
+
+    // All entries must match the expected relpath prefix and suffix shape
+    for (const s of specs) {
+      expect(s).toMatch(/^tests\/e2e\/.+\.spec\.ts$/);
+    }
+
+    // Must include well-known specs
+    expect(specs).toContain("tests/e2e/agentic-chat.spec.ts");
+    expect(specs).toContain("tests/e2e/beautiful-chat.spec.ts");
+    expect(specs).toContain("tests/e2e/auth.spec.ts");
+
+    // Must be sorted
+    const sorted = [...specs].sort();
+    expect(specs).toEqual(sorted);
+  });
+
+  it("returns empty list for a non-existent directory", () => {
+    const lister = defaultListPresentSpecs("/tmp/nonexistent-integration-xyz");
+    const specs = lister("any-slug");
+    expect(specs).toEqual([]);
+  });
+});
+
+// ── Fix 4: partial-skip retention boundary test ──────────────────────────────
+//
+// A stem whose cell set is PARTIALLY in the skip-list must be RETAINED
+// (not auto-omitted). Only a stem whose ALL cells are skipped is dropped.
+// This pins the .every() / all-cells-skipped boundary the design hinges on.
+
+describe("partial-skip retention boundary", () => {
+  function deps(over: Partial<ResolveDeps> = {}): ResolveDeps {
+    return {
+      base: {},
+      delta: {},
+      listPresentSpecs: () => [],
+      mergedSkipList: () => new Set<string>(),
+      ...over,
+    };
+  }
+
+  it("retains a multi-cell stem when only a SUBSET of its cells are skipped", () => {
+    // "multi" maps to ["agentic-chat", "auth"]; only "auth" is skipped.
+    // The stem must NOT be auto-omitted — it has 1 non-skipped cell.
+    const resolved = loadSpecCellMapping(
+      "slug",
+      deps({
+        base: {
+          multi: ["agentic-chat", "auth"] as D5FeatureType[],
+        },
+        listPresentSpecs: () => ["tests/e2e/multi.spec.ts"],
+        mergedSkipList: () => new Set<string>(["auth"]),
+      }),
+    );
+    expect(resolved["tests/e2e/multi.spec.ts"]).toBeDefined();
+    expect(resolved["tests/e2e/multi.spec.ts"]).toEqual(["agentic-chat", "auth"]);
+  });
+
+  it("drops a multi-cell stem when ALL of its cells are skipped", () => {
+    // "multi" maps to ["auth", "agentic-chat"]; both cells are skipped.
+    // The stem MUST be auto-omitted.
+    const resolved = loadSpecCellMapping(
+      "slug",
+      deps({
+        base: {
+          multi: ["auth", "agentic-chat"] as D5FeatureType[],
+          other: ["byoc"] as D5FeatureType[],
+        },
+        listPresentSpecs: () => [
+          "tests/e2e/multi.spec.ts",
+          "tests/e2e/other.spec.ts",
+        ],
+        mergedSkipList: () => new Set<string>(["auth", "agentic-chat"]),
+      }),
+    );
+    expect(resolved["tests/e2e/multi.spec.ts"]).toBeUndefined();
+    expect(resolved["tests/e2e/other.spec.ts"]).toBeDefined();
+  });
+
+  it("boundary: single-cell stem ALL-skipped is dropped; single-cell stem NOT-skipped is retained", () => {
+    const resolvedDropped = loadSpecCellMapping(
+      "slug",
+      deps({
+        base: { skipped: ["gen-ui-interrupt"] as D5FeatureType[] },
+        listPresentSpecs: () => ["tests/e2e/skipped.spec.ts"],
+        mergedSkipList: () => new Set<string>(["gen-ui-interrupt"]),
+      }),
+    );
+    expect(resolvedDropped["tests/e2e/skipped.spec.ts"]).toBeUndefined();
+
+    const resolvedKept = loadSpecCellMapping(
+      "slug",
+      deps({
+        base: { kept: ["agentic-chat"] as D5FeatureType[] },
+        listPresentSpecs: () => ["tests/e2e/kept.spec.ts"],
+        mergedSkipList: () => new Set<string>([]),
+      }),
+    );
+    expect(resolvedKept["tests/e2e/kept.spec.ts"]).toEqual(["agentic-chat"]);
+  });
+});
