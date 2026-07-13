@@ -34,7 +34,7 @@ import { InMemoryAgentRunner } from "../runner/in-memory";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
 import type { CopilotKitIntelligence } from "../intelligence-platform";
 // Type-only: @copilotkit/channels is pure-ESM, so a value import would break this
-// package's CJS output. The bots are validated + activated (wired to delivery
+// package's CJS output. The channels are validated + activated (wired to delivery
 // transports) by `startChannels` from @copilotkit/channels-intelligence, called
 // by the Channel-listener bootstrap — not here.
 import type { Channel } from "@copilotkit/channels";
@@ -182,7 +182,7 @@ export interface CopilotSseRuntimeOptions extends BaseCopilotRuntimeOptions {
   intelligence?: undefined;
   generateThreadNames?: undefined;
   /** Intelligence Channels require the Intelligence runtime; not available in SSE mode. */
-  bots?: undefined;
+  channels?: undefined;
 }
 
 export interface CopilotIntelligenceRuntimeOptions extends BaseCopilotRuntimeOptions {
@@ -209,7 +209,7 @@ export interface CopilotIntelligenceRuntimeOptions extends BaseCopilotRuntimeOpt
    * to delivery/egress transports when activated via `startChannels` from
    * `@copilotkit/channels-intelligence` — not at construction.
    */
-  bots?: Channel[];
+  channels?: Channel[];
 }
 
 export type CopilotRuntimeOptions =
@@ -255,7 +255,7 @@ export interface CopilotIntelligenceRuntimeLike extends CopilotRuntimeLike {
   lockTtlSeconds: number;
   lockKeyPrefix?: string;
   lockHeartbeatIntervalSeconds: number;
-  bots: Channel[];
+  channels: Channel[];
   mode: typeof RUNTIME_MODE_INTELLIGENCE;
 }
 
@@ -351,13 +351,14 @@ export class CopilotSseRuntime
 
   constructor(options: CopilotSseRuntimeOptions) {
     // Runtime guard mirroring the discriminated-union type: the SSE runtime has
-    // no Intelligence delivery path, so `bots` cannot be honored here. The type
-    // forbids it, but a JS / `as any` caller passing `{ agents, bots }` would
-    // otherwise land here and have `bots` silently dropped — fail loud instead.
-    const bots = (options as { bots?: unknown[] }).bots;
-    if (Array.isArray(bots) && bots.length > 0) {
+    // no Intelligence delivery path, so `channels` cannot be honored here. The
+    // type forbids it, but a JS / `as any` caller passing `{ agents, channels }`
+    // would otherwise land here and have `channels` silently dropped — fail
+    // loud instead.
+    const channels = (options as { channels?: unknown[] }).channels;
+    if (Array.isArray(channels) && channels.length > 0) {
       throw new Error(
-        "`bots` requires the Intelligence runtime (pass `intelligence`); " +
+        "`channels` requires the Intelligence runtime (pass `intelligence`); " +
           "Intelligence Channels are not available in SSE mode.",
       );
     }
@@ -375,7 +376,7 @@ export class CopilotIntelligenceRuntime
   readonly lockTtlSeconds: number;
   readonly lockKeyPrefix?: string;
   readonly lockHeartbeatIntervalSeconds: number;
-  readonly bots: Channel[];
+  readonly channels: Channel[];
   readonly mode = RUNTIME_MODE_INTELLIGENCE;
 
   /** Maximum allowed lock TTL in seconds (1 hour). */
@@ -415,11 +416,11 @@ export class CopilotIntelligenceRuntime
     // pure-ESM `@copilotkit/channels-intelligence`, which this CJS package must not
     // pull in. Fail fast on the most common misconfiguration (a missing name)
     // right here at construction, though, rather than only at activation.
-    this.bots = options.bots ?? [];
-    for (const b of this.bots) {
-      if (!b.name) {
+    this.channels = options.channels ?? [];
+    for (const c of this.channels) {
+      if (!c.name) {
         throw new Error(
-          "Intelligence Channel Bot is missing a `name` — pass createChannel({ name }) for each Bot in `bots`",
+          "Intelligence Channel is missing a `name` — pass createChannel({ name }) for each Channel in `channels`",
         );
       }
     }
@@ -533,9 +534,9 @@ export class CopilotRuntime implements CopilotRuntimeLike {
       : undefined;
   }
 
-  get bots(): Channel[] | undefined {
+  get channels(): Channel[] | undefined {
     return isIntelligenceRuntime(this.delegate)
-      ? this.delegate.bots
+      ? this.delegate.channels
       : undefined;
   }
 

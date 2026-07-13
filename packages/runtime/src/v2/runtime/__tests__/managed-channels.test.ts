@@ -11,53 +11,53 @@ const intelligence = () =>
   });
 const identifyUser = vi.fn().mockResolvedValue({ id: "u", name: "U" });
 
-describe("CopilotRuntime — managed bots option", () => {
-  it("stores declared bots on the intelligence runtime and exposes them via the facade", () => {
-    const bot = createChannel({ name: "support" });
+describe("CopilotRuntime — managed channels option", () => {
+  it("stores declared channels on the intelligence runtime and exposes them via the facade", () => {
+    const channel = createChannel({ name: "support" });
     const rt = new CopilotRuntime({
       agents: {},
       intelligence: intelligence(),
       identifyUser,
-      bots: [bot],
+      channels: [channel],
     });
-    expect(rt.bots).toHaveLength(1);
-    expect(rt.bots?.[0]?.name).toBe("support");
+    expect(rt.channels).toHaveLength(1);
+    expect(rt.channels?.[0]?.name).toBe("support");
   });
 
-  it("exposes no bots on an SSE runtime", () => {
+  it("exposes no channels on an SSE runtime", () => {
     const rt = new CopilotRuntime({ agents: {} });
-    expect(rt.bots).toBeUndefined();
+    expect(rt.channels).toBeUndefined();
   });
 
-  it("defaults to an empty bots array when an intelligence runtime omits bots", () => {
+  it("defaults to an empty channels array when an intelligence runtime omits channels", () => {
     const rt = new CopilotIntelligenceRuntime({
       agents: {},
       intelligence: intelligence(),
       identifyUser,
     });
-    expect(rt.bots).toEqual([]);
+    expect(rt.channels).toEqual([]);
   });
 
-  it("throws (does not silently drop) when bots is passed without intelligence", () => {
+  it("throws (does not silently drop) when channels is passed without intelligence", () => {
     // The discriminated union forbids this at compile time; a JS / `as any`
-    // caller would otherwise land on the SSE runtime and lose `bots` silently.
+    // caller would otherwise land on the SSE runtime and lose `channels` silently.
     expect(
       () =>
         new CopilotRuntime({
           agents: {},
-          bots: [createChannel({ name: "support" })],
+          channels: [createChannel({ name: "support" })],
         } as unknown as ConstructorParameters<typeof CopilotRuntime>[0]),
     ).toThrow(/Intelligence runtime/i);
   });
 
-  it("throws at construction when a declared bot has no name (fail-fast)", () => {
+  it("throws at construction when a declared channel has no name (fail-fast)", () => {
     expect(
       () =>
         new CopilotIntelligenceRuntime({
           agents: {},
           intelligence: intelligence(),
           identifyUser,
-          bots: [createChannel({})],
+          channels: [createChannel({})],
         }),
     ).toThrow(/name/i);
   });
