@@ -159,7 +159,7 @@ async function defaultActivateChannel(
   channel: Channel,
 ): Promise<ChannelsHandle> {
   const specifier = "@copilotkit/channels-intelligence";
-  const mod = (await import(specifier)) as {
+  let mod: {
     startChannelsOverRealtimeGateway: (
       channels: Channel[],
       opts: {
@@ -171,6 +171,17 @@ async function defaultActivateChannel(
       },
     ) => Promise<ChannelsHandle>;
   };
+  try {
+    mod = await import(specifier);
+  } catch (err) {
+    if (isModuleNotFound(err)) {
+      throw new Error(
+        "Managed Channels require '@copilotkit/channels-intelligence' to be installed. Add it to your app's dependencies.",
+        { cause: err },
+      );
+    }
+    throw err;
+  }
   return mod.startChannelsOverRealtimeGateway([channel], {
     wsUrl: config.wsUrl,
     apiKey: config.apiKey,
@@ -193,6 +204,20 @@ function isSetupRequired(err: unknown): boolean {
       err !== null &&
       (err as { code?: unknown }).code === "SETUP_REQUIRED")
   );
+}
+
+/**
+ * Whether `err` is a Node/runtime module-resolution failure — i.e. the error
+ * a dynamic `import()` throws when the target package is not installed.
+ * Exported so the friendly-error path in {@link defaultActivateChannel} can be
+ * unit-tested without forcing a real failing import.
+ */
+export function isModuleNotFound(err: unknown): boolean {
+  if (typeof err !== "object" || err === null) {
+    return false;
+  }
+  const code = (err as { code?: unknown }).code;
+  return code === "ERR_MODULE_NOT_FOUND" || code === "MODULE_NOT_FOUND";
 }
 
 /**

@@ -1,7 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
 import { createChannel } from "@copilotkit/channels";
 import { CopilotKitIntelligence } from "../../intelligence-platform";
-import { ChannelManager, ChannelSetupRequiredError } from "../channel-manager";
+import {
+  ChannelManager,
+  ChannelSetupRequiredError,
+  isModuleNotFound,
+} from "../channel-manager";
 import type { ActivateChannelEngine, ChannelsHandle } from "../channel-manager";
 
 /** A CopilotKitIntelligence whose runner API key carries a parseable project id. */
@@ -191,5 +195,19 @@ describe("ChannelManager", () => {
 
     await expect(mgr.stop()).resolves.toBeUndefined();
     expect(mgr.status().channels.support).toBe("stopped");
+  });
+});
+
+describe("isModuleNotFound", () => {
+  it("recognizes ERR_MODULE_NOT_FOUND and MODULE_NOT_FOUND error codes", () => {
+    expect(isModuleNotFound({ code: "ERR_MODULE_NOT_FOUND" })).toBe(true);
+    expect(isModuleNotFound({ code: "MODULE_NOT_FOUND" })).toBe(true);
+  });
+
+  it("returns false for unrelated errors and non-error values", () => {
+    expect(isModuleNotFound(new Error("boom"))).toBe(false);
+    expect(isModuleNotFound({ code: "SETUP_REQUIRED" })).toBe(false);
+    expect(isModuleNotFound(null)).toBe(false);
+    expect(isModuleNotFound("boom")).toBe(false);
   });
 });

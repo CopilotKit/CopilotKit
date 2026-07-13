@@ -120,6 +120,9 @@
     "ws": "^8.18.0",
     "zod": "^3.23.3"
   },
+  "optionalDependencies": {
+    "@copilotkit/channels-intelligence": "workspace:*"
+  },
   "devDependencies": {
     "@copilotkit/aimock": "latest",
     "@swc/core": "1.5.28",
