@@ -12,6 +12,7 @@
  *   5. GITHUB_OUTPUT receives heredoc-form `results` block + any_success
  *   6. results.json has a trailing newline
  *   7. result.json directly in INPUT_DIR (single-artifact path from download-artifact@v5+)
+ *   8. unreadable root result.json preserves the filesystem failure
  */
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -173,5 +174,20 @@ describe("aggregate-build-results.run", () => {
 
     const gh = readFileSync(githubOutput, "utf-8");
     expect(gh).toContain("any_success=true");
+  });
+
+  it("preserves the filesystem failure for an unreadable root result.json", () => {
+    mkdirSync(join(inputDir, "result.json"));
+
+    let thrown: unknown;
+    try {
+      run({ inputDir, outputDir, githubOutput });
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(Error);
+    expect((thrown as Error).message).toContain("root-level result.json");
+    expect((thrown as Error).cause).toBeDefined();
   });
 });

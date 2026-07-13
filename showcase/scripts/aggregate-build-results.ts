@@ -1,8 +1,9 @@
 /**
  * aggregate-build-results.ts — run in the `aggregate-build-results` job
- * of showcase_build.yml AFTER actions/download-artifact has extracted
- * every per-slot `build-result-<dispatch_name>` artifact into
- * $INPUT_DIR/build-result-<dispatch_name>/result.json.
+ * of showcase_build.yml AFTER actions/download-artifact has extracted the
+ * per-slot artifacts. Multiple matches use
+ * $INPUT_DIR/build-result-<dispatch_name>/result.json; a single match from
+ * download-artifact@v5+ uses $INPUT_DIR/result.json.
  *
  * Responsibilities:
  *   1. Read every per-slot result.json under $INPUT_DIR.
@@ -45,6 +46,13 @@ export interface RunOptions {
   githubOutput: string;
 }
 
+function readErrorReason(error: unknown): string {
+  if (error && typeof error === "object" && "code" in error) {
+    return String((error as { code?: unknown }).code);
+  }
+  return error instanceof Error ? error.message : String(error);
+}
+
 /**
  * Read a single per-slot result.json. On failure (missing file, permission
  * error, etc.), wraps the error with the offending slot directory so the
@@ -59,14 +67,8 @@ function readSlotPayload(inputDir: string, slotDirName: string): string {
   try {
     return readFileSync(path, "utf-8");
   } catch (e) {
-    const code =
-      e && typeof e === "object" && "code" in e
-        ? String((e as { code?: unknown }).code)
-        : e instanceof Error
-          ? e.message
-          : String(e);
     throw new Error(
-      `aggregate-build-results: ${slotDirName} is missing result.json (${code})`,
+      `aggregate-build-results: ${slotDirName} is missing result.json (${readErrorReason(e)})`,
       { cause: e },
     );
   }
@@ -114,11 +116,13 @@ function readSingleFallbackPayload(inputDir: string): string {
   const path = join(inputDir, "result.json");
   try {
     return readFileSync(path, "utf-8");
-  } catch {
+  } catch (e) {
     throw new Error(
-      `aggregate-build-results: found 0 build-result-* slot dirs in ${inputDir} — ` +
-        `the per-slot artifact download produced nothing; this indicates a broken ` +
-        `download, not an empty build set (the job only runs when >=1 service was scheduled).`,
+      `aggregate-build-results: found 0 build-result-* slot dirs in ${inputDir} and ` +
+        `root-level result.json could not be read (${readErrorReason(e)}) — the per-slot ` +
+        `artifact download produced no usable result; this indicates a broken download, ` +
+        `not an empty build set (the job only runs when >=1 service was scheduled).`,
+      { cause: e },
     );
   }
 }
