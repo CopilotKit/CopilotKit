@@ -138,6 +138,11 @@ import type {
 } from "./fleet/control-plane/job-producer.js";
 import { createMemoizedFamilySummary } from "./fleet/control-plane/run-view.js";
 import { createFamilySilenceMonitor } from "./fleet/control-plane/family-silence-monitor.js";
+import {
+  createD0GoneMonitor,
+  isEnabled as isD0MonitorEnabled,
+  loadRegistryDoc,
+} from "./fleet/control-plane/d0-gone-monitor.js";
 
 export interface BootOptions {
   configDir?: string;
@@ -2976,6 +2981,57 @@ export async function runControlPlane(
     bootAtMs: Date.now(),
     logger,
   });
+
+  // Prod D0-gone monitor (spec `2026-07-13-prod-d0-gone-monitor.md`): the one
+  // incident class the per-cell alert rules miss — a whole integration column
+  // collapsing to red-D0 ("completely gone" / backend unreachable). Runs on its
+  // own 15m cron, PROD ONLY and control-plane-only (this block already implies
+  // the control-plane role). It runs the dashboard's OWN `buildCellModel` fold
+  // over the same `status` rows, so its verdict equals the DepthChip the
+  // dashboard renders by construction. Registered as an `internal:` orchestrator
+  // cron (the `internal:s3-backup` block is the template), gated on the resolved
+  // env being production and the `PROD_D0_MONITOR_ENABLED` kill-switch.
+  const d0MonitorEnv =
+    process.env.SHOWCASE_ENV ?? process.env.RAILWAY_ENVIRONMENT_NAME;
+  if (d0MonitorEnv === "production" && isD0MonitorEnabled()) {
+    const d0GoneMonitor = createD0GoneMonitor({
+      pb,
+      alertState: alertStateStore,
+      // Reuse the SAME #oss-alerts webhook target the family-silence monitor
+      // posts through — throws on send failure so `last_alert_at` never advances
+      // on a dropped Slack post (§7 dedupe discipline).
+      postAlert: async (text: string): Promise<void> => {
+        await ossAlertsTarget.send(
+          { payload: { text }, contentType: "application/json" },
+          { kind: "slack_webhook", webhook: "oss_alerts" },
+        );
+      },
+      // The SAME shared memoized family-summary the routes + silence monitor use
+      // — the §2.5 producer-liveness source.
+      summary: familySummary,
+      schedules,
+      registry: loadRegistryDoc(logger),
+      dashboardUrl:
+        process.env.DASHBOARD_URL ?? "https://dashboard.showcase.copilotkit.ai",
+      logger,
+      now: () => Date.now(),
+    });
+    scheduler.register({
+      id: "internal:prod-d0-gone-monitor",
+      cron: "*/15 * * * *",
+      handler: async () => {
+        await d0GoneMonitor.tick();
+      },
+    });
+    logger.info("orchestrator.prod-d0-gone-monitor-registered", {
+      env: d0MonitorEnv,
+    });
+  } else {
+    logger.info("orchestrator.prod-d0-gone-monitor-skipped", {
+      env: d0MonitorEnv ?? "(unset)",
+      enabled: isD0MonitorEnabled(),
+    });
+  }
 
   // REQ-B: wire the real aggregator + fleet-health monitor + sweep-key resolver
   // into the control-plane assembly so BOTH crash-path legs surface onto the

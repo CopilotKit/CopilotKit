@@ -187,6 +187,8 @@ function makeModel(overrides?: Partial<CellModel>): CellModel {
     chipColor: "green",
     isRegression: false,
     surfaceState: "green",
+    isStaleCell: false,
+    observedAtAgeMs: null,
     ...overrides,
   };
 }
