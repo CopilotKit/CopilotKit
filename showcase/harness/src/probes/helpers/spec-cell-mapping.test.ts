@@ -410,3 +410,42 @@ describe("loadSpecCellMapping(slug, deps) resolver", () => {
     expect(Object.keys(resolved).length).toBeGreaterThan(0);
   });
 });
+
+// ── Task 7: claude-sdk-python shared-state-write stem alias (via committed delta) ─
+//
+// claude-sdk-python's on-disk stem `shared-state-write` has NO REGISTRY_TO_D5
+// key, but the cell it SHOULD feed (`shared-state-write`) already exists via
+// REGISTRY_TO_D5["shared-state-read-write"]. The committed spec-cell-delta.json
+// aliases the stem onto that EXISTING cell (not a new cell). Resolving
+// claude-sdk-python with the REAL committed base + delta must map the stem and
+// emit NO unmapped-onDisk-spec WARN.
+
+import { readFileSync } from "node:fs";
+import { fileURLToPath as _fileURLToPath } from "node:url";
+import { dirname as _dirname, join as _join } from "node:path";
+
+describe("claude-sdk-python shared-state-write alias (committed base+delta)", () => {
+  const HELPERS = _dirname(_fileURLToPath(import.meta.url));
+  const base = JSON.parse(
+    readFileSync(_join(HELPERS, "spec-cell-mapping.base.json"), "utf-8"),
+  ) as Record<string, D5FeatureType[]>;
+  const delta = JSON.parse(
+    readFileSync(_join(HELPERS, "spec-cell-delta.json"), "utf-8"),
+  );
+
+  it("maps shared-state-write.spec.ts to cell shared-state-write with NO unmapped WARN", () => {
+    const warned: string[] = [];
+    const resolved = loadSpecCellMapping("claude-sdk-python", {
+      base,
+      delta,
+      listPresentSpecs: () => ["tests/e2e/shared-state-write.spec.ts"],
+      mergedSkipList: () => new Set<string>(),
+      onUnmapped: (_s, rel) => warned.push(rel),
+    });
+
+    expect(resolved["tests/e2e/shared-state-write.spec.ts"]).toEqual([
+      "shared-state-write",
+    ]);
+    expect(warned).toHaveLength(0);
+  });
+});
