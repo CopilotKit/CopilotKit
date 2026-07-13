@@ -72,6 +72,10 @@ import { resolve } from "node:path";
 import yaml from "js-yaml";
 import type { SpecCellMapping, SlugDelta } from "./spec-cell-mapping.js";
 import {
+  __overrideSpecCellMappingForTesting,
+  __overrideSpecCellDeltaForTesting,
+} from "./spec-cell-mapping.js";
+import {
   __overrideSpecDrivenSlugsForTesting,
   __getSpecDrivenSlugsForTesting,
 } from "./spec-driven-slugs.js";
@@ -488,7 +492,10 @@ const LGP_EXPECTED_CELLS: D5FeatureType[] = demosToFeatureTypes(
 
 describe("spec-cell-mapping CI guard", () => {
   afterEach(() => {
-    // Restore the real (empty) flag file and skip-list override after each test.
+    // Restore the real (empty) flag file and all module-level overrides after
+    // each test so parallel multi-file runs cannot leak state across files.
+    __overrideSpecCellMappingForTesting(undefined);
+    __overrideSpecCellDeltaForTesting(undefined);
     __overrideSpecDrivenSlugsForTesting(undefined);
     __overrideSkipListForTesting(undefined);
   });

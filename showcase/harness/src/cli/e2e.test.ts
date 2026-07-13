@@ -32,7 +32,11 @@ import {
   __overrideSkipListForTesting,
   loadSkipList,
 } from "../probes/helpers/skip-list.js";
-import { loadDefaultSpecCellMapping } from "../probes/helpers/spec-cell-mapping.js";
+import {
+  loadDefaultSpecCellMapping,
+  __overrideSpecCellMappingForTesting,
+  __overrideSpecCellDeltaForTesting,
+} from "../probes/helpers/spec-cell-mapping.js";
 import type { D5FeatureType } from "../probes/helpers/d5-registry.js";
 
 // ---------------------------------------------------------------------------
@@ -211,12 +215,19 @@ const LGP_EXPECTED_COUNTS_PROMISE = loadDefaultSpecCellMapping().then(
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
-  // Restore overrides before each test.
+  // Restore all module-level overrides before each test so that parallel
+  // multi-file runs cannot leak state from a prior test file into this one.
+  __overrideSpecCellMappingForTesting(undefined);
+  __overrideSpecCellDeltaForTesting(undefined);
   __overrideSpecDrivenSlugsForTesting(undefined);
   __overrideSkipListForTesting(undefined);
 });
 
 afterEach(() => {
+  // Same reset on the way out — ensures any override set mid-test cannot
+  // bleed into the next test or into another file under parallelism.
+  __overrideSpecCellMappingForTesting(undefined);
+  __overrideSpecCellDeltaForTesting(undefined);
   __overrideSpecDrivenSlugsForTesting(undefined);
   __overrideSkipListForTesting(undefined);
   vi.restoreAllMocks();

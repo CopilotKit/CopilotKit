@@ -6,9 +6,24 @@
  * GREEN phase: after spec-cell-mapping.ts is created, all assertions pass.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import { parseSpecCellMapping } from "./spec-cell-mapping.js";
 import type { SpecCellMapping } from "./spec-cell-mapping.js";
+import {
+  __overrideSpecCellMappingForTesting,
+  __overrideSpecCellDeltaForTesting,
+} from "./spec-cell-mapping.js";
+import { __overrideSkipListForTesting } from "./skip-list.js";
+import { __overrideSpecDrivenSlugsForTesting } from "./spec-driven-slugs.js";
+
+// Reset every module-level test-override singleton after each test so that
+// parallel multi-file runs cannot leak state across files.
+afterEach(() => {
+  __overrideSpecCellMappingForTesting(undefined);
+  __overrideSpecCellDeltaForTesting(undefined);
+  __overrideSkipListForTesting(undefined);
+  __overrideSpecDrivenSlugsForTesting(undefined);
+});
 
 describe("spec-cell-mapping loader", () => {
   it("returns a typed SpecCellMapping for a well-formed N:M JSON object", () => {

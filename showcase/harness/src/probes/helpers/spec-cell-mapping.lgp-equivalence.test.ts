@@ -17,15 +17,29 @@
  * real merged skip-list (with gen-ui-interrupt) closes it to 37 (GREEN).
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import { readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { loadSpecCellMapping } from "./spec-cell-mapping.js";
-import { loadSkipList } from "./skip-list.js";
+import {
+  __overrideSpecCellMappingForTesting,
+  __overrideSpecCellDeltaForTesting,
+} from "./spec-cell-mapping.js";
+import { loadSkipList, __overrideSkipListForTesting } from "./skip-list.js";
+import { __overrideSpecDrivenSlugsForTesting } from "./spec-driven-slugs.js";
 import type { D5FeatureType } from "./d5-registry.js";
 import baseJson from "./spec-cell-mapping.base.json" with { type: "json" };
 import golden from "./spec-cell-mapping.json" with { type: "json" };
+
+// Reset every module-level test-override singleton after each test so that
+// parallel multi-file runs cannot leak state across files.
+afterEach(() => {
+  __overrideSpecCellMappingForTesting(undefined);
+  __overrideSpecCellDeltaForTesting(undefined);
+  __overrideSkipListForTesting(undefined);
+  __overrideSpecDrivenSlugsForTesting(undefined);
+});
 
 const HELPERS_DIR = dirname(fileURLToPath(import.meta.url));
 const LGP_E2E_DIR = join(
