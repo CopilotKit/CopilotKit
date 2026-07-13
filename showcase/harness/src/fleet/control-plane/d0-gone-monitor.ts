@@ -304,8 +304,10 @@ function anyWorkerOnline(workers: readonly WorkerView[]): boolean {
  * §2.5 producer state — three-way, so the monitor can distinguish a genuinely
  * PAUSED producer (the LGT mitigation state) from a freshly-deployed one that
  * simply has NO run history YET (C5):
- *   - `"live"`    — a batch is inflight, OR the freshest activity is within the
- *                   idle window AND ≥1 worker is online. The tick SCANS.
+ *   - `"live"`    — ≥1 worker is online AND either a batch is inflight OR the
+ *                   freshest activity is within the idle window. A worker must
+ *                   be online in every live case, so a stale/orphaned inflight
+ *                   from a dead worker cannot force a blind live scan. SCANS.
  *   - `"no-data"` — NO parseable activity across any family (no inflight, no
  *                   lastRun, no lastSuccessAt). This is a fresh deploy / not-yet
  *                   state: there is simply nothing to conclude — we have no run
@@ -327,7 +329,13 @@ export function classifyProducer(
   idleWindowMs: number,
   nowMs: number,
 ): ProducerState {
-  if (body.families.some((f) => f.inflight != null)) return "live";
+  // A stale/orphaned inflight from a dead worker must NOT force a blind live
+  // scan — require ≥1 worker online alongside the inflight short-circuit.
+  if (
+    body.families.some((f) => f.inflight != null) &&
+    anyWorkerOnline(body.workers)
+  )
+    return "live";
   let freshest = Number.NaN;
   for (const f of body.families) {
     const a = latestActivityMs(f);
@@ -702,7 +710,10 @@ export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
         const dur = Number.isNaN(sinceMs)
           ? ""
           : ` (${humanizeDuration(nowMs - sinceMs)})`;
-        return `• \`${r.slug}\` — was gone ${r.sinceAt}→${iso(nowMs)}${dur}`;
+        // C6: validate before interpolating — a corrupt-but-shaped persisted
+        // sinceAt renders "unknown", never the raw garbage, in the multi-slug
+        // recovery bullet too (matches the outage path :672 and single-slug :691).
+        return `• \`${r.slug}\` — was gone ${renderSince(r.sinceAt)}→${iso(nowMs)}${dur}`;
       })
       .join("\n");
     return (
@@ -722,7 +733,12 @@ export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
     try {
       body = await deps.summary.get();
     } catch (err) {
-      logger.warn("d0-monitor.summary-read-failed", {
+      // A read failure here silently BLINDS the detector (we HOLD/SUSPEND below
+      // with no producer signal) — same family as the other silent-disable
+      // guards, so surface it at ERROR with a stable, greppable errorId rather
+      // than a low-signal WARN.
+      logger.error("d0-monitor.summary-read-failed", {
+        errorId: "d0-monitor-summary-read",
         err: err instanceof Error ? err.message : String(err),
       });
     }

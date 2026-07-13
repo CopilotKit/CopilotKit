@@ -224,27 +224,37 @@ describe("isProducerLive (§2.5 acceptance)", () => {
     capacity: { inUse: 0, available: 1, max: 1 },
   });
 
-  it("LIVE when any family has inflight (even if all lastSuccess is old)", () => {
+  const inflightEntry = (): FamilySummaryEntry => ({
+    family: "d6",
+    label: "D6",
+    probeKeyPrefix: "d6",
+    lastSuccessAt: new Date(T0 - 10 * HOUR).toISOString(),
+    inflight: {
+      runId: "r",
+      triggered: false,
+      enqueuedAt: new Date(T0 - MIN).toISOString(),
+      elapsedMs: MIN,
+      stalled: false,
+      jobs: { pending: 1, claimed: 0, running: 0, done: 0, failed: 0 },
+    },
+  });
+
+  it("LIVE when a family has inflight AND a worker is online (even if all lastSuccess is old)", () => {
     const body: FamilySummaryResponse = {
-      families: [
-        {
-          family: "d6",
-          label: "D6",
-          probeKeyPrefix: "d6",
-          lastSuccessAt: new Date(T0 - 10 * HOUR).toISOString(),
-          inflight: {
-            runId: "r",
-            triggered: false,
-            enqueuedAt: new Date(T0 - MIN).toISOString(),
-            elapsedMs: MIN,
-            stalled: false,
-            jobs: { pending: 1, claimed: 0, running: 0, done: 0, failed: 0 },
-          },
-        },
-      ],
-      workers: [worker("offline")],
+      families: [inflightEntry()],
+      workers: [worker("online")],
     };
     expect(isProducerLive(body, idleWindow, T0)).toBe(true);
+  });
+
+  it("NOT LIVE when inflight but NO worker is online (stale/orphaned inflight from a dead worker)", () => {
+    const body: FamilySummaryResponse = {
+      families: [inflightEntry()],
+      workers: [worker("offline")],
+    };
+    // A dead worker can leave a stale inflight behind; that must not force a
+    // blind live gone-scan. The heartbeat gate applies to the inflight arm too.
+    expect(isProducerLive(body, idleWindow, T0)).toBe(false);
   });
 
   it("LIVE when freshest activity within window AND a worker is online", () => {
@@ -840,7 +850,8 @@ describe("D0-gone monitor — C1 cadence/overflow: wide outage re-posts hourly, 
     f.setClock(T0 + 60 * MIN); // alpha/beta now due AND zzz due, 3 due, cap 2
     f.setSummary(f.liveProducer(T0 + 60 * MIN));
     f.setStatusRows(allGone(["alpha", "beta", "zzz"], T0));
-    await m.tick(); // one hourly re-post; names 2, folds 1
+    await m.tick(); // one hourly re-post; rotation names the empty-clock slug
+    // (zzz, never posted → most stale) first plus one of alpha/beta, folds the other
     const postsAfterHour = f.posted.length;
 
     // A tick 15m later: the 2 just-named slugs are fresh; only the 1 folded slug
@@ -929,7 +940,7 @@ describe("D0-gone monitor — C6 corrupt-but-shaped sinceAt never renders as gar
     expect(f.posted[0]).toContain("gone since unknown");
   });
 
-  it("a corrupt sinceAt on RECOVERY renders without the garbage span", async () => {
+  it("a corrupt sinceAt on SINGLE-slug RECOVERY renders without the garbage span", async () => {
     const f = makeFakes();
     f.setSummary(f.liveProducer());
     const corrupt = JSON.stringify({
@@ -949,6 +960,45 @@ describe("D0-gone monitor — C6 corrupt-but-shaped sinceAt never renders as gar
     expect(recovery).toBeDefined();
     // GREEN: the garbage sinceAt does not leak into the recovery text.
     expect(recovery).not.toContain("garbage-timestamp");
+  });
+
+  it("corrupt sinceAt across MULTIPLE recovering slugs renders 'unknown', never the raw garbage", async () => {
+    const f = makeFakes();
+    f.setSummary(f.liveProducer());
+    // TWO already-open slugs, each with a VALID-JSON but corrupt (unparseable)
+    // sinceAt and a set lastAlertAt so both are treated as open. Both read
+    // fresh-healthy now → confirmed recovery across ≥2 slugs → the MULTI-slug
+    // recovery branch composes the bulleted message. The OLD code interpolated
+    // `r.sinceAt` RAW in that branch, so the garbage leaked into the post.
+    const corrupt = JSON.stringify({
+      alpha: {
+        sinceAt: "garbage-alpha-ts",
+        lastAlertAt: new Date(T0).toISOString(),
+      },
+      beta: {
+        sinceAt: "garbage-beta-ts",
+        lastAlertAt: new Date(T0).toISOString(),
+      },
+    });
+    await f.deps.alertState.putSet("prod-d0-gone-monitor", corrupt, "");
+    f.setClock(T0 + 20 * MIN);
+    f.setSummary(f.liveProducer(T0 + 20 * MIN));
+    f.setStatusRows([
+      ...healthyRows("alpha", T0 + 20 * MIN),
+      ...healthyRows("beta", T0 + 20 * MIN),
+    ]);
+    const m = createD0GoneMonitor(f.deps);
+    await m.tick();
+    const recovery = f.posted.find((p) => p.includes("recovered"));
+    expect(recovery).toBeDefined();
+    // Confirm this is actually the MULTI-slug branch (both slugs bulleted).
+    expect(recovery).toContain("`alpha`");
+    expect(recovery).toContain("`beta`");
+    // RED on raw interpolation / GREEN after the renderSince() wrap: neither
+    // garbage string leaks; both bullets render "was gone unknown→…".
+    expect(recovery).not.toContain("garbage-alpha-ts");
+    expect(recovery).not.toContain("garbage-beta-ts");
+    expect(recovery).toContain("was gone unknown→");
   });
 });
 
