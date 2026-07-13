@@ -5,12 +5,12 @@ icon: "lucide/Slack"
 hideTOC: true
 ---
 
-Slack can be the frontend for agents built on any harness or framework, so your team can get work done in the conversations, approvals, and handoffs they already use. The open source Bot SDK gives you the adapter path for TypeScript handlers and JSX-authored Block Kit messages. CopilotKit Enterprise Intelligence adds the self-hosted or cloud-hosted production layer for thread mapping, durable agent state, approvals, observability, and release operations when Slack becomes a critical workflow.
+Slack can be the frontend for agents built on any harness or framework, so your team can get work done in the conversations, approvals, and handoffs they already use. The open source Channels SDK gives you the adapter path for TypeScript handlers and JSX-authored Block Kit messages. CopilotKit Enterprise Intelligence adds the self-hosted or cloud-hosted production layer for thread mapping, durable agent state, approvals, observability, and release operations when Slack becomes a critical workflow.
 
 <OpsPlatformCTA
   variant="inline"
   title="Get early access to Slack and Teams agents in CopilotKit Enterprise Intelligence"
-  body="Use the open source Bot SDK to run the adapter, runtime, platform credentials, tools, and storage inside your stack. CopilotKit Enterprise Intelligence adds the self-hosted or cloud-hosted production layer around that SDK: durable agent threads, platform conversation mapping, approvals, observability, and release operations for Slack and Teams."
+  body="Use the open source Channels SDK to run the adapter, runtime, platform credentials, tools, and storage inside your stack. CopilotKit Enterprise Intelligence adds the self-hosted or cloud-hosted production layer around that SDK: durable agent threads, platform conversation mapping, approvals, observability, and release operations for Slack and Teams."
   ctaLabel="Get early access"
   surface="docs_slack_agents_early_access"
   href="https://www.copilotkit.ai/opentag-managed"
@@ -59,7 +59,7 @@ Slack can be the frontend for agents built on any harness or framework, so your 
         npm init -y && npm pkg set type=module
         ```
 
-        Install the bot packages, plus `@copilotkit/runtime` for Copilot Runtime and `tsx` to run TypeScript directly:
+        Install the Channels packages, plus `@copilotkit/runtime` for Copilot Runtime and `tsx` to run TypeScript directly:
 
         <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn']}>
             <Tab value="npm">
@@ -102,7 +102,7 @@ Slack can be the frontend for agents built on any harness or framework, so your 
         ```
 
         <Callout type="info" title="ESM only">
-          The bot packages are ESM-only — `"type": "module"` (set above) is required.
+          The Channels packages are ESM-only — `"type": "module"` (set above) is required.
         </Callout>
     </Step>
     <Step>
@@ -321,5 +321,5 @@ Discord requires the modal to be opened **before any other response** to a butto
 
 ## Next steps
 
-- **API reference:** the [Channels reference](/reference/channels) — [createBot](/reference/channels/functions/createBot), the [Thread API](/reference/channels/classes/Thread), [tools](/reference/channels/functions/defineBotTool) & [commands](/reference/channels/functions/defineBotCommand), the [component vocabulary](/reference/channels/components/Message), and the [Slack adapter](/reference/channels/slack)
+- **API reference:** the [Channels SDK reference](/reference/channels) — [createBot](/reference/channels/functions/createBot), the [Thread API](/reference/channels/classes/Thread), [tools](/reference/channels/functions/defineBotTool) & [commands](/reference/channels/functions/defineBotCommand), the [component vocabulary](/reference/channels/components/Message), and the [Slack adapter](/reference/channels/slack)
 - **Full example:** [on-call triage bot over Linear + Notion MCP](https://github.com/CopilotKit/CopilotKit/tree/main/examples/slack) — tools, human-in-the-loop, slash commands, file uploads
