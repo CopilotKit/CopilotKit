@@ -119,15 +119,32 @@ export function run(opts: RunOptions): void {
   // `results=[]` would be indistinguishable from "all builds failed" and
   // would push deploy down the false-green path where it probes the full
   // service set against stale `:latest`. Fail loud instead.
-  if (slotDirs.length === 0) {
-    throw new Error(
-      `aggregate-build-results: found 0 build-result-* slot dirs in ${inputDir} — ` +
-        `the per-slot artifact download produced nothing; this indicates a broken ` +
-        `download, not an empty build set (the job only runs when >=1 service was scheduled).`,
-    );
-  }
+  //
+  // Exception: actions/download-artifact@v5+ changed the extraction behavior
+  // for single-match patterns. When `pattern: build-result-*` matches exactly
+  // ONE artifact, the artifact's files are placed directly in `$path` instead
+  // of `$path/<artifact-name>/`. This means on runs where only one service
+  // changed we find no `build-result-*` subdirectory but DO find a
+  // `result.json` at the root of $INPUT_DIR. Handle that case before failing.
+  let payloads: string[];
 
-  const payloads = slotDirs.map((name) => readSlotPayload(inputDir, name));
+  if (slotDirs.length > 0) {
+    payloads = slotDirs.map((name) => readSlotPayload(inputDir, name));
+  } else {
+    // Single-artifact fallback: try result.json at root of $INPUT_DIR.
+    const singlePath = join(inputDir, "result.json");
+    let singlePayload: string;
+    try {
+      singlePayload = readFileSync(singlePath, "utf-8");
+    } catch {
+      throw new Error(
+        `aggregate-build-results: found 0 build-result-* slot dirs in ${inputDir} — ` +
+          `the per-slot artifact download produced nothing; this indicates a broken ` +
+          `download, not an empty build set (the job only runs when >=1 service was scheduled).`,
+      );
+    }
+    payloads = [singlePayload];
+  }
 
   const merged = mergeBuildResultFiles(payloads);
   const resultsJson = JSON.stringify(merged);
