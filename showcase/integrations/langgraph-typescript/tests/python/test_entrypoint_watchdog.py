@@ -246,6 +246,116 @@ class TestBootPurge:
 
 
 @pytest.mark.skipif(not _ENTRYPOINT.exists(), reason="entrypoint.sh not found")
+class TestFilePersistenceDisabled:
+    """FileSystemPersistence disk flush must be disabled — the durable root-cause
+    fix for the 2026-07-13 outage.
+
+    The langgraph-python integration (PR #5825) exports
+    LANGGRAPH_DISABLE_FILE_PERSISTENCE=true so its inmem runtime never flushes
+    unbounded state to disk. The TypeScript stack (@langchain/langgraph-api) has
+    no built-in switch, so this integration sets the same env var AND ships a
+    preload module (src/agent/disable-file-persistence.mjs, wired into `npm
+    start` via `node --import`) that reads it and no-ops the .langgraph_api fs
+    writes. If either half is dropped, .langgraph_api grows unbounded under
+    probe fan-out and the size-watchdog kill-loops the container again.
+    """
+
+    def test_export_runs_before_agent_start(self, tmp_path):
+        """Behavioral: the LANGGRAPH_DISABLE_FILE_PERSISTENCE export must actually
+        EXECUTE at boot, before the agent is launched.
+
+        Runs the boot sequence under `bash -x` and inspects the execution trace.
+        The export line runs before the hardcoded `cd /app/src/agent && npm start`
+        (which fails outside a container), so a source-only check is insufficient
+        — this proves the statement is on the live boot path, not dead code after
+        an early return/guard. We assert the export trace line appears AND that it
+        precedes the agent `cd /app/src/agent` trace line.
+        """
+        stub_dir = tmp_path / "stubs_trace"
+        stub_dir.mkdir(parents=True)
+        for tool in ("node", "npm", "npx", "next"):
+            t = stub_dir / tool
+            t.write_text("#!/bin/bash\nexit 0\n")
+            t.chmod(0o755)
+        curl = stub_dir / "curl"
+        curl.write_text("#!/bin/bash\nexit 0\n")
+        curl.chmod(0o755)
+
+        persist_dir = tmp_path / "langgraph_api"
+        clean_env = {
+            "PATH": f"{stub_dir}:{os.environ.get('PATH', '/usr/bin:/bin')}",
+            "HOME": os.environ.get("HOME", "/tmp"),
+            "PORT": "10000",
+            "LANGGRAPH_PERSIST_DIR_OVERRIDE": str(persist_dir),
+        }
+        try:
+            result = subprocess.run(
+                ["/bin/bash", "-x", str(_ENTRYPOINT)],
+                env=clean_env,
+                capture_output=True,
+                text=True,
+                timeout=8,
+            )
+            trace = result.stderr
+        except subprocess.TimeoutExpired as exc:
+            raw = exc.stderr
+            trace = raw.decode() if isinstance(raw, (bytes, bytearray)) else (raw or "")
+
+        assert "LANGGRAPH_DISABLE_FILE_PERSISTENCE=true" in trace, (
+            "Export of LANGGRAPH_DISABLE_FILE_PERSISTENCE=true must execute at "
+            f"boot (not be dead code). trace tail={trace[-1500:]!r}"
+        )
+        export_pos = trace.index("LANGGRAPH_DISABLE_FILE_PERSISTENCE=true")
+        # The agent launch (cd into the agent dir) must come AFTER the export.
+        cd_pos = trace.find("cd /app/src/agent")
+        assert cd_pos != -1, (
+            f"Expected agent-start trace line. trace tail={trace[-1500:]!r}"
+        )
+        assert export_pos < cd_pos, (
+            "The persistence-disable export must execute BEFORE the agent starts."
+        )
+
+    def test_env_var_exported_in_source(self):
+        """entrypoint.sh must export LANGGRAPH_DISABLE_FILE_PERSISTENCE=true —
+        parity with langgraph-python's PR #5825 fix."""
+        source = _ENTRYPOINT.read_text()
+        assert "export LANGGRAPH_DISABLE_FILE_PERSISTENCE=true" in source, (
+            "entrypoint.sh must export LANGGRAPH_DISABLE_FILE_PERSISTENCE=true "
+            "to disable FileSystemPersistence disk flush (root-cause fix)."
+        )
+
+    def test_preload_module_exists_and_gated(self):
+        """The preload module must exist and be gated on the env var (not
+        unconditionally patch fs, which would break non-persistence writes)."""
+        preload = _PKG_ROOT / "src" / "agent" / "disable-file-persistence.mjs"
+        assert preload.exists(), f"Preload module missing at {preload}"
+        text = preload.read_text()
+        assert "LANGGRAPH_DISABLE_FILE_PERSISTENCE" in text, (
+            "Preload must read LANGGRAPH_DISABLE_FILE_PERSISTENCE"
+        )
+        assert ".langgraph_api" in text, (
+            "Preload must scope its fs no-op to the .langgraph_api path"
+        )
+
+    def test_start_script_preloads_disable_module(self):
+        """src/agent/package.json `start` must preload the disable module via
+        `node --import` BEFORE tsx/liveness, or the patch is never installed."""
+        import json
+
+        pkg_path = _PKG_ROOT / "src" / "agent" / "package.json"
+        pkg = json.loads(pkg_path.read_text())
+        start = pkg.get("scripts", {}).get("start", "")
+        assert "disable-file-persistence.mjs" in start, (
+            f"start script must --import disable-file-persistence.mjs. start={start!r}"
+        )
+        # The disable module must load BEFORE liveness.mjs (which triggers the
+        # heavy server import that touches the filesystem).
+        assert start.index("disable-file-persistence.mjs") < start.index(
+            "liveness.mjs"
+        ), "disable-file-persistence.mjs must be preloaded BEFORE liveness.mjs"
+
+
+@pytest.mark.skipif(not _ENTRYPOINT.exists(), reason="entrypoint.sh not found")
 class TestNoFixedIntervalTruncate:
     """The fixed-interval POST /internal/truncate loop must NOT exist.
 
