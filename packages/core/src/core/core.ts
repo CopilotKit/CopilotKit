@@ -41,6 +41,15 @@ export interface CopilotKitCoreConfig {
   runtimeUrl?: string;
   /** Transport style for CopilotRuntime endpoints. Defaults to REST. */
   runtimeTransport?: CopilotRuntimeTransport;
+  /**
+   * When true, the constructor sets the runtime config but does NOT start the
+   * `/info` connection. Call {@link CopilotKitCore.connect} to start it —
+   * typically from a host's commit-phase effect. This prevents a burst of
+   * duplicate `/info` requests when a host constructs (and discards) the core
+   * during render, e.g. React concurrent rendering / Suspense / StrictMode.
+   * See https://github.com/CopilotKit/CopilotKit/issues/5801.
+   */
+  deferInitialConnection?: boolean;
   /** Mapping from agent name to its `AbstractAgent` instance. For development only - production requires CopilotRuntime. */
   agents__unsafe_dev_only?: Record<string, AbstractAgent>;
   /**
@@ -397,6 +406,7 @@ export class CopilotKitCore {
   constructor({
     runtimeUrl,
     runtimeTransport = "auto",
+    deferInitialConnection = false,
     headers = {},
     credentials,
     properties = {},
@@ -425,7 +435,9 @@ export class CopilotKitCore {
     this.stateManager.initialize();
 
     this.agentRegistry.setRuntimeTransport(runtimeTransport);
-    this.agentRegistry.setRuntimeUrl(runtimeUrl);
+    this.agentRegistry.setRuntimeUrl(runtimeUrl, {
+      deferConnection: deferInitialConnection,
+    });
 
     // Seed the previous-agents snapshot from the constructor-supplied agents.
     // `agentRegistry.initialize` does not emit `onAgentsChanged`, so the
@@ -589,6 +601,19 @@ export class CopilotKitCore {
 
   setRuntimeUrl(runtimeUrl: string | undefined): void {
     this.agentRegistry.setRuntimeUrl(runtimeUrl);
+  }
+
+  /**
+   * Start the runtime `/info` connection if it has not been started yet.
+   *
+   * Intended to be driven from a host's commit-phase effect when the core was
+   * constructed with {@link CopilotKitCoreConfig.deferInitialConnection}. Safe
+   * to call repeatedly — it is a no-op once a connection is in progress or
+   * settled, so a double-invoked mount effect (React StrictMode) collapses to a
+   * single request. See #5801.
+   */
+  connect(): void {
+    this.agentRegistry.connectRuntime();
   }
 
   get runtimeTransport(): CopilotRuntimeTransport {
