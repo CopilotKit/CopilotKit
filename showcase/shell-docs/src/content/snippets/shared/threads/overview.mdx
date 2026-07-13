@@ -46,20 +46,38 @@ Threads turn a streamed agent run into a product experience users can leave and 
 
 Both UI paths use the same Threads infrastructure. A stable `threadId` connects the visible conversation to the runtime and its durable event history.
 
-<Image
-  src="/images/threads/threads-architecture-light.svg"
-  alt="A user starts, leaves, and resumes a thread. Threads Drawer or a custom useThreads interface connects through CopilotChat and CopilotRuntime to an agent, while Enterprise Intelligence stores history and returns replayed and live events."
-  width={1200}
-  height={760}
-  className="block dark:hidden my-6 w-full mx-auto"
-/>
-<Image
-  src="/images/threads/threads-architecture-dark.svg"
-  alt="A user starts, leaves, and resumes a thread. Threads Drawer or a custom useThreads interface connects through CopilotChat and CopilotRuntime to an agent, while Enterprise Intelligence stores history and returns replayed and live events."
-  width={1200}
-  height={760}
-  className="hidden dark:block my-6 w-full mx-auto"
-/>
+<div className="sm:hidden">
+  <Image
+    src="/images/threads/threads-architecture-mobile-light.svg"
+    alt="A vertical view of a user resuming a thread, the app components that run it, and Enterprise Intelligence storing and replaying its history."
+    width={720}
+    height={1190}
+    className="block dark:hidden my-6 w-full mx-auto"
+  />
+  <Image
+    src="/images/threads/threads-architecture-mobile-dark.svg"
+    alt="A vertical view of a user resuming a thread, the app components that run it, and Enterprise Intelligence storing and replaying its history."
+    width={720}
+    height={1190}
+    className="hidden dark:block my-6 w-full mx-auto"
+  />
+</div>
+<div className="hidden sm:block">
+  <Image
+    src="/images/threads/threads-architecture-light.svg"
+    alt="A user starts, leaves, and resumes a thread. Threads Drawer or a custom useThreads interface connects through CopilotChat and CopilotRuntime to an agent, while Enterprise Intelligence stores history and returns replayed and live events."
+    width={1200}
+    height={760}
+    className="block dark:hidden my-6 w-full mx-auto"
+  />
+  <Image
+    src="/images/threads/threads-architecture-dark.svg"
+    alt="A user starts, leaves, and resumes a thread. Threads Drawer or a custom useThreads interface connects through CopilotChat and CopilotRuntime to an agent, while Enterprise Intelligence stores history and returns replayed and live events."
+    width={1200}
+    height={760}
+    className="hidden dark:block my-6 w-full mx-auto"
+  />
+</div>
 
 1. Your UI opens a conversation with a stable `threadId`.
 2. `CopilotRuntime` runs your agent and sends conversation events to Enterprise Intelligence.
@@ -71,10 +89,35 @@ Both UI paths use the same Threads infrastructure. A stable `threadId` connects 
 
 ## Choose how to build the UI
 
-| If you want to... | Choose | Start here |
-|---|---|---|
-| Ship a mobile-friendly conversation sidebar with switching, new conversations, archive, delete, and pagination already wired to your chat | **Threads Drawer** | [Set up the Threads Drawer →](/prebuilt-components/copilot-threads-drawer) |
-| Build a custom layout, workflow, permission model, or thread action UI while CopilotKit continues to handle the backend | **Headless Threads** | [Build a custom thread UI →](/headless-threads) |
+<div className="hidden md:block">
+
+  | If you want to... | Choose | Start here |
+  |---|---|---|
+  | Ship a mobile-friendly conversation sidebar with switching, new conversations, archive, delete, and pagination already wired to your chat | **Threads Drawer** | [Set up the Threads Drawer →](/prebuilt-components/copilot-threads-drawer) |
+  | Build a custom layout, workflow, permission model, or thread action UI while CopilotKit continues to handle the backend | **Headless Threads** | [Build a custom thread UI →](/headless-threads) |
+
+</div>
+
+<div className="not-prose md:hidden divide-y divide-fd-border overflow-hidden rounded-lg border border-fd-border">
+  <div className="p-5">
+
+  <p className="mb-2 text-lg font-semibold text-fd-foreground">Threads Drawer</p>
+
+  Ship a mobile-friendly conversation sidebar with switching, new conversations, archive, delete, and pagination already wired to your chat.
+
+  [Set up the Threads Drawer →](/prebuilt-components/copilot-threads-drawer)
+
+  </div>
+  <div className="p-5">
+
+  <p className="mb-2 text-lg font-semibold text-fd-foreground">Headless Threads</p>
+
+  Build a custom layout, workflow, permission model, or thread action UI while CopilotKit continues to handle the backend.
+
+  [Build a custom thread UI →](/headless-threads)
+
+  </div>
+</div>
 
 ## Bring existing conversations
 
