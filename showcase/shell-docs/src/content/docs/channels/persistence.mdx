@@ -2,20 +2,16 @@
 title: Persistence
 description: Make bot state, interactive actions, and per-thread data survive restarts and scale across multiple instances with a durable store backend.
 icon: "lucide/Database"
+doc_type: how-to
 ---
 
 **Where you're starting from:** a dev bot where every restart wipes button handlers, resets thread state, and drops duplicate-detection memory. A user clicks a button five minutes after a deploy and nothing happens.
 
 **Where you're headed:** the same bot, wired to a durable store, where actions survive restarts, concurrent turns are serialised with a turn lock, and each thread carries typed state that persists across runs.
 
-<OpsPlatformCTA
-  variant="inline"
-  title="Join the waitlist for managed Slack and Teams agents"
-  body="This page shows how to bring your own Redis or PostgreSQL store. Join the waitlist if you want CopilotKit Intelligence to manage durable state, runtime handoff, approvals, analytics, and release operations for Slack and Teams."
-  ctaLabel="Join the waitlist"
-  surface="docs_bots_persistence_managed_agents_waitlist"
-  href="https://www.copilotkit.ai/opentag-managed"
-/>
+<Callout type="info" title="Using Managed Channels?">
+  These pages cover persistence that you own for OSS Channels. With [Managed Channels](/channels/managed), Intelligence provides the durable channel delivery path while your infrastructure continues to run the agent.
+</Callout>
 
 <Steps>
   <Step>

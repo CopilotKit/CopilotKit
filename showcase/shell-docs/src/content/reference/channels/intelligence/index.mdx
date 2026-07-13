@@ -1,0 +1,53 @@
+---
+title: "startChannelsOverRealtimeGateway"
+description: "Connect named @copilotkit/channels bots to Managed Channels over the Intelligence Realtime Gateway while your infrastructure runs the agent."
+doc_type: reference
+---
+
+`startChannelsOverRealtimeGateway` starts one named Channels SDK bot over an outbound Intelligence Realtime Gateway connection. Start with the [Managed Channels ownership model](/channels/managed).
+
+## Signature
+
+```ts title="channel.ts"
+function startChannelsOverRealtimeGateway(
+  bots: Bot[],
+  config: StartChannelsOverRealtimeGatewayOptions,
+): Promise<ChannelsHandle>;
+```
+
+The early-access transport accepts exactly one bot per gateway session. Create that bot with a lowercase kebab-case `name` and pass the same value as `scope.channelName`.
+
+## Configuration
+
+| Field | Required | Description |
+|---|---|---|
+| `wsUrl` | Yes | Realtime Gateway runner WebSocket URL. The connection is outbound from your application process. |
+| `apiKey` | Yes | Intelligence project runtime API key used to authenticate the socket. |
+| `scope.organizationId` | Yes | Intelligence organization ID. It must start with `org_`. |
+| `scope.projectId` | Yes | Positive integer Intelligence project ID. |
+| `scope.channelId` | Yes | Intelligence Channel ID. It must start with `channel_`. |
+| `scope.channelName` | Yes | Lowercase kebab-case Channel name, 3–64 characters. It must match the name passed to `createBot`. |
+| `runtimeInstanceId` | Yes | Stable identifier for this running process, conventionally prefixed with `rti_`. |
+| `adapter` | No | Provider kind declared when joining the gateway. Defaults to `"slack"`. |
+| `timeoutMs` | No | Join and push timeout in milliseconds. Defaults to `10_000`. |
+| `log` | No | Diagnostic callback for transport events and dropped deliveries. Treat metadata as sensitive and do not log raw message content. |
+
+## Return value
+
+The promise resolves to a `ChannelsHandle` after the gateway connection is authenticated, joined, and the bot has started:
+
+- `metadata` contains the runtime environment, runtime instance ID, and declared Channel names and commands sent during activation.
+- `stop()` stops the bot and disconnects the gateway session. The connection is disconnected even if bot shutdown throws.
+
+## Failure behavior
+
+- Invalid or duplicate bot names, an invalid scope, more than one bot, or a mismatch between the bot name and `scope.channelName` reject before a socket is opened.
+- Authentication and join failures reject startup and disconnect the socket.
+- A connection timeout rejects startup and disconnects the socket. Set `timeoutMs` only when the default 10-second window is inappropriate for your network.
+- While the handle remains active, the underlying gateway client reconnects and rejoins after transient connection loss.
+- If bot startup fails after the gateway has joined, startup cleanup disconnects the session before rethrowing the error.
+
+## Next steps
+
+- Follow the [Managed Slack early-access guide](/channels/managed/slack) to create a Channel, connect your runtime, and verify the first reply.
+- Review the [Managed Channels ownership model](/channels/managed) before connecting a production runtime.

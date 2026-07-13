@@ -1,0 +1,50 @@
+---
+title: Managed Channels
+description: Understand how Managed Channels connects CopilotKit agents to Slack through Intelligence-managed credentials, durable delivery, realtime transport, retries, and provider egress.
+icon: "lucide/Radio"
+doc_type: explanation
+premium: true
+---
+
+Managed Channels lets you connect your existing CopilotKit agent behavior to Slack without operating the Slack-facing integration layer. Intelligence stores the Slack credentials, receives channel events, delivers work durably to your runtime, and sends rendered replies back to Slack, while your infrastructure runs the agent, tools, and application code.
+
+<Callout type="info" title="Early access">
+  Managed Slack is in controlled early access. Microsoft Teams is not part of this launch scope.
+</Callout>
+
+## What Intelligence manages
+
+- Slack app setup and encrypted provider credentials
+- The provider connection and inbound event normalization
+- Durable delivery, retries, and reconnect/replay through the Realtime Gateway
+- Provider egress and the operational event timeline
+
+## What you manage
+
+- Your agent and model-provider credentials
+- Your tools, context, prompts, and business logic
+- The application process that connects outbound to the Realtime Gateway
+- Access controls and end-user behavior inside your application
+
+## How a turn moves
+
+1. Slack sends an event to Intelligence.
+2. Intelligence stores the event and makes a durable delivery available.
+3. Your runtime receives the turn over an outbound realtime connection and runs your agent.
+4. Rendered output returns through Intelligence and is delivered to Slack.
+
+Intelligence does not host or execute your agent.
+
+## Choose Managed Channels when
+
+- you want Slack setup and credentials out of your application deployment;
+- you need durable retries and an operational timeline for channel work;
+- you want the same agent behavior to work with a managed provider edge.
+
+Choose the [OSS Slack quickstart](/slack) when your application should own the Slack adapter and credentials directly.
+
+## Next steps
+
+- **Connect Managed Slack:** [Managed Slack early access](/channels/managed/slack) — create a Channel, connect your runtime, and verify the first reply
+- **Run Slack yourself:** [Slack quickstart](/slack) — own the Slack adapter and credentials in your application
+- **Understand the platform:** [Enterprise Intelligence Platform](/premium/overview) — projects, hosting options, and operational capabilities

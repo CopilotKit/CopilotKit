@@ -215,6 +215,84 @@ describe("reference nav", () => {
   });
 });
 
+describe("Managed Channels docs", () => {
+  it("publishes Channels navigation and the managed overview", () => {
+    const channelsMeta = JSON.parse(
+      fs.readFileSync(path.join(CONTENT_DIR, "channels/meta.json"), "utf8"),
+    ) as { title: string; pages: string[] };
+
+    expect(channelsMeta.title).toBe("Channels");
+    expect(channelsMeta.pages).toEqual([
+      "index",
+      "managed",
+      "persistence",
+      "transcripts",
+    ]);
+
+    const landing = loadDoc("channels");
+    const managed = loadDoc("channels/managed");
+
+    expect(landing?.source).toContain("doc_type: explanation");
+    expect(landing?.source).toContain("/channels/managed");
+    expect(managed?.source).toContain("doc_type: explanation");
+    expect(managed?.source).toContain("your infrastructure runs the agent");
+  });
+
+  it("links existing Channels pages to Managed Slack without the old waitlist promise", () => {
+    const slugs = [
+      "channels",
+      "channels/persistence",
+      "channels/transcripts",
+      "frontends/slack",
+      "frontends/teams",
+    ];
+
+    for (const slug of slugs) {
+      const source = loadDoc(slug)?.source ?? "";
+      expect(source).not.toContain(
+        "Join the waitlist for managed Slack and Teams agents",
+      );
+      expect(source).not.toContain("open source Bot SDK");
+    }
+
+    expect(loadDoc("frontends/slack")?.source).toContain("/channels/managed");
+  });
+
+  it("discovers the channels-intelligence reference", () => {
+    const reference = path.join(
+      CONTENT_DIR,
+      "..",
+      "reference/channels/intelligence/index.mdx",
+    );
+    const source = fs.readFileSync(reference, "utf8");
+    const tree = buildReferencePageTree("channels");
+    const pageUrls: string[] = [];
+
+    const visit = (nodes: typeof tree.children): void => {
+      for (const node of nodes) {
+        if (node.type === "page") pageUrls.push(node.url);
+        if (node.type === "folder") visit(node.children);
+      }
+    };
+    visit(tree.children);
+
+    expect(source).toContain("doc_type: reference");
+    expect(source).toContain("startChannelsOverRealtimeGateway");
+    expect(pageUrls).toContain("/reference/channels/intelligence");
+  });
+
+  it("publishes the Managed Slack tutorial with the supported API", () => {
+    const tutorial = loadDoc("channels/managed/slack")?.source ?? "";
+
+    expect(tutorial).toContain("doc_type: tutorial");
+    expect(tutorial).toContain("startChannelsOverRealtimeGateway");
+    expect(tutorial).toContain("message.contentParts");
+    expect(tutorial).toContain("your infrastructure runs the agent");
+    expect(tutorial).not.toContain('@copilotkit/channel"');
+    expect(tutorial).not.toContain("createChannel(");
+  });
+});
+
 describe("migration docs", () => {
   it("recommends CopilotKit from the v2 entrypoint instead of CopilotKitProvider", () => {
     const snippet = fs.readFileSync(

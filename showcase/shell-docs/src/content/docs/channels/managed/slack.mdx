@@ -1,0 +1,172 @@
+---
+title: Managed Slack early access
+description: Connect an existing CopilotKit or AG-UI agent to Slack with Managed Channels, Intelligence-managed credentials, durable delivery, realtime transport, and provider egress.
+icon: "lucide/Slack"
+doc_type: tutorial
+premium: true
+---
+
+**Where you are starting:** you have an AG-UI agent endpoint and an Intelligence project.
+
+**Where you are headed:** a Slack mention is delivered durably to your runtime, your infrastructure runs the agent, and the reply appears in Slack and the Intelligence timeline.
+
+<Callout type="info" title="Early access">
+  This guide covers Managed Slack. It does not host your agent, and it does not describe Managed Teams.
+</Callout>
+
+<Steps>
+  <Step>
+    ### Select an Intelligence project
+
+    Open CopilotKit Intelligence, create or select the project that will own the Channel, and create a project runtime API key. Keep the key available for your runtime environment; it authenticates the outbound Realtime Gateway connection.
+  </Step>
+
+  <Step>
+    ### Create the Channel and connect Slack
+
+    In the project, create a Slack Channel and complete the four-step Socket Mode wizard:
+
+    1. Copy the generated Slack app manifest into a new Slack app.
+    2. Create an app-level token with `connections:write`, then paste the `xapp-` token into Intelligence.
+    3. Install the app to the workspace, then paste the `xoxb-` bot token into Intelligence.
+    4. Invite the app to the Slack channel shown by the wizard.
+
+    Intelligence stores the Slack credentials. Do not copy either Slack token into the runtime you create below.
+  </Step>
+
+  <Step>
+    ### Install the early-access packages
+
+    Create an ESM TypeScript project and install the published Channels packages:
+
+    ```bash
+    mkdir managed-slack-runtime && cd managed-slack-runtime
+    npm init -y
+    npm pkg set type=module
+    npm install @copilotkit/channels@0.1.1 \
+      @copilotkit/channels-slack@0.1.2 \
+      @copilotkit/channels-intelligence@0.1.1 dotenv
+    npm install -D typescript tsx @types/node
+    ```
+  </Step>
+
+  <Step>
+    ### Create the Channel runtime
+
+    Create `channel.ts`. This process connects outbound to Intelligence and runs the agent in your infrastructure:
+
+    ```ts title="channel.ts"
+    import "dotenv/config";
+    import { randomUUID } from "node:crypto";
+    import { createBot } from "@copilotkit/channels";
+    import { SanitizingHttpAgent } from "@copilotkit/channels-slack";
+    import { startChannelsOverRealtimeGateway } from "@copilotkit/channels-intelligence";
+
+    function required(name: string): string {
+      const value = process.env[name];
+      if (!value) throw new Error(`Missing required environment variable: ${name}`);
+      return value;
+    }
+
+    const projectId = Number(required("INTELLIGENCE_PROJECT_ID"));
+    if (!Number.isInteger(projectId) || projectId <= 0) {
+      throw new Error("INTELLIGENCE_PROJECT_ID must be a positive integer");
+    }
+
+    const channelName = required("INTELLIGENCE_CHANNEL_NAME");
+    const channel = createBot({
+      name: channelName,
+      agent: (threadId) => {
+        const agent = new SanitizingHttpAgent({ url: required("AGENT_URL") });
+        agent.threadId = threadId;
+        return agent;
+      },
+    });
+
+    channel.onMention(async ({ thread, message }) => {
+      await thread.runAgent({
+        prompt: message.contentParts?.length ? message.contentParts : message.text,
+      });
+    });
+
+    const handle = await startChannelsOverRealtimeGateway([channel], {
+      wsUrl: required("INTELLIGENCE_GATEWAY_WS_URL"),
+      apiKey: required("INTELLIGENCE_API_KEY"),
+      scope: {
+        organizationId: required("INTELLIGENCE_ORG_ID"),
+        projectId,
+        channelId: required("INTELLIGENCE_CHANNEL_ID"),
+        channelName,
+      },
+      runtimeInstanceId: `rti_${randomUUID().replaceAll("-", "")}`,
+      adapter: "slack",
+    });
+
+    async function shutdown(): Promise<void> {
+      await handle.stop();
+      process.exit(0);
+    }
+
+    process.once("SIGINT", () => {
+      shutdown().catch((error: unknown) => {
+        console.error("Failed to stop Managed Channel", error);
+        process.exit(1);
+      });
+    });
+    process.once("SIGTERM", () => {
+      shutdown().catch((error: unknown) => {
+        console.error("Failed to stop Managed Channel", error);
+        process.exit(1);
+      });
+    });
+    ```
+  </Step>
+
+  <Step>
+    ### Configure the runtime
+
+    Copy the corrected handoff values from Intelligence into `.env`:
+
+    ```dotenv title=".env"
+    AGENT_URL=https://your-agent.example.com/api/copilotkit/agent/assistant/run
+    INTELLIGENCE_GATEWAY_WS_URL=wss://your-intelligence-gateway.example.com/socket
+    INTELLIGENCE_API_KEY=cpk-...
+    INTELLIGENCE_ORG_ID=org_...
+    INTELLIGENCE_PROJECT_ID=123
+    INTELLIGENCE_CHANNEL_ID=channel_...
+    INTELLIGENCE_CHANNEL_NAME=support-assistant
+    ```
+
+    `INTELLIGENCE_CHANNEL_NAME` must exactly match the Channel name in Intelligence. Do not add `SLACK_BOT_TOKEN` or `SLACK_APP_TOKEN`; Intelligence owns those credentials.
+  </Step>
+
+  <Step>
+    ### Run and verify the first reply
+
+    Start the outbound runtime process:
+
+    ```bash
+    npx tsx channel.ts
+    ```
+
+    Mention the app in the Slack channel you invited it to. Verify that the agent reply appears in the Slack thread, then open the Channel timeline in Intelligence and confirm the delivered turn and reply are visible.
+  </Step>
+
+  <Step>
+    ### Troubleshoot the connection
+
+    | Symptom | Check |
+    |---|---|
+    | Intelligence rejects the Slack credentials | Confirm the `xapp-` app token and `xoxb-` bot token belong to the same Slack app and workspace. Re-enter them in Intelligence, not in the runtime `.env`. |
+    | Authentication or join fails | Create a current project runtime API key and confirm `INTELLIGENCE_API_KEY` belongs to `INTELLIGENCE_PROJECT_ID`. |
+    | Runtime reports a channel-name mismatch | Copy `INTELLIGENCE_CHANNEL_NAME` from the handoff exactly; it must match the name passed to `createBot`. |
+    | Slack shows no active runtime | Keep `npx tsx channel.ts` running and confirm the gateway URL, organization, project, and Channel IDs came from the same handoff. |
+    | The connection repeatedly reconnects | Check gateway reachability and proxy WebSocket support. Stop duplicate runtime processes that declare the same Channel, then restart one instance. |
+  </Step>
+</Steps>
+
+**You have reached point B:** Slack work is delivered durably through Intelligence, your infrastructure runs the agent, and replies appear in both Slack and the operational timeline.
+
+<Callout type="info" title="Run Slack in your own stack instead">
+  Use the [OSS Slack quickstart](/slack) when your application should own the Slack adapter and provider credentials directly.
+</Callout>

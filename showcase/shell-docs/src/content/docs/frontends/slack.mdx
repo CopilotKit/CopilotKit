@@ -1,20 +1,16 @@
 ---
 title: Slack
-description: Bring custom agents into Slack with native cards, streaming replies, approvals, and durable thread context.
+description: Run the open-source Channels Slack adapter in your application with native cards, streaming replies, approvals, and durable thread context.
 icon: "lucide/Slack"
 hideTOC: true
+doc_type: tutorial
 ---
 
-Slack can be the frontend for agents built on any harness or framework, so your team can get work done in the conversations, approvals, and handoffs they already use. The open source Bot SDK gives you the adapter path for TypeScript handlers and JSX-authored Block Kit messages. CopilotKit Enterprise Intelligence adds the self-hosted or cloud-hosted production layer for thread mapping, durable agent state, approvals, observability, and release operations when Slack becomes a critical workflow.
+This tutorial covers the OSS Channels path, where your application owns the Slack adapter, provider credentials, runtime, and persistence. Slack can be the frontend for agents built on any harness or framework, with TypeScript handlers and JSX-authored Block Kit messages for the conversations, approvals, and handoffs your team already uses.
 
-<OpsPlatformCTA
-  variant="inline"
-  title="Get early access to Slack and Teams agents in CopilotKit Enterprise Intelligence"
-  body="Use the open source Bot SDK to run the adapter, runtime, platform credentials, tools, and storage inside your stack. CopilotKit Enterprise Intelligence adds the self-hosted or cloud-hosted production layer around that SDK: durable agent threads, platform conversation mapping, approvals, observability, and release operations for Slack and Teams."
-  ctaLabel="Get early access"
-  surface="docs_slack_agents_early_access"
-  href="https://www.copilotkit.ai/opentag-managed"
-/>
+<Callout type="info" title="Want Intelligence to manage the Slack connection?">
+  Follow the [Managed Slack early-access guide](/channels/managed/slack). Intelligence stores the Slack credentials and operates durable delivery; your infrastructure still runs the agent.
+</Callout>
 
 ## Prerequisites
 
@@ -240,7 +236,7 @@ Slack can be the frontend for agents built on any harness or framework, so your 
         Mention the bot with "deploy" in the message and click the buttons. Your handler code never leaves your process — Slack only sees an opaque action id.
 
         <Callout type="warn" title="Buttons expire on restart">
-          The default action store is **in-memory**: after a process restart, clicks on old buttons are acknowledged but ignored. For buttons that survive restarts, plug a durable store (Redis, a database) into `createBot({ actionStore })` — see the [ActionStore contract](/reference/channels/types/ActionStore).
+          The default store is **in-memory**: after a process restart, clicks on old buttons are acknowledged but ignored. For buttons that survive restarts, plug a durable store (Redis or a database) into `createBot({ store: { adapter } })`. See [Persistence](/channels/persistence) for the complete setup and the [ActionStore contract](/reference/channels/types/ActionStore) for the action interface.
         </Callout>
     </Step>
     <Step>
