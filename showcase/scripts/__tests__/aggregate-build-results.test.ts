@@ -62,6 +62,20 @@ describe("aggregate-build-results.run", () => {
     );
   });
 
+  it("reads a single artifact extracted directly into INPUT_DIR", () => {
+    writeFileSync(
+      join(inputDir, "result.json"),
+      JSON.stringify({ service: "shell-docs", status: "success" }),
+    );
+
+    run({ inputDir, outputDir, githubOutput });
+
+    const results = JSON.parse(
+      readFileSync(join(outputDir, "results.json"), "utf-8"),
+    );
+    expect(results).toEqual([{ service: "shell-docs", status: "success" }]);
+  });
+
   it("throws naming the slot when build-result-<x>/result.json is missing", () => {
     const slotDir = join(inputDir, "build-result-orphan");
     mkdirSync(slotDir, { recursive: true });
