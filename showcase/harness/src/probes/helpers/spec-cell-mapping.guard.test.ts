@@ -1475,9 +1475,9 @@ describe("spec-cell-mapping CI guard", () => {
           stem === "agentic-chat" ? ["agentic-chat"] : undefined,
       });
 
-      expect(
-        findings.filter((f) => f.kind === "delta-collision"),
-      ).toHaveLength(0);
+      expect(findings.filter((f) => f.kind === "delta-collision")).toHaveLength(
+        0,
+      );
     });
 
     it("GREEN: override for a stem with no base cell → supplies missing cell, no collision", () => {
@@ -1501,9 +1501,9 @@ describe("spec-cell-mapping CI guard", () => {
         getBaseCell: () => undefined, // no base cell for shared-state-write
       });
 
-      expect(
-        findings.filter((f) => f.kind === "delta-collision"),
-      ).toHaveLength(0);
+      expect(findings.filter((f) => f.kind === "delta-collision")).toHaveLength(
+        0,
+      );
     });
   });
 });

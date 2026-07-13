@@ -78,9 +78,7 @@ describe("langgraph-python resolver equivalence gate (byte-identical to golden J
     });
     // 39 on-disk − 1 (threadid, no registry key) = 38 (gen-ui-interrupt survives).
     expect(Object.keys(resolved).length).toBe(38);
-    expect(
-      resolved["tests/e2e/gen-ui-interrupt.spec.ts"],
-    ).toBeDefined();
+    expect(resolved["tests/e2e/gen-ui-interrupt.spec.ts"]).toBeDefined();
   });
 
   it("GREEN: real merged skip-list auto-omits gen-ui-interrupt → 37 paths / 39 cells, byte-identical", () => {
@@ -99,9 +97,7 @@ describe("langgraph-python resolver equivalence gate (byte-identical to golden J
     });
 
     // Resolved key set === golden key set (37 paths).
-    expect(Object.keys(resolved).sort()).toEqual(
-      Object.keys(goldenLgp).sort(),
-    );
+    expect(Object.keys(resolved).sort()).toEqual(Object.keys(goldenLgp).sort());
 
     // Per-path cell arrays deep-equal the golden.
     for (const path of Object.keys(goldenLgp)) {

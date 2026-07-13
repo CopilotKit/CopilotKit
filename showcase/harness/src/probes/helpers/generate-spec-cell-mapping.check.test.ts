@@ -21,12 +21,25 @@ import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { REGISTRY_TO_D5 } from "./d5-feature-mapping.js";
-import { serializeBase, checkFreshness } from "../../../scripts/generate-spec-cell-mapping.js";
+import {
+  serializeBase,
+  checkFreshness,
+} from "../../../scripts/generate-spec-cell-mapping.js";
 
 const HARNESS_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../..");
-const SCRIPT_PATH = join(HARNESS_ROOT, "scripts", "generate-spec-cell-mapping.ts");
+const SCRIPT_PATH = join(
+  HARNESS_ROOT,
+  "scripts",
+  "generate-spec-cell-mapping.ts",
+);
 const TSX_BIN = join(HARNESS_ROOT, "node_modules", ".bin", "tsx");
-const BASE_PATH = join(HARNESS_ROOT, "src", "probes", "helpers", "spec-cell-mapping.base.json");
+const BASE_PATH = join(
+  HARNESS_ROOT,
+  "src",
+  "probes",
+  "helpers",
+  "spec-cell-mapping.base.json",
+);
 
 // ---------------------------------------------------------------------------
 // checkFreshness() — pure logic seam (no subprocess)

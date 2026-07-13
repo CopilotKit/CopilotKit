@@ -267,7 +267,11 @@ export function parseSpecCellDelta(json: string): SpecCellDelta {
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
     throw new TypeError(
       `SpecCellDelta: top-level value must be a plain object, got ${
-        Array.isArray(parsed) ? "array" : parsed === null ? "null" : typeof parsed
+        Array.isArray(parsed)
+          ? "array"
+          : parsed === null
+            ? "null"
+            : typeof parsed
       }`,
     );
   }
@@ -283,10 +287,18 @@ export function parseSpecCellDelta(json: string): SpecCellDelta {
     }
 
     // Step 4: each slug value must be a plain object.
-    if (typeof slugVal !== "object" || slugVal === null || Array.isArray(slugVal)) {
+    if (
+      typeof slugVal !== "object" ||
+      slugVal === null ||
+      Array.isArray(slugVal)
+    ) {
       throw new TypeError(
         `SpecCellDelta: value for slug "${slug}" must be a plain object, got ${
-          Array.isArray(slugVal) ? "array" : slugVal === null ? "null" : typeof slugVal
+          Array.isArray(slugVal)
+            ? "array"
+            : slugVal === null
+              ? "null"
+              : typeof slugVal
         }`,
       );
     }
@@ -296,10 +308,18 @@ export function parseSpecCellDelta(json: string): SpecCellDelta {
     // Step 5: validate overrides if present.
     if ("overrides" in slugObj) {
       const overrides = slugObj["overrides"];
-      if (typeof overrides !== "object" || overrides === null || Array.isArray(overrides)) {
+      if (
+        typeof overrides !== "object" ||
+        overrides === null ||
+        Array.isArray(overrides)
+      ) {
         throw new TypeError(
           `SpecCellDelta: "overrides" for slug "${slug}" must be a plain object, got ${
-            Array.isArray(overrides) ? "array" : overrides === null ? "null" : typeof overrides
+            Array.isArray(overrides)
+              ? "array"
+              : overrides === null
+                ? "null"
+                : typeof overrides
           }`,
         );
       }
@@ -315,10 +335,18 @@ export function parseSpecCellDelta(json: string): SpecCellDelta {
         }
 
         // Step 7: each override entry must be a plain object.
-        if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+        if (
+          typeof entry !== "object" ||
+          entry === null ||
+          Array.isArray(entry)
+        ) {
           throw new TypeError(
             `SpecCellDelta: override entry for stem "${stem}" in slug "${slug}" must be a plain object, got ${
-              Array.isArray(entry) ? "array" : entry === null ? "null" : typeof entry
+              Array.isArray(entry)
+                ? "array"
+                : entry === null
+                  ? "null"
+                  : typeof entry
             }`,
           );
         }

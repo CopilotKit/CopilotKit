@@ -851,7 +851,7 @@ describe("runSpecDrivenD6 — abort signal", () => {
 
     await expect(
       runSpecDrivenD6(TEST_SLUG, {
-      listPresentSpecs: listLgpPresent,
+        listPresentSpecs: listLgpPresent,
         backendUrl: "https://lgp.example.com",
         integrationDir: "/fake/lgp",
         ctx,
@@ -881,7 +881,7 @@ describe("runSpecDrivenD6 — abort signal", () => {
 
     await expect(
       runSpecDrivenD6(TEST_SLUG, {
-      listPresentSpecs: listLgpPresent,
+        listPresentSpecs: listLgpPresent,
         backendUrl: "https://lgp.example.com",
         integrationDir: "/fake/lgp",
         ctx,
@@ -919,7 +919,7 @@ describe("specRunner env hygiene", () => {
 
     try {
       await runSpecDrivenD6(TEST_SLUG, {
-      listPresentSpecs: listLgpPresent,
+        listPresentSpecs: listLgpPresent,
         backendUrl: "https://lgp.example.com",
         integrationDir: "/fake/lgp",
         ctx,
@@ -1018,7 +1018,7 @@ describe("env filtering — secrets must not reach runner env (Fix 1)", () => {
 
       try {
         await runSpecDrivenD6(TEST_SLUG, {
-      listPresentSpecs: listLgpPresent,
+          listPresentSpecs: listLgpPresent,
           backendUrl: "https://lgp.example.com",
           integrationDir: "/fake/lgp",
           ctx: makeCtx(makeWriter().writer),
@@ -1644,7 +1644,7 @@ describe("R4-J1 Fix 1 — OPENAI_BASE_URL passthrough / OPENAI_API_KEY exclusion
 
     try {
       await runSpecDrivenD6(TEST_SLUG, {
-      listPresentSpecs: listLgpPresent,
+        listPresentSpecs: listLgpPresent,
         backendUrl: "https://lgp.example.com",
         integrationDir: "/fake/lgp",
         ctx: makeCtx(makeWriter().writer),
@@ -1675,7 +1675,7 @@ describe("R4-J1 Fix 1 — OPENAI_BASE_URL passthrough / OPENAI_API_KEY exclusion
 
     try {
       await runSpecDrivenD6(TEST_SLUG, {
-      listPresentSpecs: listLgpPresent,
+        listPresentSpecs: listLgpPresent,
         backendUrl: "https://lgp.example.com",
         integrationDir: "/fake/lgp",
         ctx: makeCtx(makeWriter().writer),
@@ -1706,7 +1706,7 @@ describe("R4-J1 Fix 1 — OPENAI_BASE_URL passthrough / OPENAI_API_KEY exclusion
 
     try {
       await runSpecDrivenD6(TEST_SLUG, {
-      listPresentSpecs: listLgpPresent,
+        listPresentSpecs: listLgpPresent,
         backendUrl: "https://lgp.example.com",
         integrationDir: "/fake/lgp",
         ctx: makeCtx(makeWriter().writer),
@@ -1737,7 +1737,7 @@ describe("R4-J1 Fix 1 — OPENAI_BASE_URL passthrough / OPENAI_API_KEY exclusion
 
     try {
       await runSpecDrivenD6(TEST_SLUG, {
-      listPresentSpecs: listLgpPresent,
+        listPresentSpecs: listLgpPresent,
         backendUrl: "https://lgp.example.com",
         integrationDir: "/fake/lgp",
         ctx: makeCtx(makeWriter().writer),
@@ -1805,7 +1805,7 @@ describe("R4-J1 Fix 2 — ctx.env uses filtered env without cast", () => {
 
     try {
       await runSpecDrivenD6(TEST_SLUG, {
-      listPresentSpecs: listLgpPresent,
+        listPresentSpecs: listLgpPresent,
         backendUrl: "https://lgp.example.com",
         integrationDir: "/fake/lgp",
         ctx: makeCtx(makeWriter().writer),
@@ -2230,7 +2230,7 @@ describe("R4-J1 Fix 7 — suppress per-cell writer-missing warns (writer intenti
 
     try {
       await runSpecDrivenD6(TEST_SLUG, {
-      listPresentSpecs: listLgpPresent,
+        listPresentSpecs: listLgpPresent,
         backendUrl: "https://lgp.example.com",
         integrationDir: "/fake/lgp",
         ctx,
@@ -2422,7 +2422,9 @@ describe("R6-L-A Fix 2 — zero-cells guard checks mapped cells, not pre-seeded 
         integrationDir: "/fake/real",
         __testSeams: {
           resolvedMapping: {
-            "tests/e2e/real.spec.ts": ["real-feature" as unknown as D5FeatureType], // real cell mapped
+            "tests/e2e/real.spec.ts": [
+              "real-feature" as unknown as D5FeatureType,
+            ], // real cell mapped
           },
         },
         ctx,
@@ -2619,7 +2621,7 @@ describe("R6-L-A Fix 4 — unified SECRET_KEY_RE includes _PASSWORD, _PAT, AWS_ 
 
     try {
       await runSpecDrivenD6(TEST_SLUG, {
-      listPresentSpecs: listLgpPresent,
+        listPresentSpecs: listLgpPresent,
         backendUrl: "https://lgp.example.com",
         integrationDir: "/fake/lgp",
         ctx: makeCtx(makeWriter().writer),
@@ -2737,7 +2739,7 @@ describe("R6-L-A Fix 5 — location-less error blast radius annotation", () => {
 
     try {
       await runSpecDrivenD6(TEST_SLUG, {
-      listPresentSpecs: listLgpPresent,
+        listPresentSpecs: listLgpPresent,
         backendUrl: "https://lgp.example.com",
         integrationDir: "/fake/lgp",
         ctx,
@@ -2866,9 +2868,13 @@ describe("__testSeams type-hardening — resolvedMapping not accessible at top l
     };
 
     // The top-level key must not exist — not even as undefined.
-    expect(Object.prototype.hasOwnProperty.call(prodOpts, "resolvedMapping")).toBe(false);
+    expect(
+      Object.prototype.hasOwnProperty.call(prodOpts, "resolvedMapping"),
+    ).toBe(false);
     // __testSeams itself must also be absent in normal production construction.
-    expect(Object.prototype.hasOwnProperty.call(prodOpts, "__testSeams")).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(prodOpts, "__testSeams")).toBe(
+      false,
+    );
   });
 
   it("RunSpecDrivenD6Options type only exposes resolvedMapping via __testSeams", () => {
@@ -2879,13 +2885,17 @@ describe("__testSeams type-hardening — resolvedMapping not accessible at top l
       integrationDir: "/fake/dir",
       ctx: makeCtx(),
       __testSeams: {
-        resolvedMapping: { "tests/e2e/foo.spec.ts": [] as unknown as D5FeatureType[] },
+        resolvedMapping: {
+          "tests/e2e/foo.spec.ts": [] as unknown as D5FeatureType[],
+        },
       },
     };
 
     // Nested seam is accessible.
     expect(testOpts.__testSeams?.resolvedMapping).toBeDefined();
     // Top-level resolvedMapping key must be absent.
-    expect(Object.prototype.hasOwnProperty.call(testOpts, "resolvedMapping")).toBe(false);
+    expect(
+      Object.prototype.hasOwnProperty.call(testOpts, "resolvedMapping"),
+    ).toBe(false);
   });
 });

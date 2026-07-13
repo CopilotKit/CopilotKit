@@ -260,10 +260,7 @@ describe("spec-cell-mapping loader", () => {
 // the slug's on-disk specs. All dependencies are injected (present-specs lister,
 // base map, delta map, merged skip-list) so it is unit-testable without disk.
 
-import {
-  loadSpecCellMapping,
-  type ResolveDeps,
-} from "./spec-cell-mapping.js";
+import { loadSpecCellMapping, type ResolveDeps } from "./spec-cell-mapping.js";
 import type { D5FeatureType } from "./d5-registry.js";
 
 describe("loadSpecCellMapping(slug, deps) resolver", () => {
@@ -345,8 +342,12 @@ describe("loadSpecCellMapping(slug, deps) resolver", () => {
         onUnmapped: (slug, rel) => warned.push([slug, rel]),
       }),
     );
-    expect(warned).toEqual([["slug", "tests/e2e/agentic-chat-reasoning.spec.ts"]]);
-    expect(resolved["tests/e2e/agentic-chat-reasoning.spec.ts"]).toBeUndefined();
+    expect(warned).toEqual([
+      ["slug", "tests/e2e/agentic-chat-reasoning.spec.ts"],
+    ]);
+    expect(
+      resolved["tests/e2e/agentic-chat-reasoning.spec.ts"],
+    ).toBeUndefined();
     expect(Object.keys(resolved)).toEqual(["tests/e2e/agentic-chat.spec.ts"]);
   });
 
@@ -484,9 +485,9 @@ describe("parseSpecCellDelta validator", () => {
       },
     });
     const result = parseSpecCellDelta(valid);
-    expect(result["claude-sdk-python"].overrides?.["shared-state-write"]?.cells).toEqual(
-      ["shared-state-write"],
-    );
+    expect(
+      result["claude-sdk-python"].overrides?.["shared-state-write"]?.cells,
+    ).toEqual(["shared-state-write"]);
   });
 
   it("accepts empty delta object", () => {
@@ -564,7 +565,7 @@ describe("parseSpecCellDelta validator", () => {
     expect(() =>
       parseSpecCellDelta(
         JSON.stringify({
-          "slug": { overrides: { constructor: { cells: ["agentic-chat"] } } },
+          slug: { overrides: { constructor: { cells: ["agentic-chat"] } } },
         }),
       ),
     ).toThrow(/dangerous|constructor|SpecCellDelta/i);
@@ -573,20 +574,20 @@ describe("parseSpecCellDelta validator", () => {
   it("throws when override entry is not an object", () => {
     expect(() =>
       parseSpecCellDelta(
-        JSON.stringify({ "slug": { overrides: { stem: "bad" } } }),
+        JSON.stringify({ slug: { overrides: { stem: "bad" } } }),
       ),
     ).toThrow(/SpecCellDelta/);
   });
 
   it("throws when omit is not an array", () => {
     expect(() =>
-      parseSpecCellDelta(JSON.stringify({ "slug": { omit: "bad" } })),
+      parseSpecCellDelta(JSON.stringify({ slug: { omit: "bad" } })),
     ).toThrow(/SpecCellDelta/);
   });
 
   it("throws when omit contains a non-string", () => {
     expect(() =>
-      parseSpecCellDelta(JSON.stringify({ "slug": { omit: [42] } })),
+      parseSpecCellDelta(JSON.stringify({ slug: { omit: [42] } })),
     ).toThrow(/SpecCellDelta/);
   });
 });
@@ -644,10 +645,15 @@ import { fileURLToPath } from "node:url";
 describe("defaultListPresentSpecs production lister", () => {
   // Resolve the harness root then traverse to the integration dir.
   // The harness lives at showcase/harness/; integrations at showcase/integrations/.
-  const HARNESS_DIR = pathDirname(pathDirname(pathDirname(pathDirname(
-    fileURLToPath(import.meta.url),
-  ))));
-  const LGP_DIR = pathJoin(HARNESS_DIR, "..", "integrations", "langgraph-python");
+  const HARNESS_DIR = pathDirname(
+    pathDirname(pathDirname(pathDirname(fileURLToPath(import.meta.url)))),
+  );
+  const LGP_DIR = pathJoin(
+    HARNESS_DIR,
+    "..",
+    "integrations",
+    "langgraph-python",
+  );
 
   it("returns sorted tests/e2e/<file>.spec.ts relpaths for langgraph-python", () => {
     const lister = defaultListPresentSpecs(LGP_DIR);
@@ -710,7 +716,10 @@ describe("partial-skip retention boundary", () => {
       }),
     );
     expect(resolved["tests/e2e/multi.spec.ts"]).toBeDefined();
-    expect(resolved["tests/e2e/multi.spec.ts"]).toEqual(["agentic-chat", "auth"]);
+    expect(resolved["tests/e2e/multi.spec.ts"]).toEqual([
+      "agentic-chat",
+      "auth",
+    ]);
   });
 
   it("drops a multi-cell stem when ALL of its cells are skipped", () => {

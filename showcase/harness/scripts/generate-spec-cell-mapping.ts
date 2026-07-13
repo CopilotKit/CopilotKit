@@ -33,9 +33,7 @@ const BASE_PATH = join(
  * Keys are sorted; cell arrays are preserved in registry order; a trailing
  * newline is appended so the file is POSIX-clean and diffs stably.
  */
-export function serializeBase(
-  map: Record<string, readonly string[]>,
-): string {
+export function serializeBase(map: Record<string, readonly string[]>): string {
   const sorted: Record<string, string[]> = {};
   for (const stem of Object.keys(map).sort()) sorted[stem] = [...map[stem]];
   return JSON.stringify(sorted, null, 2) + "\n";
