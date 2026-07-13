@@ -8,13 +8,30 @@ import type { CopilotKitIntelligence } from "../intelligence-platform";
 import type { Channel } from "@copilotkit/channels";
 
 /**
+ * Initial reconnect backoff, in milliseconds. The delay doubles after each
+ * failed re-activation up to {@link RECONNECT_MAX_DELAY_MS}.
+ */
+export const RECONNECT_BASE_DELAY_MS = 500;
+
+/** Upper bound on the reconnect backoff, in milliseconds. */
+export const RECONNECT_MAX_DELAY_MS = 30_000;
+
+/**
+ * Maximum number of re-activation attempts before a reconnecting Channel is
+ * given up as `error`. Bounds the loop so a permanently-down provider cannot
+ * spin forever.
+ */
+export const RECONNECT_MAX_ATTEMPTS = 10;
+
+/**
  * Lifecycle status of a single Channel activation, or of the manager overall.
  *
  * - `connecting`: activation in flight, not yet settled.
  * - `online`: activation resolved; the Channel is live.
  * - `setup_required`: the Channel is declared but has no managed provider yet —
  *   a valid degraded state, not a failure.
- * - `reconnecting`: reserved for a future reconnection loop (never set today).
+ * - `reconnecting`: the Channel's managed session dropped and the manager is
+ *   running a bounded-backoff reconnect loop for it (see {@link RECONNECT_BASE_DELAY_MS}).
  * - `stopped`: {@link ChannelManager.stop} has torn the Channel down.
  * - `error`: activation rejected with a non-setup error.
  */
@@ -74,6 +91,15 @@ export interface ChannelsHandle {
   metadata: unknown;
   /** Stop the underlying Channel(s) and release transports. */
   stop(): Promise<void>;
+  /**
+   * Optional seam: register a callback the handle fires when its managed
+   * session drops, so the manager can begin a supervised reconnect. The real
+   * Realtime Gateway launcher handle has NO reconnect today — supervised
+   * reconnect is net-new here, and the launcher handle will grow this method in
+   * a sibling task. The manager must work whether or not it is present, so it is
+   * always invoked as `handle.onClose?.(cb)`.
+   */
+  onClose?(cb: () => void): void;
 }
 
 /** Constructor arguments for {@link ChannelManager}. */
@@ -92,6 +118,11 @@ export interface ChannelManagerArgs {
   mintRuntimeInstanceId?: () => string;
   /** Delivery adapter; forwarded to the config deriver (defaults to `"slack"`). */
   adapter?: string;
+  /**
+   * Delay primitive used to drive reconnect backoff. Injectable so tests stay
+   * deterministic without real timers. Defaults to a `setTimeout`-based sleep.
+   */
+  sleep?: (ms: number) => Promise<void>;
   /** Diagnostic sink. */
   log?: (msg: string, meta?: unknown) => void;
 }
@@ -104,6 +135,10 @@ interface ChannelEntry {
   /** Resolves on `online`/`setup_required`; rejects on `error`. Awaited by `ready`. */
   readonly settled: Promise<void>;
   handle?: ChannelsHandle;
+  /** The declared Channel, retained for re-activation on reconnect. */
+  readonly channel: Channel;
+  /** The resolved activation config, retained for re-activation on reconnect. */
+  config?: ChannelActivationConfig;
 }
 
 /**
@@ -143,6 +178,11 @@ async function defaultActivateChannel(
     runtimeInstanceId: config.runtimeInstanceId,
     adapter: config.adapter,
   });
+}
+
+/** Real timer-based sleep; the default reconnect backoff primitive. */
+function defaultSleep(ms: number): Promise<void> {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
 
 /** Whether `err` signals a missing managed provider rather than a hard failure. */
@@ -201,11 +241,20 @@ export class ChannelManager implements ChannelsControl {
   private readonly activateChannel: ActivateChannelEngine;
   private readonly mintRuntimeInstanceId: () => string;
   private readonly adapter?: string;
+  private readonly sleep: (ms: number) => Promise<void>;
   private readonly log?: (msg: string, meta?: unknown) => void;
 
   private readonly entries = new Map<string, ChannelEntry>();
+  /** In-flight reconnect loops keyed by Channel name (at most one per Channel). */
+  private readonly reconnectLoops = new Map<string, Promise<void>>();
   private activated = false;
   private stopped = false;
+  /**
+   * Resolves when {@link stop} is called, so a reconnect loop parked on
+   * `sleep(backoff)` wakes immediately instead of hanging on the full delay.
+   */
+  private readonly stoppedSignal: Promise<void>;
+  private resolveStopped!: () => void;
 
   /** @param args - See {@link ChannelManagerArgs}. */
   constructor(args: ChannelManagerArgs) {
@@ -216,7 +265,11 @@ export class ChannelManager implements ChannelsControl {
       args.mintRuntimeInstanceId ??
       (() => `rti_${randomUUID().replace(/-/g, "")}`);
     this.adapter = args.adapter;
+    this.sleep = args.sleep ?? defaultSleep;
     this.log = args.log;
+    this.stoppedSignal = new Promise<void>((resolve) => {
+      this.resolveStopped = resolve;
+    });
   }
 
   /**
@@ -252,8 +305,9 @@ export class ChannelManager implements ChannelsControl {
       // turned into a rejected activation so it becomes this channel's status
       // rather than throwing out of activate().
       let activation: Promise<ChannelsHandle>;
+      let config: ChannelActivationConfig | undefined;
       try {
-        const config = deriveChannelActivationConfig({
+        config = deriveChannelActivationConfig({
           intelligence: this.intelligence,
           channel,
           ...(this.adapter !== undefined ? { adapter: this.adapter } : {}),
@@ -270,10 +324,13 @@ export class ChannelManager implements ChannelsControl {
         status: "connecting",
         handle: undefined,
         settled,
+        channel,
+        config,
         promise: activation.then(
           (handle) => {
             entry.handle = handle;
             entry.status = "online";
+            this.registerOnClose(name, entry);
             resolveSettled();
           },
           (err: unknown) => {
@@ -356,6 +413,91 @@ export class ChannelManager implements ChannelsControl {
   }
 
   /**
+   * Register the drop-notification callback on a Channel's current handle, if
+   * the handle exposes the optional `onClose` seam. Re-invoked on every fresh
+   * handle so repeated drops keep triggering reconnection.
+   *
+   * @param name - The Channel name (map key).
+   * @param entry - The Channel's activation entry.
+   */
+  private registerOnClose(name: string, entry: ChannelEntry): void {
+    entry.handle?.onClose?.(() => this.onChannelClosed(name, entry));
+  }
+
+  /**
+   * React to a dropped managed session: mark the Channel `reconnecting` and kick
+   * off a single supervised reconnect loop for it. No-op once stopped, for a
+   * Channel that is not currently `online`, or when a loop is already running.
+   *
+   * @param name - The Channel name (map key).
+   * @param entry - The Channel's activation entry.
+   */
+  private onChannelClosed(name: string, entry: ChannelEntry): void {
+    if (this.stopped || entry.status !== "online") {
+      return;
+    }
+    entry.status = "reconnecting";
+    this.log?.(`channel "${name}" dropped; reconnecting`);
+    if (this.reconnectLoops.has(name)) {
+      return;
+    }
+    // The loop records its own outcome as status; nothing awaits its rejection.
+    const loop = this.runReconnect(name, entry);
+    this.reconnectLoops.set(name, loop);
+    loop.catch(() => {});
+  }
+
+  /**
+   * Supervised reconnect loop for one Channel: sleep the current backoff, then
+   * re-invoke the activation engine. On success, store the new handle, re-arm
+   * its `onClose`, and return the Channel to `online`. On failure, grow the
+   * backoff (capped at {@link RECONNECT_MAX_DELAY_MS}) and retry, giving up to
+   * `error` after {@link RECONNECT_MAX_ATTEMPTS}. Exits promptly once
+   * {@link stop} is called — the backoff wait races {@link stoppedSignal} so a
+   * pending sleep never blocks teardown, and no re-activation runs after stop.
+   *
+   * @param name - The Channel name (map key).
+   * @param entry - The Channel's activation entry (must carry `config`).
+   */
+  private async runReconnect(name: string, entry: ChannelEntry): Promise<void> {
+    let delay = RECONNECT_BASE_DELAY_MS;
+    for (let attempt = 1; attempt <= RECONNECT_MAX_ATTEMPTS; attempt++) {
+      // Wake on stop rather than blocking on the full backoff.
+      await Promise.race([this.sleep(delay), this.stoppedSignal]);
+      if (this.stopped || entry.config === undefined) {
+        return;
+      }
+      try {
+        const handle = await this.activateChannel(entry.config, entry.channel);
+        if (this.stopped) {
+          // Torn down mid-flight: release the fresh handle we just opened.
+          await handle.stop().catch(() => {});
+          return;
+        }
+        entry.handle = handle;
+        entry.status = "online";
+        this.registerOnClose(name, entry);
+        this.reconnectLoops.delete(name);
+        this.log?.(`channel "${name}" reconnected`);
+        return;
+      } catch (err) {
+        this.log?.(
+          `channel "${name}" reconnect attempt ${attempt} failed`,
+          err,
+        );
+        delay = Math.min(delay * 2, RECONNECT_MAX_DELAY_MS);
+      }
+    }
+    if (!this.stopped) {
+      entry.status = "error";
+      this.log?.(
+        `channel "${name}" gave up reconnecting after ${RECONNECT_MAX_ATTEMPTS} attempts`,
+      );
+    }
+    this.reconnectLoops.delete(name);
+  }
+
+  /**
    * Stop every activated Channel exactly once and mark all statuses `stopped`.
    * Idempotent — a second call is a no-op. Waits for in-flight activations to
    * settle first so their handles exist, and skips Channels that never produced
@@ -366,6 +508,9 @@ export class ChannelManager implements ChannelsControl {
       return;
     }
     this.stopped = true;
+    // Wake any reconnect loop parked on a backoff so it exits without running a
+    // further re-activation; stop() never waits on the remaining backoff.
+    this.resolveStopped();
 
     const entries = [...this.entries.values()];
     // Let in-flight activations settle so any handle is assigned before we stop.
