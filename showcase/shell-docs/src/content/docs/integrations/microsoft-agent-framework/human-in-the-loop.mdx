@@ -3,15 +3,28 @@ title: Human-in-the-loop
 icon: "lucide/User"
 description: Gate Microsoft Agent Framework actions with frontend tools or backend-native interrupts.
 ---
-{/* TODO: Swap these links for Microsoft Agent Framework links once Microsoft Agent Framework is officially added to the feature viewer */}
-<IframeSwitcher
-  id="frontend-tools-based-hitl-example"
-  exampleUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/human_in_the_loop?sidebar=false&chatDefaultOpen=false"
-  codeUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/human_in_the_loop?view=code&sidebar=false&codeLayout=tabs"
-  exampleLabel="Demo"
-  codeLabel="Code"
-  height="700px"
-/>
+<Tabs groupId="language_microsoft-agent-framework_agent" items={['.NET', 'Python']} persist>
+  <Tab value=".NET">
+    <IframeSwitcher
+      id="frontend-tools-based-hitl-example-dotnet"
+      exampleUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/human_in_the_loop?sidebar=false&chatDefaultOpen=false"
+      codeUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/human_in_the_loop?view=code&sidebar=false&codeLayout=tabs"
+      exampleLabel="Demo"
+      codeLabel="Code"
+      height="700px"
+    />
+  </Tab>
+  <Tab value="Python">
+    <IframeSwitcher
+      id="frontend-tools-based-hitl-example-python"
+      exampleUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-python/feature/human_in_the_loop?sidebar=false&chatDefaultOpen=false"
+      codeUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-python/feature/human_in_the_loop?view=code&sidebar=false&codeLayout=tabs"
+      exampleLabel="Demo"
+      codeLabel="Code"
+      height="700px"
+    />
+  </Tab>
+</Tabs>
 
 ## What is this?
 
