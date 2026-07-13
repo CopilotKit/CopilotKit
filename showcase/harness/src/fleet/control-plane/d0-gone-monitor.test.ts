@@ -19,6 +19,7 @@ import type {
 import type { RegistryDoc } from "./d0-gone-predicate.js";
 import {
   createD0GoneMonitor,
+  classifyProducer,
   isProducerLive,
   loadRegistryDoc,
   MAX_STATUS_PAGES,
@@ -145,6 +146,18 @@ function makeFakes() {
     };
   }
 
+  function freshDeployProducer(): FamilySummaryResponse {
+    // C5: a freshly-deployed prod — workers ONLINE but the families have NO
+    // parseable activity yet (no inflight, no lastRun, no lastSuccessAt). This
+    // is "no data / not yet", NOT a paused/idle producer.
+    const entry: FamilySummaryEntry = {
+      family: "d6",
+      label: "D6",
+      probeKeyPrefix: "d6",
+    };
+    return { families: [entry], workers: [onlineWorker] };
+  }
+
   const deps = {
     pb: {
       async list<T>() {
@@ -195,6 +208,7 @@ function makeFakes() {
     getClock: () => clock,
     liveProducer,
     idleProducer,
+    freshDeployProducer,
     getState: () => stateBlob,
   };
 }
@@ -288,6 +302,51 @@ describe("isProducerLive (§2.5 acceptance)", () => {
       workers: [worker("offline"), worker("stale")],
     };
     expect(isProducerLive(body, idleWindow, T0)).toBe(false);
+  });
+
+  it("C5: classifyProducer distinguishes no-data (fresh deploy) from idle (paused)", () => {
+    // Fresh deploy: workers ONLINE, families exist but NO parseable activity yet.
+    const freshDeploy: FamilySummaryResponse = {
+      families: [{ family: "d6", label: "D6", probeKeyPrefix: "d6" }],
+      workers: [worker("online")],
+    };
+    // Paused: activity WAY past the window, no online worker.
+    const paused: FamilySummaryResponse = {
+      families: [
+        {
+          family: "d6",
+          label: "D6",
+          probeKeyPrefix: "d6",
+          lastSuccessAt: new Date(T0 - 10 * HOUR).toISOString(),
+        },
+      ],
+      workers: [worker("offline")],
+    };
+    const live: FamilySummaryResponse = {
+      families: [
+        {
+          family: "d6",
+          label: "D6",
+          probeKeyPrefix: "d6",
+          lastSuccessAt: new Date(T0 - MIN).toISOString(),
+        },
+      ],
+      workers: [worker("online")],
+    };
+    expect(classifyProducer(freshDeploy, idleWindow, T0)).toBe("no-data");
+    expect(classifyProducer(paused, idleWindow, T0)).toBe("idle");
+    expect(classifyProducer(live, idleWindow, T0)).toBe("live");
+    // A fresh deploy with NO worker online yet is still no-data (not-yet), not a
+    // paused producer — there is simply nothing to conclude.
+    const freshNoWorker: FamilySummaryResponse = {
+      families: [{ family: "d6", label: "D6", probeKeyPrefix: "d6" }],
+      workers: [],
+    };
+    expect(classifyProducer(freshNoWorker, idleWindow, T0)).toBe("no-data");
+    // isProducerLive stays a thin wrapper: only "live" is live.
+    expect(isProducerLive(freshDeploy, idleWindow, T0)).toBe(false);
+    expect(isProducerLive(paused, idleWindow, T0)).toBe(false);
+    expect(isProducerLive(live, idleWindow, T0)).toBe(true);
   });
 });
 
@@ -541,6 +600,43 @@ describe("D0-gone monitor — producer-idle SUSPENDED (§10.5, F1)", () => {
   });
 });
 
+describe("D0-gone monitor — C5 fresh deploy: workers online + no activity yet is NO-DATA, not permanent SUSPEND", () => {
+  it("fresh deploy (workers online, no run history) → held with a 'no-data / not-yet' reason, does NOT page, and pages once activity + gone data arrive", async () => {
+    const f = makeFakes();
+    const holds: string[] = [];
+    const logger = {
+      info() {},
+      warn(_msg: string, meta: { reason?: string } = {}) {
+        if (meta.reason) holds.push(meta.reason);
+      },
+      error() {},
+      debug() {},
+    };
+    // Fresh deploy: workers online but zero parseable activity across families.
+    // The OLD `isProducerLive` returned false (freshest NaN) → SUSPENDED with a
+    // "producer-idle" reason, indistinguishable from a genuine pause. Even a
+    // fresh-gone status read (were one present) would be held — correctly, we do
+    // NOT page without producer data — but the state must be classified as
+    // NO-DATA / not-yet, not a permanent producer-idle SUSPEND.
+    f.setSummary(f.freshDeployProducer());
+    f.setStatusRows(goneRows("alpha", T0));
+    const m = createD0GoneMonitor({ ...f.deps, logger });
+    await m.tick();
+    expect(f.posted).toHaveLength(0); // still do NOT page without data
+    // GREEN: held for a NO-DATA / not-yet reason, NOT "producer-idle".
+    expect(holds.some((r) => r === "producer-no-data")).toBe(true);
+    expect(holds.some((r) => r === "producer-idle")).toBe(false);
+
+    // Once the fleet starts producing AND a column reads gone → it pages (the
+    // monitor was never permanently disabled).
+    f.setSummary(f.liveProducer());
+    f.setStatusRows(goneRows("alpha", T0));
+    await m.tick();
+    expect(f.posted).toHaveLength(1);
+    expect(f.posted[0]).toContain("`alpha`");
+  });
+});
+
 describe("D0-gone monitor — failure modes (§10.6)", () => {
   it("status read throws → no-op (no post, no state change)", async () => {
     const f = makeFakes();
@@ -663,6 +759,199 @@ describe("D0-gone monitor — B-cadence: overflow slugs keep their re-post clock
   });
 });
 
+describe("D0-gone monitor — C1 cadence/overflow: wide outage re-posts hourly, overflow rotates", () => {
+  function nSlugRegistry(slugs: string[]): RegistryDoc {
+    return {
+      feature_registry: { features: [{ id: "agentic-chat" }] },
+      integrations: slugs.map((slug) => ({
+        slug,
+        features: ["agentic-chat"],
+        demos: [{ id: "agentic-chat", route: "/demos/agentic-chat" }],
+      })),
+    };
+  }
+  function allGone(slugs: string[], atMs: number): StatusRow[] {
+    return slugs.flatMap((s) => goneRows(s, atMs));
+  }
+
+  it("(i) N = maxSlugs+3 gone → aggregate re-posts ~hourly, NOT every 15m tick", async () => {
+    const f = makeFakes();
+    const slugs = ["s1", "s2", "s3", "s4", "s5"]; // maxSlugs 2 → 3 overflow
+    f.deps.registry = nSlugRegistry(slugs);
+    f.setSummary(f.liveProducer());
+    f.setStatusRows(allGone(slugs, T0));
+    const m = createD0GoneMonitor({
+      ...f.deps,
+      config: { maxSlugsInMessage: 2 },
+    });
+
+    await m.tick(); // t0 OPEN → 1 post (some slugs named, rest overflow)
+    expect(f.posted).toHaveLength(1);
+
+    // Run 15m ticks through the first hour. Each tick a subset of overflow
+    // slugs becomes "most due" and rotates into the named positions, so the
+    // monitor DOES re-post to make forward progress on naming every slug — but
+    // once every slug has been named within the hour it must NOT keep spamming
+    // every single 15m tick forever. The OLD code left overflow slugs with an
+    // unset clock permanently → a post EVERY tick (5 posts by t60). The fixed
+    // code advances each named slug's clock so, after all slugs are named
+    // (bounded rotation), the cadence settles to hourly.
+    for (const mins of [15, 30, 45, 60, 75, 90]) {
+      f.setClock(T0 + mins * MIN);
+      f.setSummary(f.liveProducer(T0 + mins * MIN));
+      f.setStatusRows(allGone(slugs, T0));
+      await m.tick();
+    }
+    // Bounded rotation: naming 5 slugs 2-at-a-time needs ~3 posts to cover all,
+    // then a steady hourly re-post. Far fewer than the 7 posts the every-tick
+    // spam bug would produce (1 open + 6 ticks). Assert we did NOT post on
+    // every tick.
+    expect(f.posted.length).toBeLessThan(7);
+    // And every slug has been NAMED at least once across the posts within the
+    // window (forward progress — no slug is silently muted forever).
+    for (const s of slugs) {
+      expect(f.posted.some((p) => p.includes(`\`${s}\``))).toBe(true);
+    }
+  });
+
+  it("(ii) a newly-opened OVERFLOW slug does NOT force a 15m re-post when it cannot be named", async () => {
+    const f = makeFakes();
+    // alpha+beta open and freshly posted; a 3rd slug opens later but lands in
+    // overflow. Under the OLD code the new overflow slug's unset clock made it
+    // "due" every tick → a re-post every 15m even though it is never named.
+    const slugs = ["alpha", "beta"];
+    f.deps.registry = nSlugRegistry(["alpha", "beta", "zzz"]);
+    f.setSummary(f.liveProducer());
+    f.setStatusRows(allGone(slugs, T0));
+    const m = createD0GoneMonitor({
+      ...f.deps,
+      config: { maxSlugsInMessage: 2 },
+    });
+    await m.tick(); // OPEN alpha+beta → 1 post, both named
+    expect(f.posted).toHaveLength(1);
+
+    // 15m later zzz opens too. maxSlugs=2 and alpha/beta are NOT due (posted 15m
+    // ago). zzz is due (never posted) but is the LOWEST-priority to name only if
+    // capacity allows — with alpha/beta not needing a re-post, zzz should be
+    // named (it's the only due slug) — that IS a valid post (forward progress).
+    // The BUG this guards is the OPPOSITE: if the newly-opened slug canNOT be
+    // named because higher-priority DUE slugs already fill the message, it must
+    // not force an extra post. Simulate that by making alpha+beta due too.
+    f.setClock(T0 + 60 * MIN); // alpha/beta now due AND zzz due, 3 due, cap 2
+    f.setSummary(f.liveProducer(T0 + 60 * MIN));
+    f.setStatusRows(allGone(["alpha", "beta", "zzz"], T0));
+    await m.tick(); // one hourly re-post; names 2, folds 1
+    const postsAfterHour = f.posted.length;
+
+    // A tick 15m later: the 2 just-named slugs are fresh; only the 1 folded slug
+    // is due. It rotates into the named set → ONE post (forward progress), then
+    // it is fresh too. This is bounded, not per-tick spam.
+    f.setClock(T0 + 75 * MIN);
+    f.setSummary(f.liveProducer(T0 + 75 * MIN));
+    f.setStatusRows(allGone(["alpha", "beta", "zzz"], T0));
+    await m.tick();
+    f.setClock(T0 + 90 * MIN);
+    f.setSummary(f.liveProducer(T0 + 90 * MIN));
+    f.setStatusRows(allGone(["alpha", "beta", "zzz"], T0));
+    await m.tick(); // all fresh now → NO post
+    // At most one extra post for the rotation, not one per tick.
+    expect(f.posted.length).toBeLessThanOrEqual(postsAfterHour + 1);
+  });
+
+  it("(iii) only the NAMED slugs advance lastAlertAt; a not-named due slug keeps its clock", async () => {
+    const f = makeFakes();
+    const slugs = ["a1", "a2", "a3"]; // cap 2 → one overflow per post
+    f.deps.registry = nSlugRegistry(slugs);
+    f.setSummary(f.liveProducer());
+    f.setStatusRows(allGone(slugs, T0));
+    const m = createD0GoneMonitor({
+      ...f.deps,
+      config: { maxSlugsInMessage: 2 },
+    });
+    await m.tick();
+    const map = JSON.parse(f.getState().hash!);
+    // Exactly the 2 NAMED slugs advanced; the 1 overflow slug did NOT.
+    const advanced = slugs.filter((s) => map[s].lastAlertAt !== "");
+    const notAdvanced = slugs.filter((s) => map[s].lastAlertAt === "");
+    expect(advanced).toHaveLength(2);
+    expect(notAdvanced).toHaveLength(1);
+    // The named set contains exactly the slugs whose clock advanced.
+    for (const s of advanced) {
+      expect(f.posted[0]).toContain(`\`${s}\``);
+    }
+  });
+
+  it("(iv) every open slug is NAMED within a bounded number of re-posts (rotation)", async () => {
+    const f = makeFakes();
+    const slugs = ["b1", "b2", "b3", "b4"]; // cap 1 → 4 posts to name all
+    f.deps.registry = nSlugRegistry(slugs);
+    f.setSummary(f.liveProducer());
+    f.setStatusRows(allGone(slugs, T0));
+    const m = createD0GoneMonitor({
+      ...f.deps,
+      config: { maxSlugsInMessage: 1 },
+    });
+    const named = new Set<string>();
+    for (let i = 0; i < 4; i++) {
+      f.setClock(T0 + i * 15 * MIN);
+      f.setSummary(f.liveProducer(T0 + i * 15 * MIN));
+      f.setStatusRows(allGone(slugs, T0));
+      await m.tick();
+      for (const s of slugs) {
+        if (f.posted.some((p) => p.includes(`\`${s}\``))) named.add(s);
+      }
+    }
+    // All 4 slugs named within 4 posts (cap 1 each) — bounded forward progress.
+    expect(named.size).toBe(4);
+  });
+});
+
+describe("D0-gone monitor — C6 corrupt-but-shaped sinceAt never renders as garbage", () => {
+  it("an unparseable persisted sinceAt renders 'unknown', not the raw garbage string", async () => {
+    const f = makeFakes();
+    f.setSummary(f.liveProducer());
+    // A state blob that is VALID JSON of the right shape but whose `sinceAt` is
+    // corrupt (not a parseable ISO). It is still gone, and a re-post is due
+    // (empty lastAlertAt), so the outage message re-posts. The OLD code rendered
+    // `gone since <garbage>` because it only null-checked (`since ?? "unknown"`),
+    // never validated parseability.
+    const corrupt = JSON.stringify({
+      alpha: { sinceAt: "corrupt-not-a-date", lastAlertAt: "" },
+    });
+    // Seed the durable blob directly.
+    await f.deps.alertState.putSet("prod-d0-gone-monitor", corrupt, "");
+    f.setStatusRows(goneRows("alpha", T0));
+    const m = createD0GoneMonitor(f.deps);
+    await m.tick();
+    expect(f.posted).toHaveLength(1);
+    // GREEN: the garbage string must NOT appear; it renders as "unknown".
+    expect(f.posted[0]).not.toContain("corrupt-not-a-date");
+    expect(f.posted[0]).toContain("gone since unknown");
+  });
+
+  it("a corrupt sinceAt on RECOVERY renders without the garbage span", async () => {
+    const f = makeFakes();
+    f.setSummary(f.liveProducer());
+    const corrupt = JSON.stringify({
+      alpha: {
+        sinceAt: "garbage-timestamp",
+        lastAlertAt: new Date(T0).toISOString(),
+      },
+    });
+    await f.deps.alertState.putSet("prod-d0-gone-monitor", corrupt, "");
+    // alpha reads fresh-healthy now → confirmed recovery → recovery message.
+    f.setClock(T0 + 20 * MIN);
+    f.setSummary(f.liveProducer(T0 + 20 * MIN));
+    f.setStatusRows(healthyRows("alpha", T0 + 20 * MIN));
+    const m = createD0GoneMonitor(f.deps);
+    await m.tick();
+    const recovery = f.posted.find((p) => p.includes("recovered"));
+    expect(recovery).toBeDefined();
+    // GREEN: the garbage sinceAt does not leak into the recovery text.
+    expect(recovery).not.toContain("garbage-timestamp");
+  });
+});
+
 describe("D0-gone monitor — aggregation (§4.1)", () => {
   it("both slugs gone → ONE message with both bullets, not two messages", async () => {
     const f = makeFakes();
@@ -746,6 +1035,45 @@ describe("D0-gone monitor — B-onset derived from the folded verdict", () => {
     const map = JSON.parse(f.getState().hash!);
     // GREEN: onset is the ladder's own T0, NOT the stray non-ladder T0-3h.
     expect(map.alpha.sinceAt).toBe(new Date(T0).toISOString());
+  });
+});
+
+describe("D0-gone monitor — C2 onset from the winning rung when no literal red row", () => {
+  it("gate fails via a non-`red` (degraded) D3 winner → onset is that row's timestamp, NOT re-stamped to now", async () => {
+    const f = makeFakes();
+    f.setSummary(f.liveProducer());
+    // alpha is red-D0/gone because its D3 (e2e) rung FAILS the ladder gate — but
+    // the winner row's literal `state` is "degraded", not "red" (a flaky/degraded
+    // rung still fails `status !== "green"` → chipColor red → cellGone). The OLD
+    // onset scan matched ONLY `row.state === "red"`, so it found no row → earliest
+    // stayed NaN → onset silently fell back to `nowMs` (re-stamped to the OPEN
+    // instant, losing the true onset). The fix derives onset from the gate-
+    // failing WINNER rungs regardless of literal state.
+    const onset = T0 - 90 * MIN;
+    const at = new Date(onset).toISOString();
+    const degradedD3: StatusRow = {
+      id: "id-e2e-alpha",
+      key: keyFor("e2e", "alpha", "agentic-chat"),
+      dimension: "e2e",
+      state: "degraded", // non-green, non-red → gate fails but not literal red
+      signal: null,
+      observed_at: at,
+      transitioned_at: at,
+      fail_count: 1,
+      first_failure_at: at,
+    };
+    // D4 (chat/tools) ABSENT so the ONLY gate-failing winner row is the degraded
+    // D3 — no literal `red` row exists anywhere, which is exactly the shape that
+    // stranded the old scan at NaN → nowMs. (d3 exists+non-green → gate fails →
+    // chipColor red → cellGone, achievedDepth 0.)
+    f.setStatusRows([degradedD3]);
+    const m = createD0GoneMonitor(f.deps);
+    await m.tick();
+    expect(f.posted).toHaveLength(1);
+    const map = JSON.parse(f.getState().hash!);
+    // GREEN: onset comes from the winner rung's timestamp (T0-90m), NOT nowMs.
+    expect(map.alpha.sinceAt).toBe(at);
+    expect(map.alpha.sinceAt).not.toBe(new Date(T0).toISOString());
   });
 });
 
@@ -841,6 +1169,55 @@ describe("D0-gone monitor — A4 pagination bounded", () => {
     // GREEN: bounded — the loop terminated (the test itself completing proves
     // no infinite loop). Assert we stopped at the hard page cap.
     expect(calls).toBe(MAX_STATUS_PAGES);
+  });
+});
+
+describe("D0-gone monitor — C3 pagination short/inconsistent read is logged, not silently truncated", () => {
+  it("finite-but-too-low totalPages while returning a FULL page → logs a loud errorId", async () => {
+    const errs: Array<{ msg: string; meta: unknown }> = [];
+    const logger = {
+      info() {},
+      warn() {},
+      error(msg: string, meta: unknown) {
+        errs.push({ msg, meta });
+      },
+      debug() {},
+    };
+    const f = makeFakes();
+    f.setSummary(f.liveProducer());
+    const perPage = 500;
+    // PB reports `totalPages: 1` but returns a FULL page (== perPage). A4 only
+    // guarded the NaN/loop-forever direction; here `page >= totalPages` (1 >= 1)
+    // trips the break IMMEDIATELY after page 1 — so the read STOPS despite the
+    // full page strongly implying more rows exist. The OLD code truncated
+    // SILENTLY (a truncated status set can flip a gone verdict — missing rows for
+    // a slug look like no-data). The fix must detect the inconsistency (finite
+    // totalPages break WITH a full final page) and LOG a greppable errorId.
+    const deps = {
+      ...f.deps,
+      logger,
+      pb: {
+        async list<T>() {
+          const full = Array.from({ length: perPage }, (_, i) =>
+            row("alpha", `e2e:pad-${i}`, "green", T0),
+          );
+          return {
+            page: 1,
+            perPage,
+            totalPages: 1, // finite but inconsistent with a full page
+            totalItems: perPage,
+            items: full as unknown as T[],
+          };
+        },
+      },
+    };
+    const m = createD0GoneMonitor(deps as never);
+    await m.tick();
+    // GREEN: the short/inconsistent read is logged loudly (errorId), not silently
+    // swallowed.
+    const short = errs.find((e) => e.msg.includes("status-short-read"));
+    expect(short).toBeDefined();
+    expect((short!.meta as { errorId?: string }).errorId).toBeTruthy();
   });
 });
 

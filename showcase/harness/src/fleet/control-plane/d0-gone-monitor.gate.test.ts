@@ -166,12 +166,26 @@ describe("resolveConfig — negative / NaN / empty parse falls back (§8, slot3 
   it("valid non-negative numbers are respected", () => {
     const c = resolveConfig({
       PROD_D0_MONITOR_CONFIRM_DELAY_MS: "30000",
-      PROD_D0_MONITOR_REPOST_MINUTES: "0",
+      PROD_D0_MONITOR_REPOST_MINUTES: "30",
       PROD_D0_MONITOR_MAX_SLUGS_IN_MESSAGE: "10",
     });
     expect(c.confirmDelayMs).toBe(30000);
-    expect(c.repostMinutes).toBe(0); // 0 minutes is a valid (min 0) window
+    expect(c.repostMinutes).toBe(30);
     expect(c.maxSlugsInMessage).toBe(10);
+  });
+
+  it("C4: repostMinutes = 0 falls back (min 1 — a 0-minute window re-posts every tick)", () => {
+    // A `repostMinutes: 0` yields `repostMs = 0`, so `ageMs >= 0` is ALWAYS true
+    // → every open slug is "due" on every 15m tick → the outage re-posts every
+    // tick, defeating the hourly dedup. Floor it at 1 (mirroring the
+    // maxSlugsInMessage min-1 fix). A degenerate 0 falls back to the default.
+    expect(
+      resolveConfig({ PROD_D0_MONITOR_REPOST_MINUTES: "0" }).repostMinutes,
+    ).toBe(DEFAULT_REPOST_MINUTES);
+    // But 1 (the floor) is accepted.
+    expect(
+      resolveConfig({ PROD_D0_MONITOR_REPOST_MINUTES: "1" }).repostMinutes,
+    ).toBe(1);
   });
 
   it("maxSlugsInMessage = 0 falls back (min 1 — a 0-slug page is useless)", () => {

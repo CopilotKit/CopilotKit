@@ -107,11 +107,15 @@ export interface D0GoneMonitorConfig {
 export function resolveConfig(
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): D0GoneMonitorConfig {
-  // `min` is the smallest accepted value: 0 for the time-windows (a 0ms confirm
-  // delay / 0-minute re-post are degenerate but harmless), but 1 for
-  // `maxSlugsInMessage` — a 0 there would render an outage message that names
-  // ZERO gone slugs (all folded into "+N more"), a useless page. Below `min`
-  // (or NaN / non-finite / empty) falls back to the default.
+  // `min` is the smallest accepted value: 0 for `confirmDelayMs` (a 0ms confirm
+  // delay is degenerate but harmless — it just collapses the confirm re-read to
+  // the same instant), but 1 for both `repostMinutes` and `maxSlugsInMessage`:
+  //   - `repostMinutes: 0` → `repostMs = 0` → `ageMs >= 0` is ALWAYS true → every
+  //     open slug is "due" on every 15m tick → the outage re-posts every tick,
+  //     defeating the hourly dedup. Floor it at 1 minute.
+  //   - `maxSlugsInMessage: 0` → an outage message naming ZERO gone slugs (all
+  //     folded into "+N more"), a useless page. Floor it at 1.
+  // Below `min` (or NaN / non-finite / empty) falls back to the default.
   const num = (raw: string | undefined, fallback: number, min = 0): number => {
     if (raw === undefined || raw.trim() === "") return fallback;
     const n = Number(raw);
@@ -125,6 +129,7 @@ export function resolveConfig(
     repostMinutes: num(
       env.PROD_D0_MONITOR_REPOST_MINUTES,
       DEFAULT_REPOST_MINUTES,
+      1,
     ),
     maxSlugsInMessage: num(
       env.PROD_D0_MONITOR_MAX_SLUGS_IN_MESSAGE,
@@ -259,6 +264,17 @@ function parseIso(value: string | null | undefined): number {
   return Date.parse(value);
 }
 
+/**
+ * C6: render a persisted `sinceAt` for Slack, VALIDATING it is a parseable ISO
+ * instant first. A corrupt-but-shaped state blob can carry a garbage `sinceAt`
+ * string (valid JSON, wrong value); the old `since ?? "unknown"` only null-
+ * checked, so `gone since <garbage>` leaked into the page. A value that does not
+ * parse (or is absent) renders "unknown" — never the raw garbage.
+ */
+function renderSince(sinceAt: string | null | undefined): string {
+  return Number.isNaN(parseIso(sinceAt)) ? "unknown" : (sinceAt as string);
+}
+
 /** Humanize a millisecond duration as e.g. "1h 03m" / "18m" / "45s". */
 function humanizeDuration(ms: number): string {
   if (ms < 0) ms = 0;
@@ -285,19 +301,33 @@ function anyWorkerOnline(workers: readonly WorkerView[]): boolean {
 }
 
 /**
- * §2.5 producer-liveness predicate. The producer is LIVE iff EITHER:
- *   1. any family has a non-null `inflight` (a batch is running right now), OR
- *   2. the freshest activity across families is within the idle window
- *      (3× the longest resolved producer period) AND ≥1 worker is online.
- * Otherwise IDLE (paused/stalled). Derived ONLY from `/api/runs` + the worker
- * heartbeat strip — never from comm-error freshness (which would be circular).
+ * §2.5 producer state — three-way, so the monitor can distinguish a genuinely
+ * PAUSED producer (the LGT mitigation state) from a freshly-deployed one that
+ * simply has NO run history YET (C5):
+ *   - `"live"`    — a batch is inflight, OR the freshest activity is within the
+ *                   idle window AND ≥1 worker is online. The tick SCANS.
+ *   - `"no-data"` — NO parseable activity across any family (no inflight, no
+ *                   lastRun, no lastSuccessAt). This is a fresh deploy / not-yet
+ *                   state: there is simply nothing to conclude — we have no run
+ *                   timestamps to judge liveness OR to trust a gone verdict. We
+ *                   HOLD (never page without data), but this is NOT a permanent
+ *                   producer-idle SUSPEND: as soon as the fleet produces its
+ *                   first run the state advances to live/idle on its own.
+ *   - `"idle"`    — there IS activity history, but it is stale past the idle
+ *                   window (or no worker is online). The producer is paused/
+ *                   stalled; the comm-error signals have gone stale, so a live
+ *                   gone-scan would go blind and a scan could fire a false
+ *                   recovery. HOLD all state.
+ * Derived ONLY from `/api/runs` + the worker heartbeat strip — never from
+ * comm-error freshness (which would be circular).
  */
-export function isProducerLive(
+export type ProducerState = "live" | "no-data" | "idle";
+export function classifyProducer(
   body: FamilySummaryResponse,
   idleWindowMs: number,
   nowMs: number,
-): boolean {
-  if (body.families.some((f) => f.inflight != null)) return true;
+): ProducerState {
+  if (body.families.some((f) => f.inflight != null)) return "live";
   let freshest = Number.NaN;
   for (const f of body.families) {
     const a = latestActivityMs(f);
@@ -305,8 +335,26 @@ export function isProducerLive(
       freshest = a;
     }
   }
-  if (Number.isNaN(freshest)) return false;
-  return nowMs - freshest <= idleWindowMs && anyWorkerOnline(body.workers);
+  // No parseable activity ANYWHERE → fresh deploy / not-yet (C5). Distinct from
+  // a paused producer that HAS a (stale) history: here we cannot conclude
+  // anything, so we HOLD without treating it as a permanent idle SUSPEND.
+  if (Number.isNaN(freshest)) return "no-data";
+  return nowMs - freshest <= idleWindowMs && anyWorkerOnline(body.workers)
+    ? "live"
+    : "idle";
+}
+
+/**
+ * §2.5 producer-liveness predicate — a thin wrapper over {@link classifyProducer}
+ * kept for the acceptance tests and callers that only need the LIVE/not-LIVE
+ * decision. Only `"live"` scans; both `"no-data"` and `"idle"` HOLD.
+ */
+export function isProducerLive(
+  body: FamilySummaryResponse,
+  idleWindowMs: number,
+  nowMs: number,
+): boolean {
+  return classifyProducer(body, idleWindowMs, nowMs) === "live";
 }
 
 export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
@@ -440,13 +488,14 @@ export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
    */
   async function readStatusRows(): Promise<StatusRow[]> {
     const rows: StatusRow[] = [];
+    const perPage = 500;
     let page = 1;
     // Full rows (default fields incl. signal); large perPage to bound round-trips.
     // eslint-disable-next-line no-constant-condition
     while (true) {
       const res = await deps.pb.list<StatusRow>("status", {
         page,
-        perPage: 500,
+        perPage,
         skipTotal: false,
       });
       rows.push(...res.items);
@@ -456,7 +505,29 @@ export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
       // accumulating duplicate rows (OOM). Treat a non-finite totalPages as
       // "unknown" and rely on the empty-page break + hard cap below.
       const totalPages = Number(res.totalPages);
-      if (Number.isFinite(totalPages) && page >= totalPages) break;
+      if (Number.isFinite(totalPages) && page >= totalPages) {
+        // C3: A4 only guarded the loop-FOREVER direction (NaN totalPages). The
+        // OPPOSITE hazard is a SHORT read: PB reports a finite `totalPages` that
+        // says "no more pages" while STILL returning a FULL page (== perPage).
+        // A full final page strongly implies more rows exist beyond what
+        // `totalPages` admits, so honoring the break here SILENTLY TRUNCATES the
+        // status set — and a truncated read can flip a gone verdict (a slug's
+        // missing rows read as no-data, or a partial column folds to gone). We
+        // still stop (honoring PB's own page count avoids an unbounded read), but
+        // LOG a loud, greppable errorId so the inconsistency surfaces instead of
+        // silently poisoning a verdict.
+        if (res.items.length >= perPage) {
+          logger.error("d0-monitor.status-short-read", {
+            errorId: "d0-monitor-short-read",
+            page,
+            totalPages: res.totalPages,
+            perPage,
+            lastPageItems: res.items.length,
+            rowsSoFar: rows.length,
+          });
+        }
+        break;
+      }
       // A4: hard page cap — a defensive ceiling so a misbehaving PB (missing/
       // NaN totalPages while always returning a full page) cannot wedge the
       // control-plane. 200 pages × 500 = 100k rows, far beyond the real status
@@ -520,29 +591,46 @@ export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
       }));
       if (columnGone(goneInputs)) {
         gone.add(slug);
-        // B-onset: derive `sinceAt` from the FOLDED verdict, NOT a raw
+        // B-onset / C2: derive `sinceAt` from the FOLDED verdict, NOT a raw
         // `row.state === "red"` re-scan of `live`. The old raw scan could
         // disagree with the fold — a red row on a dimension the ladder does not
         // count toward "gone" (or a prefix-colliding sibling's row) could set an
         // earlier/wrong onset, and when the fold said gone but no raw red row
         // matched the slug it silently fell back to `nowMs` (re-timing the
-        // onset every tick). Instead we take the earliest `first_failure_at`
-        // across the SAME rows `buildCellModel` folded into each gone cell —
-        // the effective D3/D4/D5/D6 winner rows (`.row`), which are exactly the
-        // red rungs that produced the red-D0 verdict. These rows are already
-        // slug-scoped by construction (buildCellModel keys by this slug), so no
-        // substring/prefix mis-attribution is possible.
+        // onset). Instead we take the earliest failure timestamp across the SAME
+        // rows `buildCellModel` folded into each gone cell — the effective
+        // D3/D4/D5/D6 winner rows (`.row`), which are exactly the rungs that
+        // produced the red-D0 verdict. These rows are already slug-scoped by
+        // construction (buildCellModel keys by this slug), so no substring/
+        // prefix mis-attribution is possible.
+        //
+        // C2: match a WINNER row by its NON-GREEN status (the rung that FAILED
+        // the ladder gate), NOT by a literal `row.state === "red"`. A gate can
+        // fail on a `degraded` (flaky/amber) winner rung whose literal state is
+        // not "red" — the old `state === "red"` filter skipped it, leaving
+        // `earliest` NaN → onset silently fell back to `nowMs`. A non-green
+        // winner row (red OR degraded) is what actually drove the red-D0, so its
+        // `first_failure_at ?? observed_at ?? transitioned_at` is the true onset.
         let earliest = Number.NaN;
         for (const m of models) {
           for (const level of [m.d3, m.d4, m.d5, m.d6]) {
             const r = level?.row;
-            if (!r || r.state !== "red") continue;
-            const t = parseIso(r.first_failure_at ?? r.observed_at);
+            // A green winner row cannot contribute to a red-D0 verdict; every
+            // OTHER winner state (red / degraded / out-of-vocab) is a
+            // gate-failing rung whose failure instant times the onset.
+            if (!r || r.state === "green") continue;
+            const t = parseIso(
+              r.first_failure_at ?? r.observed_at ?? r.transitioned_at,
+            );
             if (!Number.isNaN(t) && (Number.isNaN(earliest) || t < earliest)) {
               earliest = t;
             }
           }
         }
+        // Fallback only when NO winner row carried a parseable timestamp: use the
+        // OPEN instant (`nowMs`) as the first-observed onset. This is consumed
+        // ONLY for a genuinely NEW map entry below (an already-open slug keeps
+        // its persisted `sinceAt`, F8), so it can never re-stamp a live outage.
         onsetBySlug.set(slug, Number.isNaN(earliest) ? nowMs : earliest);
       } else if (columnFreshHealthy(goneInputs)) {
         healthy.add(slug);
@@ -557,13 +645,21 @@ export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
     return deps.dashboardUrl ? ` <${deps.dashboardUrl}|Dashboard>` : "";
   }
 
+  /**
+   * Compose the aggregated outage message. `shown` is the ALREADY-SELECTED,
+   * already-ordered set of slugs to name by bullet (the re-post-due /
+   * rotation-priority winners — see the state machine below); `overflowCount`
+   * is how many additional open slugs are folded into the "+N more" line. The
+   * caller owns selection so the named bullets and the advanced `lastAlertAt`
+   * clocks refer to the SAME slugs (B-cadence / C1).
+   */
   function outageMessage(
-    slugs: string[],
+    shown: string[],
+    overflowCount: number,
     map: OutageMap,
     nowMs: number,
   ): string {
-    const shown = slugs.slice(0, config.maxSlugsInMessage);
-    const overflow = slugs.length - shown.length;
+    const overflow = overflowCount;
     const bullets = shown
       .map((slug) => {
         const since = map[slug]?.sinceAt;
@@ -571,7 +667,9 @@ export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
         const dur = Number.isNaN(sinceMs)
           ? ""
           : ` (${humanizeDuration(nowMs - sinceMs)})`;
-        return `• \`${slug}\` — gone since ${since ?? "unknown"}${dur}`;
+        // C6: validate before interpolating — a garbage sinceAt renders as
+        // "unknown", never the raw corrupt string.
+        return `• \`${slug}\` — gone since ${renderSince(since)}${dur}`;
       })
       .join("\n");
     const more = overflow > 0 ? `\n• +${overflow} more` : "";
@@ -628,15 +726,27 @@ export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
         err: err instanceof Error ? err.message : String(err),
       });
     }
-    if (body === null || !isProducerLive(body, idleWindowMs, nowMs)) {
+    // C5: classify three-way so a FRESH DEPLOY (workers online, no run history
+    // yet) is a distinct "no-data / not-yet" HOLD, not a permanent producer-idle
+    // SUSPEND. In every non-live case we still HOLD (never page without data) —
+    // the difference is diagnostic clarity, and that a no-data state advances to
+    // live on its own once the fleet produces its first run (no redeploy).
+    const producerState: ProducerState =
+      body === null ? "idle" : classifyProducer(body, idleWindowMs, nowMs);
+    if (producerState !== "live") {
       if (!suspendedLogged) {
         logger.warn("d0-monitor.suspended-producer-idle", {
           idleWindowMs,
-          reason: body === null ? "summary-unavailable" : "producer-idle",
+          reason:
+            body === null
+              ? "summary-unavailable"
+              : producerState === "no-data"
+                ? "producer-no-data"
+                : "producer-idle",
         });
         suspendedLogged = true;
       }
-      return; // SUSPENDED: hold ALL prior state, no OPEN/CLOSE/re-post.
+      return; // HOLD: keep ALL prior state, no OPEN/CLOSE/re-post.
     }
     suspendedLogged = false;
 
@@ -663,6 +773,10 @@ export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
     // a recovery candidate this tick when it is currently open AND s1 read it
     // fresh-healthy.
     const map = await loadMap();
+    // Bucket-b: snapshot the loaded map so a PURE NO-OP tick (nothing opened,
+    // re-posted, or recovered — the steady all-healthy case) can skip the
+    // `putSet` write entirely. Compared against the final serialized map below.
+    const mapBefore = JSON.stringify(map);
     const openSlugs = new Set(Object.keys(map));
     const recoveryCandidates = [...s1.healthy].filter((slug) =>
       openSlugs.has(slug),
@@ -742,65 +856,102 @@ export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
         ...confirmed,
         ...Object.keys(map).filter((slug) => !healthy.has(slug)),
       ]),
-    ].sort();
-
-    const toAlert: string[] = [];
+    ];
+    // Ensure every open slug has a persisted entry BEFORE the due/priority sort
+    // below reads `lastAlertAt`. A genuinely NEW outage (a confirmed-gone slug
+    // with no map entry) is created here with an empty `lastAlertAt` (== due).
+    // `lastAlertAt` is advanced only AFTER a successful send.
     for (const slug of openNow) {
-      const existing = map[slug];
-      if (!existing) {
-        // OPEN: a genuinely new outage (only reachable for a CONFIRMED-gone
-        // slug — an already-open slug has a map entry). Record sinceAt (earliest
-        // onset, fallback now). lastAlertAt set AFTER a successful send below.
+      if (!map[slug]) {
         map[slug] = {
           sinceAt: iso(s1.onsetBySlug.get(slug) ?? nowMs),
           lastAlertAt: "",
         };
-        toAlert.push(slug);
-      } else {
-        const ageMs = nowMs - parseIso(existing.lastAlertAt);
-        if (Number.isNaN(ageMs) || ageMs >= repostMs) {
-          toAlert.push(slug); // hourly re-post due (or never successfully sent)
-        }
-        // else: persist, no post (15m detect, 1h alert not yet due).
       }
     }
 
+    // C1 CADENCE / OVERFLOW. Selection is by RE-POST-DUE-NESS + rotation, NOT an
+    // alphabetical prefix. The three coupled bugs the old prefix-slice caused:
+    //   1. overflow (the alphabetical tail beyond `maxSlugsInMessage`) was NEVER
+    //      named and its `lastAlertAt` never advanced → those slugs stayed "due"
+    //      every tick → the aggregate re-posted every 15m during a WIDE outage
+    //      instead of hourly;
+    //   2. a newly-opened slug that fell into overflow forced a post every 15m
+    //      even though it could not be named;
+    //   3. `lastAlertAt` was advanced for slugs the message never actually named.
+    // The coherent model: a slug is DUE when it was never successfully sent
+    // (empty/NaN `lastAlertAt`) or its last send aged past the re-post window.
+    // We ROTATE — order the shown set so the slugs waiting LONGEST since their
+    // last successful mention come first (an unset clock sorts oldest) — then
+    // take up to `maxSlugsInMessage`. The post is GATED on at least one DUE slug
+    // landing in the shown set, so a newly-opened overflow slug that cannot yet
+    // be named does not force a 15m re-post. Only the DUE shown slugs advance
+    // their clock (a not-due slug that happens to be shown to fill the message
+    // keeps its clock), so no not-due slug's re-post clock is ever reset.
+    const isDue = (slug: string): boolean => {
+      const ageMs = nowMs - parseIso(map[slug]?.lastAlertAt ?? "");
+      return Number.isNaN(ageMs) || ageMs >= repostMs;
+    };
+    // Rotation key: oldest last-mention first (empty clock == -Infinity == first).
+    const lastMentionMs = (slug: string): number => {
+      const t = parseIso(map[slug]?.lastAlertAt ?? "");
+      return Number.isNaN(t) ? Number.NEGATIVE_INFINITY : t;
+    };
+    // Order: DUE before not-due; within a group, oldest-mentioned first; a
+    // stable slug tie-break keeps the selection deterministic tick-to-tick.
+    const ordered = [...openNow].sort((a, b) => {
+      const da = isDue(a) ? 0 : 1;
+      const db = isDue(b) ? 0 : 1;
+      if (da !== db) return da - db;
+      const la = lastMentionMs(a);
+      const lb = lastMentionMs(b);
+      if (la !== lb) return la - lb;
+      return a < b ? -1 : a > b ? 1 : 0;
+    });
+    const shownSlugs = ordered.slice(0, config.maxSlugsInMessage);
+    const overflowCount = openNow.length - shownSlugs.length;
+    // GATE: only post when a DUE slug is actually NAMED. If every shown slug is
+    // already fresh (all the due slugs, if any, are folded into "+N more"), we
+    // hold — a not-yet-nameable slug must not spawn a per-tick re-post.
+    const shownDue = shownSlugs.filter((s) => isDue(s));
+    // Slugs NEVER-YET-SENT (empty clock) among the named-and-due set — a genuine
+    // OPEN this tick, for the log only. Captured before we advance the clock.
+    const newlyNamed = shownDue.filter(
+      (s) => (map[s]?.lastAlertAt ?? "") === "",
+    );
+
     // POST the ONE aggregated outage message. Only advance lastAlertAt AFTER a
     // successful send (§7 dedupe discipline).
-    if (toAlert.length > 0) {
-      // B-cadence: the message names only the FIRST `maxSlugsInMessage` slugs;
-      // any overflow is folded into a "+N more" line (see `outageMessage`).
-      // Advance `lastAlertAt` ONLY for the slugs actually NAMED in the message —
-      // an overflow slug that was NOT shown by name must keep its own re-post
-      // clock so it is not silently muted for another hour without ever being
-      // reported. `shownSlugs` mirrors `outageMessage`'s `slugs.slice(0, N)`.
-      const shownSlugs = openNow.slice(0, config.maxSlugsInMessage);
-      const text = outageMessage(openNow, map, nowMs);
+    if (shownDue.length > 0) {
+      // Bucket-b: stamp the outage-DURATION line with `evidenceMs` (the confirm-
+      // scan instant when a confirm ran, else the tick-start) — the instant the
+      // gone evidence was actually observed — for consistency with the recovery
+      // message and the `lastAlertAt` stamp, which both use `evidenceMs`.
+      const text = outageMessage(shownSlugs, overflowCount, map, evidenceMs);
       try {
         await deps.postAlert(text);
-        for (const slug of shownSlugs) {
-          // INTENTIONAL aggregate cadence: the outage message lists the shown
-          // open slugs in ONE post, so a single successful send advances every
-          // SHOWN slug's `lastAlertAt` to a common clock — one hourly message
-          // drives one shared re-post gate, so a slug that joined an existing
-          // outage does not spawn its own out-of-phase hourly cadence.
-          // Overflow (+N more) slugs are deliberately excluded (B-cadence).
-          // Stamp `evidenceMs` (the confirm-scan instant when a confirm ran,
-          // else the tick-start) — the instant the evidence was actually
-          // observed — not the tick-start `nowMs`, mirroring the recovery post.
+        for (const slug of shownDue) {
+          // Advance ONLY the DUE slugs that were NAMED in this message — one
+          // successful send drives one shared re-post gate for the slugs it
+          // actually reported. A not-due slug shown only to fill the message
+          // keeps its own clock (it was already fresh); an overflow slug keeps
+          // its clock too, so it rotates into the named positions on a later
+          // tick (bounded forward progress). Stamp `evidenceMs` (the confirm-
+          // scan instant when a confirm ran, else the tick-start) — the instant
+          // the evidence was actually observed — mirroring the recovery post.
           if (map[slug]) map[slug].lastAlertAt = iso(evidenceMs);
         }
         logger.warn("d0-monitor.outage-alerted", {
           slugs: shownSlugs,
-          overflow: openNow.length - shownSlugs.length,
-          newlyOpened: shownSlugs.filter((s) => toAlert.includes(s)),
+          overflow: overflowCount,
+          newlyOpened: newlyNamed,
         });
       } catch (err) {
         // Leave lastAlertAt unadvanced → next 15m tick retries (§7/F9). The
         // OPEN entries persist so the outage is remembered.
         logger.error("d0-monitor.alert-send-failed", {
           err: err instanceof Error ? err.message : String(err),
-          slugs: openNow,
+          slugs: shownSlugs,
         });
       }
     }
@@ -835,7 +986,13 @@ export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
       }
     }
 
-    await saveMap(map, nowMs);
+    // Bucket-b: persist only when the map actually CHANGED this tick (an OPEN,
+    // a re-post clock advance, or a recovery clear). A pure no-op tick — the
+    // steady all-healthy case that is the overwhelming majority — skips the
+    // `putSet` write, avoiding a needless PocketBase round-trip every 15m.
+    if (JSON.stringify(map) !== mapBefore) {
+      await saveMap(map, nowMs);
+    }
   }
 
   return {

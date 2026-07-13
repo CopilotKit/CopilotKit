@@ -179,7 +179,11 @@ const FIXTURES: ColumnFixture[] = [
       { slug: SLUG, featureId: FEATURE, isSupported: false, isWired: false },
     ],
     expectedGone: false,
-    naiveMislabels: false,
+    // C7: an UNSUPPORTED cell is achievedDepth 0 (single cell), so the
+    // depth-only naive rule WRONGLY calls the column gone — it IS a naive
+    // mislabel. (Excluded from the real monitor's wired universe, and the real
+    // `columnGone` still returns false here — that is the whole point.)
+    naiveMislabels: true,
   },
 ];
 
@@ -210,6 +214,22 @@ describe("d0-gone-predicate — no divergence from buildCellModel (§10.1)", () 
     for (const fx of FIXTURES.filter((f) => f.naiveMislabels)) {
       expect(naiveGone(modelsFor(fx))).toBe(true);
       expect(fx.expectedGone).toBe(false);
+    }
+  });
+
+  it("C7: every naiveMislabels flag is ACCURATE (== naiveGone disagrees with the design verdict)", () => {
+    // Symmetric guard so a WRONG `naiveMislabels` flag can never hide again. A
+    // fixture "mislabels" IFF the naive depth-only rule gives a DIFFERENT answer
+    // than the design verdict (`naiveGone !== expectedGone`). The `unsupported`
+    // fixture (achievedDepth 0, single cell, expectedGone false) was mis-
+    // annotated `false` while naiveGone returns `true` — a genuine mislabel the
+    // old flag hid. This asserts the flag on EVERY fixture, in BOTH directions,
+    // so neither a hidden false-positive (unsupported) nor a spurious flag on a
+    // correct hit (`red-d0-fresh`, where naiveGone and the design verdict AGREE
+    // on true) can slip through.
+    for (const fx of FIXTURES) {
+      const naiveDisagrees = naiveGone(modelsFor(fx)) !== fx.expectedGone;
+      expect(fx.naiveMislabels).toBe(naiveDisagrees);
     }
   });
 
