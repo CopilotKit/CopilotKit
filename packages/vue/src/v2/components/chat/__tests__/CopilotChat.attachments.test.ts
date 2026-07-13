@@ -1,21 +1,86 @@
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, waitFor } from "@testing-library/vue";
-import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
-import { Observable, EMPTY } from "rxjs";
+import { fireEvent, screen, waitFor } from "@testing-library/vue";
+import type {
+  AgentSubscriber,
+  BaseEvent,
+  Message,
+  RunAgentInput,
+  RunAgentParameters,
+  RunAgentResult,
+} from "@ag-ui/client";
+import type { Observable } from "rxjs";
+import { EMPTY } from "rxjs";
 import CopilotChat from "../CopilotChat.vue";
 import {
   MockStepwiseAgent,
   renderWithCopilotKit,
 } from "../../../__tests__/utils/test-helpers";
-import type { AttachmentUploadError } from "@copilotkit/shared";
+import type { AttachmentUploadError, InputContent } from "@copilotkit/shared";
 
 class NoopAgent extends MockStepwiseAgent {
-  run(_input: RunAgentInput): Observable<BaseEvent> {
+  run(): Observable<BaseEvent> {
     return EMPTY;
   }
 
-  connect(_input: RunAgentInput): Observable<BaseEvent> {
+  connect(): Observable<BaseEvent> {
     return EMPTY;
+  }
+}
+
+class CloneCapturingAgent extends NoopAgent {
+  constructor(
+    private readonly inputs: RunAgentInput[] = [],
+    public readonly addedMessages: Message[] = [],
+    public readonly runErrors: unknown[] = [],
+  ) {
+    super();
+  }
+
+  get capturedInputs() {
+    return this.inputs;
+  }
+
+  override clone(): CloneCapturingAgent {
+    const clone = new CloneCapturingAgent(
+      this.inputs,
+      this.addedMessages,
+      this.runErrors,
+    );
+    clone.agentId = this.agentId;
+    clone.threadId = this.threadId;
+    return clone;
+  }
+
+  override addMessage(message: Message): void {
+    this.addedMessages.push(message);
+    super.addMessage(message);
+  }
+
+  override async runAgent(
+    parameters: RunAgentParameters = {},
+    subscriber?: AgentSubscriber,
+  ): Promise<RunAgentResult> {
+    let input: RunAgentInput;
+    try {
+      input = this.prepareRunAgentInput(parameters);
+    } catch (error) {
+      this.runErrors.push(error);
+      throw error;
+    }
+    this.inputs.push(input);
+    await subscriber?.onRunInitialized?.({
+      agent: this,
+      messages: this.messages,
+      state: this.state,
+      input,
+    });
+    await subscriber?.onRunFinalized?.({
+      agent: this,
+      messages: this.messages,
+      state: this.state,
+      input,
+    });
+    return { newMessages: [] };
   }
 }
 
@@ -29,9 +94,10 @@ function renderChat(props: {
   accept?: string;
   maxSize?: number;
   onUpload?: (file: File) => unknown;
+  agent?: NoopAgent;
 }) {
-  const agent = new NoopAgent();
-  return renderWithCopilotKit({
+  const agent = props.agent ?? new NoopAgent();
+  const result = renderWithCopilotKit({
     agent,
     children: {
       components: { CopilotChat },
@@ -54,14 +120,17 @@ function renderChat(props: {
       `,
     },
   });
+  return { ...result, agent };
 }
 
-async function dropFiles(container: HTMLElement, files: File[]) {
-  const dropTarget = container.querySelector(
-    '[data-testid="copilot-chat-view"]',
-  );
+async function dropFiles(
+  container: HTMLElement,
+  files: File[],
+  selector = '[data-testid="copilot-chat-view"]',
+) {
+  const dropTarget = container.querySelector(selector);
   if (!dropTarget) {
-    throw new Error("Could not find copilot-chat drop target");
+    throw new Error(`Could not find drop target: ${selector}`);
   }
 
   await fireEvent.dragOver(dropTarget, {
@@ -232,6 +301,108 @@ describe("CopilotChat attachments", () => {
 
       await new Promise((resolve) => setTimeout(resolve, 100));
       expect(onUploadFailed).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("Vue-specific reactive semantics", () => {
+    it("submits custom uploaded attachments through clone-safe agent input", async () => {
+      const agent = new CloneCapturingAgent();
+      const props = {
+        accept: "application/pdf",
+        onUpload: async () => ({
+          type: "url" as const,
+          value: "https://example.com/report.pdf",
+          mimeType: "application/pdf",
+          metadata: { source: "test-upload" },
+        }),
+      };
+      const { container } = renderWithCopilotKit({
+        agent,
+        children: {
+          components: { CopilotChat },
+          data() {
+            return { props };
+          },
+          template: `
+            <div style="height: 400px;">
+              <CopilotChat
+                :welcome-screen="false"
+                :attachments="{
+                  enabled: true,
+                  accept: props.accept,
+                  onUpload: props.onUpload
+                }"
+              >
+                <template #chat-view="{ attachments, onDragOver, onDrop, onSubmitMessage }">
+                  <div
+                    data-testid="attachment-submit-harness"
+                    @dragover="onDragOver?.($event)"
+                    @drop="onDrop?.($event)"
+                  >
+                    <span
+                      v-for="attachment in attachments"
+                      :key="attachment.id"
+                    >
+                      {{ attachment.filename }}
+                    </span>
+                    <button
+                      data-testid="submit-attachment-message"
+                      @click="onSubmitMessage('Review this report')"
+                    >
+                      submit
+                    </button>
+                  </div>
+                </template>
+              </CopilotChat>
+            </div>
+          `,
+        },
+      });
+
+      await dropFiles(
+        container,
+        [createFile("report.pdf", 128, "application/pdf")],
+        '[data-testid="attachment-submit-harness"]',
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("report.pdf")).toBeDefined();
+      });
+
+      await fireEvent.click(screen.getByTestId("submit-attachment-message"));
+
+      await waitFor(() => {
+        expect(agent.addedMessages).toHaveLength(1);
+      });
+      expect(agent.runErrors).toEqual([]);
+
+      await waitFor(() => {
+        expect(agent.capturedInputs).toHaveLength(1);
+      });
+
+      const userMessage = agent.capturedInputs[0].messages.find(
+        (message) => message.role === "user",
+      );
+      expect(userMessage).toBeDefined();
+      expect(Array.isArray(userMessage?.content)).toBe(true);
+
+      const content = userMessage?.content as InputContent[];
+      expect(() => structuredClone(content)).not.toThrow();
+      expect(content).toEqual([
+        { type: "text", text: "Review this report" },
+        {
+          type: "document",
+          source: {
+            type: "url",
+            value: "https://example.com/report.pdf",
+            mimeType: "application/pdf",
+          },
+          metadata: {
+            filename: "report.pdf",
+            source: "test-upload",
+          },
+        },
+      ]);
     });
   });
 });
