@@ -18,7 +18,7 @@ import type {
   ConversationStore,
   UserQuery,
   InteractionEvent,
-} from "@copilotkit/channels";
+} from "@copilotkit/channels-core";
 import type {
   DeliverySource,
   EgressSink,

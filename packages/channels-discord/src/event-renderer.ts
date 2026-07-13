@@ -3,7 +3,7 @@ import type {
   RunRenderer,
   CapturedToolCall,
   CapturedInterrupt,
-} from "@copilotkit/channels";
+} from "@copilotkit/channels-core";
 import { ChunkedMessageStream } from "./chunked-message-stream.js";
 import { discordMarkdown } from "./markdown.js";
 import { autoCloseOpenMarkdown } from "./auto-close-streaming.js";

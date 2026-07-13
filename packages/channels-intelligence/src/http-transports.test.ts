@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { createChannel, FakeAgent } from "@copilotkit/channels";
+import { createChannel, FakeAgent } from "@copilotkit/channels-core";
 import type { ChannelNode } from "@copilotkit/channels-ui";
 import {
   HttpDeliverySource,

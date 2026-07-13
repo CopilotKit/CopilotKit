@@ -5,8 +5,8 @@
  * `createChannel`.
  */
 import { z } from "zod";
-import { defineChannelTool } from "@copilotkit/channels";
-import type { ChannelTool } from "@copilotkit/channels";
+import { defineChannelTool } from "@copilotkit/channels-core";
+import type { ChannelTool } from "@copilotkit/channels-core";
 
 const lookupSchema = z.object({
   query: z

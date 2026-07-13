@@ -42,8 +42,8 @@
   },
   "dependencies": {
     "@ag-ui/client": "0.0.57",
-    "@copilotkit/channels": "workspace:*",
-    "@copilotkit/channels-ui": "workspace:*",
+    "@copilotkit/channels-core": "workspace:^",
+    "@copilotkit/channels-ui": "workspace:^",
     "discord.js": "^14.16.0",
     "zod": "^3.25.76"
   },

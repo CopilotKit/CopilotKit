@@ -18,7 +18,7 @@ import type {
   UserQuery,
   CommandSpec,
   NativePayload,
-} from "@copilotkit/channels";
+} from "@copilotkit/channels-core";
 import type {
   ChannelNode,
   ThreadMessage,

@@ -6,7 +6,7 @@ import {
   slackFormattingContext,
   slackConversationModelContext,
 } from "../built-in-context.js";
-import type { ChannelToolContext } from "@copilotkit/channels";
+import type { ChannelToolContext } from "@copilotkit/channels-core";
 import type { PlatformUser, Thread } from "@copilotkit/channels-ui";
 
 /**

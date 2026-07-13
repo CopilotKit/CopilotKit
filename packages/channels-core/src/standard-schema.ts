@@ -12,11 +12,8 @@
  * ones `@copilotkit/core` uses for its `FrontendTool` parameters) plus a
  * couple of Slack-local conveniences.
  */
-import {
-  schemaToJsonSchema as sharedSchemaToJsonSchema,
-  type StandardSchemaV1,
-  type InferSchemaOutput,
-} from "@copilotkit/shared";
+import { schemaToJsonSchema as sharedSchemaToJsonSchema } from "@copilotkit/shared";
+import type { StandardSchemaV1, InferSchemaOutput } from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
 export type { StandardSchemaV1, InferSchemaOutput };

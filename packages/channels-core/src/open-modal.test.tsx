@@ -5,11 +5,11 @@ import { createChannel } from "./create-channel.js";
 import { FakeAdapter } from "./testing/fake-adapter.js";
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
-const view = (
-  <Modal callbackId="triage" title="Triage">
-    <TextInput id="summary" label="Summary" />
-  </Modal>
-);
+const view = Modal({
+  callbackId: "triage",
+  title: "Triage",
+  children: <TextInput id="summary" label="Summary" />,
+});
 
 describe("ctx.openModal", () => {
   it("opens a modal from an interaction when a triggerId is present", async () => {
