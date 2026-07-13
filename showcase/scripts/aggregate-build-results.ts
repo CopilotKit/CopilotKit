@@ -102,6 +102,27 @@ function writeGithubOutput(
   );
 }
 
+/**
+ * Attempt to read result.json directly from the root of inputDir. Used as a
+ * single-artifact fallback when actions/download-artifact@v5+ is used: if the
+ * glob pattern matches exactly one artifact the contents land flat in $path
+ * instead of $path/$artifact-name/. Throws the canonical "broken download"
+ * error (same message as the zero-slot check) when no result.json exists at
+ * the root either — that means the download truly produced nothing.
+ */
+function readSingleFallbackPayload(inputDir: string): string {
+  const path = join(inputDir, "result.json");
+  try {
+    return readFileSync(path, "utf-8");
+  } catch {
+    throw new Error(
+      `aggregate-build-results: found 0 build-result-* slot dirs in ${inputDir} — ` +
+        `the per-slot artifact download produced nothing; this indicates a broken ` +
+        `download, not an empty build set (the job only runs when >=1 service was scheduled).`,
+    );
+  }
+}
+
 export function run(opts: RunOptions): void {
   const { inputDir, outputDir, githubOutput } = opts;
 
@@ -119,15 +140,18 @@ export function run(opts: RunOptions): void {
   // `results=[]` would be indistinguishable from "all builds failed" and
   // would push deploy down the false-green path where it probes the full
   // service set against stale `:latest`. Fail loud instead.
-  if (slotDirs.length === 0) {
-    throw new Error(
-      `aggregate-build-results: found 0 build-result-* slot dirs in ${inputDir} — ` +
-        `the per-slot artifact download produced nothing; this indicates a broken ` +
-        `download, not an empty build set (the job only runs when >=1 service was scheduled).`,
-    );
-  }
-
-  const payloads = slotDirs.map((name) => readSlotPayload(inputDir, name));
+  //
+  // Exception: actions/download-artifact@v5+ changed the extraction behavior
+  // for single-match patterns. When `pattern: build-result-*` matches exactly
+  // ONE artifact, the artifact's files are placed directly in `$path` instead
+  // of `$path/<artifact-name>/`. This means on runs where only one service
+  // changed we find no `build-result-*` subdirectory but DO find a
+  // `result.json` at the root of $INPUT_DIR. readSingleFallbackPayload handles
+  // that case and re-raises the broken-download error when even that is absent.
+  const payloads: string[] =
+    slotDirs.length > 0
+      ? slotDirs.map((name) => readSlotPayload(inputDir, name))
+      : [readSingleFallbackPayload(inputDir)];
 
   const merged = mergeBuildResultFiles(payloads);
   const resultsJson = JSON.stringify(merged);

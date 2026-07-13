@@ -5,11 +5,13 @@
  * The script's `run({inputDir, outputDir, githubOutput})` entrypoint is
  * exercised directly with temp dirs (so we never touch tracked files or
  * spawn subprocesses). We verify:
- *   1. empty INPUT_DIR → results.json = `[]`, any_success=false, no throw
+ *   1. empty INPUT_DIR → throws (broken artifact download)
  *   2. build-result-<x> dir missing result.json → throws naming the slot
  *   3. non-`build-result-*` dirs are ignored
  *   4. mixed success/failure → correct merged array + any_success=true
  *   5. GITHUB_OUTPUT receives heredoc-form `results` block + any_success
+ *   6. results.json has a trailing newline
+ *   7. result.json directly in INPUT_DIR (single-artifact path from download-artifact@v5+)
  */
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -151,5 +153,25 @@ describe("aggregate-build-results.run", () => {
 
     const raw = readFileSync(join(outputDir, "results.json"), "utf-8");
     expect(raw.endsWith("\n")).toBe(true);
+  });
+
+  it("single result.json directly in INPUT_DIR is processed (download-artifact@v5+ single-match behavior)", () => {
+    // download-artifact@v5+ changed extraction so that when a pattern matches
+    // exactly ONE artifact the files land directly in $path instead of
+    // $path/$artifact-name/. Simulate that layout here.
+    writeFileSync(
+      join(inputDir, "result.json"),
+      JSON.stringify({ service: "shell-docs", status: "success" }),
+    );
+
+    run({ inputDir, outputDir, githubOutput });
+
+    const results = JSON.parse(
+      readFileSync(join(outputDir, "results.json"), "utf-8"),
+    );
+    expect(results).toEqual([{ service: "shell-docs", status: "success" }]);
+
+    const gh = readFileSync(githubOutput, "utf-8");
+    expect(gh).toContain("any_success=true");
   });
 });
