@@ -18,7 +18,7 @@ import { test, expect } from "@playwright/test";
 //
 // aimock matching (OpenClaw specifics): the runtime-injected
 // `generateSandboxedUi` tool is present in every request for this agent, so the
-// tool fixtures match on toolName + hasToolResult:false. Because clawg-ui
+// tool fixtures match on toolName + hasToolResult:false. Because ag-ui
 // FLATTENS the AG-UI conversation into a single user prompt, aimock's role:tool
 // discriminator never fires on the follow-up; the shared "returned:" TERMINATOR
 // fixture (chat.json #0) intercepts the flattened tool-result marker and closes

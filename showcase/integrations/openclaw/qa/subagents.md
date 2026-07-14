@@ -69,7 +69,7 @@ forwarded for this demo and no supervisor loop to emit `STATE_SNAPSHOT`s.
 
 ## What would need to land
 
-Gateway-side supervisor → sub-agent orchestration plus the clawg-ui shared-state
+Gateway-side supervisor → sub-agent orchestration plus the ag-ui shared-state
 capability wired for this demo (`forwardedProps.stateWriterTools` →
 `STATE_SNAPSHOT` for the `delegations` slot). Until then, treat this demo as
 not-supported and skip it in parity/e2e passes.

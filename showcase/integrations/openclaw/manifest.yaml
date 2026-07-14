@@ -4,7 +4,7 @@ category: emerging
 language: typescript
 logo: /logos/openclaw.svg
 description: CopilotKit integration with OpenClaw — a self-hosted multi-channel
-  AI gateway. Connects via the clawg-ui AG-UI adapter (operator-auth route), so
+  AI gateway. Connects via the ag-ui AG-UI adapter (operator-auth route), so
   a CopilotKit frontend drives an OpenClaw agent with streaming responses, tool
   rendering, and A2UI.
 partner_docs: null
@@ -64,7 +64,7 @@ not_supported_features:
   # prompts that lack their own terminator. Real fix: teach aimock's matchers to
   # read Responses-API function_call/function_call_output (then per-tool
   # toolCallId narrations work), or cap/dedupe repeated identical tool calls in
-  # clawg-ui. These demos stay excluded until the multi-tool tests can pass.
+  # ag-ui. These demos stay excluded until the multi-tool tests can pass.
   - tool-rendering
   # Same tool-call loop as tool-rendering (useDefaultRenderTool wildcard): dozens of
   # duplicate default cards; the flood eventually stalls the run.
@@ -77,7 +77,7 @@ not_supported_features:
   # A2UI dynamic-schema drives a render_a2ui tool turn. OBSERVED: the run hangs
   # (only RUN_STARTED emitted; SSE never completes) and crashed the Next runtime
   # during full runs. Consistent with the same multi-turn non-advancement as the
-  # tool-rendering loop, on the render_a2ui path. Needs the same aimock/clawg-ui
+  # tool-rendering loop, on the render_a2ui path. Needs the same aimock/ag-ui
   # fix (or a gateway-side A2UI relay).
   - declarative-gen-ui
   # Agent-state generative UI: the live agent-state card did not render. Suspected
@@ -93,7 +93,7 @@ not_supported_features:
   - gen-ui-interrupt
   - interrupt-headless
   # Requires a rendering system prompt (the { ui: [...] } envelope instruction)
-  # that the reference held in its backend. The clawg-ui gateway is a
+  # that the reference held in its backend. The ag-ui gateway is a
   # pass-through and does not inject it, so catalog-constrained output is not
   # reliably produced. See PARITY_NOTES.md "Known gaps".
   - declarative-hashbrown

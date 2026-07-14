@@ -6,7 +6,7 @@
  * Proxies to the OpenClaw gateway (pass-through). The gateway already emits
  * REASONING_MESSAGE_* events for reasoning-capable models, so the default
  * variant works without per-demo backend logic. (The reasoning-chain variant
- * — reasoning co-emitted with a tool call — depends on additional clawg-ui
+ * — reasoning co-emitted with a tool call — depends on additional ag-ui
  * support; see the demo roadmap.)
  */
 

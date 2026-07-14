@@ -19,7 +19,7 @@ reference this is one middleware entry (`StateStreamingMiddleware` mapping the
 `write_document` tool's `content` arg → the `document` state key).
 
 OpenClaw is a **single stateless gateway** with no per-demo backend and no
-equivalent of that middleware. clawg-ui does back bidirectional shared state
+equivalent of that middleware. ag-ui does back bidirectional shared state
 (via `forwardedProps.stateWriterTools` → a `STATE_SNAPSHOT` on tool completion —
 that's what powers `shared-state-read` / `shared-state-read-write`), but a
 `STATE_SNAPSHOT` is emitted **when the tool call resolves**, not per token. There

@@ -16,7 +16,7 @@ showcase.
 
 There is **no demo-specific backend**. Like every OpenClaw demo, this one maps
 to the same single stateless gateway endpoint; the chat is plain pass-through
-through the clawg-ui channel. Nothing here depends on OpenClaw beyond ordinary
+through the ag-ui channel. Nothing here depends on OpenClaw beyond ordinary
 token-streamed chat — the demo is entirely about the visual layer.
 
 ## Manual steps

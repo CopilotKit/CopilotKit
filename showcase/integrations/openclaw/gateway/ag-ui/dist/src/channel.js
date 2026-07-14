@@ -1,7 +1,7 @@
 export const aguiChannelPlugin = {
-  id: "clawg-ui",
+  id: "ag-ui",
   meta: {
-    id: "clawg-ui",
+    id: "ag-ui",
     label: "AG-UI",
     selectionLabel: "AG-UI (CopilotKit / HttpAgent)",
     docsPath: "/channels/agui",
@@ -23,8 +23,8 @@ export const aguiChannelPlugin = {
     defaultAccountId: () => "default",
   },
   pairing: {
-    idLabel: "clawgUiDeviceId",
+    idLabel: "aguiDeviceId",
     normalizeAllowEntry: (entry) =>
-      entry.replace(/^clawg-ui:/i, "").toLowerCase(),
+      entry.replace(/^ag-ui:/i, "").toLowerCase(),
   },
 };

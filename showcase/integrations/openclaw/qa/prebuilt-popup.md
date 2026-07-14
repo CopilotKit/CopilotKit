@@ -56,7 +56,7 @@ turn is a fresh `RunAgentInput` → SSE run; assistant text streams back as
 
 Inside the running container, POST a plain-chat `RunAgentInput` (a single user
 message, empty `tools`) to
-`http://127.0.0.1:8000/v1/clawg-ui/operator` (Bearer gateway token,
+`http://127.0.0.1:8000/v1/ag-ui/operator` (Bearer gateway token,
 `Accept: text/event-stream`) and confirm the SSE contains `TEXT_MESSAGE_START`
 → `TEXT_MESSAGE_CONTENT` (streamed) → `TEXT_MESSAGE_END`, then `RUN_FINISHED`.
 

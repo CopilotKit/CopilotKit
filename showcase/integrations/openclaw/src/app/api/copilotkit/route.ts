@@ -7,7 +7,7 @@ import {
 import { AbstractAgent } from "@ag-ui/client";
 import { createGatewayAgent, GATEWAY_HEALTH_URL } from "@/lib/openclaw-agent";
 
-// This runtime proxies CopilotKit requests to the OpenClaw gateway's clawg-ui
+// This runtime proxies CopilotKit requests to the OpenClaw gateway's ag-ui
 // operator route via the AG-UI protocol. See lib/openclaw-agent.ts.
 
 console.log("[copilotkit/route] Initializing CopilotKit runtime");

@@ -4,7 +4,7 @@
  * Proxies to the OpenClaw gateway (pass-through). The demo relies on a
  * system prompt instructing the model to emit a `@json-render/react`
  * flat-spec JSON object; reliable output depends on that prompt reaching the
- * model via clawg-ui (gateway prompt injection). Isolated on its own endpoint
+ * model via ag-ui (gateway prompt injection). Isolated on its own endpoint
  * so the declarative-render prompt cannot leak into other demos.
  */
 

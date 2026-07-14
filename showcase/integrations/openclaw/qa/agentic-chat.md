@@ -7,7 +7,7 @@ Route: `/demos/agentic-chat` · Agent: `agentic_chat`
 
 The simplest OpenClaw surface: a plain agentic chat with no frontend tools,
 render tools, or agent context. `CopilotChat` renders the full chat UI; the
-message goes over AG-UI to the clawg-ui gateway, which relays the OpenClaw run
+message goes over AG-UI to the ag-ui gateway, which relays the OpenClaw run
 back as streaming `TEXT_MESSAGE_*` events. Three static suggestion chips are
 registered via `useConfigureSuggestions` (`available: "always"`), so they show
 before and between turns. This is a pass-through demo — behaviour is chat +
@@ -35,7 +35,7 @@ token streaming from the single stateless gateway endpoint, nothing per-demo.
 ## Protocol-level check (no browser)
 
 Inside the running container, POST a plain `RunAgentInput` (one user message, no
-`tools`) to `http://127.0.0.1:8000/v1/clawg-ui/operator` (Bearer gateway token,
+`tools`) to `http://127.0.0.1:8000/v1/ag-ui/operator` (Bearer gateway token,
 `Accept: text/event-stream`) and confirm the SSE stream contains
 `TEXT_MESSAGE_START` → one or more `TEXT_MESSAGE_CONTENT` → `TEXT_MESSAGE_END`,
 then `RUN_FINISHED`.

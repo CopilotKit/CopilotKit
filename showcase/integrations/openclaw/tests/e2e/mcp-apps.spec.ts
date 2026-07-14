@@ -17,7 +17,7 @@ import { test, expect } from "@playwright/test";
 // `iframe[sandbox]` element itself.
 //
 // OpenClaw specifics:
-//  - clawg-ui FLATTENS the whole AG-UI conversation into one user prompt, so a
+//  - ag-ui FLATTENS the whole AG-UI conversation into one user prompt, so a
 //    tool result arrives as the text "Tool <name> returned: ..." rather than a
 //    role:tool message. aimock's `hasToolResult` discriminator therefore never
 //    fires on the follow-up; the shared `{ userMessage: "returned:" }`

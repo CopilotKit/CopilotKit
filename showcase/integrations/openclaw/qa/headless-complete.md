@@ -13,7 +13,7 @@ attachments. Every render surface CopilotKit exposes is wired here:
   StockCard, `get_revenue_chart` → ChartCard. In the claude-sdk reference these
   were backend tools; against the OpenClaw gateway (a stateless pass-through
   with no per-demo backend) they are **frontend-forwarded**: the schema goes
-  over AG-UI in `RunAgentInput.tools`, clawg-ui hands it to OpenClaw as a
+  over AG-UI in `RunAgentInput.tools`, ag-ui hands it to OpenClaw as a
   caller-provided **client tool**, the model calls it, and the local handler
   produces the (deterministic mock) result the model then narrates.
 - `useComponent` — `highlight_note` (UI-only frontend tool → sticky-note card).
@@ -85,7 +85,7 @@ attachments. Every render surface CopilotKit exposes is wired here:
 ## Protocol-level check (no browser)
 
 Inside the running container, POST a `RunAgentInput` carrying the
-`get_weather` frontend tool to `http://127.0.0.1:8000/v1/clawg-ui/operator`
+`get_weather` frontend tool to `http://127.0.0.1:8000/v1/ag-ui/operator`
 (Bearer gateway token, `Accept: text/event-stream`) with a "weather in Tokyo"
 message, and confirm the SSE contains a single `TOOL_CALL_START` for
 `get_weather` with `{ location: "Tokyo" }`, then `RUN_FINISHED`.

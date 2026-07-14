@@ -5,7 +5,7 @@
  * system prompt instructing the model to emit the hashbrown-shaped
  * `{ ui: [...] }` JSON envelope that `@hashbrownai/react`'s `useJsonParser`
  * consumes progressively in `hashbrown-renderer.tsx`. Reliable output depends
- * on that prompt reaching the model via clawg-ui (gateway prompt injection).
+ * on that prompt reaching the model via ag-ui (gateway prompt injection).
  */
 
 import { NextRequest, NextResponse } from "next/server";

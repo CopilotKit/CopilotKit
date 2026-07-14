@@ -20,7 +20,7 @@ used as-is.
 
 OpenClaw is a single stateless gateway with no per-demo backend, so there is no
 graph logic behind this demo. The reasoning route (`/api/copilotkit-reasoning`)
-is a pass-through to the gateway; the clawg-ui adapter emits `REASONING_*`
+is a pass-through to the gateway; the ag-ui adapter emits `REASONING_*`
 (reasoning stream mode) for reasoning-capable models, and CopilotKit renders
 those tokens in the built-in panel. There is nothing demo-specific on the
 backend — behaviour comes entirely from the model producing a reasoning summary
@@ -60,7 +60,7 @@ plus the frontend's default rendering.
 
 Inside the running container, POST a `RunAgentInput` carrying a
 reasoning-eliciting user message to the gateway operator route
-(`http://127.0.0.1:8000/v1/clawg-ui/operator`, Bearer gateway token,
+(`http://127.0.0.1:8000/v1/ag-ui/operator`, Bearer gateway token,
 `Accept: text/event-stream`) and confirm the SSE stream contains
 `REASONING_MESSAGE_START` → `REASONING_MESSAGE_CONTENT` (deltas) →
 `REASONING_MESSAGE_END`, followed by the normal text message and
@@ -75,5 +75,5 @@ reasoning-eliciting user message to the gateway operator route
 - Reasoning content is a model-produced summary, not a verbatim chain of
   thought; exact wording varies run to run.
 - `tool-rendering-reasoning-chain` (reasoning co-emitted with a tool call) is a
-  known gap — it needs additional clawg-ui support and is not covered here. This
+  known gap — it needs additional ag-ui support and is not covered here. This
   default variant is text-only reasoning.

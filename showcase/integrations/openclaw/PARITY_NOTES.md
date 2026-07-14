@@ -6,13 +6,13 @@ langgraph-python canonical set.
 ## Architecture
 
 OpenClaw is a self-hosted, multi-channel AI gateway. The showcase reaches it
-through the **clawg-ui** AG-UI channel plugin, which exposes the AG-UI protocol
-at the gateway's operator route (`POST /v1/clawg-ui/operator`, gateway-token
+through the **ag-ui** AG-UI channel plugin, which exposes the AG-UI protocol
+at the gateway's operator route (`POST /v1/ag-ui/operator`, gateway-token
 auth). Each demo's Next.js route proxies to that route via an `OpenClawAgent`
 (a thin `HttpAgent` subclass; see `src/lib/openclaw-agent.ts`), keeping the
 gateway token server-side. Every demo agent name maps to the same underlying
 OpenClaw agent — a **single stateless endpoint** — so per-demo behaviour comes
-from the frontend + runtime middleware + the clawg-ui gateway capabilities, not
+from the frontend + runtime middleware + the ag-ui gateway capabilities, not
 from per-demo backend graphs. This mirrors the claude-sdk-typescript topology
 (the frontend is adopted from it) with one difference: OpenClaw has no per-demo
 backend, so demo-specific tools are **frontend-forwarded** (`useFrontendTool`),
@@ -26,7 +26,7 @@ three layers:
    A2UI (the runtime's `render_a2ui` tool is injected and relayed by the
    gateway), MCP-apps. Behaviour lives in the frontend + CopilotKit runtime;
    the gateway forwards tools and relays events.
-2. **clawg-ui gateway capabilities** (in the fork, frontend-agnostic) — token
+2. **ag-ui gateway capabilities** (in the fork, frontend-agnostic) — token
    streaming, `REASONING_*` events, frontend/client tools, bidirectional
    **shared state** (declared via `forwardedProps.stateWriterTools` →
    `STATE_SNAPSHOT` + a narrated confirmation), and **multimodal** image input
@@ -40,7 +40,7 @@ The showcase ships the full demo set. Support by category:
 
 - **Chat / presentation** — agentic-chat, prebuilt-sidebar, prebuilt-popup,
   chat-slots, chat-customization-css, beautiful-chat, headless-simple.
-- **Reasoning** — reasoning-default, reasoning-custom (clawg-ui emits
+- **Reasoning** — reasoning-default, reasoning-custom (ag-ui emits
   `REASONING_*` in stream mode; renders in the built-in reasoning panel, above
   the answer). Note the reasoning panel appears only when the model actually
   produces a summary — see "reasoning is intermittent" under Known gaps.
@@ -51,7 +51,7 @@ The showcase ships the full demo set. Support by category:
   (tool-based, promise/`respond()` — the fleet's `promise-based` pattern).
 - **State / context** — readonly-state-agent-context and agent-config (via
   `useAgentContext` → AG-UI `context[]`, injected into the prompt);
-  shared-state-read and shared-state-read-write (via the clawg-ui state-writer
+  shared-state-read and shared-state-read-write (via the ag-ui state-writer
   capability, `STATE_SNAPSHOT`).
 - **A2UI** — declarative-gen-ui and a2ui-fixed-schema. These use the **generic
   fleet path**, not anything OpenClaw-specific: the runtime `render_a2ui` tool is
@@ -60,10 +60,10 @@ The showcase ships the full demo set. Support by category:
   other integration does A2UI. Note: OpenClaw _also_ has a **native** A2UI system
   (its own `a2ui_push` / `a2ui_reset` tools + hosted `/__openclaw__/a2ui` canvas),
   which the showcase demos do **not** use. Wiring that native surface through
-  clawg-ui is a possible future differentiator (OpenClaw would drive A2UI
+  ag-ui is a possible future differentiator (OpenClaw would drive A2UI
   server-side), but it is out of scope for parity and not required — the generic
   path already covers the demos.
-- **Multimodal** — image attachments reach a vision-capable model (clawg-ui
+- **Multimodal** — image attachments reach a vision-capable model (ag-ui
   extracts AG-UI image blocks and passes them to the run; the model input is
   configured with `image` support in `gateway/setup.sh`).
 - **Auth** — runtime `onRequest` bearer gate (frontend/runtime, no gateway
@@ -89,7 +89,7 @@ the same proven mechanisms but have not each been individually e2e-checked.
 - **Reasoning is intermittent (vs langgraph's always-on)** — the reasoning
   panel lights up for prompts the model deems worth summarizing (e.g. "write a
   sonnet") but stays hidden for simple factual ones (e.g. "why is the sky
-  blue"). Root cause is upstream of clawg-ui: OpenClaw's `openai-responses`
+  blue"). Root cause is upstream of ag-ui: OpenClaw's `openai-responses`
   provider requests the reasoning summary with `summary: "auto"` (hardcoded —
   it resolves `reasoningEffort` but never sets `reasoningSummary`, so
   `applyCommonResponsesParams` falls through to `|| "auto"`; see OpenClaw
@@ -98,8 +98,8 @@ the same proven mechanisms but have not each been individually e2e-checked.
   langgraph-python reference instead forces `reasoning={"effort":"medium",
 "summary":"detailed"}` in its agent (`src/agents/reasoning_agent.py`), so its
   panel appears on every turn. Matching that would mean changing the summary
-  mode **inside OpenClaw core** — the decision is made before clawg-ui sees any
-  event, and we edit only clawg-ui here, so it's out of scope. `"auto"` is a
+  mode **inside OpenClaw core** — the decision is made before ag-ui sees any
+  event, and we edit only ag-ui here, so it's out of scope. `"auto"` is a
   defensible default (reasoning surfaces when it's substantive rather than
   padding every answer); it is simply less eager than the LangGraph reference.
   A clean upstream fix would be for OpenClaw to expose `reasoningSummary` as a

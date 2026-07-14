@@ -11,7 +11,7 @@ gap**. This demo needs a rendering system prompt — the instruction telling the
 model to emit the hashbrown `{ ui: [...] }` envelope — that the claude-sdk /
 langgraph reference carried in its **backend graph**. OpenClaw is a stateless
 pass-through gateway with no per-demo backend, so that instruction has to be
-delivered to the model another way (frontend `instructions` or clawg-ui gateway
+delivered to the model another way (frontend `instructions` or ag-ui gateway
 prompt injection). **That is not yet wired.** Without it, the model streams
 prose, not the JSON envelope, so nothing renders.
 

@@ -70,7 +70,7 @@ run itself relays the model's MCP tool call over AG-UI.
 
 ## Caveats
 
-- MCP Apps rides the runtime middleware, not a clawg-ui gateway capability, so
+- MCP Apps rides the runtime middleware, not a ag-ui gateway capability, so
   the gateway only relays the tool call and events — it adds nothing demo
   specific here. Correct rendering depends on the runtime + the reachable
   Excalidraw MCP app.

@@ -17,7 +17,7 @@ the demo does not upload to external storage). Two "Try with sample X" buttons
 inject a bundled image or PDF and auto-send a canned prompt.
 
 OpenClaw is a single stateless gateway with no per-demo backend, so multimodal
-support is a **clawg-ui gateway capability**, not per-demo logic: the runtime
+support is a **ag-ui gateway capability**, not per-demo logic: the runtime
 route (`/api/copilotkit-multimodal`) proxies to the gateway, which extracts the
 AG-UI image/document blocks and passes them to a vision-capable run (the model
 input is configured with `image` support in `gateway/setup.sh`). A
@@ -71,7 +71,7 @@ avoids the "cannot send while attachments are uploading" race.
 
 Inside the running container, POST a `RunAgentInput` whose last user message
 carries an image/document block to the gateway operator route
-(`http://127.0.0.1:8000/v1/clawg-ui/operator`, Bearer gateway token,
+(`http://127.0.0.1:8000/v1/ag-ui/operator`, Bearer gateway token,
 `Accept: text/event-stream`) and confirm the SSE stream describes the image
 content and ends with `RUN_FINISHED`.
 
@@ -79,7 +79,7 @@ content and ends with `RUN_FINISHED`.
 
 - Multimodal responses are heavier than text-only; allow up to ~60s for the
   first token on a fresh run.
-- Behaviour comes from the clawg-ui multimodal capability plus the page's
+- Behaviour comes from the ag-ui multimodal capability plus the page's
   `LegacyConverterShim`, not a per-demo backend graph — image blocks are
   extracted at the gateway and passed to the vision model.
 - Sample files served as Git LFS pointers (LFS not pulled at build) are caught

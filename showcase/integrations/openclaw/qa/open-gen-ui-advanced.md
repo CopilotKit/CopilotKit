@@ -18,7 +18,7 @@ The agent streams a single `generateSandboxedUi` tool call. The tool is
 `openGenerativeUI: { agents: ["open-gen-ui-advanced"] }` in
 `api/copilotkit-ogui/route.ts` adds it to the tool list and installs
 `OpenGenerativeUIMiddleware`. OpenClaw is a stateless pass-through gateway: the
-clawg-ui adapter forwards the injected tool as a caller-provided **client tool**
+ag-ui adapter forwards the injected tool as a caller-provided **client tool**
 (`runtime.agent.runEmbeddedAgent({ clientTools })`) and relays the model's
 `TOOL_CALL_*` events back. The middleware converts that stream into
 `open-generative-ui` activity events, and the built-in
@@ -83,7 +83,7 @@ model knows which bridges exist when it authors the UI.
 
 Inside the running container, POST a `RunAgentInput` (carrying the injected
 `generateSandboxedUi` tool) to
-`http://127.0.0.1:8000/v1/clawg-ui/operator` (Bearer gateway token,
+`http://127.0.0.1:8000/v1/ag-ui/operator` (Bearer gateway token,
 `Accept: text/event-stream`) and confirm the SSE contains a single
 `TOOL_CALL_START` for `generateSandboxedUi`, followed by `RUN_FINISHED`.
 

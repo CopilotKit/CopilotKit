@@ -8,7 +8,7 @@ Run against the real backend at `http://localhost:3119/demos/tool-rendering-reas
 Status: **supported with a known gap** — the individual pieces (custom
 reasoning slot, per-tool renderers, wildcard catch-all) all work, but
 reasoning co-emitted _inside the same turn_ as a tool call depends on
-additional clawg-ui support that is not yet wired (see Caveats and
+additional ag-ui support that is not yet wired (see Caveats and
 `PARITY_NOTES.md`).
 
 ## What it exercises
@@ -25,7 +25,7 @@ One cell that composes three rendering patterns over a single OpenClaw run:
   for any other tool the model calls (e.g. `get_stock_price`, `roll_dice`).
 
 These tools are **render-only**: they carry no `useFrontendTool` handler. The
-schema rides over AG-UI in `RunAgentInput.tools`, the clawg-ui adapter hands it
+schema rides over AG-UI in `RunAgentInput.tools`, the ag-ui adapter hands it
 to OpenClaw as a caller-provided client tool, and the model both calls the tool
 and produces the result JSON that the card renders. There is no per-demo backend
 — OpenClaw is a single stateless gateway, so all demo-specific behaviour is
@@ -74,7 +74,7 @@ frontend + gateway relay.
 
 - **Known gap — reasoning + tools in one turn.** The runtime route comment
   (`src/app/api/copilotkit-reasoning/route.ts`) notes the reasoning-chain
-  variant (reasoning co-emitted with a tool call) depends on additional clawg-ui
+  variant (reasoning co-emitted with a tool call) depends on additional ag-ui
   support. In practice you may see reasoning **or** tool cards render cleanly,
   but a tightly interleaved reasoning-then-tool chain within the same turn is
   not guaranteed. Verify the current gateway behaviour before signing off; if

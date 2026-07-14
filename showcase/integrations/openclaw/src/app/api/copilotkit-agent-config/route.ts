@@ -3,7 +3,7 @@
  *
  * Proxies to the OpenClaw gateway (pass-through). The demo publishes its
  * typed config (tone / expertise / responseLength) via `useAgentContext`,
- * so it arrives as an AG-UI `context` entry on `RunAgentInput`. clawg-ui
+ * so it arrives as an AG-UI `context` entry on `RunAgentInput`. ag-ui
  * already injects context entries into the model prompt each turn (the same
  * path the readonly-state demo uses), so the agent adapts its behavior with
  * no per-demo backend logic.

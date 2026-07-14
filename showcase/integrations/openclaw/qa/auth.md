@@ -10,7 +10,7 @@ The dedicated runtime route (`/api/copilotkit-auth`) inspects the incoming
 `Authorization` header and throws a `401` before the request ever reaches the
 agent unless it exactly matches `Bearer demo-token-123` (`DEMO_TOKEN`). This is
 a **frontend + runtime** demo — the gate lives in the Next.js route, so it has
-**no clawg-ui gateway dependency**. The `auth-demo` agent behind the gate is the
+**no ag-ui gateway dependency**. The `auth-demo` agent behind the gate is the
 same stateless OpenClaw gateway agent every other demo proxies to; auth is about
 whether the request is _allowed through_, not about any per-demo backend.
 

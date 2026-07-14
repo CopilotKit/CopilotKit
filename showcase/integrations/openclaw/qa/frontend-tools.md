@@ -17,10 +17,10 @@ gradients) — and its handler calls `setBackground(...)`, restyling the full-pa
 
 OpenClaw is a single stateless gateway with no per-demo backend, so the tool is
 **frontend-forwarded**: its schema rides over AG-UI in `RunAgentInput.tools`,
-the clawg-ui adapter hands it to OpenClaw as a caller-provided **client tool**
+the ag-ui adapter hands it to OpenClaw as a caller-provided **client tool**
 (`runtime.agent.runEmbeddedAgent({ clientTools })` — the only tool list the
 gateway exposes to the model). When the model calls it, the run stops on a
-pending tool call, clawg-ui emits `TOOL_CALL_START/ARGS/END`, and the page
+pending tool call, ag-ui emits `TOOL_CALL_START/ARGS/END`, and the page
 handler runs locally to change the background.
 
 ## Prerequisites
@@ -51,7 +51,7 @@ handler runs locally to change the background.
 ## Protocol-level check (no browser)
 
 Inside the running container, POST a `RunAgentInput` carrying a
-`change_background` tool to `http://127.0.0.1:8000/v1/clawg-ui/operator`
+`change_background` tool to `http://127.0.0.1:8000/v1/ag-ui/operator`
 (Bearer gateway token, `Accept: text/event-stream`) and confirm the SSE contains
 a single `TOOL_CALL_START` for `change_background` with the expected args, then
 `RUN_FINISHED`.
@@ -61,5 +61,5 @@ a single `TOOL_CALL_START` for `change_background` with the expected args, then
 - The handler only calls `setBackground` and always returns
   `{ status: "success" }` — it does not validate the CSS, so a malformed value
   from the model renders as-is (the browser ignores an invalid background).
-- Behaviour comes from the frontend + clawg-ui client-tools path, not a per-demo
+- Behaviour comes from the frontend + ag-ui client-tools path, not a per-demo
   backend graph — the same mechanism backs the other frontend-tool demos.

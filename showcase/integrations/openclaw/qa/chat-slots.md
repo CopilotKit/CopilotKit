@@ -16,7 +16,7 @@ Slots covered: `welcomeScreen` (+ nested `welcomeMessage`), `messageView`
 This is a rendering/customization demo — the slot wiring is entirely
 client-side. OpenClaw's role is just to be the chat backend: the `chat-slots`
 route proxies to the same single stateless gateway endpoint
-(`POST /v1/clawg-ui/operator`) as every other demo, and streams a normal token
+(`POST /v1/ag-ui/operator`) as every other demo, and streams a normal token
 response. No demo-specific tools or backend behaviour are involved.
 
 ## Manual steps
@@ -55,7 +55,7 @@ response. No demo-specific tools or backend behaviour are involved.
   this demo. Its wrapper is registered for atlas completeness, but the
   `chat-slots` agent emits no `REASONING_MESSAGE_*` events, so the slot never
   mounts. This is expected — reasoning rendering is exercised at
-  `/demos/reasoning-default` and `/demos/reasoning-custom` instead (clawg-ui
+  `/demos/reasoning-default` and `/demos/reasoning-custom` instead (ag-ui
   emits `REASONING_*` only in reasoning stream mode).
 - The `Input.AddMenuButton` tools-menu action is an intentional no-op (seeded
   only so the slot has a reason to render).

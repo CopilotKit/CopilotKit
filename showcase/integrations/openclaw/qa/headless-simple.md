@@ -10,7 +10,7 @@ The smallest possible bring-your-own-UI chat: two hooks (`useAgent` +
 `useCopilotKit`) turn a plain shadcn/ui shell into a working chat, with no
 `CopilotChat` component. `useAgent({ agentId: "headless-simple" })` exposes the
 message log + run state; `copilotkit.runAgent({ agent })` runs it. Against
-OpenClaw the run reaches the gateway through the clawg-ui AG-UI channel (the
+OpenClaw the run reaches the gateway through the ag-ui AG-UI channel (the
 Next.js route proxies to the single stateless operator endpoint), and streamed
 tokens come back over AG-UI. No demo tools, shared state, or reasoning are wired
 here — the UI deliberately renders only plain user/assistant text.
@@ -44,7 +44,7 @@ here — the UI deliberately renders only plain user/assistant text.
 ## Protocol-level check (no browser)
 
 Inside the running container, POST a minimal `RunAgentInput` (one user message,
-no tools) to `http://127.0.0.1:8000/v1/clawg-ui/operator` (Bearer gateway token,
+no tools) to `http://127.0.0.1:8000/v1/ag-ui/operator` (Bearer gateway token,
 `Accept: text/event-stream`) and confirm the SSE contains `TEXT_MESSAGE_START`
 → streamed `TEXT_MESSAGE_CONTENT` chunks → `TEXT_MESSAGE_END`, then
 `RUN_FINISHED`.

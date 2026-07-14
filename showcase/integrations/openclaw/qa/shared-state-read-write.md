@@ -26,7 +26,7 @@ OpenClaw is a single stateless gateway with no per-demo backend, so there is no
 page **declares** its state-writer tools via
 `<CopilotKit properties={{ stateWriterTools: [...] }}>`, which the v2 runtime
 forwards verbatim into `RunAgentInput.forwardedProps.stateWriterTools`. The
-clawg-ui gateway fork parses that declaration (`set_notes` → `stateKey: "notes"`,
+ag-ui gateway fork parses that declaration (`set_notes` → `stateKey: "notes"`,
 `mode: "replace"`), injects the tool into the model's `clientTools`, and when the
 model calls it the gateway **applies the write server-side and emits a
 `STATE_SNAPSHOT`** — no browser round-trip. It then re-runs the model so it
@@ -34,7 +34,7 @@ narrates the change in chat. The demo's Next.js route
 (`/api/copilotkit-shared-state-read-write`) is pure pass-through.
 
 > Note: the `route.ts` docstring calling this a "Bucket-B gap" is stale — the
-> capability lives in the clawg-ui fork and is verified. `PARITY_NOTES.md` and
+> capability lives in the ag-ui fork and is verified. `PARITY_NOTES.md` and
 > the gateway handler are authoritative.
 
 ## Prerequisites
@@ -89,7 +89,7 @@ narrates the change in chat. The demo's Next.js route
 ## Protocol-level check (no browser)
 
 Inside the running container, POST a `RunAgentInput` to
-`http://127.0.0.1:8000/v1/clawg-ui/operator` (Bearer gateway token,
+`http://127.0.0.1:8000/v1/ag-ui/operator` (Bearer gateway token,
 `Accept: text/event-stream`) with `forwardedProps.stateWriterTools` declaring
 `set_notes` (`stateKey: "notes"`) and a prompt asking it to remember something.
 Confirm the SSE stream carries a `STATE_SNAPSHOT` whose `notes` array contains
@@ -107,5 +107,5 @@ browser).
   sending the full list; a model that sends only the delta would drop earlier
   notes. This is a prompt/model behavior, not a UI guarantee.
 - Preferences steering is prompt injection at the gateway (inbound state rendered
-  into the prompt), not a per-demo middleware — behavior comes from the clawg-ui
+  into the prompt), not a per-demo middleware — behavior comes from the ag-ui
   fork's state-writer capability, the same mechanism that backs shared-state-read.

@@ -10,7 +10,7 @@ export declare function createAguiHttpHandler(
 /**
  * Factory for the operator-auth AG-UI route.
  *
- * Mounted at a separate path (e.g. `/v1/clawg-ui/operator`) with
+ * Mounted at a separate path (e.g. `/v1/ag-ui/operator`) with
  * `auth: "gateway"` — the OpenClaw gateway validates the caller's operator
  * scopes before we see the request, so we skip the device-pairing dance. The
  * AG-UI dispatch logic itself is identical to the device-token path.

@@ -14,7 +14,7 @@ page defines a small set of branded components — `Card`, `StatusBadge`,
 and handed to the provider with `<CopilotKit a2ui={{ catalog: myCatalog }}>`.
 
 On OpenClaw there is **no per-demo backend graph** — the demo talks to the
-stateless clawg-ui gateway. The runtime's A2UI middleware injects a
+stateless ag-ui gateway. The runtime's A2UI middleware injects a
 `render_a2ui` tool (default `injectA2UITool: true`) and serialises the catalog
 schema into the request context. The gateway forwards that tool to the model
 and relays its `render_a2ui` calls back over AG-UI; the page catalog renders the
@@ -77,7 +77,7 @@ generic markup, no testid).
 
 Inside the running container, POST a `RunAgentInput` carrying the
 middleware-injected `render_a2ui` tool to
-`http://127.0.0.1:8000/v1/clawg-ui/operator` (Bearer gateway token,
+`http://127.0.0.1:8000/v1/ag-ui/operator` (Bearer gateway token,
 `Accept: text/event-stream`) with a dashboard-style prompt, and confirm the SSE
 stream contains a `render_a2ui` `TOOL_CALL_START` whose args carry
 `catalogId: "declarative-gen-ui-catalog"`, followed by `RUN_FINISHED`.

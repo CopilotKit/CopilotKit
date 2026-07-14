@@ -534,7 +534,7 @@ export function createAguiHttpHandler(api) {
       // Add to pending via OpenClaw pairing API - returns a pairing code for approval
       const { code: pairingCode } =
         await runtime.channel.pairing.upsertPairingRequest({
-          channel: "clawg-ui",
+          channel: "ag-ui",
           accountId: "default",
           id: deviceId,
           pairingAdapter: aguiChannelPlugin.pairing,
@@ -562,7 +562,7 @@ export function createAguiHttpHandler(api) {
           pairing: {
             pairingCode,
             token: deviceToken,
-            instructions: `Save this token for use as a Bearer token and ask the owner to approve: openclaw pairing approve clawg-ui ${pairingCode}`,
+            instructions: `Save this token for use as a Bearer token and ask the owner to approve: openclaw pairing approve ag-ui ${pairingCode}`,
           },
         },
       });
@@ -580,10 +580,10 @@ export function createAguiHttpHandler(api) {
     // ---------------------------------------------------------------------------
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- SDK types lag behind runtime; object form required in 2026.3.7+
     const storeAllowFrom = await runtime.channel.pairing
-      .readAllowFromStore({ channel: "clawg-ui" })
+      .readAllowFromStore({ channel: "ag-ui" })
       .catch(() => []);
     const normalizedAllowFrom = storeAllowFrom.map((e) =>
-      e.replace(/^clawg-ui:/i, "").toLowerCase(),
+      e.replace(/^ag-ui:/i, "").toLowerCase(),
     );
     const allowed = normalizedAllowFrom.includes(deviceId.toLowerCase());
     if (!allowed) {
@@ -601,14 +601,14 @@ export function createAguiHttpHandler(api) {
     // ---------------------------------------------------------------------------
     await dispatchAuthenticatedAguiRequest(req, res, runtime, {
       id: deviceId,
-      fromLabel: `clawg-ui:${deviceId}`,
+      fromLabel: `ag-ui:${deviceId}`,
     });
   };
 }
 /**
  * Factory for the operator-auth AG-UI route.
  *
- * Mounted at a separate path (e.g. `/v1/clawg-ui/operator`) with
+ * Mounted at a separate path (e.g. `/v1/ag-ui/operator`) with
  * `auth: "gateway"` — the OpenClaw gateway validates the caller's operator
  * scopes before we see the request, so we skip the device-pairing dance. The
  * AG-UI dispatch logic itself is identical to the device-token path.
@@ -646,7 +646,7 @@ export function createOperatorAguiHttpHandler(api) {
     }
     await dispatchAuthenticatedAguiRequest(req, res, runtime, {
       id: OPERATOR_CALLER_ID,
-      fromLabel: "clawg-ui:operator",
+      fromLabel: "ag-ui:operator",
     });
   };
 }
@@ -688,11 +688,11 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
     input.threadId.trim() &&
     input.threadId.length <= 256
       ? input.threadId
-      : `clawg-ui-${randomUUID()}`;
+      : `ag-ui-${randomUUID()}`;
   const runId =
     typeof input.runId === "string" && input.runId.trim()
       ? input.runId
-      : `clawg-ui-run-${randomUUID()}`;
+      : `ag-ui-run-${randomUUID()}`;
   // Validate messages — keep only well-formed entries. A `[null]` element or
   // one without a string `role` would otherwise throw in the checks below.
   const messages = (Array.isArray(input.messages) ? input.messages : []).filter(
@@ -783,7 +783,7 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
   }
   const route = runtime.channel.routing.resolveAgentRoute({
     cfg,
-    channel: "clawg-ui",
+    channel: "ag-ui",
     peer: { kind: "direct", id: caller.id },
     accountId: agentIdHeader,
   });
@@ -812,8 +812,8 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
   let streamedTextLen = 0;
   // Reasoning & step reporting config (default on, opt-out via channel defaults)
   const channelDefaults = cfg.channels;
-  const clawgDefaults = channelDefaults?.["clawg-ui"]?.defaults ?? {};
-  const surfaceReasoning = clawgDefaults.surfaceReasoning !== false;
+  const aguiDefaults = channelDefaults?.["ag-ui"]?.defaults ?? {};
+  const surfaceReasoning = aguiDefaults.surfaceReasoning !== false;
   // Reasoning state
   let reasoningMessageId = null;
   let reasoningStarted = false;
@@ -878,7 +878,7 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
   // and cross-contaminate history. A sha256 hex digest is collision-free and
   // fixed-length (73 chars incl. prefix — safely under OpenClaw's 128-char
   // session-id limit regardless of how long sessionKey grows).
-  const embeddedSessionId = `clawg-ui-${createHash("sha256")
+  const embeddedSessionId = `ag-ui-${createHash("sha256")
     .update(sessionKey)
     .digest("hex")}`;
   // Register the SSE writer ALWAYS so the before_tool_call / tool_result_persist
@@ -1151,7 +1151,7 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
         runId: currentRunId,
         timeoutMs,
         abortSignal: abortController.signal,
-        messageChannel: "clawg-ui",
+        messageChannel: "ag-ui",
         chatType: "direct",
         trigger: "user",
         onPartialReply: handlePartialReply,

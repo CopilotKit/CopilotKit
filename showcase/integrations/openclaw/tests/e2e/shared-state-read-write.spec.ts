@@ -12,10 +12,10 @@ import { test, expect } from "@playwright/test";
 //     UI (the Agent Scratch Pad re-renders from shared state).
 //
 // OpenClaw has no backend graph, so `set_notes` is FRONTEND-forwarded: the page
-// declares it via `properties.stateWriterTools`, which the clawg-ui adapter
+// declares it via `properties.stateWriterTools`, which the ag-ui adapter
 // injects into the model's tool list, applies on call, and emits a
 // STATE_SNAPSHOT that `useAgent({ OnStateChanged })` renders into the scratch
-// pad. Because clawg-ui FLATTENS the AG-UI conversation into one user prompt,
+// pad. Because ag-ui FLATTENS the AG-UI conversation into one user prompt,
 // a tool result arrives as the text "Tool set_notes returned: ..." rather than
 // a role:tool message — so aimock's hasToolResult discriminator never fires on
 // the follow-up. The shared "returned:" TERMINATOR fixture (kept first in
@@ -116,7 +116,7 @@ test.describe("Shared State (Read + Write)", () => {
     await page.getByRole("button", { name: /^Remember something$/i }).click();
 
     // The set_notes tool-call fixture writes two notes into shared state; the
-    // clawg-ui STATE_SNAPSHOT re-renders the scratch pad. This observable
+    // ag-ui STATE_SNAPSHOT re-renders the scratch pad. This observable
     // state mutation is the load-bearing assertion for the WRITE direction.
     const noteItems = page.locator('[data-testid="note-item"]');
     await expect(noteItems).toHaveCount(2, { timeout: 60_000 });

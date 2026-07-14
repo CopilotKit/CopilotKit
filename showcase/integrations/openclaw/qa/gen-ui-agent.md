@@ -16,11 +16,11 @@ running.
 
 ## OpenClaw reality (read before testing)
 
-OpenClaw is a **single stateless gateway** (clawg-ui operator route) with no
+OpenClaw is a **single stateless gateway** (ag-ui operator route) with no
 per-demo backend graph. The canonical demo expects a backend agent that owns a
 `steps` state schema and mutates it via a `set_steps` tool, streaming each update
 to the client as a `STATE_SNAPSHOT`. On OpenClaw that streamed state is produced
-by the clawg-ui **state-writer** capability (declared via
+by the ag-ui **state-writer** capability (declared via
 `forwardedProps.stateWriterTools`) — the same mechanism the shared-state demos
 use.
 
@@ -70,13 +70,13 @@ Against the real backend at `http://localhost:3119/demos/gen-ui-agent`:
   treating a text-only reply as a hard failure.
 - The `set_steps` tool / `steps: list[Step]` schema referenced in the source
   comments describes the canonical Python deep-agent backend, which OpenClaw does
-  not run. On OpenClaw the equivalent state must come from the clawg-ui
+  not run. On OpenClaw the equivalent state must come from the ag-ui
   state-writer path.
 
 ## Protocol-level check (no browser)
 
 Inside the running container, POST a `RunAgentInput` for a multi-step planning
-prompt to `http://127.0.0.1:8000/v1/clawg-ui/operator` (Bearer gateway token,
+prompt to `http://127.0.0.1:8000/v1/ag-ui/operator` (Bearer gateway token,
 `Accept: text/event-stream`) and inspect the SSE stream: confirm whether any
 `STATE_SNAPSHOT` (or `STATE_DELTA`) events carrying a `steps` array are emitted
 before `RUN_FINISHED`. Their presence/absence tells you directly whether the

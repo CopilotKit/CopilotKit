@@ -105,8 +105,8 @@ export function handleToolResultPersist(event, ctx) {
   }
 }
 const plugin = {
-  id: "clawg-ui",
-  name: "CLAWG-UI",
+  id: "ag-ui",
+  name: "AG-UI",
   description: "AG-UI protocol endpoint for CopilotKit and HttpAgent clients",
   configSchema: emptyPluginConfigSchema(),
   register(api) {
@@ -128,10 +128,10 @@ const plugin = {
     import("openclaw/plugin-sdk/plugin-runtime")
       .then((mod) => {
         mod.registerPluginHttpRoute({
-          path: "/v1/clawg-ui",
+          path: "/v1/ag-ui",
           auth: "plugin",
           match: "exact",
-          pluginId: "clawg-ui",
+          pluginId: "ag-ui",
           handler: createAguiHttpHandler(api),
         });
         // Operator-auth AG-UI route — for OpenClaw operator-UI embedded
@@ -139,32 +139,32 @@ const plugin = {
         // already hold a gateway token and shouldn't need a second pairing
         // dance. Gateway validates operator scope before our handler runs.
         mod.registerPluginHttpRoute({
-          path: "/v1/clawg-ui/operator",
+          path: "/v1/ag-ui/operator",
           auth: "gateway",
           match: "exact",
-          pluginId: "clawg-ui",
+          pluginId: "ag-ui",
           handler: createOperatorAguiHttpHandler(api),
         });
       })
       .catch((err) => {
-        console.error("[clawg-ui] failed to register HTTP routes:", err);
+        console.error("[ag-ui] failed to register HTTP routes:", err);
       });
     api.on("before_tool_call", handleBeforeToolCall);
     api.on("tool_result_persist", handleToolResultPersist);
     // CLI commands for device management
     api.registerCli(
       ({ program }) => {
-        const clawgUi = program
-          .command("clawg-ui")
-          .description("CLAWG-UI (AG-UI) channel commands");
-        clawgUi
+        const agui = program
+          .command("ag-ui")
+          .description("AG-UI (AG-UI) channel commands");
+        agui
           .command("devices")
           .description("List approved devices")
           .action(async () => {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any -- SDK types lag behind runtime
             const devices =
               await api.runtime.channel.pairing.readAllowFromStore({
-                channel: "clawg-ui",
+                channel: "ag-ui",
               });
             if (devices.length === 0) {
               console.log("No approved devices.");
@@ -176,7 +176,7 @@ const plugin = {
             }
           });
       },
-      { commands: ["clawg-ui"] },
+      { commands: ["ag-ui"] },
     );
   },
 };

@@ -5,7 +5,7 @@ Route: `/demos/reasoning-custom` · Agent: `reasoning-custom`
 Runtime: `/api/copilotkit-reasoning`
 Run against the real backend at `http://localhost:3119/demos/reasoning-custom`.
 
-Status: **supported** (see `PARITY_NOTES.md`). clawg-ui emits `REASONING_*`
+Status: **supported** (see `PARITY_NOTES.md`). ag-ui emits `REASONING_*`
 events in stream mode for reasoning-capable models; this demo swaps the panel
 that renders them.
 
@@ -67,5 +67,5 @@ pure-frontend concern driven by those relayed events.
   shipped suggestion is written to reliably trigger reasoning.
 - Requires the gateway's reasoning stream mode; without a reasoning-capable
   model configured, this demo degrades to a plain chat reply with no banner.
-- Behaviour comes from the frontend slot override + clawg-ui's relayed
+- Behaviour comes from the frontend slot override + ag-ui's relayed
   `REASONING_*` events, not a per-demo backend graph.

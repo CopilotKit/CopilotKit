@@ -1,5 +1,5 @@
 # OpenClaw showcase integration. Single Node image runs BOTH the OpenClaw
-# gateway (with the forked clawg-ui AG-UI plugin) and the Next.js frontend;
+# gateway (with the forked ag-ui AG-UI plugin) and the Next.js frontend;
 # entrypoint.sh orchestrates both. No Python stage — OpenClaw is a Node CLI.
 
 # Stage 1: build the Next.js frontend
@@ -42,12 +42,12 @@ COPY --from=frontend /app/package.json ./
 # render error (ENOENT). The home page is prerendered so it embeds the data.
 COPY --from=frontend /app/manifest.yaml ./manifest.yaml
 
-# Gateway setup script + vendored forked clawg-ui plugin, and the entrypoint
+# Gateway setup script + vendored forked ag-ui plugin, and the entrypoint
 COPY gateway/ ./gateway/
 # Resolve the forked plugin's runtime deps (@ag-ui/core, @ag-ui/encoder) so the
 # installed plugin can `require('@ag-ui/core')`. `--omit=dev` skips dev deps
 # (incl. openclaw itself). Baked at build → no network needed at container start.
-RUN cd gateway/clawg-ui && npm install --omit=dev --no-audit --no-fund
+RUN cd gateway/ag-ui && npm install --omit=dev --no-audit --no-fund
 COPY entrypoint.sh ./
 # Make the scripts executable and give app ownership of the /app dir itself
 # (its contents stay root-owned-readable except .next above).

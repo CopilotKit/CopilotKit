@@ -9,7 +9,7 @@ Runtime: `/api/copilotkit-beautiful-chat` (dedicated combined runtime)
 The flagship "everything" cell: one `CopilotChat` pane + an App-mode canvas,
 driven by nine suggestion pills that each light up a different CopilotKit
 capability. Unlike the langgraph/hermes references there is **no per-demo
-backend graph** — OpenClaw is a single stateless gateway (clawg-ui operator
+backend graph** — OpenClaw is a single stateless gateway (ag-ui operator
 route), so every distinctive behaviour comes from frontend-registered tools
 plus the dedicated runtime's middleware. The runtime enables
 `openGenerativeUI`, `a2ui` (with `injectA2UITool: false` — the frontend catalog
@@ -108,7 +108,7 @@ Run against the real backend at `http://localhost:3119/demos/beautiful-chat`.
 
 Inside the running container, POST a `RunAgentInput` carrying the `toggleTheme`
 tool to the gateway operator route
-(`http://127.0.0.1:8000/v1/clawg-ui/operator`, Bearer gateway token,
+(`http://127.0.0.1:8000/v1/ag-ui/operator`, Bearer gateway token,
 `Accept: text/event-stream`) with a "toggle the theme" message and confirm the
 SSE contains a single `TOOL_CALL_START` for `toggleTheme`, then `RUN_FINISHED`.
 For the A2UI path, send the flight-search message and confirm a `render_a2ui`

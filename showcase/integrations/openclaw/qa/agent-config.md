@@ -11,7 +11,7 @@ Typed config knobs — **Tone** (professional / casual / enthusiastic),
 (concise / detailed) — that steer the agent's replies without any per-demo
 backend. The toggles live in `useAgentConfig`; each render the resolved config
 is published to the agent via `useAgentContext`, so it rides along as an AG-UI
-`context[]` entry on `RunAgentInput`. clawg-ui injects context entries into the
+`context[]` entry on `RunAgentInput`. ag-ui injects context entries into the
 model prompt every turn (the same path the readonly-state demo uses), so the
 single stateless gateway adapts its behavior with no `configurable`/backend
 plumbing to bridge.
@@ -19,7 +19,7 @@ plumbing to bridge.
 ## Prerequisites
 
 - Stack running; demo reachable at `http://localhost:3119/demos/agent-config`.
-- OpenClaw gateway healthy (clawg-ui operator route + gateway token configured).
+- OpenClaw gateway healthy (ag-ui operator route + gateway token configured).
 
 ## Manual steps
 

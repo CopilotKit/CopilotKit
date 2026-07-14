@@ -25,7 +25,7 @@ tickets so the agent has real-looking data to act on.
 
 OpenClaw is a single stateless gateway with no per-demo backend, so the tool is
 **frontend-forwarded**: its schema rides over AG-UI in `RunAgentInput.tools`,
-the clawg-ui adapter hands it to OpenClaw as a caller-provided **client tool**
+the ag-ui adapter hands it to OpenClaw as a caller-provided **client tool**
 (the only tool list the gateway exposes to the model). When the model calls it,
 the run stops on a pending tool call and the page handler runs locally, blocking
 on the modal until the operator decides.
@@ -69,7 +69,7 @@ on the modal until the operator decides.
 ## Protocol-level check (no browser)
 
 Inside the running container, POST a `RunAgentInput` carrying a
-`request_user_approval` tool to `http://127.0.0.1:8000/v1/clawg-ui/operator`
+`request_user_approval` tool to `http://127.0.0.1:8000/v1/ag-ui/operator`
 (Bearer gateway token, `Accept: text/event-stream`) and confirm the SSE contains
 a `TOOL_CALL_START` for `request_user_approval` with a `message` arg. The run
 pauses on the pending client tool call — the result comes from the browser
@@ -83,5 +83,5 @@ handler, so a headless POST alone cannot complete the loop (that is expected).
 - The tickets are hard-coded mock data (`tickets-panel.tsx`); approving a refund
   does not mutate any ticket state — the demo showcases the approval gate, not a
   real fulfillment backend.
-- Behaviour comes from the frontend + clawg-ui client-tools path, not a per-demo
+- Behaviour comes from the frontend + ag-ui client-tools path, not a per-demo
   backend graph — the same mechanism backs the other frontend-tool demos.

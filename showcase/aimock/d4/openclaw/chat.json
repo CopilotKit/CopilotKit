@@ -5,7 +5,7 @@
   },
   "fixtures": [
     {
-      "_comment": "TERMINATOR: clawg-ui flattens the whole AG-UI conversation into one user prompt for OpenClaw's model call, so a tool result arrives as the text 'Tool <name> returned: ...' rather than a role:tool message. aimock's hasToolResult (role:tool) discriminator therefore never fires and the tool-call fixtures below would loop forever. This fixture matches the 'returned:' marker that DOES appear in the flattened prompt and closes the turn with a completion message. Must stay FIRST so it intercepts every tool follow-up before the tool-call fixtures.",
+      "_comment": "TERMINATOR: ag-ui flattens the whole AG-UI conversation into one user prompt for OpenClaw's model call, so a tool result arrives as the text 'Tool <name> returned: ...' rather than a role:tool message. aimock's hasToolResult (role:tool) discriminator therefore never fires and the tool-call fixtures below would loop forever. This fixture matches the 'returned:' marker that DOES appear in the flattened prompt and closes the turn with a completion message. Must stay FIRST so it intercepts every tool follow-up before the tool-call fixtures.",
       "match": {
         "context": "openclaw",
         "userMessage": "returned:"
@@ -643,7 +643,7 @@
       }
     },
     {
-      "_comment": "a2ui-fixed-schema pill \u2014 'Find me a flight from SFO to JFK on United for $289.' The A2UI runtime middleware injects render_a2ui (injectA2UITool defaults on; OpenClaw has no A2UI backend). Agent emits it directly with the FIXED flight component tree (Card > Column > [Title, Row(Airport,Arrow,Airport), Row(AirlineBadge,PriceTag), Button]) + the flight data model; the {path:'/origin'} bindings resolve against data, preserving fixed-schema semantics. Gated on toolName:render_a2ui + hasToolResult:false so it fires on the tool-call turn. The tool-result leg is closed by the shared userMessage:'returned:' TERMINATOR already first in chat.json (returns 'Done \u2014 I've completed that for you.'), since clawg-ui flattens the conversation and role:tool never fires.",
+      "_comment": "a2ui-fixed-schema pill \u2014 'Find me a flight from SFO to JFK on United for $289.' The A2UI runtime middleware injects render_a2ui (injectA2UITool defaults on; OpenClaw has no A2UI backend). Agent emits it directly with the FIXED flight component tree (Card > Column > [Title, Row(Airport,Arrow,Airport), Row(AirlineBadge,PriceTag), Button]) + the flight data model; the {path:'/origin'} bindings resolve against data, preserving fixed-schema semantics. Gated on toolName:render_a2ui + hasToolResult:false so it fires on the tool-call turn. The tool-result leg is closed by the shared userMessage:'returned:' TERMINATOR already first in chat.json (returns 'Done \u2014 I've completed that for you.'), since ag-ui flattens the conversation and role:tool never fires.",
       "match": {
         "userMessage": "Find me a flight from SFO to JFK on United for $289.",
         "context": "openclaw",
@@ -685,7 +685,7 @@
       }
     },
     {
-      "_comment": "declarative-gen-ui KPI dashboard pill (OpenClaw). render_a2ui with root Card > Column > 3 Metrics against catalogId 'declarative-gen-ui-catalog'. Mounts declarative-card + declarative-metric. Tool follow-up is closed by the shared 'returned:' TERMINATOR fixture (clawg-ui flattens the tool_result into the prompt as 'Tool render_a2ui returned: ...', so hasToolResult never fires). No toolCallId narration leg needed.",
+      "_comment": "declarative-gen-ui KPI dashboard pill (OpenClaw). render_a2ui with root Card > Column > 3 Metrics against catalogId 'declarative-gen-ui-catalog'. Mounts declarative-card + declarative-metric. Tool follow-up is closed by the shared 'returned:' TERMINATOR fixture (ag-ui flattens the tool_result into the prompt as 'Tool render_a2ui returned: ...', so hasToolResult never fires). No toolCallId narration leg needed.",
       "match": {
         "userMessage": "Show me a quick KPI dashboard",
         "context": "openclaw",
@@ -815,7 +815,7 @@
       }
     },
     {
-      "_comment": "mcp-apps suggestion pill #1 (\"Draw a flowchart\"). Sends the verbatim suggestion message \"Use Excalidraw to draw a simple flowchart with three steps.\"; the distinctive substring \"draw a simple flowchart\" avoids collision with generic planning fixtures. create_view is the Excalidraw MCP server's tool (wired via mcpApps.servers); this call makes the MCP Apps middleware fetch the UI resource and mount the sandboxed iframe. The tool follow-up is closed by the shared { userMessage: \"returned:\" } TERMINATOR (clawg-ui flattens role:tool into a 'returned:' marker, so hasToolResult never fires on OpenClaw).",
+      "_comment": "mcp-apps suggestion pill #1 (\"Draw a flowchart\"). Sends the verbatim suggestion message \"Use Excalidraw to draw a simple flowchart with three steps.\"; the distinctive substring \"draw a simple flowchart\" avoids collision with generic planning fixtures. create_view is the Excalidraw MCP server's tool (wired via mcpApps.servers); this call makes the MCP Apps middleware fetch the UI resource and mount the sandboxed iframe. The tool follow-up is closed by the shared { userMessage: \"returned:\" } TERMINATOR (ag-ui flattens role:tool into a 'returned:' marker, so hasToolResult never fires on OpenClaw).",
       "match": {
         "userMessage": "draw a simple flowchart",
         "context": "openclaw",
@@ -967,7 +967,7 @@
       }
     },
     {
-      "_comment": "shared-state-read-write \u2014 Remember something pill (suggestion message: 'Remember that I prefer morning meetings and that I don't eat dairy.'). WRITE direction: first call returns a set_notes toolCall. set_notes is frontend-forwarded via properties.stateWriterTools, so clawg-ui injects it into the model tool list, applies the call, and emits a STATE_SNAPSHOT that re-renders the Agent Scratch pad. The shared 'returned:' terminator (kept first in chat.json) then closes the loop with a text confirmation. arguments.notes MUST be the FULL replacement list (mode: replace) \u2014 the spec asserts exactly 2 note-item rows containing /morning meetings/i and /dairy/i.",
+      "_comment": "shared-state-read-write \u2014 Remember something pill (suggestion message: 'Remember that I prefer morning meetings and that I don't eat dairy.'). WRITE direction: first call returns a set_notes toolCall. set_notes is frontend-forwarded via properties.stateWriterTools, so ag-ui injects it into the model tool list, applies the call, and emits a STATE_SNAPSHOT that re-renders the Agent Scratch pad. The shared 'returned:' terminator (kept first in chat.json) then closes the loop with a text confirmation. arguments.notes MUST be the FULL replacement list (mode: replace) \u2014 the spec asserts exactly 2 note-item rows containing /morning meetings/i and /dairy/i.",
       "match": {
         "userMessage": "morning meetings",
         "context": "openclaw",
@@ -985,7 +985,7 @@
       }
     },
     {
-      "_comment": "tool-rendering-reasoning-chain pill 'Compare two stocks': emit BOTH chain legs (get_stock_price AAPL + MSFT) as two toolCalls in ONE assistant turn. clawg-ui flattens the AG-UI conversation so aimock's role:tool follow-up (hasToolResult) never fires; the shared 'returned:' TERMINATOR (first in this file) closes the follow-up turn. Both cards mount via the useDefaultRenderTool catchall. Gated hasToolResult:false so it never re-emits on a flattened follow-up. Must precede any generic stock fixture.",
+      "_comment": "tool-rendering-reasoning-chain pill 'Compare two stocks': emit BOTH chain legs (get_stock_price AAPL + MSFT) as two toolCalls in ONE assistant turn. ag-ui flattens the AG-UI conversation so aimock's role:tool follow-up (hasToolResult) never fires; the shared 'returned:' TERMINATOR (first in this file) closes the follow-up turn. Both cards mount via the useDefaultRenderTool catchall. Gated hasToolResult:false so it never re-emits on a flattened follow-up. Must precede any generic stock fixture.",
       "match": {
         "userMessage": "Compare AAPL and MSFT",
         "context": "openclaw",

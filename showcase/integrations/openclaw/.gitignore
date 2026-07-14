@@ -11,7 +11,7 @@ shared_frontend/
 shared_python/
 shared_typescript/
 
-# The vendored clawg-ui plugin ships its built dist in the image, so it must
+# The vendored ag-ui plugin ships its built dist in the image, so it must
 # stay tracked despite the blanket dist/ ignore above.
-!gateway/clawg-ui/dist/
-!gateway/clawg-ui/dist/**
+!gateway/ag-ui/dist/
+!gateway/ag-ui/dist/**

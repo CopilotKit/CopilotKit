@@ -1,5 +1,5 @@
 #!/bin/bash
-# Runs BOTH the OpenClaw gateway (with the forked clawg-ui plugin) and the
+# Runs BOTH the OpenClaw gateway (with the forked ag-ui plugin) and the
 # Next.js frontend in one container. Modeled on the other showcase integrations
 # (e.g. ag2/entrypoint.sh): backend on an internal port, frontend on :10000,
 # watchdog restarts the container if the backend goes unresponsive.

@@ -8,9 +8,9 @@ Route: `/demos/gen-ui-tool-based` · Agent: `gen-ui-tool-based`
 Two render tools defined in React with `useComponent` — `render_bar_chart` and
 `render_pie_chart` — each mapped to a custom Recharts/SVG component. The schemas
 (title, description, `data: {label, value}[]`) are forwarded over AG-UI in
-`RunAgentInput.tools`; the clawg-ui adapter hands them to OpenClaw as
+`RunAgentInput.tools`; the ag-ui adapter hands them to OpenClaw as
 caller-provided **client tools** (`runtime.agent.runEmbeddedAgent({ clientTools })`),
-so the model can call them. When the model calls a chart tool, clawg-ui emits
+so the model can call them. When the model calls a chart tool, ag-ui emits
 `TOOL_CALL_START/ARGS/END` and the page renders the matching chart component
 **inline in the chat transcript** from the tool args — the tool has no browser
 side effect, the rendered component _is_ the result.
@@ -49,7 +49,7 @@ demo as **supported** under "Tools & generative UI".
 ## Protocol-level check (no browser)
 
 Inside the running container, POST a `RunAgentInput` carrying the
-`render_bar_chart` tool to `http://127.0.0.1:8000/v1/clawg-ui/operator`
+`render_bar_chart` tool to `http://127.0.0.1:8000/v1/ag-ui/operator`
 (Bearer gateway token, `Accept: text/event-stream`) with a message like _"bar
 chart of Q1–Q4 sales"_. Confirm the SSE contains a single `TOOL_CALL_START` for
 `render_bar_chart`, its `TOOL_CALL_ARGS` carry a well-formed `data` array, then

@@ -4,7 +4,7 @@
  * Proxies to the OpenClaw gateway (pass-through). The demo's read+write
  * shared state — reading `input.state.preferences` into the prompt and a
  * `set_notes` tool that mutates `state.notes` via `STATE_SNAPSHOT` — depends
- * on native shared-state support in clawg-ui, which the thin gateway does not
+ * on native shared-state support in ag-ui, which the thin gateway does not
  * yet provide. Tracked as a Bucket-B gap in the demo roadmap.
  */
 

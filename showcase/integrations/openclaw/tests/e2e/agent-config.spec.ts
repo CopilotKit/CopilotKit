@@ -4,7 +4,7 @@ import { test, expect } from "@playwright/test";
 // LLM). The gateway injects X-AIMock-Context: openclaw, so these prompts match
 // the fixtures in showcase/aimock/d4/openclaw/chat.json. The demo forwards the
 // selected tone / expertise / response-length to the OpenClaw agent via
-// useAgentContext (clawg-ui appends it to the prompt); the fixtures return the
+// useAgentContext (ag-ui appends it to the prompt); the fixtures return the
 // text the agent produces while respecting that config.
 test.describe("Agent Config", () => {
   test.beforeEach(async ({ page }) => {

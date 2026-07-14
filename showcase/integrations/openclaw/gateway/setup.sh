@@ -1,13 +1,13 @@
 #!/bin/bash
 # Headless, no-prompt OpenClaw config for the showcase container. Runs at
 # container start (needs runtime secrets: OPENAI_API_KEY, optional OPENAI_BASE_URL).
-# No interactive installer, no device pairing — the frontend uses clawg-ui's
+# No interactive installer, no device pairing — the frontend uses ag-ui's
 # operator-auth route with the baked OPENCLAW_GATEWAY_TOKEN.
 set -euo pipefail
 
 PORT="${OPENCLAW_GATEWAY_PORT:-8000}"
 TOKEN="${OPENCLAW_GATEWAY_TOKEN:?OPENCLAW_GATEWAY_TOKEN must be set}"
-CLAWG_UI_DIR="$(cd "$(dirname "$0")" && pwd)/clawg-ui"
+AG_UI_DIR="$(cd "$(dirname "$0")" && pwd)/ag-ui"
 SHOWCASE_TOOLS_DIR="$(cd "$(dirname "$0")" && pwd)/showcase-tools"
 
 echo "[setup] baseline config + workspace"
@@ -106,20 +106,20 @@ if [ -n "${OPENAI_BASE_URL:-}" ]; then
 JSON
 fi
 
-echo "[setup] install forked clawg-ui plugin (vendored; includes token-streaming fix)"
-openclaw plugins install "$CLAWG_UI_DIR" --force >/dev/null 2>&1 \
-  || openclaw plugins install "$CLAWG_UI_DIR" >/dev/null 2>&1
+echo "[setup] install forked ag-ui plugin (vendored; includes token-streaming fix)"
+openclaw plugins install "$AG_UI_DIR" --force >/dev/null 2>&1 \
+  || openclaw plugins install "$AG_UI_DIR" >/dev/null 2>&1
 
 # `plugins install` copies the plugin source but not always its node_modules, so
 # the installed copy can't resolve @ag-ui/core. Copy the build-time-resolved deps
 # into the installed plugin dir (no network) so it loads.
-EXT="${HOME:-/root}/.openclaw/extensions/clawg-ui"
-if [ -d "$EXT" ] && [ ! -d "$EXT/node_modules" ] && [ -d "$CLAWG_UI_DIR/node_modules" ]; then
+EXT="${HOME:-/root}/.openclaw/extensions/ag-ui"
+if [ -d "$EXT" ] && [ ! -d "$EXT/node_modules" ] && [ -d "$AG_UI_DIR/node_modules" ]; then
   echo "[setup] copying plugin node_modules into $EXT"
-  cp -R "$CLAWG_UI_DIR/node_modules" "$EXT/node_modules"
+  cp -R "$AG_UI_DIR/node_modules" "$EXT/node_modules"
 fi
 
-# Backend demo tools (separate tool plugin; keeps clawg-ui a clean general
+# Backend demo tools (separate tool plugin; keeps ag-ui a clean general
 # adapter). Its tools are declared in contracts.tools and allowed via
 # tools.alsoAllow above; `plugins install` auto-links the `openclaw` peer dep so
 # no node_modules copy is needed (it imports only openclaw/plugin-sdk).

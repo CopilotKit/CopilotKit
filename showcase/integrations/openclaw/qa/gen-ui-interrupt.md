@@ -17,7 +17,7 @@ Route: `/demos/gen-ui-interrupt` · Agent: `gen-ui-interrupt`
 
 A human-in-the-loop tool (`schedule_meeting`) defined in React with
 `useHumanInTheLoop`. Its schema is forwarded over AG-UI in `RunAgentInput.tools`;
-the clawg-ui adapter hands it to OpenClaw as a caller-provided **client tool**,
+the ag-ui adapter hands it to OpenClaw as a caller-provided **client tool**,
 so the model can call it. When the model calls it, the run pauses on a pending
 tool call, the `render(...)` callback draws a `TimePickerCard` inline in the
 chat, and the user's chosen slot (or cancellation) is fed back to the agent via
@@ -70,7 +70,7 @@ chat, and the user's chosen slot (or cancellation) is fed back to the agent via
 ## Protocol-level check (no browser)
 
 Inside the running container, POST a `RunAgentInput` carrying a
-`schedule_meeting` tool to `http://127.0.0.1:8000/v1/clawg-ui/operator`
+`schedule_meeting` tool to `http://127.0.0.1:8000/v1/ag-ui/operator`
 (Bearer gateway token, `Accept: text/event-stream`) with a scheduling prompt,
 and confirm the SSE contains a `TOOL_CALL_START` for `schedule_meeting` with
 `topic` (and optional `attendee`) args, followed by `RUN_FINISHED`. The run

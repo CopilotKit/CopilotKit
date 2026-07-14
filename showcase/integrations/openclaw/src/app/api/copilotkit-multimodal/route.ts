@@ -3,7 +3,7 @@
  *
  * Proxies to the OpenClaw gateway (pass-through). Full image/PDF support
  * depends on the gateway forwarding multimodal message parts to a
- * vision-capable model — a clawg-ui capability, not per-demo backend logic.
+ * vision-capable model — a ag-ui capability, not per-demo backend logic.
  * The dedicated endpoint keeps this demo's runtime isolated from the shared one.
  */
 

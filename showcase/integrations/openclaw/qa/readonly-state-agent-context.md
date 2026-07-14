@@ -19,7 +19,7 @@ exact JSON payload broadcast on every render.
 
 OpenClaw is a single stateless gateway with no per-demo backend, so there is no
 state graph here. `useAgentContext` puts each value into `RunAgentInput.context[]`
-over AG-UI; the clawg-ui adapter injects that context into the prompt for every
+over AG-UI; the ag-ui adapter injects that context into the prompt for every
 run. The agent can **read** the context but **cannot modify** it — the form is
 the sole owner of the values (this is the read-only counterpart to the
 shared-state demos, which use `forwardedProps.stateWriterTools`).
@@ -62,13 +62,13 @@ shared-state demos, which use `forwardedProps.stateWriterTools`).
 
 Inside the running container, POST a `RunAgentInput` with a populated `context[]`
 (e.g. name / timezone / recentActivity entries) to
-`http://127.0.0.1:8000/v1/clawg-ui/operator` (Bearer gateway token,
+`http://127.0.0.1:8000/v1/ag-ui/operator` (Bearer gateway token,
 `Accept: text/event-stream`) and confirm the streamed text reflects those context
 values — no `STATE_SNAPSHOT` or tool call is expected for this read-only demo.
 
 ## Caveats
 
-- Behaviour comes from the frontend + clawg-ui context injection, not a per-demo
+- Behaviour comes from the frontend + ag-ui context injection, not a per-demo
   backend graph — the same mechanism backs agent-config.
 - Clearing the Name to empty publishes `"name": ""`; the agent handles it as an
   unknown/anonymous user (no crash). The identity avatar falls back to `?` and

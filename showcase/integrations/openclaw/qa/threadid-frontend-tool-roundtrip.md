@@ -30,7 +30,7 @@ starts a fresh chat. The header line (`data-testid="ent-658-thread-mode"`) reads
 
 Because OpenClaw is a single stateless gateway with no per-demo backend, the tool
 is **frontend-forwarded**: its schema rides over AG-UI in `RunAgentInput.tools`,
-the clawg-ui adapter hands it to OpenClaw as a caller-provided **client tool**,
+the ag-ui adapter hands it to OpenClaw as a caller-provided **client tool**,
 and when the model calls it the run stops on the pending tool call while the page
 handler runs locally.
 
@@ -75,5 +75,5 @@ handler runs locally.
   persist per-thread history, so "same thread" here means the SDK keeps sending
   the same accumulated message history under a stable id — not server-side
   session storage on the gateway.
-- Behaviour comes from the frontend + clawg-ui client-tools path, not a per-demo
+- Behaviour comes from the frontend + ag-ui client-tools path, not a per-demo
   backend graph — the same mechanism backs the other frontend-tool demos.

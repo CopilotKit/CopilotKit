@@ -2,34 +2,34 @@
 
 Things to undo / resolve before this OpenClaw showcase integration is merged into
 **main CopilotKit**. This integration was built against an **unpublished fork of
-clawg-ui** and a local **test harness** (aimock + a hand-configured gateway), so a
+ag-ui** and a local **test harness** (aimock + a hand-configured gateway), so a
 few things here are scaffolding, not product.
 
 Owner: @markus · Last updated: 2026-07-08
 
 ---
 
-## 1. Publish `clawg-ui` and de-vendor it — **BLOCKER**
+## 1. Publish `ag-ui` and de-vendor it — **BLOCKER**
 
-The plugin source lives in a fork: `@contextableai/clawg-ui@0.7.0`
-(github.com/contextable/clawg-ui, branch `rd-53-showcase-fork`). It is **not
+The plugin source lives in a fork: `@contextableai/ag-ui@0.7.0`
+(github.com/contextable/ag-ui, branch `rd-53-showcase-fork`). It is **not
 published to npm**, so the showcase carries a **vendored build** of it and
 installs that build into the gateway.
 
-- `gateway/clawg-ui/` — the entire vendored fork (its compiled `dist/`, plus a
-  copied `node_modules`). `gateway/clawg-ui/dist/src/http-handler.js` etc. are
+- `gateway/ag-ui/` — the entire vendored fork (its compiled `dist/`, plus a
+  copied `node_modules`). `gateway/ag-ui/dist/src/http-handler.js` etc. are
   **compiled artifacts**, not hand-edited. They must be kept byte-identical to a
   fresh `npm run build` of the fork (**drift risk** — source in the fork repo,
   build committed here).
-- `gateway/setup.sh` installs it with `openclaw plugins install "$CLAWG_UI_DIR"`
-  and then copies its `node_modules` into `~/.openclaw/extensions/clawg-ui`
+- `gateway/setup.sh` installs it with `openclaw plugins install "$AG_UI_DIR"`
+  and then copies its `node_modules` into `~/.openclaw/extensions/ag-ui`
   (because `plugins install` doesn't always bring deps).
 
 **To undo:** publish the fork (or merge it upstream into OpenClaw), then:
 
-- [ ] delete `gateway/clawg-ui/` entirely
+- [ ] delete `gateway/ag-ui/` entirely
 - [ ] in `setup.sh`, replace the vendored install with a versioned install
-      (`openclaw plugins install @contextableai/clawg-ui@<version>`) or a normal
+      (`openclaw plugins install @contextableai/ag-ui@<version>`) or a normal
       dependency
 - [ ] remove the `node_modules`-copy workaround in `setup.sh`
 - [ ] delete the drift-sync step from any dev docs
@@ -69,15 +69,15 @@ The intended shape follows the real `@ag-ui/<framework>` convention (e.g.
       showcase-specific `createGatewayAgent` wiring, or move that upstream too).
 
 > Same class of item as #1: a local stand-in for an unpublished upstream
-> artifact. Independent of #1 (different repo: AG-UI, not clawg-ui).
+> artifact. Independent of #1 (different repo: AG-UI, not ag-ui).
 
 ---
 
 ## 3. Clean up the fork before publishing it
 
-These live in the fork repo (`clawg-ui`), but they gate #1:
+These live in the fork repo (`ag-ui`), but they gate #1:
 
-- [ ] Strip `[clawg-ui]` debug `console.log`s (~33 across `index.ts`,
+- [ ] Strip `[ag-ui]` debug `console.log`s (~33 across `index.ts`,
       `src/client-tools.ts`, `src/tool-store.ts`, `src/http-handler.ts`).
 - [ ] `markClientToolNames` is exported but **never called in production**, so
       `isClientTool` is always false. Either wire it up or remove it (and the
@@ -92,7 +92,7 @@ These live in the fork repo (`clawg-ui`), but they gate #1:
 A separate **vendored** backend tool plugin providing the demos' server-side
 tools (`get_weather`, `search_flights`, `get_stock_price`, `roll_d20`,
 `get_revenue_chart`, `query_data`, `display_flight`). It's intentionally separate
-from clawg-ui (keeps the adapter clean).
+from ag-ui (keeps the adapter clean).
 
 - [ ] Decide whether it ships as demo scaffolding (fine to keep vendored, but
       label it clearly as a showcase fixture) or becomes its own package.
@@ -170,7 +170,7 @@ test-harness assumptions that reviewers should see:
 ## 8. Misc
 
 - [ ] `src/lib/openclaw-agent.ts` defaults the gateway to
-      `http://127.0.0.1:8000/v1/clawg-ui/operator` with an env override — fine
+      `http://127.0.0.1:8000/v1/ag-ui/operator` with an env override — fine
       for local/container; confirm the deploy target sets the env.
 - [ ] `OPENCLAW_GATEWAY_TOKEN` is a shared bearer baked at setup — ensure it's a
       real secret in any hosted deploy, not a checked-in default.

@@ -20,9 +20,9 @@ via the tool's `respond()` callback, and the conversation continues.
 
 OpenClaw is a single stateless gateway with no per-demo backend, so
 `generate_task_steps` is **frontend-forwarded**: its schema rides over AG-UI in
-`RunAgentInput.tools`, the clawg-ui adapter hands it to OpenClaw as a
+`RunAgentInput.tools`, the ag-ui adapter hands it to OpenClaw as a
 caller-provided **client tool** (the only tool list the gateway exposes to the
-model). When the model calls it, the run stops on a pending tool call, clawg-ui
+model). When the model calls it, the run stops on a pending tool call, ag-ui
 emits `TOOL_CALL_START/ARGS/END`, the card renders, and `respond()` supplies the
 tool result that resumes the run. This is the fleet's `promise-based` HITL
 pattern — not a resumable graph checkpoint.
@@ -62,7 +62,7 @@ pattern — not a resumable graph checkpoint.
 ## Protocol-level check (no browser)
 
 Inside the running container, POST a `RunAgentInput` carrying a
-`generate_task_steps` tool to `http://127.0.0.1:8000/v1/clawg-ui/operator`
+`generate_task_steps` tool to `http://127.0.0.1:8000/v1/ag-ui/operator`
 (Bearer gateway token, `Accept: text/event-stream`) and confirm the SSE contains
 a `TOOL_CALL_START` for `generate_task_steps` with a `steps` array in its args,
 then that the run pauses on that pending tool call (no `RUN_FINISHED` until a
@@ -79,6 +79,6 @@ tool result is supplied).
 - The step statuses the model emits are `enabled` / `disabled` / `executing`;
   the card treats anything not `enabled` as unchecked. A malformed status from
   the model simply renders as unchecked.
-- Behaviour comes from the frontend + clawg-ui client-tools path, not a per-demo
+- Behaviour comes from the frontend + ag-ui client-tools path, not a per-demo
   backend graph — the same mechanism backs the other HITL demos (hitl-in-chat,
   hitl-in-app).

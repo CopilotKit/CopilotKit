@@ -4,7 +4,7 @@
  * Proxies to the OpenClaw gateway (pass-through). The demo's supervisor →
  * sub-agent orchestration (research / writing / critique) and its live
  * delegation log — driven by `state.delegations` `STATE_SNAPSHOT` events —
- * depend on multi-agent orchestration + shared-state support in clawg-ui,
+ * depend on multi-agent orchestration + shared-state support in ag-ui,
  * which the thin gateway does not yet provide. Bucket-B gap; see the roadmap.
  */
 

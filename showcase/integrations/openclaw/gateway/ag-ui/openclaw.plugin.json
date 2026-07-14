@@ -1,6 +1,6 @@
 {
-  "id": "clawg-ui",
-  "channels": ["clawg-ui"],
+  "id": "ag-ui",
+  "channels": ["ag-ui"],
   "contracts": {
     "tools": ["cron_report"]
   },

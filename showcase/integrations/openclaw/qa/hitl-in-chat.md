@@ -19,7 +19,7 @@ two string args — `topic` and `attendee` — supplied by the model.
 
 OpenClaw is a single stateless gateway with no per-demo backend, so the tool is
 **frontend-forwarded**: its schema rides over AG-UI in `RunAgentInput.tools`,
-the clawg-ui adapter hands it to OpenClaw as a caller-provided **client tool**
+the ag-ui adapter hands it to OpenClaw as a caller-provided **client tool**
 (the only tool list the gateway exposes to the model). When the model calls it,
 the run stops on a pending tool call, the card renders in-chat, and the run only
 resumes once the user submits — that resolution is the tool result.
@@ -64,5 +64,5 @@ resumes once the user submits — that resolution is the tool result.
 - HITL here is **tool-based** (client-tool pause + `respond()`), not LangGraph
   `interrupt()`. `gen-ui-interrupt` / `interrupt-headless` are intentionally
   not supported on OpenClaw (see `PARITY_NOTES.md`).
-- Behaviour comes from the frontend + clawg-ui client-tools path, not a per-demo
+- Behaviour comes from the frontend + ag-ui client-tools path, not a per-demo
   backend graph — the same mechanism backs the other frontend-tool demos.

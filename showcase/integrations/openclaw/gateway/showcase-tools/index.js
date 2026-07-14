@@ -3,7 +3,7 @@
 // These are REAL OpenClaw backend tools: they execute server-side inside the
 // agent loop and the model both SEES their schemas and DISPATCHES them. This
 // plugin is vendored in the showcase integration ONLY — it makes NO edits to
-// OpenClaw core and is separate from the clawg-ui adapter (which stays a
+// OpenClaw core and is separate from the ag-ui adapter (which stays a
 // general-purpose channel plugin, free of demo-specific tools).
 //
 // Mechanism: a dedicated tool plugin whose tool names are declared in

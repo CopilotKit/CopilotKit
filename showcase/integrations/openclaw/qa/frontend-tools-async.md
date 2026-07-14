@@ -8,10 +8,10 @@ Route: `/demos/frontend-tools-async` · Agent: `frontend-tools-async`
 A frontend tool (`query_notes`) defined in React with `useFrontendTool`, whose
 handler is **async** — it awaits a simulated client-side DB round-trip (500ms
 `sleep`) before returning matching notes. The schema is forwarded over AG-UI in
-`RunAgentInput.tools`; the clawg-ui adapter hands it to OpenClaw as a
+`RunAgentInput.tools`; the ag-ui adapter hands it to OpenClaw as a
 caller-provided **client tool** (via `runtime.agent.runEmbeddedAgent({ clientTools })`),
 the only tool list the gateway exposes to the model. When the model calls it,
-the run stops with a pending tool call, clawg-ui emits `TOOL_CALL_START/ARGS/END`,
+the run stops with a pending tool call, ag-ui emits `TOOL_CALL_START/ARGS/END`,
 and the page handler runs locally — searching the in-browser `NOTES_DB` — then
 feeds the awaited result back so the agent can summarize what it found. No
 backend tool is involved; the query runs entirely in the browser.
@@ -47,7 +47,7 @@ notes.
 ## Protocol-level check (no browser)
 
 Inside the running container, POST a `RunAgentInput` carrying a `query_notes`
-tool to `http://127.0.0.1:8000/v1/clawg-ui/operator` (Bearer gateway token,
+tool to `http://127.0.0.1:8000/v1/ag-ui/operator` (Bearer gateway token,
 `Accept: text/event-stream`) and confirm the SSE contains a single
 `TOOL_CALL_START` for `query_notes` with the expected `keyword` arg, then
 `RUN_FINISHED`. The handler executes client-side, so the gateway only emits the

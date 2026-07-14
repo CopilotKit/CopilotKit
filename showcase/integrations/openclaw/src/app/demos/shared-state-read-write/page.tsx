@@ -30,7 +30,7 @@ interface RWAgentState {
 // State-writer declaration (fleet convention — same shape the Hermes
 // integration uses). langgraph/claude-sdk wire `set_notes` as a backend tool
 // that mutates shared state. OpenClaw's gateway has no first-class state store,
-// so the clawg-ui adapter provides one per run: the frontend DECLARES which
+// so the ag-ui adapter provides one per run: the frontend DECLARES which
 // tools write which state key via `forwardedProps.stateWriterTools`, and the
 // adapter injects them into the model's tools, applies each call, and emits a
 // `STATE_SNAPSHOT` (which `useAgent` renders). The v2 `<CopilotKit properties>`
