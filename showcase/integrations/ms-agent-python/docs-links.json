@@ -30,8 +30,8 @@
       "shell_docs_path": "/shared-state"
     },
     "subagents": {
-      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework",
-      "shell_docs_path": "/multi-agent/subagents"
+      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/multi-agent-flows",
+      "shell_docs_path": "/multi-agent-flows"
     },
     "auth": {
       "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/auth",

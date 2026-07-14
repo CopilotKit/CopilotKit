@@ -27,6 +27,7 @@
     "frontend-tools",
     "shared-state",
     "agent-app-context",
+    "multi-agent-flows",
     "---Microsoft Agent Framework---",
     "auth",
     "---Backend---",
