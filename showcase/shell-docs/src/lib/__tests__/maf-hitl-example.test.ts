@@ -17,19 +17,24 @@ describe("Microsoft Agent Framework Python HITL example", () => {
     const hitlDoc = fs.readFileSync(hitlDocPath, "utf8");
     const manifest = fs.readFileSync(manifestPath, "utf8");
     const hitlDemo = manifest.match(
-      /  - id: hitl\n(?<definition>[\s\S]*?)(?=\n  - id: )/,
+      /  - id: hitl-in-chat\n(?<definition>[\s\S]*?)(?=\n  - id: )/,
     );
 
     expect(hitlDoc).toContain(
-      '<InlineDemo integration="ms-agent-python" demo="hitl" />',
+      '<InlineDemo integration="ms-agent-python" demo="hitl-in-chat" />',
     );
     expect(hitlDoc).not.toContain(
       "microsoft-agent-framework-python/feature/human_in_the_loop",
     );
-    expect(hitlDemo?.groups?.definition).toContain("src/agents/agent.py");
+    expect(hitlDemo?.groups?.definition).toContain(
+      "src/agents/hitl_in_chat_agent.py",
+    );
     expect(hitlDemo?.groups?.definition).toContain("src/agent_server.py");
     expect(hitlDemo?.groups?.definition).toContain(
-      "src/app/demos/hitl/page.tsx",
+      "src/app/demos/hitl-in-chat/page.tsx",
+    );
+    expect(hitlDemo?.groups?.definition).toContain(
+      "src/app/demos/hitl-in-chat/time-picker-card.tsx",
     );
     expect(hitlDemo?.groups?.definition).toContain(
       "src/app/api/copilotkit/route.ts",
