@@ -34,6 +34,13 @@ import type { NextConfig } from "next";
  * specifier is requested — the standard bundler complement to TS's
  * NodeNext `.js`-import convention. This covers the `next build` (webpack)
  * path that CI uses.
+ *
+ * NOTE ON DEV: the `dev` script runs plain `next dev` (WEBPACK), not
+ * `next dev --turbopack`. Turbopack has no `resolve.extensionAlias` parity
+ * (Next #82945), so it can't resolve the shared cell-model fold's `.js`→`.ts`
+ * specifiers and dev fails with `Can't resolve './live-status.js'`. Webpack
+ * dev honours the alias above, so `pnpm dev` resolves the fold and serves.
+ * Switch dev back to Turbopack once it ships extensionAlias parity.
  */
 const nextConfig: NextConfig = {
   webpack: (config) => {
