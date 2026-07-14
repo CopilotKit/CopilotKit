@@ -47,19 +47,10 @@ const runtime = new CopilotRuntime({
       }
     : { runner: new InMemoryAgentRunner() }),
   // --- /copilotkit:intelligence ---
+  // Open Generative UI powers the "Calculator" demo (the model emits a
+  // sandboxed UI). No A2UI catalog or MCP apps: those served the showcase's
+  // server-tool demos, which a generic Hermes agent doesn't have.
   openGenerativeUI: true,
-  a2ui: {
-    injectA2UITool: false,
-  },
-  mcpApps: {
-    servers: [
-      {
-        type: "http",
-        url: process.env.MCP_SERVER_URL || "https://mcp.excalidraw.com",
-        serverId: "example_mcp_app",
-      },
-    ],
-  },
 });
 
 const app = createCopilotEndpoint({
