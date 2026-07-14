@@ -260,6 +260,12 @@ export async function handleRecallMemories({
  * the `joinCode` here (unlike threads, where it rides the thread-list response)
  * because the client builds the `user_meta:memories:<joinCode>` channel topic
  * from it.
+ *
+ * When the platform also resolves a project scope, the response additionally
+ * carries `projectJoinToken` / `projectJoinCode`, which the client uses to open
+ * a second `project_meta:memories:<projectJoinCode>` channel. These are
+ * optional: absent project scope → both fields are omitted (silent-degrade
+ * contract; the client opens only the user channel).
  */
 export async function handleSubscribeToMemories({
   runtime,
@@ -277,6 +283,14 @@ export async function handleSubscribeToMemories({
       return Response.json({
         joinToken: credentials.joinToken,
         joinCode: credentials.joinCode,
+        // Project-scoped credentials ride along only when the platform minted
+        // them; omit both when absent (silent-degrade contract).
+        ...(credentials.projectJoinToken !== undefined
+          ? { projectJoinToken: credentials.projectJoinToken }
+          : {}),
+        ...(credentials.projectJoinCode !== undefined
+          ? { projectJoinCode: credentials.projectJoinCode }
+          : {}),
       });
     } catch (error) {
       logger.error({ err: error }, "Error subscribing to memories");

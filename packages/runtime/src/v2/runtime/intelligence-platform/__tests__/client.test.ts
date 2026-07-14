@@ -290,6 +290,26 @@ describe("CopilotKitIntelligence", () => {
       expect(opts.headers["x-cpki-user-id"]).toBe("user-1");
       expect(opts.body).toBeUndefined();
     });
+
+    it("passes through optional project credentials when the platform returns them", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse({
+          joinToken: "jt-mem",
+          joinCode: "jc-mem",
+          projectJoinToken: "pjt-mem",
+          projectJoinCode: "pjc-mem",
+        }),
+      );
+
+      const result = await client.ɵsubscribeToMemories({ userId: "user-1" });
+
+      expect(result).toEqual({
+        joinToken: "jt-mem",
+        joinCode: "jc-mem",
+        projectJoinToken: "pjt-mem",
+        projectJoinCode: "pjc-mem",
+      });
+    });
   });
 
   describe("updateThread", () => {
