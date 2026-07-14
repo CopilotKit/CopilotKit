@@ -414,24 +414,9 @@ importers:
       '@copilotkit/channels':
         specifier: workspace:*
         version: link:../../packages/channels
-      '@copilotkit/channels-discord':
-        specifier: workspace:*
-        version: link:../../packages/channels-discord
       '@copilotkit/channels-intelligence':
         specifier: workspace:*
         version: link:../../packages/channels-intelligence
-      '@copilotkit/channels-slack':
-        specifier: workspace:*
-        version: link:../../packages/channels-slack
-      '@copilotkit/channels-telegram':
-        specifier: workspace:*
-        version: link:../../packages/channels-telegram
-      '@copilotkit/channels-ui':
-        specifier: workspace:*
-        version: link:../../packages/channels-ui
-      '@copilotkit/channels-whatsapp':
-        specifier: workspace:*
-        version: link:../../packages/channels-whatsapp
       '@copilotkit/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
@@ -481,12 +466,6 @@ importers:
       '@copilotkit/channels':
         specifier: workspace:*
         version: link:../../packages/channels
-      '@copilotkit/channels-teams':
-        specifier: workspace:*
-        version: link:../../packages/channels-teams
-      '@copilotkit/channels-ui':
-        specifier: workspace:*
-        version: link:../../packages/channels-ui
       '@copilotkit/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
