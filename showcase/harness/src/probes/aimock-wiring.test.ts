@@ -304,6 +304,68 @@ describe("aimock-wiring probe", () => {
     expect(r2.signal.wiredCount).toBe(1);
   });
 
+  it("matches the PRIVATE Railway networking host (egress fix): internal aimockUrl vs :4010/v1 base URLs go green", async () => {
+    // Egress fix: demo backends route LLM traffic at aimock over free private
+    // networking (http://showcase-aimock.railway.internal:4010) instead of the
+    // billed public *.up.railway.app host. The probe matches on HOSTNAME only,
+    // so the harness AIMOCK_URL (bare internal origin) and the demo backends'
+    // OPENAI_BASE_URL (internal host + :4010 port + /v1 suffix) resolve to the
+    // same hostname `showcase-aimock.railway.internal` and the probe stays
+    // green. Locks in that the private-host migration keeps wiring green.
+    const INTERNAL_AIMOCK = "http://showcase-aimock.railway.internal:4010";
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: INTERNAL_AIMOCK,
+        listServices: async () => [
+          { name: "showcase-ag2" },
+          { name: "showcase-claude-sdk-python" },
+          { name: "showcase-google-adk" },
+        ],
+        getServiceEnv: async (name) => {
+          if (name === "showcase-ag2")
+            return {
+              OPENAI_BASE_URL:
+                "http://showcase-aimock.railway.internal:4010/v1",
+            };
+          if (name === "showcase-claude-sdk-python")
+            return {
+              ANTHROPIC_BASE_URL:
+                "http://showcase-aimock.railway.internal:4010",
+            };
+          return {
+            GOOGLE_GEMINI_BASE_URL:
+              "http://showcase-aimock.railway.internal:4010",
+          };
+        },
+      },
+      ctx,
+    );
+    expect(r.state).toBe("green");
+    expect(r.signal.unwired).toEqual([]);
+    expect(r.signal.wiredCount).toBe(3);
+    expect(r.signal.erroredCount).toBe(0);
+  });
+
+  it("flags a demo still on the PUBLIC aimock host when the harness is on the PRIVATE host (egress drift)", async () => {
+    // With the harness AIMOCK_URL migrated to the private host, a demo backend
+    // still pointing at the public *.up.railway.app aimock host is egress
+    // drift — different hostname → unwired → red. This is the signal that a
+    // backend missed the private-networking flip.
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: "http://showcase-aimock.railway.internal:4010",
+        listServices: async () => [{ name: "showcase-ag2" }],
+        getServiceEnv: async () => ({
+          OPENAI_BASE_URL:
+            "https://showcase-aimock-production.up.railway.app/v1",
+        }),
+      },
+      ctx,
+    );
+    expect(r.state).toBe("red");
+    expect(r.signal.unwired).toEqual(["showcase-ag2"]);
+  });
+
   it("isolates per-service env-fetch failures to the errored bucket", async () => {
     const r = await aimockWiringProbe.run(
       {
