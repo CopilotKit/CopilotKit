@@ -4971,6 +4971,15 @@ export class WebInspectorElement extends LitElement {
           toolCallName,
           partialToolCallArgs,
         });
+        if (typeof toolCallName === "string" && toolCallName.length > 0) {
+          const before = this.firedCapabilities.size;
+          this.firedCapabilities.add(`${agentId}:${toolCallName}`);
+          this.firedCapabilities.add(toolCallName);
+          if (this.firedCapabilities.size !== before) {
+            this._capabilitiesVersion += 1;
+            this.requestUpdate();
+          }
+        }
       },
       onToolCallEndEvent: ({ event, toolCallArgs, toolCallName }) => {
         this.recordAgentEvent(agentId, "TOOL_CALL_END", {

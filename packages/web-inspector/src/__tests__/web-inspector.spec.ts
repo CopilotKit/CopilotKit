@@ -3511,4 +3511,22 @@ describe("WebInspectorElement Capabilities tab", () => {
     expect(text).toContain("Frontend tools");
     expect(text).not.toContain("A2UI catalog components");
   });
+
+  it("marks a tool row as fired after its tool-call event", async () => {
+    const { core } = createCapabilitiesCore();
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = core as unknown as WebInspectorElement["core"];
+    (inspector as unknown as { isOpen: boolean }).isOpen = true;
+    (
+      inspector as unknown as { firedCapabilities: Set<string> }
+    ).firedCapabilities.add(":greet");
+    (
+      inspector as unknown as { handleMenuSelect: (k: string) => void }
+    ).handleMenuSelect("capabilities");
+    await inspector.updateComplete;
+    expect(
+      inspector.shadowRoot?.querySelector('[title="Fired this session"]'),
+    ).not.toBeNull();
+  });
 });
