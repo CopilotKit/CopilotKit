@@ -66,4 +66,30 @@ describe("RunHandler capability toggle", () => {
     const runHandler = createRunHandler();
     expect(runHandler.isToolEnabled("never-registered")).toBe(true);
   });
+
+  it("does not collide (name, agentId) pairs that a space separator would merge", () => {
+    // capabilityKey joins agentId + name with a NUL byte, which cannot appear
+    // in either field. A space separator (the historical bug) would merge these
+    // two distinct identities onto one key:
+    //   A: agentId "a",   name "b c" -> "a" + " " + "b c" = "a b c"
+    //   B: agentId "a b", name "c"   -> "a b" + " " + "c" = "a b c"
+    // With a NUL separator they stay distinct, so toggling one must not affect
+    // the other.
+    const runHandler = createRunHandler();
+    runHandler.initialize([
+      { name: "b c", description: "tool A", agentId: "a" },
+      { name: "c", description: "tool B", agentId: "a b" },
+    ]);
+
+    // Disable only tool A (agentId "a").
+    runHandler.setToolEnabled("b c", false, "a");
+
+    // Tool A is off; tool B (the space-collision twin) is unaffected.
+    expect(runHandler.isToolEnabled("b c", "a")).toBe(false);
+    expect(runHandler.isToolEnabled("c", "a b")).toBe(true);
+
+    // buildFrontendTools for A's scope drops A; B still appears in its own scope.
+    expect(runHandler.buildFrontendTools("a").map((t) => t.name)).toEqual([]);
+    expect(runHandler.buildFrontendTools("a b").map((t) => t.name)).toEqual(["c"]);
+  });
 });
