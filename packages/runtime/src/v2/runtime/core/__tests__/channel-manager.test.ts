@@ -488,7 +488,7 @@ describe("ChannelManager", () => {
     expect(engine).not.toHaveBeenCalled();
   });
 
-  it("skips managed activation for a channel carrying a direct adapter, activating only the managed one", async () => {
+  it("skips managed activation for a direct-adapter channel but records it unmanaged; the managed one reflects its real state", async () => {
     const log = vi.fn();
     const engine: ActivateChannelEngine = vi.fn(async () => fakeHandle());
     const managed = createChannel({ name: "support" });
@@ -508,8 +508,15 @@ describe("ChannelManager", () => {
     expect(engine).toHaveBeenCalledTimes(1);
 
     await expect(mgr.ready()).resolves.toBeUndefined();
-    expect(mgr.status().channels).toEqual({ support: "online" });
-    expect(mgr.status().channels).not.toHaveProperty("sales");
+    // The direct channel is surfaced as `unmanaged` (never omitted, never
+    // `online`); the managed channel reflects its real activated state; and
+    // `overall` folds over the managed channel only, so a healthy managed
+    // channel beside an unmanaged one still reads `online`.
+    expect(mgr.status().channels).toEqual({
+      support: "online",
+      sales: "unmanaged",
+    });
+    expect(mgr.status().overall).toBe("online");
 
     const breadcrumbs = log.mock.calls.map(([msg]) => msg);
     expect(
@@ -517,12 +524,13 @@ describe("ChannelManager", () => {
         (msg) =>
           typeof msg === "string" &&
           msg.includes("sales") &&
-          msg.includes("direct adapter"),
+          msg.includes("direct adapter") &&
+          msg.includes("unmanaged"),
       ),
     ).toBe(true);
   });
 
-  it("does not call the engine for a lone direct-adapter channel; status is coherent and ready() resolves", async () => {
+  it("reports a lone direct-adapter channel as unmanaged (not online), keeps it in status, and ready() still resolves", async () => {
     const engine: ActivateChannelEngine = vi.fn(async () => fakeHandle());
     const direct = createChannel({
       name: "sales",
@@ -537,9 +545,39 @@ describe("ChannelManager", () => {
     mgr.activate();
 
     expect(engine).not.toHaveBeenCalled();
-    expect(mgr.status().overall).toBe("online");
-    expect(mgr.status().channels).toEqual({});
+    // A runtime whose only channel is direct must NOT read healthy: overall is
+    // `unmanaged`, and the channel is present in status (never an empty map).
+    expect(mgr.status().overall).toBe("unmanaged");
+    expect(mgr.status().channels).toEqual({ sales: "unmanaged" });
+    // ready() may resolve (nothing on the managed path to wait for) but that
+    // resolution implies no health — the truthfulness lives in status().
     await expect(mgr.ready()).resolves.toBeUndefined();
+  });
+
+  it("leaves an unmanaged channel unmanaged through stop() — the manager never owned its lifecycle", async () => {
+    const engine: ActivateChannelEngine = vi.fn(async () => fakeHandle());
+    const managed = createChannel({ name: "support" });
+    const direct = createChannel({
+      name: "sales",
+      adapters: [new FakeAdapter({ platform: "slack" })],
+    });
+
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [managed, direct],
+      activateChannel: engine,
+    });
+    await mgr.ready();
+    await mgr.stop();
+
+    // The managed channel is torn down to `stopped`; the direct one stays
+    // `unmanaged` (the manager cannot stop what it never started), so overall
+    // folds to `stopped` over the managed channel.
+    expect(mgr.status().channels).toEqual({
+      support: "stopped",
+      sales: "unmanaged",
+    });
+    expect(mgr.status().overall).toBe("stopped");
   });
 
   it("still enforces unique names across all declared channels, including direct ones", () => {

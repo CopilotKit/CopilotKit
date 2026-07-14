@@ -24,6 +24,12 @@ import type { Channel } from "@copilotkit/channels";
  *   delegated to the Phoenix connection layer); it only reflects the health the
  *   session reports via its `onStateChange` observer.
  * - `stopped`: {@link ChannelManager.stop} has torn the Channel down.
+ * - `unmanaged`: the Channel carries a developer-supplied direct adapter, so this
+ *   handler does NOT own its lifecycle — the developer starts it via
+ *   `channel.start()`. The manager records the Channel with this status purely so
+ *   its presence is observable and never misreported as `online`. It is neither
+ *   activated, awaited, nor stopped here. Real per-platform routing of direct
+ *   channels is tracked in OSS-486.
  * - `error`: activation rejected with a non-setup error, OR a previously-online
  *   session gave up reconnecting after its bounded reconnect window.
  */
@@ -33,6 +39,7 @@ export type ChannelStatus =
   | "setup_required"
   | "reconnecting"
   | "stopped"
+  | "unmanaged"
   | "error";
 
 /**
@@ -362,8 +369,21 @@ export class ChannelManager implements ChannelsControl {
       const isDirect = channel.adapters.some((a) => !a.__intelligenceChannel);
       if (isDirect) {
         this.log?.(
-          `channel "${channel.name!}" carries a direct adapter — skipping managed activation (exclusive-per-platform: managed OR direct per platform, not both; direct channels are started via channel.start(); coexistence tracked in OSS-484)`,
+          `channel "${channel.name!}" carries a direct adapter — recording status "unmanaged" and skipping managed activation (this handler does not own its lifecycle; start it via channel.start(); exclusive-per-platform: managed OR direct per platform, not both — coexistence tracked in OSS-484; real per-platform routing of direct channels tracked in OSS-486)`,
         );
+        // Record an EXPLICIT `unmanaged` entry rather than skipping silently.
+        // A skipped Channel with no entry vanishes from status()/computeOverall,
+        // so a runtime whose only Channel is direct would falsely read `online`
+        // and ready() would imply a health this handler never established. The
+        // entry keeps the Channel observable and truthful: it is never
+        // activated, its `settled` is already resolved (nothing on the managed
+        // path to wait for), and stopEntry leaves it untouched (see stopEntry).
+        this.entries.set(channel.name!, {
+          status: "unmanaged",
+          handle: undefined,
+          handleStopped: false,
+          settled: Promise.resolve(),
+        });
         continue;
       }
       const name = channel.name!;
@@ -490,7 +510,12 @@ export class ChannelManager implements ChannelsControl {
   }
 
   /**
-   * Resolve when every Channel has settled to `online`/`setup_required`.
+   * Resolve when every managed Channel has settled to `online`/`setup_required`.
+   *
+   * A direct-adapter (`unmanaged`) Channel has an already-resolved `settled` and
+   * so never blocks — but its resolution implies NO health: this handler does not
+   * own it. Truthfulness about direct Channels lives in {@link status} (they read
+   * `unmanaged`, never `online`), not in `ready()` resolving.
    *
    * Activates lazily if not already started — so a first call rejects with the
    * same {@link ChannelConfigError} as the synchronous throw from
@@ -533,13 +558,22 @@ export class ChannelManager implements ChannelsControl {
   }
 
   /**
-   * Snapshot status. `overall` reports the least-healthy Channel by precedence:
-   * `error` > `reconnecting` > `setup_required` > `connecting` > `online`.
-   * `online` means every Channel can currently send. `reconnecting` outranks
-   * `setup_required` because a dropped-but-retrying Channel is an active outage,
-   * louder than a steadily-degraded unprovisioned one. With no declared
-   * Channels, `overall` is `online` (nothing is degraded); once every Channel
-   * has been stopped, `overall` is `stopped`.
+   * Snapshot status. Every declared Channel — managed OR direct/`unmanaged` —
+   * appears keyed by name in `channels`; a direct-adapter Channel this handler
+   * does not own is always surfaced as `unmanaged`, never `online`.
+   *
+   * `overall` is folded over the MANAGED Channels only (see {@link computeOverall}),
+   * by precedence `error` > `reconnecting` > `setup_required` > `connecting` >
+   * `online`. `online` means every managed Channel can currently send.
+   * `reconnecting` outranks `setup_required` because a dropped-but-retrying
+   * Channel is an active outage, louder than a steadily-degraded unprovisioned
+   * one. `unmanaged` Channels are EXCLUDED from that fold — they carry no health
+   * this handler established — so a healthy managed Channel alongside an
+   * `unmanaged` one still reports `overall: "online"` while the `unmanaged` one
+   * stays visible per-Channel. When every declared Channel is `unmanaged`,
+   * `overall` is `unmanaged` (NOT `online`). With no declared Channels at all,
+   * `overall` is `online` (nothing is degraded); once every managed Channel has
+   * been stopped, `overall` is `stopped`.
    */
   status(): {
     overall: ChannelStatus;
@@ -552,24 +586,40 @@ export class ChannelManager implements ChannelsControl {
     return { overall: this.computeOverall(Object.values(channels)), channels };
   }
 
-  /** Fold per-Channel statuses into a single overall status (see {@link status}). */
+  /**
+   * Fold per-Channel statuses into a single overall status (see {@link status}).
+   *
+   * `unmanaged` Channels are folded out FIRST: they carry no lifecycle this
+   * handler owns, so they must neither count as `online` nor mask a real managed
+   * outage. The remaining MANAGED statuses are ranked
+   * `error` > `reconnecting` > `setup_required` > `connecting` > `online`, so a
+   * genuine managed failure still dominates while a healthy managed Channel
+   * beside an `unmanaged` one reads `online`. If NO managed Channels remain (every
+   * declared Channel is direct/`unmanaged`) the result is `unmanaged` — never the
+   * false-healthy `online`. The empty-input case (no declared Channels at all)
+   * stays `online` (nothing is degraded).
+   */
   private computeOverall(values: ChannelStatus[]): ChannelStatus {
     if (values.length === 0) {
       return "online";
     }
-    if (values.every((v) => v === "stopped")) {
+    const managed = values.filter((v) => v !== "unmanaged");
+    if (managed.length === 0) {
+      return "unmanaged";
+    }
+    if (managed.every((v) => v === "stopped")) {
       return "stopped";
     }
-    if (values.includes("error")) {
+    if (managed.includes("error")) {
       return "error";
     }
-    if (values.includes("reconnecting")) {
+    if (managed.includes("reconnecting")) {
       return "reconnecting";
     }
-    if (values.includes("setup_required")) {
+    if (managed.includes("setup_required")) {
       return "setup_required";
     }
-    if (values.includes("connecting")) {
+    if (managed.includes("connecting")) {
       return "connecting";
     }
     return "online";
@@ -636,9 +686,18 @@ export class ChannelManager implements ChannelsControl {
    * `.catch` — otherwise the sync throw would escape, skip `resolveSettled()` in
    * the fulfilled-then-stopped branch of {@link activate}, and hang `settled`.
    *
+   * An `unmanaged` entry (a direct-adapter Channel this handler never activated)
+   * is left untouched: the manager owns no handle and no lifecycle for it, so
+   * claiming to have `stopped` it would be as untruthful as calling it `online`.
+   * The developer's `channel.start()`/stop path is unaffected by manager
+   * teardown.
+   *
    * @param entry - The Channel entry to stop.
    */
   private async stopEntry(entry: ChannelEntry): Promise<void> {
+    if (entry.status === "unmanaged") {
+      return;
+    }
     entry.status = "stopped";
     if (entry.handle && !entry.handleStopped) {
       entry.handleStopped = true;
