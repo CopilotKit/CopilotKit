@@ -84,6 +84,8 @@ import type {
 } from "./lib/telemetry.js";
 
 export type { Anchor } from "./lib/types.js";
+export { buildCapabilityRows as ɵbuildCapabilityRows };
+export type { CapabilityToolRow as ɵCapabilityToolRow };
 
 export const WEB_INSPECTOR_TAG = "cpk-web-inspector" as const;
 export const THREAD_INSPECTOR_TAG = "cpk-thread-inspector" as const;
@@ -94,6 +96,7 @@ type MenuKey =
   | "ag-ui-events"
   | "agents"
   | "frontend-tools"
+  | "capabilities"
   | "agent-context"
   | "threads"
   | "memories"
@@ -122,6 +125,11 @@ const INTELLIGENCE_SIGNUP_URL = "https://go.copilotkit.ai/intelligence-signup";
 const THREADS_INTELLIGENCE_SIGNIN_URL =
   "https://dashboard.operations.copilotkit.ai/sign-in";
 const TALK_TO_ENGINEER_URL = "https://www.copilotkit.ai/talk-to-an-engineer";
+// Label for the Capabilities tab (client-authoritative dev experimentation
+// surface: toggle frontend tools + A2UI catalog components on/off, enforced
+// immediately via core.setToolEnabled / core.setCatalogComponentEnabled).
+// Renameable — keep the display string in this one place.
+const CAPABILITIES_TAB_LABEL = "Capabilities";
 const THREADS_DOCS_URL = "https://docs.copilotkit.ai/threads";
 const SELF_HOSTED_INTELLIGENCE_URL =
   "https://docs.copilotkit.ai/premium/self-hosting";
@@ -219,6 +227,61 @@ type InspectorToolDefinition = {
   parameters?: unknown;
   type: "handler" | "renderer";
 };
+
+// ─── Capabilities tab view-models ────────────────────────────────────────────
+// A single toggle row. `key` is the stable identity used for the "fired" set
+// and as a Lit list key; for tools it is `${agentId}:${name}` (agentId "" for
+// global tools), for catalog components it is the component name.
+type CapabilityToolRow = {
+  key: string;
+  name: string;
+  description?: string;
+  agentId?: string;
+  enabled: boolean;
+  fired: boolean;
+};
+
+// Minimal structural view of CopilotKitCore that the pure helper needs, so
+// buildCapabilityRows is trivially unit-testable with a plain object. Method
+// names MUST match the A1 contract exactly.
+type CapabilityToolSource = {
+  tools?: ReadonlyArray<{
+    name: string;
+    description?: string;
+    agentId?: string;
+  }>;
+  isToolEnabled: (name: string, agentId?: string) => boolean;
+};
+
+/**
+ * Map core.tools (the registry INCLUDING disabled tools) into Capabilities-tab
+ * frontend-tool rows. Pure: no DOM, no `this`. Reads current on/off state from
+ * core.isToolEnabled(name, agentId?) per the A1 contract. `fired` is passed in
+ * from the caller's session set (keyed identically to `key`).
+ */
+function buildCapabilityRows(
+  core: CapabilityToolSource,
+  firedKeys: ReadonlySet<string> = new Set(),
+): CapabilityToolRow[] {
+  const rows: CapabilityToolRow[] = [];
+  for (const tool of core.tools ?? []) {
+    const agentId = tool.agentId ?? "";
+    const key = `${agentId}:${tool.name}`;
+    rows.push({
+      key,
+      name: tool.name,
+      description: tool.description,
+      agentId: tool.agentId,
+      enabled: core.isToolEnabled(tool.name, tool.agentId),
+      fired: firedKeys.has(key),
+    });
+  }
+  return rows.sort((a, b) => {
+    const agentCompare = (a.agentId ?? "").localeCompare(b.agentId ?? "");
+    if (agentCompare !== 0) return agentCompare;
+    return a.name.localeCompare(b.name);
+  });
+}
 
 type InspectorEvent = {
   id: string;
@@ -4076,6 +4139,7 @@ export class WebInspectorElement extends LitElement {
   static properties = {
     core: { attribute: false },
     autoAttachCore: { type: Boolean, attribute: "auto-attach-core" },
+    _capabilitiesVersion: { state: true },
   } as const;
 
   private _core: CopilotKitCore | null = null;
@@ -4159,6 +4223,16 @@ export class WebInspectorElement extends LitElement {
   private attemptedAutoAttach = false;
   private cachedTools: InspectorToolDefinition[] = [];
   private toolSignature = "";
+  // Bumped after every core.setToolEnabled / core.setCatalogComponentEnabled
+  // call so the Capabilities tab re-paints from the fresh isToolEnabled /
+  // isCatalogComponentEnabled getters. There is no core subscriber for
+  // enablement changes — the inspector itself drives the toggle, so we force
+  // the re-render locally.
+  private _capabilitiesVersion = 0;
+  // Names of capabilities (tool key `${agentId}:${name}` or catalog component
+  // `name`) that have FIRED at least once this session. Drives the optional
+  // "active" dot. Populated in the agent tool-call subscriber (Task 7).
+  private firedCapabilities: Set<string> = new Set();
   private eventFilterText = "";
   private eventTypeFilter: InspectorAgentEventType | "all" = "all";
   // Column widths for the AG-UI events table (agent, time, event-type; last col is auto)
@@ -4264,6 +4338,8 @@ export class WebInspectorElement extends LitElement {
 
   private get menuItems(): MenuItem[] {
     const hasFrontendTools = (this._core?.tools?.length ?? 0) > 0;
+    const hasCatalog = (this._core?.catalogComponents?.length ?? 0) > 0;
+    const hasCapabilities = hasFrontendTools || hasCatalog;
     return [
       {
         key: "ag-ui-events",
@@ -4277,6 +4353,15 @@ export class WebInspectorElement extends LitElement {
               key: "frontend-tools" as const,
               label: "Frontend Tools",
               icon: "Hammer" as LucideIconName,
+            },
+          ]
+        : []),
+      ...(hasCapabilities
+        ? [
+            {
+              key: "capabilities" as const,
+              label: CAPABILITIES_TAB_LABEL,
+              icon: "SlidersHorizontal" as LucideIconName,
             },
           ]
         : []),
@@ -4886,6 +4971,15 @@ export class WebInspectorElement extends LitElement {
           toolCallName,
           partialToolCallArgs,
         });
+        if (typeof toolCallName === "string" && toolCallName.length > 0) {
+          const before = this.firedCapabilities.size;
+          this.firedCapabilities.add(`${agentId}:${toolCallName}`);
+          this.firedCapabilities.add(toolCallName);
+          if (this.firedCapabilities.size !== before) {
+            this._capabilitiesVersion += 1;
+            this.requestUpdate();
+          }
+        }
       },
       onToolCallEndEvent: ({ event, toolCallArgs, toolCallName }) => {
         this.recordAgentEvent(agentId, "TOOL_CALL_END", {
@@ -7783,6 +7877,10 @@ ${argsString}</pre
       return this.renderToolsView();
     }
 
+    if (this.selectedMenu === "capabilities") {
+      return this.renderCapabilitiesView();
+    }
+
     if (this.selectedMenu === "agent-context") {
       return this.renderContextView();
     }
@@ -9897,6 +9995,157 @@ ${prettyEvent}</pre
 
     this.contextMenuOpen = false;
     this.persistState();
+    this.requestUpdate();
+  }
+
+  private renderCapabilitiesView() {
+    if (!this._core) {
+      return html`
+        <div class="flex h-full items-center justify-center px-4 py-8 text-xs text-gray-500">
+          No core instance available
+        </div>
+      `;
+    }
+
+    const toolRows = buildCapabilityRows(
+      this._core as unknown as CapabilityToolSource,
+      this.firedCapabilities,
+    );
+    const catalog = this._core.catalogComponents ?? [];
+    const hasCatalog = catalog.length > 0;
+
+    if (toolRows.length === 0 && !hasCatalog) {
+      return html`
+        <div class="flex h-full items-center justify-center px-4 py-8 text-center">
+          <div class="max-w-md">
+            <div class="mb-3 flex justify-center text-gray-300 [&>svg]:!h-8 [&>svg]:!w-8">
+              ${this.renderIcon("SlidersHorizontal")}
+            </div>
+            <p class="text-sm text-gray-600">No capabilities registered</p>
+            <p class="mt-2 text-xs text-gray-500">
+              Frontend tools and A2UI catalog components will appear here once
+              they are registered on the CopilotKit core.
+            </p>
+          </div>
+        </div>
+      `;
+    }
+
+    return html`
+      <div class="flex h-full flex-col overflow-hidden">
+        <div class="overflow-auto p-4">
+          <div class="space-y-3">
+            <p class="text-xs text-gray-500">
+              Toggle a capability off to omit it from what the agent sees. This
+              is a client-side experimentation surface and takes effect
+              immediately.
+            </p>
+          </div>
+
+          ${
+            toolRows.length > 0
+              ? html`
+                <div class="mt-4 space-y-2">
+                  <h3 class="text-sm text-slate-500">Frontend tools</h3>
+                  <div class="space-y-2">
+                    ${toolRows.map((row) => this.renderCapabilityRow(row))}
+                  </div>
+                </div>
+              `
+              : nothing
+          }
+
+          ${
+            hasCatalog
+              ? html`
+                <div class="mt-6 space-y-2">
+                  <h3 class="text-sm text-slate-500">A2UI catalog components</h3>
+                  <div class="space-y-2">
+                    ${catalog.map((component) =>
+                      this.renderCapabilityRow({
+                        key: component.name,
+                        name: component.name,
+                        description: component.description,
+                        enabled: this._core!.isCatalogComponentEnabled(
+                          component.name,
+                        ),
+                        fired: this.firedCapabilities.has(component.name),
+                      }),
+                    )}
+                  </div>
+                </div>
+              `
+              : nothing
+          }
+        </div>
+      </div>
+    `;
+  }
+
+  private renderCapabilityRow(row: CapabilityToolRow) {
+    // Frontend-tool keys are always `${agentId}:${name}` (agentId may be ""),
+    // so they contain a ":"; catalog keys are the bare component name.
+    const isTool = row.key.includes(":");
+    return html`
+      <div class="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2">
+            ${
+              row.fired
+                ? html`<span class="h-2 w-2 shrink-0 rounded-full bg-emerald-500" title="Fired this session" aria-label="Fired this session"></span>`
+                : nothing
+            }
+            <span class="font-mono text-sm font-semibold text-gray-900">${row.name}</span>
+            ${
+              row.agentId
+                ? html`<span class="inline-flex items-center gap-1 text-xs text-gray-500">
+                    ${this.renderIcon("Bot")}<span class="font-mono">${row.agentId}</span>
+                  </span>`
+                : nothing
+            }
+          </div>
+          ${row.description ? html`<p class="mt-1 text-xs text-gray-600">${row.description}</p>` : nothing}
+        </div>
+        ${this.renderCapabilitySwitch(row.enabled, () =>
+          isTool
+            ? this.handleToggleTool(row)
+            : this.handleToggleCatalogComponent(row.name),
+        )}
+      </div>
+    `;
+  }
+
+  private renderCapabilitySwitch(enabled: boolean, onToggle: () => void) {
+    const track = enabled ? "bg-emerald-500" : "bg-gray-300";
+    const knob = enabled ? "translate-x-4" : "translate-x-0.5";
+    return html`
+      <button
+        type="button"
+        role="switch"
+        aria-checked=${enabled ? "true" : "false"}
+        class="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 ${track}"
+        @click=${onToggle}
+      >
+        <span class="inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${knob}"></span>
+      </button>
+    `;
+  }
+
+  private handleToggleTool(row: CapabilityToolRow): void {
+    if (!this._core) return;
+    const next = !row.enabled;
+    // A1 contract: setToolEnabled(name, enabled, agentId?). Pass agentId only
+    // when the tool is agent-scoped so global tools toggle globally.
+    this._core.setToolEnabled(row.name, next, row.agentId);
+    this._capabilitiesVersion += 1;
+    this.requestUpdate();
+  }
+
+  private handleToggleCatalogComponent(name: string): void {
+    if (!this._core) return;
+    const next = !this._core.isCatalogComponentEnabled(name);
+    this._core.setCatalogComponentEnabled(name, next);
+    this._capabilitiesVersion += 1;
     this.requestUpdate();
   }
 
