@@ -377,6 +377,41 @@ jobs:
         # pnpm-lock.yaml-pinned version is used (no registry-cache-miss drift).
         run: pnpm exec vitest bench src/cvdiag/emit-perf.bench.ts --run
 
+      - name: Harness ESM boot-smoke (no ERR_MODULE_NOT_FOUND)
+        working-directory: showcase/harness
+        # The harness ships as pure Node ESM: package.json `"type":"module"`,
+        # build is `tsc` with `moduleResolution:"bundler"` (which PRESERVES
+        # extensionless import specifiers at emit), and it runs via
+        # `node dist/orchestrator.js` (Docker CMD + `start` script). Under pure
+        # Node ESM, relative import specifiers MUST carry the `.js` extension —
+        # `tsc`, vitest, and tsx all resolve extensionless specifiers fine, so
+        # NONE of the other CI steps exercise the real `node dist` module graph.
+        # A single extensionless relative import (as happened in the relocated
+        # shared/cell-model fold) therefore builds green, passes every test, and
+        # only crash-loops the orchestrator at container boot with
+        # ERR_MODULE_NOT_FOUND. This step is the missing gate: build the dist and
+        # actually load the orchestrator module graph, failing hard on a module-
+        # resolution error. A later runtime error from missing env/PocketBase is
+        # expected and NOT a failure — only ERR_MODULE_NOT_FOUND reddens the build.
+        run: |
+          set -euo pipefail
+          pnpm build
+          node -e "
+            import('./dist/orchestrator.js')
+              .then(() => { console.log('BOOT_OK: orchestrator module graph loaded'); })
+              .catch((e) => {
+                if (e && e.code === 'ERR_MODULE_NOT_FOUND') {
+                  console.error('BOOT_FAIL:', e.code, e.message);
+                  console.error('An extensionless relative import broke the pure-ESM module graph. Add the .js extension to the offending relative import specifier.');
+                  process.exit(1);
+                }
+                // Any non-module-resolution error (e.g. missing env/PocketBase
+                // at boot) means the module graph loaded fine — that is a PASS
+                // for this smoke.
+                console.log('BOOT_OK: module graph loaded (non-module-resolution runtime error is expected here):', e && e.code);
+              });
+          "
+
       - name: Validate manifests & generate registry
         working-directory: showcase/scripts
         run: pnpm exec tsx generate-registry.ts
