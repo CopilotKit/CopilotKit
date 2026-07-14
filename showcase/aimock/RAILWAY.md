@@ -208,6 +208,47 @@ None are required for the default configuration. Notes:
   network.
 - `PORT` is injected by Railway but not read by the current startCommand
   (port is hardcoded to `4010`). Harmless.
+- **No provider API keys.** aimock holds NO `OPENAI_API_KEY` /
+  `ANTHROPIC_API_KEY` / `GOOGLE_API_KEY`. On the proxy-fallthrough path it does
+  NOT authenticate with its own key — it **forwards the client-supplied
+  `Authorization` / `x-api-key` header verbatim** to the real provider (see
+  §6.1). The real key therefore lives on the CLIENT services, not here.
+
+### 6.1 Upstream auth model + provider-key credential hygiene
+
+aimock cannot own upstream provider auth. In `@copilotkit/aimock`, the
+proxy-fallthrough recorder copies every non-hop-by-hop client header straight
+to the upstream provider; the header strip-list does NOT include
+`authorization` / `x-api-key`, and there is no CLI flag or env var to inject an
+aimock-owned provider key (`--provider-openai/anthropic/gemini` set upstream
+**URLs** only). So a fixture-miss request reaches the real provider using
+**whatever key the calling service sent**.
+
+Because every showcase agent/starter (and the `shell`/`docs`/`dashboard`
+frontends) routes provider traffic through aimock, each one must carry a
+provider key for those fallthrough requests. To avoid duplicating the SAME real
+secret across ~34 services (one scraped env = the real key; rotation = ~34
+edits), each provider key is defined **once** as a Railway
+**environment-level SHARED variable** and referenced from the services that
+need it:
+
+- Create `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY` as
+  environment-shared variables in each env (staging + prod), sourced from
+  1Password — never committed to this repo.
+- Each consuming service references `${{shared.<NAME>}}` instead of holding its
+  own literal copy. The SSOT (`showcase/scripts/railway-envs.ts`) models this
+  per-service via the additive `sharedRefs` field (the provider-key NAMES a
+  service resolves from the shared variable), and the Ruby promote preflight
+  asserts each listed key resolves to the shared variable rather than a
+  distinct per-service literal.
+
+Net: the real secret lives in ONE place per env, rotation is a single edit, and
+a scraped service env yields only a `${{shared.*}}` reference token. `aimock`
+itself declares no `sharedRefs` — it holds no provider key at all.
+
+> **Rotation.** Rotate the real key in the provider dashboard (e.g. the OpenAI
+> account), store the new value in 1Password, and update the single
+> environment-shared variable. Never commit a provider key to this repo.
 
 ## 7. How to reconstruct
 
