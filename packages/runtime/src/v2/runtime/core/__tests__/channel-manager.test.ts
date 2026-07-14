@@ -339,6 +339,79 @@ describe("ChannelManager", () => {
 
     expect(stopCalls.count).toBe(1);
   });
+
+  it("ready() resolves after stop() even when a channel settled to error before stop() (f3)", async () => {
+    const engine: ActivateChannelEngine = async () => {
+      throw new Error("connect boom");
+    };
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [createChannel({ name: "support" })],
+      activateChannel: engine,
+    });
+    mgr.activate();
+
+    await mgr.ready().catch(() => {});
+    expect(mgr.status().channels.support).toBe("error");
+
+    await mgr.stop();
+
+    await expect(mgr.ready()).resolves.toBeUndefined();
+    expect(mgr.status().overall).toBe("stopped");
+  });
+
+  it("invokes the injected log sink with a failed-to-activate breadcrumb when a channel errors (RC11)", async () => {
+    const log = vi.fn();
+    const engine: ActivateChannelEngine = async () => {
+      throw new Error("boom");
+    };
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [createChannel({ name: "support" })],
+      activateChannel: engine,
+      log,
+    });
+    mgr.activate();
+
+    await mgr.ready().catch(() => {});
+
+    const breadcrumbs = log.mock.calls.map(([msg]) => msg);
+    expect(
+      breadcrumbs.some(
+        (msg) => typeof msg === "string" && msg.includes("failed to activate"),
+      ),
+    ).toBe(true);
+  });
+
+  it("logs (and does not rethrow) when a foreign handle.stop() throws SYNCHRONOUSLY during teardown (sync-throw guard)", async () => {
+    const log = vi.fn();
+    const syncThrowHandle: ChannelsHandle = {
+      metadata: {},
+      stop: () => {
+        throw new Error("sync stop boom");
+      },
+    };
+    const engine: ActivateChannelEngine = async () => syncThrowHandle;
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [createChannel({ name: "support" })],
+      activateChannel: engine,
+      log,
+    });
+    mgr.activate();
+    await mgr.ready();
+
+    await expect(mgr.stop()).resolves.toBeUndefined();
+    expect(mgr.status().channels.support).toBe("stopped");
+    const breadcrumbs = log.mock.calls.map(([msg]) => msg);
+    expect(
+      breadcrumbs.some(
+        (msg) =>
+          typeof msg === "string" &&
+          msg.includes("channel handle stop() failed during teardown"),
+      ),
+    ).toBe(true);
+  });
 });
 
 describe("isModuleNotFound", () => {

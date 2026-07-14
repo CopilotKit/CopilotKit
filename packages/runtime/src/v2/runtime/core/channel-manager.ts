@@ -424,14 +424,25 @@ export class ChannelManager implements ChannelsControl {
   /**
    * Resolve when every Channel has settled to `online`/`setup_required`.
    *
-   * Activates lazily if not already started — so a first call can throw the same
-   * synchronous {@link ChannelConfigError} as {@link activate} for an up-front
-   * misconfiguration (duplicate/missing Channel names). Once activation has been
-   * kicked off, all OTHER failures are surfaced here instead: this rejects with
-   * an `AggregateError` of the reasons if any Channel settled to `error`, or with
-   * a timeout error if `timeoutMs` elapses before all Channels settle.
+   * Activates lazily if not already started — so a first call rejects with the
+   * same {@link ChannelConfigError} as the synchronous throw from
+   * {@link activate} for an up-front misconfiguration (duplicate/missing Channel
+   * names). Once activation has been kicked off, all OTHER failures are surfaced
+   * here instead: this rejects with an `AggregateError` of the reasons if any
+   * Channel settled to `error`, or with a timeout error if `timeoutMs` elapses
+   * before all Channels settle.
+   *
+   * A STOPPED manager short-circuits and resolves: a Channel that settled to
+   * `error` BEFORE {@link stop} already rejected its `settled` promise, so
+   * awaiting it here would throw an `AggregateError` even though
+   * {@link status}.overall is `"stopped"` — inconsistent with the case where the
+   * Channel was still online at stop() (which resolves). A stopped manager has
+   * nothing left to be ready for, so resolve uniformly.
    */
   async ready(opts?: { timeoutMs?: number }): Promise<void> {
+    if (this.stopped) {
+      return;
+    }
     this.activate();
     const entries = [...this.entries.values()];
     const all = Promise.allSettled(entries.map((e) => e.settled));
@@ -515,8 +526,13 @@ export class ChannelManager implements ChannelsControl {
    * exactly once even when both callers reach the entry, and a late settle can
    * never resurrect a `stopped` entry.
    *
-   * `handle.stop()` errors are swallowed: the real launcher's `stop()` rethrows
-   * after `session.disconnect()`, and teardown must still complete.
+   * `handle.stop()` failures are logged (via {@link ChannelManager.log}) but NOT
+   * rethrown: the real launcher's `stop()` rethrows after `session.disconnect()`,
+   * and teardown must still complete for every other entry. The call is wrapped
+   * in `Promise.resolve().then(...)` so a foreign/injected handle whose `stop()`
+   * throws SYNCHRONOUSLY (before any promise is created) is caught by the same
+   * `.catch` — otherwise the sync throw would escape, skip `resolveSettled()` in
+   * the fulfilled-then-stopped branch of {@link activate}, and hang `settled`.
    *
    * @param entry - The Channel entry to stop.
    */
@@ -524,7 +540,12 @@ export class ChannelManager implements ChannelsControl {
     entry.status = "stopped";
     if (entry.handle && !entry.handleStopped) {
       entry.handleStopped = true;
-      await entry.handle.stop().catch(() => {});
+      const handle = entry.handle;
+      await Promise.resolve()
+        .then(() => handle.stop())
+        .catch((err: unknown) =>
+          this.log?.("channel handle stop() failed during teardown", err),
+        );
     }
   }
 

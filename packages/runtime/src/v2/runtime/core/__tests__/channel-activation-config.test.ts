@@ -51,6 +51,27 @@ describe("parseProjectIdFromApiKey", () => {
     expect(err!.message).not.toContain(secret);
     expect(err!.message).not.toContain("TOPSECRETKEYMATERIAL");
   });
+
+  it("does not leak the secret tail of a cpk-_-shaped key while still naming the format (RC12)", () => {
+    // The secret starts immediately after the fixed `cpk-` namespace, so a
+    // fixed-width prefix slice (the old `apiKey.slice(0, 8)`) would echo the
+    // first secret bytes ("ZZSEC…") — the distinctive marker below makes even a
+    // 3-char leak detectable.
+    const err = (() => {
+      try {
+        parseProjectIdFromApiKey("cpk-_ZZSECRETZZ_x");
+        return undefined;
+      } catch (e) {
+        return e as Error;
+      }
+    })();
+
+    expect(err).toBeInstanceOf(ChannelConfigError);
+    expect(err!.message).toMatch(/cpk-\{projectId\}/);
+    expect(err!.message).not.toContain("ZZSECRETZZ");
+    expect(err!.message).not.toContain("ZZS");
+    expect(err!.message).not.toContain("ZZ");
+  });
 });
 
 describe("deriveChannelActivationConfig", () => {
@@ -99,5 +120,41 @@ describe("deriveChannelActivationConfig", () => {
         runtimeInstanceId: "rti_x",
       }),
     ).toThrow(ChannelConfigError);
+  });
+
+  it.each([
+    ["Slack", "uppercase"],
+    ["support_bot", "underscore"],
+    ["cs", "too short"],
+    ["a".repeat(65), "too long (65 chars)"],
+  ])(
+    "rejects a channel name that is not lowercase kebab-case in 3–64 chars: %s (%s) (RC13)",
+    (name) => {
+      const intelligence = fakeIntelligence("cpk-42_short_long");
+      const channel = createChannel({ name });
+
+      const call = () =>
+        deriveChannelActivationConfig({
+          intelligence,
+          channel,
+          runtimeInstanceId: "rti_x",
+        });
+
+      expect(call).toThrow(ChannelConfigError);
+      expect(call).toThrow(/lowercase kebab-case/);
+    },
+  );
+
+  it("accepts a valid lowercase kebab-case channel name (RC13)", () => {
+    const intelligence = fakeIntelligence("cpk-42_short_long");
+    const channel = createChannel({ name: "support" });
+
+    const config = deriveChannelActivationConfig({
+      intelligence,
+      channel,
+      runtimeInstanceId: "rti_x",
+    });
+
+    expect(config.channelName).toBe("support");
   });
 });

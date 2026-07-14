@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { logger } from "@copilotkit/shared";
 import { createCopilotRuntimeHandler } from "../core/fetch-handler";
 import { CopilotRuntime } from "../core/runtime";
 import { CopilotKitIntelligence } from "../intelligence-platform";
@@ -137,5 +138,28 @@ describe("createCopilotRuntimeHandler — managed channels", () => {
     expect(() =>
       createCopilotRuntimeHandler({ runtime, __channelEngine: engine }),
     ).toThrow(/support/);
+  });
+
+  it("wires the shared logger so a channel that fails to activate emits a breadcrumb (RC11)", async () => {
+    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    const engine: ActivateChannelEngine = async () => {
+      throw new Error("activation boom");
+    };
+
+    const handler = createCopilotRuntimeHandler({
+      runtime: intelRuntimeWith1Channel(),
+      __channelEngine: engine,
+    });
+
+    await handler.channels!.ready().catch(() => {});
+
+    const loggedMessages = warnSpy.mock.calls.map((args) => args[1]);
+    expect(
+      loggedMessages.some(
+        (msg) => typeof msg === "string" && msg.includes("failed to activate"),
+      ),
+    ).toBe(true);
+
+    warnSpy.mockRestore();
   });
 });

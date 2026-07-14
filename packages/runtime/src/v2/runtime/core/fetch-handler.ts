@@ -183,6 +183,14 @@ function getOrCreateChannelManager(
   const manager = new ChannelManager({
     intelligence: runtime.intelligence,
     channels: runtime.channels,
+    // Bridge the manager's diagnostic sink to the shared logger. Without this
+    // every `this.log?.(...)` breadcrumb in the manager (setup_required,
+    // failed-to-activate, dropped-session, teardown-stop failures) is a no-op,
+    // so a channel that fails to activate is permanently dead with zero output.
+    // Mirror the `logger.<level>(context, message)` call shape used elsewhere in
+    // this file; a failed activation is a degraded-but-recoverable condition, so
+    // `warn` is the appropriate level.
+    log: (msg, meta) => logger.warn({ meta }, msg),
     ...(engine ? { activateChannel: engine } : {}),
   });
   // Activate BEFORE caching. `activate()` throws synchronously on an up-front
