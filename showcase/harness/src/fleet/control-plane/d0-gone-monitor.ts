@@ -147,6 +147,41 @@ export function isEnabled(
 }
 
 /**
+ * §10.8 staging-enable per-slug allowlist. `PROD_D0_MONITOR_SLUGS` is a
+ * comma-separated slug list that SCOPES the monitored cell set to exactly those
+ * slugs (intersected with the wired+supported universe in the constructor).
+ * Unset / empty → `undefined` → watch ALL wired+supported slugs (prod-INERT,
+ * IDENTICAL to prior behavior). Blank list entries are ignored. Returns a Set
+ * for O(1) membership at the intersection site.
+ */
+export function resolveSlugAllowlist(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): Set<string> | undefined {
+  const raw = env.PROD_D0_MONITOR_SLUGS;
+  if (raw === undefined || raw.trim() === "") return undefined;
+  const slugs = raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  return slugs.length > 0 ? new Set(slugs) : undefined;
+}
+
+/**
+ * §10.8 dry-run (log-capture) mode. When `PROD_D0_MONITOR_DRY_RUN` is truthy
+ * (any value other than unset / empty / `false` / `0`), the monitor LOGS the
+ * fully-composed alert payload instead of POSTing to Slack, while still
+ * advancing the state machine exactly as if sent — so the live proof can
+ * observe detection + exact alert content + recovery in logs with NO real
+ * Slack post. Unset → real send (prod-INERT, IDENTICAL to prior behavior).
+ */
+export function isDryRun(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): boolean {
+  const v = norm(env.PROD_D0_MONITOR_DRY_RUN);
+  return v !== undefined && v !== "false" && v !== "0";
+}
+
+/**
  * B-env: resolve the deploy environment for the prod gate. The raw
  * `SHOWCASE_ENV ?? RAILWAY_ENVIRONMENT_NAME` had two silent-disable bugs:
  *   1. `SHOWCASE_ENV=""` (empty but SET) SHADOWS Railway via `??` (nullish
@@ -163,11 +198,19 @@ export function isEnabled(
 export function resolveMonitorEnv(
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): string | undefined {
-  const norm = (raw: string | undefined): string | undefined => {
-    const v = raw?.trim().toLowerCase();
-    return v ? v : undefined; // empty/whitespace → unset (falls through)
-  };
   return norm(env.SHOWCASE_ENV) ?? norm(env.RAILWAY_ENVIRONMENT_NAME);
+}
+
+/**
+ * Trim + lowercase a raw env value; an empty/whitespace value normalizes to
+ * `undefined` (treated as UNSET). Shared by the env gate, the kill-switch's
+ * mirror parse, and the staging-enable overrides so all env normalization is
+ * one function (no drift between `SHOWCASE_ENV`, `RAILWAY_ENVIRONMENT_NAME`,
+ * and `PROD_D0_MONITOR_ALLOW_ENV`).
+ */
+function norm(raw: string | undefined): string | undefined {
+  const v = raw?.trim().toLowerCase();
+  return v ? v : undefined; // empty/whitespace → unset
 }
 
 /**
@@ -175,13 +218,26 @@ export function resolveMonitorEnv(
  * truth `orchestrator.ts` calls AND the gate test exercises (B-gatetest), so an
  * env-precedence / kill-switch / normalization regression fails a test instead
  * of shipping the monitor to the wrong environment (or silently disabling it in
- * prod). Registers iff the resolved env normalizes to `"production"` AND the
+ * prod). Registers iff the resolved env is prod (or matches the
+ * `PROD_D0_MONITOR_ALLOW_ENV` override — §10.8 staging-enable) AND the
  * kill-switch is not `false`.
+ *
+ * STAGING-ENABLE (§10.8): `PROD_D0_MONITOR_ALLOW_ENV` is a prod-INERT override
+ * (unset → prod-only, IDENTICAL to prior behavior). When it is set to a
+ * normalized env name (e.g. `staging`), the monitor ALSO registers when the
+ * resolved env equals that name — so the live §10.8 proof can run the merged
+ * monitor on staging. The kill-switch still applies (the `&& isEnabled(env)`
+ * leg is preserved), so `PROD_D0_MONITOR_ENABLED=false` disables it everywhere.
  */
 export function shouldRegister(
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): boolean {
-  return resolveMonitorEnv(env) === "production" && isEnabled(env);
+  const resolved = resolveMonitorEnv(env);
+  const allowEnv = norm(env.PROD_D0_MONITOR_ALLOW_ENV);
+  const envOk =
+    resolved === "production" ||
+    (allowEnv !== undefined && resolved === allowEnv);
+  return envOk && isEnabled(env);
 }
 
 /**
@@ -249,6 +305,13 @@ export interface D0GoneMonitorDeps {
   /** Injected confirm-scan delay (test seam; defaults to a real setTimeout). */
   sleep?: (ms: number) => Promise<void>;
   config?: Partial<D0GoneMonitorConfig>;
+  /**
+   * Env source for the staging-enable overrides (`PROD_D0_MONITOR_SLUGS`,
+   * `PROD_D0_MONITOR_DRY_RUN`). Defaults to `process.env`; injected in tests.
+   * Kept separate from `config` (numeric cadence params) — these are the §10.8
+   * scope/dry-run levers, all prod-INERT when unset.
+   */
+  env?: Readonly<Record<string, string | undefined>>;
 }
 
 export interface D0GoneMonitor {
@@ -367,9 +430,19 @@ export function isProducerLive(
 
 export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
   const { logger } = deps;
-  const config: D0GoneMonitorConfig = { ...resolveConfig(), ...deps.config };
+  const env = deps.env ?? process.env;
+  const config: D0GoneMonitorConfig = { ...resolveConfig(env), ...deps.config };
   const sleep =
     deps.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
+
+  // §10.8 staging-enable levers (all prod-INERT when unset):
+  //   - `slugAllowlist` SCOPES the monitored cell set to specific slugs (unset →
+  //     all wired+supported, IDENTICAL to prior behavior). Applied in
+  //     `wiredSupportedCells` (below) by intersecting the resolved map.
+  //   - `dryRun` swaps the send path to a log-capture (no real Slack post) while
+  //     still advancing the state machine — see the send sites in `runTick`.
+  const slugAllowlist = resolveSlugAllowlist(env);
+  const dryRun = isDryRun(env);
 
   // The idle window is 3× the LONGEST resolved producer period (§2.5), resolved
   // from the injected schedules — never a hand-picked constant. Computed once
@@ -404,7 +477,22 @@ export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
     registryIsLoader
       ? (deps.registry as () => RegistryDoc)()
       : (deps.registry as RegistryDoc);
-  let cellsBySlug = wiredSupportedCells(loadRegistry());
+  // §10.8: enumerate the wired+supported cell universe, then (if a slug
+  // allowlist is set) INTERSECT it down to exactly the allowlisted slugs. The
+  // intersection keeps only slugs that are BOTH wired+supported AND allowlisted
+  // — an allowlisted slug that is not wired+supported is silently dropped (it
+  // has no cells to fold), so a stray/typo'd slug can never fabricate a column.
+  // Unset allowlist → the full wired+supported map (prod-INERT, unchanged).
+  const enumerateCells = (): Map<string, WiredCell[]> => {
+    const all = wiredSupportedCells(loadRegistry());
+    if (slugAllowlist === undefined) return all;
+    const scoped = new Map<string, WiredCell[]>();
+    for (const [slug, cells] of all) {
+      if (slugAllowlist.has(slug)) scoped.set(slug, cells);
+    }
+    return scoped;
+  };
+  let cellsBySlug = enumerateCells();
 
   /**
    * B-A5gap: "no wired cell anywhere". `wiredSupportedCells` keys EVERY
@@ -437,7 +525,7 @@ export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
    */
   function resolveCells(): Map<string, WiredCell[]> {
     if (hasNoWiredCell(cellsBySlug) && registryIsLoader) {
-      cellsBySlug = wiredSupportedCells(loadRegistry());
+      cellsBySlug = enumerateCells();
     }
     return cellsBySlug;
   }
@@ -723,6 +811,27 @@ export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
     );
   }
 
+  /**
+   * §10.8 send-or-log. In DRY_RUN mode LOG the fully-composed payload at INFO
+   * with the `kind` tag ("outage" / "recovery") and return WITHOUT POSTing to
+   * Slack or throwing — the caller then advances the state machine (lastAlertAt
+   * / recovery clear) exactly as if the send had succeeded, so cadence +
+   * recovery logic exercises normally with no real Slack post. In normal mode
+   * this is a thin pass-through to `deps.postAlert` (which throws on send
+   * failure, preserving the §7 unadvanced-clock retry discipline). Prod-INERT
+   * when `PROD_D0_MONITOR_DRY_RUN` is unset (`dryRun === false`).
+   */
+  async function postOrLog(
+    text: string,
+    kind: "outage" | "recovery",
+  ): Promise<void> {
+    if (dryRun) {
+      logger.info("d0-monitor.dry-run-alert", { kind, text });
+      return; // skip the real send; caller still advances state (as if sent)
+    }
+    await deps.postAlert(text);
+  }
+
   // ── The tick ─────────────────────────────────────────────────────────
   async function runTick(): Promise<void> {
     const nowMs = deps.now();
@@ -945,7 +1054,7 @@ export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
       // message and the `lastAlertAt` stamp, which both use `evidenceMs`.
       const text = outageMessage(shownSlugs, overflowCount, map, evidenceMs);
       try {
-        await deps.postAlert(text);
+        await postOrLog(text, "outage");
         for (const slug of shownDue) {
           // Advance ONLY the DUE slugs that were NAMED in this message — one
           // successful send drives one shared re-post gate for the slugs it
@@ -988,7 +1097,7 @@ export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
       // observed), not the tick-start — the two differ by the confirm delay.
       const text = recoveryMessage(recovered, evidenceMs);
       try {
-        await deps.postAlert(text);
+        await postOrLog(text, "recovery");
         for (const r of recovered) delete map[r.slug]; // clear AFTER send (§5.2)
         logger.warn("d0-monitor.recovery-alerted", {
           slugs: recovered.map((r) => r.slug),

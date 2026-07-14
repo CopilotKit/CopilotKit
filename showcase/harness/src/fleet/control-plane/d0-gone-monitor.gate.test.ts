@@ -122,6 +122,78 @@ describe("B-env — env resolution normalizes and treats empty as unset", () => 
   });
 });
 
+describe("PROD_D0_MONITOR_ALLOW_ENV — staging-enable env override (§10.8)", () => {
+  it("unset → prod-only (byte-identical to prior behavior)", () => {
+    // No override: registers ONLY on production, never on staging.
+    expect(shouldRegister({ SHOWCASE_ENV: "production" })).toBe(true);
+    expect(shouldRegister({ SHOWCASE_ENV: "staging" })).toBe(false);
+    expect(
+      shouldRegister({ RAILWAY_ENVIRONMENT_NAME: "staging" }),
+    ).toBe(false);
+  });
+
+  it("ALLOW_ENV=staging ALSO registers when the resolved env is staging", () => {
+    expect(
+      shouldRegister({
+        SHOWCASE_ENV: "staging",
+        PROD_D0_MONITOR_ALLOW_ENV: "staging",
+      }),
+    ).toBe(true);
+    expect(
+      shouldRegister({
+        RAILWAY_ENVIRONMENT_NAME: "staging",
+        PROD_D0_MONITOR_ALLOW_ENV: "staging",
+      }),
+    ).toBe(true);
+    // Production still registers with the override present.
+    expect(
+      shouldRegister({
+        SHOWCASE_ENV: "production",
+        PROD_D0_MONITOR_ALLOW_ENV: "staging",
+      }),
+    ).toBe(true);
+  });
+
+  it("ALLOW_ENV mismatch stays off (override does not blanket-enable)", () => {
+    // Override names staging but the env is dev → does NOT register.
+    expect(
+      shouldRegister({
+        SHOWCASE_ENV: "dev",
+        PROD_D0_MONITOR_ALLOW_ENV: "staging",
+      }),
+    ).toBe(false);
+  });
+
+  it("ALLOW_ENV is normalized (trim + lowercase) like the env vars", () => {
+    expect(
+      shouldRegister({
+        SHOWCASE_ENV: "staging",
+        PROD_D0_MONITOR_ALLOW_ENV: " Staging ",
+      }),
+    ).toBe(true);
+  });
+
+  it("kill-switch still applies with ALLOW_ENV set (both legs preserved)", () => {
+    // ALLOW_ENV enables the env leg, but ENABLED=false still disables.
+    expect(
+      shouldRegister({
+        SHOWCASE_ENV: "staging",
+        PROD_D0_MONITOR_ALLOW_ENV: "staging",
+        PROD_D0_MONITOR_ENABLED: "false",
+      }),
+    ).toBe(false);
+  });
+
+  it("empty/whitespace ALLOW_ENV is treated as unset (prod-only)", () => {
+    expect(
+      shouldRegister({
+        SHOWCASE_ENV: "staging",
+        PROD_D0_MONITOR_ALLOW_ENV: "   ",
+      }),
+    ).toBe(false);
+  });
+});
+
 describe("resolveConfig — negative / NaN / empty parse falls back (§8, slot3 F3)", () => {
   it("defaults when env vars are absent", () => {
     const c = resolveConfig({});
