@@ -5,8 +5,14 @@ import {
   ChannelManager,
   ChannelSetupRequiredError,
   isModuleNotFound,
+  defaultActivateChannel,
 } from "../channel-manager";
-import type { ActivateChannelEngine, ChannelsHandle } from "../channel-manager";
+import type {
+  ActivateChannelEngine,
+  ChannelsHandle,
+  ChannelsIntelligenceModule,
+} from "../channel-manager";
+import type { ChannelActivationConfig } from "../channel-activation-config";
 
 /** A CopilotKitIntelligence whose runner API key carries a parseable project id. */
 function fakeIntelligence(): CopilotKitIntelligence {
@@ -411,6 +417,131 @@ describe("ChannelManager", () => {
           msg.includes("channel handle stop() failed during teardown"),
       ),
     ).toBe(true);
+  });
+
+  it("activate() after stop() opens no transports (stopped-guard)", async () => {
+    const engine: ActivateChannelEngine = vi.fn(async () => fakeHandle());
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [createChannel({ name: "support" })],
+      activateChannel: engine,
+    });
+
+    await mgr.stop();
+    mgr.activate();
+
+    expect(engine).not.toHaveBeenCalled();
+  });
+
+  it("ready() on a fresh manager rejects with ChannelConfigError for duplicate names (lazy-activate path)", async () => {
+    const engine: ActivateChannelEngine = vi.fn(async () => fakeHandle());
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [
+        createChannel({ name: "support" }),
+        createChannel({ name: "support" }),
+      ],
+      activateChannel: engine,
+    });
+
+    await expect(mgr.ready()).rejects.toThrow(/support/);
+    expect(engine).not.toHaveBeenCalled();
+  });
+
+  it("an empty channels[] manager reports overall online and ready() resolves", async () => {
+    const engine: ActivateChannelEngine = vi.fn(async () => fakeHandle());
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [],
+      activateChannel: engine,
+    });
+
+    expect(mgr.status().overall).toBe("online");
+    await expect(mgr.ready()).resolves.toBeUndefined();
+    expect(engine).not.toHaveBeenCalled();
+  });
+
+  it("forwards a non-default adapter through to the engine's config", async () => {
+    let seenAdapter: string | undefined;
+    const engine: ActivateChannelEngine = vi.fn(async (config) => {
+      seenAdapter = config.adapter;
+      return fakeHandle();
+    });
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [createChannel({ name: "support" })],
+      activateChannel: engine,
+      adapter: "teams",
+    });
+    mgr.activate();
+    await mgr.ready();
+
+    expect(seenAdapter).toBe("teams");
+  });
+});
+
+describe("defaultActivateChannel", () => {
+  const config: ChannelActivationConfig = {
+    wsUrl: "wss://runtime.example",
+    apiKey: "cpk-42_short_long",
+    projectId: 42,
+    channelName: "support",
+    adapter: "slack",
+    runtimeInstanceId: "rti_x",
+  };
+
+  it("maps config to launcher opts and returns the launcher's handle", async () => {
+    const handle: ChannelsHandle = { metadata: {}, stop: async () => {} };
+    const start = vi.fn<
+      ChannelsIntelligenceModule["startChannelsOverRealtimeGateway"]
+    >(async () => handle);
+    const channel = createChannel({ name: "support" });
+    const importer = async (): Promise<ChannelsIntelligenceModule> => ({
+      startChannelsOverRealtimeGateway: start,
+    });
+
+    const result = await defaultActivateChannel(config, channel, importer);
+
+    expect(result).toBe(handle);
+    expect(start).toHaveBeenCalledTimes(1);
+    const [channels, opts] = start.mock.calls[0]!;
+    expect(channels).toEqual([channel]);
+    expect(opts).toEqual({
+      wsUrl: "wss://runtime.example",
+      apiKey: "cpk-42_short_long",
+      scope: { projectId: 42, channelName: "support" },
+      runtimeInstanceId: "rti_x",
+      adapter: "slack",
+    });
+    // The scope carries ONLY projectId + channelName — never org/channelId.
+    expect(opts.scope).not.toHaveProperty("organizationId");
+    expect(opts.scope).not.toHaveProperty("channelId");
+  });
+
+  it("throws a friendly install hint when the module is not found", async () => {
+    const channel = createChannel({ name: "support" });
+    const importer = async (): Promise<ChannelsIntelligenceModule> => {
+      throw Object.assign(new Error("not found"), {
+        code: "ERR_MODULE_NOT_FOUND",
+      });
+    };
+
+    await expect(
+      defaultActivateChannel(config, channel, importer),
+    ).rejects.toThrow(
+      /Managed Channels require '@copilotkit\/channels-intelligence'/,
+    );
+  });
+
+  it("rethrows a generic import failure unchanged", async () => {
+    const channel = createChannel({ name: "support" });
+    const importer = async (): Promise<ChannelsIntelligenceModule> => {
+      throw new Error("boom");
+    };
+
+    await expect(
+      defaultActivateChannel(config, channel, importer),
+    ).rejects.toThrow(/^boom$/);
   });
 });
 

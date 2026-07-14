@@ -189,8 +189,13 @@ function getOrCreateChannelManager(
     // so a channel that fails to activate is permanently dead with zero output.
     // Mirror the `logger.<level>(context, message)` call shape used elsewhere in
     // this file; a failed activation is a degraded-but-recoverable condition, so
-    // `warn` is the appropriate level.
-    log: (msg, meta) => logger.warn({ meta }, msg),
+    // `warn` is the appropriate level. The manager passes an `Error` as `meta`
+    // for failure breadcrumbs, but pino only serializes an Error (its
+    // non-enumerable message/stack) under the `err` key — under any other key it
+    // renders as `{}` and the cause is lost. Route an Error to `err` and keep the
+    // `meta` key for everything else (`meta` is typed `unknown`).
+    log: (msg, meta) =>
+      logger.warn(meta instanceof Error ? { err: meta } : { meta }, msg),
     ...(engine ? { activateChannel: engine } : {}),
   });
   // Activate BEFORE caching. `activate()` throws synchronously on an up-front

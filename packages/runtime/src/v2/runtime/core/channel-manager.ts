@@ -128,38 +128,60 @@ interface ChannelEntry {
   handleStopped: boolean;
 }
 
+/** Non-literal specifier so the pure-ESM channels-intelligence package never
+ * becomes a static dependency of this CJS package (mirrors the runtime's other
+ * channels seams). */
+const CHANNELS_INTELLIGENCE_SPECIFIER = "@copilotkit/channels-intelligence";
+
+/**
+ * Structural view of the `@copilotkit/channels-intelligence` module surface the
+ * default engine consumes. Declared locally (not imported) for the same
+ * CJS/ESM-boundary reason the {@link ChannelsHandle} view is.
+ */
+export interface ChannelsIntelligenceModule {
+  startChannelsOverRealtimeGateway: (
+    channels: Channel[],
+    opts: {
+      wsUrl: string;
+      apiKey: string;
+      scope: { projectId: number; channelName: string };
+      runtimeInstanceId: string;
+      adapter?: string;
+    },
+  ) => Promise<ChannelsHandle>;
+}
+
 /**
  * Default engine: wrap the channels-intelligence Realtime Gateway launcher.
  *
- * Reached through a dynamic `import()` with a non-literal specifier so the
- * pure-ESM `@copilotkit/channels-intelligence` never becomes a static
- * dependency of this CJS package (mirrors the runtime's other channels seams).
+ * The module is reached through an injectable importer that defaults to a
+ * dynamic `import()` of a non-literal specifier, so the pure-ESM
+ * `@copilotkit/channels-intelligence` never becomes a static dependency of this
+ * CJS package (mirrors the runtime's other channels seams). The `import`
+ * seam is a parameter purely so this function's config→opts mapping and its
+ * module-not-found / generic-error branches are unit-testable WITHOUT the real
+ * package installed; production always uses the default importer.
+ *
  * Passes NO `org`/`channelId` — the launcher's realtime scope treats them as
  * optional.
  *
  * @param config - Resolved activation config for the Channel.
  * @param channel - The Channel to activate.
+ * @param importChannelsIntelligence - Test seam; loads the channels-intelligence
+ *   module. Defaults to a dynamic import of the real package.
  * @returns The launcher's {@link ChannelsHandle}.
  */
-async function defaultActivateChannel(
+export async function defaultActivateChannel(
   config: ChannelActivationConfig,
   channel: Channel,
+  importChannelsIntelligence: () => Promise<ChannelsIntelligenceModule> = () =>
+    import(
+      CHANNELS_INTELLIGENCE_SPECIFIER
+    ) as Promise<ChannelsIntelligenceModule>,
 ): Promise<ChannelsHandle> {
-  const specifier = "@copilotkit/channels-intelligence";
-  let mod: {
-    startChannelsOverRealtimeGateway: (
-      channels: Channel[],
-      opts: {
-        wsUrl: string;
-        apiKey: string;
-        scope: { projectId: number; channelName: string };
-        runtimeInstanceId: string;
-        adapter?: string;
-      },
-    ) => Promise<ChannelsHandle>;
-  };
+  let mod: ChannelsIntelligenceModule;
   try {
-    mod = await import(specifier);
+    mod = await importChannelsIntelligence();
   } catch (err) {
     if (isModuleNotFound(err)) {
       throw new Error(
@@ -286,7 +308,11 @@ export class ChannelManager implements ChannelsControl {
    * to `online`/`setup_required`/`error` as its activation settles.
    */
   activate(): void {
-    if (this.activated) {
+    // Short-circuit on BOTH latches: `activated` makes activation idempotent,
+    // and `stopped` prevents a post-`stop()` activate() from opening transports
+    // on a dead manager. (A late activation self-heals via the post-settle guard,
+    // but never starting it is cheaper and clearer.)
+    if (this.activated || this.stopped) {
       return;
     }
     // Reject duplicate Channel names BEFORE kicking off any engine call. The

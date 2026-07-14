@@ -33,32 +33,17 @@ export interface ChannelActivationConfig {
 const API_KEY_PROJECT_ID_PATTERN = /^cpk-(\d+)_/;
 
 /**
- * Lowercase kebab-case Channel-name rule, replicated from
- * `assertValidChannelRealtimeScope` in `@copilotkit/channels-intelligence`
- * (`realtime-gateway-transport.ts`), which remains the SOURCE OF TRUTH. It is
- * enforced up front here — before any engine call — so a malformed name fails
- * loud with a clear {@link ChannelConfigError} instead of throwing deep inside
- * the launcher and being silently degraded to `error` status. Kept as a literal
- * copy (NOT a static import) because channels-intelligence is a pure-ESM
- * optional peer this CJS package must not statically depend on.
- */
-const CHANNEL_NAME_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
-/** Minimum Channel-name length (source of truth: `assertValidChannelRealtimeScope`). */
-const CHANNEL_NAME_MIN_LENGTH = 3;
-/** Maximum Channel-name length (source of truth: `assertValidChannelRealtimeScope`). */
-const CHANNEL_NAME_MAX_LENGTH = 64;
-
-/**
  * Parse the project id embedded in an Intelligence API key.
  *
  * Intelligence API keys are formatted `cpk-{projectId}_{rest}` — this
  * extracts and numerically parses the `{projectId}` segment.
  *
  * @param apiKey - The Intelligence API key to parse.
- * @returns The parsed project id.
+ * @returns The parsed, strictly-positive project id.
  * @throws {ChannelConfigError} If `apiKey` does not match the expected
  *   `cpk-{projectId}_...` format — a wrong/missing prefix or an absent project
- *   id segment all fail the same match.
+ *   id segment all fail the same match — or if the parsed project id is not
+ *   strictly positive.
  */
 export function parseProjectIdFromApiKey(apiKey: string): number {
   const match = API_KEY_PROJECT_ID_PATTERN.exec(apiKey);
@@ -74,7 +59,20 @@ export function parseProjectIdFromApiKey(apiKey: string): number {
         `leaking secret material).`,
     );
   }
-  return Number(match[1]);
+  const projectId = Number(match[1]);
+  // Validate the parser's OWN output: `cpk-0_...` matches the pattern but a
+  // non-positive project id would otherwise fail deep inside the launcher's
+  // `assertValidChannelRealtimeScope` (which requires a positive projectId).
+  // This is the parser guarding its own contract, not a channel-name replica, so
+  // it belongs here. Reuse the same redaction: never echo the key value.
+  if (projectId <= 0) {
+    throw new ChannelConfigError(
+      `Parsed a non-positive project id (${projectId}) from the Intelligence API ` +
+        `key — the project id in "cpk-{projectId}_..." must be a positive integer ` +
+        `(the key value is omitted here to avoid leaking secret material).`,
+    );
+  }
+  return projectId;
 }
 
 /**
@@ -89,9 +87,17 @@ export function parseProjectIdFromApiKey(apiKey: string): number {
  *   instance, passed through unchanged.
  * @returns The resolved {@link ChannelActivationConfig}.
  * @throws {ChannelConfigError} If the Intelligence API key does not carry a
- *   parseable project id, if `channel.name` is missing/empty, or if
- *   `channel.name` is not lowercase kebab-case within the 3–64 char bounds
- *   required by the Realtime Gateway launcher (see {@link CHANNEL_NAME_PATTERN}).
+ *   parseable, strictly-positive project id, or if `channel.name` is
+ *   missing/empty.
+ *
+ * The Channel-name FORMAT rules (lowercase kebab-case, 3–64 chars) and the
+ * reserved-name rule are NOT re-checked here. Their single source of truth is
+ * the `@copilotkit/channels-intelligence` launcher
+ * (`assertValidChannelRealtimeScope` + `assertValidChannelNames`), which
+ * validates them at activation; a malformed name surfaces as a logged `error`
+ * status via {@link ChannelManager.ready} rather than an up-front throw. An
+ * empty/missing name is still rejected here because that is this config's own
+ * precondition (it has no name to forward at all), not a downstream replica.
  */
 export function deriveChannelActivationConfig(args: {
   intelligence: CopilotKitIntelligence;
@@ -108,23 +114,6 @@ export function deriveChannelActivationConfig(args: {
   }
 
   const channelName = channel.name;
-  // Enforce the launcher's channel-name contract UP FRONT (see
-  // CHANNEL_NAME_PATTERN). A name like "Slack", "support_bot", or "cs" passes
-  // the manager's non-empty/unique check but would otherwise throw deep in the
-  // Realtime Gateway launcher and be silently degraded to `error` status. Fail
-  // loud here with a clear, actionable message instead.
-  if (
-    channelName.length < CHANNEL_NAME_MIN_LENGTH ||
-    channelName.length > CHANNEL_NAME_MAX_LENGTH ||
-    !CHANNEL_NAME_PATTERN.test(channelName)
-  ) {
-    throw new ChannelConfigError(
-      `Managed Channel name "${channelName}" is invalid — a Channel name must be ` +
-        `lowercase kebab-case (matching ${String(CHANNEL_NAME_PATTERN)}) and ` +
-        `${CHANNEL_NAME_MIN_LENGTH}–${CHANNEL_NAME_MAX_LENGTH} characters long. ` +
-        `Rename it via createChannel({ name }).`,
-    );
-  }
 
   const wsUrl = intelligence.ɵgetRunnerWsUrl();
   const apiKey = intelligence.ɵgetRunnerAuthToken();
@@ -135,7 +124,9 @@ export function deriveChannelActivationConfig(args: {
     apiKey,
     projectId,
     channelName,
-    adapter: adapter ?? "slack",
+    // Fall back to "slack" for an absent, empty, or whitespace-only adapter
+    // (`??` alone would keep `""`); a blank adapter is not a meaningful target.
+    adapter: adapter && adapter.trim() ? adapter : "slack",
     runtimeInstanceId,
   };
 }

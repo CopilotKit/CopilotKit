@@ -35,6 +35,18 @@ describe("parseProjectIdFromApiKey", () => {
     );
   });
 
+  it("throws ChannelConfigError for a non-positive project id (cpk-0_...)", () => {
+    // `cpk-0_...` matches the pattern but would fail deep in the launcher's
+    // positive-projectId scope check — the parser validates its own output.
+    expect(() => parseProjectIdFromApiKey("cpk-0_x_y")).toThrow(
+      ChannelConfigError,
+    );
+  });
+
+  it("returns the parsed id for a valid positive project id", () => {
+    expect(parseProjectIdFromApiKey("cpk-42_x_y")).toBe(42);
+  });
+
   it("redacts the API key: the error names the format but never echoes the full secret", () => {
     const secret = "sk-live_TOPSECRETKEYMATERIAL_should_never_be_logged";
     const err = (() => {
@@ -122,39 +134,40 @@ describe("deriveChannelActivationConfig", () => {
     ).toThrow(ChannelConfigError);
   });
 
-  it.each([
-    ["Slack", "uppercase"],
-    ["support_bot", "underscore"],
-    ["cs", "too short"],
-    ["a".repeat(65), "too long (65 chars)"],
-  ])(
-    "rejects a channel name that is not lowercase kebab-case in 3–64 chars: %s (%s) (RC13)",
-    (name) => {
-      const intelligence = fakeIntelligence("cpk-42_short_long");
-      const channel = createChannel({ name });
-
-      const call = () =>
-        deriveChannelActivationConfig({
-          intelligence,
-          channel,
-          runtimeInstanceId: "rti_x",
-        });
-
-      expect(call).toThrow(ChannelConfigError);
-      expect(call).toThrow(/lowercase kebab-case/);
-    },
-  );
-
-  it("accepts a valid lowercase kebab-case channel name (RC13)", () => {
+  it('does NOT replicate the launcher\'s channel-name FORMAT rules — a name like "Slack" is forwarded, not rejected here (OSS-473)', () => {
+    // Channel-name format (kebab-case/length) + reserved-name are validated at
+    // activation by the channels-intelligence launcher (single source of truth)
+    // and surface as a logged `error` status; this config no longer replicates
+    // that rule, so a non-kebab name resolves without throwing.
     const intelligence = fakeIntelligence("cpk-42_short_long");
-    const channel = createChannel({ name: "support" });
-
     const config = deriveChannelActivationConfig({
       intelligence,
-      channel,
+      channel: createChannel({ name: "Slack" }),
       runtimeInstanceId: "rti_x",
     });
 
-    expect(config.channelName).toBe("support");
+    expect(config.channelName).toBe("Slack");
+  });
+
+  it('falls back to "slack" for an empty or whitespace-only adapter', () => {
+    const intelligence = fakeIntelligence("cpk-7_a_b");
+    const channel = createChannel({ name: "support" });
+
+    expect(
+      deriveChannelActivationConfig({
+        intelligence,
+        channel,
+        adapter: "",
+        runtimeInstanceId: "rti_x",
+      }).adapter,
+    ).toBe("slack");
+    expect(
+      deriveChannelActivationConfig({
+        intelligence,
+        channel,
+        adapter: "   ",
+        runtimeInstanceId: "rti_x",
+      }).adapter,
+    ).toBe("slack");
   });
 });
