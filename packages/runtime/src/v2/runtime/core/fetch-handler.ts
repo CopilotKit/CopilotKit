@@ -24,6 +24,30 @@
  * // Cloudflare Workers
  * export default { fetch: handler };
  * ```
+ *
+ * ## Managed Channels lifecycle (serverless-safe)
+ *
+ * When the runtime declares managed Channels, the returned handler carries a
+ * `handler.channels` control surface — but creating the handler opens NO
+ * network connection. Activation (which opens a persistent gateway WebSocket)
+ * is LAZY: it is triggered by the first `await handler.channels.ready()` and
+ * never before — not at handler creation, not on the first HTTP request.
+ *
+ * - On a LONG-RUNNING host (a Node server / container / the node/express/hono
+ *   endpoint wrappers), call `await handler.channels.ready()` ONCE at startup to
+ *   open the listener; the process owns it for its lifetime.
+ * - On a SERVERLESS / EDGE host (Cloudflare Workers, Next.js App Router), do NOT
+ *   call `ready()` — those hosts freeze/recycle per-request isolates and cannot
+ *   own a persistent listener, and separate cold starts would mint conflicting
+ *   listeners. The generic Fetch handler stays a pure request/response function
+ *   there, exactly as documented above.
+ *
+ * @example
+ * ```typescript
+ * // Long-running host: open the managed-Channel listener once at startup.
+ * const handler = createCopilotRuntimeHandler({ runtime });
+ * await handler.channels.ready();
+ * ```
  */
 
 import type {
@@ -121,11 +145,13 @@ export interface CopilotRuntimeHandlerOptions {
   hooks?: CopilotRuntimeHooks;
 
   /**
-   * Whether the handler activates the runtime's declared managed Channels at
-   * creation time. Defaults to `true`. Set `false` to skip activation entirely:
-   * no {@link ChannelManager} is constructed and the returned handler has no
-   * `.channels`. Non-intelligence or channel-less runtimes never activate
-   * regardless of this flag.
+   * Whether the handler builds the runtime's declared managed-Channel control
+   * surface. Defaults to `true`, which constructs the {@link ChannelManager} and
+   * exposes `handler.channels` — but does NOT open any connection: activation is
+   * lazy and triggered by the first `handler.channels.ready()` (see the factory
+   * TSDoc). Set `false` to opt out entirely: no {@link ChannelManager} is
+   * constructed and the returned handler has no `.channels`. Non-intelligence or
+   * channel-less runtimes never build a control surface regardless of this flag.
    */
   activateChannels?: boolean;
 
@@ -169,23 +195,34 @@ export type CopilotRuntimeFetchHandlerWithChannels = ((
 
 /**
  * Managed Channel managers keyed by runtime instance. Guarantees a single
- * activation per runtime: creating the handler more than once for the same
- * runtime reuses the existing manager instead of activating a second time.
+ * manager (and thus a single activation) per runtime: creating the handler more
+ * than once for the same runtime reuses the existing manager instead of
+ * constructing a second one.
  */
 const channelManagers = new WeakMap<object, ChannelManager>();
 
 /**
- * Look up (or lazily create + activate) the {@link ChannelManager} for an
- * Intelligence runtime. First creation constructs the manager, calls
- * {@link ChannelManager.activate}, and only then caches it; subsequent lookups
- * reuse the cached manager so activation happens exactly once per runtime
- * instance. If `activate()` throws (an up-front misconfiguration), nothing is
- * cached and the error propagates on every attempt.
+ * Look up (or lazily CREATE) the {@link ChannelManager} for an Intelligence
+ * runtime. First creation constructs the manager and caches it; subsequent
+ * lookups reuse the cached instance so there is exactly one manager per runtime.
  *
- * @param runtime - The Intelligence runtime whose Channels to activate.
+ * Activation is NOT triggered here. Constructing the manager opens no
+ * transport — the persistent gateway socket is opened lazily on the first
+ * {@link ChannelManager.ready} call (see the factory TSDoc). This keeps the
+ * generic Fetch handler serverless/edge-safe: creating it (e.g. at
+ * Cloudflare-Worker module scope or per Next.js App Router isolate) never
+ * performs network I/O and never mints a listener the host cannot own.
+ *
+ * Caching the un-activated manager is correct: a later `ready()` activates it
+ * once (idempotently), and an up-front misconfiguration (duplicate/missing
+ * channel names) surfaces as a rejected `ready()` rather than a throw at
+ * creation. A manager that has been {@link ChannelManager.stop}ped stays
+ * stopped on reuse — its latches short-circuit any later `activate()`/`ready()`.
+ *
+ * @param runtime - The Intelligence runtime whose Channels the manager drives.
  * @param engine - Optional injected activation engine (test seam); when
  *   omitted the manager uses its default Realtime Gateway engine.
- * @returns The runtime's activated Channel manager.
+ * @returns The runtime's (un-activated) Channel manager.
  */
 function getOrCreateChannelManager(
   runtime: CopilotIntelligenceRuntimeLike,
@@ -213,13 +250,6 @@ function getOrCreateChannelManager(
       logger.warn(meta instanceof Error ? { err: meta } : { meta }, msg),
     ...(engine ? { activateChannel: engine } : {}),
   });
-  // Activate BEFORE caching. `activate()` throws synchronously on an up-front
-  // misconfiguration (duplicate/missing channel names); caching first would
-  // leave an inert, never-activated manager in the WeakMap, so a retried handler
-  // creation would return it and skip re-activation — and its status() on empty
-  // entries would falsely report `online`. Insert only after activate() succeeds
-  // so a throw caches nothing and propagates cleanly on every attempt.
-  manager.activate();
   channelManagers.set(runtime, manager);
   return manager;
 }
@@ -431,10 +461,14 @@ export function createCopilotRuntimeHandler(
     }
   };
 
-  // Managed Channel activation happens here — at handler-creation time, not in
-  // the Runtime constructor and not inside the per-request closure above (the
-  // first HTTP request must not trigger activation). Only for an Intelligence
-  // runtime that declares Channels and hasn't opted out via activateChannels.
+  // Build (but do NOT activate) the managed-Channel control surface for an
+  // Intelligence runtime that declares Channels and hasn't opted out via
+  // activateChannels. `handler.channels` exists immediately, but the persistent
+  // gateway socket is opened lazily on the first `handler.channels.ready()` —
+  // never at handler-creation time and never inside the per-request closure
+  // above. This keeps the generic Fetch handler serverless/edge-safe: no
+  // module-scope network I/O, and no listener a request-driven isolate cannot
+  // own. See the factory TSDoc for the full lifecycle contract.
   if (
     isIntelligenceRuntime(runtime) &&
     runtime.channels &&

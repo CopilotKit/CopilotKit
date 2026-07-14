@@ -54,7 +54,7 @@ const intelRuntimeWith1Channel = () =>
  * --------------------------------------------------------------------------------------------- */
 
 describe("createCopilotRuntimeHandler — managed channels", () => {
-  it("activates channels once on creation, not on first request", async () => {
+  it("handler creation does not activate (engine never invoked until ready())", () => {
     const { engine, state } = countingEngine();
 
     const handler = createCopilotRuntimeHandler({
@@ -62,20 +62,47 @@ describe("createCopilotRuntimeHandler — managed channels", () => {
       __channelEngine: engine,
     });
 
-    expect(state.calls).toBe(1);
-
-    await handler(new Request("http://x/api/copilotkit/agents"));
-
-    expect(state.calls).toBe(1);
+    // The generic Fetch handler must never open a socket on its own — creating
+    // it on a serverless/edge host cannot own a persistent listener, so
+    // activation is deferred to the first `ready()`. The engine is untouched at
+    // creation, and the control surface reports a truthful "not started" status
+    // (never a false `online`) before any `ready()`.
+    expect(state.calls).toBe(0);
     expect(handler.channels).toBeDefined();
+    expect(handler.channels.status().overall).not.toBe("online");
+  });
+
+  it("defers activation to the first ready() — not creation, not the first request", async () => {
+    const { engine, state } = countingEngine();
+
+    const handler = createCopilotRuntimeHandler({
+      runtime: intelRuntimeWith1Channel(),
+      __channelEngine: engine,
+    });
+
+    // No activation at creation...
+    expect(state.calls).toBe(0);
+
+    // ...nor on the first REQUEST (the request path must never trigger a
+    // persistent listener).
+    await handler(new Request("http://x/api/copilotkit/agents"));
+    expect(state.calls).toBe(0);
+
+    // Activation happens on the first ready() — never before.
     // No `!`: an Intelligence runtime with a declared channel yields the
     // non-optional-`.channels` handler overload (the documented shape).
     await handler.channels.ready({ timeoutMs: 1000 });
+    expect(state.calls).toBe(1);
     expect(handler.channels.status().overall).toBe("online");
+
+    // ready() is idempotent: a second call does not re-activate.
+    await handler.channels.ready({ timeoutMs: 1000 });
+    expect(state.calls).toBe(1);
+
     await handler.channels.stop();
   });
 
-  it("is idempotent per runtime instance across repeated handler creation", () => {
+  it("is idempotent per runtime instance across repeated handler creation", async () => {
     const { engine, state } = countingEngine();
     const runtime = intelRuntimeWith1Channel();
 
@@ -88,9 +115,19 @@ describe("createCopilotRuntimeHandler — managed channels", () => {
       __channelEngine: engine,
     });
 
-    expect(state.calls).toBe(1);
+    // Creation is lazy: no activation yet, and both handlers share ONE manager
+    // (the WeakMap dedupes per runtime instance).
+    expect(state.calls).toBe(0);
     expect(first.channels).toBeDefined();
     expect(first.channels).toBe(second.channels);
+
+    // Activating through either handle activates the single shared manager
+    // exactly once; a ready() through the other handle is a no-op.
+    await first.channels.ready({ timeoutMs: 1000 });
+    await second.channels.ready({ timeoutMs: 1000 });
+    expect(state.calls).toBe(1);
+
+    await first.channels.stop();
   });
 
   it("does not activate for a plain SSE runtime", () => {
@@ -118,7 +155,7 @@ describe("createCopilotRuntimeHandler — managed channels", () => {
     expect(state.calls).toBe(0);
   });
 
-  it("does not cache an inert manager when activate() throws on duplicate names (RC9)", () => {
+  it("caches the un-activated manager; a duplicate-name misconfig surfaces on ready(), not at creation (RC9)", async () => {
     const { engine } = countingEngine();
     const runtime = new CopilotRuntime({
       agents: {},
@@ -130,16 +167,27 @@ describe("createCopilotRuntimeHandler — managed channels", () => {
       ],
     });
 
-    // First creation must throw on the duplicate name...
-    expect(() =>
-      createCopilotRuntimeHandler({ runtime, __channelEngine: engine }),
-    ).toThrow(/support/);
+    // Creation is lazy — it no longer activates, so the duplicate-name misconfig
+    // does NOT throw at handler-creation time (serverless-safe: no socket, no
+    // synchronous throw during module construction).
+    const handler = createCopilotRuntimeHandler({
+      runtime,
+      __channelEngine: engine,
+    });
+    expect(handler.channels).toBeDefined();
 
-    // ...and a retry must ALSO throw — not return a cached, inert (never
-    // activated) manager whose status() falsely reports healthy.
-    expect(() =>
-      createCopilotRuntimeHandler({ runtime, __channelEngine: engine }),
-    ).toThrow(/support/);
+    // Fail-loud is preserved: the misconfig surfaces on the first ready().
+    await expect(handler.channels.ready()).rejects.toThrow(/support/);
+
+    // A second handler for the SAME runtime reuses the cached (un-activated)
+    // manager, and its ready() ALSO rejects — caching never swallows the
+    // misconfig.
+    const retry = createCopilotRuntimeHandler({
+      runtime,
+      __channelEngine: engine,
+    });
+    expect(retry.channels).toBe(handler.channels);
+    await expect(retry.channels.ready()).rejects.toThrow(/support/);
   });
 
   it("wires the shared logger so a channel that fails to activate emits a breadcrumb (RC11)", async () => {

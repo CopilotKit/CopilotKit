@@ -110,8 +110,20 @@ describe("createCopilotRuntimeHandler — channel activation (integration)", () 
       __channelEngine: state.engine,
     });
 
-    // 1. Activation on creation, config derived purely from the intelligence
-    // config + channel.
+    // 1. Activation is LAZY: creating the handler opens no socket and makes no
+    // engine call (serverless-safe). The control surface exists and reads a
+    // truthful, not-yet-online status.
+    expect(state.calls.length).toBe(0);
+    expect(handler.channels).toBeDefined();
+    expect(handler.channels!.status().overall).not.toBe("online");
+
+    // 2. The first request does NOT trigger activation either.
+    await handler(new Request("http://x/api/copilotkit/agents"));
+    expect(state.calls.length).toBe(0);
+
+    // 3. ready() triggers activation exactly once; the config is derived purely
+    // from the intelligence config + channel.
+    await handler.channels!.ready({ timeoutMs: 1000 });
     expect(state.calls.length).toBe(1);
     const { config } = state.calls[0]!;
     expect(config.projectId).toBe(77);
@@ -122,21 +134,15 @@ describe("createCopilotRuntimeHandler — channel activation (integration)", () 
     expect(config.apiKey).toBe(intelligence.ɵgetRunnerAuthToken());
     expect(config.runtimeInstanceId).toMatch(/^rti_/);
 
-    // 2. No infrastructure IDs on the derived config — the "no infra IDs"
+    // 4. No infrastructure IDs on the derived config — the "no infra IDs"
     // acceptance proof at the SDK boundary.
     expect("organizationId" in config).toBe(false);
     expect("channelId" in config).toBe(false);
 
-    // 3. First request does NOT trigger a second activation.
-    await handler(new Request("http://x/api/copilotkit/agents"));
-    expect(state.calls.length).toBe(1);
-
-    // 4. ready() resolves and status is online.
-    expect(handler.channels).toBeDefined();
-    await handler.channels!.ready({ timeoutMs: 1000 });
+    // 5. status is online after ready().
     expect(handler.channels!.status().overall).toBe("online");
 
-    // 5. Drop: simulate a dropped managed session via the captured onClose
+    // 6. Drop: simulate a dropped managed session via the captured onClose
     // callback. Reconnection is delegated to the Phoenix connection layer (the
     // launcher's socket auto-rejoins under the persistent adapter), so the
     // manager does NOT re-activate on a drop — it stays `online` and makes no
@@ -145,7 +151,7 @@ describe("createCopilotRuntimeHandler — channel activation (integration)", () 
     expect(handler.channels!.status().overall).toBe("online");
     expect(state.calls.length).toBe(1);
 
-    // 6. stop() resolves and the fake handle's stop was invoked.
+    // 7. stop() resolves and the fake handle's stop was invoked.
     await handler.channels!.stop();
     expect(state.stopCalls).toBe(1);
   });
