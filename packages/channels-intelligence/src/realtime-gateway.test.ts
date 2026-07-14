@@ -148,6 +148,50 @@ describe("connectRealtimeGateway — onClose drop notification (OSS-473)", () =>
     expect(calls).toBe(1);
   });
 
+  it("fires onClose again for a second drop after the socket reopens", async () => {
+    const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/socket",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: {
+        runtimeInstanceId: "rti_1",
+        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
+        observedAt: "2026-07-10T00:00:00.000Z",
+      },
+      webSocket: FakeWebSocket,
+    });
+
+    let calls = 0;
+    session.onClose(() => {
+      calls += 1;
+    });
+
+    // First drop episode: all four Phoenix hooks fire for the same event,
+    // but the callback still only runs once.
+    instances[0]!.onclose?.();
+    instances[0]!.onerror?.();
+    expect(calls).toBe(1);
+
+    // Phoenix's `Socket` auto-reconnects an unclean close: it tears down the
+    // dropped transport and opens a fresh one (see `reconnectTimer` in
+    // `socket.js`). Wait for that real reconnect to construct the next fake
+    // WebSocket, whose constructor fires `onopen` after a microtask — the
+    // real seam that drives `socket.onOpen` and resets the dedupe latch.
+    const deadline = Date.now() + 2000;
+    while (instances.length < 2 && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    expect(instances).toHaveLength(2);
+    // Let the new instance's queued `onopen` microtask run.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    // A second, distinct drop episode after reconnect must notify again —
+    // the docstring promises "exactly once per drop", not once ever.
+    instances[1]!.onclose?.();
+    expect(calls).toBe(2);
+  });
+
   it("does not fire onClose when the drop is our own disconnect()", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const session = await connectRealtimeGateway({

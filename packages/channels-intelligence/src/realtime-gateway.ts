@@ -42,8 +42,12 @@ export interface ConnectedRealtimeGatewaySession extends RealtimeGatewaySession 
    * Register a callback to fire when the underlying Phoenix connection drops
    * unexpectedly (a real network/server-side disconnect), NOT when it drops as
    * a result of our own {@link disconnect}. Phoenix surfaces a drop through
-   * both the socket's `onClose`/`onError` and the channel's `onError` for the
-   * very same event, so the callback fires exactly once per drop.
+   * both the socket's `onClose`/`onError` and the channel's `onClose`/`onError`
+   * for the very same event, so the callback fires exactly once per drop
+   * episode. Because Phoenix's `Socket` auto-reconnects and this session
+   * persists across reconnects, the dedupe latch resets on a successful
+   * reopen — so a later, distinct drop notifies again rather than being
+   * silently absorbed by the first drop's latch.
    */
   onClose(cb: () => void): void;
 }
@@ -118,6 +122,12 @@ export async function connectRealtimeGateway(
   // below flips `closingIntentionally` first, so our own teardown — which
   // also runs these same Phoenix close/error hooks — is never mistaken for an
   // unexpected drop.
+  //
+  // `closeFired` only dedupes the hooks *within* a single drop episode.
+  // Phoenix's `Socket` auto-reconnects under the hood and this session
+  // persists across that reconnect, so the latch is reset on `socket.onOpen`
+  // — otherwise a second, later drop after a successful rejoin would never
+  // notify again.
   let closingIntentionally = false;
   let closeFired = false;
   const closeCallbacks: Array<() => void> = [];
@@ -128,6 +138,9 @@ export async function connectRealtimeGateway(
       cb();
     }
   };
+  socket.onOpen(() => {
+    closeFired = false;
+  });
   socket.onClose(() => notifyClose());
   socket.onError(() => notifyClose());
   channel.onClose(() => notifyClose());
