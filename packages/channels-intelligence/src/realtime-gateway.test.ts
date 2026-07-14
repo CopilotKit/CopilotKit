@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { connectRealtimeGateway } from "./realtime-gateway.js";
 
-type JoinMode = "ok" | "error" | "never";
+type JoinMode = "ok" | "error" | "never" | "error-undefined-reason";
 
 function makeFakeWebSocket(mode: JoinMode) {
   const instances: FakeWebSocket[] = [];
@@ -44,16 +44,19 @@ function makeFakeWebSocket(mode: JoinMode) {
       ];
       if (event !== "phx_join") return;
       const status = mode === "ok" ? "ok" : "error";
-      const response = mode === "ok" ? {} : { reason: "unauthorized" };
+      // `error-undefined-reason` omits the `response` key entirely (rather
+      // than sending an object) so it round-trips through JSON as a genuinely
+      // absent value — exercising `safeReason(undefined)`.
+      const reply =
+        mode === "error-undefined-reason"
+          ? { status }
+          : {
+              status,
+              response: mode === "ok" ? {} : { reason: "unauthorized" },
+            };
       queueMicrotask(() =>
         this.onmessage?.({
-          data: JSON.stringify([
-            joinRef,
-            ref,
-            topic,
-            "phx_reply",
-            { status, response },
-          ]),
+          data: JSON.stringify([joinRef, ref, topic, "phx_reply", reply]),
         }),
       );
     }
@@ -215,5 +218,100 @@ describe("connectRealtimeGateway — onClose drop notification (OSS-473)", () =>
 
     expect(instances[0]!.closed).toBe(true);
     expect(calls).toBe(0);
+  });
+
+  it("still fires later onClose callbacks when an earlier one throws", async () => {
+    const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/socket",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: {
+        runtimeInstanceId: "rti_1",
+        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
+        observedAt: "2026-07-10T00:00:00.000Z",
+      },
+      webSocket: FakeWebSocket,
+    });
+
+    let secondCalls = 0;
+    session.onClose(() => {
+      throw new Error("boom from a misbehaving callback");
+    });
+    session.onClose(() => {
+      secondCalls += 1;
+    });
+
+    // The throwing first callback must not abort the fan-out loop, and must
+    // not escape back into Phoenix's onclose dispatch.
+    expect(() => instances[0]!.onclose?.()).not.toThrow();
+    expect(secondCalls).toBe(1);
+  });
+});
+
+describe("connectRealtimeGateway — join failure teardown (OSS-473)", () => {
+  it("rejects and disconnects the socket when the channel join errors", async () => {
+    const { FakeWebSocket, instances } = makeFakeWebSocket("error");
+
+    await expect(
+      connectRealtimeGateway({
+        wsUrl: "wss://gateway.example/socket",
+        apiKey: "cpk-test",
+        projectId: 7,
+        join: {
+          runtimeInstanceId: "rti_1",
+          declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
+          observedAt: "2026-07-10T00:00:00.000Z",
+        },
+        webSocket: FakeWebSocket,
+      }),
+    ).rejects.toThrow(/realtime gateway session join failed/i);
+
+    expect(instances).toHaveLength(1);
+    expect(instances[0]!.closed).toBe(true);
+  });
+
+  it("renders a non-'undefined' message when the join error reason is undefined", async () => {
+    const { FakeWebSocket, instances } = makeFakeWebSocket(
+      "error-undefined-reason",
+    );
+
+    await expect(
+      connectRealtimeGateway({
+        wsUrl: "wss://gateway.example/socket",
+        apiKey: "cpk-test",
+        projectId: 7,
+        join: {
+          runtimeInstanceId: "rti_1",
+          declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
+          observedAt: "2026-07-10T00:00:00.000Z",
+        },
+        webSocket: FakeWebSocket,
+      }),
+    ).rejects.toThrow(/realtime gateway session join failed: unknown$/);
+
+    expect(instances[0]!.closed).toBe(true);
+  });
+
+  it("rejects and disconnects the socket when the channel join times out", async () => {
+    const { FakeWebSocket, instances } = makeFakeWebSocket("never");
+
+    await expect(
+      connectRealtimeGateway({
+        wsUrl: "wss://gateway.example/socket",
+        apiKey: "cpk-test",
+        projectId: 7,
+        join: {
+          runtimeInstanceId: "rti_1",
+          declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
+          observedAt: "2026-07-10T00:00:00.000Z",
+        },
+        webSocket: FakeWebSocket,
+        timeoutMs: 10,
+      }),
+    ).rejects.toThrow(/realtime gateway session join timed out/i);
+
+    expect(instances).toHaveLength(1);
+    expect(instances[0]!.closed).toBe(true);
   });
 });

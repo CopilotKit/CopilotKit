@@ -135,7 +135,13 @@ export async function connectRealtimeGateway(
     if (closingIntentionally || closeFired) return;
     closeFired = true;
     for (const cb of closeCallbacks) {
-      cb();
+      try {
+        cb();
+      } catch {
+        // Fire-and-forget notification path invoked from inside Phoenix's
+        // socket/channel close/error dispatch — a throwing callback must not
+        // skip later callbacks or propagate back into Phoenix's dispatch.
+      }
     }
   };
   socket.onOpen(() => {
@@ -182,7 +188,11 @@ export async function connectRealtimeGateway(
 function safeReason(reason: unknown): string {
   if (typeof reason === "string") return reason;
   try {
-    return JSON.stringify(reason);
+    // `JSON.stringify` returns the *value* `undefined` (not the string
+    // "undefined") for `undefined`, functions, and symbols, so guard against
+    // that here — this function must never return anything but a string.
+    const serialized = JSON.stringify(reason);
+    return serialized ?? "unknown";
   } catch {
     return "unknown";
   }
