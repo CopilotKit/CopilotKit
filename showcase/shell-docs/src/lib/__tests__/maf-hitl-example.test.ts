@@ -45,14 +45,31 @@ describe("Microsoft Agent Framework Python HITL example", () => {
     );
   });
 
-  it("highlights how the AG-UI endpoint receives frontend tools", () => {
+  it("highlights how AgentFrameworkAgent adds frontend tools to each LLM run", () => {
     const hitlDoc = readHitlDoc();
 
-    expect(hitlDoc).toContain("You do not register them again on the server.");
     expect(hitlDoc).toContain(
-      "from agent_framework.ag_ui import add_agent_framework_fastapi_endpoint  # [!code highlight]",
+      "Frontend tool definitions arrive in `RunAgentInput.tools`",
     );
     expect(hitlDoc).toContain(
+      "passes the merged list to `Agent.run(..., tools=...)`",
+    );
+    expect(hitlDoc).toContain(
+      "from agent_framework.ag_ui import AgentFrameworkAgent  # [!code highlight]",
+    );
+    expect(hitlDoc).toContain(
+      "# [!code highlight:9]\n            base_agent = Agent(",
+    );
+    expect(hitlDoc).toContain("tools=[],");
+    expect(hitlDoc).toContain("agent = AgentFrameworkAgent(agent=base_agent)");
+    expect(hitlDoc).toContain(
+      "The adapter merges `RunAgentInput.tools` with `base_agent.tools` for each LLM run.",
+    );
+    expect(hitlDoc).not.toContain('title="Per-run Python tool flow"');
+    expect(hitlDoc).not.toContain(
+      "from agent_framework.ag_ui import add_agent_framework_fastapi_endpoint  # [!code highlight]",
+    );
+    expect(hitlDoc).not.toContain(
       "add_agent_framework_fastapi_endpoint(  # [!code highlight:5]",
     );
   });
