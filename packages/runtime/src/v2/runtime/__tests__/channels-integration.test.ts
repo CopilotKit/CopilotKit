@@ -136,16 +136,14 @@ describe("createCopilotRuntimeHandler — channel activation (integration)", () 
     await handler.channels!.ready({ timeoutMs: 1000 });
     expect(handler.channels!.status().overall).toBe("online");
 
-    // 5. Reconnect: simulate a dropped managed session via the captured
-    // onClose callback. Deterministic re-activation timing (backoff growth,
-    // retry count, giving up) is unit-covered in
-    // `core/__tests__/channel-manager-reconnect.test.ts` via the manager's
-    // injectable `sleep` seam — `createCopilotRuntimeHandler` does not expose
-    // a way to inject `sleep` through the handler, so this test asserts only
-    // the deterministic part reachable at the handler boundary: the drop
-    // transitions the Channel to `reconnecting`.
+    // 5. Drop: simulate a dropped managed session via the captured onClose
+    // callback. Reconnection is delegated to the Phoenix connection layer (the
+    // launcher's socket auto-rejoins under the persistent adapter), so the
+    // manager does NOT re-activate on a drop — it stays `online` and makes no
+    // further engine call. See `core/__tests__/channel-manager-reconnect.test.ts`.
     state.triggerClose();
-    expect(handler.channels!.status().overall).toBe("reconnecting");
+    expect(handler.channels!.status().overall).toBe("online");
+    expect(state.calls.length).toBe(1);
 
     // 6. stop() resolves and the fake handle's stop was invoked.
     await handler.channels!.stop();

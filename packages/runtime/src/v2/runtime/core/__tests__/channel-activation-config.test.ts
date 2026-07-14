@@ -34,6 +34,23 @@ describe("parseProjectIdFromApiKey", () => {
       ChannelConfigError,
     );
   });
+
+  it("redacts the API key: the error names the format but never echoes the full secret", () => {
+    const secret = "sk-live_TOPSECRETKEYMATERIAL_should_never_be_logged";
+    const err = (() => {
+      try {
+        parseProjectIdFromApiKey(secret);
+        return undefined;
+      } catch (e) {
+        return e as Error;
+      }
+    })();
+
+    expect(err).toBeInstanceOf(ChannelConfigError);
+    expect(err!.message).toMatch(/cpk-\{projectId\}/);
+    expect(err!.message).not.toContain(secret);
+    expect(err!.message).not.toContain("TOPSECRETKEYMATERIAL");
+  });
 });
 
 describe("deriveChannelActivationConfig", () => {

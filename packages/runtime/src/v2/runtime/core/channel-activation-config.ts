@@ -47,9 +47,13 @@ const API_KEY_PROJECT_ID_PATTERN = /^cpk-(\d+)_/;
 export function parseProjectIdFromApiKey(apiKey: string): number {
   const match = API_KEY_PROJECT_ID_PATTERN.exec(apiKey);
   if (!match) {
+    // The API key is a `cpk-…` secret; NEVER echo it in full. This message is
+    // logged and surfaced through `ready()`'s AggregateError, so include only a
+    // short, non-sensitive prefix to aid diagnosis without leaking the key.
+    const prefix = apiKey.slice(0, 8);
     throw new ChannelConfigError(
       `Could not parse a project id from the Intelligence API key — expected the ` +
-        `"cpk-{projectId}_..." format, got: "${apiKey}"`,
+        `"cpk-{projectId}_..." format (received a key starting with "${prefix}…").`,
     );
   }
   return Number(match[1]);

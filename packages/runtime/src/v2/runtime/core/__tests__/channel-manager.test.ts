@@ -227,6 +227,41 @@ describe("ChannelManager", () => {
     expect(mgr.status().channels.support).toBe("stopped");
   });
 
+  it("stop() completes and marks every channel stopped even when a handle.stop() rejects", async () => {
+    const throwingHandle: ChannelsHandle & { stop: ReturnType<typeof vi.fn> } =
+      {
+        metadata: {},
+        stop: vi.fn(async () => {
+          throw new Error("session.disconnect failed");
+        }),
+      };
+    const okHandle = fakeHandle();
+    const handles = [throwingHandle, okHandle];
+    let i = 0;
+    const engine: ActivateChannelEngine = vi.fn(async () => handles[i++]!);
+
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [
+        createChannel({ name: "support" }),
+        createChannel({ name: "sales" }),
+      ],
+      activateChannel: engine,
+    });
+    mgr.activate();
+    await mgr.ready();
+
+    await expect(mgr.stop()).resolves.toBeUndefined();
+
+    expect(throwingHandle.stop).toHaveBeenCalledTimes(1);
+    expect(okHandle.stop).toHaveBeenCalledTimes(1);
+    expect(mgr.status().channels).toEqual({
+      support: "stopped",
+      sales: "stopped",
+    });
+    expect(mgr.status().overall).toBe("stopped");
+  });
+
   it("stop() does not throw when a channel never produced a handle (setup_required)", async () => {
     const engine: ActivateChannelEngine = async () => {
       throw new ChannelSetupRequiredError("no provider");
