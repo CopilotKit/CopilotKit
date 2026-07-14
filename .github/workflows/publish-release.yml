@@ -173,6 +173,10 @@ jobs:
       - name: Build packages
         run: pnpm run build
 
+      - name: Verify registry-backed Channels umbrella contract
+        if: ${{ steps.meta.outputs.scope == 'channels' && steps.meta.outputs.mode == 'stable' }}
+        run: pnpm run verify:channels-umbrella:registry
+
       # Strip caches and pack the workspace into a single tarball before
       # upload. upload-artifact's path filters are post-walk: it still
       # descends into every node_modules and stats every file (~6.4M for

@@ -115,6 +115,9 @@ importers:
       '@types/node':
         specifier: ^18.11.17
         version: 18.19.130
+      '@types/semver':
+        specifier: ^7.7.1
+        version: 7.7.1
       '@vitest/coverage-v8':
         specifier: ^3.2.4
         version: 3.2.4(vitest@4.1.3)
@@ -163,6 +166,9 @@ importers:
       remark-parse:
         specifier: ^11.0.0
         version: 11.0.0
+      semver:
+        specifier: ^7.8.1
+        version: 7.8.1
       size-limit:
         specifier: 12.1.0
         version: 12.1.0(jiti@2.7.0)
