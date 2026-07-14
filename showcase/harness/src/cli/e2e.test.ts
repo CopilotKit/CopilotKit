@@ -3067,3 +3067,211 @@ describe("__testSeams type-hardening — resolvedMapping not accessible at top l
     ).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------
+// D6_E2E_RETRIES override — env resolution + runner-env injection + arg gate
+//
+// The override lets a caller force Playwright `--retries=<n>` (overriding the
+// per-slug playwright.config `retries: CI ? 2 : 0`) without unsetting CI.
+// These tests lock:
+//   1. runSpecDrivenD6 resolution: opts.retriesOverride vs ambient
+//      D6_E2E_RETRIES vs unset, and the runner-env injection shape.
+//   2. runSpecDrivenD6 caller-bug validation: opts.retriesOverride throws
+//      on a non-integer / negative value (attributable message).
+//   3. defaultSpecRunner runner-env guard: a garbage D6_E2E_RETRIES in the
+//      runner env throws loudly (never becomes a bad --retries flag).
+//
+// All synchronous — the runSpecDrivenD6 cases use a capturing stub specRunner
+// (no real Playwright); the defaultSpecRunner guard test throws before spawn.
+// ---------------------------------------------------------------------------
+
+describe("D6_E2E_RETRIES override — resolution + injection", () => {
+  const RETRIES_ENV = "D6_E2E_RETRIES";
+  let savedRetriesEnv: string | undefined;
+
+  beforeEach(() => {
+    savedRetriesEnv = process.env[RETRIES_ENV];
+    delete process.env[RETRIES_ENV];
+  });
+  afterEach(() => {
+    if (savedRetriesEnv === undefined) {
+      delete process.env[RETRIES_ENV];
+    } else {
+      process.env[RETRIES_ENV] = savedRetriesEnv;
+    }
+  });
+
+  /** Capturing stub: records the env it receives, returns an all-pass report. */
+  function makeCapturingRunner(): {
+    runner: SpecRunner;
+    lastEnv: () => Record<string, string> | undefined;
+  } {
+    let captured: Record<string, string> | undefined;
+    const runner: SpecRunner = vi.fn((_dir, _specs, env) => {
+      captured = env;
+      return makePassing("agentic-chat.spec.ts");
+    });
+    return { runner, lastEnv: () => captured };
+  }
+
+  it("UNSET (no option, no env) → runner env has NO D6_E2E_RETRIES key", async () => {
+    const { writer } = makeWriter();
+    const ctx = makeCtx(writer);
+    const { runner, lastEnv } = makeCapturingRunner();
+
+    await runSpecDrivenD6(TEST_SLUG, {
+      backendUrl: "https://lgp.example.com",
+      integrationDir: "/fake/lgp",
+      listPresentSpecs: listLgpPresent,
+      ctx,
+      specRunner: runner,
+    });
+
+    const env = lastEnv();
+    expect(env).toBeDefined();
+    // Default (unchanged) behavior: no override key injected → config governs.
+    expect(RETRIES_ENV in env!).toBe(false);
+  });
+
+  it("opts.retriesOverride=0 → runner env D6_E2E_RETRIES === '0'", async () => {
+    const { writer } = makeWriter();
+    const ctx = makeCtx(writer);
+    const { runner, lastEnv } = makeCapturingRunner();
+
+    await runSpecDrivenD6(TEST_SLUG, {
+      backendUrl: "https://lgp.example.com",
+      integrationDir: "/fake/lgp",
+      listPresentSpecs: listLgpPresent,
+      ctx,
+      specRunner: runner,
+      retriesOverride: 0,
+    });
+
+    expect(lastEnv()![RETRIES_ENV]).toBe("0");
+  });
+
+  it("ambient D6_E2E_RETRIES=1 (no option) → runner env D6_E2E_RETRIES === '1'", async () => {
+    process.env[RETRIES_ENV] = "1";
+    const { writer } = makeWriter();
+    const ctx = makeCtx(writer);
+    const { runner, lastEnv } = makeCapturingRunner();
+
+    await runSpecDrivenD6(TEST_SLUG, {
+      backendUrl: "https://lgp.example.com",
+      integrationDir: "/fake/lgp",
+      listPresentSpecs: listLgpPresent,
+      ctx,
+      specRunner: runner,
+    });
+
+    expect(lastEnv()![RETRIES_ENV]).toBe("1");
+  });
+
+  it("opts.retriesOverride wins over ambient D6_E2E_RETRIES", async () => {
+    process.env[RETRIES_ENV] = "5"; // ambient
+    const { writer } = makeWriter();
+    const ctx = makeCtx(writer);
+    const { runner, lastEnv } = makeCapturingRunner();
+
+    await runSpecDrivenD6(TEST_SLUG, {
+      backendUrl: "https://lgp.example.com",
+      integrationDir: "/fake/lgp",
+      listPresentSpecs: listLgpPresent,
+      ctx,
+      specRunner: runner,
+      retriesOverride: 0, // option wins
+    });
+
+    expect(lastEnv()![RETRIES_ENV]).toBe("0");
+    // Runner must have been called exactly once (guards against vacuous pass
+    // where the pipeline short-circuits before ever reaching the runner).
+    expect(runner).toHaveBeenCalledOnce();
+  });
+
+  it("ambient D6_E2E_RETRIES='' (empty string) → ignored (no key injected), NOT thrown", async () => {
+    process.env[RETRIES_ENV] = ""; // empty string: fails /^\d+$/ → treated as unset
+    const { writer } = makeWriter();
+    const ctx = makeCtx(writer);
+    const { runner, lastEnv } = makeCapturingRunner();
+
+    // Empty string must be ignored gracefully (warn + skip), not thrown.
+    await runSpecDrivenD6(TEST_SLUG, {
+      backendUrl: "https://lgp.example.com",
+      integrationDir: "/fake/lgp",
+      listPresentSpecs: listLgpPresent,
+      ctx,
+      specRunner: runner,
+    });
+
+    // Key must NOT be injected into runner env (empty string is not a valid value).
+    expect(RETRIES_ENV in lastEnv()!).toBe(false);
+  });
+
+  it("invalid ambient D6_E2E_RETRIES → ignored (no key injected), NOT thrown", async () => {
+    process.env[RETRIES_ENV] = "abc";
+    const { writer } = makeWriter();
+    const ctx = makeCtx(writer);
+    const { runner, lastEnv } = makeCapturingRunner();
+
+    // Ambient env typo is non-fatal: warn + ignore, config governs.
+    await runSpecDrivenD6(TEST_SLUG, {
+      backendUrl: "https://lgp.example.com",
+      integrationDir: "/fake/lgp",
+      listPresentSpecs: listLgpPresent,
+      ctx,
+      specRunner: runner,
+    });
+
+    expect(RETRIES_ENV in lastEnv()!).toBe(false);
+  });
+
+  it("opts.retriesOverride=-1 (caller bug) → throws attributable error", async () => {
+    const { writer } = makeWriter();
+    const ctx = makeCtx(writer);
+    const { runner } = makeCapturingRunner();
+
+    await expect(
+      runSpecDrivenD6(TEST_SLUG, {
+        backendUrl: "https://lgp.example.com",
+        integrationDir: "/fake/lgp",
+        listPresentSpecs: listLgpPresent,
+        ctx,
+        specRunner: runner,
+        retriesOverride: -1,
+      }),
+    ).rejects.toThrow(/retriesOverride must be a non-negative integer/);
+  });
+
+  it("opts.retriesOverride=2.5 (non-integer) → throws attributable error", async () => {
+    const { writer } = makeWriter();
+    const ctx = makeCtx(writer);
+    const { runner } = makeCapturingRunner();
+
+    await expect(
+      runSpecDrivenD6(TEST_SLUG, {
+        backendUrl: "https://lgp.example.com",
+        integrationDir: "/fake/lgp",
+        listPresentSpecs: listLgpPresent,
+        ctx,
+        specRunner: runner,
+        retriesOverride: 2.5,
+      }),
+    ).rejects.toThrow(/retriesOverride must be a non-negative integer/);
+  });
+});
+
+describe("defaultSpecRunner — D6_E2E_RETRIES runner-env guard", () => {
+  it("throws on a non-integer D6_E2E_RETRIES in the runner env (never a garbage --retries flag)", () => {
+    const tmpDir = fs.mkdtempSync("/tmp/pw-retries-guard-");
+    try {
+      expect(() =>
+        defaultSpecRunner(tmpDir, ["fake.spec.ts"], {
+          CI: "1",
+          D6_E2E_RETRIES: "abc",
+        }),
+      ).toThrow(/D6_E2E_RETRIES must be a non-negative integer/);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+});

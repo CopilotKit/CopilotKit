@@ -210,6 +210,22 @@ export interface RunSpecDrivenD6Options {
     resolvedMapping?: Record<string, D5FeatureType[]>;
   };
   /**
+   * Playwright retries override. When set to a non-negative integer, the
+   * harness passes `--retries=<n>` to the Playwright CLI invocation,
+   * overriding whatever `retries` the per-slug `playwright.config` would
+   * resolve (typically `process.env.CI ? 2 : 0`). When unset, behavior
+   * is byte-for-byte unchanged — the config governs.
+   *
+   * Injected into `runnerEnv` as `D6_E2E_RETRIES` so `defaultSpecRunner`
+   * can read it without a separate parameter thread. The env-var is also
+   * the public knob: set `D6_E2E_RETRIES=0` in the caller's environment
+   * and `runSpecDrivenD6` will pick it up automatically.
+   *
+   * Primarily useful for solo-column CLI runs where the CI-triggered
+   * retries=2 triples every failing spec's wall-clock cost.
+   */
+  retriesOverride?: number;
+  /**
    * Abort signal — when signalled, the pipeline exits early without emitting.
    * Optional and safe to omit; provided by the driver agent when threading
    * cancellation.
@@ -282,6 +298,39 @@ export async function runSpecDrivenD6(
 ): Promise<RunSpecDrivenD6Result> {
   const { backendUrl, integrationDir, timeoutMs, ctx, signal } = opts;
   const runner = opts.specRunner ?? defaultSpecRunner;
+
+  // Resolve the retries override: explicit option wins, then D6_E2E_RETRIES
+  // env var, then unset (config governs). Validated to be a non-negative integer.
+  //
+  // Two validation policies by source (intentional asymmetry):
+  //   - opts.retriesOverride (code-injected): a bad value is a CALLER BUG →
+  //     throw early with an attributable message so the fault is not buried
+  //     deep in defaultSpecRunner's runner-env guard.
+  //   - D6_E2E_RETRIES (ambient env): a bad value is an OPERATOR TYPO in the
+  //     shell → log.warn and ignore (config governs) rather than crash the run.
+  const retriesOverride: number | undefined = (() => {
+    if (opts.retriesOverride !== undefined) {
+      if (
+        !Number.isInteger(opts.retriesOverride) ||
+        opts.retriesOverride < 0
+      ) {
+        throw new Error(
+          `runSpecDrivenD6: retriesOverride must be a non-negative integer, got: ${opts.retriesOverride}`,
+        );
+      }
+      return opts.retriesOverride;
+    }
+    const raw = process.env["D6_E2E_RETRIES"];
+    if (raw === undefined) return undefined;
+    if (!/^\d+$/.test(raw)) {
+      log.warn("e2e.retries-override-invalid", {
+        D6_E2E_RETRIES: raw,
+        note: "D6_E2E_RETRIES must be a non-negative integer — ignoring override (ambient env typo is non-fatal; config governs)",
+      });
+      return undefined;
+    }
+    return Number(raw);
+  })();
 
   // 1. Resolve the slug-map ONCE + build skip-list ─────────────────────────
   //
@@ -362,6 +411,19 @@ export async function runSpecDrivenD6(
   // it directly (e.g. playwright.config.ts using process.env.PLAYWRIGHT_TIMEOUT).
   if (timeoutMs !== undefined) {
     runnerEnv["PLAYWRIGHT_TIMEOUT"] = String(timeoutMs);
+  }
+  // Deterministically control D6_E2E_RETRIES in the runner env so
+  // defaultSpecRunner reads exactly the resolved override — never an inherited
+  // ambient value. When an override is resolved, inject it; otherwise DELETE
+  // the key so a raw ambient D6_E2E_RETRIES (which the process.env spread above
+  // would otherwise pass through unfiltered — it doesn't match SECRET_KEY_RE)
+  // cannot reach the runner. This makes the resolution IIFE the single source
+  // of truth: an ignored/invalid ambient value results in NO --retries flag
+  // (config governs), and never a garbage flag that trips the runner guard.
+  if (retriesOverride !== undefined) {
+    runnerEnv["D6_E2E_RETRIES"] = String(retriesOverride);
+  } else {
+    delete runnerEnv["D6_E2E_RETRIES"];
   }
 
   // 3. Run playwright (or stub) ──────────────────────────────────────────
@@ -679,6 +741,16 @@ export const defaultSpecRunner: SpecRunner = (
       );
     }
 
+    // Validate D6_E2E_RETRIES from the runner env (injected by runSpecDrivenD6
+    // when retriesOverride is set). A non-numeric value indicates a caller bug;
+    // we fail loud rather than silently passing a garbage --retries flag.
+    const rawRetries = env["D6_E2E_RETRIES"];
+    if (rawRetries !== undefined && !/^\d+$/.test(rawRetries)) {
+      throw new Error(
+        `D6_E2E_RETRIES must be a non-negative integer, got: ${rawRetries}`,
+      );
+    }
+
     const runnerEnv = {
       ...env,
       PLAYWRIGHT_JSON_OUTPUT_NAME: tmpFile,
@@ -699,6 +771,12 @@ export const defaultSpecRunner: SpecRunner = (
     const timeoutFlag =
       rawTimeout !== undefined ? ["--timeout", rawTimeout] : [];
 
+    // Pass --retries=<n> when D6_E2E_RETRIES is set. The CLI flag overrides
+    // the per-slug playwright.config value (which is typically `CI ? 2 : 0`).
+    // When unset, behavior is byte-for-byte unchanged — the config governs.
+    const retriesFlag =
+      rawRetries !== undefined ? [`--retries=${rawRetries}`] : [];
+
     const args =
       bin === "npx"
         ? [
@@ -706,9 +784,10 @@ export const defaultSpecRunner: SpecRunner = (
             "test",
             "--reporter=json",
             ...timeoutFlag,
+            ...retriesFlag,
             ...specPaths,
           ]
-        : ["test", "--reporter=json", ...timeoutFlag, ...specPaths];
+        : ["test", "--reporter=json", ...timeoutFlag, ...retriesFlag, ...specPaths];
 
     // Derive spawnSync timeout from PLAYWRIGHT_TIMEOUT × spec count.
     //
@@ -716,8 +795,14 @@ export const defaultSpecRunner: SpecRunner = (
     //   - specPaths.length: ONE spawnSync call runs ALL specs (not one per spec),
     //     so healthy multi-spec slugs (LGP=37+) need the full width, not just
     //     "2× a single test". Old formula (perTestMs × 2) SIGKILL'd them.
-    //   - RETRY_HEADROOM=2: ms-agent slugs configure Playwright retries; each
-    //     spec can run twice before failing, so the budget must cover the retry.
+    //   - RETRY_HEADROOM: when D6_E2E_RETRIES is set we use retries+1 (one
+    //     attempt + N retries = N+1 total runs per spec). When unset we fall
+    //     back to 2 (ms-agent slugs configure retries=1 via their config;
+    //     each spec can run twice before failing). This budget math is only
+    //     correct because the CLI `--retries=<n>` flag takes precedence over
+    //     the per-slug playwright.config `retries` value (standard Playwright
+    //     precedence) — so the actual attempts-per-spec equals the flag value,
+    //     not whatever the config would otherwise resolve.
     //   - 5_000 ms fixed overhead for browser launch and process setup.
     //   - Clamped to Int32 max (2147483647): spawnSync takes a signed 32-bit
     //     integer; an unclamped budget overflows to a negative/tiny value and
@@ -727,7 +812,11 @@ export const defaultSpecRunner: SpecRunner = (
     //
     // maxBuffer is set to 64 MB so large JSON reports don't trigger ENOBUFS.
     const NODE_INT32_MAX = 2_147_483_647;
-    const RETRY_HEADROOM = 2;
+    // retries+1 = total attempts per spec (1 attempt + N retries).
+    // When the override is absent, keep the historical RETRY_HEADROOM=2
+    // (covers ms-agent slugs that configure retries=1 in their config).
+    const RETRY_HEADROOM =
+      rawRetries !== undefined ? Number(rawRetries) + 1 : 2;
     const perTestMs = rawTimeout !== undefined ? Number(rawTimeout) : 0;
     const spawnTimeoutMs =
       perTestMs > 0
