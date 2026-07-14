@@ -24,7 +24,6 @@ export const aguiChannelPlugin = {
   },
   pairing: {
     idLabel: "aguiDeviceId",
-    normalizeAllowEntry: (entry) =>
-      entry.replace(/^ag-ui:/i, "").toLowerCase(),
+    normalizeAllowEntry: (entry) => entry.replace(/^ag-ui:/i, "").toLowerCase(),
   },
 };
