@@ -4451,6 +4451,15 @@ export class WebInspectorElement extends LitElement {
   // SDK). Distinct from `_memoriesAvailable` (memory not enabled on an
   // otherwise-current deployment) so the teaser can show upgrade-the-SDK copy.
   private _memoryStoreUnsupported = false;
+  // ── Semantic recall (B3) ──────────────────────────────────────────────
+  // `null` = no recall run yet (section hidden). `[]` = ran, no matches.
+  private _recallResults: Memory[] | null = null;
+  private _recallLoading = false;
+  private _recallError: string | null = null;
+  private _recallQuery = "";
+  // Monotonic token so a slow recall resolving after a newer one / Clear /
+  // detach is ignored — last-write-wins without racing state.
+  private _recallSeq = 0;
   private runtimeStatus: CopilotKitCoreRuntimeConnectionStatus | null = null;
   private coreProperties: Readonly<Record<string, unknown>> = {};
   private lastCoreError: {
@@ -5080,6 +5089,58 @@ export class WebInspectorElement extends LitElement {
     this.requestUpdate();
   }
 
+  /**
+   * Runs a semantic recall via the memory store (`core.getMemoryStore().recall`,
+   * from B2) and stores ranked results. Guarded by a monotonic sequence token
+   * so a stale request cannot overwrite a newer result / Clear / detach. Only
+   * reachable from the Intelligence-gated memory view, so it inherits the gate.
+   */
+  private runRecall(query: string): void {
+    const trimmed = query.trim();
+    if (trimmed.length === 0) return;
+    const store = this._core?.getMemoryStore?.();
+    if (!store || typeof store.recall !== "function") {
+      this._recallResults = [];
+      this._recallError = "Recall is not supported by this SDK version.";
+      this._recallLoading = false;
+      this.requestUpdate();
+      return;
+    }
+
+    const seq = ++this._recallSeq;
+    this._recallLoading = true;
+    this._recallError = null;
+    this.requestUpdate();
+
+    store
+      .recall(trimmed)
+      .then((results) => {
+        if (seq !== this._recallSeq) return;
+        this._recallResults = results;
+        this._recallError = null;
+        this._recallLoading = false;
+        this.requestUpdate();
+      })
+      .catch((error: unknown) => {
+        if (seq !== this._recallSeq) return;
+        this._recallResults = [];
+        this._recallError =
+          error instanceof Error ? error.message : "unknown error";
+        this._recallLoading = false;
+        this.requestUpdate();
+      });
+  }
+
+  /** Clears recall results/section and cancels any in-flight recall. */
+  private clearRecall(): void {
+    this._recallSeq += 1;
+    this._recallResults = null;
+    this._recallError = null;
+    this._recallLoading = false;
+    this._recallQuery = "";
+    this.requestUpdate();
+  }
+
   private detachFromCore(): void {
     if (this.coreUnsubscribe) {
       this.coreUnsubscribe();
@@ -5096,6 +5157,13 @@ export class WebInspectorElement extends LitElement {
     // activation re-subscribes (and re-evaluates SDK support) cleanly.
     this._memorySubscribed = false;
     this._memoryStoreUnsupported = false;
+    // Reset recall state and bump the sequence token so any in-flight recall
+    // resolving after detach is ignored.
+    this._recallSeq += 1;
+    this._recallResults = null;
+    this._recallLoading = false;
+    this._recallError = null;
+    this._recallQuery = "";
     this.coreSubscriber = null;
     this.runtimeStatus = null;
     this.lastCoreError = null;
@@ -9427,6 +9495,19 @@ ${argsString}</pre
           <cpk-memory-list
             style="height:100%;"
             .memories=${this._memories}
+            .recallResults=${this._recallResults}
+            .recallLoading=${this._recallLoading}
+            .recallError=${this._recallError}
+            .recallQueryText=${this._recallQuery}
+            @recallQueryChanged=${(e: CustomEvent<string>) => {
+              this._recallQuery = e.detail;
+            }}
+            @recallSubmitted=${(e: CustomEvent<string>) => {
+              this.runRecall(e.detail);
+            }}
+            @recallCleared=${() => {
+              this.clearRecall();
+            }}
           ></cpk-memory-list>
         </div>
       </div>
