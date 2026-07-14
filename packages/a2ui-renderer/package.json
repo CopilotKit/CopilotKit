@@ -68,7 +68,7 @@
   "scripts": {
     "build": "tsdown",
     "compat-check": "es-check es2022 --module 'dist/**/!(*.umd).{mjs,cjs,js}' && es-check es2018 'dist/**/*.umd.js'",
-    "check-types": "tsc --noEmit -p tsconfig.json",
+    "check-types": "tsgo --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -89,7 +89,8 @@
     "@types/react": "^19.2.3",
     "@types/react-dom": "^19.2.3",
     "jsdom": "^26.1.0",
-    "tsdown": "^0.20.3",
+    "tsdown": "^0.22.4",
+    "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "typescript": "5.9.2",
     "vitest": "^3.2.4"
   },

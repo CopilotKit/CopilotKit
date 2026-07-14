@@ -29,7 +29,7 @@
     "dev": "pnpm run build:css && concurrently \"pnpm run dev:css\" \"tsdown --watch\"",
     "dev:css": "tailwindcss -i ./src/styles/tailwind.css -o ./src/styles/generated.css --watch --minify",
     "dev:standalone": "vite dev dev --config dev/vite.config.ts --host 127.0.0.1 --port 5177",
-    "check-types": "pnpm run build:css && tsc --noEmit",
+    "check-types": "pnpm run build:css && tsgo --noEmit",
     "test": "pnpm run build:css && vitest run",
     "publint": "publint .",
     "attw": "attw --pack . --profile node16"
@@ -48,6 +48,7 @@
     "concurrently": "^9.1.0",
     "tailwindcss": "^4.0.8",
     "tsdown": "^0.20.3",
+    "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "typescript": "5.8.2",
     "vite": "^7.3.2",
     "vitest": "^3.0.5"

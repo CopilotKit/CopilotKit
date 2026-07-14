@@ -43,7 +43,7 @@
     "dev": "tsdown --watch",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check-types": "tsc --noEmit",
+    "check-types": "tsgo --noEmit",
     "link:global": "pnpm link --global",
     "unlink:global": "pnpm unlink --global",
     "publint": "publint . && node scripts/verify-cjs-exports.cjs",
@@ -62,12 +62,14 @@
     "zod-to-json-schema": "^3.23.5"
   },
   "devDependencies": {
+    "@types/node": "^22.10.0",
     "@types/uuid": "^10.0.0",
     "@valibot/to-json-schema": "^1.5.0",
     "arktype": "^2.1.29",
     "eslint": "^8.56.0",
     "tsconfig": "workspace:*",
-    "tsdown": "^0.20.3",
+    "tsdown": "^0.22.4",
+    "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "typescript": "^5.2.3",
     "valibot": "^1.2.0",
     "vitest": "^3.2.4"

@@ -2,12 +2,16 @@
   "extends": "../tsconfig/base.json",
   "compilerOptions": {
     "types": ["node", "vitest/globals"],
+    // check-types is --noEmit (build uses tsdown); widen rootDir to the packages
+    // root so cross-package test-util imports don't trip TS6059 rootDir enforcement
+    "rootDir": "..",
     "target": "es2022",
     // es2023 lib for Array.prototype.toReversed (used by the service adapters)
     "lib": ["es2023", "dom", "dom.iterable"],
-    // module es2022 so dynamic import() typechecks (build is done by tsdown,
-    // which does not read this setting)
-    "module": "es2022",
+    // module esnext so dynamic import() typechecks and pairs with the base
+    // config's moduleResolution "bundler" (build is done by tsdown, which
+    // does not read this setting)
+    "module": "esnext",
     "useDefineForClassFields": false,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
@@ -29,11 +33,14 @@
   ],
   "exclude": ["dist", "build", "node_modules"],
   // ts-node runs scripts/generate-gql-schema.ts (extensionless CJS-style
-  // imports); without this override it picks up module es2022 above and
+  // imports); without this override it picks up module esnext above and
   // executes the script as ESM, which fails to resolve those imports.
+  // moduleResolution node10 pairs with commonjs (ts-node uses classic TS,
+  // which still supports it) — the base config's "bundler" needs esnext.
   "ts-node": {
     "compilerOptions": {
-      "module": "commonjs"
+      "module": "commonjs",
+      "moduleResolution": "node10"
     }
   }
 }

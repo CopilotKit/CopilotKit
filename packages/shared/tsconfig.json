@@ -4,6 +4,7 @@
   "compilerOptions": {
     "target": "es2017",
     "lib": ["es2017", "dom"],
+    "types": ["node"],
     "resolveJsonModule": true
   },
   "exclude": [

@@ -69,7 +69,7 @@
     "dev": "tsdown --watch",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check-types": "tsc --noEmit",
+    "check-types": "tsgo --noEmit",
     "generate-graphql-schema": "node -e \"const fs=require('fs');fs.rmSync('__snapshots__',{recursive:true,force:true})\" && ts-node --transpile-only ./scripts/generate-gql-schema.ts",
     "link:global": "pnpm link --global",
     "unlink:global": "pnpm unlink --global",
@@ -138,7 +138,8 @@
     "supertest": "^7.1.1",
     "ts-node": "^10.9.2",
     "tsconfig": "workspace:*",
-    "tsdown": "^0.20.3",
+    "tsdown": "^0.22.4",
+    "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "typescript": "^5.2.3",
     "valibot": "^1.2.0",
     "vitest": "^3.2.4"

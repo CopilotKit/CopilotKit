@@ -68,7 +68,7 @@
     "size-limit": "12.1.0",
     "storybook": "^10.2.10",
     "ts-node": "^10.9.2",
-    "tsdown": "^0.20.3",
+    "tsdown": "^0.22.4",
     "tsx": "^4.21.0",
     "typescript": "^5.2.3",
     "unified": "^11.0.5",
