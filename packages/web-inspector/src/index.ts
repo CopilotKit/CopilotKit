@@ -94,6 +94,7 @@ type MenuKey =
   | "ag-ui-events"
   | "agents"
   | "frontend-tools"
+  | "capabilities"
   | "agent-context"
   | "threads"
   | "memories"
@@ -122,6 +123,11 @@ const INTELLIGENCE_SIGNUP_URL = "https://go.copilotkit.ai/intelligence-signup";
 const THREADS_INTELLIGENCE_SIGNIN_URL =
   "https://dashboard.operations.copilotkit.ai/sign-in";
 const TALK_TO_ENGINEER_URL = "https://www.copilotkit.ai/talk-to-an-engineer";
+// Label for the Capabilities tab (client-authoritative dev experimentation
+// surface: toggle frontend tools + A2UI catalog components on/off, enforced
+// immediately via core.setToolEnabled / core.setCatalogComponentEnabled).
+// Renameable — keep the display string in this one place.
+const CAPABILITIES_TAB_LABEL = "Capabilities";
 const THREADS_DOCS_URL = "https://docs.copilotkit.ai/threads";
 const SELF_HOSTED_INTELLIGENCE_URL =
   "https://docs.copilotkit.ai/premium/self-hosting";
