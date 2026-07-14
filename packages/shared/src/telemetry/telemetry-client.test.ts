@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { MockInstance } from "vitest";
 import { lambdaClient } from "./lambda-client";
-import { TelemetryClient, isTelemetryDisabled } from "./telemetry-client";
+import { TelemetryClient } from "./telemetry-client";
+import { isTelemetryDisabled } from "./env-check";
 
 // Module mock so constructing TelemetryClient doesn't spin up segment's
 // internal flush queue. Class-based (not vi.fn) so `vi.restoreAllMocks()`

@@ -32,28 +32,6 @@
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
     },
-    "./telemetry": {
-      "node": {
-        "import": {
-          "types": "./dist/telemetry-server.d.mts",
-          "default": "./dist/telemetry-server.mjs"
-        },
-        "require": {
-          "types": "./dist/telemetry-server.d.cts",
-          "default": "./dist/telemetry-server.cjs"
-        }
-      },
-      "default": {
-        "import": {
-          "types": "./dist/telemetry-stub.d.mts",
-          "default": "./dist/telemetry-stub.mjs"
-        },
-        "require": {
-          "types": "./dist/telemetry-stub.d.cts",
-          "default": "./dist/telemetry-stub.cjs"
-        }
-      }
-    },
     "./telemetry-server": {
       "import": "./dist/telemetry-server.mjs",
       "require": "./dist/telemetry-server.cjs"

@@ -9,7 +9,7 @@
  * the real implementation.
  */
 
-export { isTelemetryDisabled } from "./telemetry/telemetry-client";
+export { isTelemetryDisabled } from "./telemetry/env-check";
 
 // Re-export all types from telemetry so client code can import them without errors
 export type * from "./telemetry/events";

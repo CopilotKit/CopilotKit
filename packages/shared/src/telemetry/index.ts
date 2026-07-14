@@ -1,4 +1,5 @@
 export * from "./telemetry-client";
+export { isTelemetryDisabled } from "./env-check";
 export {
   lambdaClient,
   parseTelemetryIdFromLicense,
