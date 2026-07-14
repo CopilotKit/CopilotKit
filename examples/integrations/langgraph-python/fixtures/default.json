@@ -91,7 +91,9 @@
       }
     },
     {
-      "match": { "userMessage": "schedule a 30-minute meeting to learn about CopilotKit" },
+      "match": {
+        "userMessage": "schedule a 30-minute meeting to learn about CopilotKit"
+      },
       "response": {
         "toolCalls": [
           {
@@ -109,7 +111,9 @@
       }
     },
     {
-      "match": { "userMessage": "sales dashboard with total revenue, new customers, and conversion rate" },
+      "match": {
+        "userMessage": "sales dashboard with total revenue, new customers, and conversion rate"
+      },
       "response": {
         "toolCalls": [
           {
@@ -121,7 +125,9 @@
       }
     },
     {
-      "match": { "userMessage": "Use Excalidraw to create a simple network diagram" },
+      "match": {
+        "userMessage": "Use Excalidraw to create a simple network diagram"
+      },
       "response": {
         "content": "Here's a simple network diagram for your topology:\n\n```\n            [Router]\n           /        \\\n      [Switch A]   [Switch B]\n       /     \\      /     \\\n   [PC 1] [PC 2] [PC 3] [PC 4]\n```\n\nThe router connects to two switches, and each switch connects to two computers. In the live demo this renders as an interactive Excalidraw diagram via the Excalidraw MCP app."
       }
@@ -133,7 +139,9 @@
       }
     },
     {
-      "match": { "userMessage": "Toggle the app theme using the toggleTheme tool" },
+      "match": {
+        "userMessage": "Toggle the app theme using the toggleTheme tool"
+      },
       "response": {
         "toolCalls": [
           {

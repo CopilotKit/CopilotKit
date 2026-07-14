@@ -121,7 +121,9 @@
       }
     },
     {
-      "match": { "userMessage": "Use Excalidraw to create a simple network diagram" },
+      "match": {
+        "userMessage": "Use Excalidraw to create a simple network diagram"
+      },
       "response": {
         "content": "In a live run I'd use the Excalidraw MCP app to sketch a network diagram: one router connected to two switches, each connected to two computers. (This is a scripted mock reply -- add your OPENAI_API_KEY to .env to draw it for real.)"
       }
@@ -136,7 +138,11 @@
       "match": { "userMessage": "Toggle the app theme" },
       "response": {
         "toolCalls": [
-          { "name": "toggleTheme", "arguments": "{}", "id": "call_toggle_theme_001" }
+          {
+            "name": "toggleTheme",
+            "arguments": "{}",
+            "id": "call_toggle_theme_001"
+          }
         ]
       }
     },
