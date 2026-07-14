@@ -68,6 +68,24 @@ the badge in the bottom-left corner to switch servers.
 - `AGENT_URL` (see `.env.example`) is only the fallback used when no
   `X-Hermes-Url` header is present.
 
+## Security — local / trusted use only
+
+This example is built for **local development**: you run `hermes agui` yourself
+and point the app at it. Two consequences to understand before deploying it
+anywhere shared or public:
+
+- **The server connects to a client-supplied URL.** The API route builds its
+  agent from the `X-Hermes-Url` header the browser sends, with no host
+  allowlist, and the CopilotKit runtime forwards `Authorization` + all `x-*`
+  headers (including your session token) to that URL. On an untrusted network
+  this is an SSRF / open-proxy surface. Before exposing the route publicly, add
+  a host + scheme allowlist in `route.ts`, or ignore the client header and pin
+  to `AGENT_URL`.
+- **The session token is stored in `localStorage`** so the connection is
+  remembered across reloads. `localStorage` is readable by any script on the
+  origin — acceptable for a local demo, but drop this (or use `sessionStorage`)
+  before handling a real credential in a shared environment.
+
 ## Available Scripts
 
 - `dev` — start the Next.js dev server (Turbopack)

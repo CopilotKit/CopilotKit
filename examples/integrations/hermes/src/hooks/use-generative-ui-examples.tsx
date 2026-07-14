@@ -15,7 +15,7 @@ import { ToolReasoning } from "@/components/tool-rendering";
 // registration here — it uses the runtime's open-generative-UI feature
 // (`openGenerativeUI` in the API route + on the provider).
 export const useGenerativeUIExamples = () => {
-  const { theme, setTheme } = useTheme();
+  const { setTheme } = useTheme();
 
   // Human-in-the-Loop (frontend tool requiring a user decision)
   useHumanInTheLoop({
@@ -52,6 +52,6 @@ export const useGenerativeUIExamples = () => {
         setTheme(isDark ? "light" : "dark");
       },
     },
-    [theme, setTheme],
+    [setTheme],
   );
 };
