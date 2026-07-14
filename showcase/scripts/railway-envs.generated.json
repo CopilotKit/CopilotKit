@@ -163,7 +163,7 @@
         "prod": {
           "effectiveReplicas": 6,
           "numReplicas": 6,
-          "BROWSER_POOL_MAX_CONTEXTS": 40,
+          "BROWSER_POOL_MAX_CONTEXTS": 24,
           "HARNESS_POOL_COUNT": 3,
           "overlapSeconds": 45,
           "drainingSeconds": 180
@@ -171,7 +171,7 @@
         "staging": {
           "effectiveReplicas": 6,
           "numReplicas": 6,
-          "BROWSER_POOL_MAX_CONTEXTS": 40,
+          "BROWSER_POOL_MAX_CONTEXTS": 24,
           "HARNESS_POOL_COUNT": 2,
           "overlapSeconds": 45,
           "drainingSeconds": 180
