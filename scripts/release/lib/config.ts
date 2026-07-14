@@ -11,6 +11,7 @@ export type ReleaseScope =
   | "monorepo"
   | "angular"
   | "channels"
+  | "channels-core"
   | "channels-discord"
   | "channels-intelligence"
   | "channels-slack"

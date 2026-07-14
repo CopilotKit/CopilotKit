@@ -28,10 +28,15 @@
       "versionSource": "@copilotkit/angular",
       "sharedVersion": false
     },
-    "channels": {
-      "packages": ["@copilotkit/channels", "@copilotkit/channels-ui"],
-      "versionSource": "@copilotkit/channels",
+    "channels-core": {
+      "packages": ["@copilotkit/channels-core", "@copilotkit/channels-ui"],
+      "versionSource": "@copilotkit/channels-core",
       "sharedVersion": true
+    },
+    "channels": {
+      "packages": ["@copilotkit/channels"],
+      "versionSource": "@copilotkit/channels",
+      "sharedVersion": false
     },
     "channels-discord": {
       "packages": ["@copilotkit/channels-discord"],

@@ -11,6 +11,7 @@ on:
           - monorepo
           - angular
           - channels
+          - channels-core
           - channels-discord
           - channels-intelligence
           - channels-slack

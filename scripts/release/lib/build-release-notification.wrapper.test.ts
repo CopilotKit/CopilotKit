@@ -151,8 +151,12 @@ describe("resolvePackageCountSafe", () => {
     expect(resolvePackageCountSafe("monorepo")).toBe(16);
   });
 
-  it("returns the real package count for the channels scope (channels + channels-ui, drift guard)", () => {
-    expect(resolvePackageCountSafe("channels")).toBe(2);
+  it("returns the real package count for the channels scope (umbrella only, drift guard)", () => {
+    expect(resolvePackageCountSafe("channels")).toBe(1);
+  });
+
+  it("returns the real package count for the channels-core scope (channels-core + channels-ui, drift guard)", () => {
+    expect(resolvePackageCountSafe("channels-core")).toBe(2);
   });
 
   it("returns the real package count for the channels-slack scope (drift guard)", () => {
