@@ -1669,3 +1669,105 @@ test("getServerState returns the empty initial state and is stable", () => {
   // Stable reference across calls so React's useSyncExternalStore does not loop.
   expect(store.getServerState()).toBe(serverState);
 });
+
+describe("memory store recall", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("POSTs to /memories/recall and resolves to scored memories", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          memories: [
+            {
+              id: "m1",
+              kind: "topical",
+              scope: "user",
+              content: "User likes jazz.",
+              sourceThreadIds: [],
+              invalidatedAt: null,
+              score: 0.91,
+            },
+            {
+              id: "p1",
+              kind: "operational",
+              scope: "project",
+              content: "Team ships on Fridays.",
+              sourceThreadIds: [],
+              invalidatedAt: null,
+              score: 0.42,
+            },
+          ],
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+    const store = createMemoryStore(memoryEnvironment(fetchMock));
+    store.start();
+    store.setContext(sampleContext);
+    await flushEffects();
+    const results = await store.recall("music", { limit: 5, scope: "user" });
+    expect(results.map((m) => m.id)).toEqual(["m1", "p1"]);
+    expect(results.map((m) => m.score)).toEqual([0.91, 0.42]);
+    expect(results.map((m) => m.scope)).toEqual(["user", "project"]);
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "https://runtime.example.com/memories/recall",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ query: "music", limit: 5, scope: "user" }),
+      }),
+    );
+    expect(store.getState().memories).toEqual([]); // recall does NOT mutate the snapshot
+  });
+
+  it("omits limit/scope from the body when not provided", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) });
+    vi.stubGlobal("fetch", fetchMock);
+    const store = createMemoryStore(memoryEnvironment(fetchMock));
+    store.start();
+    store.setContext(sampleContext);
+    await flushEffects();
+    await store.recall("hi");
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "https://runtime.example.com/memories/recall",
+      expect.objectContaining({ body: JSON.stringify({ query: "hi" }) }),
+    );
+  });
+
+  it("rejects when no context is set", async () => {
+    const store = createMemoryStore(memoryEnvironment(vi.fn()));
+    store.start();
+    await expect(store.recall("hi")).rejects.toThrow();
+  });
+
+  it("rejects with a MemoryError on a non-ok recall response", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({ ok: false, status: 500 });
+    vi.stubGlobal("fetch", fetchMock);
+    const store = createMemoryStore(memoryEnvironment(fetchMock));
+    store.start();
+    store.setContext(sampleContext);
+    await flushEffects();
+    await expect(store.recall("hi")).rejects.toBeInstanceOf(MemoryError);
+  });
+});
