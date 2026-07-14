@@ -324,6 +324,59 @@ describe("memory store realtime", () => {
     return store;
   }
 
+  /**
+   * Boots a store whose `/memories/subscribe` ALSO returns project credentials,
+   * so the store opens a SECOND `project_meta:memories:<code>` channel alongside
+   * the user channel. Returns the connected store. Socket ordering:
+   * `phoenix.sockets[0]` is the user channel (subscribed first in the merge),
+   * `phoenix.sockets[1]` is the project channel.
+   */
+  async function connectedProjectRealtimeStore() {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          joinToken: "jt-1",
+          joinCode: "jc-1",
+          projectJoinToken: "pjt-1",
+          projectJoinCode: "pjc-1",
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = createMemoryStore(memoryEnvironment(fetchMock));
+    store.start();
+    store.setContext(realtimeContext);
+    await flushEffects();
+    return store;
+  }
+
+  /** A `project`-scoped `created` event as broadcast on the project channel. */
+  function projectCreatedEvent(
+    id: string,
+    content = `content-${id}`,
+  ): MemoryMetadataEvent {
+    return {
+      operation: "created",
+      memoryId: id,
+      organizationId: "org-1",
+      projectId: "proj-1",
+      occurredAt: "2026-01-01T00:00:00Z",
+      memory: {
+        id,
+        organizationId: "org-1",
+        projectId: "proj-1",
+        scope: "project",
+        kind: "topical",
+        content,
+        sourceThreadIds: [],
+        invalidatedAt: null,
+      },
+    };
+  }
+
   afterEach(() => {
     phoenix.sockets.splice(0);
     vi.unstubAllGlobals();
@@ -518,6 +571,122 @@ describe("memory store realtime", () => {
 
     expect(store.getState().realtimeStatus).toBe("connecting");
   });
+
+  it("opens ONLY the user channel when no project credentials are returned", async () => {
+    const store = await connectedRealtimeStore();
+
+    // A single socket/channel — the user channel — is opened. No project socket.
+    expect(phoenix.sockets).toHaveLength(1);
+    expect(memoryChannel().topic).toBe("user_meta:memories:jc-1");
+
+    store.stop();
+  });
+
+  it("opens a SECOND project_meta channel when project credentials are present", async () => {
+    const store = await connectedProjectRealtimeStore();
+
+    // Two sockets: the user channel and the project channel, each with its own
+    // join token (the token is a socket-level param).
+    expect(phoenix.sockets).toHaveLength(2);
+    expect(phoenix.sockets[0]?.channels[0]?.topic).toBe(
+      "user_meta:memories:jc-1",
+    );
+    expect(phoenix.sockets[0]?.opts.params).toMatchObject({
+      join_token: "jt-1",
+    });
+    expect(phoenix.sockets[1]?.channels[0]?.topic).toBe(
+      "project_meta:memories:pjc-1",
+    );
+    expect(phoenix.sockets[1]?.opts.params).toMatchObject({
+      join_token: "pjt-1",
+    });
+    // Both channels are actually joined.
+    expect(phoenix.sockets[0]?.channels[0]?.joinCount).toBeGreaterThan(0);
+    expect(phoenix.sockets[1]?.channels[0]?.joinCount).toBeGreaterThan(0);
+
+    store.stop();
+  });
+
+  it("upserts and invalidates project memories delivered on the project channel", async () => {
+    const store = await connectedProjectRealtimeStore();
+    const userChannel = phoenix.sockets[0]!.channels[0]!;
+    const projectChannel = phoenix.sockets[1]!.channels[0]!;
+
+    // A user-scoped delta on the user channel and a project-scoped delta on the
+    // project channel both land in the SAME id-keyed list.
+    userChannel.serverPush("memory_metadata", createdEvent("m1"));
+    projectChannel.serverPush("memory_metadata", projectCreatedEvent("p1"));
+    await flushEffects();
+
+    expect(store.getState().memories.map((m) => m.id)).toEqual(["p1", "m1"]);
+    expect(
+      store.getState().memories.find((m) => m.id === "p1")?.scope,
+    ).toBe("project");
+
+    // Invalidating the project memory on the project channel removes it.
+    projectChannel.serverPush("memory_metadata", {
+      operation: "invalidated",
+      memoryId: "p1",
+      organizationId: "org-1",
+      projectId: "proj-1",
+      occurredAt: "2026-01-01T00:00:00Z",
+      invalidated: { id: "p1" },
+    });
+    await flushEffects();
+
+    expect(store.getState().memories.map((m) => m.id)).toEqual(["m1"]);
+
+    store.stop();
+  });
+
+  it("shares the session stamp so a superseded context drops BOTH channels' deltas", async () => {
+    const store = await connectedProjectRealtimeStore();
+    const userChannel = phoenix.sockets[0]!.channels[0]!;
+    const projectChannel = phoenix.sockets[1]!.channels[0]!;
+
+    // Supersede the context: `contextChanged` bumps sessionId and clears the
+    // list. The old channels are now stamped with the PREVIOUS session.
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      wsUrl: "wss://gw.example.com/client",
+      headers: { Authorization: "Bearer token", "X-Cpki-User-Id": "u2" },
+    });
+    await flushEffects();
+
+    // Late deltas arriving on BOTH old channels must be dropped identically by
+    // the reducer's session guard (the D4 landmine): the project channel shares
+    // the user channel's session stamp, so neither stale delta leaks in.
+    userChannel.serverPush("memory_metadata", createdEvent("m-stale"));
+    projectChannel.serverPush("memory_metadata", projectCreatedEvent("p-stale"));
+    await flushEffects();
+
+    expect(store.getState().memories).toEqual([]);
+
+    store.stop();
+  });
+
+  it("does not regress realtimeStatus when the project channel is present", async () => {
+    const store = await connectedProjectRealtimeStore();
+
+    // The project channel does not emit status deltas; realtimeStatus is driven
+    // solely by the user channel. Joining the user channel -> "connected".
+    phoenix.sockets[0]!.channels[0]!.triggerJoin("ok");
+    await flushEffects();
+
+    expect(store.getState().realtimeStatus).toBe("connected");
+
+    // A project-channel join failure must NOT regress the user-facing status.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    phoenix.sockets[1]!.channels[0]!.triggerJoin("error", {
+      reason: "unauthorized",
+    });
+    await flushEffects();
+
+    expect(store.getState().realtimeStatus).toBe("connected");
+
+    warn.mockRestore();
+    store.stop();
+  });
 });
 
 const sampleContext = {
@@ -531,7 +700,10 @@ describe("memory store REST snapshot", () => {
     vi.unstubAllGlobals();
   });
 
-  it("loads the snapshot on setContext, keeping only user-scoped memories", async () => {
+  it("loads the snapshot on setContext, keeping both user- and project-scoped memories", async () => {
+    // Project rows are no longer filtered out of the snapshot: the store opens a
+    // `project_meta:memories:<code>` channel that keeps them live, so surfacing
+    // them in the list no longer risks going stale (B0 project-realtime slice).
     const fetchMock = vi.fn().mockResolvedValueOnce({
       ok: true,
       json: async () => ({
@@ -566,7 +738,11 @@ describe("memory store REST snapshot", () => {
       "https://runtime.example.com/memories",
       expect.objectContaining({ method: "GET" }),
     );
-    expect(store.getState().memories.map((m) => m.id)).toEqual(["m1"]);
+    expect(store.getState().memories.map((m) => m.id)).toEqual(["m1", "p1"]);
+    expect(store.getState().memories.map((m) => m.scope)).toEqual([
+      "user",
+      "project",
+    ]);
     expect(store.getState().isLoading).toBe(false);
 
     store.stop();
