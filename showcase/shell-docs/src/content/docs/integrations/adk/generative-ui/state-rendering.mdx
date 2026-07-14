@@ -166,6 +166,32 @@ is a situation where a user and an agent are working together to solve a problem
 
   </Step>
   <Step>
+    ### Understanding ADK-specific helpers
+
+    When implementing state streaming with ADK agents, you may encounter the `stop_on_terminal_text` callback in code examples. This callback is required for Google ADK agents because Gemini models don't naturally terminate their agentic loop after a successful tool call — without it, they keep re-issuing the same tool indefinitely.
+
+    <Accordions>
+      <Accordion title="What is stop_on_terminal_text?">
+        The `stop_on_terminal_text` callback inspects each model response and signals the ADK runtime to end the invocation when it detects a final text-only turn (no pending function calls). Here's the full implementation:
+
+        <Snippet region="stop-on-terminal-text" cell="agentic-chat" title="shared_chat.py — stop_on_terminal_text" />
+
+        This callback is used as the `after_model_callback` parameter when creating ADK agents:
+
+        ```python
+        from agents.shared_chat import stop_on_terminal_text
+
+        agent = LlmAgent(
+            name="my_agent",
+            model="gemini-3.1-flash-lite",
+            after_model_callback=stop_on_terminal_text,
+            # ... other configuration
+        )
+        ```
+      </Accordion>
+    </Accordions>
+  </Step>
+  <Step>
     ### Give it a try!
 
     You've now created a component that will render the agent's state in the chat.

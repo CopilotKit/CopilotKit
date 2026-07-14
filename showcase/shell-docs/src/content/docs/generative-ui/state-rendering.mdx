@@ -39,22 +39,6 @@ between node transitions.
 
 <Snippet region="state-streaming-middleware" title="backend — StateStreamingMiddleware" />
 
-<Accordions>
-  <Accordion title="What is stop_on_terminal_text?">
-    The backend example above imports `stop_on_terminal_text` as the
-    `after_model_callback`. This callback is required for Google ADK agents
-    because Gemini models don't naturally terminate their agentic loop after a
-    successful tool call — without it, they keep re-issuing the same tool
-    indefinitely.
-
-    The callback inspects each model response and signals the ADK runtime to
-    end the invocation when it detects a final text-only turn (no pending
-    function calls). Here's the full implementation:
-
-    <Snippet region="stop-on-terminal-text" cell="agentic-chat" title="shared_chat.py — stop_on_terminal_text" />
-  </Accordion>
-</Accordions>
-
 <IntegrationGrid
   path="generative-ui/state-rendering"
   exclude={["agno", "agent-spec"]}
