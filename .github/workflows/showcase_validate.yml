@@ -377,8 +377,12 @@ jobs:
         # pnpm-lock.yaml-pinned version is used (no registry-cache-miss drift).
         run: pnpm exec vitest bench src/cvdiag/emit-perf.bench.ts --run
 
-      - name: Harness ESM boot-smoke (no ERR_MODULE_NOT_FOUND)
+      - name: Harness ESM boot-smoke (no module-resolution errors)
         working-directory: showcase/harness
+        # Bound the whole step so a hung boot can never run away to the job's
+        # 25-minute timeout (see the `timeout 120s` wrapper below for the same
+        # guarantee at the node level).
+        timeout-minutes: 5
         # The harness ships as pure Node ESM: package.json `"type":"module"`,
         # build is `tsc` with `moduleResolution:"bundler"` (which PRESERVES
         # extensionless import specifiers at emit), and it runs via
@@ -388,27 +392,48 @@ jobs:
         # NONE of the other CI steps exercise the real `node dist` module graph.
         # A single extensionless relative import (as happened in the relocated
         # shared/cell-model fold) therefore builds green, passes every test, and
-        # only crash-loops the orchestrator at container boot with
-        # ERR_MODULE_NOT_FOUND. This step is the missing gate: build the dist and
-        # actually load the orchestrator module graph, failing hard on a module-
-        # resolution error. A later runtime error from missing env/PocketBase is
-        # expected and NOT a failure — only ERR_MODULE_NOT_FOUND reddens the build.
+        # only crash-loops the orchestrator at container boot with a module-
+        # resolution error. This step is the missing gate: build the dist and
+        # actually load the orchestrator module graph, failing hard on ANY
+        # module-resolution error class (not just ERR_MODULE_NOT_FOUND — a
+        # directory import, unexported package subpath, unknown extension, or
+        # invalid specifier is the same regression wearing a different code).
+        # A later runtime error from missing env/PocketBase (e.g. the
+        # `HARNESS_ROLE must be set` guard, which carries no such code) is
+        # expected and NOT a failure — only a module-resolution error reddens
+        # the build.
         run: |
           set -euo pipefail
           pnpm build
-          node -e "
+          # `timeout` (coreutils) yields a non-zero exit on timeout, so a hang
+          # FAILS the step rather than silently passing.
+          timeout 120s node -e "
+            // Any of these codes means a relative/package import failed to
+            // resolve under pure Node ESM — the exact regression this guards.
+            const MODULE_RESOLUTION_CODES = new Set([
+              'ERR_MODULE_NOT_FOUND',
+              'ERR_UNSUPPORTED_DIR_IMPORT',
+              'ERR_PACKAGE_PATH_NOT_EXPORTED',
+              'ERR_UNKNOWN_FILE_EXTENSION',
+              'ERR_INVALID_MODULE_SPECIFIER',
+            ]);
             import('./dist/orchestrator.js')
-              .then(() => { console.log('BOOT_OK: orchestrator module graph loaded'); })
+              .then(() => {
+                console.log('BOOT_OK: orchestrator module graph loaded');
+                // Explicit exit so a lingering open handle can't hang the run.
+                process.exit(0);
+              })
               .catch((e) => {
-                if (e && e.code === 'ERR_MODULE_NOT_FOUND') {
+                if (e && MODULE_RESOLUTION_CODES.has(e.code)) {
                   console.error('BOOT_FAIL:', e.code, e.message);
-                  console.error('An extensionless relative import broke the pure-ESM module graph. Add the .js extension to the offending relative import specifier.');
+                  console.error('A relative/package import failed to resolve in the pure-ESM module graph (e.g. a missing .js extension). Fix the offending import specifier.');
                   process.exit(1);
                 }
                 // Any non-module-resolution error (e.g. missing env/PocketBase
                 // at boot) means the module graph loaded fine — that is a PASS
                 // for this smoke.
                 console.log('BOOT_OK: module graph loaded (non-module-resolution runtime error is expected here):', e && e.code);
+                process.exit(0);
               });
           "
 
