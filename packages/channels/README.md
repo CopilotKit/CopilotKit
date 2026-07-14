@@ -25,17 +25,17 @@ pnpm add @copilotkit/channels-slack
 import { createChannel } from "@copilotkit/channels";
 import { slack } from "@copilotkit/channels-slack"; // a concrete PlatformAdapter
 
-const bot = createChannel({
+const channel = createChannel({
   adapters: [slack({ botToken, appToken })],
   agent: (threadId) => makeAgent(threadId), // AbstractAgent or (threadId) => AbstractAgent
   tools: [...myTools], // ChannelTool[] forwarded on every runAgent
   context: [...myContext], // ContextEntry[] forwarded on every runAgent
 });
 
-bot.onMention(({ thread }) => thread.runAgent());
-bot.onMessage(({ thread }) => thread.runAgent());
+channel.onMention(({ thread }) => thread.runAgent());
+channel.onMessage(({ thread }) => thread.runAgent());
 
-await bot.start();
+await channel.start();
 ```
 
 `createChannel(opts)` returns a `Channel`:
@@ -97,7 +97,7 @@ interface Thread {
   `{ id }`), then hand the IR to the adapter.
 - `runAgent` resolves the conversation's agent session, creates the adapter's
   `RunRenderer`, and drives the run/tool/interrupt loop. Per-run `tools` /
-  `context` are merged on top of the bot-level defaults for that run only.
+  `context` are merged on top of the channel-level defaults for that run only.
 - `resume(value)` re-enters a paused interrupt run with
   `forwardedProps.command`.
 - `awaitChoice<T>(ui)` posts a picker and blocks until an interaction in this
@@ -107,7 +107,7 @@ interface Thread {
 ## Tools & context
 
 A `ChannelTool` is forwarded to the agent as a frontend tool; its handler runs in
-the bot when the agent calls it. The handler `ctx` carries the `thread`, so a
+the channel when the agent calls it. The handler `ctx` carries the `thread`, so a
 tool can render JSX (`ctx.thread.post(<Card .../>)`) or run the agent further.
 
 ```ts
@@ -183,7 +183,7 @@ supports them — likewise `setSuggestedPrompts(target, prompts, opts?)` and
 `thread.setTitle`, and `sink.onThreadStarted(...)` emits the "conversation
 opened" lifecycle event. Slash commands are also capability-gated: an adapter forwards
 invocations via `sink.onCommand(IncomingCommand)`, and may implement
-`registerCommands(specs)` to publish the bot's declared commands up front
+`registerCommands(specs)` to publish the channel's declared commands up front
 (e.g. Discord's application-command API); adapters that omit it are skipped.
 See `@copilotkit/channels-slack` for a complete implementation.
 
