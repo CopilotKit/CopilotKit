@@ -417,6 +417,23 @@ jobs:
               'ERR_UNKNOWN_FILE_EXTENSION',
               'ERR_INVALID_MODULE_SPECIFIER',
             ]);
+            // A module-resolution error does not always arrive at the top
+            // level: Node (or an intermediate loader) may rethrow it WRAPPED
+            // in \`e.cause\` (possibly a chain) or bundled inside an
+            // AggregateError (\`e.errors\`), where a bare \`e.code\` check sees
+            // no code and would wave the regression through. So collect every
+            // code reachable from the thrown error — itself, its cause chain,
+            // and any AggregateError members (recursively, with a depth cap to
+            // bound cause cycles) — and fail if ANY is a resolution code.
+            const collectErrorCodes = (e, depth = 0, codes = new Set()) => {
+              if (!e || typeof e !== 'object' || depth > 10) return codes;
+              if (e.code) codes.add(e.code);
+              if (e.cause) collectErrorCodes(e.cause, depth + 1, codes);
+              if (Array.isArray(e.errors)) {
+                for (const inner of e.errors) collectErrorCodes(inner, depth + 1, codes);
+              }
+              return codes;
+            };
             import('./dist/orchestrator.js')
               .then(() => {
                 console.log('BOOT_OK: orchestrator module graph loaded');
@@ -424,8 +441,9 @@ jobs:
                 process.exit(0);
               })
               .catch((e) => {
-                if (e && MODULE_RESOLUTION_CODES.has(e.code)) {
-                  console.error('BOOT_FAIL:', e.code, e.message);
+                const hit = [...collectErrorCodes(e)].find((c) => MODULE_RESOLUTION_CODES.has(c));
+                if (hit) {
+                  console.error('BOOT_FAIL:', hit, e && e.message);
                   console.error('A relative/package import failed to resolve in the pure-ESM module graph (e.g. a missing .js extension). Fix the offending import specifier.');
                   process.exit(1);
                 }
