@@ -90,6 +90,13 @@ export type { CapabilityToolRow as ɵCapabilityToolRow };
 export const WEB_INSPECTOR_TAG = "cpk-web-inspector" as const;
 export const THREAD_INSPECTOR_TAG = "cpk-thread-inspector" as const;
 
+/**
+ * User-facing label for the memory surface (nav item + view header). The menu
+ * KEY stays "memories" for persistence/telemetry stability; only the label
+ * changed from "Learning" to "Memory".
+ */
+const MEMORY_VIEW_LABEL = "Memory";
+
 type LucideIconName = keyof typeof icons;
 
 type MenuKey =
@@ -4375,7 +4382,11 @@ export class WebInspectorElement extends LitElement {
         label: "Threads",
         icon: "MessageSquare" as LucideIconName,
       },
-      { key: "memories", label: "Learning", icon: "Brain" as LucideIconName },
+      {
+        key: "memories",
+        label: MEMORY_VIEW_LABEL,
+        icon: "Brain" as LucideIconName,
+      },
     ];
   }
 
@@ -9077,7 +9088,7 @@ ${argsString}</pre
     return html`
       <div style="display:flex;height:100%;overflow:hidden;flex-direction:column;">
         <div class="cpk-section-header" style="display:flex;align-items:center;justify-content:space-between;">
-          <h4>Learning</h4>
+          <h4>${MEMORY_VIEW_LABEL}</h4>
           <div style="display:flex;align-items:center;gap:6px;">
             ${this.renderMemoryRealtimeIndicator()}
             <span
