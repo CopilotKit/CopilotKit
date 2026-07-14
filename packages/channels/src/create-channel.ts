@@ -207,6 +207,8 @@ export interface CreateChannelOptions<
 export interface Channel<TState = unknown> {
   /** Project-unique identifier from `createChannel({ name })`; used by the Channel runtime. */
   readonly name?: string;
+  /** Adapters currently attached to this Channel (read-only snapshot). The Channel runtime uses this to distinguish a managed-eligible Channel (no adapters) from one carrying developer-supplied direct adapters. */
+  readonly adapters: readonly PlatformAdapter[];
   /** Declared slash-command names (normalized). Surfaced for Channel activation metadata. */
   readonly commandNames: string[];
   onMention(h: ChannelHandler<TState>): void;
@@ -715,6 +717,11 @@ export function createChannel<
 
   const bot: Channel<ThreadStateOf<TStateSchema>> = {
     name: opts.name,
+    get adapters() {
+      // Defensive read-only copy: mutating the returned array must not affect
+      // the Channel's private adapter list.
+      return [...adapters];
+    },
     get commandNames() {
       return [...commandHandlers.keys()];
     },

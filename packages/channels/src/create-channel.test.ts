@@ -7,6 +7,7 @@ import { FakeAgent } from "./testing/fake-agent.js";
 import { MemoryStore } from "./state/memory-store.js";
 import { Section, Actions, Button } from "@copilotkit/channels-ui";
 import type { BotNode } from "@copilotkit/channels-ui";
+import type { PlatformAdapter } from "./platform-adapter.js";
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
@@ -1103,5 +1104,26 @@ describe("createChannel slash commands", () => {
     } finally {
       errSpy.mockRestore();
     }
+  });
+
+  it("exposes attached adapters through a read-only, non-mutable-through accessor", () => {
+    const fake = new FakeAdapter();
+    const bot = createChannel({ adapters: [fake] });
+
+    expect(bot.adapters).toContain(fake);
+    expect(bot.adapters).toHaveLength(1);
+
+    // The returned snapshot is a copy: mutating it must not affect the channel.
+    (bot.adapters as PlatformAdapter[]).push(new FakeAdapter());
+    expect(bot.adapters).toHaveLength(1);
+  });
+
+  it("reflects an adapter attached via addAdapter in the adapters accessor", () => {
+    const bot = createChannel({});
+    expect(bot.adapters).toHaveLength(0);
+
+    const fake = new FakeAdapter();
+    bot.addAdapter(fake);
+    expect(bot.adapters).toEqual([fake]);
   });
 });

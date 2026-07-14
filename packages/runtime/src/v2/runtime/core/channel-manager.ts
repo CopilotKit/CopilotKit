@@ -328,7 +328,23 @@ export class ChannelManager implements ChannelsControl {
     this.assertUniqueChannelNames();
     this.activated = true;
 
+    // Partition declared Channels by transport. A Channel carrying any adapter
+    // that is NOT the Intelligence managed adapter (a developer-supplied
+    // slack/discord/... adapter, which lacks `__intelligenceChannel`) is a
+    // DIRECT channel: it is started by the developer via `channel.start()`, not
+    // managed-activated here. Managed-activating it would attach a second
+    // (Intelligence) adapter and trip the SDK's `assertExclusive` guard, moving
+    // the Channel to `error`. Per the SoT rule, never infer managed intent from
+    // a local direct adapter — direct adapters remain additive. A managed-eligible
+    // Channel has an empty `adapters` at declaration time.
     for (const channel of this.channels) {
+      const isDirect = channel.adapters.some((a) => !a.__intelligenceChannel);
+      if (isDirect) {
+        this.log?.(
+          `channel "${channel.name!}" carries a direct adapter — skipping managed activation (direct channels are started via channel.start())`,
+        );
+        continue;
+      }
       const name = channel.name!;
       const runtimeInstanceId = this.mintRuntimeInstanceId();
 

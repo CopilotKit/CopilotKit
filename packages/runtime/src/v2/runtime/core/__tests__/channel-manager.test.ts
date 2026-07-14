@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { createChannel } from "@copilotkit/channels";
+import { createChannel, FakeAdapter } from "@copilotkit/channels";
 import { CopilotKitIntelligence } from "../../intelligence-platform";
 import {
   ChannelManager,
@@ -484,6 +484,78 @@ describe("ChannelManager", () => {
 
     expect(mgr.status().overall).toBe("online");
     await expect(mgr.ready()).resolves.toBeUndefined();
+    expect(engine).not.toHaveBeenCalled();
+  });
+
+  it("skips managed activation for a channel carrying a direct adapter, activating only the managed one", async () => {
+    const log = vi.fn();
+    const engine: ActivateChannelEngine = vi.fn(async () => fakeHandle());
+    const managed = createChannel({ name: "support" });
+    const direct = createChannel({
+      name: "sales",
+      adapters: [new FakeAdapter({ platform: "slack" })],
+    });
+
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [managed, direct],
+      activateChannel: engine,
+      log,
+    });
+    mgr.activate();
+
+    expect(engine).toHaveBeenCalledTimes(1);
+
+    await expect(mgr.ready()).resolves.toBeUndefined();
+    expect(mgr.status().channels).toEqual({ support: "online" });
+    expect(mgr.status().channels).not.toHaveProperty("sales");
+
+    const breadcrumbs = log.mock.calls.map(([msg]) => msg);
+    expect(
+      breadcrumbs.some(
+        (msg) =>
+          typeof msg === "string" &&
+          msg.includes("sales") &&
+          msg.includes("direct adapter"),
+      ),
+    ).toBe(true);
+  });
+
+  it("does not call the engine for a lone direct-adapter channel; status is coherent and ready() resolves", async () => {
+    const engine: ActivateChannelEngine = vi.fn(async () => fakeHandle());
+    const direct = createChannel({
+      name: "sales",
+      adapters: [new FakeAdapter({ platform: "slack" })],
+    });
+
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [direct],
+      activateChannel: engine,
+    });
+    mgr.activate();
+
+    expect(engine).not.toHaveBeenCalled();
+    expect(mgr.status().overall).toBe("online");
+    expect(mgr.status().channels).toEqual({});
+    await expect(mgr.ready()).resolves.toBeUndefined();
+  });
+
+  it("still enforces unique names across all declared channels, including direct ones", () => {
+    const engine: ActivateChannelEngine = vi.fn(async () => fakeHandle());
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [
+        createChannel({ name: "support" }),
+        createChannel({
+          name: "support",
+          adapters: [new FakeAdapter({ platform: "slack" })],
+        }),
+      ],
+      activateChannel: engine,
+    });
+
+    expect(() => mgr.activate()).toThrow(/support/);
     expect(engine).not.toHaveBeenCalled();
   });
 
