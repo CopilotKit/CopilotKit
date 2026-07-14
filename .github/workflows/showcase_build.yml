@@ -164,6 +164,15 @@ jobs:
               - 'showcase/shared/**'
               - 'showcase/scripts/**'
               - 'showcase/integrations/*/manifest.yaml'
+              # The dashboard re-exports the harness's shared cell-model fold
+              # (src/lib/{cell-model,live-status,staleness,format-ts}.ts →
+              # ../../../harness/src/shared/cell-model/*), so those files are
+              # compiled INTO the dashboard's `next build`. A change to the
+              # fold that only touches showcase/harness/** would otherwise
+              # select `showcase_harness` but NOT this slot — exactly how
+              # #5952 shipped an unbuilt dashboard. Gate the dashboard on the
+              # fold so a fold change can never again bypass its build.
+              - 'showcase/harness/src/shared/**'
             shell_docs:
               - 'showcase/shell-docs/**'
               - 'showcase/shared/**'

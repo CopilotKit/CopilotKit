@@ -21,7 +21,29 @@ import type { NextConfig } from "next";
  *   1. showcase-harness has no CORS allowlist for cross-origin browser calls.
  *   2. The ops base URL stays out of the client bundle (no `NEXT_PUBLIC_*`
  *      exposure).
+ *
+ * `webpack.resolve.extensionAlias`: the dashboard re-exports the shared
+ * cell-model fold from the harness (`src/lib/{cell-model,live-status,
+ * staleness,format-ts}.ts` → `../../../harness/src/shared/cell-model/*`).
+ * Those fold files are authored for the harness's pure-Node-ESM runtime, so
+ * their INTERNAL relative imports carry explicit `.js` extensions (e.g.
+ * `import { formatTs } from "./format-ts.js"`). `export *` does NOT rewrite
+ * those internal edges, so `next build`'s webpack sees a literal `./x.js`
+ * specifier that only exists on disk as `./x.ts` and fails to resolve. The
+ * extensionAlias tells webpack to try the TypeScript sources when a `.js`
+ * specifier is requested — the standard bundler complement to TS's
+ * NodeNext `.js`-import convention. This covers the `next build` (webpack)
+ * path that CI uses.
  */
-const nextConfig: NextConfig = {};
+const nextConfig: NextConfig = {
+  webpack: (config) => {
+    config.resolve.extensionAlias = {
+      ...(config.resolve.extensionAlias ?? {}),
+      ".js": [".ts", ".tsx", ".js"],
+      ".mjs": [".mts", ".mjs"],
+    };
+    return config;
+  },
+};
 
 export default nextConfig;
