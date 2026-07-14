@@ -1,7 +1,7 @@
 """Test tool call event ordering to prevent race conditions.
 
 This test validates the fix for FAC-124: ensure TOOL_CALL_START is dispatched
-and processed before TOOL_CALL_ARGS to prevent "No active tool call found" 
+and processed before TOOL_CALL_ARGS to prevent "No active tool call found"
 errors in downstream middleware (@ag-ui/mcp-apps-middleware).
 """
 
@@ -27,7 +27,7 @@ def agent():
 
 def test_tool_call_events_emitted_in_correct_order(agent):
     """TOOL_CALL_START must be dispatched before TOOL_CALL_ARGS.
-    
+
     This test validates that the ManuallyEmitToolCall handler dispatches
     events in the correct order: START -> ARGS -> END. While the base
     class _dispatch_event is synchronous, this ensures the defensive
@@ -54,8 +54,10 @@ def test_tool_call_events_emitted_in_correct_order(agent):
 
     # Extract the three tool call events in the order they were dispatched
     tool_events = [
-        e for e in dispatched_events
-        if e.type in [
+        e
+        for e in dispatched_events
+        if e.type
+        in [
             EventType.TOOL_CALL_START,
             EventType.TOOL_CALL_ARGS,
             EventType.TOOL_CALL_END,
@@ -63,14 +65,17 @@ def test_tool_call_events_emitted_in_correct_order(agent):
     ]
 
     assert len(tool_events) == 3, f"Expected 3 tool call events, got {len(tool_events)}"
-    
+
     # Verify order: START -> ARGS -> END
-    assert tool_events[0].type == EventType.TOOL_CALL_START, \
+    assert tool_events[0].type == EventType.TOOL_CALL_START, (
         "First event must be TOOL_CALL_START"
-    assert tool_events[1].type == EventType.TOOL_CALL_ARGS, \
+    )
+    assert tool_events[1].type == EventType.TOOL_CALL_ARGS, (
         "Second event must be TOOL_CALL_ARGS"
-    assert tool_events[2].type == EventType.TOOL_CALL_END, \
+    )
+    assert tool_events[2].type == EventType.TOOL_CALL_END, (
         "Third event must be TOOL_CALL_END"
+    )
 
     # All three should share the same tool_call_id
     assert tool_events[0].tool_call_id == "tc-order-test"
@@ -80,7 +85,7 @@ def test_tool_call_events_emitted_in_correct_order(agent):
 
 def test_tool_call_events_no_interleaving(agent):
     """Multiple tool calls should emit complete sequences without interleaving.
-    
+
     This validates that if two tool calls are emitted in sequence, each
     complete START->ARGS->END sequence finishes before the next begins.
     """
@@ -117,8 +122,10 @@ def test_tool_call_events_no_interleaving(agent):
 
     # Extract tool call events
     tool_events = [
-        e for e in dispatched_events
-        if e.type in [
+        e
+        for e in dispatched_events
+        if e.type
+        in [
             EventType.TOOL_CALL_START,
             EventType.TOOL_CALL_ARGS,
             EventType.TOOL_CALL_END,
@@ -142,7 +149,7 @@ def test_tool_call_events_no_interleaving(agent):
     assert tool_events[0].type == EventType.TOOL_CALL_START
     assert tool_events[1].type == EventType.TOOL_CALL_ARGS
     assert tool_events[2].type == EventType.TOOL_CALL_END
-    
+
     assert tool_events[3].type == EventType.TOOL_CALL_START
     assert tool_events[4].type == EventType.TOOL_CALL_ARGS
     assert tool_events[5].type == EventType.TOOL_CALL_END
