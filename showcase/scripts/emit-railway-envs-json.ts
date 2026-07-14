@@ -69,6 +69,14 @@ interface Emitted {
     dispatchName?: string;
     repoNameOverride?: { prod?: string; staging?: string };
     domains: { staging: string; prod: string };
+    // Env-scoped PRIVATE Railway networking hosts (`*.railway.internal`).
+    // Emitted ONLY for services that declare an `internalDomain` in the SSOT
+    // (today: aimock). The Ruby serviceRef assertion (`ssot_target_host`)
+    // PREFERS this over the public `domains` host so demo backends route LLM
+    // traffic over free intra-env networking instead of billed public egress.
+    // Omitted (whole object absent) when neither env declares one — the frozen
+    // per-service shape is preserved for every other service.
+    internalDomains?: { staging?: string; prod?: string };
     probe: { staging: boolean; prod: boolean; driver: string };
     // --- Promote-closure fields (ADDITIVE, U2). Appended AFTER the frozen
     // legacy keys above so the Ruby/jq legacy shape stays byte-identical. ---
@@ -161,6 +169,20 @@ function projectServiceToLegacyJson(
   const prodDomain = prodEnv?.domain ?? compatDomains?.prod ?? "";
   const stagingDomain = stagingEnv?.domain ?? compatDomains?.staging ?? "";
 
+  // Private env-scoped networking hosts. Additive: emitted only when at least
+  // one env declares an `internalDomain` (today: aimock), and each env key is
+  // conditionally spread so a single-env internal host stays minimal. Every
+  // other service omits the whole object, preserving its frozen shape.
+  const prodInternal = prodEnv?.internalDomain;
+  const stagingInternal = stagingEnv?.internalDomain;
+  const internalDomains =
+    prodInternal !== undefined || stagingInternal !== undefined
+      ? {
+          ...(stagingInternal !== undefined ? { staging: stagingInternal } : {}),
+          ...(prodInternal !== undefined ? { prod: prodInternal } : {}),
+        }
+      : undefined;
+
   // Per-env healthcheckPath: mirror the per-env-flat ({prod, staging}) legacy
   // shape used by domains/repoNameOverride. Each env key is conditionally
   // spread (omitted when the EnvironmentConfig omits it), and the whole object
@@ -192,6 +214,11 @@ function projectServiceToLegacyJson(
     dispatchName: entry.dispatchName,
     repoNameOverride,
     domains: { staging: stagingDomain, prod: prodDomain },
+    // Private networking hosts, appended AFTER `domains` (additive). Emitted
+    // only when the SSOT declares an `internalDomain`; omitted otherwise so
+    // every non-aimock service keeps its frozen shape and the golden test
+    // (which projects only LEGACY_KEYS) is unaffected.
+    ...(internalDomains !== undefined ? { internalDomains } : {}),
     probe: {
       staging: stagingEnv ? (stagingEnv.probe ?? true) : false,
       prod: prodEnv ? (prodEnv.probe ?? true) : false,
