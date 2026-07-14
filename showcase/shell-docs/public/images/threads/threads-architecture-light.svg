@@ -89,9 +89,9 @@
   <circle cx="1050" cy="232" r="84" fill="#ffffff" stroke="#acb7f6" stroke-width="2"/>
   <circle cx="1050" cy="232" r="112" fill="none" stroke="#d3d9fc" stroke-width="2" stroke-dasharray="4 8"/>
   <text x="1050" y="200" text-anchor="middle" class="sans purple" font-size="12" font-weight="700">3. Continue the same thread</text>
-  <rect x="986" y="216" width="128" height="35" rx="8" fill="#432dd7"/>
-  <text x="998" y="231" class="sans" font-size="8.5" fill="#ffffff">Pick up where you left off</text>
-  <text x="998" y="243" class="sans" font-size="8.5" fill="#ffffff">with history restored.</text>
+  <rect x="980" y="213" width="140" height="40" rx="8" fill="#432dd7"/>
+  <text x="1050" y="230" text-anchor="middle" class="sans" font-size="8.5" fill="#ffffff">Pick up where you left off</text>
+  <text x="1050" y="243" text-anchor="middle" class="sans" font-size="8.5" fill="#ffffff">with history restored.</text>
   <rect x="1001" y="263" width="98" height="12" rx="6" fill="#f4f4f5"/>
   <path d="M1012 269H1088" stroke="#a1a1aa" stroke-width="3" stroke-linecap="round"/>
 
@@ -107,13 +107,14 @@
   <g>
     <rect x="300" y="432" width="566" height="86" rx="10" fill="#f1f4fe" stroke="#ced5fb"/>
     <text x="320" y="452" class="sans purple" font-size="11" font-weight="700">CopilotKit provides</text>
-    <path d="M488 447V503M674 447V503" stroke="#ced5fb"/>
     <text x="320" y="477" class="sans node-title ink">Thread UI</text>
     <text x="320" y="498" class="sans node-copy muted">Drawer or useThreads</text>
     <text x="512" y="477" class="mono ink" font-size="15" font-weight="700">CopilotChat</text>
     <text x="512" y="498" class="sans node-copy muted">opens the thread</text>
     <text x="698" y="477" class="mono ink" font-size="15" font-weight="700">CopilotRuntime</text>
     <text x="698" y="498" class="sans node-copy muted">relays AG-UI events</text>
+    <path d="M466 479H488M652 479H674" stroke="#432dd7" stroke-width="2" stroke-linecap="round"/>
+    <path d="M488 474L498 479L488 484ZM674 474L684 479L674 484Z" fill="#432dd7"/>
   </g>
   <g>
     <rect x="880" y="432" width="176" height="86" rx="10" fill="#ffffff" stroke="#d4d4d8"/>

@@ -80,9 +80,9 @@
   <circle cx="155" cy="546" r="83" fill="#e9ecfe"/>
   <circle cx="155" cy="546" r="68" fill="#ffffff" stroke="#acb7f6" stroke-width="2"/>
   <text x="155" y="518" text-anchor="middle" class="sans purple" font-size="13" font-weight="700">Continue the same thread</text>
-  <rect x="102" y="535" width="106" height="34" rx="8" fill="#432dd7"/>
-  <text x="115" y="550" class="sans" font-size="8.5" fill="#ffffff">History is restored and</text>
-  <text x="115" y="562" class="sans" font-size="8.5" fill="#ffffff">the live run reconnects.</text>
+  <rect x="92" y="532" width="126" height="42" rx="8" fill="#432dd7"/>
+  <text x="155" y="550" text-anchor="middle" class="sans" font-size="8.5" fill="#ffffff">History is restored and</text>
+  <text x="155" y="564" text-anchor="middle" class="sans" font-size="8.5" fill="#ffffff">the live run reconnects.</text>
   <path d="M122 583H189" stroke="#a1a1aa" stroke-width="4" stroke-linecap="round"/>
 
   <!-- Application layer -->
@@ -96,39 +96,39 @@
   <g>
     <rect x="38" y="747" width="644" height="135" rx="10" fill="#f1f4fe" stroke="#ced5fb"/>
     <text x="58" y="773" class="sans purple" font-size="13" font-weight="700">CopilotKit provides</text>
-    <path d="M250 790V860M464 790V860" stroke="#ced5fb"/>
     <text x="58" y="813" class="sans node-title ink">Thread UI</text>
     <text x="58" y="839" class="sans node-copy muted">Drawer or useThreads</text>
     <text x="274" y="813" class="mono ink" font-size="17" font-weight="700">CopilotChat</text>
     <text x="274" y="839" class="sans node-copy muted">opens the thread</text>
     <text x="488" y="813" class="mono ink" font-size="16" font-weight="700">CopilotRuntime</text>
     <text x="488" y="839" class="sans node-copy muted">relays AG-UI events</text>
-    <path d="M222 825H262M436 825H476" stroke="#432dd7" stroke-width="2" marker-end="url(#arrow)"/>
+    <path d="M230 825H250M444 825H464" stroke="#432dd7" stroke-width="2" stroke-linecap="round"/>
+    <path d="M250 820L260 825L250 830ZM464 820L474 825L464 830Z" fill="#432dd7"/>
   </g>
   <g>
-    <rect x="38" y="898" width="460" height="74" rx="10" fill="#ffffff" stroke="#d4d4d8"/>
-    <text x="58" y="925" class="sans purple" font-size="13" font-weight="700">You bring</text>
-    <text x="178" y="925" class="sans node-title ink">Your agent</text>
-    <text x="178" y="950" class="sans node-copy muted">prompts, tools, and logic</text>
+    <rect x="38" y="898" width="644" height="86" rx="10" fill="#ffffff" stroke="#d4d4d8"/>
+    <text x="58" y="932" class="sans purple" font-size="13" font-weight="700">You bring</text>
+    <text x="178" y="928" class="sans node-title ink">Your agent</text>
+    <text x="178" y="956" class="sans node-copy muted">prompts, tools, and logic</text>
   </g>
-  <path d="M575 882V1010" stroke="#432dd7" stroke-width="2" marker-end="url(#arrow)"/>
-  <path d="M575 882V935H498" fill="none" stroke="#432dd7" stroke-width="2" marker-end="url(#arrow)"/>
-  <rect x="584" y="943" width="100" height="24" rx="6" fill="#ffffff"/>
-  <text x="634" y="960" text-anchor="middle" class="mono purple" font-size="13" font-weight="700">AG-UI events</text>
+  <path d="M575 882V898" stroke="#432dd7" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M360 984V1018" stroke="#432dd7" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="377" y="991" width="100" height="24" rx="6" fill="#ffffff"/>
+  <text x="427" y="1008" text-anchor="middle" class="mono purple" font-size="13" font-weight="700">AG-UI events</text>
   <!-- Enterprise Intelligence -->
-  <rect x="38" y="1010" width="644" height="177" rx="12" fill="#f1f4fe" stroke="#ced5fb"/>
-  <rect x="58" y="1031" width="48" height="48" rx="11" fill="#432dd7"/>
-  <path d="M72 1045C72 1039 92 1039 92 1045V1064C92 1070 72 1070 72 1064ZM72 1045C72 1051 92 1051 92 1045M72 1055C72 1061 92 1061 92 1055" fill="none" stroke="#ffffff" stroke-width="2"/>
-  <text x="122" y="1051" class="sans lane purple">What Intelligence handles</text>
-  <text x="122" y="1076" class="sans muted" font-size="15">Durability and coordination behind every thread.</text>
-  <path d="M75 1121H645" stroke="#c8d0fa" stroke-width="2"/>
-  <circle cx="100" cy="1121" r="7" fill="#432dd7"/>
-  <circle cx="265" cy="1121" r="7" fill="#432dd7"/>
-  <circle cx="425" cy="1121" r="7" fill="#432dd7"/>
-  <circle cx="595" cy="1121" r="7" fill="#432dd7"/>
-  <text x="100" y="1157" text-anchor="middle" class="sans ink" font-size="14" font-weight="700">Durable history</text>
-  <text x="265" y="1157" text-anchor="middle" class="sans ink" font-size="14" font-weight="700">Replay to live</text>
-  <text x="425" y="1157" text-anchor="middle" class="sans ink" font-size="14" font-weight="700">Realtime sync</text>
-  <text x="595" y="1157" text-anchor="middle" class="sans ink" font-size="14" font-weight="700">Lifecycle + locking</text>
-  <text x="666" y="1217" text-anchor="end" class="sans faint" font-size="13">Cloud-hosted or self-hosted</text>
+  <rect x="38" y="1018" width="644" height="177" rx="12" fill="#f1f4fe" stroke="#ced5fb"/>
+  <rect x="58" y="1039" width="48" height="48" rx="11" fill="#432dd7"/>
+  <path d="M72 1053C72 1047 92 1047 92 1053V1072C92 1078 72 1078 72 1072ZM72 1053C72 1059 92 1059 92 1053M72 1063C72 1069 92 1069 92 1063" fill="none" stroke="#ffffff" stroke-width="2"/>
+  <text x="122" y="1059" class="sans lane purple">What Intelligence handles</text>
+  <text x="122" y="1084" class="sans muted" font-size="15">Durability and coordination behind every thread.</text>
+  <path d="M75 1129H645" stroke="#c8d0fa" stroke-width="2"/>
+  <circle cx="100" cy="1129" r="7" fill="#432dd7"/>
+  <circle cx="265" cy="1129" r="7" fill="#432dd7"/>
+  <circle cx="425" cy="1129" r="7" fill="#432dd7"/>
+  <circle cx="595" cy="1129" r="7" fill="#432dd7"/>
+  <text x="100" y="1165" text-anchor="middle" class="sans ink" font-size="14" font-weight="700">Durable history</text>
+  <text x="265" y="1165" text-anchor="middle" class="sans ink" font-size="14" font-weight="700">Replay to live</text>
+  <text x="425" y="1165" text-anchor="middle" class="sans ink" font-size="14" font-weight="700">Realtime sync</text>
+  <text x="595" y="1165" text-anchor="middle" class="sans ink" font-size="14" font-weight="700">Lifecycle + locking</text>
+  <text x="666" y="1225" text-anchor="end" class="sans faint" font-size="13">Cloud-hosted or self-hosted</text>
 </svg>
