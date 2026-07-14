@@ -1,6 +1,7 @@
 import {
   CpkThreadInspector,
   WebInspectorElement,
+  ɵbuildCapabilityRows,
   ɵCpkThreadDetails,
 } from "../index.js";
 import type { ThreadDebuggerProvider } from "../index.js";
@@ -3314,5 +3315,60 @@ describe("WebInspectorElement memories — tab telemetry + detach reset", () => 
     expect(state._memoriesLoading).toBe(false);
     expect(state._memoriesError).toBeNull();
     expect(state._memoriesAvailable).toBe(true);
+  });
+});
+
+describe("ɵbuildCapabilityRows", () => {
+  it("maps core.tools to rows, reflects isToolEnabled, and sorts by agentId then name", () => {
+    const enabled = new Set(["b-tool"]);
+    const core = {
+      tools: [
+        { name: "z-tool", agentId: "agent-2", description: "zed" },
+        { name: "a-tool", agentId: "agent-1" },
+        { name: "b-tool" },
+      ],
+      isToolEnabled: (name: string) => enabled.has(name),
+    };
+    const rows = ɵbuildCapabilityRows(core);
+    expect(rows.map((r) => r.name)).toEqual(["b-tool", "a-tool", "z-tool"]);
+    expect(rows[0]).toMatchObject({
+      key: ":b-tool",
+      name: "b-tool",
+      agentId: undefined,
+      enabled: true,
+      fired: false,
+    });
+    expect(rows.find((r) => r.name === "a-tool")).toMatchObject({
+      key: "agent-1:a-tool",
+      enabled: false,
+    });
+    expect(rows.find((r) => r.name === "z-tool")).toMatchObject({
+      description: "zed",
+      enabled: false,
+    });
+  });
+
+  it("passes isToolEnabled the tool's agentId (per-agent enablement)", () => {
+    const calls: Array<[string, string | undefined]> = [];
+    const core = {
+      tools: [{ name: "t", agentId: "agent-x" }],
+      isToolEnabled: (name: string, agentId?: string) => {
+        calls.push([name, agentId]);
+        return true;
+      },
+    };
+    ɵbuildCapabilityRows(core);
+    expect(calls).toEqual([["t", "agent-x"]]);
+  });
+
+  it("marks rows as fired when their key is in the fired set", () => {
+    const core = { tools: [{ name: "t", agentId: "a" }], isToolEnabled: () => true };
+    const rows = ɵbuildCapabilityRows(core, new Set(["a:t"]));
+    expect(rows[0]?.fired).toBe(true);
+  });
+
+  it("returns an empty array when there are no tools", () => {
+    expect(ɵbuildCapabilityRows({ tools: [], isToolEnabled: () => false })).toEqual([]);
+    expect(ɵbuildCapabilityRows({ isToolEnabled: () => false })).toEqual([]);
   });
 });

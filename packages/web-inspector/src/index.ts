@@ -84,6 +84,8 @@ import type {
 } from "./lib/telemetry.js";
 
 export type { Anchor } from "./lib/types.js";
+export { buildCapabilityRows as ɵbuildCapabilityRows };
+export type { CapabilityToolRow as ɵCapabilityToolRow };
 
 export const WEB_INSPECTOR_TAG = "cpk-web-inspector" as const;
 export const THREAD_INSPECTOR_TAG = "cpk-thread-inspector" as const;
@@ -225,6 +227,61 @@ type InspectorToolDefinition = {
   parameters?: unknown;
   type: "handler" | "renderer";
 };
+
+// ─── Capabilities tab view-models ────────────────────────────────────────────
+// A single toggle row. `key` is the stable identity used for the "fired" set
+// and as a Lit list key; for tools it is `${agentId}:${name}` (agentId "" for
+// global tools), for catalog components it is the component name.
+type CapabilityToolRow = {
+  key: string;
+  name: string;
+  description?: string;
+  agentId?: string;
+  enabled: boolean;
+  fired: boolean;
+};
+
+// Minimal structural view of CopilotKitCore that the pure helper needs, so
+// buildCapabilityRows is trivially unit-testable with a plain object. Method
+// names MUST match the A1 contract exactly.
+type CapabilityToolSource = {
+  tools?: ReadonlyArray<{
+    name: string;
+    description?: string;
+    agentId?: string;
+  }>;
+  isToolEnabled: (name: string, agentId?: string) => boolean;
+};
+
+/**
+ * Map core.tools (the registry INCLUDING disabled tools) into Capabilities-tab
+ * frontend-tool rows. Pure: no DOM, no `this`. Reads current on/off state from
+ * core.isToolEnabled(name, agentId?) per the A1 contract. `fired` is passed in
+ * from the caller's session set (keyed identically to `key`).
+ */
+function buildCapabilityRows(
+  core: CapabilityToolSource,
+  firedKeys: ReadonlySet<string> = new Set(),
+): CapabilityToolRow[] {
+  const rows: CapabilityToolRow[] = [];
+  for (const tool of core.tools ?? []) {
+    const agentId = tool.agentId ?? "";
+    const key = `${agentId}:${tool.name}`;
+    rows.push({
+      key,
+      name: tool.name,
+      description: tool.description,
+      agentId: tool.agentId,
+      enabled: core.isToolEnabled(tool.name, tool.agentId),
+      fired: firedKeys.has(key),
+    });
+  }
+  return rows.sort((a, b) => {
+    const agentCompare = (a.agentId ?? "").localeCompare(b.agentId ?? "");
+    if (agentCompare !== 0) return agentCompare;
+    return a.name.localeCompare(b.name);
+  });
+}
 
 type InspectorEvent = {
   id: string;
@@ -4082,6 +4139,7 @@ export class WebInspectorElement extends LitElement {
   static properties = {
     core: { attribute: false },
     autoAttachCore: { type: Boolean, attribute: "auto-attach-core" },
+    _capabilitiesVersion: { state: true },
   } as const;
 
   private _core: CopilotKitCore | null = null;
@@ -4165,6 +4223,16 @@ export class WebInspectorElement extends LitElement {
   private attemptedAutoAttach = false;
   private cachedTools: InspectorToolDefinition[] = [];
   private toolSignature = "";
+  // Bumped after every core.setToolEnabled / core.setCatalogComponentEnabled
+  // call so the Capabilities tab re-paints from the fresh isToolEnabled /
+  // isCatalogComponentEnabled getters. There is no core subscriber for
+  // enablement changes — the inspector itself drives the toggle, so we force
+  // the re-render locally.
+  private _capabilitiesVersion = 0;
+  // Names of capabilities (tool key `${agentId}:${name}` or catalog component
+  // `name`) that have FIRED at least once this session. Drives the optional
+  // "active" dot. Populated in the agent tool-call subscriber (Task 7).
+  private firedCapabilities: Set<string> = new Set();
   private eventFilterText = "";
   private eventTypeFilter: InspectorAgentEventType | "all" = "all";
   // Column widths for the AG-UI events table (agent, time, event-type; last col is auto)
