@@ -127,9 +127,7 @@ describe("PROD_D0_MONITOR_ALLOW_ENV — staging-enable env override (§10.8)", (
     // No override: registers ONLY on production, never on staging.
     expect(shouldRegister({ SHOWCASE_ENV: "production" })).toBe(true);
     expect(shouldRegister({ SHOWCASE_ENV: "staging" })).toBe(false);
-    expect(
-      shouldRegister({ RAILWAY_ENVIRONMENT_NAME: "staging" }),
-    ).toBe(false);
+    expect(shouldRegister({ RAILWAY_ENVIRONMENT_NAME: "staging" })).toBe(false);
   });
 
   it("ALLOW_ENV=staging ALSO registers when the resolved env is staging", () => {
