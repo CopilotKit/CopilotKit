@@ -62,9 +62,14 @@ const nextConfig: NextConfig = {
   },
   turbopack: {
     rules: {
-      "**/harness/src/shared/cell-model/*.ts": {
-        loaders: ["./turbopack-strip-js-ext-loader.cjs"],
-      },
+      // Scope the loader to ONLY the 4 fold module files the dashboard
+      // re-exports — NOT the `*.test.ts` / `*.equivalence-fixtures.ts`
+      // siblings in the same dir, whose `.js`-bearing string data would be
+      // the likeliest corruption target under a source-rewriting loader.
+      "**/harness/src/shared/cell-model/{cell-model,live-status,staleness,format-ts}.ts":
+        {
+          loaders: ["./turbopack-strip-js-ext-loader.cjs"],
+        },
     },
   },
 };
