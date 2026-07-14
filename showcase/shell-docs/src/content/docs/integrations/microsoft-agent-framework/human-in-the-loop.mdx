@@ -90,7 +90,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
     <Step>
         ### Receiving frontend tools in your AG-UI server
 
-        Frontend tools registered with `useHumanInTheLoop` are forwarded to your AG-UI server and passed to the underlying agent via the AgentRunOptions on the server.  They are automatically available by default to the underlying chat client.
+        Frontend tools registered with `useHumanInTheLoop` arrive in each AG-UI run request. You do not register them again on the server. Mount your agent with the AG-UI endpoint helper, and the adapter forwards the request's frontend-tool definitions to the underlying agent for that run.
 
         <Tabs groupId="language_microsoft-agent-framework_agent" items={['.NET', 'Python']} persist>
           <Tab value=".NET">
@@ -126,7 +126,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
             from agent_framework import Agent
             from agent_framework import SupportsChatGetResponse
             from agent_framework.openai import OpenAIChatClient
-            from agent_framework.ag_ui import add_agent_framework_fastapi_endpoint
+            from agent_framework.ag_ui import add_agent_framework_fastapi_endpoint  # [!code highlight]
             from azure.identity import DefaultAzureCredential
 
             load_dotenv()
@@ -146,7 +146,6 @@ Use frontend tools when you need your agent to interact with client-side primiti
                 raise RuntimeError("Set AZURE_OPENAI_* or OPENAI_API_KEY in agent/.env")
 
             chat_client = _build_chat_client()
-            # Frontend tools registered with useHumanInTheLoop are automatically available
             agent = Agent(
                 name="sample_agent",
                 instructions="You are a helpful assistant.",
@@ -154,7 +153,12 @@ Use frontend tools when you need your agent to interact with client-side primiti
             )
 
             app = FastAPI(title="AG-UI Server (Python)")
-            add_agent_framework_fastapi_endpoint(app=app, agent=agent, path="/")
+            # This endpoint receives frontend tools with each AG-UI run request.
+            add_agent_framework_fastapi_endpoint(  # [!code highlight:5]
+                app=app,
+                agent=agent,
+                path="/",
+            )
             ```
           </Tab>
         </Tabs>

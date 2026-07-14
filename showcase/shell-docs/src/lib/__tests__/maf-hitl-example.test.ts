@@ -12,9 +12,13 @@ const manifestPath = path.resolve(
   "../integrations/ms-agent-python/manifest.yaml",
 );
 
+function readHitlDoc(): string {
+  return fs.readFileSync(hitlDocPath, "utf8");
+}
+
 describe("Microsoft Agent Framework Python HITL example", () => {
   it("shows a runnable CopilotKit showcase example with its core agent files", () => {
-    const hitlDoc = fs.readFileSync(hitlDocPath, "utf8");
+    const hitlDoc = readHitlDoc();
     const manifest = fs.readFileSync(manifestPath, "utf8");
     const hitlDemo = manifest.match(
       /  - id: hitl-in-chat\n(?<definition>[\s\S]*?)(?=\n  - id: )/,
@@ -38,6 +42,18 @@ describe("Microsoft Agent Framework Python HITL example", () => {
     );
     expect(hitlDemo?.groups?.definition).toContain(
       "src/app/api/copilotkit/route.ts",
+    );
+  });
+
+  it("highlights how the AG-UI endpoint receives frontend tools", () => {
+    const hitlDoc = readHitlDoc();
+
+    expect(hitlDoc).toContain("You do not register them again on the server.");
+    expect(hitlDoc).toContain(
+      "from agent_framework.ag_ui import add_agent_framework_fastapi_endpoint  # [!code highlight]",
+    );
+    expect(hitlDoc).toContain(
+      "add_agent_framework_fastapi_endpoint(  # [!code highlight:5]",
     );
   });
 });
