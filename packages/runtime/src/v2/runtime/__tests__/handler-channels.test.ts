@@ -68,9 +68,11 @@ describe("createCopilotRuntimeHandler — managed channels", () => {
 
     expect(state.calls).toBe(1);
     expect(handler.channels).toBeDefined();
-    await handler.channels!.ready({ timeoutMs: 1000 });
-    expect(handler.channels!.status().overall).toBe("online");
-    await handler.channels!.stop();
+    // No `!`: an Intelligence runtime with a declared channel yields the
+    // non-optional-`.channels` handler overload (the documented shape).
+    await handler.channels.ready({ timeoutMs: 1000 });
+    expect(handler.channels.status().overall).toBe("online");
+    await handler.channels.stop();
   });
 
   it("is idempotent per runtime instance across repeated handler creation", () => {
@@ -152,7 +154,7 @@ describe("createCopilotRuntimeHandler — managed channels", () => {
         __channelEngine: engine,
       });
 
-      await handler.channels!.ready().catch(() => {});
+      await handler.channels.ready().catch(() => {});
 
       const loggedMessages = warnSpy.mock.calls.map((args) => args[1]);
       expect(
@@ -178,7 +180,7 @@ describe("createCopilotRuntimeHandler — managed channels", () => {
         __channelEngine: engine,
       });
 
-      await handler.channels!.ready().catch(() => {});
+      await handler.channels.ready().catch(() => {});
 
       // The failed-to-activate breadcrumb must log the Error under `err` (the
       // only key pino serializes an Error's non-enumerable message/stack

@@ -29,6 +29,7 @@
 import type {
   CopilotRuntimeLike,
   CopilotIntelligenceRuntimeLike,
+  RuntimeWithDeclaredChannels,
 } from "./runtime";
 import { isIntelligenceRuntime } from "./runtime";
 import { ChannelManager } from "./channel-manager";
@@ -153,6 +154,20 @@ export type CopilotRuntimeFetchHandler = ((
 };
 
 /**
+ * A {@link CopilotRuntimeFetchHandler} whose {@link ChannelsControl} surface is
+ * guaranteed present. Returned when the runtime was constructed with at least
+ * one declared Intelligence Channel and activation was not opted out of, so the
+ * documented `handler.channels.ready(...)` call type-checks without a `!` or
+ * `?.` under strict TypeScript.
+ */
+export type CopilotRuntimeFetchHandlerWithChannels = ((
+  request: Request,
+) => Promise<Response>) & {
+  /** Lifecycle control surface for the runtime's activated managed Channels. */
+  channels: ChannelsControl;
+};
+
+/**
  * Managed Channel managers keyed by runtime instance. Guarantees a single
  * activation per runtime: creating the handler more than once for the same
  * runtime reuses the existing manager instead of activating a second time.
@@ -213,6 +228,28 @@ function getOrCreateChannelManager(
  * Handler factory
  * --------------------------------------------------------------------------------------------- */
 
+/**
+ * Overload: a runtime constructed with at least one declared Intelligence
+ * Channel (a {@link RuntimeWithDeclaredChannels}-branded runtime), when
+ * activation is not disabled, yields a handler with a **non-optional**
+ * {@link ChannelsControl}. `activateChannels` is constrained to `true | undefined`
+ * here so passing `activateChannels: false` (which skips activation and leaves no
+ * `.channels`) falls through to the optional-shape overload below rather than
+ * dishonestly promising a control surface that will not exist.
+ */
+export function createCopilotRuntimeHandler(
+  options: CopilotRuntimeHandlerOptions & {
+    runtime: RuntimeWithDeclaredChannels;
+    activateChannels?: true | undefined;
+  },
+): CopilotRuntimeFetchHandlerWithChannels;
+/**
+ * Overload: every other runtime (SSE, Intelligence without channels, or with
+ * activation disabled) yields a handler whose `.channels` is optional.
+ */
+export function createCopilotRuntimeHandler(
+  options: CopilotRuntimeHandlerOptions,
+): CopilotRuntimeFetchHandler;
 export function createCopilotRuntimeHandler(
   options: CopilotRuntimeHandlerOptions,
 ): CopilotRuntimeFetchHandler {

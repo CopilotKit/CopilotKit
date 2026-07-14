@@ -459,10 +459,70 @@ export function isA2UIEnabled(
 }
 
 /**
+ * Compile-time phantom brand marking a {@link CopilotRuntime} that was
+ * constructed with at least one declared Intelligence Channel. It has no runtime
+ * representation — the shim never sets this property; it exists purely so
+ * `createCopilotRuntimeHandler` can tell, at the type level, that the resulting
+ * handler will carry a non-optional `.channels` control surface.
+ */
+export interface RuntimeWithDeclaredChannels {
+  /**
+   * @internal Phantom brand key. Never present at runtime; do not read or set.
+   */
+  readonly __copilotkitChannelsDeclared: true;
+}
+
+/**
+ * Instance shape of the {@link CopilotRuntime} compatibility shim. Extends
+ * {@link CopilotRuntimeLike} with the Intelligence-only accessors the shim
+ * surfaces (all `undefined` in SSE mode). Declared explicitly so the exported
+ * `CopilotRuntime` name resolves as a type as well as a value.
+ */
+export interface CopilotRuntime extends CopilotRuntimeLike {
+  /** Auto-generate short thread names; `undefined` in SSE mode. */
+  generateThreadNames?: boolean;
+  /** Thread lock TTL in seconds; `undefined` in SSE mode. */
+  lockTtlSeconds?: number;
+  /** Custom Redis key prefix for the thread lock; `undefined` in SSE mode. */
+  lockKeyPrefix?: string;
+  /** Thread lock heartbeat interval in seconds; `undefined` in SSE mode. */
+  lockHeartbeatIntervalSeconds?: number;
+  /** Declared Intelligence Channels; `undefined` in SSE mode. */
+  channels?: Channel[];
+}
+
+/**
+ * Constructor type for the {@link CopilotRuntime} compatibility shim.
+ *
+ * The first overload fires when the caller passes `intelligence` together with a
+ * non-empty `channels` tuple: it returns a {@link RuntimeWithDeclaredChannels}-
+ * branded runtime, which `createCopilotRuntimeHandler` maps to a handler whose
+ * `.channels` is non-optional. Every other configuration (SSE, or Intelligence
+ * without channels, or an empty `channels: []`) falls through to the second
+ * overload and stays unbranded, so its handler keeps `.channels` optional.
+ *
+ * A class constructor cannot vary its return type across overloads (it is pinned
+ * to the instance type), so the branding lives on this construct-signature
+ * interface instead of on the class itself.
+ */
+export interface CopilotRuntimeConstructor {
+  new (
+    options: Omit<CopilotIntelligenceRuntimeOptions, "channels"> & {
+      channels: readonly [Channel, ...Channel[]];
+    },
+  ): CopilotRuntime & RuntimeWithDeclaredChannels;
+  new (options: CopilotRuntimeOptions): CopilotRuntime;
+}
+
+/**
  * Compatibility shim that preserves the legacy `CopilotRuntime` entrypoint.
  * New code should prefer `CopilotSseRuntime` or `CopilotIntelligenceRuntime`.
+ *
+ * Exported to consumers as the {@link CopilotRuntime} value (typed as
+ * {@link CopilotRuntimeConstructor}) rather than as a class, so that the
+ * channel-presence brand can flow from construction into the handler type.
  */
-export class CopilotRuntime implements CopilotRuntimeLike {
+class CopilotRuntimeShim implements CopilotRuntime {
   private delegate: CopilotRuntimeLike;
 
   constructor(options: CopilotRuntimeOptions) {
@@ -567,3 +627,17 @@ export class CopilotRuntime implements CopilotRuntimeLike {
     return this.delegate.forwardHeadersPolicy;
   }
 }
+
+/**
+ * The public `CopilotRuntime` constructor. Backed by {@link CopilotRuntimeShim}
+ * but typed as {@link CopilotRuntimeConstructor} so that constructing with a
+ * non-empty `channels` array yields a {@link RuntimeWithDeclaredChannels}-branded
+ * runtime type.
+ *
+ * The `as unknown as` cast is required (not dishonest widening): the brand is a
+ * phantom, compile-time-only marker with no runtime representation, so the shim
+ * instances legitimately do not carry the brand property. Behavior is identical
+ * to the former `class CopilotRuntime` — this only refines the static type.
+ */
+export const CopilotRuntime: CopilotRuntimeConstructor =
+  CopilotRuntimeShim as unknown as CopilotRuntimeConstructor;

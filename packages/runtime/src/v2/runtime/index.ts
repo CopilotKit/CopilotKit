@@ -29,6 +29,7 @@ export { createCopilotRuntimeHandler } from "./core/fetch-handler";
 export type {
   CopilotRuntimeHandlerOptions,
   CopilotRuntimeFetchHandler,
+  CopilotRuntimeFetchHandlerWithChannels,
 } from "./core/fetch-handler";
 
 // Export hook types
