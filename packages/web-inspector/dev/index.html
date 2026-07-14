@@ -57,8 +57,17 @@
         font-size: 12px;
       }
 
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
       .controls {
         display: flex;
+        flex-wrap: wrap;
         gap: 8px;
       }
 
@@ -77,7 +86,26 @@
         border-color: #bec2ff;
       }
 
-      #inspector-host {
+      .scenario-copy {
+        min-width: min(360px, 100%);
+        text-align: right;
+      }
+
+      .scenario-copy strong {
+        display: block;
+        font-size: 12px;
+      }
+
+      .scenario-copy span {
+        display: block;
+        max-width: 460px;
+        color: #57575b;
+        font-size: 11px;
+        line-height: 1.35;
+      }
+
+      #thread-inspector-host,
+      #threads-lab-host {
         min-height: 0;
         padding: 16px;
       }
@@ -91,25 +119,65 @@
         overflow: hidden;
         background: #ffffff;
       }
+
+      #threads-lab-host {
+        position: relative;
+        min-height: calc(100vh - 76px);
+        overflow: hidden;
+      }
+
+      cpk-web-inspector {
+        position: absolute;
+        inset: 16px;
+      }
+
+      [hidden] {
+        display: none !important;
+      }
     </style>
   </head>
   <body>
     <main>
       <header>
         <div>
-          <h1>Web Inspector Standalone Thread Detail</h1>
+          <h1>Web Inspector Standalone QA</h1>
           <p>
-            Demo provider data only. Product validation still needs a real
-            Intelligence backend.
+            Local-only harness for real Inspector UI with mocked runtime state.
           </p>
         </div>
-        <div class="controls" aria-label="Demo scenarios">
-          <button type="button" data-scenario="events">AG-UI events</button>
-          <button type="button" data-scenario="messages">Messages only</button>
-          <button type="button" data-scenario="raw">Raw event only</button>
+        <div class="toolbar">
+          <div class="controls" aria-label="Harness mode">
+            <button type="button" data-mode="threads-lab">
+              Threads tab states
+            </button>
+            <button type="button" data-mode="thread-detail">
+              Thread detail
+            </button>
+          </div>
+          <div
+            class="controls"
+            data-controls="threads-lab"
+            aria-label="Threads tab scenarios"
+          ></div>
+          <div
+            class="controls"
+            data-controls="thread-detail"
+            aria-label="Thread detail scenarios"
+          >
+            <button type="button" data-scenario="events">AG-UI events</button>
+            <button type="button" data-scenario="messages">
+              Messages only
+            </button>
+            <button type="button" data-scenario="raw">Raw event only</button>
+          </div>
+          <div class="scenario-copy">
+            <strong id="scenario-title"></strong>
+            <span id="scenario-description"></span>
+          </div>
         </div>
       </header>
-      <section id="inspector-host"></section>
+      <section id="threads-lab-host"></section>
+      <section id="thread-inspector-host"></section>
     </main>
   </body>
 </html>
