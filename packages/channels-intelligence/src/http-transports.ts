@@ -627,24 +627,46 @@ export class HttpDeliverySource implements DeliverySource {
     replyTarget: EgressRoute,
     limit: number,
   ): Promise<AgentMessage[]> {
-    // Slack-shaped for the V1 slice; `EgressRoute` is opaque, so a second
-    // adapter would need its own route→query mapping here.
+    // Provider-specific history query. `EgressRoute` is opaque, so each adapter
+    // maps its route → app-api's `/api/channels/history` query here, mirroring
+    // `conversationKeyFromReplyTarget`'s per-adapter switch. Slack keys off
+    // `threadTs`; Teams off `tenantId`+`conversationId` (matching app-api's
+    // `teams:{tenantId}:{conversationId}` thread_key). A turn with no thread
+    // anchor has no prior history to look up, so return `[]`.
     const rt = replyTarget as
-      | { teamId?: string; channel?: string; threadTs?: string }
+      | {
+          adapter?: string;
+          teamId?: string;
+          channel?: string;
+          threadTs?: string;
+          tenantId?: string;
+          conversationId?: string;
+        }
       | undefined;
-    if (!rt?.threadTs) return [];
+    let qs: URLSearchParams;
+    if (rt?.adapter === "teams") {
+      if (!rt.tenantId || !rt.conversationId) return [];
+      qs = new URLSearchParams({
+        adapter: "teams",
+        tenantId: rt.tenantId,
+        conversationId: rt.conversationId,
+        limit: String(limit),
+      });
+    } else {
+      if (!rt?.threadTs) return [];
+      qs = new URLSearchParams({
+        teamId: rt.teamId ?? "",
+        channel: rt.channel ?? "",
+        threadTs: rt.threadTs,
+        limit: String(limit),
+      });
+    }
     try {
       const gfetch = (globalThis as unknown as { fetch?: typeof fetch }).fetch;
       if (!gfetch) {
         this.cfg.log?.("intelligence history fetch: no global fetch available");
         return [];
       }
-      const qs = new URLSearchParams({
-        teamId: rt.teamId ?? "",
-        channel: rt.channel ?? "",
-        threadTs: rt.threadTs,
-        limit: String(limit),
-      });
       const url = `${this.cfg.baseUrl}/api/channels/history?${qs.toString()}`;
       const res = await gfetch(url, {
         method: "GET",
