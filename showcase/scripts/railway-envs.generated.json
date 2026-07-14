@@ -54,7 +54,8 @@
         "driver": "dashboard"
       },
       "promoteTier": 1,
-      "runtimeDeps": ["pocketbase", "harness"]
+      "runtimeDeps": ["pocketbase", "harness"],
+      "sharedRefs": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]
     },
     {
       "name": "docs",
@@ -78,7 +79,8 @@
         "driver": "docs"
       },
       "promoteTier": 2,
-      "standalone": true
+      "standalone": true,
+      "sharedRefs": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"]
     },
     {
       "name": "dojo",
@@ -222,7 +224,8 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
-      }
+      },
+      "sharedRefs": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"]
     },
     {
       "name": "showcase-ag2",
@@ -252,7 +255,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "sharedRefs": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]
     },
     {
       "name": "showcase-agno",
@@ -282,7 +286,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "sharedRefs": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"]
     },
     {
       "name": "showcase-built-in-agent",
@@ -312,7 +317,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "sharedRefs": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"]
     },
     {
       "name": "showcase-claude-sdk-python",
@@ -342,7 +348,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "sharedRefs": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]
     },
     {
       "name": "showcase-claude-sdk-typescript",
@@ -372,7 +379,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "sharedRefs": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]
     },
     {
       "name": "showcase-crewai-crews",
@@ -402,7 +410,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "sharedRefs": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"]
     },
     {
       "name": "showcase-google-adk",
@@ -432,7 +441,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "sharedRefs": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"]
     },
     {
       "name": "showcase-langgraph-fastapi",
@@ -462,7 +472,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "sharedRefs": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"]
     },
     {
       "name": "showcase-langgraph-python",
@@ -492,7 +503,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "sharedRefs": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"]
     },
     {
       "name": "showcase-langgraph-typescript",
@@ -522,7 +534,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "sharedRefs": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"]
     },
     {
       "name": "showcase-langroid",
@@ -552,7 +565,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "sharedRefs": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]
     },
     {
       "name": "showcase-llamaindex",
@@ -582,7 +596,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "sharedRefs": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"]
     },
     {
       "name": "showcase-mastra",
@@ -612,7 +627,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "sharedRefs": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"]
     },
     {
       "name": "showcase-ms-agent-dotnet",
@@ -642,7 +658,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "sharedRefs": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"]
     },
     {
       "name": "showcase-ms-agent-harness-dotnet",
@@ -672,7 +689,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "sharedRefs": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"]
     },
     {
       "name": "showcase-ms-agent-python",
@@ -702,7 +720,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "sharedRefs": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"]
     },
     {
       "name": "showcase-pydantic-ai",
@@ -732,7 +751,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "sharedRefs": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"]
     },
     {
       "name": "showcase-spring-ai",
@@ -762,7 +782,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "sharedRefs": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]
     },
     {
       "name": "showcase-strands",
@@ -792,7 +813,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "sharedRefs": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"]
     },
     {
       "name": "showcase-strands-typescript",
@@ -822,7 +844,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "sharedRefs": ["OPENAI_API_KEY"]
     },
     {
       "name": "starter-adk",
@@ -852,7 +875,8 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
-      }
+      },
+      "sharedRefs": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"]
     },
     {
       "name": "starter-agno",
@@ -882,7 +906,8 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
-      }
+      },
+      "sharedRefs": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"]
     },
     {
       "name": "starter-crewai-crews",
@@ -912,7 +937,8 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
-      }
+      },
+      "sharedRefs": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"]
     },
     {
       "name": "starter-langgraph-fastapi",
@@ -942,7 +968,8 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
-      }
+      },
+      "sharedRefs": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"]
     },
     {
       "name": "starter-langgraph-js",
@@ -972,7 +999,8 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
-      }
+      },
+      "sharedRefs": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"]
     },
     {
       "name": "starter-langgraph-python",
@@ -1002,7 +1030,8 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
-      }
+      },
+      "sharedRefs": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"]
     },
     {
       "name": "starter-llamaindex",
@@ -1032,7 +1061,8 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
-      }
+      },
+      "sharedRefs": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"]
     },
     {
       "name": "starter-mastra",
@@ -1062,7 +1092,8 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
-      }
+      },
+      "sharedRefs": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"]
     },
     {
       "name": "starter-ms-agent-framework-dotnet",
@@ -1092,7 +1123,8 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
-      }
+      },
+      "sharedRefs": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"]
     },
     {
       "name": "starter-ms-agent-framework-python",
@@ -1122,7 +1154,8 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
-      }
+      },
+      "sharedRefs": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"]
     },
     {
       "name": "starter-pydantic-ai",
@@ -1152,7 +1185,8 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
-      }
+      },
+      "sharedRefs": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"]
     },
     {
       "name": "starter-strands-python",
@@ -1182,7 +1216,8 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
-      }
+      },
+      "sharedRefs": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"]
     },
     {
       "name": "webhooks",

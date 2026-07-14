@@ -105,6 +105,14 @@ interface Emitted {
       prod: WorkerProvisioning;
       staging: WorkerProvisioning;
     };
+    // Upstream provider-key env-var NAMES this service sources from a Railway
+    // environment-shared variable (${{shared.<NAME>}}) rather than holding its
+    // own copy of the real secret (the credential-hygiene single-source model).
+    // The Ruby preflight asserts each listed key resolves to the shared
+    // variable, never a distinct per-service literal. Appended LAST (additive)
+    // and OMITTED when the SSOT entry declares none, so services that source no
+    // shared provider key (e.g. aimock) keep the frozen shape.
+    sharedRefs?: string[];
   }>;
   // --- Top-level promote-closure plan (ADDITIVE, U2). The tier-ordered
   // closure for the FULL fleet (`all`), computed via `computePromoteClosure`.
@@ -223,6 +231,13 @@ function projectServiceToLegacyJson(
     ...(entry.workerProvisioning !== undefined
       ? { workerProvisioning: entry.workerProvisioning }
       : {}),
+    // Shared provider-key references (ADDITIVE, credential-hygiene model).
+    // Emitted only when the SSOT declares `sharedRefs`, so services that hold
+    // no shared provider key (aimock, harness, pocketbase, …) keep the frozen
+    // per-service shape. Read by the Ruby preflight to assert each listed key
+    // resolves to the Railway environment-shared variable, never a distinct
+    // per-service literal.
+    ...(entry.sharedRefs !== undefined ? { sharedRefs: entry.sharedRefs } : {}),
   };
 }
 

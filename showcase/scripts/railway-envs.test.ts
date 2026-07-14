@@ -7,6 +7,7 @@ import {
   ENV_ID_BY_NAME,
   PRODUCTION_ENV_ID,
   PROJECT_ID,
+  PROVIDER_KEY_SHARED_VARS,
   SERVICES,
   STAGING_ENV_ID,
   assertClosureValid,
@@ -14,6 +15,8 @@ import {
   assertEnvRegistryConsistent,
   assertImageConsumersValid,
   assertServiceAndInstanceIdsUnique,
+  assertSharedRefsValid,
+  sharedRefsFor,
   computePromoteClosure,
   domainFor,
   envsFor,
@@ -1365,5 +1368,67 @@ describe("assertClosureValid", () => {
     expect(() => assertClosureValid(["harness"], allProdless)).toThrow(
       /empty|promote nothing/i,
     );
+  });
+});
+
+describe("sharedRefs — upstream provider-key single-source model", () => {
+  // Every showcase service that routes LLM traffic at aimock (agents,
+  // starters, and the shell/docs/dashboard frontends) MUST declare its
+  // provider keys as shared references, NOT hold its own copy of the real
+  // secret. A service that declares a runtime dep on aimock is exactly the
+  // set that sends provider-keyed requests through the proxy.
+  const AGENT_LIKE = Object.entries(SERVICES).filter(([, e]) =>
+    (e.runtimeDeps ?? []).includes("aimock"),
+  );
+
+  it("has agent/starter services that route through aimock", () => {
+    // Guard the guard: if this ever hits zero, the assertions below become
+    // vacuous, so fail loud instead.
+    expect(AGENT_LIKE.length).toBeGreaterThan(20);
+  });
+
+  it("every aimock-routed service declares OPENAI_API_KEY as a shared ref", () => {
+    const offenders = AGENT_LIKE.filter(
+      ([name]) => !sharedRefsFor(name).includes("OPENAI_API_KEY"),
+    ).map(([name]) => name);
+    expect(offenders).toEqual([]);
+  });
+
+  it("aimock itself declares NO sharedRefs (it holds no provider key)", () => {
+    expect(sharedRefsFor("aimock")).toEqual([]);
+  });
+
+  it("every sharedRefs entry is a recognized provider-key var", () => {
+    const bad: string[] = [];
+    for (const name of Object.keys(SERVICES)) {
+      for (const ref of sharedRefsFor(name)) {
+        if (!PROVIDER_KEY_SHARED_VARS.has(ref)) bad.push(`${name}:${ref}`);
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it("sharedRefsFor returns a sorted copy and throws on unknown service", () => {
+    const refs = sharedRefsFor("showcase-langgraph-python");
+    expect(refs).toEqual([...refs].sort());
+    expect(() => sharedRefsFor("no-such-service")).toThrow(/Unknown/i);
+  });
+
+  it("the production SSOT passes assertSharedRefsValid", () => {
+    expect(() => assertSharedRefsValid()).not.toThrow();
+  });
+
+  it("throws on an unrecognized sharedRefs var name", () => {
+    const synthetic = { svc: { sharedRefs: ["OPENAPI_API_KEY"] } };
+    expect(() => assertSharedRefsValid(synthetic)).toThrow(
+      /not a recognized provider-key var/i,
+    );
+  });
+
+  it("throws on a duplicate sharedRefs var within a service", () => {
+    const synthetic = {
+      svc: { sharedRefs: ["OPENAI_API_KEY", "OPENAI_API_KEY"] },
+    };
+    expect(() => assertSharedRefsValid(synthetic)).toThrow(/duplicate/i);
   });
 });

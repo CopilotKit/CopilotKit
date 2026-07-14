@@ -413,6 +413,36 @@ export interface ServiceEntry {
    */
   serviceRefs?: { key: string; target: string }[];
   /**
+   * UPSTREAM PROVIDER-KEY references sourced from a Railway ENVIRONMENT-LEVEL
+   * SHARED variable — the env-var NAMES (e.g. `OPENAI_API_KEY`,
+   * `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`) this service resolves via
+   * `${{shared.<NAME>}}` instead of holding its own per-service copy of the
+   * real secret.
+   *
+   * WHY THIS EXISTS. Every showcase agent/starter (and the shell/docs/dashboard
+   * frontends) points its provider BASE URLs at the env-local aimock
+   * record/replay proxy, but on a fixture-miss aimock proxies the request to
+   * the REAL provider and FORWARDS THE CLIENT-SUPPLIED `Authorization` /
+   * `x-api-key` header verbatim (see `@copilotkit/aimock` recorder — the proxy
+   * strips hop-by-hop headers but NOT the auth header, and has no CLI flag or
+   * env var to inject its own provider key). aimock therefore cannot own
+   * upstream auth; the real key must live on the CLIENT. To avoid duplicating
+   * the SAME real secret across ~34 services (one scraped demo env = the real
+   * key; rotation = ~34 edits), each provider key is defined ONCE as a Railway
+   * environment-shared variable and referenced here. Net: real secret in ONE
+   * place per env, one-edit rotation, a scraped service env yields only a
+   * `${{shared.*}}` reference token.
+   *
+   * This field MODELS the arrangement so it is machine-checkable (the Ruby
+   * preflight asserts each listed key resolves to the shared variable, never a
+   * distinct per-service literal). Each name must be a recognized provider-key
+   * env var and unique within the array (enforced at module load by
+   * `assertSharedRefsValid`). OPTIONAL; omitted = this service sources no
+   * provider key from a shared variable (e.g. `aimock` itself, which holds no
+   * provider key at all). The values live ONLY in Railway — NEVER in this repo.
+   */
+  sharedRefs?: string[];
+  /**
    * Ruby/jq-BOUNDARY COMPATIBILITY SHIM — read ONLY by
    * `emit-railway-envs-json.ts`, never by any TS accessor.
    *
@@ -545,6 +575,7 @@ export const SERVICES: Record<
     // Railway service name is `dashboard`; GHCR repo is
     // `showcase-shell-dashboard`. Same override for both envs:
     // staging :latest, prod @sha256 — uniform across all services.
+    sharedRefs: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
     environments: {
       prod: {
         instanceId: "e68f98fa-b2ef-41cc-82f6-2ed6f9533bf3",
@@ -573,6 +604,7 @@ export const SERVICES: Record<
     // env-divergence WARN-refusal must not block docs).
     standalone: true,
     // Railway service name is `docs`; GHCR repo is `showcase-shell-docs`.
+    sharedRefs: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"],
     environments: {
       prod: {
         instanceId: "b15564fc-f832-49b3-82df-fd36f298fe96",
@@ -803,6 +835,7 @@ export const SERVICES: Record<
     dispatchName: "shell",
     probeDriver: "shell",
     // Railway service name is `shell`; GHCR repo is `showcase-shell`.
+    sharedRefs: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"],
     environments: {
       prod: {
         instanceId: "01614ccf-e109-4b30-b41b-7c5551c0a34c",
@@ -832,6 +865,7 @@ export const SERVICES: Record<
     // by the Stage-2 Ruby preflight (never copied).
     runtimeDeps: ["aimock"],
     serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    sharedRefs: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
     environments: {
       prod: {
         instanceId: "de571c97-03fd-486b-8a54-9767a4a53f95",
@@ -859,6 +893,7 @@ export const SERVICES: Record<
     // by the Stage-2 Ruby preflight (never copied).
     runtimeDeps: ["aimock"],
     serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    sharedRefs: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"],
     environments: {
       prod: {
         instanceId: "026d12fb-2844-42af-8f92-b47bc8a06bc8",
@@ -886,6 +921,7 @@ export const SERVICES: Record<
     // by the Stage-2 Ruby preflight (never copied).
     runtimeDeps: ["aimock"],
     serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    sharedRefs: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"],
     environments: {
       prod: {
         instanceId: "40018ef7-1ed1-4979-b80c-9c2d957b6d88",
@@ -913,6 +949,7 @@ export const SERVICES: Record<
     // by the Stage-2 Ruby preflight (never copied).
     runtimeDeps: ["aimock"],
     serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    sharedRefs: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
     environments: {
       prod: {
         instanceId: "bb18caaf-9a3e-4fdd-85ec-562fd82a3a89",
@@ -940,6 +977,7 @@ export const SERVICES: Record<
     // by the Stage-2 Ruby preflight (never copied).
     runtimeDeps: ["aimock"],
     serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    sharedRefs: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
     environments: {
       prod: {
         instanceId: "bee425e4-9661-4a88-8888-922b8cd4b61d",
@@ -967,6 +1005,7 @@ export const SERVICES: Record<
     // by the Stage-2 Ruby preflight (never copied).
     runtimeDeps: ["aimock"],
     serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    sharedRefs: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"],
     environments: {
       prod: {
         instanceId: "3dab0cc3-cab1-4579-b772-947268088514",
@@ -994,6 +1033,7 @@ export const SERVICES: Record<
     // by the Stage-2 Ruby preflight (never copied).
     runtimeDeps: ["aimock"],
     serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    sharedRefs: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"],
     environments: {
       prod: {
         instanceId: "7b2da5db-87d2-40ad-a3d9-b2d7a5485a22",
@@ -1021,6 +1061,7 @@ export const SERVICES: Record<
     // by the Stage-2 Ruby preflight (never copied).
     runtimeDeps: ["aimock"],
     serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    sharedRefs: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"],
     environments: {
       prod: {
         instanceId: "105b7e01-acd0-48e2-9a09-541e2103e8d2",
@@ -1048,6 +1089,7 @@ export const SERVICES: Record<
     // by the Stage-2 Ruby preflight (never copied).
     runtimeDeps: ["aimock"],
     serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    sharedRefs: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"],
     environments: {
       prod: {
         instanceId: "aec504f7-63d7-4ea6-9d50-601b00d2ae80",
@@ -1075,6 +1117,7 @@ export const SERVICES: Record<
     // by the Stage-2 Ruby preflight (never copied).
     runtimeDeps: ["aimock"],
     serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    sharedRefs: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"],
     environments: {
       prod: {
         instanceId: "f53e9fdc-7c3e-4dfd-9fa8-d7241fd55bb8",
@@ -1102,6 +1145,7 @@ export const SERVICES: Record<
     // by the Stage-2 Ruby preflight (never copied).
     runtimeDeps: ["aimock"],
     serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    sharedRefs: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
     environments: {
       prod: {
         instanceId: "6b5e20b5-8f8e-4ec3-9288-7a41122e42e5",
@@ -1129,6 +1173,7 @@ export const SERVICES: Record<
     // by the Stage-2 Ruby preflight (never copied).
     runtimeDeps: ["aimock"],
     serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    sharedRefs: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"],
     environments: {
       prod: {
         instanceId: "b778856e-9f90-4136-9415-fb2b41173f8d",
@@ -1156,6 +1201,7 @@ export const SERVICES: Record<
     // by the Stage-2 Ruby preflight (never copied).
     runtimeDeps: ["aimock"],
     serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    sharedRefs: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"],
     environments: {
       prod: {
         instanceId: "eaeddd9c-8b75-426f-b033-0fd935cbf6ef",
@@ -1183,6 +1229,7 @@ export const SERVICES: Record<
     // by the Stage-2 Ruby preflight (never copied).
     runtimeDeps: ["aimock"],
     serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    sharedRefs: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"],
     environments: {
       prod: {
         instanceId: "93ca0edf-7b59-4de4-b1fd-3412bb07bc6a",
@@ -1210,6 +1257,7 @@ export const SERVICES: Record<
     // by the Stage-2 Ruby preflight (never copied).
     runtimeDeps: ["aimock"],
     serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    sharedRefs: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"],
     environments: {
       prod: {
         instanceId: "8f91ebc6-95c0-4433-b1f7-657ff49c2d59",
@@ -1237,6 +1285,7 @@ export const SERVICES: Record<
     // by the Stage-2 Ruby preflight (never copied).
     runtimeDeps: ["aimock"],
     serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    sharedRefs: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"],
     environments: {
       prod: {
         instanceId: "323ed911-4d28-45ab-8fc0-7d151828b938",
@@ -1264,6 +1313,7 @@ export const SERVICES: Record<
     // by the Stage-2 Ruby preflight (never copied).
     runtimeDeps: ["aimock"],
     serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    sharedRefs: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"],
     environments: {
       prod: {
         instanceId: "192cd647-6824-4f01-937a-1da675d83805",
@@ -1291,6 +1341,7 @@ export const SERVICES: Record<
     // by the Stage-2 Ruby preflight (never copied).
     runtimeDeps: ["aimock"],
     serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    sharedRefs: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
     environments: {
       prod: {
         instanceId: "2fbf1db2-5e51-44c9-983c-3f2242d95c61",
@@ -1318,6 +1369,7 @@ export const SERVICES: Record<
     // by the Stage-2 Ruby preflight (never copied).
     runtimeDeps: ["aimock"],
     serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    sharedRefs: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"],
     environments: {
       prod: {
         instanceId: "2123c71b-9385-443c-a1c3-bcf4b1669eeb",
@@ -1351,6 +1403,7 @@ export const SERVICES: Record<
     // by the Stage-2 Ruby preflight (never copied).
     runtimeDeps: ["aimock"],
     serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    sharedRefs: ["OPENAI_API_KEY"],
     environments: {
       prod: {
         instanceId: "8a50728e-6119-43c4-b59c-d9535b6717a4",
@@ -1422,6 +1475,7 @@ export const SERVICES: Record<
     promoteTier: 2,
     runtimeDeps: ["aimock"],
     serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    sharedRefs: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"],
     environments: {
       prod: {
         instanceId: "cb23cae4-9555-4ddd-8a62-f1aa1ff72c67",
@@ -1446,6 +1500,7 @@ export const SERVICES: Record<
     promoteTier: 2,
     runtimeDeps: ["aimock"],
     serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    sharedRefs: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"],
     environments: {
       prod: {
         instanceId: "2f58513b-5fe4-4b09-a28f-93d4caa277b5",
@@ -1470,6 +1525,7 @@ export const SERVICES: Record<
     promoteTier: 2,
     runtimeDeps: ["aimock"],
     serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    sharedRefs: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"],
     environments: {
       prod: {
         instanceId: "1a3e24cb-0752-45c8-b4a2-0c6096899875",
@@ -1494,6 +1550,7 @@ export const SERVICES: Record<
     promoteTier: 2,
     runtimeDeps: ["aimock"],
     serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    sharedRefs: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"],
     environments: {
       prod: {
         instanceId: "0679bc18-e9af-40c6-bc17-0b5eb2cd7bec",
@@ -1518,6 +1575,7 @@ export const SERVICES: Record<
     promoteTier: 2,
     runtimeDeps: ["aimock"],
     serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    sharedRefs: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"],
     environments: {
       prod: {
         instanceId: "50a2205b-8768-4765-b7a1-21941c105051",
@@ -1542,6 +1600,7 @@ export const SERVICES: Record<
     promoteTier: 2,
     runtimeDeps: ["aimock"],
     serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    sharedRefs: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"],
     environments: {
       prod: {
         instanceId: "24dad599-576a-4154-a621-c3af40629a8f",
@@ -1566,6 +1625,7 @@ export const SERVICES: Record<
     promoteTier: 2,
     runtimeDeps: ["aimock"],
     serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    sharedRefs: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"],
     environments: {
       prod: {
         instanceId: "c119f40b-dc71-4734-9716-c1085754b085",
@@ -1590,6 +1650,7 @@ export const SERVICES: Record<
     promoteTier: 2,
     runtimeDeps: ["aimock"],
     serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    sharedRefs: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"],
     environments: {
       prod: {
         instanceId: "c6fba6d8-8dde-442b-948f-560bf25fa2f1",
@@ -1614,6 +1675,7 @@ export const SERVICES: Record<
     promoteTier: 2,
     runtimeDeps: ["aimock"],
     serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    sharedRefs: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"],
     environments: {
       prod: {
         instanceId: "993237a4-9ee7-47b2-a5be-267e247c1409",
@@ -1638,6 +1700,7 @@ export const SERVICES: Record<
     promoteTier: 2,
     runtimeDeps: ["aimock"],
     serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    sharedRefs: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"],
     environments: {
       prod: {
         instanceId: "aa934881-340a-4fb7-8b39-9cb0a6f372b2",
@@ -1662,6 +1725,7 @@ export const SERVICES: Record<
     promoteTier: 2,
     runtimeDeps: ["aimock"],
     serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    sharedRefs: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"],
     environments: {
       prod: {
         instanceId: "74ce36fe-0b8f-446e-8e06-0b6496b6e829",
@@ -1686,6 +1750,7 @@ export const SERVICES: Record<
     promoteTier: 2,
     runtimeDeps: ["aimock"],
     serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    sharedRefs: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"],
     environments: {
       prod: {
         instanceId: "4af440e0-ba05-48a5-b922-5b96a033891a",
@@ -2558,12 +2623,83 @@ export function assertServiceAndInstanceIdsUnique(
   }
 }
 
+/**
+ * The recognized upstream provider-key env-var names a service may source
+ * from a Railway environment-shared variable via `sharedRefs`. Kept as a
+ * closed allow-list so a typo (`OPENAPI_API_KEY`) or a non-secret config var
+ * cannot slip into `sharedRefs` and silently defeat the single-source
+ * assertion. `GOOGLE_API_KEY` is the name the showcase Gemini integrations
+ * actually use (NOT `GEMINI_API_KEY`, which appears on no live service).
+ */
+export const PROVIDER_KEY_SHARED_VARS: ReadonlySet<string> = new Set([
+  "OPENAI_API_KEY",
+  "ANTHROPIC_API_KEY",
+  "GOOGLE_API_KEY",
+]);
+
+/**
+ * The provider-key env-var names `serviceName` sources from a Railway
+ * environment-shared variable (`${{shared.<NAME>}}`). Returns a sorted copy
+ * (deterministic order regardless of literal order); empty for a service that
+ * declares no `sharedRefs` (e.g. `aimock`, which holds no provider key).
+ * Throws on unknown service (fail loud, consistent with the other accessors).
+ */
+export function sharedRefsFor(serviceName: string): string[] {
+  return [...(getEntry(serviceName).sharedRefs ?? [])].sort();
+}
+
+/**
+ * Throw on SSOT load if any `sharedRefs` entry is malformed: a name that is
+ * not a recognized provider-key var (see `PROVIDER_KEY_SHARED_VARS`) or a
+ * duplicate within a single service's array. A stray/typo'd name would model
+ * a shared reference the Ruby preflight then cannot assert, silently letting a
+ * real per-service secret survive — so fail loud at module load, in the same
+ * style as `assertDispatchNamesUnique` / `assertImageConsumersValid`.
+ *
+ * Accepts an injected map for testing; defaults to the real SERVICES map.
+ */
+export function assertSharedRefsValid(
+  services: Record<string, { sharedRefs?: string[] }> = SERVICES,
+): void {
+  const problems: string[] = [];
+  for (const [key, entry] of Object.entries(services)) {
+    const refs = entry.sharedRefs;
+    if (refs === undefined) continue;
+    const seen = new Set<string>();
+    for (const name of refs) {
+      if (!PROVIDER_KEY_SHARED_VARS.has(name)) {
+        problems.push(
+          `  - sharedRefs "${name}" on "${key}" is not a recognized provider-key var (allowed: ${[
+            ...PROVIDER_KEY_SHARED_VARS,
+          ]
+            .sort()
+            .join(", ")})`,
+        );
+      }
+      if (seen.has(name)) {
+        problems.push(`  - duplicate sharedRefs "${name}" on "${key}"`);
+      }
+      seen.add(name);
+    }
+  }
+  if (problems.length > 0) {
+    throw new Error(
+      `railway-envs sharedRefs invariant violated:\n${problems.join("\n")}\n` +
+        `Fix: every sharedRefs entry must be a recognized provider-key env ` +
+        `var name (defined ONCE as a Railway environment-shared variable and ` +
+        `referenced via \${{shared.<NAME>}}), unique within the service.`,
+    );
+  }
+}
+
 // Module-load assertions: fail any importer if the SSOT drifts into a
-// collision, a mis-wired image consumer, an inconsistent env registry, or
-// a duplicated Railway ID. Tests that exercise the invariants with
-// synthetic input call the assert functions directly.
+// collision, a mis-wired image consumer, an inconsistent env registry, a
+// duplicated Railway ID, or a malformed shared provider-key reference. Tests
+// that exercise the invariants with synthetic input call the assert functions
+// directly.
 assertDispatchNamesUnique();
 assertImageConsumersValid();
 assertEnvRegistryConsistent();
 assertServiceAndInstanceIdsUnique();
 assertClosureValid();
+assertSharedRefsValid();
