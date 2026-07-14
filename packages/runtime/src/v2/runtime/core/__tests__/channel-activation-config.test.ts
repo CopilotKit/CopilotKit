@@ -15,6 +15,12 @@ function fakeIntelligence(apiKey: string): CopilotKitIntelligence {
   });
 }
 
+describe("ChannelConfigError", () => {
+  it("sets .name to ChannelConfigError rather than the default Error", () => {
+    expect(new ChannelConfigError("x").name).toBe("ChannelConfigError");
+  });
+});
+
 describe("parseProjectIdFromApiKey", () => {
   it("parses the project id out of a well-formed Intelligence API key", () => {
     expect(parseProjectIdFromApiKey("cpk-42_short_long")).toBe(42);
@@ -45,6 +51,16 @@ describe("parseProjectIdFromApiKey", () => {
 
   it("returns the parsed id for a valid positive project id", () => {
     expect(parseProjectIdFromApiKey("cpk-42_x_y")).toBe(42);
+  });
+
+  it("throws ChannelConfigError for a project id that overflows safe-integer precision", () => {
+    // A 20+-digit run still matches `\d+` but loses precision (or overflows
+    // toward Infinity) once coerced with `Number` — `projectId > 0` alone would
+    // pass this through, so the parser must also reject unsafe integers.
+    const huge = "1".repeat(25);
+    expect(() => parseProjectIdFromApiKey(`cpk-${huge}_x_y`)).toThrow(
+      ChannelConfigError,
+    );
   });
 
   it("redacts the API key: the error names the format but never echoes the full secret", () => {
@@ -147,6 +163,20 @@ describe("deriveChannelActivationConfig", () => {
     });
 
     expect(config.channelName).toBe("Slack");
+  });
+
+  it("trims the adapter value rather than forwarding it padded", () => {
+    const intelligence = fakeIntelligence("cpk-7_a_b");
+    const channel = createChannel({ name: "support" });
+
+    expect(
+      deriveChannelActivationConfig({
+        intelligence,
+        channel,
+        adapter: "  teams  ",
+        runtimeInstanceId: "rti_x",
+      }).adapter,
+    ).toBe("teams");
   });
 
   it('falls back to "slack" for an empty or whitespace-only adapter', () => {

@@ -57,7 +57,12 @@ export interface ChannelsControl {
  * than `error` — a declared-but-unprovisioned Channel is a valid degraded
  * state, not a failure.
  */
-export class ChannelSetupRequiredError extends Error {}
+export class ChannelSetupRequiredError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ChannelSetupRequiredError";
+  }
+}
 
 /**
  * The activation engine: given a resolved {@link ChannelActivationConfig} and

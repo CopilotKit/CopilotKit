@@ -8,7 +8,12 @@ import type { Channel } from "@copilotkit/channels";
  * Intelligence API key does not carry a project id in the expected
  * `cpk-{projectId}_...` format, or the {@link Channel} is missing a `name`.
  */
-export class ChannelConfigError extends Error {}
+export class ChannelConfigError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ChannelConfigError";
+  }
+}
 
 /**
  * Resolved configuration needed to activate a single Channel against a
@@ -39,11 +44,11 @@ const API_KEY_PROJECT_ID_PATTERN = /^cpk-(\d+)_/;
  * extracts and numerically parses the `{projectId}` segment.
  *
  * @param apiKey - The Intelligence API key to parse.
- * @returns The parsed, strictly-positive project id.
+ * @returns The parsed, strictly-positive, safe-integer project id.
  * @throws {ChannelConfigError} If `apiKey` does not match the expected
  *   `cpk-{projectId}_...` format — a wrong/missing prefix or an absent project
- *   id segment all fail the same match — or if the parsed project id is not
- *   strictly positive.
+ *   id segment all fail the same match — or if the parsed project id is not a
+ *   strictly-positive safe integer.
  */
 export function parseProjectIdFromApiKey(apiKey: string): number {
   const match = API_KEY_PROJECT_ID_PATTERN.exec(apiKey);
@@ -63,13 +68,16 @@ export function parseProjectIdFromApiKey(apiKey: string): number {
   // Validate the parser's OWN output: `cpk-0_...` matches the pattern but a
   // non-positive project id would otherwise fail deep inside the launcher's
   // `assertValidChannelRealtimeScope` (which requires a positive projectId).
-  // This is the parser guarding its own contract, not a channel-name replica, so
-  // it belongs here. Reuse the same redaction: never echo the key value.
-  if (projectId <= 0) {
+  // A very long digit run also matches `\d+` but loses precision (or overflows
+  // to Infinity) once coerced to `Number`, so it must be rejected too even
+  // though it is `> 0` — `Number.isSafeInteger` catches both. This is the
+  // parser guarding its own contract, not a channel-name replica, so it
+  // belongs here. Reuse the same redaction: never echo the key value.
+  if (!Number.isSafeInteger(projectId) || projectId <= 0) {
     throw new ChannelConfigError(
-      `Parsed a non-positive project id (${projectId}) from the Intelligence API ` +
-        `key — the project id in "cpk-{projectId}_..." must be a positive integer ` +
-        `(the key value is omitted here to avoid leaking secret material).`,
+      `Parsed an invalid project id (${projectId}) from the Intelligence API ` +
+        `key — the project id in "cpk-{projectId}_..." must be a positive safe ` +
+        `integer (the key value is omitted here to avoid leaking secret material).`,
     );
   }
   return projectId;
@@ -119,14 +127,18 @@ export function deriveChannelActivationConfig(args: {
   const apiKey = intelligence.ɵgetRunnerAuthToken();
   const projectId = parseProjectIdFromApiKey(apiKey);
 
+  // Fall back to "slack" for an absent, empty, or whitespace-only adapter
+  // (`??` alone would keep `""`); a blank adapter is not a meaningful target.
+  // Return the TRIMMED value so a padded adapter like `"  teams  "` resolves
+  // to `"teams"` rather than being forwarded with its whitespace intact.
+  const trimmedAdapter = adapter?.trim();
+
   return {
     wsUrl,
     apiKey,
     projectId,
     channelName,
-    // Fall back to "slack" for an absent, empty, or whitespace-only adapter
-    // (`??` alone would keep `""`); a blank adapter is not a meaningful target.
-    adapter: adapter && adapter.trim() ? adapter : "slack",
+    adapter: trimmedAdapter ? trimmedAdapter : "slack",
     runtimeInstanceId,
   };
 }

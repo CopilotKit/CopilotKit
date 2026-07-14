@@ -142,56 +142,62 @@ describe("createCopilotRuntimeHandler — managed channels", () => {
 
   it("wires the shared logger so a channel that fails to activate emits a breadcrumb (RC11)", async () => {
     const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
-    const engine: ActivateChannelEngine = async () => {
-      throw new Error("activation boom");
-    };
+    try {
+      const engine: ActivateChannelEngine = async () => {
+        throw new Error("activation boom");
+      };
 
-    const handler = createCopilotRuntimeHandler({
-      runtime: intelRuntimeWith1Channel(),
-      __channelEngine: engine,
-    });
+      const handler = createCopilotRuntimeHandler({
+        runtime: intelRuntimeWith1Channel(),
+        __channelEngine: engine,
+      });
 
-    await handler.channels!.ready().catch(() => {});
+      await handler.channels!.ready().catch(() => {});
 
-    const loggedMessages = warnSpy.mock.calls.map((args) => args[1]);
-    expect(
-      loggedMessages.some(
-        (msg) => typeof msg === "string" && msg.includes("failed to activate"),
-      ),
-    ).toBe(true);
-
-    warnSpy.mockRestore();
+      const loggedMessages = warnSpy.mock.calls.map((args) => args[1]);
+      expect(
+        loggedMessages.some(
+          (msg) =>
+            typeof msg === "string" && msg.includes("failed to activate"),
+        ),
+      ).toBe(true);
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 
   it("bridges the activation Error under the `err` key so pino preserves its message (RC15)", async () => {
     const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
-    const engine: ActivateChannelEngine = async () => {
-      throw new Error("activation boom");
-    };
+    try {
+      const engine: ActivateChannelEngine = async () => {
+        throw new Error("activation boom");
+      };
 
-    const handler = createCopilotRuntimeHandler({
-      runtime: intelRuntimeWith1Channel(),
-      __channelEngine: engine,
-    });
+      const handler = createCopilotRuntimeHandler({
+        runtime: intelRuntimeWith1Channel(),
+        __channelEngine: engine,
+      });
 
-    await handler.channels!.ready().catch(() => {});
+      await handler.channels!.ready().catch(() => {});
 
-    // The failed-to-activate breadcrumb must log the Error under `err` (the only
-    // key pino serializes an Error's non-enumerable message/stack under). Under
-    // any other key it would render as `{}` and the cause would be lost.
-    const errBridged = warnSpy.mock.calls.find(
-      ([ctx, msg]) =>
-        typeof msg === "string" &&
-        msg.includes("failed to activate") &&
-        ctx !== null &&
-        typeof ctx === "object" &&
-        (ctx as { err?: unknown }).err instanceof Error,
-    );
-    expect(errBridged).toBeDefined();
-    expect(((errBridged![0] as { err: Error }).err as Error).message).toBe(
-      "activation boom",
-    );
-
-    warnSpy.mockRestore();
+      // The failed-to-activate breadcrumb must log the Error under `err` (the
+      // only key pino serializes an Error's non-enumerable message/stack
+      // under). Under any other key it would render as `{}` and the cause
+      // would be lost.
+      const errBridged = warnSpy.mock.calls.find(
+        ([ctx, msg]) =>
+          typeof msg === "string" &&
+          msg.includes("failed to activate") &&
+          ctx !== null &&
+          typeof ctx === "object" &&
+          (ctx as { err?: unknown }).err instanceof Error,
+      );
+      expect(errBridged).toBeDefined();
+      expect(((errBridged![0] as { err: Error }).err as Error).message).toBe(
+        "activation boom",
+      );
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 });

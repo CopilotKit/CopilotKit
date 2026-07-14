@@ -28,6 +28,14 @@ function fakeHandle(): ChannelsHandle & { stop: ReturnType<typeof vi.fn> } {
   return { metadata: {}, stop: vi.fn(async () => {}) };
 }
 
+describe("ChannelSetupRequiredError", () => {
+  it("sets .name to ChannelSetupRequiredError rather than the default Error", () => {
+    expect(new ChannelSetupRequiredError("x").name).toBe(
+      "ChannelSetupRequiredError",
+    );
+  });
+});
+
 describe("ChannelManager", () => {
   it("activate() starts one engine call per channel with distinct runtimeInstanceIds and reaches online after ready()", async () => {
     const chA = createChannel({ name: "support" });
@@ -313,37 +321,55 @@ describe("ChannelManager", () => {
   });
 
   it("stops a handle assigned in the same tick as stop() EXACTLY once (RC7)", async () => {
-    const stopCalls = { count: 0 };
-    let resolveActivation!: (h: ChannelsHandle) => void;
-    const engine: ActivateChannelEngine = vi.fn(
-      () =>
-        new Promise<ChannelsHandle>((resolve) => {
-          resolveActivation = resolve;
-        }),
-    );
+    // NOTE on reachability: a genuinely CONTENDED double-stop — where both
+    // stop()'s own per-entry pass AND the success settle handler's conditional
+    // `stopEntry` call each observe a live, not-yet-stopped handle — is not
+    // reachable through the public API given the current code structure.
+    // `this.stopped` is flipped synchronously at the very top of `stop()`,
+    // strictly before stop()'s own (single, synchronous) pass over `entries`;
+    // and the settle handler only ever routes through `stopEntry` when it
+    // observes `this.stopped === true`, which can only be true because
+    // stop()'s own pass over THIS entry has already run (and, since the handle
+    // had not been assigned yet, was a no-op). So at most one of the two call
+    // sites ever finds a live handle — the other is either a no-op (handle not
+    // yet assigned) or never taken (this.stopped was still false when the
+    // settle handler checked it). Verified directly: with the
+    // `!entry.handleStopped` guard removed entirely, the resolveActivation()
+    // -then-stop() sequence below still calls `handle.stop()` exactly once.
+    //
+    // So this test instead exercises `stopEntry`'s own idempotency contract
+    // directly — the thing the guard actually exists to enforce — by invoking
+    // it twice back-to-back on the same live entry via a narrow white-box seam.
+    const handle = fakeHandle();
+    const engine: ActivateChannelEngine = vi.fn(async () => handle);
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
       channels: [createChannel({ name: "support" })],
       activateChannel: engine,
     });
     mgr.activate();
+    await mgr.ready();
 
-    const handle: ChannelsHandle = {
-      metadata: {},
-      stop: vi.fn(async () => {
-        stopCalls.count += 1;
-      }),
-    };
-    // Assign the handle and tear down in the same tick: the success settle
-    // handler and stop() both reach this entry, but the idempotent guard must
-    // let only one of them stop the handle.
-    resolveActivation(handle);
-    await mgr.stop();
-    await vi.waitFor(() =>
-      expect(mgr.status().channels.support).toBe("stopped"),
-    );
+    interface ChannelManagerStopEntryInternals {
+      entries: Map<
+        string,
+        { handle?: ChannelsHandle; handleStopped: boolean; status: string }
+      >;
+      stopEntry(entry: {
+        handle?: ChannelsHandle;
+        handleStopped: boolean;
+        status: string;
+      }): Promise<void>;
+    }
+    const internals = mgr as unknown as ChannelManagerStopEntryInternals;
+    const entry = internals.entries.get("support")!;
 
-    expect(stopCalls.count).toBe(1);
+    // Two invocations racing on the SAME entry: the first synchronously claims
+    // the guard (sets `handleStopped = true`) before either reaches its own
+    // `await`, so the second must observe the guard already tripped.
+    await Promise.all([internals.stopEntry(entry), internals.stopEntry(entry)]);
+
+    expect(handle.stop).toHaveBeenCalledTimes(1);
   });
 
   it("ready() resolves after stop() even when a channel settled to error before stop() (f3)", async () => {
