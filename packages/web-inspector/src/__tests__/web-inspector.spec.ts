@@ -3372,3 +3372,143 @@ describe("ɵbuildCapabilityRows", () => {
     expect(ɵbuildCapabilityRows({ isToolEnabled: () => false })).toEqual([]);
   });
 });
+
+describe("WebInspectorElement Capabilities tab", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    const store: Record<string, string> = {};
+    vi.stubGlobal("localStorage", {
+      getItem: (k: string) => store[k] ?? null,
+      setItem: (k: string, v: string) => {
+        store[k] = v;
+      },
+      removeItem: (k: string) => {
+        delete store[k];
+      },
+      clear: () => {
+        for (const k of Object.keys(store)) delete store[k];
+      },
+      get length() {
+        return Object.keys(store).length;
+      },
+      key: (i: number) => Object.keys(store)[i] ?? null,
+    });
+  });
+
+  function createCapabilitiesCore() {
+    const toolEnabled: Record<string, boolean> = { greet: true, hide: true };
+    const catalogEnabled: Record<string, boolean> = { Chart: true };
+    const setToolEnabled = vi.fn(
+      (name: string, enabled: boolean, _agentId?: string) => {
+        toolEnabled[name] = enabled;
+      },
+    );
+    const setCatalogComponentEnabled = vi.fn(
+      (name: string, enabled: boolean) => {
+        catalogEnabled[name] = enabled;
+      },
+    );
+    const core = {
+      agents: {},
+      context: {},
+      properties: {},
+      runtimeConnectionStatus:
+        CopilotKitCoreRuntimeConnectionStatus.Connected,
+      subscribe: () => ({ unsubscribe: () => undefined }),
+      getThreadStores: () => ({}),
+      getThreadStore: () => undefined,
+      getMemoryStore: () => ({
+        getState: () => ({ available: true }),
+        select: () => ({
+          subscribe: (cb: (v: unknown) => void) => {
+            cb(undefined);
+            return { unsubscribe: () => undefined };
+          },
+        }),
+      }),
+      tools: [{ name: "greet", description: "Say hi" }, { name: "hide" }],
+      isToolEnabled: (name: string) => toolEnabled[name] ?? true,
+      setToolEnabled,
+      catalogComponents: [{ name: "Chart", schema: {} }],
+      isCatalogComponentEnabled: (name: string) => catalogEnabled[name] ?? true,
+      setCatalogComponentEnabled,
+    };
+    return { core, setToolEnabled, setCatalogComponentEnabled };
+  }
+
+  it("shows the Capabilities tab and renders both sections", async () => {
+    const { core } = createCapabilitiesCore();
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = core as unknown as WebInspectorElement["core"];
+    (inspector as unknown as { isOpen: boolean }).isOpen = true;
+    (
+      inspector as unknown as { handleMenuSelect: (k: string) => void }
+    ).handleMenuSelect("capabilities");
+    await inspector.updateComplete;
+    const text = inspector.shadowRoot?.textContent ?? "";
+    expect(text).toContain("Frontend tools");
+    expect(text).toContain("A2UI catalog components");
+    expect(text).toContain("greet");
+    expect(text).toContain("Chart");
+  });
+
+  it("calls setToolEnabled(false) when a tool switch is toggled off", async () => {
+    const { core, setToolEnabled } = createCapabilitiesCore();
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = core as unknown as WebInspectorElement["core"];
+    (inspector as unknown as { isOpen: boolean }).isOpen = true;
+    (
+      inspector as unknown as { handleMenuSelect: (k: string) => void }
+    ).handleMenuSelect("capabilities");
+    await inspector.updateComplete;
+    const switches =
+      inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>(
+        'button[role="switch"]',
+      ) ?? [];
+    switches[0]?.click();
+    await inspector.updateComplete;
+    expect(setToolEnabled).toHaveBeenCalledWith("greet", false, undefined);
+    const refreshed =
+      inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>(
+        'button[role="switch"]',
+      ) ?? [];
+    expect(refreshed[0]?.getAttribute("aria-checked")).toBe("false");
+  });
+
+  it("calls setCatalogComponentEnabled when a catalog switch is toggled", async () => {
+    const { core, setCatalogComponentEnabled } = createCapabilitiesCore();
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = core as unknown as WebInspectorElement["core"];
+    (inspector as unknown as { isOpen: boolean }).isOpen = true;
+    (
+      inspector as unknown as { handleMenuSelect: (k: string) => void }
+    ).handleMenuSelect("capabilities");
+    await inspector.updateComplete;
+    const switches =
+      inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>(
+        'button[role="switch"]',
+      ) ?? [];
+    switches[switches.length - 1]?.click();
+    await inspector.updateComplete;
+    expect(setCatalogComponentEnabled).toHaveBeenCalledWith("Chart", false);
+  });
+
+  it("hides the catalog section when catalogComponents is empty", async () => {
+    const { core } = createCapabilitiesCore();
+    (core as { catalogComponents: unknown[] }).catalogComponents = [];
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = core as unknown as WebInspectorElement["core"];
+    (inspector as unknown as { isOpen: boolean }).isOpen = true;
+    (
+      inspector as unknown as { handleMenuSelect: (k: string) => void }
+    ).handleMenuSelect("capabilities");
+    await inspector.updateComplete;
+    const text = inspector.shadowRoot?.textContent ?? "";
+    expect(text).toContain("Frontend tools");
+    expect(text).not.toContain("A2UI catalog components");
+  });
+});
