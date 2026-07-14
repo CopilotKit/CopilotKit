@@ -131,8 +131,13 @@ export interface ChannelManagerArgs {
   activateChannel?: ActivateChannelEngine;
   /** Mint a runtime instance id per Channel. Defaults to `rti_{uuid-no-dashes}`. */
   mintRuntimeInstanceId?: () => string;
-  /** Diagnostic sink. */
+  /** Diagnostic sink. Forwarded to the launcher/transport when the default
+   * activation engine is used, so transport-level drops surface in the managed
+   * path (not just activation-level events). */
   log?: (msg: string, meta?: unknown) => void;
+  /** Per-handle deadline (ms) for `handle.stop()` during {@link ChannelManager.stop}
+   * so a wedged stop can't hang SIGTERM shutdown. Default 5000. */
+  stopHandleTimeoutMs?: number;
 }
 
 /** Per-Channel mutable activation entry tracked by the manager. */
@@ -169,6 +174,10 @@ export interface ChannelsIntelligenceModule {
       scope: { projectId: number; channelName: string };
       runtimeInstanceId: string;
       adapter?: string;
+      /** Diagnostic sink forwarded to the launcher/transport so transport-level
+       * drop diagnostics (e.g. a version-skew missing-leaseToken outage) are not
+       * silent in the managed path. */
+      log?: (msg: string, meta?: unknown) => void;
     },
   ) => Promise<ChannelsHandle>;
 }
@@ -191,6 +200,8 @@ export interface ChannelsIntelligenceModule {
  * @param channel - The Channel to activate.
  * @param importChannelsIntelligence - Test seam; loads the channels-intelligence
  *   module. Defaults to a dynamic import of the real package.
+ * @param log - Optional diagnostic sink forwarded to the launcher/transport so
+ *   transport-level drop diagnostics are not silent in the managed path.
  * @returns The launcher's {@link ChannelsHandle}.
  */
 export async function defaultActivateChannel(
@@ -200,6 +211,7 @@ export async function defaultActivateChannel(
     import(
       CHANNELS_INTELLIGENCE_SPECIFIER
     ) as Promise<ChannelsIntelligenceModule>,
+  log?: (msg: string, meta?: unknown) => void,
 ): Promise<ChannelsHandle> {
   let mod: ChannelsIntelligenceModule;
   try {
@@ -219,6 +231,10 @@ export async function defaultActivateChannel(
     scope: { projectId: config.projectId, channelName: config.channelName },
     runtimeInstanceId: config.runtimeInstanceId,
     adapter: config.adapter,
+    // Forward the manager's diagnostic sink down to the launcher/transport so a
+    // transport-level drop (e.g. a version-skew missing-leaseToken outage) is
+    // observable in the managed path, not just activation-level events.
+    ...(log ? { log } : {}),
   });
 }
 
@@ -246,22 +262,30 @@ export function isModuleNotFound(err: unknown): boolean {
   return code === "ERR_MODULE_NOT_FOUND" || code === "MODULE_NOT_FOUND";
 }
 
+/** Default deadline (ms) for a single `handle.stop()` during teardown. */
+const DEFAULT_STOP_HANDLE_TIMEOUT_MS = 5_000;
+
 /**
- * Reject after `timeoutMs` if `inner` has not settled, otherwise pass `inner`
- * through. When `timeoutMs` is undefined, `inner` is returned unchanged.
+ * Reject with `timeoutMessage` after `timeoutMs` if `inner` has not settled,
+ * otherwise pass `inner` through. When `timeoutMs` is undefined, `inner` is
+ * returned unchanged. The timer is `unref`'d so a pending deadline never keeps
+ * the process alive, and `inner` always has a settle handler attached, so a
+ * timed-out promise that later settles never surfaces as unhandled.
  */
-function withTimeout<T>(inner: Promise<T>, timeoutMs?: number): Promise<T> {
+function withTimeout<T>(
+  inner: Promise<T>,
+  timeoutMs: number | undefined,
+  timeoutMessage: string,
+): Promise<T> {
   if (timeoutMs === undefined) {
     return inner;
   }
   return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      reject(
-        new Error(
-          `ChannelManager.ready timed out after ${timeoutMs}ms waiting for all channels to settle`,
-        ),
-      );
-    }, timeoutMs);
+    const timer = setTimeout(
+      () => reject(new Error(timeoutMessage)),
+      timeoutMs,
+    );
+    (timer as unknown as { unref?: () => void }).unref?.();
     inner.then(
       (value) => {
         clearTimeout(timer);
@@ -311,6 +335,7 @@ export class ChannelManager implements ChannelsControl {
   private readonly activateChannel: ActivateChannelEngine;
   private readonly mintRuntimeInstanceId: () => string;
   private readonly log?: (msg: string, meta?: unknown) => void;
+  private readonly stopHandleTimeoutMs: number;
 
   private readonly entries = new Map<string, ChannelEntry>();
   private activated = false;
@@ -320,11 +345,20 @@ export class ChannelManager implements ChannelsControl {
   constructor(args: ChannelManagerArgs) {
     this.intelligence = args.intelligence;
     this.channels = args.channels;
-    this.activateChannel = args.activateChannel ?? defaultActivateChannel;
+    this.log = args.log;
+    // When using the default engine, forward the manager's log DOWN to the
+    // launcher/transport (via defaultActivateChannel's log param) so a
+    // transport-level drop is observable in the managed path. `this.log` is read
+    // lazily at activation time, so this closure always sees the assigned sink.
+    this.activateChannel =
+      args.activateChannel ??
+      ((config, channel) =>
+        defaultActivateChannel(config, channel, undefined, this.log));
     this.mintRuntimeInstanceId =
       args.mintRuntimeInstanceId ??
       (() => `rti_${randomUUID().replace(/-/g, "")}`);
-    this.log = args.log;
+    this.stopHandleTimeoutMs =
+      args.stopHandleTimeoutMs ?? DEFAULT_STOP_HANDLE_TIMEOUT_MS;
   }
 
   /**
@@ -518,9 +552,12 @@ export class ChannelManager implements ChannelsControl {
    * same {@link ChannelConfigError} as the synchronous throw from
    * {@link activate} for an up-front misconfiguration (duplicate/missing Channel
    * names). Once activation has been kicked off, all OTHER failures are surfaced
-   * here instead: this rejects with an `AggregateError` of the reasons if any
-   * Channel settled to `error`, or with a timeout error if `timeoutMs` elapses
-   * before all Channels settle.
+   * here instead: this rejects with an `AggregateError` if any Channel settled
+   * to `error` OR — when `timeoutMs` is given — did not settle in time. The
+   * `timeoutMs` deadline is applied PER CHANNEL, so the aggregate carries each
+   * failed Channel's real reason AND a named timeout for each Channel still
+   * hanging: a genuine activation error is never masked by a sibling that hangs
+   * (a pre-fix set-wide timeout discarded the real reason in that case).
    *
    * A STOPPED manager short-circuits and resolves: a Channel that settled to
    * `error` BEFORE {@link stop} already rejected its `settled` promise, so
@@ -540,16 +577,29 @@ export class ChannelManager implements ChannelsControl {
       return;
     }
     this.activate();
-    const entries = [...this.entries.values()];
-    const all = Promise.allSettled(entries.map((e) => e.settled));
-    const results = await withTimeout(all, opts?.timeoutMs);
+    const entries = [...this.entries.entries()];
+    // Apply `timeoutMs` PER CHANNEL rather than to the whole set. A single
+    // set-wide timeout wrapping `allSettled` would, when one channel settles to
+    // `error` while a sibling hangs, reject with only a generic timeout and
+    // DISCARD the erroring channel's real reason. Timing out each channel's
+    // `settled` independently lets `allSettled` collect BOTH a hung channel's
+    // named timeout AND a failed channel's real error into one AggregateError.
+    const results = await Promise.allSettled(
+      entries.map(([name, e]) =>
+        withTimeout(
+          e.settled,
+          opts?.timeoutMs,
+          `channel "${name}" did not settle within ${opts?.timeoutMs}ms`,
+        ),
+      ),
+    );
     const errors = results
       .filter((r): r is PromiseRejectedResult => r.status === "rejected")
       .map((r) => r.reason);
     if (errors.length > 0) {
       throw new AggregateError(
         errors,
-        `ChannelManager.ready: ${errors.length} channel(s) failed to activate`,
+        `ChannelManager.ready: ${errors.length} channel(s) failed to activate or settle in time`,
       );
     }
   }
@@ -699,6 +749,11 @@ export class ChannelManager implements ChannelsControl {
    * The developer's `channel.start()`/stop path is unaffected by manager
    * teardown.
    *
+   * A WEDGED `handle.stop()` (one that never settles) is bounded by
+   * {@link ChannelManagerArgs.stopHandleTimeoutMs}: after the deadline the call
+   * is logged and abandoned so it can't hang `stop()` — and thus SIGTERM
+   * shutdown — forever.
+   *
    * @param entry - The Channel entry to stop.
    */
   private async stopEntry(entry: ChannelEntry): Promise<void> {
@@ -709,11 +764,20 @@ export class ChannelManager implements ChannelsControl {
     if (entry.handle && !entry.handleStopped) {
       entry.handleStopped = true;
       const handle = entry.handle;
-      await Promise.resolve()
-        .then(() => handle.stop())
-        .catch((err: unknown) =>
-          this.log?.("channel handle stop() failed during teardown", err),
-        );
+      // Bound handle.stop(): a wedged stop() (e.g. a socket.disconnect that
+      // never returns) must not hang teardown — and thus SIGTERM shutdown —
+      // forever. On timeout, log and abandon it (the call keeps running with a
+      // settle handler attached inside withTimeout, so it never surfaces as an
+      // unhandled rejection) so every OTHER entry still reaches `stopped`. The
+      // `Promise.resolve().then(...)` wrap also routes a SYNCHRONOUS throw from
+      // a foreign handle through the same timeout+catch.
+      await withTimeout(
+        Promise.resolve().then(() => handle.stop()),
+        this.stopHandleTimeoutMs,
+        `channel handle stop() timed out after ${this.stopHandleTimeoutMs}ms during teardown`,
+      ).catch((err: unknown) =>
+        this.log?.("channel handle stop() failed during teardown", err),
+      );
     }
   }
 
@@ -732,6 +796,9 @@ export class ChannelManager implements ChannelsControl {
    * Teardown is resilient to a throwing `handle.stop()`: `Promise.allSettled`
    * over the per-entry `stopEntry` calls guarantees one rejection can't abort
    * the rest, so every entry reaches `stopped` and `stop()` always resolves.
+   * It is equally resilient to a WEDGED `handle.stop()` that never settles: each
+   * is bounded by {@link ChannelManagerArgs.stopHandleTimeoutMs} inside
+   * {@link stopEntry}, so a single hung handle can't hang SIGTERM shutdown.
    */
   async stop(): Promise<void> {
     if (this.stopped) {

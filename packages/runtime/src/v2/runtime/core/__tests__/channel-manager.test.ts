@@ -196,6 +196,38 @@ describe("ChannelManager", () => {
     expect(mgr.status().overall).toBe("connecting");
   });
 
+  it("ready() surfaces the erroring channel's real reason even when a sibling hangs", async () => {
+    const boom = new Error("activation exploded");
+    const engine: ActivateChannelEngine = (_config, channel) =>
+      channel.name === "support"
+        ? Promise.reject(boom) // errors immediately
+        : new Promise<ChannelsHandle>(() => {}); // sibling hangs forever
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [
+        createChannel({ name: "support" }),
+        createChannel({ name: "sales" }),
+      ],
+      activateChannel: engine,
+    });
+    mgr.activate();
+
+    const err = await mgr.ready({ timeoutMs: 25 }).then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+    // A set-wide timeout would have rejected with only a generic timeout and
+    // DISCARDED `boom`. The per-channel timeout aggregate carries BOTH.
+    expect(err).toBeInstanceOf(AggregateError);
+    const agg = err as AggregateError;
+    expect(agg.errors).toContain(boom);
+    expect(
+      agg.errors.some(
+        (e) => e instanceof Error && /"sales" did not settle/.test(e.message),
+      ),
+    ).toBe(true);
+  });
+
   it("activate() throws on duplicate channel names before any engine call (no leak)", () => {
     const engine: ActivateChannelEngine = vi.fn(async () => fakeHandle());
     const mgr = new ChannelManager({
@@ -242,6 +274,44 @@ describe("ChannelManager", () => {
     resolveActivation(handle);
     await vi.waitFor(() => expect(handle.stop).toHaveBeenCalledTimes(1));
     expect(mgr.status().channels.support).toBe("stopped");
+  });
+
+  it("stop() bounds a wedged handle.stop() so teardown can't hang (per-handle timeout)", async () => {
+    const logs: unknown[][] = [];
+    // A handle whose stop() never settles — the SIGTERM-hang risk.
+    const wedged: ChannelsHandle & { stop: ReturnType<typeof vi.fn> } = {
+      metadata: {},
+      stop: vi.fn(() => new Promise<void>(() => {})),
+    };
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [createChannel({ name: "support" })],
+      activateChannel: async () => wedged,
+      stopHandleTimeoutMs: 20,
+      log: (...args) => logs.push(args),
+    });
+    await mgr.ready();
+
+    let hangTimer: ReturnType<typeof setTimeout>;
+    await expect(
+      Promise.race([
+        mgr.stop(),
+        new Promise((_resolve, reject) => {
+          hangTimer = setTimeout(() => reject(new Error("stop() hung")), 1000);
+        }),
+      ]),
+    ).resolves.toBeUndefined();
+    clearTimeout(hangTimer!);
+
+    expect(mgr.status().channels.support).toBe("stopped");
+    expect(wedged.stop).toHaveBeenCalledTimes(1);
+    const timeoutLog = logs.find(
+      ([msg]) =>
+        typeof msg === "string" &&
+        msg.includes("channel handle stop() failed during teardown"),
+    );
+    expect(timeoutLog).toBeDefined();
+    expect((timeoutLog![1] as Error).message).toMatch(/timed out after 20ms/);
   });
 
   it("stop() completes and marks every channel stopped even when a handle.stop() rejects", async () => {
@@ -676,6 +746,23 @@ describe("defaultActivateChannel", () => {
     // The scope carries ONLY projectId + channelName — never org/channelId.
     expect(opts.scope).not.toHaveProperty("organizationId");
     expect(opts.scope).not.toHaveProperty("channelId");
+  });
+
+  it("forwards the log sink to the launcher opts so transport-level drops surface", async () => {
+    const handle: ChannelsHandle = { metadata: {}, stop: async () => {} };
+    const start = vi.fn<
+      ChannelsIntelligenceModule["startChannelsOverRealtimeGateway"]
+    >(async () => handle);
+    const channel = createChannel({ name: "support" });
+    const importer = async (): Promise<ChannelsIntelligenceModule> => ({
+      startChannelsOverRealtimeGateway: start,
+    });
+    const log = vi.fn();
+
+    await defaultActivateChannel(config, channel, importer, log);
+
+    const [, opts] = start.mock.calls[0]!;
+    expect(opts.log).toBe(log);
   });
 
   it("throws a friendly install hint when the module is not found", async () => {
