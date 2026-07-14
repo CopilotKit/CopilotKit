@@ -44,7 +44,7 @@ import { createA2UIMessageRenderer } from "../a2ui/A2UIMessageRenderer";
 import type { A2UIRecoveryRendererOptions } from "../a2ui/A2UIRecoveryStates";
 import { A2UIBuiltInToolCallRenderer } from "../a2ui/A2UIToolCallRenderer";
 import { A2UICatalogContext } from "../a2ui/A2UICatalogContext";
-import { viewerTheme } from "@copilotkit/a2ui-renderer";
+import { viewerTheme, filterCatalog, Catalog } from "@copilotkit/a2ui-renderer";
 import type { Theme as A2UITheme } from "@copilotkit/a2ui-renderer";
 import { CopilotKitCoreReact } from "../lib/react-core";
 import type {
@@ -296,6 +296,9 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   const [shouldRenderInspector, setShouldRenderInspector] = useState(false);
   const [runtimeA2UIEnabled, setRuntimeA2UIEnabled] = useState(false);
   const [runtimeOpenGenUIEnabled, setRuntimeOpenGenUIEnabled] = useState(false);
+  // Bumped by onCatalogComponentsChanged so the filtered catalog re-derives
+  // when a component is enabled/disabled after mount.
+  const [catalogToggleVersion, setCatalogToggleVersion] = useState(0);
   const openGenUIActive = runtimeOpenGenUIEnabled || !!openGenerativeUI;
   // A catalog passed to the provider is enough to turn A2UI on: render the
   // surfaces locally and forward the catalog signal so the runtime injects the
@@ -357,6 +360,34 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     ReactActivityMessageRenderer<any>
   >(renderActivityMessages, "renderActivityMessages must be a stable array.");
 
+  // Stable core instance ref, declared here (before the activity-renderer memo)
+  // so the filtered-catalog memo can read enablement off the current instance.
+  // The instance itself is created in the ref-init block below; on the very
+  // first render `current` is still null (nothing is disabled yet), so the
+  // filtered catalog correctly equals the full catalog.
+  const copilotkitRef = useRef<CopilotKitCoreReact | null>(null);
+
+  // Raw catalog provided by the caller (typed loosely to match `a2ui.catalog?: any`).
+  const rawCatalog = a2ui?.catalog as Catalog<any> | undefined;
+
+  // Derive the FILTERED catalog: only components currently enabled on core.
+  // Re-derives when enablement changes (catalogToggleVersion bump from the
+  // onCatalogComponentsChanged subscription below). Passed to BOTH the render
+  // path (createA2UIMessageRenderer) and the advertisement path (A2UICatalogContext)
+  // so a disabled component vanishes from what the model sees AND what can paint.
+  const filteredCatalog = useMemo(() => {
+    if (!rawCatalog) return rawCatalog;
+    // `filterCatalog` rebuilds a real `Catalog` (reads `.functions`). Callers may
+    // also pass a minimal catalog-shaped object; only filter genuine instances.
+    if (!(rawCatalog instanceof Catalog)) return rawCatalog;
+    const core = copilotkitRef.current;
+    return filterCatalog(rawCatalog, (name) =>
+      core ? core.isCatalogComponentEnabled(name) : true,
+    );
+    // catalogToggleVersion forces re-derivation when enablement changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawCatalog, catalogToggleVersion]);
+
   // Built-in activity renderers that are always included
   const builtInActivityRenderers = useMemo<
     ReactActivityMessageRenderer<any>[]
@@ -385,7 +416,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       renderers.unshift(
         createA2UIMessageRenderer({
           theme: a2ui?.theme ?? viewerTheme,
-          catalog: a2ui?.catalog,
+          catalog: filteredCatalog,
           loadingComponent: a2ui?.loadingComponent,
           recovery: a2ui?.recovery,
         }),
@@ -393,7 +424,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     }
 
     return renderers;
-  }, [a2uiActive, openGenUIActive, a2ui]);
+  }, [a2uiActive, openGenUIActive, a2ui, filteredCatalog]);
 
   // Combine user-provided activity renderers with built-in ones
   // User-provided renderers take precedence (come first) so they can override built-ins
@@ -569,9 +600,9 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     processedHumanInTheLoopTools,
   ]);
 
-  // Stable instance: created once for the provider lifetime.
+  // Stable instance: created once for the provider lifetime (ref declared above
+  // so the filtered-catalog memo can read enablement off it).
   // Updates are applied via setter effects below rather than recreating the instance.
-  const copilotkitRef = useRef<CopilotKitCoreReact | null>(null);
   if (copilotkitRef.current === null) {
     copilotkitRef.current = new CopilotKitCoreReact({
       runtimeUrl: chatApiEndpoint,
@@ -604,6 +635,28 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     }
   }
   const copilotkit = copilotkitRef.current;
+
+  // Register the full A2UI catalog component list onto core so the inspector can
+  // read `core.catalogComponents`, and re-derive the filtered catalog whenever
+  // enablement changes. Descriptions are undefined here because the built
+  // ComponentApi does not carry them (see plan A2 rationale).
+  useEffect(() => {
+    if (!rawCatalog) return;
+    const components = Array.from(rawCatalog.components.values()).map(
+      (comp: { name: string; schema: unknown }) => ({
+        name: comp.name,
+        description: undefined as string | undefined,
+        schema: comp.schema,
+      }),
+    );
+    copilotkit.setCatalogComponents(components);
+    const subscription = copilotkit.subscribe({
+      onCatalogComponentsChanged: () => {
+        setCatalogToggleVersion((v) => v + 1);
+      },
+    });
+    return () => subscription.unsubscribe();
+  }, [copilotkit, rawCatalog]);
 
   // Sync runtime feature flags from the core once runtime info is fetched.
   //
@@ -853,7 +906,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
           {a2uiActive && <A2UIBuiltInToolCallRenderer />}
           {a2uiActive && (
             <A2UICatalogContext
-              catalog={a2ui?.catalog}
+              catalog={filteredCatalog}
               includeSchema={a2ui?.includeSchema}
             />
           )}
