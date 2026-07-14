@@ -329,7 +329,8 @@ describe("aimock-wiring probe", () => {
             };
           if (name === "showcase-claude-sdk-python")
             return {
-              ANTHROPIC_BASE_URL: "http://showcase-aimock.railway.internal:4010",
+              ANTHROPIC_BASE_URL:
+                "http://showcase-aimock.railway.internal:4010",
             };
           return {
             GOOGLE_GEMINI_BASE_URL:
