@@ -6,7 +6,7 @@ import { FakeAdapter } from "./testing/fake-adapter.js";
 import { FakeAgent } from "./testing/fake-agent.js";
 import { MemoryStore } from "./state/memory-store.js";
 import { Section, Actions, Button } from "@copilotkit/channels-ui";
-import type { BotNode } from "@copilotkit/channels-ui";
+import type { ChannelNode } from "@copilotkit/channels-ui";
 import type { PlatformAdapter } from "./platform-adapter.js";
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
@@ -17,13 +17,13 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
  * `ctx.action.value`.
  */
 const __handlerTypeGuards = () => {
-  const bot = createChannel({ adapters: [new FakeAdapter()] });
-  bot.onInterrupt<{ question: string }>("ask", ({ payload }) => {
+  const channel = createChannel({ adapters: [new FakeAdapter()] });
+  channel.onInterrupt<{ question: string }>("ask", ({ payload }) => {
     payload.question.toUpperCase();
     // @ts-expect-error 'missing' is not on the payload type
     payload.missing;
   });
-  bot.onInteraction<{ page: number }>("next", (ctx) => {
+  channel.onInteraction<{ page: number }>("next", (ctx) => {
     ctx.action.value?.page.toFixed(0);
     // @ts-expect-error 'nope' is not on the action value type
     ctx.action.value?.nope;
@@ -32,12 +32,12 @@ const __handlerTypeGuards = () => {
 void __handlerTypeGuards;
 
 /** Recursively find the first node of a given type in an IR tree. */
-function findNode(nodes: BotNode[], type: string): BotNode | undefined {
+function findNode(nodes: ChannelNode[], type: string): ChannelNode | undefined {
   for (const n of nodes) {
     if (n.type === type) return n;
     const children = n.props.children;
     if (Array.isArray(children)) {
-      const found = findNode(children as BotNode[], type);
+      const found = findNode(children as ChannelNode[], type);
       if (found) return found;
     }
   }
@@ -45,13 +45,13 @@ function findNode(nodes: BotNode[], type: string): BotNode | undefined {
 }
 
 /** Concatenate all text node values in an IR tree. */
-function collectText(nodes: BotNode[]): string {
+function collectText(nodes: ChannelNode[]): string {
   let out = "";
   for (const n of nodes) {
     if (n.type === "text" && typeof n.props.value === "string")
       out += n.props.value;
     const children = n.props.children;
-    if (Array.isArray(children)) out += collectText(children as BotNode[]);
+    if (Array.isArray(children)) out += collectText(children as ChannelNode[]);
   }
   return out;
 }
@@ -60,13 +60,13 @@ describe("createChannel", () => {
   it("routes a mention to a handler that posts UI", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    const bot = createChannel({ adapters: [fake], agent: () => agent });
+    const channel = createChannel({ adapters: [fake], agent: () => agent });
 
-    bot.onMention(async ({ thread }) => {
+    channel.onMention(async ({ thread }) => {
       await thread.post(Section({ children: "hi" }));
     });
 
-    await bot.start();
+    await channel.start();
     fake.emitTurn({ userText: "yo", conversationKey: "c1" });
     await tick();
 
@@ -79,13 +79,13 @@ describe("createChannel", () => {
   it("calls renderer.finish() once after a turn's run-loop resolves", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    const bot = createChannel({ adapters: [fake], agent: () => agent });
+    const channel = createChannel({ adapters: [fake], agent: () => agent });
 
-    bot.onMention(async ({ thread }) => {
+    channel.onMention(async ({ thread }) => {
       await thread.runAgent();
     });
 
-    await bot.start();
+    await channel.start();
     fake.emitTurn({ userText: "yo", conversationKey: "c1" });
     await tick();
 
@@ -105,7 +105,7 @@ describe("createChannel", () => {
       added.push(m);
       return origAddMessage(m);
     };
-    const bot = createChannel({ adapters: [fake], agent: () => agent });
+    const channel = createChannel({ adapters: [fake], agent: () => agent });
 
     const parts = [
       { type: "text" as const, text: "look" },
@@ -114,7 +114,7 @@ describe("createChannel", () => {
         source: { type: "data" as const, value: "QUJD", mimeType: "image/png" },
       },
     ];
-    bot.onMention(async ({ thread, message }) => {
+    channel.onMention(async ({ thread, message }) => {
       // The example mirrors this: prefer multimodal parts over plain text.
       await thread.runAgent({
         prompt:
@@ -124,7 +124,7 @@ describe("createChannel", () => {
       });
     });
 
-    await bot.start();
+    await channel.start();
     fake.emitTurn({
       userText: "look",
       conversationKey: "c1",
@@ -142,10 +142,10 @@ describe("createChannel", () => {
   it("dispatches a bound onClick handler on interaction", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    const bot = createChannel({ adapters: [fake], agent: () => agent });
+    const channel = createChannel({ adapters: [fake], agent: () => agent });
 
     let clicked = false;
-    bot.onMention(async ({ thread }) => {
+    channel.onMention(async ({ thread }) => {
       await thread.post(
         Actions({
           children: [
@@ -161,7 +161,7 @@ describe("createChannel", () => {
       );
     });
 
-    await bot.start();
+    await channel.start();
     fake.emitTurn({ userText: "yo", conversationKey: "c1" });
     await tick();
 
@@ -178,10 +178,10 @@ describe("createChannel", () => {
   it("resolves a HITL awaitChoice with the element value when the event carries none (Telegram)", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    const bot = createChannel({ adapters: [fake], agent: () => agent });
+    const channel = createChannel({ adapters: [fake], agent: () => agent });
 
     let chosen: unknown;
-    bot.onMention(async ({ thread }) => {
+    channel.onMention(async ({ thread }) => {
       chosen = await thread.awaitChoice(
         Actions({
           children: [
@@ -195,7 +195,7 @@ describe("createChannel", () => {
       );
     });
 
-    await bot.start();
+    await channel.start();
     fake.emitTurn({ userText: "create a thing", conversationKey: "c1" });
     await tick();
 
@@ -211,7 +211,7 @@ describe("createChannel", () => {
     expect(chosen).toEqual({ confirmed: true });
   });
 
-  it("merges per-turn runAgent context with the bot-level context", async () => {
+  it("merges per-turn runAgent context with the channel-level context", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
     // Capture the context/tools passed to the agent's first runAgent call.
@@ -227,24 +227,24 @@ describe("createChannel", () => {
       return origRunAgent(parameters, subscriber);
     };
 
-    const bot = createChannel({
+    const channel = createChannel({
       adapters: [fake],
       agent: () => agent,
-      context: [{ description: "bot-level", value: "always here" }],
+      context: [{ description: "channel-level", value: "always here" }],
     });
 
-    bot.onMention(async ({ thread }) => {
+    channel.onMention(async ({ thread }) => {
       await thread.runAgent({
         context: [{ description: "who", value: "user U1" }],
       });
     });
 
-    await bot.start();
+    await channel.start();
     fake.emitTurn({ userText: "go", conversationKey: "c1" });
     await tick();
 
     expect(seenContext).toEqual([
-      { description: "bot-level", value: "always here" },
+      { description: "channel-level", value: "always here" },
       { description: "who", value: "user U1" },
     ]);
     expect(seenTools).toEqual([]);
@@ -253,17 +253,17 @@ describe("createChannel", () => {
   it("thread.postFile returns a capability-gated error when the adapter can't upload", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    const bot = createChannel({ adapters: [fake], agent: () => agent });
+    const channel = createChannel({ adapters: [fake], agent: () => agent });
 
     let result: { ok: boolean; error?: string } | undefined;
-    bot.onMention(async ({ thread }) => {
+    channel.onMention(async ({ thread }) => {
       result = await thread.postFile({
         bytes: new Uint8Array([1, 2, 3]),
         filename: "x.png",
       });
     });
 
-    await bot.start();
+    await channel.start();
     fake.emitTurn({ userText: "hi", conversationKey: "c1" });
     await tick();
 
@@ -280,16 +280,16 @@ describe("createChannel", () => {
     ];
     fake.user = { id: "u1", name: "Ada" };
     const agent = new FakeAgent();
-    const bot = createChannel({ adapters: [fake], agent: () => agent });
+    const channel = createChannel({ adapters: [fake], agent: () => agent });
 
     let history: unknown;
     let resolved: unknown;
-    bot.onMention(async ({ thread }) => {
+    channel.onMention(async ({ thread }) => {
       history = await thread.getMessages();
       resolved = await thread.lookupUser("Ada");
     });
 
-    await bot.start();
+    await channel.start();
     fake.emitTurn({ userText: "hi", conversationKey: "c1" });
     await tick();
 
@@ -302,10 +302,10 @@ describe("createChannel", () => {
   it("resolves awaitChoice when a matching interaction arrives", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    const bot = createChannel({ adapters: [fake], agent: () => agent });
+    const channel = createChannel({ adapters: [fake], agent: () => agent });
 
     let choicePromise: Promise<unknown> | undefined;
-    bot.onMention(async ({ thread }) => {
+    channel.onMention(async ({ thread }) => {
       choicePromise = thread.awaitChoice(
         Actions({
           children: [
@@ -319,7 +319,7 @@ describe("createChannel", () => {
       );
     });
 
-    await bot.start();
+    await channel.start();
     fake.emitTurn({ userText: "decide", conversationKey: "c1" });
     await tick();
 
@@ -345,17 +345,17 @@ describe("createChannel", () => {
 
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    const bot = createChannel({
+    const channel = createChannel({
       adapters: [fake],
       agent: () => agent,
       store: { adapter: state, onLockConflict: "drop" },
     });
-    bot.onMention(async () => {
+    channel.onMention(async () => {
       runs++;
       await gate;
     });
 
-    await bot.start();
+    await channel.start();
     const sink = fake.getSink();
     const turn = {
       conversationKey: "c1",
@@ -382,17 +382,17 @@ describe("createChannel", () => {
 
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    const bot = createChannel({
+    const channel = createChannel({
       adapters: [fake],
       agent: () => agent,
       store: { adapter: state, onLockConflict: "force" },
     });
-    bot.onMention(async () => {
+    channel.onMention(async () => {
       runs++;
       await gate;
     });
 
-    await bot.start();
+    await channel.start();
     const sink = fake.getSink();
     const turn = {
       conversationKey: "c1",
@@ -417,16 +417,16 @@ describe("createChannel", () => {
 
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    const bot = createChannel({
+    const channel = createChannel({
       adapters: [fake],
       agent: () => agent,
       store: { adapter: state },
     });
-    bot.onMention(async () => {
+    channel.onMention(async () => {
       runs++;
     });
 
-    await bot.start();
+    await channel.start();
     const sink = fake.getSink();
     const base = {
       conversationKey: "c",
@@ -474,7 +474,7 @@ describe("createChannel", () => {
     const state = new MemoryStore();
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    const bot = createChannel({
+    const channel = createChannel({
       adapters: [fake],
       agent: () => agent,
       store: {
@@ -485,11 +485,11 @@ describe("createChannel", () => {
     });
 
     let capturedKey: string | undefined;
-    bot.onMention(async ({ message }) => {
+    channel.onMention(async ({ message }) => {
       capturedKey = message.userKey;
     });
 
-    await bot.start();
+    await channel.start();
     const sink = fake.getSink();
     await sink.onTurn({
       conversationKey: "c1",
@@ -502,11 +502,11 @@ describe("createChannel", () => {
     expect(capturedKey).toBe("user@example.com");
   });
 
-  it("bot.transcripts.append/list round-trips with MemoryStore", async () => {
+  it("channel.transcripts.append/list round-trips with MemoryStore", async () => {
     const state = new MemoryStore();
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    const bot = createChannel({
+    const channel = createChannel({
       adapters: [fake],
       agent: () => agent,
       store: {
@@ -516,29 +516,29 @@ describe("createChannel", () => {
       },
     });
 
-    await bot.start();
+    await channel.start();
     const sink = fake.getSink();
 
     // Drive a turn so identity is resolved and we can verify transcripts exist
     const thread = { platform: "fake", conversationKey: "c1" } as Parameters<
-      typeof bot.transcripts.append
+      typeof channel.transcripts.append
     >[0];
 
-    // Directly append via bot.transcripts
-    await bot.transcripts.append(
+    // Directly append via channel.transcripts
+    await channel.transcripts.append(
       thread,
       { role: "user", text: "hi there" },
       {
         userKey: "alice@example.com",
       },
     );
-    await bot.transcripts.append(
+    await channel.transcripts.append(
       thread,
       { role: "assistant", text: "hello!" },
       { userKey: "alice@example.com" },
     );
 
-    const entries = await bot.transcripts.list({
+    const entries = await channel.transcripts.list({
       userKey: "alice@example.com",
     });
     expect(entries).toHaveLength(2);
@@ -553,7 +553,7 @@ describe("createChannel", () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
 
-    const bot = createChannel({
+    const channel = createChannel({
       adapters: [fake],
       agent: () => agent,
       store: {
@@ -581,15 +581,15 @@ describe("createChannel", () => {
       return origRunAgent(parameters, subscriber);
     };
 
-    bot.onMention(async ({ thread }) => {
+    channel.onMention(async ({ thread }) => {
       await thread.runAgent({ transcript: true });
     });
 
-    await bot.start();
+    await channel.start();
     // Seed one prior cross-platform entry (different platform label) so we can
     // assert it shows up in the injected context. Seeded post-start: transcripts
     // are only available once the backend is resolved in start().
-    await bot.transcripts.append(
+    await channel.transcripts.append(
       { platform: "discord", conversationKey: "other" },
       { role: "user", text: "remembered from discord" },
       { userKey: "u@x.com" },
@@ -605,7 +605,7 @@ describe("createChannel", () => {
 
     // Append side: both the user turn and the assistant reply are recorded,
     // oldest-first (after the seeded discord entry).
-    const entries = await bot.transcripts.list({ userKey: "u@x.com" });
+    const entries = await channel.transcripts.list({ userKey: "u@x.com" });
     const fakeEntries = entries.filter((e) => e.platform === "fake");
     expect(fakeEntries).toHaveLength(2);
     expect(fakeEntries[0]!.role).toBe("user");
@@ -628,7 +628,7 @@ describe("createChannel", () => {
   it("typesafe state: setState validates against store.state schema and round-trips", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    const bot = createChannel({
+    const channel = createChannel({
       adapters: [fake],
       agent: () => agent,
       store: {
@@ -639,7 +639,7 @@ describe("createChannel", () => {
 
     let roundTripped: { step: string } | undefined;
     let rejected = false;
-    bot.onMention(async ({ thread }) => {
+    channel.onMention(async ({ thread }) => {
       // Typed to { step: string } via the configured schema.
       await thread.setState({ step: "x" });
       roundTripped = await thread.state();
@@ -651,7 +651,7 @@ describe("createChannel", () => {
       }
     });
 
-    await bot.start();
+    await channel.start();
     fake.emitTurn({ userText: "go", conversationKey: "c1" });
     await tick();
 
@@ -667,7 +667,7 @@ describe("createChannel lock and dedup edge cases", () => {
     const gate = new Promise<void>((r) => (release = r));
 
     const fake = new FakeAdapter();
-    // Use a separate bot so the throwing handler is isolated.
+    // Use a separate channel so the throwing handler is isolated.
     const bot1 = createChannel({
       adapters: [fake],
       store: { adapter: state, onLockConflict: "drop", lockTtl: 5000 },
@@ -711,7 +711,7 @@ describe("createChannel lock and dedup edge cases", () => {
     let callbackMessageText: string | undefined;
 
     const fake = new FakeAdapter();
-    const bot = createChannel({
+    const channel = createChannel({
       adapters: [fake],
       store: {
         adapter: state,
@@ -722,12 +722,12 @@ describe("createChannel lock and dedup edge cases", () => {
         },
       },
     });
-    bot.onMention(async () => {
+    channel.onMention(async () => {
       runs++;
       await gate;
     });
 
-    await bot.start();
+    await channel.start();
     const sink = fake.getSink();
     const turn = {
       conversationKey: "c1",
@@ -753,19 +753,19 @@ describe("createChannel lock and dedup edge cases", () => {
     const gate = new Promise<void>((r) => (release = r));
 
     const fake = new FakeAdapter();
-    const bot = createChannel({
+    const channel = createChannel({
       adapters: [fake],
       store: {
         adapter: state,
         onLockConflict: () => Promise.resolve("force" as const),
       },
     });
-    bot.onMention(async () => {
+    channel.onMention(async () => {
       runs++;
       await gate;
     });
 
-    await bot.start();
+    await channel.start();
     const sink = fake.getSink();
     const turn = {
       conversationKey: "c1",
@@ -785,7 +785,7 @@ describe("createChannel lock and dedup edge cases", () => {
   it("identity throws: handler still runs and userKey is undefined", async () => {
     const state = new MemoryStore();
     const fake = new FakeAdapter();
-    const bot = createChannel({
+    const channel = createChannel({
       adapters: [fake],
       store: {
         adapter: state,
@@ -797,11 +797,11 @@ describe("createChannel lock and dedup edge cases", () => {
     });
 
     let capturedUserKey: string | undefined = "SENTINEL";
-    bot.onMention(async ({ message }) => {
+    channel.onMention(async ({ message }) => {
       capturedUserKey = message.userKey;
     });
 
-    await bot.start();
+    await channel.start();
     const sink = fake.getSink();
     await sink.onTurn({
       conversationKey: "c1",
@@ -816,17 +816,17 @@ describe("createChannel lock and dedup edge cases", () => {
   it("identity returns null: userKey is undefined", async () => {
     const state = new MemoryStore();
     const fake = new FakeAdapter();
-    const bot = createChannel({
+    const channel = createChannel({
       adapters: [fake],
       store: { adapter: state, identity: () => null, transcripts: {} },
     });
 
     let capturedUserKey: string | undefined = "SENTINEL";
-    bot.onMention(async ({ message }) => {
+    channel.onMention(async ({ message }) => {
       capturedUserKey = message.userKey;
     });
 
-    await bot.start();
+    await channel.start();
     const sink = fake.getSink();
     await sink.onTurn({
       conversationKey: "c1",
@@ -843,15 +843,15 @@ describe("createChannel lock and dedup edge cases", () => {
     let runs = 0;
 
     const fake = new FakeAdapter();
-    const bot = createChannel({
+    const channel = createChannel({
       adapters: [fake],
       store: { adapter: state, onLockConflict: "drop" },
     });
-    bot.onMention(async () => {
+    channel.onMention(async () => {
       runs++;
     });
 
-    await bot.start();
+    await channel.start();
     const sink = fake.getSink();
     const base = {
       conversationKey: "c1",
@@ -887,12 +887,15 @@ describe("createChannel lock and dedup edge cases", () => {
 
     let runs = 0;
     const fake = new FakeAdapter();
-    const bot = createChannel({ adapters: [fake], store: { adapter: state } });
-    bot.onMention(async () => {
+    const channel = createChannel({
+      adapters: [fake],
+      store: { adapter: state },
+    });
+    channel.onMention(async () => {
       runs++;
     });
 
-    await bot.start();
+    await channel.start();
     const sink = fake.getSink();
     await sink.onTurn({
       conversationKey: "c1",
@@ -913,16 +916,16 @@ describe("createChannel lock and dedup edge cases", () => {
     const gate = new Promise<void>((r) => (releaseGate = r));
 
     const fake = new FakeAdapter();
-    const bot = createChannel({
+    const channel = createChannel({
       adapters: [fake],
       store: { adapter: state, onLockConflict: "drop" },
     });
-    bot.onMention(async () => {
+    channel.onMention(async () => {
       runs++;
       await gate;
     });
 
-    await bot.start();
+    await channel.start();
     const sink = fake.getSink();
     const turnA = {
       conversationKey: "c1",
@@ -962,15 +965,15 @@ describe("createChannel lock and dedup edge cases", () => {
     let runs = 0;
 
     const fake = new FakeAdapter();
-    const bot = createChannel({
+    const channel = createChannel({
       adapters: [fake],
       store: { adapter: state },
     });
-    bot.onMention(async () => {
+    channel.onMention(async () => {
       runs++;
     });
 
-    await bot.start();
+    await channel.start();
     const sink = fake.getSink();
     const turn = {
       conversationKey: "c2",
@@ -993,24 +996,24 @@ describe("createChannel lock and dedup edge cases", () => {
 describe("createChannel slash commands", () => {
   it("routes a command to its handler with the raw text", async () => {
     const fake = new FakeAdapter();
-    const bot = createChannel({ adapters: [fake] });
+    const channel = createChannel({ adapters: [fake] });
     let seen: { command: string; text: string } | undefined;
-    bot.onCommand("triage", ({ command, text }) => {
+    channel.onCommand("triage", ({ command, text }) => {
       seen = { command, text };
     });
-    await bot.start();
+    await channel.start();
     await fake.emitCommand({ command: "/Triage", text: "db is down" });
     expect(seen).toEqual({ command: "triage", text: "db is down" });
   });
 
   it("ignores a command with no registered handler", async () => {
     const fake = new FakeAdapter();
-    const bot = createChannel({ adapters: [fake] });
+    const channel = createChannel({ adapters: [fake] });
     let fired = false;
-    bot.onCommand("triage", () => {
+    channel.onCommand("triage", () => {
       fired = true;
     });
-    await bot.start();
+    await channel.start();
     await fake.emitCommand({ command: "unknown", text: "x" });
     expect(fired).toBe(false);
   });
@@ -1018,7 +1021,7 @@ describe("createChannel slash commands", () => {
   it("parses rawOptions through the command's schema into ctx.options", async () => {
     let captured: { seat: string } | undefined;
     const fake = new FakeAdapter();
-    const bot = createChannel({
+    const channel = createChannel({
       adapters: [fake],
       commands: [
         defineChannelCommand({
@@ -1030,7 +1033,7 @@ describe("createChannel slash commands", () => {
         }),
       ],
     });
-    await bot.start();
+    await channel.start();
     await fake.emitCommand({
       command: "book",
       text: "raw",
@@ -1041,10 +1044,10 @@ describe("createChannel slash commands", () => {
 
   it("hands declared commands to adapters that implement registerCommands", async () => {
     const fake = new FakeAdapter();
-    const bot = createChannel({ adapters: [fake] });
-    bot.onCommand("triage", () => {});
-    bot.onCommand("status", () => {});
-    await bot.start();
+    const channel = createChannel({ adapters: [fake] });
+    channel.onCommand("triage", () => {});
+    channel.onCommand("status", () => {});
+    await channel.start();
     expect(fake.registeredCommands?.map((c) => c.name).sort()).toEqual([
       "status",
       "triage",
@@ -1056,8 +1059,8 @@ describe("createChannel slash commands", () => {
     try {
       const bad = new FakeAdapter({ platform: "telegram", failStart: true });
       const good = new FakeAdapter({ platform: "slack" });
-      const bot = createChannel({ adapters: [bad, good] });
-      await expect(bot.start()).resolves.toBeUndefined();
+      const channel = createChannel({ adapters: [bad, good] });
+      await expect(channel.start()).resolves.toBeUndefined();
       expect(good.started).toBe(true);
       expect(
         errSpy.mock.calls.some((c) => String(c[0]).includes("telegram")),
@@ -1075,9 +1078,9 @@ describe("createChannel slash commands", () => {
         failRegisterCommands: true,
       });
       const good = new FakeAdapter({ platform: "slack" });
-      const bot = createChannel({ adapters: [bad, good] });
-      bot.onCommand("triage", () => {});
-      await expect(bot.start()).resolves.toBeUndefined();
+      const channel = createChannel({ adapters: [bad, good] });
+      channel.onCommand("triage", () => {});
+      await expect(channel.start()).resolves.toBeUndefined();
       expect(good.started).toBe(true);
       expect(good.registeredCommands?.map((c) => c.name)).toEqual(["triage"]);
       expect(
@@ -1094,9 +1097,9 @@ describe("createChannel slash commands", () => {
       const bad = new FakeAdapter({ platform: "telegram", failStop: true });
       const good = new FakeAdapter({ platform: "slack" });
       const stopSpy = vi.spyOn(good, "stop");
-      const bot = createChannel({ adapters: [bad, good] });
-      await bot.start();
-      await expect(bot.stop()).resolves.toBeUndefined();
+      const channel = createChannel({ adapters: [bad, good] });
+      await channel.start();
+      await expect(channel.stop()).resolves.toBeUndefined();
       expect(stopSpy).toHaveBeenCalled();
       expect(
         errSpy.mock.calls.some((c) => String(c[0]).includes("telegram")),
@@ -1108,22 +1111,22 @@ describe("createChannel slash commands", () => {
 
   it("exposes attached adapters through a read-only, non-mutable-through accessor", () => {
     const fake = new FakeAdapter();
-    const bot = createChannel({ adapters: [fake] });
+    const channel = createChannel({ adapters: [fake] });
 
-    expect(bot.adapters).toContain(fake);
-    expect(bot.adapters).toHaveLength(1);
+    expect(channel.adapters).toContain(fake);
+    expect(channel.adapters).toHaveLength(1);
 
     // The returned snapshot is a copy: mutating it must not affect the channel.
-    (bot.adapters as PlatformAdapter[]).push(new FakeAdapter());
-    expect(bot.adapters).toHaveLength(1);
+    (channel.adapters as PlatformAdapter[]).push(new FakeAdapter());
+    expect(channel.adapters).toHaveLength(1);
   });
 
   it("reflects an adapter attached via addAdapter in the adapters accessor", () => {
-    const bot = createChannel({});
-    expect(bot.adapters).toHaveLength(0);
+    const channel = createChannel({});
+    expect(channel.adapters).toHaveLength(0);
 
     const fake = new FakeAdapter();
-    bot.addAdapter(fake);
-    expect(bot.adapters).toEqual([fake]);
+    channel.addAdapter(fake);
+    expect(channel.adapters).toEqual([fake]);
   });
 });

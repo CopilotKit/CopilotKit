@@ -1,4 +1,4 @@
-import type { BotNode } from "@copilotkit/channels-ui";
+import type { ChannelNode } from "@copilotkit/channels-ui";
 
 /**
  * A pure, dependency-free, per-platform codec shared by the local adapter and
@@ -20,6 +20,6 @@ import type { BotNode } from "@copilotkit/channels-ui";
  */
 export interface PlatformCodec {
   readonly platform: string;
-  /** IR → native payload. Pure; opaque to bot core. */
-  renderEgress(ir: BotNode[]): unknown;
+  /** IR → native payload. Pure; opaque to channel core. */
+  renderEgress(ir: ChannelNode[]): unknown;
 }

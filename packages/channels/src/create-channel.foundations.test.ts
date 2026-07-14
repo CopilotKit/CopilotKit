@@ -9,53 +9,53 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
 describe("createChannel — optional adapters + addAdapter", () => {
   it("starts with no adapters and runs one added before start()", async () => {
     const fake = new FakeAdapter();
-    const bot = createChannel({ agent: () => new FakeAgent() });
-    bot.addAdapter(fake);
-    await bot.start();
+    const channel = createChannel({ agent: () => new FakeAgent() });
+    channel.addAdapter(fake);
+    await channel.start();
     expect(fake.started).toBe(true);
   });
 
   it("throws when addAdapter is called after start()", async () => {
-    const bot = createChannel({
+    const channel = createChannel({
       adapters: [new FakeAdapter()],
       agent: () => new FakeAgent(),
     });
-    await bot.start();
-    expect(() => bot.addAdapter(new FakeAdapter())).toThrow(/start/i);
+    await channel.start();
+    expect(() => channel.addAdapter(new FakeAdapter())).toThrow(/start/i);
   });
 
   it("is idempotent: a second start() does not re-start adapters or rebuild state", async () => {
     const fake = new FakeAdapter();
-    const bot = createChannel({
+    const channel = createChannel({
       adapters: [fake],
       agent: () => new FakeAgent(),
     });
     const startSpy = vi.spyOn(fake, "start");
-    await bot.start();
-    const transcriptsAfterFirst = bot.transcripts;
-    await bot.start(); // second call must be a no-op
+    await channel.start();
+    const transcriptsAfterFirst = channel.transcripts;
+    await channel.start(); // second call must be a no-op
     expect(startSpy).toHaveBeenCalledTimes(1);
     // Same transcript-store instance → state (locks/dedup/actions) not wiped.
-    expect(bot.transcripts).toBe(transcriptsAfterFirst);
+    expect(channel.transcripts).toBe(transcriptsAfterFirst);
   });
 
   it("allows a real restart after stop() (start → stop → start re-inits)", async () => {
     const fake = new FakeAdapter();
-    const bot = createChannel({
+    const channel = createChannel({
       adapters: [fake],
       agent: () => new FakeAgent(),
     });
     const startSpy = vi.spyOn(fake, "start");
-    await bot.start();
-    await bot.stop();
-    await bot.start(); // stop() cleared `started`, so this is a real restart
+    await channel.start();
+    await channel.stop();
+    await channel.start(); // stop() cleared `started`, so this is a real restart
     expect(startSpy).toHaveBeenCalledTimes(2);
   });
 });
 
 describe("createChannel — transcripts deferred to start()", () => {
-  it("throws if bot.transcripts is accessed before start()", () => {
-    const bot = createChannel({
+  it("throws if channel.transcripts is accessed before start()", () => {
+    const channel = createChannel({
       adapters: [new FakeAdapter()],
       agent: () => new FakeAgent(),
       store: {
@@ -64,7 +64,7 @@ describe("createChannel — transcripts deferred to start()", () => {
         transcripts: {},
       },
     });
-    expect(() => bot.transcripts).toThrow(/start/i);
+    expect(() => channel.transcripts).toThrow(/start/i);
   });
 });
 
@@ -72,8 +72,8 @@ describe("createChannel — store resolution", () => {
   it("uses an adapter-provided stateStore when no explicit store.adapter", async () => {
     const adapterStore = new MemoryStore();
 
-    // Seed the adapter's store via a throwaway bot so we can prove the real
-    // bot reads from that exact instance.
+    // Seed the adapter's store via a throwaway channel so we can prove the real
+    // channel reads from that exact instance.
     const seeder = createChannel({
       adapters: [new FakeAdapter()],
       agent: () => new FakeAgent(),
@@ -92,14 +92,14 @@ describe("createChannel — store resolution", () => {
 
     const fake = new FakeAdapter();
     fake.stateStore = adapterStore;
-    const bot = createChannel({
+    const channel = createChannel({
       adapters: [fake],
       agent: () => new FakeAgent(),
       store: { identity: () => "u@x.com", transcripts: {} },
     });
-    await bot.start();
+    await channel.start();
 
-    const entries = await bot.transcripts.list({ userKey: "u@x.com" });
+    const entries = await channel.transcripts.list({ userKey: "u@x.com" });
     expect(entries.map((e) => e.text)).toContain("seeded");
   });
 
@@ -108,7 +108,7 @@ describe("createChannel — store resolution", () => {
     const fake = new FakeAdapter();
     fake.stateStore = new MemoryStore();
     const explicit = new MemoryStore();
-    const bot = createChannel({
+    const channel = createChannel({
       adapters: [fake],
       agent: () => new FakeAgent(),
       store: {
@@ -117,7 +117,7 @@ describe("createChannel — store resolution", () => {
         transcripts: {},
       },
     });
-    await bot.start();
+    await channel.start();
     expect(warn).not.toHaveBeenCalled();
     warn.mockRestore();
   });
@@ -128,11 +128,11 @@ describe("createChannel — store resolution", () => {
     a.stateStore = new MemoryStore();
     const b = new FakeAdapter({ platform: "b" });
     b.stateStore = new MemoryStore();
-    const bot = createChannel({
+    const channel = createChannel({
       adapters: [a, b],
       agent: () => new FakeAgent(),
     });
-    await bot.start();
+    await channel.start();
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("state store"));
     warn.mockRestore();
   });
@@ -141,19 +141,19 @@ describe("createChannel — store resolution", () => {
 describe("createChannel — id propagation to handler context", () => {
   it("threads turnId/deliveryId from IncomingTurn onto message", async () => {
     const fake = new FakeAdapter();
-    const bot = createChannel({
+    const channel = createChannel({
       adapters: [fake],
       agent: () => new FakeAgent(),
     });
     let seen: { turnId?: string; deliveryId?: string; eventId?: string } = {};
-    bot.onMessage(async ({ message }) => {
+    channel.onMessage(async ({ message }) => {
       seen = {
         turnId: message.turnId,
         deliveryId: message.deliveryId,
         eventId: message.eventId,
       };
     });
-    await bot.start();
+    await channel.start();
     fake.emitTurn({
       userText: "hi",
       conversationKey: "c1",

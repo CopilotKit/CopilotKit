@@ -6,9 +6,9 @@ async function runOnMessage(
   fake: FakeAdapter,
   fn: Parameters<ReturnType<typeof createChannel>["onMessage"]>[0],
 ) {
-  const bot = createChannel({ adapters: [fake] });
-  bot.onMessage(fn);
-  await bot.start();
+  const channel = createChannel({ adapters: [fake] });
+  channel.onMessage(fn);
+  await channel.start();
   fake.emitTurn({ userText: "hi", user: { id: "U1" } });
   await new Promise((r) => setTimeout(r, 0));
 }

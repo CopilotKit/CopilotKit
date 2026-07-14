@@ -1,6 +1,6 @@
 import type { AgentSubscriber } from "@ag-ui/client";
 import type {
-  BotNode,
+  ChannelNode,
   MessageRef,
   PlatformUser,
   ThreadMessage,
@@ -174,8 +174,8 @@ export class FakeAdapter implements PlatformAdapter {
     },
   };
 
-  posted: BotNode[][] = [];
-  updated: { ref: MessageRef; ir: BotNode[] }[] = [];
+  posted: ChannelNode[][] = [];
+  updated: { ref: MessageRef; ir: ChannelNode[] }[] = [];
   interactionsSeen: InteractionEvent[] = [];
   lastRunRenderer?: RunRenderer;
   /** History returned by getMessages(); override in tests. */
@@ -203,14 +203,14 @@ export class FakeAdapter implements PlatformAdapter {
     if (this.failStop) throw new Error("fake-adapter: stop failed");
   }
 
-  render(ir: BotNode[]): NativePayload {
+  render(ir: ChannelNode[]): NativePayload {
     return ir;
   }
-  async post(_target: ReplyTarget, ir: BotNode[]): Promise<MessageRef> {
+  async post(_target: ReplyTarget, ir: ChannelNode[]): Promise<MessageRef> {
     this.posted.push(ir);
     return { id: `msg-${++this.counter}` };
   }
-  async update(ref: MessageRef, ir: BotNode[]): Promise<void> {
+  async update(ref: MessageRef, ir: ChannelNode[]): Promise<void> {
     this.updated.push({ ref, ir });
   }
   async stream(
@@ -260,13 +260,13 @@ export class FakeAdapter implements PlatformAdapter {
   // --- ephemeral ---
   ephemeralPosts: {
     user: unknown;
-    ir: BotNode[];
+    ir: ChannelNode[];
     opts: { fallbackToDM: boolean };
   }[] = [];
   postEphemeral?: PlatformAdapter["postEphemeral"];
 
   // --- modals ---
-  openedModals: { triggerId: string; ir: BotNode[] }[] = [];
+  openedModals: { triggerId: string; ir: ChannelNode[] }[] = [];
   renderModal?: PlatformAdapter["renderModal"];
   openModal?: PlatformAdapter["openModal"];
 

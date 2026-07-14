@@ -14,7 +14,7 @@ import type {
   CommandSpec,
 } from "@copilotkit/channels";
 import type {
-  BotNode,
+  ChannelNode,
   ThreadMessage,
   EmojiValue,
   EphemeralResult,
@@ -251,11 +251,11 @@ export class TelegramAdapter implements PlatformAdapter {
     await this.bot.stop();
   }
 
-  render(ir: BotNode[]): TelegramPayload {
+  render(ir: ChannelNode[]): TelegramPayload {
     return renderTelegram(ir);
   }
 
-  async post(target: BotReplyTarget, ir: BotNode[]): Promise<MessageRef> {
+  async post(target: BotReplyTarget, ir: ChannelNode[]): Promise<MessageRef> {
     const t = target as ReplyTarget;
     const p = renderTelegram(ir);
     const replyMarkup = this.toReplyMarkup(p.inlineKeyboard);
@@ -349,7 +349,7 @@ export class TelegramAdapter implements PlatformAdapter {
     return ref;
   }
 
-  async update(ref: MessageRef, ir: BotNode[]): Promise<void> {
+  async update(ref: MessageRef, ir: ChannelNode[]): Promise<void> {
     const r = ref as TelegramMessageRef;
     // Guard against a bogus ref (e.g. the empty ref returned by stream() when
     // no chunk was posted): a message id of 0/undefined can never be edited.
@@ -656,7 +656,7 @@ export class TelegramAdapter implements PlatformAdapter {
   async postEphemeral(
     _target: BotReplyTarget,
     user: PlatformUser | string,
-    ir: BotNode[],
+    ir: ChannelNode[],
     opts: { fallbackToDM: boolean },
   ): Promise<EphemeralResult | null> {
     if (!opts.fallbackToDM) return null; // no native ephemeral on Telegram

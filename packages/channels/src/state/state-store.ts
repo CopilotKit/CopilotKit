@@ -1,5 +1,5 @@
 /**
- * Pluggable persistence interface for the bot runtime.
+ * Pluggable persistence interface for the channel runtime.
  *
  * **JSON-serialization contract**: all values round-trip through
  * `JSON.stringify` / `JSON.parse` on remote backends (Redis, Postgres), so `T`

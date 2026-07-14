@@ -25,7 +25,7 @@ import type {
 } from "@copilotkit/channels";
 import type { AbstractAgent } from "@ag-ui/client";
 import type {
-  BotNode,
+  ChannelNode,
   ThreadMessage,
   EmojiValue,
 } from "@copilotkit/channels-ui";
@@ -311,11 +311,11 @@ export class SlackAdapter implements PlatformAdapter {
     await this.app.stop();
   }
 
-  render(ir: BotNode[]) {
+  render(ir: ChannelNode[]) {
     return renderBlockKit(ir);
   }
 
-  async post(target: BotReplyTarget, ir: BotNode[]): Promise<MessageRef> {
+  async post(target: BotReplyTarget, ir: ChannelNode[]): Promise<MessageRef> {
     const t = target as ReplyTarget;
     const { blocks, accent } = renderSlackMessage(ir);
     const summary = fallbackText(ir);
@@ -342,7 +342,7 @@ export class SlackAdapter implements PlatformAdapter {
     return { id: res.ts as string, channel: t.channel, ts: res.ts };
   }
 
-  async update(ref: MessageRef, ir: BotNode[]): Promise<void> {
+  async update(ref: MessageRef, ir: ChannelNode[]): Promise<void> {
     const channel = channelOf(ref);
     const { blocks, accent } = renderSlackMessage(ir);
     const summary = fallbackText(ir);
@@ -944,7 +944,7 @@ export class SlackAdapter implements PlatformAdapter {
   async postEphemeral(
     target: BotReplyTarget,
     user: PlatformUser | string,
-    ir: BotNode[],
+    ir: ChannelNode[],
     _opts: { fallbackToDM: boolean },
   ): Promise<EphemeralResult | null> {
     const t = target as ReplyTarget;
@@ -973,7 +973,7 @@ export class SlackAdapter implements PlatformAdapter {
   }
 
   /** Render a modal IR tree to a Slack `views.open` `View` (pure; backs `openModal`). */
-  renderModal(ir: BotNode[]): NativePayload {
+  renderModal(ir: ChannelNode[]): NativePayload {
     return renderSlackModal(ir);
   }
 
@@ -985,7 +985,7 @@ export class SlackAdapter implements PlatformAdapter {
   async openModal(
     target: BotReplyTarget,
     triggerId: string,
-    ir: BotNode[],
+    ir: ChannelNode[],
   ): Promise<{ ok: boolean; error?: string }> {
     try {
       const t = target as ReplyTarget;
@@ -1026,9 +1026,9 @@ function channelOf(ref: MessageRef): string {
 }
 
 /** Collect a node's descendant text into a single whitespace-joined string. */
-function collectNodeText(node: BotNode): string {
+function collectNodeText(node: ChannelNode): string {
   const acc: string[] = [];
-  const visit = (n: BotNode): void => {
+  const visit = (n: ChannelNode): void => {
     if (typeof n.type === "string" && n.type === "text") {
       const value = n.props?.value;
       if (value != null) acc.push(String(value));
@@ -1040,14 +1040,14 @@ function collectNodeText(node: BotNode): string {
       : children && typeof children === "object" && "type" in children
         ? [children]
         : [];
-    for (const child of list as BotNode[]) visit(child);
+    for (const child of list as ChannelNode[]) visit(child);
   };
   visit(node);
   return acc.join(" ");
 }
 
 /** Depth-first search for the first node of `type` in the IR tree. */
-function findFirst(ir: BotNode[], type: string): BotNode | undefined {
+function findFirst(ir: ChannelNode[], type: string): ChannelNode | undefined {
   for (const node of ir) {
     if (typeof node.type === "string" && node.type === type) return node;
     const children = node.props?.children;
@@ -1056,7 +1056,7 @@ function findFirst(ir: BotNode[], type: string): BotNode | undefined {
       : children && typeof children === "object" && "type" in children
         ? [children]
         : [];
-    const found = findFirst(list as BotNode[], type);
+    const found = findFirst(list as ChannelNode[], type);
     if (found) return found;
   }
   return undefined;
@@ -1070,7 +1070,7 @@ function findFirst(ir: BotNode[], type: string): BotNode | undefined {
  * MUST stay short: it is the notification text, never a dump of the whole tree
  * (which Slack would render as a duplicate "text wall" above the card).
  */
-function fallbackText(ir: BotNode[]): string {
+function fallbackText(ir: ChannelNode[]): string {
   const header = findFirst(ir, "header");
   const source = header ? collectNodeText(header) : firstText(ir);
   const text = source.replace(/\s+/g, " ").trim();
@@ -1079,7 +1079,7 @@ function fallbackText(ir: BotNode[]): string {
 }
 
 /** First descendant text node's value across the whole IR, or "". */
-function firstText(ir: BotNode[]): string {
+function firstText(ir: ChannelNode[]): string {
   for (const node of ir) {
     const t = collectNodeText(node);
     if (t.trim()) return t;

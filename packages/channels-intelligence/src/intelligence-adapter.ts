@@ -1,6 +1,6 @@
 import type { AgentSubscriber } from "@ag-ui/client";
 import type {
-  BotNode,
+  ChannelNode,
   MessageRef,
   PlatformUser,
 } from "@copilotkit/channels-ui";
@@ -73,7 +73,7 @@ function targetFromRef(ref: MessageRef): ChannelReplyTarget {
   };
 }
 
-const textNode = (value: string): BotNode[] => [
+const textNode = (value: string): ChannelNode[] => [
   { type: "text", props: { value } },
 ];
 
@@ -258,14 +258,17 @@ export class IntelligenceAdapter implements PlatformAdapter {
     return this.renderSink;
   }
 
-  async start(sink: IngressSink, ctx?: { botName?: string }): Promise<void> {
+  async start(
+    sink: IngressSink,
+    ctx?: { channelName?: string },
+  ): Promise<void> {
     this.sink = sink;
-    // Config-free default: build the HTTP transports from env (+ the bot's
-    // name from createChannel, passed by bot core) when none were injected.
+    // Config-free default: build the HTTP transports from env (+ the channel's
+    // name from createChannel, passed by channel core) when none were injected.
     if (!this.source || !this.egress) {
       const cfg = resolveTransportConfig({
         ...this.opts.config,
-        channelName: this.opts.config?.channelName ?? ctx?.botName,
+        channelName: this.opts.config?.channelName ?? ctx?.channelName,
       });
       const source = (this.source ??= new HttpDeliverySource(cfg));
       this.egress ??= new HttpEgressSink(cfg);
@@ -492,13 +495,13 @@ export class IntelligenceAdapter implements PlatformAdapter {
     };
   }
 
-  render(ir: BotNode[]): NativePayload {
+  render(ir: ChannelNode[]): NativePayload {
     // Passthrough: platform rendering (IR -> Slack/Discord/...) happens in the
     // Connector Outbox via the per-platform codec (OSS-363).
     return ir;
   }
 
-  async post(target: ReplyTarget, ir: BotNode[]): Promise<MessageRef> {
+  async post(target: ReplyTarget, ir: ChannelNode[]): Promise<MessageRef> {
     // Realtime path: stream a `post` render frame carrying the IR so the
     // Connector Outbox renders full Block Kit (rich JSX preserved). Fallback
     // (no render sink wired — e.g. in-memory tests): the egress op path.
@@ -511,7 +514,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
     return this.emit(target as ChannelReplyTarget, { kind: "post", ir });
   }
 
-  async update(ref: MessageRef, ir: BotNode[]): Promise<void> {
+  async update(ref: MessageRef, ir: ChannelNode[]): Promise<void> {
     if (this.renderSink) {
       await this.postRenderFrame(targetFromRef(ref), {
         kind: "update",

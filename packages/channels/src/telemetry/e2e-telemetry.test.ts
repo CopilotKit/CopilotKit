@@ -38,14 +38,14 @@ describe("oss.channel.* end-to-end (real ChannelTelemetry, only network boundary
 
   it("flows configured -> started -> agent_run with anonymous_id + channel_session_id and no env config", async () => {
     const fake = new FakeAdapter();
-    const bot = createChannel({
+    const channel = createChannel({
       adapters: [fake],
       agent: () => new FakeAgent(),
     });
-    bot.onMention(async ({ thread }) => {
+    channel.onMention(async ({ thread }) => {
       await thread.runAgent();
     });
-    await bot.start();
+    await channel.start();
     fake.emitTurn({ userText: "hi", conversationKey: "c1" });
 
     await waitFor(() =>

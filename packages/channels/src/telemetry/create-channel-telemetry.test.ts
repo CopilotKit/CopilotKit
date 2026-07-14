@@ -25,7 +25,7 @@ describe("createChannel telemetry wiring", () => {
     // The config snapshot is captured at start() — the backend (and therefore
     // telemetry) is resolved there, not at construction, so an adapter attached
     // via addAdapter can still provide the persistence backend.
-    const bot = createChannel({
+    const channel = createChannel({
       adapters: [new FakeAdapter()],
       components: [
         function Card() {
@@ -33,7 +33,7 @@ describe("createChannel telemetry wiring", () => {
         },
       ],
     });
-    await bot.start();
+    await channel.start();
     const call = capture.mock.calls.find(
       (c) => c[0] === "oss.channel.configured",
     );
@@ -45,8 +45,8 @@ describe("createChannel telemetry wiring", () => {
 
   it("emits oss.channel.started on start, start_failed (category only) on a throwing adapter", async () => {
     const ok = new FakeAdapter();
-    const bot = createChannel({ adapters: [ok] });
-    await bot.start();
+    const channel = createChannel({ adapters: [ok] });
+    await channel.start();
     expect(
       capture.mock.calls.find((c) => c[0] === "oss.channel.started")?.[1]
         .startedCount,
@@ -70,14 +70,14 @@ describe("createChannel telemetry wiring", () => {
 
   it("emits oss.channel.agent_run on a successful run", async () => {
     const fake = new FakeAdapter();
-    const bot = createChannel({
+    const channel = createChannel({
       adapters: [fake],
       agent: () => new FakeAgent(),
     });
-    bot.onMention(async ({ thread }) => {
+    channel.onMention(async ({ thread }) => {
       await thread.runAgent();
     });
-    await bot.start();
+    await channel.start();
     capture.mockClear();
     fake.emitTurn({ userText: "hi", conversationKey: "c1" });
     await tick();

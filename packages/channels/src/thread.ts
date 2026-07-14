@@ -192,7 +192,7 @@ export class Thread implements ThreadInterface {
     return adapter.addReaction(this.deps.replyTarget, messageRef, emoji);
   }
 
-  /** Remove the bot's emoji reaction from a message (capability-gated). */
+  /** Remove the channel's emoji reaction from a message (capability-gated). */
   async unreact(
     messageRef: MessageRef,
     emoji: EmojiValue,
@@ -308,7 +308,7 @@ export class Thread implements ThreadInterface {
      *   3. runs the agent,
      *   4. captures the assistant reply and appends it.
      * This flag OWNS the bridge — callers using it should NOT also manually
-     * append the same user/assistant turn via `bot.transcripts.append`.
+     * append the same user/assistant turn via `channel.transcripts.append`.
      * No-ops with a one-time warning when identity/transcripts aren't configured.
      */
     transcript?: boolean | { limit?: number };
@@ -345,7 +345,7 @@ export class Thread implements ThreadInterface {
         // AG-UI types `content` as `string`, but multimodal works at runtime by
         // setting it to an `AgentContentPart[]` — the runtime's LLM adapter
         // converts the parts to the provider's multimodal format. We cast to
-        // satisfy the string-typed field (bot-slack parity — it does the same
+        // satisfy the string-typed field (channels-slack parity — it does the same
         // when assigning multimodal `content` to its reconstructed messages).
         content: extra.prompt as unknown as string,
       });
@@ -384,7 +384,7 @@ export class Thread implements ThreadInterface {
       }
     }
 
-    // Merge per-run context/tools (this run only) on top of the bot-level deps.
+    // Merge per-run context/tools (this run only) on top of the channel-level deps.
     const extraTools = extra?.tools ?? [];
     let tools = this.deps.tools;
     let toolDescriptors = this.deps.toolDescriptors;

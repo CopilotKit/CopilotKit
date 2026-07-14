@@ -117,5 +117,5 @@ export type { PlatformCodec } from "./codec.js";
 export { FakeAdapter, makeFakeRunRenderer } from "./testing/fake-adapter.js";
 export { FakeAgent } from "./testing/fake-agent.js";
 
-// Re-export the bot-ui component vocabulary + types for convenience.
+// Re-export the channels-ui component vocabulary + types for convenience.
 export * from "@copilotkit/channels-ui";
