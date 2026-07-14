@@ -22,7 +22,7 @@
 
   <rect x="56" y="68" width="316" height="132" rx="18" fill="#1C1B20" stroke="#7479B8" stroke-width="2"/>
   <text x="82" y="99" font-family="Spline Sans Mono, monospace" font-size="14" font-weight="600" fill="#BEC2FF">NOW</text>
-  <text x="82" y="133" font-family="Plus Jakarta Sans, Arial, sans-serif" font-size="25" font-weight="700" fill="#FFFFFF">Start a conversation</text>
+  <text x="82" y="133" font-family="Plus Jakarta Sans, Arial, sans-serif" font-size="22" font-weight="700" fill="#FFFFFF">Start a conversation</text>
   <path d="M84 154H235C245 154 251 160 251 170V176H102C92 176 84 168 84 158Z" fill="#33294C"/>
   <circle cx="269" cy="168" r="12" fill="#7479B8"/>
 
@@ -30,7 +30,7 @@
 
   <rect x="434" y="68" width="316" height="132" rx="18" fill="#1C1B20" stroke="#8A671D" stroke-width="2"/>
   <text x="460" y="99" font-family="Spline Sans Mono, monospace" font-size="14" font-weight="600" fill="#FFF388">LATER</text>
-  <text x="460" y="133" font-family="Plus Jakarta Sans, Arial, sans-serif" font-size="25" font-weight="700" fill="#FFFFFF">Leave or switch devices</text>
+  <text x="460" y="133" font-family="Plus Jakarta Sans, Arial, sans-serif" font-size="22" font-weight="700" fill="#FFFFFF">Leave or switch devices</text>
   <path d="M460 158H610" stroke="#57575B" stroke-width="8" stroke-linecap="round"/>
   <path d="M460 178H682" stroke="#343339" stroke-width="8" stroke-linecap="round"/>
 
@@ -38,7 +38,7 @@
 
   <rect x="812" y="68" width="332" height="132" rx="18" fill="#1C1B20" stroke="#3A9A7D" stroke-width="2"/>
   <text x="838" y="99" font-family="Spline Sans Mono, monospace" font-size="14" font-weight="600" fill="#85ECCE">RETURN</text>
-  <text x="838" y="133" font-family="Plus Jakarta Sans, Arial, sans-serif" font-size="25" font-weight="700" fill="#FFFFFF">Continue where you left off</text>
+  <text x="838" y="133" font-family="Plus Jakarta Sans, Arial, sans-serif" font-size="22" font-weight="700" fill="#FFFFFF">Continue where you left off</text>
   <path d="M838 158H1044" stroke="#285C4D" stroke-width="8" stroke-linecap="round"/>
   <path d="M838 178H1090" stroke="#203B34" stroke-width="8" stroke-linecap="round"/>
 
