@@ -37,7 +37,6 @@ export default defineConfig({
         OPENAI_BASE_URL: "http://localhost:7098/v1",
         // OSS mode: deliberately NO INTELLIGENCE_* vars → the runtime uses the
         // InMemoryAgentRunner path (no docker, no gateway).
-        GLASS_ENGINE_AVAILABLE: "false",
         NEXT_TELEMETRY_DISABLED: "1",
       },
     },

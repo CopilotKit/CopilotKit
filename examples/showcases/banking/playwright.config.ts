@@ -42,9 +42,6 @@ export default defineConfig({
           "cpk_sPRVSEED_seed0privat0longtoken00",
         INTELLIGENCE_USER_ID:
           process.env.INTELLIGENCE_USER_ID ?? "jordan-beamson",
-        // Glass Engine must be available for the inspector test to render the
-        // left-rail toggle (the deployment availability gate; see lib/glass-engine).
-        GLASS_ENGINE_AVAILABLE: "true",
         NEXT_TELEMETRY_DISABLED: "1",
       },
     },

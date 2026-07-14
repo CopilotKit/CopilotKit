@@ -170,49 +170,8 @@ test.describe("durable cross-thread memory recall (FOR-149)", () => {
       .not.toBe(422);
   });
 
-  test("Glass Engine inspector streams events and shows the learned procedure", async ({
-    page,
-  }) => {
-    await page.goto("/");
-
-    // Open advanced mode from the left rail (availability gate is set in
-    // playwright.config.ts via GLASS_ENGINE_AVAILABLE=true).
-    await page
-      .getByRole("button", { name: /glass engine/i })
-      .first()
-      .click();
-
-    // The inspector pane is visible with its three tabs.
-    await expect(page.getByText(/live protocol inspector/i)).toBeVisible();
-    await expect(page.getByRole("tab", { name: /timeline/i })).toBeVisible();
-
-    // Open the docked chat (starts closed) and drive a run so the Timeline
-    // receives AG-UI events.
-    const openChat = page.getByRole("button", { name: /open chat/i });
-    if (await openChat.count()) await openChat.first().click();
-    const input = page.getByPlaceholder(/type a message/i);
-    await input.fill(`Please approve the over-limit charge ${TXN_ID}.`);
-    await input.press("Enter");
-
-    // Timeline shows at least one streamed card (the empty-state copy is gone).
-    await expect(page.getByText(/every AG-UI protocol event/i)).toHaveCount(0, {
-      timeout: 30_000,
-    });
-
-    // Learning tab reflects the seeded project procedure as "learned".
-    await page.getByRole("tab", { name: /learning/i }).click();
-    await expect(page.getByText(/over-limit procedure — learned/i)).toBeVisible(
-      {
-        timeout: 30_000,
-      },
-    );
-
-    // Memory tab lists the seeded procedure content under "Recalled memories".
-    await page.getByRole("tab", { name: /memory/i }).click();
-    await expect(
-      page.getByText(/policy exception with code/i).first(),
-    ).toBeVisible({
-      timeout: 30_000,
-    });
-  });
+  // The former bespoke-inspector test was removed with that pane (banking
+  // migration D). The product web-inspector is now enabled via showDevConsole
+  // and is owned/covered by packages/web-inspector's own tests; the
+  // self-learning recall behavior is asserted by the headless test above.
 });
