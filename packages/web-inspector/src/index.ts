@@ -7868,6 +7868,10 @@ ${argsString}</pre
       return this.renderToolsView();
     }
 
+    if (this.selectedMenu === "capabilities") {
+      return this.renderCapabilitiesView();
+    }
+
     if (this.selectedMenu === "agent-context") {
       return this.renderContextView();
     }
@@ -9983,6 +9987,10 @@ ${prettyEvent}</pre
     this.contextMenuOpen = false;
     this.persistState();
     this.requestUpdate();
+  }
+
+  private renderCapabilitiesView() {
+    return nothing;
   }
 
   private renderToolsView() {
