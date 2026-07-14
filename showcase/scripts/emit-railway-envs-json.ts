@@ -178,7 +178,9 @@ function projectServiceToLegacyJson(
   const internalDomains =
     prodInternal !== undefined || stagingInternal !== undefined
       ? {
-          ...(stagingInternal !== undefined ? { staging: stagingInternal } : {}),
+          ...(stagingInternal !== undefined
+            ? { staging: stagingInternal }
+            : {}),
           ...(prodInternal !== undefined ? { prod: prodInternal } : {}),
         }
       : undefined;
