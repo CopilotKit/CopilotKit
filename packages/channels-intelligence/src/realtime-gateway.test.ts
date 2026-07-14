@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   connectRealtimeGateway,
+  RealtimeGatewayChannelStateError,
   RealtimeGatewaySetupRequiredError,
 } from "./realtime-gateway.js";
 import type { RealtimeGatewayConnectionState } from "./realtime-gateway.js";
@@ -10,17 +11,75 @@ type JoinMode =
   | "error"
   | "never"
   | "error-undefined-reason"
+  // `channel_declaration_unavailable` where the sole non-live channel is a
+  // genuine unconfigured/waiting state → setup_required.
   | "error-setup-required"
+  // `channel_declaration_unavailable` with NO channels array — the defensive
+  // fallback path (nothing to classify) degrades to setup_required.
+  | "error-setup-required-no-channels"
+  // `channel_declaration_unavailable` where a non-live channel is a hard-error
+  // state (`runtime_conflict`) → must NOT downgrade to setup_required.
+  | "error-conflict"
+  // `channel_declaration_unavailable` with one waiting AND one hard-error
+  // channel → fail loud on the worst (hard error).
+  | "error-mixed"
   // Replies `ok` to the FIRST join then never replies to a rejoin — the socket
   // reopens but the (re)join never completes, so the reconnect give-up window
   // can elapse. Used to exercise the `gave_up` transition.
-  | "ok-then-silent";
+  | "ok-then-silent"
+  // Replies `ok` to the FIRST join, then blocks rejoins until `control.recover`
+  // is set — exercising a give-up followed by a successful rejoin (recoverable
+  // give-up, OSS-473).
+  | "give-up-then-recover";
+
+/** Mutable knobs a test can flip after connecting to drive later transitions. */
+interface FakeControl {
+  /** When set true, `give-up-then-recover` starts replying `ok` to rejoins. */
+  recover: boolean;
+}
 
 function makeFakeWebSocket(mode: JoinMode) {
   const instances: FakeWebSocket[] = [];
-  // Shared across the reconnect-spawned instances so `ok-then-silent` can tell
-  // the initial join from a later rejoin.
+  const control: FakeControl = { recover: false };
+  // Shared across the reconnect-spawned instances so `ok-then-silent` /
+  // `give-up-then-recover` can tell the initial join from a later rejoin.
   let joinCount = 0;
+
+  /**
+   * Build the error `response` payload for a failing join reply. Returning
+   * `undefined` omits the `response` key entirely (so it round-trips through
+   * JSON as a genuinely absent value — exercising `safeReason(undefined)`).
+   */
+  function errorResponse(): Record<string, unknown> | undefined {
+    switch (mode) {
+      case "error-undefined-reason":
+        return undefined;
+      case "error-setup-required":
+        return {
+          reason: "channel_declaration_unavailable",
+          channels: [{ state: "adapter_setup_required" }],
+        };
+      case "error-setup-required-no-channels":
+        return { reason: "channel_declaration_unavailable" };
+      case "error-conflict":
+        return {
+          reason: "channel_declaration_unavailable",
+          channels: [{ state: "runtime_conflict" }],
+        };
+      case "error-mixed":
+        return {
+          reason: "channel_declaration_unavailable",
+          channels: [
+            { state: "adapter_setup_required" },
+            { state: "runtime_conflict" },
+            { state: "channel_live" },
+          ],
+        };
+      default:
+        return { reason: "unauthorized" };
+    }
+  }
+
   class FakeWebSocket {
     static readonly CONNECTING = 0;
     static readonly OPEN = 1;
@@ -33,6 +92,9 @@ function makeFakeWebSocket(mode: JoinMode) {
     onclose: ((ev?: unknown) => void) | null = null;
     closed = false;
     readonly frames: unknown[] = [];
+    /** Last observed phx_join `joinRef`/`topic`, used by {@link triggerChannelError}. */
+    private lastJoinRef: string | undefined;
+    private lastTopic: string | undefined;
 
     constructor(public readonly url: string) {
       instances.push(this);
@@ -59,27 +121,30 @@ function makeFakeWebSocket(mode: JoinMode) {
         string,
       ];
       if (event !== "phx_join") return;
+      this.lastJoinRef = joinRef;
+      this.lastTopic = topic;
       joinCount += 1;
-      if (mode === "ok-then-silent" && joinCount > 1) return;
-      const status =
-        mode === "ok" || mode === "ok-then-silent" ? "ok" : "error";
-      // `error-undefined-reason` omits the `response` key entirely (rather
-      // than sending an object) so it round-trips through JSON as a genuinely
-      // absent value — exercising `safeReason(undefined)`.
+      const isInitialJoin = joinCount === 1;
+      // Modes that go silent on a rejoin so the give-up window can elapse.
+      if (!isInitialJoin && mode === "ok-then-silent") return;
+      if (
+        !isInitialJoin &&
+        mode === "give-up-then-recover" &&
+        !control.recover
+      ) {
+        return;
+      }
+      const isOkMode =
+        mode === "ok" ||
+        mode === "ok-then-silent" ||
+        mode === "give-up-then-recover";
+      const status = isOkMode ? "ok" : "error";
       const reply =
-        mode === "error-undefined-reason"
-          ? { status }
+        status === "ok"
+          ? { status, response: {} }
           : {
               status,
-              response:
-                status === "ok"
-                  ? {}
-                  : {
-                      reason:
-                        mode === "error-setup-required"
-                          ? "channel_declaration_unavailable"
-                          : "unauthorized",
-                    },
+              ...(errorResponse() ? { response: errorResponse() } : {}),
             };
       queueMicrotask(() =>
         this.onmessage?.({
@@ -88,13 +153,32 @@ function makeFakeWebSocket(mode: JoinMode) {
       );
     }
 
+    /**
+     * Simulate a Phoenix CHANNEL-level error (a `phx_error` for the joined
+     * topic) WITHOUT closing the socket. Phoenix marks the channel errored and
+     * schedules an auto-rejoin over the still-open socket.
+     */
+    triggerChannelError(): void {
+      if (this.lastJoinRef === undefined || this.lastTopic === undefined)
+        return;
+      this.onmessage?.({
+        data: JSON.stringify([
+          this.lastJoinRef,
+          null,
+          this.lastTopic,
+          "phx_error",
+          {},
+        ]),
+      });
+    }
+
     close(): void {
       this.closed = true;
       this.readyState = 3;
       this.onclose?.();
     }
   }
-  return { FakeWebSocket, instances };
+  return { FakeWebSocket, instances, control };
 }
 
 describe("connectRealtimeGateway", () => {
@@ -343,8 +427,8 @@ describe("connectRealtimeGateway — join failure teardown (OSS-473)", () => {
   });
 });
 
-describe("connectRealtimeGateway — setup-required join reason (OSS-473)", () => {
-  it("rejects with a SETUP_REQUIRED-coded error when the join reason is channel_declaration_unavailable", async () => {
+describe("connectRealtimeGateway — per-channel state classification (OSS-473)", () => {
+  it("rejects with a SETUP_REQUIRED-coded error when a non-live channel is genuinely unconfigured", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket(
       "error-setup-required",
     );
@@ -372,9 +456,96 @@ describe("connectRealtimeGateway — setup-required join reason (OSS-473)", () =
     expect((err as RealtimeGatewaySetupRequiredError).reason).toBe(
       "channel_declaration_unavailable",
     );
+    // The offending waiting state is preserved for diagnostics.
+    expect((err as RealtimeGatewaySetupRequiredError).channelStates).toEqual([
+      "adapter_setup_required",
+    ]);
     // The socket-leak-teardown behavior is unchanged: a failed join still tears
     // the socket down rather than leaking it.
     expect(instances[0]!.closed).toBe(true);
+  });
+
+  it("degrades to SETUP_REQUIRED when channel_declaration_unavailable carries no channel detail", async () => {
+    const { FakeWebSocket } = makeFakeWebSocket(
+      "error-setup-required-no-channels",
+    );
+
+    const err = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/socket",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: {
+        runtimeInstanceId: "rti_1",
+        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
+        observedAt: "2026-07-10T00:00:00.000Z",
+      },
+      webSocket: FakeWebSocket,
+    }).then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+
+    expect(err).toBeInstanceOf(RealtimeGatewaySetupRequiredError);
+    expect((err as RealtimeGatewaySetupRequiredError).channelStates).toEqual(
+      [],
+    );
+  });
+
+  it("does NOT downgrade a runtime_conflict to setup_required — it is a hard error", async () => {
+    const { FakeWebSocket, instances } = makeFakeWebSocket("error-conflict");
+
+    const err = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/socket",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: {
+        runtimeInstanceId: "rti_1",
+        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
+        observedAt: "2026-07-10T00:00:00.000Z",
+      },
+      webSocket: FakeWebSocket,
+    }).then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+
+    expect(err).toBeInstanceOf(RealtimeGatewayChannelStateError);
+    // A hard error must NOT carry the SETUP_REQUIRED marker (the manager keys
+    // `ready()` off it — a conflict must surface as `error`, not resolve).
+    expect((err as { code?: string }).code).not.toBe("SETUP_REQUIRED");
+    expect(err).not.toBeInstanceOf(RealtimeGatewaySetupRequiredError);
+    // The offending state is preserved for diagnostics.
+    expect((err as RealtimeGatewayChannelStateError).channelStates).toEqual([
+      "runtime_conflict",
+    ]);
+    expect((err as Error).message).toMatch(/runtime_conflict/);
+    expect(instances[0]!.closed).toBe(true);
+  });
+
+  it("fails loud on the worst state when waiting and hard-error channels are mixed", async () => {
+    const { FakeWebSocket } = makeFakeWebSocket("error-mixed");
+
+    const err = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/socket",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: {
+        runtimeInstanceId: "rti_1",
+        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
+        observedAt: "2026-07-10T00:00:00.000Z",
+      },
+      webSocket: FakeWebSocket,
+    }).then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+
+    expect(err).toBeInstanceOf(RealtimeGatewayChannelStateError);
+    // Only the hard-error state(s) are surfaced (channel_live is dropped, and
+    // the waiting adapter_setup_required is subsumed by the louder failure).
+    expect((err as RealtimeGatewayChannelStateError).channelStates).toEqual([
+      "runtime_conflict",
+    ]);
   });
 });
 
@@ -416,6 +587,40 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
     session.disconnect();
   });
 
+  it("transitions to reconnecting on a channel-level error while the socket stays open, then back to online on channel rejoin", async () => {
+    const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/socket",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: {
+        runtimeInstanceId: "rti_1",
+        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
+        observedAt: "2026-07-10T00:00:00.000Z",
+      },
+      webSocket: FakeWebSocket,
+    });
+
+    const states: RealtimeGatewayConnectionState[] = [];
+    session.onStateChange((s) => states.push(s));
+
+    // A Phoenix CHANNEL-level error with the socket still open — pushes can't
+    // send, so health must fall to reconnecting even though the socket lives.
+    instances[0]!.triggerChannelError();
+    await waitUntil(() => states.includes("reconnecting"));
+    expect(states).toContain("reconnecting");
+    // The socket itself never dropped: same instance, still open.
+    expect(instances).toHaveLength(1);
+    expect(instances[0]!.closed).toBe(false);
+
+    // Phoenix auto-rejoins the errored channel over the still-open socket; the
+    // ok reply restores online.
+    await waitUntil(() => states.includes("online"), 8000);
+    expect(states[states.length - 1]).toBe("online");
+
+    session.disconnect();
+  });
+
   it("gives up (emits gave_up) when the reconnect window elapses without a successful rejoin", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok-then-silent");
     const session = await connectRealtimeGateway({
@@ -441,6 +646,43 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
 
     expect(states).toContain("reconnecting");
     expect(states[states.length - 1]).toBe("gave_up");
+
+    session.disconnect();
+  });
+
+  it("recovers to online after gave_up when the gateway returns — gave_up is not terminal", async () => {
+    const { FakeWebSocket, instances, control } = makeFakeWebSocket(
+      "give-up-then-recover",
+    );
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/socket",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: {
+        runtimeInstanceId: "rti_1",
+        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
+        observedAt: "2026-07-10T00:00:00.000Z",
+      },
+      webSocket: FakeWebSocket,
+      // Small window so give-up fires fast; small push timeout so silent rejoins
+      // time out quickly and Phoenix retries the channel on a tight cadence.
+      reconnectGiveUpMs: 40,
+      timeoutMs: 50,
+    });
+
+    const states: RealtimeGatewayConnectionState[] = [];
+    session.onStateChange((s) => states.push(s));
+
+    // Drop; rejoins stay silent, so the give-up window elapses → gave_up.
+    instances[0]!.onclose?.();
+    await waitUntil(() => states.includes("gave_up"));
+    expect(states).toContain("gave_up");
+
+    // The gateway returns: subsequent rejoins now succeed. A give-up must be
+    // recoverable — the next successful rejoin restores online.
+    control.recover = true;
+    await waitUntil(() => states[states.length - 1] === "online", 8000);
+    expect(states[states.length - 1]).toBe("online");
 
     session.disconnect();
   });

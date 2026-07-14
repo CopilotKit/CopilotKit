@@ -54,8 +54,12 @@ export interface ConnectRealtimeGatewayOptions {
  *
  * - `online`: the managed path can currently send (joined/rejoined).
  * - `reconnecting`: the connection dropped and Phoenix is retrying; not sendable.
- * - `gave_up`: the reconnect window elapsed without a successful rejoin — the
- *   connection is treated as dead. Terminal: no further transitions are emitted.
+ * - `gave_up`: the reconnect window elapsed without a successful rejoin — treated
+ *   as "currently not sendable, prolonged" (a supervising manager maps it to
+ *   `error`). NOT terminal: Phoenix keeps its socket and auto-retries underneath,
+ *   so a later successful rejoin transitions back to `online` and a fresh drop
+ *   episode can transition back to `reconnecting`. The connection self-heals from
+ *   a transient outage without a process restart.
  */
 export type RealtimeGatewayConnectionState =
   | "online"
@@ -80,25 +84,91 @@ export class RealtimeGatewaySetupRequiredError extends Error {
   readonly code = "SETUP_REQUIRED";
   /** The raw gateway join-error reason that classified this as setup-required. */
   readonly reason: string;
-  /** @param reason - The gateway's setup-required join reason. */
-  constructor(reason: string) {
-    super(`realtime gateway session join requires setup: ${reason}`);
+  /**
+   * The non-live per-channel `state`s that classified this as setup-required
+   * (e.g. `["adapter_setup_required"]`), preserved for diagnostics. Empty when
+   * the gateway reported no per-channel detail. Contains no secrets.
+   */
+  readonly channelStates: readonly string[];
+  /**
+   * @param reason - The gateway's setup-required join reason.
+   * @param channelStates - The offending non-live per-channel states, if any.
+   */
+  constructor(reason: string, channelStates: readonly string[] = []) {
+    super(
+      `realtime gateway session join requires setup: ${reason}` +
+        (channelStates.length > 0
+          ? ` (channel states: ${channelStates.join(", ")})`
+          : ""),
+    );
     this.name = "RealtimeGatewaySetupRequiredError";
     this.reason = reason;
+    this.channelStates = channelStates;
   }
 }
 
 /**
- * Gateway join-error reasons that mean "the declared channel/provider is not
- * configured server-side" rather than a hard failure. The canonical signal is
- * `channel_declaration_unavailable` (Intelligence gateway `sdk_channel.ex`
- * `validate_heartbeat_response` → `{:error, %{"reason" =>
- * "channel_declaration_unavailable", ...}}`). `adapter_setup_required` and
- * `not_configured` are modeled defensively (app-api uses those shapes); the
- * exact string set should be coordinated with the gateway owner.
+ * Signals that a `channel_declaration_unavailable` join reject named at least
+ * one declared channel in a HARD-error per-channel `state` (e.g.
+ * `runtime_conflict`, `platform_setup_failed`) — a genuine failure the caller
+ * must surface, NOT a setup-waiting condition. Deliberately does NOT carry the
+ * `SETUP_REQUIRED` marker, so a supervising `ChannelManager` routes it to
+ * `error` (rejecting `ready()`) rather than resolving to `setup_required`.
  */
-const SETUP_REQUIRED_JOIN_REASONS: ReadonlySet<string> = new Set([
-  "channel_declaration_unavailable",
+export class RealtimeGatewayChannelStateError extends Error {
+  /** The raw gateway join-error reason (`channel_declaration_unavailable`). */
+  readonly reason: string;
+  /**
+   * The offending hard-error per-channel `state`s (e.g. `["runtime_conflict"]`),
+   * preserved for diagnostics. Contains no secrets.
+   */
+  readonly channelStates: readonly string[];
+  /**
+   * @param reason - The gateway's join-error reason.
+   * @param channelStates - The offending hard-error per-channel states.
+   */
+  constructor(reason: string, channelStates: readonly string[]) {
+    super(
+      `realtime gateway session join failed: ${reason} (channel states: ${channelStates.join(", ")})`,
+    );
+    this.name = "RealtimeGatewayChannelStateError";
+    this.reason = reason;
+    this.channelStates = channelStates;
+  }
+}
+
+/**
+ * Per-channel `state` values (from the gateway's `CHANNEL_STATE_KINDS`) that
+ * mean a declared channel is genuinely unconfigured or waiting — a degraded
+ * `setup_required` condition, not a hard failure. Any other non-`channel_live`
+ * state (`runtime_conflict`, `platform_setup_failed`, `delivery_failed`,
+ * `egress_failed`, `runtime_offline`, `runtime_not_declared`) is treated as a
+ * hard error; see {@link classifyJoinError}.
+ *
+ * Verified against Intelligence `sdk_channel.ex` +
+ * `libs/app-api-contracts/src/channels.ts`: the gateway rejects a join with
+ * `{:error, %{"reason" => "channel_declaration_unavailable", "channels" =>
+ * [%{"state" => <state>, ...}, ...]}}` whenever ANY declared channel's
+ * `state != "channel_live"`, so the per-channel `state` — not the top-level
+ * reason — is the real signal.
+ */
+const SETUP_REQUIRED_CHANNEL_STATES: ReadonlySet<string> = new Set([
+  "no_channels_yet",
+  "adapter_setup_required",
+  "slack_setup_complete_waiting_for_runtime",
+  "channel_setup_complete_waiting_for_runtime",
+  "disabled_by_entitlement",
+  "disabled_by_feature_flag",
+]);
+
+/**
+ * TOP-LEVEL join-error reasons (distinct from the per-channel
+ * `channel_declaration_unavailable` shape) that app-api may use to signal an
+ * unconfigured provider. Modeled defensively for non-
+ * `channel_declaration_unavailable` rejects; the canonical live-gateway signal
+ * is the per-channel state classified via {@link SETUP_REQUIRED_CHANNEL_STATES}.
+ */
+const SETUP_REQUIRED_TOP_LEVEL_REASONS: ReadonlySet<string> = new Set([
   "adapter_setup_required",
   "not_configured",
 ]);
@@ -123,11 +193,16 @@ export interface ConnectedRealtimeGatewaySession extends RealtimeGatewaySession 
    * transition between {@link RealtimeGatewayConnectionState} values (never with
    * the same state twice in a row):
    *
-   * - an unexpected socket drop → `reconnecting` (Phoenix begins retrying);
+   * - an unexpected socket-level OR channel-level drop → `reconnecting` (Phoenix
+   *   begins retrying). Phoenix can error/rejoin a Channel while the socket stays
+   *   open (pushes still can't send), so both are routed through the same health
+   *   transition, deduped so one drop episode = one `reconnecting` transition;
    * - a successful (re)join → `online` (the recHooks registered on the join push
    *   survive Phoenix's `resend`, so every auto-rejoin re-fires the `"ok"` hook);
    * - the {@link ConnectRealtimeGatewayOptions.reconnectGiveUpMs} window elapsing
-   *   while still reconnecting → `gave_up` (terminal).
+   *   while still reconnecting → `gave_up`. NOT terminal — a later successful
+   *   rejoin transitions back to `online` (a transient outage self-heals), and a
+   *   fresh drop episode can transition back to `reconnecting`.
    *
    * Our own {@link disconnect} is silent (it is not a drop). Distinct from
    * {@link onClose}, which is a single per-episode drop breadcrumb; this observer
@@ -183,8 +258,10 @@ export async function connectRealtimeGateway(
   // --- Connection-health state machine -------------------------------------
   // `disconnect()` flips `closingIntentionally` first so our own teardown —
   // which also runs these Phoenix close/error hooks — is never mistaken for an
-  // unexpected drop. `gave_up` is terminal: once declared dead, no further
-  // transition is emitted.
+  // unexpected drop. `gave_up` is NOT terminal: Phoenix keeps its socket and
+  // auto-retries underneath, so a successful rejoin after give-up restores
+  // `online` and a fresh drop episode restores `reconnecting` — state always
+  // agrees with the transport rather than latching `error` forever.
   let closingIntentionally = false;
   let connectionState: RealtimeGatewayConnectionState = "online";
   const stateCallbacks: Array<(s: RealtimeGatewayConnectionState) => void> = [];
@@ -196,11 +273,7 @@ export async function connectRealtimeGateway(
     }
   };
   const emitState = (next: RealtimeGatewayConnectionState): void => {
-    if (
-      closingIntentionally ||
-      connectionState === "gave_up" ||
-      connectionState === next
-    ) {
+    if (closingIntentionally || connectionState === next) {
       return;
     }
     connectionState = next;
@@ -214,10 +287,12 @@ export async function connectRealtimeGateway(
     }
   };
   const enterReconnecting = (): void => {
-    if (closingIntentionally || connectionState === "gave_up") return;
+    if (closingIntentionally) return;
     // Arm the give-up window on the FIRST drop of an outage episode; a later
     // drop while still reconnecting keeps the original deadline so a flapping
     // connection that never stabilizes still gives up after one bounded window.
+    // After a `gave_up` the timer has already cleared itself, so a subsequent
+    // drop episode re-arms a fresh window (give-up is recoverable, not sticky).
     if (giveUpTimer === undefined) {
       giveUpTimer = setTimeout(() => {
         giveUpTimer = undefined;
@@ -258,21 +333,10 @@ export async function connectRealtimeGateway(
           // the teardown intentional so it does not arm the give-up window.
           closingIntentionally = true;
           socket.disconnect();
-          const reasonCode = extractReasonCode(reason);
-          if (
-            reasonCode !== undefined &&
-            SETUP_REQUIRED_JOIN_REASONS.has(reasonCode)
-          ) {
-            // Distinguishable setup-required signal: an unconfigured managed
-            // provider must degrade to `setup_required`, not `error`.
-            reject(new RealtimeGatewaySetupRequiredError(reasonCode));
-          } else {
-            reject(
-              new Error(
-                `realtime gateway session join failed: ${safeReason(reason)}`,
-              ),
-            );
-          }
+          // Classify per-channel state (setup-waiting vs hard error) rather than
+          // blanket-mapping the whole reject — a duplicate-listener conflict must
+          // NOT be downgraded to `setup_required`.
+          reject(classifyJoinError(reason));
         } else {
           // A rejoin failed (e.g. credentials revoked server-side). Phoenix
           // keeps retrying; surface reconnecting and let the window bound it.
@@ -330,8 +394,20 @@ export async function connectRealtimeGateway(
     notifyClose();
     enterReconnecting();
   });
-  channel.onClose(() => notifyClose());
-  channel.onError(() => notifyClose());
+  // A CHANNEL-level close/error is ALSO non-sendable: Phoenix can error and
+  // rejoin a channel while the socket stays open (so the socket handlers above
+  // never fire), yet pushes can't send in the meantime. Route it through the
+  // same health transition. `enterReconnecting`/`emitState` dedupe naturally, so
+  // when a socket drop co-fires the socket AND channel hooks it is still one
+  // `reconnecting` transition; a channel-only drop is now covered too.
+  channel.onClose(() => {
+    notifyClose();
+    enterReconnecting();
+  });
+  channel.onError(() => {
+    notifyClose();
+    enterReconnecting();
+  });
 
   return {
     push: (event, payload) =>
@@ -367,6 +443,83 @@ export async function connectRealtimeGateway(
       socket.disconnect();
     },
   };
+}
+
+/**
+ * Classify a Phoenix join-error reject into the error the caller should see.
+ *
+ * The live gateway rejects with `{ reason: "channel_declaration_unavailable",
+ * channels: [{ state, … }, …] }` whenever ANY declared channel's
+ * `state != "channel_live"`, so the per-channel `state` is the real signal —
+ * NOT the top-level reason. Blanket-mapping the whole reject to
+ * `setup_required` (the previous behavior) hid genuine failures such as a
+ * duplicate-listener `runtime_conflict`.
+ *
+ * Classification for `channel_declaration_unavailable`:
+ * - Setup-waiting (→ {@link RealtimeGatewaySetupRequiredError}) ONLY when every
+ *   non-live channel is in {@link SETUP_REQUIRED_CHANNEL_STATES}.
+ * - Hard error (→ {@link RealtimeGatewayChannelStateError}) if ANY non-live
+ *   channel is in a hard-error state (`runtime_conflict`, `platform_setup_failed`,
+ *   `delivery_failed`, `egress_failed`, `runtime_offline`, `runtime_not_declared`)
+ *   — fail loud on the worst even if other channels are merely waiting.
+ *
+ * `runtime_not_declared` is treated as a HARD error here: during our own join
+ * the runtime IS declaring itself, so the gateway reporting the channel as
+ * runtime-not-declared is a server/runtime disagreement, not user setup. TODO
+ * (gateway-owner): confirm this is never a benign join-vs-heartbeat race; if it
+ * is, add it to {@link SETUP_REQUIRED_CHANNEL_STATES} and document why.
+ *
+ * When a `channel_declaration_unavailable` reject carries no parseable
+ * per-channel detail, we degrade to `setup_required` (the conservative
+ * "waiting" reading, matching prior behavior) rather than fail loud on absent
+ * diagnostics.
+ *
+ * Non-`channel_declaration_unavailable` rejects fall back to the defensive
+ * top-level {@link SETUP_REQUIRED_TOP_LEVEL_REASONS} set, else a generic error.
+ */
+function classifyJoinError(reason: unknown): Error {
+  const reasonCode = extractReasonCode(reason);
+  if (reasonCode === "channel_declaration_unavailable") {
+    const nonLive = extractNonLiveChannelStates(reason);
+    const hardErrorStates = nonLive.filter(
+      (state) => !SETUP_REQUIRED_CHANNEL_STATES.has(state),
+    );
+    if (hardErrorStates.length > 0) {
+      return new RealtimeGatewayChannelStateError(reasonCode, hardErrorStates);
+    }
+    return new RealtimeGatewaySetupRequiredError(reasonCode, nonLive);
+  }
+  if (
+    reasonCode !== undefined &&
+    SETUP_REQUIRED_TOP_LEVEL_REASONS.has(reasonCode)
+  ) {
+    return new RealtimeGatewaySetupRequiredError(reasonCode);
+  }
+  return new Error(
+    `realtime gateway session join failed: ${safeReason(reason)}`,
+  );
+}
+
+/**
+ * Extract the non-`channel_live` per-channel `state`s from a join-error reject
+ * payload (`{ channels: [{ state, … }, …] }`). Non-string / missing states and
+ * a missing `channels` array yield an empty list (handled defensively by
+ * {@link classifyJoinError}).
+ */
+function extractNonLiveChannelStates(reason: unknown): string[] {
+  if (typeof reason !== "object" || reason === null) return [];
+  const channels = (reason as { channels?: unknown }).channels;
+  if (!Array.isArray(channels)) return [];
+  return channels
+    .map((entry) =>
+      typeof entry === "object" && entry !== null
+        ? (entry as { state?: unknown }).state
+        : undefined,
+    )
+    .filter(
+      (state): state is string =>
+        typeof state === "string" && state !== "channel_live",
+    );
 }
 
 /**
