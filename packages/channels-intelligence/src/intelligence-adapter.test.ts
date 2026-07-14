@@ -10,6 +10,7 @@ import {
 } from "./in-memory-transports.js";
 import { IntelligenceStateStore } from "./intelligence-state-store.js";
 import type { FetchLike } from "./http-transports.js";
+import type { EgressSink } from "./transports.js";
 import type {
   ChannelIngressEnvelope,
   ChannelIngressBase,
@@ -247,6 +248,38 @@ describe("intelligenceAdapter — deterministic egress ids", () => {
     egress.ops.length = 0;
     await source.deliver(envelope({ turnId: "t1", deliveryId: "d2" }));
     expect(egress.ops.map((o) => o.operationId)).toEqual(["t1:0", "t1:1"]);
+  });
+});
+
+describe("intelligenceAdapter — egress fail-loud", () => {
+  it("throws (does not silently ack) when egress reports { ok: false }", async () => {
+    const source = new InMemoryDeliverySource();
+    // Egress that always rejects the op — the HTTP-fallback failure the adapter
+    // used to swallow by minting a synthetic MessageRef and acking as success.
+    const failingEgress: EgressSink = {
+      emit: async () => ({ ok: false, code: "provider_rejected" }),
+    };
+    const channel = createChannel({
+      adapters: [intelligenceAdapter({ source, egress: failingEgress })],
+      agent: () => new FakeAgent(),
+    });
+    let postError: unknown;
+    channel.onMessage(async ({ thread }) => {
+      try {
+        await thread.post(Section({ children: "reply" }));
+      } catch (err) {
+        postError = err;
+      }
+    });
+    await channel.start();
+    await source.deliver(envelope());
+
+    // Before the fix, thread.post resolved with a synthetic ref and postError
+    // stayed undefined (the drop was acked as success). Now it throws so the
+    // failure propagates up the render path and the delivery is nacked.
+    expect(postError).toBeInstanceOf(Error);
+    expect((postError as Error).message).toMatch(/egress post failed/i);
+    expect((postError as Error).message).toContain("provider_rejected");
   });
 });
 

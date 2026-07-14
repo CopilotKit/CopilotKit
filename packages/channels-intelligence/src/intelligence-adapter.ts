@@ -485,10 +485,20 @@ export class IntelligenceAdapter implements PlatformAdapter {
   ): Promise<MessageRef> {
     const operation = this.mintOp(target, op);
     const res = await this.requireEgress().emit(operation);
+    // Fail loud on egress failure. Returning a synthetic MessageRef here would
+    // ack a dropped post/update/delete as success — silent data loss on the
+    // HTTP-fallback egress path. Throwing instead propagates the failure up the
+    // render/run path so the delivery is nacked (and retried) rather than
+    // silently completed.
+    if (!res.ok) {
+      throw new Error(
+        `IntelligenceAdapter: egress ${op.kind} failed (code: ${res.code}) for operation ${operation.operationId}`,
+      );
+    }
     // The minted ref carries routing so a later update/delete can re-address
     // the same operation; the Outbox maps operationId -> real platform message.
     return {
-      id: res.ok ? res.ref : operation.operationId,
+      id: res.ref,
       __route: target.route,
       __turnId: target.turnId,
       __deliveryId: target.deliveryId,
