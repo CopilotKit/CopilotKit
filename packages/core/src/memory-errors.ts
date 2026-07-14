@@ -48,6 +48,7 @@ export type MemoryErrorCategory =
 /** Stable codes for the memory store's surfaced errors. */
 export type MemoryErrorCode =
   | "MEMORY_LIST_FAILED"
+  | "MEMORY_RECALL_FAILED"
   | "MEMORY_CREDENTIALS_FAILED"
   | "MEMORY_MUTATION_FAILED"
   | "MEMORY_REQUEST_TIMEOUT";
@@ -82,6 +83,13 @@ export const MEMORY_ERROR_REGISTRY: Readonly<
     retryable: true,
     message: "Failed to fetch memories",
     docsPath: "docs/errors/memory.md#memory_list_failed",
+  },
+  MEMORY_RECALL_FAILED: {
+    code: "MEMORY_RECALL_FAILED",
+    category: "dependency",
+    retryable: true,
+    message: "Failed to recall memories",
+    docsPath: "docs/errors/memory.md#memory_recall_failed",
   },
   MEMORY_CREDENTIALS_FAILED: {
     code: "MEMORY_CREDENTIALS_FAILED",

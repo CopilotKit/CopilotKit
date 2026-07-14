@@ -53,6 +53,7 @@ import type { ɵPhoenixChannelSession } from "./utils/phoenix-observable";
 // `/api/memories` the same way it maps `/threads` -> `/api/threads`.
 const MEMORIES_PATH = "/memories";
 const MEMORIES_SUBSCRIBE_PATH = "/memories/subscribe";
+const MEMORIES_RECALL_PATH = "/memories/recall";
 const REQUEST_TIMEOUT_MS = 15_000;
 /** Consecutive socket errors tolerated before the realtime stream gives up. */
 const MAX_SOCKET_RETRIES = 5;
@@ -105,6 +106,8 @@ export interface Memory {
   content: string;
   sourceThreadIds: readonly string[];
   invalidatedAt: string | null;
+  /** Relevance score from a `recall()` (hybrid RAG) query; `undefined` for list/realtime/mutation memories. */
+  score?: number;
 }
 
 /** Input for creating a memory; `scope` defaults to `"user"` (v1 is user-scoped). */
@@ -550,6 +553,13 @@ interface MemoryStore {
    * immediately when no context is set.
    */
   refresh(): Promise<void>;
+  /**
+   * Semantically recalls memories via `POST {runtimeUrl}/memories/recall`
+   * (hybrid RAG). Returns memories ordered by relevance, each carrying a
+   * `score`. Does NOT mutate the snapshot — a one-shot query. Rejects when no
+   * context is set or the request fails.
+   */
+  recall(query: string, opts?: { limit?: number; scope?: MemoryScope }): Promise<Memory[]>;
   /** Creates a memory; resolves to the stored memory (server-authoritative). */
   addMemory(input: NewMemory): Promise<Memory>;
   /** Supersedes a memory; resolves to the new memory (its id changes). */
@@ -753,6 +763,30 @@ function responseToMemory(data: {
     content: data.content,
     sourceThreadIds: data.sourceThreadIds,
     invalidatedAt: data.invalidatedAt,
+  };
+}
+
+/**
+ * Projects a recall REST response memory (which carries a relevance `score`)
+ * to the public {@link Memory} shape. `score` is copied through when supplied.
+ */
+function recallResponseToMemory(data: {
+  id: string;
+  kind: MemoryKind;
+  scope: MemoryScope;
+  content: string;
+  sourceThreadIds: readonly string[];
+  invalidatedAt: string | null;
+  score?: number;
+}): Memory {
+  return {
+    id: data.id,
+    kind: data.kind,
+    scope: data.scope,
+    content: data.content,
+    sourceThreadIds: data.sourceThreadIds,
+    invalidatedAt: data.invalidatedAt,
+    ...(typeof data.score === "number" ? { score: data.score } : {}),
   };
 }
 
@@ -1373,6 +1407,52 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
       });
       store.dispatch(memoryRestEvents.listRequested({ sessionId }));
       return done;
+    },
+    recall(
+      query: string,
+      opts?: { limit?: number; scope?: MemoryScope },
+    ): Promise<Memory[]> {
+      const { context } = store.getState();
+      if (!context?.runtimeUrl) {
+        return Promise.reject(new Error("Runtime URL is not configured"));
+      }
+      const body: Record<string, unknown> = { query };
+      if (opts?.limit !== undefined) body.limit = opts.limit;
+      if (opts?.scope !== undefined) body.scope = opts.scope;
+
+      const recall$ = memoryFromFetch(
+        `${context.runtimeUrl}${MEMORIES_RECALL_PATH}`,
+        {
+          selector: async (response) => {
+            if (!response.ok) {
+              throw new MemoryError("MEMORY_RECALL_FAILED", {
+                message: `Failed to recall memories: ${response.status}`,
+                retryable: isRetryableStatus(response.status),
+              });
+            }
+            return (await response.json()) as { memories: unknown[] };
+          },
+          fetch: environment.fetch,
+          method: "POST",
+          headers: { ...context.headers, "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        },
+      ).pipe(
+        timeout({
+          first: REQUEST_TIMEOUT_MS,
+          with: () => {
+            throw new MemoryError("MEMORY_REQUEST_TIMEOUT");
+          },
+        }),
+        map((data) =>
+          (data.memories ?? []).map((m) =>
+            recallResponseToMemory(
+              m as Parameters<typeof recallResponseToMemory>[0],
+            ),
+          ),
+        ),
+      );
+      return firstValueFrom(recall$);
     },
     addMemory(input: NewMemory): Promise<Memory> {
       return trackMutation(
