@@ -310,10 +310,7 @@ export async function runSpecDrivenD6(
   //     shell → log.warn and ignore (config governs) rather than crash the run.
   const retriesOverride: number | undefined = (() => {
     if (opts.retriesOverride !== undefined) {
-      if (
-        !Number.isInteger(opts.retriesOverride) ||
-        opts.retriesOverride < 0
-      ) {
+      if (!Number.isInteger(opts.retriesOverride) || opts.retriesOverride < 0) {
         throw new Error(
           `runSpecDrivenD6: retriesOverride must be a non-negative integer, got: ${opts.retriesOverride}`,
         );
@@ -787,7 +784,13 @@ export const defaultSpecRunner: SpecRunner = (
             ...retriesFlag,
             ...specPaths,
           ]
-        : ["test", "--reporter=json", ...timeoutFlag, ...retriesFlag, ...specPaths];
+        : [
+            "test",
+            "--reporter=json",
+            ...timeoutFlag,
+            ...retriesFlag,
+            ...specPaths,
+          ];
 
     // Derive spawnSync timeout from PLAYWRIGHT_TIMEOUT × spec count.
     //
