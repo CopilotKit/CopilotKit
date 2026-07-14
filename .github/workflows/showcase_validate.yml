@@ -377,7 +377,7 @@ jobs:
         # pnpm-lock.yaml-pinned version is used (no registry-cache-miss drift).
         run: pnpm exec vitest bench src/cvdiag/emit-perf.bench.ts --run
 
-      - name: Harness ESM boot-smoke (no module-resolution errors)
+      - name: Harness ESM boot-smoke (module graph must load without throwing)
         working-directory: showcase/harness
         # Bound the whole step so a hung boot can never run away to the job's
         # 25-minute timeout (see the `timeout 120s` wrapper below for the same
@@ -394,22 +394,35 @@ jobs:
         # shared/cell-model fold) therefore builds green, passes every test, and
         # only crash-loops the orchestrator at container boot with a module-
         # resolution error. This step is the missing gate: build the dist and
-        # actually load the orchestrator module graph, failing hard on ANY
-        # module-resolution error class (not just ERR_MODULE_NOT_FOUND — a
-        # directory import, unexported package subpath, unknown extension, or
-        # invalid specifier is the same regression wearing a different code).
-        # A later runtime error from missing env/PocketBase (e.g. the
-        # `HARNESS_ROLE must be set` guard, which carries no such code) is
-        # expected and NOT a failure — only a module-resolution error reddens
-        # the build.
+        # actually load the orchestrator module graph via `import()`.
+        #
+        # STRICT semantics: we run under `node -e`, so `process.argv[1]` is
+        # UNSET. `bootFleet()` — which does the env/PocketBase validation that
+        # legitimately throws (e.g. the `HARNESS_ROLE must be set` guard) — only
+        # runs when the orchestrator is the entry module (argv[1] === its own
+        # path), which never happens here. So this smoke ONLY links + evaluates
+        # the module graph; it never boots the fleet. A CLEAN build therefore
+        # loads with NO thrown error (proven: the real dist/orchestrator.js →
+        # BOOT_OK, exit 0). It follows that ANY error thrown by `import()` here
+        # is a boot regression and MUST fail the gate — not just module-
+        # resolution failures (missing .js extension, directory import,
+        # unexported subpath, unknown extension, invalid specifier), but ALSO
+        # evaluation/link failures with no resolution code: a top-level throw,
+        # an await-rejection, a bad named binding, or a SyntaxError. We still
+        # walk the cause chain / AggregateError members for a module-resolution
+        # code, but now ONLY to LABEL the failure ("module-resolution failure"
+        # vs "boot/evaluation failure") — both exit 1.
         run: |
           set -euo pipefail
           pnpm build
           # `timeout` (coreutils) yields a non-zero exit on timeout, so a hang
           # FAILS the step rather than silently passing.
           timeout 120s node -e "
-            // Any of these codes means a relative/package import failed to
-            // resolve under pure Node ESM — the exact regression this guards.
+            // Codes that mean a relative/package import failed to RESOLVE
+            // under pure Node ESM. Under strict semantics these no longer
+            // gate pass/fail (ANY thrown error fails) — they only LABEL the
+            // failure so the log distinguishes a resolution failure from an
+            // evaluation/link failure.
             const MODULE_RESOLUTION_CODES = new Set([
               'ERR_MODULE_NOT_FOUND',
               'ERR_UNSUPPORTED_DIR_IMPORT',
@@ -421,10 +434,10 @@ jobs:
             // level: Node (or an intermediate loader) may rethrow it WRAPPED
             // in \`e.cause\` (possibly a chain) or bundled inside an
             // AggregateError (\`e.errors\`), where a bare \`e.code\` check sees
-            // no code and would wave the regression through. So collect every
-            // code reachable from the thrown error — itself, its cause chain,
-            // and any AggregateError members (recursively, with a depth cap to
-            // bound cause cycles) — and fail if ANY is a resolution code.
+            // no code. We collect every code reachable from the thrown error —
+            // itself, its cause chain, and any AggregateError members
+            // (recursively, with a depth cap to bound cause cycles) — purely
+            // to CLASSIFY the failure message; the exit code is 1 regardless.
             const collectErrorCodes = (e, depth = 0, codes = new Set()) => {
               if (!e || typeof e !== 'object' || depth > 10) return codes;
               if (e.code) codes.add(e.code);
@@ -441,17 +454,18 @@ jobs:
                 process.exit(0);
               })
               .catch((e) => {
-                const hit = [...collectErrorCodes(e)].find((c) => MODULE_RESOLUTION_CODES.has(c));
-                if (hit) {
-                  console.error('BOOT_FAIL:', hit, e && e.message);
+                // STRICT: any rejection is a boot regression. bootFleet() does
+                // not run here (argv[1] is unset), so a clean graph loads
+                // without throwing — there is no legitimate error to swallow.
+                const resolutionHit = [...collectErrorCodes(e)].find((c) => MODULE_RESOLUTION_CODES.has(c));
+                if (resolutionHit) {
+                  console.error('BOOT_FAIL (module-resolution failure):', resolutionHit, e && e.message);
                   console.error('A relative/package import failed to resolve in the pure-ESM module graph (e.g. a missing .js extension). Fix the offending import specifier.');
-                  process.exit(1);
+                } else {
+                  console.error('BOOT_FAIL (boot/evaluation failure):', (e && e.code) || (e && e.name) || 'Error', e && e.message);
+                  console.error('The orchestrator module graph threw while loading (top-level throw, await rejection, bad named binding, or syntax error). bootFleet() does NOT run in this smoke, so a clean graph must load without throwing. Fix the boot-time regression.');
                 }
-                // Any non-module-resolution error (e.g. missing env/PocketBase
-                // at boot) means the module graph loaded fine — that is a PASS
-                // for this smoke.
-                console.log('BOOT_OK: module graph loaded (non-module-resolution runtime error is expected here):', e && e.code);
-                process.exit(0);
+                process.exit(1);
               });
           "
 
