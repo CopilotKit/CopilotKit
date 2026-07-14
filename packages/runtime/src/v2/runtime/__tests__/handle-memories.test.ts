@@ -489,6 +489,50 @@ describe("memory handlers", () => {
     });
   });
 
+  it("forwards project credentials when the platform mints them", async () => {
+    const intelligence = {
+      ɵsubscribeToMemories: vi.fn().mockResolvedValue({
+        joinToken: "jt-1",
+        joinCode: "jc-1",
+        projectJoinToken: "pjt-1",
+        projectJoinCode: "pjc-1",
+      }),
+    };
+    const identifyUser = createIdentifyUser();
+    const runtime = createIntelligenceRuntime({ intelligence, identifyUser });
+    const request = jsonRequest("/memories/subscribe", "POST");
+
+    const response = await handleSubscribeToMemories({ runtime, request });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      joinToken: "jt-1",
+      joinCode: "jc-1",
+      projectJoinToken: "pjt-1",
+      projectJoinCode: "pjc-1",
+    });
+  });
+
+  it("omits project credentials when the platform does not mint them", async () => {
+    const intelligence = {
+      ɵsubscribeToMemories: vi
+        .fn()
+        .mockResolvedValue({ joinToken: "jt-1", joinCode: "jc-1" }),
+    };
+    const identifyUser = createIdentifyUser();
+    const runtime = createIntelligenceRuntime({ intelligence, identifyUser });
+    const request = jsonRequest("/memories/subscribe", "POST");
+
+    const response = await handleSubscribeToMemories({ runtime, request });
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as Record<string, unknown>;
+    // Silent-degrade: the keys are absent, not present-with-undefined.
+    expect(body).toEqual({ joinToken: "jt-1", joinCode: "jc-1" });
+    expect(body).not.toHaveProperty("projectJoinToken");
+    expect(body).not.toHaveProperty("projectJoinCode");
+  });
+
   it("returns 422 for subscribe when intelligence is not configured", async () => {
     const runtime = new CopilotRuntime({ agents: {} });
 

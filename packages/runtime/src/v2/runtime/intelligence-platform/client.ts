@@ -248,6 +248,15 @@ export interface SubscribeToMemoriesRequest {
 export interface SubscribeToMemoriesResponse {
   joinToken: string;
   joinCode: string;
+  /**
+   * Project-scoped realtime credentials, minted by the platform only when the
+   * caller's API key resolves to a project scope. Absent when project scope is
+   * unavailable — a silent-degrade contract: the client then opens only the
+   * user channel. When present, the client builds the second
+   * `project_meta:memories:<projectJoinCode>` channel topic from them.
+   */
+  projectJoinToken?: string;
+  projectJoinCode?: string;
 }
 
 export type ConnectThreadResponse = ThreadConnectionResponse | null;
@@ -739,7 +748,10 @@ export class CopilotKitIntelligence {
    * Mint memory-realtime join credentials (platform `POST
    * /api/memories/subscribe`). Returns both the single-use `joinToken` and the
    * per-user `joinCode` the client needs to build the
-   * `user_meta:memories:<joinCode>` channel topic.
+   * `user_meta:memories:<joinCode>` channel topic. When the platform also
+   * resolves a project scope it returns optional `projectJoinToken` /
+   * `projectJoinCode`; both are passed through verbatim (omitted when absent,
+   * the silent-degrade contract).
    *
    * The user is supplied via the `x-cpki-user-id` header — the same way every
    * other memory endpoint (`listMemories`/`createMemory`/…) identifies the app
