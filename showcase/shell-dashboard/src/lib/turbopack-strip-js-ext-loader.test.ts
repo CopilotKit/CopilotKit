@@ -130,6 +130,37 @@ describe("turbopack-strip-js-ext-loader", () => {
     expect(run(src).code).toBe(expected);
   });
 
+  // CR round-2 regression guards: the earlier line-anchored-regex loader
+  // corrupted these because a line-leading `from` inside a multi-line template,
+  // and an `import("…")` call shape inside any literal/comment, both matched.
+  // The mask-then-match loader must leave all of them untouched.
+  it("does NOT mutate a line-leading `from` inside a multi-line template", () => {
+    const src = 'const t = `\n} from "./inside.js"`;';
+    expect(run(src).code).toBe(src);
+    const src2 = 'const t = `\nfrom "./inside.js"`;';
+    expect(run(src2).code).toBe(src2);
+  });
+
+  it("does NOT mutate a dynamic `import(...)` inside a string/template/comment", () => {
+    const tpl = 'const s = `await import("./tpl.js")`;';
+    expect(run(tpl).code).toBe(tpl);
+    const str = `const s = 'import("./str.js")';`;
+    expect(run(str).code).toBe(str);
+    const cmt = `// example: import("./doc.js")`;
+    expect(run(cmt).code).toBe(cmt);
+  });
+
+  it("does NOT mutate a `.js` specifier shape inside a block comment", () => {
+    const src = `/* import z from "./c.js"; */`;
+    expect(run(src).code).toBe(src);
+  });
+
+  it("preserves a directory segment literally named `foo.js`", () => {
+    expect(run(`import q from "./foo.js/index.js";`).code).toBe(
+      `import q from "./foo.js/index";`,
+    );
+  });
+
   it("forwards the incoming sourcemap", () => {
     const map = { version: 3, sources: ["x.ts"], mappings: "AAAA" };
     const result = run(`import { a } from "./x.js";`, map);
