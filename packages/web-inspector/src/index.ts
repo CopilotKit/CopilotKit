@@ -3815,12 +3815,24 @@ type MemoryKindFilter = "all" | "topical" | "episodic" | "operational";
 class CpkMemoryList extends LitElement {
   static properties = {
     memories: { attribute: false },
+    recallResults: { attribute: false },
+    recallLoading: { attribute: false },
+    recallError: { attribute: false },
+    recallQueryText: { attribute: false },
     search: { state: true },
     kind: { state: true },
   };
 
   /** Ordered (newest-first) list of memories supplied by the parent. */
   memories: Memory[] = [];
+  /** Semantic-recall results. `null` = no recall run (section hidden); `[]` = ran, no matches. */
+  recallResults: Memory[] | null = null;
+  /** True while a recall request is in flight. */
+  recallLoading = false;
+  /** Error message from the most recent recall attempt, or null. */
+  recallError: string | null = null;
+  /** The recall input text (owned by the parent). */
+  recallQueryText = "";
   private search = "";
   private kind: MemoryKindFilter = "all";
 
@@ -4022,6 +4034,117 @@ class CpkMemoryList extends LitElement {
     .cpk-ml__empty-icon {
       color: #c0c0c8;
     }
+
+    /* ── Recall ── */
+    .cpk-ml__recall {
+      display: flex;
+      gap: 6px;
+      padding: 10px 12px;
+      border-bottom: 1px solid #dbdbe5;
+      flex-shrink: 0;
+    }
+    .cpk-ml__recall-input {
+      flex: 1;
+      box-sizing: border-box;
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-size: 12px;
+      padding: 7px 10px;
+      border-radius: 6px;
+      border: 1px solid #dbdbe5;
+      background: #fff;
+      color: #010507;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .cpk-ml__recall-input:focus {
+      border-color: #bec2ff;
+    }
+    .cpk-ml__recall-btn {
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 7px 12px;
+      border-radius: 6px;
+      border: 1px solid #dbdbe5;
+      background: #fff;
+      color: #010507;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .cpk-ml__recall-btn:hover:not(:disabled) {
+      background: #f0f0f5;
+    }
+    .cpk-ml__recall-btn:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+    .cpk-ml__recall-section {
+      flex-shrink: 0;
+      max-height: 45%;
+      overflow-y: auto;
+      padding: 8px 12px;
+      border-bottom: 1px solid #dbdbe5;
+      background: #fbfbfd;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .cpk-ml__recall-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .cpk-ml__recall-title {
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      color: #010507;
+    }
+    .cpk-ml__recall-clear {
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-size: 10px;
+      color: #838389;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+    }
+    .cpk-ml__recall-clear:hover {
+      color: #010507;
+    }
+    .cpk-ml__recall-msg {
+      font-size: 11px;
+      color: #838389;
+      line-height: 1.45;
+    }
+    .cpk-ml__recall-msg--error {
+      color: #c0333a;
+    }
+
+    /* ── Relevance bar ── */
+    .cpk-ml__relevance {
+      height: 4px;
+      width: 100%;
+      overflow: hidden;
+      border-radius: 9999px;
+      background: #f0f0f5;
+    }
+    .cpk-ml__relevance-fill {
+      height: 100%;
+      border-radius: 9999px;
+      background: #6366f1;
+    }
+
+    /* ── Scope badge variants ── */
+    .cpk-ml__scope-badge--user {
+      background: #f0f0f5;
+      color: #838389;
+    }
+    .cpk-ml__scope-badge--project {
+      background: #fef3c7;
+      color: #92660c;
+    }
   `;
 
   /** Memories that pass the current text search (before kind filter). */
@@ -4064,6 +4187,131 @@ class CpkMemoryList extends LitElement {
     return html`<span class="cpk-ml__kind-badge cpk-ml__kind-badge--${kind}"
       >${kind}</span
     >`;
+  }
+
+  private renderScopeBadge(scope: string): TemplateResult {
+    const variant = scope === "project" ? "project" : "user";
+    return html`<span
+      class="cpk-ml__scope-badge cpk-ml__scope-badge--${variant}"
+      >${scope}</span
+    >`;
+  }
+
+  /**
+   * Renders one memory card. `relevance` (0..1) is supplied only for recall
+   * results — when present a relevance bar is drawn; the full list omits it.
+   */
+  private renderCard(m: Memory, relevance?: number): TemplateResult {
+    const threads = m.sourceThreadIds.length;
+    return html`
+      <div class="cpk-ml__card">
+        <div class="cpk-ml__card-badges">
+          ${this.renderKindBadge(m.kind)}${this.renderScopeBadge(m.scope)}
+        </div>
+        <div class="cpk-ml__content">${m.content}</div>
+        ${relevance !== undefined
+          ? html`<div class="cpk-ml__relevance">
+              <div
+                class="cpk-ml__relevance-fill"
+                style="width:${relevanceBarWidth(relevance)}%;"
+              ></div>
+            </div>`
+          : nothing}
+        <div class="cpk-ml__footer">
+          <span class="cpk-ml__footer-threads"
+            >${threads} source thread${threads === 1 ? "" : "s"}</span
+          >
+          <span class="cpk-ml__footer-id">${this.shortId(m.id)}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  private onRecallInput = (event: Event): void => {
+    const value = (event.target as HTMLInputElement).value;
+    this.recallQueryText = value;
+    this.dispatchEvent(
+      new CustomEvent<string>("recallQueryChanged", {
+        detail: value,
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  };
+
+  private onRecallSubmit = (event: Event): void => {
+    event.preventDefault();
+    const query = this.recallQueryText.trim();
+    if (query.length === 0 || this.recallLoading) return;
+    this.dispatchEvent(
+      new CustomEvent<string>("recallSubmitted", {
+        detail: query,
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  };
+
+  private onRecallClear = (): void => {
+    this.dispatchEvent(
+      new CustomEvent("recallCleared", { bubbles: true, composed: true }),
+    );
+  };
+
+  private renderRecallForm(): TemplateResult {
+    const disabled =
+      this.recallLoading || this.recallQueryText.trim().length === 0;
+    return html`
+      <form class="cpk-ml__recall" @submit=${this.onRecallSubmit}>
+        <input
+          type="text"
+          placeholder="Recall by meaning…"
+          aria-label="Recall memories by meaning"
+          class="cpk-ml__recall-input"
+          .value=${this.recallQueryText}
+          @input=${this.onRecallInput}
+        />
+        <button type="submit" class="cpk-ml__recall-btn" ?disabled=${disabled}>
+          ${this.recallLoading ? "…" : "Recall"}
+        </button>
+      </form>
+    `;
+  }
+
+  private renderRecallSection(): TemplateResult {
+    const results = this.recallResults;
+    if (results === null) return html``;
+    const max = maxRecallScore(results);
+    return html`
+      <section
+        class="cpk-ml__recall-section"
+        aria-label="Semantic recall results"
+      >
+        <div class="cpk-ml__recall-header">
+          <span class="cpk-ml__recall-title"
+            >Semantic recall (${results.length})</span
+          >
+          <button
+            type="button"
+            class="cpk-ml__recall-clear"
+            @click=${this.onRecallClear}
+          >
+            Clear
+          </button>
+        </div>
+        ${this.recallError
+          ? html`<p class="cpk-ml__recall-msg cpk-ml__recall-msg--error">
+              Recall failed: ${this.recallError}
+            </p>`
+          : results.length === 0
+            ? html`<p class="cpk-ml__recall-msg">
+                No memories matched that query.
+              </p>`
+            : results.map((m) =>
+                this.renderCard(m, normalizeRelevance(m.score, max)),
+              )}
+      </section>
+    `;
   }
 
   private renderEmpty(): TemplateResult {
@@ -4112,6 +4360,9 @@ class CpkMemoryList extends LitElement {
 
     return html`
       <div class="cpk-ml">
+        <!-- Semantic recall -->
+        ${this.renderRecallForm()} ${this.renderRecallSection()}
+
         <!-- Search -->
         <div class="cpk-ml__search">
           <input
@@ -4145,23 +4396,7 @@ class CpkMemoryList extends LitElement {
 
         <!-- Memory list -->
         <div class="cpk-ml__list">
-          ${filtered.map(
-            (m) => html`
-              <div class="cpk-ml__card">
-                <div class="cpk-ml__card-badges">
-                  ${this.renderKindBadge(m.kind)}
-                  <span class="cpk-ml__scope-badge">${m.scope}</span>
-                </div>
-                <div class="cpk-ml__content">${m.content}</div>
-                <div class="cpk-ml__footer">
-                  <span class="cpk-ml__footer-threads"
-                    >${m.sourceThreadIds.length} source thread${m.sourceThreadIds.length === 1 ? "" : "s"}</span
-                  >
-                  <span class="cpk-ml__footer-id">${this.shortId(m.id)}</span>
-                </div>
-              </div>
-            `,
-          )}
+          ${filtered.map((m) => this.renderCard(m))}
           ${filtered.length === 0 ? this.renderEmpty() : nothing}
         </div>
       </div>
