@@ -14,14 +14,14 @@
  * per-cell (the aggregate is red whenever any cell fails).
  */
 
-import { formatTs } from "./format-ts";
+import { formatTs } from "./format-ts.js";
 import {
   D4_STALE_AFTER_MS,
   E2E_STALE_AFTER_MS,
   LIVENESS_STALE_AFTER_MS,
   STARTER_STALE_AFTER_MS,
   isStale,
-} from "./staleness";
+} from "./staleness.js";
 
 export type State = "green" | "red" | "degraded";
 

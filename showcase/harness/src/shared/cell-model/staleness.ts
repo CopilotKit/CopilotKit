@@ -10,7 +10,7 @@
  * type from `live-status.ts`, so there is no runtime dependency edge.
  */
 
-import type { StatusRow } from "./live-status";
+import type { StatusRow } from "./live-status.js";
 
 /**
  * Staleness window for the `e2e:` dimension. The e2e-demos driver writes
