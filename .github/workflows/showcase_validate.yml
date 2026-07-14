@@ -67,7 +67,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
           # Cache npm for the showcase/shell `npm ci` step below (shell is
@@ -377,6 +377,98 @@ jobs:
         # pnpm-lock.yaml-pinned version is used (no registry-cache-miss drift).
         run: pnpm exec vitest bench src/cvdiag/emit-perf.bench.ts --run
 
+      - name: Harness ESM boot-smoke (module graph must load without throwing)
+        working-directory: showcase/harness
+        # Bound the whole step so a hung boot can never run away to the job's
+        # 25-minute timeout (see the `timeout 120s` wrapper below for the same
+        # guarantee at the node level).
+        timeout-minutes: 5
+        # The harness ships as pure Node ESM: package.json `"type":"module"`,
+        # build is `tsc` with `moduleResolution:"bundler"` (which PRESERVES
+        # extensionless import specifiers at emit), and it runs via
+        # `node dist/orchestrator.js` (Docker CMD + `start` script). Under pure
+        # Node ESM, relative import specifiers MUST carry the `.js` extension —
+        # `tsc`, vitest, and tsx all resolve extensionless specifiers fine, so
+        # NONE of the other CI steps exercise the real `node dist` module graph.
+        # A single extensionless relative import (as happened in the relocated
+        # shared/cell-model fold) therefore builds green, passes every test, and
+        # only crash-loops the orchestrator at container boot with a module-
+        # resolution error. This step is the missing gate: build the dist and
+        # actually load the orchestrator module graph via `import()`.
+        #
+        # STRICT semantics: we run under `node -e`, so `process.argv[1]` is
+        # UNSET. `bootFleet()` — which does the env/PocketBase validation that
+        # legitimately throws (e.g. the `HARNESS_ROLE must be set` guard) — only
+        # runs when the orchestrator is the entry module (argv[1] === its own
+        # path), which never happens here. So this smoke ONLY links + evaluates
+        # the module graph; it never boots the fleet. A CLEAN build therefore
+        # loads with NO thrown error (proven: the real dist/orchestrator.js →
+        # BOOT_OK, exit 0). It follows that ANY error thrown by `import()` here
+        # is a boot regression and MUST fail the gate — not just module-
+        # resolution failures (missing .js extension, directory import,
+        # unexported subpath, unknown extension, invalid specifier), but ALSO
+        # evaluation/link failures with no resolution code: a top-level throw,
+        # an await-rejection, a bad named binding, or a SyntaxError. We still
+        # walk the cause chain / AggregateError members for a module-resolution
+        # code, but now ONLY to LABEL the failure ("module-resolution failure"
+        # vs "boot/evaluation failure") — both exit 1.
+        run: |
+          set -euo pipefail
+          pnpm build
+          # `timeout` (coreutils) yields a non-zero exit on timeout, so a hang
+          # FAILS the step rather than silently passing.
+          timeout 120s node -e "
+            // Codes that mean a relative/package import failed to RESOLVE
+            // under pure Node ESM. Under strict semantics these no longer
+            // gate pass/fail (ANY thrown error fails) — they only LABEL the
+            // failure so the log distinguishes a resolution failure from an
+            // evaluation/link failure.
+            const MODULE_RESOLUTION_CODES = new Set([
+              'ERR_MODULE_NOT_FOUND',
+              'ERR_UNSUPPORTED_DIR_IMPORT',
+              'ERR_PACKAGE_PATH_NOT_EXPORTED',
+              'ERR_UNKNOWN_FILE_EXTENSION',
+              'ERR_INVALID_MODULE_SPECIFIER',
+            ]);
+            // A module-resolution error does not always arrive at the top
+            // level: Node (or an intermediate loader) may rethrow it WRAPPED
+            // in \`e.cause\` (possibly a chain) or bundled inside an
+            // AggregateError (\`e.errors\`), where a bare \`e.code\` check sees
+            // no code. We collect every code reachable from the thrown error —
+            // itself, its cause chain, and any AggregateError members
+            // (recursively, with a depth cap to bound cause cycles) — purely
+            // to CLASSIFY the failure message; the exit code is 1 regardless.
+            const collectErrorCodes = (e, depth = 0, codes = new Set()) => {
+              if (!e || typeof e !== 'object' || depth > 10) return codes;
+              if (e.code) codes.add(e.code);
+              if (e.cause) collectErrorCodes(e.cause, depth + 1, codes);
+              if (Array.isArray(e.errors)) {
+                for (const inner of e.errors) collectErrorCodes(inner, depth + 1, codes);
+              }
+              return codes;
+            };
+            import('./dist/orchestrator.js')
+              .then(() => {
+                console.log('BOOT_OK: orchestrator module graph loaded');
+                // Explicit exit so a lingering open handle can't hang the run.
+                process.exit(0);
+              })
+              .catch((e) => {
+                // STRICT: any rejection is a boot regression. bootFleet() does
+                // not run here (argv[1] is unset), so a clean graph loads
+                // without throwing — there is no legitimate error to swallow.
+                const resolutionHit = [...collectErrorCodes(e)].find((c) => MODULE_RESOLUTION_CODES.has(c));
+                if (resolutionHit) {
+                  console.error('BOOT_FAIL (module-resolution failure):', resolutionHit, e && e.message);
+                  console.error('A relative/package import failed to resolve in the pure-ESM module graph (e.g. a missing .js extension). Fix the offending import specifier.');
+                } else {
+                  console.error('BOOT_FAIL (boot/evaluation failure):', (e && e.code) || (e && e.name) || 'Error', e && e.message);
+                  console.error('The orchestrator module graph threw while loading (top-level throw, await rejection, bad named binding, or syntax error). bootFleet() does NOT run in this smoke, so a clean graph must load without throwing. Fix the boot-time regression.');
+                }
+                process.exit(1);
+              });
+          "
+
       - name: Validate manifests & generate registry
         working-directory: showcase/scripts
         run: pnpm exec tsx generate-registry.ts
@@ -622,6 +714,17 @@ jobs:
           cache-dependency-path: |
             showcase/integrations/*/requirements.txt
 
+      # Node is required so the langgraph-typescript behavioral proof
+      # (test_real_package_writes_are_suppressed_behavioral +
+      # test_boot_fails_if_namespace_binding_not_patched_high1) can `npm install`
+      # the agent's real @langchain/langgraph-api and drive the fs-write
+      # interception against it. Without this, that test skips and the durable
+      # LGT persistence-disable fix would ship with zero real-package coverage.
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
       - name: Install minimal test deps
         # Always need pytest + typing_extensions. pytest-asyncio is required
         # by langroid's test_agui_adapter.py (16 tests use
@@ -686,12 +789,30 @@ jobs:
                 continue
               }
             fi
+            # langgraph-typescript's persistence-disable fix has a REAL-PACKAGE
+            # behavioral proof that drives @langchain/langgraph-api's actual
+            # FileSystemPersistence writer through the preload interception (and
+            # a negative proof that the boot binding-identity guard FAILS boot if
+            # the fs/promises namespace was linked before the patch). Install the
+            # agent deps and set LGT_REQUIRE_BEHAVIORAL=1 so those tests MUST run
+            # here (a missing runtime FAILS instead of silently skipping) — this
+            # is the merge gate that proves the interception actually works.
+            pkg_extra_env=""
+            if [ "$pkg" = "langgraph-typescript" ]; then
+              echo "Installing langgraph-typescript agent deps (npm install)"
+              (cd "${pkg_dir}src/agent" && npm install --no-audit --no-fund) || {
+                echo "::error::npm install failed for langgraph-typescript agent"
+                failed=1
+                continue
+              }
+              pkg_extra_env="LGT_REQUIRE_BEHAVIORAL=1"
+            fi
             # Export PYTHONPATH so `from tools import ...` in agent modules
             # resolves via the `tools` symlink at the integration root.
             # Also include src/ so `from agents.X import ...` works even if
             # a conftest.py omits the sys.path setup. Mirrors the local dev
             # convention (`PYTHONPATH=. python ...` in package.json scripts).
-            (cd "$pkg_dir" && PYTHONPATH=".:src:${PYTHONPATH:-}" python -m pytest tests/python/ -v) || failed=1
+            (cd "$pkg_dir" && env $pkg_extra_env PYTHONPATH=".:src:${PYTHONPATH:-}" python -m pytest tests/python/ -v) || failed=1
           done
           if [ "$found" -eq 0 ]; then
             echo "::warning::No showcase/integrations/*/tests/python/ directories found"

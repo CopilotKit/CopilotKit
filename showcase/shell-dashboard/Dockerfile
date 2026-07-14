@@ -23,6 +23,14 @@ COPY showcase/scripts/ ./scripts/
 # determine docs reachability status. Only the content directory is needed.
 COPY showcase/shell-docs/src/content/ ./shell-docs/src/content/
 COPY showcase/shell-dashboard/ ./shell-dashboard/
+# The canonical cell-model fold lives in the harness so the dashboard AND the
+# harness monitor import ONE copy. The dashboard's `src/lib/{cell-model,
+# live-status,staleness,format-ts}.ts` re-export barrels resolve it via the
+# relative path `../../../harness/src/shared/cell-model/*` (= /app/harness/...).
+# This isolated build context does NOT include the rest of the harness, so copy
+# just the fold to that exact path — keeping the single-shared-fold invariant
+# without dragging the whole harness package into the dashboard image.
+COPY showcase/harness/src/shared/cell-model/ ./harness/src/shared/cell-model/
 
 # Bake commit info into Next.js build (NEXT_PUBLIC_* are compiled in).
 ENV NEXT_PUBLIC_COMMIT_SHA=${COMMIT_SHA}

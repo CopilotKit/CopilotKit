@@ -206,6 +206,14 @@ describe("frontend options", () => {
     expect(getFrontendReferenceSlug("teams")).toBe("reference");
   });
 
+  it("keeps the early-access guidance link iconless", () => {
+    const guidanceLink = getFrontendQuickstartNavTree("slack").find(
+      (node) => node.type === "page" && node.title === "About early access",
+    );
+
+    expect(guidanceLink).not.toHaveProperty("icon");
+  });
+
   it("keeps non-React frontend sidebars limited to quickstart and reference links", () => {
     const navTree = getFrontendQuickstartNavTree("slack");
     const flattenedNavTree = flattenNavTree(navTree);

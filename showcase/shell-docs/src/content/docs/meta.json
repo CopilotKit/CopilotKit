@@ -11,7 +11,15 @@
     "...agentic-protocols",
     "---Build Chat UIs---",
     "prebuilt-components",
-    "threads",
+    {
+      "title": "Threads",
+      "defaultOpen": true,
+      "pages": [
+        "prebuilt-components/copilot-threads-drawer",
+        "threads",
+        "threads-import"
+      ]
+    },
     "custom-look-and-feel",
     "multimodal-attachments",
     "voice",

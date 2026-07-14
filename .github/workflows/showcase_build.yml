@@ -164,6 +164,15 @@ jobs:
               - 'showcase/shared/**'
               - 'showcase/scripts/**'
               - 'showcase/integrations/*/manifest.yaml'
+              # The dashboard re-exports the harness's shared cell-model fold
+              # (src/lib/{cell-model,live-status,staleness,format-ts}.ts →
+              # ../../../harness/src/shared/cell-model/*), so those files are
+              # compiled INTO the dashboard's `next build`. A change to the
+              # fold that only touches showcase/harness/** would otherwise
+              # select `showcase_harness` but NOT this slot — exactly how
+              # #5952 shipped an unbuilt dashboard. Gate the dashboard on the
+              # fold so a fold change can never again bypass its build.
+              - 'showcase/harness/src/shared/**'
             shell_docs:
               - 'showcase/shell-docs/**'
               - 'showcase/shared/**'
@@ -316,7 +325,7 @@ jobs:
       # resulting in lockfile-vs-engine mismatches that only surfaced on
       # the slow `--frozen-lockfile` path.
       - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22.x
       - run: pnpm install --frozen-lockfile --ignore-scripts
@@ -332,7 +341,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22.x
       - name: Verify Railway image refs
@@ -668,6 +677,45 @@ jobs:
             ghcr.io/copilotkit/${{ matrix.starter.image }}:latest
             ghcr.io/copilotkit/${{ matrix.starter.image }}:${{ github.sha }}
 
+      - name: Write per-slot starter build result
+        if: always()
+        env:
+          SERVICE: ${{ matrix.starter.slug }}
+          BUILD_STATUS: ${{ job.status }}
+        run: |
+          # Mirror of the main `build` matrix's per-slot result write
+          # (see "Write per-slot build result" above). job.status is one of
+          # success, failure, cancelled; normalize cancelled→skipped to match
+          # the same {service,status} shape. We publish per-slot via artifact
+          # because matrix-slot outputs aren't aggregable across slots.
+          #
+          # IMPORTANT: starter artifacts use the `starter-build-result-*`
+          # prefix, NOT `build-result-*`. The aggregate-build-results job
+          # downloads every `build-result-*` and feeds it to the showcase
+          # redeploy set (keyed by showcase dispatch_name). Starters are a
+          # separate namespace and must NOT pollute that intersection, so
+          # they get their own prefix. This artifact exists to give the
+          # `notify` job a durable per-starter failure surface.
+          case "$BUILD_STATUS" in
+            success) STATUS=success ;;
+            failure) STATUS=failure ;;
+            *)       STATUS=skipped ;;
+          esac
+          mkdir -p "$RUNNER_TEMP/starter-build-result"
+          printf '{"service":"%s","status":"%s"}\n' "$SERVICE" "$STATUS" \
+            > "$RUNNER_TEMP/starter-build-result/result.json"
+
+      - name: Upload per-slot starter build-result artifact
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          # Distinct `starter-build-result-*` prefix so this never matches the
+          # aggregator's `build-result-*` download pattern.
+          name: starter-build-result-${{ matrix.starter.slug }}
+          path: ${{ runner.temp }}/starter-build-result/result.json
+          if-no-files-found: error
+          retention-days: 7
+
   aggregate-build-results:
     name: Aggregate build results
     needs: [detect-changes, build]
@@ -687,7 +735,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
       - name: Setup Node
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22.x
           cache: pnpm
@@ -757,7 +805,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22.x
       - name: Compute changed-service list from build matrix
@@ -785,11 +833,23 @@ jobs:
           csv="$(jq -rn --argjson m "$matrix_names" --argjson s "$success_names" \
             '($m | map(select(. as $n | $s | index($n)))) | join(",")')"
           if [ -z "$csv" ]; then
-            echo "No services in matrix ∩ success-set — skipping redeploy."
-            echo "services=" >> "$GITHUB_OUTPUT"
-          else
-            echo "services=$csv" >> "$GITHUB_OUTPUT"
+            # This job only runs when aggregate-build-results.any_success == 'true'
+            # (see the job-level `if:` guard). So reaching an EMPTY intersection
+            # here does NOT mean "nothing to deploy" — it means at least one slot
+            # BUILT successfully yet none of those successes maps back into the
+            # scheduled build matrix. That is a dispatch_name↔service contract
+            # skew: the aggregator's `service` values and the matrix's
+            # `dispatch_name` values have drifted out of sync. Emitting an empty
+            # `services=` here would let the build go GREEN while redeploying
+            # NOTHING — a silent "we thought we shipped but didn't" hole. Fail
+            # LOUD instead, naming both sides of the skew so it can be diagnosed.
+            echo "::error::Build succeeded (any_success=true) but matrix ∩ success-set is EMPTY — dispatch_name/service contract skew; nothing would be redeployed."
+            echo "Successful build service values (from aggregate-build-results): $success_names"
+            echo "Scheduled matrix dispatch_name values (from detect-changes):    $matrix_names"
+            echo "These two sets share no members — a successful build maps to no matrix entry. Reconcile showcase/scripts/lib/build-outputs.ts (service field) with the build matrix dispatch_name values."
+            exit 1
           fi
+          echo "services=$csv" >> "$GITHUB_OUTPUT"
           echo "Computed services CSV (matrix ∩ build-success): $csv"
       - name: Redeploy changed services in staging
         if: steps.changed.outputs.services != ''
@@ -916,12 +976,22 @@ jobs:
     # skipped != failure. If `notify-all-builds-failed` also fires
     # (genuine all-failed case), both alerts firing for the same event is
     # acceptable per the alert SOP.
+    #
+    # `detect-starter-changes` + `build-starters` are included so a FAILED
+    # starter image build (examples/integrations/*) also triggers the Slack
+    # alert + PR comment. Previously the starter lane had NO alert surface:
+    # its jobs were absent from `needs`, so `if: failure()` could never see a
+    # starter build failure and it shipped silently. `if: failure()` still
+    # no-ops when starters are skipped (no starter changes) — skipped !=
+    # failure — so this only fires on a genuine starter build failure.
     needs:
       [
         detect-changes,
+        detect-starter-changes,
         check-lockfile,
         verify-image-refs,
         build,
+        build-starters,
         aggregate-build-results,
         redeploy-staging,
       ]

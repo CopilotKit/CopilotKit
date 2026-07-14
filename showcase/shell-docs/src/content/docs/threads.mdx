@@ -26,104 +26,18 @@ CopilotKit threads enable persistent, resumable multi-turn conversations. The `u
 
 - The Enterprise Intelligence Platform
 - An OpenAI API key
-- For the manual path: an existing CopilotKit project on `@copilotkit/react-core` v1.56+
+- An existing CopilotKit project on `@copilotkit/react-core` v1.56+
 
 ## Implementation
 
+<Callout type="info" title="Migrating existing history?">
+  Threads capture new CopilotKit conversations once your app is connected to
+  Enterprise Intelligence. To move historical Google ADK or LangGraph
+  conversations into the same thread store, start with
+  [Import thread history](/threads-import).
+</Callout>
+
 <Steps>
-  <TailoredContent
-    className="step"
-    id="threads-path"
-    header={
-      <div>
-        <p className="text-xl font-semibold">Choose your starting point</p>
-        <p className="text-base">
-          Bootstrap a new project pre-wired for threads, or wire threads into an existing CopilotKit app.
-        </p>
-      </div>
-    }
-  >
-    <TailoredContentOption
-      id="cli"
-      title="Start with the CLI"
-      description="Bootstrap a new full-stack project pre-configured for threads."
-    >
-      <Step>
-        ### Run the CLI
-
-        Bootstrap a new project pre-configured for threads. Follow the interactive prompts to choose a project name and framework. The CLI signs you in when needed, lets you select or create a cloud-hosted Enterprise Intelligence project, and installs a starter project with the hosted runtime configuration in place.
-
-        ```bash
-        npx copilotkit@latest create
-        ```
-      </Step>
-
-      <Step>
-        ### Move into your project
-
-        ```bash
-        cd your-project-name
-        ```
-      </Step>
-
-      <Step>
-        ### Install dependencies
-
-        ```npm
-        npm install
-        ```
-      </Step>
-
-      <Step>
-        ### Add your OpenAI API key
-
-        The example uses OpenAI to generate responses, so it needs an API key. Put it in `.env`:
-
-        ```plaintext title=".env"
-        OPENAI_API_KEY=sk-your_openai_api_key
-        ```
-      </Step>
-
-      <Step>
-        ### Start the development environment
-
-        <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
-          <Tab value="npm">
-            ```bash
-            npm run dev
-            ```
-          </Tab>
-          <Tab value="pnpm">
-            ```bash
-            pnpm dev
-            ```
-          </Tab>
-          <Tab value="yarn">
-            ```bash
-            yarn dev
-            ```
-          </Tab>
-          <Tab value="bun">
-            ```bash
-            bun dev
-            ```
-          </Tab>
-        </Tabs>
-
-        This starts your local development environment:
-
-        - **Your CopilotKit runtime** — wired to the cloud-hosted Enterprise Intelligence project selected by the CLI
-        - **The web app** — reachable at [http://localhost:3000](http://localhost:3000)
-
-        Open the app, send a message, and the conversation will be saved as a thread you can resume later.
-      </Step>
-    </TailoredContentOption>
-
-    <TailoredContentOption
-      id="manual"
-      title="Add to an existing app"
-      description="Wire threads into a project you already have."
-    >
       <Step>
         ### Configure your runtime with the Enterprise Intelligence Platform
 
@@ -263,8 +177,6 @@ CopilotKit threads enable persistent, resumable multi-turn conversations. The `u
         )}
         ```
       </Step>
-    </TailoredContentOption>
-  </TailoredContent>
 </Steps>
 
 ## Next steps

@@ -1,0 +1,158 @@
+{
+  "red-d0-whole-column": {
+    "supported": true,
+    "achievedDepth": 0,
+    "ceilingDepth": 6,
+    "chipColor": "red",
+    "d6Effective": null,
+    "isRegression": true,
+    "isStaleCell": false,
+    "observedAtAgeMs": 60000,
+    "surfaceState": "red",
+    "commErrorKind": null,
+    "d3": {
+      "exists": true,
+      "status": "red"
+    },
+    "d4": {
+      "exists": true,
+      "status": "red"
+    },
+    "d5": {
+      "exists": true,
+      "status": null
+    },
+    "d6": {
+      "exists": true,
+      "status": null
+    }
+  },
+  "gray-d0-no-data-column": {
+    "supported": true,
+    "achievedDepth": 0,
+    "ceilingDepth": 0,
+    "chipColor": "gray",
+    "d6Effective": null,
+    "isRegression": false,
+    "isStaleCell": false,
+    "observedAtAgeMs": null,
+    "surfaceState": "gray",
+    "commErrorKind": null,
+    "d3": {
+      "exists": false,
+      "status": null
+    },
+    "d4": {
+      "exists": false,
+      "status": null
+    },
+    "d5": {
+      "exists": true,
+      "status": null
+    },
+    "d6": {
+      "exists": true,
+      "status": null
+    }
+  },
+  "stale-column": {
+    "supported": true,
+    "achievedDepth": 0,
+    "ceilingDepth": 6,
+    "chipColor": "gray",
+    "d6Effective": null,
+    "isRegression": true,
+    "isStaleCell": true,
+    "observedAtAgeMs": 21660000,
+    "surfaceState": "gray",
+    "commErrorKind": null,
+    "d3": {
+      "exists": true,
+      "status": "amber"
+    },
+    "d4": {
+      "exists": true,
+      "status": "amber"
+    },
+    "d5": {
+      "exists": true,
+      "status": "amber"
+    },
+    "d6": {
+      "exists": true,
+      "status": "amber"
+    }
+  },
+  "mixed-green-red-column": {
+    "supported": true,
+    "achievedDepth": 5,
+    "ceilingDepth": 6,
+    "chipColor": "amber",
+    "d6Effective": "red",
+    "isRegression": true,
+    "isStaleCell": false,
+    "observedAtAgeMs": 60000,
+    "surfaceState": "amber",
+    "commErrorKind": null,
+    "d3": {
+      "exists": true,
+      "status": "green"
+    },
+    "d4": {
+      "exists": true,
+      "status": "green"
+    },
+    "d5": {
+      "exists": true,
+      "status": "green"
+    },
+    "d6": {
+      "exists": true,
+      "status": "red"
+    }
+  },
+  "all-green-column": {
+    "supported": true,
+    "achievedDepth": 6,
+    "ceilingDepth": 6,
+    "chipColor": "green",
+    "d6Effective": "green",
+    "isRegression": false,
+    "isStaleCell": false,
+    "observedAtAgeMs": 60000,
+    "surfaceState": "green",
+    "commErrorKind": null,
+    "d3": {
+      "exists": true,
+      "status": "green"
+    },
+    "d4": {
+      "exists": true,
+      "status": "green"
+    },
+    "d5": {
+      "exists": true,
+      "status": "green"
+    },
+    "d6": {
+      "exists": true,
+      "status": "green"
+    }
+  },
+  "unsupported-column": {
+    "supported": false,
+    "achievedDepth": 0,
+    "ceilingDepth": 0,
+    "chipColor": "gray",
+    "d6Effective": null,
+    "isRegression": false,
+    "isStaleCell": false,
+    "observedAtAgeMs": null,
+    "surfaceState": "gray",
+    "commErrorKind": null,
+    "d3": null,
+    "d4": null,
+    "d5": null,
+    "d6": null
+  }
+}
