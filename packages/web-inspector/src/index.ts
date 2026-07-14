@@ -4338,6 +4338,8 @@ export class WebInspectorElement extends LitElement {
 
   private get menuItems(): MenuItem[] {
     const hasFrontendTools = (this._core?.tools?.length ?? 0) > 0;
+    const hasCatalog = (this._core?.catalogComponents?.length ?? 0) > 0;
+    const hasCapabilities = hasFrontendTools || hasCatalog;
     return [
       {
         key: "ag-ui-events",
@@ -4351,6 +4353,15 @@ export class WebInspectorElement extends LitElement {
               key: "frontend-tools" as const,
               label: "Frontend Tools",
               icon: "Hammer" as LucideIconName,
+            },
+          ]
+        : []),
+      ...(hasCapabilities
+        ? [
+            {
+              key: "capabilities" as const,
+              label: CAPABILITIES_TAB_LABEL,
+              icon: "SlidersHorizontal" as LucideIconName,
             },
           ]
         : []),
