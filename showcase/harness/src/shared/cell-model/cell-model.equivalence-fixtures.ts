@@ -14,10 +14,10 @@
  * `row(key, state, {observedAt})` builder and `mergeRowsToMap(...groups)` to
  * assemble the `LiveStatusMap`.
  */
-import type { StatusRow, State } from "./live-status";
-import { keyFor, mergeRowsToMap, CATALOG_TO_D5_KEY } from "./live-status";
-import type { CellModelInput } from "./cell-model";
-import { E2E_STALE_AFTER_MS } from "./staleness";
+import type { StatusRow, State } from "./live-status.js";
+import { keyFor, mergeRowsToMap, CATALOG_TO_D5_KEY } from "./live-status.js";
+import type { CellModelInput } from "./cell-model.js";
+import { E2E_STALE_AFTER_MS } from "./staleness.js";
 
 /**
  * FIXED reference clock. Every fixture is built relative to this instant so the

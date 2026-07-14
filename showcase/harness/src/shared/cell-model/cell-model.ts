@@ -13,22 +13,22 @@ import type {
   State,
   PoolCommError,
   FleetSurfaceState,
-} from "./live-status";
+} from "./live-status.js";
 import {
   keyFor,
   CATALOG_TO_D5_KEY,
   commErrorFromStatusSignal,
   FLEET_COMM_AGGREGATE_DIMENSIONS,
   STARTER_LEVELS,
-} from "./live-status";
-import type { StarterLevel } from "./live-status";
+} from "./live-status.js";
+import type { StarterLevel } from "./live-status.js";
 import {
   E2E_STALE_AFTER_MS,
   D4_STALE_AFTER_MS,
   LIVENESS_STALE_AFTER_MS,
   STARTER_STALE_AFTER_MS,
   isStale,
-} from "./staleness";
+} from "./staleness.js";
 
 // Re-export the staleness windows so existing consumers that import them from
 // this module (e.g. `__tests__/cell-model.test.ts`) keep resolving — the
@@ -37,7 +37,7 @@ export {
   E2E_STALE_AFTER_MS,
   D4_STALE_AFTER_MS,
   LIVENESS_STALE_AFTER_MS,
-} from "./staleness";
+} from "./staleness.js";
 
 // ---------------------------------------------------------------------------
 // Types

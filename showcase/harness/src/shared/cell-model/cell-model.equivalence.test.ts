@@ -15,12 +15,12 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { buildCellModel } from "./cell-model";
+import { buildCellModel } from "./cell-model.js";
 import {
   FIXTURES,
   NOW,
   serializeModel,
-} from "./cell-model.equivalence-fixtures";
+} from "./cell-model.equivalence-fixtures.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const BASELINE: Record<string, unknown> = JSON.parse(
