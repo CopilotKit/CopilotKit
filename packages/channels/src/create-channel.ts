@@ -70,6 +70,22 @@ function isEmojiPlatform(platform: string): platform is EmojiPlatform {
 export type LockConflictDecision = "drop" | "force";
 
 /**
+ * The managed delivery provider a no-adapter Channel targets when it is
+ * activated through CopilotKit Intelligence.
+ *
+ * This is the platform the runtime *declares* to the Intelligence gateway on
+ * join; the gateway resolves the actual connection (workspace, credentials,
+ * transport) for that provider. It is a per-Channel choice — one runtime can
+ * declare a Slack-backed Channel and a Teams-backed Channel side by side.
+ *
+ * Distinct from a {@link PlatformAdapter} attached via
+ * `createChannel({ adapters })` / {@link Channel.addAdapter}: an adapter is a
+ * *direct*, developer-owned connection this handler does not manage, whereas
+ * `provider` selects the *managed* platform for a Channel with no adapters.
+ */
+export type ChannelProvider = "slack" | "teams";
+
+/**
  * Any `@copilotkit/channels-ui` component function, regardless of its props type.
  * Accepting `(props: never)` lets a component with required, strongly-typed
  * props (e.g. `({ title }: { title: string }) => …`) be passed to
@@ -186,6 +202,18 @@ export interface CreateChannelOptions<
    * before `start()` via {@link Channel.addAdapter} (the Channel runtime uses this).
    */
   adapters?: PlatformAdapter[];
+  /**
+   * The managed delivery provider this Channel targets when it is activated via
+   * CopilotKit Intelligence (a no-adapter, managed Channel). The runtime
+   * declares this provider to the Intelligence gateway on join; the gateway
+   * resolves the actual connection. Defaults to `"slack"` when unset. Set
+   * `provider: "teams"` to target Microsoft Teams.
+   *
+   * Ignored for direct-adapter Channels (those created with `adapters` /
+   * {@link Channel.addAdapter}) — a direct Channel is owned by the developer's
+   * own adapter, not by managed activation.
+   */
+  provider?: ChannelProvider;
   agent?: AbstractAgent | ((threadId: string) => AbstractAgent);
   /** @deprecated Pass `store.adapter` instead. */
   actionStore?: ActionStore;
@@ -209,6 +237,13 @@ export interface Channel<TState = unknown> {
   readonly name?: string;
   /** Adapters currently attached to this Channel (read-only snapshot). The Channel runtime uses this to distinguish a managed-eligible Channel (no adapters) from one carrying developer-supplied direct adapters. */
   readonly adapters: readonly PlatformAdapter[];
+  /**
+   * The managed delivery provider a no-adapter Channel targets when activated
+   * via CopilotKit Intelligence (from `createChannel({ provider })`). Declared
+   * to the Intelligence gateway on join; `undefined` means the managed default
+   * (`"slack"`). Ignored for direct-adapter Channels.
+   */
+  readonly provider?: ChannelProvider;
   /** Declared slash-command names (normalized). Surfaced for Channel activation metadata. */
   readonly commandNames: string[];
   onMention(h: ChannelHandler<TState>): void;
@@ -717,6 +752,7 @@ export function createChannel<
 
   const bot: Channel<ThreadStateOf<TStateSchema>> = {
     name: opts.name,
+    ...(opts.provider !== undefined ? { provider: opts.provider } : {}),
     get adapters() {
       // Defensive read-only copy: mutating the returned array must not affect
       // the Channel's private adapter list.

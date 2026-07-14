@@ -131,8 +131,6 @@ export interface ChannelManagerArgs {
   activateChannel?: ActivateChannelEngine;
   /** Mint a runtime instance id per Channel. Defaults to `rti_{uuid-no-dashes}`. */
   mintRuntimeInstanceId?: () => string;
-  /** Delivery adapter; forwarded to the config deriver (defaults to `"slack"`). */
-  adapter?: string;
   /** Diagnostic sink. */
   log?: (msg: string, meta?: unknown) => void;
 }
@@ -312,7 +310,6 @@ export class ChannelManager implements ChannelsControl {
   private readonly channels: Channel[];
   private readonly activateChannel: ActivateChannelEngine;
   private readonly mintRuntimeInstanceId: () => string;
-  private readonly adapter?: string;
   private readonly log?: (msg: string, meta?: unknown) => void;
 
   private readonly entries = new Map<string, ChannelEntry>();
@@ -327,7 +324,6 @@ export class ChannelManager implements ChannelsControl {
     this.mintRuntimeInstanceId =
       args.mintRuntimeInstanceId ??
       (() => `rti_${randomUUID().replace(/-/g, "")}`);
-    this.adapter = args.adapter;
     this.log = args.log;
   }
 
@@ -411,7 +407,6 @@ export class ChannelManager implements ChannelsControl {
         config = deriveChannelActivationConfig({
           intelligence: this.intelligence,
           channel,
-          ...(this.adapter !== undefined ? { adapter: this.adapter } : {}),
           runtimeInstanceId,
         });
         activation = this.activateChannel(config, channel);

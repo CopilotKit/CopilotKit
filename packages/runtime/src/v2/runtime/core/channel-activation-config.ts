@@ -28,7 +28,13 @@ export interface ChannelActivationConfig {
   projectId: number;
   /** The Channel's declared name (`createChannel({ name })`). */
   channelName: string;
-  /** Delivery adapter this Channel activation targets, e.g. `"slack"`. */
+  /**
+   * The managed provider this Channel declares to the Intelligence gateway on
+   * join, resolved from the Channel's per-Channel `provider` (e.g. `"slack"` or
+   * `"teams"`), defaulting to `"slack"`. Named `adapter` because that is the
+   * field the gateway's join payload expects; the gateway resolves the actual
+   * connection for the declared provider.
+   */
   adapter: string;
   /** Identifier for the runtime instance activating this Channel. */
   runtimeInstanceId: string;
@@ -89,14 +95,23 @@ export function parseProjectIdFromApiKey(apiKey: string): number {
  *
  * @param args.intelligence - The Intelligence runtime client to pull the
  *   runner websocket URL and auth token from.
- * @param args.channel - The Channel being activated. Must have a `name`.
- * @param args.adapter - Delivery adapter name. Defaults to `"slack"`.
+ * @param args.channel - The Channel being activated. Must have a `name`; its
+ *   per-Channel `provider` selects the managed adapter declared to the gateway.
  * @param args.runtimeInstanceId - Identifier for the activating runtime
  *   instance, passed through unchanged.
  * @returns The resolved {@link ChannelActivationConfig}.
  * @throws {ChannelConfigError} If the Intelligence API key does not carry a
  *   parseable, strictly-positive project id, or if `channel.name` is
  *   missing/empty.
+ *
+ * The managed provider is a PER-CHANNEL choice read from `channel.provider`, so
+ * one runtime can activate a Slack-backed Channel and a Teams-backed Channel
+ * side by side. When `channel.provider` is unset the config adapter defaults to
+ * `"slack"` — an explicit, documented default, not a silent global. The SDK
+ * only DECLARES this provider to the Intelligence gateway on join; the gateway
+ * resolves the actual connection and is the authority on which providers it
+ * accepts (it accepts only `"slack"` today — Teams gateway support is tracked
+ * in OSS-450).
  *
  * The Channel-name FORMAT rules (lowercase kebab-case, 3–64 chars) and the
  * reserved-name rule are NOT re-checked here. Their single source of truth is
@@ -110,10 +125,9 @@ export function parseProjectIdFromApiKey(apiKey: string): number {
 export function deriveChannelActivationConfig(args: {
   intelligence: CopilotKitIntelligence;
   channel: Channel;
-  adapter?: string;
   runtimeInstanceId: string;
 }): ChannelActivationConfig {
-  const { intelligence, channel, adapter, runtimeInstanceId } = args;
+  const { intelligence, channel, runtimeInstanceId } = args;
 
   if (!channel.name) {
     throw new ChannelConfigError(
@@ -127,18 +141,22 @@ export function deriveChannelActivationConfig(args: {
   const apiKey = intelligence.ɵgetRunnerAuthToken();
   const projectId = parseProjectIdFromApiKey(apiKey);
 
-  // Fall back to "slack" for an absent, empty, or whitespace-only adapter
-  // (`??` alone would keep `""`); a blank adapter is not a meaningful target.
-  // Return the TRIMMED value so a padded adapter like `"  teams  "` resolves
-  // to `"teams"` rather than being forwarded with its whitespace intact.
-  const trimmedAdapter = adapter?.trim();
+  // Resolve the managed adapter declared to the gateway from the Channel's OWN
+  // `provider` — a per-Channel choice, not a manager-wide default. When
+  // `provider` is unset the adapter is the documented default `"slack"`; set
+  // `createChannel({ provider: "teams" })` to declare Teams instead. The value
+  // is trimmed so a padded runtime value (one that bypassed the typed union)
+  // resolves to its bare provider rather than being forwarded with whitespace,
+  // and a blank/whitespace-only provider falls back to `"slack"` (`??` alone
+  // would keep `""`).
+  const trimmedProvider = channel.provider?.trim();
 
   return {
     wsUrl,
     apiKey,
     projectId,
     channelName,
-    adapter: trimmedAdapter ? trimmedAdapter : "slack",
+    adapter: trimmedProvider ? trimmedProvider : "slack",
     runtimeInstanceId,
   };
 }

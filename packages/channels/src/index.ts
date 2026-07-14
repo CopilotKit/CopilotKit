@@ -5,6 +5,7 @@ export { createChannel } from "./create-channel.js";
 export type {
   Channel,
   CreateChannelOptions,
+  ChannelProvider,
   ChannelHandler,
   ThreadStartHandler,
   ReactionEvent,

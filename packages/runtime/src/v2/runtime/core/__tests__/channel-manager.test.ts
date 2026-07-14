@@ -598,7 +598,31 @@ describe("ChannelManager", () => {
     expect(engine).not.toHaveBeenCalled();
   });
 
-  it("forwards a non-default adapter through to the engine's config", async () => {
+  it("declares each Channel's own provider — two Channels with different providers are not collapsed to one global (OSS-473)", async () => {
+    // The provider is per-Channel, not a manager-wide default: a Slack-backed
+    // Channel and a Teams-backed Channel activated by the same manager must each
+    // declare their own adapter to the gateway.
+    const seen = new Map<string, string>();
+    const engine: ActivateChannelEngine = vi.fn(async (config) => {
+      seen.set(config.channelName, config.adapter);
+      return fakeHandle();
+    });
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [
+        createChannel({ name: "support", provider: "slack" }),
+        createChannel({ name: "sales", provider: "teams" }),
+      ],
+      activateChannel: engine,
+    });
+    mgr.activate();
+    await mgr.ready();
+
+    expect(seen.get("support")).toBe("slack");
+    expect(seen.get("sales")).toBe("teams");
+  });
+
+  it("defaults a Channel with no provider to the documented 'slack' adapter", async () => {
     let seenAdapter: string | undefined;
     const engine: ActivateChannelEngine = vi.fn(async (config) => {
       seenAdapter = config.adapter;
@@ -608,12 +632,11 @@ describe("ChannelManager", () => {
       intelligence: fakeIntelligence(),
       channels: [createChannel({ name: "support" })],
       activateChannel: engine,
-      adapter: "teams",
     });
     mgr.activate();
     await mgr.ready();
 
-    expect(seenAdapter).toBe("teams");
+    expect(seenAdapter).toBe("slack");
   });
 });
 
