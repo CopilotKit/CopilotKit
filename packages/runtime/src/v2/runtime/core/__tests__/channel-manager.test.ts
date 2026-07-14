@@ -212,14 +212,16 @@ describe("ChannelManager", () => {
     });
     mgr.activate();
 
+    let hangTimer: ReturnType<typeof setTimeout>;
     await expect(
       Promise.race([
         mgr.stop(),
-        new Promise((_resolve, reject) =>
-          setTimeout(() => reject(new Error("stop() hung")), 1000),
-        ),
+        new Promise((_resolve, reject) => {
+          hangTimer = setTimeout(() => reject(new Error("stop() hung")), 1000);
+        }),
       ]),
     ).resolves.toBeUndefined();
+    clearTimeout(hangTimer!);
     expect(mgr.status().channels.support).toBe("stopped");
 
     resolveActivation(handle);
@@ -276,6 +278,66 @@ describe("ChannelManager", () => {
 
     await expect(mgr.stop()).resolves.toBeUndefined();
     expect(mgr.status().channels.support).toBe("stopped");
+  });
+
+  it("keeps a channel stopped when its activation rejects AFTER stop() (RC5)", async () => {
+    let rejectActivation!: (err: unknown) => void;
+    const engine: ActivateChannelEngine = vi.fn(
+      () =>
+        new Promise<ChannelsHandle>((_resolve, reject) => {
+          rejectActivation = reject;
+        }),
+    );
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [createChannel({ name: "support" })],
+      activateChannel: engine,
+    });
+    mgr.activate();
+
+    await mgr.stop();
+
+    rejectActivation(new Error("connect failed after stop"));
+    await vi.waitFor(() =>
+      expect(mgr.status().channels.support).toBe("stopped"),
+    );
+
+    expect(mgr.status().overall).toBe("stopped");
+    await expect(mgr.ready()).resolves.toBeUndefined();
+  });
+
+  it("stops a handle assigned in the same tick as stop() EXACTLY once (RC7)", async () => {
+    const stopCalls = { count: 0 };
+    let resolveActivation!: (h: ChannelsHandle) => void;
+    const engine: ActivateChannelEngine = vi.fn(
+      () =>
+        new Promise<ChannelsHandle>((resolve) => {
+          resolveActivation = resolve;
+        }),
+    );
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [createChannel({ name: "support" })],
+      activateChannel: engine,
+    });
+    mgr.activate();
+
+    const handle: ChannelsHandle = {
+      metadata: {},
+      stop: vi.fn(async () => {
+        stopCalls.count += 1;
+      }),
+    };
+    // Assign the handle and tear down in the same tick: the success settle
+    // handler and stop() both reach this entry, but the idempotent guard must
+    // let only one of them stop the handle.
+    resolveActivation(handle);
+    await mgr.stop();
+    await vi.waitFor(() =>
+      expect(mgr.status().channels.support).toBe("stopped"),
+    );
+
+    expect(stopCalls.count).toBe(1);
   });
 });
 

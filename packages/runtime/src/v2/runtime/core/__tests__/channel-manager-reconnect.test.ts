@@ -60,7 +60,6 @@ describe("ChannelManager socket drop (delegated to Phoenix)", () => {
     expect(engine).toHaveBeenCalledTimes(1);
     expect(mgr.status().channels.support).toBe("online");
     expect(mgr.status().overall).toBe("online");
-    expect(mgr.status().overall).not.toBe("reconnecting");
   });
 
   it("the manager stays usable after a drop: stop() still tears the channel down", async () => {

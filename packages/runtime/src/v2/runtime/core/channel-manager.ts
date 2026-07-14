@@ -116,11 +116,16 @@ export interface ChannelManagerArgs {
 /** Per-Channel mutable activation entry tracked by the manager. */
 interface ChannelEntry {
   status: ChannelStatus;
-  /** Never rejects — catches internally and records status. Used to await handles. */
-  promise: Promise<void>;
   /** Resolves on `online`/`setup_required`; rejects on `error`. Awaited by `ready`. */
   readonly settled: Promise<void>;
   handle?: ChannelsHandle;
+  /**
+   * Whether {@link ChannelManager.stopEntry} has already stopped `handle`. Gates
+   * the single-stop guarantee: the success settle handler and `stop()` can both
+   * reach the same entry in the same tick, but the handle is torn down at most
+   * once.
+   */
+  handleStopped: boolean;
 }
 
 /**
@@ -232,10 +237,12 @@ function withTimeout<T>(inner: Promise<T>, timeoutMs?: number): Promise<T> {
  * lifecycle status, exposes readiness, and tears everything down.
  *
  * Activation is lazy and idempotent — constructing the manager does nothing;
- * {@link activate} starts it and a second call is a no-op. Activation never
- * throws: a failure is recorded as the Channel's status (`error`, or
+ * {@link activate} starts it and a second call is a no-op. Activation throws
+ * SYNCHRONOUSLY (a {@link ChannelConfigError}) only for a misconfiguration it
+ * can detect up front — a duplicate or missing Channel name. Every OTHER
+ * activation failure is recorded as the Channel's status (`error`, or
  * `setup_required` for a missing provider) and surfaced through {@link status}
- * and {@link ready}.
+ * and {@link ready} rather than thrown.
  *
  * Reconnection is NOT handled here — it is delegated to the Phoenix connection
  * layer that backs the launcher. When a managed socket drops, Phoenix's `Socket`
@@ -329,24 +336,41 @@ export class ChannelManager implements ChannelsControl {
       const entry: ChannelEntry = {
         status: "connecting",
         handle: undefined,
+        handleStopped: false,
         settled,
-        promise: activation.then(
+      };
+
+      // Anchor the settle handlers. Both branches route every teardown through
+      // the idempotent `stopEntry`, so a late settle can never resurrect a
+      // `stopped` entry and a handle is torn down at most once. The handlers
+      // only mutate state (never throw), so the trailing no-op catch just keeps
+      // the chain from surfacing as an unhandled rejection.
+      activation
+        .then(
           async (handle) => {
             entry.handle = handle;
             if (this.stopped) {
               // stop() ran before this activation settled, so it could not tear
-              // down a handle that did not exist yet. Release it now and keep the
-              // Channel `stopped`.
-              entry.status = "stopped";
+              // down a handle that did not exist yet. Release it now (idempotent)
+              // and keep the Channel `stopped`.
+              await this.stopEntry(entry);
               resolveSettled();
-              await handle.stop().catch(() => {});
               return;
             }
             entry.status = "online";
             this.registerOnClose(name, entry);
             resolveSettled();
           },
-          (err: unknown) => {
+          async (err: unknown) => {
+            if (this.stopped) {
+              // A rejection that arrives AFTER stop() must NOT resurrect the
+              // entry into `error`/`setup_required`: the Channel is already
+              // being torn down. Keep it `stopped` and resolve `settled` so a
+              // subsequent ready() does not reject on a stopped Channel.
+              await this.stopEntry(entry);
+              resolveSettled();
+              return;
+            }
             if (isSetupRequired(err)) {
               entry.status = "setup_required";
               this.log?.(`channel "${name}" requires setup`, err);
@@ -357,8 +381,8 @@ export class ChannelManager implements ChannelsControl {
               rejectSettled(err);
             }
           },
-        ),
-      };
+        )
+        .catch(() => {});
 
       this.entries.set(name, entry);
     }
@@ -370,12 +394,23 @@ export class ChannelManager implements ChannelsControl {
    * session. Called at the very start of {@link activate}, before any engine
    * call, so a misconfiguration fails loud instead of silently.
    *
-   * @throws {ChannelConfigError} If any Channel name appears more than once.
+   * @throws {ChannelConfigError} If any Channel is missing a name, or if any
+   *   name appears more than once.
    */
   private assertUniqueChannelNames(): void {
     const seen = new Set<string>();
     for (const channel of this.channels) {
-      const name = channel.name!;
+      const name = channel.name;
+      // Check for a missing/empty name FIRST: `channel.name!` on a nameless
+      // Channel keys as the string "undefined", which would otherwise report a
+      // spurious duplicate for two nameless Channels before the accurate
+      // missing-name error. Fail with the precise error instead.
+      if (!name) {
+        throw new ChannelConfigError(
+          "A managed Channel is missing a `name` — every declared Channel must " +
+            "have a unique, non-empty name (pass createChannel({ name })).",
+        );
+      }
       if (seen.has(name)) {
         throw new ChannelConfigError(
           `Duplicate managed Channel name "${name}" — every declared Channel ` +
@@ -387,9 +422,14 @@ export class ChannelManager implements ChannelsControl {
   }
 
   /**
-   * Resolve when every Channel has settled to `online`/`setup_required`; reject
-   * with an aggregate error if any Channel is in `error`, or if `timeoutMs`
-   * elapses before all Channels settle. Activates lazily if not already started.
+   * Resolve when every Channel has settled to `online`/`setup_required`.
+   *
+   * Activates lazily if not already started — so a first call can throw the same
+   * synchronous {@link ChannelConfigError} as {@link activate} for an up-front
+   * misconfiguration (duplicate/missing Channel names). Once activation has been
+   * kicked off, all OTHER failures are surfaced here instead: this rejects with
+   * an `AggregateError` of the reasons if any Channel settled to `error`, or with
+   * a timeout error if `timeoutMs` elapses before all Channels settle.
    */
   async ready(opts?: { timeoutMs?: number }): Promise<void> {
     this.activate();
@@ -464,23 +504,45 @@ export class ChannelManager implements ChannelsControl {
   }
 
   /**
+   * Drive a single entry to its terminal `stopped` state, tearing down its
+   * handle AT MOST ONCE. Idempotent: it always sets `status = "stopped"`, and
+   * only calls `handle.stop()` on the first invocation that sees a live,
+   * not-yet-stopped handle (gated by {@link ChannelEntry.handleStopped}).
+   *
+   * This is the ONE guarded teardown path shared by both `stop()` and the
+   * post-settle guard in {@link activate}. Because the guard is per-entry and
+   * idempotent, a handle assigned in the same tick as `stop()` is stopped
+   * exactly once even when both callers reach the entry, and a late settle can
+   * never resurrect a `stopped` entry.
+   *
+   * `handle.stop()` errors are swallowed: the real launcher's `stop()` rethrows
+   * after `session.disconnect()`, and teardown must still complete.
+   *
+   * @param entry - The Channel entry to stop.
+   */
+  private async stopEntry(entry: ChannelEntry): Promise<void> {
+    entry.status = "stopped";
+    if (entry.handle && !entry.handleStopped) {
+      entry.handleStopped = true;
+      await entry.handle.stop().catch(() => {});
+    }
+  }
+
+  /**
    * Stop every activated Channel exactly once and mark all statuses `stopped`.
    * Idempotent — a second call is a no-op.
    *
-   * Resolves promptly: it stops only the handles that already exist and never
-   * blocks on activations that have not settled. A hung connect (which
-   * `ready({ timeoutMs })` tolerates) has no handle to stop yet, and awaiting it
-   * here would hang teardown — and thus SIGTERM shutdown — forever. Any handle
-   * that arrives after this point is torn down by the post-settle guard on the
-   * initial-activation path, so nothing leaks. Channels that never produced a
-   * handle (`setup_required`/`error`) are skipped.
+   * Resolves promptly: {@link stopEntry} stops only the handles that already
+   * exist and never blocks on activations that have not settled. A hung connect
+   * (which `ready({ timeoutMs })` tolerates) has no handle to stop yet, and
+   * awaiting it here would hang teardown — and thus SIGTERM shutdown — forever.
+   * Any handle that arrives after this point is torn down by the post-settle
+   * guard in {@link activate}, which routes through the same idempotent
+   * {@link stopEntry}, so nothing leaks and nothing double-stops.
    *
-   * Teardown is resilient to a throwing `handle.stop()`: the real launcher's
-   * `stop()` rethrows after `session.disconnect()`, so a plain `Promise.all`
-   * would reject and skip the status-marking loop — and because `stopped` is
-   * already set, a retry would no-op, leaving the manager permanently
-   * un-torn-down. `Promise.allSettled` lets every handle attempt teardown and
-   * guarantees the status loop always runs, so `stop()` always resolves.
+   * Teardown is resilient to a throwing `handle.stop()`: `Promise.allSettled`
+   * over the per-entry `stopEntry` calls guarantees one rejection can't abort
+   * the rest, so every entry reaches `stopped` and `stop()` always resolves.
    */
   async stop(): Promise<void> {
     if (this.stopped) {
@@ -489,13 +551,6 @@ export class ChannelManager implements ChannelsControl {
     this.stopped = true;
 
     const entries = [...this.entries.values()];
-    const handles = entries
-      .map((e) => e.handle)
-      .filter((h): h is ChannelsHandle => h !== undefined);
-    await Promise.allSettled(handles.map((h) => h.stop()));
-
-    for (const entry of entries) {
-      entry.status = "stopped";
-    }
+    await Promise.allSettled(entries.map((entry) => this.stopEntry(entry)));
   }
 }

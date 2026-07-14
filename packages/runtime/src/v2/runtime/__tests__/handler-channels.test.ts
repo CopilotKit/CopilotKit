@@ -114,4 +114,28 @@ describe("createCopilotRuntimeHandler — managed channels", () => {
     expect(handler.channels).toBeUndefined();
     expect(state.calls).toBe(0);
   });
+
+  it("does not cache an inert manager when activate() throws on duplicate names (RC9)", () => {
+    const { engine } = countingEngine();
+    const runtime = new CopilotRuntime({
+      agents: {},
+      intelligence: intelligence(),
+      identifyUser,
+      channels: [
+        createChannel({ name: "support" }),
+        createChannel({ name: "support" }),
+      ],
+    });
+
+    // First creation must throw on the duplicate name...
+    expect(() =>
+      createCopilotRuntimeHandler({ runtime, __channelEngine: engine }),
+    ).toThrow(/support/);
+
+    // ...and a retry must ALSO throw — not return a cached, inert (never
+    // activated) manager whose status() falsely reports healthy.
+    expect(() =>
+      createCopilotRuntimeHandler({ runtime, __channelEngine: engine }),
+    ).toThrow(/support/);
+  });
 });

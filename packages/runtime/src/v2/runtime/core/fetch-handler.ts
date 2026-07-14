@@ -161,9 +161,11 @@ const channelManagers = new WeakMap<object, ChannelManager>();
 
 /**
  * Look up (or lazily create + activate) the {@link ChannelManager} for an
- * Intelligence runtime. First creation constructs the manager and calls
- * {@link ChannelManager.activate}; subsequent lookups reuse it so activation
- * happens exactly once per runtime instance.
+ * Intelligence runtime. First creation constructs the manager, calls
+ * {@link ChannelManager.activate}, and only then caches it; subsequent lookups
+ * reuse the cached manager so activation happens exactly once per runtime
+ * instance. If `activate()` throws (an up-front misconfiguration), nothing is
+ * cached and the error propagates on every attempt.
  *
  * @param runtime - The Intelligence runtime whose Channels to activate.
  * @param engine - Optional injected activation engine (test seam); when
@@ -183,8 +185,14 @@ function getOrCreateChannelManager(
     channels: runtime.channels,
     ...(engine ? { activateChannel: engine } : {}),
   });
-  channelManagers.set(runtime, manager);
+  // Activate BEFORE caching. `activate()` throws synchronously on an up-front
+  // misconfiguration (duplicate/missing channel names); caching first would
+  // leave an inert, never-activated manager in the WeakMap, so a retried handler
+  // creation would return it and skip re-activation — and its status() on empty
+  // entries would falsely report `online`. Insert only after activate() succeeds
+  // so a throw caches nothing and propagates cleanly on every attempt.
   manager.activate();
+  channelManagers.set(runtime, manager);
   return manager;
 }
 
