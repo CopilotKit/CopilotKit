@@ -997,6 +997,21 @@ export class CopilotKitCore {
   }
 
   /**
+   * Enable/disable a registered frontend tool at runtime without unregistering
+   * it (Inspector "Capabilities" tool). A disabled tool is omitted from the
+   * tool list sent to the agent on the next run. The override is keyed by name
+   * (+ optional agentId) and survives the tool being re-registered.
+   */
+  setToolEnabled(name: string, enabled: boolean, agentId?: string): void {
+    this.runHandler.setToolEnabled(name, enabled, agentId);
+  }
+
+  /** Whether a registered tool is currently enabled (defaults true). */
+  isToolEnabled(name: string, agentId?: string): boolean {
+    return this.runHandler.isToolEnabled(name, agentId);
+  }
+
+  /**
    * Subscription lifecycle
    */
   subscribe(subscriber: CopilotKitCoreSubscriber): CopilotKitCoreSubscription {

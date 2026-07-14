@@ -87,6 +87,14 @@ export class RunHandler {
   private _tools: FrontendTool<any>[] = [];
 
   /**
+   * Keys of frontend tools explicitly disabled at runtime via the Inspector's
+   * Capabilities tool (`setToolEnabled`). Kept independently of each tool's own
+   * `available` flag so a hook re-registering the tool (which resets
+   * `available`) does not clobber the override. Key = `capabilityKey(name, agentId)`.
+   */
+  private _disabledToolKeys = new Set<string>();
+
+  /**
    * Tracks whether the current run (including in-flight tool execution)
    * has been aborted via `stopAgent()` or `agent.abortRun()`. Created
    * fresh in `runAgent()`, aborted by `abortCurrentRun()`.
@@ -954,6 +962,31 @@ export class RunHandler {
     };
   }
 
+  /** Stable identity for a tool override: agent-scope + name (NUL-separated). */
+  private capabilityKey(name: string, agentId?: string): string {
+    return `${agentId ?? ""} ${name}`;
+  }
+
+  /**
+   * Enable/disable a registered frontend tool at runtime without unregistering
+   * it. A disabled tool is omitted from {@link buildFrontendTools}, so the agent
+   * never receives it. Unlike the per-tool `available` flag, this override
+   * survives the tool being re-registered.
+   */
+  setToolEnabled(name: string, enabled: boolean, agentId?: string): void {
+    const key = this.capabilityKey(name, agentId);
+    if (enabled) {
+      this._disabledToolKeys.delete(key);
+    } else {
+      this._disabledToolKeys.add(key);
+    }
+  }
+
+  /** Whether a tool is currently enabled (not overridden off). Defaults true. */
+  isToolEnabled(name: string, agentId?: string): boolean {
+    return !this._disabledToolKeys.has(this.capabilityKey(name, agentId));
+  }
+
   /**
    * Build frontend tools for an agent
    */
@@ -963,7 +996,8 @@ export class RunHandler {
         (tool) =>
           tool.available !== false &&
           (tool.available as boolean | string | undefined) !== "disabled" &&
-          (!tool.agentId || tool.agentId === agentId),
+          (!tool.agentId || tool.agentId === agentId) &&
+          this.isToolEnabled(tool.name, tool.agentId),
       )
       .map((tool) => ({
         name: tool.name,
