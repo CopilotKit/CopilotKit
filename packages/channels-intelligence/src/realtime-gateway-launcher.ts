@@ -123,17 +123,29 @@ export async function startChannelsWithGatewaySession(
   // own teardown either way — the caller's session decides when `onClose`
   // fires), so callers composing over a session they manage themselves still
   // get reconnect signaling.
-  const sessionWithOnClose = opts.session as Partial<{
+  const observableSession = opts.session as Partial<{
     onClose(cb: () => void): void;
+    onStateChange(
+      cb: (state: "online" | "reconnecting" | "gave_up") => void,
+    ): void;
   }>;
-  if (sessionWithOnClose.onClose) {
+  // Call the seams ON the session (not via detached references) so a
+  // class-based RealtimeGatewaySession whose `onClose`/`onStateChange` read
+  // `this` still works — the interface permits class-based implementations even
+  // though the concrete closure-based session happens not to need `this`.
+  if (observableSession.onClose || observableSession.onStateChange) {
     return {
       ...handle,
-      // Call `onClose` ON the session (not via a detached reference) so a
-      // class-based RealtimeGatewaySession whose `onClose` reads `this` still
-      // works — the interface permits class-based implementations even though
-      // the concrete closure-based session happens not to need `this`.
-      onClose: (cb: () => void) => sessionWithOnClose.onClose!(cb),
+      ...(observableSession.onClose
+        ? { onClose: (cb: () => void) => observableSession.onClose!(cb) }
+        : {}),
+      ...(observableSession.onStateChange
+        ? {
+            onStateChange: (
+              cb: (state: "online" | "reconnecting" | "gave_up") => void,
+            ) => observableSession.onStateChange!(cb),
+          }
+        : {}),
     };
   }
   return handle;
@@ -257,9 +269,12 @@ export async function startChannelsOverRealtimeGateway(
   return {
     ...handle,
     // Delegate explicitly to the launcher's own `session` (rather than relying
-    // on `handle.onClose` passed through from `startChannelsWithGatewaySession`
-    // above) so this seam stays correct even if that helper's internals change.
+    // on the seams passed through from `startChannelsWithGatewaySession` above)
+    // so they stay correct even if that helper's internals change.
     onClose: (cb: () => void) => session.onClose(cb),
+    onStateChange: (
+      cb: (state: "online" | "reconnecting" | "gave_up") => void,
+    ) => session.onStateChange(cb),
     stop: async () => {
       // Always close the connection even if stopping the channels throws — the
       // launcher owns the socket (the transport is handed the session and does

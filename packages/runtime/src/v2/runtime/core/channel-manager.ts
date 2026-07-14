@@ -14,22 +14,24 @@ import type { Channel } from "@copilotkit/channels";
  * Lifecycle status of a single Channel activation, or of the manager overall.
  *
  * - `connecting`: activation in flight, not yet settled.
- * - `online`: activation resolved; the Channel is live. A transient socket drop
- *   does NOT leave this state — Phoenix self-heals under the persistent adapter
- *   (see {@link ChannelManager}), so an activated Channel stays `online`.
+ * - `online`: activation resolved AND the managed session can currently send.
+ *   A drop moves the Channel to `reconnecting` (not `online`); a successful
+ *   rejoin restores `online`.
  * - `setup_required`: the Channel is declared but has no managed provider yet —
  *   a valid degraded state, not a failure.
- * - `reconnecting`: reserved. Reconnection is delegated to the Phoenix
- *   connection layer, so the manager never assigns this value; it is retained
- *   in the union to avoid churning the public type.
+ * - `reconnecting`: the managed session dropped and Phoenix is retrying — not
+ *   currently sendable. The manager does NOT re-activate (reconnection is
+ *   delegated to the Phoenix connection layer); it only reflects the health the
+ *   session reports via its `onStateChange` observer.
  * - `stopped`: {@link ChannelManager.stop} has torn the Channel down.
- * - `error`: activation rejected with a non-setup error.
+ * - `error`: activation rejected with a non-setup error, OR a previously-online
+ *   session gave up reconnecting after its bounded reconnect window.
  */
 export type ChannelStatus =
   | "connecting"
   | "online"
   | "setup_required"
-  | "reconnecting" // reserved (see doc above)
+  | "reconnecting"
   | "stopped"
   | "error";
 
@@ -88,14 +90,24 @@ export interface ChannelsHandle {
   stop(): Promise<void>;
   /**
    * Optional seam: register a callback the handle fires when its managed
-   * session drops. The manager uses this only for a LOG-ONLY breadcrumb — it
-   * does NOT re-activate on a drop, because reconnection is delegated to the
-   * Phoenix connection layer (see {@link ChannelManager}). The Realtime Gateway
-   * launcher handle provides `onClose` (it delegates to the session's
-   * `onClose`); this stays optional only for non-gateway or test handles that do
-   * not implement it, so the manager always invokes it as `handle.onClose?.(cb)`.
+   * session drops. Retained as a per-episode drop breadcrumb; the manager drives
+   * status from {@link ChannelsHandle.onStateChange} instead. Present on the
+   * Realtime Gateway launcher handle; optional for non-gateway/test handles.
    */
   onClose?(cb: () => void): void;
+  /**
+   * Optional seam: register a connection-health observer the handle fires as its
+   * managed session moves between `online` (sendable), `reconnecting` (dropped,
+   * Phoenix retrying), and `gave_up` (dead after the bounded reconnect window).
+   * The manager uses this to keep {@link ChannelManager.status} honest — it does
+   * NOT re-activate on a drop (reconnection is delegated to the Phoenix
+   * connection layer; see {@link ChannelManager}). Optional so non-gateway or
+   * test handles that do not implement it are always invoked as
+   * `handle.onStateChange?.(cb)`.
+   */
+  onStateChange?(
+    cb: (state: "online" | "reconnecting" | "gave_up") => void,
+  ): void;
 }
 
 /** Constructor arguments for {@link ChannelManager}. */
@@ -280,7 +292,13 @@ function withTimeout<T>(inner: Promise<T>, timeoutMs?: number): Promise<T> {
  * self-heals under the persistent adapter and a re-activation here would be both
  * redundant AND broken: re-invoking the engine on an already-started `Channel`
  * throws in `channel.addAdapter` (started=true). The manager therefore never
- * re-activates on a drop; it only registers a log-only `onClose` breadcrumb.
+ * re-activates on a drop.
+ *
+ * It DOES, however, reflect real connection health through the session's
+ * `onStateChange` observer so {@link ChannelManager.status} stays honest rather
+ * than reporting `online` forever after a drop: a drop moves the Channel to
+ * `reconnecting`, a successful rejoin restores `online`, and a bounded give-up
+ * (Phoenix would otherwise retry forever) moves it to `error`.
  */
 export class ChannelManager implements ChannelsControl {
   private readonly intelligence: CopilotKitIntelligence;
@@ -332,16 +350,19 @@ export class ChannelManager implements ChannelsControl {
     // that is NOT the Intelligence managed adapter (a developer-supplied
     // slack/discord/... adapter, which lacks `__intelligenceChannel`) is a
     // DIRECT channel: it is started by the developer via `channel.start()`, not
-    // managed-activated here. Managed-activating it would attach a second
-    // (Intelligence) adapter and trip the SDK's `assertExclusive` guard, moving
-    // the Channel to `error`. Per the SoT rule, never infer managed intent from
-    // a local direct adapter — direct adapters remain additive. A managed-eligible
-    // Channel has an empty `adapters` at declaration time.
+    // managed-activated here. Delivery is EXCLUSIVE-PER-PLATFORM — a platform is
+    // served by EITHER a managed OR a direct adapter, never both: attaching the
+    // managed adapter alongside a direct one would double-deliver every turn
+    // (and trip the SDK's `assertExclusive` guard, moving the Channel to
+    // `error`). Per the SoT rule, never infer managed intent from a local direct
+    // adapter — direct adapters remain additive, and a managed-eligible Channel
+    // has an empty `adapters` at declaration time. True managed+direct
+    // coexistence for the same platform is tracked in OSS-484.
     for (const channel of this.channels) {
       const isDirect = channel.adapters.some((a) => !a.__intelligenceChannel);
       if (isDirect) {
         this.log?.(
-          `channel "${channel.name!}" carries a direct adapter — skipping managed activation (direct channels are started via channel.start())`,
+          `channel "${channel.name!}" carries a direct adapter — skipping managed activation (exclusive-per-platform: managed OR direct per platform, not both; direct channels are started via channel.start(); coexistence tracked in OSS-484)`,
         );
         continue;
       }
@@ -405,7 +426,7 @@ export class ChannelManager implements ChannelsControl {
               return;
             }
             entry.status = "online";
-            this.registerOnClose(name, entry);
+            this.registerConnectionObserver(name, entry);
             resolveSettled();
           },
           async (err: unknown) => {
@@ -485,6 +506,12 @@ export class ChannelManager implements ChannelsControl {
    * {@link status}.overall is `"stopped"` — inconsistent with the case where the
    * Channel was still online at stop() (which resolves). A stopped manager has
    * nothing left to be ready for, so resolve uniformly.
+   *
+   * `ready()` is ONE-SHOT: it settles on the INITIAL activation outcome. Later
+   * connection-health transitions (a live Channel dropping to `reconnecting`, or
+   * giving up to `error`) are reported through {@link status} — where `online`
+   * means currently-sendable — but do NOT re-arm or re-reject an already-settled
+   * `ready()`.
    */
   async ready(opts?: { timeoutMs?: number }): Promise<void> {
     if (this.stopped) {
@@ -506,10 +533,13 @@ export class ChannelManager implements ChannelsControl {
   }
 
   /**
-   * Snapshot status. `overall` precedence:
-   * `error` > `setup_required` > `connecting` > `online`.
-   * With no declared Channels, `overall` is `online` (nothing is degraded);
-   * once every Channel has been stopped, `overall` is `stopped`.
+   * Snapshot status. `overall` reports the least-healthy Channel by precedence:
+   * `error` > `reconnecting` > `setup_required` > `connecting` > `online`.
+   * `online` means every Channel can currently send. `reconnecting` outranks
+   * `setup_required` because a dropped-but-retrying Channel is an active outage,
+   * louder than a steadily-degraded unprovisioned one. With no declared
+   * Channels, `overall` is `online` (nothing is degraded); once every Channel
+   * has been stopped, `overall` is `stopped`.
    */
   status(): {
     overall: ChannelStatus;
@@ -533,6 +563,9 @@ export class ChannelManager implements ChannelsControl {
     if (values.includes("error")) {
       return "error";
     }
+    if (values.includes("reconnecting")) {
+      return "reconnecting";
+    }
     if (values.includes("setup_required")) {
       return "setup_required";
     }
@@ -543,21 +576,43 @@ export class ChannelManager implements ChannelsControl {
   }
 
   /**
-   * Register a LOG-ONLY drop breadcrumb on a Channel's current handle, if the
-   * handle exposes the optional `onClose` seam. The callback records a log line
-   * and makes NO state change and NO re-activation: reconnection is delegated to
-   * the Phoenix connection layer (see {@link ChannelManager}), which auto-rejoins
-   * the dropped socket under the persistent adapter. Leaving `status` at `online`
-   * is the honest state — the transport self-heals invisibly to the manager.
+   * Wire the Channel's connection-health observer (if the handle exposes the
+   * optional `onStateChange` seam) so {@link ChannelManager.status} reflects real
+   * health instead of reporting `online` forever after a drop:
+   *
+   * - `reconnecting` → status `reconnecting` (dropped, Phoenix retrying);
+   * - `online` → status `online` (rejoined, sendable again);
+   * - `gave_up` → status `error` (dead after the bounded reconnect window).
+   *
+   * Makes NO re-activation — reconnection is delegated to the Phoenix connection
+   * layer (see {@link ChannelManager}), which auto-rejoins under the persistent
+   * adapter. A STOPPED manager (or an already-stopped entry) ignores late
+   * connection events, so a drop that fires after {@link ChannelManager.stop}
+   * never resurrects the Channel out of `stopped`.
    *
    * @param name - The Channel name (map key).
    * @param entry - The Channel's activation entry.
    */
-  private registerOnClose(name: string, entry: ChannelEntry): void {
-    entry.handle?.onClose?.(() => {
-      this.log?.(
-        `channel "${name}" managed session dropped; Phoenix will auto-reconnect and rejoin`,
-      );
+  private registerConnectionObserver(name: string, entry: ChannelEntry): void {
+    entry.handle?.onStateChange?.((state) => {
+      // A stopped manager (or a stopped entry) ignores late connection events.
+      if (this.stopped || entry.status === "stopped") {
+        return;
+      }
+      if (state === "reconnecting") {
+        entry.status = "reconnecting";
+        this.log?.(
+          `channel "${name}" managed session dropped; reconnecting (Phoenix auto-rejoin)`,
+        );
+      } else if (state === "online") {
+        entry.status = "online";
+        this.log?.(`channel "${name}" managed session back online`);
+      } else {
+        entry.status = "error";
+        this.log?.(
+          `channel "${name}" managed session gave up reconnecting; marking error`,
+        );
+      }
     });
   }
 

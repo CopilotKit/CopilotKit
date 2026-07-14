@@ -138,6 +138,17 @@ export interface ChannelsHandle {
    * `ConnectedRealtimeGatewaySession.onClose` in `realtime-gateway.ts`).
    */
   onClose?(cb: () => void): void;
+  /**
+   * Optional seam: register a connection-health observer so a supervising
+   * `ChannelManager`'s `status()` can reflect real connection health
+   * (`online` → sendable, `reconnecting` → dropped and retrying, `gave_up` →
+   * dead after the bounded reconnect window). Not fired by the handle's own
+   * `stop()`. Present when the underlying session supports it (see
+   * `ConnectedRealtimeGatewaySession.onStateChange` in `realtime-gateway.ts`).
+   */
+  onStateChange?(
+    cb: (state: "online" | "reconnecting" | "gave_up") => void,
+  ): void;
 }
 
 /**

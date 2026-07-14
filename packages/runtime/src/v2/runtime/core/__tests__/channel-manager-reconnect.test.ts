@@ -7,10 +7,14 @@ import type { ActivateChannelEngine, ChannelsHandle } from "../channel-manager";
 /* ------------------------------------------------------------------------------------------------
  * Reconnection is delegated to the Phoenix connection layer (the launcher's
  * socket auto-reconnects and auto-rejoins). The manager therefore must NOT
- * re-activate a Channel on a socket drop — it only registers a log-only
- * `onClose` breadcrumb. These tests pin that contract: a drop makes no further
- * engine call, does not throw, and leaves the manager coherent and usable.
+ * re-activate a Channel on a drop — but it MUST reflect real connection health
+ * through the session's `onStateChange` observer so `status()` is honest rather
+ * than reporting `online` forever after a drop. These tests pin that contract:
+ * a drop → `reconnecting`, a rejoin → `online`, a bounded give-up → `error`,
+ * with NO further engine call and the manager left coherent and usable.
  * --------------------------------------------------------------------------------------------- */
+
+type ConnectionState = "online" | "reconnecting" | "gave_up";
 
 /** A CopilotKitIntelligence whose runner API key carries a parseable project id. */
 function fakeIntelligence(): CopilotKitIntelligence {
@@ -21,27 +25,27 @@ function fakeIntelligence(): CopilotKitIntelligence {
   });
 }
 
-/** A fake ChannelsHandle whose `onClose` callback can be fired on demand by the test. */
-function closableHandle(): ChannelsHandle & {
+/** A fake ChannelsHandle whose connection-state observer can be driven on demand. */
+function observableHandle(): ChannelsHandle & {
   stop: ReturnType<typeof vi.fn>;
-  fireClose: () => void;
+  fireState: (state: ConnectionState) => void;
 } {
-  let cb: (() => void) | undefined;
+  let cb: ((state: ConnectionState) => void) | undefined;
   return {
     metadata: {},
     stop: vi.fn(async () => {}),
-    onClose(fn: () => void) {
+    onStateChange(fn: (state: ConnectionState) => void) {
       cb = fn;
     },
-    fireClose() {
-      cb?.();
+    fireState(state: ConnectionState) {
+      cb?.(state);
     },
   };
 }
 
-describe("ChannelManager socket drop (delegated to Phoenix)", () => {
-  it("a dropped socket does not re-activate the channel and does not throw", async () => {
-    const handle = closableHandle();
+describe("ChannelManager connection health (onStateChange)", () => {
+  it("a drop moves the channel to reconnecting and a rejoin restores online, with no re-activation", async () => {
+    const handle = observableHandle();
     const engine: ActivateChannelEngine = vi.fn(async () => handle);
 
     const mgr = new ChannelManager({
@@ -55,15 +59,56 @@ describe("ChannelManager socket drop (delegated to Phoenix)", () => {
     expect(engine).toHaveBeenCalledTimes(1);
     expect(mgr.status().channels.support).toBe("online");
 
-    expect(() => handle.fireClose()).not.toThrow();
+    handle.fireState("reconnecting");
+    expect(mgr.status().channels.support).toBe("reconnecting");
+    expect(mgr.status().overall).toBe("reconnecting");
 
-    expect(engine).toHaveBeenCalledTimes(1);
+    handle.fireState("online");
     expect(mgr.status().channels.support).toBe("online");
     expect(mgr.status().overall).toBe("online");
+
+    // The manager never re-invokes the engine on a drop — Phoenix owns rejoin.
+    expect(engine).toHaveBeenCalledTimes(1);
+  });
+
+  it("a bounded give-up moves the channel to error", async () => {
+    const handle = observableHandle();
+    const engine: ActivateChannelEngine = vi.fn(async () => handle);
+
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [createChannel({ name: "support" })],
+      activateChannel: engine,
+    });
+    mgr.activate();
+    await mgr.ready();
+
+    handle.fireState("reconnecting");
+    handle.fireState("gave_up");
+
+    expect(mgr.status().channels.support).toBe("error");
+    expect(mgr.status().overall).toBe("error");
+    expect(engine).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not throw when a state transition fires, and leaves the manager coherent", async () => {
+    const handle = observableHandle();
+    const engine: ActivateChannelEngine = vi.fn(async () => handle);
+
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [createChannel({ name: "support" })],
+      activateChannel: engine,
+    });
+    mgr.activate();
+    await mgr.ready();
+
+    expect(() => handle.fireState("reconnecting")).not.toThrow();
+    await expect(mgr.ready()).resolves.toBeUndefined();
   });
 
   it("the manager stays usable after a drop: stop() still tears the channel down", async () => {
-    const handle = closableHandle();
+    const handle = observableHandle();
     const engine: ActivateChannelEngine = vi.fn(async () => handle);
 
     const mgr = new ChannelManager({
@@ -74,10 +119,30 @@ describe("ChannelManager socket drop (delegated to Phoenix)", () => {
     mgr.activate();
     await mgr.ready();
 
-    handle.fireClose();
+    handle.fireState("reconnecting");
 
     await expect(mgr.stop()).resolves.toBeUndefined();
     expect(handle.stop).toHaveBeenCalledTimes(1);
+    expect(mgr.status().channels.support).toBe("stopped");
+    expect(mgr.status().overall).toBe("stopped");
+  });
+
+  it("a stopped manager ignores late connection events (no resurrection out of stopped)", async () => {
+    const handle = observableHandle();
+    const engine: ActivateChannelEngine = vi.fn(async () => handle);
+
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [createChannel({ name: "support" })],
+      activateChannel: engine,
+    });
+    mgr.activate();
+    await mgr.ready();
+    await mgr.stop();
+
+    handle.fireState("reconnecting");
+    handle.fireState("online");
+
     expect(mgr.status().channels.support).toBe("stopped");
     expect(mgr.status().overall).toBe("stopped");
   });
