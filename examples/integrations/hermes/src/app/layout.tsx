@@ -5,8 +5,6 @@ import "@copilotkit/react-core/v2/styles.css";
 
 import { ThemeProvider } from "@/hooks/use-theme";
 import { HermesConnection } from "@/components/hermes-connection";
-// A2UI catalog: definitions + renderers in ./declarative-generative-ui/
-import { demonstrationCatalog } from "./declarative-generative-ui/renderers";
 
 export default function RootLayout({
   children,
@@ -36,9 +34,7 @@ export default function RootLayout({
             their running `hermes agui` server on the connect screen, and it
             forwards those as request headers to the agent.
           */}
-          <HermesConnection a2ui={{ catalog: demonstrationCatalog }}>
-            {children}
-          </HermesConnection>
+          <HermesConnection>{children}</HermesConnection>
         </ThemeProvider>
       </body>
     </html>
