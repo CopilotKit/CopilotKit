@@ -417,7 +417,8 @@ what makes a `packages/**`-only change trigger a redeploy (the example's own
 files no longer need to change to provoke one).
 
 > **Copying this example out of the monorepo?** Replace the `workspace:*` ranges
-> for `@copilotkit/channels` (for example, `@copilotkit/channels: ^0.1.1`),
+> for `@copilotkit/channels` once version `0.2.0` is published (for example,
+> `@copilotkit/channels: ^0.2.0`),
 > `@copilotkit/runtime`, and `@copilotkit/channels-intelligence` with appropriate
 > published versions. Keep importing platform APIs from the umbrella's subpaths.
 > The optional managed gateway entrypoint deliberately imports an internal helper
