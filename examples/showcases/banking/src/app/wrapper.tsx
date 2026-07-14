@@ -260,7 +260,10 @@ export function CopilotKitWrapper({
       // chat appears "stuck". CopilotKitProvider is the lean stack the working
       // e-commerce reference uses; our inbox's `useThreads` (from /v2) reads
       // CopilotKitProvider's own context, so the inbox keeps working.
-      showDevConsole={false}
+      // Surface the product web-inspector (<CopilotKitInspector>) on every host —
+      // this reference demo showcases it. `true` (not "auto") so deployed demo
+      // hosts show it too; the provider mounts it automatically when this is set.
+      showDevConsole={true}
     >
       {/*
         Anchor the whole chat surface to the actively-selected thread. The
