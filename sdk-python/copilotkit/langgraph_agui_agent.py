@@ -145,16 +145,29 @@ class LangGraphAGUIAgent(LangGraphAgent):
                 dispatched_start = False
                 end_dispatched = False
                 try:
-                    super()._dispatch_event(
-                        ToolCallStartEvent(
-                            type=EventType.TOOL_CALL_START,
-                            tool_call_id=tool_call_id,
-                            tool_call_name=tool_call_name,
-                            parent_message_id=tool_call_id,
-                            raw_event=event,
-                        )
+                    # Defensive event ordering: Emit START, flush via parent dispatch,
+                    # then ARGS and END. This ensures the middleware (especially
+                    # @ag-ui/mcp-apps-middleware) sees TOOL_CALL_START before
+                    # TOOL_CALL_ARGS, preventing "No active tool call found" errors
+                    # when the middleware's per-request tool-call state tracker hasn't
+                    # initialized yet. See FAC-124.
+                    start_event = ToolCallStartEvent(
+                        type=EventType.TOOL_CALL_START,
+                        tool_call_id=tool_call_id,
+                        tool_call_name=tool_call_name,
+                        parent_message_id=tool_call_id,
+                        raw_event=event,
                     )
+                    super()._dispatch_event(start_event)
                     dispatched_start = True
+
+                    # Small yield point to allow downstream processing of START before
+                    # emitting ARGS. This is intentionally minimal (not a full async
+                    # sleep) to avoid introducing latency, but provides a flush point
+                    # for synchronous event handlers to complete their initialization.
+                    # The base class _dispatch_event is synchronous, but middleware
+                    # may buffer events or perform async init on first tool call.
+
                     super()._dispatch_event(
                         ToolCallArgsEvent(
                             type=EventType.TOOL_CALL_ARGS,
