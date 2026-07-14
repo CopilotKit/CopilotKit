@@ -61,6 +61,7 @@ import {
 } from "../handlers/handle-threads";
 import {
   handleListMemories,
+  handleRecallMemories,
   handleSubscribeToMemories,
   handleCreateMemory,
   handleUpdateMemory,
@@ -205,6 +206,19 @@ export function createCopilotRuntimeHandler(
           throw jsonResponse({ error: "Not found" }, 404);
         }
 
+        // Opt-in gate for the client-facing memory proxy routes (secure
+        // default: off). Runs BEFORE method validation so a hidden route 404s
+        // uniformly regardless of HTTP method — a 405 here would otherwise leak
+        // that the route exists. `dispatchRoute` re-applies the same gate as
+        // defense-in-depth (and to cover the single-route path).
+        if (
+          matched.method.startsWith("memories/") &&
+          runtime.exposeMemoryRoutes !== true
+        ) {
+          route = matched;
+          throw jsonResponse({ error: "Not found" }, 404);
+        }
+
         // Validate HTTP method
         const methodError = validateHttpMethod(request.method, matched);
         if (methodError) {
@@ -312,6 +326,19 @@ function dispatchRoute(
   route: RouteInfo,
   options: { threadEndpointsEnabled: boolean },
 ): Promise<Response> {
+  // Opt-in gate for the client-facing memory proxy routes (secure default:
+  // off). When not explicitly enabled, every `/memories/*` route 404s as if it
+  // did not exist — this MUST run before the per-handler `isIntelligenceRuntime`
+  // check so an un-opted-in deployment reveals nothing about memory (not even
+  // whether Intelligence is configured). Coalesce a missing flag (external
+  // `CopilotRuntimeLike` implementor) to `false`.
+  if (
+    route.method.startsWith("memories/") &&
+    runtime.exposeMemoryRoutes !== true
+  ) {
+    throw jsonResponse({ error: "Not found" }, 404);
+  }
+
   switch (route.method) {
     case "agent/run":
       return handleRunAgent({
@@ -354,6 +381,8 @@ function dispatchRoute(
       return request.method.toUpperCase() === "POST"
         ? handleCreateMemory({ runtime, request })
         : handleListMemories({ runtime, request });
+    case "memories/recall":
+      return handleRecallMemories({ runtime, request });
     case "memories/subscribe":
       return handleSubscribeToMemories({ runtime, request });
     case "memories/mutate":
@@ -517,6 +546,13 @@ function validateHttpMethod(
       if (method === "PATCH" || method === "DELETE") return null;
       return jsonResponse({ error: "Method not allowed" }, 405, {
         Allow: "PATCH, DELETE",
+      });
+
+    case "memories/recall":
+      // POST-only: semantic recall carries its query in the body.
+      if (method === "POST") return null;
+      return jsonResponse({ error: "Method not allowed" }, 405, {
+        Allow: "POST",
       });
 
     case "threads/update":

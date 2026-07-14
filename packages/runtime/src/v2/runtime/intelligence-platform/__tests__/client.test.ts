@@ -923,4 +923,51 @@ describe("CopilotKitIntelligence", () => {
       });
     });
   });
+
+  describe("recallMemories", () => {
+    it("POSTs to /api/memories/recall with the user header and returns the envelope", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse({
+          memories: [
+            {
+              id: "m1",
+              kind: "topical",
+              scope: "user",
+              content: "User likes jazz.",
+              sourceThreadIds: [],
+              invalidatedAt: null,
+              score: 0.87,
+            },
+          ],
+        }),
+      );
+
+      const result = await client.recallMemories({
+        userId: "user-1",
+        query: "music taste",
+        limit: 5,
+        scope: "user",
+      });
+
+      expect(result.memories[0]).toMatchObject({ id: "m1", score: 0.87 });
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(url).toBe("https://api.example.com/api/memories/recall");
+      expect(init.method).toBe("POST");
+      expect(init.headers["x-cpki-user-id"]).toBe("user-1");
+      expect(JSON.parse(init.body)).toEqual({
+        query: "music taste",
+        limit: 5,
+        scope: "user",
+      });
+    });
+
+    it("omits limit and scope from the body when not provided", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ memories: [] }));
+
+      await client.recallMemories({ userId: "user-1", query: "hi" });
+
+      const [, init] = fetchMock.mock.calls[0];
+      expect(JSON.parse(init.body)).toEqual({ query: "hi" });
+    });
+  });
 });

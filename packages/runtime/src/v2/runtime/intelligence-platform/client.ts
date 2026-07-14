@@ -165,10 +165,17 @@ export interface MemorySummary {
   sourceThreadIds: string[];
   /** ISO-8601 timestamp when the memory was retired, or `null` if live. */
   invalidatedAt: string | null;
+  /** Relevance score from a `recall` (hybrid RAG) query. Present only on recall responses. */
+  score?: number;
 }
 
 /** Response from {@link CopilotKitIntelligence.listMemories}. */
 export interface ListMemoriesResponse {
+  memories: MemorySummary[];
+}
+
+/** Response from {@link CopilotKitIntelligence.recallMemories}. */
+export interface RecallMemoriesResponse {
   memories: MemorySummary[];
 }
 
@@ -688,6 +695,30 @@ export class CopilotKitIntelligence {
       "DELETE",
       `/api/memories/${encodeURIComponent(params.id)}`,
       undefined,
+      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
+    );
+  }
+
+  /**
+   * Semantically recall the given user's memories (platform `POST
+   * /api/memories/recall`, hybrid RAG). Each returned memory carries a
+   * relevance `score`. `scope` narrows to `"user"`/`"project"`; omitted → platform default.
+   * @throws {@link PlatformRequestError} on non-2xx responses.
+   */
+  async recallMemories(params: {
+    userId: string;
+    query: string;
+    limit?: number;
+    scope?: string;
+  }): Promise<RecallMemoriesResponse> {
+    return this.#request<RecallMemoriesResponse>(
+      "POST",
+      `/api/memories/recall`,
+      {
+        query: params.query,
+        ...(params.limit !== undefined ? { limit: params.limit } : {}),
+        ...(params.scope !== undefined ? { scope: params.scope } : {}),
+      },
       { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
     );
   }

@@ -117,6 +117,33 @@ function parseMemoryBody(body: Record<string, unknown>):
 }
 
 /**
+ * Validates the recall body: `query` required non-empty string; `limit` optional
+ * number; `scope` optional and in the known scopes. Returns a 400 Response on invalid input.
+ */
+function parseRecallBody(body: Record<string, unknown>):
+  | { query: string; limit?: number; scope?: string }
+  | Response {
+  const { query, limit, scope } = body;
+  if (typeof query !== "string" || query.length === 0) {
+    return errorResponse("Recall requires a non-empty string `query`", 400);
+  }
+  if (limit !== undefined && typeof limit !== "number") {
+    return errorResponse("Recall `limit` must be a number when provided", 400);
+  }
+  if (scope !== undefined && typeof scope !== "string") {
+    return errorResponse("Recall `scope` must be a string when provided", 400);
+  }
+  if (typeof scope === "string" && !MEMORY_SCOPES.has(scope)) {
+    return errorResponse("Recall `scope` must be one of: user, project", 400);
+  }
+  return {
+    query,
+    ...(typeof limit === "number" ? { limit } : {}),
+    ...(typeof scope === "string" ? { scope } : {}),
+  };
+}
+
+/**
  * Lists the resolved user's long-term memories via the Intelligence platform.
  *
  * Mirrors {@link handleListThreads}: requires a `CopilotKitIntelligence`
@@ -173,6 +200,56 @@ export async function handleListMemories({
   }
 
   return errorResponse(MISSING_INTELLIGENCE_MESSAGE, 422);
+}
+
+/**
+ * Semantically recalls the resolved user's memories via the platform (`POST
+ * /api/memories/recall`, hybrid RAG). Mirrors {@link handleListMemories}:
+ * requires a `CopilotKitIntelligence` runtime, resolves the user with
+ * `identifyUser` (never a client-supplied id), proxies with the project API
+ * key + resolved user. Body `{ query, limit?, scope? }`; response `{ memories }`,
+ * each optionally carrying `score`.
+ */
+export async function handleRecallMemories({
+  runtime,
+  request,
+}: MemoriesHandlerParams): Promise<Response> {
+  if (!isIntelligenceRuntime(runtime)) {
+    return errorResponse(MISSING_INTELLIGENCE_MESSAGE, 422);
+  }
+  try {
+    const body = await parseJsonBody(request);
+    if (isHandlerResponse(body)) return body;
+    const fields = parseRecallBody(body);
+    if (isHandlerResponse(fields)) return fields;
+
+    const user = await resolveIntelligenceUser({ runtime, request });
+    if (isHandlerResponse(user)) return user;
+
+    const data = await runtime.intelligence.recallMemories({
+      userId: user.id,
+      ...fields,
+    });
+
+    if (
+      data == null ||
+      typeof data !== "object" ||
+      !Array.isArray((data as { memories?: unknown }).memories)
+    ) {
+      logger.error(
+        { data },
+        "recallMemories: platform returned a response without a `memories` array",
+      );
+      return errorResponse(
+        "Memory platform returned an invalid recall response",
+        502,
+      );
+    }
+    return Response.json(data);
+  } catch (error) {
+    logger.error({ err: error }, "Error recalling memories");
+    return memoryErrorResponse(error, "Failed to recall memories");
+  }
 }
 
 /**
