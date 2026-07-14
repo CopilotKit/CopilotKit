@@ -27,6 +27,13 @@ const DEFAULT_HERMES_URL = process.env.AGENT_URL || "http://127.0.0.1:8000/";
 const runtime = new CopilotRuntime({
   // Per-request factory: resolve the target Hermes server from the browser's
   // `X-Hermes-Url` header, falling back to AGENT_URL for a headless/default run.
+  //
+  // SECURITY — LOCAL / TRUSTED USE ONLY. The target URL is client-supplied, and
+  // the runtime forwards `Authorization` + all `x-*` headers (including the
+  // session token) to it. With no host allowlist that is an SSRF / open-proxy
+  // surface, so do NOT expose this route on an untrusted network as-is. For a
+  // shared/public deployment, add a host + scheme allowlist here, or ignore the
+  // client header and pin to AGENT_URL. See the README security note.
   agents: ({ request }) => {
     const url = request.headers.get("x-hermes-url") || DEFAULT_HERMES_URL;
     return { default: new HermesAgent({ url }) };
