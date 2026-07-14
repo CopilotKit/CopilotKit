@@ -72,7 +72,7 @@ export const fileIssueSubmit: ModalSubmitHandler = async ({
       context: senderContext(user, thread.platform),
     })
     .catch((err) => {
-      console.error("[bot] file-issue modal run failed", err);
+      console.error("[channel] file-issue modal run failed", err);
       void thread
         .post("Sorry — I couldn't file that issue. Please try again.")
         .catch(() => {});

@@ -40,7 +40,7 @@ import {
 import { Transcripts } from "./transcripts.js";
 import type { Identity, TranscriptsConfig } from "./transcripts.js";
 import type { StandardSchemaV1, InferSchemaOutput } from "./standard-schema.js";
-import { BotTelemetry } from "./telemetry/bot-telemetry.js";
+import { ChannelTelemetry } from "./telemetry/channel-telemetry.js";
 import { errorClass, normalizePlatform } from "./telemetry/sanitize-error.js";
 import { createRequire } from "node:module";
 
@@ -275,14 +275,14 @@ function msgFromTurn(turn: IncomingTurn): IncomingMessage {
 
 /**
  * Enforce V1 Intelligence Channel exclusivity: an Intelligence Channel adapter
- * (`intelligenceAdapter`) must be the only adapter on a bot. Channel and direct delivery are
+ * (`intelligenceAdapter`) must be the only adapter on a Channel. Channel and direct delivery are
  * alternative modes per platform — Intelligence holds the platform creds, or
  * the runtime does, never both.
  */
 function assertExclusive(adapters: PlatformAdapter[]): void {
   if (adapters.some((a) => a.__intelligenceChannel) && adapters.length > 1) {
     throw new Error(
-      "intelligenceAdapter() must be the only adapter on a bot — Channel and " +
+      "intelligenceAdapter() must be the only adapter on a Channel — Channel and " +
         "direct delivery are alternative modes. Use intelligenceAdapter() OR " +
         "direct adapters (slack/discord/...), not both.",
     );
@@ -302,7 +302,7 @@ function resolveBackend(
   const providers = adapters.filter((a) => a.stateStore);
   if (providers.length > 1) {
     console.warn(
-      `[bot] multiple adapters provide a state store (${providers
+      `[channel] multiple adapters provide a state store (${providers
         .map((a) => a.platform)
         .join(
           ", ",
@@ -341,7 +341,7 @@ export function createChannel<
   let backend: StateStore | undefined;
   let transcripts: Transcripts | undefined;
   let registry: ActionRegistry | undefined;
-  let telemetry: BotTelemetry | undefined;
+  let telemetry: ChannelTelemetry | undefined;
 
   const agentFactory: (threadId: string) => AbstractAgent = (() => {
     const a = opts.agent;
@@ -392,7 +392,7 @@ export function createChannel<
   ): Thread {
     if (!backend || !registry || !telemetry) {
       throw new Error(
-        "bot not started: call bot.start() before handling events",
+        "channel not started: call channel.start() before handling events",
       );
     }
     const deps: ThreadDeps = {
@@ -469,7 +469,7 @@ export function createChannel<
                 return;
             } catch (err) {
               console.warn(
-                `[bot] dedup check failed for ${adapter.platform}; processing without dedup`,
+                `[channel] dedup check failed for ${adapter.platform}; processing without dedup`,
                 err,
               );
             }
@@ -490,7 +490,7 @@ export function createChannel<
               userKey = resolved ?? undefined;
             } catch (err) {
               console.warn(
-                `[bot] identity resolution failed for ${adapter.platform}; continuing without userKey`,
+                `[channel] identity resolution failed for ${adapter.platform}; continuing without userKey`,
                 err,
               );
             }
@@ -522,7 +522,7 @@ export function createChannel<
             if (await store.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000)) return;
           } catch (err) {
             console.warn(
-              `[bot] dedup check failed for ${adapter.platform}; processing without dedup`,
+              `[channel] dedup check failed for ${adapter.platform}; processing without dedup`,
               err,
             );
           }
@@ -586,7 +586,7 @@ export function createChannel<
             if (await store.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000)) return;
           } catch (err) {
             console.warn(
-              `[bot] dedup check failed for ${adapter.platform}; processing without dedup`,
+              `[channel] dedup check failed for ${adapter.platform}; processing without dedup`,
               err,
             );
           }
@@ -727,13 +727,17 @@ export function createChannel<
     },
     get transcripts() {
       if (!transcripts) {
-        throw new Error("bot.transcripts is available after bot.start()");
+        throw new Error(
+          "channel.transcripts is available after channel.start()",
+        );
       }
       return transcripts;
     },
     addAdapter(adapter) {
       if (started) {
-        throw new Error("bot.addAdapter must be called before bot.start()");
+        throw new Error(
+          "channel.addAdapter must be called before channel.start()",
+        );
       }
       assertExclusive([...adapters, adapter]);
       adapters.push(adapter);
@@ -829,7 +833,7 @@ export function createChannel<
       // registry, and register components against it.
       backend = resolveBackend(cfg.adapter, adapters);
       transcripts = new Transcripts(backend, cfg.transcripts ?? {});
-      const tel = new BotTelemetry({
+      const tel = new ChannelTelemetry({
         backend,
         packageName: pkg.name,
         packageVersion: pkg.version,
@@ -842,14 +846,14 @@ export function createChannel<
       for (const c of opts.components ?? []) {
         if (!c.name) {
           console.warn(
-            "[bot] createChannel: skipping anonymous component — give it a name to enable durable actions after restart.",
+            "[channel] createChannel: skipping anonymous component — give it a name to enable durable actions after restart.",
           );
           continue;
         }
         registryInstance.registerComponent(c.name, c as unknown as ComponentFn);
       }
       toolDescriptors = toAgentToolDescriptors([...toolMap.values()]);
-      tel.capture("oss.bot.configured", {
+      tel.capture("oss.channel.configured", {
         platforms: adapters.map((a) => normalizePlatform(a.platform)),
         adapterCount: adapters.length,
         store: storeKind(backend),
@@ -877,10 +881,10 @@ export function createChannel<
         if (r.status === "rejected") {
           failedPlatforms.push(platform);
           console.error(
-            `[bot] adapter "${rawPlatform}" failed to start:`,
+            `[channel] adapter "${rawPlatform}" failed to start:`,
             r.reason,
           );
-          tel.capture("oss.bot.start_failed", {
+          tel.capture("oss.channel.start_failed", {
             platform,
             errorClass: errorClass(r.reason),
           });
@@ -889,7 +893,7 @@ export function createChannel<
         }
       });
       if (startedPlatforms.length > 0) {
-        tel.capture("oss.bot.started", {
+        tel.capture("oss.channel.started", {
           platforms: startedPlatforms,
           startedCount: startedPlatforms.length,
           failedCount: failedPlatforms.length,
@@ -911,7 +915,7 @@ export function createChannel<
         registerResults.forEach((r, i) => {
           if (r.status === "rejected") {
             console.error(
-              `[bot] adapter "${adapters[i]!.platform}" failed to register commands:`,
+              `[channel] adapter "${adapters[i]!.platform}" failed to register commands:`,
               r.reason,
             );
           }
@@ -932,7 +936,7 @@ export function createChannel<
       stopResults.forEach((r, i) => {
         if (r.status === "rejected") {
           console.error(
-            `[bot] adapter "${adapters[i]!.platform}" failed to stop:`,
+            `[channel] adapter "${adapters[i]!.platform}" failed to stop:`,
             r.reason,
           );
         }

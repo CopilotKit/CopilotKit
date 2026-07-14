@@ -229,7 +229,7 @@ async function main() {
         context: senderContext(message.user, thread.platform),
       });
     } catch (err) {
-      console.error("[bot] agent run failed", err);
+      console.error("[channel] agent run failed", err);
       await thread
         .post("Sorry — I hit an error handling that. Please try again.")
         .catch(() => {});
@@ -262,11 +262,11 @@ async function main() {
 
   await bot.start();
   console.log(
-    `[bot] started on: ${adapters.map((a) => a.platform).join(", ")}`,
+    `[channel] started on: ${adapters.map((a) => a.platform).join(", ")}`,
   );
 
   const shutdown = async (signal: string) => {
-    console.log(`\n[bot] received ${signal}, stopping…`);
+    console.log(`\n[channel] received ${signal}, stopping…`);
     await bot.stop();
     // Tear down the shared headless browser used for chart/diagram rendering.
     await closeBrowser();
@@ -280,13 +280,13 @@ async function main() {
 // interaction/callback path) instead of letting it kill the process with no
 // log. Log and keep running — one bad turn shouldn't take the bot down.
 process.on("unhandledRejection", (reason) => {
-  console.error("[bot] unhandledRejection:", reason);
+  console.error("[channel] unhandledRejection:", reason);
 });
 process.on("uncaughtException", (err) => {
-  console.error("[bot] uncaughtException:", err);
+  console.error("[channel] uncaughtException:", err);
 });
 
 main().catch((err) => {
-  console.error("[bot] fatal", err);
+  console.error("[channel] fatal", err);
   process.exit(1);
 });

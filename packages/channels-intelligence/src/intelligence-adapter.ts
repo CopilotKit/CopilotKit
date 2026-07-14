@@ -812,7 +812,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
 /**
  * @internal Construct the Channel bridge adapter. Production callers (the
  * runtime) inject the Realtime Gateway + Connector Outbox transports; tests and
- * standalone runs inject in-memory ones. Must be the only adapter on a bot (V1).
+ * standalone runs inject in-memory ones. Must be the only adapter on a Channel (V1).
  */
 export function intelligenceAdapter(
   opts: IntelligenceAdapterOptions = {},
