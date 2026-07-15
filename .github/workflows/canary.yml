@@ -37,13 +37,6 @@ on:
           - monorepo
           - angular
           - channels
-          - channels-core
-          - channels-discord
-          - channels-intelligence
-          - channels-slack
-          - channels-teams
-          - channels-telegram
-          - channels-whatsapp
       suffix:
         description: "Prerelease suffix (e.g. 'fix-user-issue'); blank = unix timestamp. Allowed: [a-zA-Z0-9._-]+. Reuse a suffix only if the base version moved, else the publish collides."
         required: false

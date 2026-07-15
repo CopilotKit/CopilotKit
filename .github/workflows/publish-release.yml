@@ -40,13 +40,6 @@ on:
           - monorepo
           - angular
           - channels
-          - channels-core
-          - channels-discord
-          - channels-intelligence
-          - channels-slack
-          - channels-teams
-          - channels-telegram
-          - channels-whatsapp
       mode:
         description: "Release mode: stable (full release with tag + GH Release) or prerelease (canary, no tag/release)"
         required: false
