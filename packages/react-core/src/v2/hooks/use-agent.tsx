@@ -251,7 +251,22 @@ export function useAgent({ agentId, updates, throttleMs }: UseAgentProps = {}) {
     agent.threadId = configThreadId;
   }, [agent, configThreadId, configHasExplicitThreadId]);
 
+  // Determine if the agent is fully initialized and safe for direct operations
+  // like agent.subscribe(). When the runtime is still connecting, the returned
+  // agent is a provisional ProxiedCopilotRuntimeAgent whose internal state may
+  // not be fully set up yet. Consumers can guard subscribe() calls with this flag.
+  // Defensive: ensure subscribers array exists so direct agent.subscribe() calls
+  // don't throw "Cannot read properties of undefined (reading 'subscribers')" (#5000).
+  if (!agent.subscribers) {
+    agent.subscribers = [];
+  }
+
+  const isReady =
+    !copilotkit.runtimeUrl ||
+    copilotkit.runtimeConnectionStatus === CopilotKitCoreRuntimeConnectionStatus.Connected;
+
   return {
     agent,
+    isReady,
   };
 }
