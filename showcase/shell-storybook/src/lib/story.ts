@@ -1,41 +1,63 @@
 import { artifacts } from "../content/concepts";
 import { personaSlugs } from "../content/types";
-import type { Persona, ResourceRef } from "../content/types";
+import type {
+  Composition,
+  ConceptId,
+  Persona,
+  PersonaGroup,
+  ResourceRef,
+  StoryPage,
+} from "../content/types";
 import { resolveDemo, resolveResource } from "./registry";
 
 const personaSlugSet = new Set<string>(personaSlugs);
-const artifactSet = new Set<string>(Object.keys(artifacts));
-const groupSet = new Set<string>([
-  "leadership",
-  "go-to-market",
-  "partnerships",
-  "oss",
-]);
-const compositionSet = new Set<string>([
-  "statement",
-  "diagram",
-  "live-proof",
-  "artifact",
-  "action",
-]);
-const conceptSet = new Set<string>([
-  "ecosystem",
-  "proof",
-  "ownership",
-  "audience",
-]);
-const visualKindSet = new Set<string>([
-  "illustration",
-  "system-map",
-  "manifest-flow",
-  "proof-flow",
-  "ownership-handoff",
-  "coverage-map",
-  "demo",
-  "artifact",
-  "checklist",
-]);
-const perspectiveSet = new Set<string>(["partnerships", "oss"]);
+
+const personaGroups = {
+  leadership: true,
+  "go-to-market": true,
+  partnerships: true,
+  oss: true,
+} as const satisfies Record<PersonaGroup, true>;
+
+const compositions = {
+  statement: true,
+  diagram: true,
+  "live-proof": true,
+  artifact: true,
+  action: true,
+} as const satisfies Record<Composition, true>;
+
+const concepts = {
+  ecosystem: true,
+  proof: true,
+  ownership: true,
+  audience: true,
+} as const satisfies Record<ConceptId, true>;
+
+type VisualKind = StoryPage["visual"]["kind"];
+
+const visualKinds = {
+  illustration: true,
+  "system-map": true,
+  "manifest-flow": true,
+  "proof-flow": true,
+  "ownership-handoff": true,
+  "coverage-map": true,
+  demo: true,
+  artifact: true,
+  checklist: true,
+} as const satisfies Record<VisualKind, true>;
+
+type OwnershipPerspective = Extract<
+  StoryPage["visual"],
+  { kind: "ownership-handoff" }
+>["perspective"];
+
+const ownershipPerspectives = {
+  partnerships: true,
+  oss: true,
+} as const satisfies Record<OwnershipPerspective, true>;
+
 const forbiddenDashPattern = /[–—]/u;
 
 type UnknownRecord = Record<string, unknown>;
@@ -72,14 +94,24 @@ function assertVisibleString(
   }
 }
 
-function assertKnownValue(
+function assertKnownKey<T extends object>(
   value: unknown,
-  allowed: ReadonlySet<string>,
+  allowed: T,
   context: string,
-): asserts value is string {
-  if (typeof value !== "string" || !allowed.has(value)) {
+): asserts value is Extract<keyof T, string> {
+  if (
+    typeof value !== "string" ||
+    !Object.prototype.hasOwnProperty.call(allowed, value)
+  ) {
     throw new Error(`${context} has unknown value "${display(value)}".`);
   }
+}
+
+function assertNever(value: never, context: string): never {
+  const runtimeValue = value as { kind?: unknown };
+  throw new Error(
+    `${context} has unknown value "${display(runtimeValue.kind)}".`,
+  );
 }
 
 function errorMessage(error: unknown): string {
@@ -93,12 +125,13 @@ function validateVisual(value: unknown, pageContext: string): void {
   assertRecord(value, visualContext);
 
   const kind = value.kind;
-  assertKnownValue(kind, visualKindSet, visualField("kind"));
+  assertKnownKey(kind, visualKinds, visualField("kind"));
+  const visual = value as StoryPage["visual"];
 
-  switch (kind) {
+  switch (visual.kind) {
     case "illustration":
-      assertKnownValue(value.concept, conceptSet, visualField("concept"));
-      assertVisibleString(value.alt, visualField("alt"));
+      assertKnownKey(visual.concept, concepts, visualField("concept"));
+      assertVisibleString(visual.alt, visualField("alt"));
       return;
     case "system-map":
     case "manifest-flow":
@@ -106,18 +139,18 @@ function validateVisual(value: unknown, pageContext: string): void {
     case "coverage-map":
       return;
     case "ownership-handoff":
-      assertKnownValue(
-        value.perspective,
-        perspectiveSet,
+      assertKnownKey(
+        visual.perspective,
+        ownershipPerspectives,
         visualField("perspective"),
       );
       return;
     case "demo": {
-      assertVisibleString(value.integration, visualField("integration"));
-      assertVisibleString(value.demo, visualField("demo"));
+      assertVisibleString(visual.integration, visualField("integration"));
+      assertVisibleString(visual.demo, visualField("demo"));
 
       try {
-        resolveDemo(value.integration, value.demo);
+        resolveDemo(visual.integration, visual.demo);
       } catch (error) {
         throw new Error(`${visualContext} is invalid: ${errorMessage(error)}`, {
           cause: error,
@@ -126,10 +159,10 @@ function validateVisual(value: unknown, pageContext: string): void {
       return;
     }
     case "artifact":
-      assertKnownValue(value.artifact, artifactSet, visualField("artifact"));
+      assertKnownKey(visual.artifact, artifacts, visualField("artifact"));
       return;
     case "checklist": {
-      const items = value.items;
+      const items = visual.items;
       if (!Array.isArray(items) || items.length === 0) {
         throw new Error(
           `${visualField("items")} must contain at least one item.`,
@@ -141,6 +174,8 @@ function validateVisual(value: unknown, pageContext: string): void {
       }
       return;
     }
+    default:
+      return assertNever(visual, visualField("kind"));
   }
 }
 
@@ -152,13 +187,15 @@ function validateResources(value: unknown, pageContext: string): void {
   }
 
   for (const [index, resource] of value.entries()) {
+    const resourceContext = `${pageContext}, field "resources[${index}]"`;
+    assertRecord(resource, resourceContext);
+
     try {
       resolveResource(resource as ResourceRef);
     } catch (error) {
-      throw new Error(
-        `${resourcesContext}[${index}] is invalid: ${errorMessage(error)}`,
-        { cause: error },
-      );
+      throw new Error(`${resourceContext} is invalid: ${errorMessage(error)}`, {
+        cause: error,
+      });
     }
   }
 }
@@ -199,7 +236,7 @@ function validatePage(
   personaContext: string,
   pageIndex: number,
   pageSlugs: Set<string>,
-): string {
+): Composition {
   const fallbackContext = `${personaContext}, page at index ${pageIndex}`;
   assertRecord(value, fallbackContext);
 
@@ -220,9 +257,10 @@ function validatePage(
   assertVisibleString(value.title, `${pageContext}, field "title"`);
   assertVisibleString(value.claim, `${pageContext}, field "claim"`);
   assertVisibleString(value.body, `${pageContext}, field "body"`);
-  assertKnownValue(
-    value.composition,
-    compositionSet,
+  const composition = value.composition;
+  assertKnownKey(
+    composition,
+    compositions,
     `${pageContext}, field "composition"`,
   );
   validateVisual(value.visual, pageContext);
@@ -232,11 +270,15 @@ function validatePage(
     validateDeepDive(value.deepDive, pageContext);
   }
 
-  return value.composition;
+  return composition;
 }
 
 export function validatePersonas(personas: readonly Persona[]): void {
-  if (!Array.isArray(personas) || personas.length === 0) {
+  if (!Array.isArray(personas)) {
+    throw new Error("Persona collection must be an array.");
+  }
+
+  if (personas.length === 0) {
     throw new Error("Stories must contain at least one persona.");
   }
 
@@ -265,7 +307,11 @@ export function validatePersonas(personas: readonly Persona[]): void {
     seenPersonaSlugs.add(value.slug);
 
     assertVisibleString(value.name, `${personaContext}, field "name"`);
-    assertKnownValue(value.group, groupSet, `${personaContext}, field "group"`);
+    assertKnownKey(
+      value.group,
+      personaGroups,
+      `${personaContext}, field "group"`,
+    );
     assertVisibleString(value.summary, `${personaContext}, field "summary"`);
     assertVisibleString(value.question, `${personaContext}, field "question"`);
 
@@ -293,7 +339,7 @@ export function validatePersonas(personas: readonly Persona[]): void {
     }
 
     const pageSlugs = new Set<string>();
-    let lastComposition = "";
+    let lastComposition: Composition | undefined;
     let lastPageSlug = "";
 
     for (const [pageIndex, storyPage] of value.pages.entries()) {

@@ -60,6 +60,12 @@ function expectInvalid(value: readonly Persona[], ...context: string[]): void {
 }
 
 describe("validatePersonas", () => {
+  it("rejects a non-array collection with a shape-specific error", () => {
+    expect(() => validatePersonas({} as unknown as readonly Persona[])).toThrow(
+      /persona collection must be an array/i,
+    );
+  });
+
   it("rejects an empty collection", () => {
     expect(() => validatePersonas([])).toThrow(/at least one persona/i);
   });
@@ -71,6 +77,50 @@ describe("validatePersonas", () => {
     expect(() => validatePersonas(value)).not.toThrow();
     expect(value).toEqual(before);
   });
+
+  it.each([
+    {
+      kind: "illustration",
+      concept: "ecosystem",
+      alt: "A connected ecosystem",
+    },
+    { kind: "system-map" },
+    { kind: "manifest-flow" },
+    { kind: "proof-flow" },
+    { kind: "ownership-handoff", perspective: "partnerships" },
+    { kind: "coverage-map" },
+    {
+      kind: "demo",
+      integration: "langgraph-python",
+      demo: "beautiful-chat",
+    },
+    { kind: "artifact", artifact: "deployment-map" },
+    { kind: "checklist", items: ["Confirm the story"] },
+  ] satisfies readonly VisualRef[])("accepts the $kind visual", (visual) => {
+    expect(() =>
+      validatePersonas([persona({ pages: [page({ visual })] })]),
+    ).not.toThrow();
+  });
+
+  it.each([
+    { kind: "curated", id: "showcase-home" },
+    {
+      kind: "demo",
+      integration: "langgraph-python",
+      demo: "beautiful-chat",
+      view: "story",
+    },
+    { kind: "feature", feature: "beautiful-chat" },
+  ] satisfies readonly ResourceRef[])(
+    "accepts a valid $kind resource",
+    (resource) => {
+      expect(() =>
+        validatePersonas([
+          persona({ pages: [page({ resources: [resource] })] }),
+        ]),
+      ).not.toThrow();
+    },
+  );
 
   it("rejects duplicate persona slugs", () => {
     expect(() => validatePersonas([persona(), persona()])).toThrow(
@@ -192,6 +242,21 @@ describe("validatePersonas", () => {
       "marketing-lead",
       "start-here",
       "resources",
+    );
+  });
+
+  it("rejects a null resource with a schema-focused contextual error", () => {
+    expectInvalid(
+      [
+        persona({
+          pages: [page({ resources: [null as unknown as ResourceRef] })],
+        }),
+      ],
+      "marketing-lead",
+      "start-here",
+      "resources",
+      "[0]",
+      "must be an object",
     );
   });
 
