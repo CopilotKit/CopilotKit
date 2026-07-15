@@ -11,6 +11,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   createConsumerManifest,
+  createConsumerWorkspaceYaml,
   FAMILY,
   validatePackedManifests,
 } from "./lib/channels-umbrella.js";
@@ -196,6 +197,10 @@ function writeConsumer(
     );
   }
 
+  writeFileSync(
+    join(consumerDir, "pnpm-workspace.yaml"),
+    createConsumerWorkspaceYaml(),
+  );
   writeFileSync(
     join(consumerDir, "package.json"),
     `${JSON.stringify(
