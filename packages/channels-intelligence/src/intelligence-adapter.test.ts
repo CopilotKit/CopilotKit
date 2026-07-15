@@ -574,7 +574,10 @@ describe("intelligenceAdapter — conversation-history seeding", () => {
 
   it("getMessages returns [] when the transport has no getHistory", async () => {
     const source = new InMemoryDeliverySource();
-    delete (source as { getHistory?: unknown }).getHistory;
+    // Shadow the prototype method with an own `undefined` — `delete` wouldn't
+    // remove a prototype method, so the `source?.getHistory?.()` short-circuit
+    // (the branch under test) would never actually be exercised.
+    (source as { getHistory?: unknown }).getHistory = undefined;
     const adapter = intelligenceAdapter({
       source,
       egress: new InMemoryEgressSink(),
@@ -619,7 +622,10 @@ describe("intelligenceAdapter — conversation-history seeding", () => {
 
   it("starts fresh (empty messages) when the transport has no getHistory", async () => {
     const source = new InMemoryDeliverySource();
-    delete (source as { getHistory?: unknown }).getHistory;
+    // Shadow the prototype method with an own `undefined` — `delete` wouldn't
+    // remove a prototype method, so the `source?.getHistory?.()` short-circuit
+    // (the branch under test) would never actually be exercised.
+    (source as { getHistory?: unknown }).getHistory = undefined;
     const adapter = intelligenceAdapter({
       source,
       egress: new InMemoryEgressSink(),

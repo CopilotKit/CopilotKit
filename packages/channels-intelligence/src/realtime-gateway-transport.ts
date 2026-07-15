@@ -567,7 +567,13 @@ export class RealtimeGatewayTransport
       // that posts nothing) has no valid completion signal under the frozen
       // contract (acceptedThrough requires >=1), so it redelivers until
       // max_attempts. A terminal "completed-empty" signal needs app-api
-      // coordination — tracked in OSS-491, not fixable SDK-side here.
+      // coordination — tracked in OSS-491, not fixable SDK-side here. Log it so
+      // the resulting redelivery pile-up is diagnosable (every other drop path
+      // in this transport logs).
+      this.log?.(
+        "realtime gateway ack: empty turn (no accepted frames) — no completion sent; will redeliver until max_attempts (OSS-491)",
+        { deliveryId },
+      );
       return;
     }
     await this.session.push(COMPLETE_REQUESTED, {

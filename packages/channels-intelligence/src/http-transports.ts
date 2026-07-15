@@ -158,8 +158,7 @@ function withTimeout<T>(
   });
 }
 
-/** Slack reply target Intelligence mints at ingress and the sink echoes back. */
-/** Per-delivery org/project/channel scope, echoed onto render frames. */
+/** The claim route's response: an idle-backoff, or a leased delivery to run. */
 type ClaimResponse =
   | { claimed: false; pollAfterMs: number }
   | { claimed: true; delivery: ClaimedDelivery };

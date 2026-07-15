@@ -434,7 +434,8 @@ export class IntelligenceAdapter implements PlatformAdapter {
         //
         // CONTRACT (app-api side): the interaction delivery MUST carry a turnId
         // distinct from the turn that originally posted the card. Egress op ids
-        // are `${turnId}:${seq}` (see mintOp/postRenderFrame) and seq resets to
+        // are `${turnId}:${seq}` (see mintOp; the render path keys on the
+        // 3-part `${turnId}:${slot}:${seq}`) and seq resets to
         // 0 per delivery, so a reused turnId makes the update's op id collide
         // with the original post's — the Connector Outbox dedupes on op id and
         // SILENTLY DROPS the update, so the card never flips. This layer can't
