@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- mirrors React A2UI integration boundaries */
 import {
   computed,
   defineComponent,
@@ -87,7 +88,8 @@ export async function runA2UIAction({
       await copilotkit.runAgent({ agent });
     } finally {
       if (copilotkit.properties) {
-        const { a2uiAction: _omit, ...rest } = copilotkit.properties;
+        const rest = { ...copilotkit.properties };
+        delete (rest as Record<string, unknown>).a2uiAction;
         copilotkit.setProperties(rest);
       }
     }

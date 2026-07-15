@@ -1,12 +1,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, shallowRef, ref, watch } from "vue";
-import type { PropType } from "vue";
 import type { ActivityMessage } from "@ag-ui/core";
 import type { A2UITheme } from "./types";
 import type { A2UIOperation } from "./operations";
 import { useCopilotKit } from "../providers";
 import { MessageProcessor } from "@a2ui/web_core/v0_9";
-import type { SurfaceModel } from "@a2ui/web_core/v0_9";
 import { vueBasicCatalog, A2uiSurface, ThemeProvider } from "./vue-renderer";
 import type { VueComponentImplementation } from "./vue-renderer";
 import {
@@ -26,6 +24,7 @@ const props = defineProps<{
   message: ActivityMessage;
   agent?: object;
   theme?: A2UITheme;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   catalog?: any;
   surfaceId?: string;
   onAction?: A2UIActionInterceptor;
@@ -75,9 +74,9 @@ function processOperations(operations: A2UIOperation[]) {
   try {
     const existing = processor.model.getSurface(surfaceId);
     const filtered = existing
-      ? operations.filter((op) => !(op as any)?.createSurface)
+      ? operations.filter((op) => !("createSurface" in op && op.createSurface))
       : operations;
-    processor.processMessages(filtered as any);
+    processor.processMessages(filtered as never);
     error.value = null;
 
     if (props.onReady && surfaceHasRenderableContent(operations)) {

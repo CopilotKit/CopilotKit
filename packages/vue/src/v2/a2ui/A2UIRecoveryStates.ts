@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- mirrors React recovery content payloads */
 import { defineComponent, h, onUnmounted, ref, watch } from "vue";
 import type { PropType } from "vue";
 import { z } from "zod";

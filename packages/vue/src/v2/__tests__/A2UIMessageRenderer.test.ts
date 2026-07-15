@@ -116,7 +116,7 @@ describe("A2UIMessageRenderer rendering integration", () => {
     const Wrapper = defineComponent({
       setup() {
         return () =>
-          h(renderer.render as any, {
+          h(renderer.render as Parameters<typeof h>[0], {
             activityType: "a2ui-surface",
             content: contentRef.value,
             message: {},
