@@ -47,11 +47,18 @@ Threads turn a streamed agent run into a product experience users can leave and 
 Both UI paths use the same Threads infrastructure. A stable `threadId` connects the visible conversation to the runtime and its durable event history.
 
 <Image
-  src="/images/threads/threads-diagram.png"
-  alt="A user starts a conversation and returns to it from another device. The diagram also shows how the web app, Channels synchronization adapter, Enterprise Intelligence, AG-UI, and the agent connect."
-  width={2000}
-  height={1200}
-  className="my-6 w-full mx-auto"
+  src="/images/threads/threads-diagram-light.png"
+  alt="A user starts a conversation on a laptop, leaves or switches devices, and returns to the same conversation on a phone."
+  width={1774}
+  height={919}
+  className="block dark:hidden my-6 w-full mx-auto"
+/>
+<Image
+  src="/images/threads/threads-diagram-dark.png"
+  alt="A user starts a conversation on a laptop, leaves or switches devices, and returns to the same conversation on a phone."
+  width={1775}
+  height={918}
+  className="hidden dark:block my-6 w-full mx-auto"
 />
 
 1. Your UI opens a conversation with a stable `threadId`.
