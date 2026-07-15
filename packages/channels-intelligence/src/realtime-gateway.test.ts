@@ -687,6 +687,59 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
     session.disconnect();
   });
 
+  it("keeps gave_up sticky until a successful rejoin, then re-arms for a fresh drop (OSS-473)", async () => {
+    const { FakeWebSocket, instances, control } = makeFakeWebSocket(
+      "give-up-then-recover",
+    );
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/socket",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: {
+        runtimeInstanceId: "rti_1",
+        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
+        observedAt: "2026-07-10T00:00:00.000Z",
+      },
+      webSocket: FakeWebSocket,
+      // Small window so give-up fires fast; small push timeout so silent rejoins
+      // time out quickly and Phoenix retries the channel on a tight cadence.
+      reconnectGiveUpMs: 40,
+      timeoutMs: 50,
+    });
+
+    const states: RealtimeGatewayConnectionState[] = [];
+    session.onStateChange((s) => states.push(s));
+
+    // (a) Long outage: drop, rejoins stay silent → reconnecting → gave_up, and
+    // it STAYS. A subsequent FAILED retry during the SAME outage must NOT
+    // re-emit reconnecting — gave_up is sticky until a successful rejoin.
+    instances[0]!.onclose?.();
+    await waitUntil(() => states.includes("gave_up"));
+    expect(states).toContain("reconnecting");
+    expect(states[states.length - 1]).toBe("gave_up");
+
+    const afterGaveUp = states.length;
+    // A failed retry: Phoenix errors the channel over the still-open socket.
+    instances[instances.length - 1]!.triggerChannelError();
+    // Give any queued rejoin/timeout microtasks a chance to (wrongly) re-emit.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(states.slice(afterGaveUp)).not.toContain("reconnecting");
+    expect(states[states.length - 1]).toBe("gave_up");
+
+    // (b) Only a successful rejoin may restore online. The gateway returns.
+    control.recover = true;
+    await waitUntil(() => states[states.length - 1] === "online", 8000);
+    expect(states[states.length - 1]).toBe("online");
+
+    // (c) Recovery re-armed the latch: a FRESH drop after recovery enters
+    // reconnecting again (enterReconnecting emits synchronously on the drop).
+    const afterRecovery = states.length;
+    instances[instances.length - 1]!.onclose?.();
+    expect(states.slice(afterRecovery)).toContain("reconnecting");
+
+    session.disconnect();
+  });
+
   it("does not emit a connection-state transition for our own disconnect()", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const session = await connectRealtimeGateway({

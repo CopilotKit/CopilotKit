@@ -56,10 +56,12 @@ export interface ConnectRealtimeGatewayOptions {
  * - `reconnecting`: the connection dropped and Phoenix is retrying; not sendable.
  * - `gave_up`: the reconnect window elapsed without a successful rejoin — treated
  *   as "currently not sendable, prolonged" (a supervising manager maps it to
- *   `error`). NOT terminal: Phoenix keeps its socket and auto-retries underneath,
- *   so a later successful rejoin transitions back to `online` and a fresh drop
- *   episode can transition back to `reconnecting`. The connection self-heals from
- *   a transient outage without a process restart.
+ *   `error`). STICKY: while Phoenix keeps retrying the dead link underneath,
+ *   failed retries do NOT flap back to `reconnecting` — the state stays `gave_up`
+ *   until a rejoin actually succeeds. NOT terminal, though: a later SUCCESSFUL
+ *   rejoin transitions back to `online` (self-healing a transient outage without
+ *   a process restart) and re-arms the window so a genuinely fresh drop episode
+ *   can transition back to `reconnecting`.
  */
 export type RealtimeGatewayConnectionState =
   | "online"
@@ -200,9 +202,10 @@ export interface ConnectedRealtimeGatewaySession extends RealtimeGatewaySession 
    * - a successful (re)join → `online` (the recHooks registered on the join push
    *   survive Phoenix's `resend`, so every auto-rejoin re-fires the `"ok"` hook);
    * - the {@link ConnectRealtimeGatewayOptions.reconnectGiveUpMs} window elapsing
-   *   while still reconnecting → `gave_up`. NOT terminal — a later successful
-   *   rejoin transitions back to `online` (a transient outage self-heals), and a
-   *   fresh drop episode can transition back to `reconnecting`.
+   *   while still reconnecting → `gave_up`. STICKY: failed retries during the same
+   *   outage do NOT re-emit `reconnecting`. NOT terminal — a later SUCCESSFUL
+   *   rejoin transitions back to `online` (a transient outage self-heals) and
+   *   re-arms the window so a fresh drop episode can transition to `reconnecting`.
    *
    * Our own {@link disconnect} is silent (it is not a drop). Distinct from
    * {@link onClose}, which is a single per-episode drop breadcrumb; this observer
@@ -258,14 +261,21 @@ export async function connectRealtimeGateway(
   // --- Connection-health state machine -------------------------------------
   // `disconnect()` flips `closingIntentionally` first so our own teardown —
   // which also runs these Phoenix close/error hooks — is never mistaken for an
-  // unexpected drop. `gave_up` is NOT terminal: Phoenix keeps its socket and
-  // auto-retries underneath, so a successful rejoin after give-up restores
-  // `online` and a fresh drop episode restores `reconnecting` — state always
-  // agrees with the transport rather than latching `error` forever.
+  // unexpected drop. `gave_up` is STICKY: once the reconnect window elapses the
+  // public status stays `gave_up` (a manager maps it to `error`) while Phoenix
+  // keeps retrying underneath — failed retries during the SAME outage do NOT
+  // re-emit `reconnecting`. It is NOT terminal, though: a SUCCESSFUL rejoin
+  // restores `online` and clears the `gaveUp` latch, which re-arms the window so
+  // a genuinely fresh drop episode can enter `reconnecting` and give up again on
+  // its own bounded schedule. Net: state agrees with the transport rather than
+  // flapping `reconnecting`↔`gave_up` on every failed retry of a dead link.
   let closingIntentionally = false;
   let connectionState: RealtimeGatewayConnectionState = "online";
   const stateCallbacks: Array<(s: RealtimeGatewayConnectionState) => void> = [];
   let giveUpTimer: ReturnType<typeof setTimeout> | undefined;
+  // Set true when the give-up window fires; suppresses further `reconnecting`
+  // emissions until a successful rejoin (`enterOnline`) clears it.
+  let gaveUp = false;
   const clearGiveUpTimer = (): void => {
     if (giveUpTimer !== undefined) {
       clearTimeout(giveUpTimer);
@@ -288,14 +298,18 @@ export async function connectRealtimeGateway(
   };
   const enterReconnecting = (): void => {
     if (closingIntentionally) return;
+    // Sticky give-up: once the window has fired we stay `gave_up` while Phoenix
+    // keeps retrying a dead link, so a failed retry during the SAME outage must
+    // NOT re-enter `reconnecting`. Only a successful rejoin (`enterOnline`)
+    // clears the latch and re-arms the window for a genuinely fresh drop.
+    if (gaveUp) return;
     // Arm the give-up window on the FIRST drop of an outage episode; a later
     // drop while still reconnecting keeps the original deadline so a flapping
     // connection that never stabilizes still gives up after one bounded window.
-    // After a `gave_up` the timer has already cleared itself, so a subsequent
-    // drop episode re-arms a fresh window (give-up is recoverable, not sticky).
     if (giveUpTimer === undefined) {
       giveUpTimer = setTimeout(() => {
         giveUpTimer = undefined;
+        gaveUp = true;
         emitState("gave_up");
       }, giveUpMs);
       (giveUpTimer as unknown as { unref?: () => void }).unref?.();
@@ -303,6 +317,10 @@ export async function connectRealtimeGateway(
     emitState("reconnecting");
   };
   const enterOnline = (): void => {
+    // A successful (re)join heals the outage: clear the sticky latch and the
+    // give-up timer so a FUTURE drop episode re-arms its own bounded window and
+    // can transition `reconnecting` → `gave_up` again.
+    gaveUp = false;
     clearGiveUpTimer();
     emitState("online");
   };
