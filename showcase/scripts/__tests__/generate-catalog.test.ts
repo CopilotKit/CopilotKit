@@ -18,12 +18,19 @@ import {
 } from "./test-cleanup";
 import { SCRIPTS_DIR, SHELL_DATA_DIR } from "./paths";
 
-// catalog.json is emitted alongside registry.json in all 4 output dirs.
+// catalog.json is emitted alongside registry.json in all 5 output dirs.
 // We snapshot the shell output dir to avoid leaking generated files.
 const SHELL_DASHBOARD_DATA_DIR = path.resolve(
   SCRIPTS_DIR,
   "..",
   "shell-dashboard",
+  "src",
+  "data",
+);
+const SHELL_STORYBOOK_DATA_DIR = path.resolve(
+  SCRIPTS_DIR,
+  "..",
+  "shell-storybook",
   "src",
   "data",
 );
@@ -34,6 +41,8 @@ const DATA_FILES = [
   path.join(SHELL_DATA_DIR, "catalog.json"),
   path.join(SHELL_DASHBOARD_DATA_DIR, "registry.json"),
   path.join(SHELL_DASHBOARD_DATA_DIR, "catalog.json"),
+  path.join(SHELL_STORYBOOK_DATA_DIR, "registry.json"),
+  path.join(SHELL_STORYBOOK_DATA_DIR, "catalog.json"),
 ];
 const dataRestorer = new FileSnapshotRestorer(DATA_FILES);
 let releaseGeneratedDataLock: (() => void) | undefined;
@@ -120,6 +129,7 @@ describe("Catalog Generator", () => {
       path.resolve(SCRIPTS_DIR, "..", "shell-docs", "src", "data"),
       path.resolve(SCRIPTS_DIR, "..", "shell-dojo", "src", "data"),
       path.resolve(SCRIPTS_DIR, "..", "shell-dashboard", "src", "data"),
+      path.resolve(SCRIPTS_DIR, "..", "shell-storybook", "src", "data"),
     ];
 
     for (const dir of outputDirs) {

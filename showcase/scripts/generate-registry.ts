@@ -207,11 +207,14 @@ function writeFileAtomicSync(filePath: string, contents: string): void {
     fs.rmSync(tmpPath, { force: true });
   }
 }
-// Registry is consumed by ALL shells:
+// Registry and catalog data are consumed by all five shells:
 //   - shell: home grid, integrations catalog, matrix, middleware
 //   - shell-docs: docs routes (framework lookup, MDX renderer)
 //   - shell-dojo: dojo app's integration grid and demo columns
-// so we multi-emit. constraints.json is shell-only (integration-explorer).
+//   - shell-dashboard: showcase status and parity matrix
+//   - shell-storybook: component stories and canonical code routes
+// so we multi-emit both files. constraints.json is shell-only
+// (integration-explorer).
 const SHELL_OUTPUT_DIR = path.join(ROOT, "shell", "src", "data");
 const SHELL_DOCS_OUTPUT_DIR = path.join(ROOT, "shell-docs", "src", "data");
 const SHELL_DOJO_OUTPUT_DIR = path.join(ROOT, "shell-dojo", "src", "data");
@@ -221,11 +224,18 @@ const SHELL_DASHBOARD_OUTPUT_DIR = path.join(
   "src",
   "data",
 );
+const SHELL_STORYBOOK_OUTPUT_DIR = path.join(
+  ROOT,
+  "shell-storybook",
+  "src",
+  "data",
+);
 const OUTPUT_DIRS = [
   SHELL_OUTPUT_DIR,
   SHELL_DOCS_OUTPUT_DIR,
   SHELL_DOJO_OUTPUT_DIR,
   SHELL_DASHBOARD_OUTPUT_DIR,
+  SHELL_STORYBOOK_OUTPUT_DIR,
 ];
 const PACKAGES_JSON_PATH = path.join(ROOT, "shared", "packages.json");
 const CONSTRAINTS_PATH = path.join(ROOT, "shared", "constraints.yaml");

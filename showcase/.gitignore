@@ -19,6 +19,8 @@ shell/src/data/*.json
 shell-dojo/src/data/*.json
 shell-docs/src/data/*.json
 shell-dashboard/src/data/*.json
+shell-storybook/src/data/registry.json
+shell-storybook/src/data/catalog.json
 
 # Eval local artifacts
 .eval-results/

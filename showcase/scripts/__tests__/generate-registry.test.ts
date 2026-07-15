@@ -32,10 +32,12 @@ const DATA_FILES = [
   path.join(SHELL_DATA_DIR, "registry.json"),
   path.join(SHELL_DATA_DIR, "catalog.json"),
   path.join(SHELL_DATA_DIR, "constraints.json"),
-  ...["shell-docs", "shell-dojo", "shell-dashboard"].flatMap((pkg) => [
-    path.join(SHOWCASE_ROOT, pkg, "src", "data", "registry.json"),
-    path.join(SHOWCASE_ROOT, pkg, "src", "data", "catalog.json"),
-  ]),
+  ...["shell-docs", "shell-dojo", "shell-dashboard", "shell-storybook"].flatMap(
+    (pkg) => [
+      path.join(SHOWCASE_ROOT, pkg, "src", "data", "registry.json"),
+      path.join(SHOWCASE_ROOT, pkg, "src", "data", "catalog.json"),
+    ],
+  ),
 ];
 const dataRestorer = new FileSnapshotRestorer(DATA_FILES);
 let releaseGeneratedDataLock: (() => void) | undefined;
