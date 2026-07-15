@@ -474,6 +474,53 @@ describe("intelligenceAdapter — conversation-history seeding", () => {
     expect(agent.messages).toEqual(source.history);
   });
 
+  it("getMessages maps history (string + content-part array) to ThreadMessage[]", async () => {
+    const source = new InMemoryDeliverySource();
+    source.history = [
+      { id: "h1", role: "user", content: "hi there" },
+      {
+        id: "h2",
+        role: "assistant",
+        content: [
+          { type: "text", text: "part one" },
+          {
+            type: "image",
+            source: { type: "data", value: "x", mimeType: "image/png" },
+          },
+          { type: "text", text: "part two" },
+        ],
+      },
+    ] as unknown as typeof source.history;
+    const adapter = intelligenceAdapter({
+      source,
+      egress: new InMemoryEgressSink(),
+    });
+
+    const messages = await adapter.getMessages(target);
+
+    expect(messages).toEqual([
+      // string content → text; role 'user' → isBot false, user 'user'.
+      { text: "hi there", isBot: false, user: { id: "user", name: "user" } },
+      // content-part array → text parts joined; the non-text (image) part
+      // contributes an empty string (hence the double space); assistant → bot.
+      {
+        text: "part one  part two",
+        isBot: true,
+        user: { id: "bot", name: "bot" },
+      },
+    ]);
+  });
+
+  it("getMessages returns [] when the transport has no getHistory", async () => {
+    const source = new InMemoryDeliverySource();
+    delete (source as { getHistory?: unknown }).getHistory;
+    const adapter = intelligenceAdapter({
+      source,
+      egress: new InMemoryEgressSink(),
+    });
+    expect(await adapter.getMessages(target)).toEqual([]);
+  });
+
   it("unwraps the ChannelReplyTarget to the raw route and defaults historyLimit to 20", async () => {
     const source = new InMemoryDeliverySource();
     const adapter = intelligenceAdapter({

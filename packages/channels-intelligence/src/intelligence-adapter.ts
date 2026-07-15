@@ -212,7 +212,15 @@ export class IntelligenceAdapter implements PlatformAdapter {
           route,
           this.opts.historyLimit ?? 20,
         )) as AgentMessage[] | undefined) ?? [];
-    } catch {
+    } catch (err) {
+      // HttpDeliverySource.getHistory already swallows its own fetch failures,
+      // so this outer catch only fires on an UNEXPECTED throw — log it (matching
+      // conversationStore.getOrCreate's seeding path) rather than degrading to
+      // [] silently.
+      this.opts.config?.log?.(
+        "intelligence getMessages failed; returning no history",
+        err,
+      );
       history = [];
     }
     return history.map((m) => {
@@ -229,8 +237,9 @@ export class IntelligenceAdapter implements PlatformAdapter {
                 )
                 .join(" ")
             : "";
-      const who = m.role === "user" ? "user" : "bot";
-      return { text, isBot: m.role !== "user", user: { id: who, name: who } };
+      const isBot = m.role !== "user";
+      const who = isBot ? "bot" : "user";
+      return { text, isBot, user: { id: who, name: who } };
     });
   };
 
