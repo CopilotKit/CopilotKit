@@ -264,9 +264,7 @@ type CapabilityToolSource = {
  * frontend-tool rows. Pure: no DOM, no `this`. Reads current on/off state from
  * core.isToolEnabled(name, agentId?) per the A1 contract.
  */
-function buildCapabilityRows(
-  core: CapabilityToolSource,
-): CapabilityToolRow[] {
+function buildCapabilityRows(core: CapabilityToolSource): CapabilityToolRow[] {
   const rows: CapabilityToolRow[] = [];
   for (const tool of core.tools ?? []) {
     const agentId = tool.agentId ?? "";
@@ -4205,14 +4203,16 @@ class CpkMemoryList extends LitElement {
           ${this.renderKindBadge(m.kind)}${this.renderScopeBadge(m.scope)}
         </div>
         <div class="cpk-ml__content">${m.content}</div>
-        ${relevance !== undefined
-          ? html`<div class="cpk-ml__relevance">
+        ${
+          relevance !== undefined
+            ? html`<div class="cpk-ml__relevance">
               <div
                 class="cpk-ml__relevance-fill"
                 style="width:${relevanceBarWidth(relevance)}%;"
               ></div>
             </div>`
-          : nothing}
+            : nothing
+        }
         <div class="cpk-ml__footer">
           <span class="cpk-ml__footer-threads"
             >${threads} source thread${threads === 1 ? "" : "s"}</span
@@ -4295,17 +4295,19 @@ class CpkMemoryList extends LitElement {
             Clear
           </button>
         </div>
-        ${this.recallError
-          ? html`<p class="cpk-ml__recall-msg cpk-ml__recall-msg--error">
+        ${
+          this.recallError
+            ? html`<p class="cpk-ml__recall-msg cpk-ml__recall-msg--error">
               Recall failed: ${this.recallError}
             </p>`
-          : results.length === 0
-            ? html`<p class="cpk-ml__recall-msg">
-                No memories matched that query.
-              </p>`
-            : results.map((m) =>
-                this.renderCard(m, normalizeRelevance(m.score, max)),
-              )}
+            : results.length === 0
+              ? html`
+                  <p class="cpk-ml__recall-msg">No memories matched that query.</p>
+                `
+              : results.map((m) =>
+                  this.renderCard(m, normalizeRelevance(m.score, max)),
+                )
+        }
       </section>
     `;
   }
@@ -10356,7 +10358,9 @@ ${prettyEvent}</pre
   private renderCapabilitiesView() {
     if (!this._core) {
       return html`
-        <div class="flex h-full items-center justify-center px-4 py-8 text-xs text-gray-500">
+        <div
+          class="flex h-full items-center justify-center px-4 py-8 text-xs text-gray-500"
+        >
           No core instance available
         </div>
       `;

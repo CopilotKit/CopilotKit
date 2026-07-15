@@ -122,9 +122,9 @@ function parseMemoryBody(body: Record<string, unknown>):
  * scopes. Returns a 400 Response on invalid input. The returned `query` is the
  * trimmed value so a whitespace-padded query is never forwarded to the platform.
  */
-function parseRecallBody(body: Record<string, unknown>):
-  | { query: string; limit?: number; scope?: string }
-  | Response {
+function parseRecallBody(
+  body: Record<string, unknown>,
+): { query: string; limit?: number; scope?: string } | Response {
   const { query, limit, scope } = body;
   // Trim before the emptiness check so whitespace-only queries (e.g. "   ")
   // are rejected rather than forwarded as a useless query to the platform.

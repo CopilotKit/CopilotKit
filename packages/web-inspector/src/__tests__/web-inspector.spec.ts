@@ -3361,7 +3361,9 @@ describe("ɵbuildCapabilityRows", () => {
   });
 
   it("returns an empty array when there are no tools", () => {
-    expect(ɵbuildCapabilityRows({ tools: [], isToolEnabled: () => false })).toEqual([]);
+    expect(
+      ɵbuildCapabilityRows({ tools: [], isToolEnabled: () => false }),
+    ).toEqual([]);
     expect(ɵbuildCapabilityRows({ isToolEnabled: () => false })).toEqual([]);
   });
 });
@@ -3405,8 +3407,7 @@ describe("WebInspectorElement Capabilities tab", () => {
       agents: {},
       context: {},
       properties: {},
-      runtimeConnectionStatus:
-        CopilotKitCoreRuntimeConnectionStatus.Connected,
+      runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
       subscribe: () => ({ unsubscribe: () => undefined }),
       getThreadStores: () => ({}),
       getThreadStore: () => undefined,

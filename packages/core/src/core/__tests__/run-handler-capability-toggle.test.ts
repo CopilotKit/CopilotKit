@@ -11,15 +11,24 @@ describe("RunHandler capability toggle", () => {
   it("omits a tool from buildFrontendTools once disabled via setToolEnabled", () => {
     const runHandler = createRunHandler();
     runHandler.initialize([
-      { name: "chart", description: "renders a chart", parameters: z.object({}) },
+      {
+        name: "chart",
+        description: "renders a chart",
+        parameters: z.object({}),
+      },
       { name: "map", description: "renders a map", parameters: z.object({}) },
     ]);
 
-    expect(runHandler.buildFrontendTools().map((t) => t.name)).toEqual(["chart", "map"]);
+    expect(runHandler.buildFrontendTools().map((t) => t.name)).toEqual([
+      "chart",
+      "map",
+    ]);
 
     runHandler.setToolEnabled("map", false);
 
-    expect(runHandler.buildFrontendTools().map((t) => t.name)).toEqual(["chart"]);
+    expect(runHandler.buildFrontendTools().map((t) => t.name)).toEqual([
+      "chart",
+    ]);
     expect(runHandler.isToolEnabled("map")).toBe(false);
     expect(runHandler.isToolEnabled("chart")).toBe(true);
   });
@@ -31,7 +40,9 @@ describe("RunHandler capability toggle", () => {
     expect(runHandler.buildFrontendTools()).toHaveLength(0);
 
     runHandler.setToolEnabled("chart", true);
-    expect(runHandler.buildFrontendTools().map((t) => t.name)).toEqual(["chart"]);
+    expect(runHandler.buildFrontendTools().map((t) => t.name)).toEqual([
+      "chart",
+    ]);
   });
 
   it("override survives re-registration (setTools) — keyed by name+agentId, not object identity", () => {
@@ -90,6 +101,8 @@ describe("RunHandler capability toggle", () => {
 
     // buildFrontendTools for A's scope drops A; B still appears in its own scope.
     expect(runHandler.buildFrontendTools("a").map((t) => t.name)).toEqual([]);
-    expect(runHandler.buildFrontendTools("a b").map((t) => t.name)).toEqual(["c"]);
+    expect(runHandler.buildFrontendTools("a b").map((t) => t.name)).toEqual([
+      "c",
+    ]);
   });
 });

@@ -569,7 +569,10 @@ interface MemoryStore {
    * `score`. Does NOT mutate the snapshot — a one-shot query. Rejects when no
    * context is set or the request fails.
    */
-  recall(query: string, opts?: { limit?: number; scope?: MemoryScope }): Promise<Memory[]>;
+  recall(
+    query: string,
+    opts?: { limit?: number; scope?: MemoryScope },
+  ): Promise<Memory[]>;
   /** Creates a memory; resolves to the stored memory (server-authoritative). */
   addMemory(input: NewMemory): Promise<Memory>;
   /** Supersedes a memory; resolves to the new memory (its id changes). */
