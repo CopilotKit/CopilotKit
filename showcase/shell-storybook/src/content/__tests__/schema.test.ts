@@ -1,9 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { validatePersonas } from "../../lib/story";
+import {
+  getAdjacentPages,
+  getAllStoryParams,
+  getPersona,
+  getStoryPage,
+  validatePersonas,
+} from "../../lib/story";
 import type {
   DeepDive,
   Persona,
+  PersonaSlug,
   ResourceRef,
   StoryPage,
   VisualRef,
@@ -58,6 +65,106 @@ function expectInvalid(value: readonly Persona[], ...context: string[]): void {
     expect(message).toContain(fragment);
   }
 }
+
+function storyFixtures(): {
+  personas: readonly Persona[];
+  first: StoryPage;
+  middle: StoryPage;
+  final: StoryPage;
+  other: Persona;
+} {
+  const first = page({ slug: "first", title: "First" });
+  const middle = page({ slug: "middle", title: "Middle" });
+  const final = page({ slug: "final", title: "Final" });
+  const other = persona({
+    slug: "product-lead",
+    name: "Product lead",
+    group: "leadership",
+    pages: [page({ slug: "other", title: "Other" })],
+  });
+
+  return {
+    personas: [persona({ pages: [first, middle, final] }), other],
+    first,
+    middle,
+    final,
+    other,
+  };
+}
+
+describe("story lookups", () => {
+  it("finds a persona by slug and returns undefined for an unknown slug", () => {
+    const { personas } = storyFixtures();
+
+    expect(getPersona(personas, "marketing-lead")).toBe(personas[0]);
+    expect(getPersona(personas, "unknown-persona")).toBeUndefined();
+  });
+
+  it("finds a page within a persona and returns undefined for an unknown page", () => {
+    const { personas, middle } = storyFixtures();
+    const targetPersona = personas[0];
+
+    expect(getStoryPage(targetPersona, "middle")).toBe(middle);
+    expect(getStoryPage(targetPersona, "unknown-page")).toBeUndefined();
+  });
+
+  it("returns only the next page for the first page", () => {
+    const { personas, middle } = storyFixtures();
+
+    expect(getAdjacentPages(personas[0], "first")).toEqual({ next: middle });
+  });
+
+  it("returns the previous and next pages for a middle page", () => {
+    const { personas, first, final } = storyFixtures();
+
+    expect(getAdjacentPages(personas[0], "middle")).toEqual({
+      previous: first,
+      next: final,
+    });
+  });
+
+  it("returns only the previous page for the final page", () => {
+    const { personas, middle } = storyFixtures();
+
+    expect(getAdjacentPages(personas[0], "final")).toEqual({
+      previous: middle,
+    });
+  });
+
+  it("does not resolve an adjacent page from another persona", () => {
+    const { personas, other } = storyFixtures();
+
+    expect(getAdjacentPages(personas[0], other.pages[0].slug)).toEqual({});
+  });
+
+  it("returns no adjacent pages for an unknown page", () => {
+    const { personas } = storyFixtures();
+
+    expect(getAdjacentPages(personas[0], "unknown-page")).toEqual({});
+  });
+
+  it("returns no adjacent pages for a single-page persona", () => {
+    const { other } = storyFixtures();
+
+    expect(getAdjacentPages(other, "other")).toEqual({});
+  });
+
+  it("returns every story param in source order without mutation", () => {
+    const { personas } = storyFixtures();
+    const before = structuredClone(personas);
+
+    const params: Array<{ persona: PersonaSlug; page: string }> =
+      getAllStoryParams(personas);
+
+    expect(params).toEqual([
+      { persona: "marketing-lead", page: "first" },
+      { persona: "marketing-lead", page: "middle" },
+      { persona: "marketing-lead", page: "final" },
+      { persona: "product-lead", page: "other" },
+    ]);
+    expect(personas).toEqual(before);
+  });
+});
 
 describe("validatePersonas", () => {
   it("rejects a non-array collection with a shape-specific error", () => {

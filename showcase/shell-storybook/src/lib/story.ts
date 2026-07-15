@@ -5,6 +5,7 @@ import type {
   ConceptId,
   Persona,
   PersonaGroup,
+  PersonaSlug,
   ResourceRef,
   StoryPage,
 } from "../content/types";
@@ -61,6 +62,50 @@ const ownershipPerspectives = {
 const forbiddenDashPattern = /[–—]/u;
 
 type UnknownRecord = Record<string, unknown>;
+
+export function getPersona(
+  personas: readonly Persona[],
+  slug: string,
+): Persona | undefined {
+  return personas.find((persona) => persona.slug === slug);
+}
+
+export function getStoryPage(
+  persona: Persona,
+  pageSlug: string,
+): StoryPage | undefined {
+  return persona.pages.find((page) => page.slug === pageSlug);
+}
+
+export function getAdjacentPages(
+  persona: Persona,
+  pageSlug: string,
+): { previous?: StoryPage; next?: StoryPage } {
+  const pageIndex = persona.pages.findIndex((page) => page.slug === pageSlug);
+
+  if (pageIndex === -1) {
+    return {};
+  }
+
+  const previous = persona.pages[pageIndex - 1];
+  const next = persona.pages[pageIndex + 1];
+
+  return {
+    ...(previous ? { previous } : {}),
+    ...(next ? { next } : {}),
+  };
+}
+
+export function getAllStoryParams(
+  personas: readonly Persona[],
+): Array<{ persona: PersonaSlug; page: string }> {
+  return personas.flatMap((persona) =>
+    persona.pages.map((page) => ({
+      persona: persona.slug,
+      page: page.slug,
+    })),
+  );
+}
 
 function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
