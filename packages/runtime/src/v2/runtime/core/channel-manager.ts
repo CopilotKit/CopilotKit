@@ -28,8 +28,8 @@ import type { Channel } from "@copilotkit/channels";
  *   handler does NOT own its lifecycle — the developer starts it via
  *   `channel.start()`. The manager records the Channel with this status purely so
  *   its presence is observable and never misreported as `online`. It is neither
- *   activated, awaited, nor stopped here. Real per-platform routing of direct
- *   channels is tracked in OSS-486.
+ *   activated, awaited, nor stopped here. Real routing of direct channels is
+ *   deferred (tracked in OSS-486).
  * - `error`: activation rejected with a non-setup error, OR a previously-online
  *   session gave up reconnecting after its bounded reconnect window.
  */
@@ -349,23 +349,25 @@ export class ChannelManager implements ChannelsControl {
     this.assertUniqueChannelNames();
     this.activated = true;
 
-    // Partition declared Channels by transport. A Channel carrying any adapter
+    // Partition declared Channels by transport. A Channel carrying ANY adapter
     // that is NOT the Intelligence managed adapter (a developer-supplied
     // slack/discord/... adapter, which lacks `__intelligenceChannel`) is a
     // DIRECT channel: it is started by the developer via `channel.start()`, not
-    // managed-activated here. Delivery is EXCLUSIVE-PER-PLATFORM — a platform is
-    // served by EITHER a managed OR a direct adapter, never both: attaching the
-    // managed adapter alongside a direct one would double-deliver every turn
-    // (and trip the SDK's `assertExclusive` guard, moving the Channel to
-    // `error`). Per the SoT rule, never infer managed intent from a local direct
-    // adapter — direct adapters remain additive, and a managed-eligible Channel
-    // has an empty `adapters` at declaration time. True managed+direct
-    // coexistence for the same platform is tracked in OSS-484.
+    // managed-activated here. The skip is EXCLUSIVE PER CHANNEL, not per platform
+    // — a Channel served by a direct adapter is not also managed: ANY direct
+    // adapter makes the WHOLE Channel `unmanaged` and skips managed activation,
+    // regardless of platform. Attaching the managed adapter alongside a direct
+    // one would double-deliver every turn (and trip the SDK's `assertExclusive`
+    // guard, moving the Channel to `error`). Per the SoT rule, never infer
+    // managed intent from a local direct adapter — a managed-eligible Channel has
+    // an empty `adapters` at declaration time. Managed+direct coexistence on the
+    // same Channel is NOT supported today; it is deferred (OSS-484), as is real
+    // routing of direct channels (OSS-486).
     for (const channel of this.channels) {
       const isDirect = channel.adapters.some((a) => !a.__intelligenceChannel);
       if (isDirect) {
         this.log?.(
-          `channel "${channel.name!}" carries a direct adapter — recording status "unmanaged" and skipping managed activation (this handler does not own its lifecycle; start it via channel.start(); exclusive-per-platform: managed OR direct per platform, not both — coexistence tracked in OSS-484; real per-platform routing of direct channels tracked in OSS-486)`,
+          `channel "${channel.name!}" carries a direct adapter — recording status "unmanaged" and skipping managed activation (this handler does not own its lifecycle; start it via channel.start(); exclusive per Channel: a Channel served by a direct adapter is not also managed, regardless of platform — managed+direct coexistence deferred (OSS-484); routing of direct channels deferred (OSS-486))`,
         );
         // Record an EXPLICIT `unmanaged` entry rather than skipping silently.
         // A skipped Channel with no entry vanishes from status()/computeOverall,
