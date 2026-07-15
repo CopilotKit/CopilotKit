@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/channels-whatsapp",
-  "version": "0.0.2",
+  "version": "0.2.0",
   "description": "WhatsApp Cloud API platform adapter for CopilotKit JSX channels (@copilotkit/channels).",
   "license": "MIT",
   "repository": {
