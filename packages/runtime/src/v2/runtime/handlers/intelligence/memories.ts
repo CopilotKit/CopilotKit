@@ -117,18 +117,30 @@ function parseMemoryBody(body: Record<string, unknown>):
 }
 
 /**
- * Validates the recall body: `query` required non-empty string; `limit` optional
- * number; `scope` optional and in the known scopes. Returns a 400 Response on invalid input.
+ * Validates the recall body: `query` required non-empty string (trimmed);
+ * `limit` optional finite positive integer; `scope` optional and in the known
+ * scopes. Returns a 400 Response on invalid input. The returned `query` is the
+ * trimmed value so a whitespace-padded query is never forwarded to the platform.
  */
 function parseRecallBody(body: Record<string, unknown>):
   | { query: string; limit?: number; scope?: string }
   | Response {
   const { query, limit, scope } = body;
-  if (typeof query !== "string" || query.length === 0) {
+  // Trim before the emptiness check so whitespace-only queries (e.g. "   ")
+  // are rejected rather than forwarded as a useless query to the platform.
+  const trimmedQuery = typeof query === "string" ? query.trim() : query;
+  if (typeof trimmedQuery !== "string" || trimmedQuery.length === 0) {
     return errorResponse("Recall requires a non-empty string `query`", 400);
   }
-  if (limit !== undefined && typeof limit !== "number") {
-    return errorResponse("Recall `limit` must be a number when provided", 400);
+  // When provided, `limit` must be a finite positive integer. `Number.isInteger`
+  // already rejects NaN, Infinity, and fractions (NaN/Infinity would otherwise
+  // JSON-serialize to `null` and silently corrupt the forwarded request);
+  // the `> 0` guard rejects zero and negatives.
+  if (
+    limit !== undefined &&
+    !(typeof limit === "number" && Number.isInteger(limit) && limit > 0)
+  ) {
+    return errorResponse("Recall `limit` must be a positive integer", 400);
   }
   if (scope !== undefined && typeof scope !== "string") {
     return errorResponse("Recall `scope` must be a string when provided", 400);
@@ -137,7 +149,7 @@ function parseRecallBody(body: Record<string, unknown>):
     return errorResponse("Recall `scope` must be one of: user, project", 400);
   }
   return {
-    query,
+    query: trimmedQuery,
     ...(typeof limit === "number" ? { limit } : {}),
     ...(typeof scope === "string" ? { scope } : {}),
   };

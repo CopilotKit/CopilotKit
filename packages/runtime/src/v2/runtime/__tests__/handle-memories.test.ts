@@ -656,6 +656,65 @@ describe("memory handlers", () => {
     expect(intelligence.recallMemories).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["Infinity", Infinity],
+    ["NaN", NaN],
+    ["a negative", -1],
+    ["a fraction", 2.5],
+  ])(
+    "returns 400 and does not call recallMemories for %s recall limit",
+    async (_label, limit) => {
+      const intelligence = { recallMemories: vi.fn() };
+      const runtime = createIntelligenceRuntime({ intelligence });
+
+      const response = await handleRecallMemories({
+        runtime,
+        request: jsonRequest("/memories/recall", "POST", {
+          query: "hi",
+          limit,
+        }),
+      });
+
+      expect(response.status).toBe(400);
+      expect(intelligence.recallMemories).not.toHaveBeenCalled();
+    },
+  );
+
+  it("returns 400 and does not call recallMemories for a whitespace-only query", async () => {
+    const intelligence = { recallMemories: vi.fn() };
+    const runtime = createIntelligenceRuntime({ intelligence });
+
+    const response = await handleRecallMemories({
+      runtime,
+      request: jsonRequest("/memories/recall", "POST", { query: "   " }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(intelligence.recallMemories).not.toHaveBeenCalled();
+  });
+
+  it("passes a valid query + limit and forwards the trimmed query", async () => {
+    const intelligence = {
+      recallMemories: vi.fn().mockResolvedValue({ memories: [] }),
+    };
+    const runtime = createIntelligenceRuntime({ intelligence });
+
+    const response = await handleRecallMemories({
+      runtime,
+      request: jsonRequest("/memories/recall", "POST", {
+        query: "  x  ",
+        limit: 5,
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(intelligence.recallMemories).toHaveBeenCalledWith({
+      userId: "user-1",
+      query: "x",
+      limit: 5,
+    });
+  });
+
   it("returns 422 for recall when intelligence is not configured", async () => {
     const runtime = new CopilotRuntime({ agents: {} });
 
