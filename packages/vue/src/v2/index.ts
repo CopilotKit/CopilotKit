@@ -15,11 +15,7 @@ export type {
   A2UIActionInterceptor,
   A2UIRecoveryRendererOptions,
 } from "./a2ui";
-export {
-  a2uiDefaultTheme,
-  createA2UIMessageRenderer,
-  runA2UIAction,
-} from "./a2ui";
+export { a2uiDefaultTheme, createA2UIMessageRenderer } from "./a2ui";
 export {
   ThemeProvider as A2UIThemeProvider,
   useTheme as useA2UITheme,

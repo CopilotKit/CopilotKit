@@ -4,6 +4,7 @@ import {
   defineComponent,
   h,
   onBeforeUnmount,
+  onMounted,
   ref,
   shallowRef,
   watch,
@@ -24,7 +25,8 @@ import type { A2UIRecoveryRendererOptions } from "./A2UIRecoveryStates";
 import { getOperationSurfaceId } from "./operations";
 
 const A2UI_OPERATIONS_KEY = "a2ui_operations";
-const DEFAULT_SURFACE_ID = "default";
+const isClient =
+  typeof window !== "undefined" && typeof requestAnimationFrame === "function";
 
 export type A2UIUserAction = {
   name: string;
@@ -174,8 +176,7 @@ export function createA2UIMessageRenderer(
         const groupedOperations = computed(() => {
           const groups = new Map<string, any[]>();
           for (const operation of operations.value) {
-            const surfaceId =
-              getOperationSurfaceId(operation) ?? DEFAULT_SURFACE_ID;
+            const surfaceId = getOperationSurfaceId(operation);
             if (!groups.has(surfaceId)) {
               groups.set(surfaceId, []);
             }
@@ -186,20 +187,17 @@ export function createA2UIMessageRenderer(
 
         const hasOps = computed(() => groupedOperations.value.size > 0);
 
-        const contentHasOps = computed(
-          () =>
-            Array.isArray(props.content?.[A2UI_OPERATIONS_KEY]) &&
-            props.content[A2UI_OPERATIONS_KEY].length > 0,
-        );
-
         watch(
-          contentHasOps,
-          (value) => {
-            if (!value) {
-              lastLoaderContentRef.value = props.content;
+          () => props.content,
+          (content) => {
+            const incoming = content?.[A2UI_OPERATIONS_KEY];
+            const hasIncomingOps =
+              Array.isArray(incoming) && incoming.length > 0;
+            if (!hasIncomingOps) {
+              lastLoaderContentRef.value = content;
             }
           },
-          { immediate: true },
+          { immediate: true, deep: false },
         );
 
         function clearTimers() {
@@ -216,27 +214,34 @@ export function createA2UIMessageRenderer(
         function markSurfaceReady() {
           if (readyRef.value) return;
           readyRef.value = true;
-          revealFrame = requestAnimationFrame(() => {
+          if (isClient) {
+            revealFrame = requestAnimationFrame(() => {
+              surfaceReady.value = true;
+              revealFrame = null;
+            });
+          } else {
             surfaceReady.value = true;
-            revealFrame = null;
-          });
+          }
         }
 
-        watch(
-          hasOps,
-          (value) => {
-            clearTimers();
-            if (!value) {
-              surfaceReady.value = false;
-              readyRef.value = false;
-              return;
-            }
-            fallbackTimer = setTimeout(() => {
-              surfaceReady.value = true;
-            }, 8000);
-          },
-          { immediate: true },
-        );
+        function syncReadinessFallback(hasOperations: boolean) {
+          clearTimers();
+          if (!hasOperations) {
+            surfaceReady.value = false;
+            readyRef.value = false;
+            return;
+          }
+          if (!isClient) return;
+          fallbackTimer = setTimeout(() => {
+            surfaceReady.value = true;
+          }, 8000);
+        }
+
+        watch(hasOps, syncReadinessFallback);
+
+        onMounted(() => {
+          syncReadinessFallback(hasOps.value);
+        });
 
         onBeforeUnmount(() => {
           clearTimers();

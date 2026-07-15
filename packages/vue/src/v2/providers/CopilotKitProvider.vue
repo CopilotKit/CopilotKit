@@ -20,7 +20,10 @@ import type { RuntimeLicenseStatus } from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { CopilotKitCoreVue } from "../lib/vue-core";
 import { createA2UIMessageRenderer } from "../a2ui/A2UIMessageRenderer";
-import { registerA2UIBuiltInToolCallRenderer } from "../a2ui/A2UIToolCallRenderer";
+import {
+  getA2UIBuiltInToolCallRenderer,
+  RENDER_A2UI_TOOL_NAME,
+} from "../a2ui/A2UIToolCallRenderer";
 import { registerA2UICatalogContext } from "../a2ui/A2UICatalogContext";
 import {
   GenerateSandboxedUiArgsSchema,
@@ -266,10 +269,17 @@ const allTools = computed(() => {
   return tools;
 });
 
+const runtimeA2UIEnabled = ref(false);
+const a2uiCatalogProvided = computed(() => !!props.a2ui?.catalog);
+const a2uiActive = computed(
+  () => runtimeA2UIEnabled.value || a2uiCatalogProvided.value,
+);
+
 const allRenderToolCalls = computed(() => {
-  const combined: VueToolCallRenderer<unknown>[] = [
-    ...(props.renderToolCalls ?? []),
-  ];
+  const userRenderers = (props.renderToolCalls ?? []).filter(
+    (rc) => !(a2uiActive.value && rc.name === RENDER_A2UI_TOOL_NAME),
+  );
+  const combined: VueToolCallRenderer<unknown>[] = [...userRenderers];
   for (const tool of [...props.frontendTools, ...builtInFrontendTools.value]) {
     if (tool.render) {
       const args = tool.parameters ?? (tool.name === "*" ? z.any() : undefined);
@@ -283,28 +293,24 @@ const allRenderToolCalls = computed(() => {
     }
   }
   combined.push(...processedHumanInTheLoop.value.renderToolCalls);
+  if (a2uiActive.value) {
+    combined.push(getA2UIBuiltInToolCallRenderer());
+  }
   return combined;
 });
 
 const allRenderCustomMessages = computed(
   () => props.renderCustomMessages ?? [],
 );
-const runtimeA2UIEnabled = ref(false);
 const runtimeOpenGenerativeUIEnabled = ref(false);
 const runtimeLicenseStatus = ref<RuntimeLicenseStatus | undefined>(undefined);
 const openGenerativeUIActive = computed(
   () => runtimeOpenGenerativeUIEnabled.value || !!props.openGenerativeUI,
 );
 // A catalog passed to the provider is enough to turn A2UI on: render the
-// surfaces locally and forward the catalog signal so the runtime injects the
-// render tool — no runtime-side `a2ui` config required.
-const a2uiCatalogProvided = computed(() => !!props.a2ui?.catalog);
-const a2uiActive = computed(
-  () => runtimeA2UIEnabled.value || a2uiCatalogProvided.value,
-);
-// Forward a per-run signal when the provider has an A2UI catalog so the
-// runtime can turn A2UI on (and inject the render tool) without a separate
-// `a2ui.injectA2UITool` flag on the runtime.
+// surfaces locally and forward the catalog signal so the runtime can turn
+// A2UI on (and inject the render tool) without a separate `a2ui.injectA2UITool`
+// flag on the runtime.
 const resolvedProperties = computed(() =>
   a2uiCatalogProvided.value
     ? { ...props.properties, a2uiCatalogAvailable: true }
@@ -563,9 +569,6 @@ const a2uiTheme = computed(() => props.a2ui?.theme);
 const a2uiCatalog = computed(() => props.a2ui?.catalog);
 const a2uiLoadingComponent = computed(() => props.a2ui?.loadingComponent);
 const a2uiIncludeSchema = computed(() => props.a2ui?.includeSchema ?? true);
-
-// A2UI tool call renderer (progress indicator) — auto-registered when A2UI enabled
-registerA2UIBuiltInToolCallRenderer(copilotkit, () => a2uiActive.value);
 
 // A2UI catalog context, schema, and generation/design guidelines
 registerA2UICatalogContext(copilotkit, {

@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, shallowRef, ref, watch } from "vue";
+import {
+  computed,
+  onBeforeUnmount,
+  onMounted,
+  shallowRef,
+  ref,
+  watch,
+} from "vue";
 import type { ActivityMessage } from "@ag-ui/core";
 import type { A2UITheme } from "./types";
 import type { A2UIOperation } from "./operations";
@@ -37,6 +44,7 @@ const processorRef =
   shallowRef<MessageProcessor<VueComponentImplementation> | null>(null);
 const version = ref(0);
 const error = ref<string | null>(null);
+const isMounted = ref(false);
 let lastOpsHash = "";
 
 function getOrCreateProcessor(): MessageProcessor<VueComponentImplementation> {
@@ -70,6 +78,8 @@ function processOperations(operations: A2UIOperation[]) {
 
   const processor = getOrCreateProcessor();
   const surfaceId = props.surfaceId ?? DEFAULT_SURFACE_ID;
+  const shouldSignalReady =
+    props.onReady != null && surfaceHasRenderableContent(operations);
 
   try {
     const existing = processor.model.getSurface(surfaceId);
@@ -78,28 +88,36 @@ function processOperations(operations: A2UIOperation[]) {
       : operations;
     processor.processMessages(filtered as never);
     error.value = null;
-
-    if (props.onReady && surfaceHasRenderableContent(operations)) {
-      props.onReady();
-    }
   } catch (err) {
     console.warn("[A2UI Vue] processMessages error:", err);
     error.value = err instanceof Error ? err.message : String(err);
   }
+
+  if (shouldSignalReady) {
+    props.onReady?.();
+  }
+
   version.value++;
 }
 
 watch(
   () => [props.content.operations, props.surfaceId],
   () => {
+    if (!isMounted.value) return;
     processOperations(props.content.operations);
   },
-  { deep: true, immediate: true },
+  { deep: true },
 );
+
+onMounted(() => {
+  isMounted.value = true;
+  processOperations(props.content.operations);
+});
 
 onBeforeUnmount(() => {
   processorRef.value = null;
   lastOpsHash = "";
+  isMounted.value = false;
 });
 
 const surfaceEntry = computed(() => {

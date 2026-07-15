@@ -1,13 +1,8 @@
-export {
-  createA2UIMessageRenderer,
-  runA2UIAction,
-  surfaceHasRenderableContent,
-} from "./A2UIMessageRenderer";
+export { createA2UIMessageRenderer } from "./A2UIMessageRenderer";
 export type {
   A2UIMessageRendererOptions,
   A2UIUserAction,
   A2UIActionInterceptor,
-  A2UIClientEventMessage,
 } from "./A2UIMessageRenderer";
 export type { A2UIRecoveryRendererOptions } from "./A2UIRecoveryStates";
 export {
@@ -20,7 +15,12 @@ export {
   resolveDebugExposure,
 } from "./A2UIRecoveryStates";
 export { registerA2UICatalogContext } from "./A2UICatalogContext";
-export { registerA2UIBuiltInToolCallRenderer } from "./A2UIToolCallRenderer";
+export {
+  getA2UIBuiltInToolCallRenderer,
+  isA2UIBuiltInToolCallRenderer,
+  RENDER_A2UI_TOOL_NAME,
+  A2UI_BUILT_IN_TOOL_RENDERER_ID,
+} from "./A2UIToolCallRenderer";
 export { default as A2UISurfaceActivityRenderer } from "./A2UISurfaceActivityRenderer.vue";
 export {
   A2UISurfaceActivityType,
