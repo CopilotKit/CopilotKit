@@ -122,6 +122,7 @@
   },
   "devDependencies": {
     "@copilotkit/aimock": "latest",
+    "@copilotkit/channels": "workspace:*",
     "@swc/core": "1.5.28",
     "@tanstack/intent": "^0.0.29",
     "@types/cors": "^2.8.17",

@@ -21,10 +21,10 @@ Configure TypeScript to use the Channels JSX runtime:
 ```
 
 ```tsx
-import { createBot, Message, Section } from "@copilotkit/channels";
+import { createChannel, Message, Section } from "@copilotkit/channels";
 import { slack } from "@copilotkit/channels/slack";
 
-const bot = createBot({
+const channel = createChannel({
   adapters: [
     slack({
       botToken: process.env.SLACK_BOT_TOKEN!,
@@ -33,7 +33,7 @@ const bot = createBot({
   ],
 });
 
-bot.onMessage(({ thread, message }) =>
+channel.onMessage(({ thread, message }) =>
   thread.post(
     <Message>
       <Section>Echo: {message.text}</Section>

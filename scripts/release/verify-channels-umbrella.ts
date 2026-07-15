@@ -232,7 +232,7 @@ function writeConsumer(
   );
   writeFileSync(
     join(consumerDir, "smoke.tsx"),
-    `import { Button, createBot, Message } from "@copilotkit/channels";
+    `import { Button, createChannel, Message } from "@copilotkit/channels";
 import { slack } from "@copilotkit/channels/slack";
 import { teams } from "@copilotkit/channels/teams";
 import { intelligenceAdapter } from "@copilotkit/channels/intelligence";
@@ -241,7 +241,7 @@ import { telegram } from "@copilotkit/channels/telegram";
 import { whatsapp } from "@copilotkit/channels/whatsapp";
 
 const view = <Message><Button>OK</Button></Message>;
-void [createBot, slack, teams, intelligenceAdapter, discord, telegram, whatsapp, view];
+void [createChannel, slack, teams, intelligenceAdapter, discord, telegram, whatsapp, view];
 `,
   );
 }

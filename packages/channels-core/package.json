@@ -1,7 +1,7 @@
 {
   "name": "@copilotkit/channels-core",
   "version": "0.1.1",
-  "description": "Platform-agnostic JSX channel engine for CopilotKit (createBot, Thread, PlatformAdapter, ActionStore).",
+  "description": "Platform-agnostic JSX channel engine for CopilotKit (createChannel, Thread, PlatformAdapter, ActionStore).",
   "license": "MIT",
   "repository": {
     "type": "git",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createBot, Message, Button } from "@copilotkit/channels";
+import { createChannel, Message, Button } from "@copilotkit/channels";
 import { runStateStoreConformance } from "@copilotkit/channels/testing";
 import { slack } from "@copilotkit/channels/slack";
 import { teams } from "@copilotkit/channels/teams";
@@ -19,7 +19,7 @@ describe("@copilotkit/channels umbrella", () => {
         <Button>OK</Button>
       </Message>
     );
-    expect(typeof createBot).toBe("function");
+    expect(typeof createChannel).toBe("function");
     expect(typeof runStateStoreConformance).toBe("function");
     expect(view.type).toBe(Message);
   });
