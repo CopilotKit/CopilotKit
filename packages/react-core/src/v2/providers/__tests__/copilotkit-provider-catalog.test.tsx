@@ -109,6 +109,31 @@ describe("CopilotKitProvider A2UI catalog toggling", () => {
     expect(capturedCore!.catalogComponents).toHaveLength(0);
   });
 
+  it("does not throw or register components for a non-Catalog catalog object", () => {
+    // A catalog-shaped object that is NOT a real `Catalog` instance, carrying a
+    // component in its Map. The `filteredCatalog` memo passes such objects
+    // through UNFILTERED, so the registration effect must ALSO skip it —
+    // otherwise "Widget" would become toggleable in the inspector while
+    // disabling never removes it (silent enforcement divergence). It must also
+    // not throw at mount when `.components` isn't a real catalog Map (a plain
+    // object would throw on `.values()` before the guard).
+    const nonCatalog = {
+      components: new Map([
+        ["Widget", { name: "Widget", schema: z.object({}) }],
+      ]),
+    };
+    expect(() =>
+      render(
+        <CopilotKitProvider a2ui={{ catalog: nonCatalog as any }}>
+          <CoreCapture />
+        </CopilotKitProvider>,
+      ),
+    ).not.toThrow();
+    // Nothing registered: not a genuine `Catalog`, so it is neither toggleable
+    // nor filtered — consistent with `filteredCatalog` passing it through.
+    expect(capturedCore!.catalogComponents).toHaveLength(0);
+  });
+
   it("re-enabling a component restores it on both paths", () => {
     render(
       <CopilotKitProvider a2ui={{ catalog: makeCatalog() }}>

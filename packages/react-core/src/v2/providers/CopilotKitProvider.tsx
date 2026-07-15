@@ -642,6 +642,15 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   // ComponentApi does not carry them (see plan A2 rationale).
   useEffect(() => {
     if (!rawCatalog) return;
+    // Only register components for genuine `Catalog` instances, mirroring the
+    // `filteredCatalog` guard above. A non-`Catalog` catalog-shaped object is
+    // passed through UNFILTERED by `filteredCatalog`, so registering its
+    // components here would make them toggleable in the inspector while
+    // disabling never actually removes them from what the model sees — a silent
+    // enforcement divergence. Guarding here keeps registration and filtering
+    // consistent (nothing registered → nothing to toggle → nothing to filter)
+    // and also avoids a mount-time throw when `.components` isn't a Map.
+    if (!(rawCatalog instanceof Catalog)) return;
     const components = Array.from(rawCatalog.components.values()).map(
       (comp: { name: string; schema: unknown }) => ({
         name: comp.name,
