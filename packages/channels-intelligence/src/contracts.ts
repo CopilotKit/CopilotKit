@@ -13,11 +13,18 @@ import type { BotNode, MessageRef } from "@copilotkit/channels-ui";
  */
 export type EgressRoute = unknown;
 
-/** Authoritative org/project/channel scope that arrived with a delivery. */
+/**
+ * Authoritative org/project/channel scope that arrived with a delivery.
+ *
+ * `organizationId`/`channelId` are OPTIONAL (OSS-473): the live Realtime
+ * Gateway join contract keys only on `projectId` + `channelName` (via
+ * `declaredChannels: [{ channelName, adapter }]`) and does not consume
+ * either field. `projectId` and `channelName` remain required.
+ */
 export interface ChannelDeliveryScope {
-  organizationId: string;
+  organizationId?: string;
   projectId: number;
-  channelId: string;
+  channelId?: string;
   channelName: string;
 }
 
@@ -29,7 +36,7 @@ export interface ChannelIngressBase {
   eventId: string;
   /** Stable per-logical-turn id. Egress operation ids derive from it. */
   turnId: string;
-  /** Channel name, which routes to the framework `Bot` named by `createBot({ name })`. */
+  /** Channel name, which routes to the framework `Channel` named by `createChannel({ name })`. */
   channelName: string;
   /** Originating platform (e.g. "slack"). Stamped onto the handler-facing message. */
   platform: string;

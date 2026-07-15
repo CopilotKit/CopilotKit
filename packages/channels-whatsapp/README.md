@@ -17,13 +17,13 @@ pnpm add @copilotkit/channels @copilotkit/channels-whatsapp
 ## Quickstart
 
 ```ts
-import { createBot } from "@copilotkit/channels";
+import { createChannel } from "@copilotkit/channels";
 import {
   whatsapp,
   defaultWhatsAppContext,
 } from "@copilotkit/channels-whatsapp";
 
-const bot = createBot({
+const bot = createChannel({
   adapters: [
     whatsapp({
       accessToken: process.env.WHATSAPP_ACCESS_TOKEN!,
@@ -136,7 +136,7 @@ The engine's `ActionStore` (from `@copilotkit/channels`) stores the minted opaqu
 that power `Button` / `Select` click handlers. By default it is in-memory: after a
 process restart, clicks on old interactive messages are acknowledged but ignored.
 For persistent interactions, pass a durable `ActionStore` to
-`createBot({ actionStore })`.
+`createChannel({ actionStore })`.
 
 ### HistoryStore (conversation memory)
 
@@ -193,7 +193,7 @@ explicitly if the agent needs to see them as history.
 
 ## Tool context
 
-Tools receive the single shared `BotToolContext` from `@copilotkit/channels`
+Tools receive the single shared `ChannelToolContext` from `@copilotkit/channels`
 (`{ thread, message?, user?, signal?, platform }`) and reach WhatsApp power through
 capability-gated `thread` methods this adapter backs:
 

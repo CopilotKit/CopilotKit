@@ -182,7 +182,7 @@ export class FakeAdapter implements PlatformAdapter {
   messages: ThreadMessage[] = [];
   /** User returned by lookupUser(); override in tests. */
   user?: PlatformUser;
-  /** Optional persistence backend the adapter provides (test-only); exercises createBot's store resolution. */
+  /** Optional persistence backend the adapter provides (test-only); exercises createChannel's store resolution. */
   stateStore?: StateStore;
   private sink?: IngressSink;
   private counter = 0;
@@ -190,7 +190,7 @@ export class FakeAdapter implements PlatformAdapter {
   /** Expose the registered sink so tests can invoke onTurn() directly for overlap/lock tests. */
   getSink(): IngressSink {
     if (!this.sink)
-      throw new Error("FakeAdapter: sink not set — call bot.start() first");
+      throw new Error("FakeAdapter: sink not set — call channel.start() first");
     return this.sink;
   }
 

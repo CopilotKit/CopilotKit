@@ -101,7 +101,7 @@ describe("ActionRegistry", () => {
     );
   });
 
-  describe("components-seeded registry (createBot components option)", () => {
+  describe("components-seeded registry (createChannel components option)", () => {
     it("enables cold dispatch after simulated restart when component is pre-registered", async () => {
       // Shared store survives the "restart" (like Redis across process restarts).
       const sharedState = new MemoryStore();
@@ -121,7 +121,7 @@ describe("ActionRegistry", () => {
       ).id;
 
       // Registry B: fresh process — no hot cache, but component is seeded via
-      // the createBot `components` option equivalent (registerComponent at startup).
+      // the createChannel `components` option equivalent (registerComponent at startup).
       const regB = new ActionRegistry({ store: kvActionStore(sharedState) });
       regB.registerComponent("Confirm", Confirm as never);
 

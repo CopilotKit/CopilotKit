@@ -10,7 +10,7 @@ vi.mock("@copilotkit/shared", async (importOriginal) => {
   return { ...actual, lambdaClient: { send: sendSpy } };
 });
 
-import { createBot } from "../create-bot.js";
+import { createChannel } from "../create-channel.js";
 import { FakeAdapter } from "../testing/fake-adapter.js";
 import { FakeAgent } from "../testing/fake-agent.js";
 
@@ -20,7 +20,7 @@ const waitFor = async (pred: () => boolean, ms = 1000) => {
     await new Promise((r) => setTimeout(r, 10));
 };
 
-describe("oss.bot.* end-to-end (real BotTelemetry, only network boundary stubbed)", () => {
+describe("oss.channel.* end-to-end (real ChannelTelemetry, only network boundary stubbed)", () => {
   const saved = { ...process.env };
   beforeEach(() => {
     sendSpy.mockClear();
@@ -36,9 +36,12 @@ describe("oss.bot.* end-to-end (real BotTelemetry, only network boundary stubbed
     process.env = { ...saved };
   });
 
-  it("flows configured -> started -> agent_run with anonymous_id + bot_session_id and no env config", async () => {
+  it("flows configured -> started -> agent_run with anonymous_id + channel_session_id and no env config", async () => {
     const fake = new FakeAdapter();
-    const bot = createBot({ adapters: [fake], agent: () => new FakeAgent() });
+    const bot = createChannel({
+      adapters: [fake],
+      agent: () => new FakeAgent(),
+    });
     bot.onMention(async ({ thread }) => {
       await thread.runAgent();
     });
@@ -46,20 +49,20 @@ describe("oss.bot.* end-to-end (real BotTelemetry, only network boundary stubbed
     fake.emitTurn({ userText: "hi", conversationKey: "c1" });
 
     await waitFor(() =>
-      sendSpy.mock.calls.some((c) => c[0].event === "oss.bot.agent_run"),
+      sendSpy.mock.calls.some((c) => c[0].event === "oss.channel.agent_run"),
     );
 
     const events = sendSpy.mock.calls.map((c) => c[0].event);
-    expect(events).toContain("oss.bot.configured");
-    expect(events).toContain("oss.bot.started");
-    expect(events).toContain("oss.bot.agent_run");
+    expect(events).toContain("oss.channel.configured");
+    expect(events).toContain("oss.channel.started");
+    expect(events).toContain("oss.channel.agent_run");
     for (const [arg] of sendSpy.mock.calls) {
       expect(typeof arg.globalProperties.anonymous_id).toBe("string");
-      expect(typeof arg.globalProperties.bot_session_id).toBe("string");
+      expect(typeof arg.globalProperties.channel_session_id).toBe("string");
       expect(arg.licenseToken).toBeUndefined(); // anonymous: no license ever attached
     }
     const run = sendSpy.mock.calls.find(
-      (c) => c[0].event === "oss.bot.agent_run",
+      (c) => c[0].event === "oss.channel.agent_run",
     )![0];
     expect(run.properties.platform).toBe("custom"); // "fake" → normalized
     expect(typeof run.properties.durationMs).toBe("number");

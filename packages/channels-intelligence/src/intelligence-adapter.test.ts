@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createBot, FakeAdapter, FakeAgent } from "@copilotkit/channels";
+import { createChannel, FakeAdapter, FakeAgent } from "@copilotkit/channels";
 import type { ReplyTarget } from "@copilotkit/channels";
 import { Section } from "@copilotkit/channels-ui";
 import type { IncomingMessage } from "@copilotkit/channels-ui";
@@ -35,7 +35,7 @@ describe("intelligenceAdapter — ingress dispatch", () => {
   it("dispatches a channel turn to the handler and emits a post egress op", async () => {
     const source = new InMemoryDeliverySource();
     const egress = new InMemoryEgressSink();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -59,7 +59,7 @@ describe("intelligenceAdapter — ingress dispatch", () => {
   it("acks the delivery after the handler completes", async () => {
     const source = new InMemoryDeliverySource();
     const egress = new InMemoryEgressSink();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -73,7 +73,7 @@ describe("intelligenceAdapter — ingress dispatch", () => {
   it("nacks the delivery when the handler throws", async () => {
     const source = new InMemoryDeliverySource();
     const egress = new InMemoryEgressSink();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -93,7 +93,7 @@ describe("intelligenceAdapter — inbound file content parts", () => {
     const egress = new InMemoryEgressSink();
     const png = new Uint8Array([1, 2, 3, 4]);
     source.files.set("fileref_abc", { bytes: png, mimeType: "image/png" });
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -132,7 +132,7 @@ describe("intelligenceAdapter — inbound file content parts", () => {
     const egress = new InMemoryEgressSink();
     // No file seeded → fetchFile throws → the part degrades to a text note
     // (fail-visible, not dropped) and the turn still dispatches + acks.
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -164,7 +164,7 @@ describe("intelligenceAdapter — inbound file content parts", () => {
       bytes: new TextEncoder().encode("hello from a file"),
       mimeType: "text/plain",
     });
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -197,7 +197,7 @@ describe("intelligenceAdapter — inbound file content parts", () => {
       bytes: new Uint8Array([1, 2, 3]),
       mimeType: "application/zip",
     });
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -228,7 +228,7 @@ describe("intelligenceAdapter — deterministic egress ids", () => {
   it("mints turnId:seq op ids and reproduces them on redelivery", async () => {
     const source = new InMemoryDeliverySource();
     const egress = new InMemoryEgressSink();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -294,7 +294,7 @@ describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
   it("routes a command to onCommand", async () => {
     const source = new InMemoryDeliverySource();
     const egress = new InMemoryEgressSink();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -317,7 +317,7 @@ describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
   it("routes an interaction to a registered onInteraction handler", async () => {
     const source = new InMemoryDeliverySource();
     const egress = new InMemoryEgressSink();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -340,7 +340,7 @@ describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
   it("stamps the clicked card's ref so an in-place update routes under the live delivery", async () => {
     const source = new InMemoryDeliverySource();
     const egress = new InMemoryEgressSink();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -375,7 +375,7 @@ describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
   it("routes a thread_started event to onThreadStarted", async () => {
     const source = new InMemoryDeliverySource();
     const egress = new InMemoryEgressSink();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -393,7 +393,7 @@ describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
   it("routes a reaction to onReaction", async () => {
     const source = new InMemoryDeliverySource();
     const egress = new InMemoryEgressSink();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -422,7 +422,7 @@ describe("intelligenceAdapter — exclusivity (V1)", () => {
 
   it("rejects combining with another adapter at construction", () => {
     expect(() =>
-      createBot({
+      createChannel({
         adapters: [ia(), new FakeAdapter()],
         agent: () => new FakeAgent(),
       }),
@@ -430,14 +430,17 @@ describe("intelligenceAdapter — exclusivity (V1)", () => {
   });
 
   it("rejects adding a second adapter to a Channel Bot", () => {
-    const bot = createBot({ adapters: [ia()], agent: () => new FakeAgent() });
+    const bot = createChannel({
+      adapters: [ia()],
+      agent: () => new FakeAgent(),
+    });
     expect(() => bot.addAdapter(new FakeAdapter())).toThrow(
       /only adapter|alternative modes/i,
     );
   });
 
   it("rejects adding intelligenceAdapter to a bot that already has an adapter", () => {
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [new FakeAdapter()],
       agent: () => new FakeAgent(),
     });

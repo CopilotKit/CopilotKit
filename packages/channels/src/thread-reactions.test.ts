@@ -1,12 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { emoji } from "@copilotkit/channels-ui";
-import { createBot } from "./create-bot.js";
+import { createChannel } from "./create-channel.js";
 import { FakeAdapter } from "./testing/fake-adapter.js";
 
 describe("Thread.react / unreact", () => {
   it("delegates to the adapter when supported", async () => {
     const fake = new FakeAdapter();
-    const bot = createBot({ adapters: [fake] });
+    const bot = createChannel({ adapters: [fake] });
     const results: { ok: boolean }[] = [];
     bot.onMessage(async ({ thread, message }) => {
       results.push(await thread.react(message.ref, emoji.thumbs_up));
@@ -27,7 +27,7 @@ describe("Thread.react / unreact", () => {
 
   it("returns { ok: false } without throwing when unsupported", async () => {
     const fake = new FakeAdapter({ reactions: false });
-    const bot = createBot({ adapters: [fake] });
+    const bot = createChannel({ adapters: [fake] });
     let res: { ok: boolean; error?: string } | undefined;
     bot.onMessage(async ({ thread, message }) => {
       res = await thread.react(message.ref, emoji.heart);

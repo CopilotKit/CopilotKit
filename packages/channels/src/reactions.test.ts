@@ -1,7 +1,7 @@
 // packages/channels/src/reactions.test.ts
 import { describe, it, expect } from "vitest";
 import { emoji, Message } from "@copilotkit/channels-ui";
-import { createBot } from "./create-bot.js";
+import { createChannel } from "./create-channel.js";
 import { FakeAdapter } from "./testing/fake-adapter.js";
 import { MemoryStore } from "./state/memory-store.js";
 
@@ -10,7 +10,7 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
 describe("bot.onReaction", () => {
   it("routes a specific reaction, normalizing the platform token", async () => {
     const fake = new FakeAdapter();
-    const bot = createBot({ adapters: [fake] });
+    const bot = createChannel({ adapters: [fake] });
     const seen: { emoji: string; raw: string; added: boolean }[] = [];
     bot.onReaction([emoji.thumbs_up], (evt) => {
       seen.push({ emoji: evt.emoji, raw: evt.rawEmoji, added: evt.added });
@@ -27,7 +27,7 @@ describe("bot.onReaction", () => {
 
   it("fires a catch-all for any reaction and reports added/removed", async () => {
     const fake = new FakeAdapter();
-    const bot = createBot({ adapters: [fake] });
+    const bot = createChannel({ adapters: [fake] });
     const seen: {
       raw: string;
       added: boolean;
@@ -69,7 +69,7 @@ describe("bot.onReaction", () => {
     // A fake whose platform === "slack" so normalizeEmoji maps the shortcode.
     const fake = new FakeAdapter();
     Object.defineProperty(fake, "platform", { value: "slack" });
-    const bot = createBot({ adapters: [fake] });
+    const bot = createChannel({ adapters: [fake] });
     const hits: string[] = [];
     bot.onReaction(["thumbs_up"], (evt) => {
       hits.push(evt.emoji);
@@ -82,7 +82,7 @@ describe("bot.onReaction", () => {
 
   it("routes a reaction on a posted message to its <Message onReaction>", async () => {
     const fake = new FakeAdapter();
-    const bot = createBot({ adapters: [fake] });
+    const bot = createChannel({ adapters: [fake] });
     const seen: { emoji: string; added: boolean }[] = [];
     bot.onMessage(async ({ thread }) => {
       await thread.post(
@@ -111,7 +111,7 @@ describe("bot.onReaction", () => {
 
   it("resolves <Message onReaction> by postedMessageId when the reaction id differs (Channel path)", async () => {
     const fake = new FakeAdapter();
-    const bot = createBot({ adapters: [fake] });
+    const bot = createChannel({ adapters: [fake] });
     const seen: string[] = [];
     bot.onMessage(async ({ thread }) => {
       await thread.post(
@@ -153,7 +153,7 @@ describe("bot.onReaction", () => {
 
     // Bot 1 posts the component message, persisting a reaction snapshot.
     const fake1 = new FakeAdapter();
-    const bot1 = createBot({
+    const bot1 = createChannel({
       adapters: [fake1],
       store: { adapter: backend },
       components: [Card],
@@ -170,7 +170,7 @@ describe("bot.onReaction", () => {
     // "Restart": a fresh bot + registry sharing the same store, Card re-registered.
     // Its reaction hot cache is empty, so it must resolve via the durable snapshot.
     const fake2 = new FakeAdapter();
-    const bot2 = createBot({
+    const bot2 = createChannel({
       adapters: [fake2],
       store: { adapter: backend },
       components: [Card],
@@ -183,7 +183,7 @@ describe("bot.onReaction", () => {
 
   it("gives the handler a thread to post new UI and the reacted message's ref", async () => {
     const fake = new FakeAdapter();
-    const bot = createBot({ adapters: [fake] });
+    const bot = createChannel({ adapters: [fake] });
     let seenRefId: string | undefined;
     bot.onMessage(async ({ thread }) => {
       await thread.post(
@@ -210,7 +210,7 @@ describe("bot.onReaction", () => {
 
   it("does not fire a message handler for a reaction on a different message", async () => {
     const fake = new FakeAdapter();
-    const bot = createBot({ adapters: [fake] });
+    const bot = createChannel({ adapters: [fake] });
     let fired = false;
     bot.onMessage(async ({ thread }) => {
       await thread.post(
@@ -235,7 +235,7 @@ describe("bot.onReaction", () => {
     // Slack alias to the canonical "thumbs_up", so the filter must too.
     const fake = new FakeAdapter();
     Object.defineProperty(fake, "platform", { value: "slack" });
-    const bot = createBot({ adapters: [fake] });
+    const bot = createChannel({ adapters: [fake] });
     const hits: string[] = [];
     bot.onReaction(["👍"], (evt) => {
       hits.push(evt.emoji);

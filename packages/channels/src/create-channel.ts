@@ -16,9 +16,9 @@ import { MemoryStore } from "./state/memory-store.js";
 import { kvActionStore } from "./state/kv-action-store.js";
 import type { StateStore } from "./state/state-store.js";
 import { toAgentToolDescriptors, parseToolArgs } from "./tools.js";
-import type { BotTool, ContextEntry } from "./tools.js";
+import type { ChannelTool, ContextEntry } from "./tools.js";
 import { normalizeCommandName, toCommandSpec } from "./commands.js";
-import type { BotCommand, CommandContext } from "./commands.js";
+import type { ChannelCommand, CommandContext } from "./commands.js";
 import { Thread } from "./thread.js";
 import type { ThreadDeps } from "./thread.js";
 import type { AbstractAgent } from "@ag-ui/client";
@@ -40,7 +40,7 @@ import {
 import { Transcripts } from "./transcripts.js";
 import type { Identity, TranscriptsConfig } from "./transcripts.js";
 import type { StandardSchemaV1, InferSchemaOutput } from "./standard-schema.js";
-import { BotTelemetry } from "./telemetry/bot-telemetry.js";
+import { ChannelTelemetry } from "./telemetry/channel-telemetry.js";
 import { errorClass, normalizePlatform } from "./telemetry/sanitize-error.js";
 import { createRequire } from "node:module";
 
@@ -70,15 +70,37 @@ function isEmojiPlatform(platform: string): platform is EmojiPlatform {
 export type LockConflictDecision = "drop" | "force";
 
 /**
+ * The managed delivery provider a no-adapter Channel targets when it is
+ * activated through CopilotKit Intelligence.
+ *
+ * This is the platform the runtime *declares* to the Intelligence gateway on
+ * join; the gateway resolves the actual connection (workspace, credentials,
+ * transport) for that provider. It is a per-Channel choice — one runtime can
+ * declare a Slack-backed Channel and a Teams-backed Channel side by side.
+ *
+ * A CLOSED union of the providers the gateway has real/coordinated support for.
+ * `"slack"` is generally available. `"teams"` is GATED/COORDINATED: the gateway
+ * accepts only `"slack"` at join today, so declaring `provider: "teams"` is
+ * SDK-ready but NOT generally available until the coordinated gateway path lands
+ * (Intelligence OSS-450 / #511).
+ *
+ * Distinct from a {@link PlatformAdapter} attached via
+ * `createChannel({ adapters })` / {@link Channel.addAdapter}: an adapter is a
+ * *direct*, developer-owned connection this handler does not manage, whereas
+ * `provider` selects the *managed* platform for a Channel with no adapters.
+ */
+export type ManagedChannelProvider = "slack" | "teams";
+
+/**
  * Any `@copilotkit/channels-ui` component function, regardless of its props type.
  * Accepting `(props: never)` lets a component with required, strongly-typed
  * props (e.g. `({ title }: { title: string }) => …`) be passed to
- * `createBot({ components })` without a cast — the registry only ever calls it
+ * `createChannel({ components })` without a cast — the registry only ever calls it
  * with the props persisted in the store, so the specific shape isn't needed here.
  */
-export type BotComponent = (props: never) => ReturnType<ComponentFn>;
+export type ChannelComponent = (props: never) => ReturnType<ComponentFn>;
 
-export type BotHandler<TState = unknown> = (ctx: {
+export type ChannelHandler<TState = unknown> = (ctx: {
   thread: StatefulThread<TState>;
   message: IncomingMessage;
 }) => void | Promise<void>;
@@ -171,7 +193,7 @@ export interface StoreConfig<
   dedupTtl?: number;
 }
 
-export interface CreateBotOptions<
+export interface CreateChannelOptions<
   TStateSchema extends StandardSchemaV1 | undefined = undefined,
 > {
   /**
@@ -183,13 +205,29 @@ export interface CreateBotOptions<
   name?: string;
   /**
    * Adapters supplied at construction. Optional — adapters can also be attached
-   * before `start()` via {@link Bot.addAdapter} (the Channel runtime uses this).
+   * before `start()` via {@link Channel.addAdapter} (the Channel runtime uses this).
    */
   adapters?: PlatformAdapter[];
+  /**
+   * The managed delivery provider this Channel targets when it is activated via
+   * CopilotKit Intelligence (a no-adapter, managed Channel). The runtime
+   * declares this provider to the Intelligence gateway on join; the gateway
+   * resolves the actual connection. Defaults to `"slack"` when unset.
+   *
+   * `provider: "teams"` is GATED: it is SDK-ready, but the gateway accepts only
+   * `"slack"` at join today, so Teams is not generally available until the
+   * coordinated gateway path lands (Intelligence OSS-450 / #511). See
+   * {@link ManagedChannelProvider}.
+   *
+   * Ignored for direct-adapter Channels (those created with `adapters` /
+   * {@link Channel.addAdapter}) — a direct Channel is owned by the developer's
+   * own adapter, not by managed activation.
+   */
+  provider?: ManagedChannelProvider;
   agent?: AbstractAgent | ((threadId: string) => AbstractAgent);
   /** @deprecated Pass `store.adapter` instead. */
   actionStore?: ActionStore;
-  tools?: BotTool[];
+  tools?: ChannelTool[];
   context?: ContextEntry[];
   /**
    * Named JSX components used in interactive messages. Registering them here
@@ -197,20 +235,29 @@ export interface CreateBotOptions<
    * actions); without registration, a click on a message posted before the
    * restart degrades to "action expired".
    */
-  components?: BotComponent[];
+  components?: ChannelComponent[];
   /** Slash commands. Forwarded to adapters that support them; ignored elsewhere. */
-  commands?: BotCommand[];
+  commands?: ChannelCommand[];
   /** Persistence, per-thread state schema, transcripts, and lock/dedup tuning. */
   store?: StoreConfig<TStateSchema>;
 }
 
-export interface Bot<TState = unknown> {
-  /** Project-unique identifier from `createBot({ name })`; used by the Channel runtime. */
+export interface Channel<TState = unknown> {
+  /** Project-unique identifier from `createChannel({ name })`; used by the Channel runtime. */
   readonly name?: string;
+  /** Adapters currently attached to this Channel (read-only snapshot). The Channel runtime uses this to distinguish a managed-eligible Channel (no adapters) from one carrying developer-supplied direct adapters. */
+  readonly adapters: readonly PlatformAdapter[];
+  /**
+   * The managed delivery provider a no-adapter Channel targets when activated
+   * via CopilotKit Intelligence (from `createChannel({ provider })`). Declared
+   * to the Intelligence gateway on join; `undefined` means the managed default
+   * (`"slack"`). Ignored for direct-adapter Channels.
+   */
+  readonly provider?: ManagedChannelProvider;
   /** Declared slash-command names (normalized). Surfaced for Channel activation metadata. */
   readonly commandNames: string[];
-  onMention(h: BotHandler<TState>): void;
-  onMessage(h: BotHandler<TState>): void;
+  onMention(h: ChannelHandler<TState>): void;
+  onMessage(h: ChannelHandler<TState>): void;
   /**
    * A conversation surface opened (e.g. the Slack assistant pane). Greet, set
    * suggested prompts, set a title, or run the agent. Adapters without the
@@ -235,7 +282,7 @@ export interface Bot<TState = unknown> {
     }) => void | Promise<void>,
   ): void;
   /** Register a slash command (with optional typed options). */
-  onCommand(command: BotCommand): void;
+  onCommand(command: ChannelCommand): void;
   /** Register a free-text slash command by name. */
   onCommand(
     name: string,
@@ -248,7 +295,7 @@ export interface Bot<TState = unknown> {
   onModalSubmit(callbackId: string, handler: ModalSubmitHandler): void;
   /** Handle a modal dismissal for `callbackId` (Slack `view_closed`). */
   onModalClose(callbackId: string, handler: ModalCloseHandler): void;
-  tool(t: BotTool): void;
+  tool(t: ChannelTool): void;
   /** Attach an adapter before `start()`. Throws if called after the bot has started. */
   addAdapter(adapter: PlatformAdapter): void;
   start(): Promise<void>;
@@ -273,14 +320,14 @@ function msgFromTurn(turn: IncomingTurn): IncomingMessage {
 
 /**
  * Enforce V1 Intelligence Channel exclusivity: an Intelligence Channel adapter
- * (`intelligenceAdapter`) must be the only adapter on a bot. Channel and direct delivery are
- * alternative modes per platform — Intelligence holds the platform creds, or
+ * (`intelligenceAdapter`) must be the only adapter on a Channel. Channel and direct delivery are
+ * alternative modes on a Channel — Intelligence holds the platform creds, or
  * the runtime does, never both.
  */
 function assertExclusive(adapters: PlatformAdapter[]): void {
   if (adapters.some((a) => a.__intelligenceChannel) && adapters.length > 1) {
     throw new Error(
-      "intelligenceAdapter() must be the only adapter on a bot — Channel and " +
+      "intelligenceAdapter() must be the only adapter on a Channel — Channel and " +
         "direct delivery are alternative modes. Use intelligenceAdapter() OR " +
         "direct adapters (slack/discord/...), not both.",
     );
@@ -300,7 +347,7 @@ function resolveBackend(
   const providers = adapters.filter((a) => a.stateStore);
   if (providers.length > 1) {
     console.warn(
-      `[bot] multiple adapters provide a state store (${providers
+      `[channel] multiple adapters provide a state store (${providers
         .map((a) => a.platform)
         .join(
           ", ",
@@ -310,16 +357,18 @@ function resolveBackend(
   return providers[0]?.stateStore ?? new MemoryStore();
 }
 
-export function createBot<
+export function createChannel<
   TStateSchema extends StandardSchemaV1 | undefined = undefined,
->(opts: CreateBotOptions<TStateSchema>): Bot<ThreadStateOf<TStateSchema>> {
+>(
+  opts: CreateChannelOptions<TStateSchema>,
+): Channel<ThreadStateOf<TStateSchema>> {
   const cfg = opts.store ?? {};
   if (
     (cfg.identity && !cfg.transcripts) ||
     (!cfg.identity && cfg.transcripts)
   ) {
     throw new Error(
-      "createBot: `identity` and `transcripts` must be configured together.",
+      "createChannel: `identity` and `transcripts` must be configured together.",
     );
   }
 
@@ -331,13 +380,13 @@ export function createBot<
 
   // Backend, transcripts, telemetry, the action registry, and component
   // registration are resolved in `start()` — not at construction — so an
-  // adapter added via `addAdapter` after `createBot` can still supply the
+  // adapter added via `addAdapter` after `createChannel` can still supply the
   // persistence backend (see `resolveBackend`). Nothing reads these before the
   // first event, which can only arrive after `start()`.
   let backend: StateStore | undefined;
   let transcripts: Transcripts | undefined;
   let registry: ActionRegistry | undefined;
-  let telemetry: BotTelemetry | undefined;
+  let telemetry: ChannelTelemetry | undefined;
 
   const agentFactory: (threadId: string) => AbstractAgent = (() => {
     const a = opts.agent;
@@ -346,17 +395,17 @@ export function createBot<
     if (a) return () => a;
     return () => {
       throw new Error(
-        "createBot: no agent configured (pass `agent` to use runAgent)",
+        "createChannel: no agent configured (pass `agent` to use runAgent)",
       );
     };
   })();
 
-  const toolMap = new Map<string, BotTool>();
+  const toolMap = new Map<string, ChannelTool>();
   for (const t of opts.tools ?? []) toolMap.set(t.name, t);
   const context = opts.context ?? [];
 
-  const mentionHandlers: BotHandler[] = [];
-  const messageHandlers: BotHandler[] = [];
+  const mentionHandlers: ChannelHandler[] = [];
+  const messageHandlers: ChannelHandler[] = [];
   const threadStartedHandlers: ThreadStartHandler[] = [];
   const interactionHandlers = new Map<
     string,
@@ -366,7 +415,7 @@ export function createBot<
     string,
     (args: { payload: unknown; thread: Thread }) => void | Promise<void>
   >();
-  const commandHandlers = new Map<string, BotCommand>();
+  const commandHandlers = new Map<string, ChannelCommand>();
   for (const c of opts.commands ?? [])
     commandHandlers.set(normalizeCommandName(c.name), c);
   const reactionHandlers: {
@@ -388,7 +437,7 @@ export function createBot<
   ): Thread {
     if (!backend || !registry || !telemetry) {
       throw new Error(
-        "bot not started: call bot.start() before handling events",
+        "channel not started: call channel.start() before handling events",
       );
     }
     const deps: ThreadDeps = {
@@ -465,7 +514,7 @@ export function createBot<
                 return;
             } catch (err) {
               console.warn(
-                `[bot] dedup check failed for ${adapter.platform}; processing without dedup`,
+                `[channel] dedup check failed for ${adapter.platform}; processing without dedup`,
                 err,
               );
             }
@@ -486,7 +535,7 @@ export function createBot<
               userKey = resolved ?? undefined;
             } catch (err) {
               console.warn(
-                `[bot] identity resolution failed for ${adapter.platform}; continuing without userKey`,
+                `[channel] identity resolution failed for ${adapter.platform}; continuing without userKey`,
                 err,
               );
             }
@@ -518,7 +567,7 @@ export function createBot<
             if (await store.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000)) return;
           } catch (err) {
             console.warn(
-              `[bot] dedup check failed for ${adapter.platform}; processing without dedup`,
+              `[channel] dedup check failed for ${adapter.platform}; processing without dedup`,
               err,
             );
           }
@@ -582,7 +631,7 @@ export function createBot<
             if (await store.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000)) return;
           } catch (err) {
             console.warn(
-              `[bot] dedup check failed for ${adapter.platform}; processing without dedup`,
+              `[channel] dedup check failed for ${adapter.platform}; processing without dedup`,
               err,
             );
           }
@@ -711,33 +760,43 @@ export function createBot<
     };
   }
 
-  const bot: Bot<ThreadStateOf<TStateSchema>> = {
+  const bot: Channel<ThreadStateOf<TStateSchema>> = {
     name: opts.name,
+    ...(opts.provider !== undefined ? { provider: opts.provider } : {}),
+    get adapters() {
+      // Defensive read-only copy: mutating the returned array must not affect
+      // the Channel's private adapter list.
+      return [...adapters];
+    },
     get commandNames() {
       return [...commandHandlers.keys()];
     },
     get transcripts() {
       if (!transcripts) {
-        throw new Error("bot.transcripts is available after bot.start()");
+        throw new Error(
+          "channel.transcripts is available after channel.start()",
+        );
       }
       return transcripts;
     },
     addAdapter(adapter) {
       if (started) {
-        throw new Error("bot.addAdapter must be called before bot.start()");
+        throw new Error(
+          "channel.addAdapter must be called before channel.start()",
+        );
       }
       assertExclusive([...adapters, adapter]);
       adapters.push(adapter);
     },
     onMention(h) {
       // The public surface narrows `thread` to StatefulThread<TState>; the
-      // internal arrays hold the loose `BotHandler` shape. A real Thread is
+      // internal arrays hold the loose `ChannelHandler` shape. A real Thread is
       // assignable to StatefulThread<TState> (its generic setState/state
       // satisfy the narrowed signatures), so the cast is sound.
-      mentionHandlers.push(h as BotHandler);
+      mentionHandlers.push(h as ChannelHandler);
     },
     onMessage(h) {
-      messageHandlers.push(h as BotHandler);
+      messageHandlers.push(h as ChannelHandler);
     },
     onThreadStarted(h) {
       threadStartedHandlers.push(h as ThreadStartHandler);
@@ -767,12 +826,15 @@ export function createBot<
       );
     },
     onCommand(
-      commandOrName: BotCommand | string,
+      commandOrName: ChannelCommand | string,
       handler?: (ctx: CommandContext) => void | Promise<void>,
     ) {
-      const command: BotCommand =
+      const command: ChannelCommand =
         typeof commandOrName === "string"
-          ? { name: commandOrName, handler: handler as BotCommand["handler"] }
+          ? {
+              name: commandOrName,
+              handler: handler as ChannelCommand["handler"],
+            }
           : commandOrName;
       commandHandlers.set(normalizeCommandName(command.name), command);
     },
@@ -817,7 +879,7 @@ export function createBot<
       // registry, and register components against it.
       backend = resolveBackend(cfg.adapter, adapters);
       transcripts = new Transcripts(backend, cfg.transcripts ?? {});
-      const tel = new BotTelemetry({
+      const tel = new ChannelTelemetry({
         backend,
         packageName: pkg.name,
         packageVersion: pkg.version,
@@ -830,14 +892,14 @@ export function createBot<
       for (const c of opts.components ?? []) {
         if (!c.name) {
           console.warn(
-            "[bot] createBot: skipping anonymous component — give it a name to enable durable actions after restart.",
+            "[channel] createChannel: skipping anonymous component — give it a name to enable durable actions after restart.",
           );
           continue;
         }
         registryInstance.registerComponent(c.name, c as unknown as ComponentFn);
       }
       toolDescriptors = toAgentToolDescriptors([...toolMap.values()]);
-      tel.capture("oss.bot.configured", {
+      tel.capture("oss.channel.configured", {
         platforms: adapters.map((a) => normalizePlatform(a.platform)),
         adapterCount: adapters.length,
         store: storeKind(backend),
@@ -865,10 +927,10 @@ export function createBot<
         if (r.status === "rejected") {
           failedPlatforms.push(platform);
           console.error(
-            `[bot] adapter "${rawPlatform}" failed to start:`,
+            `[channel] adapter "${rawPlatform}" failed to start:`,
             r.reason,
           );
-          tel.capture("oss.bot.start_failed", {
+          tel.capture("oss.channel.start_failed", {
             platform,
             errorClass: errorClass(r.reason),
           });
@@ -877,7 +939,7 @@ export function createBot<
         }
       });
       if (startedPlatforms.length > 0) {
-        tel.capture("oss.bot.started", {
+        tel.capture("oss.channel.started", {
           platforms: startedPlatforms,
           startedCount: startedPlatforms.length,
           failedCount: failedPlatforms.length,
@@ -899,7 +961,7 @@ export function createBot<
         registerResults.forEach((r, i) => {
           if (r.status === "rejected") {
             console.error(
-              `[bot] adapter "${adapters[i]!.platform}" failed to register commands:`,
+              `[channel] adapter "${adapters[i]!.platform}" failed to register commands:`,
               r.reason,
             );
           }
@@ -920,7 +982,7 @@ export function createBot<
       stopResults.forEach((r, i) => {
         if (r.status === "rejected") {
           console.error(
-            `[bot] adapter "${adapters[i]!.platform}" failed to stop:`,
+            `[channel] adapter "${adapters[i]!.platform}" failed to stop:`,
             r.reason,
           );
         }

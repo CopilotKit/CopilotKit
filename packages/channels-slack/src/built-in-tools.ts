@@ -2,10 +2,11 @@
  * Slack-platform-universal frontend tools — tools every Slack bot
  * benefits from, regardless of what the bot does. Apps spread
  * `defaultSlackTools` into the `tools:` config they pass to
- * `createBot`.
+ * `createChannel`.
  */
 import { z } from "zod";
-import { defineBotTool, type BotTool } from "@copilotkit/channels";
+import { defineChannelTool } from "@copilotkit/channels";
+import type { ChannelTool } from "@copilotkit/channels";
 
 const lookupSchema = z.object({
   query: z
@@ -16,7 +17,7 @@ const lookupSchema = z.object({
     ),
 });
 
-export const lookupSlackUserTool = defineBotTool({
+export const lookupSlackUserTool = defineChannelTool({
   name: "lookup_slack_user",
   description:
     "Resolve a person to a Slack user ID so you can @-mention them. " +
@@ -44,8 +45,10 @@ export const lookupSlackUserTool = defineBotTool({
 
 /**
  * The flat list of tools the SDK ships. Spread into your
- * `createBot({tools: …})`:
+ * `createChannel({tools: …})`:
  *
  *     tools: [...defaultSlackTools, ...myAppTools],
  */
-export const defaultSlackTools: ReadonlyArray<BotTool> = [lookupSlackUserTool];
+export const defaultSlackTools: ReadonlyArray<ChannelTool> = [
+  lookupSlackUserTool,
+];

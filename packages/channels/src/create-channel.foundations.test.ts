@@ -1,22 +1,22 @@
 import { describe, it, expect, vi } from "vitest";
-import { createBot } from "./create-bot.js";
+import { createChannel } from "./create-channel.js";
 import { FakeAdapter } from "./testing/fake-adapter.js";
 import { FakeAgent } from "./testing/fake-agent.js";
 import { MemoryStore } from "./state/memory-store.js";
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
-describe("createBot — optional adapters + addAdapter", () => {
+describe("createChannel — optional adapters + addAdapter", () => {
   it("starts with no adapters and runs one added before start()", async () => {
     const fake = new FakeAdapter();
-    const bot = createBot({ agent: () => new FakeAgent() });
+    const bot = createChannel({ agent: () => new FakeAgent() });
     bot.addAdapter(fake);
     await bot.start();
     expect(fake.started).toBe(true);
   });
 
   it("throws when addAdapter is called after start()", async () => {
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [new FakeAdapter()],
       agent: () => new FakeAgent(),
     });
@@ -26,7 +26,7 @@ describe("createBot — optional adapters + addAdapter", () => {
 
   it("is idempotent: a second start() does not re-start adapters or rebuild state", async () => {
     const fake = new FakeAdapter();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [fake],
       agent: () => new FakeAgent(),
     });
@@ -41,7 +41,7 @@ describe("createBot — optional adapters + addAdapter", () => {
 
   it("allows a real restart after stop() (start → stop → start re-inits)", async () => {
     const fake = new FakeAdapter();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [fake],
       agent: () => new FakeAgent(),
     });
@@ -53,9 +53,9 @@ describe("createBot — optional adapters + addAdapter", () => {
   });
 });
 
-describe("createBot — transcripts deferred to start()", () => {
+describe("createChannel — transcripts deferred to start()", () => {
   it("throws if bot.transcripts is accessed before start()", () => {
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [new FakeAdapter()],
       agent: () => new FakeAgent(),
       store: {
@@ -68,13 +68,13 @@ describe("createBot — transcripts deferred to start()", () => {
   });
 });
 
-describe("createBot — store resolution", () => {
+describe("createChannel — store resolution", () => {
   it("uses an adapter-provided stateStore when no explicit store.adapter", async () => {
     const adapterStore = new MemoryStore();
 
     // Seed the adapter's store via a throwaway bot so we can prove the real
     // bot reads from that exact instance.
-    const seeder = createBot({
+    const seeder = createChannel({
       adapters: [new FakeAdapter()],
       agent: () => new FakeAgent(),
       store: {
@@ -92,7 +92,7 @@ describe("createBot — store resolution", () => {
 
     const fake = new FakeAdapter();
     fake.stateStore = adapterStore;
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [fake],
       agent: () => new FakeAgent(),
       store: { identity: () => "u@x.com", transcripts: {} },
@@ -108,7 +108,7 @@ describe("createBot — store resolution", () => {
     const fake = new FakeAdapter();
     fake.stateStore = new MemoryStore();
     const explicit = new MemoryStore();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [fake],
       agent: () => new FakeAgent(),
       store: {
@@ -128,7 +128,7 @@ describe("createBot — store resolution", () => {
     a.stateStore = new MemoryStore();
     const b = new FakeAdapter({ platform: "b" });
     b.stateStore = new MemoryStore();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [a, b],
       agent: () => new FakeAgent(),
     });
@@ -138,10 +138,13 @@ describe("createBot — store resolution", () => {
   });
 });
 
-describe("createBot — id propagation to handler context", () => {
+describe("createChannel — id propagation to handler context", () => {
   it("threads turnId/deliveryId from IncomingTurn onto message", async () => {
     const fake = new FakeAdapter();
-    const bot = createBot({ adapters: [fake], agent: () => new FakeAgent() });
+    const bot = createChannel({
+      adapters: [fake],
+      agent: () => new FakeAgent(),
+    });
     let seen: { turnId?: string; deliveryId?: string; eventId?: string } = {};
     bot.onMessage(async ({ message }) => {
       seen = {

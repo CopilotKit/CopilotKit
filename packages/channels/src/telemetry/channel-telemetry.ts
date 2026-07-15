@@ -3,14 +3,14 @@ import type { LambdaSendOptions } from "@copilotkit/shared";
 import type { StateStore } from "../state/state-store.js";
 import { resolveInstallId } from "./install-id.js";
 
-export const BOT_TELEMETRY_EVENTS = [
-  "oss.bot.configured",
-  "oss.bot.started",
-  "oss.bot.start_failed",
-  "oss.bot.agent_run",
-  "oss.bot.agent_run_failed",
+export const CHANNEL_TELEMETRY_EVENTS = [
+  "oss.channel.configured",
+  "oss.channel.started",
+  "oss.channel.start_failed",
+  "oss.channel.agent_run",
+  "oss.channel.agent_run_failed",
 ] as const;
-export type BotTelemetryEvent = (typeof BOT_TELEMETRY_EVENTS)[number];
+export type ChannelTelemetryEvent = (typeof CHANNEL_TELEMETRY_EVENTS)[number];
 
 export function isTestEnv(): boolean {
   const env = process.env as Record<string, string | undefined>;
@@ -23,7 +23,7 @@ export function resolveEnvironment(): string {
   return "unknown";
 }
 
-export interface BotTelemetryOptions {
+export interface ChannelTelemetryOptions {
   backend: StateStore;
   packageName: string;
   packageVersion: string;
@@ -34,7 +34,7 @@ export interface BotTelemetryOptions {
   resolveId?: () => Promise<string>;
 }
 
-export class BotTelemetry {
+export class ChannelTelemetry {
   private readonly disabled: boolean;
   private readonly sendFn: (o: LambdaSendOptions) => Promise<void>;
   private readonly sessionId: string;
@@ -43,7 +43,7 @@ export class BotTelemetry {
   private idPromise?: Promise<string>;
   private static disclosed = false;
 
-  constructor(private readonly opts: BotTelemetryOptions) {
+  constructor(private readonly opts: ChannelTelemetryOptions) {
     this.disabled = opts.disabled ?? (isTelemetryDisabled() || isTestEnv());
     this.sendFn = opts.send ?? lambdaClient.send;
     this.sessionId = opts.sessionId ?? globalThis.crypto.randomUUID();
@@ -52,22 +52,25 @@ export class BotTelemetry {
       opts.resolveId ?? (() => resolveInstallId({ backend: opts.backend }));
   }
 
-  capture(event: BotTelemetryEvent, properties: Record<string, unknown>): void {
+  capture(
+    event: ChannelTelemetryEvent,
+    properties: Record<string, unknown>,
+  ): void {
     if (this.disabled) return;
     this.disclose();
     void this.dispatch(event, properties);
   }
 
   private disclose(): void {
-    if (BotTelemetry.disclosed) return;
-    BotTelemetry.disclosed = true;
+    if (ChannelTelemetry.disclosed) return;
+    ChannelTelemetry.disclosed = true;
     console.info(
-      "[CopilotKit Bot] anonymous telemetry enabled — see https://docs.copilotkit.ai/telemetry to opt out (set COPILOTKIT_TELEMETRY_DISABLED=true).",
+      "[CopilotKit Channel] anonymous telemetry enabled — see https://docs.copilotkit.ai/telemetry to opt out (set COPILOTKIT_TELEMETRY_DISABLED=true).",
     );
   }
 
   private async dispatch(
-    event: BotTelemetryEvent,
+    event: ChannelTelemetryEvent,
     properties: Record<string, unknown>,
   ): Promise<void> {
     try {
@@ -78,7 +81,7 @@ export class BotTelemetry {
         properties,
         globalProperties: {
           anonymous_id,
-          bot_session_id: this.sessionId,
+          channel_session_id: this.sessionId,
           environment: this.environment,
         },
         packageName: this.opts.packageName,

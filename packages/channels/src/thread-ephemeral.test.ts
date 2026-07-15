@@ -1,12 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { createBot } from "./create-bot.js";
+import { createChannel } from "./create-channel.js";
 import { FakeAdapter } from "./testing/fake-adapter.js";
 
 async function runOnMessage(
   fake: FakeAdapter,
-  fn: Parameters<ReturnType<typeof createBot>["onMessage"]>[0],
+  fn: Parameters<ReturnType<typeof createChannel>["onMessage"]>[0],
 ) {
-  const bot = createBot({ adapters: [fake] });
+  const bot = createChannel({ adapters: [fake] });
   bot.onMessage(fn);
   await bot.start();
   fake.emitTurn({ userText: "hi", user: { id: "U1" } });

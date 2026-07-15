@@ -16,8 +16,8 @@ import { errorClass, normalizePlatform } from "./telemetry/sanitize-error.js";
 import type { Transcripts } from "./transcripts.js";
 import { toAgentToolDescriptors } from "./tools.js";
 import type {
-  BotTool,
-  BotToolContext,
+  ChannelTool,
+  ChannelToolContext,
   ContextEntry,
   AgentToolDescriptor,
 } from "./tools.js";
@@ -32,7 +32,7 @@ export interface ThreadDeps {
   conversationKey: string;
   registry: ActionRegistry;
   agentFactory: (threadId: string) => AbstractAgent;
-  tools: Map<string, BotTool>;
+  tools: Map<string, ChannelTool>;
   toolDescriptors: AgentToolDescriptor[];
   context: ContextEntry[];
   registerWaiter: (
@@ -43,7 +43,7 @@ export interface ThreadDeps {
     string,
     (args: { payload: unknown; thread: Thread }) => void | Promise<void>
   >;
-  /** Pluggable persistence. Injected by createBot; always required. */
+  /** Pluggable persistence. Injected by createChannel; always required. */
   state: StateStore;
   /**
    * Optional Standard Schema for per-thread state. When set, `setState`
@@ -58,7 +58,7 @@ export interface ThreadDeps {
   message?: IncomingMessage;
   /**
    * Optional anonymous telemetry sink. Structural type (not the concrete
-   * BotTelemetry) avoids an import cycle; the real BotTelemetry satisfies it.
+   * ChannelTelemetry) avoids an import cycle; the real ChannelTelemetry satisfies it.
    */
   telemetry?: {
     capture(event: string, properties: Record<string, unknown>): void;
@@ -290,7 +290,7 @@ export class Thread implements ThreadInterface {
 
   async runAgent(input?: {
     context?: ContextEntry[];
-    tools?: BotTool[];
+    tools?: ChannelTool[];
     /**
      * A user message to inject before running. Needed when the input isn't
      * already in the conversation history the adapter reconstructs — e.g. a
@@ -324,7 +324,7 @@ export class Thread implements ThreadInterface {
     initialResume?: { resume: unknown },
     extra?: {
       context?: ContextEntry[];
-      tools?: BotTool[];
+      tools?: ChannelTool[];
       prompt?: string | AgentContentPart[];
       transcript?: boolean | { limit?: number };
     },
@@ -420,7 +420,7 @@ export class Thread implements ThreadInterface {
         tools,
         toolDescriptors,
         context,
-        makeToolCtx: (): BotToolContext => ({
+        makeToolCtx: (): ChannelToolContext => ({
           thread: this,
           platform: this.platform,
         }),
@@ -463,7 +463,7 @@ export class Thread implements ThreadInterface {
       // A throw is a run failure — in the agent loop (tool-handler errors are
       // swallowed inside the loop, so a throw is agent-level) or in finalization.
       // `stage` distinguishes the two.
-      this.deps.telemetry?.capture("oss.bot.agent_run_failed", {
+      this.deps.telemetry?.capture("oss.channel.agent_run_failed", {
         platform: normalizePlatform(this.platform),
         errorClass: errorClass(err),
         stage,
@@ -472,7 +472,7 @@ export class Thread implements ThreadInterface {
     }
     // Emit success ONLY after the loop AND finalization both completed, so a
     // late transcript/finish rejection can never follow a success event.
-    this.deps.telemetry?.capture("oss.bot.agent_run", {
+    this.deps.telemetry?.capture("oss.channel.agent_run", {
       platform: normalizePlatform(this.platform),
       durationMs: Date.now() - startedAt,
       toolCallCount: renderer.getCapturedToolCalls().length,
@@ -489,6 +489,6 @@ function warnTranscriptIgnored(): void {
   if (transcriptWarned) return;
   transcriptWarned = true;
   console.warn(
-    "[bot] runAgent({ transcript }) ignored — configure store.identity + store.transcripts so a userKey resolves",
+    "[channel] runAgent({ transcript }) ignored — configure store.identity + store.transcripts so a userKey resolves",
   );
 }
