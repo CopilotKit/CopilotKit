@@ -173,6 +173,10 @@ jobs:
           PROJECTS: ${{ steps.select.outputs.projects }}
         run: npx nx run-many -t build,test --projects="$PROJECTS" --exclude=@copilotkit/demo-agents
 
+      - name: Run Vue type tests
+        if: steps.select.outputs.has == 'true' && contains(steps.select.outputs.projects, '@copilotkit/vue')
+        run: npx nx run '@copilotkit/vue:test:types'
+
       - name: No affected packages
         if: steps.select.outputs.has != 'true'
         run: echo "No package code affected since the base — skipping build & test."
