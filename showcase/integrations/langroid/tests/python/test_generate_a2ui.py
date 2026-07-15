@@ -309,7 +309,7 @@ def test_generate_a2ui_happy_path_returns_operations():
     args = {
         "surfaceId": "dynamic-surface",
         "catalogId": "copilotkit://app-dashboard-catalog",
-        "components": [{"id": "root", "type": "Container"}],
+        "components": [{"id": "root", "component": "Container"}],
         "data": {"greeting": "hi"},
     }
     fake_llm.chat.return_value = _llm_response(
@@ -346,7 +346,7 @@ def test_generate_a2ui_happy_path_returns_operations():
 
     assert ops[1]["version"] == "v0.9"
     assert ops[1]["updateComponents"]["components"] == [
-        {"id": "root", "type": "Container"}
+        {"id": "root", "component": "Container"}
     ]
 
     assert ops[2]["version"] == "v0.9"
@@ -364,7 +364,7 @@ def test_generate_a2ui_happy_path_json_string_arguments_also_work():
         {
             "surfaceId": "s1",
             "catalogId": "copilotkit://app-dashboard-catalog",
-            "components": [{"id": "root", "type": "Container"}],
+            "components": [{"id": "root", "component": "Container"}],
         }
     )
     fake_llm.chat.return_value = _llm_response(
@@ -399,7 +399,7 @@ def test_generate_a2ui_legacy_function_call_path():
     args = {
         "surfaceId": "legacy-surface",
         "catalogId": "copilotkit://app-dashboard-catalog",
-        "components": [{"id": "root", "type": "Container"}],
+        "components": [{"id": "root", "component": "Container"}],
     }
     fake_llm.chat.return_value = _llm_response(
         tool_calls=None,
@@ -567,7 +567,7 @@ def test_build_a2ui_operations_wrapper_catches_expected_errors(exc_cls, exc_args
     args = {
         "surfaceId": "s",
         "catalogId": "copilotkit://app-dashboard-catalog",
-        "components": [{"id": "root", "type": "Container"}],
+        "components": [{"id": "root", "component": "Container"}],
     }
     fake_llm.chat.return_value = _llm_response(
         tool_calls=[_oai_tool_call(arguments=args)]
@@ -594,7 +594,7 @@ def test_build_a2ui_operations_boundary_validates_return_shape():
     args = {
         "surfaceId": "s",
         "catalogId": "copilotkit://app-dashboard-catalog",
-        "components": [{"id": "root", "type": "Container"}],
+        "components": [{"id": "root", "component": "Container"}],
     }
     fake_llm.chat.return_value = _llm_response(
         tool_calls=[_oai_tool_call(arguments=args)]
@@ -1104,12 +1104,12 @@ def test_multi_tool_call_picks_first_and_warns(caplog):
     args_first = {
         "surfaceId": "first",
         "catalogId": "copilotkit://app-dashboard-catalog",
-        "components": [{"id": "root", "type": "Container"}],
+        "components": [{"id": "root", "component": "Container"}],
     }
     args_second = {
         "surfaceId": "second",
         "catalogId": "copilotkit://app-dashboard-catalog",
-        "components": [{"id": "root", "type": "Container"}],
+        "components": [{"id": "root", "component": "Container"}],
     }
     fake_llm.chat.return_value = _llm_response(
         tool_calls=[
@@ -1158,7 +1158,7 @@ def test_tool_call_missing_function_attr_falls_through_to_legacy_path(caplog):
     args = {
         "surfaceId": "legacy-via-fallthrough",
         "catalogId": "copilotkit://app-dashboard-catalog",
-        "components": [{"id": "root", "type": "Container"}],
+        "components": [{"id": "root", "component": "Container"}],
     }
     fake_llm.chat.return_value = _llm_response(
         tool_calls=[degraded],
@@ -1206,7 +1206,7 @@ def test_tool_call_with_function_arguments_none_falls_through_to_legacy_path(cap
     legacy_args = {
         "surfaceId": "legacy-surface",
         "catalogId": "copilotkit://app-dashboard-catalog",
-        "components": [{"id": "root", "type": "Container"}],
+        "components": [{"id": "root", "component": "Container"}],
     }
     fake_llm.chat.return_value = _llm_response(
         tool_calls=[modern_no_args],
@@ -1693,7 +1693,7 @@ def test_build_a2ui_boundary_rejects_malformed_shapes(builder_return, case):
     args = {
         "surfaceId": "s",
         "catalogId": "copilotkit://app-dashboard-catalog",
-        "components": [{"id": "root", "type": "Container"}],
+        "components": [{"id": "root", "component": "Container"}],
     }
     fake_llm.chat.return_value = _llm_response(
         tool_calls=[_oai_tool_call(arguments=args)]
