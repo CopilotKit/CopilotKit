@@ -3,6 +3,7 @@ import type {
   BotNode,
   MessageRef,
   PlatformUser,
+  ThreadMessage,
 } from "@copilotkit/channels-ui";
 import type {
   StateStore,
@@ -190,6 +191,56 @@ export class IntelligenceAdapter implements PlatformAdapter {
       (agent as unknown as { messages: AgentMessage[] }).messages = history;
       return { agent };
     },
+  };
+
+  /**
+   * Backs `thread.getMessages()` — e.g. the `read_thread` tool — on the managed
+   * path by reading the reconstructed thread history via the transport's
+   * `getHistory` and mapping it to the {@link ThreadMessage} shape. Without it
+   * the base `Thread.getMessages()` returns `[]`, so tools that inspect the
+   * thread (summaries, "what was in the image") see no messages even though
+   * history exists. Mirrors {@link conversationStore}'s seeding read; the
+   * `route` is the opaque {@link EgressRoute} threaded through {@link ReplyTarget}.
+   * Best-effort: a `getHistory` failure degrades to `[]` (no thrown error).
+   */
+  getMessages = async (target: ReplyTarget): Promise<ThreadMessage[]> => {
+    const route = (target as ChannelReplyTarget).route;
+    let history: AgentMessage[] = [];
+    try {
+      history =
+        ((await this.source?.getHistory?.(
+          route,
+          this.opts.historyLimit ?? 20,
+        )) as AgentMessage[] | undefined) ?? [];
+    } catch (err) {
+      // HttpDeliverySource.getHistory already swallows its own fetch failures,
+      // so this outer catch only fires on an UNEXPECTED throw — log it (matching
+      // conversationStore.getOrCreate's seeding path) rather than degrading to
+      // [] silently.
+      this.opts.config?.log?.(
+        "intelligence getMessages failed; returning no history",
+        err,
+      );
+      history = [];
+    }
+    return history.map((m) => {
+      const content = m.content as unknown;
+      const text =
+        typeof content === "string"
+          ? content
+          : Array.isArray(content)
+            ? content
+                .map((part) =>
+                  typeof part === "string"
+                    ? part
+                    : ((part as { text?: string } | null)?.text ?? ""),
+                )
+                .join(" ")
+            : "";
+      const isBot = m.role !== "user";
+      const who = isBot ? "bot" : "user";
+      return { text, isBot, user: { id: who, name: who } };
+    });
   };
 
   /** Persistence supplied by the Channel transport (Intelligence-backed); picked

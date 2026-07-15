@@ -592,6 +592,37 @@ describe("HttpDeliverySource.getHistory", () => {
     expect(calls).toHaveLength(1);
   });
 
+  it("sends the Teams-shaped query (adapter/tenantId/conversationId) for a teams route", async () => {
+    const { calls } = stubGlobalFetch((url) => {
+      expect(url).toBe(
+        "http://x/api/channels/history?adapter=teams&tenantId=tenant-1&conversationId=19%3Ac%40thread.tacv2%3Bmessageid%3D1&limit=5",
+      );
+      return { json: { messages: [{ id: "m1", role: "user", text: "hi" }] } };
+    });
+    const src = new HttpDeliverySource(cfg({}));
+    const history = await src.getHistory(
+      {
+        adapter: "teams",
+        tenantId: "tenant-1",
+        conversationId: "19:c@thread.tacv2;messageid=1",
+      } as unknown as Parameters<typeof src.getHistory>[0],
+      5,
+    );
+    expect(history).toEqual([{ id: "m1", role: "user", content: "hi" }]);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("returns [] for a teams route missing tenantId/conversationId (no request)", async () => {
+    const { calls } = stubGlobalFetch(() => ({ json: { messages: [] } }));
+    const src = new HttpDeliverySource(cfg({}));
+    const history = await src.getHistory(
+      { adapter: "teams" } as unknown as Parameters<typeof src.getHistory>[0],
+      5,
+    );
+    expect(history).toEqual([]);
+    expect(calls).toHaveLength(0);
+  });
+
   it("hydrates a historical file ref into content parts (text inline + image data part)", async () => {
     const png = new Uint8Array([1, 2, 3, 4]);
     stubGlobalFetch((url) => {
