@@ -235,6 +235,10 @@ export class IntelligenceAdapter implements PlatformAdapter {
                     ? part
                     : ((part as { text?: string } | null)?.text ?? ""),
                 )
+                // Drop empty parts (non-text content contributes "") BEFORE
+                // joining, so a `read_thread` transcript isn't corrupted with
+                // doubled/leading/trailing spaces around image/file parts.
+                .filter(Boolean)
                 .join(" ")
             : "";
       const isBot = m.role !== "user";

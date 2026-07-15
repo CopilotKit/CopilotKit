@@ -536,6 +536,57 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     );
   });
 
+  it("stop() drains the in-flight turn before resolving and ignores deliveries after stop", async () => {
+    const fake = makeFakeSession();
+    const t = new RealtimeGatewayTransport(cfg(fake.session));
+    let started = false;
+    let calls = 0;
+    let release!: () => void;
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    await t.start(async () => {
+      calls++;
+      started = true;
+      await gate; // in-flight turn hangs until released
+    });
+    const fire = (id: string) =>
+      fake.handlers.get("channel.delivery.available.v1")?.({
+        payload: {
+          delivery: {
+            id,
+            leaseToken: `lease_${id}`,
+            adapter: "slack",
+            channel: { id: "channel_1", name: "support" },
+            turn: {
+              id: `turn_${id}`,
+              eventId: `e_${id}`,
+              replyTarget: { adapter: "slack", teamId: "T1", channel: "C1" },
+              input: { kind: "text", text: "hi" },
+            },
+          },
+        },
+      });
+    fire("d1");
+    await vi.waitFor(() => expect(started).toBe(true));
+
+    // stop() must not resolve until the gated in-flight turn drains.
+    let stopResolved = false;
+    const stopP = t.stop().then(() => {
+      stopResolved = true;
+    });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(stopResolved).toBe(false);
+    release();
+    await stopP;
+    expect(stopResolved).toBe(true);
+
+    // A delivery arriving AFTER stop() is ignored by the guard, never processed.
+    fire("d2");
+    await new Promise((r) => setTimeout(r, 20));
+    expect(calls).toBe(1);
+  });
+
   it("drops a delivery with no leaseToken (never fires onDelivery) and logs it", async () => {
     const fake = makeFakeSession();
     const logs: string[] = [];

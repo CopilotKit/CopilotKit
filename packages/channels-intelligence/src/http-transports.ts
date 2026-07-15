@@ -8,16 +8,13 @@ import type {
 import type {
   ChannelIngressEnvelope,
   ChannelDeliveryScope,
-  ChannelFileRef,
   EgressRoute,
   EgressOperation,
   EgressResult,
   RenderFrame,
   RenderAccepted,
 } from "./contracts.js";
-import type { AgentContentPart } from "@copilotkit/channels-ui";
 import { irToText } from "./ir-to-text.js";
-import { buildContentParts } from "./content-parts.js";
 import { mapDeliveryToEnvelope } from "./claim-mapping.js";
 import type { ClaimedDelivery } from "./claim-mapping.js";
 import { IntelligenceFileHistoryClient } from "./intelligence-file-history.js";

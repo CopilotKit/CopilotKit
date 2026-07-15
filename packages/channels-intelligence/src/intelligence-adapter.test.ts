@@ -297,8 +297,10 @@ describe("intelligenceAdapter — egress fail-loud", () => {
     await source.deliver(envelope());
 
     // Before the fix, thread.post resolved with a synthetic ref and postError
-    // stayed undefined (the drop was acked as success). Now it throws so the
-    // failure propagates up the render path and the delivery is nacked.
+    // stayed undefined (the drop was acked as success). Now it throws. (This
+    // test asserts the throw at the post() boundary; the handler catches it
+    // here, so no nack is exercised — the run-loop's nack-on-throw is covered
+    // by the render-events dispatch tests.)
     expect(postError).toBeInstanceOf(Error);
     expect((postError as Error).message).toMatch(/egress post failed/i);
     expect((postError as Error).message).toContain("provider_rejected");
@@ -560,9 +562,10 @@ describe("intelligenceAdapter — conversation-history seeding", () => {
       // string content → text; role 'user' → isBot false, user 'user'.
       { text: "hi there", isBot: false, user: { id: "user", name: "user" } },
       // content-part array → text parts joined; the non-text (image) part
-      // contributes an empty string (hence the double space); assistant → bot.
+      // contributes no text and is dropped before the join, so there is no
+      // stray doubled space; assistant → bot.
       {
-        text: "part one  part two",
+        text: "part one part two",
         isBot: true,
         user: { id: "bot", name: "bot" },
       },

@@ -206,6 +206,10 @@ export class RealtimeGatewayTransport
   private onDelivery?: (env: ChannelIngressEnvelope) => Promise<void>;
   /** Tail of the serial delivery-processing chain — see {@link start}. */
   private processing: Promise<void> = Promise.resolve();
+  /** Set by {@link stop}; gates {@link handleDeliveryAvailable} so no new
+   * delivery is processed after teardown (the session exposes no `off`, so the
+   * DELIVERY_AVAILABLE listener cannot be detached). */
+  private stopped = false;
 
   /**
    * File/history capabilities (OSS-476). Assigned only when the transport is
@@ -285,6 +289,12 @@ export class RealtimeGatewayTransport
   }
 
   private async handleDeliveryAvailable(payload: unknown): Promise<void> {
+    // Stop consuming once torn down. The DELIVERY_AVAILABLE listener can't be
+    // detached (the session has no `off`), so this guard is how stop() halts
+    // intake — otherwise a delivery arriving after stop() (the caller-owned
+    // session in `startChannelsWithGatewaySession` stays connected) would spin
+    // up a fresh turn on a dead adapter.
+    if (this.stopped) return;
     let claimed:
       | {
           env: ChannelIngressEnvelope;
@@ -626,12 +636,25 @@ export class RealtimeGatewayTransport
         ...(retryable ? { deliveryStatus: "retry_wait" } : {}),
         ...(lastAccepted ? { lastAccepted } : {}),
         failedAt: this.now(),
-        error: { code: "runtime_error", message: reason, retryable },
+        // Bound the reason (parity with HttpDeliverySource.nack) so a long
+        // error/stack isn't sent verbatim over the gateway socket.
+        error: {
+          code: "runtime_error",
+          message: (reason || "runtime error").slice(0, 500),
+          retryable,
+        },
       },
     });
   }
 
   async stop(): Promise<void> {
+    // Halt new intake (the guard in handleDeliveryAvailable), then DRAIN the
+    // in-flight delivery before clearing state. Without the drain, a turn that
+    // settles after `deliveries.clear()` finds no DeliveryState and its
+    // ack/nack silently no-ops — the terminal signal is lost and the delivery
+    // redelivers. Mirrors HttpDeliverySource.stop() (running=false + await loop).
+    this.stopped = true;
+    await this.processing.catch(() => {});
     this.deliveries.clear();
   }
 }
