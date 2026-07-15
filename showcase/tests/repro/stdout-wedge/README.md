@@ -87,13 +87,13 @@ reader.mjs   (drains only CAP lines per TICK — models Railway's ~500/sec cap)
 
 Matches the production signature point-for-point: fast-200 → timeout, CPU flat
 at ~0 (parked in `write(2)`, not spinning), RSS flat (no OOM), process resident
-(`state=S`), and the flood-tick heartbeat freezing confirms the *event loop*
+(`state=S`), and the flood-tick heartbeat freezing confirms the _event loop_
 stalled — not just HTTP.
 
 ## Faithfulness — read this
 
 **What is fully faithful:** the entire load-bearing mechanism — a single event
-loop whose `fd1` is a pipe through the *identical* `awk '{...; fflush()}'`
+loop whose `fd1` is a pipe through the _identical_ `awk '{...; fflush()}'`
 process substitution from `entrypoint.sh`, a downstream reader capped like
 Railway, a flood shaped/sized like the real uvicorn + CVDIAG output, and a
 static no-log health route as the victim. It runs on **real Linux** (Docker),
@@ -102,17 +102,17 @@ The observed failure — fast-200 → timeout, CPU→0, mem-flat, resident — i
 production signature.
 
 **The one thing made explicit rather than implicit:** `server.mjs` calls
-`process.stdout._handle.setBlocking(true)`. This is *not* a cheat — it is the
+`process.stdout._handle.setBlocking(true)`. This is _not_ a cheat — it is the
 exact mode Node uses for a blocking pipe stdout, and it is what makes the
 `write(2)` synchronous (the production condition the diagnosis proves). It is
 set explicitly because **modern Node (v22/v25) defaults a pipe stdout to an
 async `Socket`** that buffers writes in userspace instead of blocking. Without
 `setBlocking(true)`, on these Node versions the same flood does **not** freeze
 the loop — instead `writableLength` grows unbounded (verified: 4.7MB → 15MB+
-and climbing) heading toward OOM, which is a *different* failure mode and does
+and climbing) heading toward OOM, which is a _different_ failure mode and does
 not match the incident's flat-memory + CPU-0 signature. Setting blocking mode
 reproduces the incident's actual mechanism deterministically. (On the Python
-side of the real container, `sys.stdout.write` under `python -u` is *natively*
+side of the real container, `sys.stdout.write` under `python -u` is _natively_
 a blocking `write(2)` with no async buffering — so the synchronous-blocking
 condition is unavoidably real there; `setBlocking(true)` brings the Node model
 to the same footing the diagnosis attributes to the container's Node process.)
@@ -120,7 +120,7 @@ to the same footing the diagnosis attributes to the container's Node process.)
 **Compromise:** this harness uses a plain Node `http` server rather than a full
 `next build && next start`. A real Next build was skipped to keep the repro fast
 and hermetic; the event-loop + pipe-stdout + static-route mechanism is identical
-either way (Next.js *is* a single Node event loop), so the substitution does not
+either way (Next.js _is_ a single Node event loop), so the substitution does not
 affect what is being proven. Run `RUNNER=local ./run.sh` to run on the host
 (e.g. macOS) — note macOS pipe stdout is async, so `setBlocking(true)` is still
 required and behavior may differ from Linux; **Docker is the faithful path.**

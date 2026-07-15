@@ -35,19 +35,31 @@ import http from "node:http";
 // unbounded memory growth) — see README "Faithfulness".
 try {
   process.stdout._handle.setBlocking(true);
-  process.stderr.write("[repro] stdout set to BLOCKING (models Linux pipe fd1)\n");
+  process.stderr.write(
+    "[repro] stdout set to BLOCKING (models Linux pipe fd1)\n",
+  );
 } catch (e) {
-  process.stderr.write(`[repro] WARNING: could not set stdout blocking: ${e.message}\n`);
-  process.stderr.write("[repro] repro may NOT wedge — see README faithfulness note\n");
+  process.stderr.write(
+    `[repro] WARNING: could not set stdout blocking: ${e.message}\n`,
+  );
+  process.stderr.write(
+    "[repro] repro may NOT wedge — see README faithfulness note\n",
+  );
 }
 
 const PORT = parseInt(process.env.PORT || "9099", 10);
-const FLOOD_LINES_PER_TICK = parseInt(process.env.FLOOD_LINES_PER_TICK || "500", 10);
+const FLOOD_LINES_PER_TICK = parseInt(
+  process.env.FLOOD_LINES_PER_TICK || "500",
+  10,
+);
 const FLOOD_TICK_MS = parseInt(process.env.FLOOD_TICK_MS || "100", 10);
 // Delay the flood so the driver captures a clean window of healthy fast-200
 // responses BEFORE the wedge — proving the fast-200 -> timeout transition,
 // not just a wedged steady state.
-const FLOOD_START_DELAY_MS = parseInt(process.env.FLOOD_START_DELAY_MS || "5000", 10);
+const FLOOD_START_DELAY_MS = parseInt(
+  process.env.FLOOD_START_DELAY_MS || "5000",
+  10,
+);
 
 // FIXED lane (GREEN-1): model the stdout rate AFTER the MUST-1 fixes land.
 //   - CVDIAG_LOG_STDOUT=0 (cvdiag_bootstrap.py) drops the per-LLM-call
@@ -68,7 +80,10 @@ const FIXED = ["1", "true"].includes((process.env.FIXED || "0").toLowerCase());
 // Residual lines/tick when FIXED. Chosen well below the reader cap
 // (CAP lines / TICK ms) so backpressure never builds. Default reader is
 // 50 lines/sec; 1 line per 100ms tick = 10 lines/sec, ~5x under cap.
-const FIXED_LINES_PER_TICK = parseInt(process.env.FIXED_LINES_PER_TICK || "1", 10);
+const FIXED_LINES_PER_TICK = parseInt(
+  process.env.FIXED_LINES_PER_TICK || "1",
+  10,
+);
 
 const server = http.createServer((req, res) => {
   if (req.url === "/health") {
@@ -88,8 +103,7 @@ server.listen(PORT, () => {
   // Mirror the real flood line shape: a uvicorn access line + a CVDIAG
   // outbound-llm breadcrumb, padded to a realistic length so the ~64KB pipe
   // buffer fills quickly.
-  const accessLine =
-    'INFO: 127.0.0.1:0 - "POST /agent HTTP/1.1" 200 OK';
+  const accessLine = 'INFO: 127.0.0.1:0 - "POST /agent HTTP/1.1" 200 OK';
   const cvdiagLine =
     "CVDIAG component=backend-python boundary=outbound-llm run_id=REPRO slug=repro " +
     "x".repeat(120);
@@ -101,32 +115,32 @@ server.listen(PORT, () => {
   process.stderr.write(
     FIXED
       ? `[repro] FIXED lane: post-fix residual rate ${linesPerTick} line(s)/${FLOOD_TICK_MS}ms ` +
-        `(CVDIAG breadcrumb + uvicorn access line REMOVED); health should stay fast-200\n`
+          `(CVDIAG breadcrumb + uvicorn access line REMOVED); health should stay fast-200\n`
       : `[repro] warm-up: no flood for ${FLOOD_START_DELAY_MS}ms (health should be fast-200)\n`,
   );
   setTimeout(() => {
-  process.stderr.write(
-    FIXED
-      ? "[repro] FIXED START — residual sub-cap log volume only (no wedge expected)\n"
-      : "[repro] FLOOD START — pipe will now fill and wedge the loop\n",
-  );
-  setInterval(() => {
-    for (let i = 0; i < linesPerTick; i++) {
-      n++;
-      if (FIXED) {
-        // Post-fix: the two flood sources (access line + CVDIAG breadcrumb)
-        // are gone. Only a residual, sub-cap app log line remains.
-        console.log(residualLine + ` n=${n}`);
-      } else {
-        // RED: these console.log calls are the blocking write(2) surface once
-        // the pipe fills — this is where the event loop wedges.
-        console.log(`[nextjs] ${accessLine}`);
-        console.log(`[nextjs] ${cvdiagLine} n=${n}`);
+    process.stderr.write(
+      FIXED
+        ? "[repro] FIXED START — residual sub-cap log volume only (no wedge expected)\n"
+        : "[repro] FLOOD START — pipe will now fill and wedge the loop\n",
+    );
+    setInterval(() => {
+      for (let i = 0; i < linesPerTick; i++) {
+        n++;
+        if (FIXED) {
+          // Post-fix: the two flood sources (access line + CVDIAG breadcrumb)
+          // are gone. Only a residual, sub-cap app log line remains.
+          console.log(residualLine + ` n=${n}`);
+        } else {
+          // RED: these console.log calls are the blocking write(2) surface once
+          // the pipe fills — this is where the event loop wedges.
+          console.log(`[nextjs] ${accessLine}`);
+          console.log(`[nextjs] ${cvdiagLine} n=${n}`);
+        }
       }
-    }
-    // Heartbeat on stderr (out-of-band, NOT through the wedged pipe) so the
-    // driver can see whether the flood loop keeps advancing or freezes.
-    process.stderr.write(`[repro] flood tick n=${n}\n`);
-  }, FLOOD_TICK_MS);
+      // Heartbeat on stderr (out-of-band, NOT through the wedged pipe) so the
+      // driver can see whether the flood loop keeps advancing or freezes.
+      process.stderr.write(`[repro] flood tick n=${n}\n`);
+    }, FLOOD_TICK_MS);
   }, FLOOD_START_DELAY_MS);
 });
