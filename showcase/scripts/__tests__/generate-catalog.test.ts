@@ -19,30 +19,21 @@ import {
 import { SCRIPTS_DIR, SHELL_DATA_DIR } from "./paths";
 
 // catalog.json is emitted alongside registry.json in all 5 output dirs.
-// We snapshot the shell output dir to avoid leaking generated files.
-const SHELL_DASHBOARD_DATA_DIR = path.resolve(
-  SCRIPTS_DIR,
-  "..",
-  "shell-dashboard",
-  "src",
-  "data",
-);
-const SHELL_STORYBOOK_DATA_DIR = path.resolve(
-  SCRIPTS_DIR,
-  "..",
-  "shell-storybook",
-  "src",
-  "data",
-);
+// Snapshot the complete generated write set so tests cannot leak mutations.
+const SHELL_DATA_DIRS = [
+  SHELL_DATA_DIR,
+  path.resolve(SCRIPTS_DIR, "..", "shell-docs", "src", "data"),
+  path.resolve(SCRIPTS_DIR, "..", "shell-dojo", "src", "data"),
+  path.resolve(SCRIPTS_DIR, "..", "shell-dashboard", "src", "data"),
+  path.resolve(SCRIPTS_DIR, "..", "shell-storybook", "src", "data"),
+];
 
 const DATA_FILES = [
-  path.join(SHELL_DATA_DIR, "registry.json"),
   path.join(SHELL_DATA_DIR, "constraints.json"),
-  path.join(SHELL_DATA_DIR, "catalog.json"),
-  path.join(SHELL_DASHBOARD_DATA_DIR, "registry.json"),
-  path.join(SHELL_DASHBOARD_DATA_DIR, "catalog.json"),
-  path.join(SHELL_STORYBOOK_DATA_DIR, "registry.json"),
-  path.join(SHELL_STORYBOOK_DATA_DIR, "catalog.json"),
+  ...SHELL_DATA_DIRS.flatMap((dir) => [
+    path.join(dir, "registry.json"),
+    path.join(dir, "catalog.json"),
+  ]),
 ];
 const dataRestorer = new FileSnapshotRestorer(DATA_FILES);
 let releaseGeneratedDataLock: (() => void) | undefined;
@@ -63,11 +54,12 @@ beforeAll(() =>
   withGeneratedDataLock(() => {
     runGenerator();
     dataRestorer.snapshot();
-    if (dataRestorer.snapshotMap.size === 0) {
+    const missing = DATA_FILES.filter((p) => !dataRestorer.snapshotMap.has(p));
+    if (missing.length > 0) {
       throw new Error(
-        `generate-catalog.test.ts: data snapshot is empty. Expected generated` +
-          ` files at:\n` +
-          DATA_FILES.map((p) => `  ${p}`).join("\n"),
+        `generate-catalog.test.ts: snapshot is missing generated files —` +
+          ` DATA_FILES has drifted from the generator's write set:\n` +
+          missing.map((p) => `  ${p}`).join("\n"),
       );
     }
   }),
@@ -96,6 +88,24 @@ afterEach(() => {
 afterAll(() => withGeneratedDataLock(() => dataRestorer.restore()));
 
 describe("Catalog Generator", () => {
+  it("tracks the complete generated write set for cleanup", () => {
+    const expectedDataFiles = [
+      path.join(SHELL_DATA_DIR, "constraints.json"),
+      ...[
+        "shell",
+        "shell-docs",
+        "shell-dojo",
+        "shell-dashboard",
+        "shell-storybook",
+      ].flatMap((pkg) => [
+        path.resolve(SCRIPTS_DIR, "..", pkg, "src", "data", "registry.json"),
+        path.resolve(SCRIPTS_DIR, "..", pkg, "src", "data", "catalog.json"),
+      ]),
+    ];
+
+    expect(new Set(DATA_FILES)).toEqual(new Set(expectedDataFiles));
+  });
+
   it("output shape matches CatalogData: { metadata, cells }", () => {
     runGenerator();
     const catalog = readCatalog();
@@ -122,21 +132,19 @@ describe("Catalog Generator", () => {
   });
 
   it("emits catalog.json to all output dirs", () => {
+    const catalogPaths = SHELL_DATA_DIRS.map((dir) =>
+      path.join(dir, "catalog.json"),
+    );
+    for (const catalogPath of catalogPaths) {
+      fs.rmSync(catalogPath, { force: true });
+    }
+
     runGenerator();
 
-    const outputDirs = [
-      path.resolve(SCRIPTS_DIR, "..", "shell", "src", "data"),
-      path.resolve(SCRIPTS_DIR, "..", "shell-docs", "src", "data"),
-      path.resolve(SCRIPTS_DIR, "..", "shell-dojo", "src", "data"),
-      path.resolve(SCRIPTS_DIR, "..", "shell-dashboard", "src", "data"),
-      path.resolve(SCRIPTS_DIR, "..", "shell-storybook", "src", "data"),
-    ];
-
-    for (const dir of outputDirs) {
-      const catalogPath = path.join(dir, "catalog.json");
+    for (const catalogPath of catalogPaths) {
       expect(
         fs.existsSync(catalogPath),
-        `catalog.json missing from ${dir}`,
+        `catalog.json missing from ${path.dirname(catalogPath)}`,
       ).toBe(true);
     }
   });
