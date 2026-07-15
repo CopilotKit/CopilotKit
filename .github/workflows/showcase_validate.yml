@@ -191,6 +191,20 @@ jobs:
         # cache miss.
         run: pnpm exec tsx validate-parity.ts
 
+      - name: Run validate-shared-symlinks (single-source erosion ratchet)
+        working-directory: showcase/scripts
+        # Guards against "single-source erosion": a REAL directory where a
+        # symlink into showcase/shared/... belongs (integrations/<slug>/
+        # {shared-tools,tools,_shared}). That copy silently drifts from the
+        # shared source — the failure class that eroded the tree in April and
+        # that an agent editing a copy (instead of the shared source)
+        # reintroduces. `validate-shared-symlinks.baseline.json` grandfathers
+        # the currently-eroded set so this PASSES on the pre-existing debt and
+        # FAILS only on NEW erosion. The baseline is a SHRINK-ONLY ratchet;
+        # once it reaches [], the guard is fully enforcing. See
+        # showcase/scripts/validate-shared-symlinks.ts and showcase/AGENTS.md.
+        run: pnpm exec tsx validate-shared-symlinks.ts
+
       - name: Run validate-fixture-tool-surface (aimock drift)
         working-directory: showcase/scripts
         # Cross-references every aimock fixture's returned tool-call names

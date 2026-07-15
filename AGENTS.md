@@ -13,6 +13,8 @@
 
 <!-- nx configuration end-->
 
+> Working under `showcase/`? Read `showcase/AGENTS.md` FIRST — it defines the non-negotiable iron rules for showcase cells.
+
 # CopilotKit
 
 AI agent framework with three layers: **Frontend** (React/Angular/Vanilla) → **Runtime** (Express/Hono) → **Agent** (LangGraph/CrewAI/BuiltIn/Custom), communicating via the AG-UI protocol (event-based SSE).
