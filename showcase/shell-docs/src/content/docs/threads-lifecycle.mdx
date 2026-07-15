@@ -50,13 +50,17 @@ import { CopilotChat } from "@copilotkit/react-core/v2";
 
 CopilotKit v2 does **not** use an `initialMessages` prop to seed a conversation. History is restored one of two ways:
 
-**1. Platform replay (the default).** When a chat mounts with an *explicit* `threadId`, the client sets `agent.threadId` and calls the agent's `connect()`, which replays the persisted event history for that thread back into the UI. You get this automatically by passing a known `threadId` — no manual message wiring.
+**1. Server-side replay.** When a chat mounts with an *explicit* `threadId`, the client sets `agent.threadId` and calls `connectAgent()`, which replays that thread's persisted event history back into the UI — no manual message wiring:
 
-```tsx title="History replays automatically for a known threadId"
+```tsx title="History replays for a known threadId (given a server-side store)"
 <CopilotChat agent="my-agent" threadId={someExistingThreadId} />
 ```
 
-For a *fresh* (non-explicit) thread — e.g. after `startNewThread()` — there is no history to replay, so the message view is cleared.
+<Callout type="warn">
+  Replay requires a **server-side store to replay from** — the Enterprise Intelligence Platform, or a persisting `AgentRunner` (e.g. the SQLite runner). A self-hosted runtime with no persistence layer has nothing to replay: `connectAgent()` returns an empty stream and the conversation starts blank. If history isn't restoring, check that a store is configured — not the client code.
+</Callout>
+
+For a *fresh* (non-explicit) thread — e.g. after `startNewThread()` — there's nothing to replay, so `connect` is skipped and the message view is cleared.
 
 **2. Manual hydration.** If you're managing messages yourself (for non-platform or custom cases), read them from the agent and set them directly:
 
@@ -127,21 +131,30 @@ async function startConversation() {
 }
 ```
 
-**At submit-time — use the headless composition.** If you must intercept exactly when the user hits send, compose the UI yourself with `CopilotChatInput` / `CopilotChatView` and supply your own `onSubmitMessage`. In the headless path the handler is *yours*, so you control ordering — mint the thread first, set it active, then send:
+**At submit-time — headless only.** If you must intercept exactly when the user hits send, compose the UI yourself with `CopilotChatInput` / `CopilotChatView` and pass your own `onSubmitMessage` (the built-in `<CopilotChat>` ignores it). Because the handler is yours, you set the thread on the agent and drive the send:
 
-```tsx title="Headless: intercept submit"
-import { CopilotChatInput } from "@copilotkit/react-core/v2";
+```tsx title="Headless: set the thread on the agent before sending"
+import { CopilotChatInput, useAgent } from "@copilotkit/react-core/v2";
 
-<CopilotChatInput
-  onSubmitMessage={async (text) => {
-    if (!hasThread) {
-      const { id } = await myApi.createThread();
-      config?.setActiveThreadId(id, { explicit: true });
-    }
-    // ...then add the message / run the agent
-  }}
-/>
+function MyInput() {
+  const { agent } = useAgent({ agentId: "my-agent" });
+
+  return (
+    <CopilotChatInput
+      onSubmitMessage={async (text) => {
+        const { id } = await myApi.createThread(); // your backend
+        agent.threadId = id;                       // set it on the agent directly
+        agent.addMessage({ role: "user", content: text });
+        // ...then trigger the run with your send logic
+      }}
+    />
+  );
+}
 ```
+
+<Callout type="warn">
+  For a send you fire in the same handler, set the id on the **agent** (`agent.threadId = id`) — don't rely on `setActiveThreadId(id)`. `setActiveThreadId` updates React state and only reaches the agent on the next render (and only when a `<CopilotChat>` is mounted to sync it), so a run kicked off immediately would still use the previous thread. Use `setActiveThreadId` / `startNewThread` for switching threads in the UI; set `agent.threadId` directly when it must take effect before an imperative send.
+</Callout>
 
 <Callout type="info">
   `onSubmitMessage` is only a real interception seam in the **headless** path. On the built-in `<CopilotChat>` it's overridden — reach for the "mint up front" approach there.
@@ -156,24 +169,24 @@ These are **two different layers**, correlated only by the shared `threadId`:
 | **CopilotKit threads** | Conversation list + full AG-UI event history (messages, tool calls, state), with realtime sync | The Enterprise Intelligence Platform, via `useThreads` |
 | **Framework-native persistence** | Framework-internal state/checkpoints | Your agent, e.g. a LangGraph `AsyncPostgresSaver` |
 
-A LangGraph checkpointer (`AsyncPostgresSaver.setup()` + `compile(checkpointer=...)`) creates LangGraph's own **checkpoint tables** — it does *not* create a CopilotKit "threads" table, and you won't see a threads table appear just from configuring a checkpointer. Conversely, `useThreads` rename/archive/delete operate on platform threads and do **not** reach into LangGraph (or ADK, etc.) stores unless your backend explicitly bridges them.
+A LangGraph checkpointer (an `AsyncPostgresSaver` + `compile(checkpointer=...)`) creates LangGraph's own **checkpoint tables** — it does *not* create a CopilotKit "threads" table, and you won't see a threads table appear just from configuring a checkpointer. Conversely, `useThreads` rename/archive/delete operate on platform threads and do **not** reach into LangGraph (or ADK, etc.) stores unless your backend explicitly bridges them.
 
 The bridge between the two is the `threadId`: when you pass an explicit CopilotKit `threadId`, it's forwarded to the backend as the AG-UI `threadId`, which your framework can use directly as (or map to) its own checkpoint/thread id.
 
 <Callout type="info">
-  LangGraph Platform thread ids must be UUIDs. See [LangGraph persistence](/integrations/langgraph/advanced/persistence/message-persistence) for the framework-native side, and [Importing threads](/threads-import) for bringing existing framework conversations into the platform store.
+  See [LangGraph persistence](/integrations/langgraph/advanced/persistence/message-persistence) for the framework-native (checkpointer) side, and [Importing threads](/threads-import) for bringing existing framework conversations into the platform store. (LangGraph *Platform* requires thread ids to be UUIDs — CopilotKit's auto-minted ids already are.)
 </Callout>
 
 ## MCP Apps activity and history
 
-MCP Apps render through **activity messages** (`activityType: "mcp-apps"`), which are **frontend/middleware constructs** — the renderer resolves the referenced UI resource and runs any follow-up client-side. They are **not** persisted as their own server-side store.
+MCP Apps render through **activity messages** (`activityType: "mcp-apps"`), and that rendering is a **client-side** concern: the registered renderer resolves the referenced UI resource and runs any follow-up in the browser. So the visible MCP App UI is *re-derived on the client from the conversation* when it loads — it isn't a separately-stored artifact you persist on its own.
 
-That means restoring MCP Apps UI across self-hosted sessions isn't automatic: on hydration you must **re-synthesize the activity messages** (re-emit the `mcp-apps` activity messages) so the registered renderers run again, rather than expecting a platform store to replay them for you. The underlying tool call/result is part of the conversation history; the rendered app activity is derived from it at display time.
+Practically, MCP App UI restores the same way the rest of the conversation does: if your server-side store replays the thread's history (see [server-side replay](#how-history-is-restored-hydration) above), the tool-call/activity messages come back and the renderers run again on hydration. There's no separate MCP-Apps store to configure.
 
 ## v1 vs v2
 
 - **v2** (`@copilotkit/react-core/v2`): `useThreads` returns the platform thread list; `threadId` lives per-chat (on `<CopilotChat>` / `<CopilotChatConfigurationProvider>`), not on the provider; read messages via `useAgent().agent.messages` and mutate via `agent.setMessages(...)`. No `initialMessages`.
-- **v1** (`@copilotkit/react-core`): `useThreads` returns `{ threadId, setThreadId, isThreadIdExplicit }` (a single-conversation id manager, not the platform list); `<CopilotKit threadId>` sets the id at the provider; `useCopilotChat()` exposes `setMessages(...)` and an `initialMessages` option. `setThreadId()` throws if the id is prop-supplied.
+- **v1** (`@copilotkit/react-core`): `useThreads` returns `{ threadId, setThreadId, isThreadIdExplicit }` (a single-conversation id manager, not the platform list) — its `setThreadId` silently no-ops when a `threadId` prop is present, because the prop shadows internal state; `<CopilotKit threadId>` sets the id at the provider; `useCopilotChat()` exposes `setMessages(...)` and an `initialMessages` option. (Separately, the `setThreadId` on the main `<CopilotKit>` hooks *throws* if you call it while `threadId` is prop-supplied.)
 
 ## See also
 
