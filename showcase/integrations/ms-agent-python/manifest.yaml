@@ -19,7 +19,6 @@ interaction_modalities:
   - embedded
   - chat
 not_supported_features:
-  - shared-state-streaming
   # QUARANTINED pending a @copilotkit/react-core release. gen-ui-interrupt /
   # interrupt-headless fail turn-2 on a useInterrupt/useHeadlessInterrupt
   # RESUME-PATH hook bug in @copilotkit/react-core/v2: backend resumes + streams
@@ -27,11 +26,15 @@ not_supported_features:
   # so the harness DOM settle-check times out. Fix is a published-package change
   # (out of scope here); honestly marked not-supported (skipped-incapable, not
   # green, not red) rather than a regression. Demos remain wired below.
+  # Matches langgraph-python's not_supported exactly (only these two).
+  #
+  # reasoning-* + shared-state-streaming were previously quarantined but are
+  # now supported on agent-framework-ag-ui rc8: reasoning streams via the
+  # OpenAI Responses API on a native reasoning model (gpt-5; the old gpt-5.4
+  # default emitted no reasoning), and shared-state streaming works via the
+  # runtime predict_state path — matching langgraph-python.
   - gen-ui-interrupt
   - interrupt-headless
-  - reasoning-default-render
-  - agentic-chat-reasoning
-  - tool-rendering-reasoning-chain
 features:
   - beautiful-chat
   - cli-start

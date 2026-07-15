@@ -40,7 +40,7 @@ def _build_reasoning_chat_client() -> BaseChatClient:
     deployment can override via `OPENAI_REASONING_MODEL`.
     """
     return OpenAIChatClient(
-        model=os.environ.get("OPENAI_REASONING_MODEL", "gpt-5.4"),
+        model=os.environ.get("OPENAI_REASONING_MODEL", "gpt-5"),
         api_key=os.environ.get("OPENAI_API_KEY"),
     )
 
