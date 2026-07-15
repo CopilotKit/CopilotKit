@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { resolveDemo } from "../../lib/registry";
 import { validatePersonas } from "../../lib/story";
 import { ceo } from "../personas/ceo";
 import { cto } from "../personas/cto";
@@ -28,6 +29,18 @@ describe("leadership personas", () => {
 
   it("passes persona validation", () => {
     expect(() => validatePersonas(personas)).not.toThrow();
+  });
+
+  it("qualifies the CEO proof claim to complete cells", () => {
+    expect(ceo.pages.find(({ slug }) => slug === "what-it-proves")?.body).toBe(
+      "A complete Showcase cell connects a capability to an integration and a runnable example. The result is evidence that a customer, partner, or teammate can inspect instead of a slide they have to trust.",
+    );
+  });
+
+  it("distinguishes CTO generated truth from maintained demo proof", () => {
+    expect(cto.pages[0]?.claim).toBe(
+      "Generated truth organizes Showcase. Maintained demos provide the proof.",
+    );
   });
 
   it.each([
@@ -119,6 +132,25 @@ describe("leadership personas", () => {
         { kind: "demo", integration, demo, view: "preview" },
         { kind: "demo", integration, demo, view: "code" },
       ]);
+    },
+  );
+
+  it.each([
+    [
+      "langgraph-python",
+      "beautiful-chat",
+      "https://showcase.copilotkit.ai/integrations/langgraph-python/beautiful-chat/preview",
+    ],
+    [
+      "langgraph-python",
+      "gen-ui-tool-based",
+      "https://showcase.copilotkit.ai/integrations/langgraph-python/gen-ui-tool-based/preview",
+    ],
+  ] as const)(
+    "resolves $0/$1 to its real preview",
+    (integration, demo, previewHref) => {
+      expect(() => resolveDemo(integration, demo)).not.toThrow();
+      expect(resolveDemo(integration, demo).previewHref).toBe(previewHref);
     },
   );
 });

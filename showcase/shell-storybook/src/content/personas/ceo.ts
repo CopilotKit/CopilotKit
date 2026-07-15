@@ -28,7 +28,7 @@ export const ceo = {
       slug: "what-it-proves",
       title: "What it proves",
       claim: "A working demo is stronger than a promise.",
-      body: "Each Showcase cell connects a capability to an integration and a runnable example. The result is evidence that a customer, partner, or teammate can inspect instead of a slide they have to trust.",
+      body: "A complete Showcase cell connects a capability to an integration and a runnable example. The result is evidence that a customer, partner, or teammate can inspect instead of a slide they have to trust.",
       composition: "live-proof",
       visual: {
         kind: "demo",

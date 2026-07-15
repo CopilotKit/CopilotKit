@@ -12,7 +12,8 @@ export const cto = {
     {
       slug: "system-in-one-picture",
       title: "The system in one picture",
-      claim: "Showcase is a generated system, not a hand-built gallery.",
+      claim:
+        "Generated truth organizes Showcase. Maintained demos provide the proof.",
       body: "Integration manifests and the shared feature registry describe what should exist. A generator turns those facts into shell data. Demos, tests, and deployment then prove whether each declared cell actually works.",
       composition: "diagram",
       visual: { kind: "system-map" },
