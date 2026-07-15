@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createBot, FakeAdapter, FakeAgent } from "@copilotkit/channels";
+import { createChannel, FakeAdapter, FakeAgent } from "@copilotkit/channels";
 import type { ReplyTarget } from "@copilotkit/channels";
 import { Section } from "@copilotkit/channels-ui";
 import type { IncomingMessage } from "@copilotkit/channels-ui";
@@ -10,6 +10,7 @@ import {
 } from "./in-memory-transports.js";
 import { IntelligenceStateStore } from "./intelligence-state-store.js";
 import type { FetchLike } from "./http-transports.js";
+import type { EgressSink } from "./transports.js";
 import type {
   ChannelIngressEnvelope,
   ChannelIngressBase,
@@ -35,7 +36,7 @@ describe("intelligenceAdapter — ingress dispatch", () => {
   it("dispatches a channel turn to the handler and emits a post egress op", async () => {
     const source = new InMemoryDeliverySource();
     const egress = new InMemoryEgressSink();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -59,7 +60,7 @@ describe("intelligenceAdapter — ingress dispatch", () => {
   it("acks the delivery after the handler completes", async () => {
     const source = new InMemoryDeliverySource();
     const egress = new InMemoryEgressSink();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -73,7 +74,7 @@ describe("intelligenceAdapter — ingress dispatch", () => {
   it("nacks the delivery when the handler throws", async () => {
     const source = new InMemoryDeliverySource();
     const egress = new InMemoryEgressSink();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -93,7 +94,7 @@ describe("intelligenceAdapter — inbound file content parts", () => {
     const egress = new InMemoryEgressSink();
     const png = new Uint8Array([1, 2, 3, 4]);
     source.files.set("fileref_abc", { bytes: png, mimeType: "image/png" });
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -132,7 +133,7 @@ describe("intelligenceAdapter — inbound file content parts", () => {
     const egress = new InMemoryEgressSink();
     // No file seeded → fetchFile throws → the part degrades to a text note
     // (fail-visible, not dropped) and the turn still dispatches + acks.
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -164,7 +165,7 @@ describe("intelligenceAdapter — inbound file content parts", () => {
       bytes: new TextEncoder().encode("hello from a file"),
       mimeType: "text/plain",
     });
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -197,7 +198,7 @@ describe("intelligenceAdapter — inbound file content parts", () => {
       bytes: new Uint8Array([1, 2, 3]),
       mimeType: "application/zip",
     });
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -228,7 +229,7 @@ describe("intelligenceAdapter — deterministic egress ids", () => {
   it("mints turnId:seq op ids and reproduces them on redelivery", async () => {
     const source = new InMemoryDeliverySource();
     const egress = new InMemoryEgressSink();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -247,6 +248,38 @@ describe("intelligenceAdapter — deterministic egress ids", () => {
     egress.ops.length = 0;
     await source.deliver(envelope({ turnId: "t1", deliveryId: "d2" }));
     expect(egress.ops.map((o) => o.operationId)).toEqual(["t1:0", "t1:1"]);
+  });
+});
+
+describe("intelligenceAdapter — egress fail-loud", () => {
+  it("throws (does not silently ack) when egress reports { ok: false }", async () => {
+    const source = new InMemoryDeliverySource();
+    // Egress that always rejects the op — the HTTP-fallback failure the adapter
+    // used to swallow by minting a synthetic MessageRef and acking as success.
+    const failingEgress: EgressSink = {
+      emit: async () => ({ ok: false, code: "provider_rejected" }),
+    };
+    const channel = createChannel({
+      adapters: [intelligenceAdapter({ source, egress: failingEgress })],
+      agent: () => new FakeAgent(),
+    });
+    let postError: unknown;
+    channel.onMessage(async ({ thread }) => {
+      try {
+        await thread.post(Section({ children: "reply" }));
+      } catch (err) {
+        postError = err;
+      }
+    });
+    await channel.start();
+    await source.deliver(envelope());
+
+    // Before the fix, thread.post resolved with a synthetic ref and postError
+    // stayed undefined (the drop was acked as success). Now it throws so the
+    // failure propagates up the render path and the delivery is nacked.
+    expect(postError).toBeInstanceOf(Error);
+    expect((postError as Error).message).toMatch(/egress post failed/i);
+    expect((postError as Error).message).toContain("provider_rejected");
   });
 });
 
@@ -294,7 +327,7 @@ describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
   it("routes a command to onCommand", async () => {
     const source = new InMemoryDeliverySource();
     const egress = new InMemoryEgressSink();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -317,7 +350,7 @@ describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
   it("routes an interaction to a registered onInteraction handler", async () => {
     const source = new InMemoryDeliverySource();
     const egress = new InMemoryEgressSink();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -340,7 +373,7 @@ describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
   it("stamps the clicked card's ref so an in-place update routes under the live delivery", async () => {
     const source = new InMemoryDeliverySource();
     const egress = new InMemoryEgressSink();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -375,7 +408,7 @@ describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
   it("routes a thread_started event to onThreadStarted", async () => {
     const source = new InMemoryDeliverySource();
     const egress = new InMemoryEgressSink();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -393,7 +426,7 @@ describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
   it("routes a reaction to onReaction", async () => {
     const source = new InMemoryDeliverySource();
     const egress = new InMemoryEgressSink();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -422,7 +455,7 @@ describe("intelligenceAdapter — exclusivity (V1)", () => {
 
   it("rejects combining with another adapter at construction", () => {
     expect(() =>
-      createBot({
+      createChannel({
         adapters: [ia(), new FakeAdapter()],
         agent: () => new FakeAgent(),
       }),
@@ -430,14 +463,17 @@ describe("intelligenceAdapter — exclusivity (V1)", () => {
   });
 
   it("rejects adding a second adapter to a Channel Bot", () => {
-    const bot = createBot({ adapters: [ia()], agent: () => new FakeAgent() });
+    const bot = createChannel({
+      adapters: [ia()],
+      agent: () => new FakeAgent(),
+    });
     expect(() => bot.addAdapter(new FakeAdapter())).toThrow(
       /only adapter|alternative modes/i,
     );
   });
 
   it("rejects adding intelligenceAdapter to a bot that already has an adapter", () => {
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [new FakeAdapter()],
       agent: () => new FakeAgent(),
     });
@@ -472,6 +508,53 @@ describe("intelligenceAdapter — conversation-history seeding", () => {
     );
 
     expect(agent.messages).toEqual(source.history);
+  });
+
+  it("getMessages maps history (string + content-part array) to ThreadMessage[]", async () => {
+    const source = new InMemoryDeliverySource();
+    source.history = [
+      { id: "h1", role: "user", content: "hi there" },
+      {
+        id: "h2",
+        role: "assistant",
+        content: [
+          { type: "text", text: "part one" },
+          {
+            type: "image",
+            source: { type: "data", value: "x", mimeType: "image/png" },
+          },
+          { type: "text", text: "part two" },
+        ],
+      },
+    ] as unknown as typeof source.history;
+    const adapter = intelligenceAdapter({
+      source,
+      egress: new InMemoryEgressSink(),
+    });
+
+    const messages = await adapter.getMessages(target);
+
+    expect(messages).toEqual([
+      // string content → text; role 'user' → isBot false, user 'user'.
+      { text: "hi there", isBot: false, user: { id: "user", name: "user" } },
+      // content-part array → text parts joined; the non-text (image) part
+      // contributes an empty string (hence the double space); assistant → bot.
+      {
+        text: "part one  part two",
+        isBot: true,
+        user: { id: "bot", name: "bot" },
+      },
+    ]);
+  });
+
+  it("getMessages returns [] when the transport has no getHistory", async () => {
+    const source = new InMemoryDeliverySource();
+    delete (source as { getHistory?: unknown }).getHistory;
+    const adapter = intelligenceAdapter({
+      source,
+      egress: new InMemoryEgressSink(),
+    });
+    expect(await adapter.getMessages(target)).toEqual([]);
   });
 
   it("unwraps the ChannelReplyTarget to the raw route and defaults historyLimit to 20", async () => {

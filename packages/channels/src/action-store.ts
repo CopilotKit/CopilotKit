@@ -5,13 +5,13 @@ export interface ActionSnapshot {
   boundArgs?: unknown;
   conversationKey: string;
 }
-/** @deprecated Configure `createBot({ state })` instead. Action snapshots are stored via `StateStore.kv`. */
+/** @deprecated Configure `createChannel({ state })` instead. Action snapshots are stored via `StateStore.kv`. */
 export interface ActionStore {
   put(id: string, snap: ActionSnapshot, ttlMs?: number): Promise<void>;
   get(id: string): Promise<ActionSnapshot | undefined>;
   delete(id: string): Promise<void>;
 }
-/** @deprecated Configure `createBot({ state })` instead. Action snapshots are stored via `StateStore.kv`. */
+/** @deprecated Configure `createChannel({ state })` instead. Action snapshots are stored via `StateStore.kv`. */
 export class InMemoryActionStore implements ActionStore {
   private map = new Map<string, { snap: ActionSnapshot; expiresAt?: number }>();
   async put(id: string, snap: ActionSnapshot, ttlMs?: number): Promise<void> {

@@ -13,7 +13,7 @@ import {
   MessageFlags,
 } from "discord.js";
 import type { MessageActionRowComponentBuilder } from "discord.js";
-import type { BotNode } from "@copilotkit/channels-ui";
+import type { ChannelNode } from "@copilotkit/channels-ui";
 import {
   DISCORD_LIMITS,
   truncateText,
@@ -108,7 +108,7 @@ function addText(
  * Total renderer: unknown intrinsics are skipped, never thrown. Per-element
  * limits apply via truncate/clamp; nothing is silently dropped.
  */
-export function renderComponents(ir: BotNode[]): ContainerBuilder {
+export function renderComponents(ir: ChannelNode[]): ContainerBuilder {
   const container = new ContainerBuilder();
 
   // <Message accent="#hex"> → container accent color.
@@ -128,7 +128,7 @@ export function renderComponents(ir: BotNode[]): ContainerBuilder {
 }
 
 /** Ready-to-send payload for channel.send / message.edit. */
-export function renderDiscordMessage(ir: BotNode[]): {
+export function renderDiscordMessage(ir: ChannelNode[]): {
   components: ContainerBuilder[];
   flags: number;
 } {
@@ -139,7 +139,7 @@ export function renderDiscordMessage(ir: BotNode[]): {
 }
 
 function addNode(
-  node: BotNode,
+  node: ChannelNode,
   container: ContainerBuilder,
   budget: RenderBudget,
 ): void {
@@ -296,7 +296,7 @@ function addNode(
 
 /** Build action rows from a flat list of button/select children, chunking buttons ≤5/row. */
 function buildActionRows(
-  children: BotNode[],
+  children: ChannelNode[],
 ): ActionRowBuilder<MessageActionRowComponentBuilder>[] {
   const rows: ActionRowBuilder<MessageActionRowComponentBuilder>[] = [];
   let current: ButtonBuilder[] = [];
@@ -334,7 +334,7 @@ function buildActionRows(
   return rows.slice(0, DISCORD_LIMITS.actionRows);
 }
 
-function buildButton(node: BotNode): ButtonBuilder | undefined {
+function buildButton(node: ChannelNode): ButtonBuilder | undefined {
   const props = node.props ?? {};
   const label = truncateText(
     collectText(node) || " ",
@@ -356,7 +356,7 @@ function buildButton(node: BotNode): ButtonBuilder | undefined {
   return btn;
 }
 
-function buildSelect(node: BotNode): StringSelectMenuBuilder | undefined {
+function buildSelect(node: ChannelNode): StringSelectMenuBuilder | undefined {
   const props = node.props ?? {};
   const id = idFromHandler(props.onSelect);
   if (!id) return undefined;
@@ -477,20 +477,20 @@ function parseAccent(accent: unknown): number | undefined {
 }
 
 // ── helpers copied verbatim from bot-slack/src/render/block-kit.ts ──
-function childNodes(node: BotNode): BotNode[] {
+function childNodes(node: ChannelNode): ChannelNode[] {
   const children = node.props?.children;
-  if (Array.isArray(children)) return children as BotNode[];
+  if (Array.isArray(children)) return children as ChannelNode[];
   if (
     children &&
     typeof children === "object" &&
     "type" in (children as object)
   ) {
-    return [children as BotNode];
+    return [children as ChannelNode];
   }
   return [];
 }
 
-function collectText(node: BotNode): string {
+function collectText(node: ChannelNode): string {
   if (typeof node.type === "string" && node.type === "text") {
     return String(node.props?.value ?? "");
   }
@@ -502,17 +502,17 @@ function collectText(node: BotNode): string {
 }
 
 // Field label/value: a <Field label="..">value</Field> or text-only field.
-function collectFieldLabel(node: BotNode): string {
+function collectFieldLabel(node: ChannelNode): string {
   const label = node.props?.label;
   return typeof label === "string" ? label : "";
 }
-function collectFieldValue(node: BotNode): string {
+function collectFieldValue(node: ChannelNode): string {
   return collectText(node);
 }
 
 // Reconstruct a GFM pipe table from a <Table columns rows> node so
 // discordMarkdown can fence it. Columns from props.columns; rows from row/cell.
-function tableToMarkdown(node: BotNode): string {
+function tableToMarkdown(node: ChannelNode): string {
   const columns =
     (node.props?.columns as { header: string }[] | undefined)?.map(
       (c) => c.header,

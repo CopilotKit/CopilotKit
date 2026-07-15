@@ -16,7 +16,7 @@ import {
   Message,
   Section,
 } from "@copilotkit/channels-ui";
-import type { BotNode } from "@copilotkit/channels-ui";
+import type { ChannelNode } from "@copilotkit/channels-ui";
 import { ACCENT } from "./_status.js";
 
 const pageSchema = z.object({
@@ -45,8 +45,8 @@ export type PageListProps = z.infer<typeof pageListSchema>;
 type Page = z.infer<typeof pageSchema>;
 
 /** Render a list of Notion pages as a Block Kit card. */
-export function PageList({ heading, pages }: PageListProps): BotNode {
-  const rows: BotNode[] = [];
+export function PageList({ heading, pages }: PageListProps): ChannelNode {
+  const rows: ChannelNode[] = [];
   pages.forEach((page: Page, i: number) => {
     const titleLink = page.url
       ? `[**${page.title}**](${page.url})`

@@ -11,7 +11,7 @@ vi.mock("../../render/diagram.js", () => ({ renderDiagram }));
 const { renderChartTool } = await import("../render-chart.js");
 const { renderDiagramTool } = await import("../render-diagram.js");
 
-/** The ctx a BotTool handler receives. */
+/** The ctx a ChannelTool handler receives. */
 type HandlerCtx = Parameters<typeof renderChartTool.handler>[1];
 
 function makeCtx() {

@@ -3,7 +3,7 @@
 The **Microsoft Teams platform adapter** for [`@copilotkit/channels`](../channels). It's a
 concrete `PlatformAdapter` that plugs Teams into the platform-agnostic bot
 engine, exactly like [`@copilotkit/channels-slack`](../channels-slack) does for Slack. You
-write your bot once with `createBot` (handlers, JSX, tools, context) and run it
+write your bot once with `createChannel` (handlers, JSX, tools, context) and run it
 on Teams by adding this adapter.
 
 It is built on the **Microsoft 365 Agents SDK** (`@microsoft/agents-hosting`),
@@ -18,10 +18,10 @@ pnpm add @copilotkit/channels @copilotkit/channels-ui @copilotkit/channels-teams
 ## Quickstart
 
 ```ts
-import { createBot } from "@copilotkit/channels";
+import { createChannel } from "@copilotkit/channels";
 import { teams } from "@copilotkit/channels-teams";
 
-const bot = createBot({
+const bot = createChannel({
   adapters: [teams({ port: 3978 })],
 });
 

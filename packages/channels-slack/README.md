@@ -17,14 +17,14 @@ pnpm add @copilotkit/channels-slack @copilotkit/channels @copilotkit/channels-ui
 ## Quickstart
 
 ```ts
-import { createBot } from "@copilotkit/channels";
+import { createChannel } from "@copilotkit/channels";
 import {
   slack,
   defaultSlackTools,
   defaultSlackContext,
 } from "@copilotkit/channels-slack";
 
-const bot = createBot({
+const bot = createChannel({
   adapters: [
     slack({
       botToken: process.env.SLACK_BOT_TOKEN!, // xoxb-…
@@ -258,7 +258,7 @@ a tool can post a file back out via `thread.postFile(...)`.
 ## Tool context
 
 There is no Slack-specific tool context. Tools receive the single shared
-`BotToolContext` from `@copilotkit/channels` (`{ thread, message?, user?, signal?,
+`ChannelToolContext` from `@copilotkit/channels` (`{ thread, message?, user?, signal?,
 platform }`) and reach Slack power only through capability-gated `thread`
 methods, which this adapter backs:
 
@@ -269,7 +269,7 @@ isBot? }`).
 - `thread.postFile({ bytes, filename, title?, altText? })` — upload a file
   back into the thread (`files.uploadV2`).
 
-This keeps tools portable: define them with `defineBotTool({...})` and they
+This keeps tools portable: define them with `defineChannelTool({...})` and they
 work against any adapter that advertises the same capabilities.
 
 ## Running the demo

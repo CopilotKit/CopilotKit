@@ -17,14 +17,14 @@ pnpm add @copilotkit/channels-discord @copilotkit/channels @copilotkit/channels-
 ## Quickstart
 
 ```ts
-import { createBot } from "@copilotkit/channels";
+import { createChannel } from "@copilotkit/channels";
 import {
   discord,
   defaultDiscordTools,
   defaultDiscordContext,
 } from "@copilotkit/channels-discord";
 
-const bot = createBot({
+const bot = createChannel({
   adapters: [
     discord({
       botToken: process.env.DISCORD_BOT_TOKEN!, // Bot token — Gateway + REST
@@ -233,7 +233,7 @@ back out via `thread.postFile(...)`.
 
 ## Tool context
 
-Tools receive the single shared `BotToolContext` from `@copilotkit/channels`
+Tools receive the single shared `ChannelToolContext` from `@copilotkit/channels`
 (`{ thread, message?, user?, signal?, platform }`) and reach Discord power
 only through capability-gated `thread` methods, which this adapter backs:
 
@@ -245,7 +245,7 @@ isBot? }`).
 - `thread.postFile({ bytes, filename, title?, altText? })` — upload a file
   into the channel as an attachment.
 
-This keeps tools portable: define them with `defineBotTool({...})` and they
+This keeps tools portable: define them with `defineChannelTool({...})` and they
 work against any adapter that advertises the same capabilities.
 
 ## Slash commands

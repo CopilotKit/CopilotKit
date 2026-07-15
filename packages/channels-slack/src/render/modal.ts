@@ -1,20 +1,20 @@
-import type { BotNode } from "@copilotkit/channels-ui";
+import type { ChannelNode } from "@copilotkit/channels-ui";
 import { ModalRenderError } from "@copilotkit/channels-ui";
 import type { View } from "@slack/web-api";
 
 const plain = (text: string) => ({ type: "plain_text" as const, text });
 
-function optionFrom(node: BotNode) {
+function optionFrom(node: ChannelNode) {
   return {
     text: plain(String(node.props.label ?? "")),
     value: String(node.props.value ?? ""),
   };
 }
 
-function childOptions(node: BotNode): BotNode[] {
+function childOptions(node: ChannelNode): ChannelNode[] {
   const kids = node.props.children;
   return Array.isArray(kids)
-    ? (kids as BotNode[]).filter((k) => k.type === "modal_select_option")
+    ? (kids as ChannelNode[]).filter((k) => k.type === "modal_select_option")
     : [];
 }
 
@@ -27,12 +27,12 @@ function childOptions(node: BotNode): BotNode[] {
  * back to the field. Throws {@link ModalRenderError} when there is no modal
  * root or a child uses an unsupported element type.
  */
-export function renderSlackModal(ir: BotNode[]): View {
+export function renderSlackModal(ir: ChannelNode[]): View {
   const root = ir.find((n) => n.type === "modal");
   if (!root)
     throw new ModalRenderError("renderSlackModal: no <Modal> root in IR");
   const p = root.props as Record<string, unknown>;
-  const kids = Array.isArray(p.children) ? (p.children as BotNode[]) : [];
+  const kids = Array.isArray(p.children) ? (p.children as ChannelNode[]) : [];
   const blocks = kids.map((node): unknown => {
     const fp = node.props as Record<string, unknown>;
     const id = String(fp.id ?? "");

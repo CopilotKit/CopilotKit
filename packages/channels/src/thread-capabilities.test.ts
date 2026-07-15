@@ -1,16 +1,16 @@
 import { describe, it, expect } from "vitest";
-import { createBot } from "./create-bot.js";
+import { createChannel } from "./create-channel.js";
 import { FakeAdapter } from "./testing/fake-adapter.js";
 
 describe("onThreadStarted routing", () => {
   it("invokes registered handlers with the thread and user", async () => {
     const fake = new FakeAdapter();
-    const bot = createBot({ adapters: [fake] });
+    const channel = createChannel({ adapters: [fake] });
     const seen: { user?: string; platform: string }[] = [];
-    bot.onThreadStarted(({ thread, user }) => {
+    channel.onThreadStarted(({ thread, user }) => {
       seen.push({ user: user?.id, platform: thread.platform });
     });
-    await bot.start();
+    await channel.start();
 
     await fake.emitThreadStarted({ user: { id: "U1", name: "Ada" } });
     expect(seen).toEqual([{ user: "U1", platform: "fake" }]);
@@ -18,23 +18,23 @@ describe("onThreadStarted routing", () => {
 
   it("invokes every registered handler in order", async () => {
     const fake = new FakeAdapter();
-    const bot = createBot({ adapters: [fake] });
+    const channel = createChannel({ adapters: [fake] });
     const order: number[] = [];
-    bot.onThreadStarted(() => {
+    channel.onThreadStarted(() => {
       order.push(1);
     });
-    bot.onThreadStarted(() => {
+    channel.onThreadStarted(() => {
       order.push(2);
     });
-    await bot.start();
+    await channel.start();
     await fake.emitThreadStarted();
     expect(order).toEqual([1, 2]);
   });
 
   it("is a no-op when no handler is registered", async () => {
     const fake = new FakeAdapter();
-    const bot = createBot({ adapters: [fake] });
-    await bot.start();
+    const channel = createChannel({ adapters: [fake] });
+    await channel.start();
     // Should not throw.
     await expect(
       Promise.resolve(fake.emitThreadStarted()),
@@ -45,9 +45,9 @@ describe("onThreadStarted routing", () => {
 describe("Thread.setSuggestedPrompts / setTitle capability gating", () => {
   it("delegates to the adapter when supported", async () => {
     const fake = new FakeAdapter();
-    const bot = createBot({ adapters: [fake] });
+    const channel = createChannel({ adapters: [fake] });
     const results: { ok: boolean; error?: string }[] = [];
-    bot.onThreadStarted(async ({ thread }) => {
+    channel.onThreadStarted(async ({ thread }) => {
       results.push(
         await thread.setSuggestedPrompts(
           [{ title: "Triage", message: "Triage my issues" }],
@@ -56,7 +56,7 @@ describe("Thread.setSuggestedPrompts / setTitle capability gating", () => {
       );
       results.push(await thread.setTitle("My conversation"));
     });
-    await bot.start();
+    await channel.start();
     await fake.emitThreadStarted({ replyTarget: { channel: "D1" } });
 
     expect(results).toEqual([{ ok: true }, { ok: true }]);
@@ -73,13 +73,13 @@ describe("Thread.setSuggestedPrompts / setTitle capability gating", () => {
 
   it("returns { ok: false } without throwing when unsupported", async () => {
     const fake = new FakeAdapter({ paneMethods: false });
-    const bot = createBot({ adapters: [fake] });
+    const channel = createChannel({ adapters: [fake] });
     const results: { ok: boolean; error?: string }[] = [];
-    bot.onThreadStarted(async ({ thread }) => {
+    channel.onThreadStarted(async ({ thread }) => {
       results.push(await thread.setSuggestedPrompts([]));
       results.push(await thread.setTitle("nope"));
     });
-    await bot.start();
+    await channel.start();
     await fake.emitThreadStarted();
 
     expect(results[0]!.ok).toBe(false);

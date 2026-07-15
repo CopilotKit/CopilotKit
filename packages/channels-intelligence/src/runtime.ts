@@ -1,4 +1,4 @@
-import type { Bot, StateStore } from "@copilotkit/channels";
+import type { Channel, StateStore } from "@copilotkit/channels";
 import type {
   DeliverySource,
   EgressSink,
@@ -11,18 +11,18 @@ const CHANNEL_NAME_RE = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 const RESERVED_CHANNEL_NAME = "channels";
 
 /**
- * Validate the framework Bots declared to a Channel runtime: each needs a
+ * Validate the framework Channels declared to a Channel runtime: each needs a
  * `name`, names must be lowercase kebab-case Channel names, and they must be
  * unique within the runtime. Fails
  * loudly — a misconfigured declaration should never start silently.
  */
-export function assertValidChannelNames(bots: readonly Bot[]): void {
+export function assertValidChannelNames(channels: readonly Channel[]): void {
   const seen = new Set<string>();
-  for (const bot of bots) {
-    const name = bot.name;
+  for (const channel of channels) {
+    const name = channel.name;
     if (!name) {
       throw new Error(
-        "Channel runtime Bot is missing a `name` — pass createBot({ name }) for an Intelligence Channel",
+        "Intelligence Channel is missing a `name` — pass createChannel({ name }) for an Intelligence Channel",
       );
     }
     if (name.length < 3 || name.length > 64 || !CHANNEL_NAME_RE.test(name)) {
@@ -35,7 +35,7 @@ export function assertValidChannelNames(bots: readonly Bot[]): void {
     }
     if (seen.has(name)) {
       throw new Error(
-        `duplicate Channel name "${name}" — each Channel runtime Bot must be unique`,
+        `duplicate Channel name "${name}" — each Channel runtime entry must be unique`,
       );
     }
     seen.add(name);
@@ -83,30 +83,30 @@ export function resolveChannelActivationEnv(
  * Build the activation metadata declared to Intelligence: the resolved
  * env/versions plus per-Channel declarations (name + declared command names). Pure.
  *
- * Assumes every Bot has a name — call {@link assertValidChannelNames} first
- * (`startChannels` does). A nameless Bot is a programming error and throws
+ * Assumes every Channel has a name — call {@link assertValidChannelNames} first
+ * (`startChannels` does). A nameless Channel is a programming error and throws
  * rather than being silently filtered out of the activation set.
  *
- * TODO(OSS-377): add richer per-Channel capabilities once the framework Bot exposes them.
+ * TODO(OSS-377): add richer per-Channel capabilities once the framework Channel exposes them.
  */
 export function buildChannelActivationMetadata(
-  bots: readonly Bot[],
+  channels: readonly Channel[],
   env: ChannelActivationEnv,
 ): ChannelActivationMetadata {
-  const names = bots.map((b) => {
-    if (!b.name) {
+  const names = channels.map((c) => {
+    if (!c.name) {
       throw new Error(
-        "buildChannelActivationMetadata: Bot is missing a `name` — validate with assertValidChannelNames first",
+        "buildChannelActivationMetadata: Channel is missing a `name` — validate with assertValidChannelNames first",
       );
     }
-    return b.name;
+    return c.name;
   });
   return {
     ...env,
     declaredChannelNames: names,
-    declaredChannels: bots.map((b, i) => ({
+    declaredChannels: channels.map((c, i) => ({
       channelName: names[i]!,
-      commands: b.commandNames,
+      commands: c.commandNames,
     })),
   };
 }
@@ -120,7 +120,7 @@ export interface ChannelTransport {
 }
 
 export interface StartChannelsOptions {
-  bots: Bot[];
+  channels: Channel[];
   /** Resolve the inbound/outbound transport for a declared Channel name. */
   resolveTransport: (channelName: string) => ChannelTransport;
   /** Activation env overrides; omitted fields are gathered from the process. */
@@ -130,11 +130,30 @@ export interface StartChannelsOptions {
 export interface ChannelsHandle {
   metadata: ChannelActivationMetadata;
   stop(): Promise<void>;
+  /**
+   * Optional seam: register a callback the handle fires when its managed
+   * session drops unexpectedly, so a supervising `ChannelManager` can begin a
+   * reconnect. Not fired by the handle's own `stop()`. Present when the
+   * underlying session supports drop notification (see
+   * `ConnectedRealtimeGatewaySession.onClose` in `realtime-gateway.ts`).
+   */
+  onClose?(cb: () => void): void;
+  /**
+   * Optional seam: register a connection-health observer so a supervising
+   * `ChannelManager`'s `status()` can reflect real connection health
+   * (`online` → sendable, `reconnecting` → dropped and retrying, `gave_up` →
+   * dead after the bounded reconnect window). Not fired by the handle's own
+   * `stop()`. Present when the underlying session supports it (see
+   * `ConnectedRealtimeGatewaySession.onStateChange` in `realtime-gateway.ts`).
+   */
+  onStateChange?(
+    cb: (state: "online" | "reconnecting" | "gave_up") => void,
+  ): void;
 }
 
 /**
- * Start the Channel listener lifecycle: validate the declared framework Bots,
- * build the activation metadata, then attach an `intelligenceAdapter` to each Bot (wired
+ * Start the Channel listener lifecycle: validate the declared framework Channels,
+ * build the activation metadata, then attach an `intelligenceAdapter` to each Channel (wired
  * to its resolved transport) and start it. Returns the metadata and a `stop`.
  *
  * The transports come from the caller (production: the Realtime Gateway +
@@ -144,41 +163,41 @@ export interface ChannelsHandle {
 export async function startChannels(
   opts: StartChannelsOptions,
 ): Promise<ChannelsHandle> {
-  assertValidChannelNames(opts.bots);
-  if (opts.bots.length === 0) {
+  assertValidChannelNames(opts.channels);
+  if (opts.channels.length === 0) {
     console.warn(
       "[channels-intelligence] startChannels called with no channels — nothing to start. " +
-        "Pass `bots: [createBot({ name })]` on the Intelligence runtime.",
+        "Pass `channels: [createChannel({ name })]` on the Intelligence runtime.",
     );
   }
   const metadata = buildChannelActivationMetadata(
-    opts.bots,
+    opts.channels,
     resolveChannelActivationEnv(opts.env),
   );
-  // Partial-start rollback: addAdapter/resolveTransport/start for bot N can
-  // throw AFTER Bots 0..N-1 are already live. Without unwinding, those started
-  // Bots leak (open listeners/connections) with no handle to stop them. Track
-  // what started and stop it before rethrowing.
-  const startedChannels: Bot[] = [];
+  // Partial-start rollback: addAdapter/resolveTransport/start for channel N can
+  // throw AFTER Channels 0..N-1 are already live. Without unwinding, those
+  // started Channels leak (open listeners/connections) with no handle to stop
+  // them. Track what started and stop it before rethrowing.
+  const startedChannels: Channel[] = [];
   try {
-    for (const bot of opts.bots) {
+    for (const channel of opts.channels) {
       const { source, egress, renderSink, store } = opts.resolveTransport(
-        bot.name!,
+        channel.name!,
       );
-      bot.addAdapter(
+      channel.addAdapter(
         intelligenceAdapter({ source, egress, renderSink, store }),
       );
-      await bot.start();
-      startedChannels.push(bot);
+      await channel.start();
+      startedChannels.push(channel);
     }
   } catch (err) {
-    await Promise.allSettled(startedChannels.map((b) => b.stop()));
+    await Promise.allSettled(startedChannels.map((c) => c.stop()));
     throw err;
   }
   return {
     metadata,
     async stop() {
-      await Promise.all(opts.bots.map((b) => b.stop()));
+      await Promise.all(opts.channels.map((c) => c.stop()));
     },
   };
 }

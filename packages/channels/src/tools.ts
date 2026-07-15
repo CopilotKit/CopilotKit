@@ -8,14 +8,14 @@ import type {
 
 export type { ObjectSchema } from "./standard-schema.js";
 
-export interface BotToolContext {
+export interface ChannelToolContext {
   thread: Thread;
   message?: IncomingMessage;
   user?: PlatformUser;
   signal?: AbortSignal;
   platform: string;
 }
-export type BotTool<Schema extends ObjectSchema = ObjectSchema> = {
+export type ChannelTool<Schema extends ObjectSchema = ObjectSchema> = {
   name: string;
   description: string;
   parameters: Schema;
@@ -38,19 +38,19 @@ export type BotTool<Schema extends ObjectSchema = ObjectSchema> = {
    */
   handler(
     args: InferSchemaOutput<Schema>,
-    ctx: BotToolContext,
+    ctx: ChannelToolContext,
   ): Promise<unknown> | unknown;
 };
 
 /**
- * Define a {@link BotTool} with full type inference. The handler's `args` are
- * inferred from `parameters`, and `ctx` is the generic {@link BotToolContext}
+ * Define a {@link ChannelTool} with full type inference. The handler's `args` are
+ * inferred from `parameters`, and `ctx` is the generic {@link ChannelToolContext}
  * ({@link Thread} + optional message/user/signal + platform). Reach for
  * platform power via capability-gated `thread` methods (e.g.
  * `thread.getMessages()`, `thread.lookupUser(query)`).
  *
  * ```ts
- * const tool = defineBotTool({
+ * const tool = defineChannelTool({
  *   name: "show_thing",
  *   description: "...",
  *   parameters: z.object({ id: z.string() }),
@@ -61,9 +61,9 @@ export type BotTool<Schema extends ObjectSchema = ObjectSchema> = {
  * });
  * ```
  */
-export function defineBotTool<Schema extends ObjectSchema>(
-  tool: BotTool<Schema>,
-): BotTool<Schema> {
+export function defineChannelTool<Schema extends ObjectSchema>(
+  tool: ChannelTool<Schema>,
+): ChannelTool<Schema> {
   return tool;
 }
 
@@ -78,7 +78,7 @@ export interface AgentToolDescriptor {
 }
 
 export function toAgentToolDescriptors(
-  tools: ReadonlyArray<BotTool>,
+  tools: ReadonlyArray<ChannelTool>,
 ): AgentToolDescriptor[] {
   return tools.map((t) => ({
     name: t.name,

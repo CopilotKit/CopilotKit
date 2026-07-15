@@ -112,7 +112,7 @@ incremental `chat.update` — the response is buffered and sent once.
 
 When the agent calls a registered frontend tool, the loop validates the args
 (Standard Schema) and invokes `tool.handler(args, ctx)`. `ctx` is the single
-shared `BotToolContext` (`{ thread, message?, user?, signal?, platform }`) — there
+shared `ChannelToolContext` (`{ thread, message?, user?, signal?, platform }`) — there
 is no WhatsApp-specific context. WhatsApp power is reached only through
 capability-gated `thread` methods (`getMessages`, `postFile`). A render-tool
 handler renders JSX with `thread.post(<Card .../>)`, which goes through the

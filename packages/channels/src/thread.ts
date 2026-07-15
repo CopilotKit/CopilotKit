@@ -16,8 +16,8 @@ import { errorClass, normalizePlatform } from "./telemetry/sanitize-error.js";
 import type { Transcripts } from "./transcripts.js";
 import { toAgentToolDescriptors } from "./tools.js";
 import type {
-  BotTool,
-  BotToolContext,
+  ChannelTool,
+  ChannelToolContext,
   ContextEntry,
   AgentToolDescriptor,
 } from "./tools.js";
@@ -32,7 +32,7 @@ export interface ThreadDeps {
   conversationKey: string;
   registry: ActionRegistry;
   agentFactory: (threadId: string) => AbstractAgent;
-  tools: Map<string, BotTool>;
+  tools: Map<string, ChannelTool>;
   toolDescriptors: AgentToolDescriptor[];
   context: ContextEntry[];
   registerWaiter: (
@@ -43,7 +43,7 @@ export interface ThreadDeps {
     string,
     (args: { payload: unknown; thread: Thread }) => void | Promise<void>
   >;
-  /** Pluggable persistence. Injected by createBot; always required. */
+  /** Pluggable persistence. Injected by createChannel; always required. */
   state: StateStore;
   /**
    * Optional Standard Schema for per-thread state. When set, `setState`
@@ -58,7 +58,7 @@ export interface ThreadDeps {
   message?: IncomingMessage;
   /**
    * Optional anonymous telemetry sink. Structural type (not the concrete
-   * BotTelemetry) avoids an import cycle; the real BotTelemetry satisfies it.
+   * ChannelTelemetry) avoids an import cycle; the real ChannelTelemetry satisfies it.
    */
   telemetry?: {
     capture(event: string, properties: Record<string, unknown>): void;
@@ -192,7 +192,7 @@ export class Thread implements ThreadInterface {
     return adapter.addReaction(this.deps.replyTarget, messageRef, emoji);
   }
 
-  /** Remove the bot's emoji reaction from a message (capability-gated). */
+  /** Remove the channel's emoji reaction from a message (capability-gated). */
   async unreact(
     messageRef: MessageRef,
     emoji: EmojiValue,
@@ -290,7 +290,7 @@ export class Thread implements ThreadInterface {
 
   async runAgent(input?: {
     context?: ContextEntry[];
-    tools?: BotTool[];
+    tools?: ChannelTool[];
     /**
      * A user message to inject before running. Needed when the input isn't
      * already in the conversation history the adapter reconstructs — e.g. a
@@ -308,7 +308,7 @@ export class Thread implements ThreadInterface {
      *   3. runs the agent,
      *   4. captures the assistant reply and appends it.
      * This flag OWNS the bridge — callers using it should NOT also manually
-     * append the same user/assistant turn via `bot.transcripts.append`.
+     * append the same user/assistant turn via `channel.transcripts.append`.
      * No-ops with a one-time warning when identity/transcripts aren't configured.
      */
     transcript?: boolean | { limit?: number };
@@ -324,7 +324,7 @@ export class Thread implements ThreadInterface {
     initialResume?: { resume: unknown },
     extra?: {
       context?: ContextEntry[];
-      tools?: BotTool[];
+      tools?: ChannelTool[];
       prompt?: string | AgentContentPart[];
       transcript?: boolean | { limit?: number };
     },
@@ -345,7 +345,7 @@ export class Thread implements ThreadInterface {
         // AG-UI types `content` as `string`, but multimodal works at runtime by
         // setting it to an `AgentContentPart[]` — the runtime's LLM adapter
         // converts the parts to the provider's multimodal format. We cast to
-        // satisfy the string-typed field (bot-slack parity — it does the same
+        // satisfy the string-typed field (channels-slack parity — it does the same
         // when assigning multimodal `content` to its reconstructed messages).
         content: extra.prompt as unknown as string,
       });
@@ -384,7 +384,7 @@ export class Thread implements ThreadInterface {
       }
     }
 
-    // Merge per-run context/tools (this run only) on top of the bot-level deps.
+    // Merge per-run context/tools (this run only) on top of the channel-level deps.
     const extraTools = extra?.tools ?? [];
     let tools = this.deps.tools;
     let toolDescriptors = this.deps.toolDescriptors;
@@ -420,7 +420,7 @@ export class Thread implements ThreadInterface {
         tools,
         toolDescriptors,
         context,
-        makeToolCtx: (): BotToolContext => ({
+        makeToolCtx: (): ChannelToolContext => ({
           thread: this,
           platform: this.platform,
         }),
@@ -463,7 +463,7 @@ export class Thread implements ThreadInterface {
       // A throw is a run failure — in the agent loop (tool-handler errors are
       // swallowed inside the loop, so a throw is agent-level) or in finalization.
       // `stage` distinguishes the two.
-      this.deps.telemetry?.capture("oss.bot.agent_run_failed", {
+      this.deps.telemetry?.capture("oss.channel.agent_run_failed", {
         platform: normalizePlatform(this.platform),
         errorClass: errorClass(err),
         stage,
@@ -472,7 +472,7 @@ export class Thread implements ThreadInterface {
     }
     // Emit success ONLY after the loop AND finalization both completed, so a
     // late transcript/finish rejection can never follow a success event.
-    this.deps.telemetry?.capture("oss.bot.agent_run", {
+    this.deps.telemetry?.capture("oss.channel.agent_run", {
       platform: normalizePlatform(this.platform),
       durationMs: Date.now() - startedAt,
       toolCallCount: renderer.getCapturedToolCalls().length,
@@ -489,6 +489,6 @@ function warnTranscriptIgnored(): void {
   if (transcriptWarned) return;
   transcriptWarned = true;
   console.warn(
-    "[bot] runAgent({ transcript }) ignored — configure store.identity + store.transcripts so a userKey resolves",
+    "[channel] runAgent({ transcript }) ignored — configure store.identity + store.transcripts so a userKey resolves",
   );
 }

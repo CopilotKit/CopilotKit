@@ -28,7 +28,7 @@ export type MediaDataSource = { type: "data"; value: string; mimeType: string };
  * AG-UI multimodal content parts. Defined here (the lowest shared layer) so
  * platform adapters can carry built multimodal content through the framework
  * to the agent without a circular dependency — `@copilotkit/channels` depends on
- * `@copilotkit/channels-ui`, not the reverse. Identical in shape to bot-slack's so
+ * `@copilotkit/channels-ui`, not the reverse. Identical in shape to channels-slack's so
  * the agent sees the same multimodal input across every adapter.
  *
  * Binary media (image/audio/video/document) is passed straight through as a
@@ -53,7 +53,7 @@ export interface IncomingMessage {
    */
   contentParts?: AgentContentPart[];
   /**
-   * Cross-platform identity key resolved by the bot's `identity` resolver, if
+   * Cross-platform identity key resolved by the channel's `identity` resolver, if
    * any. Stable across platforms for the same human (e.g. an email address).
    */
   userKey?: string;
@@ -117,7 +117,7 @@ export interface Thread {
     messageRef: MessageRef,
     emoji: EmojiValue,
   ): Promise<{ ok: boolean; error?: string }>;
-  /** Remove the bot's emoji reaction from a message (capability-gated). */
+  /** Remove the channel's emoji reaction from a message (capability-gated). */
   unreact(
     messageRef: MessageRef,
     emoji: EmojiValue,

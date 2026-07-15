@@ -2,7 +2,7 @@
  * Discord-platform-universal context entries — knowledge the LLM needs
  * about Discord itself (tagging procedure, formatting, conversation
  * model). Apps spread `defaultDiscordContext` into the `context:` config
- * they pass to `createBot`.
+ * they pass to `createChannel`.
  *
  * Each entry is exported individually too so apps can cherry-pick.
  */
@@ -35,7 +35,7 @@ export const discordConversationModelContext: ContextEntry = {
 
 /**
  * The default context entries the SDK ships. Spread into your
- * `createBot({context: …})`:
+ * `createChannel({context: …})`:
  *
  *     context: [...defaultDiscordContext, ...myAppContext],
  */

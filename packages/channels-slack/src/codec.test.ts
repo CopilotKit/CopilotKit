@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import type { BotNode } from "@copilotkit/channels-ui";
+import type { ChannelNode } from "@copilotkit/channels-ui";
 import { slackCodec } from "./codec.js";
 
 describe("slackCodec", () => {
@@ -8,7 +8,7 @@ describe("slackCodec", () => {
   });
 
   it("renders IR to Slack Block Kit via the shared pure renderer", () => {
-    const ir: BotNode[] = [
+    const ir: ChannelNode[] = [
       {
         type: "section",
         props: { children: [{ type: "text", props: { value: "hi" } }] },

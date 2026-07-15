@@ -121,7 +121,7 @@ after each `runAgent`.
 
 When the agent calls a registered frontend tool, the loop validates the args
 (Standard Schema) and invokes `tool.handler(args, ctx)`. `ctx` is the single
-shared `BotToolContext` (`{ thread, message?, user?, signal?, platform }`) —
+shared `ChannelToolContext` (`{ thread, message?, user?, signal?, platform }`) —
 there is no Discord-specific context. Discord power is reached only through
 capability-gated `thread` methods the adapter backs (`getMessages`,
 `lookupUser`, `postFile`). A render-tool handler renders JSX with
@@ -211,7 +211,7 @@ src/
 ├── auto-close-streaming.ts     # mid-stream bracket closer
 ├── download-files.ts           # inbound Discord attachment → multimodal content parts
 ├── commands.ts                 # registerCommands (guild/global) + jsonSchemaToDiscordOptions
-├── built-in-tools.ts           # lookup_discord_user + defaultDiscordTools (as BotTools)
+├── built-in-tools.ts           # lookup_discord_user + defaultDiscordTools (as ChannelTools)
 ├── built-in-context.ts         # tagging / markdown / convo-model context entries
 └── types.ts                    # IncomingTurn, ReplyTarget, conversationKeyOf
 ```

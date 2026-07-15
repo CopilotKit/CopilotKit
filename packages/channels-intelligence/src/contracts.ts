@@ -5,7 +5,7 @@
 // event-kind set, bounded failure codes, health/read models — is intentionally
 // left out and noted inline so the swap later is a pure import change.
 
-import type { BotNode, MessageRef } from "@copilotkit/channels-ui";
+import type { ChannelNode, MessageRef } from "@copilotkit/channels-ui";
 
 /**
  * Opaque return address minted by Intelligence and echoed back on egress. The
@@ -13,11 +13,18 @@ import type { BotNode, MessageRef } from "@copilotkit/channels-ui";
  */
 export type EgressRoute = unknown;
 
-/** Authoritative org/project/channel scope that arrived with a delivery. */
+/**
+ * Authoritative org/project/channel scope that arrived with a delivery.
+ *
+ * `organizationId`/`channelId` are OPTIONAL (OSS-473): the live Realtime
+ * Gateway join contract keys only on `projectId` + `channelName` (via
+ * `declaredChannels: [{ channelName, adapter }]`) and does not consume
+ * either field. `projectId` and `channelName` remain required.
+ */
 export interface ChannelDeliveryScope {
-  organizationId: string;
+  organizationId?: string;
   projectId: number;
-  channelId: string;
+  channelId?: string;
   channelName: string;
 }
 
@@ -29,7 +36,7 @@ export interface ChannelIngressBase {
   eventId: string;
   /** Stable per-logical-turn id. Egress operation ids derive from it. */
   turnId: string;
-  /** Channel name, which routes to the framework `Bot` named by `createBot({ name })`. */
+  /** Channel name, which routes to the framework `Channel` named by `createChannel({ name })`. */
   channelName: string;
   /** Originating platform (e.g. "slack"). Stamped onto the handler-facing message. */
   platform: string;
@@ -105,8 +112,8 @@ export type ChannelIngressEnvelope =
 
 /** A generic, platform-agnostic reply operation emitted by the bridge adapter. */
 export type EgressOp =
-  | { kind: "post"; ir: BotNode[] }
-  | { kind: "update"; ref: string; ir: BotNode[] }
+  | { kind: "post"; ir: ChannelNode[] }
+  | { kind: "update"; ref: string; ir: ChannelNode[] }
   | { kind: "delete"; ref: string };
 // TODO(OSS-377): a "stream" op for incremental updates, once the streaming
 // capability is honored end-to-end.
@@ -132,7 +139,7 @@ export type EgressResult =
 // semantic frames to the realtime-gateway; the gateway-side Connector Outbox
 // (OSS-404) renders them to the provider (Slack Block Kit, etc.).
 // TODO(OSS-377): replace with the shared `@copilotkit/channel-contracts`
-// package; `post`/`update` content is `BotNode[]` (SDK IR) here — the frozen
+// package; `post`/`update` content is `ChannelNode[]` (SDK IR) here — the frozen
 // contract types it as opaque `ChannelRenderContent`.
 
 /** One semantic render frame the agent run emits. Matches the frozen kinds. */
@@ -144,8 +151,8 @@ export type ChannelRenderEvent =
   | { kind: "tool_end"; toolCallId: string; toolName: string }
   | { kind: "interrupt" }
   | { kind: "run_error"; message: string }
-  | { kind: "post"; content: BotNode[] }
-  | { kind: "update"; ref: string; content: BotNode[] }
+  | { kind: "post"; content: ChannelNode[] }
+  | { kind: "update"; ref: string; content: ChannelNode[] }
   | {
       /**
        * Outbound file post (`thread.postFile`). Bytes were streamed to app-api

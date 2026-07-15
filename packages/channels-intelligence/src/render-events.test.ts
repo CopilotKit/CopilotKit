@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import type { ReplyTarget } from "@copilotkit/channels";
 import { intelligenceAdapter } from "./intelligence-adapter.js";
 import {
@@ -300,6 +300,83 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
       (fail?.payload as { payload?: { leaseToken?: string } }).payload
         ?.leaseToken,
     ).toBe("lease_l1");
+  });
+
+  it("nacks and logs when the onDelivery handler throws (dispatch error-boundary)", async () => {
+    const fake = makeFakeSession();
+    const logs: string[] = [];
+    const t = new RealtimeGatewayTransport({
+      ...cfg(fake.session),
+      log: (m) => logs.push(m),
+    });
+    // A handler that rejects. Before the fix this dispatched via `void`, so the
+    // rejection became an unhandled promise rejection and the delivery was
+    // silently dropped (never nacked, so app-api could not release it promptly).
+    await t.start(async () => {
+      throw new Error("handler boom");
+    });
+    fake.handlers.get("channel.delivery.available.v1")?.({
+      payload: {
+        delivery: {
+          id: "dlv_d1",
+          leaseToken: "lease_l1",
+          adapter: "slack",
+          channel: { id: "channel_1", name: "support" },
+          turn: {
+            id: "turn_t1",
+            eventId: "evt_1",
+            input: { kind: "text", text: "hi" },
+          },
+        },
+      },
+    });
+
+    await vi.waitFor(() =>
+      expect(fake.pushes.map((p) => p.event)).toContain(
+        "channel.delivery.fail.v1",
+      ),
+    );
+    expect(logs.some((m) => m.includes("turn failed/timed out"))).toBe(true);
+    expect(fake.pushes.map((p) => p.event)).not.toContain(
+      "channel.delivery.ack.v1",
+    );
+  });
+
+  it("nacks and logs when the onDelivery handler exceeds deliveryTimeoutMs (per-turn timeout)", async () => {
+    const fake = makeFakeSession();
+    const logs: string[] = [];
+    const t = new RealtimeGatewayTransport({
+      ...cfg(fake.session),
+      log: (m) => logs.push(m),
+      // Tiny per-turn deadline so a hung handler is bounded quickly in the test.
+      deliveryTimeoutMs: 10,
+    });
+    // A handler that never settles — the wedged-turn case the timeout guards.
+    await t.start(() => new Promise<void>(() => {}));
+    fake.handlers.get("channel.delivery.available.v1")?.({
+      payload: {
+        delivery: {
+          id: "dlv_d1",
+          leaseToken: "lease_l1",
+          adapter: "slack",
+          channel: { id: "channel_1", name: "support" },
+          turn: {
+            id: "turn_t1",
+            eventId: "evt_1",
+            input: { kind: "text", text: "hi" },
+          },
+        },
+      },
+    });
+
+    await vi.waitFor(
+      () =>
+        expect(fake.pushes.map((p) => p.event)).toContain(
+          "channel.delivery.fail.v1",
+        ),
+      { timeout: 1000 },
+    );
+    expect(logs.some((m) => m.includes("turn failed/timed out"))).toBe(true);
   });
 
   it("drops a delivery with no leaseToken (never fires onDelivery) and logs it", async () => {

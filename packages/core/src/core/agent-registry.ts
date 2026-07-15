@@ -59,6 +59,10 @@ export class AgentRegistry {
   private remoteAgents: Record<string, AbstractAgent> = {};
 
   private _runtimeUrl?: string;
+  // Tracks an in-flight `/info` connection so concurrent calls targeting the
+  // same runtime (url + requested transport) collapse to a single request
+  // instead of each firing their own. See #5801.
+  private _connectionInFlight?: { key: string; promise: Promise<void> };
   private _runtimeVersion?: string;
   private _runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus =
     CopilotKitCoreRuntimeConnectionStatus.Disconnected;
@@ -174,7 +178,10 @@ export class AgentRegistry {
   /**
    * Set the runtime URL and update connection
    */
-  setRuntimeUrl(runtimeUrl: string | undefined): void {
+  setRuntimeUrl(
+    runtimeUrl: string | undefined,
+    options?: { deferConnection?: boolean },
+  ): void {
     const normalizedRuntimeUrl = runtimeUrl
       ? runtimeUrl.replace(/\/$/, "")
       : undefined;
@@ -184,6 +191,42 @@ export class AgentRegistry {
     }
 
     this._runtimeUrl = normalizedRuntimeUrl;
+
+    // Deferred construction (see CopilotKitCore.connect / #5801): record the URL
+    // so getters/hooks see it synchronously, but do NOT start the `/info` fetch
+    // here. The host starts it from a commit-phase effect via `connect()`, so
+    // renders discarded before commit never issue a request.
+    if (options?.deferConnection) {
+      return;
+    }
+
+    void this.updateRuntimeConnection();
+  }
+
+  /**
+   * Start the initial runtime connection if it has not been started yet.
+   *
+   * Backs {@link CopilotKitCore.connect}. Idempotent: it only kicks off a fetch
+   * when a `runtimeUrl` is set and the connection is still `Disconnected` (its
+   * state before any connect attempt). `updateRuntimeConnection` flips the
+   * status to `Connecting` synchronously, so a second call — e.g. React
+   * StrictMode double-invoking the mount effect — bails here. A genuine config
+   * change still reconnects through `setRuntimeUrl`/`setRuntimeTransport`. See
+   * #5801.
+   */
+  connectRuntime(): void {
+    if (typeof window === "undefined") {
+      return;
+    }
+    if (!this._runtimeUrl) {
+      return;
+    }
+    if (
+      this._runtimeConnectionStatus !==
+      CopilotKitCoreRuntimeConnectionStatus.Disconnected
+    ) {
+      return;
+    }
     void this.updateRuntimeConnection();
   }
 
@@ -388,6 +431,27 @@ export class AgentRegistry {
       return;
     }
 
+    // In-flight guard: if a connection to the same target (runtime url +
+    // requested transport) is already running, reuse it instead of starting a
+    // second `/info` request. A change to a different target supersedes it. See
+    // #5801.
+    const key = `${this._runtimeUrl ?? ""}::${this._requestedTransport}`;
+    const inFlight = this._connectionInFlight;
+    if (inFlight && inFlight.key === key) {
+      return inFlight.promise;
+    }
+
+    const promise = this.performRuntimeConnection();
+    this._connectionInFlight = { key, promise };
+    void promise.finally(() => {
+      if (this._connectionInFlight?.promise === promise) {
+        this._connectionInFlight = undefined;
+      }
+    });
+    return promise;
+  }
+
+  private async performRuntimeConnection(): Promise<void> {
     if (!this.runtimeUrl) {
       this._runtimeConnectionStatus =
         CopilotKitCoreRuntimeConnectionStatus.Disconnected;

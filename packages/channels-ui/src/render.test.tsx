@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { renderToIR } from "./render.js";
-import type { BotNode } from "./ir.js";
+import type { ChannelNode } from "./ir.js";
 
-function Card(props: { title: string }): BotNode {
+function Card(props: { title: string }): ChannelNode {
   return { type: "section", props: { children: props.title } };
 }
 
@@ -28,12 +28,15 @@ describe("renderToIR", () => {
         <Card title="B" />
       </>,
     );
-    expect(out.map((n) => (n as BotNode).type)).toEqual(["section", "section"]);
+    expect(out.map((n) => (n as ChannelNode).type)).toEqual([
+      "section",
+      "section",
+    ]);
   });
   it("wraps string children inside intrinsic nodes recursively", () => {
     const out = renderToIR({ type: "actions", props: { children: ["x"] } });
-    const actions = out[0] as BotNode;
-    expect((actions.props.children as BotNode[])[0]).toEqual({
+    const actions = out[0] as ChannelNode;
+    expect((actions.props.children as ChannelNode[])[0]).toEqual({
       type: "text",
       props: { value: "x" },
     });

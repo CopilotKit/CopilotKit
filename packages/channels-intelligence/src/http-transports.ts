@@ -26,7 +26,7 @@ import { buildContentParts } from "./content-parts.js";
  * {@link HttpDeliverySource} polls the listener `claim` route and lease-fences
  * ack/fail; the {@link HttpEgressSink} posts replies to the egress route.
  * `intelligenceAdapter()` builds them by default (config from env), so a
- * consumer only writes `createBot({ adapters: [intelligenceAdapter()] })`.
+ * consumer only writes `createChannel({ adapters: [intelligenceAdapter()] })`.
  * Exported as undocumented fallbacks — the whole package is `@internal`.
  */
 
@@ -45,7 +45,7 @@ export interface IntelligenceTransportConfig {
   baseUrl: string;
   /** Project runtime API key (`cpk-…`), sent as `Authorization: Bearer`. */
   apiKey: string;
-  /** Project-unique channel name; defaults from `createBot({ name })`. */
+  /** Project-unique channel name; defaults from `createChannel({ name })`. */
   channelName: string;
   /** Stable runtime instance id (`rti_…`); generated when omitted. */
   runtimeInstanceId: string;
@@ -96,7 +96,9 @@ export function resolveTransportConfig(
   if (!baseUrl) missing.push("baseUrl (COPILOTKIT_INTELLIGENCE_URL)");
   if (!apiKey) missing.push("apiKey (COPILOTKIT_API_KEY)");
   if (!channelName)
-    missing.push("channelName (createBot({ name }) / COPILOTKIT_CHANNEL_NAME)");
+    missing.push(
+      "channelName (createChannel({ name }) / COPILOTKIT_CHANNEL_NAME)",
+    );
   if (missing.length > 0) {
     throw new Error(
       `intelligenceAdapter: missing required transport config: ${missing.join(", ")}`,
@@ -627,24 +629,46 @@ export class HttpDeliverySource implements DeliverySource {
     replyTarget: EgressRoute,
     limit: number,
   ): Promise<AgentMessage[]> {
-    // Slack-shaped for the V1 slice; `EgressRoute` is opaque, so a second
-    // adapter would need its own route→query mapping here.
+    // Provider-specific history query. `EgressRoute` is opaque, so each adapter
+    // maps its route → app-api's `/api/channels/history` query here, mirroring
+    // `conversationKeyFromReplyTarget`'s per-adapter switch. Slack keys off
+    // `threadTs`; Teams off `tenantId`+`conversationId` (matching app-api's
+    // `teams:{tenantId}:{conversationId}` thread_key). A turn with no thread
+    // anchor has no prior history to look up, so return `[]`.
     const rt = replyTarget as
-      | { teamId?: string; channel?: string; threadTs?: string }
+      | {
+          adapter?: string;
+          teamId?: string;
+          channel?: string;
+          threadTs?: string;
+          tenantId?: string;
+          conversationId?: string;
+        }
       | undefined;
-    if (!rt?.threadTs) return [];
+    let qs: URLSearchParams;
+    if (rt?.adapter === "teams") {
+      if (!rt.tenantId || !rt.conversationId) return [];
+      qs = new URLSearchParams({
+        adapter: "teams",
+        tenantId: rt.tenantId,
+        conversationId: rt.conversationId,
+        limit: String(limit),
+      });
+    } else {
+      if (!rt?.threadTs) return [];
+      qs = new URLSearchParams({
+        teamId: rt.teamId ?? "",
+        channel: rt.channel ?? "",
+        threadTs: rt.threadTs,
+        limit: String(limit),
+      });
+    }
     try {
       const gfetch = (globalThis as unknown as { fetch?: typeof fetch }).fetch;
       if (!gfetch) {
         this.cfg.log?.("intelligence history fetch: no global fetch available");
         return [];
       }
-      const qs = new URLSearchParams({
-        teamId: rt.teamId ?? "",
-        channel: rt.channel ?? "",
-        threadTs: rt.threadTs,
-        limit: String(limit),
-      });
       const url = `${this.cfg.baseUrl}/api/channels/history?${qs.toString()}`;
       const res = await gfetch(url, {
         method: "GET",

@@ -1,7 +1,7 @@
 import type { AgentSubscriber, AbstractAgent } from "@ag-ui/client";
 import type {
   AgentContentPart,
-  BotNode,
+  ChannelNode,
   EmojiValue,
   EphemeralResult,
   MessageRef,
@@ -11,7 +11,7 @@ import type {
 import type { CommandSpec } from "./commands.js";
 import type { StateStore } from "./state/state-store.js";
 
-/** Opaque to the bot core — created by an adapter during ingress and passed back to post/createRunRenderer. */
+/** Opaque to the channel core — created by an adapter during ingress and passed back to post/createRunRenderer. */
 export type ReplyTarget = unknown;
 /** Opaque native payload produced by an adapter's render(). */
 export type NativePayload = unknown;
@@ -198,7 +198,7 @@ export interface ModalSubmitResult {
 export interface IngressSink {
   onTurn(turn: IncomingTurn): void | Promise<void>;
   onInteraction(evt: InteractionEvent): void | Promise<void>;
-  /** A slash command fired. Routed to the matching `bot.onCommand` handler (ignored if none). */
+  /** A slash command fired. Routed to the matching `channel.onCommand` handler (ignored if none). */
   onCommand(cmd: IncomingCommand): void | Promise<void>;
   /** A conversation surface opened. Adapters without the concept never call it. */
   onThreadStarted(evt: IncomingThreadStart): void | Promise<void>;
@@ -233,14 +233,14 @@ export interface ConversationStore {
 }
 
 /**
- * Optional context bot core passes to {@link PlatformAdapter.start}. Carries
- * the bot's declared identity so a transport that must announce itself (e.g.
+ * Optional context channel core passes to {@link PlatformAdapter.start}. Carries
+ * the channel's declared identity so a transport that must announce itself (e.g.
  * the Intelligence Channel adapter's heartbeat) can do so without separate
  * config. Local adapters ignore it.
  */
 export interface AdapterStartContext {
-  /** The bot's declared name (`createBot({ name })`), when set. */
-  botName?: string;
+  /** The channel's declared name (`createChannel({ name })`), when set. */
+  channelName?: string;
 }
 
 export interface PlatformAdapter {
@@ -249,9 +249,9 @@ export interface PlatformAdapter {
   readonly ackDeadlineMs: number;
   start(sink: IngressSink, ctx?: AdapterStartContext): Promise<void>;
   stop(): Promise<void>;
-  render(ir: BotNode[]): NativePayload;
-  post(target: ReplyTarget, ir: BotNode[]): Promise<MessageRef>;
-  update(ref: MessageRef, ir: BotNode[]): Promise<void>;
+  render(ir: ChannelNode[]): NativePayload;
+  post(target: ReplyTarget, ir: ChannelNode[]): Promise<MessageRef>;
+  update(ref: MessageRef, ir: ChannelNode[]): Promise<void>;
   stream(
     target: ReplyTarget,
     chunks: AsyncIterable<string>,
@@ -262,16 +262,16 @@ export interface PlatformAdapter {
   lookupUser(q: UserQuery): Promise<PlatformUser | undefined>;
   readonly conversationStore: ConversationStore;
   /**
-   * Optional persistence backend supplied by the adapter. `createBot` uses it
+   * Optional persistence backend supplied by the adapter. `createChannel` uses it
    * only when no explicit `store.adapter` is configured; if more than one
-   * adapter provides one, `createBot` warns and uses the first. Distinct from
+   * adapter provides one, `createChannel` warns and uses the first. Distinct from
    * {@link conversationStore}.
    */
   readonly stateStore?: StateStore;
   /** @internal Marks the Intelligence Channel adapter for the V1 exclusivity guard. */
   readonly __intelligenceChannel?: boolean;
   /**
-   * When true, bot core skips its ingress dedup for events from this adapter.
+   * When true, channel core skips its ingress dedup for events from this adapter.
    * Set by at-least-once transports (Channel delivery) that enforce
    * idempotency at egress instead — dropping a redelivery at ingress would lose
    * a legitimate retry.
@@ -298,7 +298,7 @@ export interface PlatformAdapter {
     },
   ): Promise<{ ok: boolean; fileId?: string; error?: string }>;
   /**
-   * Optional slash-command support. Called once on `start()` with the bot's
+   * Optional slash-command support. Called once on `start()` with the channel's
    * declared commands, so a surface that registers commands up front (e.g.
    * Discord's application-command API) can publish them. Surfaces that match
    * commands dynamically (e.g. Slack, which forwards every `/command` to
@@ -348,11 +348,11 @@ export interface PlatformAdapter {
   postEphemeral?(
     target: ReplyTarget,
     user: PlatformUser | string,
-    ir: BotNode[],
+    ir: ChannelNode[],
     opts: { fallbackToDM: boolean },
   ): Promise<EphemeralResult | null>;
   /** Optional modal render (pure; backs `openModal`). Throws `ModalRenderError` on unsupported elements. */
-  renderModal?(ir: BotNode[]): NativePayload;
+  renderModal?(ir: ChannelNode[]): NativePayload;
   /**
    * Optional modal open (backs context `openModal`). Renders `ir` and opens it
    * against the platform `triggerId`. Returns `{ ok: false }` on failure
@@ -361,6 +361,6 @@ export interface PlatformAdapter {
   openModal?(
     target: ReplyTarget,
     triggerId: string,
-    ir: BotNode[],
+    ir: ChannelNode[],
   ): Promise<{ ok: boolean; error?: string }>;
 }
