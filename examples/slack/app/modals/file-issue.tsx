@@ -15,8 +15,8 @@ import {
   ModalSelect,
   ModalSelectOption,
   RadioButtons,
-} from "@copilotkit/channels-ui";
-import type { ModalView } from "@copilotkit/channels-ui";
+} from "@copilotkit/channels";
+import type { ModalView } from "@copilotkit/channels";
 import type { ModalSubmitHandler } from "@copilotkit/channels";
 import { senderContext } from "../sender-context.js";
 

@@ -3,7 +3,7 @@ import type {
   RunRenderer,
   CapturedToolCall,
   CapturedInterrupt,
-} from "@copilotkit/channels";
+} from "@copilotkit/channels-core";
 import { TeamsMessageStream } from "./message-stream.js";
 import { autoCloseOpenMarkdown } from "./render/auto-close.js";
 

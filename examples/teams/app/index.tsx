@@ -16,7 +16,7 @@
 import "dotenv/config";
 import { createServer } from "node:http";
 import { createChannel, defineChannelTool } from "@copilotkit/channels";
-import { teams, SanitizingHttpAgent } from "@copilotkit/channels-teams";
+import { teams, SanitizingHttpAgent } from "@copilotkit/channels/teams";
 import { BuiltInAgent, CopilotSseRuntime } from "@copilotkit/runtime/v2";
 import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 import { z } from "zod";
@@ -31,7 +31,7 @@ import {
   Table,
   Row,
   Cell,
-} from "@copilotkit/channels-ui";
+} from "@copilotkit/channels";
 
 // This demo drives a real agent, so an LLM key is required. Fail fast with a
 // clear message rather than booting a bot that errors on the first message.

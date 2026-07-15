@@ -1,5 +1,5 @@
 import type { ContextEntry } from "@copilotkit/channels";
-import type { PlatformUser } from "@copilotkit/channels-ui";
+import type { PlatformUser } from "@copilotkit/channels";
 
 /**
  * Build the per-turn context naming the requesting user, so the agent can act

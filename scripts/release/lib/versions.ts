@@ -1,11 +1,7 @@
 import fs from "fs";
 import path from "path";
-import {
-  loadConfig,
-  getScopeConfig,
-  ROOT,
-  type ReleaseScope,
-} from "./config.js";
+import { loadConfig, getScopeConfig, ROOT } from "./config.js";
+import type { ReleaseScope } from "./config.js";
 
 export type BumpLevel = "patch" | "minor" | "major";
 
@@ -47,7 +43,7 @@ export function getCurrentVersion(scope: ReleaseScope): string {
 
 export function parseSemver(version: string): SemVer {
   const match = version.match(
-    /^(\d+)\.(\d+)\.(\d+)(?:-([a-zA-Z0-9.\-]+))?(?:\+(.+))?$/,
+    /^(\d+)\.(\d+)\.(\d+)(?:-([a-zA-Z0-9.-]+))?(?:\+(.+))?$/,
   );
   if (!match) {
     throw new Error(`Invalid semver: ${version}`);
@@ -91,29 +87,32 @@ export function computePrereleaseVersion(
   return `${v.major}.${v.minor}.${v.patch}-${tag}.${id}`;
 }
 
-/** Get all publishable packages for a given scope. */
+/** Get all publishable packages in the order configured for a release scope. */
 export function getPackagesForScope(scope: ReleaseScope): PublishablePackage[] {
   const scopeConfig = getScopeConfig(scope);
-  const packageNames = new Set(scopeConfig.packages);
   const packagesDir = path.join(ROOT, "packages");
+  const packagesByName = new Map<string, PublishablePackage>();
 
-  const results: PublishablePackage[] = [];
   for (const dir of fs.readdirSync(packagesDir)) {
     const pkgJsonPath = path.join(packagesDir, dir, "package.json");
     if (!fs.existsSync(pkgJsonPath)) continue;
 
     const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, "utf8"));
-    if (packageNames.has(pkg.name)) {
-      results.push({
-        name: pkg.name,
-        dir: path.join(packagesDir, dir),
-        pkgJsonPath,
-        pkg,
-      });
-    }
+    packagesByName.set(pkg.name, {
+      name: pkg.name,
+      dir: path.join(packagesDir, dir),
+      pkgJsonPath,
+      pkg,
+    });
   }
 
-  return results;
+  return scopeConfig.packages.map((name) => {
+    const pkg = packagesByName.get(name);
+    if (!pkg) {
+      throw new Error(`Package not found for scope ${scope}: ${name}`);
+    }
+    return pkg;
+  });
 }
 
 /** Bump all packages in a scope to a new version. For sharedVersion scopes, also updates internal deps. */

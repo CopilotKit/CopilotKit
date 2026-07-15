@@ -15,8 +15,8 @@ import {
   Header,
   Message,
   Section,
-} from "@copilotkit/channels-ui";
-import type { ChannelNode } from "@copilotkit/channels-ui";
+} from "@copilotkit/channels";
+import type { ChannelNode } from "@copilotkit/channels";
 import { ACCENT } from "./_status.js";
 
 const pageSchema = z.object({

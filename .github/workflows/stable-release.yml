@@ -11,12 +11,6 @@ on:
           - monorepo
           - angular
           - channels
-          - channels-discord
-          - channels-intelligence
-          - channels-slack
-          - channels-teams
-          - channels-telegram
-          - channels-whatsapp
       bump:
         description: "Version bump level"
         required: true

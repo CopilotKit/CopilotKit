@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createChannel, FakeAgent } from "@copilotkit/channels";
+import { createChannel, FakeAgent } from "@copilotkit/channels-core";
 import { Section } from "@copilotkit/channels-ui";
 import {
   startChannelsWithGatewaySession,

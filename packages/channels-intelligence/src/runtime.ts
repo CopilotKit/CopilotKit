@@ -1,4 +1,4 @@
-import type { Channel, StateStore } from "@copilotkit/channels";
+import type { Channel, StateStore } from "@copilotkit/channels-core";
 import type {
   DeliverySource,
   EgressSink,

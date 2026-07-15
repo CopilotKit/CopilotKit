@@ -28,22 +28,22 @@ import {
   defaultSlackTools,
   defaultSlackContext,
   SanitizingHttpAgent,
-} from "@copilotkit/channels-slack";
+} from "@copilotkit/channels/slack";
 import {
   discord,
   defaultDiscordTools,
   defaultDiscordContext,
-} from "@copilotkit/channels-discord";
+} from "@copilotkit/channels/discord";
 import {
   telegram,
   defaultTelegramTools,
   defaultTelegramContext,
-} from "@copilotkit/channels-telegram";
+} from "@copilotkit/channels/telegram";
 import {
   whatsapp,
   defaultWhatsAppTools,
   defaultWhatsAppContext,
-} from "@copilotkit/channels-whatsapp";
+} from "@copilotkit/channels/whatsapp";
 import { appTools } from "./tools/index.js";
 import { appContext } from "./context/app-context.js";
 import { appCommands } from "./commands/index.js";
