@@ -17,6 +17,7 @@
       "pages": [
         "prebuilt-components/copilot-threads-drawer",
         "threads",
+        "threads-lifecycle",
         "threads-import"
       ]
     },
