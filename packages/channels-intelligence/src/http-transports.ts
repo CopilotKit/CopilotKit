@@ -15,9 +15,12 @@ import type {
   RenderFrame,
   RenderAccepted,
 } from "./contracts.js";
-import type { MessageRef, AgentContentPart } from "@copilotkit/channels-ui";
+import type { AgentContentPart } from "@copilotkit/channels-ui";
 import { irToText } from "./ir-to-text.js";
 import { buildContentParts } from "./content-parts.js";
+import { mapDeliveryToEnvelope } from "./claim-mapping.js";
+import type { ClaimedDelivery } from "./claim-mapping.js";
+import { IntelligenceFileHistoryClient } from "./intelligence-file-history.js";
 
 /**
  * @internal Default HTTP transports for {@link intelligenceAdapter}.
@@ -126,14 +129,6 @@ const defaultSleep = (ms: number): Promise<void> =>
 const DEFAULT_TURN_TIMEOUT_MS = 120_000;
 
 /**
- * Safety backstop on an inbound file download. app-api caps inbound files at
- * 25 MiB, so this generous ceiling never rejects legitimate traffic — it just
- * prevents an unbounded `arrayBuffer()` read if a served body is pathologically
- * large (anomaly / misrouted endpoint) and advertises its size.
- */
-const MAX_INBOUND_FILE_BYTES = 64 * 1024 * 1024;
-
-/**
  * Reject after `ms` if `p` hasn't settled, so a hung turn can't wedge the
  * single-delivery loop. The underlying promise keeps running in the background
  * (harmless — a rejection handler is attached), but the loop moves on.
@@ -159,81 +154,6 @@ function withTimeout<T>(
 }
 
 /** Slack reply target Intelligence mints at ingress and the sink echoes back. */
-interface SlackReplyTarget {
-  adapter: "slack";
-  teamId: string;
-  channel: string;
-  threadTs?: string;
-}
-
-/**
- * Teams reply target Intelligence mints at ingress (Bot Connector coordinates).
- * Distinct shape from Slack — no teamId/channel/threadTs — so conversation
- * identity must be derived per-provider (see {@link conversationKeyFromReplyTarget}).
- */
-interface TeamsReplyTarget {
-  adapter: "teams";
-  serviceUrl: string;
-  conversationId: string;
-  tenantId: string;
-}
-
-/**
- * The claim's reply target is provider-tagged (Intelligence app-api mints a
- * discriminated union — one Channel runtime serves every channel its framework Bot has
- * attached now that claims are provider-agnostic).
- */
-type ReplyTarget = SlackReplyTarget | TeamsReplyTarget;
-
-/** Successful `claim` delivery envelope (subset the bridge reads). */
-interface ClaimedDelivery {
-  id: string;
-  organizationId: string;
-  projectId: number;
-  channel: { id: string; name: string };
-  adapter: string;
-  leaseToken: string;
-  turn: {
-    id: string;
-    eventId: string;
-    replyTarget: ReplyTarget;
-    // NB: there is intentionally no `thread_started` variant here — the claim
-    // path only carries turn/command/reaction/interaction. `thread_started`
-    // envelopes originate on the realtime gateway path, not from `claim`, so a
-    // claimed delivery never maps to `kind:"thread_started"`.
-    input?:
-      | { kind: "text"; text?: string; files?: ChannelFileRef[] }
-      | {
-          kind: "command";
-          command: string;
-          text?: string;
-          triggerId?: string;
-          rawOptions?: Record<string, unknown>;
-        }
-      | {
-          kind: "reaction";
-          rawEmoji: string;
-          added: boolean;
-          messageId: string;
-          threadId?: string;
-          /** SDK post-time ref the reacted message maps to (reverse-resolved by
-           * app-api), so a `<Message onReaction>` handler can be found. */
-          postedRef?: string;
-        }
-      | {
-          kind: "interaction";
-          /** Minted action id (ck:...) the clicked control carried. */
-          actionId: string;
-          /** The clicked control's value (block_actions value / selected options). */
-          value?: unknown;
-          /** The message the interaction occurred on (so a handler can update it). */
-          messageRef?: MessageRef;
-          /** Slack trigger id (for opening a modal off the interaction). */
-          triggerId?: string;
-        };
-  };
-}
-
 /** Per-delivery org/project/channel scope, echoed onto render frames. */
 type ClaimResponse =
   | { claimed: false; pollAfterMs: number }
@@ -279,98 +199,6 @@ class IntelligenceHttp {
   }
 }
 
-/**
- * Stable per-conversation key, derived per provider — it keys the agent/session
- * (`getOrCreate(conversationKey)`), so distinct conversations MUST get distinct
- * keys or their state bleeds together. Slack: `slack:teamId:channel:thread:threadTs`.
- * Teams: `teams:tenantId:conversationId`, matching app-api's `thread_key`
- * (`teams:{tenantId}:{conversationId}`) so client and server agree on identity.
- * Deriving from Slack-only fields would collapse every Teams conversation to one
- * key — the bug this switch prevents now that claims are provider-agnostic.
- */
-function conversationKeyFromReplyTarget(rt: ReplyTarget): string {
-  switch (rt.adapter) {
-    case "slack":
-      return `slack:${rt.teamId}:${rt.channel}:thread:${rt.threadTs ?? "root"}`;
-    case "teams":
-      return `teams:${rt.tenantId}:${rt.conversationId}`;
-    default: {
-      // A provider we don't model yet: fail loud rather than silently collide
-      // distinct conversations onto a shared agent/session.
-      const unknown = rt as { adapter?: string };
-      throw new Error(
-        `conversationKeyFromReplyTarget: unsupported reply-target adapter ${JSON.stringify(unknown.adapter)}`,
-      );
-    }
-  }
-}
-
-function mapDeliveryToEnvelope(d: ClaimedDelivery): ChannelIngressEnvelope {
-  const base = {
-    deliveryId: d.id,
-    eventId: d.turn.eventId,
-    turnId: d.turn.id,
-    // `ChannelIngressEnvelope` remains aligned with the channels framework's
-    // Bot object; only the Intelligence HTTP wire contract calls this a channel.
-    channelName: d.channel.name,
-    platform: d.adapter,
-    conversationKey: conversationKeyFromReplyTarget(d.turn.replyTarget),
-    route: d.turn.replyTarget,
-  };
-  const input = d.turn.input;
-
-  if (input?.kind === "command") {
-    return {
-      ...base,
-      kind: "command",
-      command: input.command,
-      text: input.text ?? "",
-      ...(input.triggerId ? { triggerId: input.triggerId } : {}),
-      ...(input.rawOptions ? { rawOptions: input.rawOptions } : {}),
-    };
-  }
-
-  if (input?.kind === "reaction") {
-    return {
-      ...base,
-      kind: "reaction",
-      rawEmoji: input.rawEmoji,
-      added: input.added,
-      messageId: input.messageId,
-      ...(input.threadId ? { threadId: input.threadId } : {}),
-      ...(input.postedRef ? { postedRef: input.postedRef } : {}),
-    };
-  }
-
-  if (input?.kind === "interaction") {
-    return {
-      ...base,
-      kind: "interaction",
-      actionId: input.actionId,
-      ...(input.value !== undefined ? { value: input.value } : {}),
-      ...(input.messageRef ? { messageRef: input.messageRef } : {}),
-      ...(input.triggerId ? { triggerId: input.triggerId } : {}),
-    };
-  }
-
-  if (input === undefined || input.kind === "text") {
-    return {
-      ...base,
-      kind: "turn",
-      text: input?.text ?? "",
-      ...(input?.files?.length ? { files: input.files } : {}),
-    };
-  }
-
-  // Exhaustiveness guard: mirror the adapter's dispatch switch — an unknown wire
-  // kind must fail loud rather than be silently coerced into an empty turn (which
-  // would then ack as a processed no-op).
-  const unhandled: never = input;
-  throw new Error(
-    `intelligenceAdapter: unknown delivery input kind ${JSON.stringify(unhandled)}`,
-  );
-}
-
 interface LeaseRecord {
   turnId: string;
   leaseToken: string;
@@ -385,6 +213,7 @@ interface LeaseRecord {
  */
 export class HttpDeliverySource implements DeliverySource {
   private readonly http: IntelligenceHttp;
+  private readonly fileHistory: IntelligenceFileHistoryClient;
   private readonly leases = new Map<string, LeaseRecord>();
   private running = false;
   private loop?: Promise<void>;
@@ -392,6 +221,11 @@ export class HttpDeliverySource implements DeliverySource {
 
   constructor(private readonly cfg: IntelligenceTransportConfig) {
     this.http = new IntelligenceHttp(cfg);
+    this.fileHistory = new IntelligenceFileHistoryClient({
+      baseUrl: cfg.baseUrl,
+      apiKey: cfg.apiKey,
+      log: cfg.log,
+    });
   }
 
   private sleep(ms: number): Promise<void> {
@@ -576,165 +410,18 @@ export class HttpDeliverySource implements DeliverySource {
     );
   }
 
-  /**
-   * Download an inbound file's raw bytes by handle from app-api's file-serve
-   * route. Bypasses {@link IntelligenceHttp} on purpose — that helper is
-   * JSON/POST-only and decodes bodies as text, which corrupts binary; the
-   * global `fetch` gives us `arrayBuffer()`. Auth is the same runtime bearer.
-   */
-  async fetchFile(
-    handle: string,
-  ): Promise<{ bytes: Uint8Array; mimeType?: string }> {
-    const gfetch = (globalThis as unknown as { fetch?: typeof fetch }).fetch;
-    if (!gfetch) {
-      throw new Error(
-        "intelligenceAdapter: no global fetch available for file download",
-      );
-    }
-    const url = `${this.cfg.baseUrl}/api/channels/files/${encodeURIComponent(handle)}`;
-    const res = await gfetch(url, {
-      method: "GET",
-      headers: { authorization: `Bearer ${this.cfg.apiKey}` },
-    });
-    if (!res.ok) {
-      throw new Error(`intelligence file ${handle} -> ${res.status}`);
-    }
-    // Bound the body read when the server advertises an oversize length, before
-    // pulling the whole thing into memory as an arrayBuffer.
-    const declaredLen = Number(res.headers.get("content-length") ?? "");
-    if (Number.isFinite(declaredLen) && declaredLen > MAX_INBOUND_FILE_BYTES) {
-      throw new Error(
-        `intelligence file ${handle} too large: ${declaredLen} bytes > ${MAX_INBOUND_FILE_BYTES} cap`,
-      );
-    }
-    const bytes = new Uint8Array(await res.arrayBuffer());
-    const mimeType = res.headers.get("content-type") ?? undefined;
-    return { bytes, mimeType };
+  // fetchFile / getHistory / uploadFile delegate to the shared
+  // IntelligenceFileHistoryClient so the HTTP and realtime transports stay in
+  // lockstep (OSS-476). See {@link IntelligenceFileHistoryClient}.
+  fetchFile(handle: string): Promise<{ bytes: Uint8Array; mimeType?: string }> {
+    return this.fileHistory.fetchFile(handle);
   }
 
-  /**
-   * Fetch prior thread turns from app-api's channel history route for
-   * conversation-history seeding (parity with bot-slack/bot-discord/
-   * bot-whatsapp's reconstructed-history conversation stores). A root-level
-   * turn (no `threadTs`) has no prior thread to look up, so this returns `[]`
-   * without a request. Best-effort like {@link fetchFile}'s sibling paths — any
-   * non-2xx response or thrown error degrades to `[]`; missing history must
-   * never fail the turn. Logging is split by failure class: a 4xx (except
-   * 429) is a permanent misconfiguration (route not mounted / wrong baseUrl /
-   * bad runtime key) and is logged loudly and distinctly so it doesn't hide
-   * forever; a 5xx, 429, or thrown network error is a transient blip and gets
-   * the existing quiet degradation log.
-   */
-  async getHistory(
-    replyTarget: EgressRoute,
-    limit: number,
-  ): Promise<AgentMessage[]> {
-    // Provider-specific history query. `EgressRoute` is opaque, so each adapter
-    // maps its route → app-api's `/api/channels/history` query here, mirroring
-    // `conversationKeyFromReplyTarget`'s per-adapter switch. Slack keys off
-    // `threadTs`; Teams off `tenantId`+`conversationId` (matching app-api's
-    // `teams:{tenantId}:{conversationId}` thread_key). A turn with no thread
-    // anchor has no prior history to look up, so return `[]`.
-    const rt = replyTarget as
-      | {
-          adapter?: string;
-          teamId?: string;
-          channel?: string;
-          threadTs?: string;
-          tenantId?: string;
-          conversationId?: string;
-        }
-      | undefined;
-    let qs: URLSearchParams;
-    if (rt?.adapter === "teams") {
-      if (!rt.tenantId || !rt.conversationId) return [];
-      qs = new URLSearchParams({
-        adapter: "teams",
-        tenantId: rt.tenantId,
-        conversationId: rt.conversationId,
-        limit: String(limit),
-      });
-    } else {
-      if (!rt?.threadTs) return [];
-      qs = new URLSearchParams({
-        teamId: rt.teamId ?? "",
-        channel: rt.channel ?? "",
-        threadTs: rt.threadTs,
-        limit: String(limit),
-      });
-    }
-    try {
-      const gfetch = (globalThis as unknown as { fetch?: typeof fetch }).fetch;
-      if (!gfetch) {
-        this.cfg.log?.("intelligence history fetch: no global fetch available");
-        return [];
-      }
-      const url = `${this.cfg.baseUrl}/api/channels/history?${qs.toString()}`;
-      const res = await gfetch(url, {
-        method: "GET",
-        headers: { authorization: `Bearer ${this.cfg.apiKey}` },
-      });
-      if (!res.ok) {
-        if (res.status >= 400 && res.status < 500 && res.status !== 429) {
-          // A permanent misconfiguration (missing route, wrong baseUrl, bad
-          // runtime key) looks identical to a transient blip unless it's
-          // called out distinctly — surface it loudly so it doesn't hide
-          // forever behind the best-effort degrade-to-`[]` below.
-          this.cfg.log?.(
-            `[intelligence] getHistory ${res.status} for thread history — likely a misconfigured/unauthorized history endpoint (baseUrl/route/apiKey); Channel Bot will run WITHOUT prior-turn history`,
-          );
-        } else {
-          // Transient (5xx/429) — quiet best-effort degradation, history is
-          // just skipped for this turn.
-          this.cfg.log?.(`intelligence history fetch -> ${res.status}`);
-        }
-        return [];
-      }
-      const json = (await res.json()) as {
-        messages?: Array<{
-          id: string;
-          role: "user" | "assistant";
-          text: string;
-          files?: ChannelFileRef[];
-        }>;
-      };
-      const out: AgentMessage[] = [];
-      for (const m of json.messages ?? []) {
-        if (!m.files?.length) {
-          out.push({ id: m.id, role: m.role, content: m.text ?? "" });
-          continue;
-        }
-        // Hydrate historical file refs with the SAME logic as the live inbound
-        // turn path, so a past image attachment and a live one produce
-        // identical content parts (e.g. "what was the image I sent?" works).
-        const fileParts = await buildContentParts(
-          m.files,
-          this.fetchFile.bind(this),
-          this.cfg.log,
-        );
-        const content: AgentContentPart[] = [];
-        if (m.text) content.push({ type: "text", text: m.text });
-        content.push(...fileParts);
-        out.push({ id: m.id, role: m.role, content });
-      }
-      // Defensive parity with InMemoryDeliverySource.getHistory (`slice(-limit)`):
-      // the route contract is oldest→newest capped at `limit`, but don't trust
-      // the server to honor it — keep the most recent `limit` so an over-
-      // returning route can't seed more than `historyLimit` onto agent.messages.
-      return out.length > limit ? out.slice(-limit) : out;
-    } catch (err) {
-      this.cfg.log?.("intelligence history fetch failed", err);
-      return [];
-    }
+  getHistory(replyTarget: EgressRoute, limit: number): Promise<AgentMessage[]> {
+    return this.fileHistory.getHistory(replyTarget, limit);
   }
 
-  /**
-   * Stream an outbound file's bytes to app-api's per-delivery upload route
-   * (lease-scoped) ahead of a `file` render frame. Returns the storage handle
-   * the frame references. Bytes go as the raw request body; display metadata
-   * rides query params.
-   */
-  async uploadFile(
+  uploadFile(
     deliveryId: string,
     args: {
       bytes: Uint8Array;
@@ -743,38 +430,7 @@ export class HttpDeliverySource implements DeliverySource {
       altText?: string;
     },
   ): Promise<{ handle: string }> {
-    const gfetch = (globalThis as unknown as { fetch?: typeof fetch }).fetch;
-    if (!gfetch) {
-      throw new Error(
-        "intelligenceAdapter: no global fetch available for file upload",
-      );
-    }
-    const qs = new URLSearchParams({ filename: args.filename });
-    if (args.title) qs.set("title", args.title);
-    if (args.altText) qs.set("altText", args.altText);
-    const url = `${this.cfg.baseUrl}/api/channels/deliveries/${encodeURIComponent(
-      deliveryId,
-    )}/files?${qs.toString()}`;
-    const res = await gfetch(url, {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${this.cfg.apiKey}`,
-        "content-type": "application/octet-stream",
-      },
-      // The runtime (undici) sends the Uint8Array bytes verbatim; the static
-      // `fetch` body type differs across this package's dom vs node-only lib
-      // configs, so bridge with a portable cast (`string` is a valid body in
-      // both). The value is never actually a string at runtime.
-      body: args.bytes as unknown as string,
-    });
-    if (!res.ok) {
-      throw new Error(`intelligence file upload -> ${res.status}`);
-    }
-    const json = (await res.json()) as { handle?: string };
-    if (!json.handle) {
-      throw new Error("intelligence file upload: response missing handle");
-    }
-    return { handle: json.handle };
+    return this.fileHistory.uploadFile(deliveryId, args);
   }
 
   async stop(): Promise<void> {

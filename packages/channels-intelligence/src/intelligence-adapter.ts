@@ -642,6 +642,16 @@ export class IntelligenceAdapter implements PlatformAdapter {
   }
 
   async delete(ref: MessageRef): Promise<void> {
+    // Realtime path: stream a `delete` render frame so the Connector Outbox
+    // resolves the ref and calls chat.delete (OSS-420) — mirroring post/update.
+    // Fallback (no render sink — in-memory tests): the egress op path.
+    if (this.renderSink) {
+      await this.postRenderFrame(targetFromRef(ref), {
+        kind: "delete",
+        ref: ref.id,
+      });
+      return;
+    }
     await this.emit(targetFromRef(ref), { kind: "delete", ref: ref.id });
   }
 

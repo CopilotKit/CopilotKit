@@ -20,14 +20,22 @@
 // renderer and is a follow-up. This transport covers the agent-run render
 // stream + delivery lifecycle.
 
-import type { DeliverySource, RenderEventSink } from "./transports.js";
+import type {
+  DeliverySource,
+  RenderEventSink,
+  AgentMessage,
+} from "./transports.js";
 import type {
   ChannelIngressEnvelope,
   ChannelDeliveryScope,
+  EgressRoute,
   RenderFrame,
   RenderAccepted,
 } from "./contracts.js";
 import type { RealtimeGatewaySession } from "./realtime-gateway.js";
+import { mapDeliveryToEnvelope } from "./claim-mapping.js";
+import type { ClaimedDelivery } from "./claim-mapping.js";
+import { IntelligenceFileHistoryClient } from "./intelligence-file-history.js";
 
 /** The org/project/channel scope every realtime envelope carries. */
 export interface ChannelRealtimeScope extends ChannelDeliveryScope {}
@@ -80,6 +88,19 @@ export interface RealtimeGatewayTransportOptions {
   runtimeInstanceId: string;
   /** The joined Realtime Gateway session. */
   session: RealtimeGatewaySession;
+  /**
+   * Intelligence app-api HTTP base URL (e.g. `https://…/`). File bytes and
+   * thread history are HTTP-only — the gateway relays the render-event stream
+   * but never bytes/history — so the realtime path reaches these app-api REST
+   * endpoints directly. Provide it (with {@link apiKey}) to enable
+   * fetchFile/getHistory/uploadFile parity with the HTTP transport (OSS-476);
+   * omit it and those capabilities stay absent (each turn starts fresh, inbound
+   * files aren't fetched, outbound file posts are unavailable) exactly as before.
+   */
+  appApiBaseUrl?: string;
+  /** Project runtime API key (`cpk-…`) for the app-api file/history calls.
+   * Required alongside {@link appApiBaseUrl} to enable file/history. */
+  apiKey?: string;
   /** ISO timestamp source; injectable for deterministic tests. */
   now?: () => string;
   /**
@@ -162,6 +183,30 @@ export class RealtimeGatewayTransport
   private readonly deliveries = new Map<string, DeliveryState>();
   private onDelivery?: (env: ChannelIngressEnvelope) => Promise<void>;
 
+  /**
+   * File/history capabilities (OSS-476). Assigned only when the transport is
+   * configured with an app-api HTTP client (`appApiBaseUrl` + `apiKey`); left
+   * `undefined` otherwise so the adapter's optional-chaining degrades exactly
+   * as before (no history, no inbound file bytes, no outbound file post). These
+   * are HTTP-only — they never touch the gateway session.
+   */
+  readonly fetchFile?: (
+    handle: string,
+  ) => Promise<{ bytes: Uint8Array; mimeType?: string }>;
+  readonly getHistory?: (
+    replyTarget: EgressRoute,
+    limit: number,
+  ) => Promise<AgentMessage[]>;
+  readonly uploadFile?: (
+    deliveryId: string,
+    args: {
+      bytes: Uint8Array;
+      filename: string;
+      title?: string;
+      altText?: string;
+    },
+  ) => Promise<{ handle: string }>;
+
   constructor(config: RealtimeGatewayTransportOptions) {
     assertValidChannelRealtimeScope(config.scope);
     this.scope = config.scope;
@@ -171,6 +216,20 @@ export class RealtimeGatewayTransport
     this.log = config.log;
     this.deliveryTimeoutMs =
       config.deliveryTimeoutMs ?? DEFAULT_DELIVERY_TIMEOUT_MS;
+    // File/history parity is HTTP-only; wire the shared client (identical to
+    // the HTTP transport's) when app-api coordinates are supplied.
+    if (config.appApiBaseUrl && config.apiKey) {
+      const fileHistory = new IntelligenceFileHistoryClient({
+        baseUrl: config.appApiBaseUrl,
+        apiKey: config.apiKey,
+        log: config.log,
+      });
+      this.fetchFile = (handle) => fileHistory.fetchFile(handle);
+      this.getHistory = (replyTarget, limit) =>
+        fileHistory.getHistory(replyTarget, limit);
+      this.uploadFile = (deliveryId, args) =>
+        fileHistory.uploadFile(deliveryId, args);
+    }
   }
 
   async start(
@@ -235,11 +294,14 @@ export class RealtimeGatewayTransport
    * stashes for later complete/fail intents. Returns `undefined` (delivery
    * dropped, logged via {@link RealtimeGatewayTransportOptions.log}) when the turn
    * identity is missing/unmodeled or the delivery carries no `leaseToken` (a
-   * fenced intent can't be built without it). V1 assumes every leased delivery
-   * is a text turn and does not discriminate on `input.kind` — non-text kinds
-   * (command/interaction/reaction) are not yet modeled on the realtime path
-   * and will be mis-handled (coerced into a text turn) until they are
-   * (tracked for the event-parity follow-up).
+   * fenced intent can't be built without it). The envelope itself is built by
+   * the shared {@link mapDeliveryToEnvelope} — the SAME mapper the HTTP
+   * transport uses — so the realtime path has full parity (OSS-476): it
+   * discriminates on `input.kind` (turn/command/reaction/interaction), derives
+   * a thread-stable `conversationKey`, and threads the provider `actor` through
+   * as `env.user`. A malformed/unmodeled delivery (bad reply-target adapter,
+   * unknown input kind) throws in the mapper and is dropped+logged here rather
+   * than crashing the delivery handler (fail-closed).
    */
   private toIngressEnvelope(payload: unknown):
     | {
@@ -304,23 +366,28 @@ export class RealtimeGatewayTransport
       ...(channelId !== undefined ? { channelId } : {}),
       channelName: String(channel?.name ?? this.scope.channelName),
     };
-    return {
-      scope,
-      leaseToken,
-      env: {
-        kind: "turn",
-        deliveryId: String(delivery.id),
-        eventId: String(turn.eventId),
-        turnId: String(turn.id),
-        // This product-level field names the Channel; bot core attaches the
-        // adapter directly to the framework Channel named by `createChannel({ name })`.
-        channelName: scope.channelName,
-        platform: String(delivery.adapter ?? "slack"),
-        conversationKey: String(turn.id),
-        route: turn.replyTarget,
-        text: turn.input?.text ?? "",
-      },
-    };
+    // Build the ingress envelope via the shared claim mapper (parity with the
+    // HTTP transport). The scope's channel name/adapter fallbacks are folded in
+    // so the mapper sees a fully-resolved delivery; the mapper throws on an
+    // unmodeled reply-target adapter or input kind, so drop+log on failure.
+    try {
+      const claimed: ClaimedDelivery = {
+        id: String(delivery.id),
+        organizationId: organizationId ?? "",
+        projectId: scope.projectId,
+        channel: { id: channelId ?? "", name: scope.channelName },
+        adapter: String(delivery.adapter ?? "slack"),
+        leaseToken,
+        turn: delivery.turn as ClaimedDelivery["turn"],
+      };
+      return { scope, leaseToken, env: mapDeliveryToEnvelope(claimed) };
+    } catch (err) {
+      this.log?.(
+        "realtime gateway delivery dropped: could not map claim to ingress envelope (unmodeled reply-target adapter or input kind?)",
+        { deliveryId: delivery.id, err },
+      );
+      return undefined;
+    }
   }
 
   async push(frame: RenderFrame): Promise<RenderAccepted> {

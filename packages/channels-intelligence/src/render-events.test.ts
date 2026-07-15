@@ -8,6 +8,7 @@ import {
 } from "./in-memory-transports.js";
 import { RealtimeGatewayTransport } from "./realtime-gateway-transport.js";
 import type { RealtimeGatewaySession } from "./realtime-gateway.js";
+import type { ChannelIngressEnvelope } from "./contracts.js";
 
 const target = {
   route: { channel: "C1", threadTs: "100.0" },
@@ -104,6 +105,29 @@ describe("run renderer — render-event streaming (OSS-402)", () => {
     expect(
       (postFrame?.event as { kind: "post"; content: unknown }).content,
     ).toEqual(card);
+  });
+
+  it("routes a delete through a delete render frame when a renderSink is wired (OSS-420)", async () => {
+    const renderSink = new InMemoryRenderEventSink();
+    const adapter = intelligenceAdapter({
+      source: new InMemoryDeliverySource(),
+      egress: new InMemoryEgressSink(),
+      renderSink,
+    });
+    const card = [
+      { type: "section", props: { children: "card" } },
+    ] as unknown as Parameters<typeof adapter.post>[1];
+
+    const ref = await adapter.post(target, card);
+    await adapter.delete(ref);
+
+    const deleteFrame = renderSink.frames.find(
+      (f) => f.event.kind === "delete",
+    );
+    expect(deleteFrame).toBeDefined();
+    expect((deleteFrame?.event as { kind: "delete"; ref: string }).ref).toBe(
+      ref.id,
+    );
   });
 
   it("falls back to a single post op on the EgressSink when no renderSink is wired", async () => {
@@ -283,6 +307,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
           turn: {
             id: "turn_t1",
             eventId: "evt_1",
+            replyTarget: { adapter: "slack", teamId: "T1", channel: "C1" },
             input: { kind: "text", text: "hi" },
           },
         },
@@ -325,6 +350,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
           turn: {
             id: "turn_t1",
             eventId: "evt_1",
+            replyTarget: { adapter: "slack", teamId: "T1", channel: "C1" },
             input: { kind: "text", text: "hi" },
           },
         },
@@ -363,6 +389,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
           turn: {
             id: "turn_t1",
             eventId: "evt_1",
+            replyTarget: { adapter: "slack", teamId: "T1", channel: "C1" },
             input: { kind: "text", text: "hi" },
           },
         },
@@ -400,6 +427,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
           turn: {
             id: "turn_t1",
             eventId: "evt_1",
+            replyTarget: { adapter: "slack", teamId: "T1", channel: "C1" },
             input: { kind: "text", text: "hi" },
           },
         },
@@ -444,6 +472,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
           turn: {
             id: "turn_t1",
             eventId: "evt_1",
+            replyTarget: { adapter: "slack", teamId: "T1", channel: "C1" },
             input: { kind: "text", text: "hi" },
           },
         },
@@ -475,5 +504,62 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
       expect(p.channelId).toBe("channel_OTHER");
       expect(p.channelName).toBe("other-channel");
     }
+  });
+
+  it("maps a non-text turn to its real kind, with actor→user and a thread-stable key (OSS-476)", async () => {
+    const fake = makeFakeSession();
+    const t = new RealtimeGatewayTransport(cfg(fake.session));
+    let env: ChannelIngressEnvelope | undefined;
+    await t.start(async (e) => {
+      env = e;
+    });
+    fake.handlers.get("channel.delivery.available.v1")?.({
+      payload: {
+        delivery: {
+          id: "dlv_d1",
+          leaseToken: "lease_l1",
+          adapter: "slack",
+          channel: { id: "channel_1", name: "support" },
+          turn: {
+            id: "turn_t1",
+            eventId: "evt_1",
+            replyTarget: {
+              adapter: "slack",
+              teamId: "T1",
+              channel: "C1",
+              threadTs: "1700.5",
+            },
+            actor: { externalUserId: "U42", displayName: "Grace" },
+            input: { kind: "command", command: "/deploy", text: "prod" },
+          },
+        },
+      },
+    });
+    await Promise.resolve();
+
+    expect(env?.kind).toBe("command");
+    expect(env).toMatchObject({ command: "/deploy", text: "prod" });
+    // Provider identity survived the realtime claim (previously dropped).
+    expect(env?.user).toEqual({ id: "U42", displayName: "Grace" });
+    // Thread-stable, not the per-turn id it used to be.
+    expect(env?.conversationKey).toBe("slack:T1:C1:thread:1700.5");
+  });
+
+  it("exposes file/history only when app-api HTTP coordinates are configured (OSS-476)", () => {
+    const fake = makeFakeSession();
+
+    const without = new RealtimeGatewayTransport(cfg(fake.session));
+    expect(without.fetchFile).toBeUndefined();
+    expect(without.getHistory).toBeUndefined();
+    expect(without.uploadFile).toBeUndefined();
+
+    const withHttp = new RealtimeGatewayTransport({
+      ...cfg(fake.session),
+      appApiBaseUrl: "https://app-api.example",
+      apiKey: "cpk-test",
+    });
+    expect(typeof withHttp.fetchFile).toBe("function");
+    expect(typeof withHttp.getHistory).toBe("function");
+    expect(typeof withHttp.uploadFile).toBe("function");
   });
 });
