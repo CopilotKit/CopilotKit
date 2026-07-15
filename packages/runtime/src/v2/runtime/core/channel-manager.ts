@@ -174,6 +174,9 @@ export interface ChannelsIntelligenceModule {
       scope: { projectId: number; channelName: string };
       runtimeInstanceId: string;
       adapter?: string;
+      /** Intelligence app-api HTTP base URL, forwarded to the transport so the
+       * managed realtime path enables file/history parity (HTTP-only) — OSS-476. */
+      appApiBaseUrl?: string;
       /** Diagnostic sink forwarded to the launcher/transport so transport-level
        * drop diagnostics (e.g. a version-skew missing-leaseToken outage) are not
        * silent in the managed path. */
@@ -231,6 +234,10 @@ export async function defaultActivateChannel(
     scope: { projectId: config.projectId, channelName: config.channelName },
     runtimeInstanceId: config.runtimeInstanceId,
     adapter: config.adapter,
+    // Forward the app-api HTTP base URL so the transport wires file/history
+    // (HTTP-only) on the NORMAL managed path — without this, Channels started by
+    // the CopilotRuntime handler run with no history/file support (OSS-476).
+    appApiBaseUrl: config.apiUrl,
     // Forward the manager's diagnostic sink down to the launcher/transport so a
     // transport-level drop (e.g. a version-skew missing-leaseToken outage) is
     // observable in the managed path, not just activation-level events.

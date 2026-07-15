@@ -57,26 +57,27 @@ describe("intelligenceAdapter — ingress dispatch", () => {
     expect(seen?.platform).toBe("slack");
   });
 
-  it("forwards the provider actor displayName to handlers, not just the id", async () => {
+  it("maps the provider actor display name onto PlatformUser.name for handlers", async () => {
     const source = new InMemoryDeliverySource();
     const egress = new InMemoryEgressSink();
     const channel = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
-    let seenUser: { id: string; displayName?: string } | undefined;
+    let seenUser: { id: string; name?: string } | undefined;
     channel.onMessage(async ({ message }) => {
       seenUser = message.user;
     });
     await channel.start();
-    // Before the fix, dispatchTo narrowed env.user to `{ id }`, dropping the
-    // displayName the claim mapper resolved.
+    // The wire field is `displayName`; it must surface as PlatformUser.name so
+    // `message.user.name` is observable through the typed API (parity with the
+    // direct Slack adapter, which populates `name`).
     await source.deliver(
       envelope({ user: { id: "u1", displayName: "Ada Lovelace" } }),
     );
 
     expect(seenUser?.id).toBe("u1");
-    expect(seenUser?.displayName).toBe("Ada Lovelace");
+    expect(seenUser?.name).toBe("Ada Lovelace");
   });
 
   it("acks the delivery after the handler completes", async () => {

@@ -726,6 +726,7 @@ describe("ChannelManager", () => {
 describe("defaultActivateChannel", () => {
   const config: ChannelActivationConfig = {
     wsUrl: "wss://runtime.example",
+    apiUrl: "https://runtime.example",
     apiKey: "cpk-42_short_long",
     projectId: 42,
     channelName: "support",
@@ -755,6 +756,10 @@ describe("defaultActivateChannel", () => {
       scope: { projectId: 42, channelName: "support" },
       runtimeInstanceId: "rti_x",
       adapter: "slack",
+      // The app-api HTTP base URL must reach the launcher so the transport wires
+      // file/history on the NORMAL managed path (OSS-476) — not only manual
+      // low-level callers.
+      appApiBaseUrl: "https://runtime.example",
     });
     // The scope carries ONLY projectId + channelName — never org/channelId.
     expect(opts.scope).not.toHaveProperty("organizationId");

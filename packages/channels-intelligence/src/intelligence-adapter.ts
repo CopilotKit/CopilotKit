@@ -373,14 +373,16 @@ export class IntelligenceAdapter implements PlatformAdapter {
       turnId: env.turnId,
       deliveryId: env.deliveryId,
     };
-    // Forward the full provider identity the claim mapper resolved (OSS-476),
-    // not just the id — otherwise `displayName` is plumbed through the mapper
-    // only to be dropped one layer before it reaches handlers.
+    // Forward the provider identity the claim mapper resolved (OSS-476), not
+    // just the id. The wire field is `displayName`; the public `PlatformUser`
+    // exposes it as `name` (the direct Slack adapter populates `name` too), so
+    // map onto `name` — otherwise `message.user.name` is undefined on managed
+    // turns and callers can't read the profile through the typed API.
     const user = env.user
       ? {
           id: env.user.id,
           ...(env.user.displayName !== undefined
-            ? { displayName: env.user.displayName }
+            ? { name: env.user.displayName }
             : {}),
         }
       : undefined;
