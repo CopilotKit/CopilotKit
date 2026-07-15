@@ -140,30 +140,36 @@ export const browseWebTool = createTool({
         "What to browse, e.g. 'top Hacker News stories' or 'read https://www.copilotkit.ai'",
       ),
   }),
-  execute: async ({ task }): Promise<string> => {
+  // Return the OBJECT, not a JSON string. The @ag-ui/mastra bridge encodes the
+  // tool result exactly once on its way to the frontend; if we stringify here
+  // too, the render receives a DOUBLE-encoded string, `parseJsonResult` parses
+  // one level back to a string, `.results` is undefined, and BrowseResultsCard
+  // shows "0 results" even though the browse succeeded (the LLM still reads the
+  // stringified content fine, so the chat text is correct — only the card is
+  // starved). Single-encode by returning the object. See the Mastra
+  // capability-map memory ("return a parsed OBJECT (single-encode)").
+  execute: async ({ task }): Promise<BrowseWebResult> => {
     const plan = planBrowse(task);
     let browser: Browser | undefined;
     try {
       browser = await launchLocalChromium();
       if (plan.mode === "hackernews") {
         const results = await scrapeHackerNews(browser);
-        const payload: BrowseWebResult = {
+        return {
           task,
           mode: "hackernews",
           url: plan.url,
           results,
         };
-        return JSON.stringify(payload);
       }
       const { results, text } = await readPage(browser, plan.url);
-      const payload: BrowseWebResult = {
+      return {
         task,
         mode: "page",
         url: plan.url,
         results,
         text,
       };
-      return JSON.stringify(payload);
     } catch (err) {
       // Never crash the agent run. The most common cause is a missing
       // Chromium binary ("Executable doesn't exist ... run: npx playwright
@@ -172,14 +178,13 @@ export const browseWebTool = createTool({
       const hint = /Executable doesn't exist|install/i.test(message)
         ? " (the local Chromium binary may be missing — run `npx playwright install chromium`)"
         : "";
-      const payload: BrowseWebResult = {
+      return {
         task,
         mode: plan.mode,
         url: plan.url,
         results: [],
         error: `Local browser navigation failed: ${message}${hint}`,
       };
-      return JSON.stringify(payload);
     } finally {
       await browser?.close().catch(() => {});
     }

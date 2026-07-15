@@ -266,7 +266,18 @@ describe("fixture collision detection", () => {
     // Verified the +4 are NOT in the mastra context (the refresh's new fixtures —
     // a2ui-recovery unique prompts, interrupt cells — introduce zero new exact
     // dupes); they are the merged main integrations' existing alias pattern.
-    const KNOWN_DUPLICATE_CEILING = 301;
+    //
+    // Bumped 301 → 303 (+2) by the native-interrupt resume-loop fix: the
+    // gen-ui-interrupt + interrupt-headless suspend fixtures gained
+    // `hasToolResult:false` so they stop re-matching once the resolved tool
+    // result is present (letting the resume fall through to the toolCallId
+    // confirmation fixture). That aligns them with the schedule_meeting suspend
+    // fixtures hitl-in-chat.json already carried, so all three mastra cells now
+    // share the same two match keys ("intro call with the sales team" +
+    // "1:1 with Alice", each hasToolResult:false|toolName:schedule_meeting).
+    // These are disambiguated at runtime by route/fixtureFile like every other
+    // cross-demo alias above — one exact-key pair per pill × 2 pills = +2.
+    const KNOWN_DUPLICATE_CEILING = 303;
 
     const collisions: string[] = [];
 

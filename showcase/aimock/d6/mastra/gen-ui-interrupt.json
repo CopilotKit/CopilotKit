@@ -10,6 +10,7 @@
       "match": {
         "userMessage": "intro call with the sales team",
         "toolName": "schedule_meeting",
+        "hasToolResult": false,
         "context": "mastra"
       },
       "response": {
@@ -63,6 +64,7 @@
       "match": {
         "userMessage": "1:1 with Alice",
         "toolName": "schedule_meeting",
+        "hasToolResult": false,
         "context": "mastra"
       },
       "response": {
