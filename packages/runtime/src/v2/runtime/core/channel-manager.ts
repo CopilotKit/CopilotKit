@@ -630,14 +630,23 @@ export class ChannelManager implements ChannelsControl {
     for (const [name, entry] of this.entries) {
       channels[name] = entry.status;
     }
+    // A stopped manager is `stopped` regardless of whether it was ever activated.
+    // stop() before activate() (e.g. SIGTERM during startup) leaves `entries`
+    // empty, and the empty-set fold below returns `online` — a torn-down manager
+    // must never read healthy. Short-circuit before that fold. (After a normal
+    // activate→stop, every entry is already `stopped` and the fold agrees, so
+    // this is also consistent with the populated case.)
+    if (this.stopped) {
+      return { overall: "stopped", channels };
+    }
     // Before activate() has run, `entries` is empty. Folding an empty set gives
     // `online` — correct for a manager that declares NO channels (nothing is
     // degraded), but a LIE for one that declares channels and simply has not
     // opened its socket yet: activation is lazy (deferred to the first
     // `ready()`), so a not-yet-activated manager must never read `online`.
     // Report `connecting` ("not started") for that case so `status()` is honest
-    // before any `ready()`. A stopped manager falls through to the fold below.
-    if (!this.activated && !this.stopped && this.channels.length > 0) {
+    // before any `ready()`.
+    if (!this.activated && this.channels.length > 0) {
       return { overall: "connecting", channels };
     }
     return { overall: this.computeOverall(Object.values(channels)), channels };

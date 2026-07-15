@@ -182,6 +182,19 @@ describe("ChannelManager", () => {
     expect(mgr.status().overall).toBe("error");
   });
 
+  it("status() reports overall 'stopped' when stop() runs before activate() (SIGTERM during startup)", async () => {
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [createChannel({ name: "support" })],
+      activateChannel: async () => fakeHandle(),
+    });
+    // stop() before activate() — no entries were ever created, so the empty-set
+    // fold would report "online" (a torn-down manager reading healthy) without
+    // the stopped short-circuit in status().
+    await mgr.stop();
+    expect(mgr.status().overall).toBe("stopped");
+  });
+
   it("ready() rejects when a channel does not settle within timeoutMs", async () => {
     const engine: ActivateChannelEngine = () =>
       new Promise<ChannelsHandle>(() => {});
