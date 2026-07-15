@@ -364,6 +364,7 @@ const builtInActivityRenderers = computed<
         theme: props.a2ui?.theme ?? viewerTheme,
         catalog: props.a2ui?.catalog,
         loadingComponent: props.a2ui?.loadingComponent,
+        recovery: props.a2ui?.recovery,
       }),
     );
   }

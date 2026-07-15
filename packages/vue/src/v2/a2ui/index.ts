@@ -1,5 +1,24 @@
-export { createA2UIMessageRenderer } from "./A2UIMessageRenderer";
-export type { A2UIMessageRendererOptions } from "./A2UIMessageRenderer";
+export {
+  createA2UIMessageRenderer,
+  runA2UIAction,
+  surfaceHasRenderableContent,
+} from "./A2UIMessageRenderer";
+export type {
+  A2UIMessageRendererOptions,
+  A2UIUserAction,
+  A2UIActionInterceptor,
+  A2UIClientEventMessage,
+} from "./A2UIMessageRenderer";
+export type { A2UIRecoveryRendererOptions } from "./A2UIRecoveryStates";
+export {
+  A2UILifecycleFields,
+  A2UIBuildingState,
+  A2UIRetryingState,
+  A2UIRecoveryFailure,
+  A2UIGeneratingSkeleton,
+  A2UIDebugDetails,
+  resolveDebugExposure,
+} from "./A2UIRecoveryStates";
 export { registerA2UICatalogContext } from "./A2UICatalogContext";
 export { registerA2UIBuiltInToolCallRenderer } from "./A2UIToolCallRenderer";
 export { default as A2UISurfaceActivityRenderer } from "./A2UISurfaceActivityRenderer.vue";
@@ -10,12 +29,16 @@ export {
 } from "./operations";
 export type { A2UIOperation } from "./operations";
 export type { A2UITheme, A2UISurfaceOperationPayload } from "./types";
+export { a2uiDefaultTheme } from "./types";
 export {
   createVueComponent,
   createBinderlessVueComponent,
   A2uiSurface,
   DeferredChild,
   vueBasicCatalog,
+  ThemeProvider,
+  useTheme,
+  useThemeOptional,
 } from "./vue-renderer";
 export type {
   VueComponentImplementation,
