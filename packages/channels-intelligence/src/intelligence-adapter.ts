@@ -369,7 +369,17 @@ export class IntelligenceAdapter implements PlatformAdapter {
       turnId: env.turnId,
       deliveryId: env.deliveryId,
     };
-    const user = env.user ? { id: env.user.id } : undefined;
+    // Forward the full provider identity the claim mapper resolved (OSS-476),
+    // not just the id — otherwise `displayName` is plumbed through the mapper
+    // only to be dropped one layer before it reaches handlers.
+    const user = env.user
+      ? {
+          id: env.user.id,
+          ...(env.user.displayName !== undefined
+            ? { displayName: env.user.displayName }
+            : {}),
+        }
+      : undefined;
 
     switch (env.kind) {
       case "turn": {
@@ -632,6 +642,19 @@ export class IntelligenceAdapter implements PlatformAdapter {
     let acc = "";
     for await (const c of chunks) acc += c;
     const target = _target as ChannelReplyTarget;
+    if (acc.length === 0) {
+      // An empty stream (no chunks, or only empty strings) has nothing to post.
+      // Posting textNode("") violates the render contract's min-1-text
+      // constraint (the frame is rejected → the whole turn nacks), and the HTTP
+      // egress fallback guards the same case. Skip the post and return a
+      // synthetic ref keyed to the turn — there is nothing to update/delete.
+      return {
+        id: `${target.turnId}:empty`,
+        __route: target.route,
+        __turnId: target.turnId,
+        __deliveryId: target.deliveryId,
+      };
+    }
     if (this.renderSink) {
       return this.postRenderFrame(target, {
         kind: "post",

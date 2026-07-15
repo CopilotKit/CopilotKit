@@ -17,6 +17,53 @@ import { buildContentParts } from "./content-parts.js";
 /** Hard cap on an inbound file download (mirrors the app-api serve route). */
 const MAX_INBOUND_FILE_BYTES = 64 * 1024 * 1024;
 
+/**
+ * Read a response body into memory, aborting once `cap` bytes are exceeded — so
+ * a response with no or understated `content-length` (chunked transfer, or a
+ * misbehaving/anomalous server) cannot pull an unbounded body into memory. Falls
+ * back to a buffered `arrayBuffer()` read with a post-read size check when the
+ * response exposes no readable stream (e.g. a mocked Response in tests).
+ */
+async function readCapped(
+  res: Response,
+  cap: number,
+  handle: string,
+): Promise<Uint8Array> {
+  const body = res.body;
+  if (!body) {
+    const buf = new Uint8Array(await res.arrayBuffer());
+    if (buf.byteLength > cap) {
+      throw new Error(
+        `intelligence file ${handle} too large: ${buf.byteLength} bytes > ${cap} cap`,
+      );
+    }
+    return buf;
+  }
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!value) continue;
+    total += value.byteLength;
+    if (total > cap) {
+      await reader.cancel();
+      throw new Error(
+        `intelligence file ${handle} too large: exceeded ${cap} byte cap`,
+      );
+    }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return out;
+}
+
 /** The minimal app-api HTTP coordinates the file/history calls need. */
 export interface IntelligenceFileHistoryConfig {
   /** Intelligence app-api base URL, e.g. `http://localhost:7050`. */
@@ -56,15 +103,18 @@ export class IntelligenceFileHistoryClient {
     if (!res.ok) {
       throw new Error(`intelligence file ${handle} -> ${res.status}`);
     }
-    // Bound the body read when the server advertises an oversize length, before
-    // pulling the whole thing into memory as an arrayBuffer.
+    // Fast reject on an advertised oversize length…
     const declaredLen = Number(res.headers.get("content-length") ?? "");
     if (Number.isFinite(declaredLen) && declaredLen > MAX_INBOUND_FILE_BYTES) {
       throw new Error(
         `intelligence file ${handle} too large: ${declaredLen} bytes > ${MAX_INBOUND_FILE_BYTES} cap`,
       );
     }
-    const bytes = new Uint8Array(await res.arrayBuffer());
+    // …but the declared length is not trustworthy (absent on chunked transfer,
+    // or understated by a misbehaving/anomalous server), so bound the ACTUAL
+    // read: stream the body and abort once the cap is exceeded rather than
+    // pulling an unbounded response into memory via arrayBuffer().
+    const bytes = await readCapped(res, MAX_INBOUND_FILE_BYTES, handle);
     const mimeType = res.headers.get("content-type") ?? undefined;
     return { bytes, mimeType };
   }
@@ -153,8 +203,13 @@ export class IntelligenceFileHistoryClient {
           files?: ChannelFileRef[];
         }>;
       };
+      // Cap to the most recent `limit` BEFORE hydrating file bytes: an
+      // over-returning route must not make us download attachments for messages
+      // we'd immediately discard, and `limit <= 0` means "no history" (a raw
+      // `slice(-0)` would otherwise return the ENTIRE array).
+      const capped = limit <= 0 ? [] : (json.messages ?? []).slice(-limit);
       const out: AgentMessage[] = [];
-      for (const m of json.messages ?? []) {
+      for (const m of capped) {
         if (!m.files?.length) {
           out.push({ id: m.id, role: m.role, content: m.text ?? "" });
           continue;
@@ -172,11 +227,8 @@ export class IntelligenceFileHistoryClient {
         content.push(...fileParts);
         out.push({ id: m.id, role: m.role, content });
       }
-      // Defensive parity with InMemoryDeliverySource.getHistory (`slice(-limit)`):
-      // the route contract is oldest→newest capped at `limit`, but don't trust
-      // the server to honor it — keep the most recent `limit` so an over-
-      // returning route can't seed more than `historyLimit` onto agent.messages.
-      return out.length > limit ? out.slice(-limit) : out;
+      // Already capped to the most recent `limit` above (before hydration).
+      return out;
     } catch (err) {
       this.cfg.log?.("intelligence history fetch failed", err);
       return [];

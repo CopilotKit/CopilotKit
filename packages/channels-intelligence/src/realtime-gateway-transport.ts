@@ -166,6 +166,28 @@ interface DeliveryState {
 }
 
 /**
+ * Thrown internally when a delivery has a valid lease + turn identity but its
+ * claim cannot be mapped to an ingress envelope (unmodeled reply-target adapter
+ * / unknown input kind). Carries the fencing fields so the delivery can be
+ * failed NON-retryably (dead-lettered) instead of dropped into an indefinite
+ * re-lease loop — the exact poison-payload failure mode the HTTP transport
+ * guards against with a non-retryable nack.
+ */
+class PoisonDeliveryError extends Error {
+  constructor(
+    readonly deliveryId: string,
+    readonly leaseToken: string,
+    readonly turnId: string,
+    readonly scope: ChannelDeliveryScope,
+    reason: string,
+    options?: { cause?: unknown },
+  ) {
+    super(reason, options);
+    this.name = "PoisonDeliveryError";
+  }
+}
+
+/**
  * Realtime Gateway transport implementing both the inbound {@link DeliverySource}
  * and the streaming {@link RenderEventSink}. `ack` maps to the completion
  * INTENT (`complete_requested`) and `nack` to `fail` — the SDK is never the
@@ -182,6 +204,8 @@ export class RealtimeGatewayTransport
   private readonly deliveryTimeoutMs: number;
   private readonly deliveries = new Map<string, DeliveryState>();
   private onDelivery?: (env: ChannelIngressEnvelope) => Promise<void>;
+  /** Tail of the serial delivery-processing chain — see {@link start}. */
+  private processing: Promise<void> = Promise.resolve();
 
   /**
    * File/history capabilities (OSS-476). Assigned only when the transport is
@@ -237,22 +261,62 @@ export class RealtimeGatewayTransport
   ): Promise<void> {
     this.onDelivery = onDelivery;
     this.session.on(DELIVERY_AVAILABLE, (payload) => {
-      // Error-boundary the dispatch: without a `.catch` an onDelivery rejection
-      // (or a parse/setup throw before the delivery is registered) becomes an
-      // unhandled promise rejection and the delivery is silently dropped. The
-      // per-turn failure/timeout path inside handleDeliveryAvailable nacks;
-      // this outer catch is the safety net for anything it can't (parse/setup
-      // errors that happen before a delivery id exists to nack).
-      this.handleDeliveryAvailable(payload).catch((err: unknown) => {
-        this.log?.("realtime gateway delivery dispatch failed", {
-          error: err instanceof Error ? err.message : String(err),
+      // Process deliveries SERIALLY (one at a time), matching the HTTP
+      // transport's single-delivery runLoop. Concurrent handling would let an
+      // at-least-once redelivery of an in-flight turnId reset the shared
+      // per-turn `seq` counter mid-run — corrupting egress operation ids /
+      // render idempotency keys (`${turnId}:${slot}:${seq}`) — and run two turns
+      // of the same conversation against one agent/session simultaneously.
+      //
+      // Each link is error-boundaried so one failed delivery never poisons the
+      // chain (the `.catch` keeps `this.processing` resolved for the next
+      // delivery): without it, an onDelivery rejection or a pre-registration
+      // parse/setup throw would surface as an unhandled rejection and stall the
+      // queue. The per-turn failure/timeout and poison paths inside
+      // handleDeliveryAvailable nack; this outer catch is the last-resort net.
+      this.processing = this.processing
+        .then(() => this.handleDeliveryAvailable(payload))
+        .catch((err: unknown) => {
+          this.log?.("realtime gateway delivery dispatch failed", {
+            error: err instanceof Error ? err.message : String(err),
+          });
         });
-      });
     });
   }
 
   private async handleDeliveryAvailable(payload: unknown): Promise<void> {
-    const claimed = this.toIngressEnvelope(payload);
+    let claimed:
+      | { env: ChannelIngressEnvelope; scope: ChannelDeliveryScope; leaseToken: string }
+      | undefined;
+    try {
+      claimed = this.toIngressEnvelope(payload);
+    } catch (err) {
+      if (err instanceof PoisonDeliveryError) {
+        // Unmappable delivery with a valid lease: register minimal state and
+        // fail it NON-retryably so app-api dead-letters it instead of re-leasing
+        // the identical poison payload forever (parity with the HTTP path).
+        this.deliveries.set(err.deliveryId, {
+          turnId: err.turnId,
+          leaseToken: err.leaseToken,
+          scope: err.scope,
+          accepted: new Map(),
+        });
+        this.log?.(
+          "realtime gateway delivery unmappable; failing non-retryable (dead-letter)",
+          { deliveryId: err.deliveryId, error: err.message },
+        );
+        await this.nack(err.deliveryId, err.message, false).catch(
+          (nackErr: unknown) =>
+            this.log?.("realtime gateway nack after unmappable delivery failed", {
+              deliveryId: err.deliveryId,
+              error:
+                nackErr instanceof Error ? nackErr.message : String(nackErr),
+            }),
+        );
+        return;
+      }
+      throw err;
+    }
     if (!claimed) return;
     const { env, scope, leaseToken } = claimed;
     this.deliveries.set(env.deliveryId, {
@@ -382,11 +446,18 @@ export class RealtimeGatewayTransport
       };
       return { scope, leaseToken, env: mapDeliveryToEnvelope(claimed) };
     } catch (err) {
-      this.log?.(
-        "realtime gateway delivery dropped: could not map claim to ingress envelope (unmodeled reply-target adapter or input kind?)",
-        { deliveryId: delivery.id, err },
+      // A valid lease + turn identity but an unmappable claim (unmodeled
+      // reply-target adapter / unknown input kind) is a POISON payload: dropping
+      // it (return undefined) would leak the lease and re-lease the identical
+      // payload forever. Surface it so the caller fails it non-retryably.
+      throw new PoisonDeliveryError(
+        String(delivery.id),
+        leaseToken,
+        String(turn.id),
+        scope,
+        `could not map claim to ingress envelope (unmodeled reply-target adapter or input kind?): ${err instanceof Error ? err.message : String(err)}`,
+        { cause: err },
       );
-      return undefined;
     }
   }
 
@@ -461,14 +532,25 @@ export class RealtimeGatewayTransport
   async ack(deliveryId: string): Promise<void> {
     const state = this.deliveries.get(deliveryId);
     if (!state) return;
+    // Claim the terminal signal BEFORE the wire call, mirroring the HTTP
+    // transport's delete-before-POST. A turn that times out (handleDeliveryAvailable
+    // nacks) while its dispatch keeps running in the background will call ack()
+    // here; deleting first guarantees whichever of ack/nack runs first wins and
+    // the loser no-ops on missing state — exactly one of complete_requested XOR
+    // fail reaches app-api for a given delivery.
     const acceptedThrough = Array.from(state.accepted.entries()).map(
       ([slot, seq]) => ({ turnId: state.turnId, slot, seq }),
     );
+    this.deliveries.delete(deliveryId);
     if (acceptedThrough.length === 0) {
       // Nothing was accepted (e.g. an empty turn). Without an accepted frame
       // there is nothing to complete; let the lease lapse / redeliver instead
       // of sending an invalid (empty acceptedThrough) intent.
-      this.deliveries.delete(deliveryId);
+      // NOTE (OSS-491): a legitimately empty turn (a reaction/command handler
+      // that posts nothing) has no valid completion signal under the frozen
+      // contract (acceptedThrough requires >=1), so it redelivers until
+      // max_attempts. A terminal "completed-empty" signal needs app-api
+      // coordination — tracked in OSS-491, not fixable SDK-side here.
       return;
     }
     await this.session.push(COMPLETE_REQUESTED, {
@@ -486,10 +568,23 @@ export class RealtimeGatewayTransport
         requestedAt: this.now(),
       },
     });
-    this.deliveries.delete(deliveryId);
   }
 
-  async nack(deliveryId: string, reason: string): Promise<void> {
+  /**
+   * Send a `fail` intent for a delivery. `retryable` (default `true`) controls
+   * whether app-api re-leases: a transient turn failure is retryable; an
+   * unmappable/poison delivery is NOT (`retryable: false`) so app-api
+   * dead-letters it instead of redelivering the identical payload forever
+   * (mirrors {@link http-transports} `HttpDeliverySource.nack`). `error.retryable`
+   * is the authoritative signal (the HTTP path drives dead-lettering off it);
+   * the realtime-only `deliveryStatus: "retry_wait"` decoration is sent only on
+   * the retryable path so it never contradicts a non-retryable fail.
+   */
+  async nack(
+    deliveryId: string,
+    reason: string,
+    retryable = true,
+  ): Promise<void> {
     const state = this.deliveries.get(deliveryId);
     if (!state) {
       // No state → no leaseToken to build a fenced fail intent, so nothing can
@@ -510,6 +605,8 @@ export class RealtimeGatewayTransport
       }),
     );
     const lastAccepted = accepted[accepted.length - 1];
+    // Claim the terminal signal BEFORE the wire call (XOR with ack) — see ack().
+    this.deliveries.delete(deliveryId);
     await this.session.push(DELIVERY_FAIL, {
       type: DELIVERY_FAIL,
       occurredAt: this.now(),
@@ -519,13 +616,12 @@ export class RealtimeGatewayTransport
         turnId: state.turnId,
         runtimeInstanceId: this.runtimeInstanceId,
         leaseToken: state.leaseToken,
-        deliveryStatus: "retry_wait",
+        ...(retryable ? { deliveryStatus: "retry_wait" } : {}),
         ...(lastAccepted ? { lastAccepted } : {}),
         failedAt: this.now(),
-        error: { code: "runtime_error", message: reason, retryable: true },
+        error: { code: "runtime_error", message: reason, retryable },
       },
     });
-    this.deliveries.delete(deliveryId);
   }
 
   async stop(): Promise<void> {

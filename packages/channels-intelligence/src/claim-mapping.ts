@@ -63,9 +63,14 @@ export interface ClaimedDelivery {
     /** Provider identity of the turn's author (OSS-476). */
     actor?: ClaimedDeliveryActor;
     // NB: there is intentionally no `thread_started` variant here — the claim
-    // path only carries turn/command/reaction/interaction. `thread_started`
-    // envelopes originate on the realtime gateway path, not from `claim`, so a
-    // claimed delivery never maps to `kind:"thread_started"`.
+    // path only carries turn/command/reaction/interaction. Neither wire mapper
+    // produces `kind:"thread_started"`: BOTH the HTTP and realtime transports
+    // build their envelope through this same `mapDeliveryToEnvelope`, so a real
+    // `thread_started` delivery over either transport would fall through to the
+    // empty-`turn` default below, not the `onThreadStarted` dispatch branch.
+    // Today `kind:"thread_started"` is only produced by an injected in-memory
+    // source (tests); wiring it over a real transport needs a dedicated mapper
+    // path (follow-up), not this claim shape.
     input?:
       | { kind: "text"; text?: string; files?: ChannelFileRef[] }
       | {

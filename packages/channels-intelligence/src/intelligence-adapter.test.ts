@@ -57,6 +57,28 @@ describe("intelligenceAdapter — ingress dispatch", () => {
     expect(seen?.platform).toBe("slack");
   });
 
+  it("forwards the provider actor displayName to handlers, not just the id", async () => {
+    const source = new InMemoryDeliverySource();
+    const egress = new InMemoryEgressSink();
+    const channel = createChannel({
+      adapters: [intelligenceAdapter({ source, egress })],
+      agent: () => new FakeAgent(),
+    });
+    let seenUser: { id: string; displayName?: string } | undefined;
+    channel.onMessage(async ({ message }) => {
+      seenUser = message.user;
+    });
+    await channel.start();
+    // Before the fix, dispatchTo narrowed env.user to `{ id }`, dropping the
+    // displayName the claim mapper resolved.
+    await source.deliver(
+      envelope({ user: { id: "u1", displayName: "Ada Lovelace" } }),
+    );
+
+    expect(seenUser?.id).toBe("u1");
+    expect(seenUser?.displayName).toBe("Ada Lovelace");
+  });
+
   it("acks the delivery after the handler completes", async () => {
     const source = new InMemoryDeliverySource();
     const egress = new InMemoryEgressSink();

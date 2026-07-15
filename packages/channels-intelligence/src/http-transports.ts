@@ -123,7 +123,12 @@ export function resolveTransportConfig(
 }
 
 const defaultSleep = (ms: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, ms));
+  new Promise((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    // Don't let a pending poll-sleep hold the event loop open (parity with the
+    // realtime transport's timers) so the process can exit after stop().
+    (timer as unknown as { unref?: () => void }).unref?.();
+  });
 
 /** Default per-turn deadline before a hung turn is nacked and skipped. */
 const DEFAULT_TURN_TIMEOUT_MS = 120_000;
@@ -140,6 +145,9 @@ function withTimeout<T>(
 ): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(message)), ms);
+    // Don't let a pending per-turn deadline hold the event loop open (parity
+    // with the realtime transport's withDeliveryTimeout).
+    (timer as unknown as { unref?: () => void }).unref?.();
     p.then(
       (value) => {
         clearTimeout(timer);

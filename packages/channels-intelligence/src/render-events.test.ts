@@ -406,6 +406,135 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     expect(logs.some((m) => m.includes("turn failed/timed out"))).toBe(true);
   });
 
+  it("fails an UNMAPPABLE (poison) delivery non-retryable instead of dropping it into a re-lease loop", async () => {
+    const fake = makeFakeSession();
+    const logs: string[] = [];
+    const t = new RealtimeGatewayTransport({
+      ...cfg(fake.session),
+      log: (m) => logs.push(m),
+    });
+    let delivered = false;
+    await t.start(async () => {
+      delivered = true;
+    });
+    // Valid turn id/eventId/leaseToken, but an unmodeled reply-target adapter →
+    // mapDeliveryToEnvelope throws. Before the fix this logged + dropped (no
+    // fail intent), so app-api re-leased the identical poison payload forever.
+    fake.handlers.get("channel.delivery.available.v1")?.({
+      payload: {
+        delivery: {
+          id: "dlv_poison",
+          leaseToken: "lease_l1",
+          adapter: "slack",
+          channel: { id: "channel_1", name: "support" },
+          turn: {
+            id: "turn_t1",
+            eventId: "evt_1",
+            replyTarget: { adapter: "discord", guildId: "G1", channel: "C1" },
+            input: { kind: "text", text: "hi" },
+          },
+        },
+      },
+    });
+
+    await vi.waitFor(() =>
+      expect(fake.pushes.map((p) => p.event)).toContain(
+        "channel.delivery.fail.v1",
+      ),
+    );
+    expect(delivered).toBe(false); // never reached the handler
+    const fail = fake.pushes.find((p) => p.event === "channel.delivery.fail.v1")!
+      .payload as {
+      payload: { leaseToken?: string; error: { retryable: boolean } };
+    };
+    // Non-retryable → app-api dead-letters instead of re-leasing.
+    expect(fail.payload.error.retryable).toBe(false);
+    expect(fail.payload.leaseToken).toBe("lease_l1");
+  });
+
+  it("sends exactly one terminal signal per delivery (delete-before-push): a late ack after nack no-ops", async () => {
+    const fake = makeFakeSession();
+    const t = new RealtimeGatewayTransport(cfg(fake.session));
+    let delivered = false;
+    await t.start(async () => {
+      delivered = true;
+    });
+    fake.handlers.get("channel.delivery.available.v1")?.({
+      payload: {
+        delivery: {
+          id: "dlv_d1",
+          leaseToken: "lease_l1",
+          adapter: "slack",
+          channel: { id: "channel_1", name: "support" },
+          turn: {
+            id: "turn_t1",
+            eventId: "evt_1",
+            replyTarget: { adapter: "slack", teamId: "T1", channel: "C1" },
+            input: { kind: "text", text: "hi" },
+          },
+        },
+      },
+    });
+    await vi.waitFor(() => expect(delivered).toBe(true));
+
+    // Simulate the timeout race: the per-turn timeout nacks while the still-
+    // running dispatch later acks. delete-before-push guarantees the first wins
+    // and the second no-ops — exactly one terminal signal reaches app-api.
+    await t.nack("dlv_d1", "timed out", true);
+    await t.ack("dlv_d1"); // late ack — state already gone, must send nothing
+
+    const terminals = fake.pushes
+      .map((p) => p.event)
+      .filter(
+        (e) =>
+          e === "channel.delivery.fail.v1" ||
+          e === "channel.delivery.complete_requested.v1",
+      );
+    expect(terminals).toEqual(["channel.delivery.fail.v1"]);
+  });
+
+  it("processes deliveries serially — a second delivery waits for the first to finish", async () => {
+    const fake = makeFakeSession();
+    const t = new RealtimeGatewayTransport(cfg(fake.session));
+    const order: string[] = [];
+    let release1!: () => void;
+    const gate1 = new Promise<void>((r) => {
+      release1 = r;
+    });
+    await t.start(async (env) => {
+      order.push(`start:${env.deliveryId}`);
+      if (env.deliveryId === "d1") await gate1; // first hangs until released
+      order.push(`end:${env.deliveryId}`);
+    });
+    const fire = (id: string) =>
+      fake.handlers.get("channel.delivery.available.v1")?.({
+        payload: {
+          delivery: {
+            id,
+            leaseToken: "l",
+            adapter: "slack",
+            channel: { id: "channel_1", name: "support" },
+            turn: {
+              id: `turn_${id}`,
+              eventId: `e_${id}`,
+              replyTarget: { adapter: "slack", teamId: "T1", channel: "C1" },
+              input: { kind: "text", text: "hi" },
+            },
+          },
+        },
+      });
+    fire("d1");
+    fire("d2");
+
+    await vi.waitFor(() => expect(order).toContain("start:d1"));
+    // d2 must NOT have started while d1 is gated (serial, not concurrent).
+    expect(order).toEqual(["start:d1"]);
+    release1();
+    await vi.waitFor(() =>
+      expect(order).toEqual(["start:d1", "end:d1", "start:d2", "end:d2"]),
+    );
+  });
+
   it("drops a delivery with no leaseToken (never fires onDelivery) and logs it", async () => {
     const fake = makeFakeSession();
     const logs: string[] = [];
