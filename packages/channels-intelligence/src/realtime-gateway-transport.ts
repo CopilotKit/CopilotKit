@@ -286,7 +286,11 @@ export class RealtimeGatewayTransport
 
   private async handleDeliveryAvailable(payload: unknown): Promise<void> {
     let claimed:
-      | { env: ChannelIngressEnvelope; scope: ChannelDeliveryScope; leaseToken: string }
+      | {
+          env: ChannelIngressEnvelope;
+          scope: ChannelDeliveryScope;
+          leaseToken: string;
+        }
       | undefined;
     try {
       claimed = this.toIngressEnvelope(payload);
@@ -307,11 +311,14 @@ export class RealtimeGatewayTransport
         );
         await this.nack(err.deliveryId, err.message, false).catch(
           (nackErr: unknown) =>
-            this.log?.("realtime gateway nack after unmappable delivery failed", {
-              deliveryId: err.deliveryId,
-              error:
-                nackErr instanceof Error ? nackErr.message : String(nackErr),
-            }),
+            this.log?.(
+              "realtime gateway nack after unmappable delivery failed",
+              {
+                deliveryId: err.deliveryId,
+                error:
+                  nackErr instanceof Error ? nackErr.message : String(nackErr),
+              },
+            ),
         );
         return;
       }

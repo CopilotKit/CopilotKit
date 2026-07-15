@@ -443,8 +443,9 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
       ),
     );
     expect(delivered).toBe(false); // never reached the handler
-    const fail = fake.pushes.find((p) => p.event === "channel.delivery.fail.v1")!
-      .payload as {
+    const fail = fake.pushes.find(
+      (p) => p.event === "channel.delivery.fail.v1",
+    )!.payload as {
       payload: { leaseToken?: string; error: { retryable: boolean } };
     };
     // Non-retryable → app-api dead-letters instead of re-leasing.
