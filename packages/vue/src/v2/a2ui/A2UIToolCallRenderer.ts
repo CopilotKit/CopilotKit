@@ -1,9 +1,10 @@
-import { h, watch, type VNodeChild } from "vue";
+import { h, watch } from "vue";
+import type { VNodeChild } from "vue";
 import type { ShallowRef } from "vue";
 import { z } from "zod";
 import type { ToolCallStatus } from "@copilotkit/core";
-import type { CopilotKitCoreVue } from "../../lib/vue-core";
-import { defineToolCallRenderer } from "../../types/defineToolCallRenderer";
+import type { CopilotKitCoreVue } from "../lib/vue-core";
+import { defineToolCallRenderer } from "../types/defineToolCallRenderer";
 
 /**
  * Tool name used by the dynamic A2UI generation secondary LLM.

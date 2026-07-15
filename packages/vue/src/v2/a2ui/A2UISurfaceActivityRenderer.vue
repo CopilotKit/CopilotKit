@@ -1,24 +1,15 @@
 <script setup lang="ts">
-import {
-  computed,
-  h,
-  onBeforeUnmount,
-  shallowRef,
-  ref,
-  watch,
-  type VNode,
-} from "vue";
+import { computed, h, onBeforeUnmount, shallowRef, ref, watch } from "vue";
+import type { VNode } from "vue";
 import type { ActivityMessage } from "@ag-ui/core";
-import type { A2UITheme } from "../types";
-import type { A2UIOperation } from "./a2ui";
-import { getOperationSurfaceId } from "./a2ui";
+import type { A2UITheme } from "./types";
+import type { A2UIOperation } from "./operations";
+import { getOperationSurfaceId } from "./operations";
 import { useCopilotKit } from "../providers";
-import { MessageProcessor, type SurfaceModel } from "@a2ui/web_core/v0_9";
-import {
-  vueBasicCatalog,
-  A2uiSurface,
-  type VueComponentImplementation,
-} from "./a2ui/index";
+import { MessageProcessor } from "@a2ui/web_core/v0_9";
+import type { SurfaceModel } from "@a2ui/web_core/v0_9";
+import { vueBasicCatalog, A2uiSurface } from "./vue-renderer";
+import type { VueComponentImplementation } from "./vue-renderer";
 
 const DEFAULT_SURFACE_ID = "default";
 
@@ -61,7 +52,7 @@ async function handleAction(message: unknown) {
   if (!props.agent) return;
   try {
     copilotkit.value.setProperties({
-      ...(copilotkit.value.properties ?? {}),
+      ...copilotkit.value.properties,
       a2uiAction: message,
     });
     await copilotkit.value.runAgent({ agent: props.agent as any });

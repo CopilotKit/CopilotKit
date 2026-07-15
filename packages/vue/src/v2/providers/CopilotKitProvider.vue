@@ -19,9 +19,9 @@ import { schemaToJsonSchema } from "@copilotkit/shared";
 import type { RuntimeLicenseStatus } from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { CopilotKitCoreVue } from "../lib/vue-core";
-import { createA2UIMessageRenderer } from "../components/A2UIMessageRenderer";
-import { registerA2UIBuiltInToolCallRenderer } from "../components/a2ui/A2UIBuiltInToolCallRenderer";
-import { registerA2UICatalogContext } from "../components/a2ui/A2UICatalogContext";
+import { createA2UIMessageRenderer } from "../a2ui/A2UIMessageRenderer";
+import { registerA2UIBuiltInToolCallRenderer } from "../a2ui/A2UIToolCallRenderer";
+import { registerA2UICatalogContext } from "../a2ui/A2UICatalogContext";
 import {
   GenerateSandboxedUiArgsSchema,
   OpenGenerativeUIActivityRenderer,

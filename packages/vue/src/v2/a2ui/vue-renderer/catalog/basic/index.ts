@@ -5,7 +5,8 @@
  * mirroring the React renderer's catalog/basic/.
  */
 
-import { h, ref, type CSSProperties, type VNode } from "vue";
+import { h, ref } from "vue";
+import type { CSSProperties, VNode } from "vue";
 import { Catalog } from "@a2ui/web_core/v0_9";
 import {
   TextApi,
@@ -29,7 +30,8 @@ import {
   BASIC_FUNCTIONS,
 } from "@a2ui/web_core/v0_9/basic_catalog";
 
-import { createVueComponent, type VueComponentImplementation } from "./adapter";
+import { createVueComponent } from "../../adapter";
+import type { VueComponentImplementation } from "../../adapter";
 import {
   LEAF_MARGIN,
   STANDARD_BORDER,

@@ -6,16 +6,10 @@
  * and Vue's render functions for component output.
  */
 
+import { defineComponent, ref, onUnmounted, watch } from "vue";
+import type { VNode, PropType } from "vue";
+import type { ComponentContext } from "@a2ui/web_core/v0_9";
 import {
-  defineComponent,
-  ref,
-  onUnmounted,
-  watch,
-  type VNode,
-  type PropType,
-} from "vue";
-import {
-  ComponentContext,
   GenericBinder,
   type ComponentApi,
   type InferredComponentApiSchemaType,

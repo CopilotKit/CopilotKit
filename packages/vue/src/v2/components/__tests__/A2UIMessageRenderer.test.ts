@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { defineComponent, h, ref } from "vue";
 import { render, waitFor } from "@testing-library/vue";
-import { createA2UIMessageRenderer } from "../A2UIMessageRenderer";
+import { createA2UIMessageRenderer } from "../../a2ui/A2UIMessageRenderer";
 import { CopilotKitKey } from "../../providers/keys";
 
 function copilotKitProvide() {
