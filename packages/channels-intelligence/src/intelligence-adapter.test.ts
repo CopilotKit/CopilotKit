@@ -57,6 +57,29 @@ describe("intelligenceAdapter — ingress dispatch", () => {
     expect(seen?.platform).toBe("slack");
   });
 
+  it("maps the provider actor display name onto PlatformUser.name for handlers", async () => {
+    const source = new InMemoryDeliverySource();
+    const egress = new InMemoryEgressSink();
+    const channel = createChannel({
+      adapters: [intelligenceAdapter({ source, egress })],
+      agent: () => new FakeAgent(),
+    });
+    let seenUser: { id: string; name?: string } | undefined;
+    channel.onMessage(async ({ message }) => {
+      seenUser = message.user;
+    });
+    await channel.start();
+    // The wire field is `displayName`; it must surface as PlatformUser.name so
+    // `message.user.name` is observable through the typed API (parity with the
+    // direct Slack adapter, which populates `name`).
+    await source.deliver(
+      envelope({ user: { id: "u1", displayName: "Ada Lovelace" } }),
+    );
+
+    expect(seenUser?.id).toBe("u1");
+    expect(seenUser?.name).toBe("Ada Lovelace");
+  });
+
   it("acks the delivery after the handler completes", async () => {
     const source = new InMemoryDeliverySource();
     const egress = new InMemoryEgressSink();
@@ -275,8 +298,10 @@ describe("intelligenceAdapter — egress fail-loud", () => {
     await source.deliver(envelope());
 
     // Before the fix, thread.post resolved with a synthetic ref and postError
-    // stayed undefined (the drop was acked as success). Now it throws so the
-    // failure propagates up the render path and the delivery is nacked.
+    // stayed undefined (the drop was acked as success). Now it throws. (This
+    // test asserts the throw at the post() boundary; the handler catches it
+    // here, so no nack is exercised — the run-loop's nack-on-throw is covered
+    // by the render-events dispatch tests.)
     expect(postError).toBeInstanceOf(Error);
     expect((postError as Error).message).toMatch(/egress post failed/i);
     expect((postError as Error).message).toContain("provider_rejected");
@@ -538,9 +563,10 @@ describe("intelligenceAdapter — conversation-history seeding", () => {
       // string content → text; role 'user' → isBot false, user 'user'.
       { text: "hi there", isBot: false, user: { id: "user", name: "user" } },
       // content-part array → text parts joined; the non-text (image) part
-      // contributes an empty string (hence the double space); assistant → bot.
+      // contributes no text and is dropped before the join, so there is no
+      // stray doubled space; assistant → bot.
       {
-        text: "part one  part two",
+        text: "part one part two",
         isBot: true,
         user: { id: "bot", name: "bot" },
       },
@@ -549,7 +575,10 @@ describe("intelligenceAdapter — conversation-history seeding", () => {
 
   it("getMessages returns [] when the transport has no getHistory", async () => {
     const source = new InMemoryDeliverySource();
-    delete (source as { getHistory?: unknown }).getHistory;
+    // Shadow the prototype method with an own `undefined` — `delete` wouldn't
+    // remove a prototype method, so the `source?.getHistory?.()` short-circuit
+    // (the branch under test) would never actually be exercised.
+    (source as { getHistory?: unknown }).getHistory = undefined;
     const adapter = intelligenceAdapter({
       source,
       egress: new InMemoryEgressSink(),
@@ -594,7 +623,10 @@ describe("intelligenceAdapter — conversation-history seeding", () => {
 
   it("starts fresh (empty messages) when the transport has no getHistory", async () => {
     const source = new InMemoryDeliverySource();
-    delete (source as { getHistory?: unknown }).getHistory;
+    // Shadow the prototype method with an own `undefined` — `delete` wouldn't
+    // remove a prototype method, so the `source?.getHistory?.()` short-circuit
+    // (the branch under test) would never actually be exercised.
+    (source as { getHistory?: unknown }).getHistory = undefined;
     const adapter = intelligenceAdapter({
       source,
       egress: new InMemoryEgressSink(),

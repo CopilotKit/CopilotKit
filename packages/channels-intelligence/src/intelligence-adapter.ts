@@ -235,6 +235,10 @@ export class IntelligenceAdapter implements PlatformAdapter {
                     ? part
                     : ((part as { text?: string } | null)?.text ?? ""),
                 )
+                // Drop empty parts (non-text content contributes "") BEFORE
+                // joining, so a `read_thread` transcript isn't corrupted with
+                // doubled/leading/trailing spaces around image/file parts.
+                .filter(Boolean)
                 .join(" ")
             : "";
       const isBot = m.role !== "user";
@@ -369,7 +373,19 @@ export class IntelligenceAdapter implements PlatformAdapter {
       turnId: env.turnId,
       deliveryId: env.deliveryId,
     };
-    const user = env.user ? { id: env.user.id } : undefined;
+    // Forward the provider identity the claim mapper resolved (OSS-476), not
+    // just the id. The wire field is `displayName`; the public `PlatformUser`
+    // exposes it as `name` (the direct Slack adapter populates `name` too), so
+    // map onto `name` — otherwise `message.user.name` is undefined on managed
+    // turns and callers can't read the profile through the typed API.
+    const user = env.user
+      ? {
+          id: env.user.id,
+          ...(env.user.displayName !== undefined
+            ? { name: env.user.displayName }
+            : {}),
+        }
+      : undefined;
 
     switch (env.kind) {
       case "turn": {
@@ -420,7 +436,8 @@ export class IntelligenceAdapter implements PlatformAdapter {
         //
         // CONTRACT (app-api side): the interaction delivery MUST carry a turnId
         // distinct from the turn that originally posted the card. Egress op ids
-        // are `${turnId}:${seq}` (see mintOp/postRenderFrame) and seq resets to
+        // are `${turnId}:${seq}` (see mintOp; the render path keys on the
+        // 3-part `${turnId}:${slot}:${seq}`) and seq resets to
         // 0 per delivery, so a reused turnId makes the update's op id collide
         // with the original post's — the Connector Outbox dedupes on op id and
         // SILENTLY DROPS the update, so the card never flips. This layer can't
@@ -632,6 +649,19 @@ export class IntelligenceAdapter implements PlatformAdapter {
     let acc = "";
     for await (const c of chunks) acc += c;
     const target = _target as ChannelReplyTarget;
+    if (acc.length === 0) {
+      // An empty stream (no chunks, or only empty strings) has nothing to post.
+      // Posting textNode("") violates the render contract's min-1-text
+      // constraint (the frame is rejected → the whole turn nacks), and the HTTP
+      // egress fallback guards the same case. Skip the post and return a
+      // synthetic ref keyed to the turn — there is nothing to update/delete.
+      return {
+        id: `${target.turnId}:empty`,
+        __route: target.route,
+        __turnId: target.turnId,
+        __deliveryId: target.deliveryId,
+      };
+    }
     if (this.renderSink) {
       return this.postRenderFrame(target, {
         kind: "post",
@@ -642,6 +672,16 @@ export class IntelligenceAdapter implements PlatformAdapter {
   }
 
   async delete(ref: MessageRef): Promise<void> {
+    // Realtime path: stream a `delete` render frame so the Connector Outbox
+    // resolves the ref and calls chat.delete (OSS-420) — mirroring post/update.
+    // Fallback (no render sink — in-memory tests): the egress op path.
+    if (this.renderSink) {
+      await this.postRenderFrame(targetFromRef(ref), {
+        kind: "delete",
+        ref: ref.id,
+      });
+      return;
+    }
     await this.emit(targetFromRef(ref), { kind: "delete", ref: ref.id });
   }
 
