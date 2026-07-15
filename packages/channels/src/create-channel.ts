@@ -78,12 +78,18 @@ export type LockConflictDecision = "drop" | "force";
  * transport) for that provider. It is a per-Channel choice — one runtime can
  * declare a Slack-backed Channel and a Teams-backed Channel side by side.
  *
+ * A CLOSED union of the providers the gateway has real/coordinated support for.
+ * `"slack"` is generally available. `"teams"` is GATED/COORDINATED: the gateway
+ * accepts only `"slack"` at join today, so declaring `provider: "teams"` is
+ * SDK-ready but NOT generally available until the coordinated gateway path lands
+ * (Intelligence OSS-450 / #511).
+ *
  * Distinct from a {@link PlatformAdapter} attached via
  * `createChannel({ adapters })` / {@link Channel.addAdapter}: an adapter is a
  * *direct*, developer-owned connection this handler does not manage, whereas
  * `provider` selects the *managed* platform for a Channel with no adapters.
  */
-export type ChannelProvider = "slack" | "teams";
+export type ManagedChannelProvider = "slack" | "teams";
 
 /**
  * Any `@copilotkit/channels-ui` component function, regardless of its props type.
@@ -206,14 +212,18 @@ export interface CreateChannelOptions<
    * The managed delivery provider this Channel targets when it is activated via
    * CopilotKit Intelligence (a no-adapter, managed Channel). The runtime
    * declares this provider to the Intelligence gateway on join; the gateway
-   * resolves the actual connection. Defaults to `"slack"` when unset. Set
-   * `provider: "teams"` to target Microsoft Teams.
+   * resolves the actual connection. Defaults to `"slack"` when unset.
+   *
+   * `provider: "teams"` is GATED: it is SDK-ready, but the gateway accepts only
+   * `"slack"` at join today, so Teams is not generally available until the
+   * coordinated gateway path lands (Intelligence OSS-450 / #511). See
+   * {@link ManagedChannelProvider}.
    *
    * Ignored for direct-adapter Channels (those created with `adapters` /
    * {@link Channel.addAdapter}) — a direct Channel is owned by the developer's
    * own adapter, not by managed activation.
    */
-  provider?: ChannelProvider;
+  provider?: ManagedChannelProvider;
   agent?: AbstractAgent | ((threadId: string) => AbstractAgent);
   /** @deprecated Pass `store.adapter` instead. */
   actionStore?: ActionStore;
@@ -243,7 +253,7 @@ export interface Channel<TState = unknown> {
    * to the Intelligence gateway on join; `undefined` means the managed default
    * (`"slack"`). Ignored for direct-adapter Channels.
    */
-  readonly provider?: ChannelProvider;
+  readonly provider?: ManagedChannelProvider;
   /** Declared slash-command names (normalized). Surfaced for Channel activation metadata. */
   readonly commandNames: string[];
   onMention(h: ChannelHandler<TState>): void;
@@ -311,7 +321,7 @@ function msgFromTurn(turn: IncomingTurn): IncomingMessage {
 /**
  * Enforce V1 Intelligence Channel exclusivity: an Intelligence Channel adapter
  * (`intelligenceAdapter`) must be the only adapter on a Channel. Channel and direct delivery are
- * alternative modes per platform — Intelligence holds the platform creds, or
+ * alternative modes on a Channel — Intelligence holds the platform creds, or
  * the runtime does, never both.
  */
 function assertExclusive(adapters: PlatformAdapter[]): void {
