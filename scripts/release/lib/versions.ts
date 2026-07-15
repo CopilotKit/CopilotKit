@@ -1,11 +1,7 @@
 import fs from "fs";
 import path from "path";
-import {
-  loadConfig,
-  getScopeConfig,
-  ROOT,
-  type ReleaseScope,
-} from "./config.js";
+import { loadConfig, getScopeConfig, ROOT } from "./config.js";
+import type { ReleaseScope } from "./config.js";
 
 export type BumpLevel = "patch" | "minor" | "major";
 
@@ -22,6 +18,12 @@ export interface PublishablePackage {
   pkgJsonPath: string;
   pkg: Record<string, any>;
 }
+
+const INTERNAL_DEPENDENCY_FIELDS = [
+  "dependencies",
+  "optionalDependencies",
+  "peerDependencies",
+] as const;
 
 /** Find a package directory by its npm name. */
 function findPackageDir(packageName: string): string {
@@ -47,7 +49,7 @@ export function getCurrentVersion(scope: ReleaseScope): string {
 
 export function parseSemver(version: string): SemVer {
   const match = version.match(
-    /^(\d+)\.(\d+)\.(\d+)(?:-([a-zA-Z0-9.\-]+))?(?:\+(.+))?$/,
+    /^(\d+)\.(\d+)\.(\d+)(?:-([a-zA-Z0-9.-]+))?(?:\+(.+))?$/,
   );
   if (!match) {
     throw new Error(`Invalid semver: ${version}`);
@@ -94,26 +96,63 @@ export function computePrereleaseVersion(
 /** Get all publishable packages for a given scope. */
 export function getPackagesForScope(scope: ReleaseScope): PublishablePackage[] {
   const scopeConfig = getScopeConfig(scope);
-  const packageNames = new Set(scopeConfig.packages);
   const packagesDir = path.join(ROOT, "packages");
+  const packagesByName = new Map<string, PublishablePackage>();
 
-  const results: PublishablePackage[] = [];
   for (const dir of fs.readdirSync(packagesDir)) {
     const pkgJsonPath = path.join(packagesDir, dir, "package.json");
     if (!fs.existsSync(pkgJsonPath)) continue;
 
     const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, "utf8"));
-    if (packageNames.has(pkg.name)) {
-      results.push({
-        name: pkg.name,
-        dir: path.join(packagesDir, dir),
-        pkgJsonPath,
-        pkg,
-      });
+    packagesByName.set(pkg.name, {
+      name: pkg.name,
+      dir: path.join(packagesDir, dir),
+      pkgJsonPath,
+      pkg,
+    });
+  }
+
+  const scopePackages = scopeConfig.packages.map((name) => {
+    const pkg = packagesByName.get(name);
+    if (!pkg) {
+      throw new Error(`Package not found for scope ${scope}: ${name}`);
+    }
+    return pkg;
+  });
+  const scopeNames = new Set(scopeConfig.packages);
+  const internalDependencies = new Map(
+    scopePackages.map((pkg) => [
+      pkg.name,
+      new Set(
+        INTERNAL_DEPENDENCY_FIELDS.flatMap((field) =>
+          Object.keys(pkg.pkg[field] ?? {}),
+        ).filter((name) => scopeNames.has(name)),
+      ),
+    ]),
+  );
+  const pending = new Set(scopePackages.map((pkg) => pkg.name));
+  const ordered: PublishablePackage[] = [];
+
+  while (pending.size > 0) {
+    const ready = scopePackages.filter(
+      (pkg) =>
+        pending.has(pkg.name) &&
+        [...(internalDependencies.get(pkg.name) ?? [])].every(
+          (dependency) => !pending.has(dependency),
+        ),
+    );
+    if (ready.length === 0) {
+      throw new Error(
+        `Circular package dependency in scope ${scope}: ${[...pending].join(", ")}`,
+      );
+    }
+    for (const pkg of ready) {
+      pending.delete(pkg.name);
+      ordered.push(pkg);
     }
   }
 
-  return results;
+  return ordered;
 }
 
 /** Bump all packages in a scope to a new version. For sharedVersion scopes, also updates internal deps. */

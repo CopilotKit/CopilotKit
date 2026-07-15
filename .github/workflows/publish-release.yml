@@ -166,10 +166,6 @@ jobs:
       - name: Build packages
         run: pnpm run build
 
-      - name: Verify registry-backed Channels umbrella contract
-        if: ${{ steps.meta.outputs.scope == 'channels' && steps.meta.outputs.mode == 'stable' }}
-        run: pnpm run verify:channels-umbrella:registry
-
       # Strip caches and pack the workspace into a single tarball before
       # upload. upload-artifact's path filters are post-walk: it still
       # descends into every node_modules and stats every file (~6.4M for
@@ -272,6 +268,21 @@ jobs:
             echo "DRY RUN — skipping publish step. Scope: ${{ steps.meta.outputs.scope }}, mode: ${{ steps.meta.outputs.mode }}."
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # The family must exist on npm before the umbrella is allowed to ship:
+      # the registry verifier installs the packed umbrella against those exact
+      # published dependencies. Publish the foundation and adapters first, then
+      # verify, then let the final publish step release the umbrella.
+      - name: Publish Channels dependencies to npm
+        if: ${{ inputs.dry-run != true && steps.meta.outputs.scope == 'channels' && steps.meta.outputs.mode == 'stable' }}
+        env:
+          NODE_AUTH_TOKEN: ""
+          SCOPE: ${{ steps.meta.outputs.scope }}
+        run: pnpm tsx scripts/release/publish-release.ts --scope "$SCOPE" --phase dependencies
+
+      - name: Verify registry-backed Channels umbrella contract
+        if: ${{ inputs.dry-run != true && steps.meta.outputs.scope == 'channels' && steps.meta.outputs.mode == 'stable' }}
+        run: pnpm run verify:channels-umbrella:registry
+
       - name: Publish to npm
         id: publish
         if: ${{ inputs.dry-run != true }}
@@ -280,7 +291,15 @@ jobs:
           NOTION_API_KEY: ${{ steps.meta.outputs.mode == 'stable' && secrets.NOTION_API_KEY || '' }}
           PUBLISH_SCRIPT: ${{ steps.meta.outputs.mode == 'prerelease' && 'prerelease.ts' || 'publish-release.ts' }}
           SCOPE: ${{ steps.meta.outputs.scope }}
-        run: pnpm tsx "scripts/release/$PUBLISH_SCRIPT" --scope "$SCOPE"
+        run: |
+          set -euo pipefail
+          if [ "$PUBLISH_SCRIPT" = "prerelease.ts" ]; then
+            pnpm tsx "scripts/release/$PUBLISH_SCRIPT" --scope "$SCOPE"
+          elif [ "$SCOPE" = "channels" ]; then
+            pnpm tsx scripts/release/publish-release.ts --scope "$SCOPE" --phase umbrella
+          else
+            pnpm tsx scripts/release/publish-release.ts --scope "$SCOPE"
+          fi
 
       - name: Verify publish step emitted version
         if: ${{ success() && inputs.dry-run != true }}

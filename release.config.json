@@ -30,15 +30,15 @@
     },
     "channels": {
       "packages": [
-        "@copilotkit/channels",
-        "@copilotkit/channels-core",
         "@copilotkit/channels-ui",
-        "@copilotkit/channels-discord",
-        "@copilotkit/channels-intelligence",
+        "@copilotkit/channels-core",
         "@copilotkit/channels-slack",
         "@copilotkit/channels-teams",
+        "@copilotkit/channels-intelligence",
+        "@copilotkit/channels-discord",
         "@copilotkit/channels-telegram",
-        "@copilotkit/channels-whatsapp"
+        "@copilotkit/channels-whatsapp",
+        "@copilotkit/channels"
       ],
       "versionSource": "@copilotkit/channels",
       "sharedVersion": true

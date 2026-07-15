@@ -7,6 +7,7 @@ import {
   computeNextStableVersion,
   computePrereleaseVersion,
   bumpPackages,
+  getPackagesForScope,
 } from "./versions.js";
 
 let tmpDir: string;
@@ -21,7 +22,7 @@ vi.mock("./config.js", async () => {
       prereleaseTag: "canary",
       scopes: {
         monorepo: {
-          packages: ["@copilotkit/shared", "@copilotkit/react-core"],
+          packages: ["@copilotkit/react-core", "@copilotkit/shared"],
           versionSource: "@copilotkit/react-core",
           sharedVersion: true,
         },
@@ -35,7 +36,7 @@ vi.mock("./config.js", async () => {
     getScopeConfig: (scope: string) => {
       const scopes: Record<string, any> = {
         monorepo: {
-          packages: ["@copilotkit/shared", "@copilotkit/react-core"],
+          packages: ["@copilotkit/react-core", "@copilotkit/shared"],
           versionSource: "@copilotkit/react-core",
           sharedVersion: true,
         },
@@ -226,5 +227,12 @@ describe("bumpPackages", () => {
       ),
     );
     expect(pkg.dependencies["@copilotkit/shared"]).toBe("1.55.3");
+  });
+
+  it("publishes internal dependencies before their dependents", () => {
+    expect(getPackagesForScope("monorepo").map((pkg) => pkg.name)).toEqual([
+      "@copilotkit/shared",
+      "@copilotkit/react-core",
+    ]);
   });
 });
