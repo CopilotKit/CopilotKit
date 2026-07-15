@@ -12,6 +12,14 @@ trap cleanup EXIT
 # exits, by which point the container is already gone.
 export PYTHONUNBUFFERED=1
 
+# Route CVDIAG breadcrumbs off stdout to PocketBase when the durable sink is wired.
+# A log-flood on stdout is what wedged the event loop (backed-up pipe -> blocking write).
+# Only silence stdout when CVDIAG_PB_URL is set, so diagnostics are never lost when PB
+# is absent. An explicit operator CVDIAG_LOG_STDOUT setting is always preserved.
+if [ -n "${CVDIAG_PB_URL:-}" ]; then
+  export CVDIAG_LOG_STDOUT="${CVDIAG_LOG_STDOUT:-0}"
+fi
+
 echo "========================================="
 echo "[entrypoint] Starting showcase package: claude-sdk-python"
 echo "[entrypoint] Time: $(date -u)"
@@ -36,7 +44,7 @@ fi
 # and tracebacks reach Railway's log stream line-at-a-time rather than
 # block-buffered in pipe buffers.
 echo "[entrypoint] Starting Python agent on port 8000..."
-python -u -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 &> >(awk '{print "[agent] " $0; fflush()}') &
+python -u -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 --no-access-log &> >(awk '{print "[agent] " $0; fflush()}') &
 AGENT_PID=$!
 sleep 2
 if kill -0 $AGENT_PID 2>/dev/null; then
@@ -70,8 +78,19 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
 # through the normal path rather than a forced `exit` that would bypass
 # logging. Generalized from showcase/integrations/crewai-crews/entrypoint.sh
 # (PRs #4114 + #4115).
+#
+# Second guard (public front door): the same silent-hang class can wedge the
+# PUBLIC Next.js listener on $PORT — the surface the BE probe and Railway
+# healthcheck actually hit (`/api/health`). Under a stdout-backpressure stall
+# the Node event loop parks in a blocking write(2) and stops serving, but the
+# Next.js process stays alive so `wait -n` never fires and the agent-only
+# guard above is satisfied (agent idle-alive on :8000) → indefinite wedge.
+# Poll the public health surface on its own counter/cadence; on sustained
+# failure emit a LOUD #oss-alerts Slack alert BEFORE killing, then kill
+# $NEXTJS_PID so `wait -n` returns and Railway restarts the container.
 (
   FAILS=0
+  PUBLIC_FAILS=0
   while sleep 30; do
     if ! kill -0 $AGENT_PID 2>/dev/null; then
       # Agent already dead — wait -n in the main shell will handle it.
@@ -83,8 +102,37 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
       FAILS=$((FAILS + 1))
       echo "[watchdog] Agent health probe failed (count=$FAILS)"
       if [ $FAILS -ge 3 ]; then
+        WEDGE_ENV="${RAILWAY_ENVIRONMENT_NAME:-$(hostname)}"
         echo "[watchdog] Agent unresponsive for ~90s — killing PID $AGENT_PID to trigger container restart"
+        # LOUD alert before we kill. Never let a failed/absent webhook crash
+        # the watchdog — only attempt if the var is set, and swallow errors.
+        if [ -n "$SLACK_WEBHOOK_OSS_ALERTS" ]; then
+          curl -fsS -m 10 -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\"[claude-sdk-python] env=${WEDGE_ENV} agent :8000 unresponsive ~90s — restarting (agent PID $AGENT_PID)\"}" \
+            "$SLACK_WEBHOOK_OSS_ALERTS" > /dev/null 2>&1 || true
+        fi
         kill -9 $AGENT_PID 2>/dev/null || true
+        break
+      fi
+    fi
+
+    # Public front door guard: poll the Next.js /api/health on $PORT.
+    if curl -fsS --max-time 5 "http://127.0.0.1:${PORT}/api/health" > /dev/null 2>&1; then
+      PUBLIC_FAILS=0
+    else
+      PUBLIC_FAILS=$((PUBLIC_FAILS + 1))
+      echo "[watchdog] Public /api/health probe failed on port $PORT (count=$PUBLIC_FAILS)"
+      if [ $PUBLIC_FAILS -ge 3 ]; then
+        WEDGE_ENV="${RAILWAY_ENVIRONMENT_NAME:-$(hostname)}"
+        echo "[watchdog] Public port $PORT unresponsive for ~90s — killing PID $NEXTJS_PID to trigger container restart"
+        # LOUD alert before we kill. Never let a failed/absent webhook crash
+        # the watchdog — only attempt if the var is set, and swallow errors.
+        if [ -n "$SLACK_WEBHOOK_OSS_ALERTS" ]; then
+          curl -fsS -m 10 -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\"[claude-sdk-python] env=${WEDGE_ENV} public \$PORT ($PORT) /api/health unresponsive ~90s — restarting (Next.js PID $NEXTJS_PID)\"}" \
+            "$SLACK_WEBHOOK_OSS_ALERTS" > /dev/null 2>&1 || true
+        fi
+        kill -9 $NEXTJS_PID 2>/dev/null || true
         break
       fi
     fi
