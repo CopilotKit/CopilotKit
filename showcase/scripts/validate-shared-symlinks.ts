@@ -190,7 +190,9 @@ export function scanAll(integrationsDir: string = INTEGRATIONS_DIR): Erosion[] {
   return all.sort((a, b) => a.key.localeCompare(b.key));
 }
 
-export function loadBaseline(baselinePath: string = BASELINE_PATH): Set<string> {
+export function loadBaseline(
+  baselinePath: string = BASELINE_PATH,
+): Set<string> {
   if (!fs.existsSync(baselinePath)) return new Set();
   // Fail LOUD on a malformed baseline: silently swallowing a parse error would
   // return an empty set, which reports EVERY currently-eroded (baselined) dir

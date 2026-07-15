@@ -11,24 +11,28 @@ A showcase "cell" is one (integration × feature) pair rendered on the dashboard
 ## The 4 Iron Rules
 
 ### 1. Identical tests — ONE shared probe, run across all integrations
+
 The test that measures a feature (the e2e/probe spec) is **byte-identical** across every integration. Differences between integrations live ONLY in fixtures, never in the test. For D6/D5 this is a single shared harness probe — e.g. `showcase/harness/src/probes/scripts/d5-gen-ui-a2ui-fixed.ts` — run against every integration.
 
 - **What a violation looks like:** a per-integration copy of a test/probe, or an `if slug === "mastra"` branch inside the probe.
 - **How to satisfy it:** edit the one shared probe; if a specific integration behaves differently, that difference belongs in its fixture, not in the test.
 
 ### 2. Near-identical frontends — a cell renders the same regardless of backend
+
 The feature UI is a shared / near-identical frontend, so a cell looks and renders the same no matter which backend drives it (e.g. mastra's frontend ≡ langgraph-python's frontend, byte-identical).
 
 - **What a violation looks like:** one integration's frontend component diverging from the others for the same feature.
 - **How to satisfy it:** edit the shared frontend source; verify parity by screenshot/diff, don't diverge per-integration.
 
 ### 3. Minimal backends — the thinnest thing that drives the feature
+
 Each integration's backend is the minimal glue needed to drive the feature. No per-integration logic that actually belongs in shared.
 
 - **What a violation looks like:** business/feature logic living in one integration's backend that every other integration re-implements (or should).
 - **How to satisfy it:** push shared logic into `showcase/shared/...`; keep the integration backend as thin wiring.
 
 ### 4. Per-integration fixtures ONLY — the single sanctioned variation
+
 The ONLY sanctioned per-integration variation is the aimock fixture: one per integration, keyed to its slug, under `showcase/aimock/d6/<slug>/...`.
 
 - **What a violation looks like:** encoding an integration's differences anywhere other than its fixture (in the test, frontend, or shared code).

@@ -101,7 +101,10 @@ describe("single-source symlink erosion guard", () => {
     const erosions = scanAll(FIXTURE_INTEGRATIONS);
     // A key in the baseline that is no longer eroded → stale, should be removed
     // so the ratchet shrinks toward a fully-enforcing zero baseline.
-    const baseline = new Set(["baselined-erosion/tools", "already-healed/tools"]);
+    const baseline = new Set([
+      "baselined-erosion/tools",
+      "already-healed/tools",
+    ]);
     const { fresh, staleBaseline } = partition(erosions, baseline);
     expect(staleBaseline).toEqual(["already-healed/tools"]);
     // the fresh set is unaffected by the stale entry.
