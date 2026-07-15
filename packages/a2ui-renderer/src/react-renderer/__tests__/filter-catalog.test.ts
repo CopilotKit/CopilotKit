@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { z } from "zod";
-import { Catalog } from "@a2ui/web_core/v0_9";
+import { Catalog, createFunctionImplementation } from "@a2ui/web_core/v0_9";
 import type { ComponentApi } from "@a2ui/web_core/v0_9";
 import { filterCatalog } from "../filter-catalog";
 
@@ -27,6 +27,42 @@ describe("filterCatalog", () => {
     const filtered = filterCatalog(catalog, () => true);
     expect(filtered.id).toBe("copilotkit://custom-catalog");
     expect(filtered.components.size).toBe(3);
+  });
+
+  it("preserves themeSchema and real functions when narrowing components", () => {
+    const themeSchema = z.object({
+      primaryColor: z.string(),
+      radius: z.number().optional(),
+    });
+    const uppercase = createFunctionImplementation(
+      {
+        name: "uppercase",
+        returnType: "string",
+        schema: z.object({ value: z.string() }),
+      },
+      (args) => args.value.toUpperCase(),
+    );
+    const components: ComponentApi[] = [
+      { name: "PieChart", schema: z.object({ innerRadius: z.number().optional() }) },
+      { name: "Badge", schema: z.object({ text: z.string() }) },
+    ];
+    const catalog = new Catalog<ComponentApi>(
+      "copilotkit://themed-catalog",
+      components,
+      [uppercase],
+      themeSchema,
+    );
+
+    const filtered = filterCatalog(catalog, (name) => name === "Badge");
+
+    // component set narrowed
+    expect(filtered.components.has("Badge")).toBe(true);
+    expect(filtered.components.has("PieChart")).toBe(false);
+    // themeSchema is the exact same schema instance (not dropped)
+    expect(filtered.themeSchema).toBe(themeSchema);
+    // functions are preserved
+    expect(filtered.functions.has("uppercase")).toBe(true);
+    expect(filtered.functions.get("uppercase")).toBe(uppercase);
   });
 
   it("does not mutate the source catalog", () => {
