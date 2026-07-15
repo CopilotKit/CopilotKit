@@ -1,15 +1,22 @@
 <script setup lang="ts">
-import { computed, h, onBeforeUnmount, shallowRef, ref, watch } from "vue";
-import type { VNode } from "vue";
+import { computed, onBeforeUnmount, shallowRef, ref, watch } from "vue";
+import type { PropType } from "vue";
 import type { ActivityMessage } from "@ag-ui/core";
 import type { A2UITheme } from "./types";
 import type { A2UIOperation } from "./operations";
-import { getOperationSurfaceId } from "./operations";
 import { useCopilotKit } from "../providers";
 import { MessageProcessor } from "@a2ui/web_core/v0_9";
 import type { SurfaceModel } from "@a2ui/web_core/v0_9";
-import { vueBasicCatalog, A2uiSurface } from "./vue-renderer";
+import { vueBasicCatalog, A2uiSurface, ThemeProvider } from "./vue-renderer";
 import type { VueComponentImplementation } from "./vue-renderer";
+import {
+  runA2UIAction,
+  surfaceHasRenderableContent,
+} from "./A2UIMessageRenderer";
+import type {
+  A2UIActionInterceptor,
+  A2UIClientEventMessage,
+} from "./A2UIMessageRenderer";
 
 const DEFAULT_SURFACE_ID = "default";
 
@@ -20,19 +27,17 @@ const props = defineProps<{
   agent?: object;
   theme?: A2UITheme;
   catalog?: any;
+  surfaceId?: string;
+  onAction?: A2UIActionInterceptor;
+  onReady?: () => void;
 }>();
 
 const { copilotkit } = useCopilotKit();
 
-// MessageProcessor from @a2ui/web_core — framework-agnostic
-// Use shallowRef to avoid Vue's deep UnwrapRef which strips private class members
 const processorRef =
   shallowRef<MessageProcessor<VueComponentImplementation> | null>(null);
-// Version counter to trigger Vue reactivity on processor state changes
 const version = ref(0);
-// Error state
 const error = ref<string | null>(null);
-// Track last processed operations hash to avoid re-processing
 let lastOpsHash = "";
 
 function getOrCreateProcessor(): MessageProcessor<VueComponentImplementation> {
@@ -41,25 +46,20 @@ function getOrCreateProcessor(): MessageProcessor<VueComponentImplementation> {
     processorRef.value = new MessageProcessor<VueComponentImplementation>(
       [catalog],
       (action: unknown) => {
-        handleAction(action);
+        void handleAction(action as A2UIClientEventMessage);
       },
     );
   }
   return processorRef.value;
 }
 
-async function handleAction(message: unknown) {
-  if (!props.agent) return;
-  try {
-    copilotkit.value.setProperties({
-      ...copilotkit.value.properties,
-      a2uiAction: message,
-    });
-    await copilotkit.value.runAgent({ agent: props.agent as any });
-  } finally {
-    const { a2uiAction, ...rest } = copilotkit.value.properties ?? {};
-    copilotkit.value.setProperties(rest);
-  }
+async function handleAction(message: A2UIClientEventMessage) {
+  await runA2UIAction({
+    message,
+    agent: props.agent,
+    copilotkit: copilotkit.value,
+    onAction: props.onAction,
+  });
 }
 
 function processOperations(operations: A2UIOperation[]) {
@@ -70,24 +70,19 @@ function processOperations(operations: A2UIOperation[]) {
   lastOpsHash = hash;
 
   const processor = getOrCreateProcessor();
-  try {
-    // Group operations by surface ID
-    const grouped = new Map<string, A2UIOperation[]>();
-    for (const op of operations) {
-      const surfaceId = getOperationSurfaceId(op) ?? DEFAULT_SURFACE_ID;
-      if (!grouped.has(surfaceId)) grouped.set(surfaceId, []);
-      grouped.get(surfaceId)!.push(op);
-    }
+  const surfaceId = props.surfaceId ?? DEFAULT_SURFACE_ID;
 
-    // For each surface, skip createSurface if the surface already exists
-    for (const [surfaceId, ops] of grouped) {
-      const existing = processor.model.getSurface(surfaceId);
-      const filtered = existing
-        ? ops.filter((op) => !(op as any)?.createSurface)
-        : ops;
-      processor.processMessages(filtered as any);
-    }
+  try {
+    const existing = processor.model.getSurface(surfaceId);
+    const filtered = existing
+      ? operations.filter((op) => !(op as any)?.createSurface)
+      : operations;
+    processor.processMessages(filtered as any);
     error.value = null;
+
+    if (props.onReady && surfaceHasRenderableContent(operations)) {
+      props.onReady();
+    }
   } catch (err) {
     console.warn("[A2UI Vue] processMessages error:", err);
     error.value = err instanceof Error ? err.message : String(err);
@@ -95,9 +90,8 @@ function processOperations(operations: A2UIOperation[]) {
   version.value++;
 }
 
-// Process operations on mount and when they change
 watch(
-  () => [props.content.operations, props.theme, props.catalog, props.agent],
+  () => [props.content.operations, props.surfaceId],
   () => {
     processOperations(props.content.operations);
   },
@@ -109,44 +103,21 @@ onBeforeUnmount(() => {
   lastOpsHash = "";
 });
 
-const hasOperations = computed(
-  () => (props.content.operations ?? []).length > 0,
-);
-
-// Compute the list of surfaces to render
-const surfaceEntries = computed(() => {
-  // Touch version to ensure reactivity
+const surfaceEntry = computed(() => {
   void version.value;
+  if (!processorRef.value) return null;
 
-  if (!processorRef.value) return [];
+  const surfaceId = props.surfaceId ?? DEFAULT_SURFACE_ID;
+  const surface = processorRef.value.model.getSurface(surfaceId);
+  if (!surface) return null;
 
-  const entries: Array<{
-    surfaceId: string;
-    surface: SurfaceModel<VueComponentImplementation>;
-  }> = [];
-
-  // Group operations by surface to know which surfaces we expect
-  const grouped = new Map<string, A2UIOperation[]>();
-  for (const op of props.content.operations ?? []) {
-    const surfaceId = getOperationSurfaceId(op) ?? DEFAULT_SURFACE_ID;
-    if (!grouped.has(surfaceId)) grouped.set(surfaceId, []);
-    grouped.get(surfaceId)!.push(op);
-  }
-
-  for (const [surfaceId] of grouped) {
-    const surface = processorRef.value.model.getSurface(surfaceId);
-    if (surface) {
-      entries.push({ surfaceId, surface });
-    }
-  }
-
-  return entries;
+  return { surfaceId, surface };
 });
 </script>
 
 <template>
   <div
-    v-if="hasOperations"
+    v-if="content.operations?.length"
     data-copilotkit
     :data-activity-type="activityType"
     :data-message-id="message.id"
@@ -158,20 +129,16 @@ const surfaceEntries = computed(() => {
       A2UI render error: {{ error }}
     </div>
     <div
-      v-else
-      class="cpk:flex cpk:min-h-0 cpk:flex-1 cpk:flex-col cpk:gap-6 cpk:overflow-auto cpk:py-6"
+      v-else-if="surfaceEntry"
+      class="cpk:flex cpk:w-full cpk:flex-none cpk:flex-col cpk:gap-4"
+      :data-surface-id="surfaceEntry.surfaceId"
       data-testid="a2ui-activity-renderer"
     >
-      <div
-        v-for="entry in surfaceEntries"
-        :key="entry.surfaceId"
-        class="cpk:flex cpk:w-full cpk:flex-none cpk:flex-col cpk:gap-4"
-        :data-surface-id="entry.surfaceId"
-      >
+      <ThemeProvider :theme="theme">
         <div class="a2ui-surface cpk:flex cpk:flex-1">
-          <A2uiSurface :surface="entry.surface" />
+          <A2uiSurface :surface="surfaceEntry.surface" />
         </div>
-      </div>
+      </ThemeProvider>
     </div>
   </div>
 </template>
