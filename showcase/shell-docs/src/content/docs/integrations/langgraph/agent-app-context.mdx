@@ -102,6 +102,7 @@ This context can then be shared with your LangGraph agent.
                 <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
                     <Tab value="Python">
                         ```python title="agent.py"
+                        from langchain_core.runnables import RunnableConfig
                         from langchain_core.messages import SystemMessage
                         from langchain_openai import ChatOpenAI
                         from copilotkit import CopilotKitState

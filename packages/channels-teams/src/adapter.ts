@@ -18,7 +18,7 @@ import type {
   UserQuery,
 } from "@copilotkit/channels";
 import type {
-  BotNode,
+  ChannelNode,
   ThreadMessage,
   AgentContentPart,
 } from "@copilotkit/channels-ui";
@@ -386,13 +386,13 @@ export class TeamsAdapter implements PlatformAdapter {
    * otherwise an Adaptive Card. (A bare `Echo: hi` is a text bubble; structured
    * or interactive UI becomes a card.)
    */
-  render(ir: BotNode[]): TeamsActivityPayload {
+  render(ir: ChannelNode[]): TeamsActivityPayload {
     return isPlainText(ir)
       ? { text: renderTeamsMarkdown(ir) }
       : { card: renderAdaptiveCard(ir) };
   }
 
-  async post(target: ReplyTarget, ir: BotNode[]): Promise<MessageRef> {
+  async post(target: ReplyTarget, ir: ChannelNode[]): Promise<MessageRef> {
     const t = target as TeamsReplyTarget;
     const payload = this.render(ir);
     const id =
@@ -402,7 +402,7 @@ export class TeamsAdapter implements PlatformAdapter {
     return { id, conversationKey: t.conversationKey, context: t.context };
   }
 
-  async update(ref: MessageRef, ir: BotNode[]): Promise<void> {
+  async update(ref: MessageRef, ir: ChannelNode[]): Promise<void> {
     const r = ref as TeamsMessageRef;
     if (!r.id) return;
     const payload = this.render(ir);

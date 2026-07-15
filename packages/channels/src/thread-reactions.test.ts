@@ -1,18 +1,18 @@
 import { describe, it, expect } from "vitest";
 import { emoji } from "@copilotkit/channels-ui";
-import { createBot } from "./create-bot.js";
+import { createChannel } from "./create-channel.js";
 import { FakeAdapter } from "./testing/fake-adapter.js";
 
 describe("Thread.react / unreact", () => {
   it("delegates to the adapter when supported", async () => {
     const fake = new FakeAdapter();
-    const bot = createBot({ adapters: [fake] });
+    const channel = createChannel({ adapters: [fake] });
     const results: { ok: boolean }[] = [];
-    bot.onMessage(async ({ thread, message }) => {
+    channel.onMessage(async ({ thread, message }) => {
       results.push(await thread.react(message.ref, emoji.thumbs_up));
       results.push(await thread.unreact(message.ref, emoji.thumbs_up));
     });
-    await bot.start();
+    await channel.start();
     fake.emitTurn({ userText: "hi" });
     await new Promise((r) => setTimeout(r, 0));
 
@@ -27,12 +27,12 @@ describe("Thread.react / unreact", () => {
 
   it("returns { ok: false } without throwing when unsupported", async () => {
     const fake = new FakeAdapter({ reactions: false });
-    const bot = createBot({ adapters: [fake] });
+    const channel = createChannel({ adapters: [fake] });
     let res: { ok: boolean; error?: string } | undefined;
-    bot.onMessage(async ({ thread, message }) => {
+    channel.onMessage(async ({ thread, message }) => {
       res = await thread.react(message.ref, emoji.heart);
     });
-    await bot.start();
+    await channel.start();
     fake.emitTurn({ userText: "hi" });
     await new Promise((r) => setTimeout(r, 0));
 

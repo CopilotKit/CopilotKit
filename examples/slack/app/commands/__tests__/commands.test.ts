@@ -1,14 +1,14 @@
 import { describe, it, expect, vi } from "vitest";
 import { renderToIR } from "@copilotkit/channels-ui";
-import type { BotNode } from "@copilotkit/channels-ui";
+import type { ChannelNode } from "@copilotkit/channels-ui";
 import { appCommands } from "../index.js";
 import type { CommandContext } from "@copilotkit/channels";
 
-function tags(node: BotNode | unknown, acc: string[] = []): string[] {
+function tags(node: ChannelNode | unknown, acc: string[] = []): string[] {
   if (!node || typeof node !== "object") return acc;
-  const n = node as BotNode;
+  const n = node as ChannelNode;
   if (typeof n.type === "string") acc.push(n.type);
-  for (const c of (n.props?.children as BotNode[] | undefined) ?? []) {
+  for (const c of (n.props?.children as ChannelNode[] | undefined) ?? []) {
     tags(c, acc);
   }
   return acc;

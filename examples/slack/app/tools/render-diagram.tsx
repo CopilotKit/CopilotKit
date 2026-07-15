@@ -8,7 +8,7 @@
  */
 import { z } from "zod";
 import { Context } from "@copilotkit/channels-ui";
-import { defineBotTool } from "@copilotkit/channels";
+import { defineChannelTool } from "@copilotkit/channels";
 import { renderDiagram } from "../render/diagram.js";
 
 const schema = z.object({
@@ -33,7 +33,7 @@ function slug(s: string): string {
   );
 }
 
-export const renderDiagramTool = defineBotTool({
+export const renderDiagramTool = defineChannelTool({
   name: "render_diagram",
   description:
     "Render a Mermaid diagram as an image and post it to the conversation " +

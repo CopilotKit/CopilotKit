@@ -1,7 +1,7 @@
-import type { BotNode } from "@copilotkit/channels-ui";
+import type { ChannelNode } from "@copilotkit/channels-ui";
 
 /**
- * Flatten Bot UI IR (`BotNode[]`) to plain text for the Intelligence egress
+ * Flatten Bot UI IR (`ChannelNode[]`) to plain text for the Intelligence egress
  * first slice, which accepts a plain `text` field only (Intelligence owns the
  * native platform rendering later via per-platform codecs — OSS-363/OSS-377).
  *
@@ -13,7 +13,7 @@ import type { BotNode } from "@copilotkit/channels-ui";
  *
  * TODO(OSS-377): drop once Intelligence renders IR via the shared codecs.
  */
-export function irToText(ir: BotNode[]): string {
+export function irToText(ir: ChannelNode[]): string {
   return ir
     .map((node) => nodeToText(node))
     .filter((s) => s.length > 0)

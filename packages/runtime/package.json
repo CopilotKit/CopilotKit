@@ -145,6 +145,7 @@
   },
   "peerDependencies": {
     "@anthropic-ai/sdk": "^0.57.0",
+    "@copilotkit/channels-intelligence": "workspace:*",
     "@langchain/aws": ">=0.1.9",
     "@langchain/community": ">=0.3.58",
     "@langchain/core": ">=0.3.66",
@@ -157,6 +158,9 @@
   },
   "peerDependenciesMeta": {
     "@anthropic-ai/sdk": {
+      "optional": true
+    },
+    "@copilotkit/channels-intelligence": {
       "optional": true
     },
     "@langchain/aws": {

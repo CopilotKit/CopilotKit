@@ -47,11 +47,15 @@ export type {
   RealtimeGatewayTransportOptions,
   ChannelRealtimeScope,
 } from "./realtime-gateway-transport.js";
-export { connectRealtimeGateway } from "./realtime-gateway.js";
+export {
+  connectRealtimeGateway,
+  RealtimeGatewaySetupRequiredError,
+} from "./realtime-gateway.js";
 export type {
   ConnectRealtimeGatewayOptions,
   RealtimeGatewaySession,
   ConnectedRealtimeGatewaySession,
+  RealtimeGatewayConnectionState,
 } from "./realtime-gateway.js";
 // The Channel-over-Realtime-Gateway launcher (OSS-406): the composition that
 // runs a Channel over the realtime path.

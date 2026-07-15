@@ -15,7 +15,7 @@
  */
 import "dotenv/config";
 import { createServer } from "node:http";
-import { createBot, defineBotTool } from "@copilotkit/channels";
+import { createChannel, defineChannelTool } from "@copilotkit/channels";
 import { teams, SanitizingHttpAgent } from "@copilotkit/channels-teams";
 import { BuiltInAgent, CopilotSseRuntime } from "@copilotkit/runtime/v2";
 import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
@@ -78,7 +78,7 @@ const SYSTEM_PROMPT =
 // The agent is a CopilotKit `BuiltInAgent` served over a local
 // `CopilotSseRuntime`, and the bot connects to it with a `SanitizingHttpAgent`
 // (the re-runnable `HttpAgent` this package exports, as bot-slack does). A
-// `BuiltInAgent` can't be handed to `createBot` directly: the bot's run loop
+// `BuiltInAgent` can't be handed to `createChannel` directly: the bot's run loop
 // re-invokes the agent once per tool round (call → result → respond), and a
 // single `BuiltInAgent` instance rejects a second concurrent run. An
 // `HttpAgent` is re-runnable, so it drives the multi-step + HITL loops cleanly.
@@ -110,7 +110,7 @@ createServer(
  * platform-agnostic JSX, then returns a short ack so the model doesn't restate
  * the card in prose.
  */
-const showCard = defineBotTool({
+const showCard = defineChannelTool({
   name: "show_card",
   description:
     "Render a rich Adaptive Card in Teams. Call this whenever a summary, " +
@@ -160,7 +160,7 @@ const showCard = defineBotTool({
   },
 });
 
-const bot = createBot({
+const bot = createChannel({
   adapters: [teams({ port })],
   agent: (threadId: string) => {
     const agent = new SanitizingHttpAgent({ url: runtimeAgentUrl });

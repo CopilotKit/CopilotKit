@@ -1,0 +1,123 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for mastra / gen-ui-a2ui-fixed (a2ui-fixed-schema flight card pill via weatherAgent/generate_a2ui)",
+    "created": "2026-07-14",
+    "note": "mastra a2ui_pattern is llm-driven — weatherAgent calls generate_a2ui (llm-driven pattern). generate_a2ui internally forces render_a2ui and returns a2ui_operations. Three legs: leg-1 (weatherAgent outer call, hasToolResult:false) returns generate_a2ui with valid messages arg; leg-2 (inner forced render_a2ui call, toolName:render_a2ui) returns the full flight-card component tree; leg-3 (weatherAgent follow-up, hasToolResult:true) returns narration text."
+  },
+  "fixtures": [
+    {
+      "_comment": "Leg-1: weatherAgent outer call (first turn, no tool results yet) — 'Find me a flight from SFO to JFK on United for $289.' The agent calls generate_a2ui with the conversation messages. messages must be non-empty so generateA2uiTool.execute() does not throw on .map(). toolName:generate_a2ui + hasToolResult:false together discriminate from (a) the secondary render_a2ui call (leg-2) which has render_a2ui in tools, and (b) the follow-up narration call (leg-3, hasToolResult:true).",
+      "match": {
+        "userMessage": "Find me a flight from SFO to JFK on United for $289",
+        "toolName": "generate_a2ui",
+        "hasToolResult": false,
+        "context": "mastra"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_a2ui_fixed_mastra_sfo_jfk_001",
+            "name": "generate_a2ui",
+            "arguments": "{\"messages\":[{\"role\":\"user\",\"content\":\"Find me a flight from SFO to JFK on United for $289.\"}],\"contextEntries\":[]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Leg-2: secondary LLM call inside generateA2uiTool — toolChoice forces render_a2ui. aimock intercepts via toolName:render_a2ui. Returns the 12-node fixed flight-card component tree: Card > Column > [Title, Row[Airport,Arrow,Airport], Row[AirlineBadge,PriceTag], Button > Text]. catalogId must match the registered catalog (copilotkit://flight-fixed-catalog). Literal text fields ('Flight Details', 'SFO', 'JFK', 'Book flight') are what the spec asserts.",
+      "match": {
+        "userMessage": "Find me a flight from SFO to JFK on United for $289",
+        "toolName": "render_a2ui",
+        "context": "mastra"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_a2ui_fixed_mastra_render_001",
+            "name": "render_a2ui",
+            "arguments": {
+              "surfaceId": "flight-fixed-surface",
+              "catalogId": "copilotkit://flight-fixed-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "component": "Card",
+                  "child": "content"
+                },
+                {
+                  "id": "content",
+                  "component": "Column",
+                  "children": ["title", "route", "meta", "bookButton"],
+                  "gap": 12
+                },
+                {
+                  "id": "title",
+                  "component": "Title",
+                  "text": "Flight Details"
+                },
+                {
+                  "id": "route",
+                  "component": "Row",
+                  "children": ["from", "arrow", "to"],
+                  "gap": 0
+                },
+                {
+                  "id": "from",
+                  "component": "Airport",
+                  "code": "SFO"
+                },
+                {
+                  "id": "arrow",
+                  "component": "Arrow"
+                },
+                {
+                  "id": "to",
+                  "component": "Airport",
+                  "code": "JFK"
+                },
+                {
+                  "id": "meta",
+                  "component": "Row",
+                  "children": ["airline", "price"],
+                  "gap": 8
+                },
+                {
+                  "id": "airline",
+                  "component": "AirlineBadge",
+                  "name": "United"
+                },
+                {
+                  "id": "price",
+                  "component": "PriceTag",
+                  "amount": "$289"
+                },
+                {
+                  "id": "bookButton",
+                  "component": "Button",
+                  "child": "bookButtonLabel"
+                },
+                {
+                  "id": "bookButtonLabel",
+                  "component": "Text",
+                  "text": "Book flight"
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Leg-3: weatherAgent follow-up after generate_a2ui has returned its a2ui_operations container (flight card already rendered). Anchored on hasToolResult:true so it fires AFTER the tool result instead of re-routing, preventing a tool-invocation loop.",
+      "match": {
+        "userMessage": "Find me a flight from SFO to JFK on United for $289",
+        "hasToolResult": true,
+        "context": "mastra"
+      },
+      "response": {
+        "content": "Here's your flight: United Airlines, SFO → JFK, $289 — rendered in the card above. Tap \"Book flight\" to confirm."
+      }
+    }
+  ]
+}

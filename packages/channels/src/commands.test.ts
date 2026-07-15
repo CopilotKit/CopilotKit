@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   normalizeCommandName,
   toCommandSpec,
-  defineBotCommand,
+  defineChannelCommand,
 } from "./commands.js";
 
 describe("normalizeCommandName", () => {
@@ -22,7 +22,7 @@ describe("normalizeCommandName", () => {
 
 describe("toCommandSpec", () => {
   it("preserves hyphens in the display name (Slack/Discord allow them)", () => {
-    const cmd = defineBotCommand({
+    const cmd = defineChannelCommand({
       name: "file-issue",
       description: "File an issue",
       handler: async () => {},

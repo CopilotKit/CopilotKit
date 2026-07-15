@@ -1,11 +1,12 @@
 // Public API for @copilotkit/channels.
 
-// Bot orchestration
-export { createBot } from "./create-bot.js";
+// Channel orchestration
+export { createChannel } from "./create-channel.js";
 export type {
-  Bot,
-  CreateBotOptions,
-  BotHandler,
+  Channel,
+  CreateChannelOptions,
+  ManagedChannelProvider,
+  ChannelHandler,
   ThreadStartHandler,
   ReactionEvent,
   ReactionHandler,
@@ -16,8 +17,8 @@ export type {
   StoreConfig,
   LockConflictDecision,
   StatefulThread,
-  BotComponent,
-} from "./create-bot.js";
+  ChannelComponent,
+} from "./create-channel.js";
 
 // Thread
 export { Thread } from "./thread.js";
@@ -49,11 +50,15 @@ export type {
 
 // Slash commands
 export {
-  defineBotCommand,
+  defineChannelCommand,
   normalizeCommandName,
   toCommandSpec,
 } from "./commands.js";
-export type { BotCommand, CommandContext, CommandSpec } from "./commands.js";
+export type {
+  ChannelCommand,
+  CommandContext,
+  CommandSpec,
+} from "./commands.js";
 
 // Action store
 export { InMemoryActionStore } from "./action-store.js";
@@ -86,12 +91,12 @@ export {
   toAgentToolDescriptors,
   parseToolArgs,
   stringifyHandlerResult,
-  defineBotTool,
+  defineChannelTool,
 } from "./tools.js";
 export type {
-  BotTool,
+  ChannelTool,
   ObjectSchema,
-  BotToolContext,
+  ChannelToolContext,
   ContextEntry,
   AgentToolDescriptor,
 } from "./tools.js";
@@ -112,5 +117,5 @@ export type { PlatformCodec } from "./codec.js";
 export { FakeAdapter, makeFakeRunRenderer } from "./testing/fake-adapter.js";
 export { FakeAgent } from "./testing/fake-agent.js";
 
-// Re-export the bot-ui component vocabulary + types for convenience.
+// Re-export the channels-ui component vocabulary + types for convenience.
 export * from "@copilotkit/channels-ui";

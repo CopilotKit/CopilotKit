@@ -36,7 +36,12 @@ const CHANNEL_ID_RE = /^channel_[A-Za-z0-9_-]+$/;
 const ORGANIZATION_ID_RE = /^org_[A-Za-z0-9_-]+$/;
 const CHANNEL_NAME_RE = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 
-/** @internal Validate the product scope before a realtime connection is opened. */
+/**
+ * @internal Validate the product scope before a realtime connection is
+ * opened. The live gateway join contract keys only on `projectId` +
+ * `channelName` (OSS-473) — `organizationId`/`channelId` are optional and
+ * are format-checked only when present.
+ */
 export function assertValidChannelRealtimeScope(
   scope: ChannelRealtimeScope,
 ): void {
@@ -45,12 +50,15 @@ export function assertValidChannelRealtimeScope(
       "Realtime Gateway Channel scope requires a positive projectId",
     );
   }
-  if (!ORGANIZATION_ID_RE.test(scope.organizationId)) {
+  if (
+    scope.organizationId !== undefined &&
+    !ORGANIZATION_ID_RE.test(scope.organizationId)
+  ) {
     throw new Error(
       `Realtime Gateway Channel scope requires an org_* organizationId, got ${JSON.stringify(scope.organizationId)}`,
     );
   }
-  if (!CHANNEL_ID_RE.test(scope.channelId)) {
+  if (scope.channelId !== undefined && !CHANNEL_ID_RE.test(scope.channelId)) {
     throw new Error(
       `Realtime Gateway Channel scope requires a channel_* channelId, got ${JSON.stringify(scope.channelId)}`,
     );
@@ -80,6 +88,43 @@ export interface RealtimeGatewayTransportOptions {
    * wire this to surface them. Absent → drops stay silent (fail-closed).
    */
   log?: (message: string, meta?: unknown) => void;
+  /**
+   * Per-turn deadline (ms) for the `onDelivery` handler. A turn that throws or
+   * hangs past this is nacked (released for redelivery) and logged, so a wedged
+   * handler can't silently pin a delivery forever. Mirrors the HTTP transport's
+   * `turnTimeoutMs`. Default {@link DEFAULT_DELIVERY_TIMEOUT_MS}.
+   */
+  deliveryTimeoutMs?: number;
+}
+
+/** Default per-turn deadline before a hung realtime turn is nacked and skipped. */
+const DEFAULT_DELIVERY_TIMEOUT_MS = 120_000;
+
+/**
+ * Reject after `ms` if `p` hasn't settled, so a hung turn can't wedge a
+ * delivery. The underlying promise keeps running in the background (a rejection
+ * handler is attached, so it never surfaces as unhandled); the transport nacks
+ * and moves on. Mirrors the HTTP transport's per-turn timeout.
+ */
+function withDeliveryTimeout<T>(
+  p: Promise<T>,
+  ms: number,
+  message: string,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), ms);
+    (timer as unknown as { unref?: () => void }).unref?.();
+    p.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
 }
 
 const RENDER_EVENT = "channel.render_event.v1";
@@ -113,6 +158,7 @@ export class RealtimeGatewayTransport
   private readonly session: RealtimeGatewaySession;
   private readonly now: () => string;
   private readonly log?: (message: string, meta?: unknown) => void;
+  private readonly deliveryTimeoutMs: number;
   private readonly deliveries = new Map<string, DeliveryState>();
   private onDelivery?: (env: ChannelIngressEnvelope) => Promise<void>;
 
@@ -123,6 +169,8 @@ export class RealtimeGatewayTransport
     this.session = config.session;
     this.now = config.now ?? (() => new Date().toISOString());
     this.log = config.log;
+    this.deliveryTimeoutMs =
+      config.deliveryTimeoutMs ?? DEFAULT_DELIVERY_TIMEOUT_MS;
   }
 
   async start(
@@ -130,7 +178,17 @@ export class RealtimeGatewayTransport
   ): Promise<void> {
     this.onDelivery = onDelivery;
     this.session.on(DELIVERY_AVAILABLE, (payload) => {
-      void this.handleDeliveryAvailable(payload);
+      // Error-boundary the dispatch: without a `.catch` an onDelivery rejection
+      // (or a parse/setup throw before the delivery is registered) becomes an
+      // unhandled promise rejection and the delivery is silently dropped. The
+      // per-turn failure/timeout path inside handleDeliveryAvailable nacks;
+      // this outer catch is the safety net for anything it can't (parse/setup
+      // errors that happen before a delivery id exists to nack).
+      this.handleDeliveryAvailable(payload).catch((err: unknown) => {
+        this.log?.("realtime gateway delivery dispatch failed", {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
     });
   }
 
@@ -144,7 +202,31 @@ export class RealtimeGatewayTransport
       scope,
       accepted: new Map(),
     });
-    await this.onDelivery?.(env);
+    // Bound the turn (parity with the HTTP runLoop): a handler that throws or
+    // hangs past deliveryTimeoutMs must not wedge the delivery or leave the
+    // render stream half-open. On failure, nack so app-api releases the lease
+    // and redelivers rather than the turn silently pinning the delivery.
+    try {
+      await withDeliveryTimeout(
+        Promise.resolve(this.onDelivery?.(env)),
+        this.deliveryTimeoutMs,
+        `realtime gateway turn ${env.turnId} exceeded ${this.deliveryTimeoutMs}ms`,
+      );
+    } catch (err) {
+      this.log?.("realtime gateway turn failed/timed out; nacking", {
+        deliveryId: env.deliveryId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      await this.nack(
+        env.deliveryId,
+        err instanceof Error ? err.message : String(err),
+      ).catch((nackErr: unknown) =>
+        this.log?.("realtime gateway nack after turn failure failed", {
+          deliveryId: env.deliveryId,
+          error: nackErr instanceof Error ? nackErr.message : String(nackErr),
+        }),
+      );
+    }
   }
 
   /**
@@ -153,8 +235,11 @@ export class RealtimeGatewayTransport
    * stashes for later complete/fail intents. Returns `undefined` (delivery
    * dropped, logged via {@link RealtimeGatewayTransportOptions.log}) when the turn
    * identity is missing/unmodeled or the delivery carries no `leaseToken` (a
-   * fenced intent can't be built without it). Only the text-turn shape is
-   * handled in V1; other input kinds are ignored until modeled.
+   * fenced intent can't be built without it). V1 assumes every leased delivery
+   * is a text turn and does not discriminate on `input.kind` — non-text kinds
+   * (command/interaction/reaction) are not yet modeled on the realtime path
+   * and will be mis-handled (coerced into a text turn) until they are
+   * (tracked for the event-parity follow-up).
    */
   private toIngressEnvelope(payload: unknown):
     | {
@@ -201,15 +286,22 @@ export class RealtimeGatewayTransport
     const channel = delivery.channel as
       | { id?: string; name?: string }
       | undefined;
-    const scope = {
-      organizationId: String(
-        delivery.organizationId ?? this.scope.organizationId,
-      ),
+    // organizationId/channelId are optional on the scope (OSS-473): fall back
+    // to the transport default only when present, rather than coercing an
+    // absent value to the literal string "undefined".
+    const organizationId =
+      delivery.organizationId !== undefined
+        ? String(delivery.organizationId)
+        : this.scope.organizationId;
+    const channelId =
+      channel?.id !== undefined ? String(channel.id) : this.scope.channelId;
+    const scope: ChannelDeliveryScope = {
+      ...(organizationId !== undefined ? { organizationId } : {}),
       projectId:
         typeof delivery.projectId === "number"
           ? delivery.projectId
           : this.scope.projectId,
-      channelId: String(channel?.id ?? this.scope.channelId),
+      ...(channelId !== undefined ? { channelId } : {}),
       channelName: String(channel?.name ?? this.scope.channelName),
     };
     return {
@@ -221,7 +313,7 @@ export class RealtimeGatewayTransport
         eventId: String(turn.eventId),
         turnId: String(turn.id),
         // This product-level field names the Channel; bot core attaches the
-        // adapter directly to the framework Bot named by `createBot({ name })`.
+        // adapter directly to the framework Channel named by `createChannel({ name })`.
         channelName: scope.channelName,
         platform: String(delivery.adapter ?? "slack"),
         conversationKey: String(turn.id),

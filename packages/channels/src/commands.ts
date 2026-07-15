@@ -25,13 +25,13 @@ export interface CommandContext<TOptions = Record<string, never>> {
 }
 
 /**
- * A slash command. Defined like a {@link import("./tools.js").BotTool}: a name,
+ * A slash command. Defined like a {@link import("./tools.js").ChannelTool}: a name,
  * an optional Standard Schema for typed options, and a handler. The `options`
  * schema maps natively to surfaces with structured args (Discord) and is used
  * to register/validate there; on text-only surfaces (Slack) args arrive via
  * `ctx.text`.
  */
-export interface BotCommand<Schema extends ObjectSchema = ObjectSchema> {
+export interface ChannelCommand<Schema extends ObjectSchema = ObjectSchema> {
   /** Command name without the leading slash (e.g. `"triage"`). Matched case-insensitively. */
   name: string;
   /** Human description — help text, and the registration label on surfaces like Discord. */
@@ -42,11 +42,11 @@ export interface BotCommand<Schema extends ObjectSchema = ObjectSchema> {
 }
 
 /**
- * Define a {@link BotCommand} with full type inference: `ctx.options` is
+ * Define a {@link ChannelCommand} with full type inference: `ctx.options` is
  * inferred from `options`.
  *
  * ```ts
- * const triage = defineBotCommand({
+ * const triage = defineChannelCommand({
  *   name: "triage",
  *   description: "Summarize and file the current thread.",
  *   options: z.object({ priority: z.enum(["low", "high"]).optional() }),
@@ -56,16 +56,16 @@ export interface BotCommand<Schema extends ObjectSchema = ObjectSchema> {
  * });
  * ```
  */
-export function defineBotCommand<Schema extends ObjectSchema>(
-  command: BotCommand<Schema>,
-): BotCommand<Schema> {
+export function defineChannelCommand<Schema extends ObjectSchema>(
+  command: ChannelCommand<Schema>,
+): ChannelCommand<Schema> {
   return command;
 }
 
 /**
  * Platform-neutral descriptor an adapter may use to register a command with the
  * surface (e.g. Discord's application-command API). Produced from a
- * {@link BotCommand} by {@link toCommandSpec}.
+ * {@link ChannelCommand} by {@link toCommandSpec}.
  */
 export interface CommandSpec {
   name: string;
@@ -83,7 +83,7 @@ export function normalizeCommandName(name: string): string {
   return name.trim().replace(/^\//, "").toLowerCase().replace(/-/g, "_");
 }
 
-export function toCommandSpec(command: BotCommand): CommandSpec {
+export function toCommandSpec(command: ChannelCommand): CommandSpec {
   return {
     // Preserve hyphens here (display/registration name): Discord and Slack
     // accept them, so `/file-issue` stays `/file-issue` there. Telegram's

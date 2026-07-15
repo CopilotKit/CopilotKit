@@ -29,7 +29,7 @@ pnpm add @copilotkit/channels-telegram @copilotkit/channels @copilotkit/channels
 > ```
 
 ```tsx
-import { createBot } from "@copilotkit/channels";
+import { createChannel } from "@copilotkit/channels";
 import {
   telegram,
   defaultTelegramTools,
@@ -37,7 +37,7 @@ import {
 } from "@copilotkit/channels-telegram";
 import { Message, Section } from "@copilotkit/channels-ui";
 
-const bot = createBot({
+const bot = createChannel({
   adapters: [
     telegram({
       token: process.env.TELEGRAM_BOT_TOKEN!,

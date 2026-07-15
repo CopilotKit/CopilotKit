@@ -1,8 +1,9 @@
 import type { AgentSubscriber } from "@ag-ui/client";
 import type {
-  BotNode,
+  ChannelNode,
   MessageRef,
   PlatformUser,
+  ThreadMessage,
 } from "@copilotkit/channels-ui";
 import type {
   StateStore,
@@ -73,7 +74,7 @@ function targetFromRef(ref: MessageRef): ChannelReplyTarget {
   };
 }
 
-const textNode = (value: string): BotNode[] => [
+const textNode = (value: string): ChannelNode[] => [
   { type: "text", props: { value } },
 ];
 
@@ -192,8 +193,58 @@ export class IntelligenceAdapter implements PlatformAdapter {
     },
   };
 
+  /**
+   * Backs `thread.getMessages()` — e.g. the `read_thread` tool — on the managed
+   * path by reading the reconstructed thread history via the transport's
+   * `getHistory` and mapping it to the {@link ThreadMessage} shape. Without it
+   * the base `Thread.getMessages()` returns `[]`, so tools that inspect the
+   * thread (summaries, "what was in the image") see no messages even though
+   * history exists. Mirrors {@link conversationStore}'s seeding read; the
+   * `route` is the opaque {@link EgressRoute} threaded through {@link ReplyTarget}.
+   * Best-effort: a `getHistory` failure degrades to `[]` (no thrown error).
+   */
+  getMessages = async (target: ReplyTarget): Promise<ThreadMessage[]> => {
+    const route = (target as ChannelReplyTarget).route;
+    let history: AgentMessage[] = [];
+    try {
+      history =
+        ((await this.source?.getHistory?.(
+          route,
+          this.opts.historyLimit ?? 20,
+        )) as AgentMessage[] | undefined) ?? [];
+    } catch (err) {
+      // HttpDeliverySource.getHistory already swallows its own fetch failures,
+      // so this outer catch only fires on an UNEXPECTED throw — log it (matching
+      // conversationStore.getOrCreate's seeding path) rather than degrading to
+      // [] silently.
+      this.opts.config?.log?.(
+        "intelligence getMessages failed; returning no history",
+        err,
+      );
+      history = [];
+    }
+    return history.map((m) => {
+      const content = m.content as unknown;
+      const text =
+        typeof content === "string"
+          ? content
+          : Array.isArray(content)
+            ? content
+                .map((part) =>
+                  typeof part === "string"
+                    ? part
+                    : ((part as { text?: string } | null)?.text ?? ""),
+                )
+                .join(" ")
+            : "";
+      const isBot = m.role !== "user";
+      const who = isBot ? "bot" : "user";
+      return { text, isBot, user: { id: who, name: who } };
+    });
+  };
+
   /** Persistence supplied by the Channel transport (Intelligence-backed); picked
-   * up by createBot's `resolveBackend` when no explicit `store.adapter` is set. */
+   * up by createChannel's `resolveBackend` when no explicit `store.adapter` is set. */
   readonly stateStore?: StateStore;
 
   private sink?: IngressSink;
@@ -216,7 +267,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
     // persist action-registry snapshots + thread state across restarts (HITL
     // cards survive). Skipped when a store is passed explicitly or when
     // in-memory transports are injected (tests) — a durable store hitting HTTP
-    // would be wrong there. Falls back to createBot's MemoryStore if baseUrl /
+    // would be wrong there. Falls back to createChannel's MemoryStore if baseUrl /
     // apiKey can't be resolved.
     this.stateStore = opts.store ?? this.buildDefaultStore();
   }
@@ -258,14 +309,17 @@ export class IntelligenceAdapter implements PlatformAdapter {
     return this.renderSink;
   }
 
-  async start(sink: IngressSink, ctx?: { botName?: string }): Promise<void> {
+  async start(
+    sink: IngressSink,
+    ctx?: { channelName?: string },
+  ): Promise<void> {
     this.sink = sink;
-    // Config-free default: build the HTTP transports from env (+ the bot's
-    // name from createBot, passed by bot core) when none were injected.
+    // Config-free default: build the HTTP transports from env (+ the channel's
+    // name from createChannel, passed by channel core) when none were injected.
     if (!this.source || !this.egress) {
       const cfg = resolveTransportConfig({
         ...this.opts.config,
-        channelName: this.opts.config?.channelName ?? ctx?.botName,
+        channelName: this.opts.config?.channelName ?? ctx?.channelName,
       });
       const source = (this.source ??= new HttpDeliverySource(cfg));
       this.egress ??= new HttpEgressSink(cfg);
@@ -482,23 +536,33 @@ export class IntelligenceAdapter implements PlatformAdapter {
   ): Promise<MessageRef> {
     const operation = this.mintOp(target, op);
     const res = await this.requireEgress().emit(operation);
+    // Fail loud on egress failure. Returning a synthetic MessageRef here would
+    // ack a dropped post/update/delete as success — silent data loss on the
+    // HTTP-fallback egress path. Throwing instead propagates the failure up the
+    // render/run path so the delivery is nacked (and retried) rather than
+    // silently completed.
+    if (!res.ok) {
+      throw new Error(
+        `IntelligenceAdapter: egress ${op.kind} failed (code: ${res.code}) for operation ${operation.operationId}`,
+      );
+    }
     // The minted ref carries routing so a later update/delete can re-address
     // the same operation; the Outbox maps operationId -> real platform message.
     return {
-      id: res.ok ? res.ref : operation.operationId,
+      id: res.ref,
       __route: target.route,
       __turnId: target.turnId,
       __deliveryId: target.deliveryId,
     };
   }
 
-  render(ir: BotNode[]): NativePayload {
+  render(ir: ChannelNode[]): NativePayload {
     // Passthrough: platform rendering (IR -> Slack/Discord/...) happens in the
     // Connector Outbox via the per-platform codec (OSS-363).
     return ir;
   }
 
-  async post(target: ReplyTarget, ir: BotNode[]): Promise<MessageRef> {
+  async post(target: ReplyTarget, ir: ChannelNode[]): Promise<MessageRef> {
     // Realtime path: stream a `post` render frame carrying the IR so the
     // Connector Outbox renders full Block Kit (rich JSX preserved). Fallback
     // (no render sink wired — e.g. in-memory tests): the egress op path.
@@ -511,7 +575,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
     return this.emit(target as ChannelReplyTarget, { kind: "post", ir });
   }
 
-  async update(ref: MessageRef, ir: BotNode[]): Promise<void> {
+  async update(ref: MessageRef, ir: ChannelNode[]): Promise<void> {
     if (this.renderSink) {
       await this.postRenderFrame(targetFromRef(ref), {
         kind: "update",
@@ -812,7 +876,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
 /**
  * @internal Construct the Channel bridge adapter. Production callers (the
  * runtime) inject the Realtime Gateway + Connector Outbox transports; tests and
- * standalone runs inject in-memory ones. Must be the only adapter on a bot (V1).
+ * standalone runs inject in-memory ones. Must be the only adapter on a Channel (V1).
  */
 export function intelligenceAdapter(
   opts: IntelligenceAdapterOptions = {},

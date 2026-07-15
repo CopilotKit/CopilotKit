@@ -3,14 +3,14 @@ import { ActionRegistry, ActionExpiredError } from "./action-registry.js";
 import { InMemoryActionStore } from "./action-store.js";
 import { MemoryStore } from "./state/memory-store.js";
 import { kvActionStore } from "./state/kv-action-store.js";
-import type { BotNode, InteractionContext } from "@copilotkit/channels-ui";
+import type { ChannelNode, InteractionContext } from "@copilotkit/channels-ui";
 
 // Records each click so a test can assert the handler ran — dispatch() now
 // returns the clicked element's `value` (needed to resolve HITL waiters on
 // platforms whose callback payload can't carry it), not the handler's return.
 const clicks: string[] = [];
 
-function Confirm(props: { action: string }): BotNode {
+function Confirm(props: { action: string }): ChannelNode {
   return {
     type: "actions",
     props: {
@@ -41,7 +41,7 @@ describe("ActionRegistry", () => {
     const reg = new ActionRegistry({ store: new InMemoryActionStore() });
     reg.registerComponent("Confirm", Confirm as never);
     const ir = await reg.bindTree("Confirm", { action: "write" }, "conv1");
-    const button = (ir[0]!.props.children as BotNode[])[0]!;
+    const button = (ir[0]!.props.children as ChannelNode[])[0]!;
     const id = (button.props.onClick as { id: string }).id;
     expect(typeof id).toBe("string");
     const value = await reg.dispatch(id, ctx);
@@ -54,7 +54,9 @@ describe("ActionRegistry", () => {
     reg.registerComponent("Confirm", Confirm as never);
     const ir = await reg.bindTree("Confirm", { action: "write" }, "conv1");
     const id = (
-      (ir[0]!.props.children as BotNode[])[0]!.props.onClick as { id: string }
+      (ir[0]!.props.children as ChannelNode[])[0]!.props.onClick as {
+        id: string;
+      }
     ).id;
     reg.clearHotCache();
     const value = await reg.dispatch(id, ctx);
@@ -80,7 +82,9 @@ describe("ActionRegistry", () => {
       "conv-cold",
     );
     const id = (
-      (ir[0]!.props.children as BotNode[])[0]!.props.onClick as { id: string }
+      (ir[0]!.props.children as ChannelNode[])[0]!.props.onClick as {
+        id: string;
+      }
     ).id;
 
     // registryB: fresh registry with no hot cache but sharing the same store
@@ -101,7 +105,7 @@ describe("ActionRegistry", () => {
     );
   });
 
-  describe("components-seeded registry (createBot components option)", () => {
+  describe("components-seeded registry (createChannel components option)", () => {
     it("enables cold dispatch after simulated restart when component is pre-registered", async () => {
       // Shared store survives the "restart" (like Redis across process restarts).
       const sharedState = new MemoryStore();
@@ -115,13 +119,13 @@ describe("ActionRegistry", () => {
         "conv-restart",
       );
       const id = (
-        (ir[0]!.props.children as BotNode[])[0]!.props.onClick as {
+        (ir[0]!.props.children as ChannelNode[])[0]!.props.onClick as {
           id: string;
         }
       ).id;
 
       // Registry B: fresh process — no hot cache, but component is seeded via
-      // the createBot `components` option equivalent (registerComponent at startup).
+      // the createChannel `components` option equivalent (registerComponent at startup).
       const regB = new ActionRegistry({ store: kvActionStore(sharedState) });
       regB.registerComponent("Confirm", Confirm as never);
 
@@ -146,7 +150,7 @@ describe("ActionRegistry", () => {
         "conv-no-reg",
       );
       const id = (
-        (ir[0]!.props.children as BotNode[])[0]!.props.onClick as {
+        (ir[0]!.props.children as ChannelNode[])[0]!.props.onClick as {
           id: string;
         }
       ).id;

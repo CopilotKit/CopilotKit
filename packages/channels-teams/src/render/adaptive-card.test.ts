@@ -1,17 +1,24 @@
 import { describe, it, expect } from "vitest";
-import type { BotNode } from "@copilotkit/channels-ui";
+import type { ChannelNode } from "@copilotkit/channels-ui";
 import {
   renderAdaptiveCard,
   isPlainText,
   collectPlainText,
 } from "./adaptive-card.js";
 
-const text = (value: string): BotNode => ({ type: "text", props: { value } });
-const el = (type: string, children: BotNode[], props = {}): BotNode => ({
+const text = (value: string): ChannelNode => ({
+  type: "text",
+  props: { value },
+});
+const el = (
+  type: string,
+  children: ChannelNode[],
+  props = {},
+): ChannelNode => ({
   type,
   props: { ...props, children },
 });
-const chart = (props: Record<string, unknown>): BotNode => ({
+const chart = (props: Record<string, unknown>): ChannelNode => ({
   type: "chart",
   props,
 });

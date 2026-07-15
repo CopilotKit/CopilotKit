@@ -2,7 +2,7 @@
  * Telegram-platform-universal context entries — knowledge the LLM needs
  * about Telegram itself (tagging procedure, Markdown formatting, conversation
  * model). Apps spread `defaultTelegramContext` into the `context:` config
- * they pass to `createBot`.
+ * they pass to `createChannel`.
  *
  * Each entry is exported individually too so apps can cherry-pick.
  */
@@ -82,7 +82,7 @@ export const telegramConversationModelContext: TelegramContextEntry = {
 
 /**
  * The default context entries the SDK ships. Spread into your
- * `createBot({context: …})`:
+ * `createChannel({context: …})`:
  *
  *     context: [...defaultTelegramContext, ...myAppContext],
  */

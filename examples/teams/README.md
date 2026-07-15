@@ -39,7 +39,7 @@ streaming, agent-rendered Adaptive Cards, and human-in-the-loop.
 ## What's in here
 
 - `app/index.tsx`: the whole bot, covering an in-process `BuiltInAgent` runtime,
-  the `createBot({ adapters: [teams()] })` wiring, an `onMessage` handler that
+  the `createChannel({ adapters: [teams()] })` wiring, an `onMessage` handler that
   runs the agent, and the agent-facing `show_card` tool.
 - `app/human-in-the-loop/`: the `confirm_write` approval gate and the Adaptive
   Card it posts. This is user-land code, not SDK code.

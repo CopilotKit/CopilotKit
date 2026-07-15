@@ -8,7 +8,7 @@
  */
 import { z } from "zod";
 import { Context } from "@copilotkit/channels-ui";
-import { defineBotTool } from "@copilotkit/channels";
+import { defineChannelTool } from "@copilotkit/channels";
 import { renderChart } from "../render/chart.js";
 
 const schema = z.object({
@@ -65,7 +65,7 @@ function slug(s: string): string {
   );
 }
 
-export const renderChartTool = defineBotTool({
+export const renderChartTool = defineChannelTool({
   name: "render_chart",
   description:
     "Render a chart as an image and post it to the conversation thread. Pass " +

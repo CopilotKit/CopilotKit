@@ -3,7 +3,11 @@ import { z } from "zod";
 import { runAgentLoop } from "./run-loop.js";
 import { makeFakeRunRenderer } from "./testing/fake-adapter.js";
 import { FakeAgent } from "./testing/fake-agent.js";
-import type { BotTool, AgentToolDescriptor, ContextEntry } from "./tools.js";
+import type {
+  ChannelTool,
+  AgentToolDescriptor,
+  ContextEntry,
+} from "./tools.js";
 import type { AgentSubscriber } from "@ag-ui/client";
 import type { CapturedInterrupt } from "./platform-adapter.js";
 
@@ -15,7 +19,7 @@ describe("runAgentLoop", () => {
     const renderer = makeFakeRunRenderer();
 
     const recorded: Array<{ msg: string }> = [];
-    const echo: BotTool = {
+    const echo: ChannelTool = {
       name: "echo",
       description: "echo back",
       parameters: z.object({ msg: z.string() }),
@@ -24,7 +28,7 @@ describe("runAgentLoop", () => {
         return { ok: true };
       },
     };
-    const tools = new Map<string, BotTool>([["echo", echo]]);
+    const tools = new Map<string, ChannelTool>([["echo", echo]]);
 
     // Step 1: agent emits an `echo` tool call, then finishes.
     // Step 2: agent just finishes (no further tool calls) -> loop terminates.
@@ -60,7 +64,7 @@ describe("runAgentLoop", () => {
 
   it("posts the picker via handleInterrupt and returns without running tools", async () => {
     const renderer = makeFakeRunRenderer();
-    const tools = new Map<string, BotTool>();
+    const tools = new Map<string, ChannelTool>();
     const handleInterrupt = vi.fn<(i: CapturedInterrupt) => void>();
 
     const agent = new FakeAgent([
@@ -93,7 +97,7 @@ describe("runAgentLoop", () => {
 
   it("returns interrupted=true and an iteration count when the agent interrupts", async () => {
     const renderer = makeFakeRunRenderer();
-    const tools = new Map<string, BotTool>();
+    const tools = new Map<string, ChannelTool>();
     const handleInterrupt = vi.fn<(i: CapturedInterrupt) => void>();
 
     const agent = new FakeAgent([
@@ -122,7 +126,7 @@ describe("runAgentLoop", () => {
 
   it("returns interrupted=false on a normal completion", async () => {
     const renderer = makeFakeRunRenderer();
-    const tools = new Map<string, BotTool>();
+    const tools = new Map<string, ChannelTool>();
 
     const agent = new FakeAgent([
       (sub: AgentSubscriber) => {
