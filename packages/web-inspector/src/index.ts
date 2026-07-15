@@ -236,16 +236,15 @@ type InspectorToolDefinition = {
 };
 
 // ─── Capabilities tab view-models ────────────────────────────────────────────
-// A single toggle row. `key` is the stable identity used for the "fired" set
-// and as a Lit list key; for tools it is `${agentId}:${name}` (agentId "" for
-// global tools), for catalog components it is the component name.
+// A single toggle row. `key` is the stable identity used as a Lit list key; for
+// tools it is `${agentId}:${name}` (agentId "" for global tools), for catalog
+// components it is the component name.
 type CapabilityToolRow = {
   key: string;
   name: string;
   description?: string;
   agentId?: string;
   enabled: boolean;
-  fired: boolean;
 };
 
 // Minimal structural view of CopilotKitCore that the pure helper needs, so
@@ -263,12 +262,10 @@ type CapabilityToolSource = {
 /**
  * Map core.tools (the registry INCLUDING disabled tools) into Capabilities-tab
  * frontend-tool rows. Pure: no DOM, no `this`. Reads current on/off state from
- * core.isToolEnabled(name, agentId?) per the A1 contract. `fired` is passed in
- * from the caller's session set (keyed identically to `key`).
+ * core.isToolEnabled(name, agentId?) per the A1 contract.
  */
 function buildCapabilityRows(
   core: CapabilityToolSource,
-  firedKeys: ReadonlySet<string> = new Set(),
 ): CapabilityToolRow[] {
   const rows: CapabilityToolRow[] = [];
   for (const tool of core.tools ?? []) {
@@ -280,7 +277,6 @@ function buildCapabilityRows(
       description: tool.description,
       agentId: tool.agentId,
       enabled: core.isToolEnabled(tool.name, tool.agentId),
-      fired: firedKeys.has(key),
     });
   }
   return rows.sort((a, b) => {
@@ -4525,10 +4521,6 @@ export class WebInspectorElement extends LitElement {
   // enablement changes — the inspector itself drives the toggle, so we force
   // the re-render locally.
   private _capabilitiesVersion = 0;
-  // Names of capabilities (tool key `${agentId}:${name}` or catalog component
-  // `name`) that have FIRED at least once this session. Drives the optional
-  // "active" dot. Populated in the agent tool-call subscriber (Task 7).
-  private firedCapabilities: Set<string> = new Set();
   private eventFilterText = "";
   private eventTypeFilter: InspectorAgentEventType | "all" = "all";
   // Column widths for the AG-UI events table (agent, time, event-type; last col is auto)
@@ -5330,15 +5322,6 @@ export class WebInspectorElement extends LitElement {
           toolCallName,
           partialToolCallArgs,
         });
-        if (typeof toolCallName === "string" && toolCallName.length > 0) {
-          const before = this.firedCapabilities.size;
-          this.firedCapabilities.add(`${agentId}:${toolCallName}`);
-          this.firedCapabilities.add(toolCallName);
-          if (this.firedCapabilities.size !== before) {
-            this._capabilitiesVersion += 1;
-            this.requestUpdate();
-          }
-        }
       },
       onToolCallEndEvent: ({ event, toolCallArgs, toolCallName }) => {
         this.recordAgentEvent(agentId, "TOOL_CALL_END", {
@@ -10381,7 +10364,6 @@ ${prettyEvent}</pre
 
     const toolRows = buildCapabilityRows(
       this._core as unknown as CapabilityToolSource,
-      this.firedCapabilities,
     );
     const catalog = this._core.catalogComponents ?? [];
     const hasCatalog = catalog.length > 0;
@@ -10441,7 +10423,6 @@ ${prettyEvent}</pre
                         enabled: this._core!.isCatalogComponentEnabled(
                           component.name,
                         ),
-                        fired: this.firedCapabilities.has(component.name),
                       }),
                     )}
                   </div>
@@ -10462,11 +10443,6 @@ ${prettyEvent}</pre
       <div class="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3">
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-2">
-            ${
-              row.fired
-                ? html`<span class="h-2 w-2 shrink-0 rounded-full bg-emerald-500" title="Fired this session" aria-label="Fired this session"></span>`
-                : nothing
-            }
             <span class="font-mono text-sm font-semibold text-gray-900">${row.name}</span>
             ${
               row.agentId

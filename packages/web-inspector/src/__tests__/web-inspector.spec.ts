@@ -3336,7 +3336,6 @@ describe("ɵbuildCapabilityRows", () => {
       name: "b-tool",
       agentId: undefined,
       enabled: true,
-      fired: false,
     });
     expect(rows.find((r) => r.name === "a-tool")).toMatchObject({
       key: "agent-1:a-tool",
@@ -3359,12 +3358,6 @@ describe("ɵbuildCapabilityRows", () => {
     };
     ɵbuildCapabilityRows(core);
     expect(calls).toEqual([["t", "agent-x"]]);
-  });
-
-  it("marks rows as fired when their key is in the fired set", () => {
-    const core = { tools: [{ name: "t", agentId: "a" }], isToolEnabled: () => true };
-    const rows = ɵbuildCapabilityRows(core, new Set(["a:t"]));
-    expect(rows[0]?.fired).toBe(true);
   });
 
   it("returns an empty array when there are no tools", () => {
@@ -3510,23 +3503,5 @@ describe("WebInspectorElement Capabilities tab", () => {
     const text = inspector.shadowRoot?.textContent ?? "";
     expect(text).toContain("Frontend tools");
     expect(text).not.toContain("A2UI catalog components");
-  });
-
-  it("marks a tool row as fired after its tool-call event", async () => {
-    const { core } = createCapabilitiesCore();
-    const inspector = new WebInspectorElement();
-    document.body.appendChild(inspector);
-    inspector.core = core as unknown as WebInspectorElement["core"];
-    (inspector as unknown as { isOpen: boolean }).isOpen = true;
-    (
-      inspector as unknown as { firedCapabilities: Set<string> }
-    ).firedCapabilities.add(":greet");
-    (
-      inspector as unknown as { handleMenuSelect: (k: string) => void }
-    ).handleMenuSelect("capabilities");
-    await inspector.updateComplete;
-    expect(
-      inspector.shadowRoot?.querySelector('[title="Fired this session"]'),
-    ).not.toBeNull();
   });
 });
