@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   ADAPTERS,
+  createConsumerWorkspaceYaml,
   createConsumerManifest,
+  FAMILY,
   validatePackedManifests,
 } from "./channels-umbrella.js";
 import type { PackedManifest } from "./channels-umbrella.js";
@@ -123,5 +125,15 @@ describe("createConsumerManifest", () => {
         },
       },
     });
+  });
+});
+
+describe("createConsumerWorkspaceYaml", () => {
+  it("exempts every Channels package from the release-age gate", () => {
+    const workspace = createConsumerWorkspaceYaml();
+
+    for (const name of FAMILY) {
+      expect(workspace).toContain(`  - ${JSON.stringify(name)}\n`);
+    }
   });
 });

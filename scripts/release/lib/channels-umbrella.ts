@@ -34,6 +34,14 @@ export const FAMILY = [
   "@copilotkit/channels",
 ] as const;
 
+export function createConsumerWorkspaceYaml(): string {
+  return [
+    "minimumReleaseAgeExclude:",
+    ...FAMILY.map((name) => `  - ${JSON.stringify(name)}`),
+    "",
+  ].join("\n");
+}
+
 export function createConsumerManifest({
   umbrellaTarball,
   packageManager,
