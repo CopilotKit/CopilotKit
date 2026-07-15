@@ -1,5 +1,5 @@
 import type {
-  BotNode,
+  ChannelNode,
   ClickHandler,
   InteractionContext,
   ComponentFn,
@@ -111,7 +111,7 @@ export class ActionRegistry {
     componentName: string,
     props: Record<string, unknown>,
     conversationKey: string,
-  ): Promise<BotNode[]> {
+  ): Promise<ChannelNode[]> {
     const fn = this.components.get(componentName);
     const root = renderToIR((fn ? fn(props) : props) as Renderable);
     await this.walk(root, [], componentName, props, conversationKey);
@@ -129,7 +129,7 @@ export class ActionRegistry {
     ui: Renderable,
     conversationKey: string,
   ): Promise<{
-    root: BotNode[];
+    root: ChannelNode[];
     onReaction?: MessageReactionHandler;
     /**
      * The component + props to persist for durable reaction routing, present
@@ -138,7 +138,7 @@ export class ActionRegistry {
      */
     reactionComponent?: { component: string; props: Record<string, unknown> };
   }> {
-    let root: BotNode[];
+    let root: ChannelNode[];
     let component: string | undefined;
     let props: Record<string, unknown> | undefined;
     if (isComponentElement(ui)) {
@@ -161,7 +161,7 @@ export class ActionRegistry {
   }
 
   private async walk(
-    nodes: BotNode[],
+    nodes: ChannelNode[],
     base: (string | number)[],
     comp: string,
     props: unknown,
@@ -192,7 +192,7 @@ export class ActionRegistry {
       const children = node.props.children;
       if (Array.isArray(children)) {
         await this.walk(
-          children as BotNode[],
+          children as ChannelNode[],
           [...path, "children"],
           comp,
           props,
@@ -243,7 +243,7 @@ function reactionKey(messageId: string): string {
  * payload). Returns the handler when the single root node is a `message`.
  */
 function takeMessageReaction(
-  root: BotNode[],
+  root: ChannelNode[],
 ): MessageReactionHandler | undefined {
   const node = root.length === 1 ? root[0] : undefined;
   if (!node || node.type !== "message" || !("onReaction" in node.props)) {
@@ -257,30 +257,30 @@ function takeMessageReaction(
 }
 
 /** Navigate to the node owning the event-prop at `path` and read its `value`. */
-function pluckValue(tree: BotNode[], path: (string | number)[]): unknown {
+function pluckValue(tree: ChannelNode[], path: (string | number)[]): unknown {
   let cur: unknown = tree;
   for (const seg of path.slice(0, -1)) {
     if (Array.isArray(cur)) cur = cur[seg as number];
     else if (cur && typeof cur === "object")
-      cur = (cur as BotNode).props?.[seg as string];
+      cur = (cur as ChannelNode).props?.[seg as string];
     else return undefined;
   }
-  return (cur as BotNode | undefined)?.props?.value;
+  return (cur as ChannelNode | undefined)?.props?.value;
 }
 
 function pluck(
-  tree: BotNode[],
+  tree: ChannelNode[],
   path: (string | number)[],
 ): ClickHandler | undefined {
   let cur: unknown = tree;
   for (const seg of path.slice(0, -1)) {
     if (Array.isArray(cur)) cur = cur[seg as number];
     else if (cur && typeof cur === "object")
-      cur = (cur as BotNode).props?.[seg as string];
+      cur = (cur as ChannelNode).props?.[seg as string];
     else return undefined;
   }
   const ep = path[path.length - 1] as string;
-  const node = cur as BotNode | undefined;
+  const node = cur as ChannelNode | undefined;
   const h = node?.props?.[ep];
   return typeof h === "function" ? (h as ClickHandler) : undefined;
 }

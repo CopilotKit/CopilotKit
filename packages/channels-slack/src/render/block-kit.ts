@@ -1,4 +1,4 @@
-import type { BotNode } from "@copilotkit/channels-ui";
+import type { ChannelNode } from "@copilotkit/channels-ui";
 import type { ContextActionsBlock, KnownBlock } from "@slack/types";
 import { markdownToMrkdwn } from "../markdown-to-mrkdwn.js";
 import { SLACK_LIMITS, clampArray, truncateText } from "./budget.js";
@@ -62,7 +62,7 @@ export function buildFeedbackBlocks(opts?: {
  * {@link clampArray}; nothing is silently dropped — overflowing collections
  * clamp and, at the top level, append an explicit overflow signal block.
  */
-export function renderBlockKit(ir: BotNode[]): KnownBlock[] {
+export function renderBlockKit(ir: ChannelNode[]): KnownBlock[] {
   const blocks: KnownBlock[] = [];
   for (const node of ir) {
     renderNode(node, blocks);
@@ -82,7 +82,7 @@ export function renderBlockKit(ir: BotNode[]): KnownBlock[] {
 }
 
 /** Render IR to Slack blocks, extracting a top-level <Message accent="#hex"> color for an attachment wrapper. */
-export function renderSlackMessage(ir: BotNode[]): {
+export function renderSlackMessage(ir: ChannelNode[]): {
   blocks: KnownBlock[];
   accent?: string;
 } {
@@ -104,7 +104,7 @@ function overflowSignal(count: number): KnownBlock {
 }
 
 /** Render a single IR node, pushing zero or more blocks onto `out`. */
-function renderNode(node: BotNode, out: KnownBlock[]): void {
+function renderNode(node: ChannelNode, out: KnownBlock[]): void {
   if (typeof node.type !== "string") return; // non-intrinsic — already expanded away
   const props = node.props ?? {};
   switch (node.type) {
@@ -307,7 +307,7 @@ function renderNode(node: BotNode, out: KnownBlock[]): void {
  * Render one interactive element inside an `actions` block. Returns `null` for
  * children that aren't renderable as action elements (so callers can filter).
  */
-function renderActionElement(node: BotNode): object | null {
+function renderActionElement(node: ChannelNode): object | null {
   if (typeof node.type !== "string") return null;
   const props = node.props ?? {};
   switch (node.type) {
@@ -373,7 +373,7 @@ function renderActionElement(node: BotNode): object | null {
  * `multi_static_select` (which Slack forbids inside an `actions` block). The
  * block_actions payload carries `selected_options`, decoded to a `string[]`.
  */
-function multiSelectInput(node: BotNode): KnownBlock {
+function multiSelectInput(node: ChannelNode): KnownBlock {
   const props = node.props ?? {};
   const action_id = truncateText(
     idFromHandler(props.onSelect) ?? "select",
@@ -420,22 +420,22 @@ function idFromHandler(handler: unknown): string | undefined {
   return undefined;
 }
 
-/** The expanded `children` of an IR node as an `BotNode[]` (empty if none). */
-function childNodes(node: BotNode): BotNode[] {
+/** The expanded `children` of an IR node as an `ChannelNode[]` (empty if none). */
+function childNodes(node: ChannelNode): ChannelNode[] {
   const children = node.props?.children;
-  if (Array.isArray(children)) return children as BotNode[];
+  if (Array.isArray(children)) return children as ChannelNode[];
   if (
     children &&
     typeof children === "object" &&
     "type" in (children as object)
   ) {
-    return [children as BotNode];
+    return [children as ChannelNode];
   }
   return [];
 }
 
 /** A field's mrkdwn text: a bold `label` line (when set) above the value. */
-function fieldMrkdwn(node: BotNode): string {
+function fieldMrkdwn(node: ChannelNode): string {
   const value = markdownToMrkdwn(collectText(node));
   const label = (node.props as { label?: unknown }).label;
   return typeof label === "string" && label.length > 0
@@ -444,7 +444,7 @@ function fieldMrkdwn(node: BotNode): string {
 }
 
 /** Concatenate the `value` of all descendant `text` nodes (depth-first). */
-function collectText(node: BotNode): string {
+function collectText(node: ChannelNode): string {
   if (typeof node.type === "string" && node.type === "text") {
     return String(node.props?.value ?? "");
   }

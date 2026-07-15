@@ -88,6 +88,43 @@ export interface RealtimeGatewayTransportOptions {
    * wire this to surface them. Absent → drops stay silent (fail-closed).
    */
   log?: (message: string, meta?: unknown) => void;
+  /**
+   * Per-turn deadline (ms) for the `onDelivery` handler. A turn that throws or
+   * hangs past this is nacked (released for redelivery) and logged, so a wedged
+   * handler can't silently pin a delivery forever. Mirrors the HTTP transport's
+   * `turnTimeoutMs`. Default {@link DEFAULT_DELIVERY_TIMEOUT_MS}.
+   */
+  deliveryTimeoutMs?: number;
+}
+
+/** Default per-turn deadline before a hung realtime turn is nacked and skipped. */
+const DEFAULT_DELIVERY_TIMEOUT_MS = 120_000;
+
+/**
+ * Reject after `ms` if `p` hasn't settled, so a hung turn can't wedge a
+ * delivery. The underlying promise keeps running in the background (a rejection
+ * handler is attached, so it never surfaces as unhandled); the transport nacks
+ * and moves on. Mirrors the HTTP transport's per-turn timeout.
+ */
+function withDeliveryTimeout<T>(
+  p: Promise<T>,
+  ms: number,
+  message: string,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), ms);
+    (timer as unknown as { unref?: () => void }).unref?.();
+    p.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
 }
 
 const RENDER_EVENT = "channel.render_event.v1";
@@ -121,6 +158,7 @@ export class RealtimeGatewayTransport
   private readonly session: RealtimeGatewaySession;
   private readonly now: () => string;
   private readonly log?: (message: string, meta?: unknown) => void;
+  private readonly deliveryTimeoutMs: number;
   private readonly deliveries = new Map<string, DeliveryState>();
   private onDelivery?: (env: ChannelIngressEnvelope) => Promise<void>;
 
@@ -131,6 +169,8 @@ export class RealtimeGatewayTransport
     this.session = config.session;
     this.now = config.now ?? (() => new Date().toISOString());
     this.log = config.log;
+    this.deliveryTimeoutMs =
+      config.deliveryTimeoutMs ?? DEFAULT_DELIVERY_TIMEOUT_MS;
   }
 
   async start(
@@ -138,7 +178,17 @@ export class RealtimeGatewayTransport
   ): Promise<void> {
     this.onDelivery = onDelivery;
     this.session.on(DELIVERY_AVAILABLE, (payload) => {
-      void this.handleDeliveryAvailable(payload);
+      // Error-boundary the dispatch: without a `.catch` an onDelivery rejection
+      // (or a parse/setup throw before the delivery is registered) becomes an
+      // unhandled promise rejection and the delivery is silently dropped. The
+      // per-turn failure/timeout path inside handleDeliveryAvailable nacks;
+      // this outer catch is the safety net for anything it can't (parse/setup
+      // errors that happen before a delivery id exists to nack).
+      this.handleDeliveryAvailable(payload).catch((err: unknown) => {
+        this.log?.("realtime gateway delivery dispatch failed", {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
     });
   }
 
@@ -152,7 +202,31 @@ export class RealtimeGatewayTransport
       scope,
       accepted: new Map(),
     });
-    await this.onDelivery?.(env);
+    // Bound the turn (parity with the HTTP runLoop): a handler that throws or
+    // hangs past deliveryTimeoutMs must not wedge the delivery or leave the
+    // render stream half-open. On failure, nack so app-api releases the lease
+    // and redelivers rather than the turn silently pinning the delivery.
+    try {
+      await withDeliveryTimeout(
+        Promise.resolve(this.onDelivery?.(env)),
+        this.deliveryTimeoutMs,
+        `realtime gateway turn ${env.turnId} exceeded ${this.deliveryTimeoutMs}ms`,
+      );
+    } catch (err) {
+      this.log?.("realtime gateway turn failed/timed out; nacking", {
+        deliveryId: env.deliveryId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      await this.nack(
+        env.deliveryId,
+        err instanceof Error ? err.message : String(err),
+      ).catch((nackErr: unknown) =>
+        this.log?.("realtime gateway nack after turn failure failed", {
+          deliveryId: env.deliveryId,
+          error: nackErr instanceof Error ? nackErr.message : String(nackErr),
+        }),
+      );
+    }
   }
 
   /**

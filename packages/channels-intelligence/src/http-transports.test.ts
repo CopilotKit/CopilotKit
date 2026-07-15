@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { createChannel, FakeAgent } from "@copilotkit/channels";
-import type { BotNode } from "@copilotkit/channels-ui";
+import type { ChannelNode } from "@copilotkit/channels-ui";
 import {
   HttpDeliverySource,
   HttpEgressSink,
@@ -99,8 +99,8 @@ function cfg(
   });
 }
 
-const text = (value: string): BotNode =>
-  ({ type: "text", props: { value } }) as unknown as BotNode;
+const text = (value: string): ChannelNode =>
+  ({ type: "text", props: { value } }) as unknown as ChannelNode;
 
 const claimedDelivery = (over?: Record<string, unknown>) => ({
   id: "dlv_9",

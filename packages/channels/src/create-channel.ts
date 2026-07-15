@@ -231,7 +231,7 @@ export interface CreateChannelOptions<
   context?: ContextEntry[];
   /**
    * Named JSX components used in interactive messages. Registering them here
-   * lets the bot re-render and re-fire their handlers after a restart (durable
+   * lets the channel re-render and re-fire their handlers after a restart (durable
    * actions); without registration, a click on a message posted before the
    * restart degrades to "action expired".
    */
@@ -296,7 +296,7 @@ export interface Channel<TState = unknown> {
   /** Handle a modal dismissal for `callbackId` (Slack `view_closed`). */
   onModalClose(callbackId: string, handler: ModalCloseHandler): void;
   tool(t: ChannelTool): void;
-  /** Attach an adapter before `start()`. Throws if called after the bot has started. */
+  /** Attach an adapter before `start()`. Throws if called after the channel has started. */
   addAdapter(adapter: PlatformAdapter): void;
   start(): Promise<void>;
   stop(): Promise<void>;
@@ -372,7 +372,7 @@ export function createChannel<
     );
   }
 
-  // Adapters can be supplied up front or added later via `bot.addAdapter`
+  // Adapters can be supplied up front or added later via `channel.addAdapter`
   // (before `start()`). The runtime uses the latter to attach Channel delivery.
   const adapters: PlatformAdapter[] = [...(opts.adapters ?? [])];
   assertExclusive(adapters);
@@ -426,7 +426,7 @@ export function createChannel<
   const modalCloseHandlers = new Map<string, ModalCloseHandler>();
   const waiters = new Map<string, (value: unknown) => void>();
 
-  // Recomputed on start() so tools added via bot.tool() before start are picked up.
+  // Recomputed on start() so tools added via channel.tool() before start are picked up.
   let toolDescriptors = toAgentToolDescriptors([...toolMap.values()]);
 
   function makeThread(
@@ -760,7 +760,7 @@ export function createChannel<
     };
   }
 
-  const bot: Channel<ThreadStateOf<TStateSchema>> = {
+  const channel: Channel<ThreadStateOf<TStateSchema>> = {
     name: opts.name,
     ...(opts.provider !== undefined ? { provider: opts.provider } : {}),
     get adapters() {
@@ -913,10 +913,10 @@ export function createChannel<
       });
       // Isolate per-adapter startup failures: one adapter rejecting (e.g.
       // Telegram's setMyCommands rejecting a hyphenated command name, a revoked
-      // token, a port already in use) must NOT crash the bot or prevent the
+      // token, a port already in use) must NOT crash the channel or prevent the
       // other adapters from starting. Log + degrade, never throw.
       const startResults = await Promise.allSettled(
-        adapters.map((a) => a.start(makeSink(a), { botName: opts.name })),
+        adapters.map((a) => a.start(makeSink(a), { channelName: opts.name })),
       );
       const startedPlatforms: string[] = [];
       const failedPlatforms: string[] = [];
@@ -989,5 +989,5 @@ export function createChannel<
       });
     },
   };
-  return bot;
+  return channel;
 }
