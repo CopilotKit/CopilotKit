@@ -128,6 +128,8 @@ async def authenticate(authorization: str | None):
 The return value of the handler shows up in every node's `config["configuration"]["langgraph_auth_user"]`. From there, scoping tool access or filtering data is straightforward:
 
 ```python title="backend/agent.py"
+from langchain_core.runnables import RunnableConfig
+
 async def my_agent_node(state: AgentState, config: RunnableConfig):
     user_info = config["configuration"]["langgraph_auth_user"]
     user_id = user_info["identity"]
@@ -165,6 +167,8 @@ sdk = CopilotKitRemoteEndpoint(
 Validation is your job in this mode. Inside any node, pull the token out of `config["configurable"]` and run it through your verifier. Decide the policy explicitly: reject unauthenticated calls, or fall through to an `anonymous` branch as the example below does.
 
 ```python title="backend/agent.py"
+from langchain_core.runnables import RunnableConfig
+
 async def my_agent_node(state: AgentState, config: RunnableConfig):
     auth_token = config["configurable"].get("copilotkit_auth")
     if auth_token:

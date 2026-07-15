@@ -92,6 +92,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
     <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
         <Tab value="Python">
             ```python title="agent.py"
+            from langchain_core.runnables import RunnableConfig
             from langgraph.types import interrupt # [!code highlight]
             from langchain_core.messages import SystemMessage
             from langchain_openai import ChatOpenAI
@@ -221,6 +222,7 @@ For this reason, the hook can take an `enabled` argument which will apply it con
         <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
             <Tab value="Python">
                 ```python title="agent.py"
+                from langchain_core.runnables import RunnableConfig
                 from langgraph.types import interrupt # [!code highlight]
                 from langchain_core.messages import SystemMessage
                 from langchain_openai import ChatOpenAI
