@@ -36,6 +36,82 @@
     "auth": {
       "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/auth",
       "shell_docs_path": "/auth"
+    },
+    "beautiful-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/prebuilt-components",
+      "shell_docs_path": "/prebuilt-components"
+    },
+    "cli-start": {
+      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/quickstart",
+      "shell_docs_path": "/quickstart"
+    },
+    "prebuilt-sidebar": {
+      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/prebuilt-components",
+      "shell_docs_path": "/prebuilt-components"
+    },
+    "prebuilt-popup": {
+      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/prebuilt-components",
+      "shell_docs_path": "/prebuilt-components"
+    },
+    "chat-slots": {
+      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/custom-look-and-feel/slots",
+      "shell_docs_path": "/custom-look-and-feel/slots"
+    },
+    "headless-simple": {
+      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/custom-look-and-feel/headless-ui",
+      "shell_docs_path": "/custom-look-and-feel/headless-ui"
+    },
+    "headless-complete": {
+      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/custom-look-and-feel/headless-ui",
+      "shell_docs_path": "/custom-look-and-feel/headless-ui"
+    },
+    "frontend-tools": {
+      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/frontend-tools",
+      "shell_docs_path": "/frontend-tools"
+    },
+    "frontend-tools-async": {
+      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/frontend-tools",
+      "shell_docs_path": "/frontend-tools"
+    },
+    "hitl-in-app": {
+      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/frontend-tools",
+      "shell_docs_path": "/frontend-tools"
+    },
+    "mcp-apps": {
+      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/generative-ui/mcp-apps",
+      "shell_docs_path": "/generative-ui/mcp-apps"
+    },
+    "tool-rendering-default-catchall": {
+      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/generative-ui/tool-rendering",
+      "shell_docs_path": "/generative-ui/tool-rendering"
+    },
+    "tool-rendering-custom-catchall": {
+      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/generative-ui/tool-rendering",
+      "shell_docs_path": "/generative-ui/tool-rendering"
+    },
+    "tool-rendering-reasoning-chain": {
+      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/generative-ui/tool-rendering",
+      "shell_docs_path": "/generative-ui/tool-rendering"
+    },
+    "readonly-state-agent-context": {
+      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/agent-app-context",
+      "shell_docs_path": "/agent-app-context"
+    },
+    "a2ui-fixed-schema": {
+      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/generative-ui/a2ui",
+      "shell_docs_path": "/generative-ui/a2ui"
+    },
+    "declarative-gen-ui": {
+      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/generative-ui/a2ui",
+      "shell_docs_path": "/generative-ui/a2ui"
+    },
+    "gen-ui-interrupt": {
+      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/human-in-the-loop",
+      "shell_docs_path": "/human-in-the-loop"
+    },
+    "interrupt-headless": {
+      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/human-in-the-loop",
+      "shell_docs_path": "/human-in-the-loop"
     }
   }
 }
