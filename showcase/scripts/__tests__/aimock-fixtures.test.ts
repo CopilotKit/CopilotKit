@@ -38,6 +38,7 @@ interface RawFixtureEntry {
   match: {
     userMessage?: string;
     toolCallId?: string;
+    toolResultContains?: string;
     toolName?: string;
     model?: string;
     hasToolResult?: boolean;
@@ -67,6 +68,8 @@ function matchKey(match: RawFixtureEntry["match"]): string {
     parts.push(`sequenceIndex=${match.sequenceIndex}`);
   if (match.toolCallId != null) parts.push(`toolCallId=${match.toolCallId}`);
   if (match.toolName != null) parts.push(`toolName=${match.toolName}`);
+  if (match.toolResultContains != null)
+    parts.push(`toolResultContains=${match.toolResultContains}`);
   if (match.turnIndex != null) parts.push(`turnIndex=${match.turnIndex}`);
   if (match.userMessage != null) parts.push(`userMessage=${match.userMessage}`);
   return parts.join("|");
@@ -277,7 +280,15 @@ describe("fixture collision detection", () => {
     // "1:1 with Alice", each hasToolResult:false|toolName:schedule_meeting).
     // These are disambiguated at runtime by route/fixtureFile like every other
     // cross-demo alias above — one exact-key pair per pill × 2 pills = +2.
-    const KNOWN_DUPLICATE_CEILING = 303;
+    //
+    // Bumped 303 → 305 (+2) by the cancel-path fix (aimock 1.37.0
+    // toolResultContains): interrupt-headless gained cancelled legs mirroring
+    // gen-ui-interrupt's, keyed userMessage + toolCallId +
+    // toolResultContains:"cancelled". Each headless cancelled leg shares its
+    // exact key with the gen-ui-interrupt one (same pill text, same suspend
+    // toolCallId) and carries the IDENTICAL response text, so first-match-wins
+    // yields the same Denied narration for both demos — one pair per pill = +2.
+    const KNOWN_DUPLICATE_CEILING = 305;
 
     const collisions: string[] = [];
 

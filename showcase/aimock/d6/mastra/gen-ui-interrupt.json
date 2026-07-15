@@ -38,10 +38,11 @@
       }
     },
     {
-      "_comment": "gen-ui-interrupt sales-call pill \u2014 cancelled leg (user denied).",
+      "_comment": "gen-ui-interrupt sales-call pill \u2014 cancelled leg (user denied). Cancel resumes with the SAME toolCallId as pick; only the tool-result payload differs, so gate on toolResultContains (aimock \u2265 1.37.0) and keep this leg BEFORE the confirmation leg (first match wins).",
       "match": {
         "userMessage": "intro call with the sales team",
-        "toolCallId": "call_d5_schedule_sales_001__cancelled",
+        "toolCallId": "call_d5_schedule_sales_001",
+        "toolResultContains": "cancelled",
         "context": "mastra"
       },
       "response": {
@@ -92,10 +93,11 @@
       }
     },
     {
-      "_comment": "gen-ui-interrupt alice-1on1 pill \u2014 cancelled leg.",
+      "_comment": "gen-ui-interrupt alice-1on1 pill \u2014 cancelled leg. Same toolCallId as the pick path; discriminated by the tool-result payload via toolResultContains, ordered before the confirmation leg.",
       "match": {
         "userMessage": "1:1 with Alice",
-        "toolCallId": "call_d5_schedule_alice_001__cancelled",
+        "toolCallId": "call_d5_schedule_alice_001",
+        "toolResultContains": "cancelled",
         "context": "mastra"
       },
       "response": {
