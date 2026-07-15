@@ -19,12 +19,6 @@ export interface PublishablePackage {
   pkg: Record<string, any>;
 }
 
-const INTERNAL_DEPENDENCY_FIELDS = [
-  "dependencies",
-  "optionalDependencies",
-  "peerDependencies",
-] as const;
-
 /** Find a package directory by its npm name. */
 function findPackageDir(packageName: string): string {
   const packagesDir = path.join(ROOT, "packages");
@@ -93,7 +87,7 @@ export function computePrereleaseVersion(
   return `${v.major}.${v.minor}.${v.patch}-${tag}.${id}`;
 }
 
-/** Get all publishable packages for a given scope. */
+/** Get all publishable packages in the order configured for a release scope. */
 export function getPackagesForScope(scope: ReleaseScope): PublishablePackage[] {
   const scopeConfig = getScopeConfig(scope);
   const packagesDir = path.join(ROOT, "packages");
@@ -112,47 +106,13 @@ export function getPackagesForScope(scope: ReleaseScope): PublishablePackage[] {
     });
   }
 
-  const scopePackages = scopeConfig.packages.map((name) => {
+  return scopeConfig.packages.map((name) => {
     const pkg = packagesByName.get(name);
     if (!pkg) {
       throw new Error(`Package not found for scope ${scope}: ${name}`);
     }
     return pkg;
   });
-  const scopeNames = new Set(scopeConfig.packages);
-  const internalDependencies = new Map(
-    scopePackages.map((pkg) => [
-      pkg.name,
-      new Set(
-        INTERNAL_DEPENDENCY_FIELDS.flatMap((field) =>
-          Object.keys(pkg.pkg[field] ?? {}),
-        ).filter((name) => scopeNames.has(name)),
-      ),
-    ]),
-  );
-  const pending = new Set(scopePackages.map((pkg) => pkg.name));
-  const ordered: PublishablePackage[] = [];
-
-  while (pending.size > 0) {
-    const ready = scopePackages.filter(
-      (pkg) =>
-        pending.has(pkg.name) &&
-        [...(internalDependencies.get(pkg.name) ?? [])].every(
-          (dependency) => !pending.has(dependency),
-        ),
-    );
-    if (ready.length === 0) {
-      throw new Error(
-        `Circular package dependency in scope ${scope}: ${[...pending].join(", ")}`,
-      );
-    }
-    for (const pkg of ready) {
-      pending.delete(pkg.name);
-      ordered.push(pkg);
-    }
-  }
-
-  return ordered;
 }
 
 /** Bump all packages in a scope to a new version. For sharedVersion scopes, also updates internal deps. */

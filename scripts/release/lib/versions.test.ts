@@ -229,10 +229,10 @@ describe("bumpPackages", () => {
     expect(pkg.dependencies["@copilotkit/shared"]).toBe("1.55.3");
   });
 
-  it("publishes internal dependencies before their dependents", () => {
+  it("preserves the configured publish order", () => {
     expect(getPackagesForScope("monorepo").map((pkg) => pkg.name)).toEqual([
-      "@copilotkit/shared",
       "@copilotkit/react-core",
+      "@copilotkit/shared",
     ]);
   });
 });

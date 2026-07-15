@@ -23,7 +23,7 @@ describe("Channels release scope", () => {
     });
   });
 
-  it("resolves every Channels package for a shared-version release", () => {
+  it("resolves Channels packages in configured publish order", () => {
     expect(getPackagesForScope("channels").map((pkg) => pkg.name)).toEqual(
       CHANNELS_PACKAGES,
     );
