@@ -32,7 +32,7 @@ import {
   defaultSlackTools,
   defaultSlackContext,
   SanitizingHttpAgent,
-} from "@copilotkit/channels-slack";
+} from "@copilotkit/channels/slack";
 import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
 import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 import { appTools } from "./tools/index.js";

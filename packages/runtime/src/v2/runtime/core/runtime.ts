@@ -33,11 +33,11 @@ import type { AgentRunner } from "../runner/agent-runner";
 import { InMemoryAgentRunner } from "../runner/in-memory";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
 import type { CopilotKitIntelligence } from "../intelligence-platform";
-// Type-only: @copilotkit/channels is pure-ESM, so a value import would break this
+// Type-only: @copilotkit/channels-core is the pure-ESM type source, so a value import would break this
 // package's CJS output. The channels are validated + activated (wired to delivery
 // transports) by `startChannels` from @copilotkit/channels-intelligence, called
 // by the Channel-listener bootstrap — not here.
-import type { Channel } from "@copilotkit/channels";
+import type { Channel } from "@copilotkit/channels-core";
 import telemetry from "../telemetry/telemetry-client";
 
 export const VERSION = pkg.version;

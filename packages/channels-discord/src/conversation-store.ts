@@ -3,7 +3,7 @@ import type {
   ConversationStore,
   AgentSession,
   ReplyTarget as BotReplyTarget,
-} from "@copilotkit/channels";
+} from "@copilotkit/channels-core";
 import { buildFileContentParts } from "./download-files.js";
 import type {
   AgentContentPart,

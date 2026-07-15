@@ -1,4 +1,4 @@
-import type { IngressSink } from "@copilotkit/channels";
+import type { IngressSink } from "@copilotkit/channels-core";
 import type { PlatformUser } from "@copilotkit/channels-ui";
 import type { ChangeValue, ReplyTarget } from "./types.js";
 import type { HistoryStore } from "./history-store.js";

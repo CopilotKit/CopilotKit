@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import type { ReplyTarget } from "@copilotkit/channels";
+import type { ReplyTarget } from "@copilotkit/channels-core";
 import { intelligenceAdapter } from "./intelligence-adapter.js";
 import {
   InMemoryDeliverySource,
@@ -8,6 +8,7 @@ import {
 } from "./in-memory-transports.js";
 import { RealtimeGatewayTransport } from "./realtime-gateway-transport.js";
 import type { RealtimeGatewaySession } from "./realtime-gateway.js";
+import type { ChannelIngressEnvelope } from "./contracts.js";
 
 const target = {
   route: { channel: "C1", threadTs: "100.0" },
@@ -104,6 +105,29 @@ describe("run renderer — render-event streaming (OSS-402)", () => {
     expect(
       (postFrame?.event as { kind: "post"; content: unknown }).content,
     ).toEqual(card);
+  });
+
+  it("routes a delete through a delete render frame when a renderSink is wired (OSS-420)", async () => {
+    const renderSink = new InMemoryRenderEventSink();
+    const adapter = intelligenceAdapter({
+      source: new InMemoryDeliverySource(),
+      egress: new InMemoryEgressSink(),
+      renderSink,
+    });
+    const card = [
+      { type: "section", props: { children: "card" } },
+    ] as unknown as Parameters<typeof adapter.post>[1];
+
+    const ref = await adapter.post(target, card);
+    await adapter.delete(ref);
+
+    const deleteFrame = renderSink.frames.find(
+      (f) => f.event.kind === "delete",
+    );
+    expect(deleteFrame).toBeDefined();
+    expect((deleteFrame?.event as { kind: "delete"; ref: string }).ref).toBe(
+      ref.id,
+    );
   });
 
   it("falls back to a single post op on the EgressSink when no renderSink is wired", async () => {
@@ -283,6 +307,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
           turn: {
             id: "turn_t1",
             eventId: "evt_1",
+            replyTarget: { adapter: "slack", teamId: "T1", channel: "C1" },
             input: { kind: "text", text: "hi" },
           },
         },
@@ -325,6 +350,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
           turn: {
             id: "turn_t1",
             eventId: "evt_1",
+            replyTarget: { adapter: "slack", teamId: "T1", channel: "C1" },
             input: { kind: "text", text: "hi" },
           },
         },
@@ -363,6 +389,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
           turn: {
             id: "turn_t1",
             eventId: "evt_1",
+            replyTarget: { adapter: "slack", teamId: "T1", channel: "C1" },
             input: { kind: "text", text: "hi" },
           },
         },
@@ -377,6 +404,187 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
       { timeout: 1000 },
     );
     expect(logs.some((m) => m.includes("turn failed/timed out"))).toBe(true);
+  });
+
+  it("fails an UNMAPPABLE (poison) delivery non-retryable instead of dropping it into a re-lease loop", async () => {
+    const fake = makeFakeSession();
+    const logs: string[] = [];
+    const t = new RealtimeGatewayTransport({
+      ...cfg(fake.session),
+      log: (m) => logs.push(m),
+    });
+    let delivered = false;
+    await t.start(async () => {
+      delivered = true;
+    });
+    // Valid turn id/eventId/leaseToken, but an unmodeled reply-target adapter →
+    // mapDeliveryToEnvelope throws. Before the fix this logged + dropped (no
+    // fail intent), so app-api re-leased the identical poison payload forever.
+    fake.handlers.get("channel.delivery.available.v1")?.({
+      payload: {
+        delivery: {
+          id: "dlv_poison",
+          leaseToken: "lease_l1",
+          adapter: "slack",
+          channel: { id: "channel_1", name: "support" },
+          turn: {
+            id: "turn_t1",
+            eventId: "evt_1",
+            replyTarget: { adapter: "discord", guildId: "G1", channel: "C1" },
+            input: { kind: "text", text: "hi" },
+          },
+        },
+      },
+    });
+
+    await vi.waitFor(() =>
+      expect(fake.pushes.map((p) => p.event)).toContain(
+        "channel.delivery.fail.v1",
+      ),
+    );
+    expect(delivered).toBe(false); // never reached the handler
+    const fail = fake.pushes.find(
+      (p) => p.event === "channel.delivery.fail.v1",
+    )!.payload as {
+      payload: { leaseToken?: string; error: { retryable: boolean } };
+    };
+    // Non-retryable → app-api dead-letters instead of re-leasing.
+    expect(fail.payload.error.retryable).toBe(false);
+    expect(fail.payload.leaseToken).toBe("lease_l1");
+  });
+
+  it("sends exactly one terminal signal per delivery (delete-before-push): a late ack after nack no-ops", async () => {
+    const fake = makeFakeSession();
+    const t = new RealtimeGatewayTransport(cfg(fake.session));
+    let delivered = false;
+    await t.start(async () => {
+      delivered = true;
+    });
+    fake.handlers.get("channel.delivery.available.v1")?.({
+      payload: {
+        delivery: {
+          id: "dlv_d1",
+          leaseToken: "lease_l1",
+          adapter: "slack",
+          channel: { id: "channel_1", name: "support" },
+          turn: {
+            id: "turn_t1",
+            eventId: "evt_1",
+            replyTarget: { adapter: "slack", teamId: "T1", channel: "C1" },
+            input: { kind: "text", text: "hi" },
+          },
+        },
+      },
+    });
+    await vi.waitFor(() => expect(delivered).toBe(true));
+
+    // Simulate the timeout race: the per-turn timeout nacks while the still-
+    // running dispatch later acks. delete-before-push guarantees the first wins
+    // and the second no-ops — exactly one terminal signal reaches app-api.
+    await t.nack("dlv_d1", "timed out", true);
+    await t.ack("dlv_d1"); // late ack — state already gone, must send nothing
+
+    const terminals = fake.pushes
+      .map((p) => p.event)
+      .filter(
+        (e) =>
+          e === "channel.delivery.fail.v1" ||
+          e === "channel.delivery.complete_requested.v1",
+      );
+    expect(terminals).toEqual(["channel.delivery.fail.v1"]);
+  });
+
+  it("processes deliveries serially — a second delivery waits for the first to finish", async () => {
+    const fake = makeFakeSession();
+    const t = new RealtimeGatewayTransport(cfg(fake.session));
+    const order: string[] = [];
+    let release1!: () => void;
+    const gate1 = new Promise<void>((r) => {
+      release1 = r;
+    });
+    await t.start(async (env) => {
+      order.push(`start:${env.deliveryId}`);
+      if (env.deliveryId === "d1") await gate1; // first hangs until released
+      order.push(`end:${env.deliveryId}`);
+    });
+    const fire = (id: string) =>
+      fake.handlers.get("channel.delivery.available.v1")?.({
+        payload: {
+          delivery: {
+            id,
+            leaseToken: "l",
+            adapter: "slack",
+            channel: { id: "channel_1", name: "support" },
+            turn: {
+              id: `turn_${id}`,
+              eventId: `e_${id}`,
+              replyTarget: { adapter: "slack", teamId: "T1", channel: "C1" },
+              input: { kind: "text", text: "hi" },
+            },
+          },
+        },
+      });
+    fire("d1");
+    fire("d2");
+
+    await vi.waitFor(() => expect(order).toContain("start:d1"));
+    // d2 must NOT have started while d1 is gated (serial, not concurrent).
+    expect(order).toEqual(["start:d1"]);
+    release1();
+    await vi.waitFor(() =>
+      expect(order).toEqual(["start:d1", "end:d1", "start:d2", "end:d2"]),
+    );
+  });
+
+  it("stop() drains the in-flight turn before resolving and ignores deliveries after stop", async () => {
+    const fake = makeFakeSession();
+    const t = new RealtimeGatewayTransport(cfg(fake.session));
+    let started = false;
+    let calls = 0;
+    let release!: () => void;
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    await t.start(async () => {
+      calls++;
+      started = true;
+      await gate; // in-flight turn hangs until released
+    });
+    const fire = (id: string) =>
+      fake.handlers.get("channel.delivery.available.v1")?.({
+        payload: {
+          delivery: {
+            id,
+            leaseToken: `lease_${id}`,
+            adapter: "slack",
+            channel: { id: "channel_1", name: "support" },
+            turn: {
+              id: `turn_${id}`,
+              eventId: `e_${id}`,
+              replyTarget: { adapter: "slack", teamId: "T1", channel: "C1" },
+              input: { kind: "text", text: "hi" },
+            },
+          },
+        },
+      });
+    fire("d1");
+    await vi.waitFor(() => expect(started).toBe(true));
+
+    // stop() must not resolve until the gated in-flight turn drains.
+    let stopResolved = false;
+    const stopP = t.stop().then(() => {
+      stopResolved = true;
+    });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(stopResolved).toBe(false);
+    release();
+    await stopP;
+    expect(stopResolved).toBe(true);
+
+    // A delivery arriving AFTER stop() is ignored by the guard, never processed.
+    fire("d2");
+    await new Promise((r) => setTimeout(r, 20));
+    expect(calls).toBe(1);
   });
 
   it("drops a delivery with no leaseToken (never fires onDelivery) and logs it", async () => {
@@ -400,6 +608,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
           turn: {
             id: "turn_t1",
             eventId: "evt_1",
+            replyTarget: { adapter: "slack", teamId: "T1", channel: "C1" },
             input: { kind: "text", text: "hi" },
           },
         },
@@ -444,6 +653,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
           turn: {
             id: "turn_t1",
             eventId: "evt_1",
+            replyTarget: { adapter: "slack", teamId: "T1", channel: "C1" },
             input: { kind: "text", text: "hi" },
           },
         },
@@ -475,5 +685,62 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
       expect(p.channelId).toBe("channel_OTHER");
       expect(p.channelName).toBe("other-channel");
     }
+  });
+
+  it("maps a non-text turn to its real kind, with actor→user and a thread-stable key (OSS-476)", async () => {
+    const fake = makeFakeSession();
+    const t = new RealtimeGatewayTransport(cfg(fake.session));
+    let env: ChannelIngressEnvelope | undefined;
+    await t.start(async (e) => {
+      env = e;
+    });
+    fake.handlers.get("channel.delivery.available.v1")?.({
+      payload: {
+        delivery: {
+          id: "dlv_d1",
+          leaseToken: "lease_l1",
+          adapter: "slack",
+          channel: { id: "channel_1", name: "support" },
+          turn: {
+            id: "turn_t1",
+            eventId: "evt_1",
+            replyTarget: {
+              adapter: "slack",
+              teamId: "T1",
+              channel: "C1",
+              threadTs: "1700.5",
+            },
+            actor: { externalUserId: "U42", displayName: "Grace" },
+            input: { kind: "command", command: "/deploy", text: "prod" },
+          },
+        },
+      },
+    });
+    await Promise.resolve();
+
+    expect(env?.kind).toBe("command");
+    expect(env).toMatchObject({ command: "/deploy", text: "prod" });
+    // Provider identity survived the realtime claim (previously dropped).
+    expect(env?.user).toEqual({ id: "U42", displayName: "Grace" });
+    // Thread-stable, not the per-turn id it used to be.
+    expect(env?.conversationKey).toBe("slack:T1:C1:thread:1700.5");
+  });
+
+  it("exposes file/history only when app-api HTTP coordinates are configured (OSS-476)", () => {
+    const fake = makeFakeSession();
+
+    const without = new RealtimeGatewayTransport(cfg(fake.session));
+    expect(without.fetchFile).toBeUndefined();
+    expect(without.getHistory).toBeUndefined();
+    expect(without.uploadFile).toBeUndefined();
+
+    const withHttp = new RealtimeGatewayTransport({
+      ...cfg(fake.session),
+      appApiBaseUrl: "https://app-api.example",
+      apiKey: "cpk-test",
+    });
+    expect(typeof withHttp.fetchFile).toBe("function");
+    expect(typeof withHttp.getHistory).toBe("function");
+    expect(typeof withHttp.uploadFile).toBe("function");
   });
 });

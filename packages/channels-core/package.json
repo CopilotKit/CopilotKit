@@ -1,0 +1,91 @@
+{
+  "name": "@copilotkit/channels-core",
+  "version": "0.2.0",
+  "description": "Platform-agnostic JSX channel engine for CopilotKit (createChannel, Thread, PlatformAdapter, ActionStore).",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CopilotKit/CopilotKit.git",
+    "directory": "packages/channels-core"
+  },
+  "homepage": "https://github.com/CopilotKit/CopilotKit",
+  "keywords": [
+    "ai",
+    "agent",
+    "bot",
+    "chatbot",
+    "copilotkit",
+    "slack",
+    "teams",
+    "discord",
+    "ag-ui"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing/state-store-conformance.d.ts",
+      "import": "./dist/testing/state-store-conformance.js"
+    },
+    "./jsx-runtime": {
+      "types": "./dist/jsx-runtime.d.ts",
+      "import": "./dist/jsx-runtime.js"
+    },
+    "./jsx-dev-runtime": {
+      "types": "./dist/jsx-dev-runtime.d.ts",
+      "import": "./dist/jsx-dev-runtime.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check-types": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.check.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "publint": "publint .",
+    "attw": "attw --pack . --profile esm-only"
+  },
+  "dependencies": {
+    "@ag-ui/client": "0.0.57",
+    "@ag-ui/core": "0.0.57",
+    "@copilotkit/channels-ui": "workspace:~",
+    "@copilotkit/core": "workspace:^",
+    "@copilotkit/shared": "workspace:^",
+    "zod-to-json-schema": "^3.24.1"
+  },
+  "devDependencies": {
+    "@copilotkit/typescript-config": "workspace:^",
+    "@types/node": "^22.10.0",
+    "typescript": "^5.6.3",
+    "vitest": "^4.1.3",
+    "zod": "^3.25.76"
+  },
+  "peerDependencies": {
+    "vitest": "^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "vitest": {
+      "optional": true
+    }
+  },
+  "nx": {
+    "targets": {
+      "test": {
+        "dependsOn": [
+          "build",
+          "^build"
+        ]
+      }
+    }
+  }
+}

@@ -6,9 +6,9 @@
  *
  * Each entry is exported individually too so apps can cherry-pick.
  */
-import type { ContextEntry } from "@copilotkit/channels";
+import type { ContextEntry } from "@copilotkit/channels-core";
 
-/** Slack context entry — alias of `@copilotkit/channels`'s {@link ContextEntry}. */
+/** Slack context entry — alias of `@copilotkit/channels-core`'s {@link ContextEntry}. */
 export type SlackContextEntry = ContextEntry;
 
 export const slackTaggingContext: SlackContextEntry = {

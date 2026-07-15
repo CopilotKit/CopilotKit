@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/channels-telegram",
-  "version": "0.0.4",
+  "version": "0.2.0",
   "description": "Telegram platform adapter for CopilotKit JSX channels (@copilotkit/channels).",
   "license": "MIT",
   "repository": {
@@ -43,8 +43,8 @@
   },
   "dependencies": {
     "@ag-ui/client": "0.0.57",
-    "@copilotkit/channels": "workspace:~",
-    "@copilotkit/channels-ui": "workspace:~",
+    "@copilotkit/channels-core": "workspace:^",
+    "@copilotkit/channels-ui": "workspace:^",
     "grammy": "^1.30.0",
     "zod": "^3.25.76"
   },

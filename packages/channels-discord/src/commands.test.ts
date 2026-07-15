@@ -4,7 +4,7 @@ import {
   buildCommandBody,
   registerCommands,
 } from "./commands.js";
-import type { CommandSpec } from "@copilotkit/channels";
+import type { CommandSpec } from "@copilotkit/channels-core";
 
 describe("jsonSchemaToDiscordOptions", () => {
   it("maps primitive properties to typed options with required flags", () => {

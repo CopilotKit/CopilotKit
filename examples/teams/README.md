@@ -1,11 +1,12 @@
 # Teams example: demo bot
 
-A runnable demo of [`@copilotkit/channels-teams`](../../packages/channels-teams): a
-Microsoft Teams bot backed by a CopilotKit `BuiltInAgent` that shows
+A runnable demo of [`@copilotkit/channels`](../../packages/channels): a Microsoft
+Teams bot backed by a CopilotKit `BuiltInAgent` that shows
 **streamed-by-edit replies**, **agent-rendered Adaptive Cards**, and a
 **human-in-the-loop approval gate**, testable locally in the **Microsoft 365
 Agents Playground** with **no Microsoft credentials**. It needs an
-`OPENAI_API_KEY`.
+`OPENAI_API_KEY`. The application depends on the umbrella and imports the Teams
+integration from `@copilotkit/channels/teams`.
 
 ## Run it
 
@@ -130,10 +131,11 @@ your Azure Bot resource's messaging endpoint at `https://<your-host>/api/message
 
 ### Deploy as a workspace member (built from source)
 
-This example consumes the `@copilotkit/*` packages via the **`workspace:*`**
-protocol, so it always builds from the in-repo source — **not** the npm
-registry. That decouples the deploy from publishing: a change to `packages/**`
-redeploys with the new code immediately.
+This example consumes `@copilotkit/channels` (and `@copilotkit/runtime`) via the
+**`workspace:*`** protocol, so it always builds from the in-repo source —
+**not** the npm registry. The Teams integration is imported from the umbrella's
+`@copilotkit/channels/teams` subpath. That decouples the deploy from publishing:
+a change to `packages/**` redeploys with the new code immediately.
 
 Because it's a workspace member, the deploy must run from the **repo root** so
 the workspace and `packages/**` are visible. The bot runs its `BuiltInAgent`
@@ -147,17 +149,17 @@ service** — no separate runtime process. On Railway (or any host), set:
 | **Start Command**  | `pnpm --filter teams-example start`                                  |
 | **Watch Paths**    | `packages/**`, `examples/teams/**`, `pnpm-lock.yaml`, `package.json` |
 
-`pnpm --filter teams-example build` builds the workspace libs the example
-imports (`@copilotkit/channels`, `bot-teams`, `bot-ui`, `runtime`) and everything
-they depend on, via the Nx project graph — so `tsx` runs against fresh `dist`. The **Watch Paths** are
-what make a `packages/**`-only change trigger a redeploy. On Railway, generate a
+`pnpm --filter teams-example build` builds `@copilotkit/channels` and
+`@copilotkit/runtime`; Nx brings the Teams adapter in transitively through the
+project graph, so `tsx` runs against fresh `dist`. The **Watch Paths** are what
+make a `packages/**`-only change trigger a redeploy. On Railway, generate a
 public domain on the service (Settings → Networking); it routes to `$PORT`,
 which the bot listens on for `/api/messages`.
 
-> **Copying this example out of the monorepo?** Replace the `workspace:*` ranges
-> in `package.json` with the published versions (e.g.
-> `@copilotkit/channels-teams: ^0.0.1`) — `workspace:*` only resolves inside this
-> monorepo.
+> **Copying this example out of the monorepo?** Replace the `workspace:*` range
+> for `@copilotkit/channels` with version `0.2.0` or later (for example,
+> `@copilotkit/channels: ^0.2.0`), retain the `@copilotkit/runtime` dependency,
+> and import the Teams APIs from `@copilotkit/channels/teams`.
 
 Set the environment for wherever you deploy:
 

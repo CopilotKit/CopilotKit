@@ -16,7 +16,7 @@ import type {
   MessageRef,
   PlatformUser,
   UserQuery,
-} from "@copilotkit/channels";
+} from "@copilotkit/channels-core";
 import type {
   ChannelNode,
   ThreadMessage,

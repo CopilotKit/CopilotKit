@@ -1,8 +1,7 @@
-// @copilotkit/channels-intelligence — Intelligence-delivered Channel adapter for
-// @copilotkit/channels. Bridges Intelligence-delivered ingress to bot core and emits
-// generic egress operations over injectable transports. Not a publicly
-// documented API; consumed by the runtime/Channel-listener bootstrap and the
-// Intelligence side.
+// Internal implementation package for Intelligence-delivered Channels.
+// The supported consumer surface is the intelligenceAdapter factory and
+// IntelligenceAdapterOptions type re-exported from @copilotkit/channels/intelligence.
+// Runtime/gateway/bootstrap exports below remain internal integration APIs.
 
 export {
   intelligenceAdapter,

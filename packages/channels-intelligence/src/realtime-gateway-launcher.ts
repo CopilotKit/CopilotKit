@@ -1,4 +1,4 @@
-import type { Channel } from "@copilotkit/channels";
+import type { Channel } from "@copilotkit/channels-core";
 import {
   startChannels,
   assertValidChannelNames,
@@ -72,6 +72,11 @@ export interface StartChannelsWithGatewaySessionOptions {
   scope: ChannelRealtimeScope;
   /** Stable runtime instance id (`rti_…`), echoed on every envelope. */
   runtimeInstanceId: string;
+  /** Intelligence app-api HTTP base URL — enables file/history parity on the
+   * realtime path (OSS-476), which are HTTP-only. With {@link apiKey}. */
+  appApiBaseUrl?: string;
+  /** Project runtime API key (`cpk-…`) for the app-api file/history calls. */
+  apiKey?: string;
   /** Activation env overrides forwarded to the runtime (so `handle.metadata`
    * matches what the caller declared on join); omitted fields are gathered from
    * the process. `runtimeInstanceId` is excluded — the required
@@ -103,6 +108,8 @@ export async function startChannelsWithGatewaySession(
     scope: opts.scope,
     runtimeInstanceId: opts.runtimeInstanceId,
     session: opts.session,
+    ...(opts.appApiBaseUrl ? { appApiBaseUrl: opts.appApiBaseUrl } : {}),
+    ...(opts.apiKey ? { apiKey: opts.apiKey } : {}),
     ...(opts.log ? { log: opts.log } : {}),
   });
   const handle = await startChannels({
@@ -164,6 +171,11 @@ export interface StartChannelsOverRealtimeGatewayOptions {
   runtimeInstanceId: string;
   /** Adapter kind declared to the gateway on join (default `"slack"`). */
   adapter?: string;
+  /** Intelligence app-api HTTP base URL. Enables file/history parity on the
+   * realtime path (OSS-476) — these are HTTP-only (the gateway relays the
+   * render-event stream, not bytes/history), reached with the {@link apiKey}
+   * above. Omit and file/history stay unavailable (graceful degradation). */
+  appApiBaseUrl?: string;
   /** Activation env overrides (package versions, runtimeEnv); omitted fields
    * are gathered from the process. Included in the join's `runtimeMetadata` and
    * in `handle.metadata`. `runtimeInstanceId` is intentionally excluded — the
@@ -257,6 +269,11 @@ export async function startChannelsOverRealtimeGateway(
       session,
       scope: config.scope,
       runtimeInstanceId: config.runtimeInstanceId,
+      // File/history parity is HTTP-only; forward the app-api coordinates (the
+      // apiKey is the same one used as the socket authToken) so the transport
+      // can reach the file/history REST endpoints directly.
+      ...(config.appApiBaseUrl ? { appApiBaseUrl: config.appApiBaseUrl } : {}),
+      apiKey: config.apiKey,
       // The session-start helper re-merges the authoritative runtimeInstanceId,
       // so forward only the caller's overrides here (they cannot carry the id).
       ...(config.env ? { env: config.env } : {}),

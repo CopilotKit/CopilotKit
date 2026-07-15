@@ -19,8 +19,8 @@ import {
   Header,
   Message,
   Section,
-} from "@copilotkit/channels-ui";
-import type { ChannelNode } from "@copilotkit/channels-ui";
+} from "@copilotkit/channels";
+import type { ChannelNode } from "@copilotkit/channels";
 import { accentForIssue, priorityGlyph, stateGlyph } from "./_status.js";
 
 export const issueCardSchema = z.object({
