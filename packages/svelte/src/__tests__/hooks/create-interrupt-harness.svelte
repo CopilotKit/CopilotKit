@@ -1,10 +1,10 @@
 <script lang="ts">
   import { setContext } from "svelte";
-  import { createInterrupt } from "../hooks/create-interrupt.svelte";
+  import { createInterrupt } from "../../hooks/create-interrupt.svelte";
   import {
     COPILOT_KIT_KEY,
     type CopilotKitContextValue,
-  } from "../providers/context";
+  } from "../../providers/context";
 
   let { context }: { context: CopilotKitContextValue } = $props();
 

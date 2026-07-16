@@ -3,8 +3,8 @@ import type { SubscribeToAgentSubscriber } from "@copilotkit/core";
 import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 import { render, waitFor } from "@testing-library/svelte";
 import { describe, expect, it, vi } from "vitest";
-import type { CopilotKitCoreSvelte } from "../lib/svelte-core";
-import type { CopilotKitContextValue } from "../providers/context";
+import type { CopilotKitCoreSvelte } from "../../lib/svelte-core";
+import type { CopilotKitContextValue } from "../../providers/context";
 import CreateInterruptHarness from "./create-interrupt-harness.svelte";
 
 describe("createInterrupt", () => {

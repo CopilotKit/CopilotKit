@@ -23,8 +23,6 @@ export function connectAgentContext(context: AgentContextInput): void {
     );
   }
 
-  let contextId: string | undefined;
-
   $effect(() => {
     const core = ctx.copilotkit;
     const description = context.description;
@@ -40,7 +38,6 @@ export function connectAgentContext(context: AgentContextInput): void {
       description,
       value: stringValue,
     });
-    contextId = id;
 
     return () => {
       core.removeContext(id);
