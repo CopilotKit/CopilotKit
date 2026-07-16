@@ -1,10 +1,11 @@
 <script lang="ts">
+  import { z } from "zod";
   import { setContext } from "svelte";
-  import { registerFrontendTool } from "../hooks/register-frontend-tool.svelte";
+  import { registerFrontendTool } from "../../hooks/register-frontend-tool.svelte";
   import {
     COPILOT_KIT_KEY,
     type CopilotKitContextValue,
-  } from "../providers/context";
+  } from "../../providers/context";
 
   let { context }: { context: CopilotKitContextValue } = $props();
 
@@ -14,7 +15,7 @@
   registerFrontendTool({
     name: "test-tool",
     description: "A test tool",
-    parameters: { type: "object", properties: {} },
+    parameters: z.object({}),
     handler: async () => "done",
     render: () => "rendered",
   });

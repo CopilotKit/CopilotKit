@@ -4,6 +4,7 @@ import type {
   CopilotKitCoreConfig,
   CopilotKitCoreSubscriber,
   CopilotKitCoreSubscription,
+  FrontendTool,
 } from "@copilotkit/core";
 import type {
   SvelteActivityMessageRenderer,
@@ -34,6 +35,8 @@ export interface CopilotKitCoreSvelteSubscriber extends CopilotKitCoreSubscriber
 }
 
 export class CopilotKitCoreSvelte extends CopilotKitCore {
+  private _propFrontendTools: FrontendTool<any>[] = [];
+  private _hookFrontendTools = new Map<string, FrontendTool<any>>();
   private _renderToolCalls: SvelteToolCallRenderer<unknown>[] = [];
   private _hookRenderToolCalls: Map<string, SvelteToolCallRenderer<unknown>> =
     new Map();
@@ -47,6 +50,7 @@ export class CopilotKitCoreSvelte extends CopilotKitCore {
 
   constructor(config: CopilotKitCoreSvelteConfig) {
     super(config);
+    this._propFrontendTools = [...(config.tools ?? [])];
     this._renderToolCalls = config.renderToolCalls ?? [];
     this._renderCustomMessages = config.renderCustomMessages ?? [];
     this._renderActivityMessages = config.renderActivityMessages ?? [];
@@ -60,6 +64,33 @@ export class CopilotKitCoreSvelte extends CopilotKitCore {
     SvelteActivityMessageRenderer<unknown>[]
   > {
     return this._renderActivityMessages;
+  }
+
+  override setTools(tools: FrontendTool<any>[]): void {
+    this._propFrontendTools = [...tools];
+    this._syncFrontendTools();
+  }
+
+  addHookFrontendTool(tool: FrontendTool<any>): void {
+    this._hookFrontendTools.set(`${tool.agentId ?? ""}:${tool.name}`, tool);
+    this._syncFrontendTools();
+  }
+
+  removeHookFrontendTool(name: string, agentId?: string): void {
+    if (this._hookFrontendTools.delete(`${agentId ?? ""}:${name}`)) {
+      this._syncFrontendTools();
+    }
+  }
+
+  private _syncFrontendTools(): void {
+    const merged = new Map<string, FrontendTool<any>>();
+    for (const tool of this._propFrontendTools) {
+      merged.set(`${tool.agentId ?? ""}:${tool.name}`, tool);
+    }
+    for (const [key, tool] of this._hookFrontendTools) {
+      merged.set(key, tool);
+    }
+    super.setTools([...merged.values()]);
   }
 
   setRenderActivityMessages(

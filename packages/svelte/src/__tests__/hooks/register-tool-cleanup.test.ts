@@ -1,7 +1,7 @@
 import { render } from "@testing-library/svelte";
 import { describe, expect, it, vi } from "vitest";
-import type { CopilotKitCoreSvelte } from "../lib/svelte-core";
-import type { CopilotKitContextValue } from "../providers/context";
+import type { CopilotKitCoreSvelte } from "../../lib/svelte-core";
+import type { CopilotKitContextValue } from "../../providers/context";
 import RegisterRenderToolCallHarness from "./register-render-tool-call-harness.svelte";
 import RegisterFrontendToolHarness from "./register-frontend-tool-harness.svelte";
 
@@ -17,6 +17,8 @@ function createMockContext() {
     getTool: vi.fn(),
     addTool: vi.fn(),
     removeTool: vi.fn(),
+    addHookFrontendTool: vi.fn(),
+    removeHookFrontendTool: vi.fn(),
     getSuggestions: vi.fn(() => ({ suggestions: [], isLoading: false })),
     subscribe: vi.fn(() => ({ unsubscribe: vi.fn() })),
     addContext: vi.fn(),
@@ -74,8 +76,10 @@ describe("registerRenderToolCall cleanup", () => {
 describe("registerFrontendTool cleanup", () => {
   it("removes both tool and renderer on unmount when render is provided", () => {
     const context = createMockContext();
-    const addTool = context.copilotkit.addTool as ReturnType<typeof vi.fn>;
-    const removeTool = context.copilotkit.removeTool as ReturnType<
+    const addTool = context.copilotkit.addHookFrontendTool as ReturnType<
+      typeof vi.fn
+    >;
+    const removeTool = context.copilotkit.removeHookFrontendTool as ReturnType<
       typeof vi.fn
     >;
     const addHookRenderToolCall = context.copilotkit

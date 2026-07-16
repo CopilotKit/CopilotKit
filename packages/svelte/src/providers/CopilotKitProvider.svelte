@@ -153,7 +153,7 @@
     // Tracked in Provider Task #6 / #7.
           render: tool.render,
           ...(tool.agentId && { agentId: tool.agentId }),
-        } as SvelteToolCallRenderer<unknown>);
+        } as unknown as SvelteToolCallRenderer<unknown>);
       }
     }
     return { tools, renderToolCalls: renderToolCallsArr };
@@ -204,6 +204,7 @@
 
   // Apply runtimeUrl synchronously so child effects (e.g. createAgent) can
   // read it immediately without waiting for the first $effect pass.
+  // svelte-ignore state_referenced_locally
   const initialEndpoint =
     runtimeUrl ?? (resolvedPublicKey ? COPILOT_CLOUD_CHAT_URL : undefined);
   if (initialEndpoint) {
@@ -278,9 +279,7 @@
       onToolExecutionEnd: ({ toolCallId }) => {
         const next = new Set(executingToolCallIds);
         next.delete(toolCallId);
-        setTimeout(() => {
-          executingToolCallIds = next;
-        }, 0);
+        executingToolCallIds = next;
       },
     });
     const sub2 = core.subscribe({
