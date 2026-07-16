@@ -535,6 +535,61 @@ describe("createRunRenderer — native status mode", () => {
     expect(f.statuses.at(-1)?.status).toBe("");
   });
 
+  it("finish(): clears the status for a tool-only reply that streamed no text", async () => {
+    // Regression: a turn whose reply is tool/file-only (e.g. a posted chart)
+    // never streams text, so `onFirstReply` never fires and the native "is
+    // thinking…" status would otherwise linger forever. `finish()` must clear
+    // it as a backstop.
+    const f = makePaneClient();
+    const renderer = createRunRenderer({
+      transport: f.transport,
+      target: { channel: "C1", threadTs: "100.0" },
+      status: { threadTs: "100.0", isPane: false, config: { thinking: "t" } },
+    });
+    const sub = renderer.subscriber;
+    await sub.onRunStartedEvent!({} as never);
+    // A tool runs to completion but NO TEXT_MESSAGE_* events are ever emitted.
+    await sub.onToolCallStartEvent!({
+      event: { toolCallId: "t1", toolCallName: "make_chart" },
+    } as never);
+    await sub.onToolCallEndEvent!({
+      event: { toolCallId: "t1" },
+      toolCallName: "make_chart",
+      toolCallArgs: {},
+    } as never);
+    // Engine's turn-end hook.
+    await renderer.finish!();
+    // The last setStatus must be the clear (empty string).
+    expect(f.statuses.at(-1)?.status).toBe("");
+    expect(f.statuses.some((s) => s.status === "")).toBe(true);
+  });
+
+  it("finish(): does not re-clear once a streamed reply already cleared (postedReply guard)", async () => {
+    const f = makePaneClient();
+    const renderer = createRunRenderer({
+      transport: f.transport,
+      target: { channel: "C1", threadTs: "100.0" },
+      status: { threadTs: "100.0", isPane: false, config: {} },
+    });
+    const sub = renderer.subscriber;
+    await sub.onRunStartedEvent!({} as never);
+    await sub.onTextMessageStartEvent!({
+      event: { messageId: "m", role: "assistant" },
+    } as never);
+    sub.onTextMessageContentEvent!({
+      event: { messageId: "m", delta: "hi" },
+      textMessageBuffer: "",
+    } as never);
+    await sub.onTextMessageEndEvent!({ event: { messageId: "m" } } as never);
+    // Posting the reply already cleared the status exactly once (onFirstReply).
+    const clearsAfterReply = f.statuses.filter((s) => s.status === "").length;
+    expect(clearsAfterReply).toBe(1);
+    // finish() must NOT clear again — `postedReply` guards the backstop.
+    await renderer.finish!();
+    const clearsAfterFinish = f.statuses.filter((s) => s.status === "").length;
+    expect(clearsAfterFinish).toBe(clearsAfterReply);
+  });
+
   // ── Non-pane: a channel @-mention / thread (isPane:false) gets the native
   // "is thinking…" status instead of the old :hourglass: placeholder, and tool
   // progress flows to both :wrench: rows and the composer "is using…" status
