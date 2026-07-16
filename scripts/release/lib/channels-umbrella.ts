@@ -34,12 +34,32 @@ export const FAMILY = [
   "@copilotkit/channels",
 ] as const;
 
+/**
+ * Packages/patterns exempted from pnpm's `minimumReleaseAge` gate when the
+ * packed umbrella installs from the registry (a just-published version would
+ * otherwise fail the 24h check).
+ *
+ * `@copilotkit/*` is wildcarded: it's an org-owned scope on the same publish
+ * pipeline, so no outsider can inject a package and enumerating each one drifts
+ * every time an internal dependency is added. `@ag-ui/*` is a separate upstream
+ * org, so its packages are enumerated rather than blanket-trusted — keep this
+ * list in sync with the `@ag-ui` entries in the repo-root `.npmrc`.
+ */
+export const RELEASE_AGE_EXCLUDE = [
+  "@copilotkit/*",
+  "@ag-ui/core",
+  "@ag-ui/client",
+  "@ag-ui/encoder",
+  "@ag-ui/proto",
+  "@ag-ui/langgraph",
+  "@ag-ui/a2ui-middleware",
+  "@ag-ui/a2ui-toolkit",
+] as const;
+
 export function createConsumerWorkspaceYaml(): string {
   return [
     "minimumReleaseAgeExclude:",
-    ...[...FAMILY, "@copilotkit/core", "@copilotkit/shared"].map(
-      (name) => `  - ${JSON.stringify(name)}`,
-    ),
+    ...RELEASE_AGE_EXCLUDE.map((name) => `  - ${JSON.stringify(name)}`),
     "",
   ].join("\n");
 }
