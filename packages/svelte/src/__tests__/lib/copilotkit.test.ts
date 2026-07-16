@@ -4,6 +4,7 @@ import { z } from "zod";
 // --- Mock @copilotkit/core ---
 const mockAddTool = vi.fn();
 const mockRemoveTool = vi.fn();
+const mockSetTools = vi.fn();
 const mockSetRuntimeUrl = vi.fn();
 const mockSetRuntimeTransport = vi.fn();
 const mockSetHeaders = vi.fn();
@@ -36,7 +37,8 @@ vi.mock("@copilotkit/core", async () => {
     licenseStatus = undefined;
     a2uiEnabled = false;
     openGenerativeUIEnabled = false;
-    runtimeConnectionStatus = CopilotKitCoreRuntimeConnectionStatus.Disconnected;
+    runtimeConnectionStatus =
+      CopilotKitCoreRuntimeConnectionStatus.Disconnected;
     listener: any = undefined;
     defaultThrottleMs: number | undefined = undefined;
     subscribers: Set<any> = new Set();
@@ -47,6 +49,9 @@ vi.mock("@copilotkit/core", async () => {
 
     setDefaultThrottleMs(v: number | undefined) {
       this.defaultThrottleMs = v;
+    }
+    setTools(tools: unknown[]) {
+      mockSetTools(tools);
     }
     getAgent = vi.fn();
     addContext = vi.fn(() => "ctx-1");
@@ -95,7 +100,7 @@ vi.mock("@copilotkit/core", async () => {
 });
 
 // --- Now import modules that depend on the mock ---
-import { CopilotKitCoreSvelte } from "../lib/svelte-core";
+import { CopilotKitCoreSvelte } from "../../lib/svelte-core";
 
 describe("CopilotKitCoreSvelte", () => {
   beforeEach(() => {
@@ -184,7 +189,7 @@ describe("CopilotKitCoreSvelte", () => {
     core.addHookRenderToolCall(r2);
 
     expect(core.renderToolCalls).toHaveLength(1);
-    expect(core.renderToolCalls![0].render).toBe(r2.render);
+    expect(core.renderToolCalls.at(0)?.render).toBe(r2.render);
   });
 
   it("removes hook render tool calls", () => {
@@ -207,7 +212,7 @@ describe("CopilotKitCoreSvelte", () => {
     core.removeHookRenderToolCall("toolA");
 
     expect(core.renderToolCalls).toHaveLength(1);
-    expect(core.renderToolCalls![0].name).toBe("toolB");
+    expect(core.renderToolCalls.at(0)?.name).toBe("toolB");
   });
 
   it("sets render tool calls from props and invalidates cache", () => {
@@ -260,7 +265,9 @@ describe("CopilotKitCoreSvelte", () => {
 
   it("calls waitForPendingFrameworkUpdates which awaits tick", async () => {
     const core = new CopilotKitCoreSvelte({});
-    await expect(core.waitForPendingFrameworkUpdates()).resolves.toBeUndefined();
+    await expect(
+      core.waitForPendingFrameworkUpdates(),
+    ).resolves.toBeUndefined();
   });
 
   it("removes tools via delegate to base class", () => {
@@ -274,6 +281,20 @@ describe("CopilotKitCoreSvelte", () => {
     const tool = { name: "myTool", handler: vi.fn() } as any;
     core.addTool(tool);
     expect(mockAddTool).toHaveBeenCalledWith(tool);
+  });
+
+  it("preserves hook frontend tools when provider tools are replaced", () => {
+    const core = new CopilotKitCoreSvelte({});
+    const propTool = { name: "propTool", handler: vi.fn() } as any;
+    const hookTool = { name: "showToast", handler: vi.fn() } as any;
+
+    core.addHookFrontendTool(hookTool);
+    core.setTools([propTool]);
+
+    expect(mockSetTools).toHaveBeenLastCalledWith([propTool, hookTool]);
+
+    core.removeHookFrontendTool("showToast");
+    expect(mockSetTools).toHaveBeenLastCalledWith([propTool]);
   });
 
   it("sets defaultThrottleMs", () => {
