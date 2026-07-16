@@ -128,10 +128,7 @@ class SharedStateStreamingFrameworkAgent(AgentFrameworkAgent):
             # Inject the seed snapshot immediately AFTER RUN_STARTED — the
             # AG-UI protocol requires RUN_STARTED to be the first event, and
             # the seed must land before the predictive STATE_DELTAs stream.
-            if (
-                not seeded
-                and getattr(event, "type", None) == EventType.RUN_STARTED
-            ):
+            if not seeded and getattr(event, "type", None) == EventType.RUN_STARTED:
                 yield StateSnapshotEvent(
                     type=EventType.STATE_SNAPSHOT,
                     snapshot={**state, "document": document},
