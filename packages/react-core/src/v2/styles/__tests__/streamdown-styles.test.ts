@@ -30,6 +30,15 @@ describe("Streamdown styles", () => {
     );
   });
 
+  it("preserves newlines in Streamdown code-block pre elements (#3330)", () => {
+    const normalized = globalsCss.replace(/\s+/g, " ");
+    const codeBlockPreRule = normalized.match(
+      /\[data-copilotkit\] div\[data-streamdown="code-block"\] > pre \{([^}]+)\}/,
+    )?.[1];
+
+    expect(codeBlockPreRule).toContain("cpk:whitespace-pre");
+  });
+
   it("ships scoped fallback styles for the table action controls row (#5775)", () => {
     // The controls row / buttons / popovers have no stable data-streamdown
     // attribute, so they are scoped structurally under the table wrapper.
