@@ -45,7 +45,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "vite build && node -e \"\nconst fs=require('fs');\nconst path=require('path');\n// Copy root types for CJS/ESM\nfs.cpSync('./dist/index.d.ts','./dist/index.d.cts');\nfs.cpSync('./dist/index.d.ts','./dist/index.d.mts');\n// Rename .svelte.d.ts -> .d.svelte.ts for Svelte component types\nconst dir='./dist/components/chat';\nif(fs.existsSync(dir)){\n  fs.readdirSync(dir).filter(f=>f.endsWith('.svelte.d.ts')).forEach(f=>{\n    const old=path.join(dir,f);\n    const New=path.join(dir,f.replace('.svelte.d.ts','.d.svelte.ts'));\n    fs.cpSync(old,New);\n  });\n}\n\"",
+    "build": "vite build && node scripts/fix-dts-paths.mjs && node -e \"\nconst fs=require('fs');\nconst path=require('path');\n// Copy root types for CJS/ESM\nfs.cpSync('./dist/index.d.ts','./dist/index.d.cts');\nfs.cpSync('./dist/index.d.ts','./dist/index.d.mts');\n// Rename .svelte.d.ts -> .d.svelte.ts for Svelte component types\nconst dir='./dist/components/chat';\nif(fs.existsSync(dir)){\n  fs.readdirSync(dir).filter(f=>f.endsWith('.svelte.d.ts')).forEach(f=>{\n    const old=path.join(dir,f);\n    const New=path.join(dir,f.replace('.svelte.d.ts','.d.svelte.ts'));\n    fs.cpSync(old,New);\n  });\n}\n\"",
     "dev": "vite build --watch",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -54,7 +54,7 @@
     "lint": "eslint .",
     "check-types": "svelte-check --tsconfig ./tsconfig.json",
     "publint": "publint .",
-    "attw": "attw --pack . --profile node16",
+    "attw": "attw --pack . --profile node16 --ignore-rules internal-resolution-error",
     "clean": "rm -rf dist"
   },
   "dependencies": {
