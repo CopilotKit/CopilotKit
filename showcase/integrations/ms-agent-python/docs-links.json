@@ -112,6 +112,26 @@
     "interrupt-headless": {
       "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/human-in-the-loop",
       "shell_docs_path": "/human-in-the-loop"
+    },
+    "reasoning-custom": {
+      "og_docs_url": "https://docs.copilotkit.ai/custom-look-and-feel/reasoning-messages",
+      "shell_docs_path": "/custom-look-and-feel/reasoning-messages"
+    },
+    "reasoning-default-render": {
+      "og_docs_url": "https://docs.copilotkit.ai/custom-look-and-feel/reasoning-messages",
+      "shell_docs_path": "/custom-look-and-feel/reasoning-messages"
+    },
+    "chat-customization-css": {
+      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/custom-look-and-feel/css",
+      "shell_docs_path": "/custom-look-and-feel/css"
+    },
+    "open-gen-ui": {
+      "og_docs_url": "https://docs.copilotkit.ai/generative-ui/open-generative-ui",
+      "shell_docs_path": "/generative-ui/open-generative-ui"
+    },
+    "open-gen-ui-advanced": {
+      "og_docs_url": "https://docs.copilotkit.ai/generative-ui/open-generative-ui",
+      "shell_docs_path": "/generative-ui/open-generative-ui"
     }
   }
 }
