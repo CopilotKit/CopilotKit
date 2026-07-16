@@ -11,6 +11,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   createConsumerManifest,
+  createConsumerSmokeSource,
   createConsumerWorkspaceYaml,
   FAMILY,
   validatePackedManifests,
@@ -237,17 +238,7 @@ function writeConsumer(
   );
   writeFileSync(
     join(consumerDir, "smoke.tsx"),
-    `import { Button, createChannel, Message } from "@copilotkit/channels";
-import { slack } from "@copilotkit/channels/slack";
-import { teams } from "@copilotkit/channels/teams";
-import { intelligenceAdapter } from "@copilotkit/channels/intelligence";
-import { discord } from "@copilotkit/channels/discord";
-import { telegram } from "@copilotkit/channels/telegram";
-import { whatsapp } from "@copilotkit/channels/whatsapp";
-
-const view = <Message><Button>OK</Button></Message>;
-void [createChannel, slack, teams, intelligenceAdapter, discord, telegram, whatsapp, view];
-`,
+    createConsumerSmokeSource(),
   );
 }
 

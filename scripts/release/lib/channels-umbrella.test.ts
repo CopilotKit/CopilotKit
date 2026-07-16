@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ADAPTERS,
+  createConsumerSmokeSource,
   createConsumerWorkspaceYaml,
   createConsumerManifest,
   FAMILY,
@@ -26,7 +27,7 @@ function validManifests(): Map<string, PackedManifest> {
       "@copilotkit/channels-ui": "^0.1.2",
     },
   }));
-  const family = [core, ui, ...adapters];
+  const family = [ui, core, ...adapters];
   const umbrella: PackedManifest = {
     name: "@copilotkit/channels",
     version: "0.2.0",
@@ -126,6 +127,20 @@ describe("createConsumerManifest", () => {
       },
     });
   });
+
+  it("keeps internal packages out of install dependencies even when local overrides are present", () => {
+    const manifest = createConsumerManifest({
+      umbrellaTarball: "/tmp/channels.tgz",
+      packageManager: "pnpm@10.33.4",
+      typescript: "^5.6.3",
+      nodeTypes: "^22.10.0",
+      overrides: new Map(FAMILY.map((name) => [name, `/tmp/${name}.tgz`])),
+    });
+
+    expect(manifest.dependencies).toEqual({
+      "@copilotkit/channels": "file:/tmp/channels.tgz",
+    });
+  });
 });
 
 describe("createConsumerWorkspaceYaml", () => {
@@ -134,6 +149,29 @@ describe("createConsumerWorkspaceYaml", () => {
 
     for (const name of FAMILY) {
       expect(workspace).toContain(`  - ${JSON.stringify(name)}\n`);
+    }
+  });
+});
+
+describe("createConsumerSmokeSource", () => {
+  it("emits the public umbrella handoff contract", () => {
+    const source = createConsumerSmokeSource();
+
+    expect(source).toContain(
+      'import { Button, createChannel, Message } from "@copilotkit/channels";',
+    );
+    expect(source).toContain(
+      'import { slack } from "@copilotkit/channels/slack";',
+    );
+    expect(source).toContain(
+      'import { intelligenceAdapter } from "@copilotkit/channels/intelligence";',
+    );
+    expect(source).not.toContain("createBot");
+    expect(source).not.toContain("startChannelsOverRealtimeGateway");
+    expect(source).not.toContain("@copilotkit/channels-core");
+    expect(source).not.toContain("@copilotkit/channels-ui");
+    for (const adapter of ADAPTERS) {
+      expect(source).not.toContain(`from "${adapter}"`);
     }
   });
 });

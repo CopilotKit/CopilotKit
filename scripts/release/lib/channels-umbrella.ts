@@ -15,8 +15,8 @@ interface ConsumerManifestOptions {
 }
 
 export const FOUNDATION = [
-  "@copilotkit/channels-core",
   "@copilotkit/channels-ui",
+  "@copilotkit/channels-core",
 ] as const;
 
 export const ADAPTERS = [
@@ -73,6 +73,20 @@ export function createConsumerManifest({
   }
 
   return manifest;
+}
+
+export function createConsumerSmokeSource(): string {
+  return `import { Button, createChannel, Message } from "@copilotkit/channels";
+import { slack } from "@copilotkit/channels/slack";
+import { teams } from "@copilotkit/channels/teams";
+import { intelligenceAdapter } from "@copilotkit/channels/intelligence";
+import { discord } from "@copilotkit/channels/discord";
+import { telegram } from "@copilotkit/channels/telegram";
+import { whatsapp } from "@copilotkit/channels/whatsapp";
+
+const view = <Message><Button>OK</Button></Message>;
+void [createChannel, slack, teams, intelligenceAdapter, discord, telegram, whatsapp, view];
+`;
 }
 
 function requireManifest(

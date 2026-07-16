@@ -1,18 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { getScopeConfig } from "./config.js";
 import { getPackagesForScope } from "./versions.js";
-
-const CHANNELS_PACKAGES = [
-  "@copilotkit/channels-ui",
-  "@copilotkit/channels-core",
-  "@copilotkit/channels-slack",
-  "@copilotkit/channels-teams",
-  "@copilotkit/channels-intelligence",
-  "@copilotkit/channels-discord",
-  "@copilotkit/channels-telegram",
-  "@copilotkit/channels-whatsapp",
-  "@copilotkit/channels",
-];
+import { FAMILY as CHANNELS_PACKAGES } from "./channels-umbrella.js";
 
 describe("Channels release scope", () => {
   it("publishes the complete Channels family from one shared scope", () => {
