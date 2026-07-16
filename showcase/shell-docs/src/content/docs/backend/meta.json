@@ -2,6 +2,7 @@
   "title": "Runtime",
   "pages": [
     "copilot-runtime",
+    "docker-model-runner",
     "runtime-endpoints",
     "custom-agent",
     "agent-runner",

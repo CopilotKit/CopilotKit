@@ -1,0 +1,120 @@
+---
+title: "Docker Model Runner"
+icon: "lucide/Container"
+description: "Run CopilotKit against a local Docker Model Runner LLM through the OpenAI-compatible API."
+---
+
+Docker Model Runner exposes an OpenAI-compatible chat completions API, so CopilotKit does not need a separate Docker-specific adapter. Point the OpenAI SDK at the Model Runner base URL, pass that client to `OpenAIAdapter`, and keep the rest of your Copilot Runtime wiring unchanged.
+
+## Prerequisites
+
+- Docker Model Runner is enabled and has a chat model pulled, for example `ai/smollm2`.
+- TCP host access is enabled if your runtime runs as a host process.
+- Your chosen model supports the capabilities your copilot uses. Tool calling depends on the model and inference engine.
+
+<Callout type="info" title="Base URL">
+  For a runtime running on the host, Docker's OpenAI-compatible base URL is usually `http://localhost:12434/engines/v1`. If your Copilot Runtime runs inside a container, use the container-reachable Model Runner host instead, such as `http://model-runner.docker.internal/engines/v1` on Docker Desktop.
+</Callout>
+
+## Next.js runtime route
+
+```ts title="app/api/copilotkit/route.ts"
+import {
+  CopilotRuntime,
+  OpenAIAdapter,
+  copilotRuntimeNextJSAppRouterEndpoint,
+} from "@copilotkit/runtime";
+import OpenAI from "openai";
+import { NextRequest } from "next/server";
+
+const model = process.env.DOCKER_MODEL_RUNNER_MODEL ?? "ai/smollm2";
+
+const openai = new OpenAI({
+  baseURL:
+    process.env.DOCKER_MODEL_RUNNER_BASE_URL ??
+    "http://localhost:12434/engines/v1",
+  // Docker Model Runner ignores Authorization, but the OpenAI SDK requires a value.
+  apiKey: process.env.DOCKER_MODEL_RUNNER_API_KEY ?? "not-needed",
+});
+
+const serviceAdapter = new OpenAIAdapter({
+  openai,
+  model,
+});
+
+const runtime = new CopilotRuntime({
+  agents: {
+    // your agents go here
+  },
+});
+
+export const POST = async (req: NextRequest) => {
+  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+    runtime,
+    serviceAdapter,
+    endpoint: "/api/copilotkit",
+  });
+
+  return handleRequest(req);
+};
+```
+
+Add the matching environment variables:
+
+```bash title=".env.local"
+DOCKER_MODEL_RUNNER_BASE_URL=http://localhost:12434/engines/v1
+DOCKER_MODEL_RUNNER_MODEL=ai/smollm2
+# Optional; Docker Model Runner ignores it, but some wrappers expect one.
+DOCKER_MODEL_RUNNER_API_KEY=not-needed
+```
+
+Then point your frontend at the runtime as usual:
+
+```tsx
+import { CopilotKit } from "@copilotkit/react-core/v2";
+
+<CopilotKit runtimeUrl="/api/copilotkit">
+  <YourApp />
+</CopilotKit>;
+```
+
+## Docker Compose runtime
+
+When your application runs in Compose, the runtime container must be able to reach Model Runner. On Docker Desktop, use `model-runner.docker.internal`:
+
+```yaml title="compose.yaml"
+services:
+  web:
+    build: .
+    environment:
+      DOCKER_MODEL_RUNNER_BASE_URL: http://model-runner.docker.internal/engines/v1
+      DOCKER_MODEL_RUNNER_MODEL: ai/smollm2
+      DOCKER_MODEL_RUNNER_API_KEY: not-needed
+```
+
+On Docker Engine, add a host-gateway mapping if `model-runner.docker.internal` is not already available:
+
+```yaml title="compose.yaml"
+services:
+  web:
+    build: .
+    extra_hosts:
+      - "model-runner.docker.internal:host-gateway"
+    environment:
+      DOCKER_MODEL_RUNNER_BASE_URL: http://model-runner.docker.internal:12434/engines/v1
+      DOCKER_MODEL_RUNNER_MODEL: ai/smollm2
+      DOCKER_MODEL_RUNNER_API_KEY: not-needed
+```
+
+## Troubleshooting
+
+- **Connection refused:** confirm Model Runner is enabled, the TCP endpoint is enabled for host access, and the runtime is using the correct host/container base URL.
+- **Model not found:** use a full Docker Model Runner model name such as `ai/smollm2` or `ai/llama3.2`.
+- **Tool calls do not work:** choose a model and inference engine that support function calling, or avoid CopilotKit actions that require tool calling.
+- **401 from a wrapper or proxy:** Docker Model Runner itself does not require an API key, but the OpenAI SDK and some proxies expect a non-empty `apiKey`.
+
+## Related
+
+- [OpenAIAdapter](/reference/v1/classes/llm-adapters/OpenAIAdapter): the adapter used for OpenAI-compatible endpoints.
+- [Copilot Runtime](/backend/copilot-runtime): runtime setup and frontend wiring.
+- [Runtime HTTP endpoints](/backend/runtime-endpoints): how to probe a self-hosted runtime.

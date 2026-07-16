@@ -17,6 +17,26 @@
  * return new OpenAIAdapter({ openai });
  * ```
  *
+ * ## Example with Docker Model Runner
+ *
+ * ```ts
+ * import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/runtime";
+ * import OpenAI from "openai";
+ *
+ * const openai = new OpenAI({
+ *   baseURL: process.env["DOCKER_MODEL_RUNNER_BASE_URL"] ?? "http://localhost:12434/engines/v1",
+ *   // Docker Model Runner ignores Authorization, but the OpenAI SDK requires a value.
+ *   apiKey: process.env["DOCKER_MODEL_RUNNER_API_KEY"] ?? "not-needed",
+ * });
+ *
+ * const copilotKit = new CopilotRuntime();
+ *
+ * return new OpenAIAdapter({
+ *   openai,
+ *   model: process.env["DOCKER_MODEL_RUNNER_MODEL"] ?? "ai/smollm2",
+ * });
+ * ```
+ *
  * ## Example with Azure OpenAI
  *
  * ```ts

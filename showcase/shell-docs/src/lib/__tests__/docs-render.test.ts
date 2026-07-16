@@ -200,6 +200,16 @@ describe("loadDoc", () => {
       "Headless Threads",
     );
   });
+
+  it("publishes Docker Model Runner runtime guidance", () => {
+    const doc = loadDoc("backend/docker-model-runner");
+
+    expect(doc?.fm.title).toBe("Docker Model Runner");
+    expect(doc?.source).toContain("DOCKER_MODEL_RUNNER_BASE_URL");
+    expect(doc?.source).toContain("new OpenAIAdapter");
+    expect(doc?.source).toContain("http://localhost:12434/engines/v1");
+    expect(doc?.source).not.toContain("ExperimentalOllamaAdapter");
+  });
 });
 
 describe("readIcon", () => {

@@ -50,6 +50,8 @@ import { CopilotKit } from "@copilotkit/react-core/v2";
 For Express, NestJS, or plain Node.js HTTP variants, see the [quickstart](/quickstart).
 For the exact HTTP routes the runtime exposes (and how to probe them with `curl`),
 see [Runtime HTTP endpoints](/backend/runtime-endpoints).
+To run the runtime against a local OpenAI-compatible Docker Model Runner LLM,
+see [Docker Model Runner](/backend/docker-model-runner).
 
 <Callout type="info" title="Legacy vs. v2 runtime endpoints">
   The `copilotRuntimeNextJSAppRouterEndpoint` / `copilotRuntimeNodeHttpEndpoint` / `copilotRuntimeNodeExpressEndpoint` / `copilotRuntimeNestEndpoint` helpers above are the **legacy** (v1) endpoint factories, imported from `@copilotkit/runtime`. The v2 runtime exposes a smaller, framework-agnostic API under `@copilotkit/runtime/v2`:
