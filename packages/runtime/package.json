@@ -91,6 +91,7 @@
     "@ai-sdk/openai": "^3.0.36",
     "@copilotkit/channels-core": "workspace:^",
     "@copilotkit/channels-intelligence": "workspace:*",
+    "@copilotkit/intelligence": "workspace:^",
     "@copilotkit/license-verifier": "~0.5.0",
     "@copilotkit/shared": "workspace:*",
     "@graphql-yoga/plugin-defer-stream": "^3.3.1",

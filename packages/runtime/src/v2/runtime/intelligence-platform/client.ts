@@ -134,6 +134,10 @@ export interface ThreadSummary {
   createdById?: string;
   /** The organization this thread belongs to. */
   organizationId?: string;
+  /** Learning container assigned to the thread, or null when unassigned. */
+  learningContainerId?: string | null;
+  /** Monotonic revision of the thread assignment. */
+  assignmentRevision?: number;
 }
 
 /** Response from listing threads for a user/agent pair. */
@@ -206,6 +210,8 @@ export interface CreateThreadRequest {
   agentId: string;
   /** Optional initial display name. If omitted, the thread is unnamed until explicitly renamed. */
   name?: string;
+  /** Trusted-BFF learning container assignment. Explicit null means unassigned. */
+  learningContainerId?: string | null;
 }
 
 /** Credentials returned when locking or joining a thread's realtime channel. */
@@ -218,6 +224,10 @@ export interface ThreadConnectionResponse {
   joinToken: string;
   /** Lock metadata echoed back by the platform. */
   lock?: ThreadLockInfo;
+  /** Learning container assigned to the thread, or null when unassigned. */
+  learningContainerId?: string | null;
+  /** Monotonic revision of the thread assignment. */
+  assignmentRevision?: number;
 }
 
 export interface SubscribeToThreadsRequest {
@@ -361,6 +371,8 @@ export interface AcquireThreadLockRequest {
   runId: string;
   userId: string;
   agentId: string;
+  /** Trusted-BFF learning container assignment. Explicit null means unassigned. */
+  learningContainerId?: string | null;
   /** Custom Redis key prefix for the lock (default: "thread"). */
   lockKeyPrefix?: string;
   /** Lock TTL in seconds. When set, the lock auto-expires after this duration. */
@@ -537,7 +549,9 @@ export class CopilotKitIntelligence {
         "Intelligence platform request failed",
       );
       throw new PlatformRequestError(
-        `Intelligence platform error ${response.status}: ${text || response.statusText}`,
+        `Intelligence platform error ${response.status}: ${
+          text || response.statusText
+        }`,
         response.status,
       );
     }
@@ -774,6 +788,9 @@ export class CopilotKitIntelligence {
         userId: params.userId,
         agentId: params.agentId,
         ...(params.name !== undefined ? { name: params.name } : {}),
+        ...(params.learningContainerId !== undefined
+          ? { learningContainerId: params.learningContainerId }
+          : {}),
       },
     );
     this.#invokeLifecycleCallback("onThreadCreated", response.thread);
@@ -1017,6 +1034,9 @@ export class CopilotKitIntelligence {
         runId: params.runId,
         userId: params.userId,
         agentId: params.agentId,
+        ...(params.learningContainerId !== undefined
+          ? { learningContainerId: params.learningContainerId }
+          : {}),
         ...(params.lockKeyPrefix !== undefined
           ? { lockKeyPrefix: params.lockKeyPrefix }
           : {}),

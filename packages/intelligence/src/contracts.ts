@@ -3,6 +3,8 @@ import { z } from "zod/v4";
 const nonEmptyStringSchema = z.string().min(1);
 const idSchema = nonEmptyStringSchema;
 const uuidSchema = z.uuid();
+/** Canonical trusted-BFF learning container assignment value. */
+export const learningContainerIdSchema = uuidSchema.nullable();
 const nonNegativeIntegerSchema = z.int().nonnegative();
 const positiveIntegerSchema = z.int().positive();
 const timestampSchema = z.iso.datetime({ offset: true });
@@ -58,15 +60,15 @@ export type LearningContainerV1 = z.infer<typeof learningContainerV1Schema>;
 
 /** Thread assignment fields returned by runtime/control-plane APIs. */
 export const threadAssignmentV1Schema = z.looseObject({
-  learningContainerId: uuidSchema.nullable(),
+  learningContainerId: learningContainerIdSchema,
   assignmentRevision: nonNegativeIntegerSchema,
 });
 export type ThreadAssignmentV1 = z.infer<typeof threadAssignmentV1Schema>;
 
 /** Optimistic control-plane assignment mutation. */
 export const threadAssignmentPatchV1Schema = z.looseObject({
-  learningContainerId: uuidSchema.nullable(),
-  expectedLearningContainerId: uuidSchema.nullable(),
+  learningContainerId: learningContainerIdSchema,
+  expectedLearningContainerId: learningContainerIdSchema,
 });
 export type ThreadAssignmentPatchV1 = z.infer<
   typeof threadAssignmentPatchV1Schema

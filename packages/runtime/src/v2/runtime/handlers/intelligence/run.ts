@@ -14,6 +14,25 @@ import { isHandlerResponse } from "../shared/json-response";
 import type { AgentRunnerRunRequest } from "../../runner/agent-runner";
 import type { Observable } from "rxjs";
 
+const INTELLIGENCE_CONTRACTS_SPECIFIER = "@copilotkit/intelligence";
+
+interface LearningContainerIdSchema {
+  safeParse(
+    value: unknown,
+  ): { success: true; data: string | null } | { success: false };
+}
+
+interface IntelligenceContractsModule {
+  learningContainerIdSchema: LearningContainerIdSchema;
+}
+
+async function loadLearningContainerIdSchema(): Promise<LearningContainerIdSchema> {
+  const contracts = (await import(
+    INTELLIGENCE_CONTRACTS_SPECIFIER
+  )) as IntelligenceContractsModule;
+  return contracts.learningContainerIdSchema;
+}
+
 /**
  * Builds browser-facing realtime connection metadata owned by the runtime.
  */
@@ -57,6 +76,55 @@ interface HandleIntelligenceRunParams {
   input: RunAgentInput;
 }
 
+type AssignmentEcho = {
+  learningContainerId?: unknown;
+  assignmentRevision?: unknown;
+};
+
+function validateAssignmentEcho(
+  echo: AssignmentEcho,
+  expectedLearningContainerId: string | null,
+  learningContainerIdSchema: LearningContainerIdSchema,
+): "valid" | "malformed" | "mismatch" {
+  if (
+    !Object.prototype.hasOwnProperty.call(echo, "learningContainerId") ||
+    !Object.prototype.hasOwnProperty.call(echo, "assignmentRevision")
+  ) {
+    return "malformed";
+  }
+
+  const parsedAssignment = learningContainerIdSchema.safeParse(
+    echo.learningContainerId,
+  );
+  if (
+    !parsedAssignment.success ||
+    !Number.isInteger(echo.assignmentRevision) ||
+    (echo.assignmentRevision as number) < 0
+  ) {
+    return "malformed";
+  }
+
+  return parsedAssignment.data === expectedLearningContainerId
+    ? "valid"
+    : "mismatch";
+}
+
+function assignmentValidationResponse(
+  result: "malformed" | "mismatch",
+): Response {
+  if (result === "mismatch") {
+    return Response.json(
+      { error: "Learning container assignment conflict" },
+      { status: 409 },
+    );
+  }
+
+  return Response.json(
+    { error: "Invalid learning container assignment echo" },
+    { status: 502 },
+  );
+}
+
 export async function handleIntelligenceRun({
   runtime,
   request,
@@ -80,25 +148,50 @@ export async function handleIntelligenceRun({
   }
   const userId = user.id;
 
+  const assignmentResolutionConfigured =
+    runtime.resolveLearningContainer !== undefined;
+  let learningContainerId: string | null | undefined;
+  let learningContainerIdSchema: LearningContainerIdSchema | undefined;
+  if (runtime.resolveLearningContainer) {
+    try {
+      learningContainerIdSchema = await loadLearningContainerIdSchema();
+      const resolvedAssignment = await runtime.resolveLearningContainer({
+        request,
+        threadId: input.threadId,
+        agentId,
+        user,
+      });
+      const parsedAssignment =
+        learningContainerIdSchema.safeParse(resolvedAssignment);
+      if (!parsedAssignment.success) {
+        logger.error(
+          "resolveLearningContainer returned an invalid learning container assignment",
+        );
+        return Response.json(
+          { error: "Invalid learning container assignment" },
+          { status: 500 },
+        );
+      }
+      learningContainerId = parsedAssignment.data;
+    } catch (error) {
+      logger.error("Failed to resolve learning container assignment:", error);
+      return Response.json(
+        { error: "Failed to resolve learning container assignment" },
+        { status: 500 },
+      );
+    }
+  }
+
+  let threadResult: Awaited<
+    ReturnType<typeof runtime.intelligence.getOrCreateThread>
+  >;
   try {
-    const { thread, created } = await runtime.intelligence.getOrCreateThread({
+    threadResult = await runtime.intelligence.getOrCreateThread({
       threadId: input.threadId,
       userId,
       agentId,
+      ...(assignmentResolutionConfigured ? { learningContainerId } : {}),
     });
-
-    if (created && runtime.generateThreadNames && !thread.name?.trim()) {
-      void generateThreadNameForNewThread({
-        runtime,
-        request,
-        agentId,
-        sourceInput: input,
-        thread,
-        userId,
-      }).catch((nameError) => {
-        logger.error("Failed to generate thread name:", nameError);
-      });
-    }
   } catch (error) {
     logger.error("Failed to get or create thread:", error);
     return Response.json(
@@ -109,15 +202,44 @@ export async function handleIntelligenceRun({
     );
   }
 
+  const { thread, created } = threadResult;
+  if (assignmentResolutionConfigured) {
+    const validation = validateAssignmentEcho(
+      thread,
+      learningContainerId as string | null,
+      learningContainerIdSchema as LearningContainerIdSchema,
+    );
+    if (validation !== "valid") {
+      return assignmentValidationResponse(validation);
+    }
+  }
+
+  if (created && runtime.generateThreadNames && !thread.name?.trim()) {
+    void generateThreadNameForNewThread({
+      runtime,
+      request,
+      agentId,
+      sourceInput: input,
+      thread,
+      userId,
+    }).catch((nameError) => {
+      logger.error("Failed to generate thread name:", nameError);
+    });
+  }
+
   let canonicalThreadId = input.threadId;
   let canonicalRunId = input.runId;
   let joinToken: string | undefined;
+  let lockResult: Awaited<
+    ReturnType<typeof runtime.intelligence.ɵacquireThreadLock>
+  >;
   try {
-    const lockResult = await runtime.intelligence.ɵacquireThreadLock({
+    lockResult = await runtime.intelligence.ɵacquireThreadLock({
       threadId: input.threadId,
       runId: input.runId,
       userId,
       agentId,
+      ...(assignmentResolutionConfigured ? { learningContainerId } : {}),
       ...(runtime.lockKeyPrefix !== undefined
         ? { lockKeyPrefix: runtime.lockKeyPrefix }
         : {}),
@@ -148,6 +270,22 @@ export async function handleIntelligenceRun({
           "Failed to cleanup thread lock",
         );
       });
+
+  if (assignmentResolutionConfigured) {
+    const validation = validateAssignmentEcho(
+      lockResult,
+      learningContainerId as string | null,
+      learningContainerIdSchema as LearningContainerIdSchema,
+    );
+    if (validation !== "valid") {
+      await cleanupLock(
+        validation === "mismatch"
+          ? "assignment-echo-mismatch"
+          : "malformed-assignment-echo",
+      );
+      return assignmentValidationResponse(validation);
+    }
+  }
 
   if (!canonicalThreadId || !canonicalRunId || !joinToken) {
     await cleanupLock("malformed-lock-response");

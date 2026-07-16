@@ -176,6 +176,17 @@ export type IdentifyUserCallback = (
   request: Request,
 ) => MaybePromise<CopilotRuntimeUser>;
 
+export interface LearningContainerResolverContext {
+  request: Request;
+  threadId: string;
+  agentId: string;
+  user: CopilotRuntimeUser;
+}
+
+export type ResolveLearningContainerCallback = (
+  context: LearningContainerResolverContext,
+) => MaybePromise<string | null>;
+
 export interface CopilotSseRuntimeOptions extends BaseCopilotRuntimeOptions {
   /** The runner to use for running agents in SSE mode. */
   runner?: AgentRunner;
@@ -190,6 +201,8 @@ export interface CopilotIntelligenceRuntimeOptions extends BaseCopilotRuntimeOpt
   intelligence: CopilotKitIntelligence;
   /** Resolves the authenticated user for intelligence requests. */
   identifyUser: IdentifyUserCallback;
+  /** Resolves the trusted learning container assignment once per run. */
+  resolveLearningContainer?: ResolveLearningContainerCallback;
   /** Auto-generate short names for newly created threads. */
   generateThreadNames?: boolean;
   /** Max delay (ms) for WebSocket reconnect backoff. @default 10_000 */
@@ -227,6 +240,7 @@ export interface CopilotRuntimeLike {
   openGenerativeUI: CopilotRuntimeOptions["openGenerativeUI"];
   intelligence?: CopilotKitIntelligence;
   identifyUser?: IdentifyUserCallback;
+  resolveLearningContainer?: ResolveLearningContainerCallback;
   mode: RuntimeMode;
   licenseChecker?: LicenseChecker;
   debugEventBus?: DebugEventBus;
@@ -251,6 +265,7 @@ export interface CopilotSseRuntimeLike extends CopilotRuntimeLike {
 export interface CopilotIntelligenceRuntimeLike extends CopilotRuntimeLike {
   intelligence: CopilotKitIntelligence;
   identifyUser: IdentifyUserCallback;
+  resolveLearningContainer?: ResolveLearningContainerCallback;
   generateThreadNames: boolean;
   lockTtlSeconds: number;
   lockKeyPrefix?: string;
@@ -372,6 +387,7 @@ export class CopilotIntelligenceRuntime
 {
   readonly intelligence: CopilotKitIntelligence;
   readonly identifyUser: IdentifyUserCallback;
+  readonly resolveLearningContainer?: ResolveLearningContainerCallback;
   readonly generateThreadNames: boolean;
   readonly lockTtlSeconds: number;
   readonly lockKeyPrefix?: string;
@@ -396,6 +412,7 @@ export class CopilotIntelligenceRuntime
     );
     this.intelligence = options.intelligence;
     this.identifyUser = options.identifyUser;
+    this.resolveLearningContainer = options.resolveLearningContainer;
     this.generateThreadNames = options.generateThreadNames ?? true;
     // Telemetry attribution is handled by the base constructor for all modes;
     // here we only need the token for feature gating. Reuse the base-resolved
@@ -481,6 +498,8 @@ export interface RuntimeWithDeclaredChannels {
 export interface CopilotRuntime extends CopilotRuntimeLike {
   /** Auto-generate short thread names; `undefined` in SSE mode. */
   generateThreadNames?: boolean;
+  /** Trusted learning container resolver; `undefined` in SSE mode. */
+  resolveLearningContainer?: ResolveLearningContainerCallback;
   /** Thread lock TTL in seconds; `undefined` in SSE mode. */
   lockTtlSeconds?: number;
   /** Custom Redis key prefix for the thread lock; `undefined` in SSE mode. */
@@ -576,6 +595,12 @@ class CopilotRuntimeShim implements CopilotRuntime {
   get identifyUser(): IdentifyUserCallback | undefined {
     return isIntelligenceRuntime(this.delegate)
       ? this.delegate.identifyUser
+      : undefined;
+  }
+
+  get resolveLearningContainer(): ResolveLearningContainerCallback | undefined {
+    return isIntelligenceRuntime(this.delegate)
+      ? this.delegate.resolveLearningContainer
       : undefined;
   }
 
