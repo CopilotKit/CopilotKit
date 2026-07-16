@@ -75,6 +75,7 @@ features:
   - gen-ui-agent
   - tool-rendering-default-catchall
   - tool-rendering-custom-catchall
+  - tool-rendering-reasoning-chain
   - tool-rendering
   - shared-state-streaming
   - shared-state-read-write
