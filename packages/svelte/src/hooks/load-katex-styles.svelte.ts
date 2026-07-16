@@ -1,6 +1,6 @@
 let injected = false;
 
-export function useKatexStyles(): void {
+export function loadKatexStyles(): void {
   $effect(() => {
     if (injected || typeof document === "undefined") return;
     injected = true;

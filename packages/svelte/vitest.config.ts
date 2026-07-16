@@ -11,6 +11,7 @@ export default defineConfig({
     reporters: [["default", { summary: false }]],
   },
   resolve: {
+    conditions: ["browser"],
     alias: {
       "@": resolve(__dirname, "./src"),
       "@copilotkit/web-inspector": resolve(
