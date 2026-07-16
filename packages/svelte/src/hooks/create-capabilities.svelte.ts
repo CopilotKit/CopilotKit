@@ -5,8 +5,14 @@ export interface CreateCapabilitiesResult {
   capabilities: AgentCapabilities | undefined;
 }
 
-export function createCapabilities(agentId?: string): CreateCapabilitiesResult {
-  const agentHandle = createAgent({ agentId });
+export function createCapabilities(
+  agentId?: string | (() => string | undefined),
+): CreateCapabilitiesResult {
+  const agentHandle = createAgent({
+    get agentId() {
+      return typeof agentId === "function" ? agentId() : agentId;
+    },
+  });
 
   return {
     get capabilities() {

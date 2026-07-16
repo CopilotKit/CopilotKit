@@ -5,7 +5,7 @@ import { COPILOT_KIT_KEY } from "../providers/context";
 import type { CopilotKitContextValue } from "../providers/context";
 
 export interface CreateSuggestionsOptions {
-  agentId?: string;
+  agentId?: string | (() => string | undefined);
 }
 
 export interface CreateSuggestionsResult {
@@ -23,7 +23,11 @@ export function createSuggestions(
     throw new Error("createSuggestions must be used within CopilotKitProvider");
   }
 
-  let resolvedAgentId = $derived(options.agentId ?? DEFAULT_AGENT_ID);
+  let resolvedAgentId = $derived(
+    (typeof options.agentId === "function"
+      ? options.agentId()
+      : options.agentId) ?? DEFAULT_AGENT_ID,
+  );
 
   let suggestions = $state<Suggestion[]>([]);
   let isLoading = $state(false);
