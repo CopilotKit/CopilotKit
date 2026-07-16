@@ -382,6 +382,34 @@ describe("CopilotKitIntelligence", () => {
       });
     });
 
+    it("serializes an explicit null learning container assignment", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse({
+          thread: {
+            id: "t-1",
+            name: null,
+            learningContainerId: null,
+            assignmentRevision: 0,
+          },
+        }),
+      );
+
+      await client.createThread({
+        threadId: "t-1",
+        userId: "user-1",
+        agentId: "agent-1",
+        learningContainerId: null,
+      });
+
+      const [, opts] = fetchMock.mock.calls[0];
+      expect(JSON.parse(opts.body)).toEqual({
+        threadId: "t-1",
+        userId: "user-1",
+        agentId: "agent-1",
+        learningContainerId: null,
+      });
+    });
+
     it("fires onThreadCreated with the returned thread", async () => {
       const onThreadCreated = vi.fn();
       client = new CopilotKitIntelligence({
@@ -591,6 +619,35 @@ describe("CopilotKitIntelligence", () => {
         runId: "r-1",
         userId: "user-1",
         agentId: "agent-1",
+      });
+    });
+
+    it("serializes the exact learning container UUID in the lock payload", async () => {
+      const learningContainerId = "11111111-1111-4111-8111-111111111111";
+      fetchMock.mockReturnValue(
+        jsonResponse({
+          threadId: "t-1",
+          runId: "r-1",
+          joinToken: "jt-lock",
+          learningContainerId,
+          assignmentRevision: 2,
+        }),
+      );
+
+      await client.ɵacquireThreadLock({
+        threadId: "t-1",
+        runId: "r-1",
+        userId: "user-1",
+        agentId: "agent-1",
+        learningContainerId,
+      });
+
+      const [, opts] = fetchMock.mock.calls[0];
+      expect(JSON.parse(opts.body)).toEqual({
+        runId: "r-1",
+        userId: "user-1",
+        agentId: "agent-1",
+        learningContainerId,
       });
     });
 

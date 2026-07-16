@@ -484,6 +484,12 @@ describe("handleRunAgent", () => {
         ) =>
           | { id: string; name: string }
           | Promise<{ id: string; name: string }>;
+        resolveLearningContainer?: (params: {
+          request: Request;
+          threadId: string;
+          agentId: string;
+          user: { id: string; name: string };
+        }) => string | null | Promise<string | null>;
       },
     ) => {
       const runner = Object.create(IntelligenceAgentRunner.prototype);
@@ -512,6 +518,7 @@ describe("handleRunAgent", () => {
         identifyUser:
           options?.identifyUser ??
           vi.fn().mockResolvedValue({ id: "user-1", name: "User One" }),
+        resolveLearningContainer: options?.resolveLearningContainer,
       } as unknown as CopilotRuntime;
     };
 
@@ -636,6 +643,340 @@ describe("handleRunAgent", () => {
         agentId: "my-agent",
         ttlSeconds: 20,
       });
+    });
+
+    it("resolves one trusted learning container assignment and forwards its exact UUID", async () => {
+      const learningContainerId = "11111111-1111-4111-8111-111111111111";
+      const agent = createAgentForIntelligence();
+      const platform = {
+        getOrCreateThread: vi.fn().mockResolvedValue({
+          thread: {
+            id: "thread-1",
+            name: null,
+            learningContainerId,
+            assignmentRevision: 3,
+          },
+          created: false,
+        }),
+        getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
+        ɵacquireThreadLock: vi.fn().mockResolvedValue({
+          threadId: "thread-1",
+          runId: "run-1",
+          joinToken: "jt-123",
+          learningContainerId,
+          assignmentRevision: 3,
+        }),
+        ɵcleanupThreadLock: vi.fn().mockResolvedValue(undefined),
+      };
+      const trustedUser = { id: "trusted-user", name: "Trusted User" };
+      const identifyUser = vi.fn().mockResolvedValue(trustedUser);
+      const resolveLearningContainer = vi
+        .fn()
+        .mockResolvedValue(learningContainerId);
+      const runtime = createIntelligenceRuntime(agent, platform, {
+        identifyUser,
+        resolveLearningContainer,
+      });
+      const request = createRunRequest({
+        "X-Learning-Container-Id": "22222222-2222-4222-8222-222222222222",
+      });
+
+      const response = await handleRunAgent({
+        runtime,
+        request,
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(200);
+      expect(resolveLearningContainer).toHaveBeenCalledTimes(1);
+      expect(resolveLearningContainer).toHaveBeenCalledWith({
+        request,
+        threadId: "thread-1",
+        agentId: "my-agent",
+        user: trustedUser,
+      });
+      expect(platform.getOrCreateThread).toHaveBeenCalledWith({
+        threadId: "thread-1",
+        userId: "trusted-user",
+        agentId: "my-agent",
+        learningContainerId,
+      });
+      expect(platform.ɵacquireThreadLock).toHaveBeenCalledWith({
+        threadId: "thread-1",
+        runId: "run-1",
+        userId: "trusted-user",
+        agentId: "my-agent",
+        learningContainerId,
+        ttlSeconds: 20,
+      });
+    });
+
+    it("forwards an explicit null learning container assignment", async () => {
+      const agent = createAgentForIntelligence();
+      const platform = {
+        getOrCreateThread: vi.fn().mockResolvedValue({
+          thread: {
+            id: "thread-1",
+            name: null,
+            learningContainerId: null,
+            assignmentRevision: 0,
+          },
+          created: false,
+        }),
+        getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
+        ɵacquireThreadLock: vi.fn().mockResolvedValue({
+          threadId: "thread-1",
+          runId: "run-1",
+          joinToken: "jt-123",
+          learningContainerId: null,
+          assignmentRevision: 0,
+        }),
+        ɵcleanupThreadLock: vi.fn().mockResolvedValue(undefined),
+      };
+      const runtime = createIntelligenceRuntime(agent, platform, {
+        resolveLearningContainer: vi.fn().mockResolvedValue(null),
+      });
+
+      const response = await handleRunAgent({
+        runtime,
+        request: createRunRequest(),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(200);
+      expect(platform.getOrCreateThread).toHaveBeenCalledWith(
+        expect.objectContaining({ learningContainerId: null }),
+      );
+      expect(platform.ɵacquireThreadLock).toHaveBeenCalledWith(
+        expect.objectContaining({ learningContainerId: null }),
+      );
+    });
+
+    it("rejects an invalid resolved learning container before platform writes", async () => {
+      const agent = createAgentForIntelligence();
+      const platform = {
+        getOrCreateThread: vi.fn(),
+        ɵacquireThreadLock: vi.fn(),
+      };
+      const runtime = createIntelligenceRuntime(agent, platform, {
+        resolveLearningContainer: vi.fn().mockResolvedValue("not-a-uuid"),
+      });
+
+      const response = await handleRunAgent({
+        runtime,
+        request: createRunRequest(),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(500);
+      expect(platform.getOrCreateThread).not.toHaveBeenCalled();
+      expect(platform.ɵacquireThreadLock).not.toHaveBeenCalled();
+      expect(runtime.runner.run).not.toHaveBeenCalled();
+    });
+
+    it("stops before platform writes when learning container resolution fails", async () => {
+      const agent = createAgentForIntelligence();
+      const platform = {
+        getOrCreateThread: vi.fn(),
+        ɵacquireThreadLock: vi.fn(),
+      };
+      const runtime = createIntelligenceRuntime(agent, platform, {
+        resolveLearningContainer: vi
+          .fn()
+          .mockRejectedValue(new Error("assignment lookup failed")),
+      });
+
+      const response = await handleRunAgent({
+        runtime,
+        request: createRunRequest(),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(500);
+      expect(platform.getOrCreateThread).not.toHaveBeenCalled();
+      expect(platform.ɵacquireThreadLock).not.toHaveBeenCalled();
+      expect(runtime.runner.run).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ["missing assignment", { assignmentRevision: 1 }],
+      [
+        "malformed assignment",
+        { learningContainerId: "not-a-uuid", assignmentRevision: 1 },
+      ],
+      [
+        "missing revision",
+        { learningContainerId: "11111111-1111-4111-8111-111111111111" },
+      ],
+      [
+        "malformed revision",
+        {
+          learningContainerId: "11111111-1111-4111-8111-111111111111",
+          assignmentRevision: -1,
+        },
+      ],
+    ])(
+      "returns 502 before lock acquisition when the thread echo has %s",
+      async (_caseName, assignmentFields) => {
+        const learningContainerId = "11111111-1111-4111-8111-111111111111";
+        const agent = createAgentForIntelligence();
+        const platform = {
+          getOrCreateThread: vi.fn().mockResolvedValue({
+            thread: { id: "thread-1", name: null, ...assignmentFields },
+            created: false,
+          }),
+          ɵacquireThreadLock: vi.fn(),
+        };
+        const runtime = createIntelligenceRuntime(agent, platform, {
+          resolveLearningContainer: vi
+            .fn()
+            .mockResolvedValue(learningContainerId),
+        });
+
+        const response = await handleRunAgent({
+          runtime,
+          request: createRunRequest(),
+          agentId: "my-agent",
+        });
+
+        expect(response.status).toBe(502);
+        expect(platform.ɵacquireThreadLock).not.toHaveBeenCalled();
+        expect(runtime.runner.run).not.toHaveBeenCalled();
+      },
+    );
+
+    it("returns 409 before lock acquisition when the thread echo mismatches", async () => {
+      const agent = createAgentForIntelligence();
+      const platform = {
+        getOrCreateThread: vi.fn().mockResolvedValue({
+          thread: {
+            id: "thread-1",
+            name: null,
+            learningContainerId: "22222222-2222-4222-8222-222222222222",
+            assignmentRevision: 1,
+          },
+          created: false,
+        }),
+        ɵacquireThreadLock: vi.fn(),
+      };
+      const runtime = createIntelligenceRuntime(agent, platform, {
+        resolveLearningContainer: vi
+          .fn()
+          .mockResolvedValue("11111111-1111-4111-8111-111111111111"),
+      });
+
+      const response = await handleRunAgent({
+        runtime,
+        request: createRunRequest(),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(409);
+      expect(platform.ɵacquireThreadLock).not.toHaveBeenCalled();
+      expect(runtime.runner.run).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ["missing assignment", { assignmentRevision: 1 }],
+      [
+        "malformed assignment",
+        { learningContainerId: "not-a-uuid", assignmentRevision: 1 },
+      ],
+      [
+        "missing revision",
+        { learningContainerId: "11111111-1111-4111-8111-111111111111" },
+      ],
+      [
+        "malformed revision",
+        {
+          learningContainerId: "11111111-1111-4111-8111-111111111111",
+          assignmentRevision: 1.5,
+        },
+      ],
+    ])(
+      "returns 502 and cleans the lock when the lock echo has %s",
+      async (_caseName, assignmentFields) => {
+        const learningContainerId = "11111111-1111-4111-8111-111111111111";
+        const agent = createAgentForIntelligence();
+        const platform = {
+          getOrCreateThread: vi.fn().mockResolvedValue({
+            thread: {
+              id: "thread-1",
+              name: null,
+              learningContainerId,
+              assignmentRevision: 1,
+            },
+            created: false,
+          }),
+          ɵacquireThreadLock: vi.fn().mockResolvedValue({
+            threadId: "thread-1",
+            runId: "run-1",
+            joinToken: "jt-123",
+            ...assignmentFields,
+          }),
+          ɵcleanupThreadLock: vi.fn().mockResolvedValue(undefined),
+        };
+        const runtime = createIntelligenceRuntime(agent, platform, {
+          resolveLearningContainer: vi
+            .fn()
+            .mockResolvedValue(learningContainerId),
+        });
+
+        const response = await handleRunAgent({
+          runtime,
+          request: createRunRequest(),
+          agentId: "my-agent",
+        });
+
+        expect(response.status).toBe(502);
+        expect(platform.ɵcleanupThreadLock).toHaveBeenCalledWith({
+          threadId: "thread-1",
+          runId: "run-1",
+        });
+        expect(runtime.runner.run).not.toHaveBeenCalled();
+      },
+    );
+
+    it("returns 409 and cleans the lock when the lock echo mismatches", async () => {
+      const learningContainerId = "11111111-1111-4111-8111-111111111111";
+      const agent = createAgentForIntelligence();
+      const platform = {
+        getOrCreateThread: vi.fn().mockResolvedValue({
+          thread: {
+            id: "thread-1",
+            name: null,
+            learningContainerId,
+            assignmentRevision: 1,
+          },
+          created: false,
+        }),
+        ɵacquireThreadLock: vi.fn().mockResolvedValue({
+          threadId: "thread-1",
+          runId: "run-1",
+          joinToken: "jt-123",
+          learningContainerId: "22222222-2222-4222-8222-222222222222",
+          assignmentRevision: 1,
+        }),
+        ɵcleanupThreadLock: vi.fn().mockResolvedValue(undefined),
+      };
+      const runtime = createIntelligenceRuntime(agent, platform, {
+        resolveLearningContainer: vi
+          .fn()
+          .mockResolvedValue(learningContainerId),
+      });
+
+      const response = await handleRunAgent({
+        runtime,
+        request: createRunRequest(),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(409);
+      expect(platform.ɵcleanupThreadLock).toHaveBeenCalledWith({
+        threadId: "thread-1",
+        runId: "run-1",
+      });
+      expect(runtime.runner.run).not.toHaveBeenCalled();
     });
 
     it("starts the runner with canonical threadId and runId from the lock response", async () => {

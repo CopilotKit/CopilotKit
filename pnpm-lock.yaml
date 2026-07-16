@@ -3246,6 +3246,9 @@ importers:
       '@copilotkit/channels-intelligence':
         specifier: workspace:*
         version: link:../channels-intelligence
+      '@copilotkit/intelligence':
+        specifier: workspace:^
+        version: link:../intelligence
       '@copilotkit/license-verifier':
         specifier: ~0.5.0
         version: 0.5.0

@@ -3,6 +3,7 @@ import {
   blobLocatorV1Schema,
   candidateGateResultV1Schema,
   insightV1Schema,
+  learningContainerIdSchema,
   learningContainerV1Schema,
   learningContractJsonSchemas,
   runSnapshotV1Schema,
@@ -97,6 +98,14 @@ const snapshot = {
 } as const;
 
 describe("parent V1 contract schemas", () => {
+  test("exports the canonical nullable learning container UUID validator", () => {
+    expect(learningContainerIdSchema.parse(UUIDS.container)).toBe(
+      UUIDS.container,
+    );
+    expect(learningContainerIdSchema.parse(null)).toBeNull();
+    expect(learningContainerIdSchema.safeParse("project").success).toBe(false);
+  });
+
   test("parses a complete LearningContainerV1 without inventing a default assignment", () => {
     expect(learningContainerV1Schema.parse(learningContainer)).toEqual(
       learningContainer,
