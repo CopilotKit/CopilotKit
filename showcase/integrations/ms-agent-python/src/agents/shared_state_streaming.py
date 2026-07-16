@@ -97,17 +97,26 @@ class SharedStateStreamingFrameworkAgent(AgentFrameworkAgent):
     ``document`` value (``""`` on the first turn) immediately after
     ``RUN_STARTED`` and before the predictive deltas stream.
 
-    KNOWN LIMITATION (MAF ``agent_framework_ag_ui`` rc8): this seed fixes the
-    single-turn path — the document now streams token-by-token and the run
-    settles. A *second* turn still hangs the harness completion gate: the
-    agent emits a clean, correlated ``RUN_FINISHED`` (verified via direct SSE
-    capture) but the CopilotKit frontend does not clear
-    ``data-copilot-running`` after the second turn, so the probe reds with
-    ``done-signal-missing``. The demo frontend is byte-identical to the
-    passing langgraph-python demo, so the divergence is in the MAF AG-UI
-    adapter's run-completion emission, below the showcase layer. langgraph's
-    CopilotKit adapter does not exhibit this. Until the adapter is fixed
-    upstream, the D6 cell stays quarantined in ``not_supported_features``.
+    This seed fixes the single-turn path (the document streams token-by-token
+    and the run settles).
+
+    MULTI-TURN (turn 2+) additionally required a FIXTURE change, not code. The
+    earlier turn-2 done-signal hang under aimock replay was a REPLAY ARTIFACT:
+    MAF's ``PredictiveStateHandler.emit_streaming_deltas`` tries
+    ``json.loads(accumulated_args)`` FIRST and, on success, emits ONE complete
+    ``replace /document`` delta (the per-token partial-regex path never fires).
+    aimock returned the ``write_document`` args effectively whole, so replay
+    collapsed to a SINGLE full-value STATE_DELTA — whereas a real LLM streams
+    the args token-by-token and MAF emits ~40 incremental deltas. The frontend
+    settles turn 2 fine on the incremental stream but tripped on the
+    collapsed single-delta-then-snapshot shape. The fix is
+    ``chunkSize`` on the ``write_document`` tool-call fixtures
+    (``aimock/d6/ms-agent-python/shared-state-streaming.json``) so aimock
+    streams the args in small chunks and MAF emits the per-token deltas under
+    replay too — matching real-LLM behavior. Verified cross-session against a
+    live MAF rc8 + real-OpenAI run on the ag-ui dojo (no hang there either):
+    the MAF adapter was never the bug. With the seed + the chunked fixture,
+    multi-turn shared-state-streaming is D6-green and un-quarantined.
     """
 
     async def run(  # type: ignore[override]

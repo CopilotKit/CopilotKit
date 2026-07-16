@@ -32,7 +32,7 @@
           }
         ]
       },
-      "chunkSize": 9999
+      "chunkSize": 3
     },
     {
       "_comment": "shared-state-streaming email pill — second leg: after write_document tool result.",
@@ -61,7 +61,7 @@
           }
         ]
       },
-      "chunkSize": 9999
+      "chunkSize": 3
     },
     {
       "_comment": "shared-state-streaming quantum pill — second leg: after write_document tool result.",
@@ -90,7 +90,7 @@
           }
         ]
       },
-      "chunkSize": 9999
+      "chunkSize": 3
     }
   ]
 }

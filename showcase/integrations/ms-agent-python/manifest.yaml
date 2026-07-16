@@ -28,21 +28,18 @@ not_supported_features:
   # green, not red) rather than a regression. Demos remain wired below.
   # Matches langgraph-python's not_supported exactly (only these two).
   #
-  # reasoning-* were previously quarantined but are now supported on
-  # agent-framework-ag-ui rc8: reasoning streams via the OpenAI Responses API
-  # on a native reasoning model (gpt-5; the old gpt-5.4 default emitted no
-  # reasoning) — matching langgraph-python. Un-quarantined.
-  #
-  # shared-state-streaming is PARTIALLY enabled by rc8: the SharedStateStreaming
-  # subclass seeds state.document (STATE_SNAPSHOT after RUN_STARTED) so the
-  # single-turn per-token stream now renders and settles. But a SECOND turn
-  # still hangs the harness: the agent emits a clean, correlated RUN_FINISHED
-  # (verified via direct SSE capture) yet the CopilotKit frontend never clears
-  # data-copilot-running, so the D6 gate reds `done-signal-missing`. The demo
-  # frontend is byte-identical to the passing langgraph-python demo, so the gap
-  # is in MAF's agent_framework_ag_ui adapter run-completion emission on turn 2
-  # — below the showcase layer, not a demo bug. Quarantined (skipped-incapable,
-  # not red) pending an upstream adapter fix; demo + seed fix remain wired.
+  # reasoning-* + shared-state-streaming were previously quarantined but are now
+  # SUPPORTED on agent-framework-ag-ui rc8. reasoning streams via the OpenAI
+  # Responses API on a native reasoning model (gpt-5; the old gpt-5.4 default
+  # emitted no reasoning). shared-state-streaming needed (a) the
+  # SharedStateStreaming subclass seeding state.document (STATE_SNAPSHOT after
+  # RUN_STARTED) for single-turn, and (b) a `chunkSize` on the write_document
+  # fixtures so aimock streams the tool args token-by-token — without it MAF's
+  # PredictiveStateHandler (json.loads-first) collapsed replay to ONE full-value
+  # STATE_DELTA, which tripped the frontend turn-2 settle. The multi-turn hang
+  # was a REPLAY ARTIFACT, not a MAF adapter bug: a live MAF rc8 + real-OpenAI
+  # run (verified cross-session on the ag-ui dojo) completes multi-turn clean.
+  # Both un-quarantined; matches langgraph-python.
   #
   # gen-ui-declarative (the A2UI fixed-schema *declarative* rendering cell,
   # served at the /demos/declarative-gen-ui route) is the A2UI declarative path.
@@ -54,7 +51,6 @@ not_supported_features:
   # cell is `gen-ui-declarative` (NOT the manifest/registry id `declarative-gen-ui`).
   - gen-ui-interrupt
   - interrupt-headless
-  - shared-state-streaming
   - gen-ui-declarative
 features:
   - beautiful-chat
@@ -80,6 +76,7 @@ features:
   - tool-rendering-default-catchall
   - tool-rendering-custom-catchall
   - tool-rendering
+  - shared-state-streaming
   - shared-state-read-write
   - subagents
   - readonly-state-agent-context
