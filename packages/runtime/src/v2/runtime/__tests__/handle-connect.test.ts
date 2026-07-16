@@ -136,6 +136,56 @@ describe("handleConnectAgent", () => {
     expect(recordedRequests[0].headers).not.toHaveProperty("user-agent");
   });
 
+  it("forwards the route agentId to runner.connect()", async () => {
+    const recordedRequests: AgentRunnerConnectRequest[] = [];
+    let resolveConnect: (() => void) | undefined;
+    const connectInvoked = new Promise<void>((resolve) => {
+      resolveConnect = resolve;
+    });
+
+    const runtime = createMockRuntime(
+      { "test-agent": { clone: () => ({}) } },
+      (request: AgentRunnerConnectRequest) =>
+        new Observable<BaseEvent>((subscriber) => {
+          recordedRequests.push(request);
+          resolveConnect?.();
+          subscriber.complete();
+        }),
+    );
+
+    const request = new Request(
+      "https://example.com/agent/test-agent/connect",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          threadId: "thread-1",
+          runId: "run-1",
+          state: {},
+          messages: [],
+          tools: [],
+          context: [],
+          forwardedProps: {},
+        }),
+      },
+    );
+
+    const response = await handleConnectAgent({
+      runtime,
+      request,
+      agentId: "test-agent",
+    });
+
+    expect(response.status).toBe(200);
+    await connectInvoked;
+
+    expect(recordedRequests).toHaveLength(1);
+    expect(recordedRequests[0]).toMatchObject({
+      threadId: "thread-1",
+      agentId: "test-agent",
+    });
+  });
+
   it("passes empty headers object when no forwardable headers present", async () => {
     const recordedRequests: AgentRunnerConnectRequest[] = [];
     let resolveConnect: (() => void) | undefined;
