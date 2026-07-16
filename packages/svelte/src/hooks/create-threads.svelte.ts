@@ -24,14 +24,14 @@ export interface Thread {
   lastRunAt?: string;
 }
 
-export interface UseThreadsInput {
+export interface CreateThreadsInput {
   agentId: string;
   includeArchived?: boolean;
   limit?: number;
   enabled?: boolean;
 }
 
-export interface UseThreadsResult {
+export interface CreateThreadsResult {
   threads: Thread[];
   isLoading: boolean;
   error: Error | null;
@@ -49,10 +49,10 @@ export interface UseThreadsResult {
   deleteThread: (threadId: string) => Promise<void>;
 }
 
-export function useThreads(input: UseThreadsInput): UseThreadsResult {
+export function createThreads(input: CreateThreadsInput): CreateThreadsResult {
   const context = getContext<CopilotKitContextValue | null>(COPILOT_KIT_KEY);
   if (!context) {
-    throw new Error("useThreads must be used within CopilotKitProvider");
+    throw new Error("createThreads must be used within CopilotKitProvider");
   }
 
   const store = ɵcreateThreadStore({
@@ -99,7 +99,9 @@ export function useThreads(input: UseThreadsInput): UseThreadsResult {
     const storeErrorBinding = bindSelector(ɵselectThreadsError);
     const fetchMoreErrorBinding = bindSelector(ɵselectFetchMoreError);
     const hasMoreThreadsBinding = bindSelector(ɵselectHasNextPage);
-    const isFetchingMoreThreadsBinding = bindSelector(ɵselectIsFetchingNextPage);
+    const isFetchingMoreThreadsBinding = bindSelector(
+      ɵselectIsFetchingNextPage,
+    );
     const isMutatingBinding = bindSelector(ɵselectIsMutating);
 
     threads = threadsBinding.initialValue as Thread[];

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { useAgent, useSuggestions } from "../../hooks";
+  import { createAgent, createSuggestions } from "../../hooks";
   import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
   import type { Suggestion } from "@copilotkit/core";
   import { useCopilotKit } from "../../providers/useCopilotKit";
@@ -31,14 +31,14 @@
   ));
 
   // svelte-ignore state_referenced_locally
-  let agentHook = useAgent({
+  let agentHook = createAgent({
     agentId: agentId ?? DEFAULT_AGENT_ID,
     threadId: resolvedThreadId,
     throttleMs,
   });
 
   // svelte-ignore state_referenced_locally
-  let suggestionsHook = useSuggestions({
+  let suggestionsHook = createSuggestions({
     agentId: agentId ?? DEFAULT_AGENT_ID,
   });
 

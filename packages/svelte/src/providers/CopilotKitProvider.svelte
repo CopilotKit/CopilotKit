@@ -60,7 +60,7 @@
   // 7. Tool-to-renderer auto-bridge
   //    When a frontend tool has .render and .parameters, automatically
   //    create a tool call render config from it. Partially done below
-  //    for prop-registered tools; hook-registered tools (useFrontendTool)
+  //    for prop-registered tools; hook-registered tools (registerFrontendTool)
   //    handle their own renderer via addHookRenderToolCall.
   //
   // 8. Suggestions reactive state
@@ -202,7 +202,7 @@
   // and no "state_referenced_locally" warnings.
   let copilotkit = new CopilotKitCoreSvelte({});
 
-  // Apply runtimeUrl synchronously so child effects (e.g. useAgent) can
+  // Apply runtimeUrl synchronously so child effects (e.g. createAgent) can
   // read it immediately without waiting for the first $effect pass.
   const initialEndpoint =
     runtimeUrl ?? (resolvedPublicKey ? COPILOT_CLOUD_CHAT_URL : undefined);

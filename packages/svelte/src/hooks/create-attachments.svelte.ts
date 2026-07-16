@@ -13,11 +13,11 @@ import type {
   AttachmentsConfig,
 } from "@copilotkit/shared";
 
-export interface UseAttachmentsProps {
+export interface CreateAttachmentsProps {
   config?: AttachmentsConfig;
 }
 
-export interface UseAttachmentsReturn {
+export interface CreateAttachmentsReturn {
   attachments: Attachment[];
   enabled: boolean;
   dragOver: boolean;
@@ -32,9 +32,9 @@ export interface UseAttachmentsReturn {
   consumeAttachments: () => Attachment[];
 }
 
-export function useAttachments(
-  props: UseAttachmentsProps,
-): UseAttachmentsReturn {
+export function createAttachments(
+  props: CreateAttachmentsProps,
+): CreateAttachmentsReturn {
   let attachments = $state<Attachment[]>([]);
   let dragOver = $state(false);
   let fileInputRef: HTMLInputElement | null = $state(null)!;

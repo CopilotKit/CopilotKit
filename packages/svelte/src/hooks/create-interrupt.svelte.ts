@@ -3,7 +3,7 @@ import { buildResumeArray, isInterruptExpired } from "@ag-ui/client";
 import type { Interrupt, RunAgentResult } from "@ag-ui/client";
 import { COPILOT_KIT_KEY } from "../providers/context";
 import type { CopilotKitContextValue } from "../providers/context";
-import { useAgent } from "./use-agent.svelte";
+import { createAgent } from "./create-agent.svelte";
 import type {
   InterruptEvent,
   InterruptHandlerProps,
@@ -45,14 +45,14 @@ type InterruptResult<TValue, TResult> = InterruptResultFromHandler<
   InterruptHandlerFn<TValue, TResult>
 >;
 
-export interface UseInterruptConfig<TValue = unknown, TResult = never> {
+export interface CreateInterruptConfig<TValue = unknown, TResult = never> {
   handler?: InterruptHandlerFn<TValue, TResult>;
   enabled?: (event: InterruptEvent<TValue>) => boolean;
   agentId?: string;
   renderInChat?: boolean;
 }
 
-export interface UseInterruptResult<TValue = unknown, TResult = never> {
+export interface CreateInterruptResult<TValue = unknown, TResult = never> {
   interrupt: InterruptEvent<TValue> | null;
   result: InterruptResult<TValue, TResult>;
   hasInterrupt: boolean;
@@ -94,22 +94,22 @@ function toLegacyEvent(pending: PendingInterrupt): InterruptEvent {
   return { name: INTERRUPT_EVENT_NAME, value: pending.interrupts[0] };
 }
 
-export function useInterrupt<TValue = unknown, TResult = never>(
-  config: UseInterruptConfig<TValue, TResult> = {},
-): UseInterruptResult<TValue, TResult> {
+export function createInterrupt<TValue = unknown, TResult = never>(
+  config: CreateInterruptConfig<TValue, TResult> = {},
+): CreateInterruptResult<TValue, TResult> {
   const context = getContext<CopilotKitContextValue | null>(COPILOT_KIT_KEY);
   if (!context) {
-    throw new Error("useInterrupt must be used within CopilotKitProvider");
+    throw new Error("createInterrupt must be used within CopilotKitProvider");
   }
 
-  const { agent } = useAgent({ agentId: config.agentId });
+  const agentHandle = createAgent({ agentId: config.agentId });
 
   let pending = $state<PendingInterrupt | null>(null);
   let result = $state<InterruptResult<TValue, TResult>>(null);
   const responses: Record<string, ResumeResponse> = {};
 
   $effect(() => {
-    const resolvedAgent = agent;
+    const resolvedAgent = agentHandle.agent;
     if (!resolvedAgent) {
       pending = null;
       result = null;
@@ -172,7 +172,7 @@ export function useInterrupt<TValue = unknown, TResult = never>(
     const expired = interrupts.find((i) => isInterruptExpired(i));
     if (expired) {
       console.error(
-        `[CopilotKit] useInterrupt: interrupt ${expired.id} expired at ${expired.expiresAt}; not resuming.`,
+        `[CopilotKit] createInterrupt: interrupt ${expired.id} expired at ${expired.expiresAt}; not resuming.`,
       );
       for (const k of Object.keys(responses)) {
         delete responses[k];
@@ -185,7 +185,7 @@ export function useInterrupt<TValue = unknown, TResult = never>(
     for (const k of Object.keys(responses)) {
       delete responses[k];
     }
-    const resolvedAgent = agent;
+    const resolvedAgent = agentHandle.agent;
     if (!resolvedAgent) return;
     try {
       return await context.copilotkit.runAgent({
@@ -194,7 +194,7 @@ export function useInterrupt<TValue = unknown, TResult = never>(
       });
     } catch (err) {
       console.error(
-        "[CopilotKit] useInterrupt resolve: runAgent rejected; clearing pending + rethrowing",
+        "[CopilotKit] createInterrupt resolve: runAgent rejected; clearing pending + rethrowing",
         err,
       );
       pending = null;
@@ -205,7 +205,7 @@ export function useInterrupt<TValue = unknown, TResult = never>(
   const resolve: InterruptResolveFn = async (payload?, interruptId?) => {
     const current = pending;
     if (!current) return;
-    const resolvedAgent = agent;
+    const resolvedAgent = agentHandle.agent;
     if (!resolvedAgent) return;
 
     if (current.kind === "legacy") {
@@ -221,7 +221,7 @@ export function useInterrupt<TValue = unknown, TResult = never>(
         });
       } catch (err) {
         console.error(
-          "[CopilotKit] useInterrupt resolve: runAgent rejected; clearing pending + rethrowing",
+          "[CopilotKit] createInterrupt resolve: runAgent rejected; clearing pending + rethrowing",
           err,
         );
         pending = null;
@@ -231,7 +231,7 @@ export function useInterrupt<TValue = unknown, TResult = never>(
 
     if (current.interrupts.length > 1 && interruptId === undefined) {
       console.warn(
-        `[CopilotKit] useInterrupt: resolve() called without an interruptId while ${current.interrupts.length} interrupts are open; defaulting to the first.`,
+        `[CopilotKit] createInterrupt: resolve() called without an interruptId while ${current.interrupts.length} interrupts are open; defaulting to the first.`,
       );
     }
     const id = interruptId ?? current.interrupts[0]?.id;
@@ -246,7 +246,7 @@ export function useInterrupt<TValue = unknown, TResult = never>(
 
     if (current.kind === "legacy") {
       console.warn(
-        "[CopilotKit] useInterrupt: cancel() is not supported for legacy on_interrupt interrupts; dismissing.",
+        "[CopilotKit] createInterrupt: cancel() is not supported for legacy on_interrupt interrupts; dismissing.",
       );
       pending = null;
       return;
@@ -254,7 +254,7 @@ export function useInterrupt<TValue = unknown, TResult = never>(
 
     if (current.interrupts.length > 1 && interruptId === undefined) {
       console.warn(
-        `[CopilotKit] useInterrupt: cancel() called without an interruptId while ${current.interrupts.length} interrupts are open; defaulting to the first.`,
+        `[CopilotKit] createInterrupt: cancel() called without an interruptId while ${current.interrupts.length} interrupts are open; defaulting to the first.`,
       );
     }
     const id = interruptId ?? current.interrupts[0]?.id;
@@ -305,7 +305,7 @@ export function useInterrupt<TValue = unknown, TResult = never>(
         })
         .catch((err) => {
           if (!cancelled) {
-            console.error("[CopilotKit] useInterrupt handler failed:", err);
+            console.error("[CopilotKit] createInterrupt handler failed:", err);
             result = null;
           }
         });

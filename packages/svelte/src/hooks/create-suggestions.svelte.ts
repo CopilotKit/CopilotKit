@@ -4,23 +4,23 @@ import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { COPILOT_KIT_KEY } from "../providers/context";
 import type { CopilotKitContextValue } from "../providers/context";
 
-export interface UseSuggestionsOptions {
+export interface CreateSuggestionsOptions {
   agentId?: string;
 }
 
-export interface UseSuggestionsResult {
+export interface CreateSuggestionsResult {
   suggestions: Suggestion[];
   isLoading: boolean;
   reloadSuggestions: () => void;
   clearSuggestions: () => void;
 }
 
-export function useSuggestions(
-  options: UseSuggestionsOptions = {},
-): UseSuggestionsResult {
+export function createSuggestions(
+  options: CreateSuggestionsOptions = {},
+): CreateSuggestionsResult {
   const context = getContext<CopilotKitContextValue | null>(COPILOT_KIT_KEY);
   if (!context) {
-    throw new Error("useSuggestions must be used within CopilotKitProvider");
+    throw new Error("createSuggestions must be used within CopilotKitProvider");
   }
 
   let resolvedAgentId = $derived(options.agentId ?? DEFAULT_AGENT_ID);

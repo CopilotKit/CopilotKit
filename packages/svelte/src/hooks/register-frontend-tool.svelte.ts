@@ -4,12 +4,14 @@ import type { CopilotKitContextValue } from "../providers/context";
 import type { SvelteFrontendTool } from "../types";
 import type { SvelteToolCallRenderer } from "../types";
 
-export function useFrontendTool<T extends Record<string, unknown>>(
+export function registerFrontendTool<T extends Record<string, unknown>>(
   tool: SvelteFrontendTool<T>,
 ) {
   const context = getContext<CopilotKitContextValue | null>(COPILOT_KIT_KEY);
   if (!context) {
-    throw new Error("useFrontendTool must be used within CopilotKitProvider");
+    throw new Error(
+      "registerFrontendTool must be used within CopilotKitProvider",
+    );
   }
 
   $effect(() => {
@@ -35,6 +37,9 @@ export function useFrontendTool<T extends Record<string, unknown>>(
 
     return () => {
       core.removeTool(name, tool.agentId);
+      if (tool.render) {
+        core.removeHookRenderToolCall(name, tool.agentId);
+      }
     };
   });
 }

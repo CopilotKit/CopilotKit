@@ -15,10 +15,12 @@ export interface AgentContextInput {
   value: JsonSerializable;
 }
 
-export function useAgentContext(context: AgentContextInput): void {
+export function connectAgentContext(context: AgentContextInput): void {
   const ctx = getContext<CopilotKitContextValue | null>(COPILOT_KIT_KEY);
   if (!ctx) {
-    throw new Error("useAgentContext must be used within CopilotKitProvider");
+    throw new Error(
+      "connectAgentContext must be used within CopilotKitProvider",
+    );
   }
 
   let contextId: string | undefined;
@@ -27,7 +29,12 @@ export function useAgentContext(context: AgentContextInput): void {
     const core = ctx.copilotkit;
     const description = context.description;
     const raw = context.value;
-    const stringValue = raw === undefined ? "" : typeof raw === "string" ? raw : JSON.stringify(raw);
+    const stringValue =
+      raw === undefined
+        ? ""
+        : typeof raw === "string"
+          ? raw
+          : JSON.stringify(raw);
 
     const id = core.addContext({
       description,
