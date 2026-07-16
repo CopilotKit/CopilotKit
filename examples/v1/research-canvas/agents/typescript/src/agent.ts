@@ -36,31 +36,21 @@ export const graph = workflow.compile({
 
 function route(state: AgentState) {
   const messages = state.messages || [];
+  const lastMessage = messages[messages.length - 1];
 
-  if (
-    messages.length > 0 &&
-    messages[messages.length - 1].constructor.name === "AIMessageChunk"
-  ) {
-    const aiMessage = messages[messages.length - 1] as AIMessage;
+  if (lastMessage) {
+    const aiMessage = lastMessage as AIMessage;
+    const toolName = aiMessage.tool_calls?.[0]?.name;
 
-    if (
-      aiMessage.tool_calls &&
-      aiMessage.tool_calls.length > 0 &&
-      aiMessage.tool_calls[0].name === "Search"
-    ) {
+    if (toolName === "Search") {
       return "search_node";
-    } else if (
-      aiMessage.tool_calls &&
-      aiMessage.tool_calls.length > 0 &&
-      aiMessage.tool_calls[0].name === "DeleteResources"
-    ) {
+    } else if (toolName === "DeleteResources") {
       return "delete_node";
+    } else if (toolName) {
+      return "chat_node";
     }
   }
-  if (
-    messages.length > 0 &&
-    messages[messages.length - 1].constructor.name === "ToolMessage"
-  ) {
+  if (lastMessage?.constructor.name === "ToolMessage") {
     return "chat_node";
   }
   return END;
