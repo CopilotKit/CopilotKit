@@ -73,7 +73,7 @@
       />
     </div>
   {:else}
-    <CopilotChatMessageView {messages} {isRunning} />
+    <CopilotChatMessageView {messages} {isRunning} {autoScroll} />
     {#if suggestions.length > 0}
       <CopilotChatSuggestionView
         {suggestions}
