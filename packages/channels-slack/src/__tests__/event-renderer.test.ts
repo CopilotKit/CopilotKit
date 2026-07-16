@@ -535,11 +535,12 @@ describe("createRunRenderer — native status mode", () => {
     expect(f.statuses.at(-1)?.status).toBe("");
   });
 
-  it("finish(): clears the status for a tool-only reply that streamed no text", async () => {
+  it("clears the status for a tool-only reply that streamed no text (real event order)", async () => {
     // Regression: a turn whose reply is tool/file-only (e.g. a posted chart)
     // never streams text, so `onFirstReply` never fires and the native "is
-    // thinking…" status would otherwise linger forever. `finish()` must clear
-    // it as a backstop.
+    // thinking…" status would otherwise linger forever. This exercises the real
+    // event order — RUN_FINISHED fires before finish() — so the status ends
+    // cleared regardless of which hook does it.
     const f = makePaneClient();
     const renderer = createRunRenderer({
       transport: f.transport,
@@ -557,9 +558,37 @@ describe("createRunRenderer — native status mode", () => {
       toolCallName: "make_chart",
       toolCallArgs: {},
     } as never);
+    await sub.onRunFinishedEvent!({} as never);
     // Engine's turn-end hook.
     await renderer.finish!();
-    // The last setStatus must be the clear (empty string).
+    // The status must end cleared (empty string).
+    expect(f.statuses.at(-1)?.status).toBe("");
+    expect(f.statuses.some((s) => s.status === "")).toBe(true);
+  });
+
+  it("finish(): backstop clears a tool-only reply even if RUN_FINISHED never cleared", async () => {
+    // Isolates the finish() backstop: if the RUN_FINISHED clear is somehow
+    // skipped, finish() is still the last line of defense against a lingering
+    // "is thinking…" status. (In practice RUN_FINISHED fires first — see the
+    // test above — but the backstop must stand alone.)
+    const f = makePaneClient();
+    const renderer = createRunRenderer({
+      transport: f.transport,
+      target: { channel: "C1", threadTs: "100.0" },
+      status: { threadTs: "100.0", isPane: false, config: { thinking: "t" } },
+    });
+    const sub = renderer.subscriber;
+    await sub.onRunStartedEvent!({} as never);
+    await sub.onToolCallStartEvent!({
+      event: { toolCallId: "t1", toolCallName: "make_chart" },
+    } as never);
+    await sub.onToolCallEndEvent!({
+      event: { toolCallId: "t1" },
+      toolCallName: "make_chart",
+      toolCallArgs: {},
+    } as never);
+    // No onRunFinishedEvent — finish() alone must clear.
+    await renderer.finish!();
     expect(f.statuses.at(-1)?.status).toBe("");
     expect(f.statuses.some((s) => s.status === "")).toBe(true);
   });

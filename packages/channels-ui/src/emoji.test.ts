@@ -78,6 +78,8 @@ describe("emoji table", () => {
     // Modern: `<codepoint-hex>_<name>` — the leading hex is authoritative.
     expect(normalizeEmoji("1f504_refresh", "teams")).toBe("refresh"); // 🔄
     expect(normalizeEmoji("1f525_fire", "teams")).toBe("fire"); // 🔥
+    // Hex is matched case-insensitively — providers may deliver upper-case.
+    expect(normalizeEmoji("1F504_refresh", "teams")).toBe("refresh");
     // Classic bare names map onto canonical (reusing existing where possible).
     expect(normalizeEmoji("like", "teams")).toBe("thumbs_up");
     expect(normalizeEmoji("heart", "teams")).toBe("heart");

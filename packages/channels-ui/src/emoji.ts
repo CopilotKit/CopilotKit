@@ -96,6 +96,10 @@ export function toPlatformEmoji(
     : (slackToName.get(value) ?? unicodeToName.get(value));
   const entry = name ? byName.get(name) : undefined;
   if (!entry) return undefined;
+  // Teams/WhatsApp fall through to the unicode form here. That's inert today
+  // (both declare `supportsReactions: false`, so nothing sends outbound
+  // reactions through them). TODO: if outbound reactions to Teams land, Teams
+  // expects the `<codepoint>_<name>` token, not raw unicode — special-case it.
   return platform === "slack" ? entry.slack[0] : entry.unicode;
 }
 
@@ -129,8 +133,14 @@ const teamsClassicToName: Record<string, KnownEmoji> = {
   angry: "angry",
 };
 
-/** Teams modern-emoji token: `<unicode-codepoint-hex>_<name>`, e.g. `1f504_refresh`. */
-const TEAMS_CODEPOINT = /^([0-9a-f]{4,6})_/;
+/**
+ * Teams modern-emoji token: `<unicode-codepoint-hex>_<name>`, e.g. `1f504_refresh`.
+ * Case-insensitive — providers may deliver upper- or lower-case hex. Only the
+ * single leading codepoint is parsed; multi-codepoint sequences (ZWJ, keycaps,
+ * flags) resolve by their first codepoint and otherwise pass through unchanged,
+ * which is fine while the table holds only single-codepoint emoji.
+ */
+const TEAMS_CODEPOINT = /^([0-9a-f]{4,6})_/i;
 
 /** Resolve a Unicode token (as-is, then VS16-stripped) to a canonical name. */
 const unicodeName = (token: string): KnownEmoji | undefined =>
