@@ -94,32 +94,32 @@ Use frontend tools when you need your agent to interact with client-side primiti
         ```python title="agent.py"
         from typing import Annotated
 
-        from ag_ui.core import EventType, StateSnapshotEvent
         from fastapi import FastAPI, Header
         from fastapi.responses import StreamingResponse
-        from autogen import ContextVariables, ConversableAgent, LLMConfig
-        from autogen.ag_ui import AGUIStream, RunAgentInput
+        from pydantic import Field
 
-        agent = ConversableAgent(
+        from ag2 import Agent, Context, tool
+        from ag2.ag_ui import AGUIStream, RunAgentInput
+        from ag2.config import OpenAIConfig
+
+        @tool
+        def store_user_choice(
+            choice: Annotated[str, Field(description="The option selected by the user")],
+            context: Context,
+        ) -> str:
+            """Store the latest user choice in shared state."""
+            context.variables["hitl"] = {"latest_choice": choice}
+            return f"Stored choice: {choice}"
+
+        agent = Agent(
             name="assistant",
-            system_message=(
+            prompt=(
                 "When you need the user to choose, call the frontend tool `offerOptions`. "
                 "After it returns, call `store_user_choice` with the selected value."
             ),
-            llm_config=LLMConfig({"model": "gpt-5.4-mini"}),
-            human_input_mode="NEVER",
+            config=OpenAIConfig(model="gpt-4o-mini"),
+            tools=[store_user_choice],
         )
-
-        @agent.register_for_llm(description="Store the latest user choice in shared state.")
-        def store_user_choice(
-            context: ContextVariables,
-            choice: Annotated[str, "The option selected by the user"],
-        ) -> StateSnapshotEvent:
-            snapshot = {"hitl": {"latest_choice": choice}}
-            context["hitl"] = snapshot["hitl"]
-            return StateSnapshotEvent(type=EventType.STATE_SNAPSHOT, snapshot=snapshot)
-
-        agent.register_for_execution(name="store_user_choice")(store_user_choice)
 
         stream = AGUIStream(agent)
         app = FastAPI()
@@ -128,14 +128,14 @@ Use frontend tools when you need your agent to interact with client-side primiti
         async def run_agent(
             message: RunAgentInput,
             accept: str | None = Header(None),
-        ):
+        ) -> StreamingResponse:
             return StreamingResponse(
                 stream.dispatch(message, accept=accept),
                 media_type=accept or "text/event-stream",
             )
         ```
 
-        The frontend tools are automatically populated by CopilotKit through the AG-UI protocol and are available to your AG2 backend.
+        The frontend tools are automatically populated by CopilotKit through the AG-UI protocol and are available to your AG2 backend. When a tool updates `context.variables`, `AGUIStream` automatically emits a `STATE_SNAPSHOT` event at the end of the run — no manual event construction needed.
     </Step>
     <Step>
         ### Try it out

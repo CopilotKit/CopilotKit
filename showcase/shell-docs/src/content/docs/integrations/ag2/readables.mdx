@@ -19,7 +19,7 @@ This context can then be shared with your AG2 backend.
 
 ## Implementation
 <Callout>
-    Check out the [Frontend Data documentation](/integrations/langgraph/agent-app-context) to understand what this is and how to use it.
+    Check out the [Frontend Data documentation](/langgraph/agent-app-context) to understand what this is and how to use it.
 </Callout>
 
 <Callout type="info">
@@ -69,19 +69,17 @@ This context can then be shared with your AG2 backend.
             </Step>
 
             <Step>
-                ### Set up your agent state
-                In AG2, readables arrive as AG-UI context data. Use `ContextVariables` to access that data.
+                ### Read the context from the request
+                In AG2, readables arrive on `RunAgentInput.context` as a list of `{description, value}` items. Read them in your endpoint before dispatching:
 
                 <Tabs groupId="language_ag2_readables_state" items={['Python']} default="Python" persist>
                     <Tab value="Python">
                         ```python title="agent.py"
-                        from autogen import ContextVariables
+                        from ag2.ag_ui import RunAgentInput
 
-                        def get_readable(context: ContextVariables, description: str):
-                            copilot = context.get("copilotkit", {})
-                            context_items = copilot.get("context", [])
+                        def get_readable(message: RunAgentInput, description: str) -> str | None:
                             return next(
-                                (item.get("value") for item in context_items if item.get("description") == description),
+                                (item.value for item in message.context if item.description == description),
                                 None,
                             )
                         ```
@@ -92,40 +90,43 @@ This context can then be shared with your AG2 backend.
 
             <Step>
                 ### Consume the data in your AG2 backend
-                Your AG2 tools and prompts can consume readable context directly from `ContextVariables`.
+                Pass the readable into the run as a conversation variable, then expose it to the LLM through a tool. The `Variable()` annotation injects the value into the tool without the LLM having to pass it around.
 
                 <Tabs groupId="language_ag2_readables_backend" items={['Python']} default="Python" persist>
                     <Tab value="Python">
                         ```python title="agent.py"
+                        import json
+                        from typing import Annotated
+
                         from fastapi import FastAPI, Header
                         from fastapi.responses import StreamingResponse
-                        from autogen import ConversableAgent, LLMConfig
-                        from autogen.agentchat import ContextVariables
-                        from autogen.ag_ui import AGUIStream, RunAgentInput
 
-                        def get_readable(context: ContextVariables, description: str):
-                            copilot = context.get("copilotkit", {})
-                            context_items = copilot.get("context", [])
+                        from ag2 import Agent, Variable, tool
+                        from ag2.ag_ui import AGUIStream, RunAgentInput
+                        from ag2.config import OpenAIConfig
+
+                        def get_readable(message: RunAgentInput, description: str) -> str | None:
                             return next(
-                                (item.get("value") for item in context_items if item.get("description") == description),
-                                [],
+                                (item.value for item in message.context if item.description == description),
+                                None,
                             )
 
-                        agent = ConversableAgent(
+                        @tool
+                        def get_colleagues(
+                            colleagues: Annotated[list, Variable(default_factory=list)],
+                        ) -> list:
+                            """Return the current user's colleagues from CopilotKit readables."""
+                            return colleagues
+
+                        agent = Agent(
                             name="assistant",
-                            system_message=(
+                            prompt=(
                                 "You are a helpful assistant that can help emailing colleagues. "
                                 "Call `get_colleagues` before suggesting recipients."
                             ),
-                            llm_config=LLMConfig({"model": "gpt-5.4-mini"}),
-                            human_input_mode="NEVER",
+                            config=OpenAIConfig(model="gpt-4o-mini"),
+                            tools=[get_colleagues],
                         )
-
-                        @agent.register_for_llm(description="Return the current user's colleagues from CopilotKit readables.")
-                        def get_colleagues(context: ContextVariables) -> list[dict]:
-                            return get_readable(context, "The current user's colleagues") or []
-
-                        agent.register_for_execution(name="get_colleagues")(get_colleagues)
 
                         stream = AGUIStream(agent)
                         app = FastAPI()
@@ -134,9 +135,11 @@ This context can then be shared with your AG2 backend.
                         async def run_agent(
                             message: RunAgentInput,
                             accept: str | None = Header(None),
-                        ):
+                        ) -> StreamingResponse:
+                            raw = get_readable(message, "The current user's colleagues")
+                            colleagues = json.loads(raw) if raw else []
                             return StreamingResponse(
-                                stream.dispatch(message, accept=accept),
+                                stream.dispatch(message, variables={"colleagues": colleagues}, accept=accept),
                                 media_type=accept or "text/event-stream",
                             )
                         ```
@@ -190,35 +193,23 @@ This context can then be shared with your AG2 backend.
 
             <Step>
                 ### Consume the data in your AG2 backend
-                For a minimal backend, parse context directly inside a registered AG2 tool and expose it through AG-UI.
+                For a minimal backend, inject all readables directly into the agent's prompt for the run — no tools required:
 
                 <Tabs groupId="language_ag2_readables_minimal" items={['Python']} default="Python" persist>
                     <Tab value="Python">
                         ```python title="agent.py"
                         from fastapi import FastAPI, Header
                         from fastapi.responses import StreamingResponse
-                        from autogen import ConversableAgent, LLMConfig
-                        from autogen.agentchat import ContextVariables
-                        from autogen.ag_ui import AGUIStream, RunAgentInput
 
-                        agent = ConversableAgent(
+                        from ag2 import Agent
+                        from ag2.ag_ui import AGUIStream, RunAgentInput
+                        from ag2.config import OpenAIConfig
+
+                        agent = Agent(
                             name="assistant",
-                            system_message="You are a helpful assistant.",
-                            llm_config=LLMConfig({"model": "gpt-5.4-mini"}),
-                            human_input_mode="NEVER",
+                            prompt="You are a helpful assistant.",
+                            config=OpenAIConfig(model="gpt-4o-mini"),
                         )
-
-                        @agent.register_for_llm(description="Read colleagues from CopilotKit readable context.")
-                        def list_colleagues(context: ContextVariables) -> list[dict]:
-                            copilot = context.get("copilotkit", {})
-                            context_items = copilot.get("context", [])
-                            entry = next(
-                                (item for item in context_items if item.get("description") == "The current user's colleagues"),
-                                None,
-                            )
-                            return entry.get("value", []) if entry else []
-
-                        agent.register_for_execution(name="list_colleagues")(list_colleagues)
 
                         stream = AGUIStream(agent)
                         app = FastAPI()
@@ -227,9 +218,13 @@ This context can then be shared with your AG2 backend.
                         async def run_agent(
                             message: RunAgentInput,
                             accept: str | None = Header(None),
-                        ):
+                        ) -> StreamingResponse:
+                            # Surface every CopilotKit readable to the LLM as extra prompt context.
+                            readables = [
+                                f"{item.description}: {item.value}" for item in message.context
+                            ]
                             return StreamingResponse(
-                                stream.dispatch(message, accept=accept),
+                                stream.dispatch(message, prompt=readables, accept=accept),
                                 media_type=accept or "text/event-stream",
                             )
                         ```

@@ -38,43 +38,37 @@ You can use this when you want to keep your interface and backend agent state sy
   <Step>
     ### Define the Agent State
 
-    Create your AG2 backend with `ContextVariables` and emit `StateSnapshotEvent` whenever state changes:
+    In AG2, shared state lives in the agent's **conversation variables**. `AGUIStream` synchronizes them in both directions: state written from the UI (`agent.setState`) arrives on `RunAgentInput.state` and is merged into the variables for the run, and variable changes made by tools are streamed back as `STATE_SNAPSHOT` events automatically.
 
     ```python title="agent.py"
     from typing import Annotated
 
-    from ag_ui.core import EventType, StateSnapshotEvent
     from fastapi import FastAPI, Header
     from fastapi.responses import StreamingResponse
-    from autogen import ConversableAgent, LLMConfig
-    from autogen.agentchat import ContextVariables
-    from autogen.ag_ui import AGUIStream, RunAgentInput
+    from pydantic import Field
 
-    def read_state(context: ContextVariables) -> dict:
-        return context.get("agent_state", {"language": "english"})
+    from ag2 import Agent, Context, tool
+    from ag2.ag_ui import AGUIStream, RunAgentInput
+    from ag2.config import OpenAIConfig
 
-    def write_state(context: ContextVariables, state: dict) -> StateSnapshotEvent:
-        context["agent_state"] = state
-        return StateSnapshotEvent(type=EventType.STATE_SNAPSHOT, snapshot=state)
+    @tool
+    def set_language(
+        language: Annotated[str, Field(description="language such as english or spanish")],
+        context: Context,
+    ) -> str:
+        """Update the language in shared state."""
+        context.variables["language"] = language.lower()
+        return f"Language set to {language}"
 
-    agent = ConversableAgent(
+    agent = Agent(
         name="assistant",
-        system_message=(
+        prompt=(
             "You are a helpful assistant for tracking language. "
             "Always respond in the current language."
         ),
-        llm_config=LLMConfig({"model": "gpt-5.4-mini"}),
-        human_input_mode="NEVER",
+        config=OpenAIConfig(model="gpt-4o-mini"),
+        tools=[set_language],
     )
-
-    @agent.register_for_llm(description="Update the language in shared state.")
-    def set_language(
-        context: ContextVariables,
-        language: Annotated[str, "language such as english or spanish"],
-    ) -> StateSnapshotEvent:
-        return write_state(context, {"language": language.lower()})
-
-    agent.register_for_execution(name="set_language")(set_language)
 
     stream = AGUIStream(agent)
     app = FastAPI()
@@ -83,12 +77,16 @@ You can use this when you want to keep your interface and backend agent state sy
     async def run_agent(
         message: RunAgentInput,
         accept: str | None = Header(None),
-    ):
+    ) -> StreamingResponse:
         return StreamingResponse(
             stream.dispatch(message, accept=accept),
             media_type=accept or "text/event-stream",
         )
     ```
+
+    <Callout type="warn">
+      Don't set a default for a UI-written key via `Agent(variables=...)` — agent variables take precedence over the incoming `RunAgentInput.state` on every run, so they would overwrite whatever the UI wrote with `agent.setState`. Provide defaults in the UI (or via `context.variables.setdefault` inside a tool) instead.
+    </Callout>
 
   </Step>
   <Step>
@@ -108,13 +106,13 @@ You can use this when you want to keep your interface and backend agent state sy
     function YourMainContent() {
       const { agent } = useAgent({ // [!code highlight]
         agentId: "my_agent", // MUST match the agent name in CopilotRuntime
-        initialState: { language: "english" }  // optionally provide an initial state
       });
 
-      // ...
+      // default to english until the UI or the agent sets it
+      const language = (agent.state.language as AgentState["language"]) ?? "english";
 
       const toggleLanguage = () => {
-        agent.setState({ language: agent.state.language === "english" ? "spanish" : "english" }); // [!code highlight]
+        agent.setState({ language: language === "english" ? "spanish" : "english" }); // [!code highlight]
       };
 
       // ...
@@ -124,7 +122,7 @@ You can use this when you want to keep your interface and backend agent state sy
         <div>
           <h1>Your main content</h1>
           {/* [!code highlight:2] */}
-          <p>Language: {agent.state.language}</p>
+          <p>Language: {language}</p>
           <button onClick={toggleLanguage}>Toggle Language</button>
         </div>
       );
@@ -186,5 +184,5 @@ function YourMainContent() {
 
 ### Intermediately Stream and Render Agent State
 
-By default, AG2 state updates are visible to CopilotKit whenever your backend emits `StateSnapshotEvent`.
-For smoother long-running workflows, emit additional intermediate snapshots from your backend tools.
+By default, `AGUIStream` emits a `STATE_SNAPSHOT` at the start of the run (only when the agent or `dispatch()` defines initial variables) and at the end of the run (if `context.variables` changed during the run).
+For smoother long-running workflows, emit intermediate snapshots from an async tool with `context.send(AGUIEvent(StateSnapshotEvent(snapshot=...)))` — see [Reading agent state](/ag2/shared-state/read) for a complete example.

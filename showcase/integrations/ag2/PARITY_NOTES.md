@@ -2,11 +2,39 @@
 
 Status of AG2 showcase demos relative to the langgraph-python canonical set.
 
+## ag2 1.0 migration (2026-07)
+
+The whole backend was migrated from the legacy `autogen` API
+(`ConversableAgent` + `LLMConfig` + `ContextVariables`/`ReplyResult`) to
+the ag2 1.0 API (`ag2.Agent` + `ag2.config.OpenAIConfig` + `Context`
+variables). Key behavioral deltas to re-verify in QA:
+
+- **Reasoning**: ag2 1.0's `AGUIStream` maps model reasoning deltas to
+  `REASONING_MESSAGE_*` events natively — the pre-1.0 limitation
+  documented in "Reasoning channel" below no longer applies at the
+  bridge level. The `reasoning-custom`/`reasoning-default` cells still
+  run on the custom `/reasoning` sub-app until re-verified.
+- **Shared-state streaming**: 1.0 emits `STATE_SNAPSHOT` automatically
+  only at run start/end. State-pattern agents (`gen_ui_agent`,
+  `shared_state_read_write`, `subagents`, `agent_config_agent`) now emit
+  explicit intermediate snapshots via
+  `context.send(AGUIEvent(StateSnapshotEvent(...)))` to preserve live
+  per-tool-call UI updates — `shared-state-streaming` in
+  `manifest.yaml#not_supported_features` is a candidate for removal
+  after QA.
+- **Multimodal**: 1.0 maps AG-UI `image`/`document` parts natively
+  (PDFs travel as OpenAI file parts — no pypdf flattening). Only the
+  legacy `binary` mirror parts still need stripping
+  (`_multimodal_normalize.py`, now much smaller).
+- **Loop guard**: 1.0 has no `max_consecutive_auto_reply`; the old
+  runaway-tool-loop caps were dropped (see the guard-rationale comments
+  in the agent modules).
+
 ## Ported
 
-### Batch 1 — Frontend variants over the shared ConversableAgent
+### Batch 1 — Frontend variants over the shared Agent
 
-These demos reuse the existing `src/agents/agent.py` (one `ConversableAgent`
+These demos reuse the existing `src/agents/agent.py` (one ag2 `Agent`
 wrapped with `AGUIStream`). The runtime route registers each agent name,
 all pointing to the same HTTP backend.
 
@@ -34,8 +62,8 @@ all pointing to the same HTTP backend.
 - `gen-ui-tool-based` — already shipped; manifest entry added.
 - `headless-complete` — TRULY headless chat re-composed from low-level
   hooks (`useRenderToolCall`, `useRenderActivityMessage`,
-  `useRenderCustomMessages`). Backend: dedicated AG2
-  `ConversableAgent` (`agents/headless_complete.py`) mounted at
+  `useRenderCustomMessages`). Backend: dedicated ag2
+  `Agent` (`agents/headless_complete.py`) mounted at
   `/headless-complete/` with `get_weather` + `get_stock_price` tools;
   `highlight_note` is registered on the frontend via `useComponent`.
 
@@ -58,12 +86,12 @@ the runtime middleware config doesn't leak into other cells.
   `api/copilotkit-a2ui-fixed-schema/route.ts` with
   `a2ui.injectA2UITool: false`.
 - `mcp-apps` — Backend (`src/agents/mcp_apps_agent.py`) is a no-tools
-  ConversableAgent; the runtime route at
+  ag2 `Agent`; the runtime route at
   `api/copilotkit-mcp-apps/route.ts` configures
   `mcpApps.servers` pointing at the public Excalidraw MCP server, and
   the runtime middleware injects MCP tools at request time.
 - `open-gen-ui`, `open-gen-ui-advanced` — Backends are no-tools
-  ConversableAgents (`src/agents/open_gen_ui_agent.py` and
+  ag2 `Agent`s (`src/agents/open_gen_ui_agent.py` and
   `src/agents/open_gen_ui_advanced_agent.py`). Shared runtime route at
   `api/copilotkit-ogui/route.ts` enables
   `openGenerativeUI: { agents: [...] }` so the runtime middleware
@@ -80,7 +108,7 @@ the runtime middleware config doesn't leak into other cells.
 
 ### Batch 2 — Dedicated AG2 sub-apps
 
-These demos own their own `ConversableAgent(s)` plus FastAPI sub-app
+These demos own their own `Agent`(s) plus FastAPI sub-app
 mounted at a named path (`agent_server.py` mounts each one before the
 catch-all `/`). The Next.js runtime points an `HttpAgent` at the
 matching path so each demo gets its own ContextVariables-backed state
@@ -89,15 +117,15 @@ slot, isolated from the shared default agent.
 - `shared-state-read-write` — bidirectional shared state via AG2
   `ContextVariables` + `ReplyResult`. Agent calls `get_current_preferences`
   to read UI-written prefs and `set_notes` to write back.
-- `subagents` — supervisor `ConversableAgent` that delegates to three
-  sub-`ConversableAgent`s (research/writing/critique) exposed as tools;
+- `subagents` — supervisor `Agent` that delegates to three
+  sub-`Agent`s (research/writing/critique) exposed as tools;
   each delegation appends to `delegations` in shared state for the live
   log UI.
 
 ## Deferred (require per-demo agent specialization)
 
 AG2's AG-UI integration mounts a single `AGUIStream` over one
-`ConversableAgent` at the FastAPI root. Achieving per-demo specialized
+`Agent` at the FastAPI root. Achieving per-demo specialized
 behavior (tailored system prompts, dedicated tool sets, backend-owned
 A2UI tools, MCP integration, vision input, structured-output BYOC, etc.)
 requires adding additional Python agent modules AND either (a) mounting
@@ -112,7 +140,7 @@ The following demos fall into that bucket and are **deferred**, not
 strictly "missing primitive" skips:
 
 - `agent-config` — needs the agent to re-materialize system prompt from
-  forwardedProps on every turn (AG2 ConversableAgent supports this but a
+  forwardedProps on every turn (the ag2 Agent supports this but a
   dedicated runtime wiring is required).
 - `auth` — pure runtime `onRequest` hook demo; dedicated `/api/copilotkit-auth`
   route; agent stays unchanged. Straightforward but requires a new route.
@@ -151,7 +179,13 @@ strictly "missing primitive" skips:
   Marked `not_supported_features`; stub page points at `hitl-in-app` /
   `frontend-tools-async`.
 
-## Reasoning channel — framework-bridge limitation (verified)
+## Reasoning channel — framework-bridge limitation (HISTORICAL, pre-1.0)
+
+> **Superseded by the ag2 1.0 migration.** ag2 1.0's `AGUIStream`
+> (`ag2/ag_ui/stream.py`) maps model reasoning deltas to
+> `REASONING_MESSAGE_*` events natively, so the analysis below — verified
+> against `ag2==0.13.3` — no longer describes the current bridge. Kept
+> for history until QA re-verifies the reasoning cells on 1.0.
 
 Applies to `reasoning-custom`, `tool-rendering-reasoning-chain`,
 and `reasoning-default`. The custom/built-in `reasoningMessage`
@@ -161,8 +195,9 @@ events** — it has no reasoning data to emit. This is the same class of
 gap as pydantic-ai, not a fixture or wiring bug. Do NOT attempt to fix
 it by hacking the aimock fixtures.
 
-Verified against `ag2==0.13.3` / `autogen 0.13.3` (the version pinned by
-`requirements.txt`, `ag2[openai,ag-ui]>=0.9.0`).
+Verified against `ag2==0.13.3` / `autogen 0.13.3` (the version the
+`requirements.txt` pin resolved to at the time; the pin is now
+`ag2[openai,ag-ui]>=1.0.0`).
 
 ### What AGUIStream actually emits
 

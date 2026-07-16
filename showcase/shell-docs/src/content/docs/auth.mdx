@@ -207,20 +207,22 @@ import { CopilotKit } from "@copilotkit/react-core/v2";
 
 ## Backend
 
-The backend has two responsibilities: validate the token before the agent dispatches, and thread the resolved user identity into AG2's `ContextVariables` so tools can read it later.
+The backend has two responsibilities: validate the token before the agent dispatches, and thread the resolved user identity into the run as a **dependency** so tools can read it later. Dependencies stay server-side — unlike conversation variables, they are never streamed to the client as state.
 
 Start by validating the token on AG2's `/chat` endpoint. The `Authorization` header arrives as a normal FastAPI `Header(...)` parameter:
 
 ```python title="backend/server.py"
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import StreamingResponse
-from autogen import ConversableAgent, LLMConfig
-from autogen.ag_ui import AGUIStream, RunAgentInput
 
-agent = ConversableAgent(
+from ag2 import Agent
+from ag2.ag_ui import AGUIStream, RunAgentInput
+from ag2.config import OpenAIConfig
+
+agent = Agent(
     name="assistant",
-    system_message="You are a helpful assistant.",
-    llm_config=LLMConfig({"model": "gpt-5.4-mini"}),
+    prompt="You are a helpful assistant.",
+    config=OpenAIConfig(model="gpt-4o-mini"),
 )
 
 stream = AGUIStream(agent)
@@ -236,38 +238,40 @@ async def run_agent(
     message: RunAgentInput,
     accept: str | None = Header(None),
     authorization: str | None = Header(None),
-):
+) -> StreamingResponse:
     if not authorization:
         raise HTTPException(status_code=401, detail="Missing authorization header")
 
     token = authorization.replace("Bearer ", "")
     user_info = validate_your_token(token)
-    # use user_info to scope tools, state, and data access before dispatch
 
     return StreamingResponse(
-        stream.dispatch(message, accept=accept),
+        stream.dispatch(message, dependencies={"auth_user": user_info}, accept=accept),
         media_type=accept or "text/event-stream",
     )
 ```
 
-Once the token is validated, AG2's tools can read the user identity straight out of `ContextVariables`. This is how you make individual tool calls aware of who's asking, without having to thread the user object manually through every helper:
+Once the token is validated, AG2's tools can request the user identity with the `Inject` annotation. This is how you make individual tool calls aware of who's asking, without having to thread the user object manually through every helper — and without exposing it to the LLM or the client:
 
 ```python title="backend/tools.py"
 from typing import Annotated
-from autogen import ContextVariables
 
-@agent.register_for_llm(description="Return account data for the authenticated user.")
+from ag2 import Inject, tool
+
+@tool
 def get_account_data(
-    context: ContextVariables,
-    account_id: Annotated[str, "The target account id"],
+    account_id: str,
+    auth_user: Annotated[dict, Inject("auth_user")],
 ) -> dict:
-    user = context.get("auth_user")
-    if not user:
+    """Return account data for the authenticated user."""
+    if not auth_user:
         return {"error": "unauthorized"}
-    if account_id not in user.get("allowed_accounts", []):
+    if account_id not in auth_user.get("allowed_accounts", []):
         return {"error": "forbidden"}
-    return {"account_id": account_id, "owner": user["user_id"]}
+    return {"account_id": account_id, "owner": auth_user["user_id"]}
 ```
+
+Register the tool on the agent with `tools=[get_account_data]`.
 
 </WhenFrameworkHas>
 

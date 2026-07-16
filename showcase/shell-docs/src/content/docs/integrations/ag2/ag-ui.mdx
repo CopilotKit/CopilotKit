@@ -5,4 +5,8 @@ description: "The AG-UI protocol connects your frontend to your AI agents via ev
 ---
 import AGUI from "@/snippets/shared/backend/ag-ui.mdx";
 
+<Callout type="info">
+  On the AG2 side, `AGUIStream` (from the `ag2.ag_ui` module, AG2 1.0+) exposes any agent as an AG-UI endpoint that CopilotKit consumes directly — see the [quickstart](/ag2/quickstart) and the <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
+</Callout>
+
 <AGUI components={props.components} />

@@ -4,15 +4,15 @@ Agent Server for AG2
 FastAPI server that hosts the AG2 agent backends.
 The Next.js CopilotKit runtime proxies requests here via AG-UI protocol.
 
-Most demos share a single ConversableAgent at the root path. Demos that
+Most demos share a single ag2 Agent at the root path. Demos that
 require dedicated state mechanics or multi-agent topologies are mounted
 as their own sub-apps at distinct paths so each demo gets its own
-ContextVariables-backed state slot.
+conversation-variables state slot.
 """
 
 # ORDER-CRITICAL: load .env BEFORE any agent module imports. The agent
 # modules (agents/agent.py et al.) construct module-level
-# ``openai.AsyncOpenAI()`` / autogen ``LLMConfig`` clients that read
+# ``openai.AsyncOpenAI()`` / ag2 ``OpenAIConfig`` clients that read
 # ``OPENAI_API_KEY`` (and friends) at construction time. If we import the
 # agent modules before calling ``load_dotenv()``, those module-level
 # clients latch onto whatever the OS environment had at import time
@@ -40,7 +40,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
 # ORDER-CRITICAL: install the global httpx hook BEFORE any agent module
-# imports. The autogen / openai SDK construct their httpx client lazily
+# imports. The ag2 / openai SDK construct their httpx client lazily
 # per-call, but other integrations construct at module-import time;
 # keeping the patch at the top of agent_server.py is the consistent
 # placement across all Python showcase integrations and is harmless here.
@@ -53,12 +53,13 @@ from agents._header_forwarding import (
 from agents._request_context import RequestUserMessageMiddleware
 
 install_global_httpx_hook()
-# AG2-specific: autogen's ConversableAgent.a_generate_oai_reply dispatches
-# the underlying sync LLM call onto the default ThreadPoolExecutor via
-# loop.run_in_executor(...), which does NOT propagate ContextVars to the
-# worker thread. Without this, the forwarded-header ContextVar set on the
-# inbound request task is empty by the time the outbound httpx hook fires,
-# and aimock can't match the right fixture for the request.
+# ag2 1.0's LLM calls are natively async (AsyncOpenAI), so the old autogen
+# sync-call-in-executor path is gone. The patch is kept as defense-in-depth
+# for any code that still dispatches sync work through a bare
+# loop.run_in_executor(...) (which does NOT propagate ContextVars to the
+# worker thread) — without propagation the forwarded-header ContextVar
+# would be empty when the outbound httpx hook fires, and aimock couldn't
+# match the right fixture for the request.
 install_executor_contextvar_propagation()
 
 from agents.agent import stream as default_stream
@@ -138,8 +139,8 @@ app.add_middleware(CvdiagBackendMiddleware)
 
 # R2-A3: Capture the latest user message from each inbound RunAgentInput POST
 # into a per-request ContextVar so tool handlers (e.g. generate_a2ui) can read
-# the per-request prompt without consulting autogen's shared, race-prone
-# ``ConversableAgent.chat_messages`` state. See agents/_request_context.py.
+# the per-request prompt without consulting any shared, race-prone
+# agent-held conversation state. See agents/_request_context.py.
 # Added AFTER the BaseHTTPMiddlewares above so it wraps them (raw ASGI on
 # the outside preserves ContextVar propagation across the anyio
 # TaskGroups they spawn internally).
@@ -173,10 +174,10 @@ app.mount(
     "/tool-rendering-reasoning-chain",
     tool_rendering_reasoning_chain_app,
 )
-# Reasoning-aware route. AG2's stock AGUIStream emits no REASONING_MESSAGE_*
-# events (and autogen drops the model's reasoning_content channel), so the
-# reasoning-custom / reasoning-default cells use this custom sub-app instead.
-# Mirrors agno's /reasoning/agui mount.
+# Reasoning-aware route. ag2 1.0's AGUIStream maps model reasoning deltas
+# to REASONING_MESSAGE_* events natively, but the reasoning-custom /
+# reasoning-default cells keep using this custom sub-app until QA
+# re-verifies the native path. Mirrors agno's /reasoning/agui mount.
 app.mount("/reasoning", reasoning_app)
 app.mount("/agent-config", agent_config_app)
 app.mount("/multimodal", multimodal_app)

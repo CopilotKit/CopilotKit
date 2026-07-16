@@ -6,10 +6,10 @@ Mirrors `langgraph-python/src/agents/gen_ui_agent.py` and
 `agent.state.steps` via `useAgent` and renders a live progress card; the
 backend's job is to plan exactly 3 steps and walk each
 pending -> in_progress -> completed by calling the `set_steps` tool.
-Every call to `set_steps` returns a `ReplyResult` whose
-`context_variables` carry the updated `steps` array, which AG2's
-`AGUIStream` surfaces back to the UI as a state snapshot so the
-progress card re-renders in-place after every transition.
+Every call to `set_steps` writes the updated `steps` array into
+`Context.variables` and explicitly sends an intermediate
+`StateSnapshotEvent` through `context.send`, so the progress card
+re-renders in-place after every transition.
 
 State shape (mirrors LGP `GenUiAgentState.steps`):
     [
@@ -18,40 +18,45 @@ State shape (mirrors LGP `GenUiAgentState.steps`):
     ]
 
 AG2 specifics:
-- Uses `ContextVariables` + `ReplyResult` (same mechanism as
-  `shared_state_read_write.py`) to publish state. AG2's AG-UI adapter
-  emits a STATE_SNAPSHOT event after every `ReplyResult` so the
-  frontend sees the full `steps` list on each `set_steps` call.
+- Uses `Context.variables` (same mechanism as
+  `shared_state_read_write.py`) to publish state. AG2 1.0's AG-UI adapter
+  merges incoming `RunAgentInput.state` into the variables at run start
+  and emits a STATE_SNAPSHOT automatically only at run end (if the
+  variables changed), so `set_steps` sends its own snapshot after every
+  mutation to keep the frontend's `steps` list live per call.
 - Mounts a dedicated FastAPI sub-app so this demo gets its own
-  ContextVariables slot, isolated from the shared default agent.
+  state slot, isolated from the shared default agent.
 """
 
 import logging
 from textwrap import dedent
 from typing import Annotated, List
 
-from autogen import ConversableAgent, LLMConfig
-from autogen.ag_ui import AGUIStream
-from autogen.agentchat import ContextVariables, ReplyResult
-from autogen.tools import tool
+from ag2 import Agent, Context, tool
+from ag2.ag_ui import AGUIEvent, AGUIStream
+from ag2.config import OpenAIConfig
+from ag_ui.core import StateSnapshotEvent
 from fastapi import FastAPI
+from pydantic import Field
 
 logger = logging.getLogger(__name__)
 
 
-@tool()
+@tool
 async def set_steps(
-    context_variables: ContextVariables,
+    context: Context,
     steps: Annotated[
         List[dict],
-        (
-            "The complete source of truth for the plan: every step "
-            "with `id`, `title`, and `status` ('pending' | "
-            "'in_progress' | 'completed'). Always include the FULL "
-            "list on every call, never a diff."
+        Field(
+            description=(
+                "The complete source of truth for the plan: every step "
+                "with `id`, `title`, and `status` ('pending' | "
+                "'in_progress' | 'completed'). Always include the FULL "
+                "list on every call, never a diff."
+            )
         ),
     ],
-) -> ReplyResult:
+) -> str:
     """Publish the current plan and step statuses.
 
     Call this every time a step transitions (including the first
@@ -72,11 +77,11 @@ async def set_steps(
                 "status": str(step.get("status", "pending")),
             }
         )
-    context_variables.update({"steps": cleaned})
-    return ReplyResult(
-        message=f"Published {len(cleaned)} step(s).",
-        context_variables=context_variables,
-    )
+    context.variables.update({"steps": cleaned})
+    # AG2 1.0 only snapshots state automatically at run end; emit an explicit
+    # intermediate snapshot so the progress card updates on every transition.
+    await context.send(AGUIEvent(StateSnapshotEvent(snapshot=dict(context.variables))))
+    return f"Published {len(cleaned)} step(s)."
 
 
 SYSTEM_PROMPT = dedent(
@@ -109,16 +114,16 @@ SYSTEM_PROMPT = dedent(
 ).strip()
 
 
-agent = ConversableAgent(
+agent = Agent(
     name="gen_ui_agent",
-    system_message=SYSTEM_PROMPT,
-    llm_config=LLMConfig({"model": "gpt-4o-mini", "stream": True}),
-    human_input_mode="NEVER",
-    # Nominal cost is ~7 set_steps cycles + 1 final model turn.
-    # 15 gives ~2x headroom for retries inside the LLM loop while still
-    # bounding pathological runaway behavior (Railway log-rate limits).
-    max_consecutive_auto_reply=15,
-    functions=[set_steps],
+    prompt=SYSTEM_PROMPT,
+    config=OpenAIConfig(model="gpt-4o-mini", streaming=True),
+    # Nominal cost is ~7 set_steps cycles + 1 final model turn. The 0.x
+    # version capped runaway behavior with max_consecutive_auto_reply=15
+    # (~2x headroom for retries); AG2 1.0 has no direct per-turn
+    # auto-reply cap, so the system prompt's explicit termination rules
+    # are the guard against pathological runaway (Railway log-rate limits).
+    tools=[set_steps],
 )
 
 stream = AGUIStream(agent)

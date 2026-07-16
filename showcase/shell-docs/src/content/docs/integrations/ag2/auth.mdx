@@ -65,14 +65,15 @@ Pass your authentication token via the `properties` prop:
 ```python
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import StreamingResponse
-from autogen import ConversableAgent, LLMConfig
-from autogen.ag_ui import AGUIStream, RunAgentInput
 
-agent = ConversableAgent(
+from ag2 import Agent
+from ag2.ag_ui import AGUIStream, RunAgentInput
+from ag2.config import OpenAIConfig
+
+agent = Agent(
     name="assistant",
-    system_message="You are a helpful assistant.",
-    llm_config=LLMConfig({"model": "gpt-5.4-mini"}),
-    human_input_mode="NEVER",
+    prompt="You are a helpful assistant.",
+    config=OpenAIConfig(model="gpt-4o-mini"),
 )
 
 stream = AGUIStream(agent)
@@ -89,16 +90,18 @@ async def run_agent(
     message: RunAgentInput,
     accept: str | None = Header(None),
     authorization: str | None = Header(None),
-):
+) -> StreamingResponse:
     if not authorization:
         raise HTTPException(status_code=401, detail="Missing authorization header")
 
     token = authorization.replace("Bearer ", "")
     user_info = validate_your_token(token)
 
-    # Use user_info to scope tools, state, and data access before dispatch.
+    # Pass the authenticated user into the run as a dependency, so tools
+    # can scope data access to this user. Dependencies stay server-side —
+    # unlike variables, they are never streamed to the client as state.
     return StreamingResponse(
-        stream.dispatch(message, accept=accept),
+        stream.dispatch(message, dependencies={"auth_user": user_info}, accept=accept),
         media_type=accept or "text/event-stream",
     )
 ```
@@ -109,21 +112,24 @@ Use validated user identity to scope tool calls and data access:
 
 ```python
 from typing import Annotated
-from autogen import ContextVariables
 
-@agent.register_for_llm(description="Return account data for the authenticated user.")
+from ag2 import Inject, tool
+
+@tool
 def get_account_data(
-    context: ContextVariables,
-    account_id: Annotated[str, "The target account id"],
+    account_id: str,
+    auth_user: Annotated[dict, Inject("auth_user")],
 ) -> dict:
-    user = context.get("auth_user")
-    if not user:
+    """Return account data for the authenticated user."""
+    if not auth_user:
         return {"error": "unauthorized"}
     # Example check: ensure user can access this account
-    if account_id not in user.get("allowed_accounts", []):
+    if account_id not in auth_user.get("allowed_accounts", []):
         return {"error": "forbidden"}
-    return {"account_id": account_id, "owner": user["user_id"]}
+    return {"account_id": account_id, "owner": auth_user["user_id"]}
 ```
+
+Register the tool on the agent with `tools=[get_account_data]`. The `Inject("auth_user")` annotation pulls the dependency you passed to `stream.dispatch(...)` — it is invisible to the LLM and never leaves the server.
 
 ## Self-hosted Deployment
 
@@ -134,14 +140,15 @@ def get_account_data(
 ```python
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import StreamingResponse
-from autogen import ConversableAgent, LLMConfig
-from autogen.ag_ui import AGUIStream, RunAgentInput
 
-agent = ConversableAgent(
+from ag2 import Agent
+from ag2.ag_ui import AGUIStream, RunAgentInput
+from ag2.config import OpenAIConfig
+
+agent = Agent(
     name="assistant",
-    system_message="You are a helpful assistant.",
-    llm_config=LLMConfig({"model": "gpt-5.4-mini"}),
-    human_input_mode="NEVER",
+    prompt="You are a helpful assistant.",
+    config=OpenAIConfig(model="gpt-4o-mini"),
 )
 
 stream = AGUIStream(agent)
@@ -152,7 +159,7 @@ async def run_agent(
     message: RunAgentInput,
     accept: str | None = Header(None),
     authorization: str | None = Header(None),
-):
+) -> StreamingResponse:
     if not authorization:
         raise HTTPException(status_code=401, detail="Unauthorized")
     # Validate token here, then dispatch
@@ -164,7 +171,7 @@ async def run_agent(
 
 ### Access User in Agent
 
-After token validation, persist user identity in request-scoped context and enforce access checks in AG2 tools/state reads.
+After token validation, pass user identity as a request-scoped dependency (`stream.dispatch(..., dependencies={"auth_user": user_info})`) and enforce access checks in AG2 tools via `Inject`.
 
 ## Universal Authentication Pattern
 
@@ -182,7 +189,7 @@ Then:
 
 - Read `authorization` on `/chat`
 - Validate token before `stream.dispatch(...)`
-- Attach user context for tool/state authorization
+- Attach the user as a dependency (`dependencies={"auth_user": ...}`) for tool authorization
 - Deny unauthorized or out-of-scope access
 
 ## Security Notes

@@ -14,9 +14,9 @@
  *   cheaper text-only models.
  * - Dedicated LangGraph agent at `src/agents/multimodal_agent.py` under
  *   the slug `multimodal-demo`. The agent is registered in langgraph.json
- *   under the graph id `multimodal`. Images are forwarded to the model
- *   natively; PDFs are flattened to text on the Python side via `pypdf`
- *   for provider-agnostic behavior.
+ *   under the graph id `multimodal`. ag2 1.0 maps attachments natively:
+ *   images go to the vision model, PDFs travel as OpenAI file parts —
+ *   no server-side flattening needed.
  * - Sample files live at `/demo-files/sample.png` and `/demo-files/sample.pdf`
  *   (see `public/demo-files/`). The sample-buttons component fetches them
  *   client-side, wraps the blob in a File, and drives the same hidden

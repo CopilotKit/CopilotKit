@@ -21,13 +21,12 @@ not_supported_features:
   - shared-state-streaming
   - gen-ui-interrupt
   - interrupt-headless
-  # AG2's ConversableAgent/AGUIStream does not emit AG-UI REASONING_MESSAGE_*
-  # events (documented in src/agents/tool_rendering_reasoning_chain.py) — the
-  # reasoning-block can never mount, so any reasoning-bearing pill is
-  # upstream-incapable until autogen maps reasoning deltas to AG-UI events.
-  # The reasoning-default-render / agentic-chat-reasoning demos remain wired
-  # on disk but cannot stream reasoning text; tool-rendering-reasoning-chain's
-  # tool loop works, but its reasoning slot is degraded for the same reason.
+  # HISTORICAL (pre-1.0): the old autogen AGUIStream emitted no AG-UI
+  # REASONING_MESSAGE_* events. ag2 1.0 maps reasoning deltas natively
+  # (see PARITY_NOTES.md "ag2 1.0 migration"), so these flags — and
+  # shared-state-streaming above, now backed by explicit intermediate
+  # STATE_SNAPSHOTs — are candidates for removal once QA re-verifies the
+  # demos against ag2>=1.0.0. Kept conservative until then.
   - reasoning-default-render
   - agentic-chat-reasoning
   - tool-rendering-reasoning-chain

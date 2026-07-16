@@ -36,24 +36,25 @@ Start your AG2 backend with a `/chat` endpoint and connect CopilotKit to that en
 
         from fastapi import FastAPI, Header
         from fastapi.responses import StreamingResponse
-        from autogen import ConversableAgent, LLMConfig
-        from autogen.ag_ui import AGUIStream, RunAgentInput
+        from pydantic import Field
 
-        agent = ConversableAgent(
-            name="assistant",
-            system_message="You are a helpful assistant.",
-            llm_config=LLMConfig({"model": "gpt-5.4-mini"}),
-            human_input_mode="NEVER",
-        )
+        from ag2 import Agent, tool
+        from ag2.ag_ui import AGUIStream, RunAgentInput
+        from ag2.config import OpenAIConfig
 
-        @agent.register_for_llm(
-            description="Get the weather for a given location. Ensure location is fully spelled out."
-        )
-        def get_weather(location: Annotated[str, "Fully spelled out location"]) -> str:
+        @tool
+        def get_weather(
+            location: Annotated[str, Field(description="Fully spelled out location")],
+        ) -> str:
+            """Get the weather for a given location. Ensure location is fully spelled out."""
             return f"The weather in {location} is sunny."
 
-        # Register the same function for execution on this backend process.
-        agent.register_for_execution(name="get_weather")(get_weather)
+        agent = Agent(
+            name="assistant",
+            prompt="You are a helpful assistant.",
+            config=OpenAIConfig(model="gpt-4o-mini"),
+            tools=[get_weather],
+        )
 
         stream = AGUIStream(agent)
         app = FastAPI()
@@ -62,7 +63,7 @@ Start your AG2 backend with a `/chat` endpoint and connect CopilotKit to that en
         async def run_agent(
             message: RunAgentInput,
             accept: str | None = Header(None),
-        ):
+        ) -> StreamingResponse:
             return StreamingResponse(
                 stream.dispatch(message, accept=accept),
                 media_type=accept or "text/event-stream",
@@ -91,11 +92,11 @@ const YourMainContent = () => {
   // [!code highlight:12]
   useRenderTool({
     name: "get_weather",
-    render: ({status, args}) => {
+    render: ({status, parameters}) => {
       return (
         <p className="text-gray-500 mt-2">
           {status !== "complete" && "Calling weather API..."}
-          {status === "complete" && `Called the weather API for ${args.location}.`}
+          {status === "complete" && `Called the weather API for ${parameters.location}.`}
         </p>
       );
     },
