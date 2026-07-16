@@ -102,15 +102,13 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
       FAILS=$((FAILS + 1))
       echo "[watchdog] Agent health probe failed (count=$FAILS)"
       if [ $FAILS -ge 3 ]; then
-        WEDGE_ENV="${RAILWAY_ENVIRONMENT_NAME:-$(hostname)}"
         echo "[watchdog] Agent unresponsive for ~90s — killing PID $AGENT_PID to trigger container restart"
-        # LOUD alert before we kill. Never let a failed/absent webhook crash
-        # the watchdog — only attempt if the var is set, and swallow errors.
-        if [ -n "$SLACK_WEBHOOK_OSS_ALERTS" ]; then
-          curl -fsS -m 10 -X POST -H 'Content-type: application/json' \
-            --data "{\"text\":\"[claude-sdk-python] env=${WEDGE_ENV} agent :8000 unresponsive ~90s — restarting (agent PID $AGENT_PID)\"}" \
-            "$SLACK_WEBHOOK_OSS_ALERTS" > /dev/null 2>&1 || true
-        fi
+        # NOTE: no Slack alert on the :8000 agent branch. The agent event-loop
+        # wedge is self-healed silently by this kill-restart (the sync-LLM-on-
+        # the-loop root cause is fixed in src/agents/*, so a rare residual hiccup
+        # here should not page). The LOUD #oss-alerts page is kept ONLY on the
+        # public $PORT /api/health branch below, which is the surface real users
+        # and the Railway healthcheck hit.
         kill -9 $AGENT_PID 2>/dev/null || true
         break
       fi

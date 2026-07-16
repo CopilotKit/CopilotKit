@@ -16,6 +16,7 @@ Mirrors the langgraph-python and ag2 references.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import traceback
@@ -284,7 +285,13 @@ async def run_a2ui_dynamic_agent(input_data: RunAgentInput) -> AsyncIterator[str
             if tc["name"] == "generate_a2ui":
                 ctx = tc["input"].get("context", "")
                 try:
-                    result_obj = _generate_a2ui(ctx, conversation_messages=messages)
+                    # Offload to a worker thread: _generate_a2ui runs a
+                    # synchronous anthropic.Anthropic() LLM round-trip, which
+                    # would otherwise block the uvicorn event loop and wedge the
+                    # :8000 /health endpoint under load.
+                    result_obj = await asyncio.to_thread(
+                        _generate_a2ui, ctx, conversation_messages=messages
+                    )
                     result_text = json.dumps(result_obj)
                 except Exception as exc:  # noqa: BLE001 - surface as tool result
                     result_text = json.dumps(
