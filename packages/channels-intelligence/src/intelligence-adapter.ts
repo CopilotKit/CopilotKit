@@ -482,6 +482,10 @@ export class IntelligenceAdapter implements PlatformAdapter {
           rawEmoji: env.rawEmoji,
           added: env.added,
           user,
+          // Source provider (e.g. "teams"/"slack") so core normalizes by it —
+          // this adapter's own `platform` is "intelligence", not an emoji
+          // platform, so without this the managed path would never normalize.
+          platform: env.platform,
           conversationKey: env.conversationKey,
           replyTarget,
           messageId: env.messageId,

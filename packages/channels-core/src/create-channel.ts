@@ -62,6 +62,8 @@ const EMOJI_PLATFORMS: ReadonlySet<EmojiPlatform> = new Set([
   "slack",
   "discord",
   "telegram",
+  "teams",
+  "whatsapp",
 ]);
 function isEmojiPlatform(platform: string): platform is EmojiPlatform {
   return EMOJI_PLATFORMS.has(platform as EmojiPlatform);
@@ -681,10 +683,15 @@ export function createChannel<
           await h({ thread, user: evt.user });
       },
       async onReaction(evt: IncomingReaction) {
-        // Only normalize when the adapter's platform is one the emoji table
+        // Normalize by the reaction's SOURCE platform: direct adapters omit
+        // `evt.platform`, so it falls back to `adapter.platform`; the managed
+        // path (adapter.platform === "intelligence") sets `evt.platform` to the
+        // originating provider (e.g. "teams"/"slack") so central normalization
+        // still runs. Only normalize when that platform is one the emoji table
         // knows; otherwise the raw token passes through unchanged.
-        const normalized = isEmojiPlatform(adapter.platform)
-          ? normalizeEmoji(evt.rawEmoji, adapter.platform)
+        const sourcePlatform = evt.platform ?? adapter.platform;
+        const normalized = isEmojiPlatform(sourcePlatform)
+          ? normalizeEmoji(evt.rawEmoji, sourcePlatform)
           : undefined;
         const value: EmojiValue = normalized ?? evt.rawEmoji;
         const thread = makeThread(
