@@ -50,6 +50,25 @@ exercising the sync-client-on-the-loop blocking path.)
 | `run.sh`            | Driver for `server.py`. `FIXED=0` asserts wedge≥1; `FIXED=1` asserts wedge==0.                                                                                                              |
 | `run_prod.sh`       | Driver for `prod_server.py`. `EXPECT=green` asserts wedge==0; `EXPECT=red` asserts wedge≥1. In `MODE=direct` the harness owns RED/GREEN via `FIXED` (deterministic mutation guard).         |
 | `load.sh`           | Fires `CONCURRENCY` concurrent `POST /generate`.                                                                                                                                            |
+| `slow_openai.py`    | OpenAI-compatible mock; every `POST /v1/chat/completions` sleeps `SLOW_SECONDS` and returns a forced `render_a2ui` tool call. Sibling of `slow_anthropic.py` for the OpenAI-SDK wedge sites. |
+| `prod_server_openai.py` | Drives the **real** production OpenAI-SDK `_generate_a2ui` sync fn selected by `TARGET` (`ag2-beautiful-chat` \| `llamaindex-agent` \| `llamaindex-a2ui`). `MODE=direct`; `FIXED` toggles the call shape. |
+| `run_prod_openai.sh` | Driver for `prod_server_openai.py`. `EXPECT=green` asserts wedge==0 AND `tool_dispatch_fired>=1`; `EXPECT=red` asserts wedge≥1. `FIXED` (aligned to `EXPECT`) owns the deterministic mutation guard. |
+
+### OpenAI-SDK wedge sites (ag2 + llamaindex fold-in)
+
+The same class of bug — a synchronous OpenAI SDK `.chat.completions.create()`
+inside an `async def generate_a2ui` running on the uvicorn loop — was found and
+fixed in three more integrations:
+
+- `integrations/ag2/src/agents/beautiful_chat.py`
+- `integrations/llamaindex/src/agents/agent.py`
+- `integrations/llamaindex/src/agents/a2ui_dynamic.py`
+
+Each now extracts the blocking round-trip into a sync `_generate_a2ui` and the
+async `generate_a2ui` wrapper offloads it with `await asyncio.to_thread(...)`.
+The `run_prod_openai.sh` driver exercises the REAL production `_generate_a2ui`
+(via `OPENAI_BASE_URL` → `slow_openai.py`) for each `TARGET`, RED (sync-on-loop)
+→ GREEN (to_thread), with the `tool_dispatch_fired>=1` anti-false-green guard.
 
 ## Prerequisites
 
@@ -72,10 +91,23 @@ cd showcase/tests/repro/async-wedge
 FIXED=0 ./run.sh          # RED   — expect wedge≥1
 FIXED=1 ./run.sh          # GREEN — expect wedge==0
 
-# Real production code
+# Real production code (claude-sdk-python)
 EXPECT=green MODE=generator ./run_prod.sh          # real generator, fix in source
 EXPECT=red   MODE=direct    ./run_prod.sh          # mutation guard: real fn sync-on-loop MUST wedge
 EXPECT=green MODE=direct    ./run_prod.sh          # real fn via to_thread MUST NOT wedge
+
+# Real production code (OpenAI-SDK sites: ag2 + llamaindex)
+# Build a shared venv once (union of both integrations' requirements):
+#   uv venv --python 3.12 .venv-repro-openai
+#   uv pip install --python .venv-repro-openai/bin/python \
+#     -r ../../../integrations/ag2/requirements.txt \
+#     -r ../../../integrations/llamaindex/requirements.txt
+TARGET=ag2-beautiful-chat EXPECT=red   ./run_prod_openai.sh   # MUST wedge
+TARGET=ag2-beautiful-chat EXPECT=green ./run_prod_openai.sh   # MUST NOT wedge
+TARGET=llamaindex-agent   EXPECT=red   ./run_prod_openai.sh
+TARGET=llamaindex-agent   EXPECT=green ./run_prod_openai.sh
+TARGET=llamaindex-a2ui    EXPECT=red   ./run_prod_openai.sh
+TARGET=llamaindex-a2ui    EXPECT=green ./run_prod_openai.sh
 ```
 
 Each driver exits non-zero if the observed outcome contradicts the expectation,

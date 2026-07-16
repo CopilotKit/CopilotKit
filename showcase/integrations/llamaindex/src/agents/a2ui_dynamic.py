@@ -58,6 +58,7 @@ Both changes live entirely in this integration; no shared/`@ag-ui` package is
 touched.
 """
 
+import asyncio
 import json
 import logging
 import os
@@ -312,21 +313,13 @@ def _make_a2ui_router(
     return router
 
 
-async def generate_a2ui(
-    context: Annotated[
-        str,
-        "Short description of what the UI should show; mirrors the last user "
-        "message so the secondary LLM has full context.",
-    ],
-) -> str:
-    """Generate dynamic A2UI components based on the conversation.
+def _generate_a2ui(context: str) -> str:
+    """Blocking secondary-LLM round-trip for `generate_a2ui`.
 
-    Invokes a secondary LLM bound to `_design_a2ui_surface` (tool_choice
-    forced) and returns the planner's `render_a2ui` args (surfaceId, catalogId,
-    components, data) as JSON. The workflow override
-    (`_A2UIRenderToolCallWorkflow.aggregate_tool_calls`) parses this result and
-    RE-EMITS it as a streamed `render_a2ui` tool-CALL that the A2UI middleware
-    watches and mounts the surface from.
+    Kept synchronous and offloaded via ``asyncio.to_thread`` from the async
+    tool wrapper below: the synchronous ``OpenAI().chat.completions`` call
+    would otherwise block the uvicorn asyncio event loop for the full LLM
+    round-trip, wedging the ``:8000`` ``/health`` endpoint under load.
     """
     from openai import OpenAI as OpenAIClient
 
@@ -391,6 +384,28 @@ async def generate_a2ui(
     # as a streamed `render_a2ui` tool-CALL (the middleware parses `components`
     # from the streamed args to mount the surface).
     return json.dumps(args)
+
+
+async def generate_a2ui(
+    context: Annotated[
+        str,
+        "Short description of what the UI should show; mirrors the last user "
+        "message so the secondary LLM has full context.",
+    ],
+) -> str:
+    """Generate dynamic A2UI components based on the conversation.
+
+    Invokes a secondary LLM bound to `_design_a2ui_surface` (tool_choice
+    forced) and returns the planner's `render_a2ui` args (surfaceId, catalogId,
+    components, data) as JSON. The workflow override
+    (`_A2UIRenderToolCallWorkflow.aggregate_tool_calls`) parses this result and
+    RE-EMITS it as a streamed `render_a2ui` tool-CALL that the A2UI middleware
+    watches and mounts the surface from.
+
+    The blocking LLM round-trip runs in ``_generate_a2ui`` and is offloaded
+    via ``asyncio.to_thread`` so it never blocks the event loop.
+    """
+    return await asyncio.to_thread(_generate_a2ui, context)
 
 
 SYSTEM_PROMPT = (
