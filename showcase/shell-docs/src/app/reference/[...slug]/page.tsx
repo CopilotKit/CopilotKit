@@ -14,6 +14,7 @@ import {
 import { PropertyReference } from "@/components/property-reference";
 import { MdxCodeBlock } from "@/components/mdx-code-block";
 import { transformerMeta } from "@/lib/rehype-code-meta";
+import { createTrustedMdxRemoteOptions } from "@/lib/trusted-mdx-options";
 import {
   Callout,
   Cards,
@@ -239,7 +240,7 @@ export default async function ReferenceSlugPage({
             <MDXRemote
               source={cleanedContent}
               components={mdxComponents}
-              options={{
+              options={createTrustedMdxRemoteOptions({
                 mdxOptions: {
                   remarkPlugins: [remarkGfm],
                   rehypePlugins: [
@@ -255,7 +256,7 @@ export default async function ReferenceSlugPage({
                     ],
                   ],
                 },
-              }}
+              })}
             />
           </DocsBody>
         </div>

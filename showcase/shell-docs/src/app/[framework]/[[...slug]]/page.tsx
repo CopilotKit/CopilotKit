@@ -51,6 +51,7 @@ import {
   parseFrontendRoutePath,
 } from "@/lib/frontend-options";
 import { transformerMeta } from "@/lib/rehype-code-meta";
+import { createTrustedMdxRemoteOptions } from "@/lib/trusted-mdx-options";
 import {
   CONTENT_DIR,
   buildFrameworkNav,
@@ -890,7 +891,7 @@ async function FrameworkRootPage({
                 />
               ),
             },
-            options: {
+            options: createTrustedMdxRemoteOptions({
               mdxOptions: {
                 remarkPlugins: [remarkGfm],
                 // Fumadocs's Shiki-based `rehypeCode`; our
@@ -911,7 +912,7 @@ async function FrameworkRootPage({
                   ],
                 ],
               },
-            },
+            }),
           });
         } catch (err) {
           // Logged + swallowed: FrameworkOverview falls back to the

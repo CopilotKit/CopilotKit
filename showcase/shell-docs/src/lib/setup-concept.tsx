@@ -15,6 +15,7 @@ import {
 } from "fumadocs-core/mdx-plugins";
 import { docsComponents } from "@/lib/mdx-registry";
 import { transformerMeta } from "@/lib/rehype-code-meta";
+import { createTrustedMdxRemoteOptions } from "@/lib/trusted-mdx-options";
 import { MdxCodeBlock } from "@/components/mdx-code-block";
 import { resolveBundledSetupConcept } from "@/lib/setup-content";
 import type { SetupContentBundle } from "@/lib/setup-content";
@@ -56,7 +57,7 @@ export async function FrameworkSetup({
         ...docsComponents,
         pre: MdxCodeBlock,
       },
-      options: {
+      options: createTrustedMdxRemoteOptions({
         mdxOptions: {
           remarkPlugins: [remarkGfm],
           rehypePlugins: [
@@ -72,7 +73,7 @@ export async function FrameworkSetup({
             ],
           ],
         },
-      },
+      }),
     });
   } catch (err) {
     console.error(

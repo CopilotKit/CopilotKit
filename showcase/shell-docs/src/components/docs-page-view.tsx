@@ -40,6 +40,7 @@ import { FrameworkSetup } from "@/lib/setup-concept";
 import { docsComponents } from "@/lib/mdx-registry";
 import { resolveDocsHref } from "@/lib/docs-link-rewrite";
 import { transformerMeta } from "@/lib/rehype-code-meta";
+import { createTrustedMdxRemoteOptions } from "@/lib/trusted-mdx-options";
 import { getIntegration, getTabDefault } from "@/lib/registry";
 import type { NavNode } from "@/lib/docs-render";
 import { navTreeToPageTree } from "@/lib/page-tree-bridge";
@@ -476,7 +477,7 @@ export async function DocsPageView({
                           </Link>
                         ),
                       }}
-                      options={{
+                      options={createTrustedMdxRemoteOptions({
                         mdxOptions: {
                           remarkPlugins: [remarkGfm],
                           // Use Fumadocs's Shiki-based `rehypeCode` for
@@ -500,7 +501,7 @@ export async function DocsPageView({
                             ],
                           ],
                         },
-                      }}
+                      })}
                     />
                   </DocsBody>
                 );

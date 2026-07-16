@@ -18,6 +18,7 @@ import { MdxCodeBlock } from "@/components/mdx-code-block";
 import { docsComponents } from "@/lib/mdx-registry";
 import { stripLeadingImports } from "@/lib/docs-render";
 import { transformerMeta } from "@/lib/rehype-code-meta";
+import { createTrustedMdxRemoteOptions } from "@/lib/trusted-mdx-options";
 import { resolveWithinDir, safeReadFileSync } from "@/lib/safe-fs";
 import { buildDocMetadata } from "@/lib/seo-metadata";
 
@@ -564,7 +565,7 @@ export default async function AgUiDocPage({
             <MDXRemote
               source={content}
               components={components}
-              options={{
+              options={createTrustedMdxRemoteOptions({
                 mdxOptions: {
                   remarkPlugins: [remarkGfm],
                   rehypePlugins: [
@@ -580,7 +581,7 @@ export default async function AgUiDocPage({
                     ],
                   ],
                 },
-              }}
+              })}
             />
           </DocsBody>
         </div>

@@ -30,6 +30,7 @@ import {
   rehypeCodeDefaultOptions,
 } from "fumadocs-core/mdx-plugins";
 import { transformerMeta } from "./rehype-code-meta";
+import { createTrustedMdxRemoteOptions } from "./trusted-mdx-options";
 import { inlineSnippets, convertTablesInJSX } from "./docs-render";
 import { resolveWithinDir } from "./safe-fs";
 
@@ -130,7 +131,7 @@ export async function PartialLoader({
       components={
         components as React.ComponentProps<typeof MDXRemote>["components"]
       }
-      options={{
+      options={createTrustedMdxRemoteOptions({
         scope,
         mdxOptions: {
           remarkPlugins: [remarkGfm],
@@ -147,7 +148,7 @@ export async function PartialLoader({
             ],
           ],
         },
-      }}
+      })}
     />
   );
 }
