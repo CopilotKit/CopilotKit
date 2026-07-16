@@ -7,6 +7,7 @@ All demo routes share this single agent instance served by agent_server.py.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import random
@@ -1352,8 +1353,17 @@ async def run_agent(
             if tc["name"] in frontend_tool_names:
                 has_frontend_tool = True
                 continue
-            result_text, new_state = _execute_tool(
-                tc["name"], tc["input"], state, conversation_messages=messages
+            # Offload to a worker thread: _execute_tool may run a synchronous
+            # anthropic.Anthropic() LLM round-trip (the generate_a2ui branch),
+            # which would otherwise block the uvicorn event loop and wedge the
+            # :8000 /health endpoint under load. asyncio.to_thread keeps the
+            # loop free to serve health probes and other concurrent requests.
+            result_text, new_state = await asyncio.to_thread(
+                _execute_tool,
+                tc["name"],
+                tc["input"],
+                state,
+                conversation_messages=messages,
             )
             if new_state is not None:
                 state = new_state
