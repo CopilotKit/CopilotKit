@@ -10,8 +10,8 @@ import {
   weatherTool,
   stockPriceTool,
   queryDataTool,
-  manageSalesTodosTool,
-  getSalesTodosTool,
+  manageTodosTool,
+  getTodosTool,
   scheduleMeetingTool,
   scheduleMeetingInterruptTool,
   searchFlightsTool,
@@ -35,6 +35,24 @@ import { getA2UITools } from "@ag-ui/mastra/a2ui";
 
 export const AgentState = z.object({
   proverbs: z.array(z.string()).default([]),
+  // Beautiful Chat's app-mode todo canvas reads `agent.state.todos`. The
+  // `manage_todos` tool writes the list into working memory (see
+  // writeTodosToWorkingMemory), which the bridge surfaces as a STATE_SNAPSHOT —
+  // so the slice MUST be declared here or the write has nowhere to land and the
+  // panel stays on "No todos yet" (OSS-452). Shape mirrors langgraph-python's
+  // Todo (beautiful_chat.py) and the shared frontend's Todo interface.
+  // Optional/defaulted so every other weatherAgent-backed demo is unaffected.
+  todos: z
+    .array(
+      z.object({
+        id: z.string(),
+        title: z.string(),
+        description: z.string(),
+        emoji: z.string(),
+        status: z.enum(["pending", "completed"]),
+      }),
+    )
+    .default([]),
 });
 
 /**
@@ -161,8 +179,8 @@ export const weatherAgent = new Agent({
   tools: {
     get_weather: weatherTool,
     query_data: queryDataTool,
-    manage_sales_todos: manageSalesTodosTool,
-    get_sales_todos: getSalesTodosTool,
+    manage_todos: manageTodosTool,
+    get_todos: getTodosTool,
     schedule_meeting: scheduleMeetingTool,
     search_flights: searchFlightsTool,
     generate_a2ui: generateA2uiTool,

@@ -10,13 +10,19 @@ import { generateText, tool as aiTool } from "ai";
 import {
   getWeatherImpl,
   queryDataImpl,
-  manageSalesTodosImpl,
-  getSalesTodosImpl,
   scheduleMeetingImpl,
   searchFlightsImpl,
   generateA2uiImpl,
   buildA2uiOperationsFromToolCall,
 } from "@copilotkit/showcase-shared-tools";
+
+// `manage_todos` writes the todo list into working memory so the Beautiful
+// Chat app-mode canvas (which reads `agent.state.todos`) renders it; `get_todos`
+// reads it back. See working-memory.ts / OSS-452.
+import {
+  writeTodosToWorkingMemory,
+  readTodosFromWorkingMemory,
+} from "./working-memory";
 
 // Re-export the dedicated tool sets defined in their own modules so the
 // barrel keeps a single import surface for callers under `@/mastra/tools`.
@@ -91,49 +97,61 @@ export const queryDataTool = createTool({
   execute: async ({ query }) => JSON.stringify(queryDataImpl(query)),
 });
 
-export const manageSalesTodosTool = createTool({
-  id: "manage-sales-todos",
-  description: "Create or update the sales todo list",
-  inputSchema: z.object({
-    todos: z
-      .array(
-        z.object({
-          id: z.string().optional(),
-          title: z.string(),
-          stage: z.string().optional(),
-          value: z.number().optional(),
-          dueDate: z.string().optional(),
-          assignee: z.string().optional(),
-          completed: z.boolean().optional(),
-        }),
-      )
-      .describe("Array of sales todo items"),
-  }),
-  execute: async ({ todos }) => JSON.stringify(manageSalesTodosImpl(todos)),
+// Beautiful Chat task-manager tools. Ports langgraph-python's
+// `manage_todos` / `get_todos` (src/agents/beautiful_chat.py) — the shared
+// beautiful-chat frontend reads `agent.state.todos` (shape
+// {id,title,description,emoji,status}) and the north-star uses these exact tool
+// names. `manage_todos` WRITES the list into working memory so the @ag-ui/mastra
+// adapter emits a STATE_SNAPSHOT and the app-mode canvas renders it — returning
+// the JSON alone leaves the data only in the tool result, which never reaches
+// agent state (OSS-452). Mastra previously shipped a mismatched sales-CRM tool
+// (`manage_sales_todos`, shape {stage,value,completed}) that the frontend could
+// not render and the recorded fixtures did not call.
+const todoItemSchema = z.object({
+  id: z.string().optional(),
+  title: z.string(),
+  description: z.string().optional(),
+  emoji: z.string().optional(),
+  status: z.enum(["pending", "completed"]).optional(),
 });
 
-export const getSalesTodosTool = createTool({
-  id: "get-sales-todos",
-  description: "Get the current sales todo list",
+/** Fill missing ids and default the frontend-required fields. */
+function normalizeTodos(
+  todos: Array<z.infer<typeof todoItemSchema>>,
+): Array<Record<string, unknown>> {
+  return todos.map((t, i) => ({
+    id: t.id && t.id.length > 0 ? t.id : `todo-${Date.now()}-${i}`,
+    title: t.title,
+    description: t.description ?? "",
+    emoji: t.emoji ?? "📝",
+    status: t.status ?? "pending",
+  }));
+}
+
+export const manageTodosTool = createTool({
+  id: "manage_todos",
+  description:
+    "Create or update the task-manager todo list. Pass the FULL updated list " +
+    "of todos; each todo has a title and optionally a description, emoji, and " +
+    "status ('pending' or 'completed').",
   inputSchema: z.object({
-    currentTodos: z
-      .array(
-        z.object({
-          id: z.string().optional(),
-          title: z.string().optional(),
-          stage: z.string().optional(),
-          value: z.number().optional(),
-          dueDate: z.string().optional(),
-          assignee: z.string().optional(),
-          completed: z.boolean().optional(),
-        }),
-      )
-      .optional()
-      .nullable()
-      .describe("Current todos if any"),
+    todos: z.array(todoItemSchema).describe("Full updated todo list"),
   }),
-  execute: async ({ currentTodos }) =>
-    JSON.stringify(getSalesTodosImpl(currentTodos)),
+  execute: async (inputData, executionContext) => {
+    const todos = normalizeTodos(inputData.todos ?? []);
+    await writeTodosToWorkingMemory(executionContext, todos);
+    return JSON.stringify({ todos, updated: true as const });
+  },
+});
+
+export const getTodosTool = createTool({
+  id: "get_todos",
+  description: "Get the current task-manager todo list.",
+  inputSchema: z.object({}),
+  execute: async (_inputData, executionContext) => {
+    const todos = await readTodosFromWorkingMemory(executionContext);
+    return JSON.stringify({ todos });
+  },
 });
 
 export const scheduleMeetingTool = createTool({
