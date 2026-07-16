@@ -6,5 +6,27 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <NoWarn>$(NoWarn);1591</NoWarn>
+    <PackageId>CopilotKit.Intelligence</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>CopilotKit</Authors>
+    <Company>CopilotKit</Company>
+    <Description>Verified, cancellation-aware access to CopilotKit Intelligence skill registries for .NET applications.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/CopilotKit/CopilotKit</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>copilotkit;agents;ai;intelligence;skills</PackageTags>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <DebugType>portable</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
+  <ItemGroup>
+    <None Include="../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
 </Project>

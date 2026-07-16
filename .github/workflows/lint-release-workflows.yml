@@ -5,9 +5,9 @@ name: Lint Release Workflows
 # these critical, retry-sensitive files from silently regressing on shell or
 # action-syntax bugs.
 #
-# Scope is intentionally narrow: only the release workflows and
-# scripts/release/*. Expanding later is cheap; starting narrow avoids
-# drowning unrelated changes in pre-existing lint noise.
+# Scope is intentionally narrow: release workflows/scripts plus package files
+# that directly activate a release lane. Expanding later is cheap; starting
+# narrow avoids drowning unrelated changes in pre-existing lint noise.
 #
 # Workflow mapping (cpk):
 #   release / create-pr  -> .github/workflows/stable-release.yml
@@ -23,6 +23,9 @@ on:
       - ".github/workflows/canary.yml"
       - ".github/workflows/lint-release-workflows.yml"
       - "scripts/release/**"
+      - "sdk-dotnet/CopilotKit.Intelligence/CopilotKit.Intelligence.csproj"
+      - "sdk-dotnet/project.json"
+      - "sdk-dotnet/README.md"
       - "release.config.json"
       - "nx.json"
   pull_request:
@@ -32,6 +35,9 @@ on:
       - ".github/workflows/canary.yml"
       - ".github/workflows/lint-release-workflows.yml"
       - "scripts/release/**"
+      - "sdk-dotnet/CopilotKit.Intelligence/CopilotKit.Intelligence.csproj"
+      - "sdk-dotnet/project.json"
+      - "sdk-dotnet/README.md"
       - "release.config.json"
       - "nx.json"
 

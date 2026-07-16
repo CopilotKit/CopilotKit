@@ -25,6 +25,9 @@ name: release / publish
 # 2. PyPI (Python SDK) — fires on any merged PR that bumps sdk-python/pyproject.toml.
 #    Detects version change vs PyPI registry, builds with poetry, publishes with uv.
 #    Ported from ag-ui's publish-release.yml Python lane.
+#
+# 3. NuGet (.NET SDK) — fires on any merged PR that bumps the Intelligence
+#    .csproj, or by explicit manual override. It never mutates source versions.
 
 on:
   pull_request:
@@ -63,6 +66,11 @@ on:
         required: false
         default: false
         type: boolean
+      dotnet_publish:
+        description: "Run only the .NET publish lane regardless of changed files (scope is ignored). Still no-ops if the exact version exists on NuGet.org."
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -88,7 +96,7 @@ jobs:
     # selected branch. Canary publishes are intentionally branch-scoped so
     # maintainers can push a button on feature work without merging first.
     if: >
-      (github.event_name == 'workflow_dispatch' &&
+      (github.event_name == 'workflow_dispatch' && inputs.dotnet_publish != true &&
         (inputs.mode == 'prerelease' || github.ref == 'refs/heads/main')) ||
       (github.event.pull_request.merged == true &&
         startsWith(github.event.pull_request.head.ref, 'release/publish/'))
@@ -681,10 +689,155 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   # ===========================================================================
+  # .NET SDK NuGet publish lane
+  #
+  # No workspace/package artifact is uploaded. Build, test, pack, and publish
+  # stay in one job; NUGET_API_KEY is scoped only to the final push step.
+  # ===========================================================================
+
+  publish-dotnet:
+    if: >
+      (github.event_name == 'workflow_dispatch' && inputs.dotnet_publish == true) ||
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    concurrency:
+      group: publish-nuget-CopilotKit.Intelligence
+      cancel-in-progress: false
+    steps:
+      - name: Checkout merged main
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          fetch-depth: 0
+          ref: main
+          persist-credentials: false
+
+      - name: Check if the .NET package version changed in this PR
+        if: github.event_name == 'pull_request'
+        id: dotnet-changed
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          set -euo pipefail
+          if [ -z "$PR_BASE_SHA" ]; then
+            echo "::error::PR_BASE_SHA is empty — cannot determine the .NET release diff."
+            exit 1
+          fi
+          if [ -z "$PR_HEAD_SHA" ]; then
+            echo "::error::PR_HEAD_SHA (merge_commit_sha) is empty — rerun after GitHub computes the merge commit."
+            exit 1
+          fi
+          CHANGED="$(git diff --name-only "$PR_BASE_SHA" "$PR_HEAD_SHA")"
+          if printf '%s\n' "$CHANGED" | grep -qx 'sdk-dotnet/CopilotKit.Intelligence/CopilotKit.Intelligence.csproj'; then
+            echo "csproj_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "csproj_changed=false" >> "$GITHUB_OUTPUT"
+            echo "Intelligence .csproj not changed in this PR — skipping NuGet publish"
+          fi
+
+      - name: Detect unpublished .NET version
+        if: github.event_name == 'workflow_dispatch' || steps.dotnet-changed.outputs.csproj_changed == 'true'
+        id: dotnet-detect
+        run: ./scripts/release/detect-dotnet-version-changes.sh
+
+      - name: Setup .NET
+        if: steps.dotnet-detect.outputs.should_publish == 'true'
+        uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d # v5.0.0
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore .NET SDK
+        if: steps.dotnet-detect.outputs.should_publish == 'true'
+        run: dotnet restore sdk-dotnet/CopilotKit.Intelligence.Tests/CopilotKit.Intelligence.Tests.csproj
+
+      - name: Build .NET SDK
+        if: steps.dotnet-detect.outputs.should_publish == 'true'
+        run: dotnet build sdk-dotnet/CopilotKit.Intelligence/CopilotKit.Intelligence.csproj --configuration Release --no-restore
+
+      - name: Test .NET SDK
+        if: steps.dotnet-detect.outputs.should_publish == 'true'
+        run: dotnet test sdk-dotnet/CopilotKit.Intelligence.Tests/CopilotKit.Intelligence.Tests.csproj --configuration Release --no-restore
+
+      - name: Pack .NET SDK
+        if: steps.dotnet-detect.outputs.should_publish == 'true'
+        run: dotnet pack sdk-dotnet/CopilotKit.Intelligence/CopilotKit.Intelligence.csproj --configuration Release --no-build --output sdk-dotnet/dist
+
+      - name: Inspect NuGet package outputs
+        if: steps.dotnet-detect.outputs.should_publish == 'true'
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          packages=(sdk-dotnet/dist/*.nupkg)
+          symbols=(sdk-dotnet/dist/*.snupkg)
+          all=(sdk-dotnet/dist/*)
+          if [ ${#packages[@]} -ne 1 ] || [ ${#symbols[@]} -ne 1 ]; then
+            echo "::error::expected exactly one .nupkg and one .snupkg; found ${#packages[@]} package(s) and ${#symbols[@]} symbol package(s)"
+            exit 1
+          fi
+          if [ ${#all[@]} -ne 2 ]; then
+            echo "::error::sdk-dotnet/dist contains unexpected files; only .nupkg and .snupkg are allowed"
+            printf '%s\n' "${all[@]}"
+            exit 1
+          fi
+          unzip -l "${packages[0]}"
+          unzip -p "${packages[0]}" '*.nuspec'
+
+      - name: Dry-run notice
+        if: steps.dotnet-detect.outputs.should_publish == 'true' && inputs.dry-run == true
+        env:
+          PACKAGE_NAME: ${{ steps.dotnet-detect.outputs.name }}
+          PACKAGE_VERSION: ${{ steps.dotnet-detect.outputs.version }}
+        run: |
+          {
+            echo "## .NET SDK Dry Run"
+            echo ""
+            echo "Built and inspected ${PACKAGE_NAME}@${PACKAGE_VERSION}; NuGet push was skipped."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish .NET SDK to NuGet
+        if: steps.dotnet-detect.outputs.should_publish == 'true' && inputs.dry-run != true
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          packages=(sdk-dotnet/dist/*.nupkg)
+          symbols=(sdk-dotnet/dist/*.snupkg)
+          if [ -z "$NUGET_API_KEY" ]; then
+            echo "::error::NUGET_API_KEY is not configured"
+            exit 1
+          fi
+          if [ ${#packages[@]} -ne 1 ] || [ ${#symbols[@]} -ne 1 ]; then
+            echo "::error::refusing to publish: expected exactly one .nupkg and one .snupkg"
+            exit 1
+          fi
+          # NuGet V3 discovers and uploads the adjacent .snupkg when the primary
+          # .nupkg is pushed, so this publishes exactly the two inspected files.
+          dotnet nuget push "${packages[0]}" \
+            --api-key "$NUGET_API_KEY" \
+            --source https://api.nuget.org/v3/index.json
+
+      - name: Nothing to publish
+        if: steps.dotnet-detect.outputs.should_publish == 'false'
+        env:
+          PACKAGE_NAME: ${{ steps.dotnet-detect.outputs.name }}
+          PACKAGE_VERSION: ${{ steps.dotnet-detect.outputs.version }}
+        run: |
+          {
+            echo "## .NET SDK"
+            echo ""
+            echo "${PACKAGE_NAME}@${PACKAGE_VERSION} already exists on NuGet.org — nothing to publish."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ===========================================================================
   # Slack #engr notification
   #
   # A single concise post to #engr when a release publishes (or fails).
-  # Runs after both lanes regardless of their outcome (`if: always()`). The
+  # Runs after the existing npm/Python lanes regardless of their outcome
+  # (`if: always()`). The NuGet lane is intentionally independent. The
   # load-bearing truth table lives in the unit-tested pure builder at
   # scripts/release/lib/build-release-notification.ts; this job only feeds it the
   # needs.* signals and posts what it returns. Suppressed entirely for canaries
@@ -735,7 +888,7 @@ jobs:
           set -euo pipefail
           # npm intent: a manual dispatch, or a merged release/publish/* PR.
           # Computed purely from event-context expressions (no API needed).
-          NPM_INTENDED="${{ (github.event_name == 'workflow_dispatch' || (github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/publish/'))) && 'true' || 'false' }}"
+          NPM_INTENDED="${{ ((github.event_name == 'workflow_dispatch' && inputs.dotnet_publish != true) || (github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/publish/'))) && 'true' || 'false' }}"
           echo "npm_intended=$NPM_INTENDED" >> "$GITHUB_OUTPUT"
 
           # Python intent: a python_publish dispatch, OR a merged PR that changed

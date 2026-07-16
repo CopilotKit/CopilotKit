@@ -6,7 +6,10 @@
   "targets": {
     "build": {
       "executor": "nx:run-commands",
-      "outputs": ["{projectRoot}/CopilotKit.Intelligence/bin", "{projectRoot}/CopilotKit.Intelligence/obj"],
+      "outputs": [
+        "{projectRoot}/CopilotKit.Intelligence/bin",
+        "{projectRoot}/CopilotKit.Intelligence/obj"
+      ],
       "options": {
         "command": "dotnet build sdk-dotnet/CopilotKit.Intelligence/CopilotKit.Intelligence.csproj --configuration Release"
       }
@@ -16,6 +19,20 @@
       "outputs": ["{projectRoot}/CopilotKit.Intelligence.Tests/TestResults"],
       "options": {
         "command": "dotnet test sdk-dotnet/CopilotKit.Intelligence.Tests/CopilotKit.Intelligence.Tests.csproj --configuration Release"
+      }
+    },
+    "pack": {
+      "executor": "nx:run-commands",
+      "outputs": ["{projectRoot}/dist"],
+      "dependsOn": ["build", "test"],
+      "options": {
+        "command": "dotnet pack sdk-dotnet/CopilotKit.Intelligence/CopilotKit.Intelligence.csproj --configuration Release --no-build --output sdk-dotnet/dist"
+      }
+    },
+    "test-release-detector": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bash scripts/release/__tests__/detect-dotnet-version-changes.test.sh"
       }
     },
     "format": {
