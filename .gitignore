@@ -65,7 +65,8 @@ lefthook-local.yml
 private-agents.md
 
 # Release artifacts
-release-notes.md
+# `release-notes.md` is generated into release PRs and read by the publish
+# workflow when it creates the GitHub Release. Keep the Notion reference local.
 release-notes-notion.json
 
 # Binary artifacts

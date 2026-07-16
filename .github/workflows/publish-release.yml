@@ -373,11 +373,16 @@ jobs:
             const version = process.env.RELEASE_VERSION;
             const name = scope === "monorepo" ? `v${version}` : `${scope}/v${version}`;
 
-            let body = "";
-            try {
-              body = fs.readFileSync("./release-notes.md", "utf8");
-            } catch {
-              body = `Release ${name}`;
+            if (!fs.existsSync("./release-notes.md")) {
+              throw new Error(
+                "release-notes.md is missing. Stable release PRs must include reviewed release notes before publishing."
+              );
+            }
+            const body = fs.readFileSync("./release-notes.md", "utf8");
+            if (!body.trim()) {
+              throw new Error(
+                "release-notes.md is empty. Refusing to publish placeholder release notes."
+              );
             }
 
             try {
