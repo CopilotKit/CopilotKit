@@ -8,7 +8,6 @@ import React, {
   useMemo,
   useRef,
 } from "react";
-import { Check } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 // Local className-joining helper so this component has no external dep.
@@ -170,13 +169,9 @@ function TailoredContentInner({
   };
 
   const itemCn =
-    "shell-docs-radius-control group relative flex min-h-[5.5rem] flex-1 cursor-pointer items-start gap-3 overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] p-3.5 text-left text-[var(--text)] shadow-[var(--shadow-control)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] md:min-h-[6rem]";
-  const selectedCn =
-    "selected border-[var(--accent)] bg-[var(--accent-dim)] text-[var(--text)]";
-  const iconCn =
-    "h-4 w-4 shrink-0 text-[var(--text-muted)] opacity-60 transition-colors group-[.selected]:text-[var(--accent)] group-[.selected]:opacity-90";
-  const indicatorCn =
-    "tailored-content-selected-indicator mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors";
+    "tailored-content-tab group flex flex-1 min-w-0 cursor-pointer items-start gap-3 border p-4 transition-colors";
+  const selectedCn = "tailored-content-tab-selected selected";
+  const iconCn = "tailored-content-tab-icon my-0 h-9 w-9 shrink-0";
 
   const tablistId = `tailored-content-tablist-${id}`;
   const tabId = (optId: string) => `tailored-content-tab-${id}-${optId}`;
@@ -186,13 +181,16 @@ function TailoredContentInner({
 
   return (
     <div>
-      <div className={cn("tailored-content-wrapper mt-4", className)}>
+      <div
+        className={cn("tailored-content-wrapper mt-4", className)}
+        data-tailored-content=""
+      >
         {header}
         <div
           id={tablistId}
           role="tablist"
           aria-orientation="horizontal"
-          className="flex flex-col md:flex-row gap-3 mt-2 mb-6 w-full"
+          className="tailored-content-tablist mt-3 mb-6 flex w-full flex-col gap-3 md:flex-row"
         >
           {options.map((option, index) => {
             const isSelected = selectedIndex === index;
@@ -215,39 +213,28 @@ function TailoredContentInner({
                 aria-controls={panelId(option.props.id)}
                 tabIndex={isSelected ? 0 : -1}
               >
-                <span
-                  className={cn(
-                    indicatorCn,
-                    isSelected
-                      ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--primary-foreground)]"
-                      : "border-[var(--border)] bg-[var(--bg-surface)] text-transparent group-hover:border-[var(--accent)] group-hover:bg-[var(--accent-dim)] group-hover:text-[var(--accent)]",
-                  )}
-                  aria-hidden="true"
-                >
-                  <Check className="h-3.5 w-3.5" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="mb-1 flex min-w-0 items-center gap-2">
-                    {React.isValidElement(option.props.icon)
-                      ? (() => {
-                          const icon = option.props.icon as IconElement;
-                          return React.cloneElement(icon, {
-                            className: cn(
-                              icon.props?.className,
-                              iconCn,
-                              "my-0",
-                            ),
-                          });
-                        })()
-                      : null}
-                    <span className="block min-w-0 text-base font-semibold leading-snug">
-                      {option.props.title}
-                    </span>
-                  </span>
-                  <span className="block text-sm leading-relaxed text-[var(--text-secondary)]">
+                {option.props.icon ? (
+                  <div className="my-0 shrink-0">
+                    {React.isValidElement(option.props.icon) ? (
+                      (() => {
+                        const icon = option.props.icon as IconElement;
+                        return React.cloneElement(icon, {
+                          className: cn(icon.props?.className, iconCn),
+                        });
+                      })()
+                    ) : (
+                      <span className={iconCn} />
+                    )}
+                  </div>
+                ) : null}
+                <div className="min-w-0">
+                  <p className="tailored-content-tab-title my-0">
+                    {option.props.title}
+                  </p>
+                  <p className="tailored-content-tab-description my-0">
                     {option.props.description}
-                  </span>
-                </span>
+                  </p>
+                </div>
               </button>
             );
           })}

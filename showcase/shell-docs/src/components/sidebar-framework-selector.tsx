@@ -49,7 +49,7 @@ export function SidebarFrameworkSelector() {
     // The sidebar column itself is already fixed within the docs layout, so
     // this selector can stay in normal flow. Keeping it non-sticky avoids a
     // raised layer overlapping the first selected sidebar item at scroll-top.
-    <div>
+    <div className="shell-docs-sidebar-picker-wrap">
       <FrameworkSelector
         options={options}
         categoryOrder={categoryOrder}

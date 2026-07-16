@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, BookOpenCheck, X } from "lucide-react";
+import { ArrowRight, BookOpen, X } from "lucide-react";
 
 type BannerEntry = {
   mobileText: string;
@@ -97,19 +97,19 @@ export function Banners() {
   return (
     <div
       id="shell-docs-course-banner"
-      className="sticky top-0 z-40 flex h-10 flex-row items-center justify-center overflow-hidden border-b px-4 text-center text-sm font-medium text-white shadow-none shell-docs-course-banner"
+      className="sticky top-0 z-40 flex h-10 flex-row items-center justify-center overflow-hidden border-b px-4 text-center text-sm font-medium shadow-none shell-docs-course-banner"
     >
       <div className="relative z-1 flex w-full min-w-0 items-center justify-center gap-2 pr-8 md:gap-2.5">
         <span
-          className="shell-docs-radius-icon hidden h-5 w-5 shrink-0 items-center justify-center border border-white/30 bg-white/16 text-white lg:inline-flex"
+          className="shell-docs-course-banner-icon shell-docs-radius-icon hidden h-5 w-5 shrink-0 items-center justify-center border lg:inline-flex"
           aria-label="Free course"
         >
-          <BookOpenCheck className="h-3 w-3" aria-hidden="true" />
+          <BookOpen className="h-3 w-3" aria-hidden="true" />
         </span>
-        <p className="min-w-0 truncate text-xs font-medium text-white md:text-[13px]">
+        <p className="min-w-0 truncate text-xs font-medium md:text-[13px]">
           <span className="md:hidden">{content.mobileText}</span>
           <span className="hidden md:inline">{content.title}</span>
-          <span className="hidden text-white/72 md:inline">
+          <span className="shell-docs-course-banner-source hidden md:inline">
             {" "}
             with {content.source}
           </span>
@@ -120,7 +120,7 @@ export function Banners() {
           rel={
             content.href.startsWith("http") ? "noopener noreferrer" : undefined
           }
-          className="shell-docs-radius-control inline-flex h-6 shrink-0 items-center gap-1 bg-white px-2.5 text-[11px] font-semibold text-[var(--accent)] no-underline shadow-[var(--shadow-control)] transition-colors duration-150 hover:bg-white/90 md:px-3"
+          className="shell-docs-course-banner-link shell-docs-radius-control inline-flex h-6 shrink-0 items-center gap-1 px-2.5 text-[11px] font-semibold no-underline shadow-[var(--shadow-control)] transition-colors duration-150 md:px-3"
         >
           {content.buttonText}
           <ArrowRight className="h-3 w-3" aria-hidden="true" />
@@ -130,7 +130,7 @@ export function Banners() {
         type="button"
         aria-label="Close Banner"
         onClick={dismissBanner}
-        className="absolute inset-e-2 top-1/2 z-10 inline-flex h-6 w-6 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-white/25 bg-white/10 text-white/85 transition-colors duration-100 hover:bg-white/20 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/55"
+        className="shell-docs-course-banner-close absolute inset-e-2 top-1/2 z-10 inline-flex h-6 w-6 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border transition-colors duration-100 focus-visible:outline-none focus-visible:ring-2"
       >
         <X className="h-3.5 w-3.5" aria-hidden="true" />
       </button>

@@ -20,7 +20,7 @@ export function PopoverContent({
         sideOffset={sideOffset}
         side="bottom"
         className={cn(
-          "shell-docs-radius-surface z-50 origin-(--radix-popover-content-transform-origin) overflow-y-auto max-h-(--radix-popover-content-available-height) min-w-[240px] max-w-[98vw] border border-[var(--border)] bg-[var(--bg-surface)] p-2 text-sm text-[var(--text)] shadow-[var(--shadow-panel)] focus-visible:outline-none data-[state=closed]:animate-fd-popover-out data-[state=open]:animate-fd-popover-in",
+          "shell-docs-radius-surface z-50 origin-(--radix-popover-content-transform-origin) overflow-y-auto max-h-(--radix-popover-content-available-height) min-w-[240px] max-w-[98vw] border border-[var(--border)] bg-[var(--card)] p-2 text-sm text-[var(--foreground)] shadow-[var(--shadow-panel)] focus-visible:outline-none data-[state=closed]:animate-fd-popover-out data-[state=open]:animate-fd-popover-in",
           className,
         )}
         {...props}

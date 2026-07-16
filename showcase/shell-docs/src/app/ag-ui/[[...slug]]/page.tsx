@@ -310,7 +310,7 @@ function OverviewContent() {
       <h1 className="text-3xl font-semibold text-[var(--violet)] tracking-tight mb-3">
         The Agent-User Interaction Protocol
       </h1>
-      <p className="text-base text-[var(--text-secondary)] leading-relaxed mb-10">
+      <p className="text-base text-[var(--muted-foreground)] leading-relaxed mb-10">
         AG-UI is an open protocol for connecting AI agents to frontend
         applications. It defines a standard event-based interface for streaming
         agent state, tool calls, and generative UI to any client.
@@ -319,56 +319,56 @@ function OverviewContent() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-left mb-10">
         <Link
           href="/ag-ui/concepts/architecture"
-          className="shell-docs-radius-surface group border border-[var(--border)] bg-[var(--bg-surface)] p-5 shadow-[var(--shadow-control)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)]"
+          className="shell-docs-radius-surface group border border-[var(--border)] bg-[var(--card)] p-5 shadow-[var(--shadow-control)] transition-colors hover:border-[var(--brand-accent)] hover:bg-[var(--secondary)]"
         >
-          <h3 className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--accent)] mb-1">
+          <h3 className="text-sm font-semibold text-[var(--foreground)] group-hover:text-[var(--brand-accent)] mb-1">
             Concepts
           </h3>
-          <p className="text-xs text-[var(--text-muted)]">
+          <p className="text-xs text-[var(--muted-foreground)]">
             Architecture, events, agents, state, tools, middleware
           </p>
         </Link>
         <Link
           href="/ag-ui/quickstart/introduction"
-          className="shell-docs-radius-surface group border border-[var(--border)] bg-[var(--bg-surface)] p-5 shadow-[var(--shadow-control)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)]"
+          className="shell-docs-radius-surface group border border-[var(--border)] bg-[var(--card)] p-5 shadow-[var(--shadow-control)] transition-colors hover:border-[var(--brand-accent)] hover:bg-[var(--secondary)]"
         >
-          <h3 className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--accent)] mb-1">
+          <h3 className="text-sm font-semibold text-[var(--foreground)] group-hover:text-[var(--brand-accent)] mb-1">
             Quick Start
           </h3>
-          <p className="text-xs text-[var(--text-muted)]">
+          <p className="text-xs text-[var(--muted-foreground)]">
             Build your first AG-UI integration step by step
           </p>
         </Link>
         <Link
           href="/ag-ui/sdk/js/core/overview"
-          className="shell-docs-radius-surface group border border-[var(--border)] bg-[var(--bg-surface)] p-5 shadow-[var(--shadow-control)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)]"
+          className="shell-docs-radius-surface group border border-[var(--border)] bg-[var(--card)] p-5 shadow-[var(--shadow-control)] transition-colors hover:border-[var(--brand-accent)] hover:bg-[var(--secondary)]"
         >
-          <h3 className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--accent)] mb-1">
+          <h3 className="text-sm font-semibold text-[var(--foreground)] group-hover:text-[var(--brand-accent)] mb-1">
             JavaScript SDK
           </h3>
-          <p className="text-xs text-[var(--text-muted)]">
+          <p className="text-xs text-[var(--muted-foreground)]">
             @ag-ui/core, @ag-ui/client, @ag-ui/encoder
           </p>
         </Link>
         <Link
           href="/ag-ui/sdk/python/core/overview"
-          className="shell-docs-radius-surface group border border-[var(--border)] bg-[var(--bg-surface)] p-5 shadow-[var(--shadow-control)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)]"
+          className="shell-docs-radius-surface group border border-[var(--border)] bg-[var(--card)] p-5 shadow-[var(--shadow-control)] transition-colors hover:border-[var(--brand-accent)] hover:bg-[var(--secondary)]"
         >
-          <h3 className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--accent)] mb-1">
+          <h3 className="text-sm font-semibold text-[var(--foreground)] group-hover:text-[var(--brand-accent)] mb-1">
             Python SDK
           </h3>
-          <p className="text-xs text-[var(--text-muted)]">
+          <p className="text-xs text-[var(--muted-foreground)]">
             ag_ui.core, ag_ui.encoder
           </p>
         </Link>
         <Link
           href="/ag-ui/tutorials/cursor"
-          className="shell-docs-radius-surface group border border-[var(--border)] bg-[var(--bg-surface)] p-5 shadow-[var(--shadow-control)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)]"
+          className="shell-docs-radius-surface group border border-[var(--border)] bg-[var(--card)] p-5 shadow-[var(--shadow-control)] transition-colors hover:border-[var(--brand-accent)] hover:bg-[var(--secondary)]"
         >
-          <h3 className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--accent)] mb-1">
+          <h3 className="text-sm font-semibold text-[var(--foreground)] group-hover:text-[var(--brand-accent)] mb-1">
             Tutorials
           </h3>
-          <p className="text-xs text-[var(--text-muted)]">
+          <p className="text-xs text-[var(--muted-foreground)]">
             Hands-on guides and debugging walkthroughs
           </p>
         </Link>
@@ -376,18 +376,18 @@ function OverviewContent() {
           href="https://github.com/ag-ui-protocol/ag-ui"
           target="_blank"
           rel="noopener noreferrer"
-          className="shell-docs-radius-surface group border border-[var(--border)] bg-[var(--bg-surface)] p-5 shadow-[var(--shadow-control)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)]"
+          className="shell-docs-radius-surface group border border-[var(--border)] bg-[var(--card)] p-5 shadow-[var(--shadow-control)] transition-colors hover:border-[var(--brand-accent)] hover:bg-[var(--secondary)]"
         >
-          <h3 className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--accent)] mb-1">
+          <h3 className="text-sm font-semibold text-[var(--foreground)] group-hover:text-[var(--brand-accent)] mb-1">
             GitHub
           </h3>
-          <p className="text-xs text-[var(--text-muted)]">
+          <p className="text-xs text-[var(--muted-foreground)]">
             Open source · Apache 2.0 · ag-ui-protocol/ag-ui
           </p>
         </a>
       </div>
 
-      <p className="text-xs text-[var(--text-faint)]">
+      <p className="text-xs text-[var(--muted-foreground)]">
         2 SDKs · 15+ framework adapters · Open protocol
       </p>
     </div>
@@ -419,8 +419,8 @@ export default async function AgUiDocPage({
           data-active={isActive ? "true" : undefined}
           className={`block py-[5px] text-[14px] transition-colors ${
             isActive
-              ? "text-[var(--text)] font-medium"
-              : "text-[var(--text-secondary)] hover:text-[var(--text)]"
+              ? "text-[var(--foreground)] font-medium"
+              : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
           }`}
           style={{ paddingLeft: `${indent}px` }}
         >
@@ -431,7 +431,7 @@ export default async function AgUiDocPage({
     return (
       <div key={item.name} className="mt-2">
         <div
-          className="py-[5px] text-[14px] text-[var(--text-muted)]"
+          className="py-[5px] text-[14px] text-[var(--muted-foreground)]"
           style={{ paddingLeft: `${indent}px` }}
         >
           {item.name}

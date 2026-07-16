@@ -54,7 +54,7 @@ export function HeroQuickstartDropdown({
         type="button"
         aria-expanded={open}
         aria-haspopup="menu"
-        className="shell-docs-radius-control inline-flex h-11 w-full items-center justify-center gap-2 border border-[var(--accent)] bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--primary-foreground)] shadow-[var(--shadow-control)] transition-colors duration-150 hover:bg-[var(--accent-strong)] sm:w-fit"
+        className="shell-docs-radius-control inline-flex h-11 w-full items-center justify-center gap-2 border border-[var(--brand-accent)] bg-[var(--brand-accent)] px-4 text-sm font-semibold text-[var(--brand-accent-foreground)] shadow-[var(--shadow-control)] transition-colors duration-150 hover:bg-[var(--accent-strong)] sm:w-fit"
         onClick={() => setOpen((value) => !value)}
       >
         Quickstart
@@ -64,7 +64,7 @@ export function HeroQuickstartDropdown({
       </button>
       {open ? (
         <div
-          className="shell-docs-radius-surface absolute left-0 top-[calc(100%+8px)] z-30 w-full min-w-[280px] overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] p-1.5 shadow-[var(--shadow-panel)] sm:w-[320px]"
+          className="shell-docs-radius-surface absolute left-0 top-[calc(100%+8px)] z-30 w-full min-w-[280px] overflow-hidden border border-[var(--border)] bg-[var(--card)] p-1.5 shadow-[var(--shadow-panel)] sm:w-[320px]"
           role="menu"
         >
           <div className="max-h-[360px] overflow-y-auto">
@@ -81,20 +81,20 @@ export function HeroQuickstartDropdown({
               >
                 <span
                   aria-hidden="true"
-                  className="shell-docs-radius-icon flex h-8 w-8 shrink-0 items-center justify-center border border-[var(--border)] bg-[var(--accent-dim)] text-[var(--accent)] transition-colors group-hover:bg-[var(--accent-light)]"
+                  className="shell-docs-radius-icon flex h-8 w-8 shrink-0 items-center justify-center border border-[var(--border)] bg-[var(--accent-dim)] text-[var(--brand-accent)] transition-colors group-hover:bg-[var(--accent-light)]"
                 >
                   <FrameworkLogo
                     slug={option.slug}
                     fallbackSrc={option.logo ?? undefined}
                     size={17}
-                    className="text-[var(--accent)]"
+                    className="text-[var(--brand-accent)]"
                   />
                 </span>
                 <span className="min-w-0">
-                  <span className="block truncate text-sm font-semibold text-[var(--text)] transition-colors group-hover:text-[var(--accent)]">
+                  <span className="block truncate text-sm font-semibold text-[var(--foreground)] transition-colors group-hover:text-[var(--brand-accent)]">
                     {option.name}
                   </span>
-                  <span className="block text-xs text-[var(--text-muted)]">
+                  <span className="block text-xs text-[var(--muted-foreground)]">
                     Open quickstart
                   </span>
                 </span>

@@ -173,11 +173,35 @@ export function LandingSampleTabs() {
 
   return (
     <section className="not-prose space-y-4 sm:space-y-5">
+      <svg aria-hidden="true" className="pointer-events-none absolute h-0 w-0">
+        <defs>
+          <linearGradient
+            id="shell-docs-sample-icon-gradient"
+            x1="0"
+            x2="1"
+            y1="0"
+            y2="1"
+          >
+            <stop
+              offset="0%"
+              stopColor="var(--shell-docs-sample-icon-gradient-start)"
+            />
+            <stop
+              offset="52%"
+              stopColor="var(--shell-docs-sample-icon-gradient-mid)"
+            />
+            <stop
+              offset="100%"
+              stopColor="var(--shell-docs-sample-icon-gradient-end)"
+            />
+          </linearGradient>
+        </defs>
+      </svg>
       <div className="max-w-2xl">
-        <h2 className="text-xl font-semibold text-[var(--text)] sm:text-2xl">
+        <h2 className="text-xl font-semibold text-[var(--foreground)] sm:text-2xl">
           Build your agent&apos;s user experience
         </h2>
-        <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
+        <p className="mt-2 text-sm leading-relaxed text-[var(--muted-foreground)]">
           Pick the UI primitive that matches the product surface you are
           building.
         </p>
@@ -195,19 +219,19 @@ export function LandingSampleTabs() {
               key={tab.id}
               href={tab.href}
               data-mobile-sample-card={tab.id}
-              className="shell-docs-radius-surface group flex min-w-0 items-start gap-3 border border-[var(--border)] bg-[var(--bg-surface)] p-3.5 no-underline shadow-[var(--shadow-control)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)]"
+              className="shell-docs-module-card shell-docs-radius-surface group flex min-w-0 items-start gap-3 border p-3.5 no-underline transition-colors"
             >
               <span
                 aria-hidden="true"
-                className="shell-docs-radius-icon flex h-9 w-9 shrink-0 items-center justify-center border border-[var(--accent)] bg-[var(--accent-dim)] text-[var(--accent)]"
+                className="shell-docs-sample-icon-chip shell-docs-radius-icon flex h-9 w-9 shrink-0 items-center justify-center border"
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="shell-docs-sample-icon h-4 w-4" />
               </span>
               <span className="min-w-0">
-                <span className="block text-sm font-semibold leading-snug text-[var(--text)]">
+                <span className="block text-sm font-semibold leading-snug text-[var(--foreground)]">
                   {tab.label}
                 </span>
-                <span className="mt-1 block text-xs leading-relaxed text-[var(--text-muted)]">
+                <span className="mt-1 block text-xs leading-relaxed text-[var(--muted-foreground)]">
                   {tab.title}
                 </span>
               </span>
@@ -216,24 +240,12 @@ export function LandingSampleTabs() {
         })}
       </div>
 
-      <div className="shell-docs-radius-surface hidden min-w-0 overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-control)] sm:block">
-        <div className="flex h-10 items-center justify-between border-b border-[var(--border)] bg-[var(--bg-elevated)] px-4">
-          <div className="flex items-center gap-2" aria-hidden="true">
-            <span className="h-2.5 w-2.5 rounded-full bg-[var(--window-control-close)]" />
-            <span className="h-2.5 w-2.5 rounded-full bg-[var(--window-control-minimize)]" />
-            <span className="h-2.5 w-2.5 rounded-full bg-[var(--window-control-zoom)]" />
-          </div>
-          <div className="hidden font-mono text-xs text-[var(--text-muted)] sm:block">
-            Preview
-          </div>
-          <div className="h-2.5 w-[46px]" aria-hidden="true" />
-        </div>
-
-        <div className="grid min-w-0 lg:min-h-[460px] lg:grid-cols-[250px_minmax(0,1fr)]">
-          <div className="min-w-0 border-b border-[var(--border)] bg-[var(--bg-elevated)]/60 p-2 sm:p-3 lg:border-b-0 lg:border-r">
+      <div className="shell-docs-preview-card shell-docs-radius-surface hidden min-w-0 overflow-hidden border sm:block">
+        <div className="flex min-w-0 flex-col">
+          <div className="shell-docs-sample-rail min-w-0 border-b p-3 sm:p-4">
             <div
               aria-label="CopilotKit samples"
-              className="grid w-full grid-cols-2 gap-1.5 lg:grid-cols-1"
+              className="grid w-full grid-cols-2 gap-2 lg:grid-cols-4"
               role="tablist"
             >
               {SAMPLE_TABS.map((tab) => {
@@ -249,27 +261,28 @@ export function LandingSampleTabs() {
                     aria-controls={`landing-sample-panel-${tab.id}`}
                     aria-selected={selected}
                     className={cn(
-                      "shell-docs-radius-control group flex min-h-11 min-w-[9.75rem] items-center gap-2 border px-2.5 py-2 text-left transition-colors sm:min-h-14 sm:min-w-0 sm:gap-3 sm:px-3 sm:py-2.5",
+                      "shell-docs-sample-option group flex min-h-16 min-w-0 items-center gap-2.5 border px-3 py-2.5 text-left transition-colors",
                       selected
-                        ? "border-[var(--accent)] bg-[var(--bg-surface)] text-[var(--text)] shadow-[var(--shadow-control)]"
-                        : "border-transparent text-[var(--text-secondary)] hover:bg-[var(--bg-surface)]/70 hover:text-[var(--text)]",
+                        ? "shell-docs-preview-tab-active text-[var(--primary-foreground)] shadow-[var(--shadow-control)]"
+                        : "shell-docs-preview-tab-idle border-transparent text-[var(--muted-foreground)]",
                     )}
                     role="tab"
                     onClick={() => setActiveId(tab.id)}
                   >
                     <span
                       className={cn(
-                        "shell-docs-radius-icon flex h-7 w-7 shrink-0 items-center justify-center border transition-colors sm:h-8 sm:w-8",
-                        selected
-                          ? "border-[var(--accent)] bg-[var(--accent-dim)] text-[var(--accent)]"
-                          : "border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-muted)] group-hover:text-[var(--accent)]",
+                        "shell-docs-sample-icon-chip shell-docs-radius-icon flex h-8 w-8 shrink-0 items-center justify-center border transition-colors",
+                        selected ? "is-active" : "",
                       )}
                     >
-                      <Icon className="h-4 w-4" />
+                      <Icon className="shell-docs-sample-icon h-4 w-4" />
                     </span>
                     <span className="min-w-0">
                       <span className="block text-[0.8125rem] font-medium leading-tight tracking-[-0.005em]">
                         {tab.label}
+                      </span>
+                      <span className="mt-1 block truncate text-[0.6875rem] font-medium leading-none text-[var(--shell-docs-sample-option-muted)]">
+                        {tab.eyebrow}
                       </span>
                     </span>
                   </button>
@@ -281,39 +294,41 @@ export function LandingSampleTabs() {
           <div
             id={`landing-sample-panel-${activeTab.id}`}
             aria-labelledby={`landing-sample-tab-${activeTab.id}`}
-            className="flex min-h-0 min-w-0 flex-col gap-3 p-4 sm:min-h-[440px] sm:gap-5 sm:p-5 lg:p-6"
+            className="flex min-h-0 min-w-0 flex-col p-4 sm:p-5 lg:p-6"
             role="tabpanel"
           >
-            <div className="max-w-2xl">
-              <h3 className="text-[1.0625rem] font-semibold leading-tight text-[var(--text)] sm:text-xl">
-                {activeTab.title}
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-[var(--text-muted)]">
-                {activeTab.description}
-              </p>
-            </div>
-
-            <div className="shell-docs-radius-surface min-h-0 min-w-0 flex-1 overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)]">
-              <div className="flex h-9 items-center justify-between border-b border-[var(--border)] bg-[var(--bg-elevated)] px-3">
-                <span className="font-mono text-xs text-[var(--text-muted)]">
-                  example.tsx
-                </span>
-                <span className="shell-docs-radius-control bg-[var(--bg-surface)] px-2 py-0.5 font-mono text-[11px] text-[var(--text-muted)]">
-                  tsx
-                </span>
+            <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="max-w-2xl">
+                <p className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-[var(--muted-foreground)]">
+                  {activeTab.eyebrow}
+                </p>
+                <h3 className="mt-2 text-[1.0625rem] font-semibold leading-tight text-[var(--foreground)] sm:text-xl">
+                  {activeTab.title}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-[var(--muted-foreground)]">
+                  {activeTab.description}
+                </p>
               </div>
-              <div className="h-[260px] min-w-0 overflow-auto sm:h-[300px] [&_figure]:my-0 [&_figure]:min-w-0 [&_figure]:border-0 [&_pre]:min-h-full [&_pre]:rounded-none [&_pre]:border-0">
-                <DynamicCodeBlock lang="tsx" code={activeTab.code ?? ""} />
-              </div>
-            </div>
-
-            <div className="flex justify-stretch sm:justify-end">
               <Link
                 href={activeTab.href}
-                className="shell-docs-radius-control inline-flex h-9 w-full shrink-0 items-center justify-center border border-[var(--accent)] bg-[var(--accent-dim)] px-3 text-sm font-semibold text-[var(--accent)] no-underline transition-colors hover:bg-[var(--accent-light)] sm:w-auto"
+                className="shell-docs-sample-panel-cta shell-docs-radius-control inline-flex h-9 w-full shrink-0 items-center justify-center border px-3 text-sm font-semibold no-underline shadow-[var(--shadow-control)] transition-colors sm:w-auto"
               >
                 {activeTab.hrefLabel}
               </Link>
+            </div>
+
+            <div className="shell-docs-sample-code mt-5 min-h-0 min-w-0 overflow-hidden border">
+              <div className="shell-docs-sample-code-header flex h-9 items-center justify-between border-b px-3">
+                <span className="font-mono text-xs text-[var(--muted-foreground)]">
+                  example.tsx
+                </span>
+                <span className="shell-docs-radius-control bg-[var(--card)] px-2 py-0.5 font-mono text-[11px] text-[var(--muted-foreground)]">
+                  tsx
+                </span>
+              </div>
+              <div className="h-[300px] min-w-0 overflow-auto sm:h-[330px] [&_figure]:my-0 [&_figure]:min-w-0 [&_figure]:border-0 [&_pre]:min-h-full [&_pre]:rounded-none [&_pre]:border-0">
+                <DynamicCodeBlock lang="tsx" code={activeTab.code ?? ""} />
+              </div>
             </div>
           </div>
         </div>

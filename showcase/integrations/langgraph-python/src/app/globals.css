@@ -34,11 +34,6 @@
 }
 
 :root {
-  --copilot-kit-background-color: #ffff;
-  --copilot-kit-primary-color: #0d6e3f;
-  --copilot-kit-response-button-background-color: #f5f5f3;
-  --copilot-kit-response-button-color: #1a1a18;
-
   --background: #ffff;
   --foreground: #1a1a18;
   --card: #ffffff;
@@ -57,27 +52,65 @@
   --input: #dbdbe5;
   --ring: #bec2ff;
   --radius: 0.75rem;
+
+  --copilot-kit-background-color: var(--card);
+  --copilot-kit-primary-color: var(--primary);
+  --copilot-kit-contrast-color: var(--primary-foreground);
+  --copilot-kit-input-background-color: var(--card);
+  --copilot-kit-secondary-color: var(--secondary);
+  --copilot-kit-secondary-contrast-color: var(--foreground);
+  --copilot-kit-separator-color: var(--border);
+  --copilot-kit-muted-color: #838389;
+  --copilot-kit-response-button-background-color: var(--secondary);
+  --copilot-kit-response-button-color: var(--foreground);
+  --copilot-kit-error-background: #fef2f2;
+  --copilot-kit-error-border: #fecaca;
+  --copilot-kit-error-text: #dc2626;
+  --copilot-kit-shadow-sm: 0 1px 2px rgba(1, 5, 7, 0.06);
+  --copilot-kit-shadow-md:
+    0 1px 2px rgba(1, 5, 7, 0.06), 0 8px 24px rgba(1, 5, 7, 0.08);
+  --copilot-kit-shadow-lg:
+    0 1px 2px rgba(1, 5, 7, 0.08), 0 18px 46px rgba(1, 5, 7, 0.1);
 }
 
 :root.dark,
 .dark {
-  --background: #0a0a0a;
-  --foreground: #fafafa;
-  --card: #191a1e;
-  --card-foreground: #fafafa;
-  --primary: #fafafa;
-  --primary-foreground: #1a1a18;
-  --secondary: #242529;
-  --secondary-foreground: #fafafa;
-  --muted: #242529;
-  --muted-foreground: #adadb2;
-  --accent: #303136;
-  --accent-foreground: #fafafa;
+  --background: #141b26;
+  --foreground: #f7f7fb;
+  --card: #1b2432;
+  --card-foreground: #f7f7fb;
+  --primary: #bec2ff;
+  --primary-foreground: #010507;
+  --secondary: #243044;
+  --secondary-foreground: #f7f7fb;
+  --muted: #2b3850;
+  --muted-foreground: #d0d5e1;
+  --accent: #24394b;
+  --accent-foreground: #f7f7fb;
   --destructive: #fa5f67;
   --destructive-foreground: #ffffff;
-  --border: #303136;
-  --input: #303136;
-  --ring: #bec2ff;
+  --border: rgba(218, 225, 244, 0.26);
+  --input: rgba(218, 225, 244, 0.26);
+  --ring: #9fd3e0;
+
+  --copilot-kit-background-color: var(--card);
+  --copilot-kit-primary-color: var(--primary);
+  --copilot-kit-contrast-color: var(--primary-foreground);
+  --copilot-kit-input-background-color: var(--secondary);
+  --copilot-kit-secondary-color: var(--muted);
+  --copilot-kit-secondary-contrast-color: var(--foreground);
+  --copilot-kit-separator-color: var(--border);
+  --copilot-kit-muted-color: #d0d5e1;
+  --copilot-kit-response-button-background-color: var(--secondary);
+  --copilot-kit-response-button-color: var(--foreground);
+  --copilot-kit-error-background: #451a1a;
+  --copilot-kit-error-border: #dc2626;
+  --copilot-kit-error-text: #fca5a5;
+  --copilot-kit-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.36);
+  --copilot-kit-shadow-md:
+    0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 30px rgba(0, 0, 0, 0.28);
+  --copilot-kit-shadow-lg:
+    0 1px 2px rgba(0, 0, 0, 0.42), 0 22px 60px rgba(0, 0, 0, 0.32);
 }
 
 * {
@@ -92,6 +125,11 @@ html {
     -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background: var(--background);
   color: var(--foreground);
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
 }
 
 /* `body` deliberately does NOT have `width: 100%`. Letting it auto-size
@@ -102,6 +140,22 @@ body {
   overflow: hidden;
   background: var(--background);
   color: var(--foreground);
+}
+
+html.dark,
+html.dark body {
+  background:
+    radial-gradient(
+      48rem 28rem at 82% -10rem,
+      rgba(133, 236, 206, 0.2),
+      transparent 70%
+    ),
+    radial-gradient(
+      42rem 26rem at 18% -9rem,
+      rgba(190, 194, 255, 0.18),
+      transparent 72%
+    ),
+    var(--background);
 }
 
 /* When a Radix overlay (Select / Dialog / Popover) opens, react-remove-scroll
@@ -138,6 +192,28 @@ body[data-scroll-locked] {
     0 4px 16px rgba(0, 0, 0, 0.04);
   transform: translateY(-1px);
   background: var(--card);
+}
+
+.dark .demo-card {
+  background:
+    radial-gradient(
+      34rem 20rem at 88% -8rem,
+      rgba(133, 236, 206, 0.08),
+      transparent 72%
+    ),
+    radial-gradient(
+      30rem 18rem at 4% -6rem,
+      rgba(190, 194, 255, 0.1),
+      transparent 72%
+    ),
+    var(--card);
+}
+
+.dark .demo-card:hover {
+  border-color: color-mix(in srgb, var(--ring) 56%, var(--border));
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.36),
+    0 16px 36px rgba(0, 0, 0, 0.18);
 }
 
 .demo-card:focus-visible {

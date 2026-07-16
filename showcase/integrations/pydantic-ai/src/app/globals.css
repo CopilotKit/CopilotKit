@@ -31,23 +31,34 @@
 
 :root.dark,
 .dark {
-  --background: #0a0a0a;
-  --foreground: #fafafa;
-  --card: #191a1e;
-  --card-foreground: #fafafa;
-  --primary: #fafafa;
-  --primary-foreground: #1a1a18;
-  --secondary: #242529;
-  --secondary-foreground: #fafafa;
-  --muted: #242529;
-  --muted-foreground: #adadb2;
-  --accent: #303136;
-  --accent-foreground: #fafafa;
+  --background: #141b26;
+  --foreground: #f7f7fb;
+  --card: #1b2432;
+  --card-foreground: #f7f7fb;
+  --primary: #bec2ff;
+  --primary-foreground: #010507;
+  --secondary: #243044;
+  --secondary-foreground: #f7f7fb;
+  --muted: #2b3850;
+  --muted-foreground: #d0d5e1;
+  --accent: #24394b;
+  --accent-foreground: #f7f7fb;
   --destructive: #fa5f67;
   --destructive-foreground: #ffffff;
-  --border: #303136;
-  --input: #303136;
-  --ring: #bec2ff;
+  --border: rgba(218, 225, 244, 0.26);
+  --input: rgba(218, 225, 244, 0.26);
+  --ring: #9fd3e0;
+
+  --copilot-kit-background-color: var(--card);
+  --copilot-kit-primary-color: var(--primary);
+  --copilot-kit-contrast-color: var(--primary-foreground);
+  --copilot-kit-input-background-color: var(--secondary);
+  --copilot-kit-secondary-color: var(--muted);
+  --copilot-kit-secondary-contrast-color: var(--foreground);
+  --copilot-kit-separator-color: var(--border);
+  --copilot-kit-muted-color: #d0d5e1;
+  --copilot-kit-response-button-background-color: var(--secondary);
+  --copilot-kit-response-button-color: var(--foreground);
 }
 
 * {
@@ -63,4 +74,20 @@ body {
     -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background: var(--background);
   color: var(--foreground);
+}
+
+html.dark,
+html.dark body {
+  background:
+    radial-gradient(
+      48rem 28rem at 82% -10rem,
+      rgba(133, 236, 206, 0.2),
+      transparent 70%
+    ),
+    radial-gradient(
+      42rem 26rem at 18% -9rem,
+      rgba(190, 194, 255, 0.18),
+      transparent 72%
+    ),
+    var(--background);
 }

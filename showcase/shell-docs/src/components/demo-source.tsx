@@ -68,10 +68,10 @@ function basename(p: string): string {
 function WarningBox({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="shell-docs-radius-surface shell-docs-warning-surface my-4 border border-l-4 p-4 text-sm text-[var(--text-secondary)] shadow-[var(--shadow-control)]"
+      className="shell-docs-radius-surface shell-docs-warning-surface my-4 border border-l-4 p-4 text-sm text-[var(--muted-foreground)] shadow-[var(--shadow-control)]"
       role="alert"
     >
-      <div className="font-semibold mb-1 text-[var(--text)]">
+      <div className="font-semibold mb-1 text-[var(--foreground)]">
         Missing demo source
       </div>
       {children}

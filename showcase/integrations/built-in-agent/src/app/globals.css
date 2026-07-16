@@ -1,17 +1,139 @@
 @import "tailwindcss";
 @import "@copilotkit/react-core/v2/styles.css";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-md: var(--radius);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
 :root {
-  --copilot-kit-background-color: #f8f9fa;
-  --copilot-kit-primary-color: #0066ff;
+  --background: #f7f7f9;
+  --foreground: #010507;
+  --card: #ffffff;
+  --card-foreground: #010507;
+  --primary: #010507;
+  --primary-foreground: #ffffff;
+  --secondary: #ededf5;
+  --secondary-foreground: #010507;
+  --muted: #f7f7f9;
+  --muted-foreground: #57575b;
+  --accent: #ededf5;
+  --accent-foreground: #010507;
+  --border: #dbdbe5;
+  --input: #dbdbe5;
+  --ring: #7f88ea;
+  --radius: 0.875rem;
+
+  --copilot-kit-background-color: var(--card);
+  --copilot-kit-primary-color: var(--primary);
+  --copilot-kit-contrast-color: var(--primary-foreground);
+  --copilot-kit-input-background-color: var(--card);
+  --copilot-kit-secondary-color: var(--secondary);
+  --copilot-kit-secondary-contrast-color: var(--foreground);
+  --copilot-kit-separator-color: var(--border);
+  --copilot-kit-muted-color: #838389;
+  --copilot-kit-response-button-background-color: var(--secondary);
+  --copilot-kit-response-button-color: var(--foreground);
+  --copilot-kit-error-background: #fef2f2;
+  --copilot-kit-error-border: #fecaca;
+  --copilot-kit-error-text: #dc2626;
+  --copilot-kit-shadow-sm: 0 1px 2px rgba(1, 5, 7, 0.06);
+  --copilot-kit-shadow-md:
+    0 1px 2px rgba(1, 5, 7, 0.06), 0 8px 24px rgba(1, 5, 7, 0.08);
+  --copilot-kit-shadow-lg:
+    0 1px 2px rgba(1, 5, 7, 0.08), 0 18px 46px rgba(1, 5, 7, 0.1);
+}
+
+:root.dark,
+.dark {
+  --background: #141b26;
+  --foreground: #f7f7fb;
+  --card: #1b2432;
+  --card-foreground: #f7f7fb;
+  --primary: #bec2ff;
+  --primary-foreground: #010507;
+  --secondary: #243044;
+  --secondary-foreground: #f7f7fb;
+  --muted: #2b3850;
+  --muted-foreground: #d0d5e1;
+  --accent: #24394b;
+  --accent-foreground: #f7f7fb;
+  --border: rgba(218, 225, 244, 0.26);
+  --input: rgba(218, 225, 244, 0.26);
+  --ring: #9fd3e0;
+
+  --copilot-kit-background-color: var(--card);
+  --copilot-kit-primary-color: var(--primary);
+  --copilot-kit-contrast-color: var(--primary-foreground);
+  --copilot-kit-input-background-color: var(--secondary);
+  --copilot-kit-secondary-color: var(--muted);
+  --copilot-kit-secondary-contrast-color: var(--foreground);
+  --copilot-kit-separator-color: var(--border);
+  --copilot-kit-muted-color: #d0d5e1;
+  --copilot-kit-response-button-background-color: var(--secondary);
+  --copilot-kit-response-button-color: var(--foreground);
+  --copilot-kit-error-background: #451a1a;
+  --copilot-kit-error-border: #dc2626;
+  --copilot-kit-error-text: #fca5a5;
+  --copilot-kit-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.36);
+  --copilot-kit-shadow-md:
+    0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 30px rgba(0, 0, 0, 0.28);
+  --copilot-kit-shadow-lg:
+    0 1px 2px rgba(0, 0, 0, 0.42), 0 22px 60px rgba(0, 0, 0, 0.32);
 }
 
 * {
   box-sizing: border-box;
 }
 
+html {
+  background: var(--background);
+  color: var(--foreground);
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
 body {
   font-family:
     -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   min-height: 100vh;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+html.dark,
+html.dark body {
+  background:
+    radial-gradient(
+      48rem 28rem at 82% -10rem,
+      rgba(133, 236, 206, 0.2),
+      transparent 70%
+    ),
+    radial-gradient(
+      42rem 26rem at 18% -9rem,
+      rgba(190, 194, 255, 0.18),
+      transparent 72%
+    ),
+    var(--background);
 }

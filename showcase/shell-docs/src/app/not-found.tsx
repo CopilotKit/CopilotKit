@@ -25,26 +25,26 @@ export default function NotFound() {
   return (
     <div className="flex-1 min-w-0 overflow-y-auto">
       <div className="mx-auto max-w-2xl px-6 py-24 text-center">
-        <p className="text-xs font-mono uppercase tracking-widest text-[var(--accent)] mb-3">
+        <p className="text-xs font-mono uppercase tracking-widest text-[var(--brand-accent)] mb-3">
           404
         </p>
-        <h1 className="text-3xl font-semibold text-[var(--text)] tracking-tight mb-3">
+        <h1 className="text-3xl font-semibold text-[var(--foreground)] tracking-tight mb-3">
           This page doesn't exist
         </h1>
-        <p className="text-base text-[var(--text-secondary)] leading-relaxed mb-8">
+        <p className="text-base text-[var(--muted-foreground)] leading-relaxed mb-8">
           The URL you followed may be out of date, or the page may have moved.
           Try the docs home or browse from there.
         </p>
         <div className="flex justify-center gap-3">
           <Link
             href="/"
-            className="shell-docs-radius-control inline-flex h-10 items-center border border-[var(--accent)] bg-[var(--accent)] px-4 text-sm font-medium text-[var(--primary-foreground)] transition-opacity hover:opacity-90"
+            className="shell-docs-radius-control inline-flex h-10 items-center border border-[var(--brand-accent)] bg-[var(--brand-accent)] px-4 text-sm font-medium text-[var(--brand-accent-foreground)] transition-opacity hover:opacity-90"
           >
             Go to docs home
           </Link>
           <Link
             href="/reference"
-            className="shell-docs-radius-control inline-flex h-10 items-center border border-[var(--border)] bg-[var(--bg-surface)] px-4 text-sm font-medium text-[var(--text)] transition-colors hover:border-[var(--accent)]"
+            className="shell-docs-radius-control inline-flex h-10 items-center border border-[var(--border)] bg-[var(--card)] px-4 text-sm font-medium text-[var(--foreground)] transition-colors hover:border-[var(--brand-accent)]"
           >
             API reference
           </Link>

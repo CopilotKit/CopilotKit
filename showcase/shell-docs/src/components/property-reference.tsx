@@ -39,7 +39,7 @@ export function PropertyReference({
             <div className="space-y-3">
               {cloudOnly && (
                 <div>
-                  <span className="shell-docs-radius-control inline-flex items-center justify-center bg-[var(--accent)] px-2 py-0.5 text-xs font-semibold text-[var(--primary-foreground)]">
+                  <span className="shell-docs-radius-control inline-flex items-center justify-center bg-[var(--brand-accent)] px-2 py-0.5 text-xs font-semibold text-[var(--brand-accent-foreground)]">
                     COPILOT CLOUD
                   </span>
                 </div>

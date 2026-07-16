@@ -22,7 +22,10 @@ import { NewLookAndFeelPreview } from "@/components/react/component-previews/new
 import { FrameworkTabs } from "@/components/framework-tabs";
 import { OpsPlatformCTA } from "@/components/react/ops-platform-cta";
 import { SignupLink } from "@/components/react/signup-link";
-import { IframeSwitcher as RealIframeSwitcher } from "@/components/content";
+import {
+  IframeSwitcher as RealIframeSwitcher,
+  ThemedDemoFrame,
+} from "@/components/content";
 import { PropertyReference } from "@/components/property-reference";
 import { IntegrationGrid } from "@/components/integration-grid";
 import { DocsLandingNext } from "@/components/docs-landing-next";
@@ -275,7 +278,7 @@ export const docsComponents = {
       );
       if (process.env.NODE_ENV !== "production") {
         return (
-          <div className="shell-docs-radius-surface my-6 border border-dashed border-[var(--border)] px-3 py-2 text-xs font-mono text-[var(--text-faint)]">
+          <div className="shell-docs-radius-surface my-6 border border-dashed border-[var(--border)] px-3 py-2 text-xs font-mono text-[var(--muted-foreground)]">
             [mdx-registry] No deployed integrations support feature &quot;
             {feature}&quot;.
           </div>
@@ -285,7 +288,7 @@ export const docsComponents = {
     }
     return (
       <div className="my-6">
-        <div className="text-xs font-mono uppercase tracking-widest text-[var(--text-faint)] mb-2">
+        <div className="text-xs font-mono uppercase tracking-widest text-[var(--muted-foreground)] mb-2">
           Supported by
         </div>
         <div className="flex flex-wrap gap-2">
@@ -293,7 +296,7 @@ export const docsComponents = {
             <Link
               key={i.slug}
               href={`/integrations/${i.slug}?demo=${feature}`}
-              className="shell-docs-radius-control inline-flex items-center gap-1.5 border border-[var(--border)] bg-[var(--bg-surface)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+              className="shell-docs-radius-control inline-flex items-center gap-1.5 border border-[var(--border)] bg-[var(--card)] px-3 py-1.5 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:border-[var(--brand-accent)] hover:text-[var(--brand-accent)]"
             >
               {i.name}
             </Link>
@@ -359,21 +362,21 @@ export const docsComponents = {
       width: "100%",
       height: `${WRAPPER_HEIGHT}px`,
       overflow: "hidden",
-      background: "var(--bg-surface)",
+      background: "var(--card)",
     };
     const iframeStyle: React.CSSProperties = {
       width: `calc(100% / ${SCALE})`,
       height: `${WRAPPER_HEIGHT / SCALE}px`,
       border: "none",
-      background: "var(--bg-surface)",
+      background: "var(--card)",
       transform: `scale(${SCALE})`,
       transformOrigin: "top left",
     };
     return (
-      <DocsTabs items={["Demo", "Code"]}>
+      <DocsTabs items={["Demo", "Code"]} className="shell-docs-inline-demo">
         <DocsTab value="Demo">
           <div style={wrapperStyle}>
-            <iframe
+            <ThemedDemoFrame
               src={demoUrl}
               style={iframeStyle}
               sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
@@ -485,7 +488,7 @@ export const docsComponents = {
     if (process.env.NODE_ENV !== "production") {
       warnSilentNull("Snippet", "runtime override required (base stub)");
       return (
-        <div className="shell-docs-radius-surface my-4 border border-dashed border-[var(--border)] px-3 py-2 text-xs font-mono text-[var(--text-faint)]">
+        <div className="shell-docs-radius-surface my-4 border border-dashed border-[var(--border)] px-3 py-2 text-xs font-mono text-[var(--muted-foreground)]">
           [Snippet] runtime override required
           {children ? <div className="mt-1">{children}</div> : null}
         </div>
@@ -721,16 +724,16 @@ export const docsComponents = {
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr>
-              <th className="bg-[var(--bg-elevated)] text-left px-4 py-3 font-semibold text-[var(--text)] border-b border-[var(--border)]">
+              <th className="bg-[var(--secondary)] text-left px-4 py-3 font-semibold text-[var(--foreground)] border-b border-[var(--border)]">
                 Approach
               </th>
-              <th className="bg-[var(--bg-elevated)] text-left px-4 py-3 font-semibold text-[var(--text)] border-b border-[var(--border)]">
+              <th className="bg-[var(--secondary)] text-left px-4 py-3 font-semibold text-[var(--foreground)] border-b border-[var(--border)]">
                 Examples
               </th>
-              <th className="bg-[var(--bg-elevated)] text-left px-4 py-3 font-semibold text-[var(--text)] border-b border-[var(--border)]">
+              <th className="bg-[var(--secondary)] text-left px-4 py-3 font-semibold text-[var(--foreground)] border-b border-[var(--border)]">
                 Strengths
               </th>
-              <th className="bg-[var(--bg-elevated)] text-left px-4 py-3 font-semibold text-[var(--text)] border-b border-[var(--border)]">
+              <th className="bg-[var(--secondary)] text-left px-4 py-3 font-semibold text-[var(--foreground)] border-b border-[var(--border)]">
                 Weaknesses
               </th>
             </tr>
@@ -740,21 +743,19 @@ export const docsComponents = {
               <tr
                 key={`${row.approach}-${idx}`}
                 className={
-                  idx % 2 === 0
-                    ? "bg-[var(--bg-surface)]"
-                    : "bg-[var(--bg-elevated)]"
+                  idx % 2 === 0 ? "bg-[var(--card)]" : "bg-[var(--secondary)]"
                 }
               >
-                <td className="px-4 py-2.5 font-medium text-[var(--text)] border-b border-[var(--border-dim)]">
+                <td className="px-4 py-2.5 font-medium text-[var(--foreground)] border-b border-[var(--border-dim)]">
                   {row.approach}
                 </td>
-                <td className="px-4 py-2.5 text-[var(--text-secondary)] border-b border-[var(--border-dim)]">
+                <td className="px-4 py-2.5 text-[var(--muted-foreground)] border-b border-[var(--border-dim)]">
                   {row.examples ?? ""}
                 </td>
-                <td className="px-4 py-2.5 text-[var(--text-secondary)] border-b border-[var(--border-dim)]">
+                <td className="px-4 py-2.5 text-[var(--muted-foreground)] border-b border-[var(--border-dim)]">
                   {row.strengths ?? ""}
                 </td>
-                <td className="px-4 py-2.5 text-[var(--text-secondary)] border-b border-[var(--border-dim)]">
+                <td className="px-4 py-2.5 text-[var(--muted-foreground)] border-b border-[var(--border-dim)]">
                   {row.weaknesses ?? ""}
                 </td>
               </tr>
@@ -788,13 +789,13 @@ export const docsComponents = {
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr>
-              <th className="sticky left-0 z-10 bg-[var(--bg-elevated)] text-left px-4 py-3 font-semibold text-[var(--text)] border-b border-r border-[var(--border)] min-w-[200px] whitespace-nowrap">
+              <th className="sticky left-0 z-10 bg-[var(--secondary)] text-left px-4 py-3 font-semibold text-[var(--foreground)] border-b border-r border-[var(--border)] min-w-[200px] whitespace-nowrap">
                 Framework
               </th>
               {columns.map((col) => (
                 <th
                   key={col.id}
-                  className="bg-[var(--bg-elevated)] px-3 py-3 text-center font-medium text-[var(--text-muted)] border-b border-[var(--border)] text-xs whitespace-nowrap"
+                  className="bg-[var(--secondary)] px-3 py-3 text-center font-medium text-[var(--muted-foreground)] border-b border-[var(--border)] text-xs whitespace-nowrap"
                 >
                   {col.label}
                 </th>
@@ -805,17 +806,15 @@ export const docsComponents = {
             {integrations.map((integration, idx) => {
               const features = new Set(integration.features ?? []);
               const rowBg =
-                idx % 2 === 0
-                  ? "bg-[var(--bg-surface)]"
-                  : "bg-[var(--bg-elevated)]";
+                idx % 2 === 0 ? "bg-[var(--card)]" : "bg-[var(--secondary)]";
               return (
                 <tr key={integration.slug} className={rowBg}>
                   <td
-                    className={`sticky left-0 z-10 px-4 py-2.5 font-medium text-[var(--text)] border-r border-b border-[var(--border-dim)] whitespace-nowrap ${rowBg}`}
+                    className={`sticky left-0 z-10 px-4 py-2.5 font-medium text-[var(--foreground)] border-r border-b border-[var(--border-dim)] whitespace-nowrap ${rowBg}`}
                   >
                     <Link
                       href={`/${integration.slug}`}
-                      className="hover:text-[var(--accent)] transition-colors"
+                      className="hover:text-[var(--brand-accent)] transition-colors"
                     >
                       {integration.name}
                     </Link>
@@ -827,14 +826,14 @@ export const docsComponents = {
                     >
                       {features.has(col.id) ? (
                         <span
-                          className="text-[var(--accent)]"
+                          className="text-[var(--brand-accent)]"
                           aria-label="supported"
                         >
                           ✓
                         </span>
                       ) : (
                         <span
-                          className="text-[var(--text-faint)] text-xs"
+                          className="text-[var(--muted-foreground)] text-xs"
                           aria-label="not supported"
                         >
                           —
@@ -875,14 +874,14 @@ export const docsComponents = {
     <div
       style={{
         padding: "1rem",
-        background: "var(--bg-elevated)",
+        background: "var(--secondary)",
         borderRadius: "var(--shell-docs-radius-surface)",
         marginBottom: "1rem",
       }}
     >
       <a
         href="https://dashboard.operations.copilotkit.ai"
-        style={{ color: "var(--accent)" }}
+        style={{ color: "var(--brand-accent)" }}
       >
         Sign up for CopilotKit Cloud →
       </a>
@@ -891,7 +890,7 @@ export const docsComponents = {
   LinkToCopilotCloud: () => (
     <a
       href="https://dashboard.operations.copilotkit.ai"
-      style={{ color: "var(--accent)" }}
+      style={{ color: "var(--brand-accent)" }}
     >
       CopilotKit Cloud
     </a>
@@ -966,7 +965,7 @@ export const docsComponents = {
     />
   ),
   A: ({ children, href }: { children?: React.ReactNode; href?: string }) => (
-    <a href={href} style={{ color: "var(--accent)" }}>
+    <a href={href} style={{ color: "var(--brand-accent)" }}>
       {children}
     </a>
   ),
@@ -1001,7 +1000,7 @@ export const docsComponents = {
           padding: "0.5rem 1rem",
           borderRadius: "var(--shell-docs-radius-control)",
           border: "1px solid var(--border)",
-          background: "var(--bg-surface)",
+          background: "var(--card)",
           cursor: "pointer",
         }}
       >

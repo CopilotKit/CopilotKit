@@ -24,21 +24,21 @@ export default function AgUiError({
   return (
     <div className="flex items-center justify-center min-h-[50vh]">
       <div className="text-center max-w-md">
-        <h2 className="text-lg font-semibold text-[var(--text)] mb-2">
+        <h2 className="text-lg font-semibold text-[var(--foreground)] mb-2">
           Something went wrong
         </h2>
-        <p className="text-sm text-[var(--text-muted)] mb-4">
+        <p className="text-sm text-[var(--muted-foreground)] mb-4">
           We hit an error rendering this page. Please refresh, and if it keeps
           happening, report it with the ID below so we can track it down.
         </p>
         {error.digest && (
-          <p className="text-xs text-[var(--text-faint)] mb-4 font-mono">
+          <p className="text-xs text-[var(--muted-foreground)] mb-4 font-mono">
             Error ID: {error.digest}
           </p>
         )}
         <button
           onClick={reset}
-          className="shell-docs-radius-control h-10 border border-[var(--border)] px-4 text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-elevated)]"
+          className="shell-docs-radius-control h-10 border border-[var(--border)] px-4 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[var(--secondary)]"
         >
           Try again
         </button>

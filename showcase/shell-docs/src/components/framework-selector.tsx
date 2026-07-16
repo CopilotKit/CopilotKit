@@ -166,7 +166,7 @@ export function FrameworkSelector({
     : null;
 
   const topbarBtnClasses =
-    "shell-docs-radius-control flex items-center gap-1.5 px-2.5 py-1.5 border border-[var(--border)] bg-[var(--bg-surface)] text-[12px] font-medium text-[var(--text)] hover:border-[var(--accent)] transition-colors cursor-pointer max-w-[220px]";
+    "shell-docs-framework-picker shell-docs-radius-control flex items-center gap-1.5 px-2.5 py-1.5 border border-[var(--border)] bg-[var(--card)] text-[12px] font-medium text-[var(--foreground)] hover:border-[var(--brand-accent)] transition-colors cursor-pointer max-w-[220px]";
 
   const backendOptions = (
     includePinnedBIA: boolean,
@@ -235,7 +235,7 @@ export function FrameworkSelector({
     >
       {isSidebar ? (
         <>
-          <div className="shell-docs-picker-group shell-docs-picker-group-selected shell-docs-picker-group-bordered space-y-0.5">
+          <div className="shell-docs-picker-group shell-docs-picker-group-bordered shell-docs-sidebar-context-picker space-y-0.5">
             <button
               type="button"
               onClick={() =>
@@ -382,7 +382,7 @@ export function FrameworkSelector({
                   {label}
                 </>
               ) : (
-                <span className="text-[var(--text-muted)]">{label}</span>
+                <span className="text-[var(--muted-foreground)]">{label}</span>
               )}
             </span>
             <ChevronDown

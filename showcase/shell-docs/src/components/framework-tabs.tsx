@@ -55,10 +55,10 @@ export function FrameworkTabs({
       .join(" ");
 
   return (
-    <div className="shell-docs-radius-surface my-4 mb-5 overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)]">
+    <div className="shell-docs-radius-surface my-4 mb-5 overflow-hidden border border-[var(--border)] bg-[var(--card)]">
       <div
         role="tablist"
-        className="flex flex-wrap gap-1 border-b border-[var(--border)] bg-[var(--bg-elevated)] px-2 pt-1.5"
+        className="flex flex-wrap gap-1 border-b border-[var(--border)] bg-[var(--secondary)] px-2 pt-1.5"
       >
         {frameworks.map((fw) => {
           const isActive = fw === active;
@@ -71,8 +71,8 @@ export function FrameworkTabs({
               className={[
                 "cursor-pointer border-0 border-b-2 px-3.5 py-2 text-[0.8125rem] [border-radius:var(--shell-docs-radius-control)_var(--shell-docs-radius-control)_0_0]",
                 isActive
-                  ? "border-[var(--accent)] bg-[var(--bg-surface)] font-semibold text-[var(--text)]"
-                  : "border-transparent bg-transparent font-medium text-[var(--text-muted)] hover:bg-[var(--accent-dim)] hover:text-[var(--accent)]",
+                  ? "border-[var(--brand-accent)] bg-[var(--card)] font-semibold text-[var(--foreground)]"
+                  : "border-transparent bg-transparent font-medium text-[var(--muted-foreground)] hover:bg-[var(--accent-dim)] hover:text-[var(--brand-accent)]",
               ].join(" ")}
             >
               {displayLabel(fw)}

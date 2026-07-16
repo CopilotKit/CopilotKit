@@ -658,10 +658,10 @@ export default async function FrameworkScopedDocsPage({
 
   const banner = missingCell ? (
     <div className="shell-docs-radius-surface shell-docs-warning-surface mb-6 border p-4 shadow-[var(--shadow-control)]">
-      <div className="text-sm font-semibold text-[var(--text)] mb-1">
+      <div className="text-sm font-semibold text-[var(--foreground)] mb-1">
         Not available for {frameworkName} yet
       </div>
-      <p className="text-[13px] text-[var(--text-secondary)] leading-relaxed">
+      <p className="text-[13px] text-[var(--muted-foreground)] leading-relaxed">
         This feature (<code>{doc.fm.defaultCell}</code>) hasn't been tagged in
         any {frameworkName} cell yet.
         {alternativeFrameworks.length > 0 && (
@@ -680,7 +680,7 @@ export default async function FrameworkScopedDocsPage({
                   {i > 0 && ", "}
                   <Link
                     href={href}
-                    className="text-[var(--accent)] hover:underline"
+                    className="text-[var(--brand-accent)] hover:underline"
                   >
                     {name}
                   </Link>
@@ -985,7 +985,7 @@ function FrameworkRootShell({
         breadcrumb={{ enabled: false }}
         footer={{ enabled: false }}
       >
-        <div className="docs-inner-content max-w-[900px] mx-auto px-4 md:px-6 pt-0 pb-6">
+        <div className="docs-inner-content shell-docs-framework-page max-w-[900px] mx-auto px-4 md:px-6 pt-0 pb-6">
           {children}
         </div>
       </DocsPage>
@@ -1043,18 +1043,18 @@ function NotAvailableForFrameworkPage({
         breadcrumb={{ enabled: false }}
         footer={{ enabled: false }}
       >
-        <div className="docs-inner-content max-w-[900px] mx-auto px-4 md:px-6 pt-2 pb-6 md:pt-3 xl:pt-4">
-          <h1 className="text-[2rem] font-bold text-[var(--text)] tracking-tight mb-2 leading-tight">
+        <div className="docs-inner-content shell-docs-reading-page max-w-[900px] mx-auto px-4 md:px-6 pt-2 pb-6 md:pt-3 xl:pt-4">
+          <h1 className="text-[2rem] font-bold text-[var(--foreground)] tracking-tight mb-2 leading-tight">
             {title}
           </h1>
-          <p className="text-base text-[var(--text-muted)] mb-6 leading-relaxed">
+          <p className="text-base text-[var(--muted-foreground)] mb-6 leading-relaxed">
             This topic isn't available for {frameworkName}.
           </p>
           <div className="shell-docs-radius-surface shell-docs-warning-surface mb-6 border p-5 shadow-[var(--shadow-control)]">
-            <div className="text-sm font-semibold text-[var(--text)] mb-2">
+            <div className="text-sm font-semibold text-[var(--foreground)] mb-2">
               Available in other integrations
             </div>
-            <p className="text-[13px] text-[var(--text-secondary)] leading-relaxed mb-3">
+            <p className="text-[13px] text-[var(--muted-foreground)] leading-relaxed mb-3">
               <code>{slugPath}</code> is a topic specific to other integrations.
               Pick one to continue reading:
             </p>
@@ -1078,7 +1078,7 @@ function NotAvailableForFrameworkPage({
               })}
             </ul>
           </div>
-          <p className="text-[13px] text-[var(--text-muted)]">
+          <p className="text-[13px] text-[var(--muted-foreground)]">
             Or return to{" "}
             <Link
               href={slugHrefPrefix}

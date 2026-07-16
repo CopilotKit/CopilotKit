@@ -3,13 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
-import { CalendarDays, ChefHat } from "lucide-react";
+import { CalendarDays } from "lucide-react";
 import { SearchTrigger } from "./search-trigger";
 import { CopilotKitMark } from "./copilotkit-mark";
 import { ThemeSwitch } from "./theme-switch";
-import BookIcon from "./icons/book";
-import ConsoleIcon from "./icons/console";
 import ExternalLinkIcon from "./icons/external-link";
+import { PrimaryNavIcon } from "./primary-nav-icon";
+import type { PrimaryNavIconKind } from "./primary-nav-icon";
 
 // Enterprise Intelligence sign-up CTA. UTM params let marketing
 // attribute navbar-driven sign-ups distinctly from in-content SignupLink
@@ -25,22 +25,22 @@ export const TALK_TO_ENGINEER_HREF =
 type LeftLink = {
   href: string;
   label: string;
-  icon: React.ReactNode;
+  icon: PrimaryNavIconKind;
 };
 
 const LEFT_LINKS: LeftLink[] = [
   {
-    icon: <BookIcon className="text-current" />,
+    icon: "docs",
     label: "Docs",
     href: "/",
   },
   {
-    icon: <ConsoleIcon className="text-current" />,
+    icon: "reference",
     label: "Reference",
     href: "/reference",
   },
   {
-    icon: <ChefHat className="w-5 h-5 text-current" />,
+    icon: "cookbook",
     label: "Cookbook",
     href: "/cookbook",
   },
@@ -78,7 +78,7 @@ export function BrandNav(_props: BrandNavProps = {}) {
   };
 
   return (
-    <nav className="shell-docs-brand-nav relative hidden h-16 bg-[var(--bg)] xl:mx-[22px] xl:block">
+    <nav className="shell-docs-brand-nav relative hidden h-16 bg-[var(--background)] xl:mx-[22px] xl:block">
       <div className="shell-docs-brand-nav-inner relative grid h-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 bg-[var(--nav-surface)]">
         <Link
           href="/"
@@ -86,11 +86,11 @@ export function BrandNav(_props: BrandNavProps = {}) {
           aria-label="CopilotKit Docs"
         >
           <CopilotKitMark />
-          <span className="text-base font-bold tracking-tight text-[var(--text)]">
+          <span className="text-base font-bold tracking-tight text-[var(--foreground)]">
             CopilotKit
           </span>
           <span
-            className="shell-docs-radius-control ml-1 border border-[var(--border)] bg-[var(--accent-dim)] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--accent)]"
+            className="shell-docs-radius-control ml-1 border border-[var(--border)] bg-[var(--accent-dim)] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--brand-accent)]"
             aria-hidden="true"
           >
             Docs
@@ -109,11 +109,11 @@ export function BrandNav(_props: BrandNavProps = {}) {
                       : "shell-docs-nav-link-idle"
                   }`}
                 >
-                  <span className="flex items-center gap-2">
-                    <span className="[@media(width<808px)]:hidden">
-                      {link.icon}
+                  <span className="shell-docs-nav-link-content flex items-center gap-2">
+                    <span className="shell-docs-nav-link-icon-wrap [@media(width<808px)]:hidden">
+                      <PrimaryNavIcon kind={link.icon} active={isActive} />
                     </span>
-                    <span className="text-sm font-medium whitespace-nowrap">
+                    <span className="shell-docs-nav-link-label text-sm font-medium whitespace-nowrap">
                       {link.label}
                     </span>
                   </span>
@@ -130,19 +130,19 @@ export function BrandNav(_props: BrandNavProps = {}) {
             target="_blank"
             rel="noopener noreferrer"
             onClick={handleFreeDeveloperAccessClick}
-            className="shell-docs-nav-cta shell-docs-radius-control hidden h-10 cursor-pointer items-center gap-2 whitespace-nowrap border px-4 text-sm font-medium no-underline shadow-[var(--shadow-control)] transition-colors duration-200 [@media(width>=1280px)]:flex"
+            className="shell-docs-nav-cta shell-docs-nav-cta-primary shell-docs-radius-control hidden h-10 cursor-pointer items-center gap-2 whitespace-nowrap border px-4 text-sm font-medium no-underline shadow-[var(--shadow-control)] transition-colors duration-200 [@media(width>=1280px)]:flex"
             aria-label="Get Enterprise Intelligence free"
             suppressHydrationWarning
           >
             Get Enterprise Intelligence free
             <ExternalLinkIcon className="text-current opacity-70" />
           </Link>
-          {/* Talk to an engineer. Secondary in the docs nav so search can own
-           * the far-right utility slot. */}
+          {/* Talk to an engineer. Keep parity with the website's black
+           * conversion CTA treatment. */}
           <button
             type="button"
             onClick={handleTalkToEngineersClick}
-            className="shell-docs-nav-cta shell-docs-radius-control hidden h-10 cursor-pointer items-center whitespace-nowrap border px-4 text-sm font-medium shadow-[var(--shadow-control)] transition-colors duration-200 [@media(width>=1500px)]:flex"
+            className="shell-docs-nav-cta shell-docs-nav-cta-primary shell-docs-radius-control hidden h-10 cursor-pointer items-center whitespace-nowrap border px-4 text-sm font-medium shadow-[var(--shadow-control)] transition-colors duration-200 [@media(width>=1500px)]:flex"
             aria-label="Talk to an engineer"
           >
             Talk to an engineer
@@ -150,7 +150,7 @@ export function BrandNav(_props: BrandNavProps = {}) {
           <button
             type="button"
             onClick={handleTalkToEngineersClick}
-            className="shell-docs-nav-cta shell-docs-radius-control hidden h-10 w-10 cursor-pointer items-center justify-center border shadow-[var(--shadow-control)] transition-colors duration-200 xl:flex [@media(width>=1500px)]:hidden"
+            className="shell-docs-nav-cta shell-docs-nav-cta-primary shell-docs-radius-control hidden h-10 w-10 cursor-pointer items-center justify-center border shadow-[var(--shadow-control)] transition-colors duration-200 lg:flex [@media(width>=1500px)]:hidden"
             aria-label="Talk to an engineer"
             title="Talk to an engineer"
           >

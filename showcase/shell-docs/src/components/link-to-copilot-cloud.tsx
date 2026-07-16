@@ -50,9 +50,9 @@ export function LinkToCopilotCloud({
 
   if (asButton) {
     cn =
-      "shell-docs-radius-control flex items-center whitespace-nowrap border border-[var(--accent)] bg-[var(--accent-dim)] p-3 px-4 text-sm text-[var(--accent)] no-underline shadow-[var(--shadow-control)]";
+      "shell-docs-radius-control flex items-center whitespace-nowrap border border-[var(--brand-accent)] bg-[var(--accent-dim)] p-3 px-4 text-sm text-[var(--brand-accent)] no-underline shadow-[var(--shadow-control)]";
     cn +=
-      " transition-colors duration-100 hover:bg-[var(--accent)] hover:text-[var(--primary-foreground)]";
+      " transition-colors duration-100 hover:bg-[var(--brand-accent)] hover:text-[var(--brand-accent-foreground)]";
   } else {
     cn =
       "_text-primary-600 decoration-from-font underline [text-underline-position:from-font]";

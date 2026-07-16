@@ -127,17 +127,17 @@ function DocsOverview() {
     }));
   return (
     <ShellDocsLayout tree={pageTree} banner={<SidebarFrameworkSelector />}>
-      <div className="docs-inner-content max-w-[1040px] mx-auto px-4 md:px-6 pt-0 pb-6">
+      <div className="docs-inner-content shell-docs-overview-page max-w-[1040px] mx-auto px-4 md:px-6 pt-0 pb-6">
         <section className="relative border-b border-[var(--border)] pb-6 sm:pb-7">
           <div className="flex max-w-[765px] flex-col">
             <div>
-              <h1 className="max-w-[24ch] text-[2rem] font-semibold leading-[1.08] tracking-[-0.02em] text-[var(--text)] sm:text-[2.5rem] md:mt-3">
+              <h1 className="max-w-[24ch] text-[2rem] font-semibold leading-[1.08] tracking-[-0.02em] text-[var(--foreground)] sm:text-[2.5rem] md:mt-3">
                 CopilotKit
               </h1>
-              <p className="mt-3 max-w-[58ch] text-lg font-medium leading-snug text-[var(--text-muted)] sm:text-[1.375rem]">
+              <p className="mt-3 max-w-[58ch] text-lg font-medium leading-snug text-[var(--muted-foreground)] sm:text-[1.375rem]">
                 The frontend stack for agentic user experience.
               </p>
-              <p className="mt-4 max-w-[58ch] text-base leading-[1.55] text-[var(--text-secondary)] sm:text-lg">
+              <p className="mt-4 max-w-[58ch] text-base leading-[1.55] text-[var(--muted-foreground)] sm:text-lg">
                 Build production chat, generative UI, shared state, and
                 human-in-the-loop workflows on any AG-UI compatible backend.
               </p>

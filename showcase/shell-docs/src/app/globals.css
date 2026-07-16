@@ -35,27 +35,69 @@
   --shell-docs-layout-width: calc(97rem + 11px);
   --shell-docs-grid-gutter: 0px;
   --shell-docs-grid-top-offset: 0px;
-  --radius: 0.875rem;
+  --radius: 0.75rem;
   --shell-docs-radius: var(--radius);
-  --shell-docs-radius-control: var(--radius);
-  --shell-docs-radius-surface: var(--radius);
-  --shell-docs-radius-icon: var(--radius);
-  --shadow-control: 0 1px 0 rgba(1, 5, 7, 0.03);
-  --shadow-panel: 0 18px 50px rgba(1, 5, 7, 0.18);
+  --shell-docs-radius-control: 9999px;
+  --shell-docs-framework-picker-radius: 1rem;
+  --shell-docs-radius-surface: 1.25rem;
+  --shell-docs-radius-module: 1.375rem;
+  --shell-docs-radius-icon: 9999px;
+  --shell-docs-picker-group-surface: color-mix(
+    in srgb,
+    var(--card) 82%,
+    var(--accent-dim) 18%
+  );
+  --shell-docs-picker-group-border: color-mix(
+    in srgb,
+    var(--brand-accent) 18%,
+    var(--border)
+  );
+  --shell-docs-picker-group-shadow:
+    0 12px 30px -26px rgba(1, 5, 7, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.62);
+  --shell-docs-picker-row-surface-hover: color-mix(
+    in srgb,
+    var(--card) 76%,
+    var(--accent-dim) 24%
+  );
+  --shell-docs-picker-row-border-hover: color-mix(
+    in srgb,
+    var(--brand-accent) 20%,
+    transparent
+  );
+  --shell-docs-picker-row-text: var(--foreground);
+  --shell-docs-picker-row-label: var(--muted-foreground);
+  --shadow-control:
+    0 1px 2px rgba(1, 5, 7, 0.05), 0 0 0 1px rgba(1, 5, 7, 0.02);
+  --shadow-control-hover:
+    0 10px 24px -18px rgba(1, 5, 7, 0.36), 0 1px 2px rgba(1, 5, 7, 0.06);
+  --shell-docs-gradient-control-shadow: 0 1px 2px rgba(1, 5, 7, 0.05);
+  --shell-docs-gradient-control-shadow-hover:
+    0 10px 24px -18px rgba(1, 5, 7, 0.36), 0 1px 2px rgba(1, 5, 7, 0.06);
+  --shadow-panel:
+    0 24px 54px -34px rgba(1, 5, 7, 0.32), 0 1px 2px rgba(1, 5, 7, 0.04);
+  --shadow-module:
+    0 18px 42px -34px rgba(1, 5, 7, 0.28), 0 1px 2px rgba(1, 5, 7, 0.04);
+  --shadow-module-hover:
+    0 26px 60px -40px rgba(1, 5, 7, 0.34), 0 1px 2px rgba(1, 5, 7, 0.05);
   --shadow-modal:
-    0 24px 70px rgba(1, 5, 7, 0.22), 0 0 0 1px rgba(109, 69, 249, 0.05);
+    0 24px 70px rgba(1, 5, 7, 0.22), 0 0 0 1px rgba(1, 5, 7, 0.05);
   --overlay-backdrop: rgba(1, 5, 7, 0.25);
-  --accent-strong: color-mix(in oklch, var(--accent) 88%, black);
-  --nav-control-border: color-mix(in srgb, var(--accent) 24%, var(--border));
+  --accent-strong: color-mix(in oklch, var(--brand-accent) 88%, white);
+  --nav-control-border: color-mix(
+    in srgb,
+    var(--brand-accent) 24%,
+    var(--border)
+  );
   --nav-control-border-hover: color-mix(
     in srgb,
-    var(--accent) 42%,
+    var(--brand-accent) 42%,
     var(--border)
   );
   --warning: oklch(0.72 0.16 76);
   --warning-dim: color-mix(in oklch, var(--warning) 10%, transparent);
   --warning-border: color-mix(in oklch, var(--warning) 46%, var(--border));
-  --warning-text: color-mix(in oklch, var(--warning) 70%, var(--text));
+  --warning-text: color-mix(in oklch, var(--warning) 70%, var(--foreground));
   /* Brand mint, backs --color-fd-success. mint/800 for contrast on the
    * white callout card; the dark theme lifts this to mint/400. */
   --success: #189370;
@@ -200,22 +242,38 @@
   }
 }
 
+.shell-docs-brand-nav {
+  border-color: transparent !important;
+  background: transparent !important;
+  backdrop-filter: none;
+}
+
+.shell-docs-mobile-nav {
+  border-color: var(--shell-docs-header-border) !important;
+  background: var(--shell-docs-mobile-nav-surface) !important;
+  box-shadow: var(--shell-docs-mobile-nav-shadow);
+  -webkit-backdrop-filter: blur(18px) saturate(1.18);
+  backdrop-filter: blur(18px) saturate(1.18);
+}
+
 /* BrandNav keeps its content inset, but the bottom divider should span the
  * full viewport width instead of stopping at the nav's 22px desktop margins. */
 .shell-docs-brand-nav::after {
   position: absolute;
-  right: -22px;
   bottom: 0;
-  left: -22px;
+  left: 50%;
+  width: 100vw;
   height: 1px;
-  background: var(--border);
+  background: var(--shell-docs-header-border);
   content: "";
+  transform: translateX(-50%);
 }
 
 /* BrandNav is a full-width top bar. Keep a named hook so layout tests can
  * assert the header does not regress back to the earlier capped pill chrome. */
 .shell-docs-brand-nav-inner {
   width: 100%;
+  background: transparent !important;
 }
 
 .shell-docs-brand-link {
@@ -240,7 +298,7 @@
 .shell-docs-surface {
   border: 1px solid var(--border);
   border-radius: var(--shell-docs-radius-surface);
-  background: var(--bg-surface);
+  background: var(--card);
   box-shadow: var(--shadow-control);
 }
 
@@ -250,34 +308,50 @@
   justify-content: center;
   border-radius: var(--shell-docs-radius-icon);
   border: 1px solid var(--border);
-  background: var(--bg-surface);
-  color: var(--text-muted);
+  background: var(--shell-docs-icon-surface);
+  color: var(--shell-docs-icon-color);
 }
 
 .shell-docs-picker-group {
-  border-radius: var(--shell-docs-radius-surface);
-  background: color-mix(in oklch, var(--accent-dim) 34%, transparent);
-  padding: 4px;
+  border-radius: calc(var(--shell-docs-framework-picker-radius) + 0.25rem);
+  background: var(--shell-docs-picker-group-surface);
+  box-shadow: var(--shell-docs-picker-group-shadow);
+  padding: 5px;
 }
 
 .shell-docs-picker-group-selected {
-  background: color-mix(in oklch, var(--accent-dim) 34%, transparent);
+  background: var(--shell-docs-picker-group-surface);
 }
 
 .shell-docs-picker-group-bordered {
-  border: 1px solid var(--nav-control-border);
+  border: 1px solid var(--shell-docs-picker-group-border);
 }
 
 .dark .shell-docs-picker-group {
-  background: color-mix(in oklch, var(--accent) 9%, transparent);
+  background: var(--shell-docs-picker-group-surface);
 }
 
 .dark .shell-docs-picker-group-selected {
-  background: color-mix(in oklch, var(--accent) 9%, transparent);
+  background: var(--shell-docs-picker-group-surface);
 }
 
 .shell-docs-picker-row {
-  border-radius: var(--shell-docs-radius-control);
+  border: 1px solid transparent;
+  border-radius: var(--shell-docs-framework-picker-radius);
+  color: var(--shell-docs-picker-row-text);
+}
+
+.shell-docs-picker-row:hover {
+  border-color: var(--shell-docs-picker-row-border-hover);
+  background: var(--shell-docs-picker-row-surface-hover);
+}
+
+.shell-docs-picker-row [class*="text-[var(--text-muted)]"] {
+  color: var(--shell-docs-picker-row-label) !important;
+}
+
+.shell-docs-picker-row [class*="text-[var(--text)]"] {
+  color: var(--shell-docs-picker-row-text) !important;
 }
 
 .shell-docs-picker-row-divided {
@@ -288,10 +362,14 @@
   content: "";
   position: absolute;
   top: -1px;
-  right: 8px;
-  left: 8px;
+  right: 0.75rem;
+  left: 0.75rem;
   height: 1px;
-  background: var(--nav-control-border);
+  background: color-mix(
+    in srgb,
+    var(--shell-docs-picker-group-border) 78%,
+    transparent
+  );
   pointer-events: none;
 }
 
@@ -304,14 +382,431 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  border: 1px solid var(--shell-docs-accent-chip-border);
   border-radius: 9999px;
-  background: color-mix(in oklch, var(--bg-surface) 76%, transparent);
-  color: var(--accent);
+  background: var(--shell-docs-accent-chip-surface);
+  color: var(--shell-docs-icon-color);
 }
 
 .dark .shell-docs-picker-icon-chip {
-  background: color-mix(in oklch, var(--foreground) 92%, var(--accent) 8%);
-  color: var(--accent);
+  border-color: color-mix(in oklch, var(--brand-accent) 20%, var(--border));
+  background: color-mix(
+    in oklch,
+    var(--foreground) 94%,
+    var(--brand-accent) 6%
+  );
+  color: var(--brand-accent);
+}
+
+#backends .shell-docs-radius-icon {
+  border: 1px solid var(--shell-docs-accent-chip-border);
+  background: color-mix(
+    in srgb,
+    var(--brand-accent) 10%,
+    var(--card)
+  ) !important;
+  color: var(--brand-accent) !important;
+}
+
+#backends .group:hover .shell-docs-radius-icon {
+  border-color: var(--shell-docs-accent-chip-border-hover);
+  background: color-mix(
+    in srgb,
+    var(--brand-accent) 14%,
+    var(--card)
+  ) !important;
+  color: var(--brand-accent) !important;
+}
+
+#backends
+  .shell-docs-radius-icon
+  :is(svg, [class*="text-[var(--brand-accent)]"]) {
+  color: var(--brand-accent) !important;
+}
+
+.shell-docs-framework-picker {
+  min-height: 2.625rem;
+  border-radius: var(--shell-docs-framework-picker-radius) !important;
+  border-color: var(--shell-docs-framework-picker-border) !important;
+  background: var(--shell-docs-framework-picker-surface) !important;
+  background-position: center !important;
+  background-size: 140% 100% !important;
+  color: var(--shell-docs-framework-picker-text) !important;
+  box-shadow: var(--shell-docs-gradient-control-shadow) !important;
+}
+
+.shell-docs-framework-picker:hover {
+  border-color: var(--shell-docs-framework-picker-border-hover) !important;
+  background: var(--shell-docs-framework-picker-surface-hover) !important;
+  background-position: center !important;
+  background-size: 140% 100% !important;
+  color: var(--shell-docs-framework-picker-text) !important;
+  box-shadow: var(--shell-docs-gradient-control-shadow-hover) !important;
+}
+
+.shell-docs-framework-menu {
+  border-color: var(--border) !important;
+  border-radius: var(--shell-docs-radius-module) !important;
+  background: var(--shell-docs-glass-strong) !important;
+  box-shadow: var(--shadow-panel) !important;
+  backdrop-filter: blur(18px);
+}
+
+.shell-docs-framework-option {
+  min-height: 2.5rem;
+  border-radius: var(--shell-docs-sidebar-item-radius) !important;
+  border: 1px solid transparent;
+  color: var(--muted-foreground) !important;
+}
+
+.shell-docs-framework-option:hover,
+.shell-docs-framework-option[data-active="true"] {
+  border-color: var(--shell-docs-selection-border) !important;
+  background: var(--shell-docs-selection-surface) !important;
+  color: var(--foreground) !important;
+}
+
+.shell-docs-module-card {
+  border-color: var(--border) !important;
+  border-radius: var(--shell-docs-radius-module) !important;
+  background: var(--shell-docs-glass-strong) !important;
+  box-shadow: var(--shadow-module);
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    box-shadow 150ms ease,
+    transform 150ms ease;
+}
+
+.shell-docs-module-card:hover {
+  border-color: var(--shell-docs-selection-border-hover) !important;
+  background: var(--card) !important;
+  box-shadow: var(--shadow-module-hover);
+}
+
+.dark .shell-docs-module-card {
+  border-color: var(--shell-docs-glass-border) !important;
+  background:
+    radial-gradient(
+      100% 90% at 0% 0%,
+      rgba(190, 194, 255, 0.24) 0%,
+      rgba(190, 194, 255, 0.08) 38%,
+      transparent 66%
+    ),
+    radial-gradient(
+      90% 90% at 100% 100%,
+      rgba(133, 236, 206, 0.17) 0%,
+      rgba(133, 236, 206, 0.06) 42%,
+      transparent 70%
+    ),
+    var(--shell-docs-glass-strong) !important;
+  box-shadow:
+    0 28px 60px -44px rgba(0, 0, 0, 0.95),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.dark .shell-docs-module-card:hover {
+  border-color: var(--shell-docs-selection-border-hover) !important;
+  background:
+    radial-gradient(
+      100% 90% at 0% 0%,
+      rgba(190, 194, 255, 0.3) 0%,
+      rgba(190, 194, 255, 0.1) 38%,
+      transparent 66%
+    ),
+    radial-gradient(
+      90% 90% at 100% 100%,
+      rgba(133, 236, 206, 0.22) 0%,
+      rgba(133, 236, 206, 0.08) 42%,
+      transparent 70%
+    ),
+    var(--card) !important;
+}
+
+#backends .shell-docs-backend-card {
+  border-color: var(--border) !important;
+  background: var(--shell-docs-glass-strong) !important;
+  background-position: initial !important;
+  background-size: initial !important;
+}
+
+#backends .shell-docs-backend-card:hover {
+  border-color: var(--shell-docs-selection-border-hover) !important;
+  background: var(--card) !important;
+}
+
+.dark #backends .shell-docs-backend-card {
+  border-color: var(--shell-docs-glass-border) !important;
+  background: var(--shell-docs-glass-strong) !important;
+}
+
+.dark #backends .shell-docs-backend-card:hover {
+  border-color: var(--shell-docs-selection-border-hover) !important;
+  background: var(--card) !important;
+}
+
+.shell-docs-framework-overview {
+  color: var(--foreground);
+}
+
+.shell-docs-framework-hero {
+  position: relative;
+}
+
+.shell-docs-framework-icon {
+  border-color: var(--shell-docs-accent-chip-border) !important;
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--shell-docs-brand-lilac) 28%, transparent),
+      color-mix(in srgb, var(--shell-docs-brand-mint) 20%, transparent)
+    ),
+    var(--shell-docs-accent-chip-surface) !important;
+  color: var(--shell-docs-icon-color) !important;
+  box-shadow: var(--shadow-control);
+}
+
+.shell-docs-framework-feature {
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--shell-docs-brand-lilac) 5%, transparent) 0%,
+      transparent 46%,
+      color-mix(in srgb, var(--shell-docs-brand-mint) 5%, transparent) 100%
+    ),
+    var(--shell-docs-glass-strong) !important;
+}
+
+.dark .shell-docs-framework-feature {
+  border-color: var(--shell-docs-glass-border) !important;
+  background:
+    radial-gradient(
+      92% 92% at 0% 0%,
+      rgba(190, 194, 255, 0.28) 0%,
+      rgba(190, 194, 255, 0.1) 36%,
+      transparent 68%
+    ),
+    radial-gradient(
+      88% 88% at 100% 100%,
+      rgba(133, 236, 206, 0.22) 0%,
+      rgba(133, 236, 206, 0.08) 40%,
+      transparent 72%
+    ),
+    linear-gradient(180deg, var(--secondary), var(--card)) !important;
+  box-shadow:
+    0 26px 58px -44px rgba(0, 0, 0, 0.95),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.shell-docs-framework-media {
+  border-color: var(--border) !important;
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--shell-docs-brand-lilac) 16%, transparent) 0%,
+      color-mix(in srgb, var(--shell-docs-brand-blue) 10%, transparent) 52%,
+      color-mix(in srgb, var(--shell-docs-brand-mint) 14%, transparent) 100%
+    ),
+    var(--card);
+  box-shadow: var(--shadow-module);
+}
+
+.dark .shell-docs-framework-media {
+  border-color: var(--shell-docs-glass-border) !important;
+  background:
+    radial-gradient(
+      84% 92% at 12% 10%,
+      rgba(190, 194, 255, 0.24) 0%,
+      rgba(190, 194, 255, 0.1) 40%,
+      transparent 70%
+    ),
+    radial-gradient(
+      80% 86% at 96% 90%,
+      rgba(133, 236, 206, 0.22) 0%,
+      rgba(133, 236, 206, 0.075) 44%,
+      transparent 74%
+    ),
+    linear-gradient(145deg, var(--secondary), var(--card));
+  box-shadow:
+    0 26px 56px -40px rgba(0, 0, 0, 0.95),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.shell-docs-framework-media video,
+.shell-docs-framework-media img,
+.shell-docs-framework-media iframe {
+  background: transparent;
+}
+
+.shell-docs-framework-media-overlay {
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--primary-foreground) 5%, transparent);
+}
+
+.dark .shell-docs-framework-media-overlay {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+}
+
+.shell-docs-preview-card {
+  border-color: var(--border) !important;
+  border-radius: var(--shell-docs-radius-module) !important;
+  background: var(--shell-docs-glass-strong) !important;
+  box-shadow: var(--shadow-module);
+}
+
+.dark .shell-docs-preview-card {
+  border-color: var(--shell-docs-glass-border) !important;
+  background:
+    radial-gradient(
+      88% 70% at 0% 0%,
+      rgba(190, 194, 255, 0.18) 0%,
+      transparent 64%
+    ),
+    radial-gradient(
+      80% 70% at 100% 100%,
+      rgba(133, 236, 206, 0.13) 0%,
+      transparent 68%
+    ),
+    var(--shell-docs-glass-strong) !important;
+  box-shadow:
+    0 30px 64px -48px rgba(0, 0, 0, 0.95),
+    inset 0 1px 0 rgba(255, 255, 255, 0.055);
+}
+
+.shell-docs-sample-rail {
+  border-color: var(--border) !important;
+  background: var(--shell-docs-sample-rail-surface) !important;
+  background-position: initial !important;
+  background-size: initial !important;
+}
+
+.dark .shell-docs-sample-rail {
+  border-color: var(--shell-docs-glass-border) !important;
+  background: var(--shell-docs-sample-rail-surface) !important;
+}
+
+.shell-docs-sample-option {
+  border-color: var(--shell-docs-sample-option-border) !important;
+  border-radius: 0.875rem !important;
+  background: var(--shell-docs-sample-option-surface) !important;
+  color: var(--shell-docs-sample-option-text) !important;
+  cursor: pointer;
+  box-shadow:
+    0 1px 2px rgba(1, 5, 7, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32) !important;
+}
+
+.shell-docs-sample-rail [role="tablist"] {
+  display: grid;
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+}
+
+.shell-docs-sample-option:hover {
+  border-color: color-mix(
+    in srgb,
+    var(--shell-docs-sample-option-border) 74%,
+    var(--foreground)
+  ) !important;
+  background: var(--shell-docs-sample-option-surface-hover) !important;
+  color: var(--shell-docs-sample-option-text) !important;
+}
+
+.shell-docs-preview-tab-active {
+  --shell-docs-sample-option-muted: color-mix(
+    in srgb,
+    var(--primary-foreground) 62%,
+    transparent
+  );
+  border-color: transparent !important;
+  background: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+  box-shadow:
+    0 12px 24px -18px rgba(1, 5, 7, 0.8),
+    inset 0 0 0 1px
+      color-mix(in srgb, var(--primary-foreground) 8%, transparent);
+}
+
+.shell-docs-preview-tab-idle {
+  color: var(--shell-docs-sample-option-text) !important;
+}
+
+.shell-docs-preview-tab-idle:hover {
+  background: var(--shell-docs-sample-option-surface-hover) !important;
+  color: var(--shell-docs-sample-option-text) !important;
+}
+
+.shell-docs-sample-icon-chip {
+  border-color: color-mix(
+    in srgb,
+    var(--shell-docs-accent-chip-border) 70%,
+    transparent
+  ) !important;
+  background: var(--shell-docs-accent-chip-surface) !important;
+  color: var(--shell-docs-sample-icon-gradient-start) !important;
+  box-shadow: 0 1px 2px rgba(1, 5, 7, 0.04);
+}
+
+.shell-docs-sample-option:hover .shell-docs-sample-icon-chip,
+[data-mobile-sample-card]:hover .shell-docs-sample-icon-chip {
+  border-color: var(--shell-docs-accent-chip-border-hover) !important;
+  background: var(--shell-docs-accent-chip-surface-hover) !important;
+}
+
+.shell-docs-preview-tab-active .shell-docs-sample-icon-chip {
+  border-color: var(--shell-docs-accent-chip-border-hover) !important;
+  background: var(--shell-docs-sample-icon-chip-active-surface) !important;
+  color: var(--shell-docs-sample-icon-gradient-start) !important;
+  box-shadow:
+    0 1px 2px rgba(1, 5, 7, 0.08),
+    inset 0 1px 0 color-mix(in srgb, var(--card) 38%, transparent);
+}
+
+.shell-docs-sample-icon {
+  color: var(--shell-docs-sample-icon-gradient-start);
+}
+
+.shell-docs-sample-icon :is(path, line, polyline, polygon, rect, circle) {
+  stroke: url(#shell-docs-sample-icon-gradient) !important;
+}
+
+.shell-docs-sample-panel-cta {
+  border-color: var(--shell-docs-button-border) !important;
+  background: var(--shell-docs-button-surface) !important;
+  color: var(--primary-foreground) !important;
+}
+
+.shell-docs-sample-panel-cta:hover {
+  border-color: var(--shell-docs-button-border) !important;
+  background: var(--shell-docs-button-surface-hover) !important;
+  color: var(--primary-foreground) !important;
+  box-shadow: var(--shadow-control-hover) !important;
+}
+
+.shell-docs-sample-code {
+  border-color: var(--border) !important;
+  border-radius: var(--shell-docs-radius-surface) !important;
+  background: var(--card) !important;
+}
+
+.shell-docs-sample-code-header {
+  border-color: var(--border) !important;
+  background: var(--secondary) !important;
+}
+
+.dark .shell-docs-sample-code {
+  border-color: var(--shell-docs-glass-border) !important;
+  background: color-mix(in srgb, var(--card) 86%, var(--secondary)) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.dark .shell-docs-sample-code-header {
+  border-color: var(--shell-docs-glass-border) !important;
+  background: color-mix(in srgb, var(--secondary) 88%, var(--card)) !important;
 }
 
 .shell-docs-warning-surface {
@@ -325,7 +820,7 @@
   right: 12px;
   bottom: 8px;
   z-index: 9999;
-  color: var(--text-faint);
+  color: var(--muted-foreground);
   font-family: var(--font-docs-code);
   font-size: 10px;
   opacity: 0.55;
@@ -335,7 +830,7 @@
 
 .reference-content a.shell-docs-cta-link,
 .reference-content a.shell-docs-cta-link:hover {
-  color: var(--text);
+  color: var(--foreground);
   text-decoration: none;
 }
 
@@ -348,88 +843,332 @@
 .reference-content a.shell-docs-cta-accent,
 .reference-content a.shell-docs-cta-accent:hover,
 .reference-content .shell-docs-cta-accent {
-  color: var(--accent);
+  color: var(--brand-accent);
   text-decoration: none;
 }
 
 .shell-docs-cta-stripe {
-  background: var(--accent);
+  background: var(--brand-accent);
 }
 
 .shell-docs-course-banner {
-  background: linear-gradient(
-    90deg,
-    color-mix(in oklch, var(--accent) 78%, black) 0%,
-    var(--accent) 52%,
-    color-mix(in oklch, var(--accent) 90%, white) 100%
+  background: var(--shell-docs-banner-surface) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--shell-docs-banner-foreground) 20%,
+    transparent
   ) !important;
-  border-color: color-mix(in oklch, var(--accent) 70%, white) !important;
+  color: var(--shell-docs-banner-foreground) !important;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.shell-docs-course-banner p,
+.shell-docs-course-banner span {
+  color: var(--shell-docs-banner-foreground) !important;
+}
+
+.shell-docs-course-banner-icon {
+  border-color: color-mix(
+    in srgb,
+    var(--shell-docs-banner-foreground) 34%,
+    transparent
+  ) !important;
+  background: color-mix(
+    in srgb,
+    var(--shell-docs-banner-foreground) 16%,
+    transparent
+  ) !important;
+  color: var(--shell-docs-banner-foreground) !important;
+}
+
+.shell-docs-course-banner-source {
+  color: color-mix(
+    in srgb,
+    var(--shell-docs-banner-foreground) 84%,
+    transparent
+  ) !important;
+}
+
+.shell-docs-course-banner-link,
+.shell-docs-course-banner a {
+  background: var(--shell-docs-button-surface) !important;
+  border-color: var(--shell-docs-button-border) !important;
+  color: var(--primary-foreground) !important;
+}
+
+.shell-docs-course-banner-link:hover {
+  background: var(--shell-docs-button-surface-hover) !important;
+}
+
+:is(a, button)[class~="bg-[var(--brand-accent)]"] {
+  background: var(--shell-docs-button-surface) !important;
+  border-color: var(--shell-docs-button-border) !important;
+  color: var(--primary-foreground) !important;
+}
+
+:is(a, button)[class~="bg-[var(--brand-accent)]"]:hover {
+  background: var(--shell-docs-button-surface-hover) !important;
+  border-color: var(--shell-docs-button-border) !important;
+  color: var(--primary-foreground) !important;
 }
 
 .dark .shell-docs-course-banner {
-  background: linear-gradient(
-    90deg,
-    color-mix(in oklch, var(--accent) 72%, black) 0%,
-    color-mix(in oklch, var(--accent) 86%, black) 52%,
-    var(--accent) 100%
+  background: var(--shell-docs-banner-surface) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--shell-docs-banner-foreground) 18%,
+    transparent
   ) !important;
-  border-color: color-mix(in oklch, var(--accent) 62%, transparent) !important;
 }
 
+.shell-docs-course-banner-close,
 #shell-docs-course-banner > button {
   width: 24px !important;
   height: 24px !important;
-  border: 1px solid color-mix(in srgb, white 26%, transparent) !important;
-  background: color-mix(in srgb, white 10%, transparent) !important;
+  border: 1px solid
+    color-mix(in srgb, var(--shell-docs-banner-foreground) 34%, transparent) !important;
+  background: color-mix(
+    in srgb,
+    var(--shell-docs-banner-foreground) 16%,
+    transparent
+  ) !important;
   opacity: 1 !important;
-  color: white !important;
+  color: var(--shell-docs-banner-foreground) !important;
   cursor: pointer !important;
 }
 
+.shell-docs-course-banner-close {
+  --tw-ring-color: color-mix(
+    in srgb,
+    var(--shell-docs-banner-foreground) 50%,
+    transparent
+  );
+}
+
+.shell-docs-course-banner-close:hover,
 #shell-docs-course-banner > button:hover {
-  background: color-mix(in srgb, white 16%, transparent) !important;
+  background: color-mix(
+    in srgb,
+    var(--shell-docs-banner-foreground) 24%,
+    transparent
+  ) !important;
 }
 
 .shell-docs-nav-link-idle {
-  color: var(--text-muted);
+  color: var(--muted-foreground);
 }
 
 .shell-docs-nav-link-idle:hover {
-  background: var(--accent-dim);
-  color: var(--accent);
+  background: color-mix(in srgb, var(--card) 46%, transparent);
+  color: var(--foreground);
 }
 
 .shell-docs-nav-link-active {
-  background: color-mix(in oklch, var(--accent) 13%, transparent);
+  background: var(--shell-docs-selection-surface);
   box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--accent) 24%, var(--border)),
-    0 1px 0 rgba(1, 5, 7, 0.04);
-  color: var(--accent);
+    inset 0 0 0 1px var(--shell-docs-selection-border),
+    0 1px 2px rgba(1, 5, 7, 0.05);
+  color: var(--foreground);
+}
+
+.shell-docs-nav-link-active:hover {
+  background: var(--shell-docs-selection-surface-hover);
+}
+
+.shell-docs-nav-link-active span {
+  font-weight: 600;
+}
+
+.shell-docs-nav-link-icon {
+  flex: 0 0 auto;
+}
+
+.shell-docs-brand-nav .shell-docs-nav-link-active .shell-docs-nav-link-label,
+.shell-docs-mobile-nav .shell-docs-nav-link-active .shell-docs-nav-link-label,
+.shell-docs-mobile-sidebar-tabs
+  .shell-docs-nav-link-active
+  .shell-docs-nav-link-label {
+  background: none !important;
+  color: var(--shell-docs-header-active-text) !important;
+  -webkit-text-fill-color: currentColor;
 }
 
 .shell-docs-nav-cta {
-  border-color: var(--nav-control-border);
-  background: color-mix(in oklch, var(--accent) 8%, transparent);
-  color: var(--accent);
+  border-color: var(--shell-docs-button-border);
+  background: var(--shell-docs-button-surface);
+  color: var(--primary-foreground);
+  box-shadow: var(--shadow-control);
 }
 
 .shell-docs-nav-cta:hover {
-  border-color: var(--nav-control-border-hover);
-  background: color-mix(in oklch, var(--accent) 13%, transparent);
-  color: var(--accent);
+  border-color: var(--shell-docs-button-border);
+  background: var(--shell-docs-button-surface-hover);
+  color: var(--primary-foreground);
+  box-shadow: var(--shadow-control-hover);
+}
+
+.shell-docs-nav-cta-primary {
+  border-color: var(--shell-docs-button-border) !important;
+  background: var(--shell-docs-button-surface) !important;
+  color: var(--primary-foreground) !important;
+}
+
+.shell-docs-nav-cta-primary:hover {
+  border-color: var(--shell-docs-button-border) !important;
+  background: var(--shell-docs-button-surface-hover) !important;
+  color: var(--primary-foreground) !important;
+}
+
+.shell-docs-nav-cta-secondary,
+.shell-docs-header-icon-button {
+  border-color: var(--shell-docs-secondary-button-border) !important;
+  background: var(--shell-docs-secondary-button-surface) !important;
+  color: var(--foreground) !important;
+  box-shadow: var(--shadow-control) !important;
+}
+
+.shell-docs-nav-cta-secondary:hover,
+.shell-docs-header-icon-button:hover {
+  border-color: var(--shell-docs-header-control-border-hover) !important;
+  background: var(--shell-docs-secondary-button-surface-hover) !important;
+  color: var(--foreground) !important;
+  box-shadow: var(--shadow-control-hover) !important;
+}
+
+.shell-docs-brand-nav
+  button.shell-docs-nav-cta:not(.shell-docs-nav-cta-primary),
+.shell-docs-mobile-nav
+  button.shell-docs-nav-cta:not(.shell-docs-nav-cta-primary) {
+  border-color: var(--shell-docs-secondary-button-border) !important;
+  background: var(--shell-docs-secondary-button-surface) !important;
+  color: var(--foreground) !important;
+}
+
+.shell-docs-brand-nav
+  button.shell-docs-nav-cta:not(.shell-docs-nav-cta-primary):hover,
+.shell-docs-mobile-nav
+  button.shell-docs-nav-cta:not(.shell-docs-nav-cta-primary):hover {
+  border-color: var(--shell-docs-header-control-border-hover) !important;
+  background: var(--shell-docs-secondary-button-surface-hover) !important;
+  color: var(--foreground) !important;
+}
+
+.shell-docs-brand-nav
+  button.shell-docs-nav-cta[aria-label="Talk to an engineer"] {
+  border-color: var(--shell-docs-button-border) !important;
+  background: var(--shell-docs-button-surface) !important;
+  color: var(--primary-foreground) !important;
+}
+
+.shell-docs-brand-nav
+  button.shell-docs-nav-cta[aria-label="Talk to an engineer"]:hover {
+  border-color: var(--shell-docs-button-border) !important;
+  background: var(--shell-docs-button-surface-hover) !important;
+  color: var(--primary-foreground) !important;
 }
 
 .dark .shell-docs-nav-link-idle:hover {
   background: var(--accent-dim);
-  color: var(--accent);
+  color: var(--brand-accent);
 }
 
 .dark .shell-docs-nav-link-active {
-  background: color-mix(in oklch, var(--accent) 20%, transparent);
+  background: var(--shell-docs-selection-surface);
   box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--accent) 34%, var(--border)),
-    0 1px 0 rgba(0, 0, 0, 0.25);
-  color: var(--accent);
+    inset 0 0 0 1px var(--shell-docs-selection-border),
+    0 1px 2px rgba(0, 0, 0, 0.22);
+  color: var(--foreground);
+}
+
+.shell-docs-brand-nav .shell-docs-nav-link-idle,
+.shell-docs-mobile-nav .shell-docs-nav-link-idle {
+  color: color-mix(in srgb, var(--foreground) 86%, transparent) !important;
+  font-weight: 500;
+}
+
+.shell-docs-brand-nav .shell-docs-nav-link-idle:hover,
+.shell-docs-mobile-nav .shell-docs-nav-link-idle:hover {
+  background: var(--card) !important;
+  color: var(--foreground) !important;
+}
+
+.dark .shell-docs-brand-nav .shell-docs-nav-link-idle:hover,
+.dark .shell-docs-mobile-nav .shell-docs-nav-link-idle:hover {
+  background: var(--shell-docs-header-control-surface-hover) !important;
+  color: var(--foreground) !important;
+}
+
+.shell-docs-brand-nav .shell-docs-nav-link-active,
+.shell-docs-mobile-nav .shell-docs-nav-link-active,
+.shell-docs-mobile-sidebar-tabs .shell-docs-nav-link-active {
+  background: var(--shell-docs-header-active-surface) !important;
+  border-color: var(--shell-docs-header-active-border) !important;
+  box-shadow:
+    0 10px 22px -18px rgba(1, 5, 7, 0.34),
+    0 1px 2px rgba(1, 5, 7, 0.06);
+  color: var(--shell-docs-header-active-text) !important;
+}
+
+.shell-docs-brand-nav .shell-docs-nav-link-active:hover,
+.shell-docs-mobile-nav .shell-docs-nav-link-active:hover,
+.shell-docs-mobile-sidebar-tabs .shell-docs-nav-link-active:hover {
+  background: var(--shell-docs-header-active-surface-hover) !important;
+  border-color: var(--shell-docs-header-active-border) !important;
+  color: var(--shell-docs-header-active-text) !important;
+}
+
+.shell-docs-brand-nav .shell-docs-nav-link-active svg,
+.shell-docs-mobile-nav .shell-docs-nav-link-active svg,
+.shell-docs-mobile-sidebar-tabs .shell-docs-nav-link-active svg {
+  color: var(--shell-docs-header-active-text) !important;
+  stroke: currentColor !important;
+}
+
+.dark .shell-docs-brand-nav .shell-docs-nav-link-active,
+.dark .shell-docs-mobile-nav .shell-docs-nav-link-active,
+.dark .shell-docs-mobile-sidebar-tabs .shell-docs-nav-link-active {
+  box-shadow:
+    0 10px 22px -18px rgba(0, 0, 0, 0.8),
+    0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.shell-docs-brand-link .shell-docs-radius-control,
+.shell-docs-mobile-brand .shell-docs-radius-control,
+.shell-docs-brand-nav
+  :is(button.shell-docs-radius-control, a.shell-docs-radius-control):not(
+    .shell-docs-nav-cta
+  ):not(.shell-docs-nav-link-active):not(.shell-docs-nav-link-idle),
+.shell-docs-mobile-nav
+  :is(button.shell-docs-radius-control, a.shell-docs-radius-control):not(
+    .shell-docs-nav-link-active
+  ):not(.shell-docs-nav-link-idle) {
+  border: 1px solid var(--shell-docs-header-control-border) !important;
+  background: var(--shell-docs-header-control-surface) !important;
+  color: var(--shell-docs-header-control-text) !important;
+  box-shadow: var(--shadow-control) !important;
+}
+
+.shell-docs-brand-nav
+  :is(button.shell-docs-radius-control, a.shell-docs-radius-control):not(
+    .shell-docs-nav-cta
+  ):not(.shell-docs-nav-link-active):not(.shell-docs-nav-link-idle):hover,
+.shell-docs-mobile-nav
+  :is(button.shell-docs-radius-control, a.shell-docs-radius-control):not(
+    .shell-docs-nav-link-active
+  ):not(.shell-docs-nav-link-idle):hover {
+  border-color: var(--shell-docs-header-control-border-hover) !important;
+  background: var(--shell-docs-header-control-surface-hover) !important;
+  color: var(--shell-docs-header-control-text) !important;
+}
+
+.shell-docs-brand-link > span.shell-docs-radius-control,
+.shell-docs-mobile-brand > span.shell-docs-radius-control {
+  border-color: var(--shell-docs-docs-badge-border) !important;
+  background: var(--shell-docs-docs-badge-surface) !important;
+  color: var(--foreground) !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
 }
 
 /* shell-docs sidebar overrides.
@@ -440,13 +1179,15 @@
  * empty home-link `<a>` still occupies space at the top of the sidebar
  * column. Hide it so the framework selector (rendered via the `banner`
  * slot) sits flush at the top. */
-/* Sidebar banner (holds the framework picker). Keep horizontal padding at
- * zero so the picker edge aligns with BrandNav's visible surface. The top
- * gap keeps the picker aligned under BrandNav; the larger bottom gap gives
- * the first section header the same breathing room as section breaks below. */
+/* Sidebar banner (holds the framework picker). The picker should sit on the
+ * same rail as selected child entries, not span wider than the navigation
+ * rows below it. The top gap keeps it aligned under BrandNav; the larger
+ * bottom gap gives the first section header the same breathing room as
+ * section breaks below. */
 .shell-docs-sidebar > div:first-child {
-  padding: 0.75rem 0 1.25rem !important;
+  padding: 0.75rem var(--shell-docs-sidebar-child-row-inset) 1rem !important;
 }
+
 @media (min-width: 768px) {
   .shell-docs-sidebar-cookbook > div:first-child {
     display: none !important;
@@ -458,6 +1199,295 @@
   padding-top: 0 !important;
   padding-bottom: 1.5rem !important;
 }
+
+.shell-docs-sidebar-picker-wrap {
+  width: 100%;
+}
+
+.shell-docs-sidebar > div:first-child button[aria-haspopup="listbox"] {
+  border-radius: var(--shell-docs-framework-picker-radius) !important;
+  background: var(--shell-docs-framework-picker-surface) !important;
+  background-position: center !important;
+  background-size: 140% 100% !important;
+  border-color: var(--shell-docs-framework-picker-border) !important;
+  color: var(--shell-docs-framework-picker-text) !important;
+  min-height: 2.5rem;
+  padding-top: 0.625rem !important;
+  padding-bottom: 0.625rem !important;
+  padding-right: 0.875rem !important;
+  box-shadow: var(--shell-docs-gradient-control-shadow) !important;
+}
+
+.shell-docs-sidebar > div:first-child button[aria-haspopup="listbox"]:hover {
+  background: var(--shell-docs-framework-picker-surface-hover) !important;
+  background-position: center !important;
+  background-size: 140% 100% !important;
+  border-color: var(--shell-docs-framework-picker-border-hover) !important;
+  color: var(--shell-docs-framework-picker-text) !important;
+}
+
+.shell-docs-sidebar
+  > div:first-child
+  button[aria-haspopup="listbox"]
+  .shell-docs-picker-icon-chip {
+  background: var(--shell-docs-accent-chip-surface);
+  border-color: var(--shell-docs-accent-chip-border);
+  color: var(--shell-docs-icon-color);
+}
+
+.dark
+  .shell-docs-sidebar
+  > div:first-child
+  button[aria-haspopup="listbox"]
+  .shell-docs-picker-icon-chip {
+  background: var(--background);
+  border-color: color-mix(in srgb, var(--foreground) 18%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--foreground) 7%, transparent),
+    0 1px 2px rgba(0, 0, 0, 0.24);
+  color: var(--brand-accent);
+}
+
+.shell-docs-sidebar > div:first-child button[aria-haspopup="listbox"] > svg {
+  color: color-mix(
+    in srgb,
+    var(--shell-docs-framework-picker-text) 76%,
+    transparent
+  );
+}
+
+.shell-docs-sidebar
+  > div:first-child
+  .shell-docs-sidebar-context-picker
+  button[aria-haspopup="listbox"] {
+  min-height: 2.875rem;
+  border-color: transparent !important;
+  border-radius: calc(
+    var(--shell-docs-framework-picker-radius) - 0.25rem
+  ) !important;
+  background: transparent !important;
+  background-position: initial !important;
+  background-size: initial !important;
+  box-shadow: none !important;
+  color: var(--shell-docs-picker-row-text) !important;
+  padding: 0.5rem 0.625rem !important;
+}
+
+.shell-docs-sidebar
+  > div:first-child
+  .shell-docs-sidebar-context-picker
+  button[aria-haspopup="listbox"]:hover {
+  border-color: transparent !important;
+  background: color-mix(
+    in srgb,
+    var(--shell-docs-picker-row-surface-hover) 58%,
+    transparent
+  ) !important;
+  color: var(--shell-docs-picker-row-text) !important;
+  box-shadow: none !important;
+}
+
+.shell-docs-sidebar-context-picker .shell-docs-picker-row-divided::before {
+  display: none;
+}
+
+.dark
+  .shell-docs-sidebar
+  > div:first-child
+  .shell-docs-sidebar-context-picker
+  button[aria-haspopup="listbox"]:hover {
+  background: color-mix(
+    in srgb,
+    var(--shell-docs-picker-row-surface-hover) 34%,
+    transparent
+  ) !important;
+}
+
+.shell-docs-sidebar
+  > div:first-child
+  .shell-docs-sidebar-context-picker
+  button[aria-haspopup="listbox"]
+  > svg {
+  color: color-mix(in srgb, var(--shell-docs-picker-row-text) 64%, transparent);
+}
+
+.shell-docs-sidebar
+  > div:first-child
+  .shell-docs-sidebar-context-picker
+  button[aria-haspopup="listbox"]
+  .shell-docs-picker-icon-chip {
+  background: var(--shell-docs-accent-chip-surface) !important;
+  border-color: var(--shell-docs-accent-chip-border) !important;
+  color: var(--brand-accent) !important;
+  box-shadow: none !important;
+}
+
+.dark
+  .shell-docs-sidebar
+  > div:first-child
+  .shell-docs-sidebar-context-picker
+  button[aria-haspopup="listbox"]
+  .shell-docs-picker-icon-chip {
+  background: color-mix(
+    in srgb,
+    var(--background) 86%,
+    var(--foreground) 14%
+  ) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--foreground) 18%,
+    transparent
+  ) !important;
+  color: var(--brand-accent) !important;
+}
+
+.shell-docs-sidebar
+  div.overflow-hidden.min-h-0
+  div.size-full.p-4
+  :is(a, button) {
+  border-radius: var(--shell-docs-sidebar-item-radius) !important;
+  min-height: 2rem;
+}
+
+.shell-docs-sidebar :is(a, button)[data-active="true"],
+.shell-docs-sidebar :is(a, button)[aria-current="page"],
+:is(button, [role="tab"], [role="option"])[aria-selected="true"],
+:is(button, a).selected {
+  background: var(--shell-docs-selection-surface) !important;
+  border-color: var(--shell-docs-selection-border) !important;
+  color: var(--foreground) !important;
+  box-shadow:
+    inset 0 0 0 1px var(--shell-docs-selection-border),
+    0 1px 2px rgba(1, 5, 7, 0.04);
+}
+
+.shell-docs-sidebar
+  :is(a, button)[class*="sidebar-item-offset"][data-active="true"],
+.shell-docs-sidebar
+  :is(a, button)[class*="sidebar-item-offset"][aria-current="page"] {
+  border-radius: var(--shell-docs-sidebar-item-radius) !important;
+  background: var(--shell-docs-sidebar-selection-surface) !important;
+  border-color: var(--shell-docs-sidebar-selection-border) !important;
+  color: var(--foreground) !important;
+  box-shadow:
+    inset 0 0 0 1px var(--shell-docs-sidebar-selection-border),
+    0 1px 2px rgba(1, 5, 7, 0.06);
+}
+
+.shell-docs-sidebar
+  div.overflow-hidden.min-h-0
+  div.size-full.p-4
+  :is(a, button)[data-active="true"],
+.shell-docs-sidebar
+  div.overflow-hidden.min-h-0
+  div.size-full.p-4
+  :is(a, button)[aria-current="page"] {
+  border-radius: var(--shell-docs-sidebar-item-radius) !important;
+  background: var(--shell-docs-sidebar-selection-surface) !important;
+  border-color: var(--shell-docs-sidebar-selection-border) !important;
+  color: var(--foreground) !important;
+  box-shadow:
+    inset 0 0 0 1px var(--shell-docs-sidebar-selection-border),
+    0 1px 2px rgba(1, 5, 7, 0.06);
+}
+
+.shell-docs-sidebar :is(a, button)[data-active="true"]:hover,
+.shell-docs-sidebar :is(a, button)[aria-current="page"]:hover,
+:is(button, [role="tab"], [role="option"])[aria-selected="true"]:hover,
+:is(button, a).selected:hover {
+  background: var(--shell-docs-selection-surface-hover) !important;
+  border-color: var(--shell-docs-selection-border-hover) !important;
+  color: var(--foreground) !important;
+}
+
+.shell-docs-sidebar
+  :is(a, button)[class*="sidebar-item-offset"][data-active="true"]:hover,
+.shell-docs-sidebar
+  :is(a, button)[class*="sidebar-item-offset"][aria-current="page"]:hover {
+  background: var(--shell-docs-sidebar-selection-surface-hover) !important;
+  border-color: var(--shell-docs-sidebar-selection-border) !important;
+  color: var(--foreground) !important;
+}
+
+.shell-docs-sidebar
+  div.overflow-hidden.min-h-0
+  div.size-full.p-4
+  :is(a, button)[data-active="true"]:hover,
+.shell-docs-sidebar
+  div.overflow-hidden.min-h-0
+  div.size-full.p-4
+  :is(a, button)[aria-current="page"]:hover {
+  background: var(--shell-docs-sidebar-selection-surface-hover) !important;
+  border-color: var(--shell-docs-sidebar-selection-border) !important;
+  color: var(--foreground) !important;
+}
+
+.shell-docs-sidebar
+  div.overflow-hidden.min-h-0
+  div.size-full.p-4
+  :is(a, button)[data-active="true"],
+.shell-docs-sidebar
+  div.overflow-hidden.min-h-0
+  div.size-full.p-4
+  :is(a, button)[aria-current="page"],
+.shell-docs-sidebar
+  :is(a, button)[class*="sidebar-item-offset"][data-active="true"],
+.shell-docs-sidebar
+  :is(a, button)[class*="sidebar-item-offset"][aria-current="page"] {
+  position: relative;
+  background: transparent !important;
+  border-color: transparent !important;
+  color: var(--shell-docs-sidebar-active-text) !important;
+  box-shadow: none !important;
+  font-weight: 500;
+  text-decoration-line: underline;
+  text-decoration-color: currentColor;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 0.22em;
+}
+
+.shell-docs-sidebar
+  div.overflow-hidden.min-h-0
+  div.size-full.p-4
+  :is(a, button):hover {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.shell-docs-sidebar
+  div.overflow-hidden.min-h-0
+  div.size-full.p-4
+  :is(a, button)[data-active="true"]:hover,
+.shell-docs-sidebar
+  div.overflow-hidden.min-h-0
+  div.size-full.p-4
+  :is(a, button)[aria-current="page"]:hover,
+.shell-docs-sidebar
+  :is(a, button)[class*="sidebar-item-offset"][data-active="true"]:hover,
+.shell-docs-sidebar
+  :is(a, button)[class*="sidebar-item-offset"][aria-current="page"]:hover {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: var(--shell-docs-sidebar-active-text) !important;
+  box-shadow: none !important;
+}
+
+.shell-docs-sidebar
+  div.overflow-hidden.min-h-0
+  div.size-full.p-4
+  a.relative.flex[data-active="true"]::before {
+  background: var(--shell-docs-sidebar-active-text) !important;
+}
+
+:is(button, [role="tab"], [role="option"])[aria-selected="true"]
+  .shell-docs-radius-icon,
+:is(button, a).selected .shell-docs-radius-icon {
+  background: var(--shell-docs-accent-chip-surface) !important;
+  border-color: var(--shell-docs-accent-chip-border) !important;
+  color: var(--shell-docs-icon-color) !important;
+}
+
 /* Hide the empty home-link wrapper Fumadocs ships in the desktop
  * SidebarHeader. Scoped via `:has(> a:only-child:empty)` so it ONLY
  * matches the desktop case — the mobile SidebarHeader's first flex
@@ -468,14 +1498,6 @@
   > div:first-child
   > .flex:first-child:has(> a:only-child:empty) {
   display: none !important;
-}
-
-/* Tighten Fumadocs folder rendering. The default gives folders an
- * extra row of vertical padding above their children, which reads as
- * a hole between the folder label and the first item. */
-#nd-sidebar [data-folder] > [data-folder-trigger] {
-  padding-top: 0.375rem;
-  padding-bottom: 0.375rem;
 }
 
 /* Fumadocs animates collapsible folder panels after mount. Because
@@ -501,15 +1523,14 @@
   font-size: 12px !important;
   font-weight: 600 !important;
   letter-spacing: 0 !important;
-  color: var(--text-secondary) !important;
+  color: var(--muted-foreground) !important;
   /* Heavier `padding-top` opens a breath of space between the last
    * item of the previous section and this header, so the section
    * boundary reads as a real break instead of one continuous list.
    * `padding-bottom` separates the header from its first child entry
-   * without making the header feel detached. Mirrors Mintlify's
-   * roomier section spacing. */
-  padding-top: 1.75rem !important;
-  padding-bottom: 0.625rem !important;
+   * without adding a decorative container to the header itself. */
+  padding-top: 1.5rem !important;
+  padding-bottom: 0.5rem !important;
   margin-top: 0.25rem !important;
   margin-bottom: 0 !important;
 }
@@ -522,8 +1543,22 @@
  * have their own padding overrides further down so they're unaffected. */
 .shell-docs-sidebar a[class*="sidebar-item-offset"],
 .shell-docs-sidebar button[class*="sidebar-item-offset"] {
-  padding-top: 0.625rem;
-  padding-bottom: 0.625rem;
+  width: calc(100% - (var(--shell-docs-sidebar-child-row-inset) * 2));
+  margin-left: var(--shell-docs-sidebar-child-row-inset);
+  margin-right: var(--shell-docs-sidebar-child-row-inset);
+  min-height: 2rem;
+  padding-top: 0.4375rem;
+  padding-bottom: 0.4375rem;
+  padding-left: calc(0.875rem + var(--shell-docs-sidebar-child-indent));
+  padding-right: 0.875rem;
+  border-radius: var(--shell-docs-sidebar-item-radius) !important;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+}
+
+.shell-docs-sidebar a[class*="sidebar-item-offset"] span,
+.shell-docs-sidebar button[class*="sidebar-item-offset"] span {
+  line-height: 1.35;
 }
 
 /* Shrink sidebar icons (folder chevrons, anything Fumadocs renders
@@ -563,10 +1598,10 @@
 .shell-docs-sidebar .sidebar-footer-row a:hover {
   background-color: color-mix(
     in srgb,
-    var(--accent) 10%,
+    var(--brand-accent) 10%,
     transparent
   ) !important;
-  color: var(--accent) !important;
+  color: var(--brand-accent) !important;
 }
 
 /* First separator at the top of the sidebar — Fumadocs v16 emits the
@@ -580,13 +1615,30 @@
   margin-top: 0 !important;
 }
 
-/* Section-header icons — accent purple. The lucide icons use
- * `stroke="currentColor"` so setting `color` recolors the stroke. */
-.shell-docs-sidebar p.inline-flex.gap-2 svg {
-  color: var(--accent) !important;
-  width: 16px !important;
-  height: 16px !important;
+.shell-docs-sidebar p.inline-flex.gap-2 {
+  align-items: center;
+  gap: 0.5rem !important;
+  overflow: visible;
 }
+
+/* Section-header icons — subtle branded marks without extra chip chrome. */
+.shell-docs-sidebar p.inline-flex.gap-2 svg {
+  box-sizing: border-box;
+  width: 1rem !important;
+  height: 1rem !important;
+  flex: 0 0 auto;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--shell-docs-sidebar-icon-color) !important;
+  overflow: visible;
+  stroke: currentColor !important;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
 /* Two separators stacked back-to-back (e.g. a top-level section
  * "Build Generative UI" + sub-section "Controlled") would otherwise
  * each get the full 1rem top padding, producing a yawning gap between
@@ -600,7 +1652,7 @@
   margin-top: 0 !important;
   font-size: 11px !important;
   font-weight: 600 !important;
-  color: var(--text-muted) !important;
+  color: var(--muted-foreground) !important;
   letter-spacing: 0 !important;
 }
 
@@ -787,14 +1839,14 @@
  * caption, the code body, and the tab strip read as one clean rounded box. */
 figure.shiki,
 .docs-inner-content [data-orientation="horizontal"]:has(> [role="tablist"]) {
-  background-color: var(--bg-surface) !important;
-  box-shadow: none !important;
+  background-color: var(--card) !important;
+  box-shadow: var(--shadow-module) !important;
 }
 .dark figure.shiki,
 .dark
   .docs-inner-content
   [data-orientation="horizontal"]:has(> [role="tablist"]) {
-  background-color: var(--bg-surface) !important;
+  background-color: var(--card) !important;
 }
 /* Fumadocs's figcaption header ("page.tsx" strip) uses `border-b` which
  * inherits `currentColor` from the parent's `text-fd-muted-foreground`
@@ -803,6 +1855,439 @@ figure.shiki,
  * every other border on the page. */
 figure.shiki > div:first-child[class*="border-b"] {
   border-bottom-color: var(--border) !important;
+}
+
+/* Shared content tab recipe. This catches Fumadocs tabs, Demo/Code
+ * switchers, and CodeBlockTabs so content pages do not accumulate
+ * multiple unrelated segmented-control styles. */
+.docs-inner-content
+  :is(.reference-content, .not-prose, [data-orientation="horizontal"])
+  [role="tablist"],
+.reference-content [role="tablist"] {
+  display: flex;
+  width: 100%;
+  max-width: 100%;
+  align-items: center;
+  gap: 0.25rem;
+  overflow-x: auto;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: calc(var(--shell-docs-radius-surface) - 1px)
+    calc(var(--shell-docs-radius-surface) - 1px) 0 0;
+  background: color-mix(in srgb, var(--secondary) 72%, var(--card));
+  padding: 0.375rem;
+  box-shadow: none;
+  scrollbar-width: none;
+}
+
+.docs-inner-content
+  :is(.reference-content, .not-prose, [data-orientation="horizontal"])
+  [role="tablist"]::-webkit-scrollbar,
+.reference-content [role="tablist"]::-webkit-scrollbar {
+  display: none;
+}
+
+.docs-inner-content
+  :is(.reference-content, .not-prose, [data-orientation="horizontal"])
+  [role="tab"],
+.reference-content [role="tab"] {
+  min-height: 1.875rem;
+  flex: 0 0 auto;
+  border: 1px solid transparent !important;
+  border-radius: var(--shell-docs-radius-control) !important;
+  background: transparent !important;
+  padding: 0.375rem 0.75rem !important;
+  color: var(--muted-foreground) !important;
+  font-size: 0.8125rem !important;
+  font-weight: 500 !important;
+  line-height: 1.2;
+  box-shadow: none !important;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.docs-inner-content
+  :is(.reference-content, .not-prose, [data-orientation="horizontal"])
+  [role="tab"]:hover,
+.reference-content [role="tab"]:hover {
+  background: color-mix(in srgb, var(--card) 78%, transparent) !important;
+  border-color: color-mix(in srgb, var(--border) 74%, transparent) !important;
+  color: var(--foreground) !important;
+}
+
+.docs-inner-content
+  :is(.reference-content, .not-prose, [data-orientation="horizontal"])
+  [role="tab"][aria-selected="true"],
+.docs-inner-content
+  :is(.reference-content, .not-prose, [data-orientation="horizontal"])
+  [role="tab"][data-state="active"],
+.reference-content [role="tab"][aria-selected="true"],
+.reference-content [role="tab"][data-state="active"] {
+  border-color: var(--shell-docs-button-border) !important;
+  background: var(--shell-docs-button-surface) !important;
+  color: var(--primary-foreground) !important;
+  box-shadow: 0 1px 2px rgba(1, 5, 7, 0.08) !important;
+  font-weight: 600 !important;
+}
+
+.docs-inner-content
+  :is(.reference-content, .not-prose, [data-orientation="horizontal"])
+  [role="tab"][aria-selected="true"]:hover,
+.docs-inner-content
+  :is(.reference-content, .not-prose, [data-orientation="horizontal"])
+  [role="tab"][data-state="active"]:hover,
+.reference-content [role="tab"][aria-selected="true"]:hover,
+.reference-content [role="tab"][data-state="active"]:hover {
+  border-color: var(--shell-docs-button-border) !important;
+  background: var(--shell-docs-button-surface-hover) !important;
+  color: var(--primary-foreground) !important;
+}
+
+/* Plain docs tabs should read as one code/content surface. Fumadocs adds a
+ * gray tab strip and a separate gray panel background by default; keep both
+ * white so package-manager tabs do not look like three stacked bands. */
+.docs-inner-content
+  [data-orientation="horizontal"]:has(> [role="tablist"]):not(
+    .shell-docs-inline-demo
+  ):not(.tailored-content-wrapper),
+.reference-content
+  [data-orientation="horizontal"]:has(> [role="tablist"]):not(
+    .shell-docs-inline-demo
+  ):not(.tailored-content-wrapper) {
+  overflow: hidden !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--shell-docs-radius-surface) !important;
+  background: var(--card) !important;
+  box-shadow: var(--shadow-module) !important;
+}
+
+.docs-inner-content
+  [data-orientation="horizontal"]:has(> [role="tablist"]):not(
+    .shell-docs-inline-demo
+  ):not(.tailored-content-wrapper)
+  > [role="tablist"],
+.reference-content
+  [data-orientation="horizontal"]:has(> [role="tablist"]):not(
+    .shell-docs-inline-demo
+  ):not(.tailored-content-wrapper)
+  > [role="tablist"] {
+  border: 0 !important;
+  border-bottom: 1px solid var(--border) !important;
+  border-radius: 0 !important;
+  background: var(--card) !important;
+  padding: 0.5rem !important;
+  box-shadow: none !important;
+}
+
+.docs-inner-content
+  [data-orientation="horizontal"]:has(> [role="tablist"]):not(
+    .shell-docs-inline-demo
+  ):not(.tailored-content-wrapper)
+  > [role="tabpanel"],
+.reference-content
+  [data-orientation="horizontal"]:has(> [role="tablist"]):not(
+    .shell-docs-inline-demo
+  ):not(.tailored-content-wrapper)
+  > [role="tabpanel"] {
+  margin-top: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: var(--card) !important;
+  box-shadow: none !important;
+}
+
+.docs-inner-content
+  [data-orientation="horizontal"]:has(> [role="tablist"]):not(
+    .shell-docs-inline-demo
+  ):not(.tailored-content-wrapper)
+  > [role="tabpanel"]:has(> figure:only-child),
+.reference-content
+  [data-orientation="horizontal"]:has(> [role="tablist"]):not(
+    .shell-docs-inline-demo
+  ):not(.tailored-content-wrapper)
+  > [role="tabpanel"]:has(> figure:only-child) {
+  padding: 0 !important;
+}
+
+.docs-inner-content
+  [data-orientation="horizontal"]:has(> [role="tablist"]):not(
+    .shell-docs-inline-demo
+  ):not(.tailored-content-wrapper)
+  > [role="tabpanel"]
+  > figure:only-child,
+.reference-content
+  [data-orientation="horizontal"]:has(> [role="tablist"]):not(
+    .shell-docs-inline-demo
+  ):not(.tailored-content-wrapper)
+  > [role="tabpanel"]
+  > figure:only-child {
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.docs-inner-content .shell-docs-inline-demo {
+  overflow: hidden;
+  border: 1px solid
+    color-mix(in srgb, var(--shell-docs-brand-lilac) 22%, var(--border));
+  border-radius: var(--shell-docs-radius-surface);
+  background: var(--card);
+  box-shadow: var(--shadow-surface);
+}
+
+.docs-inner-content .shell-docs-inline-demo > [role="tablist"] {
+  display: flex !important;
+  width: 100% !important;
+  max-width: none !important;
+  gap: 0.375rem !important;
+  overflow-x: auto;
+  border: 0 !important;
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--shell-docs-brand-lilac) 18%, var(--border)) !important;
+  border-radius: 0 !important;
+  background:
+    radial-gradient(
+      circle at 8% 0%,
+      color-mix(in srgb, var(--shell-docs-brand-lilac) 16%, transparent) 0,
+      transparent 34%
+    ),
+    radial-gradient(
+      circle at 96% 0%,
+      color-mix(in srgb, var(--shell-docs-brand-mint) 14%, transparent) 0,
+      transparent 36%
+    ),
+    color-mix(in srgb, var(--card) 92%, var(--secondary)) !important;
+  padding: 0.5rem !important;
+  box-shadow: none !important;
+}
+
+.docs-inner-content .shell-docs-inline-demo > [role="tablist"] > [role="tab"] {
+  min-height: 2.375rem;
+  border-radius: 999px !important;
+  padding: 0.5rem 1rem !important;
+  color: color-mix(
+    in srgb,
+    var(--foreground) 72%,
+    var(--muted-foreground)
+  ) !important;
+  font-size: 0.875rem !important;
+  font-weight: 700 !important;
+}
+
+.docs-inner-content
+  .shell-docs-inline-demo
+  > [role="tablist"]
+  > [role="tab"]:hover {
+  border-color: color-mix(
+    in srgb,
+    var(--shell-docs-brand-lilac) 30%,
+    var(--border)
+  ) !important;
+  background: color-mix(in srgb, var(--card) 84%, var(--secondary)) !important;
+}
+
+.docs-inner-content
+  .shell-docs-inline-demo
+  > [role="tablist"]
+  > [role="tab"][aria-selected="true"],
+.docs-inner-content
+  .shell-docs-inline-demo
+  > [role="tablist"]
+  > [role="tab"][data-state="active"] {
+  border-color: color-mix(
+    in srgb,
+    var(--shell-docs-brand-lilac) 42%,
+    var(--border)
+  ) !important;
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--shell-docs-brand-lilac) 20%, transparent),
+      color-mix(in srgb, var(--shell-docs-brand-mint) 13%, transparent)
+    ),
+    var(--card) !important;
+  color: var(--foreground) !important;
+  box-shadow: 0 12px 28px -22px rgba(1, 5, 7, 0.55) !important;
+}
+
+.docs-inner-content .shell-docs-inline-demo > [role="tabpanel"] {
+  margin-top: 0 !important;
+}
+
+.docs-inner-content .shell-docs-iframe-switcher > [role="tabpanel"] {
+  overflow: hidden;
+  padding: 0 !important;
+  background: var(--card) !important;
+  border-radius: 0 !important;
+}
+
+.docs-inner-content .shell-docs-iframe-viewport {
+  overflow: hidden;
+  background: var(--card);
+}
+
+.docs-inner-content .shell-docs-iframe-switcher iframe {
+  display: block;
+  border-radius: 0 !important;
+  transform-origin: top center;
+}
+
+.docs-inner-content .tailored-content-wrapper .tailored-content-tablist {
+  display: flex !important;
+  max-width: 100% !important;
+  align-items: stretch !important;
+  gap: 0.75rem !important;
+  overflow: visible !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+
+.docs-inner-content .tailored-content-wrapper .tailored-content-tab,
+.reference-content .tailored-content-wrapper .tailored-content-tab {
+  position: relative;
+  display: flex !important;
+  min-height: 4.75rem !important;
+  flex: 1 1 0 !important;
+  align-items: flex-start !important;
+  gap: 0.75rem !important;
+  overflow: hidden;
+  border: 1px solid var(--border) !important;
+  border-radius: 1rem !important;
+  background: var(--card) !important;
+  padding: 0.9375rem 1rem !important;
+  color: var(--foreground) !important;
+  font-weight: 400 !important;
+  line-height: 1.4;
+  box-shadow: var(--shadow-control) !important;
+}
+
+.docs-inner-content .tailored-content-wrapper .tailored-content-tab::before,
+.reference-content .tailored-content-wrapper .tailored-content-tab::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--shell-docs-brand-gradient);
+  content: "";
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+.docs-inner-content
+  .tailored-content-wrapper
+  .tailored-content-tab[aria-selected="true"],
+.reference-content
+  .tailored-content-wrapper
+  .tailored-content-tab[aria-selected="true"] {
+  border-color: color-mix(
+    in srgb,
+    var(--shell-docs-brand-lilac) 44%,
+    var(--border)
+  ) !important;
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--shell-docs-brand-lilac) 11%, transparent) 0%,
+      transparent 48%,
+      color-mix(in srgb, var(--shell-docs-brand-mint) 9%, transparent) 100%
+    ),
+    var(--card) !important;
+  color: var(--foreground) !important;
+  box-shadow: var(--shadow-control-hover) !important;
+}
+
+.docs-inner-content
+  .tailored-content-wrapper
+  .tailored-content-tab[aria-selected="true"]::before,
+.reference-content
+  .tailored-content-wrapper
+  .tailored-content-tab[aria-selected="true"]::before {
+  opacity: 1;
+}
+
+.docs-inner-content
+  .tailored-content-wrapper
+  .tailored-content-tab:not([aria-selected="true"]):hover,
+.reference-content
+  .tailored-content-wrapper
+  .tailored-content-tab:not([aria-selected="true"]):hover {
+  border-color: var(--shell-docs-selection-border-hover) !important;
+  background: var(--shell-docs-selection-surface-hover) !important;
+  color: var(--foreground) !important;
+  box-shadow: var(--shadow-control-hover) !important;
+}
+
+.docs-inner-content
+  .tailored-content-wrapper
+  .tailored-content-tab:focus-visible,
+.reference-content
+  .tailored-content-wrapper
+  .tailored-content-tab:focus-visible {
+  outline: 2px solid
+    color-mix(in srgb, var(--shell-docs-brand-lilac) 72%, transparent);
+  outline-offset: 2px;
+}
+
+.tailored-content-tab-title {
+  color: var(--foreground);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.tailored-content-tab-description {
+  margin-top: 0.25rem !important;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+.tailored-content-tab-icon {
+  border: 1px solid var(--shell-docs-accent-chip-border);
+  border-radius: var(--shell-docs-radius-icon);
+  background: var(--shell-docs-accent-chip-surface);
+  color: var(--shell-docs-icon-color);
+  padding: 0.5rem;
+}
+
+.tailored-content-tab[aria-selected="true"] .tailored-content-tab-icon {
+  border-color: var(--shell-docs-accent-chip-border-hover);
+  background: var(--shell-docs-accent-chip-surface-hover);
+}
+
+@media (max-width: 767px) {
+  .docs-inner-content .tailored-content-wrapper .tailored-content-tab,
+  .reference-content .tailored-content-wrapper .tailored-content-tab {
+    min-height: auto !important;
+    padding: 0.875rem 0.9375rem !important;
+  }
+}
+
+.docs-inner-content .shell-docs-sample-rail [role="tablist"] {
+  display: grid !important;
+  width: 100% !important;
+  gap: 0.5rem !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+
+.docs-inner-content .shell-docs-sample-rail [role="tab"] {
+  min-height: 3.5rem !important;
+  border-radius: var(--shell-docs-sidebar-item-radius) !important;
+  padding: 0.625rem 0.75rem !important;
+  font-size: inherit !important;
+  line-height: inherit !important;
 }
 
 /* Tighten Fumadocs DocsPage spacing.
@@ -1005,16 +2490,17 @@ figure.shiki > div:first-child[class*="border-b"] {
  * padding so the nav content uses the same full column width as the
  * framework picker. */
 .shell-docs-sidebar [data-radix-scroll-area-viewport] {
-  padding: 0 0 1rem 0 !important;
+  padding: 0 0.375rem 1rem !important;
   -webkit-mask-image: none !important;
   mask-image: none !important;
 }
 
-/* Bridge shell-docs's hand-rolled token names (--bg, --text, --accent, …)
- * to the names Fumadocs's shadcn preset expects (--background, --foreground,
- * --primary, …). Done in @theme inline so Tailwind's color utilities
- * (`bg-fd-background`, etc.) and Fumadocs's internal components both
- * resolve to the shell-docs palette. */
+/* Make shadcn's semantic tokens the color source of truth. Fumadocs's
+ * shadcn preset already points `fd-*` runtime variables at these names;
+ * this @theme block also exposes standard Tailwind v4 utilities like
+ * `bg-background`, `bg-secondary`, `text-muted-foreground`, and
+ * `border-border` so MDX, Fumadocs, and custom shell-docs components no
+ * longer drift through separate palettes. */
 @theme inline {
   /* Fumadocs ships Tailwind utilities that use rounded-md/lg/xl/2xl in
    * generated layout chrome. Map those radius tokens back to the shadcn
@@ -1025,22 +2511,52 @@ figure.shiki > div:first-child[class*="border-b"] {
   --radius-lg: var(--shell-docs-radius);
   --radius-xl: var(--shell-docs-radius);
   --radius-2xl: var(--shell-docs-radius);
-  --color-fd-background: var(--bg);
-  --color-fd-foreground: var(--text);
-  --color-fd-card: var(--bg-surface);
-  --color-fd-card-foreground: var(--text);
-  --color-fd-popover: var(--bg-surface);
-  --color-fd-popover-foreground: var(--text);
-  --color-fd-primary: var(--accent);
-  --color-fd-primary-foreground: #ffffff;
-  --color-fd-secondary: var(--bg-elevated);
-  --color-fd-secondary-foreground: var(--text);
-  --color-fd-muted: var(--bg-elevated);
-  --color-fd-muted-foreground: var(--text-muted);
-  --color-fd-accent: var(--bg-elevated);
-  --color-fd-accent-foreground: var(--text);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-brand-accent: var(--brand-accent);
+  --color-brand-accent-foreground: var(--brand-accent-foreground);
+
+  --color-fd-background: var(--background);
+  --color-fd-foreground: var(--foreground);
+  --color-fd-card: var(--card);
+  --color-fd-card-foreground: var(--card-foreground);
+  --color-fd-popover: var(--popover);
+  --color-fd-popover-foreground: var(--popover-foreground);
+  --color-fd-primary: var(--primary);
+  --color-fd-primary-foreground: var(--primary-foreground);
+  --color-fd-secondary: var(--secondary);
+  --color-fd-secondary-foreground: var(--secondary-foreground);
+  --color-fd-muted: var(--muted);
+  --color-fd-muted-foreground: var(--muted-foreground);
+  --color-fd-accent: var(--accent);
+  --color-fd-accent-foreground: var(--accent-foreground);
   --color-fd-border: var(--border);
-  --color-fd-ring: var(--accent);
+  --color-fd-ring: var(--ring);
 }
 
 /* Callout / admonition accents (consumed by the fumadocs `<Callout>` via
@@ -1061,58 +2577,217 @@ figure.shiki > div:first-child[class*="border-b"] {
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.457 0.24 277.023);
-  --primary-foreground: oklch(0.962 0.018 272.314);
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent-token: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --background: #f7f7f9;
+  --foreground: #010507;
+  --card: #ffffff;
+  --card-foreground: #010507;
+  --popover: #ffffff;
+  --popover-foreground: #010507;
+  --primary: #010507;
+  --primary-foreground: #ffffff;
+  --secondary: #ededf5;
+  --secondary-foreground: #010507;
+  --muted: #f7f7f9;
+  --muted-foreground: #57575b;
+  --accent: #ededf5;
+  --accent-foreground: #010507;
   --destructive: oklch(0.577 0.245 27.325);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.511 0.262 276.966);
-  --sidebar-primary-foreground: oklch(0.962 0.018 272.314);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-  /* Light mode follows a shadcn-style neutral scale: white page/card
-   * surfaces, a very light sidebar, low-chroma borders, and a single
-   * purple primary. shell-docs keeps `--accent` as the primary color
-   * because existing CTAs and link states depend on that contract.
-   *
-   * Exception: `--nav-surface` remains explicit so the header can keep
-   * tracking the page background independently of elevated surfaces. */
+  --border: #dbdbe5;
+  --input: #dbdbe5;
+  --ring: #7f88ea;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #010507;
+  --sidebar-primary: #010507;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #ededf5;
+  --sidebar-accent-foreground: #010507;
+  --sidebar-border: #dbdbe5;
+  --sidebar-ring: #7f88ea;
+  /* Light mode follows the current website scale: white readable surfaces,
+   * black primary actions, and restrained lilac/mint accents used as
+   * atmosphere and selection tint rather than loud filled gradients. */
   --bg: var(--background);
   --bg-surface: var(--card);
   --bg-elevated: var(--secondary);
   --bg-hover: var(--muted);
-  --border: oklch(0.922 0 0);
   --border-dim: color-mix(in oklch, var(--border) 62%, transparent);
-  --sidebar: oklch(0.985 0 0);
-  --glass-background: var(--card);
+  --glass-background: rgba(255, 255, 255, 0.7);
   --nav-surface: var(--background);
   --text: var(--foreground);
-  --text-secondary: oklch(0.21 0.006 285.885);
+  --text-secondary: var(--muted-foreground);
   --text-muted: var(--muted-foreground);
-  --text-faint: oklch(0.708 0 0);
-  --accent: var(--primary);
-  --accent-light: color-mix(in oklch, var(--accent) 14%, white);
-  --accent-dim: color-mix(in oklch, var(--accent) 8%, transparent);
-  --blue: #1a5fb4;
-  /* Aliased to --accent / --accent-light. Consumed by AG-UI section pages
+  --text-faint: color-mix(in srgb, var(--muted-foreground) 72%, transparent);
+  --brand-accent: var(--primary);
+  --brand-accent-foreground: var(--primary-foreground);
+  --brand-accent-strong: #2b2b2b;
+  --brand-accent-light: rgba(1, 5, 7, 0.12);
+  --brand-accent-dim: rgba(1, 5, 7, 0.05);
+  --accent-strong: var(--brand-accent-strong);
+  --accent-light: var(--brand-accent-light);
+  --accent-dim: var(--brand-accent-dim);
+  --shell-docs-brand-lilac: #bec2ff;
+  --shell-docs-brand-mint: #85ecce;
+  --shell-docs-brand-blue: #8fbfd8;
+  --shell-docs-brand-surface: #ededf5;
+  --shell-docs-brand-active: #bec2ff1a;
+  --shell-docs-glass: rgba(255, 255, 255, 0.74);
+  --shell-docs-glass-strong: rgba(255, 255, 255, 0.9);
+  --shell-docs-glass-border: rgba(255, 255, 255, 0.78);
+  --shell-docs-brand-gradient-start: #7f88ea;
+  --shell-docs-brand-gradient-mid: #8fbfd8;
+  --shell-docs-brand-gradient-end: #85ecce;
+  --shell-docs-sample-icon-gradient-start: #6874cf;
+  --shell-docs-sample-icon-gradient-mid: #5f9bad;
+  --shell-docs-sample-icon-gradient-end: #55b8a2;
+  --shell-docs-mark-purple-start: var(--shell-docs-brand-gradient-start);
+  --shell-docs-mark-purple-end: var(--shell-docs-brand-lilac);
+  --shell-docs-mark-blue-start: color-mix(
+    in srgb,
+    var(--shell-docs-brand-gradient-start) 72%,
+    var(--primary)
+  );
+  --shell-docs-mark-blue-end: var(--shell-docs-brand-gradient-mid);
+  --shell-docs-mark-cyan-start: color-mix(
+    in srgb,
+    var(--shell-docs-brand-gradient-mid) 72%,
+    var(--primary)
+  );
+  --shell-docs-mark-cyan-end: var(--shell-docs-brand-mint);
+  --shell-docs-mark-ribbon-1: var(--shell-docs-brand-gradient-mid);
+  --shell-docs-mark-ribbon-2: color-mix(
+    in srgb,
+    var(--shell-docs-brand-gradient-start) 70%,
+    var(--primary)
+  );
+  --shell-docs-mark-ribbon-3: color-mix(
+    in srgb,
+    var(--shell-docs-brand-gradient-start) 58%,
+    var(--primary)
+  );
+  --shell-docs-mark-ribbon-4: var(--shell-docs-brand-gradient-start);
+  --shell-docs-mark-ribbon-5: color-mix(
+    in srgb,
+    var(--shell-docs-brand-gradient-mid) 65%,
+    var(--primary)
+  );
+  --shell-docs-mark-line: color-mix(
+    in srgb,
+    var(--muted-foreground) 64%,
+    transparent
+  );
+  --shell-docs-brand-gradient: linear-gradient(
+    90deg,
+    var(--shell-docs-brand-gradient-start) 0%,
+    var(--shell-docs-brand-gradient-mid) 48%,
+    var(--shell-docs-brand-gradient-end) 100%
+  );
+  --shell-docs-hero-title-gradient: linear-gradient(
+    90deg,
+    #5f6ee8 0%,
+    #348fa9 50%,
+    #1d9f7e 100%
+  );
+  --shell-docs-ambient-overlay:
+    radial-gradient(
+      48rem 28rem at 74% -6rem,
+      rgba(133, 236, 206, 0.09),
+      transparent 68%
+    ),
+    radial-gradient(
+      44rem 24rem at 24% -4rem,
+      rgba(190, 194, 255, 0.075),
+      transparent 68%
+    );
+  --shell-docs-header-surface: transparent;
+  --shell-docs-header-background: transparent;
+  --shell-docs-header-gradient: var(--shell-docs-header-background);
+  --shell-docs-mobile-nav-surface: rgba(247, 247, 249, 0.9);
+  --shell-docs-mobile-nav-shadow:
+    0 12px 34px -30px rgba(1, 5, 7, 0.34), 0 1px 0 rgba(1, 5, 7, 0.08);
+  --shell-docs-banner-surface: var(--shell-docs-brand-gradient);
+  --shell-docs-banner-foreground: #ffffff;
+  --shell-docs-header-border: rgba(1, 5, 7, 0.12);
+  --shell-docs-header-active-surface: var(--shell-docs-brand-gradient);
+  --shell-docs-header-active-surface-hover: linear-gradient(
+    90deg,
+    #737ee8 0%,
+    #82bad3 48%,
+    #79e6c7 100%
+  );
+  --shell-docs-header-active-border: transparent;
+  --shell-docs-header-active-text: var(--primary-foreground);
+  --shell-docs-header-control-surface: var(--card);
+  --shell-docs-header-control-surface-hover: var(--muted);
+  --shell-docs-header-control-border: rgba(1, 5, 7, 0.14);
+  --shell-docs-header-control-border-hover: rgba(1, 5, 7, 0.24);
+  --shell-docs-header-control-text: var(--foreground);
+  --shell-docs-docs-badge-surface: var(--card);
+  --shell-docs-docs-badge-border: rgba(1, 5, 7, 0.1);
+  --shell-docs-framework-picker-surface: var(
+    --shell-docs-header-active-surface
+  );
+  --shell-docs-framework-picker-surface-hover: var(
+    --shell-docs-header-active-surface-hover
+  );
+  --shell-docs-framework-picker-border: var(--shell-docs-header-active-border);
+  --shell-docs-framework-picker-border-hover: var(
+    --shell-docs-header-active-border
+  );
+  --shell-docs-framework-picker-text: var(--primary-foreground);
+  --shell-docs-framework-picker-subtext: rgba(255, 255, 255, 0.74);
+  --shell-docs-button-surface: var(--primary);
+  --shell-docs-button-surface-hover: #2b2b2b;
+  --shell-docs-button-border: var(--primary);
+  --shell-docs-secondary-button-surface: var(--card);
+  --shell-docs-secondary-button-surface-hover: var(--muted);
+  --shell-docs-secondary-button-border: var(--border);
+  --shell-docs-selection-surface: var(--card);
+  --shell-docs-selection-surface-hover: var(--muted);
+  --shell-docs-sidebar-item-radius: 0.875rem;
+  --shell-docs-sidebar-row-inset: 0.375rem;
+  --shell-docs-sidebar-child-row-inset: 0.75rem;
+  --shell-docs-sidebar-child-indent: 0;
+  --shell-docs-sidebar-selection-surface: var(--card);
+  --shell-docs-sidebar-selection-surface-hover: var(--muted);
+  --shell-docs-sidebar-selection-border: rgba(1, 5, 7, 0.16);
+  --shell-docs-sidebar-active-text: #4f5fe8;
+  --shell-docs-icon-surface: var(--card);
+  --shell-docs-icon-color: var(--foreground);
+  --shell-docs-sidebar-icon-color: #6f76d9;
+  --shell-docs-accent-chip-surface: var(--card);
+  --shell-docs-accent-chip-surface-hover: var(--muted);
+  --shell-docs-sample-icon-chip-active-surface: color-mix(
+    in srgb,
+    var(--shell-docs-brand-lilac) 26%,
+    var(--card)
+  );
+  --shell-docs-accent-chip-border: rgba(190, 194, 255, 0.5);
+  --shell-docs-accent-chip-border-hover: rgba(190, 194, 255, 0.78);
+  --shell-docs-sample-rail-surface: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--card) 94%, var(--secondary)) 0%,
+    var(--card) 100%
+  );
+  --shell-docs-sample-option-surface: color-mix(
+    in srgb,
+    var(--card) 92%,
+    var(--secondary)
+  );
+  --shell-docs-sample-option-surface-hover: var(--card);
+  --shell-docs-sample-option-border: color-mix(
+    in srgb,
+    var(--border) 86%,
+    transparent
+  );
+  --shell-docs-sample-option-text: var(--foreground);
+  --shell-docs-sample-option-muted: var(--muted-foreground);
+  --shell-docs-selection-border: var(--border);
+  --shell-docs-selection-border-hover: rgba(1, 5, 7, 0.2);
+  --blue: #005dbb;
+  /* Aliased to --brand-accent / --accent-light. Consumed by AG-UI section pages
    * and OpsPlatformCTA. Kept as separate names for backwards compatibility
-   * with existing class references; values track the canonical accent. */
-  --violet: var(--accent);
+   * with existing class references; values track the docs brand accent. */
+  --violet: var(--brand-accent);
   --violet-light: var(--accent-light);
   /* Scrollbar tokens — applied to internal scroll containers (sidebar
    * inner scroll, content wrapper) so thumb + track follow theme. */
@@ -1127,66 +2802,270 @@ figure.shiki > div:first-child[class*="border-b"] {
   --font-docs-prose:
     var(--font-prose, "Plus Jakarta Sans"), -apple-system, BlinkMacSystemFont,
     "Segoe UI", Roboto, sans-serif;
-  /* Code font: canonical docs.copilotkit.ai now uses system mono only,
-   * so we follow suit. No Google Font fetched for monospaced text. */
   --font-docs-code:
-    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
+    var(--font-code, "Spline Sans Mono"), ui-monospace, SFMono-Regular,
+    "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+    monospace;
 }
 
-/* Dark token set — same neutral scale, with purple lifted slightly brighter
- * than the sample's dark primary so text and outline CTAs keep enough
- * contrast on the docs header. */
+/* Dark token set — graphite surfaces with visible CopilotKit lilac/mint
+ * atmosphere. Keep the shadcn semantic names as the source of truth so
+ * custom shell-docs surfaces and Fumadocs primitives stay in lockstep. */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.585 0.233 277.117);
-  --primary-foreground: oklch(0.962 0.018 272.314);
-  --secondary: oklch(0.274 0.006 286.033);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent-token: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --background: #141b26;
+  --foreground: #f7f7fb;
+  --card: #1b2432;
+  --card-foreground: #f7f7fb;
+  --popover: #202b3b;
+  --popover-foreground: #f7f7fb;
+  --primary: #f7f7fb;
+  --primary-foreground: #010507;
+  --secondary: #243044;
+  --secondary-foreground: #f7f7fb;
+  --muted: #2b3850;
+  --muted-foreground: #d0d5e1;
+  --accent: #24394b;
+  --accent-foreground: #f7f7fb;
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.585 0.233 277.117);
-  --sidebar-primary-foreground: oklch(0.962 0.018 272.314);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --border: rgba(218, 225, 244, 0.22);
+  --input: rgba(218, 225, 244, 0.24);
+  --ring: #9fd3e0;
+  --sidebar: #141b26;
+  --sidebar-foreground: #f7f7fb;
+  --sidebar-primary: #f7f7fb;
+  --sidebar-primary-foreground: #010507;
+  --sidebar-accent: #243044;
+  --sidebar-accent-foreground: #f7f7fb;
+  --sidebar-border: rgba(218, 225, 244, 0.2);
+  --sidebar-ring: #9fd3e0;
+  --shell-docs-picker-group-surface: color-mix(
+    in srgb,
+    var(--card) 84%,
+    var(--brand-accent) 10%
+  );
+  --shell-docs-picker-group-border: color-mix(
+    in srgb,
+    var(--foreground) 14%,
+    var(--brand-accent) 16%
+  );
+  --shell-docs-picker-group-shadow:
+    0 18px 40px -32px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  --shell-docs-picker-row-surface-hover: color-mix(
+    in srgb,
+    var(--muted) 78%,
+    var(--brand-accent) 12%
+  );
+  --shell-docs-picker-row-border-hover: color-mix(
+    in srgb,
+    var(--brand-accent) 26%,
+    transparent
+  );
+  --shell-docs-picker-row-text: var(--foreground);
+  --shell-docs-picker-row-label: color-mix(
+    in srgb,
+    var(--muted-foreground) 82%,
+    transparent
+  );
   --bg: var(--background);
   --bg-surface: var(--card);
   --bg-elevated: var(--secondary);
-  --bg-hover: color-mix(in oklch, var(--secondary) 82%, white 18%);
+  --bg-hover: var(--muted);
   --nav-surface: var(--background);
-  --border-dim: oklch(1 0 0 / 5%);
-  --glass-background: color-mix(in oklch, var(--card) 70%, transparent);
+  --border-dim: rgba(218, 225, 244, 0.12);
+  --glass-background: rgba(27, 36, 50, 0.78);
   --text: var(--foreground);
-  --text-secondary: oklch(0.82 0.01 286);
+  --text-secondary: var(--muted-foreground);
   --text-muted: var(--muted-foreground);
-  --text-faint: oklch(0.556 0 0);
-  --accent: var(--primary);
-  --accent-light: color-mix(in oklch, var(--accent) 24%, transparent);
-  --accent-dim: color-mix(in oklch, var(--accent) 14%, transparent);
+  --text-faint: color-mix(in srgb, var(--muted-foreground) 68%, transparent);
+  --brand-accent: #bec2ff;
+  --brand-accent-foreground: #010507;
+  --brand-accent-strong: #85ecce;
+  --brand-accent-light: rgba(190, 194, 255, 0.22);
+  --brand-accent-dim: rgba(190, 194, 255, 0.13);
+  --accent-strong: var(--brand-accent-strong);
+  --accent-light: var(--brand-accent-light);
+  --accent-dim: var(--brand-accent-dim);
+  --shell-docs-brand-lilac: #bec2ff;
+  --shell-docs-brand-mint: #85ecce;
+  --shell-docs-brand-blue: #8fbfd8;
+  --shell-docs-brand-surface: #243044;
+  --shell-docs-brand-active: rgba(190, 194, 255, 0.16);
+  --shell-docs-glass: rgba(27, 36, 50, 0.78);
+  --shell-docs-glass-strong: rgba(31, 42, 58, 0.94);
+  --shell-docs-glass-border: rgba(218, 225, 244, 0.2);
+  --shell-docs-gradient-control-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shell-docs-gradient-control-shadow-hover:
+    0 10px 24px -18px rgba(0, 0, 0, 0.8), 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shell-docs-brand-gradient-start: #b9bdff;
+  --shell-docs-brand-gradient-mid: #a4d3e2;
+  --shell-docs-brand-gradient-end: #8eeed3;
+  --shell-docs-sample-icon-gradient-start: #c5c9ff;
+  --shell-docs-sample-icon-gradient-mid: #b7dce8;
+  --shell-docs-sample-icon-gradient-end: #aaf2df;
+  --shell-docs-mark-purple-start: var(--shell-docs-brand-gradient-start);
+  --shell-docs-mark-purple-end: var(--shell-docs-brand-lilac);
+  --shell-docs-mark-blue-start: color-mix(
+    in srgb,
+    var(--shell-docs-brand-gradient-start) 62%,
+    var(--primary-foreground)
+  );
+  --shell-docs-mark-blue-end: var(--shell-docs-brand-gradient-mid);
+  --shell-docs-mark-cyan-start: color-mix(
+    in srgb,
+    var(--shell-docs-brand-gradient-mid) 62%,
+    var(--primary-foreground)
+  );
+  --shell-docs-mark-cyan-end: var(--shell-docs-brand-mint);
+  --shell-docs-mark-ribbon-1: var(--shell-docs-brand-gradient-mid);
+  --shell-docs-mark-ribbon-2: color-mix(
+    in srgb,
+    var(--shell-docs-brand-gradient-start) 72%,
+    var(--primary-foreground)
+  );
+  --shell-docs-mark-ribbon-3: color-mix(
+    in srgb,
+    var(--shell-docs-brand-gradient-start) 58%,
+    var(--primary-foreground)
+  );
+  --shell-docs-mark-ribbon-4: var(--shell-docs-brand-gradient-start);
+  --shell-docs-mark-ribbon-5: color-mix(
+    in srgb,
+    var(--shell-docs-brand-gradient-mid) 70%,
+    var(--primary-foreground)
+  );
+  --shell-docs-mark-line: color-mix(
+    in srgb,
+    var(--muted-foreground) 70%,
+    transparent
+  );
+  --shell-docs-brand-gradient: linear-gradient(
+    90deg,
+    var(--shell-docs-brand-gradient-start) 0%,
+    var(--shell-docs-brand-gradient-mid) 50%,
+    var(--shell-docs-brand-gradient-end) 100%
+  );
+  --shell-docs-hero-title-gradient: linear-gradient(
+    90deg,
+    #f7f7fb 0%,
+    #bfc7ff 38%,
+    #91ead1 100%
+  );
+  --shell-docs-ambient-overlay:
+    radial-gradient(
+      64rem 36rem at 76% -10rem,
+      rgba(133, 236, 206, 0.24),
+      transparent 68%
+    ),
+    radial-gradient(
+      56rem 34rem at 18% -8rem,
+      rgba(190, 194, 255, 0.22),
+      transparent 70%
+    ),
+    radial-gradient(
+      62rem 42rem at 64% 34rem,
+      rgba(143, 191, 216, 0.14),
+      transparent 74%
+    );
+  --shell-docs-header-surface: transparent;
+  --shell-docs-header-background: transparent;
+  --shell-docs-header-gradient: var(--shell-docs-header-background);
+  --shell-docs-mobile-nav-surface: rgba(20, 27, 38, 0.9);
+  --shell-docs-mobile-nav-shadow:
+    0 12px 34px -30px rgba(0, 0, 0, 0.9), 0 1px 0 rgba(255, 255, 255, 0.08);
+  --shell-docs-banner-surface: var(--shell-docs-brand-gradient);
+  --shell-docs-banner-foreground: #ffffff;
+  --shell-docs-header-border: rgba(218, 225, 244, 0.2);
+  --shell-docs-header-active-surface: linear-gradient(
+    90deg,
+    #4654bd 0%,
+    #256f86 50%,
+    #1d7867 100%
+  );
+  --shell-docs-header-active-surface-hover: linear-gradient(
+    90deg,
+    #5260cc 0%,
+    #2d7f98 50%,
+    #258771 100%
+  );
+  --shell-docs-header-active-border: transparent;
+  --shell-docs-header-active-text: #ffffff;
+  --shell-docs-header-control-surface: var(--card);
+  --shell-docs-header-control-surface-hover: var(--muted);
+  --shell-docs-header-control-border: rgba(255, 255, 255, 0.16);
+  --shell-docs-header-control-border-hover: rgba(255, 255, 255, 0.24);
+  --shell-docs-header-control-text: var(--foreground);
+  --shell-docs-docs-badge-surface: var(--muted);
+  --shell-docs-docs-badge-border: rgba(255, 255, 255, 0.12);
+  --shell-docs-framework-picker-surface: var(
+    --shell-docs-header-active-surface
+  );
+  --shell-docs-framework-picker-surface-hover: var(
+    --shell-docs-header-active-surface-hover
+  );
+  --shell-docs-framework-picker-border: var(--shell-docs-header-active-border);
+  --shell-docs-framework-picker-border-hover: var(
+    --shell-docs-header-active-border
+  );
+  --shell-docs-framework-picker-text: #ffffff;
+  --shell-docs-framework-picker-subtext: rgba(255, 255, 255, 0.72);
+  --shell-docs-button-surface: var(--primary);
+  --shell-docs-button-surface-hover: color-mix(
+    in srgb,
+    var(--primary) 86%,
+    var(--foreground)
+  );
+  --shell-docs-button-border: rgba(255, 255, 255, 0.14);
+  --shell-docs-secondary-button-surface: var(--card);
+  --shell-docs-secondary-button-surface-hover: var(--muted);
+  --shell-docs-secondary-button-border: rgba(255, 255, 255, 0.16);
+  --shell-docs-selection-surface: rgba(190, 194, 255, 0.15);
+  --shell-docs-selection-surface-hover: rgba(190, 194, 255, 0.2);
+  --shell-docs-sidebar-item-radius: 0.875rem;
+  --shell-docs-sidebar-row-inset: 0.375rem;
+  --shell-docs-sidebar-child-row-inset: 0.75rem;
+  --shell-docs-sidebar-child-indent: 0;
+  --shell-docs-sidebar-selection-surface: rgba(190, 194, 255, 0.15);
+  --shell-docs-sidebar-selection-surface-hover: rgba(190, 194, 255, 0.2);
+  --shell-docs-sidebar-selection-border: rgba(190, 194, 255, 0.38);
+  --shell-docs-sidebar-active-text: #c9ccff;
+  --shell-docs-icon-surface: var(--card);
+  --shell-docs-icon-color: var(--foreground);
+  --shell-docs-sidebar-icon-color: #bec2ff;
+  --shell-docs-accent-chip-surface: rgba(190, 194, 255, 0.14);
+  --shell-docs-accent-chip-surface-hover: rgba(133, 236, 206, 0.14);
+  --shell-docs-sample-icon-chip-active-surface: rgba(190, 194, 255, 0.22);
+  --shell-docs-accent-chip-border: rgba(190, 194, 255, 0.3);
+  --shell-docs-accent-chip-border-hover: rgba(133, 236, 206, 0.38);
+  --shell-docs-sample-rail-surface: color-mix(
+    in srgb,
+    var(--card) 88%,
+    var(--background)
+  );
+  --shell-docs-sample-option-surface: color-mix(
+    in srgb,
+    var(--card) 86%,
+    var(--background)
+  );
+  --shell-docs-sample-option-surface-hover: color-mix(
+    in srgb,
+    var(--card) 94%,
+    var(--foreground) 6%
+  );
+  --shell-docs-sample-option-border: var(--shell-docs-glass-border);
+  --shell-docs-sample-option-text: var(--foreground);
+  --shell-docs-sample-option-muted: var(--muted-foreground);
+  --shell-docs-selection-border: rgba(190, 194, 255, 0.34);
+  --shell-docs-selection-border-hover: rgba(133, 236, 206, 0.42);
   --warning: oklch(0.76 0.15 76);
   --warning-dim: color-mix(in oklch, var(--warning) 14%, transparent);
   --warning-border: color-mix(in oklch, var(--warning) 48%, var(--border));
-  --warning-text: color-mix(in oklch, var(--warning) 72%, var(--text));
+  --warning-text: color-mix(in oklch, var(--warning) 72%, var(--foreground));
   /* Brand mint/400 — brighter than the light-mode mint/800 so the success
    * accent reads on the dark callout card. */
   --success: #85ecce;
   --blue: #6ba6e8;
-  --violet: var(--accent);
+  --violet: var(--brand-accent);
   --violet-light: var(--accent-light);
   --scrollbar-color: rgba(255, 255, 255, 0.18);
   --scrollbar-track: transparent;
@@ -1204,11 +3083,22 @@ aside .overflow-y-auto,
 
 html,
 body {
-  background: var(--bg);
-  color: var(--text);
+  background-color: var(--background);
+  background-image: var(--shell-docs-ambient-overlay);
+  background-repeat: no-repeat;
+  background-size: 100% 36rem;
+  color: var(--foreground);
   font-family: var(--font-docs-prose);
   font-feature-settings: "cv11", "ss01";
-  letter-spacing: -0.005em;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: 0;
+  text-rendering: geometricPrecision;
+}
+
+html.dark,
+html.dark body {
+  background-attachment: fixed;
+  background-size: 100% 100%;
 }
 
 /* Canonical layout architecture (mirrors docs.copilotkit.ai global.css):
@@ -1247,13 +3137,71 @@ samp {
   overflow-y: auto;
   overflow-x: hidden;
   position: relative;
-  background-color: var(--bg);
+  background-color: transparent;
   scrollbar-width: thin;
 }
 
 [data-theme="dark"] .docs-content-wrapper,
 .dark .docs-content-wrapper {
-  background-color: var(--bg);
+  background-color: transparent;
+}
+
+@media (max-width: 767px) {
+  html,
+  body {
+    background-size: 100% 22rem;
+  }
+}
+
+.docs-inner-content :is(h1, h2, h3, h4) {
+  color: var(--foreground);
+  font-weight: 600;
+  letter-spacing: 0 !important;
+  text-wrap: balance;
+}
+
+.shell-docs-overview-page > section:first-child h1 {
+  width: fit-content;
+  max-width: 100%;
+  background: var(--shell-docs-hero-title-gradient);
+  background-clip: text;
+  font-size: clamp(2rem, 3.05vw, 3rem);
+  font-weight: 600 !important;
+  line-height: 1.04;
+  color: transparent !important;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.shell-docs-overview-page > section:first-child p {
+  max-width: 42rem;
+  color: var(--muted-foreground);
+  font-weight: 500;
+}
+
+.shell-docs-reading-page .docs-title,
+.shell-docs-reading-page h1,
+.shell-docs-framework-page h1 {
+  color: var(--foreground);
+  font-weight: 600 !important;
+  line-height: 1.08;
+  letter-spacing: 0 !important;
+}
+
+#nd-docs-layout:not(:has(#nd-toc))
+  .docs-inner-content
+  > section:first-child
+  h1 {
+  color: var(--foreground) !important;
+  font-weight: 600 !important;
+}
+
+#nd-docs-layout:not(:has(#nd-toc))
+  .docs-inner-content
+  > section:first-child
+  p:first-of-type {
+  color: var(--muted-foreground) !important;
+  font-weight: 500 !important;
 }
 
 /* Reference content (MDX) typography — calibrated against docs.copilotkit.ai.
@@ -1262,13 +3210,13 @@ samp {
 .reference-content {
   font-size: 0.9375rem; /* 15px */
   line-height: 1.65;
-  color: var(--text-secondary);
+  color: var(--muted-foreground);
 }
 
 .reference-content h2 {
   font-size: 1.5rem;
   font-weight: 600;
-  color: var(--text);
+  color: var(--foreground);
   margin-top: 2.5rem;
   margin-bottom: 0.75rem;
   padding-bottom: 0;
@@ -1278,7 +3226,7 @@ samp {
 .reference-content h3 {
   font-size: 1.125rem;
   font-weight: 600;
-  color: var(--text);
+  color: var(--foreground);
   margin-top: 2rem;
   margin-bottom: 0.5rem;
   letter-spacing: -0.01em;
@@ -1287,14 +3235,14 @@ samp {
 .reference-content h4 {
   font-size: 1rem;
   font-weight: 600;
-  color: var(--text);
+  color: var(--foreground);
   margin-top: 1.25rem;
   margin-bottom: 0.25rem;
 }
 
 .reference-content p {
   font-size: 0.9375rem;
-  color: var(--text-secondary);
+  color: var(--muted-foreground);
   line-height: 1.7;
   margin-bottom: 1rem;
 }
@@ -1312,7 +3260,7 @@ samp {
 .reference-content ul,
 .reference-content ol {
   font-size: 0.9375rem;
-  color: var(--text-secondary);
+  color: var(--muted-foreground);
   padding-left: 1.5rem;
   margin-bottom: 1rem;
   line-height: 1.65;
@@ -1336,11 +3284,11 @@ samp {
  * would paint the entire code body with `--bg-elevated`. */
 .reference-content :not(pre) > code {
   font-size: 0.8125rem;
-  background: var(--bg-elevated);
+  background: var(--secondary);
   padding: 0.125rem 0.375rem;
   border-radius: var(--shell-docs-radius-control);
   font-family: var(--font-docs-code);
-  color: var(--text);
+  color: var(--foreground);
 }
 
 /* Inline code inside headings should scale with the heading, not stay fixed */
@@ -1356,7 +3304,7 @@ samp {
  * border / padding / background. */
 
 .reference-content a {
-  color: var(--accent);
+  color: var(--brand-accent);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
@@ -1399,13 +3347,13 @@ samp {
 }
 
 .reference-content th {
-  background: var(--bg-elevated);
+  background: var(--secondary);
   font-weight: 600;
 }
 
 .reference-content strong {
   font-weight: 600;
-  color: var(--text);
+  color: var(--foreground);
 }
 
 .reference-content hr {
@@ -1420,8 +3368,8 @@ samp {
 .reference-content .shell-docs-property-reference {
   margin-block: 0;
   border-color: var(--border);
-  background: var(--bg-surface);
-  color: var(--text-secondary);
+  background: var(--card);
+  color: var(--muted-foreground);
   border-radius: var(--shell-docs-radius-surface);
 }
 
@@ -1460,7 +3408,7 @@ samp {
 .reference-content .shell-docs-property-reference button > code {
   background: transparent;
   border-radius: 0;
-  color: var(--accent);
+  color: var(--brand-accent);
   font-size: inherit;
   padding: 0;
 }
@@ -1477,7 +3425,7 @@ samp {
 }
 
 .reference-content .docs-heading-anchor {
-  color: var(--text-faint);
+  color: var(--muted-foreground);
   text-decoration: none;
   font-weight: 400;
   opacity: 0;
@@ -1490,7 +3438,7 @@ samp {
 }
 
 .reference-content .docs-heading-anchor:hover {
-  color: var(--accent);
+  color: var(--brand-accent);
   opacity: 1;
 }
 
@@ -1506,10 +3454,10 @@ samp {
 }
 
 .fd-step::before {
-  background: var(--bg-surface);
+  background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--shell-docs-radius-icon);
-  color: var(--accent);
+  color: var(--brand-accent);
   font-size: 0.75rem;
   font-weight: 600;
   height: 1.5rem;
@@ -1533,19 +3481,19 @@ samp {
 .fd-steps h3,
 .fd-steps h3 > :is(:not(.docs-heading-anchor)) {
   background-image: none !important;
-  color: var(--text) !important;
-  -webkit-text-fill-color: var(--text) !important;
+  color: var(--foreground) !important;
+  -webkit-text-fill-color: var(--foreground) !important;
 }
 .fd-steps h3 a:not(.docs-heading-anchor) {
-  color: var(--text) !important;
-  -webkit-text-fill-color: var(--text) !important;
+  color: var(--foreground) !important;
+  -webkit-text-fill-color: var(--foreground) !important;
 }
 
 /* Mute the SignupLink color in Step 1 so it tracks the body prose. The
  * link stays underlined for affordance, inherits hover (opacity: 0.8)
  * from .reference-content a. */
 .fd-steps > div:first-child a[data-cta-surface] {
-  color: var(--text);
+  color: var(--foreground);
 }
 
 /* Align each Step's first heading with its number badge.
@@ -1559,7 +3507,7 @@ samp {
 }
 
 .fd-steps .docs-step-title {
-  color: var(--text);
+  color: var(--foreground);
   font-size: 1rem;
   font-weight: 600;
   margin-bottom: 0.375rem;

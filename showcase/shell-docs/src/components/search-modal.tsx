@@ -124,12 +124,6 @@ function matchesQuery(
   return terms.every((term) => haystack.includes(term));
 }
 
-function formatType(type: SearchResultType): string {
-  if (type === "ag-ui") return "AG-UI";
-  if (type === "docs") return "Docs";
-  return type;
-}
-
 function scoreResult(result: SearchResult, query: string): number {
   const q = query.toLowerCase();
   const title = result.title.toLowerCase();
@@ -149,6 +143,29 @@ function scoreResult(result: SearchResult, query: string): number {
   else if (title.includes(q)) score -= 8;
 
   return score;
+}
+
+function scrubMarkdown(value: string): string {
+  return value
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/`{1,3}([^`]+)`{1,3}/g, "$1")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/__([^_]+)__/g, "$1")
+    .replace(/\*([^*]+)\*/g, "$1")
+    .replace(/_([^_]+)_/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^[\s>*-]+/gm, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function formatFrameworkScope(result: SearchResult): string | null {
+  if (!result.frameworkName) return null;
+  if (result.frameworkCount && result.frameworkCount > 1) {
+    return `${result.frameworkName} · ${result.frameworkCount} backends`;
+  }
+  return result.frameworkName;
 }
 
 export function SearchModal({ onClose }: { onClose: () => void }) {
@@ -489,13 +506,13 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
           }
         }}
       >
-        <div className="shell-docs-radius-surface overflow-visible border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-modal)]">
+        <div className="shell-docs-radius-surface overflow-visible border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow-modal)]">
           <div
             aria-hidden="true"
-            className="h-px bg-gradient-to-r from-transparent via-[var(--accent)]/70 to-transparent"
+            className="h-px bg-gradient-to-r from-transparent via-[var(--brand-accent)]/70 to-transparent"
           />
           <div className="flex items-center gap-3 px-5 py-4 border-b border-[var(--border)]">
-            <Search className="h-4 w-4 text-[var(--text-muted)]" />
+            <Search className="h-4 w-4 text-[var(--muted-foreground)]" />
             <input
               ref={inputRef}
               type="text"
@@ -506,7 +523,7 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
               }}
               onKeyDown={onInputKeyDown}
               placeholder="Search docs, API reference, integrations..."
-              className="min-w-0 flex-1 bg-transparent text-[15px] text-[var(--text)] outline-none placeholder:text-[var(--text-faint)]"
+              className="min-w-0 flex-1 bg-transparent text-[15px] text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]"
             />
             <button
               type="button"
@@ -520,7 +537,7 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
                 e.stopPropagation();
                 onClose();
               }}
-              className="shell-docs-radius-control inline-flex h-7 w-7 items-center justify-center text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"
+              className="shell-docs-radius-control inline-flex h-7 w-7 items-center justify-center text-[var(--muted-foreground)] transition-colors hover:bg-[var(--secondary)] hover:text-[var(--foreground)]"
               aria-label="Close search"
             >
               <X className="h-4 w-4" />
@@ -528,7 +545,7 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
           </div>
 
           <div
-            className={`relative flex items-center gap-2 bg-[var(--bg-elevated)]/45 px-5 py-2.5 text-[12px] text-[var(--text-muted)] ${
+            className={`relative flex items-center gap-2 bg-[var(--secondary)]/45 px-5 py-2.5 text-[12px] text-[var(--muted-foreground)] ${
               hasContentBelowScope
                 ? "border-b border-[var(--border)]"
                 : "rounded-b-xl"
@@ -540,7 +557,7 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
                 type="button"
                 disabled={!hasFrameworkPicker}
                 onClick={() => setFrameworkPickerOpen((open) => !open)}
-                className="shell-docs-radius-control inline-flex h-8 max-w-[min(56vw,220px)] items-center justify-between gap-2 border border-[var(--border)] bg-[var(--bg-surface)] px-2.5 text-left text-xs font-semibold text-[var(--text)] outline-none transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-hover)] focus-visible:border-[var(--accent)] disabled:opacity-60"
+                className="shell-docs-radius-control inline-flex h-8 max-w-[min(56vw,220px)] items-center justify-between gap-2 border border-[var(--border)] bg-[var(--card)] px-2.5 text-left text-xs font-semibold text-[var(--foreground)] outline-none transition-colors hover:border-[var(--brand-accent)] hover:bg-[var(--muted)] focus-visible:border-[var(--brand-accent)] disabled:opacity-60"
                 aria-haspopup="listbox"
                 aria-expanded={frameworkPickerOpen}
                 aria-label={`Choose docs framework. Currently ${
@@ -552,7 +569,7 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
                     <FrameworkLogo
                       slug={selectedFrameworkOption.slug}
                       fallbackSrc={selectedFrameworkOption.logo}
-                      className="shrink-0 text-[var(--accent)]"
+                      className="shrink-0 text-[var(--brand-accent)]"
                       size={14}
                     />
                   )}
@@ -560,13 +577,13 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
                     {selectedFrameworkOption?.name ?? "Loading frameworks"}
                   </span>
                 </span>
-                <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[var(--text-muted)]" />
+                <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[var(--muted-foreground)]" />
               </button>
 
               {frameworkPickerOpen && hasFrameworkPicker && (
                 <div
                   role="listbox"
-                  className="shell-docs-radius-surface absolute left-0 top-full z-10 mt-2 max-h-[280px] w-[min(360px,calc(100vw-3rem))] overflow-y-auto border border-[var(--border)] bg-[var(--bg-surface)] p-1.5 shadow-[var(--shadow-panel)]"
+                  className="shell-docs-radius-surface absolute left-0 top-full z-10 mt-2 max-h-[280px] w-[min(360px,calc(100vw-3rem))] overflow-y-auto border border-[var(--border)] bg-[var(--card)] p-1.5 shadow-[var(--shadow-panel)]"
                 >
                   {frameworkOptions.map((option) => {
                     const selected = option.slug === selectedFramework;
@@ -579,15 +596,15 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
                         onClick={() => chooseFramework(option.slug)}
                         className={`shell-docs-radius-control flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors ${
                           selected
-                            ? "bg-[var(--accent)]/10 text-[var(--text)]"
-                            : "text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text)]"
+                            ? "bg-[var(--brand-accent)]/10 text-[var(--foreground)]"
+                            : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
                         }`}
                       >
                         <span
                           className={`shell-docs-radius-icon inline-flex h-7 w-7 shrink-0 items-center justify-center border ${
                             selected
-                              ? "border-[var(--accent)] bg-[var(--accent-dim)] text-[var(--accent)]"
-                              : "border-[var(--border)] bg-[var(--bg-elevated)] text-[var(--text-muted)]"
+                              ? "border-[var(--brand-accent)] bg-[var(--accent-dim)] text-[var(--brand-accent)]"
+                              : "border-[var(--border)] bg-[var(--secondary)] text-[var(--muted-foreground)]"
                           }`}
                         >
                           <FrameworkLogo
@@ -600,7 +617,7 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
                           {option.name}
                         </span>
                         {selected && (
-                          <Check className="h-4 w-4 shrink-0 text-[var(--accent)]" />
+                          <Check className="h-4 w-4 shrink-0 text-[var(--brand-accent)]" />
                         )}
                       </button>
                     );
@@ -611,72 +628,73 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
           </div>
 
           {registryError && (
-            <div className="px-5 py-2.5 text-[12px] text-[var(--text-muted)] border-b border-[var(--border)] bg-[var(--bg-elevated)]">
+            <div className="px-5 py-2.5 text-[12px] text-[var(--muted-foreground)] border-b border-[var(--border)] bg-[var(--secondary)]">
               Search index failed to load. Try refresh.
             </div>
           )}
 
           {hasQuery && registryLoading && (
-            <div className="px-5 py-2 text-[11px] text-[var(--text-faint)] border-b border-[var(--border)]">
+            <div className="px-5 py-2 text-[11px] text-[var(--muted-foreground)] border-b border-[var(--border)]">
               Loading integrations and framework docs...
             </div>
           )}
 
           {results.length > 0 && (
             <div className="max-h-[390px] overflow-y-auto p-2">
-              {results.map((r, idx) => (
-                <button
-                  key={r.id}
-                  type="button"
-                  className={`shell-docs-radius-control flex w-full items-center gap-3 px-3 py-3 text-left transition-colors ${
-                    idx === selectedIndex
-                      ? "bg-[var(--bg-elevated)]"
-                      : "hover:bg-[var(--bg-hover)]"
-                  }`}
-                  onClick={() => navigateTo(r.href)}
-                  onMouseEnter={() => setSelectedIndex(idx)}
-                >
-                  <span className="text-[10px] font-mono text-[var(--text-faint)] uppercase w-16 shrink-0">
-                    {formatType(r.type)}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span className="truncate text-[13px] font-semibold text-[var(--text)]">
-                        {r.title}
-                      </span>
-                      {r.section && (
-                        <span className="hidden shrink-0 text-[11px] font-normal text-[var(--text-faint)] sm:inline">
-                          {r.section}
+              {results.map((r, idx) => {
+                const subtitle = scrubMarkdown(r.subtitle);
+                const frameworkScope = formatFrameworkScope(r);
+
+                return (
+                  <button
+                    key={r.id}
+                    type="button"
+                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left outline-none transition-colors focus-visible:bg-[var(--secondary)] ${
+                      idx === selectedIndex
+                        ? "bg-[var(--secondary)]"
+                        : "hover:bg-[var(--muted)]"
+                    }`}
+                    onClick={() => navigateTo(r.href)}
+                    onMouseEnter={() => setSelectedIndex(idx)}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className="truncate text-[13px] font-semibold text-[var(--foreground)]">
+                          {r.title}
                         </span>
+                        {r.section && (
+                          <span className="hidden shrink-0 text-[11px] font-normal text-[var(--muted-foreground)] sm:inline">
+                            {r.section}
+                          </span>
+                        )}
+                      </div>
+                      {subtitle && (
+                        <div className="truncate text-[11px] text-[var(--muted-foreground)]">
+                          {subtitle}
+                        </div>
+                      )}
+                      {frameworkScope && (
+                        <div className="mt-1 truncate text-[10px] font-normal text-[var(--muted-foreground)]">
+                          {frameworkScope}
+                        </div>
                       )}
                     </div>
-                    <div className="text-[11px] text-[var(--text-muted)] truncate">
-                      {r.subtitle}
-                    </div>
-                    {r.frameworkName && (
-                      <div className="mt-1 text-[10px] font-medium text-[var(--accent)]">
-                        {r.frameworkName}
-                        {r.frameworkCount && r.frameworkCount > 1
-                          ? ` selected from ${r.frameworkCount} backends`
-                          : " selected"}
-                      </div>
-                    )}
-                  </div>
-                  <ArrowRight
-                    className={`h-4 w-4 shrink-0 transition-colors ${
-                      idx === selectedIndex
-                        ? "text-[var(--accent)]"
-                        : "text-[var(--text-faint)]"
-                    }`}
-                    aria-hidden="true"
-                  />
-                </button>
-              ))}
+                    <ArrowRight
+                      className={`h-4 w-4 shrink-0 transition-colors ${
+                        idx === selectedIndex
+                          ? "text-[var(--brand-accent)]"
+                          : "text-[var(--muted-foreground)]"
+                      }`}
+                      aria-hidden="true"
+                    />
+                  </button>
+                );
+              })}
             </div>
           )}
 
           {hasQuery && results.length === 0 && !registryLoading && (
-            <div className="px-5 py-8 text-center text-[13px] text-[var(--text-muted)]">
+            <div className="px-5 py-8 text-center text-[13px] text-[var(--muted-foreground)]">
               No results for &ldquo;{query}&rdquo;
             </div>
           )}

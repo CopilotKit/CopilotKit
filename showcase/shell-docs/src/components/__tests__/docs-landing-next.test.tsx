@@ -1,11 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { DocsLandingNext } from "../docs-landing-next";
-
-vi.mock("../stored-framework-highlight", () => ({
-  StoredFrameworkHighlight: () => null,
-}));
 
 describe("DocsLandingNext", () => {
   it("uses container-sized backend cards instead of viewport-only columns", () => {

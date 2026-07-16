@@ -2,24 +2,30 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChefHat } from "lucide-react";
-import BookIcon from "./icons/book";
+import { PrimaryNavIcon } from "./primary-nav-icon";
+import type { PrimaryNavIconKind } from "./primary-nav-icon";
 
-const PRIMARY_DOCS_LINKS = [
+interface PrimaryDocsLink {
+  href: string;
+  icon: PrimaryNavIconKind;
+  label: string;
+}
+
+const PRIMARY_DOCS_LINKS: PrimaryDocsLink[] = [
   {
     href: "/",
     label: "Docs",
-    icon: <BookIcon className="h-4 w-4 text-current" />,
+    icon: "docs",
   },
   {
     href: "/reference",
     label: "Reference",
-    icon: <BookIcon className="h-4 w-4 text-current" />,
+    icon: "reference",
   },
   {
     href: "/cookbook",
     label: "Cookbook",
-    icon: <ChefHat className="h-4 w-4 text-current" />,
+    icon: "cookbook",
   },
 ];
 
@@ -57,8 +63,12 @@ export function PrimaryDocsTabs({ className }: { className?: string }) {
             }`}
             aria-current={isActive ? "page" : undefined}
           >
-            {link.icon}
-            <span>{link.label}</span>
+            <PrimaryNavIcon
+              kind={link.icon}
+              active={isActive}
+              className="h-4 w-4"
+            />
+            <span className="shell-docs-nav-link-label">{link.label}</span>
           </Link>
         );
       })}

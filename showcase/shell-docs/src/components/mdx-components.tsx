@@ -51,7 +51,7 @@ export function Card({
   //   feels active without using a default underline
   // - `not-prose` is the load-bearing class: the article body uses
   //   `.reference-content` which forces `text-decoration: underline;
-  //   color: var(--accent)` on every <a>; that rule wins over the
+  //   color: var(--brand-accent)` on every <a>; that rule wins over the
   //   Tailwind `no-underline` class on specificity. `not-prose`
   //   triggers the global escape-hatch rule that drops both.
   const resolvedHref = href?.replace(/^\/reference\/v2\//, "/reference/");
@@ -70,11 +70,9 @@ export function Card({
       />
     ) : undefined);
   const mergedClassName = [
-    "shell-docs-radius-surface border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text)] shadow-[var(--shadow-control)]",
+    "shell-docs-module-card shell-docs-radius-surface border text-[var(--foreground)]",
     "[&_h3]:!mt-0 [&_h3]:!mb-1.5 [&_h3]:!text-base [&_h3]:!font-semibold [&_h3]:!leading-snug [&_p]:!text-sm [&_p]:!leading-relaxed",
-    href
-      ? "not-prose hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)]"
-      : null,
+    href ? "not-prose" : null,
     className,
   ]
     .filter(Boolean)
@@ -104,11 +102,11 @@ export function Accordion({
   children: React.ReactNode;
 }) {
   return (
-    <details className="shell-docs-radius-surface group border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-control)]">
-      <summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-[var(--text)] transition-colors hover:bg-[var(--bg-elevated)]">
+    <details className="shell-docs-module-card shell-docs-radius-surface group border">
+      <summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--secondary)]">
         {title}
       </summary>
-      <div className="px-4 pb-4 text-sm text-[var(--text-secondary)]">
+      <div className="px-4 pb-4 text-sm text-[var(--muted-foreground)]">
         {children}
       </div>
     </details>

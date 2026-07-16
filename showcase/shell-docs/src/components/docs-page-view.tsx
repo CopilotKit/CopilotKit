@@ -131,10 +131,10 @@ export async function DocsPageView({
   if (!doc) {
     return (
       <div className="mx-auto max-w-3xl px-6 py-16 text-center">
-        <h1 className="text-2xl font-semibold text-[var(--text)] mb-3">
+        <h1 className="text-2xl font-semibold text-[var(--foreground)] mb-3">
           Not found
         </h1>
-        <p className="text-sm text-[var(--text-muted)]">
+        <p className="text-sm text-[var(--muted-foreground)]">
           No page matches <code>{slugPath}</code>.
         </p>
       </div>
@@ -199,14 +199,14 @@ export async function DocsPageView({
         tableOfContentPopover={{ enabled: false }}
       >
         <MaybeEarlyAccessGate gate={doc.fm.earlyAccess}>
-          <div className="docs-inner-content max-w-[900px] mx-auto px-4 md:px-6 pt-2 pb-6 md:pt-3 xl:pt-4">
+          <div className="docs-inner-content shell-docs-reading-page max-w-[900px] mx-auto px-4 md:px-6 pt-2 pb-6 md:pt-3 xl:pt-4">
             {/* Breadcrumb styling tracks canonical fumadocs PageBreadcrumb,
              * but tighter: this should read as quiet page chrome, not a
              * second title row above the H1. */}
-            <nav className="mb-2 flex flex-wrap items-center gap-1 text-[11px] font-medium leading-none text-[var(--text-muted)]">
+            <nav className="mb-2 flex flex-wrap items-center gap-1 text-[11px] font-medium leading-none text-[var(--muted-foreground)]">
               {breadcrumbs.map((crumb, i) => {
                 const isLast = i === breadcrumbs.length - 1;
-                const labelClass = `truncate ${isLast ? "text-[var(--text)] font-medium" : ""}`;
+                const labelClass = `truncate ${isLast ? "text-[var(--foreground)] font-medium" : ""}`;
                 return (
                   <React.Fragment key={i}>
                     {i > 0 && (
@@ -234,7 +234,7 @@ export async function DocsPageView({
               {doc.fm.title}
             </DocsTitle>
             {doc.fm.description && (
-              <DocsDescription className="text-lg text-[var(--text-muted)] mt-5 leading-relaxed">
+              <DocsDescription className="text-lg text-[var(--muted-foreground)] mt-5 leading-relaxed">
                 {doc.fm.description}
               </DocsDescription>
             )}

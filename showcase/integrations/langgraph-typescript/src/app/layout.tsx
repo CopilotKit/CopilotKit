@@ -6,6 +6,8 @@ export const metadata: Metadata = {
   title: "CopilotKit Showcase — LangGraph (TypeScript)",
 };
 
+const themeInitScript = `(function(){try{var p=new URLSearchParams(window.location.search);var t=p.get('theme')||p.get('colorScheme');if(t!=='dark'&&t!=='light'){t=localStorage.theme;}if(t!=='dark'&&t!=='light'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}document.documentElement.classList.toggle('dark',t==='dark');document.documentElement.dataset.theme=t;}catch(e){}})();`;
+
 export default function RootLayout({
   children,
 }: {
@@ -13,6 +15,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <script
+          id="showcase-theme-init"
+          dangerouslySetInnerHTML={{ __html: themeInitScript }}
+        />
+      </head>
       <body>
         <script
           dangerouslySetInnerHTML={{

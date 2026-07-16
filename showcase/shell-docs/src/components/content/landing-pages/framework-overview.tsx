@@ -12,6 +12,7 @@ import {
   HeroStartActions,
   QuickstartLinkButton,
 } from "@/components/hero-start-commands";
+import { ThemedDemoFrame } from "@/components/content/themed-demo-frame";
 import { OpsPlatformCTA } from "@/components/react/ops-platform-cta";
 import type {
   FrameworkOverviewData,
@@ -74,22 +75,6 @@ function rewriteHref(href: string, fromSlug: string, toSlug: string): string {
  */
 function ctaVariantFor(data: OpsPlatformCTAData): "card" | "inline" {
   return data.variant === "banner" ? "inline" : "card";
-}
-
-/**
- * Section eyebrow — small sans-serif label with a hairline rule. Dropped
- * the prior monospace + wide-tracking treatment because it read as
- * editorial pastiche on a developer-docs surface.
- */
-function SectionEyebrow({ label }: { label: string }) {
-  return (
-    <div className="flex items-center gap-3 mb-6">
-      <span className="text-sm font-medium text-[var(--text-secondary)] whitespace-nowrap">
-        {label}
-      </span>
-      <div className="flex-1 h-px bg-[var(--border)]" />
-    </div>
-  );
 }
 
 // Docs framework slug -> the `copilotkit` CLI's own `--framework` value. The
@@ -194,33 +179,33 @@ export function FrameworkOverview({
   const activeDemoData = liveDemos.find((demo) => demo.type === activeDemo);
 
   return (
-    <div className="relative pb-24">
+    <div className="shell-docs-framework-overview relative pb-20">
       <div className="relative z-10">
         {/* =========================================================
              HERO
              ========================================================= */}
-        <header className="pb-8 sm:pb-12">
+        <header className="shell-docs-framework-hero border-b border-[var(--border)] pb-8 sm:pb-10">
           {/* Framework identity: icon + name in a horizontal lockup. */}
-          <div className="flex items-center gap-3 mb-5">
+          <div className="mb-5 flex items-center gap-3">
             {hasIcon && (
-              <div className="shell-docs-radius-icon flex h-10 w-10 items-center justify-center border border-[var(--accent)] bg-[var(--accent-dim)] text-[var(--accent)]">
+              <div className="shell-docs-framework-icon shell-docs-radius-icon flex h-10 w-10 items-center justify-center border">
                 {iconOverride ??
                   (IconComponent ? (
                     <IconComponent className="h-6 w-6" />
                   ) : null)}
               </div>
             )}
-            <span className="text-base font-semibold tracking-tight text-[var(--text)]">
+            <span className="text-base font-semibold tracking-tight text-[var(--foreground)]">
               {frameworkName}
             </span>
           </div>
 
           {/* Headline + supporting copy — tightened from the prior
               display-scale type. Still left-aligned with balanced wrap. */}
-          <h1 className="text-[1.75rem] sm:text-[2.25rem] md:text-[2.5rem] font-semibold leading-[1.1] tracking-[-0.02em] text-[var(--text)] text-balance max-w-[24ch]">
+          <h1 className="max-w-[24ch] text-balance text-[1.75rem] font-semibold leading-[1.08] tracking-[-0.01em] text-[var(--foreground)] sm:text-[2.125rem] md:text-[2.375rem]">
             {header}
           </h1>
-          <p className="mt-4 max-w-[58ch] text-base sm:text-lg text-[var(--text-muted)] leading-[1.55] text-pretty">
+          <p className="mt-4 max-w-[62ch] text-pretty text-base leading-[1.6] text-[var(--muted-foreground)] sm:text-[1.0625rem]">
             {subheader}
           </p>
 
@@ -243,20 +228,20 @@ export function FrameworkOverview({
                 <button
                   type="button"
                   onClick={handleCopyCommand}
-                  className="shell-docs-radius-control group inline-flex h-11 w-full cursor-pointer items-center justify-between gap-3 border border-[var(--border)] bg-[var(--bg-surface)] px-4 text-[var(--text)] shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--bg-elevated)] sm:w-auto sm:justify-start"
+                  className="shell-docs-radius-control group inline-flex h-11 w-full cursor-pointer items-center justify-between gap-3 border border-[var(--border)] bg-[var(--card)] px-4 text-[var(--foreground)] shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--secondary)] sm:w-auto sm:justify-start"
                   aria-label="Copy install command"
                 >
                   <span className="flex items-center gap-2 text-[13.5px]">
-                    <span className="text-[var(--accent)] opacity-70 font-mono">
+                    <span className="text-[var(--brand-accent)] opacity-70 font-mono">
                       $
                     </span>
-                    <span className="font-mono text-[13px] text-[var(--text-secondary)] group-hover:text-[var(--text)]">
+                    <span className="font-mono text-[13px] text-[var(--muted-foreground)] group-hover:text-[var(--foreground)]">
                       {initCommand}
                     </span>
                   </span>
-                  <span className="text-[var(--text-muted)] group-hover:text-[var(--text)]">
+                  <span className="text-[var(--muted-foreground)] group-hover:text-[var(--foreground)]">
                     {copied ? (
-                      <Check className="h-4 w-4 text-[var(--accent)]" />
+                      <Check className="h-4 w-4 text-[var(--brand-accent)]" />
                     ) : (
                       <Copy className="h-4 w-4" />
                     )}
@@ -271,40 +256,39 @@ export function FrameworkOverview({
              SUPPORTED FEATURES — numbered milestone list
              ========================================================= */}
         {supportedFeatures.length > 0 && (
-          <section className="mb-20 sm:mb-28">
-            <SectionEyebrow label="What you can build" />
-            <div className="mb-12 max-w-[58ch]">
-              <h2 className="text-[2rem] sm:text-[2.5rem] font-semibold tracking-[-0.02em] leading-[1.1] text-[var(--text)]">
+          <section className="mb-16 pt-8 sm:mb-20 sm:pt-10">
+            <div className="mb-8 max-w-[62ch]">
+              <h2 className="text-[1.5rem] font-semibold leading-[1.15] tracking-[-0.01em] text-[var(--foreground)] sm:text-[1.875rem]">
                 Build with {frameworkName}
               </h2>
-              <p className="mt-3 text-[15px] sm:text-base text-[var(--text-muted)] leading-relaxed">
+              <p className="mt-3 text-[15px] leading-relaxed text-[var(--muted-foreground)] sm:text-base">
                 The user-facing primitives every {frameworkName} integration
                 ships with — pick the one that fits your product and drop the
                 code in.
               </p>
             </div>
 
-            <div className="flex flex-col gap-16 sm:gap-24">
+            <div className="grid gap-4">
               {supportedFeatures.map((feature) => {
                 const hasMedia = Boolean(feature.videoUrl);
                 return (
                   <article
                     key={feature.title}
-                    className="grid lg:grid-cols-12 gap-8 lg:gap-12 items-start"
+                    className="shell-docs-framework-feature shell-docs-module-card grid items-start gap-5 overflow-hidden border p-5 sm:p-6 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] lg:items-center"
                   >
                     {/* Left column: title + description + links */}
-                    <div className="lg:col-span-5">
-                      <h3 className="text-[1.5rem] sm:text-[1.75rem] font-semibold tracking-[-0.015em] leading-[1.15] text-[var(--text)]">
+                    <div className={hasMedia ? "" : "lg:col-span-2"}>
+                      <h3 className="text-[1.25rem] font-semibold leading-[1.16] tracking-[-0.005em] text-[var(--foreground)] sm:text-[1.375rem]">
                         {feature.title}
                       </h3>
-                      <p className="mt-3 text-[15px] text-[var(--text-muted)] leading-[1.6]">
+                      <p className="mt-3 text-[14.5px] leading-[1.6] text-[var(--muted-foreground)]">
                         {feature.description}
                       </p>
 
-                      <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2">
+                      <div className="mt-5 flex flex-wrap items-center gap-2.5">
                         <Link
                           href={link(feature.documentationLink)}
-                          className="inline-flex items-center gap-1.5 text-[14px] font-medium text-[var(--accent)] hover:text-[var(--accent)] hover:brightness-110 no-underline group"
+                          className="shell-docs-radius-control group inline-flex h-9 items-center gap-1.5 border border-[var(--border)] bg-[var(--card)] px-3 text-[13px] font-semibold text-[var(--foreground)] no-underline shadow-[var(--shadow-control)] transition-colors hover:border-[var(--shell-docs-selection-border-hover)] hover:bg-[var(--secondary)]"
                         >
                           Read the docs
                           <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
@@ -312,7 +296,7 @@ export function FrameworkOverview({
                         {feature.demoLink && (
                           <Link
                             href={link(feature.demoLink)}
-                            className="inline-flex items-center gap-1.5 text-[14px] text-[var(--text-muted)] hover:text-[var(--text)] no-underline transition-colors"
+                            className="shell-docs-radius-control inline-flex h-9 items-center gap-1.5 border border-[var(--border)] bg-[var(--shell-docs-secondary-button-surface)] px-3 text-[13px] font-semibold text-[var(--muted-foreground)] no-underline shadow-[var(--shadow-control)] transition-colors hover:border-[var(--shell-docs-selection-border-hover)] hover:bg-[var(--shell-docs-secondary-button-surface-hover)] hover:text-[var(--foreground)]"
                           >
                             <ExternalLink className="h-3.5 w-3.5" />
                             Live demo
@@ -325,19 +309,20 @@ export function FrameworkOverview({
                         spans wider and we leave the right empty (graceful
                         fallback for sparse data records). */}
                     {hasMedia && (
-                      <div className="lg:col-span-7">
-                        <div className="shell-docs-radius-surface relative overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-panel)]">
+                      <div className="min-w-0">
+                        <div className="shell-docs-framework-media shell-docs-radius-surface relative aspect-[16/10] overflow-hidden border">
                           <video
                             src={feature.videoUrl}
-                            className="w-full block"
+                            className="block h-full w-full object-cover"
                             autoPlay
                             muted
                             loop
                             playsInline
+                            preload="auto"
                           />
                           <div
                             aria-hidden
-                            className="shell-docs-radius-surface pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/5"
+                            className="shell-docs-framework-media-overlay shell-docs-radius-surface pointer-events-none absolute inset-0"
                           />
                         </div>
                       </div>
@@ -353,25 +338,24 @@ export function FrameworkOverview({
              AFTER FEATURES (CTA or MDX escape hatch)
              ========================================================= */}
         {resolvedAfterFeatures && (
-          <section className="mb-20 sm:mb-28">{resolvedAfterFeatures}</section>
+          <section className="mb-16 sm:mb-20">{resolvedAfterFeatures}</section>
         )}
 
         {/* =========================================================
              ARCHITECTURE
              ========================================================= */}
         {(architectureImage || architectureVideo) && (
-          <section className="mb-20 sm:mb-28">
-            <SectionEyebrow label="How it fits together" />
-            <div className="mb-10 max-w-[58ch]">
-              <h2 className="text-[2rem] sm:text-[2.5rem] font-semibold tracking-[-0.02em] leading-[1.1] text-[var(--text)]">
+          <section className="mb-16 sm:mb-20">
+            <div className="mb-8 max-w-[62ch]">
+              <h2 className="text-[1.5rem] font-semibold leading-[1.15] tracking-[-0.01em] text-[var(--foreground)] sm:text-[1.875rem]">
                 Architecture
               </h2>
-              <p className="mt-3 text-[15px] sm:text-base text-[var(--text-muted)] leading-relaxed">
+              <p className="mt-3 text-[15px] leading-relaxed text-[var(--muted-foreground)] sm:text-base">
                 The shape of a CopilotKit + {frameworkName} application — from
                 your UI down to the agent runtime.
               </p>
             </div>
-            <div className="shell-docs-radius-surface overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-panel)]">
+            <div className="shell-docs-framework-media shell-docs-radius-surface overflow-hidden border">
               {architectureImage && (
                 <Image
                   src={architectureImage}
@@ -389,6 +373,7 @@ export function FrameworkOverview({
                   muted
                   loop
                   playsInline
+                  preload="auto"
                 />
               )}
             </div>
@@ -399,13 +384,12 @@ export function FrameworkOverview({
              LIVE DEMOS
              ========================================================= */}
         {liveDemos.length > 0 && (
-          <section className="mb-20 sm:mb-28">
-            <SectionEyebrow label="Live example" />
-            <div className="mb-8 max-w-[58ch]">
-              <h2 className="text-[2rem] sm:text-[2.5rem] font-semibold tracking-[-0.02em] leading-[1.1] text-[var(--text)]">
+          <section className="mb-16 sm:mb-20">
+            <div className="mb-8 max-w-[62ch]">
+              <h2 className="text-[1.5rem] font-semibold leading-[1.15] tracking-[-0.01em] text-[var(--foreground)] sm:text-[1.875rem]">
                 Run {frameworkName} in your browser
               </h2>
-              <p className="mt-3 text-[15px] sm:text-base text-[var(--text-muted)] leading-relaxed">
+              <p className="mt-3 text-[15px] leading-relaxed text-[var(--muted-foreground)] sm:text-base">
                 Two patterns we see most often — drive a SaaS workflow, or
                 collaborate on a canvas with your agent.
               </p>
@@ -415,7 +399,7 @@ export function FrameworkOverview({
                 underline. Mirrors the dojo's "view toggle" treatment but
                 in a flatter style that suits a landing page. */}
             {liveDemos.length > 1 && (
-              <div className="shell-docs-radius-control mb-6 inline-flex items-center gap-1 border border-[var(--border)] bg-[var(--bg-surface)] p-1 shadow-[var(--shadow-control)]">
+              <div className="shell-docs-radius-control mb-6 inline-flex items-center gap-1 border border-[var(--border)] bg-[var(--card)] p-1 shadow-[var(--shadow-control)]">
                 {liveDemos.map((demo) => {
                   const active = activeDemo === demo.type;
                   return (
@@ -425,8 +409,8 @@ export function FrameworkOverview({
                       onClick={() => setActiveDemo(demo.type)}
                       className={`shell-docs-radius-control h-8 px-4 text-[13px] font-medium transition-colors ${
                         active
-                          ? "bg-[var(--bg-elevated)] text-[var(--text)] shadow-[var(--shadow-control)]"
-                          : "bg-transparent text-[var(--text-muted)] hover:text-[var(--text)]"
+                          ? "bg-[var(--secondary)] text-[var(--foreground)] shadow-[var(--shadow-control)]"
+                          : "bg-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
                       }`}
                     >
                       {demo.title}
@@ -437,14 +421,14 @@ export function FrameworkOverview({
             )}
 
             {activeDemoData && (
-              <p className="mb-5 text-[14.5px] text-[var(--text-muted)] leading-[1.6] max-w-[68ch]">
+              <p className="mb-5 max-w-[68ch] text-[14.5px] leading-[1.6] text-[var(--muted-foreground)]">
                 {activeDemoData.description}
               </p>
             )}
 
-            <div className="shell-docs-radius-surface relative overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-panel)]">
+            <div className="shell-docs-framework-media shell-docs-radius-surface relative overflow-hidden border">
               {activeDemoData && (
-                <iframe
+                <ThemedDemoFrame
                   src={activeDemoData.iframeUrl}
                   className="w-full h-[480px] sm:h-[600px] block"
                   title={`${activeDemoData.title} Demo`}
@@ -452,7 +436,7 @@ export function FrameworkOverview({
               )}
               <div
                 aria-hidden
-                className="shell-docs-radius-surface pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/5"
+                className="shell-docs-framework-media-overlay shell-docs-radius-surface pointer-events-none absolute inset-0"
               />
             </div>
           </section>

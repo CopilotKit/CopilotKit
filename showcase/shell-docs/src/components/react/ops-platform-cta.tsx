@@ -115,13 +115,13 @@ export function OpsPlatformCTA({
   if (variant === "info") {
     return (
       <div
-        className={`shell-docs-radius-surface not-prose my-6 flex gap-3 border border-[var(--border)] bg-[var(--bg-elevated)] p-4 shadow-[var(--shadow-control)] ${className ?? ""}`}
+        className={`shell-docs-radius-surface not-prose my-6 flex gap-3 border border-[var(--border)] bg-[var(--secondary)] p-4 shadow-[var(--shadow-control)] ${className ?? ""}`}
       >
-        <Info className="h-5 w-5 text-[var(--accent)] mt-0.5 flex-shrink-0" />
+        <Info className="h-5 w-5 text-[var(--brand-accent)] mt-0.5 flex-shrink-0" />
         <div className="min-w-0 flex-1">
-          <div className="font-semibold text-[var(--text)]">{title}</div>
+          <div className="font-semibold text-[var(--foreground)]">{title}</div>
           {body ? (
-            <div className="text-sm text-[var(--text-muted)] leading-relaxed mt-1">
+            <div className="text-sm text-[var(--muted-foreground)] leading-relaxed mt-1">
               {body}
             </div>
           ) : null}
@@ -160,7 +160,7 @@ export function OpsPlatformCTA({
         suppressHydrationWarning
         data-cta-surface={surface}
         data-cta-variant={variant}
-        className={`shell-docs-cta-link shell-docs-radius-surface not-prose group relative my-6 flex flex-col gap-3 overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] p-4 pl-5 shadow-[var(--shadow-control)] transition-colors duration-150 hover:border-[var(--accent)] sm:flex-row sm:items-center sm:justify-between sm:gap-4 ${className ?? ""}`}
+        className={`shell-docs-cta-link shell-docs-radius-surface not-prose group relative my-6 flex flex-col gap-3 overflow-hidden border border-[var(--border)] bg-[var(--card)] p-4 pl-5 shadow-[var(--shadow-control)] transition-colors duration-150 hover:border-[var(--brand-accent)] sm:flex-row sm:items-center sm:justify-between sm:gap-4 ${className ?? ""}`}
       >
         {/* 2px accent stripe — the structural brand signature. */}
         <span
@@ -170,11 +170,11 @@ export function OpsPlatformCTA({
         <div className="flex items-start gap-3 min-w-0">
           <CopilotKitMark className="mt-0.5 h-5 w-[18px] flex-shrink-0" />
           <div className="min-w-0">
-            <div className="text-[15px] font-semibold leading-snug text-[var(--text)]">
+            <div className="text-[15px] font-semibold leading-snug text-[var(--foreground)]">
               {title}
             </div>
             {body ? (
-              <div className="mt-1 text-[13.5px] leading-relaxed text-[var(--text-muted)]">
+              <div className="mt-1 text-[13.5px] leading-relaxed text-[var(--muted-foreground)]">
                 {body}
               </div>
             ) : null}
@@ -199,13 +199,15 @@ export function OpsPlatformCTA({
         suppressHydrationWarning
         data-cta-surface={surface}
         data-cta-variant={variant}
-        className={`shell-docs-cta-link shell-docs-radius-surface not-prose group flex items-start gap-3 border border-[var(--border)] bg-[var(--bg-surface)] p-4 shadow-[var(--shadow-control)] transition-colors duration-150 hover:border-[var(--accent)] ${className ?? ""}`}
+        className={`shell-docs-cta-link shell-docs-radius-surface not-prose group flex items-start gap-3 border border-[var(--border)] bg-[var(--card)] p-4 shadow-[var(--shadow-control)] transition-colors duration-150 hover:border-[var(--brand-accent)] ${className ?? ""}`}
       >
         <CopilotKitMark className="mt-0.5 h-5 w-[18px] flex-shrink-0" />
         <div>
-          <div className="font-semibold text-[var(--text)] mb-1">{title}</div>
+          <div className="font-semibold text-[var(--foreground)] mb-1">
+            {title}
+          </div>
           {body ? (
-            <div className="text-sm text-[var(--text-muted)] leading-relaxed">
+            <div className="text-sm text-[var(--muted-foreground)] leading-relaxed">
               {body}
             </div>
           ) : null}
@@ -247,7 +249,7 @@ export function OpsPlatformCTA({
       suppressHydrationWarning
       data-cta-surface={surface}
       data-cta-variant={variant}
-      className={`shell-docs-cta-link shell-docs-radius-surface not-prose group relative my-8 flex flex-col items-stretch gap-4 overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] p-5 pl-6 shadow-[var(--shadow-control)] transition-colors duration-150 hover:border-[var(--accent)] sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:p-6 sm:pl-7 ${className ?? ""}`}
+      className={`shell-docs-cta-link shell-docs-radius-surface not-prose group relative my-8 flex flex-col items-stretch gap-4 overflow-hidden border border-[var(--border)] bg-[var(--card)] p-5 pl-6 shadow-[var(--shadow-control)] transition-colors duration-150 hover:border-[var(--brand-accent)] sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:p-6 sm:pl-7 ${className ?? ""}`}
     >
       {/* 2px accent stripe — the structural brand signature. Positioned via the
           parent's relative + overflow-hidden so the stripe sits flush against
@@ -259,11 +261,11 @@ export function OpsPlatformCTA({
       <div className="flex items-start gap-4 min-w-0">
         <CopilotKitMark className="mt-0.5 h-6 w-[22px] flex-shrink-0" />
         <div className="min-w-0">
-          <div className="text-lg font-semibold leading-tight tracking-tight text-[var(--text)]">
+          <div className="text-lg font-semibold leading-tight tracking-tight text-[var(--foreground)]">
             {title}
           </div>
           {body ? (
-            <div className="mt-1.5 text-sm leading-relaxed text-[var(--text-muted)]">
+            <div className="mt-1.5 text-sm leading-relaxed text-[var(--muted-foreground)]">
               {body}
             </div>
           ) : null}

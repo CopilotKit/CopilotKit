@@ -136,10 +136,10 @@ interface SnippetProps {
 function WarningBox({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="shell-docs-radius-surface shell-docs-warning-surface my-4 border border-l-4 p-4 text-sm text-[var(--text-secondary)] shadow-[var(--shadow-control)]"
+      className="shell-docs-radius-surface shell-docs-warning-surface my-4 border border-l-4 p-4 text-sm text-[var(--muted-foreground)] shadow-[var(--shadow-control)]"
       role="alert"
     >
-      <div className="font-semibold mb-1 text-[var(--text)]">
+      <div className="font-semibold mb-1 text-[var(--foreground)]">
         Missing snippet
       </div>
       {children}
@@ -164,17 +164,17 @@ export function UnsupportedBox({
 }) {
   return (
     <div
-      className="shell-docs-radius-surface my-4 border border-l-4 border-[var(--accent)] bg-[var(--accent-dim)] p-4 text-sm text-[var(--text-secondary)] shadow-[var(--shadow-control)]"
+      className="shell-docs-radius-surface my-4 border border-l-4 border-[var(--brand-accent)] bg-[var(--accent-dim)] p-4 text-sm text-[var(--muted-foreground)] shadow-[var(--shadow-control)]"
       role="note"
     >
-      <div className="font-semibold mb-1 text-[var(--text)]">
+      <div className="font-semibold mb-1 text-[var(--foreground)]">
         Not supported on {integrationName}
       </div>
       <div>
         {integrationName} doesn't support {featureName}. See{" "}
         <a
           href="/"
-          className="underline decoration-[var(--border)] underline-offset-2 hover:decoration-[var(--text-secondary)]"
+          className="underline decoration-[var(--border)] underline-offset-2 hover:decoration-[var(--muted-foreground)]"
         >
           the framework grid
         </a>{" "}
@@ -346,7 +346,7 @@ export function Snippet({
 
   if (!resolvedFramework) {
     return (
-      <div className="shell-docs-radius-surface my-4 border border-[var(--border)] bg-[var(--bg-elevated)] px-4 py-3 text-sm text-[var(--text-muted)] shadow-[var(--shadow-control)]">
+      <div className="shell-docs-radius-surface my-4 border border-[var(--border)] bg-[var(--secondary)] px-4 py-3 text-sm text-[var(--muted-foreground)] shadow-[var(--shadow-control)]">
         Select an AI backend above to see this code example.
       </div>
     );
@@ -403,7 +403,7 @@ export function Snippet({
           relevant source lines with <code>{`// @region[${region}]`}</code> /{" "}
           <code>{`// @endregion[${region}]`}</code>.
           {available.length > 0 && (
-            <div className="mt-1 text-xs text-[var(--text-muted)]">
+            <div className="mt-1 text-xs text-[var(--muted-foreground)]">
               Available: {available.join(", ")}
             </div>
           )}
@@ -421,7 +421,7 @@ export function Snippet({
           File <code>{file}</code> not bundled in <code>{key}</code>. Check the
           path (relative to the cell root).
           {available.length > 0 && (
-            <div className="mt-1 text-xs text-[var(--text-muted)]">
+            <div className="mt-1 text-xs text-[var(--muted-foreground)]">
               Available: {available.slice(0, 6).join(", ")}
               {available.length > 6 ? ` (+${available.length - 6} more)` : ""}
             </div>
