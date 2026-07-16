@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "AI agent skills for CopilotKit — setup, develop, integrate, debug, upgrade, and contribute",
-    "version": "1.63.0"
+    "version": "1.63.1"
   },
   "plugins": [
     {
       "name": "copilotkit",
       "source": "./",
       "description": "AI agent skills for CopilotKit — setup, develop, integrate, debug, upgrade, and contribute to CopilotKit projects",
-      "version": "1.63.0",
+      "version": "1.63.1",
       "author": {
         "name": "CopilotKit",
         "url": "https://copilotkit.ai"
