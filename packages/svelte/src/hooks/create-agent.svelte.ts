@@ -1,30 +1,30 @@
 import type { AbstractAgent } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
+import type { Message } from "@ag-ui/core";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { ProxiedCopilotRuntimeAgent } from "@copilotkit/core";
-import type { CopilotRuntimeTransport } from "@copilotkit/core";
 import type { SubscribeToAgentSubscriber } from "@copilotkit/core";
 import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 import { COPILOT_KIT_KEY } from "../providers/context";
 import type { CopilotKitContextValue } from "../providers/context";
 import { getContext } from "svelte";
 
-export enum UseAgentUpdate {
+export enum CreateAgentUpdate {
   OnMessagesChanged = "OnMessagesChanged",
   OnStateChanged = "OnStateChanged",
   OnRunStatusChanged = "OnRunStatusChanged",
 }
 
-const ALL_UPDATES: UseAgentUpdate[] = [
-  UseAgentUpdate.OnMessagesChanged,
-  UseAgentUpdate.OnStateChanged,
-  UseAgentUpdate.OnRunStatusChanged,
+const ALL_UPDATES: CreateAgentUpdate[] = [
+  CreateAgentUpdate.OnMessagesChanged,
+  CreateAgentUpdate.OnStateChanged,
+  CreateAgentUpdate.OnRunStatusChanged,
 ];
 
-export interface UseAgentProps {
+export interface CreateAgentProps {
   agentId?: string;
   threadId?: string;
-  updates?: UseAgentUpdate[];
+  updates?: CreateAgentUpdate[];
   throttleMs?: number;
 }
 
@@ -49,7 +49,7 @@ function cloneForThread(
   const clone = source.clone();
   if (clone === source) {
     throw new Error(
-      `useAgent: ${source.constructor.name}.clone() returned the same instance. ` +
+      `createAgent: ${source.constructor.name}.clone() returned the same instance. ` +
         "clone() must return a new, independent object.",
     );
   }
@@ -85,10 +85,10 @@ function getOrCreateThreadClone(
   return clone;
 }
 
-export function useAgent(props: UseAgentProps = {}) {
+export function createAgent(props: CreateAgentProps = {}) {
   const context = getContext<CopilotKitContextValue | null>(COPILOT_KIT_KEY);
   if (!context) {
-    throw new Error("useAgent must be used within CopilotKitProvider");
+    throw new Error("createAgent must be used within CopilotKitProvider");
   }
 
   let agentId = $derived(props.agentId ?? DEFAULT_AGENT_ID);
@@ -97,7 +97,8 @@ export function useAgent(props: UseAgentProps = {}) {
   let hookThrottleMs = $derived(props.throttleMs);
 
   let agent = $state<AbstractAgent | null>(null);
-  let messages = $state<import("@ag-ui/core").Message[]>([]);
+  let agentRevision = $state(0);
+  let messages = $state<Message[]>([]);
   let isRunning = $state(false);
   let subscriptionAgent = $state<AbstractAgent | null>(null);
   let provisionalAgentCache = new Map<string, ProxiedCopilotRuntimeAgent>();
@@ -165,7 +166,7 @@ export function useAgent(props: UseAgentProps = {}) {
       ? `runtimeUrl=${core.runtimeUrl}`
       : "no runtimeUrl";
     throw new Error(
-      `useAgent: Agent '${id}' not found after runtime sync (${runtimePart}). ` +
+      `createAgent: Agent '${id}' not found after runtime sync (${runtimePart}). ` +
         (knownAgents.length
           ? `Known agents: [${knownAgents.join(", ")}]`
           : "No agents registered."),
@@ -173,7 +174,6 @@ export function useAgent(props: UseAgentProps = {}) {
   };
 
   $effect(() => {
-    // Re-resolve when deps change
     let _ = [
       agentId,
       context.copilotkit.agents,
@@ -200,7 +200,6 @@ export function useAgent(props: UseAgentProps = {}) {
   $effect(() => {
     const a = subscriptionAgent;
     const flags = updateFlags;
-    const tMs = hookThrottleMs;
     const core = context.copilotkit;
     if (!a || flags.length === 0) return;
 
@@ -213,7 +212,7 @@ export function useAgent(props: UseAgentProps = {}) {
         queueMicrotask(() => {
           batchScheduled = false;
           if (active) {
-            agent = a;
+            agentRevision += 1;
           }
         });
       }
@@ -221,24 +220,26 @@ export function useAgent(props: UseAgentProps = {}) {
 
     const handlers: SubscribeToAgentSubscriber = {};
 
-    if (flags.includes(UseAgentUpdate.OnMessagesChanged)) {
+    if (flags.includes(CreateAgentUpdate.OnMessagesChanged)) {
       handlers.onMessagesChanged = () => {
         if (active) {
           messages = (a.messages ?? []).map((m) => ({ ...m }));
           isRunning = a.isRunning ?? false;
+          agentRevision += 1;
         }
       };
     }
 
-    if (flags.includes(UseAgentUpdate.OnStateChanged)) {
+    if (flags.includes(CreateAgentUpdate.OnStateChanged)) {
       handlers.onStateChanged = batchedRefresh;
     }
 
-    if (flags.includes(UseAgentUpdate.OnRunStatusChanged)) {
+    if (flags.includes(CreateAgentUpdate.OnRunStatusChanged)) {
       handlers.onRunInitialized = () => {
         if (active) {
           isRunning = true;
           agent = a;
+          agentRevision += 1;
         }
       };
       handlers.onRunFinalized = () => {
@@ -246,6 +247,7 @@ export function useAgent(props: UseAgentProps = {}) {
           isRunning = false;
           agent = a;
           messages = (a.messages ?? []).map((m) => ({ ...m }));
+          agentRevision += 1;
         }
       };
       handlers.onRunFailed = () => {
@@ -253,6 +255,7 @@ export function useAgent(props: UseAgentProps = {}) {
           isRunning = false;
           agent = a;
           messages = (a.messages ?? []).map((m) => ({ ...m }));
+          agentRevision += 1;
         }
       };
       handlers.onRunErrorEvent = () => {
@@ -260,6 +263,7 @@ export function useAgent(props: UseAgentProps = {}) {
           isRunning = false;
           agent = a;
           messages = (a.messages ?? []).map((m) => ({ ...m }));
+          agentRevision += 1;
         }
       };
     }
@@ -276,6 +280,7 @@ export function useAgent(props: UseAgentProps = {}) {
 
   return {
     get agent() {
+      void agentRevision;
       return agent;
     },
     get messages() {

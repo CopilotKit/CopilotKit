@@ -1,16 +1,16 @@
 import type { AgentCapabilities } from "@ag-ui/core";
-import { useAgent } from "./use-agent.svelte";
+import { createAgent } from "./create-agent.svelte";
 
-export interface UseCapabilitiesResult {
+export interface CreateCapabilitiesResult {
   capabilities: AgentCapabilities | undefined;
 }
 
-export function useCapabilities(agentId?: string): UseCapabilitiesResult {
-  const { agent } = useAgent({ agentId });
+export function createCapabilities(agentId?: string): CreateCapabilitiesResult {
+  const agentHandle = createAgent({ agentId });
 
   return {
     get capabilities() {
-      const a = agent;
+      const a = agentHandle.agent;
       if (a && "capabilities" in a) {
         return (a as { capabilities?: AgentCapabilities }).capabilities;
       }

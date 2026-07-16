@@ -37,7 +37,7 @@ export type RenderToolProps<S extends StandardSchemaV1> =
   | RenderToolExecutingProps<S>
   | RenderToolCompleteProps<S>;
 
-export function useRenderTool(config: {
+export function registerRenderToolCall(config: {
   name: string;
   parameters?: StandardSchemaV1<any, any>;
   render: (props: RenderToolProps<StandardSchemaV1<any, any>>) => any;
@@ -45,7 +45,9 @@ export function useRenderTool(config: {
 }): void {
   const context = getContext<CopilotKitContextValue | null>(COPILOT_KIT_KEY);
   if (!context) {
-    throw new Error("useRenderTool must be used within CopilotKitProvider");
+    throw new Error(
+      "registerRenderToolCall must be used within CopilotKitProvider",
+    );
   }
 
   $effect(() => {
@@ -66,5 +68,9 @@ export function useRenderTool(config: {
     };
 
     context.copilotkit.addHookRenderToolCall(renderer);
+
+    return () => {
+      context.copilotkit.removeHookRenderToolCall(config.name, config.agentId);
+    };
   });
 }

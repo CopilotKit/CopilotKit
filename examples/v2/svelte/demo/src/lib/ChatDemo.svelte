@@ -1,16 +1,16 @@
 <script lang="ts">
-  import {
-    CopilotChat,
-    useAgentContext,
-    useFrontendTool,
-  } from "@copilotkit/svelte";
-  import { z } from "zod";
+	import { z } from "zod";
+	import {
+		CopilotChat,
+		connectAgentContext,
+		registerFrontendTool,
+	} from "@copilotkit/svelte";
 
-  useAgentContext({
+	connectAgentContext({
     description: "The user is testing the Svelte CopilotKit package on the chat demo page.",
   });
 
-  useFrontendTool({
+	registerFrontendTool({
     name: "showToast",
     description: "Show a toast notification to the user",
     parameters: z.object({
