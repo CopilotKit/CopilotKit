@@ -1566,6 +1566,70 @@ describe("CopilotChatInput", () => {
       // Cache was NOT invalidated — no getBoundingClientRect needed
       expect(addRectSpy).not.toHaveBeenCalled();
     });
+
+    it("does not clear textarea.value on mobile keystrokes after measurements are cached", async () => {
+      const { textarea } = await renderAndWarmCache();
+      const textareaElement = textarea as HTMLTextAreaElement;
+      const originalMatchMedia = window.matchMedia;
+      const valueDescriptor = Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        "value",
+      );
+      let blankValueAssignments = 0;
+
+      Object.defineProperty(textareaElement, "value", {
+        configurable: true,
+        get() {
+          return valueDescriptor?.get?.call(this) ?? "";
+        },
+        set(nextValue: string) {
+          if (nextValue === "") {
+            blankValueAssignments += 1;
+          }
+          valueDescriptor?.set?.call(this, nextValue);
+        },
+      });
+
+      Object.defineProperty(window, "matchMedia", {
+        configurable: true,
+        writable: true,
+        value: vi.fn().mockImplementation((query: string) => ({
+          matches: query === "(max-width: 767px)",
+          media: query,
+          onchange: null,
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+          dispatchEvent: vi.fn(),
+        })),
+      });
+
+      try {
+        blankValueAssignments = 0;
+        textareaElement.setSelectionRange(0, 0);
+
+        fireEvent.change(textareaElement, {
+          target: { value: "ba" },
+        });
+        triggerResizeForTargets(textareaElement);
+
+        await waitFor(() => {
+          expect(
+            getLayoutGrid(textareaElement).getAttribute("data-layout"),
+          ).toBe("expanded");
+        });
+
+        expect(blankValueAssignments).toBe(0);
+      } finally {
+        delete (textareaElement as { value?: string }).value;
+        Object.defineProperty(window, "matchMedia", {
+          configurable: true,
+          writable: true,
+          value: originalMatchMedia,
+        });
+      }
+    });
   });
 
   describe("Scroll behavior", () => {
