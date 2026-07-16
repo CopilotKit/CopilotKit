@@ -56,8 +56,6 @@ export interface ClaimedDelivery {
   channel: { id: string; name: string };
   adapter: string;
   leaseToken: string;
-  /** OSS-475: owner generation, echoed on accept/ack/complete/fail to fence a superseded owner. */
-  generation: number;
   turn: {
     id: string;
     eventId: string;

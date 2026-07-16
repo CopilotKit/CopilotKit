@@ -206,8 +206,6 @@ class IntelligenceHttp {
 interface LeaseRecord {
   turnId: string;
   leaseToken: string;
-  /** OSS-475: owner generation from the claim, fences accept/ack/fail. */
-  generation: number;
   scope: ChannelDeliveryScope;
 }
 
@@ -270,7 +268,6 @@ export class HttpDeliverySource implements DeliverySource {
     this.leases.set(res.delivery.id, {
       turnId: res.delivery.turn.id,
       leaseToken: res.delivery.leaseToken,
-      generation: res.delivery.generation,
       scope: {
         organizationId: res.delivery.organizationId,
         projectId: res.delivery.projectId,
@@ -312,12 +309,6 @@ export class HttpDeliverySource implements DeliverySource {
    * accept against `lease_token_hash` the same way ack/fail already do. */
   leaseTokenFor(deliveryId: string): string | undefined {
     return this.leases.get(deliveryId)?.leaseToken;
-  }
-
-  /** The owner generation for a leased delivery, echoed on the render accept so
-   * app-api can fence a superseded owner (OSS-475). */
-  generationFor(deliveryId: string): number | undefined {
-    return this.leases.get(deliveryId)?.generation;
   }
 
   async start(
@@ -390,7 +381,6 @@ export class HttpDeliverySource implements DeliverySource {
         turnId: lease.turnId,
         runtimeInstanceId: this.cfg.runtimeInstanceId,
         leaseToken: lease.leaseToken,
-        generation: lease.generation,
         acknowledgedAt: new Date().toISOString(),
       },
     );
@@ -414,7 +404,6 @@ export class HttpDeliverySource implements DeliverySource {
         turnId: lease.turnId,
         runtimeInstanceId: this.cfg.runtimeInstanceId,
         leaseToken: lease.leaseToken,
-        generation: lease.generation,
         failedAt: new Date().toISOString(),
         error: {
           code: "runtime_error",
@@ -529,7 +518,6 @@ export class HttpRenderEventSink implements RenderEventSink {
     private readonly scopeSource: {
       scopeFor(deliveryId: string): ChannelDeliveryScope | undefined;
       leaseTokenFor(deliveryId: string): string | undefined;
-      generationFor(deliveryId: string): number | undefined;
     },
   ) {
     this.http = new IntelligenceHttp(cfg);
@@ -547,9 +535,6 @@ export class HttpRenderEventSink implements RenderEventSink {
     // expiry when it's absent, so an older lease record without a token still
     // renders — but supplying it lets app-api reject a stale/rotated lease.
     const leaseToken = this.scopeSource.leaseTokenFor(frame.deliveryId);
-    // OSS-475: the owner generation is the authoritative superseded-owner fence
-    // on accept (mandatory app-api-side). Sourced from the leased delivery.
-    const generation = this.scopeSource.generationFor(frame.deliveryId);
     const idempotencyKey = `${frame.turnId}:${frame.slot}:${frame.seq}`;
     const res = await this.http.post<RenderAcceptedResponse>(
       `/api/channels/deliveries/${encodeURIComponent(frame.deliveryId)}/render-events/accept`,
@@ -565,7 +550,6 @@ export class HttpRenderEventSink implements RenderEventSink {
         idempotencyKey,
         event: frame.event,
         ...(leaseToken ? { leaseToken } : {}),
-        ...(generation !== undefined ? { generation } : {}),
         sentAt: new Date().toISOString(),
       },
     );
