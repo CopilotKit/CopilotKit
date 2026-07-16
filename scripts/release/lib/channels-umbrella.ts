@@ -37,7 +37,9 @@ export const FAMILY = [
 export function createConsumerWorkspaceYaml(): string {
   return [
     "minimumReleaseAgeExclude:",
-    ...FAMILY.map((name) => `  - ${JSON.stringify(name)}`),
+    ...[...FAMILY, "@copilotkit/core", "@copilotkit/shared"].map(
+      (name) => `  - ${JSON.stringify(name)}`,
+    ),
     "",
   ].join("\n");
 }

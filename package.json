@@ -28,6 +28,7 @@
     "release:prerelease:dry": "tsx scripts/release/prerelease.ts --scope monorepo --dry-run",
     "verify:channels-umbrella": "nx run @copilotkit/channels:build && tsx scripts/release/verify-channels-umbrella.ts",
     "verify:channels-umbrella:registry": "nx run @copilotkit/channels:build && tsx scripts/release/verify-channels-umbrella.ts --registry",
+    "verify:runtime-package": "nx run @copilotkit/runtime:build && tsx scripts/release/verify-runtime-package.ts",
     "prepare": "lefthook install",
     "graph": "nx graph",
     "publint": "nx run-many -t publint --projects=packages/**",
