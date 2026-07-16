@@ -129,10 +129,10 @@ describe("createConsumerManifest", () => {
 });
 
 describe("createConsumerWorkspaceYaml", () => {
-  it("exempts every Channels package from the release-age gate", () => {
+  it("exempts every freshly released Channels dependency from the release-age gate", () => {
     const workspace = createConsumerWorkspaceYaml();
 
-    for (const name of FAMILY) {
+    for (const name of [...FAMILY, "@copilotkit/core", "@copilotkit/shared"]) {
       expect(workspace).toContain(`  - ${JSON.stringify(name)}\n`);
     }
   });
