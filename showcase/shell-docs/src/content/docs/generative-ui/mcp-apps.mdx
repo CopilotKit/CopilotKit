@@ -25,6 +25,55 @@ Key benefits:
 - **Secure sandboxing** — content runs in isolated iframes
 - **Thread persistence** — MCP Apps are stored in conversation history and restored on reconnect
 
+## MCP Apps vs MCP tool servers
+
+Not every useful MCP integration is an MCP App. MCP Apps are for MCP servers
+that return an interactive UI resource for CopilotKit to render. If your MCP
+server only supplies context or performs an action, connect it as a regular
+MCP server instead; no iframe resource is expected.
+
+| MCP integration type | Use it when | What CopilotKit receives |
+| --- | --- | --- |
+| **MCP App** | The tool result should render an interactive UI, such as a whiteboard, chart, or mini app. | An MCP UI resource that the MCP Apps renderer displays in a sandboxed iframe. |
+| **Read-only MCP context server** | The agent needs compact repository, design-system, analytics, or policy context. | A normal MCP tool result, usually structured JSON or text, that becomes context for the agent run. |
+| **Action-oriented MCP server** | The agent should mutate an external system, such as creating a ticket or updating a record. | A normal MCP tool call/result pair. Put approval boundaries in the tool, agent prompt, or human-in-the-loop flow. |
+
+For example, a read-only design-context server can be wired as a normal MCP
+server on the Built-in Agent:
+
+```typescript title="src/copilotkit.ts"
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
+
+const agent = new BuiltInAgent({
+  model: "openai:gpt-5.4-mini",
+  mcpServers: [
+    {
+      type: "http",
+      url: "https://design-context.example.com/mcp",
+    },
+  ],
+});
+```
+
+When the agent calls a design lookup tool, the tool result enters the run as
+context:
+
+```json
+{
+  "tool": "design_context.lookup",
+  "result": {
+    "component": "PrimaryButton",
+    "tokens": { "radius": "8px", "accent": "brand-blue" },
+    "guidance": ["Use primary buttons for one main action per surface."]
+  }
+}
+```
+
+That response can guide the agent's next message or tool call, but it will not
+render an MCP App unless the server also returns an MCP UI resource. For
+non-UI MCP tools, see [MCP servers](/agentic-protocols/mcp) and the
+[Built-in Agent MCP server guide](/mcp-servers).
+
 ## Wire the runtime to your MCP server(s)
 
 A single `mcpApps.servers` entry on the runtime is all it takes. The runtime
