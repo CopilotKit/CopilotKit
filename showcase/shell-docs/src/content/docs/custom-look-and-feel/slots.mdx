@@ -80,6 +80,87 @@ Pass an object to override specific props on the default component. This is usef
 />
 ```
 
+## Stable Suggestion Styling
+
+Do not target CopilotKit's internal class names when styling suggestion pills.
+Use the public `suggestionView` slot instead. For button-level styles, pass a
+`className` to the `suggestion` sub-slot:
+
+```tsx title="page.tsx"
+<CopilotChat
+  suggestionView={{
+    suggestion: {
+      className:
+        "border-transparent bg-gradient-to-r from-sky-500 to-fuchsia-500 bg-clip-text text-transparent",
+    },
+  }}
+/>
+```
+
+For per-suggestion styles, attach a `className` to the suggestion itself:
+
+```tsx title="page.tsx"
+function StyledSuggestions() {
+  useConfigureSuggestions({
+    suggestions: [
+      {
+        title: "Summarize",
+        message: "Summarize this thread",
+        className: "border-sky-300 text-sky-700",
+      },
+    ],
+    available: "before-first-message",
+  });
+
+  return null;
+}
+```
+
+For text-only effects that need custom inner markup, such as
+`background-clip: text`, replace only the `suggestion` sub-slot instead of
+copying or querying CopilotKit internals:
+
+```tsx title="page.tsx"
+import React from "react";
+import {
+  CopilotChat,
+  type CopilotChatSuggestionPillProps,
+} from "@copilotkit/react-core/v2";
+
+const GradientSuggestion = React.forwardRef<
+  HTMLButtonElement,
+  CopilotChatSuggestionPillProps
+>(function GradientSuggestion({ children, className, ...props }, ref) {
+  return (
+    <button
+      ref={ref}
+      className={[
+        "rounded-full border px-3 py-1 text-sm",
+        "transition-colors hover:bg-slate-50",
+        className,
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      {...props}
+    >
+      <span className="bg-gradient-to-r from-sky-500 to-fuchsia-500 bg-clip-text text-transparent">
+        {children}
+      </span>
+    </button>
+  );
+});
+
+export function Chat() {
+  return (
+    <CopilotChat
+      suggestionView={{
+        suggestion: GradientSuggestion,
+      }}
+    />
+  );
+}
+```
+
 ## Custom Components
 
 For full control, pass your own React component. It receives all the same props as the default component.
