@@ -22,9 +22,8 @@ export function registerFrontendTool<T extends Record<string, unknown>>(
       console.warn(
         `Tool '${name}' already exists for agent '${tool.agentId || "global"}'. Overriding with latest registration.`,
       );
-      core.removeTool(name, tool.agentId);
     }
-    core.addTool(tool);
+    core.addHookFrontendTool(tool);
 
     if (tool.render) {
       core.addHookRenderToolCall({
@@ -36,7 +35,7 @@ export function registerFrontendTool<T extends Record<string, unknown>>(
     }
 
     return () => {
-      core.removeTool(name, tool.agentId);
+      core.removeHookFrontendTool(name, tool.agentId);
       if (tool.render) {
         core.removeHookRenderToolCall(name, tool.agentId);
       }
