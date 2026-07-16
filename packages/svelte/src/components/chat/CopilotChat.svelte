@@ -3,7 +3,7 @@
   import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
   import type { Suggestion } from "@copilotkit/core";
   import { useCopilotKit } from "../../providers/useCopilotKit";
-  import { setChatConfig, ChatConfig } from "./chat-config-context.svelte";
+  import { setChatConfig, getChatConfig, ChatConfig } from "./chat-config-context.svelte";
   import CopilotChatView from "./CopilotChatView.svelte";
   import type { CopilotChatProps, CopilotChatInputMode, ToolsMenuItem } from "./types";
 
@@ -22,6 +22,7 @@
   let generatedThreadId = $state(randomUUID());
   let resolvedThreadId = $derived(explicitThreadId ?? generatedThreadId);
   let hasExplicitThreadId = $derived(!!explicitThreadId);
+  let resolvedAgentId = $derived(agentId ?? DEFAULT_AGENT_ID);
 
   // svelte-ignore state_referenced_locally
   setChatConfig(new ChatConfig(
@@ -30,23 +31,30 @@
     hasExplicitThreadId,
   ));
 
-  // svelte-ignore state_referenced_locally
-  let agentHook = createAgent({
-    agentId: agentId ?? DEFAULT_AGENT_ID,
-    threadId: resolvedThreadId,
-    throttleMs,
-  });
+  let agentHandle = $state<ReturnType<typeof createAgent> | null>(null);
+  let suggestionsHandle = $state<ReturnType<typeof createSuggestions> | null>(null);
 
-  // svelte-ignore state_referenced_locally
-  let suggestionsHook = createSuggestions({
-    agentId: agentId ?? DEFAULT_AGENT_ID,
+  // Runs during init (before first render) and when agentId/threadId change.
+  // createAgent/createSuggestions inherently have subscribing side-effects
+  // (AG-UI event listeners), so $effect.pre is the correct rune — $derived
+  // requires pure expressions.
+  $effect.pre(() => {
+    const id = resolvedAgentId;
+    const tid = resolvedThreadId;
+    const config = getChatConfig();
+    if (config) {
+      config.agentId = id;
+      config.threadId = tid;
+    }
+    agentHandle = createAgent({ agentId: id, threadId: tid, throttleMs });
+    suggestionsHandle = createSuggestions({ agentId: id });
   });
 
   let { copilotkit } = useCopilotKit();
-  let agent = $derived(agentHook.agent);
-  let messages = $derived(agentHook.messages);
-  let isRunning = $derived(agentHook.isRunning);
-  let suggestions = $derived(suggestionsHook.suggestions);
+  let agent = $derived(agentHandle?.agent ?? null);
+  let messages = $derived(agentHandle?.messages ?? []);
+  let isRunning = $derived(agentHandle?.isRunning ?? false);
+  let suggestions = $derived(suggestionsHandle?.suggestions ?? []);
 
   function handleSubmitMessage(value: string) {
     if (!agent) return;
@@ -71,13 +79,14 @@
   }
 </script>
 
-<div class="copilotkit-chat {className}">
+<div data-copilotkit class="copilotkit-chat {className}">
   <CopilotChatView
     messages={messages}
     {isRunning}
     {autoScroll}
     {welcomeScreen}
     suggestions={suggestions}
+    inputValue={controlledInputValue}
     {inputMode}
     inputToolsMenu={inputToolsMenu}
     onSubmitMessage={handleSubmitMessage}

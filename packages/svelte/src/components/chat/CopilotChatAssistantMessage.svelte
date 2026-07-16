@@ -143,7 +143,9 @@
 
   const normalizedContent = $derived(normalizeContent(message.content));
   const hasContent = $derived(normalizedContent.trim().length > 0);
-  const isLatestAssistantMessage = $derived(messages[messages.length - 1]?.id === message.id);
+  const isLatestAssistantMessage = $derived(
+    messages.filter((m) => m.role === "assistant").at(-1)?.id === message.id
+  );
   const shouldShowToolbar = $derived(toolbarVisible && hasContent && !(isRunning && isLatestAssistantMessage));
 
   function resetCopiedStateWithDelay() {
