@@ -3720,6 +3720,12 @@ importers:
       '@sveltejs/vite-plugin-svelte':
         specifier: ^5.0.0
         version: 5.1.1(svelte@5.56.4(@typescript-eslint/types@8.59.1))(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.3)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0))
+      '@tailwindcss/cli':
+        specifier: ^4.1.11
+        version: 4.1.18
+      '@tailwindcss/typography':
+        specifier: ^0.5.16
+        version: 0.5.19(tailwindcss@4.2.2)
       '@testing-library/svelte':
         specifier: ^5.2.0
         version: 5.4.2(svelte@5.56.4(@typescript-eslint/types@8.59.1))(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.3)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0))(vitest@4.1.5)
@@ -3738,6 +3744,9 @@ importers:
       jsdom:
         specifier: ^26.1.0
         version: 26.1.0
+      postcss:
+        specifier: ^8.5.6
+        version: 8.5.15
       svelte:
         specifier: ^5.28.0
         version: 5.56.4(@typescript-eslint/types@8.59.1)
@@ -3747,6 +3756,9 @@ importers:
       tailwindcss:
         specifier: ^4.0.8
         version: 4.2.2
+      tw-animate-css:
+        specifier: ^1.4.0
+        version: 1.4.0
       typescript:
         specifier: 5.8.2
         version: 5.8.2
@@ -38770,7 +38782,7 @@ snapshots:
 
   '@tailwindcss/cli@4.1.18':
     dependencies:
-      '@parcel/watcher': 2.5.1
+      '@parcel/watcher': 2.5.6
       '@tailwindcss/node': 4.1.18
       '@tailwindcss/oxide': 4.1.18
       enhanced-resolve: 5.19.0

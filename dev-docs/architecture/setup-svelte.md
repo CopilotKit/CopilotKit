@@ -64,6 +64,7 @@ Put the provider above every component that calls a CopilotKit factory or regist
 ```svelte
 <!-- src/routes/+layout.svelte -->
 <script lang="ts">
+  import "@copilotkit/svelte/styles.css";
   import { CopilotKitProvider } from "@copilotkit/svelte";
 
   let { children } = $props();
