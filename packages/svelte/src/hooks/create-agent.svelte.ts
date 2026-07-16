@@ -33,6 +33,8 @@ export const globalThreadCloneMap = new WeakMap<
   Map<string, AbstractAgent>
 >();
 
+const MAX_CLONES_PER_AGENT = 50;
+
 export function getThreadClone(
   registryAgent: AbstractAgent | undefined | null,
   threadId: string | undefined | null,
@@ -81,6 +83,10 @@ function getOrCreateThreadClone(
     return existing;
   }
   const clone = cloneForThread(source, threadId, headers);
+  if (byThread.size >= MAX_CLONES_PER_AGENT) {
+    const oldest = byThread.keys().next().value;
+    if (oldest !== undefined) byThread.delete(oldest);
+  }
   byThread.set(threadId, clone);
   return clone;
 }
