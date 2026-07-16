@@ -511,6 +511,19 @@ export function CopilotChatMessageView({
     !children &&
     deduplicatedMessages.length > VIRTUALIZE_THRESHOLD;
 
+  // TanStack Virtual corrects scrollTop as dynamic rows are measured. Disable
+  // the browser's competing scroll anchoring while virtualized so those two
+  // correction systems cannot move the viewport independently.
+  useLayoutEffect(() => {
+    if (!shouldVirtualize || !scrollElement) return;
+
+    const previousOverflowAnchor = scrollElement.style.overflowAnchor;
+    scrollElement.style.overflowAnchor = "none";
+    return () => {
+      scrollElement.style.overflowAnchor = previousOverflowAnchor;
+    };
+  }, [scrollElement, shouldVirtualize]);
+
   const virtualizer = useVirtualizer({
     // count=0 disables the virtualizer without changing hook call order.
     count: shouldVirtualize ? deduplicatedMessages.length : 0,
@@ -519,7 +532,7 @@ export function CopilotChatMessageView({
     // first render so the estimate only affects the initial total height.
     estimateSize: () => 100,
     overscan: 5,
-    measureElement: (el: Element) => el?.getBoundingClientRect().height ?? 0,
+    getItemKey: (index) => deduplicatedMessages[index]?.id ?? index,
     // Assume a 600 px viewport before the real element is measured so that
     // the first virtual render shows ~6 items rather than 0.
     initialRect: { width: 0, height: 600 },
@@ -685,7 +698,7 @@ export function CopilotChatMessageView({
             const message = deduplicatedMessages[virtualItem.index]!;
             return (
               <div
-                key={message.id}
+                key={virtualItem.key}
                 data-index={virtualItem.index}
                 ref={virtualizer.measureElement}
                 style={{

@@ -4,7 +4,7 @@ import {
   CopilotChatView,
   CopilotKitProvider,
 } from "@copilotkit/react-core/v2";
-import { Suggestion } from "@copilotkit/core";
+import type { Suggestion } from "@copilotkit/core";
 
 const meta = {
   title: "UI/CopilotChatView",
@@ -123,6 +123,26 @@ export const WithSuggestions: Story = {
   ),
 };
 
+export const VirtualizedMessages: Story = {
+  parameters: {
+    layout: "fullscreen",
+  },
+  decorators: Default.decorators,
+  render: () => (
+    <CopilotKitProvider runtimeUrl="https://copilotkit.ai">
+      <CopilotChatConfigurationProvider threadId="storybook-virtualized">
+        <div style={{ height: "100%" }}>
+          <CopilotChatView
+            autoScroll="none"
+            messages={virtualizedMessages}
+            scrollView={{ "data-testid": "virtual-scroll" }}
+          />
+        </div>
+      </CopilotChatConfigurationProvider>
+    </CopilotKitProvider>
+  ),
+};
+
 const suggestionSamples: Suggestion[] = [
   {
     title: "Summarize conversation",
@@ -198,6 +218,12 @@ In this example:
     role: "assistant" as const,
   },
 ];
+
+const virtualizedMessages = Array.from({ length: 240 }, (_, index) => ({
+  id: `virtual-message-${index}`,
+  role: index % 2 === 0 ? ("user" as const) : ("assistant" as const),
+  content: `Message ${index}. ${"Variable-height content for scroll measurement. ".repeat((index % 6) + 1)}`,
+}));
 
 // Enough back-and-forth to force scrolling so the feather region above the
 // input is clearly visible in pin-to-send mode.
