@@ -436,6 +436,20 @@ Before you begin, you'll need the following:
                 - Make sure your agent is running on port 8000
                 - Check that your OpenAI API key is correctly set
                 - Verify that the `@ag-ui/client` package is installed in your frontend
+                - If you see `HTTP 401` with `Missing Authentication Token`, check which endpoint is rejecting the request:
+                  - For the local quickstart, keep the frontend on `<CopilotKit runtimeUrl="/api/copilotkit" agent="strands_agent">` and point `new HttpAgent({ url: "http://localhost:8000" })` at the local AG-UI server.
+                  - If your Strands AG-UI endpoint is remote and requires a static bearer token or custom header, set it on the server-side `HttpAgent` using environment variables:
+
+                    ```tsx
+                    new HttpAgent({
+                      url: process.env.STRANDS_URL!,
+                      headers: {
+                        Authorization: `Bearer ${process.env.STRANDS_TOKEN!}`,
+                      },
+                    })
+                    ```
+
+                  - Do not put agent endpoint secrets in browser code or `NEXT_PUBLIC_*` variables. For IAM SigV4 or per-request signing, put a small server-side proxy in front of the Strands endpoint and point `HttpAgent` at that proxy.
             </Accordion>
         </Accordions>
 
