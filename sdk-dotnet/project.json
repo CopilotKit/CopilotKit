@@ -1,0 +1,35 @@
+{
+  "name": "@copilotkit/intelligence-dotnet",
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "sdk-dotnet/CopilotKit.Intelligence",
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "outputs": ["{projectRoot}/CopilotKit.Intelligence/bin", "{projectRoot}/CopilotKit.Intelligence/obj"],
+      "options": {
+        "command": "dotnet build sdk-dotnet/CopilotKit.Intelligence/CopilotKit.Intelligence.csproj --configuration Release"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "outputs": ["{projectRoot}/CopilotKit.Intelligence.Tests/TestResults"],
+      "options": {
+        "command": "dotnet test sdk-dotnet/CopilotKit.Intelligence.Tests/CopilotKit.Intelligence.Tests.csproj --configuration Release"
+      }
+    },
+    "format": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "dotnet format sdk-dotnet/CopilotKit.Intelligence.Tests/CopilotKit.Intelligence.Tests.csproj --no-restore"
+      }
+    },
+    "format-check": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "dotnet format sdk-dotnet/CopilotKit.Intelligence.Tests/CopilotKit.Intelligence.Tests.csproj --verify-no-changes --no-restore"
+      }
+    }
+  },
+  "tags": ["scope:intelligence", "language:dotnet"]
+}
