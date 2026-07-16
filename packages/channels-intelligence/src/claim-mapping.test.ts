@@ -14,6 +14,7 @@ const baseDelivery = (
   channel: { id: "channel_1", name: "support" },
   adapter: "slack",
   leaseToken: "lease_1",
+  generation: 1,
   turn: {
     id: "turn_1",
     eventId: "evt_1",

@@ -209,6 +209,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
         delivery: {
           id: "dlv_d1",
           leaseToken: "lease_l1",
+          generation: 1,
           adapter: "slack",
           channel: { id: "channel_1", name: "support" },
           turn: {
@@ -302,6 +303,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
         delivery: {
           id: "dlv_d1",
           leaseToken: "lease_l1",
+          generation: 1,
           adapter: "slack",
           channel: { id: "channel_1", name: "support" },
           turn: {
@@ -345,6 +347,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
         delivery: {
           id: "dlv_d1",
           leaseToken: "lease_l1",
+          generation: 1,
           adapter: "slack",
           channel: { id: "channel_1", name: "support" },
           turn: {
@@ -384,6 +387,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
         delivery: {
           id: "dlv_d1",
           leaseToken: "lease_l1",
+          generation: 1,
           adapter: "slack",
           channel: { id: "channel_1", name: "support" },
           turn: {
@@ -425,6 +429,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
         delivery: {
           id: "dlv_poison",
           leaseToken: "lease_l1",
+          generation: 1,
           adapter: "slack",
           channel: { id: "channel_1", name: "support" },
           turn: {
@@ -465,6 +470,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
         delivery: {
           id: "dlv_d1",
           leaseToken: "lease_l1",
+          generation: 1,
           adapter: "slack",
           channel: { id: "channel_1", name: "support" },
           turn: {
@@ -513,6 +519,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
           delivery: {
             id,
             leaseToken: "l",
+            generation: 1,
             adapter: "slack",
             channel: { id: "channel_1", name: "support" },
             turn: {
@@ -556,6 +563,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
           delivery: {
             id,
             leaseToken: `lease_${id}`,
+            generation: 1,
             adapter: "slack",
             channel: { id: "channel_1", name: "support" },
             turn: {
@@ -646,6 +654,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
         delivery: {
           id: "dlv_d1",
           leaseToken: "lease_l1",
+          generation: 1,
           organizationId: "org_OTHER",
           projectId: 99,
           adapter: "slack",
@@ -684,6 +693,9 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
       expect(p.projectId).toBe(99);
       expect(p.channelId).toBe("channel_OTHER");
       expect(p.channelName).toBe("other-channel");
+      // OSS-475: the claim's owner generation is echoed on every intent so
+      // app-api can fence a superseded owner.
+      expect(p.generation).toBe(1);
     }
   });
 
@@ -699,6 +711,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
         delivery: {
           id: "dlv_d1",
           leaseToken: "lease_l1",
+          generation: 1,
           adapter: "slack",
           channel: { id: "channel_1", name: "support" },
           turn: {

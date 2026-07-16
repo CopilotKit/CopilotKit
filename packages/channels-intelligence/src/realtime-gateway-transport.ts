@@ -159,6 +159,12 @@ interface DeliveryState {
   turnId: string;
   /** app-api's per-delivery lease token, fences the complete/fail intent. */
   leaseToken: string;
+  /**
+   * OSS-475: the claim's owner generation. Echoed on every render-accept /
+   * complete / fail so app-api rejects a superseded owner (a stale, lower
+   * generation) — the authoritative active/standby fence.
+   */
+  generation: number;
   /** Authoritative org/project/channel scope from the delivery (not the transport default). */
   scope: ChannelDeliveryScope;
   /** Highest accepted `seq` per render slot (the completion high-water mark). */
@@ -177,6 +183,7 @@ class PoisonDeliveryError extends Error {
   constructor(
     readonly deliveryId: string,
     readonly leaseToken: string,
+    readonly generation: number,
     readonly turnId: string,
     readonly scope: ChannelDeliveryScope,
     reason: string,
@@ -300,6 +307,7 @@ export class RealtimeGatewayTransport
           env: ChannelIngressEnvelope;
           scope: ChannelDeliveryScope;
           leaseToken: string;
+          generation: number;
         }
       | undefined;
     try {
@@ -312,6 +320,7 @@ export class RealtimeGatewayTransport
         this.deliveries.set(err.deliveryId, {
           turnId: err.turnId,
           leaseToken: err.leaseToken,
+          generation: err.generation,
           scope: err.scope,
           accepted: new Map(),
         });
@@ -335,10 +344,11 @@ export class RealtimeGatewayTransport
       throw err;
     }
     if (!claimed) return;
-    const { env, scope, leaseToken } = claimed;
+    const { env, scope, leaseToken, generation } = claimed;
     this.deliveries.set(env.deliveryId, {
       turnId: env.turnId,
       leaseToken,
+      generation,
       scope,
       accepted: new Map(),
     });
@@ -389,6 +399,7 @@ export class RealtimeGatewayTransport
         env: ChannelIngressEnvelope;
         scope: ChannelDeliveryScope;
         leaseToken: string;
+        generation: number;
       }
     | undefined {
     const p = payload as
@@ -426,6 +437,17 @@ export class RealtimeGatewayTransport
       );
       return undefined;
     }
+    // OSS-475: the owner generation fences accept/complete/fail. Without it a
+    // fenced intent can't be built, so drop (re-lease) — the same version-skew
+    // failure mode as a missing lease token above.
+    const generation = Number(delivery.generation);
+    if (!Number.isInteger(generation) || generation < 0) {
+      this.log?.(
+        "realtime gateway delivery dropped: missing/invalid generation on delivery.available (gateway/SDK version skew?) — will be re-leased",
+        { deliveryId: delivery.id },
+      );
+      return undefined;
+    }
     const channel = delivery.channel as
       | { id?: string; name?: string }
       | undefined;
@@ -459,9 +481,15 @@ export class RealtimeGatewayTransport
         channel: { id: channelId ?? "", name: scope.channelName },
         adapter: String(delivery.adapter ?? "slack"),
         leaseToken,
+        generation,
         turn: delivery.turn as ClaimedDelivery["turn"],
       };
-      return { scope, leaseToken, env: mapDeliveryToEnvelope(claimed) };
+      return {
+        scope,
+        leaseToken,
+        generation,
+        env: mapDeliveryToEnvelope(claimed),
+      };
     } catch (err) {
       // A valid lease + turn identity but an unmappable claim (unmodeled
       // reply-target adapter / unknown input kind) is a POISON payload: dropping
@@ -470,6 +498,7 @@ export class RealtimeGatewayTransport
       throw new PoisonDeliveryError(
         String(delivery.id),
         leaseToken,
+        generation,
         String(turn.id),
         scope,
         `could not map claim to ingress envelope (unmodeled reply-target adapter or input kind?): ${err instanceof Error ? err.message : String(err)}`,
@@ -493,10 +522,13 @@ export class RealtimeGatewayTransport
         seq: frame.seq,
         idempotencyKey,
         event: frame.event,
-        // Fence the render-accept on the lease token (OSS-446), matching the
-        // fail path. Optional — omitted when no state (app-api falls back to
-        // instance-id + expiry), present for a normally-leased delivery.
-        ...(state ? { leaseToken: state.leaseToken } : {}),
+        // Fence the render-accept on the lease token (OSS-446) + owner
+        // generation (OSS-475), matching the complete/fail paths. Both come from
+        // the tracked delivery state; omitted only when state is absent (a
+        // degraded delivery app-api will re-lease).
+        ...(state
+          ? { leaseToken: state.leaseToken, generation: state.generation }
+          : {}),
         sentAt: this.now(),
       },
     };
@@ -584,9 +616,11 @@ export class RealtimeGatewayTransport
         deliveryId,
         turnId: state.turnId,
         runtimeInstanceId: this.runtimeInstanceId,
-        // Fence the completion intent on the lease token (OSS-446), matching
-        // the fail path; app-api fences when present, falls back otherwise.
+        // Fence the completion intent on the lease token (OSS-446) + owner
+        // generation (OSS-475); a superseded owner's stale generation is
+        // rejected by app-api.
         leaseToken: state.leaseToken,
+        generation: state.generation,
         acceptedThrough,
         requestedAt: this.now(),
       },
@@ -639,6 +673,7 @@ export class RealtimeGatewayTransport
         turnId: state.turnId,
         runtimeInstanceId: this.runtimeInstanceId,
         leaseToken: state.leaseToken,
+        generation: state.generation,
         ...(retryable ? { deliveryStatus: "retry_wait" } : {}),
         ...(lastAccepted ? { lastAccepted } : {}),
         failedAt: this.now(),
