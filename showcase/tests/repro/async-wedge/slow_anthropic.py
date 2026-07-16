@@ -28,9 +28,9 @@ with the system-under-test's event loop:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
-import time
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -38,6 +38,14 @@ from fastapi.responses import JSONResponse, StreamingResponse
 app = FastAPI()
 
 SLOW_SECONDS = float(os.getenv("SLOW_SECONDS", "3"))
+
+# False-green fault injection (test-of-the-test only): when set, the streaming
+# response omits the generate_a2ui tool_use and emits a text block instead, so
+# the production generator drains chunks but NEVER reaches _generate_a2ui. Used
+# by the red-green proof to confirm the hardened GREEN assertion
+# (tool_dispatch_fired >= 1) FAILS on a dropped-tool-use false green rather than
+# trivially passing on WEDGE==0. Unset in normal operation.
+DROP_TOOL_USE = os.getenv("REPRO_DROP_TOOL_USE", "0").strip().lower() in ("1", "true")
 
 
 def _nonstreaming_response() -> JSONResponse:
@@ -124,6 +132,57 @@ def _streaming_body() -> str:
     return "".join(parts)
 
 
+def _streaming_body_text_only() -> str:
+    # Fault-injection body (DROP_TOOL_USE): a valid streaming response with a
+    # text block and NO generate_a2ui tool_use, so the generator finishes but
+    # never dispatches the tool. Reproduces the M1 false-green scenario.
+    parts = [
+        _sse(
+            "message_start",
+            {
+                "type": "message_start",
+                "message": {
+                    "id": "msg_slowmock_stream",
+                    "type": "message",
+                    "role": "assistant",
+                    "model": "claude-sonnet-4-6",
+                    "content": [],
+                    "stop_reason": None,
+                    "stop_sequence": None,
+                    "usage": {"input_tokens": 1, "output_tokens": 0},
+                },
+            },
+        ),
+        _sse(
+            "content_block_start",
+            {
+                "type": "content_block_start",
+                "index": 0,
+                "content_block": {"type": "text", "text": ""},
+            },
+        ),
+        _sse(
+            "content_block_delta",
+            {
+                "type": "content_block_delta",
+                "index": 0,
+                "delta": {"type": "text_delta", "text": "No tool for you."},
+            },
+        ),
+        _sse("content_block_stop", {"type": "content_block_stop", "index": 0}),
+        _sse(
+            "message_delta",
+            {
+                "type": "message_delta",
+                "delta": {"stop_reason": "end_turn", "stop_sequence": None},
+                "usage": {"output_tokens": 1},
+            },
+        ),
+        _sse("message_stop", {"type": "message_stop"}),
+    ]
+    return "".join(parts)
+
+
 @app.post("/v1/messages")
 async def messages(request: Request) -> object:
     body = await request.body()
@@ -134,15 +193,18 @@ async def messages(request: Request) -> object:
     except json.JSONDecodeError:
         pass
 
-    # Block for SLOW_SECONDS to emulate a multi-second LLM round-trip. This
-    # handler runs in its own process so it never steals cycles from the
-    # system-under-test; the SUT's sync client blocks its calling thread for the
-    # full duration of this call.
-    time.sleep(SLOW_SECONDS)
+    # Delay for SLOW_SECONDS to emulate a multi-second LLM round-trip. Use the
+    # async sleep so this mock's own uvicorn loop stays free and can service
+    # concurrent SUT client threads in parallel (a blocking time.sleep here
+    # serialises them and needlessly extends the test under CONCURRENCY>1). The
+    # SUT's sync client still blocks its own calling thread for the full round
+    # trip, which is what the repro exercises.
+    await asyncio.sleep(SLOW_SECONDS)
 
     if is_stream:
+        body = _streaming_body_text_only() if DROP_TOOL_USE else _streaming_body()
         return StreamingResponse(
-            iter([_streaming_body()]),
+            iter([body]),
             media_type="text/event-stream",
         )
     return _nonstreaming_response()

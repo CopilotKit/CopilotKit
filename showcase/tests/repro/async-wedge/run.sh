@@ -103,6 +103,11 @@ echo "[async-wedge] both servers up; /health fast-200 confirmed pre-load"
 PORT="$PORT" CONCURRENCY="$CONCURRENCY" bash "$HERE/load.sh" &
 LOAD_PID=$!
 
+# Brief gap so at least one /generate reaches the SUT and begins blocking its
+# loop before the first /health poll fires; otherwise poll 1 can be a legitimate
+# fast-200 even in the RED case (wasted poll).
+sleep 0.5
+
 # 4) Poll /health once/sec for 10s while load is in flight.
 WEDGE=0; OK=0
 for i in $(seq 1 10); do

@@ -90,9 +90,16 @@ if [ "$UP" -ne 1 ]; then
 fi
 echo "[async-wedge:PROD] servers up; /health fast-200 confirmed pre-load"
 
-# Concurrent load against the REAL generator endpoint.
+# Concurrent load against the REAL generator endpoint. The slow mock keeps
+# returning a generate_a2ui tool_use, so the agent loop drives repeated
+# secondary dispatches for the whole poll window (this is what keeps the loop
+# under sustained load); cap each request at 12s so it outlives the 10s poll
+# window without lingering. Track only these load PIDs so the join below does
+# NOT wait on the long-lived uvicorn server jobs (which never exit).
+LOAD_PIDS=()
 for _ in $(seq 1 "$CONCURRENCY"); do
-  curl -s -o /dev/null --max-time 40 -X POST "http://127.0.0.1:${PORT}/generate" &
+  curl -s -o /dev/null --max-time 12 -X POST "http://127.0.0.1:${PORT}/generate" &
+  LOAD_PIDS+=($!)
 done
 
 WEDGE=0; OK=0
@@ -102,12 +109,27 @@ for i in $(seq 1 10); do
   else WEDGE=$((WEDGE+1)); echo "[async-wedge:PROD] health poll $i: WEDGE ($CODE)"; fi
   sleep 1
 done
-wait 2>/dev/null || true
+# Read the cumulative tool-dispatch counter from the server BEFORE reaping the
+# load PIDs (the loopy generator can otherwise keep the load curls alive past
+# the poll window). This counts how many times the REAL production
+# _generate_a2ui actually executed across all /generate requests (see
+# prod_server.py). It is the anti-false-green guard: WEDGE==0 is only meaningful
+# if the bug site was genuinely reached.
+DISPATCH="$(curl -s --max-time 2 "http://127.0.0.1:${PORT}/stats" 2>/dev/null \
+  | sed -n 's/.*"tool_dispatch_fired"[: ]*\([0-9]*\).*/\1/p')"
+DISPATCH="${DISPATCH:-0}"
+
+# Reap the load curls (bounded — never `wait` bare, which would block on the
+# long-lived uvicorn server jobs). cleanup() tears the servers down on EXIT.
+# Guard the array expansion for bash 3.2 under set -u (empty-array expansion is
+# an unbound-variable error there).
+if [ "${#LOAD_PIDS[@]}" -gt 0 ]; then
+  for _pid in "${LOAD_PIDS[@]}"; do kill "$_pid" 2>/dev/null || true; done
+  wait "${LOAD_PIDS[@]}" 2>/dev/null || true
+fi
 
 echo "========================================================"
-echo "ASSERT_SUMMARY expect=$EXPECT ok=$OK wedge=$WEDGE"
-echo "----- generator output sample -----"
-grep -c chunks /tmp/async-wedge-prod-server.log 2>/dev/null || true
+echo "ASSERT_SUMMARY expect=$EXPECT ok=$OK wedge=$WEDGE tool_dispatch_fired=$DISPATCH"
 echo "========================================================"
 
 if [ "$EXPECT" = "green" ]; then
@@ -115,7 +137,15 @@ if [ "$EXPECT" = "green" ]; then
     echo "FAIL GREEN: expected 0 wedges, observed $WEDGE — production loop still blocked"
     exit 5
   fi
-  echo "PASS GREEN: 0 wedges — real production code kept /health fast-200 under load"
+  # Anti-false-green (M1): a GREEN with 0 wedges proves nothing unless the bug
+  # site was actually exercised. If the tool_use was dropped / SSE mis-parsed /
+  # the generator early-exited the dispatch branch, _generate_a2ui never ran and
+  # WEDGE==0 is trivial. Require the real dispatch to have fired.
+  if [ "$DISPATCH" -lt 1 ]; then
+    echo "FAIL GREEN: 0 wedges but tool_dispatch_fired=$DISPATCH — _generate_a2ui never ran; WEDGE==0 is a false green (bug site never exercised)"
+    exit 6
+  fi
+  echo "PASS GREEN: 0 wedges AND tool_dispatch_fired=$DISPATCH (>=1) — real production code exercised the bug site and kept /health fast-200 under load"
   exit 0
 else
   if [ "$WEDGE" -lt 1 ]; then

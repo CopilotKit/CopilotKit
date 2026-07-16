@@ -66,10 +66,36 @@ MODE = os.getenv("MODE", "generator").strip().lower()
 _FIXED_RAW = os.getenv("FIXED", "0").strip().lower()
 FIXED = _FIXED_RAW in ("1", "true")
 
+# Count how many times the REAL production _generate_a2ui function actually
+# executes. Wrapping the module attribute (rather than a shell-side chunk-count
+# heuristic) means the counter fires only when the bug site is genuinely
+# reached, regardless of call shape (asyncio.to_thread offload OR sync-on-loop).
+# This closes the MODE=generator false-green hole (M1): if the mock's SSE is
+# mis-parsed, the generate_a2ui tool_use is dropped, or the generator early-exits
+# the dispatch branch, _generate_a2ui is never invoked, this counter stays 0,
+# and the shell GREEN assertion (tool_dispatch_fired >= 1) FAILS instead of
+# trivially passing on WEDGE==0.
+TOOL_DISPATCH_FIRED = 0
+_real_generate_a2ui = a2ui_dynamic._generate_a2ui
+
+
+def _counting_generate_a2ui(*args: object, **kwargs: object) -> object:
+    global TOOL_DISPATCH_FIRED
+    TOOL_DISPATCH_FIRED += 1
+    return _real_generate_a2ui(*args, **kwargs)
+
+
+a2ui_dynamic._generate_a2ui = _counting_generate_a2ui
+
 
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/stats")
+async def stats() -> dict[str, int]:
+    return {"tool_dispatch_fired": TOOL_DISPATCH_FIRED}
 
 
 def _build_input() -> RunAgentInput:
@@ -103,7 +129,7 @@ async def generate() -> dict[str, object]:
             )
         else:
             result = a2ui_dynamic._generate_a2ui("repro context", None)
-        return {"ok": bool(result)}
+        return {"ok": bool(result), "tool_dispatch_fired": TOOL_DISPATCH_FIRED}
 
     # MODE=generator: drive the REAL production generator end-to-end. With the
     # source fix present, the secondary sync _generate_a2ui is offloaded via
@@ -111,4 +137,4 @@ async def generate() -> dict[str, object]:
     chunks = 0
     async for _chunk in run_a2ui_dynamic_agent(_build_input()):
         chunks += 1
-    return {"chunks": chunks}
+    return {"chunks": chunks, "tool_dispatch_fired": TOOL_DISPATCH_FIRED}
