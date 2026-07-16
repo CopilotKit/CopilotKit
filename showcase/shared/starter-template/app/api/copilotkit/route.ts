@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
   CopilotKitIntelligence,
-} from "@copilotkit/runtime";
+  createCopilotEndpoint,
+  InMemoryAgentRunner,
+} from "@copilotkit/runtime/v2";
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+import { handle } from "hono/vercel";
 
 const AGENT_URL =
   process.env.AGENT_URL ||
@@ -61,56 +61,28 @@ for (const name of agentNames) {
   agents[name] = createAgent();
 }
 
-export const POST = async (req: NextRequest) => {
-  try {
-    // Conditionally instantiate CopilotKitIntelligence when all env vars are present
-    const intelligence = intelligenceEnabled
-      ? new CopilotKitIntelligence({
+const runtime = new CopilotRuntime({
+  agents,
+  // Conditionally configure intelligence when all three env vars are present
+  ...(intelligenceEnabled
+    ? {
+        intelligence: new CopilotKitIntelligence({
+          apiKey: intelligenceApiKey!,
           apiUrl: intelligenceApiUrl!,
           wsUrl: intelligenceWsUrl!,
-          apiKey: intelligenceApiKey!,
-        })
-      : undefined;
+        }),
+        // Demo stub — replace with real auth-derived user identity for multi-user deployments
+        identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
+      }
+    : { runner: new InMemoryAgentRunner() }),
+});
 
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
-      runtime: new CopilotRuntime({
-        // @ts-expect-error -- type wrapping mismatch, fixed in source pending release
-        agents,
-        ...(intelligence ? { intelligence } : {}),
-      }),
-    });
+const app = createCopilotEndpoint({
+  runtime,
+  basePath: "/api/copilotkit",
+});
 
-    return await handleRequest(req);
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    console.error("[copilotkit/route] ERROR:", error);
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
-};
-
-export const GET = async () => {
-  let agentStatus = "unknown";
-  try {
-    const res = await fetch(`${AGENT_URL}/health`, {
-      signal: AbortSignal.timeout(3000),
-    });
-    agentStatus = res.ok ? "reachable" : `error (${res.status})`;
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
-    agentStatus = `unreachable (${msg})`;
-  }
-
-  const topStatus = agentStatus.startsWith("unreachable") ? "degraded" : "ok";
-
-  return NextResponse.json({
-    status: topStatus,
-    agent_url: AGENT_URL,
-    agent_status: agentStatus,
-    env: {
-      OPENAI_API_KEY: process.env.OPENAI_API_KEY ? "set" : "NOT SET",
-      NODE_ENV: process.env.NODE_ENV,
-    },
-  });
-};
+export const GET = handle(app);
+export const POST = handle(app);
+export const PATCH = handle(app);
+export const DELETE = handle(app);
