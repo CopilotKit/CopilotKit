@@ -12,6 +12,7 @@ The official Python SDK for CopilotKit - build AI copilots and agents into your 
 - 🛠 Extensible agent framework
 - 🔌 FastAPI-ready endpoints
 - 🤝 Optional CrewAI integration
+- 🧠 Verified sync and async Intelligence skill registry clients
 
 ## Installation
 
@@ -39,6 +40,28 @@ copilot.add_tool(my_custom_tool)
 # Run the copilot
 response = copilot.run("Your task description here")
 ```
+
+## Intelligence skill registry
+
+Fetch and atomically cache the current verified skill set for a learning container:
+
+```python
+from copilotkit import CopilotKitIntelligence
+
+intelligence = CopilotKitIntelligence(
+    api_key="...",
+    project_namespace="my-project",
+)
+skill_set = intelligence.skills.get("onboarding")
+for skill in skill_set.skills:
+    print(skill.skill_id, skill.path)
+```
+
+Use `AsyncCopilotKitIntelligence` and `await intelligence.skills.get(...)` in an
+async application. `get()` always contacts the registry and never silently falls
+back after an outage. To explicitly use a fully verified local copy, call
+`get_cached()` (or await it on the async client); its result has
+`freshness == "cached"`.
 
 ## Documentation
 

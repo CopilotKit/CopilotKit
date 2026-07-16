@@ -29,6 +29,20 @@ from .header_propagation import (
     get_forwarded_headers,
     install_httpx_hook,
 )
+from .intelligence import (
+    AsyncCopilotKitIntelligence,
+    CopilotKitIntelligence,
+    IntelligenceAccessDeniedError,
+    IntelligenceCacheMissError,
+    IntelligenceError,
+    IntelligenceIntegrityError,
+    IntelligenceNotFoundError,
+    IntelligenceRequest,
+    IntelligenceResponse,
+    IntelligenceSkill,
+    IntelligenceSkillSet,
+    IntelligenceUnavailableError,
+)
 
 
 __all__ = [
@@ -54,4 +68,16 @@ __all__ = [
     "set_forwarded_headers",
     "get_forwarded_headers",
     "install_httpx_hook",
+    "AsyncCopilotKitIntelligence",
+    "CopilotKitIntelligence",
+    "IntelligenceAccessDeniedError",
+    "IntelligenceCacheMissError",
+    "IntelligenceError",
+    "IntelligenceIntegrityError",
+    "IntelligenceNotFoundError",
+    "IntelligenceRequest",
+    "IntelligenceResponse",
+    "IntelligenceSkill",
+    "IntelligenceSkillSet",
+    "IntelligenceUnavailableError",
 ]
