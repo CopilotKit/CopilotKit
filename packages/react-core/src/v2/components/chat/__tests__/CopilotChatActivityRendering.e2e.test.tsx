@@ -220,6 +220,72 @@ describe("CopilotChat activity message rendering", () => {
     });
   });
 
+  it("rerenders activity content when an activity delta updates object content", async () => {
+    const agent = new MockStepwiseAgent();
+    const activityMessageId = testId("activity-delta");
+
+    const activityRenderer: ReactActivityMessageRenderer<{
+      title: string;
+      data: number[];
+    }> = {
+      activityType: "chart-activity",
+      content: z.object({
+        title: z.string(),
+        data: z.array(z.number()),
+      }),
+      render: ({ content }) => (
+        <div data-testid="activity-card">
+          {content.title}: {content.data.join(",")}
+        </div>
+      ),
+    };
+
+    renderWithCopilotKit({
+      agent,
+      renderActivityMessages: [activityRenderer],
+    });
+
+    const input = await screen.findByRole("textbox");
+    fireEvent.change(input, { target: { value: "show chart" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+    await waitFor(() => {
+      expect(screen.getByText("show chart")).toBeDefined();
+    });
+
+    agent.emit(runStartedEvent());
+    agent.emit(
+      activitySnapshotEvent({
+        messageId: activityMessageId,
+        activityType: "chart-activity",
+        content: { title: "Initial", data: [1, 2, 3] },
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("activity-card").textContent).toContain(
+        "Initial: 1,2,3",
+      );
+    });
+
+    agent.emit({
+      type: EventType.ACTIVITY_DELTA,
+      messageId: activityMessageId,
+      activityType: "chart-activity",
+      patch: [
+        { op: "replace", path: "/title", value: "Updated" },
+        { op: "replace", path: "/data/1", value: 42 },
+      ],
+    } as never);
+    agent.emit(runFinishedEvent());
+
+    await waitFor(() => {
+      expect(screen.getByTestId("activity-card").textContent).toContain(
+        "Updated: 1,42,3",
+      );
+    });
+  });
+
   it("skips unmatched activity types when no renderer exists", async () => {
     const agent = new MockStepwiseAgent();
 

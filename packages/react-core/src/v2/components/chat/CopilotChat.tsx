@@ -42,6 +42,16 @@ import {
 import { LastUserMessageContext } from "./last-user-message-context";
 import type { LastUserMessageState } from "./last-user-message-context";
 
+function getActivityContentMemoKey(content: unknown): string | number {
+  if (content === null || typeof content !== "object") return 0;
+
+  try {
+    return JSON.stringify(content);
+  } catch {
+    return Object.prototype.toString.call(content);
+  }
+}
+
 export type CopilotChatProps = Omit<
   CopilotChatViewProps,
   | "messages"
@@ -979,15 +989,20 @@ export function CopilotChat({
   // serializing large base64 attachment data on every render. The key captures:
   //   - message id, role, content length (text streaming)
   //   - content part count (multimodal additions)
+  //   - activity object content (custom/A2UI activity deltas)
   //   - tool call ids + argument lengths (tool call streaming)
   const messagesMemoKey = agent.messages
     .map((m) => {
       const contentKey =
-        typeof m.content === "string"
-          ? m.content.length
-          : Array.isArray(m.content)
+        m.role === "activity" &&
+        m.content !== null &&
+        typeof m.content === "object"
+          ? getActivityContentMemoKey(m.content)
+          : typeof m.content === "string"
             ? m.content.length
-            : 0;
+            : Array.isArray(m.content)
+              ? m.content.length
+              : 0;
       const toolCallsKey =
         "toolCalls" in m && Array.isArray(m.toolCalls)
           ? m.toolCalls
