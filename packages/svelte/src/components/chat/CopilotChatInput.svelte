@@ -25,6 +25,10 @@
   let localValue = $state(initialValue);
   let isFocused = $state(false);
 
+  $effect(() => {
+    localValue = initialValue;
+  });
+
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
