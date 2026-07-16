@@ -22,6 +22,8 @@ import type {
   DocumentInputPart,
 } from "@copilotkit/shared";
 import { CopilotChatAttachmentRenderer } from "./CopilotChatAttachmentRenderer";
+import { useMessageTimestamp } from "./message-timestamps";
+import type { CopilotChatTimestampFormatter } from "./message-timestamps";
 
 function flattenUserMessageContent(content?: UserMessage["content"]): string {
   if (!content) {
@@ -105,6 +107,8 @@ export type CopilotChatUserMessageProps = WithSlots<
     message: UserMessage;
     branchIndex?: number;
     numberOfBranches?: number;
+    showTimestamp?: boolean;
+    formatTimestamp?: CopilotChatTimestampFormatter;
     additionalToolbarItems?: React.ReactNode;
   } & React.HTMLAttributes<HTMLDivElement>
 >;
@@ -116,6 +120,8 @@ export function CopilotChatUserMessage({
   numberOfBranches,
   onSwitchToBranch,
   additionalToolbarItems,
+  showTimestamp,
+  formatTimestamp,
   messageRenderer,
   toolbar,
   copyButton,
@@ -177,6 +183,11 @@ export function CopilotChatUserMessage({
 
   const showBranchNavigation =
     numberOfBranches && numberOfBranches > 1 && onSwitchToBranch;
+  const { timestamp, timestampText } = useMessageTimestamp(
+    message,
+    showTimestamp,
+    formatTimestamp,
+  );
 
   const BoundToolbar = renderSlot(toolbar, CopilotChatUserMessage.Toolbar, {
     children: (
@@ -201,6 +212,8 @@ export function CopilotChatUserMessage({
           message,
           branchIndex,
           numberOfBranches,
+          showTimestamp,
+          formatTimestamp,
           additionalToolbarItems,
         })}
       </div>
@@ -231,6 +244,15 @@ export function CopilotChatUserMessage({
         </div>
       )}
       {BoundMessageRenderer}
+      {timestamp && timestampText ? (
+        <time
+          data-testid="copilot-message-timestamp"
+          dateTime={timestamp.toISOString()}
+          className="cpk:block cpk:mt-1 cpk:text-xs cpk:leading-4 cpk:text-muted-foreground"
+        >
+          {timestampText}
+        </time>
+      ) : null}
       {BoundToolbar}
     </div>
   );

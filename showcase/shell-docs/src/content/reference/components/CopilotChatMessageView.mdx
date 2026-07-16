@@ -26,8 +26,26 @@ import "@copilotkit/react-core/v2/styles.css";
   an `id`, `role` (`"user"` or `"assistant"`), and `content`.
 </PropertyReference>
 
-<PropertyReference name="children" type="(props: { isRunning: boolean; messages: Message[]; messageElements: React.ReactElement[] }) => React.ReactElement">
-Optional render-prop function that receives the resolved state and pre-built message elements. When provided, the component calls this function instead of rendering the default message list layout. The callback receives `isRunning` (current running state), `messages` (the raw message array), and `messageElements` (an array of React elements built from the `assistantMessage` and `userMessage` slots).
+<PropertyReference name="showTimestamps" type="boolean" default="false">
+  Displays timestamps for user and assistant messages with valid `createdAt` or
+  `timestamp` data.
+</PropertyReference>
+
+<PropertyReference name="formatTimestamp" type="CopilotChatTimestampFormatter">
+  Formats the parsed timestamp and receives the source message as its second
+  argument. The default uses the browser's local hour and minute format.
+</PropertyReference>
+
+<PropertyReference
+  name="children"
+  type="(props: { isRunning: boolean; messages: Message[]; messageElements: React.ReactElement[] }) => React.ReactElement"
+>
+  Optional render-prop function that receives the resolved state and pre-built
+  message elements. When provided, the component calls this function instead of
+  rendering the default message list layout. The callback receives `isRunning`
+  (current running state), `messages` (the raw message array), and
+  `messageElements` (an array of React elements built from the
+  `assistantMessage` and `userMessage` slots).
 </PropertyReference>
 
 ## Slots

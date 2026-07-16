@@ -13,6 +13,7 @@ import type {
   Attachment,
   AttachmentModality,
 } from "@copilotkit/shared";
+import type { CopilotChatTimestampFormatter } from "./message-timestamps";
 
 // Re-export for backward compat
 export type { AttachmentsConfig, Attachment, AttachmentModality };
@@ -131,6 +132,8 @@ export interface MessagesProps {
    * Map of message IDs to their feedback state
    */
   messageFeedback?: Record<string, "thumbsUp" | "thumbsDown">;
+  showTimestamps?: boolean;
+  formatTimestamp?: CopilotChatTimestampFormatter;
 
   /**
    * A list of markdown components to render in assistant message.
@@ -171,6 +174,8 @@ export interface Renderer {
 export interface UserMessageProps {
   message?: UserMessage;
   ImageRenderer: React.ComponentType<ImageRendererProps>;
+  showTimestamp?: boolean;
+  formatTimestamp?: CopilotChatTimestampFormatter;
 
   /**
    * @deprecated use message instead
@@ -202,6 +207,8 @@ export interface AssistantMessageProps {
    * Whether a response is generating, this is when the LLM is actively generating and streaming content.
    */
   isGenerating: boolean;
+  showTimestamp?: boolean;
+  formatTimestamp?: CopilotChatTimestampFormatter;
 
   /**
    * Callback function to regenerate the assistant's response
@@ -323,6 +330,8 @@ export interface RenderMessageProps {
    * Map of message IDs to their feedback state
    */
   messageFeedback?: Record<string, "thumbsUp" | "thumbsDown">;
+  showTimestamps?: boolean;
+  formatTimestamp?: CopilotChatTimestampFormatter;
 
   /**
    * A list of markdown components to render in assistant message.

@@ -31,6 +31,8 @@ import {
 } from "../intelligence-indicator";
 import type { IntelligenceIndicatorView } from "../intelligence-indicator";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
+import type { CopilotChatTimestampFormatter } from "./message-timestamps";
+import { getMessageTimestampValue } from "./message-timestamps";
 
 /**
  * Resolves a slot value into a { Component, slotProps } pair, handling the three
@@ -68,12 +70,16 @@ const MemoizedAssistantMessage = React.memo(
     message,
     messages,
     isRunning,
+    showTimestamps,
+    formatTimestamp,
     AssistantMessageComponent,
     slotProps,
   }: {
     message: AssistantMessage;
     messages: Message[];
     isRunning: boolean;
+    showTimestamps?: boolean;
+    formatTimestamp?: CopilotChatTimestampFormatter;
     AssistantMessageComponent: typeof CopilotChatAssistantMessage;
     slotProps?: Partial<
       React.ComponentProps<typeof CopilotChatAssistantMessage>
@@ -84,6 +90,8 @@ const MemoizedAssistantMessage = React.memo(
         message={message}
         messages={messages}
         isRunning={isRunning}
+        showTimestamp={showTimestamps}
+        formatTimestamp={formatTimestamp}
         {...slotProps}
       />
     );
@@ -92,6 +100,11 @@ const MemoizedAssistantMessage = React.memo(
     // Only re-render if this specific message changed
     if (prevProps.message.id !== nextProps.message.id) return false;
     if (prevProps.message.content !== nextProps.message.content) return false;
+    if (
+      getMessageTimestampValue(prevProps.message) !==
+      getMessageTimestampValue(nextProps.message)
+    )
+      return false;
 
     // Compare tool calls if present
     const prevToolCalls = prevProps.message.toolCalls;
@@ -136,6 +149,8 @@ const MemoizedAssistantMessage = React.memo(
       nextProps.message.id;
     if (nextIsLatest && prevProps.isRunning !== nextProps.isRunning)
       return false;
+    if (prevProps.showTimestamps !== nextProps.showTimestamps) return false;
+    if (prevProps.formatTimestamp !== nextProps.formatTimestamp) return false;
 
     // Check if component reference changed
     if (
@@ -157,21 +172,39 @@ const MemoizedAssistantMessage = React.memo(
 const MemoizedUserMessage = React.memo(
   function MemoizedUserMessage({
     message,
+    showTimestamps,
+    formatTimestamp,
     UserMessageComponent,
     slotProps,
   }: {
     message: UserMessage;
+    showTimestamps?: boolean;
+    formatTimestamp?: CopilotChatTimestampFormatter;
     UserMessageComponent: typeof CopilotChatUserMessage;
     slotProps?: Partial<React.ComponentProps<typeof CopilotChatUserMessage>>;
   }) {
-    return <UserMessageComponent message={message} {...slotProps} />;
+    return (
+      <UserMessageComponent
+        message={message}
+        showTimestamp={showTimestamps}
+        formatTimestamp={formatTimestamp}
+        {...slotProps}
+      />
+    );
   },
   (prevProps, nextProps) => {
     // Only re-render if this specific message changed
     if (prevProps.message.id !== nextProps.message.id) return false;
     if (prevProps.message.content !== nextProps.message.content) return false;
+    if (
+      getMessageTimestampValue(prevProps.message) !==
+      getMessageTimestampValue(nextProps.message)
+    )
+      return false;
     if (prevProps.UserMessageComponent !== nextProps.UserMessageComponent)
       return false;
+    if (prevProps.showTimestamps !== nextProps.showTimestamps) return false;
+    if (prevProps.formatTimestamp !== nextProps.formatTimestamp) return false;
     // Check if slot props changed
     if (prevProps.slotProps !== nextProps.slotProps) return false;
     return true;
@@ -362,6 +395,8 @@ export type CopilotChatMessageViewProps = Omit<
     {
       isRunning?: boolean;
       messages?: Message[];
+      showTimestamps?: boolean;
+      formatTimestamp?: CopilotChatTimestampFormatter;
     } & React.HTMLAttributes<HTMLDivElement>
   >,
   "children"
@@ -387,6 +422,8 @@ export function CopilotChatMessageView({
   cursor,
   intelligenceIndicator,
   isRunning = false,
+  showTimestamps = false,
+  formatTimestamp,
   children,
   className,
   ...props
@@ -577,6 +614,8 @@ export function CopilotChatMessageView({
           message={message as AssistantMessage}
           messages={messages}
           isRunning={isRunning}
+          showTimestamps={showTimestamps}
+          formatTimestamp={formatTimestamp}
           AssistantMessageComponent={AssistantComponent}
           slotProps={assistantSlotProps}
         />,
@@ -586,6 +625,8 @@ export function CopilotChatMessageView({
         <MemoizedUserMessage
           key={message.id}
           message={message as UserMessage}
+          showTimestamps={showTimestamps}
+          formatTimestamp={formatTimestamp}
           UserMessageComponent={UserComponent}
           slotProps={userSlotProps}
         />,

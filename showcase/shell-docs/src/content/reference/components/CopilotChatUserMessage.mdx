@@ -21,6 +21,15 @@ import "@copilotkit/react-core/v2/styles.css";
   `role`.
 </PropertyReference>
 
+<PropertyReference name="showTimestamp" type="boolean" default="false">
+  Displays the message's `createdAt` or `timestamp` value below its content.
+</PropertyReference>
+
+<PropertyReference name="formatTimestamp" type="CopilotChatTimestampFormatter">
+  Formats the parsed timestamp and receives the user message as its second
+  argument.
+</PropertyReference>
+
 <PropertyReference
   name="onEditMessage"
   type="(props: { message: UserMessage }) => void"

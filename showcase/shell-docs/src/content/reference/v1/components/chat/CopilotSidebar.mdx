@@ -244,6 +244,19 @@ Custom error renderer for chat-specific errors.
 Optional handler for comprehensive debugging and observability.
 </PropertyReference>
 
+<PropertyReference name="showTimestamps" type="boolean">
+Shows message timestamps when timestamp data is present on a message.
+
+The default renderer reads `createdAt` first and then `timestamp`, so persisted
+thread history can display server-provided message times without inventing
+client-side timestamps for messages that do not have one.
+</PropertyReference>
+
+<PropertyReference name="formatTimestamp" type="CopilotChatTimestampFormatter">
+Formats message timestamps for display. Defaults to the user's locale time with
+hour and minute precision.
+</PropertyReference>
+
 <PropertyReference name="defaultOpen" type="boolean"  default="false"> 
 Whether the chat window should be open by default.
 </PropertyReference>
@@ -276,4 +289,3 @@ A custom Button component to use instead of the default.
 <PropertyReference name="Header" type="React.ComponentType<HeaderProps>"  > 
 A custom Header component to use instead of the default.
 </PropertyReference>
-

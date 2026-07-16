@@ -1,5 +1,5 @@
 import React from "react";
-import { RenderMessageProps } from "../props";
+import type { RenderMessageProps } from "../props";
 import { RenderMessage as DefaultRenderMessage } from "./RenderMessage";
 import { aguiToGQL } from "@copilotkit/runtime-client-gql";
 
@@ -39,6 +39,8 @@ export const LegacyRenderMessage: React.FC<LegacyRenderMessageProps> = ({
   onCopy,
   onThumbsUp,
   onThumbsDown,
+  showTimestamps,
+  formatTimestamp,
   markdownTagRenderers,
   legacyProps,
 }) => {
@@ -67,6 +69,8 @@ export const LegacyRenderMessage: React.FC<LegacyRenderMessageProps> = ({
         onCopy={onCopy}
         onThumbsUp={onThumbsUp}
         onThumbsDown={onThumbsDown}
+        showTimestamps={showTimestamps}
+        formatTimestamp={formatTimestamp}
         markdownTagRenderers={markdownTagRenderers}
       />
     );
@@ -86,6 +90,8 @@ export const LegacyRenderMessage: React.FC<LegacyRenderMessageProps> = ({
         actionResult={actionResult}
         AssistantMessage={AssistantMessage}
         UserMessage={UserMessage}
+        showTimestamps={showTimestamps}
+        formatTimestamp={formatTimestamp}
       />
     );
   }
@@ -100,6 +106,8 @@ export const LegacyRenderMessage: React.FC<LegacyRenderMessageProps> = ({
         isCurrentMessage={isCurrentMessage}
         AssistantMessage={AssistantMessage}
         UserMessage={UserMessage}
+        showTimestamps={showTimestamps}
+        formatTimestamp={formatTimestamp}
       />
     );
   }
@@ -114,6 +122,8 @@ export const LegacyRenderMessage: React.FC<LegacyRenderMessageProps> = ({
         isCurrentMessage={isCurrentMessage}
         AssistantMessage={AssistantMessage}
         UserMessage={UserMessage}
+        showTimestamps={showTimestamps}
+        formatTimestamp={formatTimestamp}
       />
     );
   }
@@ -128,6 +138,8 @@ export const LegacyRenderMessage: React.FC<LegacyRenderMessageProps> = ({
         isCurrentMessage={isCurrentMessage}
         AssistantMessage={AssistantMessage}
         UserMessage={UserMessage}
+        showTimestamps={showTimestamps}
+        formatTimestamp={formatTimestamp}
       />
     );
   }
@@ -147,6 +159,8 @@ export const LegacyRenderMessage: React.FC<LegacyRenderMessageProps> = ({
       onCopy={onCopy}
       onThumbsUp={onThumbsUp}
       onThumbsDown={onThumbsDown}
+      showTimestamps={showTimestamps}
+      formatTimestamp={formatTimestamp}
       markdownTagRenderers={markdownTagRenderers}
     />
   );

@@ -1,4 +1,4 @@
-import { RenderMessageProps } from "../props";
+import type { RenderMessageProps } from "../props";
 import { UserMessage as DefaultUserMessage } from "./UserMessage";
 import { AssistantMessage as DefaultAssistantMessage } from "./AssistantMessage";
 import { ImageRenderer as DefaultImageRenderer } from "./ImageRenderer";
@@ -20,6 +20,8 @@ export function RenderMessage({
     onThumbsUp,
     onThumbsDown,
     messageFeedback,
+    showTimestamps,
+    formatTimestamp,
     markdownTagRenderers,
   } = props;
 
@@ -32,6 +34,8 @@ export function RenderMessage({
           data-message-role="user"
           message={message}
           ImageRenderer={ImageRenderer}
+          showTimestamp={showTimestamps}
+          formatTimestamp={formatTimestamp}
         />
       );
     case "assistant":
@@ -51,6 +55,8 @@ export function RenderMessage({
           onThumbsUp={onThumbsUp}
           onThumbsDown={onThumbsDown}
           feedback={messageFeedback?.[message.id] || null}
+          showTimestamp={showTimestamps}
+          formatTimestamp={formatTimestamp}
           markdownTagRenderers={markdownTagRenderers}
           ImageRenderer={ImageRenderer}
         />

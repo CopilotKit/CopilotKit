@@ -4,6 +4,7 @@ import { Markdown } from "../Markdown";
 import { useState } from "react";
 import React from "react";
 import { copyToClipboard } from "@copilotkit/shared";
+import { useMessageTimestamp } from "../message-timestamps";
 
 export const AssistantMessage = (props: AssistantMessageProps) => {
   const { icons, labels } = useChatContext();
@@ -16,6 +17,8 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
     onThumbsDown,
     isCurrentMessage,
     feedback,
+    showTimestamp,
+    formatTimestamp,
     markdownTagRenderers,
   } = props;
   const [copied, setCopied] = useState(false);
@@ -56,6 +59,11 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
   const subComponentPosition = message?.generativeUIPosition ?? "after";
   const renderBefore = subComponent && subComponentPosition === "before";
   const renderAfter = subComponent && subComponentPosition !== "before";
+  const { timestamp, timestampText } = useMessageTimestamp(
+    message,
+    showTimestamp,
+    formatTimestamp,
+  );
 
   return (
     <>
@@ -67,6 +75,15 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
           {content && (
             <Markdown content={content} components={markdownTagRenderers} />
           )}
+          {timestamp && timestampText ? (
+            <time
+              className="copilotKitMessageTimestamp"
+              data-testid="copilot-message-timestamp"
+              dateTime={timestamp.toISOString()}
+            >
+              {timestampText}
+            </time>
+          ) : null}
 
           {content && !isLoading && (
             <div

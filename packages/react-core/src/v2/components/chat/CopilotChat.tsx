@@ -33,6 +33,7 @@ import { useCopilotKit, useLicenseContext } from "../../context";
 import { InlineFeatureWarning } from "../../components/license-warning-banner";
 import type { AbstractAgent } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
+import type { Message } from "@ag-ui/core";
 import type { SlotValue } from "../../lib/slots";
 import { renderSlot, useShallowStableRef } from "../../lib/slots";
 import {
@@ -41,6 +42,31 @@ import {
 } from "../../lib/transcription-client";
 import { LastUserMessageContext } from "./last-user-message-context";
 import type { LastUserMessageState } from "./last-user-message-context";
+import { getMessageTimestampValue } from "./message-timestamps";
+
+export function getMessagesMemoKey(messages: readonly Message[]): string {
+  return messages
+    .map((message) => {
+      const contentKey =
+        typeof message.content === "string"
+          ? message.content.length
+          : Array.isArray(message.content)
+            ? message.content.length
+            : 0;
+      const toolCallsKey =
+        "toolCalls" in message && Array.isArray(message.toolCalls)
+          ? message.toolCalls
+              .map(
+                (toolCall) =>
+                  `${toolCall.id}:${toolCall.function?.arguments?.length ?? 0}`,
+              )
+              .join(";")
+          : "";
+      const timestampKey = getMessageTimestampValue(message) ?? "";
+      return `${message.id}:${message.role}:${contentKey}:${toolCallsKey}:${timestampKey}`;
+    })
+    .join(",");
+}
 
 export type CopilotChatProps = Omit<
   CopilotChatViewProps,
@@ -980,25 +1006,7 @@ export function CopilotChat({
   //   - message id, role, content length (text streaming)
   //   - content part count (multimodal additions)
   //   - tool call ids + argument lengths (tool call streaming)
-  const messagesMemoKey = agent.messages
-    .map((m) => {
-      const contentKey =
-        typeof m.content === "string"
-          ? m.content.length
-          : Array.isArray(m.content)
-            ? m.content.length
-            : 0;
-      const toolCallsKey =
-        "toolCalls" in m && Array.isArray(m.toolCalls)
-          ? m.toolCalls
-              .map(
-                (tc: any) => `${tc.id}:${tc.function?.arguments?.length ?? 0}`,
-              )
-              .join(";")
-          : "";
-      return `${m.id}:${m.role}:${contentKey}:${toolCallsKey}`;
-    })
-    .join(",");
+  const messagesMemoKey = getMessagesMemoKey(agent.messages);
   const messages = useMemo(
     () => [...agent.messages],
     // eslint-disable-next-line react-hooks/exhaustive-deps

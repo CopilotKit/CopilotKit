@@ -1,5 +1,6 @@
-import { UserMessageProps } from "../props";
+import type { UserMessageProps } from "../props";
 import { AttachmentRenderer } from "../AttachmentRenderer";
+import { useMessageTimestamp } from "../message-timestamps";
 
 type UserMessageContent = NonNullable<UserMessageProps["message"]>["content"];
 
@@ -49,8 +50,23 @@ const getMediaParts = (content: UserMessageContent | undefined) => {
 };
 
 export const UserMessage = (props: UserMessageProps) => {
-  const { message, ImageRenderer } = props;
+  const { message, ImageRenderer, showTimestamp, formatTimestamp } = props;
   const content = message?.content;
+  const { timestamp, timestampText } = useMessageTimestamp(
+    message,
+    showTimestamp,
+    formatTimestamp,
+  );
+  const timestampElement =
+    timestamp && timestampText ? (
+      <time
+        className="copilotKitMessageTimestamp"
+        data-testid="copilot-message-timestamp"
+        dateTime={timestamp.toISOString()}
+      >
+        {timestampText}
+      </time>
+    ) : null;
 
   // Legacy path: old-style image field on message
   const isLegacyImageMessage =
@@ -62,6 +78,7 @@ export const UserMessage = (props: UserMessageProps) => {
     return (
       <div className="copilotKitMessage copilotKitUserMessage">
         <ImageRenderer image={legacyImage} content={textContent} />
+        {timestampElement}
       </div>
     );
   }
@@ -73,6 +90,7 @@ export const UserMessage = (props: UserMessageProps) => {
     return (
       <div className="copilotKitMessage copilotKitUserMessage">
         {textContent}
+        {timestampElement}
       </div>
     );
   }
@@ -83,6 +101,7 @@ export const UserMessage = (props: UserMessageProps) => {
       {mediaParts.map((part, index) => (
         <AttachmentRenderer key={index} type={part.type} source={part.source} />
       ))}
+      {timestampElement}
     </div>
   );
 };

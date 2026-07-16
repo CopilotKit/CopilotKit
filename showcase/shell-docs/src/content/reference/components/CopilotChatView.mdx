@@ -114,6 +114,18 @@ Passing a `children` render-prop gives you access to all composed slot elements 
   arrive. Set to `false` if you want manual scroll control.
 </PropertyReference>
 
+<PropertyReference name="showTimestamps" type="boolean" default="false">
+  Displays a timestamp below each user and assistant message that contains a
+  valid `createdAt` or `timestamp` value. Messages without timestamp data are
+  left unchanged.
+</PropertyReference>
+
+<PropertyReference name="formatTimestamp" type="CopilotChatTimestampFormatter">
+  Formats a message timestamp for display. The callback receives the parsed
+  `Date` and the source message. By default, timestamps use the browser's local
+  time with hour and minute precision.
+</PropertyReference>
+
 <PropertyReference
   name="inputProps"
   type="Partial<Omit<CopilotChatInputProps, 'children'>>"

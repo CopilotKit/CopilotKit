@@ -39,6 +39,7 @@ export {
   default as CopilotChatMessageView,
   type CopilotChatMessageViewProps,
 } from "./CopilotChatMessageView";
+export type { CopilotChatTimestampFormatter } from "./message-timestamps";
 
 export {
   default as CopilotChatToolCallsView,

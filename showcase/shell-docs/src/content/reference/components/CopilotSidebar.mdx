@@ -40,8 +40,7 @@ import "@copilotkit/react-core/v2/styles.css";
 `CopilotSidebar` accepts all props from [`CopilotChatProps`](/reference/components/CopilotChat) **except** `chatView`, which is set internally to `CopilotSidebarView`. This includes:
 
 <PropertyReference name="agentId" type="string">
-  ID of the agent to use. Must match an agent configured in
-  `CopilotKit`.
+  ID of the agent to use. Must match an agent configured in `CopilotKit`.
 </PropertyReference>
 
 <PropertyReference name="threadId" type="string">
@@ -54,6 +53,14 @@ import "@copilotkit/react-core/v2/styles.css";
 
 <PropertyReference name="autoScroll" type="boolean" default="true">
   Whether the chat scrolls to the bottom automatically when new messages arrive.
+</PropertyReference>
+
+<PropertyReference name="showTimestamps" type="boolean" default="false">
+  Displays timestamps for messages with valid `createdAt` or `timestamp` data.
+</PropertyReference>
+
+<PropertyReference name="formatTimestamp" type="CopilotChatTimestampFormatter">
+  Formats each parsed timestamp before it is displayed.
 </PropertyReference>
 
 <PropertyReference

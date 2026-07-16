@@ -8,7 +8,17 @@ import {
   gqlImageMessageToAGUIMessage,
   gqlActionExecutionMessageToAGUIMessage,
 } from "./gql-to-agui";
-import { AIMessage } from "@copilotkit/shared";
+import type { AIMessage } from "@copilotkit/shared";
+
+function expectConvertedMessage(
+  actual: unknown,
+  expected: Record<string, unknown>,
+) {
+  expect(actual).toEqual({
+    ...expected,
+    createdAt: expect.any(Date),
+  });
+}
 
 describe("message-conversion", () => {
   describe("gqlTextMessageToAGUIMessage", () => {
@@ -95,6 +105,22 @@ describe("message-conversion", () => {
   });
 
   describe("gqlToAGUI", () => {
+    test("should preserve persisted message creation time", () => {
+      const createdAt = new Date("2026-07-16T09:30:00.000Z");
+      const gqlMessage = new gql.TextMessage({
+        id: "user-1",
+        content: "Hello",
+        role: gql.Role.User,
+        createdAt,
+      });
+
+      const [result] = gqlToAGUI(gqlMessage);
+
+      expect((result as typeof result & { createdAt?: Date }).createdAt).toBe(
+        createdAt,
+      );
+    });
+
     test("should convert an array of text messages", () => {
       const gqlMessages = [
         new gql.TextMessage({
@@ -112,12 +138,12 @@ describe("message-conversion", () => {
       const result = gqlToAGUI(gqlMessages);
 
       expect(result).toHaveLength(2);
-      expect(result[0]).toEqual({
+      expectConvertedMessage(result[0], {
         id: "dev-1",
         role: "developer",
         content: "Hello",
       });
-      expect(result[1]).toEqual({
+      expectConvertedMessage(result[1], {
         id: "assistant-1",
         role: "assistant",
         content: "Hi there",
@@ -130,7 +156,7 @@ describe("message-conversion", () => {
       const result = gqlToAGUI(gqlMessages);
 
       expect(result).toHaveLength(1);
-      expect(result[0]).toEqual({
+      expectConvertedMessage(result[0], {
         id: "agent-state-1",
         role: "assistant",
       });
@@ -172,17 +198,17 @@ describe("message-conversion", () => {
       const result = gqlToAGUI(gqlMessages);
 
       expect(result).toHaveLength(3);
-      expect(result[0]).toEqual({
+      expectConvertedMessage(result[0], {
         id: "dev-1",
         role: "developer",
         content: "Run action",
       });
-      expect(result[1]).toEqual({
+      expectConvertedMessage(result[1], {
         id: "assistant-1",
         role: "assistant",
         content: "I'll run the action",
       });
-      expect(result[2]).toEqual({
+      expectConvertedMessage(result[2], {
         id: "result-1",
         role: "tool",
         content: "Action result",
@@ -209,12 +235,12 @@ describe("message-conversion", () => {
 
       // Now we expect 2 messages: the original assistant message and the action execution message
       expect(result).toHaveLength(2);
-      expect(result[0]).toEqual({
+      expectConvertedMessage(result[0], {
         id: "assistant-1",
         role: "assistant",
         content: "I'll execute an action",
       });
-      expect(result[1]).toEqual({
+      expectConvertedMessage(result[1], {
         id: "action-1",
         role: "assistant",
         name: "testAction",
@@ -256,12 +282,12 @@ describe("message-conversion", () => {
 
       // Now we expect 3 messages: the original assistant message and 2 separate action execution messages
       expect(result).toHaveLength(3);
-      expect(result[0]).toEqual({
+      expectConvertedMessage(result[0], {
         id: "assistant-1",
         role: "assistant",
         content: "I'll execute multiple actions",
       });
-      expect(result[1]).toEqual({
+      expectConvertedMessage(result[1], {
         id: "action-1",
         role: "assistant",
         name: "firstAction",
@@ -276,7 +302,7 @@ describe("message-conversion", () => {
           },
         ],
       });
-      expect(result[2]).toEqual({
+      expectConvertedMessage(result[2], {
         id: "action-2",
         role: "assistant",
         name: "secondAction",
@@ -311,13 +337,13 @@ describe("message-conversion", () => {
 
       // Now we expect 2 messages: the developer message and the action execution as assistant message
       expect(result).toHaveLength(2);
-      expect(result[0]).toEqual({
+      expectConvertedMessage(result[0], {
         id: "dev-1",
         role: "developer",
         content: "Developer message",
       });
       // The action execution becomes its own assistant message regardless of parent
-      expect(result[1]).toEqual({
+      expectConvertedMessage(result[1], {
         id: "action-1",
         role: "assistant",
         name: "testAction",
@@ -344,7 +370,7 @@ describe("message-conversion", () => {
       const result = gqlToAGUI([actionExecMsg]);
 
       expect(result).toHaveLength(1);
-      expect(result[0]).toEqual({
+      expectConvertedMessage(result[0], {
         id: "action-1",
         role: "assistant",
         name: "testAction",
@@ -604,7 +630,7 @@ describe("message-conversion", () => {
       const result = gqlToAGUI([actionExecMsg], actions);
 
       expect(result).toHaveLength(1);
-      expect(result[0]).toEqual({
+      expectConvertedMessage(result[0], {
         id: "action-1",
         role: "assistant",
         name: "unknownAction",
@@ -643,7 +669,7 @@ describe("message-conversion", () => {
       const result = gqlToAGUI([agentStateMsg], undefined, coAgentStateRenders);
 
       expect(result).toHaveLength(1);
-      expect(result[0]).toEqual({
+      expectConvertedMessage(result[0], {
         id: "agent-state-1",
         role: "assistant",
         agentName: "testAgent",
@@ -674,7 +700,7 @@ describe("message-conversion", () => {
       const result = gqlToAGUI([agentStateMsg]);
 
       expect(result).toHaveLength(1);
-      expect(result[0]).toEqual({
+      expectConvertedMessage(result[0], {
         id: "agent-state-1",
         role: "assistant",
         agentName: "testAgent",
@@ -703,7 +729,7 @@ describe("message-conversion", () => {
       const result = gqlToAGUI([agentStateMsg], undefined, coAgentStateRenders);
 
       expect(result).toHaveLength(1);
-      expect(result[0]).toEqual({
+      expectConvertedMessage(result[0], {
         id: "agent-state-1",
         role: "assistant",
         agentName: "unknownAgent",
@@ -724,7 +750,7 @@ describe("message-conversion", () => {
       const result = gqlToAGUI([userMsg]);
 
       expect(result).toHaveLength(1);
-      expect(result[0]).toEqual({
+      expectConvertedMessage(result[0], {
         id: "user-1",
         role: "user",
         content: "Hello from user",
@@ -760,7 +786,7 @@ describe("message-conversion", () => {
       );
 
       expect(result).toHaveLength(2);
-      expect(result[0]).toEqual({
+      expectConvertedMessage(result[0], {
         id: "text-1",
         role: "assistant",
         content: "Hello",

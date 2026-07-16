@@ -39,6 +39,7 @@ import { useKeyboardHeight } from "../../hooks/use-keyboard-height";
 import { normalizeAutoScroll } from "./normalize-auto-scroll";
 import type { AutoScrollMode } from "./normalize-auto-scroll";
 import { usePinToSend } from "../../hooks/use-pin-to-send";
+import type { CopilotChatTimestampFormatter } from "./message-timestamps";
 
 // Vertical gap between the scroll-to-bottom button and the input container.
 const SCROLL_BUTTON_OFFSET = 16;
@@ -64,6 +65,8 @@ export type CopilotChatViewProps = WithSlots<
   {
     messages?: Message[];
     autoScroll?: AutoScrollMode | boolean;
+    showTimestamps?: boolean;
+    formatTimestamp?: CopilotChatTimestampFormatter;
     isRunning?: boolean;
     suggestions?: Suggestion[];
     suggestionLoadingIndexes?: ReadonlyArray<number>;
@@ -144,6 +147,8 @@ export function CopilotChatView({
   welcomeScreen,
   messages = [],
   autoScroll = true,
+  showTimestamps = false,
+  formatTimestamp,
   isRunning = false,
   suggestions,
   suggestionLoadingIndexes,
@@ -248,6 +253,8 @@ export function CopilotChatView({
   const BoundMessageView = renderSlot(messageView, CopilotChatMessageView, {
     messages,
     isRunning,
+    showTimestamps,
+    formatTimestamp,
     intelligenceIndicator,
   });
 

@@ -69,6 +69,7 @@ import { RenderMessage as DefaultRenderMessage } from "./messages/RenderMessage"
 import { AssistantMessage as DefaultAssistantMessage } from "./messages/AssistantMessage";
 import { UserMessage as DefaultUserMessage } from "./messages/UserMessage";
 import { ImageRenderer as DefaultImageRenderer } from "./messages/ImageRenderer";
+import type { CopilotChatTimestampFormatter } from "./message-timestamps";
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import type { SystemMessageFunction } from "@copilotkit/react-core";
 import {
@@ -375,6 +376,21 @@ export interface CopilotChatProps {
    * Optional handler for comprehensive debugging and observability.
    */
   onError?: CopilotErrorHandler;
+
+  /**
+   * Shows message timestamps when timestamp data is present on a message.
+   *
+   * The default renderer reads `createdAt` first and then `timestamp`, so
+   * persisted thread history can display server-provided message times without
+   * inventing client-side timestamps for messages that do not have one.
+   */
+  showTimestamps?: boolean;
+
+  /**
+   * Formats message timestamps for display. Defaults to the user's locale time
+   * with hour and minute precision.
+   */
+  formatTimestamp?: CopilotChatTimestampFormatter;
 }
 
 /**
@@ -421,6 +437,8 @@ export function CopilotChat({
   observabilityHooks,
   renderError,
   onError,
+  showTimestamps,
+  formatTimestamp,
   // Legacy props - deprecated
   RenderTextMessage,
   RenderActionExecutionMessage,
@@ -956,6 +974,8 @@ export function CopilotChat({
           onThumbsUp={handleThumbsUp}
           onThumbsDown={handleThumbsDown}
           messageFeedback={messageFeedback}
+          showTimestamps={showTimestamps}
+          formatTimestamp={formatTimestamp}
           markdownTagRenderers={markdownTagRenderers}
           ImageRenderer={ImageRenderer}
           ErrorMessage={ErrorMessage}

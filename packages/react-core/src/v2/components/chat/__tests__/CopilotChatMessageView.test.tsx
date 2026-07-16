@@ -1,4 +1,7 @@
 import React from "react";
+import { act } from "react";
+import { hydrateRoot } from "react-dom/client";
+import { renderToStaticMarkup } from "react-dom/server";
 import { render, screen } from "@testing-library/react";
 import { z } from "zod";
 import { vi } from "vitest";
@@ -15,6 +18,12 @@ import type {
   UserMessage,
 } from "@ag-ui/core";
 import type { ReactActivityMessageRenderer } from "../../../types";
+import type { CopilotChatTimestampFormatter } from "../message-timestamps";
+import {
+  getMessageTimestamp,
+  useMessageTimestamp,
+} from "../message-timestamps";
+import { CopilotChatUserMessage } from "../CopilotChatUserMessage";
 
 // ---------------------------------------------------------------------------
 // Shared constants & helpers
@@ -58,18 +67,116 @@ function toolCall(id: string, name: string, args = "{}") {
 function renderMessageView({
   messages,
   renderActivityMessages,
+  showTimestamps,
+  formatTimestamp,
 }: {
   messages: Message[];
   renderActivityMessages?: ReactActivityMessageRenderer<{ percent: number }>[];
+  showTimestamps?: boolean;
+  formatTimestamp?: CopilotChatTimestampFormatter;
 }) {
   return render(
     <CopilotKitProvider renderActivityMessages={renderActivityMessages}>
       <CopilotChatConfigurationProvider agentId={AGENT_ID} threadId={THREAD_ID}>
-        <CopilotChatMessageView messages={messages} />
+        <CopilotChatMessageView
+          messages={messages}
+          showTimestamps={showTimestamps}
+          formatTimestamp={formatTimestamp}
+        />
       </CopilotChatConfigurationProvider>
     </CopilotKitProvider>,
   );
 }
+
+describe("CopilotChatMessageView timestamps", () => {
+  const createdAt = "2026-07-16T09:30:00.000Z";
+
+  it("keeps timestamps hidden by default", () => {
+    const message = { ...userMsg("user-1", "Hello"), createdAt } as Message;
+
+    renderMessageView({ messages: [message] });
+
+    expect(screen.queryByTestId("copilot-message-timestamp")).toBeNull();
+  });
+
+  it("does not render locale-dependent timestamp text during SSR", () => {
+    const message = { ...userMsg("user-1", "Hello"), createdAt } as Message;
+
+    const html = renderToStaticMarkup(
+      <CopilotChatUserMessage message={message as UserMessage} showTimestamp />,
+    );
+
+    expect(html).not.toContain("copilot-message-timestamp");
+  });
+
+  it("does not schedule a hydration update when timestamps are hidden", async () => {
+    const message = { ...userMsg("user-1", "Hello"), createdAt } as Message;
+    const container = document.createElement("div");
+    let renderCount = 0;
+
+    function TimestampProbe() {
+      renderCount += 1;
+      useMessageTimestamp(message, false);
+      return <span>Hello</span>;
+    }
+
+    container.innerHTML = renderToStaticMarkup(<TimestampProbe />);
+    renderCount = 0;
+    const root = hydrateRoot(container, <TimestampProbe />);
+
+    await act(async () => {});
+
+    expect(renderCount).toBe(1);
+    await act(async () => root.unmount());
+  });
+
+  it("falls back to a numeric-string timestamp when createdAt is invalid", () => {
+    const message = {
+      ...userMsg("user-1", "Hello"),
+      createdAt: "not-a-date",
+      timestamp: "1700000000",
+    } as Message;
+
+    expect(getMessageTimestamp(message)?.toISOString()).toBe(
+      "2023-11-14T22:13:20.000Z",
+    );
+  });
+
+  it("renders available timestamps with a custom formatter", () => {
+    const userMessage = {
+      ...userMsg("user-1", "Hello"),
+      createdAt,
+      timestamp: 1_700_000_000,
+    } as Message;
+    const assistantMessage = {
+      ...assistantMsg("assistant-1", "Hi"),
+      timestamp: 1_700_000_000,
+    } as Message;
+    const formatTimestamp = vi.fn(
+      (timestamp: Date, message: Message) =>
+        `${message.role}:${timestamp.toISOString()}`,
+    );
+
+    renderMessageView({
+      messages: [
+        userMessage,
+        assistantMessage,
+        userMsg("user-2", "No timestamp"),
+      ],
+      showTimestamps: true,
+      formatTimestamp,
+    });
+
+    const timestamps = screen.getAllByTestId("copilot-message-timestamp");
+    expect(timestamps).toHaveLength(2);
+    expect(timestamps[0].getAttribute("datetime")).toBe(createdAt);
+    expect(timestamps[0].textContent).toBe(`user:${createdAt}`);
+    expect(timestamps[1].textContent).toBe(
+      "assistant:2023-11-14T22:13:20.000Z",
+    );
+    expect(formatTimestamp).toHaveBeenCalledTimes(2);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Tests

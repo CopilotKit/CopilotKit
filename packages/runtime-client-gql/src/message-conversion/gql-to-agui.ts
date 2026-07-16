@@ -1,10 +1,21 @@
 import * as gql from "../client";
-import * as agui from "@copilotkit/shared";
+import type * as agui from "@copilotkit/shared";
 import { MessageStatusCode } from "../graphql/@generated/graphql";
 
 // Define valid image formats based on the supported formats in the codebase
 const VALID_IMAGE_FORMATS = ["jpeg", "png", "webp", "gif"] as const;
 type ValidImageFormat = (typeof VALID_IMAGE_FORMATS)[number];
+
+type TimestampedMessage = agui.Message & {
+  createdAt: gql.Message["createdAt"];
+};
+
+function preserveCreatedAt(
+  message: gql.Message,
+  converted: agui.Message,
+): TimestampedMessage {
+  return { ...converted, createdAt: message.createdAt } as TimestampedMessage;
+}
 
 // Validation function for image format
 function validateImageFormat(format: string): format is ValidImageFormat {
@@ -33,23 +44,28 @@ export function gqlToAGUI(
   }
 
   for (const message of messages) {
+    let converted: agui.Message;
     if (message.isTextMessage()) {
-      aguiMessages.push(gqlTextMessageToAGUIMessage(message));
+      converted = gqlTextMessageToAGUIMessage(message);
     } else if (message.isResultMessage()) {
-      aguiMessages.push(gqlResultMessageToAGUIMessage(message));
+      converted = gqlResultMessageToAGUIMessage(message);
     } else if (message.isActionExecutionMessage()) {
-      aguiMessages.push(
-        gqlActionExecutionMessageToAGUIMessage(message, actions, actionResults),
+      converted = gqlActionExecutionMessageToAGUIMessage(
+        message,
+        actions,
+        actionResults,
       );
     } else if (message.isAgentStateMessage()) {
-      aguiMessages.push(
-        gqlAgentStateMessageToAGUIMessage(message, coAgentStateRenders),
+      converted = gqlAgentStateMessageToAGUIMessage(
+        message,
+        coAgentStateRenders,
       );
     } else if (message.isImageMessage()) {
-      aguiMessages.push(gqlImageMessageToAGUIMessage(message));
+      converted = gqlImageMessageToAGUIMessage(message);
     } else {
       throw new Error("Unknown message type");
     }
+    aguiMessages.push(preserveCreatedAt(message, converted));
   }
 
   return aguiMessages;
@@ -102,7 +118,7 @@ export function gqlActionExecutionMessageToAGUIMessage(
       if (typeof props?.result === "string") {
         try {
           props.result = JSON.parse(props.result);
-        } catch (e) {
+        } catch {
           /* do nothing */
         }
       }
@@ -111,7 +127,7 @@ export function gqlActionExecutionMessageToAGUIMessage(
       if (typeof actionResult === "string") {
         try {
           actionResult = JSON.parse(actionResult);
-        } catch (e) {
+        } catch {
           /* do nothing */
         }
       }

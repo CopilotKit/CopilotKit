@@ -19,6 +19,8 @@ export const Messages = ({
   onThumbsUp,
   onThumbsDown,
   messageFeedback,
+  showTimestamps,
+  formatTimestamp,
   markdownTagRenderers,
   chatError,
 
@@ -108,6 +110,8 @@ export const Messages = ({
               onThumbsUp={onThumbsUp}
               onThumbsDown={onThumbsDown}
               messageFeedback={messageFeedback}
+              showTimestamps={showTimestamps}
+              formatTimestamp={formatTimestamp}
               markdownTagRenderers={markdownTagRenderers}
             />
           );

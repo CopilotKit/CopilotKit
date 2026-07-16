@@ -25,6 +25,8 @@ import { renderSlot } from "../../lib/slots";
 import { Streamdown } from "streamdown";
 import { copyToClipboard } from "@copilotkit/shared";
 import CopilotChatToolCallsView from "./CopilotChatToolCallsView";
+import { useMessageTimestamp } from "./message-timestamps";
+import type { CopilotChatTimestampFormatter } from "./message-timestamps";
 
 export type CopilotChatAssistantMessageProps = WithSlots<
   {
@@ -45,6 +47,8 @@ export type CopilotChatAssistantMessageProps = WithSlots<
     message: AssistantMessage;
     messages?: Message[];
     isRunning?: boolean;
+    showTimestamp?: boolean;
+    formatTimestamp?: CopilotChatTimestampFormatter;
     additionalToolbarItems?: React.ReactNode;
     toolbarVisible?: boolean;
   } & React.HTMLAttributes<HTMLDivElement>
@@ -54,6 +58,8 @@ export function CopilotChatAssistantMessage({
   message,
   messages,
   isRunning,
+  showTimestamp,
+  formatTimestamp,
   onThumbsUp,
   onThumbsDown,
   onReadAloud,
@@ -155,6 +161,11 @@ export function CopilotChatAssistantMessage({
 
   // Don't show toolbar if message has no content (only tool calls)
   const hasContent = !!(message.content && message.content.trim().length > 0);
+  const { timestamp, timestampText } = useMessageTimestamp(
+    message,
+    showTimestamp,
+    formatTimestamp,
+  );
   const isLatestAssistantMessage =
     message.role === "assistant" &&
     messages?.[messages.length - 1]?.id === message.id;
@@ -176,6 +187,8 @@ export function CopilotChatAssistantMessage({
           message,
           messages,
           isRunning,
+          showTimestamp,
+          formatTimestamp,
           onThumbsUp,
           onThumbsDown,
           onReadAloud,
@@ -202,6 +215,15 @@ export function CopilotChatAssistantMessage({
         {boundMarkdownRenderer}
       </div>
       {boundToolCallsView}
+      {timestamp && timestampText ? (
+        <time
+          data-testid="copilot-message-timestamp"
+          dateTime={timestamp.toISOString()}
+          className="cpk:block cpk:mt-1 cpk:text-xs cpk:leading-4 cpk:text-muted-foreground"
+        >
+          {timestampText}
+        </time>
+      ) : null}
       {shouldShowToolbar && boundToolbar}
     </div>
   );

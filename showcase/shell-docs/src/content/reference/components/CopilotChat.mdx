@@ -21,9 +21,8 @@ import "@copilotkit/react-core/v2/styles.css";
 ### Own Props
 
 <PropertyReference name="agentId" type="string">
-  ID of the agent to use. Must match an agent configured in
-  `CopilotKit`. Defaults to the provider-level default agent when
-  omitted.
+  ID of the agent to use. Must match an agent configured in `CopilotKit`.
+  Defaults to the provider-level default agent when omitted.
 </PropertyReference>
 
 <PropertyReference name="threadId" type="string">
@@ -73,6 +72,16 @@ This means you can pass slot overrides such as `messageView`, `input`, `scrollVi
 
 <PropertyReference name="autoScroll" type="boolean" default="true">
   Whether the chat scrolls to the bottom automatically when new messages arrive.
+</PropertyReference>
+
+<PropertyReference name="showTimestamps" type="boolean" default="false">
+  Displays timestamps for user and assistant messages that include `createdAt`
+  or `timestamp` data.
+</PropertyReference>
+
+<PropertyReference name="formatTimestamp" type="CopilotChatTimestampFormatter">
+  Formats each parsed timestamp. The default uses the browser's local hour and
+  minute format.
 </PropertyReference>
 
 <PropertyReference
@@ -134,6 +143,25 @@ function App() {
           {input}
         </div>
       )}
+    />
+  );
+}
+```
+
+### Showing Message Timestamps
+
+```tsx
+function App() {
+  return (
+    <CopilotChat
+      agentId="my-agent"
+      showTimestamps
+      formatTimestamp={(timestamp) =>
+        timestamp.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      }
     />
   );
 }

@@ -31,6 +31,15 @@ import "@copilotkit/react-core/v2/styles.css";
   adjust their behavior during streaming.
 </PropertyReference>
 
+<PropertyReference name="showTimestamp" type="boolean" default="false">
+  Displays the message's `createdAt` or `timestamp` value below its content.
+</PropertyReference>
+
+<PropertyReference name="formatTimestamp" type="CopilotChatTimestampFormatter">
+  Formats the parsed timestamp and receives the assistant message as its second
+  argument.
+</PropertyReference>
+
 <PropertyReference name="onThumbsUp" type="(message: AssistantMessage) => void">
   Callback invoked when the user clicks the thumbs-up button. When not provided,
   the thumbs-up button is hidden from the toolbar.
