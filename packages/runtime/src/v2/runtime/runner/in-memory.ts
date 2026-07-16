@@ -12,6 +12,7 @@ import type {
   BaseEvent,
   Message,
   RunStartedEvent,
+  StateDeltaEvent,
   StateSnapshotEvent,
 } from "@ag-ui/client";
 import { EventType, compactEvents } from "@ag-ui/client";
@@ -78,6 +79,246 @@ class InMemoryEventStore {
 
 const GLOBAL_STORE = new Map<string, InMemoryEventStore>();
 
+type JsonPatchOperation = {
+  op?: string;
+  path?: string;
+  value?: unknown;
+};
+
+function cloneJson<T>(value: T): T {
+  if (value === undefined) return value;
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function decodeJsonPointer(path: string): string[] | null {
+  if (path === "") return [];
+  if (!path.startsWith("/")) return null;
+  return path
+    .slice(1)
+    .split("/")
+    .map((segment) => segment.replace(/~1/g, "/").replace(/~0/g, "~"));
+}
+
+function encodeJsonPointer(segments: string[]): string {
+  return `/${segments
+    .map((segment) => segment.replace(/~/g, "~0").replace(/\//g, "~1"))
+    .join("/")}`;
+}
+
+function getChild(container: unknown, segment: string): unknown {
+  if (Array.isArray(container)) {
+    const index = Number(segment);
+    return Number.isInteger(index) ? container[index] : undefined;
+  }
+  if (isObject(container)) {
+    return container[segment];
+  }
+  return undefined;
+}
+
+function hasChild(container: unknown, segment: string): boolean {
+  if (Array.isArray(container)) {
+    const index = Number(segment);
+    return Number.isInteger(index) && index >= 0 && index < container.length;
+  }
+  return (
+    isObject(container) &&
+    Object.prototype.hasOwnProperty.call(container, segment)
+  );
+}
+
+function setChild(
+  container: unknown,
+  segment: string,
+  value: unknown,
+): boolean {
+  if (Array.isArray(container)) {
+    if (segment === "-") {
+      container.push(value);
+      return true;
+    }
+    const index = Number(segment);
+    if (!Number.isInteger(index) || index < 0) return false;
+    container[index] = value;
+    return true;
+  }
+  if (!isObject(container)) return false;
+  container[segment] = value;
+  return true;
+}
+
+function removeChild(container: unknown, segment: string): boolean {
+  if (Array.isArray(container)) {
+    const index = Number(segment);
+    if (!Number.isInteger(index) || index < 0 || index >= container.length) {
+      return false;
+    }
+    container.splice(index, 1);
+    return true;
+  }
+  if (!isObject(container)) return false;
+  delete container[segment];
+  return true;
+}
+
+function applyJsonPatchOperation(
+  state: unknown,
+  operation: JsonPatchOperation,
+): unknown {
+  const segments =
+    typeof operation.path === "string"
+      ? decodeJsonPointer(operation.path)
+      : null;
+  if (!segments) return state;
+
+  if (segments.length === 0) {
+    if (operation.op === "remove") return {};
+    if (operation.op === "add" || operation.op === "replace") {
+      return cloneJson(operation.value);
+    }
+    return state;
+  }
+
+  let parent = state;
+  for (const segment of segments.slice(0, -1)) {
+    parent = getChild(parent, segment);
+  }
+
+  const leaf = segments[segments.length - 1]!;
+  if (operation.op === "remove") {
+    removeChild(parent, leaf);
+  } else if (operation.op === "add" || operation.op === "replace") {
+    setChild(parent, leaf, cloneJson(operation.value));
+  }
+  return state;
+}
+
+function createMissingArrayPathOperations(
+  state: unknown,
+  parentSegments: string[],
+): JsonPatchOperation[] {
+  if (parentSegments.length === 0) return [];
+
+  const operations: JsonPatchOperation[] = [];
+  let cursor = state;
+  const pathSegments: string[] = [];
+
+  for (let index = 0; index < parentSegments.length; index += 1) {
+    const segment = parentSegments[index]!;
+    const isArrayTarget = index === parentSegments.length - 1;
+
+    if (!isObject(cursor) && !Array.isArray(cursor)) {
+      return [];
+    }
+
+    if (!hasChild(cursor, segment) || getChild(cursor, segment) === undefined) {
+      const value = isArrayTarget ? [] : {};
+      const operation = {
+        op: "add",
+        path: encodeJsonPointer([...pathSegments, segment]),
+        value,
+      };
+      operations.push(operation);
+      setChild(cursor, segment, cloneJson(value));
+      cursor = getChild(cursor, segment);
+      pathSegments.push(segment);
+      continue;
+    }
+
+    cursor = getChild(cursor, segment);
+    if (isArrayTarget) {
+      if (!Array.isArray(cursor)) return [];
+    } else if (!isObject(cursor) && !Array.isArray(cursor)) {
+      return [];
+    }
+    pathSegments.push(segment);
+  }
+
+  return operations;
+}
+
+function normalizeStateDeltaEvent(
+  event: StateDeltaEvent,
+  state: unknown,
+): { event: StateDeltaEvent; state: unknown } {
+  let nextState: unknown =
+    isObject(state) || Array.isArray(state) ? cloneJson(state) : {};
+  const normalizedDelta: unknown[] = [];
+  let changed = false;
+
+  for (const rawOperation of event.delta) {
+    const operation = rawOperation as JsonPatchOperation;
+    const segments =
+      operation.op === "add" && typeof operation.path === "string"
+        ? decodeJsonPointer(operation.path)
+        : null;
+
+    if (segments?.[segments.length - 1] === "-") {
+      const parentSegments = segments.slice(0, -1);
+      const initializers = createMissingArrayPathOperations(
+        nextState,
+        parentSegments,
+      );
+      if (initializers.length > 0) {
+        changed = true;
+        for (const initializer of initializers) {
+          normalizedDelta.push(initializer);
+          nextState = applyJsonPatchOperation(nextState, initializer);
+        }
+      }
+    }
+
+    normalizedDelta.push(rawOperation);
+    nextState = applyJsonPatchOperation(nextState, operation);
+  }
+
+  return {
+    event: changed ? { ...event, delta: normalizedDelta } : event,
+    state: nextState,
+  };
+}
+
+function normalizeStateEventForCompaction(
+  event: BaseEvent,
+  state: unknown,
+): { event: BaseEvent; state: unknown } {
+  if (event.type === EventType.RUN_STARTED) {
+    const runStarted = event as RunStartedEvent;
+    return {
+      event,
+      state: cloneJson(runStarted.input?.state ?? state ?? {}),
+    };
+  }
+
+  if (event.type === EventType.STATE_SNAPSHOT) {
+    const snapshot = (event as StateSnapshotEvent).snapshot;
+    return { event, state: cloneJson(snapshot ?? {}) };
+  }
+
+  if (event.type === EventType.STATE_DELTA) {
+    return normalizeStateDeltaEvent(event as StateDeltaEvent, state);
+  }
+
+  return { event, state };
+}
+
+function normalizeStateEventsForCompaction(events: BaseEvent[]): BaseEvent[] {
+  let state: unknown = {};
+  return events.map((event) => {
+    const normalized = normalizeStateEventForCompaction(event, state);
+    state = normalized.state;
+    return normalized.event;
+  });
+}
+
+function compactRunnerEvents(events: BaseEvent[]): BaseEvent[] {
+  return compactEvents(normalizeStateEventsForCompaction(events));
+}
+
 export class InMemoryAgentRunner extends AgentRunner {
   readonly ɵsupportsLocalThreadEndpoints = true;
 
@@ -131,6 +372,9 @@ export class InMemoryAgentRunner extends AgentRunner {
     // Track seen message IDs and current run events for this run
     const seenMessageIds = new Set<string>();
     const currentRunEvents: BaseEvent[] = [];
+    let currentStateForCompaction: unknown = cloneJson(
+      request.input.state ?? {},
+    );
     store.currentEvents = currentRunEvents;
 
     // Get all previously seen message IDs from historic runs
@@ -191,6 +435,13 @@ export class InMemoryAgentRunner extends AgentRunner {
               }
             }
 
+            const normalized = normalizeStateEventForCompaction(
+              processedEvent,
+              currentStateForCompaction,
+            );
+            processedEvent = normalized.event;
+            currentStateForCompaction = normalized.state;
+
             runSubject.next(processedEvent); // For run() return - only agent events
             nextSubject.next(processedEvent); // For connect() / store - all events
             currentRunEvents.push(processedEvent); // Accumulate for storage
@@ -227,7 +478,7 @@ export class InMemoryAgentRunner extends AgentRunner {
         // a newer run's id, which would corrupt the thread's history.
         if (store.currentRunId === request.input.runId) {
           // Compact the events before storing (like SQLite does)
-          const compactedEvents = compactEvents(currentRunEvents);
+          const compactedEvents = compactRunnerEvents(currentRunEvents);
 
           store.historicRuns.push({
             threadId: request.threadId,
@@ -276,7 +527,7 @@ export class InMemoryAgentRunner extends AgentRunner {
           currentRunEvents.length > 0
         ) {
           // Compact the events before storing (like SQLite does)
-          const compactedEvents = compactEvents(currentRunEvents);
+          const compactedEvents = compactRunnerEvents(currentRunEvents);
           store.historicRuns.push({
             threadId: request.threadId,
             runId: request.input.runId,
@@ -340,7 +591,7 @@ export class InMemoryAgentRunner extends AgentRunner {
     }
 
     // Apply compaction to all historic events together (like SQLite)
-    const compactedEvents = compactEvents(allHistoricEvents);
+    const compactedEvents = compactRunnerEvents(allHistoricEvents);
 
     // Emit compacted events and track message IDs
     const emittedMessageIds = new Set<string>();
@@ -471,7 +722,7 @@ export class InMemoryAgentRunner extends AgentRunner {
     if (!store || store.historicRuns.length === 0) return [];
     const all: BaseEvent[] = [];
     for (const run of store.historicRuns) all.push(...run.events);
-    return compactEvents(all);
+    return compactRunnerEvents(all);
   }
 
   /**

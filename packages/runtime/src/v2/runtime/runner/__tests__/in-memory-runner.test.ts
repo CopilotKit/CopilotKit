@@ -15,7 +15,7 @@ import type {
 } from "@ag-ui/client";
 import { AbstractAgent, EventType, verifyEvents } from "@ag-ui/client";
 import { EMPTY, Observable, firstValueFrom } from "rxjs";
-import { toArray } from "rxjs/operators";
+import { timeout, toArray } from "rxjs/operators";
 
 const stripTerminalEvents = (events: BaseEvent[]) =>
   events.filter(
@@ -817,6 +817,52 @@ describe("InMemoryAgentRunner — listThreads / getThreadMessages", () => {
         otherThreadSnapshot,
       );
       expect(runner.getThreadState("thread-multi-state")).toEqual(second);
+    });
+
+    it("handles /- append deltas when the target array is not initialized", async () => {
+      const todo = { id: "todo-1", text: "Buy milk", completed: false };
+      const agent = new TestAgent(
+        [
+          {
+            type: EventType.STATE_DELTA,
+            delta: [{ op: "add", path: "/todos/-", value: todo }],
+          } as BaseEvent,
+        ],
+        true,
+      );
+
+      const threadId = "thread-state-delta-array-append";
+
+      await firstValueFrom(
+        runner
+          .run({
+            threadId,
+            agent,
+            input: {
+              threadId,
+              runId: "run-state-delta-array-append",
+              messages: [],
+              state: {},
+              tools: [],
+              context: [],
+            },
+          })
+          .pipe(toArray(), timeout(1000)),
+      );
+
+      expect(runner.getThreadState(threadId)).toEqual({ todos: [todo] });
+
+      const replayedEvents = await firstValueFrom(
+        runner.connect({ threadId }).pipe(toArray(), timeout(1000)),
+      );
+      expect(
+        replayedEvents.some(
+          (event) =>
+            event.type === EventType.STATE_SNAPSHOT &&
+            JSON.stringify((event as { snapshot?: unknown }).snapshot) ===
+              JSON.stringify({ todos: [todo] }),
+        ),
+      ).toBe(true);
     });
   });
 });
