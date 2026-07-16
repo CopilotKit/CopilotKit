@@ -97,6 +97,10 @@ describe("resolveDocsHref", () => {
     expect(resolveDocsHref("/custom-look-and-feel/slots", options)).toBe(
       "/mastra/custom-look-and-feel/slots",
     );
+    expect(resolveDocsHref("/threads", options)).toBe("/mastra/threads");
+    expect(resolveDocsHref("/headless-threads", options)).toBe(
+      "/mastra/headless-threads",
+    );
   });
 
   it("does not scope redirect-source links found in MDX content", () => {
