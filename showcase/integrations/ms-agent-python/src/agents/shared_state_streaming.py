@@ -13,9 +13,11 @@ directly into `state.document` while the tool call is still streaming.
 
 from __future__ import annotations
 
+from collections.abc import AsyncGenerator
 from textwrap import dedent
-from typing import Annotated
+from typing import Annotated, Any
 
+from ag_ui.core import BaseEvent, EventType, StateSnapshotEvent
 from agent_framework import Agent, BaseChatClient, tool
 from agent_framework_ag_ui import AgentFrameworkAgent, state_update
 from pydantic import Field
@@ -78,6 +80,65 @@ SYSTEM_PROMPT = dedent(
 ).strip()
 
 
+class SharedStateStreamingFrameworkAgent(AgentFrameworkAgent):
+    """Seeds ``state.document`` before the run so predictive STATE_DELTAs apply.
+
+    MAF's initial AG-UI agent state is ``{}`` — ``state_schema`` contributes
+    property *definitions* but no seeded *values*, and the deterministic
+    StateSnapshotEvent is only emitted AFTER a tool result. The predictive
+    STATE_DELTAs that `predict_state_config` streams while `write_document`
+    is still generating are JSON-patch ``replace`` ops on ``/document``,
+    which the frontend rejects when the path does not yet exist ("Failed to
+    apply state patch ... op: replace" against ``{}``), so the run never
+    settles. langgraph-python avoids this because its typed LangGraph
+    ``State`` seeds ``document = ""``.
+
+    We mirror that seed by emitting a ``STATE_SNAPSHOT`` carrying the current
+    ``document`` value (``""`` on the first turn) immediately after
+    ``RUN_STARTED`` and before the predictive deltas stream.
+
+    KNOWN LIMITATION (MAF ``agent_framework_ag_ui`` rc8): this seed fixes the
+    single-turn path — the document now streams token-by-token and the run
+    settles. A *second* turn still hangs the harness completion gate: the
+    agent emits a clean, correlated ``RUN_FINISHED`` (verified via direct SSE
+    capture) but the CopilotKit frontend does not clear
+    ``data-copilot-running`` after the second turn, so the probe reds with
+    ``done-signal-missing``. The demo frontend is byte-identical to the
+    passing langgraph-python demo, so the divergence is in the MAF AG-UI
+    adapter's run-completion emission, below the showcase layer. langgraph's
+    CopilotKit adapter does not exhibit this. Until the adapter is fixed
+    upstream, the D6 cell stays quarantined in ``not_supported_features``.
+    """
+
+    async def run(  # type: ignore[override]
+        self,
+        input_data: dict[str, Any],
+    ) -> AsyncGenerator[BaseEvent, None]:
+        incoming = input_data.get("state")
+        state = incoming if isinstance(incoming, dict) else {}
+        # Seed on EVERY turn (preserving any existing document) so the
+        # `/document` path always exists before the predictive STATE_DELTAs
+        # stream. `{**state, "document": state.get("document", "")}` keeps a
+        # prior turn's committed document intact while guaranteeing the key is
+        # present for turn 1's empty state.
+        document = state.get("document", "")
+        seeded = False
+        async for event in super().run(input_data):
+            yield event
+            # Inject the seed snapshot immediately AFTER RUN_STARTED — the
+            # AG-UI protocol requires RUN_STARTED to be the first event, and
+            # the seed must land before the predictive STATE_DELTAs stream.
+            if (
+                not seeded
+                and getattr(event, "type", None) == EventType.RUN_STARTED
+            ):
+                yield StateSnapshotEvent(
+                    type=EventType.STATE_SNAPSHOT,
+                    snapshot={**state, "document": document},
+                )
+                seeded = True
+
+
 def create_shared_state_streaming_agent(
     chat_client: BaseChatClient,
 ) -> AgentFrameworkAgent:
@@ -89,7 +150,7 @@ def create_shared_state_streaming_agent(
         tools=[write_document],
     )
 
-    return AgentFrameworkAgent(
+    return SharedStateStreamingFrameworkAgent(
         agent=base_agent,
         name="SharedStateStreamingAgent",
         description=(
