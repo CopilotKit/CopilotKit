@@ -81,7 +81,9 @@ export const GET = (req: NextRequest) => handler(req);
 
 ## Frontend
 
-Pass your token via the `properties` prop. CopilotKit forwards it to LangGraph as a Bearer token automatically.
+Use the auth channel that matches where your LangGraph agent runs.
+
+For **LangGraph Platform**, pass your token via the `properties` prop. CopilotKit forwards it to LangGraph as a Bearer token automatically.
 
 ```tsx title="frontend/src/app/page.tsx"
 import { CopilotKit } from "@copilotkit/react-core/v2";
@@ -96,9 +98,24 @@ import { CopilotKit } from "@copilotkit/react-core/v2";
 </CopilotKit>
 ```
 
+For **self-hosted FastAPI agents**, pass your token as an `Authorization` header so the AG-UI endpoint can validate it before the graph runs.
+
+```tsx title="frontend/src/app/page.tsx"
+import { CopilotKit } from "@copilotkit/react-core/v2";
+
+<CopilotKit
+  runtimeUrl="/api/copilotkit"
+  headers={{
+    Authorization: `Bearer ${userToken}`,
+  }}
+>
+  <YourApp />
+</CopilotKit>
+```
+
 ## Backend
 
-LangGraph supports two deployment modes. The frontend code above is the same in both, but the backend wiring differs in where the resolved user identity lands. Pick the tab that matches where your agent runs.
+LangGraph supports two deployment modes. The frontend token channel and backend wiring differ in where the resolved user identity lands. Pick the tab that matches where your agent runs.
 
 <Tabs items={['LangGraph Platform', 'Self-hosted']}>
 <Tab value="LangGraph Platform">
@@ -143,41 +160,72 @@ For full handler details, see the [LangGraph Platform Authentication documentati
 </Tab>
 <Tab value="Self-hosted">
 
-When you self-host the agent, there's no managed auth handler to plug into. Instead, you forward the raw token onto every run by configuring the agent dynamically — the request's `properties.authorization` becomes part of `langgraph_config["configurable"]`, where every node can read it back later.
+When you self-host the agent, there's no managed auth handler to plug into. Validate the incoming `Authorization` header in your FastAPI AG-UI endpoint, clone the `LangGraphAGUIAgent` for the request, attach trusted identity to `config["configurable"]`, then call `run()`.
+
+Use `add_langgraph_fastapi_endpoint` when you do not need request-scoped auth. Define the route yourself when you need to validate headers or mutate per-run config before dispatching.
 
 ```python title="backend/demo.py"
-from copilotkit import CopilotKitRemoteEndpoint, LangGraphAGUIAgent
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import StreamingResponse
+from ag_ui.core.types import RunAgentInput
+from ag_ui.encoder import EventEncoder
+from copilotkit import LangGraphAGUIAgent
+from my_agent.agent import graph
 
-sdk = CopilotKitRemoteEndpoint(
-    agents=lambda context: [
-        LangGraphAGUIAgent(
-            name="sample_agent",
-            description="Agent with authentication support",
-            graph=graph,
-            langgraph_config={
-                "configurable": {
-                    "copilotkit_auth": context["properties"].get("authorization"),
-                },
-            },
-        ),
-    ],
+app = FastAPI()
+
+agent = LangGraphAGUIAgent(
+    name="sample_agent",
+    description="Agent with authentication support",
+    graph=graph,
 )
+
+def validate_your_token(token: str) -> dict:
+    if token != "valid-token":
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return {"user_id": "user_123", "role": "member"}
+
+@app.post("/")
+async def langgraph_agent_endpoint(input_data: RunAgentInput, request: Request):
+    authorization = request.headers.get("authorization")
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    token = authorization.removeprefix("Bearer ").strip()
+    user_info = validate_your_token(token)
+
+    encoder = EventEncoder(accept=request.headers.get("accept"))
+    request_agent = agent.clone()
+    request_agent.config = {
+        **(request_agent.config or {}),
+        "configurable": {
+            **((request_agent.config or {}).get("configurable", {})),
+            "copilotkit_user": user_info,
+        },
+    }
+
+    async def event_generator():
+        async for event in request_agent.run(input_data):
+            yield encoder.encode(event)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type=encoder.get_content_type(),
+    )
 ```
 
-Validation is your job in this mode. Inside any node, pull the token out of `config["configurable"]` and run it through your verifier. Decide the policy explicitly: reject unauthenticated calls, or fall through to an `anonymous` branch as the example below does.
+Inside any node, read the trusted identity from `config["configurable"]`. Reject unauthenticated calls unless your product explicitly supports anonymous runs.
 
 ```python title="backend/agent.py"
 from langchain_core.runnables import RunnableConfig
 
 async def my_agent_node(state: AgentState, config: RunnableConfig):
-    auth_token = config["configurable"].get("copilotkit_auth")
-    if auth_token:
-        user_info = validate_your_token(auth_token)
-        user_id = user_info["user_id"]
-        user_role = user_info.get("role")
-    else:
-        user_id = "anonymous"
-        user_role = None
+    user_info = config["configurable"].get("copilotkit_user")
+    if not user_info:
+        raise PermissionError("Authenticated user is required")
+
+    user_id = user_info["user_id"]
+    user_role = user_info.get("role")
     return state
 ```
 

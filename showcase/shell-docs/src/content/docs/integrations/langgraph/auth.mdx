@@ -8,7 +8,7 @@ description: "Secure your LangGraph agents with user authentication (Platform & 
 CopilotKit supports user authentication for LangGraph agents in two deployment modes:
 
 - **LangGraph Platform**: Uses built-in authentication with `@auth.authenticate` decorator
-- **Self-hosted**: Uses dynamic agent configuration to pass authentication context
+- **Self-hosted**: Uses a request-scoped FastAPI AG-UI endpoint to validate headers and pass trusted user context
 
 Both approaches enable your agents to access authenticated user context and implement proper authorization.
 
@@ -29,7 +29,9 @@ sequenceDiagram
 
 ## Frontend Setup
 
-Pass your authentication token via the `properties` prop:
+Choose the token channel that matches your deployment mode.
+
+For **LangGraph Platform**, pass your authentication token via the `properties` prop:
 
 ```tsx
 <CopilotKit
@@ -43,6 +45,19 @@ Pass your authentication token via the `properties` prop:
 ```
 
 **Note**: For LangGraph Platform, the `authorization` property is forwarded as a Bearer token.
+
+For **self-hosted FastAPI agents**, pass the token as a request header so the AG-UI endpoint can validate it before the graph runs:
+
+```tsx
+<CopilotKit
+  runtimeUrl="/api/copilotkit"
+  headers={{
+    Authorization: `Bearer ${userToken}`,
+  }}
+>
+  <YourApp />
+</CopilotKit>
+```
 
 ## LangGraph Platform Deployment
 
@@ -90,28 +105,58 @@ For complete implementation details, see the [LangGraph Platform Authentication 
 
 ## Self-hosted Deployment
 
-**For self-hosted agents**, you need to manually configure authentication context through dynamic agent creation.
+**For self-hosted agents**, validate the incoming `Authorization` header in your FastAPI AG-UI endpoint, then attach trusted identity to the per-request LangGraph config.
 
-### Setup Dynamic Agent Configuration
+The built-in `add_langgraph_fastapi_endpoint` helper is enough when you do not need request-scoped auth. When you need to validate headers and inject user context, define the route yourself and call `LangGraphAGUIAgent.run()` directly.
 
 ```python
-# demo.py - Configure agent with authentication context
-from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import StreamingResponse
+from ag_ui.core.types import RunAgentInput
+from ag_ui.encoder import EventEncoder
+from copilotkit import LangGraphAGUIAgent
+from my_agent.agent import graph
 
-sdk = CopilotKitRemoteEndpoint(
-    agents=lambda context: [
-        LangGraphAgent(
-            name="sample_agent",
-            description="Agent with authentication support",
-            graph=graph,
-            langgraph_config={
-                "configurable": {
-                    "copilotkit_auth": context["properties"].get("authorization")
-                }
-            }
-        )
-    ],
+app = FastAPI()
+
+agent = LangGraphAGUIAgent(
+    name="sample_agent",
+    description="Agent with authentication support",
+    graph=graph,
 )
+
+def validate_your_token(token: str) -> dict:
+    if token != "valid-token":
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return {"user_id": "user_123", "role": "member"}
+
+@app.post("/")
+async def langgraph_agent_endpoint(input_data: RunAgentInput, request: Request):
+    authorization = request.headers.get("authorization")
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    token = authorization.removeprefix("Bearer ").strip()
+    user_info = validate_your_token(token)
+
+    encoder = EventEncoder(accept=request.headers.get("accept"))
+    request_agent = agent.clone()
+    request_agent.config = {
+        **(request_agent.config or {}),
+        "configurable": {
+            **((request_agent.config or {}).get("configurable", {})),
+            "copilotkit_user": user_info,
+        },
+    }
+
+    async def event_generator():
+        async for event in request_agent.run(input_data):
+            yield encoder.encode(event)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type=encoder.get_content_type(),
+    )
 ```
 
 ### Access User in Agent
@@ -120,15 +165,13 @@ sdk = CopilotKitRemoteEndpoint(
 from langchain_core.runnables import RunnableConfig
 
 async def my_agent_node(state: AgentState, config: RunnableConfig):
-    # Handle authentication for self-hosted mode
-    auth_token = config["configurable"].get("copilotkit_auth")
-    if auth_token:
-        user_info = validate_your_token(auth_token)
-        user_id = user_info["user_id"]
-        user_role = user_info.get("role")
-    else:
-        user_id = "anonymous"
-        user_role = None
+    # Read the trusted identity attached by your FastAPI endpoint
+    user_info = config["configurable"].get("copilotkit_user")
+    if not user_info:
+        raise PermissionError("Authenticated user is required")
+
+    user_id = user_info["user_id"]
+    user_role = user_info.get("role")
 
     # Your agent logic with user context
     return state
@@ -152,12 +195,10 @@ async def my_agent_node(state: AgentState, config: RunnableConfig):
         user_role = user_info.get("role")
 
     # Self-hosted mode
-    elif "configurable" in config and "copilotkit_auth" in config["configurable"]:
-        auth_token = config["configurable"]["copilotkit_auth"]
-        if auth_token:
-            user_info = validate_your_token(auth_token)
-            user_id = user_info["user_id"]
-            user_role = user_info.get("role")
+    elif "configurable" in config and "copilotkit_user" in config["configurable"]:
+        user_info = config["configurable"]["copilotkit_user"]
+        user_id = user_info["user_id"]
+        user_role = user_info.get("role")
 
     # Your agent logic with user context
     return state
@@ -173,8 +214,8 @@ async def my_agent_node(state: AgentState, config: RunnableConfig):
 
 ### Self-hosted
 
-- **Manual Validation**: You must implement token validation in your agent logic
-- **Context Passing**: Authentication context passed through agent configuration
+- **Manual Validation**: You must implement token validation in your FastAPI endpoint before the graph runs
+- **Context Passing**: Authentication context is passed through `config["configurable"]`
 - **Security Responsibility**: Ensure proper token validation and user scoping
 
 ### General Best Practices
@@ -191,8 +232,8 @@ For comprehensive authentication patterns, authorization handlers, and security 
 
 **Token not reaching agent**:
 
-- Ensure you're passing `authorization` in the `properties` prop
-- For self-hosted: Verify dynamic agent configuration is set up correctly
+- For LangGraph Platform, ensure you're passing `authorization` in the `properties` prop
+- For self-hosted, ensure you're passing `Authorization` in the `headers` prop and your FastAPI route copies verified user context into `config["configurable"]`
 
 **Invalid token format**:
 
@@ -202,7 +243,7 @@ For comprehensive authentication patterns, authorization handlers, and security 
 **User info not available**:
 
 - **LangGraph Platform**: Verify your `@auth.authenticate` handler is properly configured
-- **Self-hosted**: Check that `copilotkit_auth` is properly passed in `langgraph_config`
+- **Self-hosted**: Check that your custom endpoint sets `copilotkit_user` on the cloned agent's `config["configurable"]`
 
 **Authentication works locally but not in production**:
 
