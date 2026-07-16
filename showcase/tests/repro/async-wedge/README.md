@@ -42,14 +42,14 @@ exercising the sync-client-on-the-loop blocking path.)
 
 ## Files
 
-| File | Role |
-|------|------|
-| `slow_anthropic.py` | Anthropic-compatible mock; every response sleeps `SLOW_SECONDS`. Serves both `messages.create` (JSON) and `messages.stream` (SSE). |
-| `server.py` | Minimal replica. `FIXED=0` sync-on-loop (RED), `FIXED=1` `to_thread` (GREEN). |
-| `prod_server.py` | Drives the **real** production code. `MODE=generator` runs the whole `run_a2ui_dynamic_agent` generator; `MODE=direct` isolates the real `_generate_a2ui` (`FIXED` toggles the call shape). |
-| `run.sh` | Driver for `server.py`. `FIXED=0` asserts wedge≥1; `FIXED=1` asserts wedge==0. |
-| `run_prod.sh` | Driver for `prod_server.py`. `EXPECT=green` asserts wedge==0; `EXPECT=red` asserts wedge≥1. In `MODE=direct` the harness owns RED/GREEN via `FIXED` (deterministic mutation guard). |
-| `load.sh` | Fires `CONCURRENCY` concurrent `POST /generate`. |
+| File                | Role                                                                                                                                                                                        |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `slow_anthropic.py` | Anthropic-compatible mock; every response sleeps `SLOW_SECONDS`. Serves both `messages.create` (JSON) and `messages.stream` (SSE).                                                          |
+| `server.py`         | Minimal replica. `FIXED=0` sync-on-loop (RED), `FIXED=1` `to_thread` (GREEN).                                                                                                               |
+| `prod_server.py`    | Drives the **real** production code. `MODE=generator` runs the whole `run_a2ui_dynamic_agent` generator; `MODE=direct` isolates the real `_generate_a2ui` (`FIXED` toggles the call shape). |
+| `run.sh`            | Driver for `server.py`. `FIXED=0` asserts wedge≥1; `FIXED=1` asserts wedge==0.                                                                                                              |
+| `run_prod.sh`       | Driver for `prod_server.py`. `EXPECT=green` asserts wedge==0; `EXPECT=red` asserts wedge≥1. In `MODE=direct` the harness owns RED/GREEN via `FIXED` (deterministic mutation guard).         |
+| `load.sh`           | Fires `CONCURRENCY` concurrent `POST /generate`.                                                                                                                                            |
 
 ## Prerequisites
 
