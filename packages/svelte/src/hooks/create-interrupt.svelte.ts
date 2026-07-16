@@ -48,7 +48,7 @@ type InterruptResult<TValue, TResult> = InterruptResultFromHandler<
 export interface CreateInterruptConfig<TValue = unknown, TResult = never> {
   handler?: InterruptHandlerFn<TValue, TResult>;
   enabled?: (event: InterruptEvent<TValue>) => boolean;
-  agentId?: string;
+  agentId?: string | (() => string | undefined);
   renderInChat?: boolean;
 }
 
@@ -102,7 +102,13 @@ export function createInterrupt<TValue = unknown, TResult = never>(
     throw new Error("createInterrupt must be used within CopilotKitProvider");
   }
 
-  const agentHandle = createAgent({ agentId: config.agentId });
+  const agentHandle = createAgent({
+    get agentId() {
+      return typeof config.agentId === "function"
+        ? config.agentId()
+        : config.agentId;
+    },
+  });
 
   let pending = $state<PendingInterrupt | null>(null);
   let result = $state<InterruptResult<TValue, TResult>>(null);
