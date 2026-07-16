@@ -7,18 +7,24 @@ const distDir = new URL("../dist", import.meta.url).pathname;
 // These appear in generated .d.ts files from vite-plugin-dts
 const replacements = [
   [
-    /(['"])\.\.\/@copilotkit\/([^/]+)\1/g,
+    /(['"])(?:\.\.\/)+@copilotkit\/([^/'"]+)\1/g,
     (match, quote, pkg) => `${quote}@copilotkit/${pkg}${quote}`,
   ],
-  [/(['"])\.\.\/\.\.\/core\/dist\/index\.d\.mts\1/g, `'@copilotkit/core'`],
-  [/(['"])\.\.\/\.\.\/shared\/dist\/index\.d\.mts\1/g, `'@copilotkit/shared'`],
   [
-    /(['"])\.\.\/\.\.\/web-inspector\/dist\/index\.d\.mts\1/g,
-    `'@copilotkit/web-inspector'`,
+    /(['"])(?:\.\.\/)+core\/dist\/index\.d\.[mc]?ts\1/g,
+    (match, quote) => `${quote}@copilotkit/core${quote}`,
   ],
   [
-    /(['"])\.\.\/\.\.\/web-components\/dist\/index\.d\.mts\1/g,
-    `'@copilotkit/web-components'`,
+    /(['"])(?:\.\.\/)+shared\/dist\/index\.d\.[mc]?ts\1/g,
+    (match, quote) => `${quote}@copilotkit/shared${quote}`,
+  ],
+  [
+    /(['"])(?:\.\.\/)+web-inspector\/dist\/index\.d\.[mc]?ts\1/g,
+    (match, quote) => `${quote}@copilotkit/web-inspector${quote}`,
+  ],
+  [
+    /(['"])(?:\.\.\/)+web-components\/dist\/index\.d\.[mc]?ts\1/g,
+    (match, quote) => `${quote}@copilotkit/web-components${quote}`,
   ],
 ];
 
