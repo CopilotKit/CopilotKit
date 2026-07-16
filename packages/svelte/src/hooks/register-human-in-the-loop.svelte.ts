@@ -54,7 +54,7 @@ export function registerHumanInTheLoop<T extends Record<string, unknown>>(
 
   $effect(() => {
     const core = context.copilotkit;
-    core.addTool(frontendTool);
+    core.addHookFrontendTool(frontendTool);
     const name = tool.name;
     core.addHookRenderToolCall({
       name,
@@ -63,7 +63,7 @@ export function registerHumanInTheLoop<T extends Record<string, unknown>>(
       render: RenderComponent,
     } as SvelteToolCallRenderer<unknown>);
     return () => {
-      core.removeTool(name, tool.agentId);
+      core.removeHookFrontendTool(name, tool.agentId);
       core.removeHookRenderToolCall(name, tool.agentId);
     };
   });
