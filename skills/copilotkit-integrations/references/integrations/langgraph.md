@@ -290,16 +290,15 @@ Run it with `langgraphjs dev --port 8123` (the agent app's `dev` script). The `g
 
 The catch-all `src/app/api/copilotkit/[[...slug]]/route.ts` uses `LangGraphAgent` (from `@copilotkit/runtime/langgraph`) with `deploymentUrl` (the `langgraphjs dev` URL, e.g. `http://localhost:8123`) and `graphId` (`"sample_agent"`), mounted via `createCopilotHonoHandler`.
 
-## Monorepo Structure (JS)
+## Project Structure (JS)
 
-The JS variant uses a Turborepo monorepo:
+The JS variant uses a Next.js app with a nested LangGraph agent app:
 
 ```
-apps/
-  web/          # Next.js frontend
-  agent/        # LangGraph agent, served via `langgraphjs dev` (langgraph.json)
-pnpm-workspace.yaml
-turbo.json
+src/            # Next.js frontend and CopilotKit API route
+agent/          # LangGraph agent, served via `langgraphjs dev` (langgraph.json)
+scripts/        # Cross-platform agent run scripts
+package.json
 ```
 
-Run `pnpm dev` to start both apps via Turborepo (the agent app runs `langgraphjs dev --port 8123`).
+Run `pnpm dev` to start both the UI and agent servers concurrently. The agent app runs `langgraphjs dev --port 8123`.

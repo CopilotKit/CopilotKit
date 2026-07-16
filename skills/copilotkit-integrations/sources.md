@@ -26,7 +26,7 @@ Generated: 2026-03-28
 
 - examples/integrations/langgraph-fastapi/ (LangGraph Python self-hosted with LangGraphAGUIAgent, FastAPI, LangGraphHttpAgent)
 - examples/integrations/langgraph-python/ (LangGraph Platform with LangGraphAgent, deploymentUrl, graphId)
-- examples/integrations/langgraph-js/ (LangGraph JS with CopilotKitStateAnnotation, convertActionsToDynamicStructuredTools, Turborepo monorepo)
+- examples/integrations/langgraph-js/ (LangGraph JS with CopilotKitStateAnnotation, convertActionsToDynamicStructuredTools, Next.js UI, and nested LangGraph agent app)
 
 ## integrations/llamaindex.md
 

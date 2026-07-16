@@ -21,7 +21,7 @@ Framework integration starters demonstrating CopilotKit with various agent frame
 | Example                                                                | Description                                                                          |
 | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | [langgraph-python](./integrations/langgraph-python/)                   | Starter template for building AI agents using LangGraph (Python) and CopilotKit      |
-| [langgraph-js](./integrations/langgraph-js/)                           | Starter template for building AI agents using LangGraph (JS) with Turborepo monorepo |
+| [langgraph-js](./integrations/langgraph-js/)                           | Starter template for building AI agents using LangGraph (JS) and CopilotKit          |
 | [langgraph-fastapi](./integrations/langgraph-fastapi/)                 | Starter template for building AI agents using LangGraph with FastAPI and Poetry      |
 | [mastra](./integrations/mastra/)                                       | Starter template for building AI agents using Mastra and CopilotKit                  |
 | [crewai-flows](./integrations/crewai-flows/)                           | Starter template for building AI agents using CrewAI Flows (uv-based)                |
