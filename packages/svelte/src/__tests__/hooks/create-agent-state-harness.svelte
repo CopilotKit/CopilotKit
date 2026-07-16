@@ -1,10 +1,10 @@
 <script lang="ts">
   import { setContext } from "svelte";
-  import { createAgent } from "../hooks/create-agent.svelte";
+  import { createAgent } from "../../hooks/create-agent.svelte";
   import {
     COPILOT_KIT_KEY,
     type CopilotKitContextValue,
-  } from "../providers/context";
+  } from "../../providers/context";
 
   let { context }: { context: CopilotKitContextValue } = $props();
 
