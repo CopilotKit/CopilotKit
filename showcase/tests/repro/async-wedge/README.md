@@ -42,17 +42,17 @@ exercising the sync-client-on-the-loop blocking path.)
 
 ## Files
 
-| File                | Role                                                                                                                                                                                        |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `slow_anthropic.py` | Anthropic-compatible mock; every response sleeps `SLOW_SECONDS`. Serves both `messages.create` (JSON) and `messages.stream` (SSE).                                                          |
-| `server.py`         | Minimal replica. `FIXED=0` sync-on-loop (RED), `FIXED=1` `to_thread` (GREEN).                                                                                                               |
-| `prod_server.py`    | Drives the **real** production code. `MODE=generator` runs the whole `run_a2ui_dynamic_agent` generator; `MODE=direct` isolates the real `_generate_a2ui` (`FIXED` toggles the call shape). |
-| `run.sh`            | Driver for `server.py`. `FIXED=0` asserts wedge≥1; `FIXED=1` asserts wedge==0.                                                                                                              |
-| `run_prod.sh`       | Driver for `prod_server.py`. `EXPECT=green` asserts wedge==0; `EXPECT=red` asserts wedge≥1. In `MODE=direct` the harness owns RED/GREEN via `FIXED` (deterministic mutation guard).         |
-| `load.sh`           | Fires `CONCURRENCY` concurrent `POST /generate`.                                                                                                                                            |
-| `slow_openai.py`    | OpenAI-compatible mock; every `POST /v1/chat/completions` sleeps `SLOW_SECONDS` and returns a forced `render_a2ui` tool call. Sibling of `slow_anthropic.py` for the OpenAI-SDK wedge sites. |
+| File                    | Role                                                                                                                                                                                                      |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `slow_anthropic.py`     | Anthropic-compatible mock; every response sleeps `SLOW_SECONDS`. Serves both `messages.create` (JSON) and `messages.stream` (SSE).                                                                        |
+| `server.py`             | Minimal replica. `FIXED=0` sync-on-loop (RED), `FIXED=1` `to_thread` (GREEN).                                                                                                                             |
+| `prod_server.py`        | Drives the **real** production code. `MODE=generator` runs the whole `run_a2ui_dynamic_agent` generator; `MODE=direct` isolates the real `_generate_a2ui` (`FIXED` toggles the call shape).               |
+| `run.sh`                | Driver for `server.py`. `FIXED=0` asserts wedge≥1; `FIXED=1` asserts wedge==0.                                                                                                                            |
+| `run_prod.sh`           | Driver for `prod_server.py`. `EXPECT=green` asserts wedge==0; `EXPECT=red` asserts wedge≥1. In `MODE=direct` the harness owns RED/GREEN via `FIXED` (deterministic mutation guard).                       |
+| `load.sh`               | Fires `CONCURRENCY` concurrent `POST /generate`.                                                                                                                                                          |
+| `slow_openai.py`        | OpenAI-compatible mock; every `POST /v1/chat/completions` sleeps `SLOW_SECONDS` and returns a forced `render_a2ui` tool call. Sibling of `slow_anthropic.py` for the OpenAI-SDK wedge sites.              |
 | `prod_server_openai.py` | Drives the **real** production OpenAI-SDK `_generate_a2ui` sync fn selected by `TARGET` (`ag2-beautiful-chat` \| `llamaindex-agent` \| `llamaindex-a2ui`). `MODE=direct`; `FIXED` toggles the call shape. |
-| `run_prod_openai.sh` | Driver for `prod_server_openai.py`. `EXPECT=green` asserts wedge==0 AND `tool_dispatch_fired>=1`; `EXPECT=red` asserts wedge≥1. `FIXED` (aligned to `EXPECT`) owns the deterministic mutation guard. |
+| `run_prod_openai.sh`    | Driver for `prod_server_openai.py`. `EXPECT=green` asserts wedge==0 AND `tool_dispatch_fired>=1`; `EXPECT=red` asserts wedge≥1. `FIXED` (aligned to `EXPECT`) owns the deterministic mutation guard.      |
 
 ### OpenAI-SDK wedge sites (ag2 + llamaindex fold-in)
 
