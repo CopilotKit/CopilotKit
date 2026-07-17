@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/channels-teams",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Microsoft Teams platform adapter for CopilotKit JSX channels (@copilotkit/channels).",
   "license": "MIT",
   "repository": {
