@@ -121,12 +121,13 @@ export class SubagentRegistry {
   }
 
   private handleFinished(agentId: string, event: SubagentFinishedEvent): void {
-    const existing = this._subagents[agentId]?.[event.subagentId];
-    if (!existing) {
+    const bucket = this._subagents[agentId];
+    const existing = bucket?.[event.subagentId];
+    if (!bucket || !existing) {
       return; // FINISHED without a prior STARTED — nothing to update
     }
     // Replace (not mutate) so the object identity changes for React consumers.
-    this._subagents[agentId][event.subagentId] = {
+    bucket[event.subagentId] = {
       ...existing,
       status: "finished",
     };
