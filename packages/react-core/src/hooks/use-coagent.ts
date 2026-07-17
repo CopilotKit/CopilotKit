@@ -364,7 +364,7 @@ export function useCoAgent<T = any>(
     agent?.state,
     agent?.runAgent,
     agent?.abortRun,
-    agent?.runAgent,
+    nodeName,
     agent?.threadId,
     agent?.isRunning,
     agent?.agentId,
