@@ -219,6 +219,24 @@ describe("HttpEgressSink", () => {
     ).toEqual({ ok: true, ref: "turn_9:1" });
     expect(calls).toHaveLength(0);
   });
+
+  it("fails loud on an empty-text update instead of silently acking a no-send", async () => {
+    // An empty POST is a legitimate no-op (nothing to say), but an empty UPDATE
+    // would silently drop a real intent (e.g. clearing a message body) this
+    // post-only fallback egress cannot express. Acking it as success is
+    // inconsistent with the module's fail-loud posture.
+    const { fetch, calls } = fakeFetch(() => ({ body: {} }));
+    const sink = new HttpEgressSink(cfg({ fetch }));
+    const res = await sink.emit({
+      operationId: "turn_9:2",
+      turnId: "turn_9",
+      deliveryId: "dlv_9",
+      route: {},
+      op: { kind: "update", ref: "r", ir: [] },
+    });
+    expect(res.ok).toBe(false);
+    expect(calls).toHaveLength(0);
+  });
 });
 
 describe("HttpDeliverySource", () => {

@@ -462,8 +462,17 @@ export class HttpEgressSink implements EgressSink {
     if (op.op.kind === "delete") return { ok: true, ref: op.operationId };
 
     const text = irToText(op.op.ir);
-    // Intelligence requires non-empty text; skip empties without a 400.
-    if (!text) return { ok: true, ref: op.operationId };
+    // Intelligence requires non-empty text. An empty POST is a legitimate no-op
+    // (nothing to say) so skip it without a 400. An empty UPDATE, however, is a
+    // real intent (e.g. clearing a message body) that this post-only fallback
+    // egress cannot express — fail loud rather than ack a no-send as success,
+    // consistent with the module's fail-loud posture.
+    if (!text) {
+      if (op.op.kind === "update") {
+        return { ok: false, code: "empty_update" };
+      }
+      return { ok: true, ref: op.operationId };
+    }
 
     try {
       const res = await this.http.post<EgressResponse>(
