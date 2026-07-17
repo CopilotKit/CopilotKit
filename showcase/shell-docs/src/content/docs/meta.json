@@ -86,7 +86,12 @@
     },
     {
       "title": "Migrate",
-      "pages": ["migrate/v2", "migrate/1.10.X", "migrate/1.8.2"]
+      "pages": [
+        "migrate/learning-containers-to-resolve-learning-container",
+        "migrate/v2",
+        "migrate/1.10.X",
+        "migrate/1.8.2"
+      ]
     }
   ]
 }
