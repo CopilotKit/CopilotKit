@@ -10,8 +10,7 @@ import { CopilotChatMessageView } from "../copilot-chat-message-view";
 import type { ActivityMessage, Message, ReasoningMessage } from "@ag-ui/core";
 import { CopilotKit } from "../../../copilotkit";
 import { z } from "zod";
-import { DummyActivityRenderer } from "./dummy-activity-renderer.component";
-import { FallbackActivityRenderer } from "./fallback-activity-renderer.component";
+import { PrimaryActivityRenderer } from "../../activity/__tests__/activity-renderer-stubs";
 import type { RenderActivityMessageConfig } from "../../../activity-renderer";
 
 const assistantMessage: Message = {
@@ -52,13 +51,6 @@ type MessageViewTestHarness = CopilotChatMessageView & {
   messages: () => Message[];
   isLoading: () => boolean;
   showCursor: () => boolean;
-  agentId: () => string | undefined;
-  resolveActivityRender: (message: ActivityMessage) =>
-    | {
-        component: unknown;
-        inputs: unknown;
-      }
-    | undefined;
 };
 
 describe("CopilotChatMessageView", () => {
@@ -114,37 +106,8 @@ describe("CopilotChatMessageView", () => {
     expect(thumbsUpSpy).toHaveBeenCalledWith({ message: assistantMessage });
   });
 
-  it("resolves activity messages with registered renderers", () => {
-    const activityMessage: ActivityMessage = {
-      id: "activity-1",
-      role: "activity",
-      activityType: "a2ui-surface",
-      content: { operations: [] },
-    };
-    const agent = { agentId: "demo-button" };
-    renderers.set([
-      {
-        activityType: "a2ui-surface",
-        content: z.object({ operations: z.array(z.unknown()) }),
-        component: DummyActivityRenderer,
-      },
-    ]);
-    getAgent.mockReturnValue(agent);
-    harness.agentId = () => "demo-button";
-
-    const result = harness.resolveActivityRender(activityMessage);
-
-    expect(result?.component).toBe(DummyActivityRenderer);
-    expect(result?.inputs).toEqual({
-      activityType: "a2ui-surface",
-      content: { operations: [] },
-      message: activityMessage,
-      agent,
-    });
-  });
-
-  it("prefers agent-scoped activity renderers before fallback renderers", () => {
-    const activityMessage: ActivityMessage = {
+  it("renders activity messages through the activity component", () => {
+    const activity: ActivityMessage = {
       id: "activity-1",
       role: "activity",
       activityType: "a2ui-surface",
@@ -154,20 +117,19 @@ describe("CopilotChatMessageView", () => {
       {
         activityType: "a2ui-surface",
         content: z.object({}),
-        component: FallbackActivityRenderer,
-      },
-      {
-        activityType: "a2ui-surface",
-        agentId: "demo-button",
-        content: z.object({}),
-        component: DummyActivityRenderer,
+        component: PrimaryActivityRenderer,
       },
     ]);
-    harness.agentId = () => "demo-button";
 
-    const result = harness.resolveActivityRender(activityMessage);
+    const fixture = TestBed.createComponent(MessageViewHostComponent);
+    fixture.componentInstance.messages = [activity];
+    fixture.detectChanges();
 
-    expect(result?.component).toBe(DummyActivityRenderer);
+    const rendered = fixture.nativeElement.querySelector<HTMLElement>(
+      '[data-testid="primary-activity"]',
+    );
+    expect(rendered).not.toBeNull();
+    expect(rendered?.getAttribute("data-activity-type")).toBe("a2ui-surface");
   });
 
   it("renders streaming reasoning messages", () => {
