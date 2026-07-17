@@ -70,6 +70,17 @@ The root also exports two prebuilt chrome components: [`CopilotSidebar`](/refere
   UI. Each component page documents both, disambiguated by import path.
 </Callout>
 
+## Generative UI support
+
+React Native supports inline native UI for tool calls through [`useRenderTool`](/reference/react-native/hooks/useRenderTool), [`useFrontendTool`](/reference/react-native/hooks/useFrontendTool), and [`useHumanInTheLoop`](/reference/react-native/hooks/useHumanInTheLoop). These render functions return React Native elements such as `View`, `Text`, and `TouchableOpacity`.
+
+<Callout type="warning" title="A2UI activity rendering is web-only today">
+  Declarative A2UI activity messages and the web activity-message renderer rely
+  on DOM/CSS-based component catalogs. They are not available from
+  `@copilotkit/react-native`. For React Native apps, register explicit native
+  tool renderers with `useRenderTool` instead.
+</Callout>
+
 ## API Reference
 
 <Cards>

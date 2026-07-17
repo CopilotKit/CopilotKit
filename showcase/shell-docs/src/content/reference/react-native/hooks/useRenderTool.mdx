@@ -13,6 +13,12 @@ description: "Register a React Native component to render inline when an agent c
   React Native, because they depend on DOM elements. Use `useRenderTool` instead.
 </Callout>
 
+<Callout type="warning" title="A2UI surfaces are not native renderers">
+  A2UI activity messages are currently rendered by the web SDK's activity
+  pipeline and component catalog. React Native apps should model native
+  generative UI as tool calls and render those calls with `useRenderTool`.
+</Callout>
+
 ## Signature
 
 ```tsx
