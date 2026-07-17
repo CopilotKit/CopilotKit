@@ -11,10 +11,133 @@ namespace CopilotKit.Intelligence.Tests;
 
 public sealed class IntelligenceClientTests : IDisposable
 {
-    private const string ContainerId = "11111111-1111-1111-1111-111111111111";
-    private const string SkillId = "22222222-2222-2222-2222-222222222222";
-    private const string VersionId = "33333333-3333-3333-3333-333333333333";
+    private const string ContainerId = "55555555-5555-4555-8555-555555555555";
+    private const string SkillId = "99999999-9999-4999-8999-999999999999";
+    private const string VersionId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
     private readonly string _cacheRoot = Path.Combine(Path.GetTempPath(), $"copilotkit-dotnet-{Guid.NewGuid():N}");
+
+    [Fact]
+    public async Task SharedGoldenProjectionUsesCanonicalV1HttpContract()
+    {
+        var golden = GoldenRegistryFixture();
+        var projection = golden["projection"]!.AsObject();
+        var archive = Convert.FromBase64String(golden["bundle"]!["base64"]!.GetValue<string>());
+        var handler = new QueueHandler(Json(projection), Bytes(archive));
+        using var client = GoldenClient(handler, golden);
+
+        var result = await client.GetAsync(golden["identity"]!["learningContainerId"]!.GetValue<string>());
+
+        Assert.Equal(CacheFreshness.Fresh, result.Freshness);
+        Assert.Equal(
+            golden["identity"]!["baseUrl"]!.GetValue<string>() + golden["http"]!["projectionPath"]!.GetValue<string>(),
+            handler.Requests[0].RequestUri!.ToString());
+        Assert.Equal(golden["http"]!["authorization"]!.GetValue<string>(), handler.Requests[0].Headers.Authorization!.ToString());
+        Assert.Equal(
+            golden["bundle"]!["fileContents"]!.GetValue<string>(),
+            await File.ReadAllTextAsync(Path.Combine(result.Skills[0].Directory, golden["bundle"]!["filePath"]!.GetValue<string>())));
+    }
+
+    [Fact]
+    public async Task GoldenOpaqueEtagProducesFreshVerified304()
+    {
+        var golden = GoldenRegistryFixture();
+        var projection = golden["projection"]!.AsObject();
+        var archive = Convert.FromBase64String(golden["bundle"]!["base64"]!.GetValue<string>());
+        using (var initial = GoldenClient(new QueueHandler(Json(projection), Bytes(archive)), golden))
+            await initial.GetAsync(golden["identity"]!["learningContainerId"]!.GetValue<string>());
+
+        var handler = new QueueHandler(new HttpResponseMessage(HttpStatusCode.NotModified));
+        using var conditional = GoldenClient(handler, golden);
+        var result = await conditional.GetAsync(golden["identity"]!["learningContainerId"]!.GetValue<string>());
+
+        Assert.Equal(CacheFreshness.Fresh, result.Freshness);
+        Assert.Equal(golden["http"]!["ifNoneMatch"]!.GetValue<string>(), handler.Requests[0].Headers.GetValues("If-None-Match").Single());
+    }
+
+    [Fact]
+    public async Task NoncanonicalContainerIdFailsBeforeDotnetTransport()
+    {
+        var golden = GoldenRegistryFixture();
+        var handler = new QueueHandler(Json(golden["projection"]!.AsObject()));
+        using var client = GoldenClient(handler, golden);
+
+        var error = await Assert.ThrowsAsync<IntelligenceSdkException>(() =>
+            client.GetAsync("55555555-5555-4555-1555-555555555555"));
+
+        Assert.Equal(IntelligenceErrorCodes.RegistryUnrecoverable, error.Code);
+        Assert.Equal("validation", error.Category);
+        Assert.Empty(handler.Requests);
+    }
+
+    [Fact]
+    public async Task UnknownGoldenErrorCodeFailsAsNoncanonical()
+    {
+        var golden = GoldenRegistryFixture();
+        var unknown = golden["errors"]!["unknownCode"]!.AsObject();
+        var status = (HttpStatusCode)unknown["status"]!.GetValue<int>();
+        using var client = GoldenClient(new QueueHandler(Json(unknown["body"]!, status)), golden);
+
+        var error = await Assert.ThrowsAsync<IntelligenceSdkException>(() =>
+            client.GetAsync(golden["identity"]!["learningContainerId"]!.GetValue<string>()));
+
+        Assert.Equal(golden["expectations"]!["nonCanonicalErrorCode"]!.GetValue<string>(), error.Code);
+        Assert.Equal("dependency", error.Category);
+    }
+
+    [Fact]
+    public async Task GoldenConflictPreservesCacheButGoldenDenialInvalidatesIt()
+    {
+        var golden = GoldenRegistryFixture();
+        var archive = Convert.FromBase64String(golden["bundle"]!["base64"]!.GetValue<string>());
+        using (var online = GoldenClient(new QueueHandler(Json(golden["projection"]!), Bytes(archive)), golden))
+            await online.GetAsync(golden["identity"]!["learningContainerId"]!.GetValue<string>());
+
+        var conflict = golden["errors"]!["canonicalConflict"]!.AsObject();
+        using (var conflicting = GoldenClient(new QueueHandler(Json(
+            conflict["body"]!, (HttpStatusCode)conflict["status"]!.GetValue<int>())), golden))
+        {
+            var error = await Assert.ThrowsAsync<IntelligenceSdkException>(() => conflicting.GetAsync(ContainerId));
+            Assert.Equal(conflict["body"]!["error"]!["code"]!.GetValue<string>(), error.Code);
+            Assert.Equal(conflict["body"]!["requestId"]!.GetValue<string>(), error.RequestId);
+            Assert.Equal(CacheFreshness.Cached, (await conflicting.GetCachedAsync(ContainerId)).Freshness);
+        }
+
+        var denial = golden["errors"]!["canonicalDenial"]!.AsObject();
+        using var denied = GoldenClient(new QueueHandler(Json(
+            denial["body"]!, (HttpStatusCode)denial["status"]!.GetValue<int>())), golden);
+        var deniedError = await Assert.ThrowsAsync<IntelligenceSdkException>(() => denied.GetAsync(ContainerId));
+        Assert.Equal(denial["body"]!["error"]!["code"]!.GetValue<string>(), deniedError.Code);
+        await Assert.ThrowsAsync<IntelligenceSdkException>(() => denied.GetCachedAsync(ContainerId));
+    }
+
+    [Fact]
+    public async Task GoldenMalformedErrorFailsAsNoncanonical()
+    {
+        var golden = GoldenRegistryFixture();
+        var malformed = golden["errors"]!["malformed"]!.AsObject();
+        using var client = GoldenClient(new QueueHandler(Json(
+            malformed["body"]!, (HttpStatusCode)malformed["status"]!.GetValue<int>())), golden);
+
+        var error = await Assert.ThrowsAsync<IntelligenceSdkException>(() => client.GetAsync(ContainerId));
+
+        Assert.Equal(golden["expectations"]!["nonCanonicalErrorCode"]!.GetValue<string>(), error.Code);
+        Assert.Equal("dependency", error.Category);
+    }
+
+    [Fact]
+    public async Task ArtifactManifestIsNotAcceptedAsALegacyAlias()
+    {
+        var golden = GoldenRegistryFixture();
+        var projection = golden["projection"]!.DeepClone().AsObject();
+        var entry = projection["entries"]![0]!.AsObject();
+        entry["artifactManifest"] = entry["manifest"]!.DeepClone();
+        entry.Remove("manifest");
+        using var client = GoldenClient(new QueueHandler(Json(projection)), golden);
+
+        var error = await Assert.ThrowsAsync<IntelligenceSdkException>(() => client.GetAsync(ContainerId));
+
+        Assert.Equal(IntelligenceErrorCodes.BlobIntegrityFailure, error.Code);
+    }
 
     [Fact]
     public async Task GetAsync_UsesBearerAuthPreservesUnknownJsonAndMaterializesSkill()
@@ -221,6 +344,21 @@ public sealed class IntelligenceClientTests : IDisposable
 
     private IntelligenceClient Client(HttpMessageHandler handler, IntelligenceSdkLimits? limits = null) =>
         new(new IntelligenceClientOptions(new Uri("https://registry.test"), "secret-token", "project-a", _cacheRoot, limits), handler);
+
+    private IntelligenceClient GoldenClient(HttpMessageHandler handler, JsonObject golden) =>
+        new(new IntelligenceClientOptions(
+            new Uri(golden["identity"]!["baseUrl"]!.GetValue<string>()),
+            "secret-token",
+            golden["identity"]!["projectNamespace"]!.GetValue<string>(),
+            _cacheRoot), handler);
+
+    private static JsonObject GoldenRegistryFixture()
+    {
+        var path = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "../../../../../packages/intelligence/conformance/registry-sdk-v1.json"));
+        return JsonNode.Parse(File.ReadAllText(path))!.AsObject();
+    }
 
     private static HttpResponseMessage Json(JsonNode value, HttpStatusCode status = HttpStatusCode.OK) =>
         new(status) { Content = new StringContent(value.ToJsonString(), Encoding.UTF8, "application/json") };

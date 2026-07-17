@@ -11,6 +11,7 @@ import {
 import { dirname, join } from "node:path";
 import { inflateRawSync } from "node:zlib";
 import {
+  learningContainerIdSchema,
   skillArtifactManifestV1Schema,
   skillSetProjectionV1Schema,
 } from "./contracts.js";
@@ -54,7 +55,6 @@ export interface SkillsGetOptions {
 
 export type RegistryProjectionEntry = SkillSetProjectionEntryV1 & {
   readonly manifest?: SkillArtifactManifestV1;
-  readonly artifactManifest?: SkillArtifactManifestV1;
 };
 
 export type RegistryProjection = SkillSetProjectionV1 & {
@@ -438,6 +438,9 @@ function parseProjection(
       "Registry projection belongs to a different learning container",
     );
   }
+  if (parsed.data.revoked && parsed.data.entries.length > 0) {
+    throw sdkError("A revoked projection must be empty");
+  }
   const seenSkills = new Set<string>();
   for (const [index, entry] of parsed.data.entries.entries()) {
     if (
@@ -455,8 +458,7 @@ function parseProjection(
 function parseManifest(
   entry: RegistryProjectionEntry,
 ): SkillArtifactManifestV1 {
-  const candidate = entry.manifest ?? entry.artifactManifest;
-  const parsed = skillArtifactManifestV1Schema.safeParse(candidate);
+  const parsed = skillArtifactManifestV1Schema.safeParse(entry.manifest);
   if (!parsed.success) {
     throw sdkError(
       "Registry entry is missing a valid artifact manifest",
@@ -878,10 +880,12 @@ export class IntelligenceClient {
   private async getCached(
     options: SkillsGetOptions,
   ): Promise<InstalledSkillSet> {
+    this.validateLearningContainerId(options.learningContainerId);
     return this.current(options.learningContainerId, "cached");
   }
 
   private async get(options: SkillsGetOptions): Promise<InstalledSkillSet> {
+    this.validateLearningContainerId(options.learningContainerId);
     const paths = cachePaths(this.options, options.learningContainerId);
     let pointer: CachePointer | undefined;
     try {
@@ -947,6 +951,19 @@ export class IntelligenceClient {
       projection,
     });
     return resultFromMetadata(directory, metadata, "fresh", projection);
+  }
+
+  private validateLearningContainerId(learningContainerId: string): void {
+    const parsed = learningContainerIdSchema.safeParse(learningContainerId);
+    if (!parsed.success || parsed.data === null) {
+      throw new IntelligenceSdkError({
+        message: "learningContainerId must be a canonical UUID",
+        code: "LEARNING_REGISTRY_UNRECOVERABLE",
+        category: "validation",
+        retryable: false,
+        cause: parsed.error,
+      });
+    }
   }
 
   private async install(

@@ -7,8 +7,6 @@ returns after every projected archive and every materialized file is verified.
 from __future__ import annotations
 
 import asyncio
-import base64
-import binascii
 import errno
 import hashlib
 import io
@@ -22,6 +20,7 @@ import unicodedata
 import uuid
 import zipfile
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path, PurePosixPath
 from types import MappingProxyType
 from typing import Any, Callable, Mapping
@@ -33,25 +32,61 @@ from urllib.request import Request, urlopen
 class IntelligenceError(RuntimeError):
     """Base class for Intelligence registry failures."""
 
+    default_code = "LEARNING_REGISTRY_UNRECOVERABLE"
+    default_category = "internal"
+    default_retryable = False
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        code: str | None = None,
+        category: str | None = None,
+        retryable: bool | None = None,
+        status: int | None = None,
+        request_id: str | None = None,
+        trace_id: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.code = code or self.default_code
+        self.category = category or self.default_category
+        self.retryable = self.default_retryable if retryable is None else retryable
+        self.status = status
+        self.request_id = request_id
+        self.trace_id = trace_id
+
 
 class IntelligenceAccessDeniedError(IntelligenceError):
     """Authentication or authorization was rejected."""
+
+    default_category = "permission"
 
 
 class IntelligenceNotFoundError(IntelligenceError):
     """The requested learning container does not exist."""
 
+    default_code = "LEARNING_CONTAINER_NOT_FOUND"
+    default_category = "not_found"
+
 
 class IntelligenceUnavailableError(IntelligenceError):
     """The registry could not be reached or returned a transient failure."""
+
+    default_category = "dependency"
+    default_retryable = True
 
 
 class IntelligenceIntegrityError(IntelligenceError):
     """Remote or cached registry content failed verification."""
 
+    default_code = "LEARNING_BLOB_INTEGRITY_FAILURE"
+    default_category = "validation"
+
 
 class IntelligenceCacheMissError(IntelligenceError):
     """No fully verified current cache entry exists."""
+
+    default_code = "LEARNING_SDK_CACHE_CORRUPT"
 
 
 @dataclass(frozen=True)
@@ -97,13 +132,49 @@ class IntelligenceSkillSet:
 
 Transport = Callable[[IntelligenceRequest], IntelligenceResponse]
 
-_DEFAULT_PATH = "/api/learning-containers/{learning_container_id}/skills"
+_DEFAULT_PATH = "/v1/learning-containers/{learning_container_id}/skills"
 _POINTER = ".copilotkit-current.json"
 _SET_MANIFEST = ".copilotkit-skill-set.json"
 _BLOCKED = ".copilotkit-blocked.json"
 _HEX_DIGITS = frozenset("0123456789abcdef")
 _LOCKS: dict[str, threading.Lock] = {}
 _LOCKS_GUARD = threading.Lock()
+_ERROR_CODES = frozenset(
+    {
+        "LEARNING_CONTAINER_NOT_FOUND",
+        "LEARNING_CONTAINER_ARCHIVED",
+        "LEARNING_CONTAINER_PROJECT_MISMATCH",
+        "LEARNING_CONTAINER_CONFIG_CONFLICT",
+        "LEARNING_CONTAINER_ASSIGNMENT_MISMATCH",
+        "LEARNING_CONTAINER_ASSIGNMENT_CONFLICT",
+        "LEARNING_RUN_ACTIVE_CONFLICT",
+        "LEARNING_RUN_IDEMPOTENCY_CONFLICT",
+        "LEARNING_ATTEMPT_FENCE_REJECTED",
+        "LEARNING_SNAPSHOT_INVARIANT_VIOLATION",
+        "LEARNING_CANDIDATE_STALE_PARENT",
+        "LEARNING_CANDIDATE_SUBJECT_MISMATCH",
+        "LEARNING_CANDIDATE_GATES_INCOMPLETE",
+        "LEARNING_REGISTRY_CONFLICT",
+        "LEARNING_REGISTRY_UNRECOVERABLE",
+        "LEARNING_BLOB_INTEGRITY_FAILURE",
+        "LEARNING_SDK_CACHE_CORRUPT",
+    }
+)
+_ERROR_CATEGORIES = frozenset(
+    {
+        "validation",
+        "auth",
+        "permission",
+        "not_found",
+        "conflict",
+        "rate_limit",
+        "internal",
+        "dependency",
+    }
+)
+_BLOB_PROVIDERS = frozenset(
+    {"awsS3", "googleCloudStorage", "azureBlob", "s3Compatible"}
+)
 
 
 def _lock_for(path: Path) -> threading.Lock:
@@ -151,6 +222,47 @@ def _required_string(value: Any, name: str) -> str:
     return value
 
 
+def _valid_uuid(value: Any, name: str) -> str:
+    text = _required_string(value, name)
+    try:
+        parsed = uuid.UUID(text)
+    except (AttributeError, ValueError) as error:
+        raise IntelligenceIntegrityError(f"{name} must be a UUID") from error
+    if (
+        str(parsed) != text.lower()
+        or parsed.version not in range(1, 9)
+        or parsed.variant != uuid.RFC_4122
+    ):
+        raise IntelligenceIntegrityError(f"{name} must be a canonical UUID")
+    return text
+
+
+def _valid_timestamp(value: Any, name: str) -> str:
+    text = _required_string(value, name)
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError as error:
+        raise IntelligenceIntegrityError(
+            f"{name} must be an offset ISO-8601 timestamp"
+        ) from error
+    if parsed.tzinfo is None:
+        raise IntelligenceIntegrityError(f"{name} must be an offset ISO-8601 timestamp")
+    return text
+
+
+def _valid_integer(value: Any, name: str, *, positive: bool = False) -> int:
+    minimum = 1 if positive else 0
+    if (
+        not isinstance(value, int)
+        or isinstance(value, bool)
+        or value < minimum
+        or value > 9_007_199_254_740_991
+    ):
+        qualifier = "positive" if positive else "non-negative"
+        raise IntelligenceIntegrityError(f"{name} must be a {qualifier} integer")
+    return value
+
+
 def _safe_component(value: str, name: str) -> str:
     if (
         value in {".", ".."}
@@ -167,7 +279,7 @@ def _safe_component(value: str, name: str) -> str:
 
 
 def _valid_hash(value: Any, name: str) -> str:
-    digest = _required_string(value, name).lower()
+    digest = _required_string(value, name)
     if len(digest) != 64 or any(character not in _HEX_DIGITS for character in digest):
         raise IntelligenceIntegrityError(f"{name} must be a SHA-256 hex digest")
     return digest
@@ -230,13 +342,13 @@ class _Skills:
         self._max_uncompressed_bytes = max_uncompressed_bytes
 
     def get(self, learning_container_id: str) -> IntelligenceSkillSet:
-        container = _safe_component(learning_container_id, "learning_container_id")
+        container = self._container_id(learning_container_id)
         pointer = self._pointer_path(container)
         conditional = self._conditional_revision(pointer)
         response = self._request_projection(container, conditional)
         if response.status == 304:
             try:
-                return self._read_current(container, freshness="cached")
+                return self._read_current(container, freshness="fresh")
             except (IntelligenceCacheMissError, IntelligenceIntegrityError):
                 response = self._request_projection(container, None)
                 if response.status == 304:
@@ -246,19 +358,29 @@ class _Skills:
                     )
         if response.status != 200:
             self._raise_status(container, response)
-        try:
-            return self._materialize(container, response)
-        except IntelligenceIntegrityError:
-            self._block(container, "integrity")
-            raise
+        return self._materialize(container, response)
 
     def get_cached(self, learning_container_id: str) -> IntelligenceSkillSet:
-        container = _safe_component(learning_container_id, "learning_container_id")
+        container = self._container_id(learning_container_id)
         try:
             return self._read_current(container, freshness="cached")
         except IntelligenceIntegrityError as error:
             raise IntelligenceCacheMissError(
                 f"No verified cached skill set for {container!r}"
+            ) from error
+
+    @staticmethod
+    def _container_id(value: str) -> str:
+        try:
+            return _safe_component(
+                _valid_uuid(value, "learning_container_id"),
+                "learning_container_id",
+            )
+        except IntelligenceIntegrityError as error:
+            raise IntelligenceIntegrityError(
+                "learning_container_id must be a canonical UUID",
+                code="LEARNING_REGISTRY_UNRECOVERABLE",
+                category="validation",
             ) from error
 
     def _container_dir(self, container: str) -> Path:
@@ -273,11 +395,8 @@ class _Skills:
             return None
         try:
             pointer = _read_json(pointer_path)
-            revision = _required_string(
-                pointer.get("registryRevision"), "registryRevision"
-            )
-            etag = pointer.get("etag")
-            return etag if isinstance(etag, str) and etag else f'"{revision}"'
+            etag = _required_string(pointer.get("etag"), "etag")
+            return etag
         except (AttributeError, IntelligenceIntegrityError):
             return None
 
@@ -324,35 +443,69 @@ class _Skills:
         )
 
     def _raise_status(self, container: str, response: IntelligenceResponse) -> None:
-        detail = ""
+        status_blocks_cache = response.status in {401, 403, 404, 410}
+        if status_blocks_cache:
+            self._block(container, f"http-{response.status}")
         try:
             body = json.loads(response.body)
-            if isinstance(body, dict):
-                detail = str(body.get("message") or body.get("code") or "")
-        except (UnicodeError, json.JSONDecodeError):
-            detail = ""
-        suffix = f": {detail}" if detail else ""
-        if response.status in {401, 403}:
-            self._block(container, f"http-{response.status}")
-            raise IntelligenceAccessDeniedError(
-                f"Intelligence registry access denied{suffix}"
-            )
-        if response.status in {400, 404, 409, 410, 422}:
-            self._block(container, f"http-{response.status}")
-            if response.status in {404, 410}:
-                raise IntelligenceNotFoundError(
-                    f"Intelligence learning container is unavailable{suffix}"
-                )
-            raise IntelligenceIntegrityError(
-                f"Intelligence registry rejected the request ({response.status}){suffix}"
-            )
-        if response.status == 429 or response.status >= 500:
+        except (UnicodeError, json.JSONDecodeError) as error:
             raise IntelligenceUnavailableError(
-                f"Intelligence registry returned {response.status}{suffix}"
-            )
-        self._block(container, f"http-{response.status}")
-        raise IntelligenceError(
-            f"Unexpected Intelligence registry response {response.status}{suffix}"
+                f"Registry request failed with HTTP {response.status}",
+                retryable=response.status >= 500,
+                status=response.status,
+            ) from error
+        try:
+            if not isinstance(body, dict) or not isinstance(body.get("error"), dict):
+                raise IntelligenceIntegrityError("error envelope must be an object")
+            canonical = body["error"]
+            code = _required_string(canonical.get("code"), "error.code")
+            message = _required_string(canonical.get("message"), "error.message")
+            category = _required_string(canonical.get("category"), "error.category")
+            retryable = canonical.get("retryable")
+            request_id = _required_string(body.get("requestId"), "requestId")
+            trace_id = _required_string(body.get("traceId"), "traceId")
+            if code not in _ERROR_CODES:
+                raise IntelligenceIntegrityError("unknown canonical error code")
+            if category not in _ERROR_CATEGORIES:
+                raise IntelligenceIntegrityError("unknown canonical error category")
+            if not isinstance(retryable, bool):
+                raise IntelligenceIntegrityError("error.retryable must be a boolean")
+        except IntelligenceIntegrityError as error:
+            raise IntelligenceUnavailableError(
+                f"Registry returned a non-canonical HTTP {response.status} error",
+                retryable=response.status >= 500,
+                status=response.status,
+            ) from error
+
+        blocks_cache = status_blocks_cache or code in {
+            "LEARNING_REGISTRY_UNRECOVERABLE",
+            "LEARNING_CONTAINER_ARCHIVED",
+            "LEARNING_CONTAINER_PROJECT_MISMATCH",
+            "LEARNING_CONTAINER_NOT_FOUND",
+        }
+        if blocks_cache and not status_blocks_cache:
+            self._block(container, code)
+
+        error_type: type[IntelligenceError]
+        if response.status in {401, 403}:
+            error_type = IntelligenceAccessDeniedError
+        elif response.status in {404, 410} or code in {
+            "LEARNING_CONTAINER_ARCHIVED",
+            "LEARNING_CONTAINER_NOT_FOUND",
+        }:
+            error_type = IntelligenceNotFoundError
+        elif response.status == 429 or response.status >= 500:
+            error_type = IntelligenceUnavailableError
+        else:
+            error_type = IntelligenceError
+        raise error_type(
+            message,
+            code=code,
+            category=category,
+            retryable=retryable,
+            status=response.status,
+            request_id=request_id,
+            trace_id=trace_id,
         )
 
     def _block(self, container: str, reason: str) -> None:
@@ -373,87 +526,155 @@ class _Skills:
             ) from error
         if not isinstance(payload, dict):
             raise IntelligenceIntegrityError("Registry projection must be an object")
-        projected_container = _required_string(
+        if payload.get("schemaVersion") != 1:
+            raise IntelligenceIntegrityError("schemaVersion must be 1")
+        projected_container = _valid_uuid(
             payload.get("learningContainerId"), "learningContainerId"
         )
         if projected_container != container:
             raise IntelligenceIntegrityError("Projection learningContainerId mismatch")
         _required_string(payload.get("registryRevision"), "registryRevision")
         _valid_hash(payload.get("skillSetHash"), "skillSetHash")
-        entries = payload.get("entries", payload.get("skills"))
+        _required_string(payload.get("etag"), "etag")
+        _valid_timestamp(payload.get("publishedAt"), "publishedAt")
+        entries = payload.get("entries")
         if not isinstance(entries, list):
             raise IntelligenceIntegrityError("Projection entries must be an array")
-        if not isinstance(payload.get("revoked", False), bool):
+        if not isinstance(payload.get("revoked"), bool):
             raise IntelligenceIntegrityError("revoked must be a boolean")
-        if payload.get("revoked", False) and entries:
+        if payload["revoked"] and entries:
             raise IntelligenceIntegrityError("A revoked skill set must be empty")
-        calculated = _sha256(
-            _canonical_json(
-                {"entries": entries, "revoked": bool(payload.get("revoked", False))}
-            )
-        )
-        legacy_calculated = _sha256(_canonical_json(entries))
-        if payload["skillSetHash"].lower() not in {calculated, legacy_calculated}:
-            raise IntelligenceIntegrityError("Projection skillSetHash mismatch")
         return payload, entries
 
     def _entry(self, raw: Any, expected_position: int) -> dict[str, Any]:
         if not isinstance(raw, dict):
             raise IntelligenceIntegrityError("Projection entry must be an object")
-        extra_bundles = [
-            key for key in raw if key != "bundle" and "bundle" in str(key).casefold()
-        ]
-        if extra_bundles:
-            raise IntelligenceIntegrityError("Projection contains loose bundle objects")
         skill_id = _safe_component(
-            _required_string(raw.get("skillId"), "skillId"), "skillId"
+            _valid_uuid(raw.get("skillId"), "skillId"), "skillId"
         )
-        version = _required_string(raw.get("version"), "version")
-        if raw.get("position") != expected_position:
+        version_id = _safe_component(
+            _valid_uuid(raw.get("versionId"), "versionId"), "versionId"
+        )
+        if _valid_integer(raw.get("position"), "position") != expected_position:
             raise IntelligenceIntegrityError(
                 "Projection positions must be contiguous and ordered"
             )
+        if expected_position > 999_999:
+            raise IntelligenceIntegrityError("Projection position exceeds cache bound")
+        _required_string(raw.get("name"), "name")
+        if "description" not in raw or not (
+            raw["description"] is None or isinstance(raw["description"], str)
+        ):
+            raise IntelligenceIntegrityError("description must be a string or null")
+        if raw.get("approvalMethod") not in {"manual", "automatic"}:
+            raise IntelligenceIntegrityError("approvalMethod is invalid")
+        bundle_sha = _valid_hash(raw.get("bundleSha256"), "bundleSha256")
+        manifest_sha = _valid_hash(raw.get("manifestSha256"), "manifestSha256")
+        bundle_length = _valid_integer(
+            raw.get("bundleByteLength"), "bundleByteLength", positive=True
+        )
+        locator = raw.get("bundleLocator")
+        if not isinstance(locator, dict) or locator.get("schemaVersion") != 1:
+            raise IntelligenceIntegrityError("bundleLocator must be canonical V1")
+        for key in ("providerVersion", "etag", "providerChecksum"):
+            if key not in locator:
+                raise IntelligenceIntegrityError(f"bundleLocator.{key} is required")
+        for key in ("backendId", "resource", "key", "contentType"):
+            _required_string(locator.get(key), f"bundleLocator.{key}")
+        if locator.get("provider") not in _BLOB_PROVIDERS:
+            raise IntelligenceIntegrityError("bundleLocator.provider is invalid")
+        locator_sha = _valid_hash(
+            locator.get("applicationSha256"),
+            "bundleLocator.applicationSha256",
+        )
+        locator_length = _valid_integer(
+            locator.get("byteLength"), "bundleLocator.byteLength"
+        )
+        if locator.get("providerVersion") is not None and not isinstance(
+            locator.get("providerVersion"), str
+        ):
+            raise IntelligenceIntegrityError("bundleLocator.providerVersion is invalid")
+        if locator.get("etag") is not None and not isinstance(locator.get("etag"), str):
+            raise IntelligenceIntegrityError("bundleLocator.etag is invalid")
+        if locator.get("providerChecksum") is not None and not isinstance(
+            locator.get("providerChecksum"), dict
+        ):
+            raise IntelligenceIntegrityError(
+                "bundleLocator.providerChecksum is invalid"
+            )
         manifest = raw.get("manifest")
         if not isinstance(manifest, dict):
-            raise IntelligenceIntegrityError("Skill manifest must be an object")
-        if manifest.get("skillId") != skill_id or manifest.get("version") != version:
-            raise IntelligenceIntegrityError("Skill manifest identity mismatch")
-        projected_bundle = raw.get("bundle")
-        if not isinstance(projected_bundle, dict):
-            raise IntelligenceIntegrityError("Skill bundle must be an object")
-        digest = _valid_hash(projected_bundle.get("sha256"), "bundle.sha256")
-        length = projected_bundle.get("length")
-        if not isinstance(length, int) or isinstance(length, bool) or length < 0:
             raise IntelligenceIntegrityError(
-                "bundle.length must be a non-negative integer"
+                "Skill artifact manifest must be an object"
             )
+        if manifest.get("manifestVersion") != 1:
+            raise IntelligenceIntegrityError("manifestVersion must be 1")
+        _required_string(manifest.get("agentSkillsProfile"), "agentSkillsProfile")
+        files = manifest.get("files")
+        if not isinstance(files, list) or not files:
+            raise IntelligenceIntegrityError("manifest.files must be non-empty")
+        if not isinstance(manifest.get("provenance"), dict):
+            raise IntelligenceIntegrityError("manifest.provenance must be an object")
+        if (
+            _valid_hash(manifest.get("bundleSha256"), "manifest.bundleSha256")
+            != bundle_sha
+            or _valid_integer(
+                manifest.get("bundleByteLength"),
+                "manifest.bundleByteLength",
+                positive=True,
+            )
+            != bundle_length
+            or _valid_hash(manifest.get("manifestSha256"), "manifest.manifestSha256")
+            != manifest_sha
+        ):
+            raise IntelligenceIntegrityError("Artifact manifest identity mismatch")
+        hashable = {
+            key: value for key, value in manifest.items() if key != "manifestSha256"
+        }
+        if _sha256(_canonical_json(hashable)) != manifest_sha:
+            raise IntelligenceIntegrityError("Artifact manifest hash mismatch")
+        collisions: set[str] = set()
+        for file in files:
+            if not isinstance(file, dict):
+                raise IntelligenceIntegrityError("manifest file must be an object")
+            path = _required_string(file.get("path"), "manifest.file.path")
+            pure = PurePosixPath(path)
+            if pure.is_absolute() or any(
+                part in {"", ".", ".."} for part in pure.parts
+            ):
+                raise IntelligenceIntegrityError("Unsafe manifest file path")
+            _required_string(file.get("role"), "manifest.file.role")
+            _required_string(file.get("mediaType"), "manifest.file.mediaType")
+            _valid_integer(file.get("byteLength"), "manifest.file.byteLength")
+            _valid_hash(file.get("rawSha256"), "manifest.file.rawSha256")
+            collision = unicodedata.normalize("NFC", path).casefold()
+            if collision in collisions:
+                raise IntelligenceIntegrityError("Colliding manifest file paths")
+            collisions.add(collision)
+        if not any(file.get("path") == "SKILL.md" for file in files):
+            raise IntelligenceIntegrityError("Artifact manifest must contain SKILL.md")
+        if locator_sha != bundle_sha or locator_length != bundle_length:
+            raise IntelligenceIntegrityError("Bundle locator identity mismatch")
         return {
             "skill_id": skill_id,
-            "version": version,
+            "version_id": version_id,
             "position": expected_position,
             "manifest": manifest,
-            "bundle": projected_bundle,
-            "digest": digest,
-            "length": length,
+            "digest": bundle_sha,
+            "length": bundle_length,
+            "download_url": raw.get("downloadUrl"),
         }
 
-    def _bundle_bytes(self, projected: dict[str, Any]) -> bytes:
-        if "data" in projected:
-            if not isinstance(projected["data"], str):
-                raise IntelligenceIntegrityError("bundle.data must be base64 text")
-            try:
-                return base64.b64decode(projected["data"], validate=True)
-            except (ValueError, binascii.Error) as error:
-                raise IntelligenceIntegrityError(
-                    "bundle.data is not valid base64"
-                ) from error
-        locator = (
-            projected.get("url")
-            or projected.get("href")
-            or projected.get("downloadUrl")
-        )
+    def _bundle_bytes(self, container: str, projected: dict[str, Any]) -> bytes:
+        locator = projected.get("download_url")
+        if locator is None:
+            locator = (
+                f"{self._projection_url(container)}/"
+                f"{quote(projected['skill_id'], safe='')}/versions/"
+                f"{quote(projected['version_id'], safe='')}/bundle"
+            )
         if not isinstance(locator, str) or not locator:
-            raise IntelligenceIntegrityError("Skill bundle has no locator")
+            raise IntelligenceIntegrityError("Skill bundle has no canonical locator")
         response = self._send(
             IntelligenceRequest(
                 method="GET",
@@ -468,13 +689,7 @@ class _Skills:
             )
         )
         if response.status != 200:
-            if response.status == 429 or response.status >= 500:
-                raise IntelligenceUnavailableError(
-                    f"Skill bundle request returned {response.status}"
-                )
-            raise IntelligenceIntegrityError(
-                f"Skill bundle request returned {response.status}"
-            )
+            self._raise_status(container, response)
         return response.body
 
     def _safe_members(
@@ -564,7 +779,7 @@ class _Skills:
         skill_ids = [entry["skill_id"].casefold() for entry in entries]
         if len(skill_ids) != len(set(skill_ids)):
             raise IntelligenceIntegrityError("Duplicate skill identities in projection")
-        set_hash = payload["skillSetHash"].lower()
+        set_hash = payload["skillSetHash"]
         sets = self._container_dir(container) / "sets"
         target = sets / set_hash
         sets.mkdir(parents=True, exist_ok=True)
@@ -573,7 +788,7 @@ class _Skills:
         materialized: list[dict[str, Any]] = []
         try:
             for entry in entries:
-                contents = self._bundle_bytes(entry["bundle"])
+                contents = self._bundle_bytes(container, entry)
                 if len(contents) != entry["length"]:
                     raise IntelligenceIntegrityError("Skill bundle length mismatch")
                 if _sha256(contents) != entry["digest"]:
@@ -582,15 +797,37 @@ class _Skills:
                     stage / "skills" / f"{entry['position']:06d}-{entry['skill_id']}"
                 )
                 root, files = self._extract(contents, skill_directory)
+                relative_files = [
+                    {
+                        **file,
+                        "path": file["path"][len(root) + 1 :],
+                    }
+                    for file in files
+                ]
+                manifest_files = entry["manifest"]["files"]
+                if [file["path"] for file in relative_files] != [
+                    file["path"] for file in manifest_files
+                ]:
+                    raise IntelligenceIntegrityError(
+                        "ZIP files do not exactly match manifest order"
+                    )
+                for actual, expected in zip(
+                    relative_files, manifest_files, strict=True
+                ):
+                    if (
+                        actual["length"] != expected["byteLength"]
+                        or actual["sha256"] != expected["rawSha256"]
+                    ):
+                        raise IntelligenceIntegrityError(
+                            f"Bundle file failed integrity verification: {actual['path']}"
+                        )
                 materialized.append(
                     {
                         "skillId": entry["skill_id"],
-                        "version": entry["version"],
+                        "versionId": entry["version_id"],
                         "position": entry["position"],
                         "root": root,
-                        "bundleSha256": entry["digest"],
-                        "bundleLength": entry["length"],
-                        "files": files,
+                        "manifest": entry["manifest"],
                     }
                 )
             cache_manifest = {
@@ -598,7 +835,8 @@ class _Skills:
                 "learningContainerId": container,
                 "registryRevision": payload["registryRevision"],
                 "skillSetHash": set_hash,
-                "revoked": bool(payload.get("revoked", False)),
+                "revoked": payload["revoked"],
+                "projection": payload,
                 "entries": materialized,
             }
             _write_json(stage / _SET_MANIFEST, cache_manifest)
@@ -606,7 +844,8 @@ class _Skills:
             with _lock_for(target):
                 if target.exists():
                     try:
-                        self._verify_set(target, expected_hash=set_hash)
+                        winner = self._verify_set(target, expected_hash=set_hash)
+                        self._assert_projection_matches_cached(payload, winner)
                         shutil.rmtree(stage)
                     except IntelligenceIntegrityError:
                         quarantine = target.with_name(
@@ -623,15 +862,16 @@ class _Skills:
                             raise
                         # Another process won the atomic rename. Its result is
                         # reusable only after the same full cache verification.
-                        self._verify_set(target, expected_hash=set_hash)
+                        winner = self._verify_set(target, expected_hash=set_hash)
+                        self._assert_projection_matches_cached(payload, winner)
                         shutil.rmtree(stage)
             pointer = {
                 "schemaVersion": 1,
                 "learningContainerId": container,
                 "registryRevision": payload["registryRevision"],
                 "skillSetHash": set_hash,
-                "etag": _header(response.headers, "etag")
-                or f'"{payload["registryRevision"]}"',
+                "etag": payload["etag"],
+                "projection": payload,
             }
             directory = self._container_dir(container)
             with _lock_for(directory):
@@ -658,8 +898,16 @@ class _Skills:
         is_stage = path.name.startswith(f".{set_hash}.staging-")
         if path.name != set_hash and not (expected_hash and is_stage):
             raise IntelligenceIntegrityError("Cached skill set path mismatch")
+        container = _valid_uuid(
+            manifest.get("learningContainerId"), "learningContainerId"
+        )
+        projection, projected_entries = self._decode_projection(
+            container, _canonical_json(manifest.get("projection"))
+        )
+        if projection["skillSetHash"] != set_hash:
+            raise IntelligenceIntegrityError("Cached projection hash mismatch")
         entries = manifest.get("entries")
-        if not isinstance(entries, list):
+        if not isinstance(entries, list) or len(entries) != len(projected_entries):
             raise IntelligenceIntegrityError("Cached entries must be an array")
         expected_files = {_SET_MANIFEST}
         seen_skills: set[str] = set()
@@ -667,14 +915,24 @@ class _Skills:
             if not isinstance(entry, dict) or entry.get("position") != position:
                 raise IntelligenceIntegrityError("Cached skill order mismatch")
             skill_id = _safe_component(
-                _required_string(entry.get("skillId"), "skillId"), "skillId"
+                _valid_uuid(entry.get("skillId"), "skillId"), "skillId"
             )
             if skill_id.casefold() in seen_skills:
                 raise IntelligenceIntegrityError("Duplicate cached skill identity")
             seen_skills.add(skill_id.casefold())
+            version_id = _valid_uuid(entry.get("versionId"), "versionId")
+            projected = self._entry(projected_entries[position], position)
+            if (
+                projected["skill_id"] != skill_id
+                or projected["version_id"] != version_id
+            ):
+                raise IntelligenceIntegrityError("Cached skill identity mismatch")
             root = _safe_component(_required_string(entry.get("root"), "root"), "root")
             prefix = f"skills/{position:06d}-{skill_id}/"
-            files = entry.get("files")
+            cached_manifest = entry.get("manifest")
+            if cached_manifest != projected["manifest"]:
+                raise IntelligenceIntegrityError("Cached artifact manifest mismatch")
+            files = projected["manifest"].get("files")
             if not isinstance(files, list):
                 raise IntelligenceIntegrityError("Cached file manifest missing")
             found_skill_md = False
@@ -692,17 +950,17 @@ class _Skills:
                 if key in collision_keys:
                     raise IntelligenceIntegrityError("Colliding cached file paths")
                 collision_keys.add(key)
-                full_relative = prefix + relative
+                full_relative = prefix + root + "/" + relative
                 expected_files.add(full_relative)
                 actual = path.joinpath(*PurePosixPath(full_relative).parts)
                 if not actual.is_file() or actual.is_symlink():
                     raise IntelligenceIntegrityError("Cached skill file missing")
                 contents = actual.read_bytes()
-                if len(contents) != file.get("length") or _sha256(contents) != file.get(
-                    "sha256"
-                ):
+                if len(contents) != file.get("byteLength") or _sha256(
+                    contents
+                ) != file.get("rawSha256"):
                     raise IntelligenceIntegrityError("Cached skill file changed")
-                if relative == f"{root}/SKILL.md":
+                if relative == "SKILL.md":
                     found_skill_md = True
             if not found_skill_md:
                 raise IntelligenceIntegrityError("Cached skill has no root SKILL.md")
@@ -717,6 +975,42 @@ class _Skills:
             )
         return manifest
 
+    @staticmethod
+    def _assert_projection_matches_cached(
+        projection: dict[str, Any], cached_manifest: dict[str, Any]
+    ) -> None:
+        cached_projection = cached_manifest.get("projection")
+        if not isinstance(cached_projection, dict):
+            raise IntelligenceIntegrityError("Cached projection is missing")
+        current = projection.get("entries")
+        cached = cached_projection.get("entries")
+        if not isinstance(current, list) or not isinstance(cached, list):
+            raise IntelligenceIntegrityError("Cached projection entries are invalid")
+        if len(current) != len(cached):
+            raise IntelligenceIntegrityError(
+                "Skill-set hash resolved to a different skill count"
+            )
+        immutable_keys = (
+            "skillId",
+            "versionId",
+            "position",
+            "bundleSha256",
+            "manifestSha256",
+            "bundleByteLength",
+        )
+        for current_entry, cached_entry in zip(current, cached, strict=True):
+            if not isinstance(current_entry, dict) or not isinstance(
+                cached_entry, dict
+            ):
+                raise IntelligenceIntegrityError("Cached projection entry is invalid")
+            if any(
+                current_entry.get(key) != cached_entry.get(key)
+                for key in immutable_keys
+            ):
+                raise IntelligenceIntegrityError(
+                    "Skill-set hash resolved to different immutable skill content"
+                )
+
     def _result(
         self,
         path: Path,
@@ -727,7 +1021,7 @@ class _Skills:
         skills = tuple(
             IntelligenceSkill(
                 skill_id=entry["skillId"],
-                version=entry["version"],
+                version=entry["versionId"],
                 position=entry["position"],
                 path=path
                 / "skills"
@@ -760,11 +1054,20 @@ class _Skills:
             raise IntelligenceIntegrityError("Invalid current cache pointer")
         set_hash = _valid_hash(pointer.get("skillSetHash"), "skillSetHash")
         revision = _required_string(pointer.get("registryRevision"), "registryRevision")
-        return self._result(
-            directory / "sets" / set_hash,
-            freshness,
-            registry_revision=revision,
+        etag = _required_string(pointer.get("etag"), "etag")
+        projection, _ = self._decode_projection(
+            container, _canonical_json(pointer.get("projection"))
         )
+        if (
+            projection["skillSetHash"] != set_hash
+            or projection["registryRevision"] != revision
+            or projection["etag"] != etag
+        ):
+            raise IntelligenceIntegrityError("Current cache pointer mismatch")
+        target = directory / "sets" / set_hash
+        cached_manifest = self._verify_set(target, expected_hash=set_hash)
+        self._assert_projection_matches_cached(projection, cached_manifest)
+        return self._result(target, freshness, registry_revision=revision)
 
 
 class CopilotKitIntelligence:

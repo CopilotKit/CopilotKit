@@ -22,7 +22,8 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./conformance/learning-platform-v1.json": "./conformance/learning-platform-v1.json"
+    "./conformance/learning-platform-v1.json": "./conformance/learning-platform-v1.json",
+    "./conformance/registry-sdk-v1.json": "./conformance/registry-sdk-v1.json"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

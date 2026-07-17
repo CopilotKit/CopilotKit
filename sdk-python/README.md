@@ -52,7 +52,7 @@ intelligence = CopilotKitIntelligence(
     api_key="...",
     project_namespace="my-project",
 )
-skill_set = intelligence.skills.get("onboarding")
+skill_set = intelligence.skills.get("55555555-5555-4555-8555-555555555555")
 for skill in skill_set.skills:
     print(skill.skill_id, skill.path)
 ```
@@ -61,7 +61,8 @@ Use `AsyncCopilotKitIntelligence` and `await intelligence.skills.get(...)` in an
 async application. `get()` always contacts the registry and never silently falls
 back after an outage. To explicitly use a fully verified local copy, call
 `get_cached()` (or await it on the async client); its result has
-`freshness == "cached"`.
+`freshness == "cached"`. Learning container IDs must be canonical UUIDs. Registry
+requests use the canonical `/v1/learning-containers/{id}/skills` endpoint.
 
 ## Documentation
 

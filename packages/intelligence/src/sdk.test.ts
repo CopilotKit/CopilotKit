@@ -12,6 +12,47 @@ const VERSION = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const NOW = "2026-07-16T18:00:00.000Z";
 const roots: string[] = [];
 
+interface GoldenRegistryFixture {
+  identity: {
+    baseUrl: string;
+    projectNamespace: string;
+    learningContainerId: string;
+  };
+  http: {
+    projectionPath: string;
+    authorization: string;
+    ifNoneMatch: string;
+  };
+  bundle: {
+    base64: string;
+    fileContents: string;
+  };
+  projection: Record<string, unknown>;
+  errors: Record<
+    "canonicalConflict" | "canonicalDenial" | "unknownCode" | "malformed",
+    {
+      status: number;
+      body: Record<string, unknown>;
+      invalidatesCache?: boolean;
+    }
+  >;
+  expectations: {
+    initialFreshness: "fresh";
+    validated304Freshness: "fresh";
+    explicitCacheFreshness: "cached";
+    nonCanonicalErrorCode: string;
+  };
+}
+
+async function goldenRegistryFixture(): Promise<GoldenRegistryFixture> {
+  return JSON.parse(
+    await readFile(
+      new URL("../conformance/registry-sdk-v1.json", import.meta.url),
+      "utf8",
+    ),
+  ) as GoldenRegistryFixture;
+}
+
 afterEach(async () => {
   await Promise.all(
     roots.splice(0).map((root) => rm(root, { recursive: true })),
@@ -205,6 +246,217 @@ function sequence(
 }
 
 describe("IntelligenceClient registry SDK", () => {
+  it("consumes the shared canonical registry golden response", async () => {
+    const golden = await goldenRegistryFixture();
+    const root = await cacheRoot();
+    const archive = Buffer.from(golden.bundle.base64, "base64");
+    const transport = sequence(
+      jsonResponse(golden.projection),
+      new Response(archive),
+    );
+    const client = new IntelligenceClient({
+      baseUrl: golden.identity.baseUrl,
+      accessToken: "secret-token",
+      projectNamespace: golden.identity.projectNamespace,
+      cacheRoot: root,
+      transport,
+    });
+
+    const result = await client.skills.get({
+      learningContainerId: golden.identity.learningContainerId,
+    });
+
+    expect(result.freshness).toBe(golden.expectations.initialFreshness);
+    expect(
+      await readFile(join(result.skills[0]!.directory, "SKILL.md"), "utf8"),
+    ).toBe(golden.bundle.fileContents);
+    expect(transport).toHaveBeenNthCalledWith(
+      1,
+      `${golden.identity.baseUrl}${golden.http.projectionPath}`,
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: golden.http.authorization,
+        }),
+      }),
+    );
+  });
+
+  it("uses the golden ETag only after verifying the cached set", async () => {
+    const golden = await goldenRegistryFixture();
+    const root = await cacheRoot();
+    const options = {
+      baseUrl: golden.identity.baseUrl,
+      accessToken: "secret-token",
+      projectNamespace: golden.identity.projectNamespace,
+      cacheRoot: root,
+    };
+    await new IntelligenceClient({
+      ...options,
+      transport: sequence(
+        jsonResponse(golden.projection),
+        new Response(Buffer.from(golden.bundle.base64, "base64")),
+      ),
+    }).skills.get({ learningContainerId: golden.identity.learningContainerId });
+    const transport = sequence(new Response(null, { status: 304 }));
+
+    const result = await new IntelligenceClient({
+      ...options,
+      transport,
+    }).skills.get({ learningContainerId: golden.identity.learningContainerId });
+
+    expect(result.freshness).toBe(golden.expectations.validated304Freshness);
+    expect(transport).toHaveBeenCalledWith(
+      `${golden.identity.baseUrl}${golden.http.projectionPath}`,
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          "If-None-Match": golden.http.ifNoneMatch,
+        }),
+      }),
+    );
+  });
+
+  it("applies the shared golden error and cache-invalidation semantics", async () => {
+    const golden = await goldenRegistryFixture();
+    const root = await cacheRoot();
+    const options = {
+      baseUrl: golden.identity.baseUrl,
+      accessToken: "secret-token",
+      projectNamespace: golden.identity.projectNamespace,
+      cacheRoot: root,
+    };
+    await new IntelligenceClient({
+      ...options,
+      transport: sequence(
+        jsonResponse(golden.projection),
+        new Response(Buffer.from(golden.bundle.base64, "base64")),
+      ),
+    }).skills.get({ learningContainerId: golden.identity.learningContainerId });
+    const conflict = golden.errors.canonicalConflict;
+    const conflicting = new IntelligenceClient({
+      ...options,
+      transport: sequence(jsonResponse(conflict.body, conflict.status)),
+    });
+
+    await expect(
+      conflicting.skills.get({
+        learningContainerId: golden.identity.learningContainerId,
+      }),
+    ).rejects.toMatchObject(conflict.body.error as Record<string, unknown>);
+    await expect(
+      conflicting.skills.getCached({
+        learningContainerId: golden.identity.learningContainerId,
+      }),
+    ).resolves.toMatchObject({
+      freshness: golden.expectations.explicitCacheFreshness,
+    });
+
+    const denial = golden.errors.canonicalDenial;
+    const denied = new IntelligenceClient({
+      ...options,
+      transport: sequence(jsonResponse(denial.body, denial.status)),
+    });
+    await expect(
+      denied.skills.get({
+        learningContainerId: golden.identity.learningContainerId,
+      }),
+    ).rejects.toMatchObject(denial.body.error as Record<string, unknown>);
+    await expect(
+      denied.skills.getCached({
+        learningContainerId: golden.identity.learningContainerId,
+      }),
+    ).rejects.toMatchObject({ code: "LEARNING_SDK_CACHE_CORRUPT" });
+  });
+
+  it("maps golden unknown and malformed errors to a fail-loud SDK error", async () => {
+    const golden = await goldenRegistryFixture();
+    for (const scenario of [
+      golden.errors.unknownCode,
+      golden.errors.malformed,
+    ]) {
+      const client = new IntelligenceClient({
+        baseUrl: golden.identity.baseUrl,
+        accessToken: "secret-token",
+        projectNamespace: golden.identity.projectNamespace,
+        cacheRoot: await cacheRoot(),
+        transport: sequence(jsonResponse(scenario.body, scenario.status)),
+      });
+
+      await expect(
+        client.skills.get({
+          learningContainerId: golden.identity.learningContainerId,
+        }),
+      ).rejects.toMatchObject({
+        code: golden.expectations.nonCanonicalErrorCode,
+        category: "dependency",
+      });
+    }
+  });
+
+  it("rejects a non-canonical learning container id before transport", async () => {
+    const root = await cacheRoot();
+    const transport = vi.fn<IntelligenceTransport>();
+    const client = new IntelligenceClient({
+      baseUrl: "https://registry.test",
+      accessToken: "token",
+      projectNamespace: "project-a",
+      cacheRoot: root,
+      transport,
+    });
+
+    await expect(
+      client.skills.get({ learningContainerId: "not-a-uuid" }),
+    ).rejects.toMatchObject({
+      code: "LEARNING_REGISTRY_UNRECOVERABLE",
+      category: "validation",
+    });
+    expect(transport).not.toHaveBeenCalled();
+  });
+
+  it("rejects a revoked projection that still contains skills", async () => {
+    const golden = await goldenRegistryFixture();
+    const root = await cacheRoot();
+    const archive = Buffer.from(golden.bundle.base64, "base64");
+    const client = new IntelligenceClient({
+      baseUrl: golden.identity.baseUrl,
+      accessToken: "secret-token",
+      projectNamespace: golden.identity.projectNamespace,
+      cacheRoot: root,
+      transport: sequence(
+        jsonResponse({ ...golden.projection, revoked: true }),
+        new Response(archive),
+      ),
+    });
+
+    await expect(
+      client.skills.get({
+        learningContainerId: golden.identity.learningContainerId,
+      }),
+    ).rejects.toMatchObject({ code: "LEARNING_SDK_CACHE_CORRUPT" });
+  });
+
+  it("does not accept artifactManifest as a legacy manifest alias", async () => {
+    const golden = await goldenRegistryFixture();
+    const root = await cacheRoot();
+    const projection = structuredClone(golden.projection) as {
+      entries: Array<Record<string, unknown>>;
+    };
+    projection.entries[0]!.artifactManifest = projection.entries[0]!.manifest;
+    delete projection.entries[0]!.manifest;
+    const client = new IntelligenceClient({
+      baseUrl: golden.identity.baseUrl,
+      accessToken: "secret-token",
+      projectNamespace: golden.identity.projectNamespace,
+      cacheRoot: root,
+      transport: sequence(jsonResponse(projection)),
+    });
+
+    await expect(
+      client.skills.get({
+        learningContainerId: golden.identity.learningContainerId,
+      }),
+    ).rejects.toMatchObject({ code: "LEARNING_BLOB_INTEGRITY_FAILURE" });
+  });
+
   it("uses bearer authentication with the fetch transport and preserves loose fields", async () => {
     const root = await cacheRoot();
     const { archive, projection } = fixture();
