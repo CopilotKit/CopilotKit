@@ -592,6 +592,86 @@ describe("HttpDeliverySource", () => {
     expect(fail).toBeDefined();
     expect(fail!.body["error"]).toMatchObject({ code: "runtime_error" });
   });
+
+  it("keeps heartbeating while a long turn is in flight (no mid-turn starvation)", async () => {
+    const { fetch, calls } = fakeFetch((c) =>
+      c.url.endsWith("/claim")
+        ? { body: { claimed: true, delivery: claimedDelivery() } }
+        : {
+            body: {
+              runtimeInstanceId: "rti_test",
+              receivedAt: "t",
+              leaseExpiresAt: "t",
+              channels: [],
+            },
+          },
+    );
+    // Small cadence so the standalone heartbeat timer fires several times while
+    // the turn is still running. The old top-of-loop heartbeat could not: the
+    // loop blocks on onDelivery for up to turnTimeoutMs, so a turn longer than
+    // the cadence sent no heartbeat and app-api could mark the runtime stale.
+    const src = new HttpDeliverySource(cfg({ fetch, heartbeatIntervalMs: 10 }));
+    let release: () => void = () => {};
+    await src.start(async () => {
+      await new Promise<void>((r) => {
+        release = r;
+      });
+    });
+    await new Promise((r) => setTimeout(r, 60));
+    const heartbeatsDuringTurn = calls.filter((c) =>
+      c.url.endsWith("/heartbeat"),
+    ).length;
+    release();
+    await src.stop();
+
+    // Initial heartbeat + at least one fired by the timer during the turn.
+    expect(heartbeatsDuringTurn).toBeGreaterThanOrEqual(2);
+  });
+
+  it("stop() returns promptly while idle even mid poll-sleep (interruptible)", async () => {
+    const { fetch } = fakeFetch((c) =>
+      c.url.endsWith("/claim")
+        ? { body: { claimed: false, pollAfterMs: 60_000 } }
+        : {
+            body: {
+              runtimeInstanceId: "rti_test",
+              receivedAt: "t",
+              leaseExpiresAt: "t",
+              channels: [],
+            },
+          },
+    );
+    // A poll-sleep that never resolves on its own — only stop() can end the idle
+    // wait. If stop() did not interrupt it, this test would hang.
+    const src = new HttpDeliverySource(
+      cfg({ fetch, sleep: () => new Promise<void>(() => {}) }),
+    );
+    await src.start(async () => {});
+    await new Promise((r) => setTimeout(r, 20));
+    await src.stop();
+
+    expect(true).toBe(true);
+  });
+
+  it("stop() returns promptly mid-turn and does not nack the in-flight delivery", async () => {
+    const { fetch, calls } = fakeFetch((c) =>
+      c.url.endsWith("/claim")
+        ? { body: { claimed: true, delivery: claimedDelivery() } }
+        : { body: {} },
+    );
+    // A long per-turn deadline: without an abort, stop() would block up to
+    // turnTimeoutMs waiting for the in-flight turn.
+    const src = new HttpDeliverySource(cfg({ fetch, turnTimeoutMs: 60_000 }));
+    await src.start(async () => {
+      await new Promise<void>(() => {});
+    });
+    await new Promise((r) => setTimeout(r, 20));
+    await src.stop();
+
+    // Shutting down leaves the lease for app-api to re-lease; the turn didn't
+    // fail, so it must NOT be nacked.
+    expect(calls.find((c) => c.url.includes("/fail"))).toBeUndefined();
+  });
 });
 
 describe("HttpDeliverySource.getHistory", () => {

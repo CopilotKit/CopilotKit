@@ -222,6 +222,15 @@ export class HttpDeliverySource implements DeliverySource {
   private running = false;
   private loop?: Promise<void>;
   private lastHeartbeatAt = 0;
+  /** Standalone recurring heartbeat timer, independent of the claim loop. */
+  private heartbeatTimer?: ReturnType<typeof setTimeout>;
+  /**
+   * Resolves when {@link stop} is called, so an in-flight poll-sleep or an
+   * in-flight turn-wait can be interrupted immediately rather than blocking
+   * shutdown for up to a cadence (idle) or `turnTimeoutMs` (mid-turn).
+   */
+  private stopWait?: Promise<void>;
+  private resolveStop?: () => void;
 
   constructor(private readonly cfg: IntelligenceTransportConfig) {
     this.http = new IntelligenceHttp(cfg);
@@ -233,7 +242,10 @@ export class HttpDeliverySource implements DeliverySource {
   }
 
   private sleep(ms: number): Promise<void> {
-    return (this.cfg.sleep ?? defaultSleep)(ms);
+    const base = (this.cfg.sleep ?? defaultSleep)(ms);
+    // Interruptible: stop() resolves stopWait so an in-flight poll-sleep ends at
+    // once instead of holding shutdown for up to a full cadence.
+    return this.stopWait ? Promise.race([base, this.stopWait]) : base;
   }
 
   /** Declare this runtime + channel to Intelligence and keep the activation fresh. */
@@ -315,8 +327,36 @@ export class HttpDeliverySource implements DeliverySource {
     onDelivery: (env: ChannelIngressEnvelope) => Promise<void>,
   ): Promise<void> {
     this.running = true;
+    this.stopWait = new Promise<void>((resolve) => {
+      this.resolveStop = resolve;
+    });
     await this.heartbeat();
+    this.scheduleHeartbeat();
     this.loop = this.runLoop(onDelivery);
+  }
+
+  /**
+   * Keep the activation fresh on a standalone recurring timer, independent of
+   * the claim loop. The loop blocks on `onDelivery` for up to `turnTimeoutMs`
+   * (120s) during a turn; heartbeating only at the top of the loop meant a turn
+   * longer than the cadence sent no heartbeat for its whole duration, so app-api
+   * could mark a healthily-working runtime stale mid-turn and withhold new
+   * deliveries. This timer heartbeats on cadence regardless of what the loop is
+   * doing, rescheduling only after each heartbeat settles (no overlap).
+   */
+  private scheduleHeartbeat(): void {
+    const cadence = this.cfg.heartbeatIntervalMs ?? 15000;
+    const timer = setTimeout(() => {
+      if (!this.running) return;
+      this.heartbeat()
+        .catch((err) => this.cfg.log?.("intelligence heartbeat failed", err))
+        .finally(() => {
+          if (this.running) this.scheduleHeartbeat();
+        });
+    }, cadence);
+    // Don't hold the event loop open (parity with the poll-sleep timers).
+    (timer as unknown as { unref?: () => void }).unref?.();
+    this.heartbeatTimer = timer;
   }
 
   private async runLoop(
@@ -325,8 +365,6 @@ export class HttpDeliverySource implements DeliverySource {
     const cadence = this.cfg.heartbeatIntervalMs ?? 15000;
     while (this.running) {
       try {
-        if (Date.now() - this.lastHeartbeatAt >= cadence)
-          await this.heartbeat();
         const r = await this.claimOnce();
         if ("env" in r) {
           // The adapter dispatches the turn and calls back into ack/nack
@@ -336,17 +374,36 @@ export class HttpDeliverySource implements DeliverySource {
           // then retries / dead-letters at max_attempts), and keep polling.
           const env = r.env;
           const timeoutMs = this.cfg.turnTimeoutMs ?? DEFAULT_TURN_TIMEOUT_MS;
-          try {
-            await withTimeout(
-              onDelivery(env),
-              timeoutMs,
-              `turn ${env.turnId} exceeded ${timeoutMs}ms`,
-            );
-          } catch (turnErr) {
-            this.cfg.log?.("intelligence turn failed/timed out", turnErr);
+          // Always attach a terminal handler so a turn that rejects AFTER we've
+          // stopped (below) never surfaces as an unhandled rejection.
+          const settled = withTimeout(
+            onDelivery(env),
+            timeoutMs,
+            `turn ${env.turnId} exceeded ${timeoutMs}ms`,
+          ).then(
+            () => ({ ok: true }) as const,
+            (err: unknown) => ({ ok: false, err }) as const,
+          );
+          // Race the turn against stop(): shutting down must not block for up to
+          // turnTimeoutMs waiting on an in-flight turn.
+          const outcome = this.stopWait
+            ? await Promise.race([
+                settled,
+                this.stopWait.then(() => "stopped" as const),
+              ])
+            : await settled;
+          if (outcome === "stopped") {
+            // Leave the lease — app-api re-leases after expiry. Do NOT nack: the
+            // turn didn't fail, we're stopping.
+            break;
+          }
+          if (!outcome.ok) {
+            this.cfg.log?.("intelligence turn failed/timed out", outcome.err);
             await this.nack(
               env.deliveryId,
-              turnErr instanceof Error ? turnErr.message : String(turnErr),
+              outcome.err instanceof Error
+                ? outcome.err.message
+                : String(outcome.err),
             ).catch((nackErr) =>
               this.cfg.log?.(
                 "intelligence nack after turn failure failed",
@@ -439,6 +496,12 @@ export class HttpDeliverySource implements DeliverySource {
 
   async stop(): Promise<void> {
     this.running = false;
+    // Interrupt any in-flight poll-sleep or turn-wait so shutdown is prompt.
+    this.resolveStop?.();
+    if (this.heartbeatTimer !== undefined) {
+      clearTimeout(this.heartbeatTimer);
+      this.heartbeatTimer = undefined;
+    }
     await this.loop?.catch(() => {});
   }
 }
