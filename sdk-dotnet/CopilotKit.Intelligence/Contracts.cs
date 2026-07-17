@@ -25,28 +25,28 @@ public enum CacheFreshness
 
 public sealed class SkillSetProjection
 {
-    [JsonPropertyName("schemaVersion")]
+    [JsonRequired, JsonPropertyName("schemaVersion")]
     public int SchemaVersion { get; set; }
 
-    [JsonPropertyName("learningContainerId")]
+    [JsonRequired, JsonPropertyName("learningContainerId")]
     public string LearningContainerId { get; set; } = string.Empty;
 
-    [JsonPropertyName("registryRevision")]
+    [JsonRequired, JsonPropertyName("registryRevision")]
     public string RegistryRevision { get; set; } = string.Empty;
 
-    [JsonPropertyName("skillSetHash")]
+    [JsonRequired, JsonPropertyName("skillSetHash")]
     public string SkillSetHash { get; set; } = string.Empty;
 
-    [JsonPropertyName("etag")]
+    [JsonRequired, JsonPropertyName("etag")]
     public string ETag { get; set; } = string.Empty;
 
-    [JsonPropertyName("entries")]
+    [JsonRequired, JsonPropertyName("entries")]
     public List<SkillSetProjectionEntry> Entries { get; set; } = [];
 
-    [JsonPropertyName("publishedAt")]
+    [JsonRequired, JsonPropertyName("publishedAt")]
     public DateTimeOffset PublishedAt { get; set; }
 
-    [JsonPropertyName("revoked")]
+    [JsonRequired, JsonPropertyName("revoked")]
     public bool Revoked { get; set; }
 
     [JsonExtensionData]
@@ -55,41 +55,38 @@ public sealed class SkillSetProjection
 
 public sealed class SkillSetProjectionEntry
 {
-    [JsonPropertyName("skillId")]
+    [JsonRequired, JsonPropertyName("skillId")]
     public string SkillId { get; set; } = string.Empty;
 
-    [JsonPropertyName("versionId")]
+    [JsonRequired, JsonPropertyName("versionId")]
     public string VersionId { get; set; } = string.Empty;
 
-    [JsonPropertyName("position")]
+    [JsonRequired, JsonPropertyName("position")]
     public int Position { get; set; }
 
-    [JsonPropertyName("name")]
+    [JsonRequired, JsonPropertyName("name")]
     public string Name { get; set; } = string.Empty;
 
-    [JsonPropertyName("description")]
+    [JsonRequired, JsonPropertyName("description")]
     public string? Description { get; set; }
 
-    [JsonPropertyName("bundleLocator")]
+    [JsonRequired, JsonPropertyName("bundleLocator")]
     public BlobLocator BundleLocator { get; set; } = new();
 
-    [JsonPropertyName("bundleSha256")]
+    [JsonRequired, JsonPropertyName("bundleSha256")]
     public string BundleSha256 { get; set; } = string.Empty;
 
-    [JsonPropertyName("manifestSha256")]
+    [JsonRequired, JsonPropertyName("manifestSha256")]
     public string ManifestSha256 { get; set; } = string.Empty;
 
-    [JsonPropertyName("bundleByteLength")]
+    [JsonRequired, JsonPropertyName("bundleByteLength")]
     public long BundleByteLength { get; set; }
 
-    [JsonPropertyName("approvalMethod")]
+    [JsonRequired, JsonPropertyName("approvalMethod")]
     public string ApprovalMethod { get; set; } = string.Empty;
 
     [JsonPropertyName("manifest")]
     public SkillArtifactManifest? Manifest { get; set; }
-
-    [JsonPropertyName("artifactManifest")]
-    public SkillArtifactManifest? ArtifactManifest { get; set; }
 
     [JsonPropertyName("downloadUrl")]
     public string? DownloadUrl { get; set; }
@@ -100,37 +97,37 @@ public sealed class SkillSetProjectionEntry
 
 public sealed class BlobLocator
 {
-    [JsonPropertyName("schemaVersion")]
+    [JsonRequired, JsonPropertyName("schemaVersion")]
     public int SchemaVersion { get; set; }
 
-    [JsonPropertyName("backendId")]
+    [JsonRequired, JsonPropertyName("backendId")]
     public string BackendId { get; set; } = string.Empty;
 
-    [JsonPropertyName("provider")]
+    [JsonRequired, JsonPropertyName("provider")]
     public string Provider { get; set; } = string.Empty;
 
-    [JsonPropertyName("resource")]
+    [JsonRequired, JsonPropertyName("resource")]
     public string Resource { get; set; } = string.Empty;
 
-    [JsonPropertyName("key")]
+    [JsonRequired, JsonPropertyName("key")]
     public string Key { get; set; } = string.Empty;
 
-    [JsonPropertyName("providerVersion")]
+    [JsonRequired, JsonPropertyName("providerVersion")]
     public string? ProviderVersion { get; set; }
 
-    [JsonPropertyName("etag")]
+    [JsonRequired, JsonPropertyName("etag")]
     public string? ETag { get; set; }
 
-    [JsonPropertyName("applicationSha256")]
+    [JsonRequired, JsonPropertyName("applicationSha256")]
     public string ApplicationSha256 { get; set; } = string.Empty;
 
-    [JsonPropertyName("providerChecksum")]
+    [JsonRequired, JsonPropertyName("providerChecksum")]
     public JsonElement? ProviderChecksum { get; set; }
 
-    [JsonPropertyName("byteLength")]
+    [JsonRequired, JsonPropertyName("byteLength")]
     public long ByteLength { get; set; }
 
-    [JsonPropertyName("contentType")]
+    [JsonRequired, JsonPropertyName("contentType")]
     public string ContentType { get; set; } = string.Empty;
 
     [JsonExtensionData]
@@ -139,25 +136,25 @@ public sealed class BlobLocator
 
 public sealed class SkillArtifactManifest
 {
-    [JsonPropertyName("manifestVersion")]
+    [JsonRequired, JsonPropertyName("manifestVersion")]
     public int ManifestVersion { get; set; }
 
-    [JsonPropertyName("agentSkillsProfile")]
+    [JsonRequired, JsonPropertyName("agentSkillsProfile")]
     public string AgentSkillsProfile { get; set; } = string.Empty;
 
-    [JsonPropertyName("files")]
+    [JsonRequired, JsonPropertyName("files")]
     public List<SkillArtifactFile> Files { get; set; } = [];
 
-    [JsonPropertyName("manifestSha256")]
+    [JsonRequired, JsonPropertyName("manifestSha256")]
     public string ManifestSha256 { get; set; } = string.Empty;
 
-    [JsonPropertyName("bundleSha256")]
+    [JsonRequired, JsonPropertyName("bundleSha256")]
     public string BundleSha256 { get; set; } = string.Empty;
 
-    [JsonPropertyName("bundleByteLength")]
+    [JsonRequired, JsonPropertyName("bundleByteLength")]
     public long BundleByteLength { get; set; }
 
-    [JsonPropertyName("provenance")]
+    [JsonRequired, JsonPropertyName("provenance")]
     public JsonElement Provenance { get; set; }
 
     [JsonExtensionData]
@@ -166,19 +163,19 @@ public sealed class SkillArtifactManifest
 
 public sealed class SkillArtifactFile
 {
-    [JsonPropertyName("path")]
+    [JsonRequired, JsonPropertyName("path")]
     public string Path { get; set; } = string.Empty;
 
-    [JsonPropertyName("role")]
+    [JsonRequired, JsonPropertyName("role")]
     public string Role { get; set; } = string.Empty;
 
-    [JsonPropertyName("mediaType")]
+    [JsonRequired, JsonPropertyName("mediaType")]
     public string MediaType { get; set; } = string.Empty;
 
-    [JsonPropertyName("byteLength")]
+    [JsonRequired, JsonPropertyName("byteLength")]
     public long ByteLength { get; set; }
 
-    [JsonPropertyName("rawSha256")]
+    [JsonRequired, JsonPropertyName("rawSha256")]
     public string RawSha256 { get; set; } = string.Empty;
 
     [JsonExtensionData]

@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "sourceCorpus": "learning-platform-v1.json",
+  "identity": {
+    "baseUrl": "https://registry.example.test",
+    "projectNamespace": "project-a",
+    "learningContainerId": "55555555-5555-4555-8555-555555555555",
+    "skillId": "99999999-9999-4999-8999-999999999999",
+    "versionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+  },
+  "http": {
+    "projectionPath": "/v1/learning-containers/55555555-5555-4555-8555-555555555555/skills",
+    "bundlePath": "/v1/learning-containers/55555555-5555-4555-8555-555555555555/skills/99999999-9999-4999-8999-999999999999/versions/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/bundle",
+    "authorization": "Bearer secret-token",
+    "ifNoneMatch": "registry-1"
+  },
+  "bundle": {
+    "base64": "UEsDBBQAAAAAAAAAIQA9+OCXCAAAAAgAAAATAAAAc2FmZS1za2lsbC9TS0lMTC5tZCMgU2tpbGwKUEsBAhQDFAAAAAAAAAAhAD344JcIAAAACAAAABMAAAAAAAAAAAAAAKSBAAAAAHNhZmUtc2tpbGwvU0tJTEwubWRQSwUGAAAAAAEAAQBBAAAAOQAAAAAA",
+    "byteLength": 144,
+    "sha256": "b86e5ce15092417a26042e892be2341121fc287e6215a49134448fe0e248cf0c",
+    "rootDirectory": "safe-skill",
+    "filePath": "SKILL.md",
+    "fileContents": "# Skill\n"
+  },
+  "projection": {
+    "schemaVersion": 1,
+    "learningContainerId": "55555555-5555-4555-8555-555555555555",
+    "registryRevision": "revision-1",
+    "skillSetHash": "b86e5ce15092417a26042e892be2341121fc287e6215a49134448fe0e248cf0c",
+    "etag": "registry-1",
+    "entries": [
+      {
+        "skillId": "99999999-9999-4999-8999-999999999999",
+        "versionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "position": 0,
+        "name": "Safe skill",
+        "description": null,
+        "bundleLocator": {
+          "schemaVersion": 1,
+          "backendId": "primary",
+          "provider": "awsS3",
+          "resource": "skill-bundles",
+          "key": "objects/safe.zip",
+          "providerVersion": null,
+          "etag": null,
+          "applicationSha256": "b86e5ce15092417a26042e892be2341121fc287e6215a49134448fe0e248cf0c",
+          "providerChecksum": null,
+          "byteLength": 144,
+          "contentType": "application/zip"
+        },
+        "bundleSha256": "b86e5ce15092417a26042e892be2341121fc287e6215a49134448fe0e248cf0c",
+        "manifestSha256": "eb4b539ba8cdaf2977cf7e01f6e160460b54194176e8d892c3c2e0827e99aff4",
+        "bundleByteLength": 144,
+        "approvalMethod": "manual",
+        "downloadUrl": "/v1/learning-containers/55555555-5555-4555-8555-555555555555/skills/99999999-9999-4999-8999-999999999999/versions/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/bundle",
+        "manifest": {
+          "manifestVersion": 1,
+          "agentSkillsProfile": "agentskills:v1",
+          "files": [
+            {
+              "path": "SKILL.md",
+              "role": "instructions",
+              "mediaType": "text/markdown",
+              "byteLength": 8,
+              "rawSha256": "74daeff849609b74a42500aff45eb6229a086907ab1b2badae4c29ed4fc10e3c"
+            }
+          ],
+          "manifestSha256": "eb4b539ba8cdaf2977cf7e01f6e160460b54194176e8d892c3c2e0827e99aff4",
+          "bundleSha256": "b86e5ce15092417a26042e892be2341121fc287e6215a49134448fe0e248cf0c",
+          "bundleByteLength": 144,
+          "provenance": {}
+        },
+        "futureEntryField": "preserved"
+      }
+    ],
+    "publishedAt": "2026-07-16T18:00:00.000Z",
+    "revoked": false,
+    "futureProjectionField": {
+      "preserved": true
+    }
+  },
+  "errors": {
+    "canonicalConflict": {
+      "status": 409,
+      "body": {
+        "error": {
+          "code": "LEARNING_CONTAINER_ASSIGNMENT_MISMATCH",
+          "message": "Assignment does not match.",
+          "category": "conflict",
+          "retryable": false
+        },
+        "requestId": "request-1",
+        "traceId": "trace-1"
+      },
+      "invalidatesCache": false
+    },
+    "canonicalDenial": {
+      "status": 403,
+      "body": {
+        "error": {
+          "code": "LEARNING_CONTAINER_PROJECT_MISMATCH",
+          "message": "Container does not belong to this project.",
+          "category": "permission",
+          "retryable": false
+        },
+        "requestId": "request-2",
+        "traceId": "trace-2"
+      },
+      "invalidatesCache": true
+    },
+    "unknownCode": {
+      "status": 409,
+      "body": {
+        "error": {
+          "code": "UNKNOWN",
+          "message": "Unknown error.",
+          "category": "internal",
+          "retryable": false
+        },
+        "requestId": "request-3",
+        "traceId": "trace-3"
+      }
+    },
+    "malformed": {
+      "status": 500,
+      "body": {
+        "message": "not canonical"
+      }
+    }
+  },
+  "expectations": {
+    "initialFreshness": "fresh",
+    "validated304Freshness": "fresh",
+    "explicitCacheFreshness": "cached",
+    "secondUnconditional304Code": "LEARNING_SDK_CACHE_CORRUPT",
+    "nonCanonicalErrorCode": "LEARNING_REGISTRY_UNRECOVERABLE"
+  }
+}

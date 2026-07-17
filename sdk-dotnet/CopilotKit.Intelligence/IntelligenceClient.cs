@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 
 namespace CopilotKit.Intelligence;
 
@@ -12,6 +13,34 @@ public sealed class IntelligenceClient : IDisposable
 {
     private const string MetadataFile = ".copilotkit-skill-set.json";
     private const string PointerFile = ".copilotkit-current.json";
+    private static readonly Regex CanonicalUuid = new(
+        "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$",
+        RegexOptions.CultureInvariant | RegexOptions.NonBacktracking);
+    private static readonly HashSet<string> CanonicalErrorCodes =
+    [
+        "LEARNING_CONTAINER_NOT_FOUND",
+        "LEARNING_CONTAINER_ARCHIVED",
+        "LEARNING_CONTAINER_PROJECT_MISMATCH",
+        "LEARNING_CONTAINER_CONFIG_CONFLICT",
+        "LEARNING_CONTAINER_ASSIGNMENT_MISMATCH",
+        "LEARNING_CONTAINER_ASSIGNMENT_CONFLICT",
+        "LEARNING_RUN_ACTIVE_CONFLICT",
+        "LEARNING_RUN_IDEMPOTENCY_CONFLICT",
+        "LEARNING_ATTEMPT_FENCE_REJECTED",
+        "LEARNING_SNAPSHOT_INVARIANT_VIOLATION",
+        "LEARNING_CANDIDATE_STALE_PARENT",
+        "LEARNING_CANDIDATE_SUBJECT_MISMATCH",
+        "LEARNING_CANDIDATE_GATES_INCOMPLETE",
+        "LEARNING_REGISTRY_CONFLICT",
+        "LEARNING_REGISTRY_UNRECOVERABLE",
+        "LEARNING_BLOB_INTEGRITY_FAILURE",
+        "LEARNING_SDK_CACHE_CORRUPT",
+    ];
+    private static readonly HashSet<string> CanonicalErrorCategories =
+    [
+        "validation", "auth", "permission", "not_found", "conflict",
+        "rate_limit", "internal", "dependency",
+    ];
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -321,7 +350,7 @@ public sealed class IntelligenceClient : IDisposable
 
     private SkillArtifactManifest ValidateManifest(SkillSetProjectionEntry entry)
     {
-        var manifest = entry.Manifest ?? entry.ArtifactManifest ?? throw Error("Registry entry is missing an artifact manifest", IntelligenceErrorCode.BlobIntegrityFailure, "validation");
+        var manifest = entry.Manifest ?? throw Error("Registry entry is missing an artifact manifest", IntelligenceErrorCode.BlobIntegrityFailure, "validation");
         ValidateManifestObject(manifest);
         if (manifest.BundleSha256 != entry.BundleSha256 || manifest.BundleByteLength != entry.BundleByteLength ||
             manifest.ManifestSha256 != entry.ManifestSha256 || ManifestHash(manifest) != entry.ManifestSha256)
@@ -364,18 +393,24 @@ public sealed class IntelligenceClient : IDisposable
     private void ValidateProjection(SkillSetProjection projection, string learningContainerId)
     {
         if (projection.SchemaVersion != 1 || projection.LearningContainerId != learningContainerId ||
-            string.IsNullOrEmpty(projection.RegistryRevision) || string.IsNullOrEmpty(projection.ETag) || !ValidHash(projection.SkillSetHash))
+            string.IsNullOrEmpty(projection.RegistryRevision) || string.IsNullOrEmpty(projection.ETag) ||
+            projection.PublishedAt == default || !ValidHash(projection.SkillSetHash))
             throw Error("Registry returned an invalid canonical projection");
         if (projection.Revoked && projection.Entries.Count != 0)
             throw Error("A revoked projection must be empty");
-        var skills = new HashSet<string>(StringComparer.Ordinal);
+        var skills = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         for (var index = 0; index < projection.Entries.Count; index++)
         {
             var entry = projection.Entries[index];
-            if (entry.Position != index || entry.Position > 999_999 || !Guid.TryParse(entry.SkillId, out _) ||
-                !Guid.TryParse(entry.VersionId, out _) || !skills.Add(entry.SkillId) || string.IsNullOrEmpty(entry.Name) ||
+            if (entry.Position != index || entry.Position > 999_999 || !CanonicalUuid.IsMatch(entry.SkillId) ||
+                !CanonicalUuid.IsMatch(entry.VersionId) || !skills.Add(entry.SkillId) || string.IsNullOrEmpty(entry.Name) ||
                 entry.BundleByteLength <= 0 || !ValidHash(entry.BundleSha256) || !ValidHash(entry.ManifestSha256) ||
-                entry.BundleLocator.SchemaVersion != 1 || entry.BundleLocator.ByteLength < 0 || !ValidHash(entry.BundleLocator.ApplicationSha256))
+                entry.ApprovalMethod is not ("manual" or "automatic") || entry.BundleLocator is null || entry.BundleLocator.SchemaVersion != 1 ||
+                string.IsNullOrEmpty(entry.BundleLocator.BackendId) ||
+                entry.BundleLocator.Provider is not ("awsS3" or "googleCloudStorage" or "azureBlob" or "s3Compatible") ||
+                string.IsNullOrEmpty(entry.BundleLocator.Resource) || string.IsNullOrEmpty(entry.BundleLocator.Key) ||
+                entry.BundleLocator.ByteLength < 0 || string.IsNullOrEmpty(entry.BundleLocator.ContentType) ||
+                !ValidHash(entry.BundleLocator.ApplicationSha256))
                 throw Error("Registry projection has invalid ordered skill entries");
         }
     }
@@ -386,7 +421,8 @@ public sealed class IntelligenceClient : IDisposable
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.AccessToken);
         request.Headers.Accept.ParseAdd("application/json");
         request.Headers.Accept.ParseAdd("application/zip");
-        if (etag is not null) request.Headers.IfNoneMatch.ParseAdd(etag);
+        if (etag is not null && !request.Headers.TryAddWithoutValidation("If-None-Match", etag))
+            throw Error("Cached ETag could not be added to the request");
         try
         {
             return await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
@@ -414,12 +450,15 @@ public sealed class IntelligenceClient : IDisposable
         {
             throw Error($"Registry request failed with HTTP {status}", IntelligenceErrorCode.RegistryUnrecoverable, "dependency", error, status >= 500, status);
         }
-        if (canonical.Error is null || string.IsNullOrEmpty(canonical.Error.Code) || string.IsNullOrEmpty(canonical.Error.Message))
+        if (canonical.Error is null || string.IsNullOrEmpty(canonical.Error.Code) || string.IsNullOrEmpty(canonical.Error.Message) ||
+            string.IsNullOrEmpty(canonical.Error.Category) || !CanonicalErrorCodes.Contains(canonical.Error.Code) ||
+            !CanonicalErrorCategories.Contains(canonical.Error.Category) || canonical.Error.Retryable is null || string.IsNullOrEmpty(canonical.RequestId) ||
+            string.IsNullOrEmpty(canonical.TraceId))
             throw Error($"Registry returned a non-canonical HTTP {status} error", IntelligenceErrorCode.RegistryUnrecoverable, "dependency", status: status, retryable: status >= 500);
         if (canonical.Error.Code is "LEARNING_REGISTRY_UNRECOVERABLE" or "LEARNING_CONTAINER_ARCHIVED" or "LEARNING_CONTAINER_PROJECT_MISMATCH" or "LEARNING_CONTAINER_NOT_FOUND")
             File.Delete(pointerPath);
         throw new IntelligenceSdkException(canonical.Error.Message, canonical.Error.Code,
-            canonical.Error.Category ?? "dependency", canonical.Error.Retryable, status, canonical.RequestId, canonical.TraceId);
+            canonical.Error.Category, canonical.Error.Retryable.Value, status, canonical.RequestId, canonical.TraceId);
     }
 
     private static async Task<T> DeserializeResponseAsync<T>(HttpResponseMessage response, string message, CancellationToken cancellationToken)
@@ -515,7 +554,7 @@ public sealed class IntelligenceClient : IDisposable
 
     private static void ValidateContainerId(string value)
     {
-        if (!Guid.TryParse(value, out _)) throw Error("learningContainerId must be a UUID", IntelligenceErrorCode.RegistryUnrecoverable, "validation");
+        if (string.IsNullOrEmpty(value) || !CanonicalUuid.IsMatch(value)) throw Error("learningContainerId must be a canonical UUID", IntelligenceErrorCode.RegistryUnrecoverable, "validation");
     }
 
     private static bool ValidHash(string value) => value.Length == 64 && value.All(character => character is >= '0' and <= '9' or >= 'a' and <= 'f');
@@ -582,6 +621,6 @@ public sealed class IntelligenceClient : IDisposable
         public string Code { get; set; } = string.Empty;
         public string Message { get; set; } = string.Empty;
         public string? Category { get; set; }
-        public bool Retryable { get; set; }
+        public bool? Retryable { get; set; }
     }
 }

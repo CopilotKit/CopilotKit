@@ -13,6 +13,9 @@ const corpusPath = fileURLToPath(
 const packageJsonPath = fileURLToPath(
   new URL("../package.json", import.meta.url),
 );
+const registrySdkGoldenPath = fileURLToPath(
+  new URL("../conformance/registry-sdk-v1.json", import.meta.url),
+);
 
 const commandSchemaNames = [
   "CommitLearningRunResultV1",
@@ -144,5 +147,41 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
       "./conformance/learning-platform-v1.json",
       "./conformance/learning-platform-v1.json",
     );
+    expect(packageJson.exports).toHaveProperty(
+      "./conformance/registry-sdk-v1.json",
+      "./conformance/registry-sdk-v1.json",
+    );
+  });
+
+  test("keeps the registry SDK golden success and errors canonical", () => {
+    const golden = JSON.parse(readFileSync(registrySdkGoldenPath, "utf8")) as {
+      schemaVersion: number;
+      sourceCorpus: string;
+      projection: unknown;
+      errors: Record<string, { body: unknown }>;
+    };
+
+    expect(golden.schemaVersion).toBe(1);
+    expect(golden.sourceCorpus).toBe("learning-platform-v1.json");
+    expect(
+      learningPlatformConformanceSchemas.SkillSetProjectionV1.safeParse(
+        golden.projection,
+      ).success,
+    ).toBe(true);
+    expect(
+      learningPlatformConformanceSchemas.LearningPlatformErrorResponseV1.safeParse(
+        golden.errors.canonicalConflict?.body,
+      ).success,
+    ).toBe(true);
+    expect(
+      learningPlatformConformanceSchemas.LearningPlatformErrorResponseV1.safeParse(
+        golden.errors.canonicalDenial?.body,
+      ).success,
+    ).toBe(true);
+    expect(
+      learningPlatformConformanceSchemas.LearningPlatformErrorResponseV1.safeParse(
+        golden.errors.unknownCode?.body,
+      ).success,
+    ).toBe(false);
   });
 });
