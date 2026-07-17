@@ -37,22 +37,16 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
     >
     <TailoredContentOption
         id="cli"
-        title="Use the CopilotKit CLI (NextJS only)"
-        description="I have a Next.js application and want to get started quickly."
+        title="Use the CopilotKit CLI"
+        description="Scaffold a fresh Next.js starter for CrewAI Flows."
         icon={<SquareTerminal />}
     >
         <Step>
             ### Run the CLI
-            Just run this following command in your Next.js application to get started!
 
-            <Accordions>
-                <Accordion title="Don't have a Next.js application?">
-                    No problem! Just use `create-next-app` to make one quickly.
-                    ```bash
-                    npx create-next-app@latest
-                    ```
-                </Accordion>
-            </Accordions>
+            Use this path when you want the CLI to generate a new CopilotKit starter project for CrewAI Flows.
+
+            If you're adding CopilotKit to an existing Next.js application, choose **Code along** below and install the packages manually.
 
             ```bash
             npx copilotkit@latest init --framework flows
@@ -80,7 +74,7 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
     <TailoredContentOption
         id="code-along"
         title="Code along"
-        description="I want to deeply understand what's happening under the hood or don't have a Next.js application."
+        description="Add CopilotKit to an existing app or learn each setup step."
         icon={<SquareChartGantt />}
     >
         <Step>

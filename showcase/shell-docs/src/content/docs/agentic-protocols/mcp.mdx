@@ -67,21 +67,15 @@ For further reading, check out the [Model Context Protocol](https://modelcontext
     <TailoredContentOption
       id="use-cli"
       title="Use the CopilotKit CLI"
-      description="I have a Next.js application and want to get started quickly."
+      description="Scaffold a fresh Next.js starter with MCP configured."
       icon={<SquareTerminal />}
     >
       <Step>
         ### Run the CLI
-        Just run this following command in your Next.js application to get started!
 
-        <Accordions>
-            <Accordion title="Don't have a Next.js application?">
-                No problem! Just use `create-next-app` to make one quickly.
-                ```bash
-                npx create-next-app@latest
-                ```
-            </Accordion>
-        </Accordions>
+        Use this path when you want the CLI to generate a new CopilotKit starter project with MCP configured.
+
+        If you're adding MCP to an existing Next.js application, choose **Code along** below and add the provider, MCP server manager, and chat UI manually.
 
         ```bash
         npx copilotkit@latest init -m MCP
@@ -91,7 +85,7 @@ For further reading, check out the [Model Context Protocol](https://modelcontext
     <TailoredContentOption
         id="do-it-manually"
         title="Code along"
-        description="I want to deeply understand what's happening under the hood or don't have a Next.js application."
+        description="Add MCP to an existing app or learn each setup step."
         icon={<SquareChartGantt />}
     >
       <Step>
