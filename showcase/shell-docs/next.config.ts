@@ -108,6 +108,11 @@ const nextConfig: NextConfig = {
         destination: "/concepts/oss-vs-enterprise",
         permanent: true,
       },
+      {
+        source: "/guides/backend-actions/remote-backend-endpoint",
+        destination: "/backend/remote-backends",
+        permanent: true,
+      },
       // /unselected/* tree retired. Files moved to integrations/built-in-agent/
       // (BIA replaced the old "unselected" slot as the default integration).
       // The Built-in Agent docs are served at the ROOT surface (no

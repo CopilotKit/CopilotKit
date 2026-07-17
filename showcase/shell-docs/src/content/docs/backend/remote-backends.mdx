@@ -1,0 +1,92 @@
+---
+title: "Remote backends"
+icon: "lucide/Cloud"
+description: "Connect CopilotKit to agents that run on a separate FastAPI, Node, or other AG-UI-compatible backend."
+---
+
+Use a remote backend when your agent runs outside the app that renders the
+CopilotKit UI. The common shape is:
+
+1. Your frontend calls a CopilotKit runtime endpoint such as `/api/copilotkit`.
+2. The runtime registers an AG-UI `HttpAgent` that points at your remote backend.
+3. The remote backend accepts an AG-UI run request and streams AG-UI events back
+   over Server-Sent Events (SSE).
+
+This keeps browser traffic pointed at your own runtime while the runtime handles
+agent routing, header forwarding, middleware, and authentication checks
+server-side.
+
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+import { HttpAgent } from "@ag-ui/client";
+import {
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    support_agent: new HttpAgent({
+      url: process.env.SUPPORT_AGENT_URL!,
+    }),
+  },
+});
+
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+
+export const GET = handler;
+export const POST = handler;
+export const PATCH = handler;
+export const DELETE = handler;
+```
+
+```tsx title="app/layout.tsx"
+import { CopilotKit } from "@copilotkit/react-core/v2";
+
+<CopilotKit runtimeUrl="/api/copilotkit">
+  <YourApp />
+</CopilotKit>;
+```
+
+## FastAPI and Python agents
+
+Python frameworks such as LangGraph, CrewAI, PydanticAI, and AWS Strands can run
+behind FastAPI as long as their endpoint speaks AG-UI. In that setup, your
+FastAPI service is the remote backend and the `HttpAgent` URL points at the
+FastAPI route that streams AG-UI events.
+
+For framework-specific FastAPI examples, start from the integration quickstarts:
+
+- [LangGraph](/integrations/langgraph/quickstart)
+- [CrewAI Flows](/integrations/crewai-flows/quickstart)
+- [PydanticAI](/integrations/pydantic-ai/quickstart)
+- [AWS Strands](/integrations/aws-strands/quickstart)
+
+## Production checklist
+
+- Keep the remote agent endpoint server-to-server when possible; do not expose
+  service tokens in `NEXT_PUBLIC_*` variables.
+- Use runtime auth hooks or your framework middleware to reject unauthorized
+  requests before proxying to the remote backend.
+- Configure `HttpAgent.headers` for service-to-service credentials that should
+  always be set by the runtime.
+- Confirm the remote endpoint streams valid AG-UI events; use
+  [Runtime HTTP endpoints](/backend/runtime-endpoints) to debug the runtime side
+  and [Connect AG-UI agents](/backend/ag-ui) to inspect the event contract.
+
+<Callout type="info" title="Direct browser connections">
+If you intentionally manage the agent connection yourself, use
+[`selfManagedAgents`](/backend/self-managed-agents). That path bypasses the
+CopilotKit runtime, so your remote backend must authenticate and authorize every
+request directly.
+</Callout>
+
+## Related
+
+- [Copilot Runtime](/backend/copilot-runtime): how the runtime registers and
+  routes agents.
+- [Connect AG-UI agents](/backend/ag-ui): the `HttpAgent` and AG-UI event model.
+- [Runtime HTTP endpoints](/backend/runtime-endpoints): the routes exposed by a
+  self-hosted runtime.
