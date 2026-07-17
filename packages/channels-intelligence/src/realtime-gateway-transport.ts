@@ -50,6 +50,29 @@ const CHANNEL_NAME_RE = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
  * `channelName` (OSS-473) — `organizationId`/`channelId` are optional and
  * are format-checked only when present.
  */
+/**
+ * Coerce a wire `projectId` to a positive integer, or `undefined` when absent
+ * or unusable. The gateway `delivery.available` payload is untyped JSON, so a
+ * projectId can arrive as a number OR a numeric string (`"9"`). Both must be
+ * accepted: a strict `typeof === "number"` check would let a numeric-string
+ * projectId fall through to the transport-default scope, defeating the
+ * per-delivery scope authority (routing a render-accept under the wrong
+ * project). Non-integer, non-positive, and non-numeric values return
+ * `undefined` so the caller can fall back to the transport default.
+ *
+ * @param value - The raw wire `projectId`.
+ * @returns A positive integer projectId, or `undefined`.
+ */
+export function coerceWireProjectId(value: unknown): number | undefined {
+  const n =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && /^\d+$/.test(value)
+        ? Number(value)
+        : undefined;
+  return n !== undefined && Number.isInteger(n) && n > 0 ? n : undefined;
+}
+
 export function assertValidChannelRealtimeScope(
   scope: ChannelRealtimeScope,
 ): void {
@@ -441,9 +464,7 @@ export class RealtimeGatewayTransport
     const scope: ChannelDeliveryScope = {
       ...(organizationId !== undefined ? { organizationId } : {}),
       projectId:
-        typeof delivery.projectId === "number"
-          ? delivery.projectId
-          : this.scope.projectId,
+        coerceWireProjectId(delivery.projectId) ?? this.scope.projectId,
       ...(channelId !== undefined ? { channelId } : {}),
       channelName: String(channel?.name ?? this.scope.channelName),
     };
