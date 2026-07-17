@@ -30,6 +30,8 @@ import type {
 import { RunHandler } from "./run-handler";
 import type { DebugConfig } from "@copilotkit/shared";
 import { StateManager } from "./state-manager";
+import { SubagentRegistry } from "./subagent-registry";
+import type { SubagentState } from "./subagent-registry";
 import { ThreadStoreRegistry } from "./thread-store-registry";
 import type { ɵThreadStore } from "../threads";
 import { ɵcreateMemoryStore } from "../memory";
@@ -182,6 +184,11 @@ export interface CopilotKitCoreSubscriber {
   onSuggestionsFinishedLoading?: (event: {
     copilotkit: CopilotKitCore;
     agentId: string;
+  }) => void | Promise<void>;
+  onSubagentsChanged?: (event: {
+    copilotkit: CopilotKitCore;
+    agentId: string;
+    subagents: Readonly<Record<string, SubagentState>>;
   }) => void | Promise<void>;
   onPropertiesChanged?: (event: {
     copilotkit: CopilotKitCore;
@@ -387,6 +394,7 @@ export class CopilotKitCore {
   private suggestionEngine: SuggestionEngine;
   private runHandler: RunHandler;
   private stateManager: StateManager;
+  private subagentRegistry: SubagentRegistry;
   private threadStoreRegistry: ThreadStoreRegistry;
   /**
    * The single core-owned memory store, created lazily on first
@@ -426,6 +434,7 @@ export class CopilotKitCore {
     this.suggestionEngine = new SuggestionEngine(this);
     this.runHandler = new RunHandler(this);
     this.stateManager = new StateManager(this);
+    this.subagentRegistry = new SubagentRegistry(this);
     this.threadStoreRegistry = new ThreadStoreRegistry(this);
 
     // Initialize each subsystem
@@ -462,6 +471,7 @@ export class CopilotKitCore {
         Object.values(agents).forEach((agent) => {
           if (agent.agentId) {
             this.stateManager.subscribeToAgent(agent);
+            this.subagentRegistry.subscribeToAgent(agent);
           }
         });
 
@@ -508,6 +518,14 @@ export class CopilotKitCore {
             } catch (err) {
               console.error(
                 `CopilotKitCore.onAgentsChanged: stateManager.unsubscribeFromAgent failed for "${agentId}":`,
+                err,
+              );
+            }
+            try {
+              this.subagentRegistry.unsubscribeFromAgent(agentId);
+            } catch (err) {
+              console.error(
+                `CopilotKitCore.onAgentsChanged: subagentRegistry.unsubscribeFromAgent failed for "${agentId}":`,
                 err,
               );
             }
@@ -973,6 +991,17 @@ export class CopilotKitCore {
 
   getSuggestions(agentId: string): CopilotKitCoreGetSuggestionsResult {
     return this.suggestionEngine.getSuggestions(agentId);
+  }
+
+  /**
+   * Subagent registry (delegated to SubagentRegistry).
+   *
+   * Returns the subagents observed for an owning agent during its run(s),
+   * keyed by `subagentId`, each carrying `name` / `description` / `status`.
+   * Empty for runs that never emit SUBAGENT_* events.
+   */
+  getSubagents(agentId: string): Readonly<Record<string, SubagentState>> {
+    return this.subagentRegistry.getSubagents(agentId);
   }
 
   /**

@@ -74,8 +74,8 @@
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.57",
-    "@ag-ui/core": "0.0.57",
+    "@ag-ui/client": "0.0.58",
+    "@ag-ui/core": "0.0.58",
     "@copilotkit/a2ui-renderer": "workspace:*",
     "@copilotkit/core": "workspace:*",
     "@copilotkit/runtime-client-gql": "workspace:*",
