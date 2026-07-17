@@ -45,12 +45,6 @@ const ORGANIZATION_ID_RE = /^org_[A-Za-z0-9_-]+$/;
 const CHANNEL_NAME_RE = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 
 /**
- * @internal Validate the product scope before a realtime connection is
- * opened. The live gateway join contract keys only on `projectId` +
- * `channelName` (OSS-473) — `organizationId`/`channelId` are optional and
- * are format-checked only when present.
- */
-/**
  * Coerce a wire `projectId` to a positive integer, or `undefined` when absent
  * or unusable. The gateway `delivery.available` payload is untyped JSON, so a
  * projectId can arrive as a number OR a numeric string (`"9"`). Both must be
@@ -73,6 +67,12 @@ export function coerceWireProjectId(value: unknown): number | undefined {
   return n !== undefined && Number.isInteger(n) && n > 0 ? n : undefined;
 }
 
+/**
+ * @internal Validate the product scope before a realtime connection is
+ * opened. The live gateway join contract keys only on `projectId` +
+ * `channelName` (OSS-473) — `organizationId`/`channelId` are optional and
+ * are format-checked only when present.
+ */
 export function assertValidChannelRealtimeScope(
   scope: ChannelRealtimeScope,
 ): void {
