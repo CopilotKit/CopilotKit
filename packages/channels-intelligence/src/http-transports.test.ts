@@ -220,13 +220,14 @@ describe("HttpEgressSink", () => {
     expect(calls).toHaveLength(0);
   });
 
-  it("fails loud on an empty-text update instead of silently acking a no-send", async () => {
-    // An empty POST is a legitimate no-op (nothing to say), but an empty UPDATE
-    // would silently drop a real intent (e.g. clearing a message body) this
-    // post-only fallback egress cannot express. Acking it as success is
-    // inconsistent with the module's fail-loud posture.
+  it("logs and no-ops an empty-text update rather than failing the turn or silently dropping it", async () => {
+    // An empty UPDATE is a real intent (clearing a message body) this post-only
+    // fallback egress can't express. Failing it (ok:false -> adapter throws)
+    // would nack+retry the WHOLE turn to dead-letter for a condition a retry
+    // can't fix; silently acking it hides the drop. So: no-op + a loud log.
     const { fetch, calls } = fakeFetch(() => ({ body: {} }));
-    const sink = new HttpEgressSink(cfg({ fetch }));
+    const logs: string[] = [];
+    const sink = new HttpEgressSink(cfg({ fetch, log: (m) => logs.push(m) }));
     const res = await sink.emit({
       operationId: "turn_9:2",
       turnId: "turn_9",
@@ -234,8 +235,9 @@ describe("HttpEgressSink", () => {
       route: {},
       op: { kind: "update", ref: "r", ir: [] },
     });
-    expect(res.ok).toBe(false);
+    expect(res).toEqual({ ok: true, ref: "turn_9:2" });
     expect(calls).toHaveLength(0);
+    expect(logs.some((m) => /empty-text update/u.test(m))).toBe(true);
   });
 
   it("posts the reply route's adapter, not the static config adapter (provider-agnostic egress)", async () => {
@@ -259,6 +261,21 @@ describe("HttpEgressSink", () => {
       op: { kind: "post", ir: [text("hi")] },
     });
     expect(calls[0]!.body).toMatchObject({ adapter: "teams" });
+  });
+
+  it("falls back to the config adapter when the reply route carries none", async () => {
+    const { fetch, calls } = fakeFetch(() => ({
+      body: { operationId: "eop_f", status: "sent" },
+    }));
+    const sink = new HttpEgressSink(cfg({ fetch, adapter: "slack" }));
+    await sink.emit({
+      operationId: "turn_9:0",
+      turnId: "turn_9",
+      deliveryId: "dlv_9",
+      route: { teamId: "T1", channel: "C1" },
+      op: { kind: "post", ir: [text("hi")] },
+    });
+    expect(calls[0]!.body).toMatchObject({ adapter: "slack" });
   });
 });
 
@@ -648,9 +665,13 @@ describe("HttpDeliverySource", () => {
     );
     await src.start(async () => {});
     await new Promise((r) => setTimeout(r, 20));
+    const t0 = Date.now();
     await src.stop();
 
-    expect(true).toBe(true);
+    // Prompt, not merely non-hanging: interrupting the never-resolving sleep
+    // resolves stop() in ~ms. A regression that waited out a cadence would blow
+    // this bound (and a total block would hit the 5s vitest timeout).
+    expect(Date.now() - t0).toBeLessThan(1000);
   });
 
   it("stop() returns promptly mid-turn and does not nack the in-flight delivery", async () => {
@@ -666,11 +687,83 @@ describe("HttpDeliverySource", () => {
       await new Promise<void>(() => {});
     });
     await new Promise((r) => setTimeout(r, 20));
+    const t0 = Date.now();
     await src.stop();
 
+    // Prompt: does not wait out the 60s turn deadline.
+    expect(Date.now() - t0).toBeLessThan(1000);
     // Shutting down leaves the lease for app-api to re-lease; the turn didn't
     // fail, so it must NOT be nacked.
     expect(calls.find((c) => c.url.includes("/fail"))).toBeUndefined();
+  });
+
+  it("does not leak an unhandled rejection when a turn rejects after a mid-turn stop", async () => {
+    const { fetch, calls } = fakeFetch((c) =>
+      c.url.endsWith("/claim")
+        ? { body: { claimed: true, delivery: claimedDelivery() } }
+        : { body: {} },
+    );
+    let rejectTurn: (e: unknown) => void = () => {};
+    const src = new HttpDeliverySource(cfg({ fetch, turnTimeoutMs: 60_000 }));
+    const unhandled: unknown[] = [];
+    const onUnhandled = (e: unknown): void => {
+      unhandled.push(e);
+    };
+    process.on("unhandledRejection", onUnhandled);
+    try {
+      await src.start(async () => {
+        await new Promise<void>((_resolve, reject) => {
+          rejectTurn = reject;
+        });
+      });
+      await new Promise((r) => setTimeout(r, 20));
+      await src.stop();
+      // The in-flight turn rejects AFTER stop() broke the loop — the `settled`
+      // terminal handler must absorb it (no unhandled rejection) and no terminal
+      // signal should be sent for a stop-abandoned turn.
+      rejectTurn(new Error("late turn failure"));
+      await new Promise((r) => setTimeout(r, 20));
+    } finally {
+      process.off("unhandledRejection", onUnhandled);
+    }
+
+    expect(unhandled).toEqual([]);
+    expect(
+      calls.find((c) => c.url.includes("/fail") || c.url.includes("/ack")),
+    ).toBeUndefined();
+  });
+
+  it("stops heartbeating after stop()", async () => {
+    const { fetch, calls } = fakeFetch((c) =>
+      c.url.endsWith("/claim")
+        ? { body: { claimed: false, pollAfterMs: 60_000 } }
+        : {
+            body: {
+              runtimeInstanceId: "rti_test",
+              receivedAt: "t",
+              leaseExpiresAt: "t",
+              channels: [],
+            },
+          },
+    );
+    const src = new HttpDeliverySource(
+      cfg({
+        fetch,
+        heartbeatIntervalMs: 10,
+        sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+      }),
+    );
+    await src.start(async () => {});
+    await new Promise((r) => setTimeout(r, 40));
+    await src.stop();
+    const afterStop = calls.filter((c) => c.url.endsWith("/heartbeat")).length;
+    await new Promise((r) => setTimeout(r, 40));
+
+    // The recurring heartbeat timer must be cancelled by stop() — no further
+    // heartbeats after shutdown.
+    expect(calls.filter((c) => c.url.endsWith("/heartbeat")).length).toBe(
+      afterStop,
+    );
   });
 });
 
@@ -872,6 +965,40 @@ describe("HttpDeliverySource.getHistory", () => {
       mimeType: "application/pdf",
     });
     expect(calls).toEqual(["http://x/api/channels/files/fileref_abc"]);
+  });
+
+  it("forwards an injected fileFetch to the file client (not just the direct-construction path)", async () => {
+    // The transport must plumb its fileFetch through to IntelligenceFileHistoryClient
+    // so a consumer injecting a binary fetch has it honored on the download path.
+    // Stub the global to throw so this fails loudly if the wire-through regresses.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("global fetch must not be used when fileFetch is set");
+      }),
+    );
+    const bytes = new Uint8Array([9, 8, 7]);
+    const injectedUrls: string[] = [];
+    const fileFetch = (async (url: string) => {
+      injectedUrls.push(String(url));
+      return {
+        ok: true,
+        status: 200,
+        headers: {
+          get: (k: string) => (k === "content-type" ? "application/pdf" : null),
+        },
+        body: null,
+        arrayBuffer: async () => bytes.buffer,
+      };
+    }) as unknown as typeof fetch;
+
+    const src = new HttpDeliverySource(cfg({ fileFetch }));
+
+    await expect(src.fetchFile("fileref_z")).resolves.toEqual({
+      bytes,
+      mimeType: "application/pdf",
+    });
+    expect(injectedUrls).toEqual(["http://x/api/channels/files/fileref_z"]);
   });
 
   it("uploads outbound files to the channels delivery route", async () => {

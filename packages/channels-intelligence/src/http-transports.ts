@@ -51,8 +51,18 @@ export interface IntelligenceTransportConfig {
   runtimeInstanceId: string;
   /** Adapter kind. First slice is `"slack"`. */
   adapter: string;
-  /** Injectable fetch (tests); defaults to global `fetch`. */
+  /** Injectable fetch for the JSON claim/heartbeat/egress calls (text-only
+   * {@link FetchLike}); defaults to global `fetch`. */
   fetch?: FetchLike;
+  /**
+   * Injectable binary-capable `fetch` for the file/history client's download,
+   * history, and upload calls (needs `.body`/`.arrayBuffer()`/`.headers`/
+   * `.json()`, which the text-only {@link FetchLike} above cannot satisfy).
+   * Forwarded to {@link IntelligenceFileHistoryClient}; defaults to global
+   * `fetch`. Separate knob because the JSON and binary paths need different
+   * fetch shapes.
+   */
+  fileFetch?: typeof fetch;
   /** Heartbeat cadence / poll-sleep ceiling in ms (default 15000). */
   heartbeatIntervalMs?: number;
   /** Injectable sleep (tests); defaults to `setTimeout`. */
@@ -112,6 +122,7 @@ export function resolveTransportConfig(
     runtimeInstanceId,
     adapter,
     fetch: overrides.fetch,
+    fileFetch: overrides.fileFetch,
     heartbeatIntervalMs: overrides.heartbeatIntervalMs,
     sleep: overrides.sleep,
     log: overrides.log,
@@ -221,9 +232,16 @@ export class HttpDeliverySource implements DeliverySource {
   private readonly leases = new Map<string, LeaseRecord>();
   private running = false;
   private loop?: Promise<void>;
-  private lastHeartbeatAt = 0;
   /** Standalone recurring heartbeat timer, independent of the claim loop. */
   private heartbeatTimer?: ReturnType<typeof setTimeout>;
+  /**
+   * Bumped on every {@link start}/{@link stop}. The recurring heartbeat closes
+   * over the generation it was scheduled under and stops rescheduling once it
+   * no longer matches, so a stop→start restart (which can fire while a prior
+   * heartbeat POST is still in flight) cannot leave two reschedule chains
+   * running.
+   */
+  private runGeneration = 0;
   /**
    * Resolves when {@link stop} is called, so an in-flight poll-sleep or an
    * in-flight turn-wait can be interrupted immediately rather than blocking
@@ -238,6 +256,7 @@ export class HttpDeliverySource implements DeliverySource {
       baseUrl: cfg.baseUrl,
       apiKey: cfg.apiKey,
       log: cfg.log,
+      ...(cfg.fileFetch ? { fetch: cfg.fileFetch } : {}),
     });
   }
 
@@ -257,7 +276,6 @@ export class HttpDeliverySource implements DeliverySource {
       ],
       observedAt: new Date().toISOString(),
     });
-    this.lastHeartbeatAt = Date.now();
   }
 
   /** Claim a single delivery; returns the mapped envelope, or the idle backoff. */
@@ -327,11 +345,12 @@ export class HttpDeliverySource implements DeliverySource {
     onDelivery: (env: ChannelIngressEnvelope) => Promise<void>,
   ): Promise<void> {
     this.running = true;
+    const generation = ++this.runGeneration;
     this.stopWait = new Promise<void>((resolve) => {
       this.resolveStop = resolve;
     });
     await this.heartbeat();
-    this.scheduleHeartbeat();
+    this.scheduleHeartbeat(generation);
     this.loop = this.runLoop(onDelivery);
   }
 
@@ -344,14 +363,20 @@ export class HttpDeliverySource implements DeliverySource {
    * deliveries. This timer heartbeats on cadence regardless of what the loop is
    * doing, rescheduling only after each heartbeat settles (no overlap).
    */
-  private scheduleHeartbeat(): void {
+  private scheduleHeartbeat(generation: number): void {
     const cadence = this.cfg.heartbeatIntervalMs ?? 15000;
     const timer = setTimeout(() => {
-      if (!this.running) return;
+      // Only this run's chain may fire/reschedule. A stop→start restart bumps
+      // runGeneration, so an orphaned chain (or a reschedule queued behind an
+      // in-flight heartbeat POST from the previous run) self-terminates instead
+      // of doubling the heartbeat rate.
+      if (!this.running || generation !== this.runGeneration) return;
       this.heartbeat()
         .catch((err) => this.cfg.log?.("intelligence heartbeat failed", err))
         .finally(() => {
-          if (this.running) this.scheduleHeartbeat();
+          if (this.running && generation === this.runGeneration) {
+            this.scheduleHeartbeat(generation);
+          }
         });
     }, cadence);
     // Don't hold the event loop open (parity with the poll-sleep timers).
@@ -496,6 +521,9 @@ export class HttpDeliverySource implements DeliverySource {
 
   async stop(): Promise<void> {
     this.running = false;
+    // Invalidate the current run's heartbeat chain so any reschedule queued
+    // behind an in-flight heartbeat POST does not re-arm after we stop.
+    this.runGeneration += 1;
     // Interrupt any in-flight poll-sleep or turn-wait so shutdown is prompt.
     this.resolveStop?.();
     if (this.heartbeatTimer !== undefined) {
@@ -526,13 +554,17 @@ export class HttpEgressSink implements EgressSink {
 
     const text = irToText(op.op.ir);
     // Intelligence requires non-empty text. An empty POST is a legitimate no-op
-    // (nothing to say) so skip it without a 400. An empty UPDATE, however, is a
-    // real intent (e.g. clearing a message body) that this post-only fallback
-    // egress cannot express — fail loud rather than ack a no-send as success,
-    // consistent with the module's fail-loud posture.
+    // (nothing to say). An empty UPDATE is a real intent (e.g. clearing a
+    // message body) this post-only fallback egress cannot express — but failing
+    // it would throw up the run path and nack+retry the WHOLE turn to
+    // dead-letter (re-running valid work) for a condition a retry can't fix. So
+    // skip it as a no-op too, but log it loudly so it is surfaced, not silent.
     if (!text) {
       if (op.op.kind === "update") {
-        return { ok: false, code: "empty_update" };
+        this.cfg.log?.(
+          "intelligence egress: skipping empty-text update (post-only fallback cannot clear a message)",
+          { operationId: op.operationId, deliveryId: op.deliveryId },
+        );
       }
       return { ok: true, ref: op.operationId };
     }

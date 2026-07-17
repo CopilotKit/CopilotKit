@@ -51,11 +51,13 @@ const CHANNEL_NAME_RE = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
  * accepted: a strict `typeof === "number"` check would let a numeric-string
  * projectId fall through to the transport-default scope, defeating the
  * per-delivery scope authority (routing a render-accept under the wrong
- * project). Non-integer, non-positive, and non-numeric values return
- * `undefined` so the caller can fall back to the transport default.
+ * project). Non-safe-integer, non-positive, and non-numeric values return
+ * `undefined` so the caller can fall back to the transport default — including
+ * a numeric string beyond `MAX_SAFE_INTEGER`, whose `Number(...)` would be a
+ * lossy, wrong-but-plausible integer.
  *
  * @param value - The raw wire `projectId`.
- * @returns A positive integer projectId, or `undefined`.
+ * @returns A positive safe-integer projectId, or `undefined`.
  */
 export function coerceWireProjectId(value: unknown): number | undefined {
   const n =
@@ -64,7 +66,7 @@ export function coerceWireProjectId(value: unknown): number | undefined {
       : typeof value === "string" && /^\d+$/.test(value)
         ? Number(value)
         : undefined;
-  return n !== undefined && Number.isInteger(n) && n > 0 ? n : undefined;
+  return n !== undefined && Number.isSafeInteger(n) && n > 0 ? n : undefined;
 }
 
 /**
@@ -124,6 +126,13 @@ export interface RealtimeGatewayTransportOptions {
   /** Project runtime API key (`cpk-…`) for the app-api file/history calls.
    * Required alongside {@link appApiBaseUrl} to enable file/history. */
   apiKey?: string;
+  /**
+   * Injectable binary-capable `fetch` forwarded to the file/history client's
+   * download/history/upload calls (needs `.body`/`.arrayBuffer()`/`.headers`/
+   * `.json()`). Defaults to the global `fetch`. Lets a consumer (or test) drive
+   * the binary paths through their own fetch, matching the HTTP transport.
+   */
+  fileFetch?: typeof fetch;
   /** ISO timestamp source; injectable for deterministic tests. */
   now?: () => string;
   /**
@@ -274,6 +283,7 @@ export class RealtimeGatewayTransport
         baseUrl: config.appApiBaseUrl,
         apiKey: config.apiKey,
         log: config.log,
+        ...(config.fileFetch ? { fetch: config.fileFetch } : {}),
       });
       this.fetchFile = (handle) => fileHistory.fetchFile(handle);
       this.getHistory = (replyTarget, limit) =>
@@ -461,10 +471,21 @@ export class RealtimeGatewayTransport
         : this.scope.organizationId;
     const channelId =
       channel?.id !== undefined ? String(channel.id) : this.scope.channelId;
+    // Distinguish an ABSENT projectId (fall back to the transport scope quietly,
+    // the normal single-project case) from a PRESENT-but-unusable one (malformed
+    // or out-of-safe-range on the wire), which is a real routing-corruption /
+    // version-skew signal and must be logged — mirroring the loud drops above —
+    // rather than silently masked to the transport default.
+    const coercedProjectId = coerceWireProjectId(delivery.projectId);
+    if (coercedProjectId === undefined && delivery.projectId !== undefined) {
+      this.log?.(
+        "realtime gateway delivery: unusable projectId on the wire — falling back to the transport scope projectId",
+        { deliveryId: delivery.id, projectId: delivery.projectId },
+      );
+    }
     const scope: ChannelDeliveryScope = {
       ...(organizationId !== undefined ? { organizationId } : {}),
-      projectId:
-        coerceWireProjectId(delivery.projectId) ?? this.scope.projectId,
+      projectId: coercedProjectId ?? this.scope.projectId,
       ...(channelId !== undefined ? { channelId } : {}),
       channelName: String(channel?.name ?? this.scope.channelName),
     };

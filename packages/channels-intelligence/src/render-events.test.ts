@@ -189,6 +189,7 @@ describe("coerceWireProjectId", () => {
   it("accepts a positive integer number and a numeric string, rejects the rest", () => {
     expect(coerceWireProjectId(7)).toBe(7);
     expect(coerceWireProjectId("9")).toBe(9);
+    expect(coerceWireProjectId("007")).toBe(7);
     expect(coerceWireProjectId(0)).toBeUndefined();
     expect(coerceWireProjectId(-1)).toBeUndefined();
     expect(coerceWireProjectId(1.5)).toBeUndefined();
@@ -197,6 +198,9 @@ describe("coerceWireProjectId", () => {
     expect(coerceWireProjectId("abc")).toBeUndefined();
     expect(coerceWireProjectId(undefined)).toBeUndefined();
     expect(coerceWireProjectId(null)).toBeUndefined();
+    // Beyond MAX_SAFE_INTEGER: Number("...") is lossy, so reject rather than
+    // route under a wrong-but-plausible integer.
+    expect(coerceWireProjectId("99999999999999999999")).toBeUndefined();
   });
 });
 
