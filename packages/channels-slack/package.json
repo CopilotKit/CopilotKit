@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/channels-slack",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Slack platform adapter for CopilotKit JSX channels (@copilotkit/channels).",
   "license": "MIT",
   "repository": {

@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/channels-discord",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Discord PlatformAdapter for @copilotkit/channels.",
   "license": "MIT",
   "repository": {
