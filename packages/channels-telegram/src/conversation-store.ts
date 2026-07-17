@@ -1,6 +1,9 @@
 import type { AbstractAgent } from "@ag-ui/client";
 import type { ThreadMessage } from "@copilotkit/channels-ui";
-import type { ConversationStore, AgentSession } from "@copilotkit/channels";
+import type {
+  ConversationStore,
+  AgentSession,
+} from "@copilotkit/channels-core";
 import type { ReplyTarget } from "./types.js";
 import type { AgentContentPart } from "./download-files.js";
 

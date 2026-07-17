@@ -1,5 +1,5 @@
-import { MemoryStore } from "@copilotkit/channels";
-import type { StateStore } from "@copilotkit/channels";
+import { MemoryStore } from "@copilotkit/channels-core";
+import type { StateStore } from "@copilotkit/channels-core";
 import type { FetchLike } from "./http-transports.js";
 
 /** Minimal transport config the store needs (subset of the adapter's). */

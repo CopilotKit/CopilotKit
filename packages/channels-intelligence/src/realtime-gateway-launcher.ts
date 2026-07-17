@@ -1,4 +1,4 @@
-import type { Channel } from "@copilotkit/channels";
+import type { Channel } from "@copilotkit/channels-core";
 import {
   startChannels,
   assertValidChannelNames,

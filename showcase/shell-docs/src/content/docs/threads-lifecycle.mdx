@@ -10,7 +10,7 @@ doc_type: explanation
 Every CopilotKit conversation is scoped to a **thread**, identified by a `threadId`. This page explains the full lifecycle of that thread on the client: how the id is created, how prior history is restored when a conversation loads, how to switch between threads or start a new one, and where CopilotKit's threads end and your agent framework's own persistence (e.g. a LangGraph checkpointer) begins.
 
 It complements the other threads docs:
-- [Headless Threads](/threads) — the `useThreads` API for listing/renaming/archiving/deleting.
+- [Headless Threads](/headless-threads) — the `useThreads` API for listing/renaming/archiving/deleting.
 - [Threads & Persistence Architecture](/premium/threads-explained) — the server-side event-replay model.
 - [Multi-conversation chat](/tutorials/multi-conversation-chat) — an end-to-end sidebar tutorial.
 
@@ -190,7 +190,7 @@ Practically, MCP App UI restores the same way the rest of the conversation does:
 
 ## See also
 
-- [Headless Threads](/threads) — the full `useThreads` API
+- [Headless Threads](/headless-threads) — the full `useThreads` API
 - [Threads & Persistence Architecture](/premium/threads-explained) — server-side replay, resume, realtime sync
 - [Multi-conversation chat](/tutorials/multi-conversation-chat) — build a chat-history sidebar
 - [Importing threads](/threads-import) — bring existing framework conversations into the platform

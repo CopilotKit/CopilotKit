@@ -12,6 +12,10 @@ doc_type: explanation
   surface="docs_learn_threads"
 />
 
+Start with the [Threads overview](/threads) to understand the product benefits
+and choose between the prebuilt Drawer and a custom headless UI. This page
+explains the persistence and replay architecture beneath both paths.
+
 ## What are threads?
 
 A thread is a persistent, server-side container for a multi-turn conversation between a user and an agent. Unlike ephemeral chat sessions that disappear when the page reloads, threads store the full event history — every message, tool call, and state change — so conversations can be paused, resumed, and replayed across sessions and devices.
@@ -36,7 +40,7 @@ From a developer's perspective, threads involve three things:
 
 You interact with the first two. The runtime and platform handle persistence and sync behind the scenes.
 
-To wire these pieces into a chat UI, follow the [Threads implementation guide](/threads).
+To wire these pieces into a custom chat UI, follow [Headless Threads](/headless-threads).
 
 ### Auto-naming
 
@@ -150,5 +154,6 @@ The trade-off is that replay is more complex than loading a message array. The p
 
 ## Next steps
 
-- **Step-by-step guide:** [Threads](/threads) — set up thread management in your app
+- **Product overview:** [Threads](/threads) — understand the feature and choose an implementation path
+- **Step-by-step guide:** [Headless Threads](/headless-threads) — build a custom thread-management UI
 - **API reference:** [useThreads](/reference/hooks/useThreads) — parameters, return values, types

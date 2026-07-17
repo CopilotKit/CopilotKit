@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { createChannel, FakeAdapter, FakeAgent } from "@copilotkit/channels";
-import type { ReplyTarget } from "@copilotkit/channels";
+import {
+  createChannel,
+  FakeAdapter,
+  FakeAgent,
+} from "@copilotkit/channels-core";
+import type { ReplyTarget } from "@copilotkit/channels-core";
 import { Section } from "@copilotkit/channels-ui";
 import type { IncomingMessage } from "@copilotkit/channels-ui";
 import { intelligenceAdapter } from "./intelligence-adapter.js";

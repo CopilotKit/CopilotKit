@@ -7,7 +7,7 @@
  * render-tool demo.
  */
 import { z } from "zod";
-import { Context } from "@copilotkit/channels-ui";
+import { Context } from "@copilotkit/channels";
 import { defineChannelTool } from "@copilotkit/channels";
 import { renderDiagram } from "../render/diagram.js";
 

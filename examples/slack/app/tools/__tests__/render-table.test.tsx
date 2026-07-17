@@ -5,8 +5,8 @@
  * `renderToIR` → `renderSlackMessage` yields the expected Block Kit shape.
  */
 import { describe, it, expect } from "vitest";
-import { renderToIR } from "@copilotkit/channels-ui";
-import { renderSlackMessage } from "@copilotkit/channels-slack";
+import { renderToIR } from "@copilotkit/channels";
+import { renderSlackMessage } from "@copilotkit/channels/slack";
 import { renderTableTool, toMonospaceTable, clamp } from "../render-table.js";
 
 type HandlerCtx = Parameters<typeof renderTableTool.handler>[1];

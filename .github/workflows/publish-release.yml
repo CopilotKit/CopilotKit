@@ -40,12 +40,6 @@ on:
           - monorepo
           - angular
           - channels
-          - channels-discord
-          - channels-intelligence
-          - channels-slack
-          - channels-teams
-          - channels-telegram
-          - channels-whatsapp
       mode:
         description: "Release mode: stable (full release with tag + GH Release) or prerelease (canary, no tag/release)"
         required: false
@@ -274,6 +268,21 @@ jobs:
             echo "DRY RUN — skipping publish step. Scope: ${{ steps.meta.outputs.scope }}, mode: ${{ steps.meta.outputs.mode }}."
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # The family must exist on npm before the umbrella is allowed to ship:
+      # the registry verifier installs the packed umbrella against those exact
+      # published dependencies. Publish the foundation and adapters first, then
+      # verify, then let the final publish step release the umbrella.
+      - name: Publish Channels dependencies to npm
+        if: ${{ inputs.dry-run != true && steps.meta.outputs.scope == 'channels' && steps.meta.outputs.mode == 'stable' }}
+        env:
+          NODE_AUTH_TOKEN: ""
+          SCOPE: ${{ steps.meta.outputs.scope }}
+        run: pnpm tsx scripts/release/publish-release.ts --scope "$SCOPE" --phase dependencies
+
+      - name: Verify registry-backed Channels umbrella contract
+        if: ${{ inputs.dry-run != true && steps.meta.outputs.scope == 'channels' && steps.meta.outputs.mode == 'stable' }}
+        run: pnpm run verify:channels-umbrella:registry
+
       - name: Publish to npm
         id: publish
         if: ${{ inputs.dry-run != true }}
@@ -282,7 +291,15 @@ jobs:
           NOTION_API_KEY: ${{ steps.meta.outputs.mode == 'stable' && secrets.NOTION_API_KEY || '' }}
           PUBLISH_SCRIPT: ${{ steps.meta.outputs.mode == 'prerelease' && 'prerelease.ts' || 'publish-release.ts' }}
           SCOPE: ${{ steps.meta.outputs.scope }}
-        run: pnpm tsx "scripts/release/$PUBLISH_SCRIPT" --scope "$SCOPE"
+        run: |
+          set -euo pipefail
+          if [ "$PUBLISH_SCRIPT" = "prerelease.ts" ]; then
+            pnpm tsx "scripts/release/$PUBLISH_SCRIPT" --scope "$SCOPE"
+          elif [ "$SCOPE" = "channels" ]; then
+            pnpm tsx scripts/release/publish-release.ts --scope "$SCOPE" --phase umbrella
+          else
+            pnpm tsx scripts/release/publish-release.ts --scope "$SCOPE"
+          fi
 
       - name: Verify publish step emitted version
         if: ${{ success() && inputs.dry-run != true }}
@@ -820,7 +837,7 @@ jobs:
 
       - name: Post to #engr
         if: ${{ steps.build.outputs.should_post == 'true' && env.SLACK_WEBHOOK != '' && inputs.dry-run != true }}
-        uses: slackapi/slack-github-action@0d95c9a7becc1e6e297d76df9bc735c44f4cbcbc # v3.0.5
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_ENGR }}
           webhook-type: incoming-webhook
@@ -863,7 +880,7 @@ jobs:
         # gate is correct and robust. (The ::error:: echo step above stays
         # unconditional — only the Slack POST needs these guards.)
         if: ${{ failure() && env.SLACK_WEBHOOK != '' && inputs.dry-run != true && (steps.intent.outputs.npm_intended == 'true' || steps.intent.outputs.py_intended == 'true') }}
-        uses: slackapi/slack-github-action@0d95c9a7becc1e6e297d76df9bc735c44f4cbcbc # v3.0.5
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_ENGR }}
           webhook-type: incoming-webhook

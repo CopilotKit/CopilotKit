@@ -2,8 +2,11 @@
 
 How `@copilotkit/channels-discord` is structured and **why** each boundary exists.
 
-This package is the Discord `PlatformAdapter` for [`@copilotkit/channels`](../channels).
-The channel engine owns the platform-agnostic orchestration (handlers, the
+Application authors use this package with the product-facing
+[`@copilotkit/channels`](../channels) umbrella. `DiscordAdapter` imports and
+implements [`PlatformAdapter`](../channels-core) from
+[`@copilotkit/channels-core`](../channels-core). The channel engine owns the
+platform-agnostic orchestration (handlers, the
 run/tool/interrupt loop, JSX action binding, the `ActionStore`); this package
 owns everything Discord-specific: discord.js Gateway ingress, Components V2
 egress, streaming, and opaque-id interactions.
@@ -25,7 +28,15 @@ egress, streaming, and opaque-id interactions.
 ## The boundary: `PlatformAdapter`
 
 `DiscordAdapter` (constructed via `discord(opts)`) implements
-`@copilotkit/channels`'s `PlatformAdapter`. The members it implements:
+[`PlatformAdapter`](../channels-core) from
+[`@copilotkit/channels-core`](../channels-core). The members it implements:
+
+```
+DiscordAdapter (`@copilotkit/channels-discord`)
+  └── imports / implements ──► `@copilotkit/channels-core`: `PlatformAdapter`
+
+`@copilotkit/channels` is the product-facing umbrella, not an adapter dependency.
+```
 
 - `platform` (`"discord"`), `capabilities` (`supportsModals: false`,
   `supportsTyping: true`, `supportsReactions: true`, `supportsStreaming: true`,
@@ -61,7 +72,7 @@ these methods.
 Discord Gateway event ──► attachDiscordListener ──► IngressSink.onTurn(IncomingTurn)
                                                                │
                                                                ▼
-                                                     @copilotkit/channels: Thread
+                                                @copilotkit/channels-core: Thread
                                                                │  thread.runAgent()
                                                                ▼
                                                      runAgentLoop
@@ -223,8 +234,9 @@ src/
 - **No durable Discord-side state.** The next turn rebuilds context from
   Discord channel history; restarts are safe for conversation history by
   construction. (The engine's `ActionStore` is separately in-memory in v1,
-  so inline interaction handlers expire on restart — see the `@copilotkit/channels`
-  README.)
+  so inline interaction handlers expire on restart — see the
+  [`@copilotkit/channels` README](../channels/README.md), the product-facing
+  umbrella documentation.)
 - **No modal support in v1.** `<Input>` components are modal-only on Discord
   and are skipped with a console warning. `supportsModals` is advertised as
   `false`.

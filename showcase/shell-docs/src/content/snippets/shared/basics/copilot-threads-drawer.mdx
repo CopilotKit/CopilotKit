@@ -5,6 +5,9 @@ list, switch, start, archive, and delete their threads, and you wire up
 **no active-thread state** to make it work. Drop it next to your chat and it
 connects automatically.
 
+Start with the [Threads overview](/threads) to compare the Drawer with a custom
+headless UI and understand the shared persistence infrastructure beneath both.
+
 <Frame description="CopilotThreadsDrawer beside a CopilotChat. Selecting a thread replays its conversation with no active-thread wiring.">
   <img
     src="/images/copilot-threads-drawer-preview.png"
@@ -19,7 +22,7 @@ and your chat configuration.
 
 Prefer to build your own thread UI? The same data and actions are available
 headlessly through the `useThreads` hook (see
-[Headless Threads](/threads)). Thread **rename** is one of those headless
+[Headless Threads](/headless-threads)). Thread **rename** is one of those headless
 actions: the prebuilt drawer's row menu covers archive/unarchive and delete, so
 wire up rename with `useThreads` and your own UI if you need it.
 
@@ -121,6 +124,7 @@ a locked view in place of the list.
 
 ## Related
 
-- [Headless Threads](/threads): set up the platform and the headless `useThreads` data layer
+- [Threads overview](/threads): understand the product and choose an implementation path
+- [Headless Threads](/headless-threads): build a custom UI with the `useThreads` data layer
 - [Threads Drawer reference (React)](/reference/components/CopilotThreadsDrawer)
 - [CopilotChat](/prebuilt-components/chat): the chat the drawer connects to

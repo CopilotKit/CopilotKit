@@ -1,11 +1,14 @@
 # Architecture
 
-`@copilotkit/channels-teams` is a concrete `PlatformAdapter` for
-[`@copilotkit/channels`](../channels): it plugs Microsoft Teams into the
-platform-agnostic channel engine, exactly as [`@copilotkit/channels-slack`](../channels-slack)
-does for Slack. You write the bot once (handlers, JSX, tools, context) and this
-package translates between the engine and Teams via the **Microsoft 365 Agents
-SDK** (`@microsoft/agents-hosting`).
+Application authors use `@copilotkit/channels-teams` with the product-facing
+[`@copilotkit/channels`](../channels) umbrella. `TeamsAdapter` imports and
+implements [`PlatformAdapter`](../channels-core) from
+[`@copilotkit/channels-core`](../channels-core) to plug Microsoft Teams into the
+platform-agnostic channel engine, exactly as
+[`@copilotkit/channels-slack`](../channels-slack) does for Slack. You write the
+bot once (handlers, JSX, tools, context) and this package translates between the
+engine and Teams via the **Microsoft 365 Agents SDK**
+(`@microsoft/agents-hosting`).
 
 ## Design goals
 
@@ -20,10 +23,19 @@ SDK** (`@microsoft/agents-hosting`).
 
 ## The boundary: `PlatformAdapter`
 
-`TeamsAdapter` (in `adapter.ts`) implements the engine's `PlatformAdapter`:
-ingress normalization, egress (`post` / `update` / `delete` / streamed edits),
-IR→native rendering, capability flags, and the conversation store. `teams(opts)`
-is the thin factory most callers use.
+`TeamsAdapter` (in `adapter.ts`) imports and implements
+[`PlatformAdapter`](../channels-core) from
+[`@copilotkit/channels-core`](../channels-core): ingress normalization, egress
+(`post` / `update` / `delete` / streamed edits), IR→native rendering, capability
+flags, and the conversation store. `teams(opts)` is the thin factory most callers
+use.
+
+```
+TeamsAdapter (`@copilotkit/channels-teams`)
+  └── imports / implements ──► `@copilotkit/channels-core`: `PlatformAdapter`
+
+`@copilotkit/channels` is the product-facing umbrella, not an adapter dependency.
+```
 
 ## Request lifecycle
 
@@ -31,7 +43,7 @@ is the thin factory most callers use.
 Teams ──HTTP──▶ POST /api/messages (listener.ts, express)
               │   CloudAdapter.process  ── authenticates, builds TurnContext
               ▼
-          handleActivity (adapter.ts)
+          handleActivity (adapter.ts; `PlatformAdapter` from `@copilotkit/channels-core`)
               │   message?      → sink.onTurn(...)        → engine runs handlers / agent
               │   card submit?  → sink.onInteraction(...) → engine resolves awaitChoice
               ▼

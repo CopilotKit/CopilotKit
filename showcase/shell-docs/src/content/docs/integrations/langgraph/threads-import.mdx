@@ -12,7 +12,7 @@ The LangGraph importer reads already-persisted LangGraph Server, LangGraph Platf
 This works for LangGraph Python, LangGraph TypeScript, and LangGraph FastAPI when the source history is available through the LangGraph SDK thread and run APIs. It does not import classic LangChain message history stores, LangSmith traces, or embedded checkpointers that are not exposed through LangGraph Server / Platform.
 
 <Callout type="info" title="Import is one-time; threads keep future runs synced">
-  Import moves existing LangGraph history. Run it from a CopilotKit app created with the CLI and Enterprise Intelligence enabled. Use the [Threads Drawer](/prebuilt-components/copilot-threads-drawer) for a drop-in thread UI, or [Headless Threads](/threads) to build your own.
+  Import moves existing LangGraph history. Run it from a CopilotKit app created with the CLI and Enterprise Intelligence enabled. Use the [Threads Drawer](/prebuilt-components/copilot-threads-drawer) for a drop-in thread UI, or [Headless Threads](/headless-threads) to build your own.
 </Callout>
 
 ## Prerequisites
@@ -117,6 +117,6 @@ npx copilotkit@latest import \
 Historical import does not keep polling LangGraph. Your CLI-created app already sends new CopilotKit conversations to the selected Enterprise Intelligence project. To keep each conversation continuous, reopen it with the same CopilotKit `threadId` using one of these UI paths:
 
 - **Threads Drawer:** follow the [Threads Drawer guide](/prebuilt-components/copilot-threads-drawer). The drawer and chat share a `CopilotChatConfigurationProvider`, so selecting a conversation updates the active `threadId` without separate state wiring.
-- **Headless Threads:** follow the [Headless Threads guide](/threads). Select a thread with `useThreads`, store its `thread.id`, and pass that value to your chat component as `threadId`.
+- **Headless Threads:** follow the [Headless Threads guide](/headless-threads). Select a thread with `useThreads`, store its `thread.id`, and pass that value to your chat component as `threadId`.
 
 If your backend maps CopilotKit thread IDs to LangGraph thread IDs, keep that mapping stable so a resumed CopilotKit thread reaches the expected LangGraph thread. LangGraph Platform thread IDs must be UUIDs, so persist a mapping instead of reusing the CopilotKit `threadId` when necessary.

@@ -18,7 +18,7 @@ import {
   Table,
   Row,
   Cell,
-} from "@copilotkit/channels-ui";
+} from "@copilotkit/channels";
 import { defineChannelTool } from "@copilotkit/channels";
 
 const schema = z.object({

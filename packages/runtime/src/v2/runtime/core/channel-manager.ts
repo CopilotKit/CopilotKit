@@ -155,9 +155,12 @@ interface ChannelEntry {
   handleStopped: boolean;
 }
 
-/** Non-literal specifier so the pure-ESM channels-intelligence package never
- * becomes a static dependency of this CJS package (mirrors the runtime's other
- * channels seams). */
+/**
+ * Runtime installs this pure-ESM package as a direct dependency, but the
+ * specifier must stay non-literal so it never becomes a static dependency of
+ * the runtime's CJS build. The packed-consumer contract is enforced by
+ * `scripts/release/verify-runtime-package.ts`.
+ */
 const CHANNELS_INTELLIGENCE_SPECIFIER = "@copilotkit/channels-intelligence";
 
 /**

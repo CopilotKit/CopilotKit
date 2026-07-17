@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/channels-slack",
-  "version": "0.1.2",
+  "version": "0.2.1",
   "description": "Slack platform adapter for CopilotKit JSX channels (@copilotkit/channels).",
   "license": "MIT",
   "repository": {
@@ -53,8 +53,8 @@
   "dependencies": {
     "@ag-ui/client": "0.0.57",
     "@ag-ui/core": "0.0.57",
-    "@copilotkit/channels": "workspace:~",
-    "@copilotkit/channels-ui": "workspace:~",
+    "@copilotkit/channels-core": "workspace:^",
+    "@copilotkit/channels-ui": "workspace:^",
     "@copilotkit/core": "workspace:^",
     "@copilotkit/shared": "workspace:^",
     "@slack/bolt": "^4.2.0",

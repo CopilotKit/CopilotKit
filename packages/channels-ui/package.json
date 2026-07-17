@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/channels-ui",
-  "version": "0.1.1",
+  "version": "0.2.1",
   "description": "JSX runtime, IR, and cross-platform component vocabulary for CopilotKit channels.",
   "license": "MIT",
   "repository": {

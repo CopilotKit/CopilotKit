@@ -14,6 +14,7 @@
       "defaultOpen": true,
       "pages": [
         "threads",
+        "headless-threads",
         "threads-import"
       ]
     }

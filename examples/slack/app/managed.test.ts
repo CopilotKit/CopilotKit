@@ -37,7 +37,7 @@ vi.mock("node:http", () => ({ createServer: fakes.createServer }));
 vi.mock("@copilotkit/channels", () => ({
   createChannel: vi.fn(() => fakes.bot),
 }));
-vi.mock("@copilotkit/channels-slack", () => ({
+vi.mock("@copilotkit/channels/slack", () => ({
   defaultSlackTools: [],
   defaultSlackContext: [],
   SanitizingHttpAgent: function SanitizingHttpAgent() {},
