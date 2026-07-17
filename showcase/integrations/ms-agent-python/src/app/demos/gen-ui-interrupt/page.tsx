@@ -27,13 +27,12 @@ export default function GenUiInterruptDemo() {
 function Chat() {
   useGenUiInterruptSuggestions();
 
-  // MS Agent Framework has no `interrupt()` primitive, so the LangGraph
-  // showcase's `useInterrupt({ renderInChat: true })` hook is silently dead
-  // here — it listens for AG-UI `interrupt` events that the MAF backend
-  // never emits, leaving the chat stuck on the "[Scheduling...]" tool-call
-  // placeholder.
+  // agent-framework-ag-ui can emit standard AG-UI interrupts. This pinned
+  // showcase still uses the frontend-tool fallback because its CopilotKit
+  // package has a post-resume rendering issue: the backend resumes and streams,
+  // but the final assistant confirmation is not appended to the chat.
   //
-  // `interrupt_agent.py` instead exposes `schedule_meeting` as a tool the
+  // `interrupt_agent.py` exposes `schedule_meeting` as a tool the
   // model is instructed to call; the frontend registers a matching
   // `useHumanInTheLoop` here, renders the picker inline, and resolves the
   // call via `respond(...)`. UX matches LGP's interrupt-rendered card; the

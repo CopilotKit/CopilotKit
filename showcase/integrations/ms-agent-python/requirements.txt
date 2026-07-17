@@ -1,5 +1,5 @@
-agent-framework-ag-ui>=1.0.0b251117
-agent-framework-openai>=1.0.0rc6
+agent-framework-ag-ui>=1.0.0rc8
+agent-framework-openai>=1.10.1,<2
 httpx>=0.28.0
 langchain-openai>=1.1.0
 langchain-core>=0.3.0

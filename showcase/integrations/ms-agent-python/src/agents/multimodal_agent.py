@@ -166,6 +166,31 @@ class _PdfFlattenChatMiddleware(ChatMiddleware):
                 message.contents = original  # type: ignore[attr-defined]
 
 
+class _MultimodalFrameworkAgent(AgentFrameworkAgent):
+    """Suppress the trailing MESSAGES_SNAPSHOT for the multimodal turn.
+
+    `agent_framework_openai` splits a single multimodal user turn (prompt +
+    attachment) into SEPARATE user messages, and the base adapter's end-of-run
+    MESSAGES_SNAPSHOT echoes that SPLIT structure back — a message list that
+    DIVERGES from the single message the frontend actually sent. That divergent
+    snapshot is what left the CopilotKit frontend unable to clear
+    `data-copilot-running` after an otherwise-clean RUN_FINISHED ("turn N bubble
+    settled but no done-signal"). Dropping the snapshot lets the frontend keep
+    the message list it built from the stream and settle normally — verified to
+    turn the multimodal image + pdf turns green. The stream itself is unchanged
+    (RUN_STARTED → text → RUN_FINISHED), so nothing downstream depends on the
+    snapshot for this demo.
+    """
+
+    async def run(self, input_data: dict[str, Any]):  # type: ignore[override]
+        from ag_ui.core import EventType
+
+        async for event in super().run(input_data):
+            if getattr(event, "type", None) == EventType.MESSAGES_SNAPSHOT:
+                continue
+            yield event
+
+
 def create_multimodal_agent(chat_client: BaseChatClient) -> AgentFrameworkAgent:
     """Instantiate the vision-capable multimodal demo agent."""
     base_agent = Agent(
@@ -176,7 +201,7 @@ def create_multimodal_agent(chat_client: BaseChatClient) -> AgentFrameworkAgent:
         middleware=[_PdfFlattenChatMiddleware()],
     )
 
-    return AgentFrameworkAgent(
+    return _MultimodalFrameworkAgent(
         agent=base_agent,
         name="CopilotKitMicrosoftAgentFrameworkMultimodalAgent",
         description=(

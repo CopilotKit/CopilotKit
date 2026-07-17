@@ -2,7 +2,8 @@
   "_meta": {
     "description": "D6 fixtures for ms-agent-python / multimodal",
     "sourceFile": "harness/fixtures/d5/multimodal.json",
-    "created": "2026-05-22"
+    "created": "2026-05-22",
+    "msAgentNote": "PDF fixture keys on the flattened document body (\"CopilotKit Quickstart\") because agent_framework_openai splits the multimodal turn into separate user messages; the trailing (last) user message is the pdf flattened to text, so the original prompt is not the match target. Image fixture matches the prompt via aimock getLastUserText skipping the text-less image message."
   },
   "fixtures": [
     {
@@ -16,7 +17,7 @@
     },
     {
       "match": {
-        "userMessage": "can you tell me what is in this demo pdf I just attached",
+        "userMessage": "CopilotKit Quickstart",
         "context": "ms-agent-python"
       },
       "response": {

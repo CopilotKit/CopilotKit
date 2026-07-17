@@ -31,9 +31,10 @@ matching `resume` payload — no chat surface required.
 
 <WhenFrameworkHas flag="interrupt_pattern" equals="promise-based">
 
-For promise-based integrations there is no native interrupt primitive,
-so the headless variant uses `useFrontendTool` with a Promise-based
-handler. The handler exposes its pending payload via React state — so
+For integrations whose pinned showcase uses the promise-based path, the
+headless variant uses `useFrontendTool` with a Promise-based handler. This can
+be a runtime limitation or a temporary compatibility fallback. The handler
+exposes its pending payload via React state — so
 a separate "app surface" can render the picker outside the chat — and
 resolves the Promise once the user interacts. Same UX, different
 mechanism.

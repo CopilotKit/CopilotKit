@@ -32,9 +32,10 @@ and calls the agent back with the user's answer.
 
 <WhenFrameworkHas flag="interrupt_pattern" equals="promise-based">
 
-Some runtimes cannot pause a run mid-tool the way LangGraph's
-`interrupt()` does, so this demo uses `useFrontendTool` with a
-Promise-based handler instead. The agent calls `schedule_meeting` like
+This framework's pinned showcase uses `useFrontendTool` with a
+Promise-based handler instead of the standard interrupt path. Depending on the
+integration, that can be a runtime limitation or a temporary compatibility
+fallback. The agent calls `schedule_meeting` like
 any other tool; the client-side handler renders the picker, holds the
 request open, and only resolves the Promise once the user picks a slot
 or cancels. Same UX from the reader's perspective — agent pauses, user

@@ -19,7 +19,6 @@ interaction_modalities:
   - embedded
   - chat
 not_supported_features:
-  - shared-state-streaming
   # QUARANTINED pending a @copilotkit/react-core release. gen-ui-interrupt /
   # interrupt-headless fail turn-2 on a useInterrupt/useHeadlessInterrupt
   # RESUME-PATH hook bug in @copilotkit/react-core/v2: backend resumes + streams
@@ -27,11 +26,32 @@ not_supported_features:
   # so the harness DOM settle-check times out. Fix is a published-package change
   # (out of scope here); honestly marked not-supported (skipped-incapable, not
   # green, not red) rather than a regression. Demos remain wired below.
+  # Matches langgraph-python's not_supported exactly (only these two).
+  #
+  # reasoning-* + shared-state-streaming were previously quarantined but are now
+  # SUPPORTED on agent-framework-ag-ui rc8. reasoning streams via the OpenAI
+  # Responses API on a native reasoning model (gpt-5; the old gpt-5.4 default
+  # emitted no reasoning). shared-state-streaming needed (a) the
+  # SharedStateStreaming subclass seeding state.document (STATE_SNAPSHOT after
+  # RUN_STARTED) for single-turn, and (b) a `chunkSize` on the write_document
+  # fixtures so aimock streams the tool args token-by-token — without it MAF's
+  # PredictiveStateHandler (json.loads-first) collapsed replay to ONE full-value
+  # STATE_DELTA, which tripped the frontend turn-2 settle. The multi-turn hang
+  # was a REPLAY ARTIFACT, not a MAF adapter bug: a live MAF rc8 + real-OpenAI
+  # run (verified cross-session on the ag-ui dojo) completes multi-turn clean.
+  # Both un-quarantined; matches langgraph-python.
+  #
+  # gen-ui-declarative (the A2UI fixed-schema *declarative* rendering cell,
+  # served at the /demos/declarative-gen-ui route) is the A2UI declarative path.
+  # A2UI is explicitly out of scope for this integration pass (skipped, not
+  # backfilled) — the declarative surface never mounts under aimock replay
+  # (turn-1 surface-mount timeout). Demo scaffolding remains wired for a later
+  # A2UI-focused pass; quarantined here so it is skipped rather than red. NOTE:
+  # not_supported_features is matched against the D6 FEATURE TYPE, which for this
+  # cell is `gen-ui-declarative` (NOT the manifest/registry id `declarative-gen-ui`).
   - gen-ui-interrupt
   - interrupt-headless
-  - reasoning-default-render
-  - agentic-chat-reasoning
-  - tool-rendering-reasoning-chain
+  - gen-ui-declarative
 features:
   - beautiful-chat
   - cli-start
@@ -50,18 +70,24 @@ features:
   - hitl-in-app
   - hitl-in-chat
   - gen-ui-tool-based
-  - declarative-gen-ui
   - a2ui-fixed-schema
   - mcp-apps
   - gen-ui-agent
   - tool-rendering-default-catchall
   - tool-rendering-custom-catchall
+  - tool-rendering-reasoning-chain
   - tool-rendering
+  - shared-state-streaming
   - shared-state-read-write
   - subagents
   - readonly-state-agent-context
   - multimodal
   - auth
+  # multimodal: image + pdf attachments. Green via the _MultimodalFrameworkAgent
+  # subclass, which drops the divergent end-of-run MESSAGES_SNAPSHOT that the
+  # agent_framework_openai multimodal message-split produces (see the subclass
+  # docstring) + an aimock matcher fix (getLastUserText skips a text-less
+  # trailing image message) + the pdf fixture keying on the flattened doc body.
   - declarative-hashbrown
   - declarative-json-render
   - open-gen-ui
@@ -177,6 +203,7 @@ demos:
     animated_preview_url:
     highlight:
       - src/agents/hitl_in_chat_agent.py
+      - src/agent_server.py
       - src/app/demos/hitl-in-chat/page.tsx
       - src/app/demos/hitl-in-chat/time-picker-card.tsx
       - src/app/api/copilotkit/route.ts

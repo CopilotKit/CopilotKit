@@ -13,9 +13,11 @@ directly into `state.document` while the tool call is still streaming.
 
 from __future__ import annotations
 
+from collections.abc import AsyncGenerator
 from textwrap import dedent
-from typing import Annotated
+from typing import Annotated, Any
 
+from ag_ui.core import BaseEvent, EventType, StateSnapshotEvent
 from agent_framework import Agent, BaseChatClient, tool
 from agent_framework_ag_ui import AgentFrameworkAgent, state_update
 from pydantic import Field
@@ -78,6 +80,71 @@ SYSTEM_PROMPT = dedent(
 ).strip()
 
 
+class SharedStateStreamingFrameworkAgent(AgentFrameworkAgent):
+    """Seeds ``state.document`` before the run so predictive STATE_DELTAs apply.
+
+    MAF's initial AG-UI agent state is ``{}`` — ``state_schema`` contributes
+    property *definitions* but no seeded *values*, and the deterministic
+    StateSnapshotEvent is only emitted AFTER a tool result. The predictive
+    STATE_DELTAs that `predict_state_config` streams while `write_document`
+    is still generating are JSON-patch ``replace`` ops on ``/document``,
+    which the frontend rejects when the path does not yet exist ("Failed to
+    apply state patch ... op: replace" against ``{}``), so the run never
+    settles. langgraph-python avoids this because its typed LangGraph
+    ``State`` seeds ``document = ""``.
+
+    We mirror that seed by emitting a ``STATE_SNAPSHOT`` carrying the current
+    ``document`` value (``""`` on the first turn) immediately after
+    ``RUN_STARTED`` and before the predictive deltas stream.
+
+    This seed fixes the single-turn path (the document streams token-by-token
+    and the run settles).
+
+    MULTI-TURN (turn 2+) additionally required a FIXTURE change, not code. The
+    earlier turn-2 done-signal hang under aimock replay was a REPLAY ARTIFACT:
+    MAF's ``PredictiveStateHandler.emit_streaming_deltas`` tries
+    ``json.loads(accumulated_args)`` FIRST and, on success, emits ONE complete
+    ``replace /document`` delta (the per-token partial-regex path never fires).
+    aimock returned the ``write_document`` args effectively whole, so replay
+    collapsed to a SINGLE full-value STATE_DELTA — whereas a real LLM streams
+    the args token-by-token and MAF emits ~40 incremental deltas. The frontend
+    settles turn 2 fine on the incremental stream but tripped on the
+    collapsed single-delta-then-snapshot shape. The fix is
+    ``chunkSize`` on the ``write_document`` tool-call fixtures
+    (``aimock/d6/ms-agent-python/shared-state-streaming.json``) so aimock
+    streams the args in small chunks and MAF emits the per-token deltas under
+    replay too — matching real-LLM behavior. Verified cross-session against a
+    live MAF rc8 + real-OpenAI run on the ag-ui dojo (no hang there either):
+    the MAF adapter was never the bug. With the seed + the chunked fixture,
+    multi-turn shared-state-streaming is D6-green and un-quarantined.
+    """
+
+    async def run(  # type: ignore[override]
+        self,
+        input_data: dict[str, Any],
+    ) -> AsyncGenerator[BaseEvent, None]:
+        incoming = input_data.get("state")
+        state = incoming if isinstance(incoming, dict) else {}
+        # Seed on EVERY turn (preserving any existing document) so the
+        # `/document` path always exists before the predictive STATE_DELTAs
+        # stream. `{**state, "document": state.get("document", "")}` keeps a
+        # prior turn's committed document intact while guaranteeing the key is
+        # present for turn 1's empty state.
+        document = state.get("document", "")
+        seeded = False
+        async for event in super().run(input_data):
+            yield event
+            # Inject the seed snapshot immediately AFTER RUN_STARTED — the
+            # AG-UI protocol requires RUN_STARTED to be the first event, and
+            # the seed must land before the predictive STATE_DELTAs stream.
+            if not seeded and getattr(event, "type", None) == EventType.RUN_STARTED:
+                yield StateSnapshotEvent(
+                    type=EventType.STATE_SNAPSHOT,
+                    snapshot={**state, "document": document},
+                )
+                seeded = True
+
+
 def create_shared_state_streaming_agent(
     chat_client: BaseChatClient,
 ) -> AgentFrameworkAgent:
@@ -89,7 +156,7 @@ def create_shared_state_streaming_agent(
         tools=[write_document],
     )
 
-    return AgentFrameworkAgent(
+    return SharedStateStreamingFrameworkAgent(
         agent=base_agent,
         name="SharedStateStreamingAgent",
         description=(

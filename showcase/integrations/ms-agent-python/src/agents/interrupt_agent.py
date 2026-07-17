@@ -1,15 +1,15 @@
 """
 MS Agent Framework scheduling agent — interrupt-adapted.
 
-This agent powers two demos (gen-ui-interrupt, interrupt-headless) that in the
-LangGraph showcase rely on the native `interrupt()` primitive with
-checkpoint/resume. The MS Agent Framework does NOT have that primitive, so we
-adapt by delegating the time-picker interaction to a **frontend tool** that the
-agent calls by name (`schedule_meeting`). The frontend registers the tool via
-`useFrontendTool` with an async handler; that handler renders the interactive
-picker, waits for the user to choose a slot (or cancel), and resolves the tool
-call with the result. The backend only defines the system prompt and advertises
-no local `schedule_meeting` implementation — the agent's tool call is satisfied
+This agent powers two demos (gen-ui-interrupt, interrupt-headless). Microsoft
+Agent Framework can emit standard AG-UI interrupts through
+`agent-framework-ag-ui`, but these showcase demos remain on a frontend-tool
+fallback while the pinned CopilotKit package has a post-resume chat-rendering
+issue. The frontend registers `schedule_meeting` via `useFrontendTool` with an
+async handler; that handler renders the interactive picker, waits for the user
+to choose a slot (or cancel), and resolves the tool call with the result. The
+backend only defines the system prompt and advertises no local
+`schedule_meeting` implementation — the agent's tool call is satisfied
 entirely by the frontend.
 
 See `src/agents/agent.py` for the related `approval_mode="always_require"`

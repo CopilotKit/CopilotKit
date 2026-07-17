@@ -1,25 +1,36 @@
 ---
 title: Human-in-the-loop
 icon: "lucide/User"
-description: Create frontend tools and use them within your agent framework agent.
+description: Gate Microsoft Agent Framework actions with frontend tools or backend-native interrupts.
 ---
-{/* TODO: Swap these links for Microsoft Agent Framework links once Microsoft Agent Framework is officially added to the feature viewer */}
-<IframeSwitcher
-  id="frontend-tools-based-hitl-example"
-  exampleUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/human_in_the_loop?sidebar=false&chatDefaultOpen=false"
-  codeUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/human_in_the_loop?view=code&sidebar=false&codeLayout=tabs"
-  exampleLabel="Demo"
-  codeLabel="Code"
-  height="700px"
-/>
+<Tabs groupId="language_microsoft-agent-framework_agent" items={['.NET', 'Python']} persist>
+  <Tab value=".NET">
+    <IframeSwitcher
+      id="frontend-tools-based-hitl-example-dotnet"
+      exampleUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/human_in_the_loop?sidebar=false&chatDefaultOpen=false"
+      codeUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/human_in_the_loop?view=code&sidebar=false&codeLayout=tabs"
+      exampleLabel="Demo"
+      codeLabel="Code"
+      height="700px"
+    />
+  </Tab>
+  <Tab value="Python">
+    <InlineDemo integration="ms-agent-python" demo="hitl-in-chat" />
+  </Tab>
+</Tabs>
 
 ## What is this?
-Frontend tools enable you to define client-side functions that your Microsoft Agent Framework agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
-the logic runs on the client side, giving you direct access to the frontend environment.
+
+Microsoft Agent Framework supports two human-in-the-loop paths:
+
+- **Frontend-tool approval** runs the approval interaction in the browser with `useHumanInTheLoop`. Use it when the action depends on browser state or should execute on the client.
+- **Backend-native interrupt** pauses a Python agent tool approval or workflow request on the server. The AG-UI adapter emits a standard interrupt, and `useInterrupt` resumes or cancels it from your UI.
+
+Frontend tools enable you to define client-side functions that your Microsoft Agent Framework agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool, the logic runs on the client side, giving you direct access to the frontend environment.
 
 This can be utilized to let [your agent control the UI](/microsoft-agent-framework/frontend-tools), [power generative UI](/microsoft-agent-framework/frontend-tools), or support Human-in-the-loop interactions.
 
-In this guide, we cover the use of frontend tools for Human-in-the-loop.
+The first journey below covers frontend tools for both .NET and Python. The second covers backend-native interrupts in `agent-framework-ag-ui` for Python.
 
 ## When should I use this?
 Use frontend tools when you need your agent to interact with client-side primitives such as:
@@ -29,7 +40,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
 - Interacting with third-party frontend libraries
 - Performing actions that require the user's immediate browser context
 
-## Implementation
+## Frontend-tool approval
 
 <Steps>
     <Step>
@@ -79,7 +90,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
     <Step>
         ### Receiving frontend tools in your AG-UI server
 
-        Frontend tools registered with `useHumanInTheLoop` are forwarded to your AG-UI server and passed to the underlying agent via the AgentRunOptions on the server.  They are automatically available by default to the underlying chat client.
+        Frontend tool definitions arrive in `RunAgentInput.tools` with each AG-UI request. In Python, `AgentFrameworkAgent` converts them into declaration-only Microsoft Agent Framework `FunctionTool`s, merges them with the tools configured on your underlying `Agent`, and passes the merged list to `Agent.run(..., tools=...)`. This makes the frontend tool schemas visible to the LLM without giving the server an implementation to execute.
 
         <Tabs groupId="language_microsoft-agent-framework_agent" items={['.NET', 'Python']} persist>
           <Tab value=".NET">
@@ -114,8 +125,8 @@ Use frontend tools when you need your agent to interact with client-side primiti
             from dotenv import load_dotenv
             from agent_framework import Agent
             from agent_framework import SupportsChatGetResponse
-            from agent_framework.azure import AzureOpenAIChatClient
             from agent_framework.openai import OpenAIChatClient
+            from agent_framework.ag_ui import AgentFrameworkAgent  # [!code highlight]
             from agent_framework.ag_ui import add_agent_framework_fastapi_endpoint
             from azure.identity import DefaultAzureCredential
 
@@ -123,10 +134,10 @@ Use frontend tools when you need your agent to interact with client-side primiti
 
             def _build_chat_client() -> SupportsChatGetResponse:
                 if bool(os.getenv("AZURE_OPENAI_ENDPOINT")):
-                    return AzureOpenAIChatClient(
+                    return OpenAIChatClient(
                         credential=DefaultAzureCredential(),
-                        deployment_name=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", "gpt-5.4-mini"),
-                        endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+                        model=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", "gpt-5.4-mini"),
+                        azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
                     )
                 if bool(os.getenv("OPENAI_API_KEY")):
                     return OpenAIChatClient(
@@ -136,21 +147,29 @@ Use frontend tools when you need your agent to interact with client-side primiti
                 raise RuntimeError("Set AZURE_OPENAI_* or OPENAI_API_KEY in agent/.env")
 
             chat_client = _build_chat_client()
-            # Frontend tools registered with useHumanInTheLoop are automatically available
-            agent = Agent(
+            # [!code highlight:9]
+            base_agent = Agent(
                 name="sample_agent",
-                instructions="You are a helpful assistant.",
+                instructions="Use frontend tools when they match the user's request.",
                 client=chat_client,
+                # Only server-executable tools belong here. Frontend tools arrive per run.
+                tools=[],
             )
+            # The adapter merges `RunAgentInput.tools` with `base_agent.tools` for each LLM run.
+            agent = AgentFrameworkAgent(agent=base_agent)
 
             app = FastAPI(title="AG-UI Server (Python)")
-            add_agent_framework_fastapi_endpoint(app=app, agent=agent, path="/")
+            add_agent_framework_fastapi_endpoint(
+                app=app,
+                agent=agent,
+                path="/",
+            )
             ```
           </Tab>
         </Tabs>
 
         <Callout type="info">
-          Frontend tools defined with `useHumanInTheLoop` are automatically forwarded to your agent through the AG-UI protocol. The tool execution and rendering happen on the frontend, providing seamless human-in-the-loop interactions.
+          Do not add the frontend tool to `Agent(tools=[...])`. That list is for tools the server can execute. The adapter supplies the frontend tool declaration only for the current LLM run; CopilotKit executes its handler in the browser and returns the result to the agent.
         </Callout>
     </Step>
     <Step>
@@ -158,3 +177,126 @@ Use frontend tools when you need your agent to interact with client-side primiti
         You've now given your agent the ability to directly call any frontend tools you've defined. These tools will be available to the agent where they can be used as needed.
     </Step>
 </Steps>
+
+## Backend-native approval interrupts (Python)
+
+Use this path when the operation is implemented on the server and Microsoft Agent Framework must pause before executing it. `agent-framework-ag-ui` maps tool approvals and workflow `request_info(...)` pauses to the standard AG-UI lifecycle:
+
+<Callout type="warning">
+  The currently pinned CopilotKit showcase release has a known post-resume rendering issue for this integration: the backend resumes and streams successfully, but the final confirmation message may not appear in chat. The shared Microsoft Agent Framework demos therefore continue to use the frontend-tool approval path above until a CopilotKit package release contains the UI fix. The canonical adapter contract below is available now for direct integrations and testing.
+</Callout>
+
+```text
+RUN_FINISHED.outcome = { type: "interrupt", interrupts: Interrupt[] }
+RunAgentInput.resume = [{ interruptId, status, payload? }]
+```
+
+<Steps>
+    <Step>
+        ### Install the interrupt-aware adapter
+
+        ```bash
+        uv add agent-framework-ag-ui agent-framework-openai python-dotenv uvicorn
+        ```
+
+        `agent-framework-openai` is explicit because the AG-UI adapter does not install model providers transitively.
+    </Step>
+
+    <Step>
+        ### Require approval on the backend tool
+
+        ```python title="main.py"
+        import os
+
+        from agent_framework import Agent, tool
+        from agent_framework.ag_ui import add_agent_framework_fastapi_endpoint
+        from agent_framework.openai import OpenAIChatClient
+        from fastapi import FastAPI
+
+        @tool(
+            name="delete_customer_record",
+            description="Delete a customer record permanently",
+            approval_mode="always_require",
+        )
+        def delete_customer_record(customer_id: str) -> str:
+            return f"Deleted customer {customer_id}"
+
+        chat_client = OpenAIChatClient(
+            model=os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-4o-mini"),
+            api_key=os.environ["OPENAI_API_KEY"],
+        )
+
+        agent = Agent(
+            name="approval_agent",
+            instructions="Use delete_customer_record when the user asks to delete a customer.",
+            client=chat_client,
+            tools=[delete_customer_record],
+        )
+
+        app = FastAPI()
+        add_agent_framework_fastapi_endpoint(app=app, agent=agent, path="/")
+        ```
+
+        When the model proposes `delete_customer_record`, the adapter finishes the current run with `outcome.type === "interrupt"`. The interrupt has `reason: "tool_call"`, references the proposed tool call, and describes the expected resume payload.
+    </Step>
+
+    <Step>
+        ### Render and resolve the interrupt
+
+        ```tsx title="ApprovalInterrupt.tsx"
+        import { useInterrupt } from "@copilotkit/react-core/v2";
+
+        export function ApprovalInterrupt() {
+          useInterrupt({
+            render: ({ interrupt, resolve, cancel }) => {
+              if (!interrupt) return <></>;
+
+              return (
+                <div className="rounded border p-4">
+                  <p>{interrupt.message ?? "Approve this action?"}</p>
+                  <div className="mt-3 flex gap-2">
+                    <button onClick={() => resolve({ accepted: true })}>
+                      Approve
+                    </button>
+                    <button onClick={() => resolve({ accepted: false })}>
+                      Deny
+                    </button>
+                    <button onClick={() => cancel()}>Cancel</button>
+                  </div>
+                </div>
+              );
+            },
+          });
+
+          return null;
+        }
+        ```
+
+        `resolve(...)` submits a canonical resume entry with `status: "resolved"`. Express a denial in the payload with `{ accepted: false }`. `cancel()` submits `status: "cancelled"` when the user abandons the request without a decision.
+    </Step>
+</Steps>
+
+### Multiple interrupts
+
+A resumed run must address every open interrupt. For a batch, render `interrupts` and pass each interrupt ID to `resolve` or `cancel`; the hook submits the resume after all are addressed:
+
+```tsx
+useInterrupt({
+  render: ({ interrupts, resolve, cancel }) => (
+    <ul>
+      {interrupts.map((item) => (
+        <li key={item.id}>
+          {item.message}
+          <button onClick={() => resolve({ accepted: true }, item.id)}>
+            Approve
+          </button>
+          <button onClick={() => resolve({ accepted: false }, item.id)}>
+            Deny
+          </button>
+          <button onClick={() => cancel(item.id)}>Cancel</button>
+        </li>
+      ))}
+    </ul>
+  ),
+});
+```

@@ -1,0 +1,81 @@
+---
+title: Multi-Agent Flows
+description: Use multiple agents to orchestrate complex flows.
+icon: "lucide/Users"
+---
+
+<Frame>
+  <img
+    src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/multi-agent-flows.png"
+    alt="Multi-Agent Flows"
+  />
+</Frame>
+
+## What are Multi-Agent Flows?
+
+When building agentic applications, you often want to orchestrate complex flows together that require the coordination of multiple
+agents. This is traditionally called multi-agent orchestration.
+
+## When should I use this?
+
+Multi-agent flows are useful when you want to orchestrate complex flows together that require the coordination of multiple agents. As
+your agentic application grows, delegation of sub-tasks to other agents can help you scale key pieces of your application.
+
+- Divide context into smaller chunks
+- Delegate sub-tasks to other agents
+- Use a single agent to orchestrate the flow
+
+## How does CopilotKit support this?
+
+CopilotKit can be used in either of two distinct modes: **Router Mode**, or **Agent Lock**. By default, CopilotKit
+will use Router Mode, leveraging your defined LLM to route requests between agents.
+
+### Router Mode (default)
+
+Router Mode is enabled by default. To use it, specify a runtime URL prop in the `CopilotKit` provider component and omit the `agent` prop, like so:
+
+```tsx
+<CopilotKit runtimeUrl="<copilot-runtime-url>">
+  {/* Your application components */}
+</CopilotKit>
+```
+
+In router mode, CopilotKit acts as a central hub, dynamically selecting and _routing_ requests between different agents or actions based on the user's input. This mode can be good for chat-first experiences where an LLM chatbot is the entry point for a range of interactions, which can stay in the chat UI or expand to include native React UI widgets.
+
+In this mode, CopilotKit will intelligently route requests to the most appropriate agent or action based on the context and user input.
+
+<Callout type="warn">
+  Router mode requires that you set up an LLM adapter. See how in ["Set up a
+  copilot
+  runtime"](/quickstart?copilot-hosting=self-hosted#set-up-a-copilot-runtime-endpoint)
+  section of the docs.
+</Callout>
+
+### Agent Lock Mode
+
+To use Agent Lock Mode, specify the agent name in the `CopilotKit` component with the `agent` prop:
+
+```tsx
+// [!code word:agent]
+<CopilotKit runtimeUrl="<copilot-runtime-url>" agent="<the-name-of-the-agent>">
+  {/* Your application components */}
+</CopilotKit>
+```
+
+In this mode, CopilotKit is configured to work exclusively with a specific agent. This mode is useful when you want to focus on a particular task or domain. Whereas in Router Mode the LLM and CopilotKit's router are free to switch between agents to handle user requests, in Agent Lock Mode all requests will stay within a single agent, ensuring precise control over the workflow.
+
+Use whichever mode works best for your app experience! Also, note that while you cannot nest `CopilotKit` providers, you can use different agents or modes in different areas of your app — for example, you may want a chatbot in router mode that can call on any agent or tool, but may also want to integrate one specific agent elsewhere for a more focused workflow.
+
+## Orchestrating sub-agents inside a Microsoft Agent Framework agent
+
+Multi-agent orchestration does not have to live in the runtime router. With the Microsoft Agent Framework you can keep a single
+locked agent as the entry point and have it delegate to specialized sub-agents from inside your backend. A common pattern is a
+**supervisor** agent that exposes each sub-agent as a tool:
+
+- Build each sub-agent as its own `Agent(...)` with a focused system prompt.
+- Wrap each one in a `@tool` on the supervisor, so the supervisor LLM delegates by calling the tool.
+- Stream the delegation log back to the UI through AG-UI shared state, so users can watch each hand-off in real time.
+
+Because the whole flow runs inside one AG-UI agent, you drive it from the frontend in Agent Lock mode (`agent="<supervisor-name>"`).
+See [Build with agents](/microsoft-agent-framework/build-with-agents) for how a Microsoft Agent Framework agent is wired into the
+CopilotKit runtime, and [Shared State](/microsoft-agent-framework/shared-state) for streaming the delegation log to the UI.
