@@ -43,24 +43,32 @@ export const SEALED_SENTINEL = "__SEALED__";
  */
 
 /**
- * Service names we do NOT check for aimock wiring. The aimock service
- * itself has no upstream to route through, and shell/pocketbase/harness are pure
- * infra with no LLM callers.
+ * Infra service names we do NOT check for aimock wiring. The aimock service
+ * itself has no upstream to route through, and shell/pocketbase/harness/
+ * harness-workers/dashboard/docs/dojo/webhooks are pure infra with no LLM
+ * callers (so they have no `*_BASE_URL` overrides and could only ever be
+ * counted as unwired).
  *
- * Entries are stored in their `showcase-`-prefixed form. The exclusion check
- * (`isExcluded`) normalizes inputs by stripping a leading `showcase-` so a
- * bare deployed name (e.g. `harness`, `shell`, `aimock`) matches the same
- * canonical entry as the prefixed form (`showcase-harness`, …). This is
+ * Most entries are stored in their `showcase-`-prefixed form. The exclusion
+ * check (`isExcluded`) normalizes inputs by stripping a leading `showcase-`
+ * so a bare deployed name (e.g. `harness`, `shell`, `aimock`) matches the
+ * same canonical entry as the prefixed form (`showcase-harness`, …). This is
  * load-bearing: actual deployed Railway service names in the production
  * project are BARE — without the strip, every bare infra service would have
- * been counted as unwired (no `*_BASE_URL` overrides because they are not
- * LLM callers) and the probe would have stayed red forever.
+ * been counted as unwired and the probe would have stayed red forever.
+ * `harness-workers` has no `showcase-` legacy form, so it is stored bare —
+ * `isExcluded` checks the literal name first, so this matches correctly.
  *
  * Match is still effectively EXACT post-strip (not prefix): a hypothetical
  * `showcase-aimock-pinger-mock-for-test` strips to `aimock-pinger-mock-for-test`,
  * which is NOT in the set, so it would correctly surface as unwired. Keep
  * this list in sync with the Railway service roster whenever new infra
  * services are added.
+ *
+ * NOTE: starter (`starter-*`) exclusion is handled by the prefix rule in
+ * `isExcluded`, NOT by literals here — starters are a whole family and were
+ * previously listed as `showcase-starter-*` literals that drifted against the
+ * live bare `starter-<framework>[-lang]` names. See `isExcluded`.
  */
 const EXCLUDE_SERVICES: ReadonlySet<string> = new Set([
   "showcase-aimock",
@@ -73,24 +81,8 @@ const EXCLUDE_SERVICES: ReadonlySet<string> = new Set([
   "showcase-dojo",
   "showcase-pocketbase",
   "showcase-harness",
+  "harness-workers",
   "showcase-webhooks",
-  "showcase-starter-ag2",
-  "showcase-starter-agno",
-  "showcase-starter-claude-sdk-python",
-  "showcase-starter-claude-sdk-typescript",
-  "showcase-starter-crewai-crews",
-  "showcase-starter-google-adk",
-  "showcase-starter-langgraph-fastapi",
-  "showcase-starter-langgraph-python",
-  "showcase-starter-langgraph-typescript",
-  "showcase-starter-langroid",
-  "showcase-starter-llamaindex",
-  "showcase-starter-mastra",
-  "showcase-starter-ms-agent-dotnet",
-  "showcase-starter-ms-agent-python",
-  "showcase-starter-pydantic-ai",
-  "showcase-starter-spring-ai",
-  "showcase-starter-strands",
 ]);
 
 export interface AimockWiringInput {
@@ -182,13 +174,27 @@ export interface AimockWiringSignal {
 const ERRORED_PREVIEW_MAX = 5;
 
 function isExcluded(name: string): boolean {
+  // Starters are contributor scaffolds, not showcase backends — they are
+  // categorically NOT wired through aimock (per product decision), so exclude
+  // the whole `starter-*` family by PREFIX rather than by per-framework
+  // literal. Matching starters by literal is what drifted: live Railway names
+  // are bare `starter-<framework>[-lang]` (e.g. `starter-strands-python`,
+  // `starter-langgraph-js`) while the stale EXCLUDE entries were keyed
+  // `showcase-starter-<framework>` (matching only `starter-<framework>`), so
+  // renamed/added starters fell through to being checked → unwired → red. A
+  // prefix rule can't re-drift on rename. This is SAFE: the probe's "checked"
+  // universe is intentionally the `showcase-*` LLM backends, and no
+  // `showcase-*` name begins with `starter-`, so this never over-excludes a
+  // real backend.
+  if (name.startsWith("starter-")) return true;
+
   // Match either the literal name or its `showcase-`-prefixed form. Railway
   // service names in the production project are BARE (`harness`, `shell`,
-  // `aimock`, …) while EXCLUDE_SERVICES is keyed by the `showcase-`-prefixed
-  // form for historical reasons (the legacy local-dev project named services
-  // with that prefix). Comparing both forms keeps the set robust to either
-  // naming convention without forcing operators to maintain two parallel
-  // sets that can drift.
+  // `aimock`, `harness-workers`, …) while some EXCLUDE_SERVICES entries are
+  // keyed by the `showcase-`-prefixed form for historical reasons (the legacy
+  // local-dev project named services with that prefix). Comparing both forms
+  // keeps the set robust to either naming convention without forcing operators
+  // to maintain two parallel sets that can drift.
   if (EXCLUDE_SERVICES.has(name)) return true;
   return EXCLUDE_SERVICES.has(`showcase-${name}`);
 }
