@@ -474,12 +474,21 @@ export class HttpEgressSink implements EgressSink {
       return { ok: true, ref: op.operationId };
     }
 
+    // Derive the adapter from the delivery's own reply route, not the static
+    // config default. One provider-agnostic runtime serves every adapter the
+    // bot has attached (Slack, Teams, ...); posting `this.cfg.adapter` (default
+    // "slack") on a Teams delivery is contradictory with its Teams replyTarget.
+    // app-api routes on `replyTarget.adapter` + `channelName` and ignores this
+    // top-level field, but keep it consistent rather than misleading. Fall back
+    // to the config adapter when the route carries none.
+    const routeAdapter = (op.route as { adapter?: string } | null | undefined)
+      ?.adapter;
     try {
       const res = await this.http.post<EgressResponse>(
         "/api/channels/egress/messages",
         {
           channelName: this.cfg.channelName,
-          adapter: this.cfg.adapter,
+          adapter: routeAdapter ?? this.cfg.adapter,
           deliveryId: op.deliveryId,
           idempotencyKey: op.operationId,
           replyTarget: op.route,

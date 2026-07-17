@@ -237,6 +237,29 @@ describe("HttpEgressSink", () => {
     expect(res.ok).toBe(false);
     expect(calls).toHaveLength(0);
   });
+
+  it("posts the reply route's adapter, not the static config adapter (provider-agnostic egress)", async () => {
+    // One provider-agnostic runtime serves every adapter the bot has attached,
+    // so a Teams delivery must not carry the config's default adapter ("slack").
+    // app-api routes on replyTarget.adapter + channelName, so derive the posted
+    // adapter from the delivery's own reply route.
+    const { fetch, calls } = fakeFetch(() => ({
+      body: { operationId: "eop_t", status: "sent" },
+    }));
+    const sink = new HttpEgressSink(cfg({ fetch, adapter: "slack" }));
+    await sink.emit({
+      operationId: "turn_9:0",
+      turnId: "turn_9",
+      deliveryId: "dlv_9",
+      route: {
+        adapter: "teams",
+        tenantId: "tenant-1",
+        conversationId: "19:abc@thread.tacv2",
+      },
+      op: { kind: "post", ir: [text("hi")] },
+    });
+    expect(calls[0]!.body).toMatchObject({ adapter: "teams" });
+  });
 });
 
 describe("HttpDeliverySource", () => {
