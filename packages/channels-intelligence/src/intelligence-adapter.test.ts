@@ -439,6 +439,52 @@ describe("intelligenceAdapter — HTTP-fallback run_error (OSS-491)", () => {
     // …and the fallback error-post path never runs on the realtime path.
     expect(egress.ops).toEqual([]);
   });
+
+  it("propagates a failure (drain rejects) when the fallback error post itself can't be emitted", async () => {
+    const source = new InMemoryDeliverySource();
+    // Egress that rejects every op — a transient/egress failure of the error
+    // post, distinct from the deterministic agent error that triggered it.
+    const failingEgress: EgressSink = {
+      emit: async () => ({ ok: false, code: "provider_rejected" }),
+    };
+    const adapter = intelligenceAdapter({ source, egress: failingEgress });
+    const renderer = adapter.createRunRenderer(target);
+    const sub = renderer.subscriber as unknown as Sub;
+
+    sub.onRunErrorEvent?.({ event: { message: "boom" } });
+
+    // The error post can't be delivered → the push chain records the error and
+    // drain() rejects, so dispatch() nacks (redelivers/retries) rather than
+    // acking a dropped error as success. This is the transient-failure escape
+    // hatch that keeps post-on-run_error from masking a real egress outage.
+    await expect(renderer.finish?.()).rejects.toThrow(/egress post failed/i);
+  });
+
+  it("flushes buffered partial text before the error post on a fallback run_error", async () => {
+    const source = new InMemoryDeliverySource();
+    const egress = new InMemoryEgressSink();
+    const adapter = intelligenceAdapter({ source, egress });
+    const renderer = adapter.createRunRenderer(target);
+    const sub = renderer.subscriber as unknown as Sub;
+
+    // Partial text that never received a text_end, then an error mid-stream.
+    sub.onTextMessageContentEvent?.({
+      event: { messageId: "m1", delta: "partial answer" },
+    });
+    sub.onRunErrorEvent?.({ event: { message: "died mid-stream" } });
+    await renderer.finish?.();
+
+    // Buffered partial output reaches the channel first, then the error post —
+    // natural reading order, no lost output, no duplicate.
+    const texts = egress.ops.map(
+      (o) =>
+        (o.op as unknown as { ir: { props: { value: string } }[] }).ir[0]!.props
+          .value,
+    );
+    expect(texts).toHaveLength(2);
+    expect(texts[0]).toBe("partial answer");
+    expect(texts[1]).toMatch(/error/i);
+  });
 });
 
 describe("intelligenceAdapter — ack failure isolation (OSS-491)", () => {
