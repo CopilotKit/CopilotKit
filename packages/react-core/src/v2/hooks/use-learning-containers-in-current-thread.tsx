@@ -3,6 +3,11 @@ import type { UseLearningContainersArgs } from "./use-learning-containers";
 import { useLearningContainers } from "./use-learning-containers";
 
 /**
+ * @deprecated Since v1.64.0. Configure `resolveLearningContainer` on
+ * `CopilotRuntime` from `@copilotkit/runtime/v2` instead.
+ * See https://docs.copilotkit.ai/migrate/learning-containers-to-resolve-learning-container
+ * for the migration guide.
+ *
  * Arguments for {@link useLearningContainersInCurrentThread}.
  * Same as {@link UseLearningContainersArgs} minus `threadId`, which is
  * sourced from the surrounding `<CopilotChatConfigurationProvider>` at
@@ -14,6 +19,11 @@ export type UseLearningContainersInCurrentThreadArgs = Omit<
 >;
 
 /**
+ * @deprecated Since v1.64.0. Configure `resolveLearningContainer` on
+ * `CopilotRuntime` from `@copilotkit/runtime/v2` instead.
+ * See https://docs.copilotkit.ai/migrate/learning-containers-to-resolve-learning-container
+ * for the migration guide.
+ *
  * Declaratively keeps the **current chat thread's** learning containers in
  * sync. The `threadId` is sourced from the surrounding
  * `<CopilotChatConfigurationProvider>` (the same provider `<CopilotChat>`,

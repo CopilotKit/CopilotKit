@@ -52,6 +52,74 @@ Realtime sync keeps thread metadata and active conversation state aligned across
 
 The important application-level contract is simple: your app uses the same hooks, while the runtime points at the platform endpoint for the selected deployment.
 
+## Resolve a learning container on the runtime
+
+Learning-container assignment is a trusted runtime decision. Configure `resolveLearningContainer` on an Intelligence-mode `CopilotRuntime`; do not let React state, request headers, or browser annotations select the assignment directly.
+
+```ts
+interface LearningContainerResolverContext {
+  request: Request;
+  threadId: string;
+  agentId: string;
+  user: CopilotRuntimeUser;
+}
+
+type ResolveLearningContainerCallback = (
+  context: LearningContainerResolverContext
+) => string | null | Promise<string | null>;
+```
+
+The callback runs once per run after `identifyUser`. Return one authorized learning-container UUID, or return `null` when the run must not have an assignment.
+
+```ts
+import { CopilotKitIntelligence, CopilotRuntime } from "@copilotkit/runtime/v2";
+import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+
+const usersByToken = new Map([
+  ["demo-admin-token", { id: "user-1", name: "Ada" }],
+]);
+
+const learningContainerByUser = new Map([
+  ["user-1", "11111111-1111-4111-8111-111111111111"],
+]);
+
+async function getAuthenticatedUser(request: Request) {
+  const token = request.headers.get("authorization")?.replace("Bearer ", "");
+  const user = token ? usersByToken.get(token) : undefined;
+  if (!user) throw new Error("Unauthorized");
+  return user;
+}
+
+const agents = {
+  default: new LangGraphAgent({
+    deploymentUrl: process.env.AGENT_URL ?? "http://localhost:8123",
+    graphId: "assistant",
+  }),
+};
+
+const runtime = new CopilotRuntime({
+  agents,
+  intelligence: new CopilotKitIntelligence({
+    apiKey: process.env.INTELLIGENCE_API_KEY ?? "",
+    apiUrl: process.env.INTELLIGENCE_API_URL ?? "http://localhost:4201",
+    wsUrl: process.env.INTELLIGENCE_GATEWAY_WS_URL ?? "ws://localhost:4401",
+  }),
+  identifyUser: async (request) => getAuthenticatedUser(request),
+  resolveLearningContainer: async ({ user }) => {
+    return learningContainerByUser.get(user.id) ?? null;
+  },
+});
+```
+
+CopilotKit validates the result before it writes platform state. Resolver errors or invalid UUIDs stop the run with `500`; malformed platform echoes return `502`; assignment mismatches return `409`. The resolved value must match both the thread and lock responses before agent execution starts.
+
+<Callout type="info">
+  Moving from the deprecated browser hooks requires an authorization-aware,
+  cross-tier migration. Follow [Migrate learning containers to the
+  runtime](/migrate/learning-containers-to-resolve-learning-container) before
+  removing the React integration.
+</Callout>
+
 ## Inspection and operational history
 
 The platform also gives teams operational visibility into agent behavior. The cloud-hosted web app exposes project history, thread detail pages, event timelines, API key management, and plan management.
@@ -62,10 +130,10 @@ For the cloud-hosted dashboard flow, see [Cloud-Hosted Enterprise Intelligence](
 
 Cloud-hosted and self-hosted Enterprise Intelligence share the same application contract:
 
-| Deployment | What changes | What stays the same |
-|---|---|---|
-| Cloud-hosted | CopilotKit runs the platform, database, web app, project API keys, and plan management. | Your frontend hooks, runtime APIs, AG-UI agent connection, and thread APIs. |
-| Self-hosted | You run the platform in your own Kubernetes cluster and own its infrastructure dependencies. | Your frontend hooks, runtime APIs, AG-UI agent connection, and thread APIs. |
+| Deployment   | What changes                                                                                 | What stays the same                                                         |
+| ------------ | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Cloud-hosted | CopilotKit runs the platform, database, web app, project API keys, and plan management.      | Your frontend hooks, runtime APIs, AG-UI agent connection, and thread APIs. |
+| Self-hosted  | You run the platform in your own Kubernetes cluster and own its infrastructure dependencies. | Your frontend hooks, runtime APIs, AG-UI agent connection, and thread APIs. |
 
 Self-hosting changes operational ownership. It does not require a different React integration. Moving from cloud-hosted projects to self-hosting is available on the Team self-hosted plan or a custom Enterprise plan.
 

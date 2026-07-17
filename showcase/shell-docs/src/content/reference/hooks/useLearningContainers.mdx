@@ -1,0 +1,43 @@
+---
+title: "useLearningContainers"
+description: "Deprecated React hook that synchronizes browser-provided learning-container labels for an explicit thread."
+doc_type: reference
+---
+
+<Callout type="warning">
+  `useLearningContainers` is deprecated since v1.64.0. Configure
+  `resolveLearningContainer` in your trusted CopilotKit runtime instead. See
+  [Migrate learning containers to the
+  runtime](/migrate/learning-containers-to-resolve-learning-container).
+</Callout>
+
+## Signature
+
+```tsx
+import { useLearningContainers } from "@copilotkit/react-core/v2";
+
+function useLearningContainers(args: UseLearningContainersArgs): void;
+```
+
+## Parameters
+
+<PropertyReference name="args" type="UseLearningContainersArgs">
+  <PropertyReference name="threadId" type="string" required>
+    Thread that receives the browser annotation.
+  </PropertyReference>
+
+  <PropertyReference name="learningContainers" type="readonly string[]" required>
+    Ordered browser-provided learning-container identifiers.
+  </PropertyReference>
+</PropertyReference>
+
+## Behavior during the coexistence period
+
+- The initial `["project"]` default does not emit an annotation.
+- Other initial values and later content changes emit `set_learning_containers`.
+- Unmounting or changing `threadId` resets the old thread to `["project"]`.
+- Missing runtime configuration and annotation failures only produce browser warnings.
+
+These lifecycle rules are preserved through `1.64.x` and `1.65.x`; no runtime deprecation warning is emitted. They do not apply to the singular, nullable BFF resolver.
+
+For the complete server-side migration, see [Migrate learning containers to the runtime](/migrate/learning-containers-to-resolve-learning-container). The replacement callback is documented under [Enterprise Intelligence Architecture](/premium/intelligence-platform#resolve-a-learning-container-on-the-runtime).

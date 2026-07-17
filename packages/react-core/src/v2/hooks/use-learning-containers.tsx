@@ -6,6 +6,11 @@ import { recordAnnotation } from "../lib/record-annotation";
 const DEFAULT_CONTAINERS: string[] = ["project"];
 
 /**
+ * @deprecated Since v1.64.0. Configure `resolveLearningContainer` on
+ * `CopilotRuntime` from `@copilotkit/runtime/v2` instead.
+ * See https://docs.copilotkit.ai/migrate/learning-containers-to-resolve-learning-container
+ * for the migration guide.
+ *
  * Arguments for {@link useLearningContainers}.
  */
 export interface UseLearningContainersArgs {
@@ -19,6 +24,11 @@ export interface UseLearningContainersArgs {
 }
 
 /**
+ * @deprecated Since v1.64.0. Configure `resolveLearningContainer` on
+ * `CopilotRuntime` from `@copilotkit/runtime/v2` instead.
+ * See https://docs.copilotkit.ai/migrate/learning-containers-to-resolve-learning-container
+ * for the migration guide.
+ *
  * Declaratively keeps a thread's learning containers in sync by emitting
  * `set_learning_containers` annotations via the CopilotKit runtime annotate
  * endpoint (`POST ${runtimeUrl}/annotate`).

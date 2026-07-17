@@ -1,0 +1,40 @@
+---
+title: "useLearningContainersInCurrentThread"
+description: "Deprecated React hook that synchronizes browser-provided learning-container labels for the current chat thread."
+doc_type: reference
+---
+
+<Callout type="warning">
+  `useLearningContainersInCurrentThread` is deprecated since v1.64.0. Configure
+  `resolveLearningContainer` in your trusted CopilotKit runtime instead. See
+  [Migrate learning containers to the
+  runtime](/migrate/learning-containers-to-resolve-learning-container).
+</Callout>
+
+## Signature
+
+```tsx
+import { useLearningContainersInCurrentThread } from "@copilotkit/react-core/v2";
+
+function useLearningContainersInCurrentThread(
+  args: UseLearningContainersInCurrentThreadArgs
+): void;
+```
+
+## Parameters
+
+<PropertyReference name="args" type="UseLearningContainersInCurrentThreadArgs">
+  <PropertyReference
+    name="learningContainers"
+    type="readonly string[]"
+    required
+  >
+    Ordered browser-provided learning-container identifiers.
+  </PropertyReference>
+</PropertyReference>
+
+## Behavior during the coexistence period
+
+The hook reads `threadId` from `CopilotChatConfigurationProvider` and delegates to `useLearningContainers`. It throws during render when no non-empty current thread ID is available. Its annotation and cleanup behavior remains unchanged through `1.64.x` and `1.65.x`; no runtime deprecation warning is emitted.
+
+For the complete server-side migration, see [Migrate learning containers to the runtime](/migrate/learning-containers-to-resolve-learning-container). The replacement callback is documented under [Enterprise Intelligence Architecture](/premium/intelligence-platform#resolve-a-learning-container-on-the-runtime).

@@ -1,0 +1,179 @@
+---
+title: Migrate learning containers to the runtime
+description: Replace browser-controlled learning-container hooks with one trusted, nullable learning-container resolver in your CopilotKit runtime.
+icon: "lucide/RefreshCw"
+---
+
+Your React app currently chooses learning containers in the browser. After this migration, your runtime resolves one authorized learning container for each run before CopilotKit creates platform state or starts the agent.
+
+## What's changing
+
+`useLearningContainers`, `useLearningContainersInCurrentThread`, and their argument types are deprecated in `@copilotkit/react-core/v2`. They accept an ordered array of browser-provided strings and send asynchronous annotations from React lifecycle effects.
+
+Configure `resolveLearningContainer` on `CopilotRuntime` from `@copilotkit/runtime/v2` instead. The callback runs in your trusted backend-for-frontend (BFF), after `identifyUser`, and returns one canonical learning-container UUID or `null`.
+
+## Why
+
+Learning-container assignment is an authorization decision, not browser presentation state. The deprecated hooks let browser code submit an ordered array of arbitrary string identifiers through asynchronous annotations, including mount/unmount resets. The replacement resolves exactly one canonical UUID or `null` in the trusted BFF after user identification, once per run and before any platform write or agent execution. This prevents caller-controlled headers or browser state from becoming assignment authority and gives thread creation and lock acquisition one consistent assignment.
+
+## Minimum version
+
+Use `@copilotkit/runtime` and `@copilotkit/react-core` version `1.64.0` or later. The hooks remain available during the `1.64.x` and `1.65.x` release lines so you can migrate without an immediate breaking change.
+
+## Before
+
+The browser selects one or more labels and emits annotations as the component mounts, rerenders, changes threads, and unmounts.
+
+```tsx title="ThreadPane.tsx"
+"use client";
+
+import { useLearningContainers } from "@copilotkit/react-core/v2";
+
+interface ThreadPaneProps {
+  threadId: string;
+  learningScope: string;
+}
+
+export function ThreadPane({ threadId, learningScope }: ThreadPaneProps) {
+  useLearningContainers({
+    threadId,
+    learningContainers: [learningScope],
+  });
+
+  return <main>Thread {threadId}</main>;
+}
+```
+
+## After
+
+The browser no longer assigns learning state. Your BFF identifies the caller, maps that trusted identity to one authorized UUID or `null`, and configures the result on the Intelligence runtime.
+
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+import {
+  CopilotKitIntelligence,
+  CopilotRuntime,
+  createCopilotEndpoint,
+} from "@copilotkit/runtime/v2";
+import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+import { handle } from "hono/vercel";
+
+const usersByToken = new Map([
+  ["demo-admin-token", { id: "user-1", name: "Ada" }],
+]);
+const learningContainerByUser = new Map([
+  ["user-1", "11111111-1111-4111-8111-111111111111"],
+]);
+
+const agent = new LangGraphAgent({
+  deploymentUrl: process.env.AGENT_URL ?? "http://localhost:8123",
+  graphId: "assistant",
+});
+
+const intelligence = new CopilotKitIntelligence({
+  apiKey: process.env.INTELLIGENCE_API_KEY ?? "",
+  apiUrl: process.env.INTELLIGENCE_API_URL ?? "http://localhost:4201",
+  wsUrl: process.env.INTELLIGENCE_GATEWAY_WS_URL ?? "ws://localhost:4401",
+});
+
+const runtime = new CopilotRuntime({
+  agents: { default: agent },
+  intelligence,
+  identifyUser: async (request) => {
+    const token = request.headers.get("authorization")?.replace("Bearer ", "");
+    const user = token ? usersByToken.get(token) : undefined;
+    if (!user) throw new Error("Unauthorized");
+    return user;
+  },
+  resolveLearningContainer: async ({ user }) => {
+    return learningContainerByUser.get(user.id) ?? null;
+  },
+});
+
+const app = createCopilotEndpoint({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+
+export const GET = handle(app);
+export const POST = handle(app);
+export const PATCH = handle(app);
+export const DELETE = handle(app);
+```
+
+```tsx title="ThreadPane.tsx"
+"use client";
+
+interface ThreadPaneProps {
+  threadId: string;
+}
+
+export function ThreadPane({ threadId }: ThreadPaneProps) {
+  return <main>Thread {threadId}</main>;
+}
+```
+
+## Step-by-step migration
+
+<Steps>
+<Step>
+
+### Upgrade both packages
+
+Keep the React and runtime packages on the same supported release line.
+
+```bash
+pnpm add @copilotkit/react-core@^1.64.0 @copilotkit/runtime@^1.64.0
+```
+
+</Step>
+<Step>
+
+### Resolve the caller from trusted request state
+
+Keep `identifyUser` authoritative. Read your verified session, gateway identity, or server-managed credentials rather than accepting a user ID supplied by React code.
+
+</Step>
+<Step>
+
+### Map the user to one authorized container
+
+Add `resolveLearningContainer` beside `identifyUser`. Return a canonical UUID only after checking the caller's organization, project, and access policy. Return `null` when the run must have no learning-container assignment.
+
+For the callback signature and runtime failure behavior, see [Enterprise Intelligence Architecture](/premium/intelligence-platform#resolve-a-learning-container-on-the-runtime).
+
+</Step>
+<Step>
+
+### Remove the browser hooks
+
+Delete `useLearningContainers` or `useLearningContainersInCurrentThread` imports and calls. Do not forward the old array in a request header or use its annotations as a resolver fallback.
+
+You can compare the deprecated APIs in the [`useLearningContainers` reference](/reference/v2/hooks/useLearningContainers) and [`useLearningContainersInCurrentThread` reference](/reference/v2/hooks/useLearningContainersInCurrentThread).
+
+</Step>
+<Step>
+
+### Verify both assigned and unassigned runs
+
+Run one authorized request that resolves a UUID and one request that resolves `null`. Confirm the platform thread and lock use the same value and that invalid or unauthorized values stop before agent execution.
+
+</Step>
+</Steps>
+
+You now have one server-authoritative assignment per run, and React no longer controls the learning-container authorization boundary.
+
+## Gotchas
+
+- The replacement is singular. Do not convert an old array by selecting its first item without applying server-side authorization policy.
+- `null` explicitly requests no learning-container assignment. Omitting `resolveLearningContainer` means assignment resolution is not configured; these states are different.
+- CopilotKit invokes the resolver once per Intelligence run after `identifyUser` and before thread creation or lock acquisition.
+- A caller-provided learning-container header is not authoritative. Resolve from trusted user and tenant state even if the browser sends a conflicting value.
+- Invalid UUIDs and resolver exceptions fail with `500` before platform writes or agent execution. Malformed platform echoes fail with `502`; assignment mismatches fail with `409`.
+- The deprecated hooks skip the initial `["project"]` default, emit changes asynchronously, and reset on unmount or thread changes. None of those React lifecycle behaviors transfer to the runtime resolver.
+- This migration is intentionally manual. A codemod cannot infer your authorization policy, convert arbitrary labels to canonical UUIDs, or move browser logic into the correct BFF module safely.
+
+## Coexistence period
+
+The deprecated hooks and `resolveLearningContainer` coexist throughout `1.64.x` and `1.65.x`. During that period, treat the BFF resolver as authoritative for runs and remove the hooks as each application migrates. Do not wire browser annotations into the resolver as a compatibility fallback.
+
+The hooks will not be removed before `2.0.0`, and removal happens only after both minor release lines have completed.

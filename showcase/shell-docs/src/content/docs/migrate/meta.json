@@ -1,5 +1,10 @@
 {
   "title": "Migrate",
   "icon": "lucide/RefreshCw",
-  "pages": ["v2", "1.10.X", "1.8.2"]
+  "pages": [
+    "learning-containers-to-resolve-learning-container",
+    "v2",
+    "1.10.X",
+    "1.8.2"
+  ]
 }
