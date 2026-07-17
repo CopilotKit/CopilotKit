@@ -1,0 +1,60 @@
+---
+title: Channel Configuration
+icon: "lucide/Settings"
+description: The createChannel options that shape a channel: identity, connection, and per-thread state.
+---
+
+`createChannel(options)` takes more than an agent and adapters. This page
+covers the configuration you reach for most. For the full option list, see the
+[Channel API](/channels/reference/channel).
+
+## Identity and connection
+
+| Option | What it does |
+| --- | --- |
+| `name` | Project-unique name. Required for a managed (Intelligence) channel, ties the runtime to the dashboard setup. |
+| `agent` | The agent, or a `(threadId) => agent` factory. See the [Quickstart](/channels/quickstart). |
+| `adapters` | Direct platform adapters. Attach several to run one bot on many platforms. |
+| `provider` | For a no-adapter managed channel: the platform to declare to Intelligence. Defaults to `"slack"`; `"teams"` is gated. |
+
+```ts
+const channel = createChannel({
+  name: "support-bot",
+  agent,
+  adapters: [intelligenceAdapter()],
+});
+```
+
+## Per-thread state
+
+Give `store.state` a schema and `thread.state()` / `thread.setState()` become
+typed to it and validated on write. Good for tracking where a conversation is
+in a flow.
+
+```ts
+import { z } from "zod";
+
+const channel = createChannel({
+  name: "support-bot",
+  agent,
+  adapters: [intelligenceAdapter()],
+  store: {
+    state: z.object({ step: z.enum(["idle", "awaiting_approval"]) }),
+  },
+});
+
+channel.onMessage(async ({ thread }) => {
+  await thread.setState({ step: "awaiting_approval" }); // validated
+  const state = await thread.state(); // { step: "idle" | "awaiting_approval" } | undefined
+});
+```
+
+## The rest
+
+| Option | See |
+| --- | --- |
+| `tools`, `context` | [Tools and context](/channels/tools) |
+| `components` | [UI library](/channels/ui-library#register-components) |
+| `commands` | [Commands and reactions](/channels/commands-and-reactions) |
+| `store.adapter` (durable backend) | [Persistence](/channels/persistence) |
+| `store.identity` + `store.transcripts` | [Transcripts](/channels/transcripts) |

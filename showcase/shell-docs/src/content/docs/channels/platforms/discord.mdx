@@ -1,0 +1,87 @@
+---
+title: Discord
+icon: "lucide/Hash"
+description: Connect Discord with the Discord adapter.
+---
+
+Connect Discord with the Discord adapter. Discord has native slash commands
+with typed arguments, so `/commands` feel first class.
+
+## Install
+
+```bash
+npm install @copilotkit/channels @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
+```
+
+## Credentials
+
+From the Discord Developer Portal (your application and bot):
+
+```bash
+DISCORD_BOT_TOKEN=...
+DISCORD_APP_ID=...
+DISCORD_GUILD_ID=...   # optional, for faster command registration in one server
+```
+
+## Connect
+
+```ts
+import { createChannel } from "@copilotkit/channels";
+import { discord } from "@copilotkit/channels/discord";
+import { agent } from "./agent"; // your TanStack AI agent, see the Quickstart
+
+const channel = createChannel({
+  agent,
+  adapters: [
+    discord({
+      botToken: process.env.DISCORD_BOT_TOKEN!,
+      appId: process.env.DISCORD_APP_ID!,
+      guildId: process.env.DISCORD_GUILD_ID, // optional
+    }),
+  ],
+});
+
+channel.onMessage(async ({ thread, message }) => {
+  await thread.runAgent({ prompt: message.text });
+});
+
+await channel.start();
+```
+
+## Typed slash commands
+
+Discord parses command arguments for you. Add an `options` schema and read the
+parsed values from `options`:
+
+```ts
+import { defineChannelCommand } from "@copilotkit/channels";
+import { z } from "zod";
+
+defineChannelCommand({
+  name: "weather",
+  description: "Get the weather for a city.",
+  options: z.object({ city: z.string() }),
+  async handler({ thread, options }) {
+    await thread.runAgent({ prompt: `What's the weather in ${options.city}?` });
+  },
+});
+```
+
+See [commands and reactions](/channels/commands-and-reactions) for the full
+command API.
+
+## Built-in tools and context
+
+The Discord adapter ships helpers you can spread into your channel: a set of
+tools (including a Discord user-lookup tool) and Discord formatting context.
+
+```ts
+import { discord, defaultDiscordTools, defaultDiscordContext } from "@copilotkit/channels/discord";
+
+createChannel({
+  agent,
+  tools: [...defaultDiscordTools],
+  context: [...defaultDiscordContext],
+  adapters: [discord({ /* ...credentials */ })],
+});
+```

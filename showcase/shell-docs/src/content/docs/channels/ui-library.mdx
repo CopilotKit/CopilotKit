@@ -1,0 +1,176 @@
+---
+title: UI Library
+icon: "lucide/LayoutTemplate"
+description: Reply with UI, not plain text. Write it as JSX; it renders natively on every platform.
+---
+
+A reply does not have to be text. With channels you write a reply as a
+component, and it renders as native UI on the platform: a Slack Block Kit
+message, a Teams Adaptive Card, and so on. You write it once, as JSX.
+
+This is the default way to build replies. Set it up in the
+[Quickstart](/channels/quickstart), reach for it here, and see [interactive
+flows](/channels/interactive) when a component needs to drive the conversation.
+
+## Why JSX
+
+A chat reply is a small UI: a card, some buttons, a table. JSX is the natural
+way to describe that, and it buys you three things:
+
+- **Callbacks live with the markup.** A button's `onClick` sits on the button.
+  There is no separate action registry to wire up by hand.
+- **One tree, every platform.** The SDK renders the same component to each
+  platform's native format. You do not write Block Kit and Adaptive Cards
+  yourself.
+- **It is typed.** Component props and the payload your handler receives are
+  checked at compile time.
+
+For anything beyond a card, drop back to a string: `thread.post("hi")` still
+works.
+
+## Turn on JSX
+
+The UI library ships inside `@copilotkit/channels`, so there is nothing extra
+to install. Point the JSX runtime at it in your `tsconfig.json`:
+
+```jsonc title="tsconfig.json"
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "@copilotkit/channels"
+  }
+}
+```
+
+## Post a component
+
+Import the pieces from `@copilotkit/channels/ui` and post the tree.
+
+```tsx
+import { Message, Section, Actions, Button } from "@copilotkit/channels/ui";
+
+await thread.post(
+  <Message accent="#4F46E5">
+    <Section>{"Deploy to production?"}</Section>
+    <Actions>
+      <Button
+        value={{ go: true }}
+        style="primary"
+        onClick={async ({ thread }) => {
+          await thread.post("Deploying now.");
+        }}
+      >
+        Deploy
+      </Button>
+    </Actions>
+  </Message>,
+);
+```
+
+## The UI library
+
+| Component | Use |
+| --- | --- |
+| `Message` | The wrapper for one posted message. Takes an `accent` color and `onReaction`. |
+| `Header`, `Section`, `Context` | Title, body text, and muted footnote text. |
+| `Actions` | A row of interactive controls. |
+| `Button` | A click target. `onClick`, `value`, `url`, `style: "primary" \| "danger"`. |
+| `Select` | A dropdown. `onSelect`, `options`, `placeholder`, `multi`. |
+| `Input` | A text input. `onSubmit`, `placeholder`, `multiline`. |
+| `Image`, `Divider`, `Table`, `Chart`, `Markdown` | Display blocks. |
+
+## Callbacks
+
+`onClick`, `onSelect`, `onSubmit`, and `onReaction` all hand your function an
+interaction context with the `thread` and the `message` that was clicked. Use
+`message.ref` to repaint the message in place. For every field and handler
+type, see the [JSX callbacks reference](/channels/reference/callbacks).
+
+```tsx
+import { type InteractionContext } from "@copilotkit/channels/ui";
+
+<Button
+  value={{ id }}
+  onClick={async ({ thread, message }: InteractionContext) => {
+    await thread.update(
+      message.ref,
+      <Message>
+        <Header>{"Saved"}</Header>
+      </Message>,
+    );
+  }}
+>
+  Save
+</Button>;
+```
+
+## Register components
+
+<Callout type="warn" title="Register anything with a handler">
+A click can arrive minutes later, after your process has restarted, and the
+in-memory `onClick` is gone by then. Register every component that carries a
+handler in `createChannel({ components })` so the handler can be rebuilt from
+the durable snapshot. An unregistered card degrades to "action expired" after
+a restart.
+</Callout>
+
+Define the component as a named function and register it:
+
+```tsx
+import { createChannel } from "@copilotkit/channels";
+import { Message, Section, Actions, Button, type ChannelNode } from "@copilotkit/channels/ui";
+import { agent } from "./agent";
+
+function DeployCard(): ChannelNode {
+  return (
+    <Message accent="#4F46E5">
+      <Section>{"Deploy to production?"}</Section>
+      <Actions>
+        <Button value={{ go: true }} style="primary" onClick={onDeploy}>
+          Deploy
+        </Button>
+      </Actions>
+    </Message>
+  );
+}
+
+const channel = createChannel({
+  name: "release-bot",
+  agent,
+  adapters: [intelligenceAdapter()],
+  components: [DeployCard], // required for the click to resolve after a restart
+});
+
+// post it anywhere
+await thread.post(<DeployCard />);
+```
+
+## Escape hatch: raw payloads
+
+When a component does not cover something a platform can do, pass a raw,
+platform-native payload. It skips the renderer and goes straight to the
+adapter, so the shape is whatever that platform's API expects: Slack Block Kit
+blocks, a Teams Adaptive Card, and so on.
+
+```ts
+// Slack: raw Block Kit blocks, straight to the adapter
+await thread.post({
+  raw: [
+    { type: "section", text: { type: "mrkdwn", text: "*Raw* Block Kit here" } },
+  ],
+});
+```
+
+`thread.update(ref, { raw })` works the same way. Because a raw payload is
+tied to one platform, a bot that targets several platforms should prefer
+components, which render natively on each. Reach for `raw` only for a platform
+feature the components do not expose.
+
+## Advanced flows
+
+When a component should pause the agent or react to the user, see:
+
+<Cards>
+  <Card title="Human-in-the-loop" href="/channels/interactive/human-in-the-loop" description="Pause the agent for an approve or cancel decision." />
+  <Card title="Reactions" href="/channels/interactive/reactions" description="Run code when a user reacts to a card." />
+</Cards>

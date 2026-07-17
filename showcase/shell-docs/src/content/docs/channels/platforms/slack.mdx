@@ -1,0 +1,99 @@
+---
+title: Slack
+icon: "lucide/Slack"
+description: Connect Slack directly with the Slack adapter.
+---
+
+Connect Slack yourself with the Slack adapter. It runs over Socket Mode by
+default, so no public URL is needed for local development.
+
+## Install
+
+```bash
+npm install @copilotkit/channels @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
+```
+
+## Credentials
+
+From your Slack app:
+
+```bash
+SLACK_BOT_TOKEN=xoxb-...   # Bot User OAuth token
+SLACK_APP_TOKEN=xapp-...   # App-level token, for Socket Mode
+```
+
+## Connect
+
+```ts
+import { createChannel } from "@copilotkit/channels";
+import { slack, defaultSlackContext } from "@copilotkit/channels/slack";
+import { agent } from "./agent"; // your TanStack AI agent, see the Quickstart
+
+const channel = createChannel({
+  agent,
+  // Slack output-formatting guidance so replies render well in Slack.
+  context: [...defaultSlackContext],
+  adapters: [
+    slack({
+      botToken: process.env.SLACK_BOT_TOKEN!,
+      appToken: process.env.SLACK_APP_TOKEN!,
+      respondTo: {
+        directMessages: true,
+        appMentions: { reply: "thread" },
+        threadReplies: "mentionsOnly",
+      },
+    }),
+  ],
+});
+
+channel.onMessage(async ({ thread, message }) => {
+  await thread.runAgent({ prompt: message.text });
+});
+
+await channel.start();
+```
+
+`respondTo` controls when the bot answers: DMs, mentions, and whether it keeps
+listening in a thread it is part of.
+
+## Streaming
+
+The Slack adapter streams replies as they are produced. The `streaming` option
+picks the transport:
+
+- `"native"` (default) uses Slack's `chat.startStream` in threads, and falls
+  back automatically in flat DMs or workspaces where the streaming API is not
+  available.
+- `"legacy"` edits a single message with repeated `chat.update` calls.
+
+```ts
+slack({
+  botToken: process.env.SLACK_BOT_TOKEN!,
+  appToken: process.env.SLACK_APP_TOKEN!,
+  streaming: "native",
+});
+```
+
+<Callout type="info" title="Declare slash commands in the manifest">
+A `/command` only reaches your bot if it is declared in your Slack app
+manifest with the same name you pass to `defineChannelCommand`. See [commands
+and reactions](/channels/commands-and-reactions).
+</Callout>
+
+## Built-in tools and context
+
+The Slack adapter ships helpers you can spread into your channel: a set of
+tools (including a Slack user-lookup tool) and context that guides Slack
+formatting and tagging.
+
+```ts
+import { slack, defaultSlackTools, defaultSlackContext } from "@copilotkit/channels/slack";
+
+createChannel({
+  name: "support-bot",
+  agent,
+  tools: [...defaultSlackTools],
+  context: [...defaultSlackContext],
+  adapters: [slack({ /* ...credentials */ })],
+});
+```

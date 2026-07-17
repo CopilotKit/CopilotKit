@@ -1,0 +1,88 @@
+---
+title: Files and Multimodality
+icon: "lucide/Paperclip"
+description: Let users send images and files for the agent to read, and send files back.
+---
+
+When a user drops an image, PDF, or other file into the chat, it arrives on
+the message as `contentParts`. Merge those parts into the agent's prompt and
+the agent can read them.
+
+## Read an uploaded file
+
+```ts
+channel.onMessage(async ({ thread, message }) => {
+  await thread.runAgent({
+    prompt: message.contentParts?.length
+      ? [
+          // the user's instruction, if any
+          ...(message.text ? [{ type: "text" as const, text: message.text }] : []),
+          // the uploaded files
+          ...message.contentParts,
+        ]
+      : message.text,
+  });
+});
+```
+
+<Callout type="warn" title="Merge the text and the files">
+The adapter builds `contentParts` from the **files only**, not the message
+text. If you pass `message.contentParts` alone, you drop the instruction and
+hand the model a bare file with no ask. Always merge the text back in, as
+above.
+</Callout>
+
+## What a part looks like
+
+`message.contentParts` is an array of typed parts. File bytes come base64
+encoded on `source.value`.
+
+```ts
+type AgentContentPart =
+  | { type: "text"; text: string }
+  | { type: "image"; source: { type: "data"; value: string; mimeType: string } }
+  | { type: "audio"; source: { type: "data"; value: string; mimeType: string } }
+  | { type: "video"; source: { type: "data"; value: string; mimeType: string } }
+  | { type: "document"; source: { type: "data"; value: string; mimeType: string } };
+```
+
+So "summarize this PDF" with an attached file arrives as a `text` part plus a
+`document` part. An image the agent should look at arrives as an `image` part.
+
+<Callout type="info" title="The model has to support it">
+Reading images or documents needs a multimodal model. Use one in your agent's
+`chat()` adapter, for example `openaiText("gpt-5.5")`.
+</Callout>
+
+## Send a file back
+
+Post a file to the thread with `thread.postFile`:
+
+```ts
+await thread.postFile({
+  bytes: pngBuffer, // Buffer or Uint8Array
+  filename: "chart.png",
+  title: "Revenue by month",
+  altText: "A bar chart of revenue for the last 12 months",
+});
+```
+
+This is how a bot returns a generated chart or report.
+
+## Limit what comes in
+
+Each direct adapter takes a `files` option (`FileDeliveryConfig`) to cap
+incoming files. The Intelligence adapter applies the platform's own limits.
+Pass `files` on the adapter when you connect a platform directly, and let your
+editor's types show the available caps:
+
+```ts
+import { whatsapp } from "@copilotkit/channels/whatsapp";
+
+whatsapp({
+  // ...credentials
+  files: {
+    /* caps for incoming files, see FileDeliveryConfig */
+  },
+});
+```

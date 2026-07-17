@@ -1,0 +1,172 @@
+---
+title: Quickstart
+icon: "lucide/Rocket"
+description: Build a bot that answers messages in a chat app, end to end.
+---
+
+You have a CopilotKit agent. By the end of this page it answers messages in
+a real chat thread through the Intelligence adapter.
+
+<Steps>
+<Step>
+### Install
+
+```bash
+npm install @copilotkit/channels @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
+```
+</Step>
+
+<Step>
+### Turn on JSX
+
+Replies render through components, so point the JSX runtime at the UI library.
+See [the UI library](/channels/ui-library) for what this unlocks.
+
+```jsonc title="tsconfig.json"
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "@copilotkit/channels"
+  }
+}
+```
+</Step>
+
+<Step>
+### Create a channel in the dashboard
+
+In the Intelligence dashboard, create a channel and attach a platform
+(Slack, Teams, and so on). Note the channel **name**, you will pass the same
+name in code. Copy your project **runtime API key** (`cpk-...`).
+
+See [Intelligence Platform](/premium/intelligence-platform) for the dashboard
+walkthrough and per-platform install links.
+</Step>
+
+<Step>
+### Set the environment
+
+The Intelligence adapter reads the first two. No platform tokens live in your
+app. `OPENAI_API_KEY` powers the agent's model.
+
+```bash
+COPILOTKIT_INTELLIGENCE_URL=https://your-intelligence-url
+COPILOTKIT_API_KEY=cpk-...
+OPENAI_API_KEY=sk-...
+```
+</Step>
+
+<Step>
+### Define the agent
+
+The agent is the brain. Build it in TanStack factory mode: you own the LLM
+call with TanStack AI's `chat()`, and the Built-in Agent turns its stream into
+the events the channel renders.
+
+```ts title="agent.ts"
+import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
+import { chat } from "@tanstack/ai";
+import { openaiText } from "@tanstack/ai-openai";
+
+const SYSTEM_PROMPT = "You are a helpful support assistant. Keep replies short.";
+
+export const agent = new BuiltInAgent({
+  type: "tanstack",
+  factory: (ctx) => {
+    // Turn the run input into TanStack AI messages, system prompts, and the
+    // channel tools forwarded on this turn.
+    const { messages, systemPrompts, tools } = convertInputToTanStackAI(ctx.input);
+
+    return chat({
+      adapter: openaiText("gpt-5.5"),
+      messages,
+      systemPrompts: [SYSTEM_PROMPT, ...systemPrompts],
+      tools,
+      abortController: ctx.abortController,
+    });
+  },
+});
+```
+</Step>
+
+<Step>
+### Write the bot
+
+```ts title="bot.ts"
+import { createChannel } from "@copilotkit/channels";
+import { intelligenceAdapter } from "@copilotkit/channels/intelligence";
+import { agent } from "./agent";
+
+const channel = createChannel({
+  // Must match the channel name you created in the dashboard.
+  name: "support-bot",
+  agent,
+  adapters: [intelligenceAdapter()],
+});
+
+// Intelligence only delivers turns your bot should answer (a mention or a
+// DM), so run the agent on each delivered message.
+channel.onMessage(async ({ thread, message }) => {
+  await thread.runAgent({ prompt: message.text });
+});
+
+await channel.start();
+console.log("bot listening");
+```
+</Step>
+
+<Step>
+### Run it
+
+```bash
+npx tsx bot.ts
+```
+
+Message the bot in your chat app. It replies in the thread.
+</Step>
+</Steps>
+
+<Callout type="info" title="Keep the process alive">
+The managed delivery loop polls in the background with timers that do not, on
+their own, hold the process open. If your bot exits right after
+`channel.start()`, add a keep-alive and clean up on shutdown:
+
+```ts
+const keepAlive = setInterval(() => {}, 1 << 30);
+
+const shutdown = async () => {
+  clearInterval(keepAlive);
+  await channel.stop();
+  process.exit(0);
+};
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);
+```
+</Callout>
+
+## What `thread` gives you
+
+`onMessage` hands you a `thread` and the incoming `message`.
+
+```ts
+channel.onMessage(async ({ thread, message }) => {
+  message.text;        // the user's text
+  message.user;        // { id, name?, handle?, email? }
+  thread.platform;     // "slack" | "teams" | ...
+
+  await thread.post("a plain text reply");
+  await thread.runAgent({ prompt: message.text });
+});
+```
+
+`thread.runAgent` runs your agent and streams its reply into the thread.
+`thread.post` sends a message yourself, without the agent.
+
+## Next steps
+
+<Cards>
+  <Card title="UI library" href="/channels/ui-library" description="Reply with cards and buttons, not just text." />
+  <Card title="Interactive flows" href="/channels/interactive" description="Approval gates and reaction handlers." />
+  <Card title="Commands and reactions" href="/channels/commands-and-reactions" description="Slash commands and reaction handlers." />
+  <Card title="Files and multimodality" href="/channels/files-and-multimodality" description="Accept images and files." />
+</Cards>

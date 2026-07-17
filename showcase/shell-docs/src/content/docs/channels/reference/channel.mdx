@@ -1,0 +1,139 @@
+---
+title: Channel API
+icon: "lucide/Antenna"
+description: createChannel options, properties, event handlers, and lifecycle methods.
+---
+
+`createChannel(options)` returns a `Channel`. This page lists every option it
+takes and every method it exposes.
+
+```ts
+import { createChannel } from "@copilotkit/channels";
+
+const channel = createChannel({ name, agent, adapters });
+```
+
+## createChannel options
+
+| Option | Type | Description |
+| --- | --- | --- |
+| `name` | `string` | Project-unique Intelligence channel name. Required for managed channels, optional for direct adapters. |
+| `agent` | `AbstractAgent \| (threadId: string) => AbstractAgent` | The agent, or a per-thread factory. |
+| `adapters` | `PlatformAdapter[]` | Adapters attached at construction. You can also add them later with `addAdapter`. |
+| `provider` | `"slack" \| "teams"` | Managed delivery provider for a no-adapter (Intelligence) channel. Defaults to `"slack"`. `"teams"` is SDK-ready but gated. |
+| `tools` | `ChannelTool[]` | Tools exposed to the agent. See [commands](/channels/commands-and-reactions) and the agent's own tools. |
+| `context` | `ContextEntry[]` | `{ description, value }` entries forwarded to the agent each turn. |
+| `components` | `ChannelComponent[]` | Named JSX components. Register them so their handlers survive a restart. See [the UI library](/channels/ui-library). |
+| `commands` | `ChannelCommand[]` | Slash commands. Forwarded to adapters that support them. |
+| `store` | `StoreConfig` | Persistence, per-thread state, and cross-platform history (see below). |
+
+### store options
+
+| Option | Type | Description |
+| --- | --- | --- |
+| `state` | `StandardSchema` | Schema for per-thread state. Types `thread.state()`/`setState()` and validates on write. See [configuration](/channels/configuration#per-thread-state). |
+| `adapter` | `StateStore` | Durable persistence backend. See [Persistence](/channels/persistence). |
+| `identity`, `transcripts` | | Cross-platform history keyed by a stable identity. See [Transcripts](/channels/transcripts). |
+
+## Properties
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `name` | `string \| undefined` | The name from `createChannel({ name })`. |
+| `adapters` | `readonly PlatformAdapter[]` | Attached adapters (read-only snapshot). |
+| `provider` | `"slack" \| "teams" \| undefined` | Managed provider; `undefined` means the default (`"slack"`). |
+| `commandNames` | `string[]` | Declared slash-command names, normalized. |
+
+## Event handlers
+
+Register these before `start()`.
+
+### onMessage / onMention / onThreadStarted
+
+```ts
+channel.onMessage((ctx) => {});      // every delivered message
+channel.onMention((ctx) => {});      // messages that @mention the bot
+channel.onThreadStarted((ctx) => {}); // a conversation surface opened (e.g. Slack assistant pane)
+```
+
+`onMessage` and `onMention` hand you `{ thread, message }`. `message` is an
+`IncomingMessage` (`text`, `user`, `ref`, `platform`, `contentParts?`). See the
+[Thread API](/channels/reference/thread). `onThreadStarted` gives `{ thread, user? }`.
+
+### onReaction
+
+```ts
+channel.onReaction((evt) => {});                // any reaction, any message
+channel.onReaction("refresh", (evt) => {});     // only this emoji
+channel.onReaction(["fire", "tada"], (evt) => {}); // any of these
+```
+
+The `ReactionEvent` passed in:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `emoji` | `EmojiValue` | Canonical name when recognized, else the raw token. |
+| `rawEmoji` | `string` | Platform-native token. |
+| `added` | `boolean` | `true` = added, `false` = removed. |
+| `user` | `PlatformUser?` | The reacting user, when reported. |
+| `messageId` | `string` | Id of the reacted message. |
+| `messageRef` | `MessageRef` | Pass to `thread.update(messageRef, ui)` to redraw it. |
+| `thread` | `Thread` | Post back, run the agent, and so on. |
+| `adapter` | `PlatformAdapter` | The adapter that delivered it. |
+| `raw` | `unknown` | The raw platform payload. |
+
+See [global reactions](/channels/commands-and-reactions#global-reactions).
+
+### onCommand
+
+```ts
+channel.onCommand(defineChannelCommand({ name, handler })); // full command
+channel.onCommand("ask", (ctx) => {});                      // free-text by name
+```
+
+Passing `commands` to `createChannel` does the same registration. See
+[commands](/channels/commands-and-reactions).
+
+### onInteraction
+
+```ts
+channel.onInteraction<{ id: string }>("approve", (ctx) => {
+  ctx.action.value; // typed as { id: string }
+});
+```
+
+Handle clicks on a specific action `id`. The context is the same
+`InteractionContext` a JSX `onClick` receives. Most of the time you use an
+inline `onClick` on the [component](/channels/reference/callbacks) instead.
+
+### onInterrupt
+
+```ts
+channel.onInterrupt<{ question: string }>("ask", ({ payload, thread }) => {});
+```
+
+Handle an agent interrupt (an `on_interrupt` custom event). `payload` is the
+event's value, typed by the type argument.
+
+### onModalSubmit / onModalClose
+
+```ts
+channel.onModalSubmit("file-issue", (evt) => {
+  evt.values;   // submitted field values
+  // return { errors } to keep the modal open
+});
+channel.onModalClose("file-issue", (evt) => {});
+```
+
+For platforms with modal/dialog support. Open a modal from an interaction with
+`ctx.openModal(view)`.
+
+## Registration and lifecycle
+
+| Method | Signature | Description |
+| --- | --- | --- |
+| `tool` | `tool(t: ChannelTool): void` | Register one tool (same as an entry in `tools`). |
+| `addAdapter` | `addAdapter(a: PlatformAdapter): void` | Attach an adapter. Throws if called after `start()`. |
+| `start` | `start(): Promise<void>` | Start all attached adapters and begin handling events. |
+| `stop` | `stop(): Promise<void>` | Tear everything down. |
+| `transcripts` | `Transcripts` | Cross-platform transcript store. See [Transcripts](/channels/transcripts). |

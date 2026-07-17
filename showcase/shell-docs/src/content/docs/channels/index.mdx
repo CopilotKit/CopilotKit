@@ -1,40 +1,143 @@
 ---
-title: Channels SDK
-description: Build durable, cross-platform AI bots with CopilotKit — a platform adapter, an AG-UI agent, and optional persistence wired together in a single createBot call.
-icon: "lucide/Bot"
-hideTOC: true
+title: Channels Overview
+icon: "lucide/MessagesSquare"
+description: Run your CopilotKit agent as a bot inside Slack, Teams, WhatsApp, Telegram, and Discord.
 ---
 
-The Channels SDK is three pieces: **`@copilotkit/channels`** (core runtime), a **platform adapter** (e.g. `@copilotkit/channels-slack`), and an **AG-UI agent** — any CopilotKit runtime or compatible backend. Plug them together with `createBot` and you get a bot that streams agent replies into the platform, handles interactive buttons, and — once you add a store — survives restarts and spans multiple instances.
+Channels let you take a CopilotKit agent and run it as a bot inside a chat
+app. The user talks to your agent in Slack, Teams, WhatsApp, Telegram, or
+Discord, and your agent answers right there in the thread.
 
-<OpsPlatformCTA
-  variant="inline"
-  title="Join the waitlist for managed Slack and Teams agents"
-  body="Start here when you want to own the adapter, runtime, and store. Join the waitlist if you want CopilotKit Intelligence to manage Slack and Teams setup, identity, durable state, approvals, and production operations."
-  ctaLabel="Join the waitlist"
-  surface="docs_bots_managed_agents_waitlist"
-  href="https://www.copilotkit.ai/opentag-managed"
-/>
+You write the bot once. The same agent, tools, commands, and interactive
+cards run on every platform you attach.
+
+## A channel, end to end
+
+Three pieces: a TanStack AI agent, JSX turned on, and a channel that plugs the
+agent into a platform and replies with clickable UI.
+
+```bash
+npm install @copilotkit/channels @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
+```
+
+<Steps>
+<Step>
+### The agent
+
+A [Built-in Agent](/built-in-agent) in TanStack factory mode. You own the
+model call with [TanStack AI](https://tanstack.com/ai); the agent turns its
+stream into the events the channel renders.
+
+```ts title="agent.ts"
+import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
+import { chat } from "@tanstack/ai";
+import { openaiText } from "@tanstack/ai-openai";
+
+export const agent = new BuiltInAgent({
+  type: "tanstack",
+  factory: (ctx) => {
+    const { messages, systemPrompts, tools } = convertInputToTanStackAI(ctx.input);
+    return chat({
+      adapter: openaiText("gpt-5.5"),
+      messages,
+      systemPrompts: ["You are a helpful support assistant.", ...systemPrompts],
+      tools,
+      abortController: ctx.abortController,
+    });
+  },
+});
+```
+</Step>
+
+<Step>
+### Turn on JSX
+
+Replies render as native UI. Point the JSX runtime at the channels package.
+
+```jsonc title="tsconfig.json"
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "@copilotkit/channels"
+  }
+}
+```
+</Step>
+
+<Step>
+### The channel
+
+Plug the agent into a channel through the Intelligence adapter, then answer
+messages. A reply can be the agent's own words, or a card whose button you
+handle right where you wrote it.
+
+```tsx title="bot.ts"
+import { createChannel } from "@copilotkit/channels";
+import { intelligenceAdapter } from "@copilotkit/channels/intelligence";
+import { Message, Section, Actions, Button } from "@copilotkit/channels/ui";
+import { agent } from "./agent";
+
+const channel = createChannel({
+  name: "support-bot",
+  agent,
+  adapters: [intelligenceAdapter()],
+});
+
+channel.onMessage(async ({ thread, message }) => {
+  // let the agent answer
+  await thread.runAgent({ prompt: message.text });
+
+  // then post a card, and handle the click right here
+  await thread.post(
+    <Message>
+      <Section>{"Did that answer your question?"}</Section>
+      <Actions>
+        <Button 
+          onClick={async ({ thread }) => {
+            await thread.post("Glad I could help!");
+          }}
+        >
+          Yes, thanks
+        </Button>
+      </Actions>
+    </Message>,
+  );
+});
+
+await channel.start();
+```
+</Step>
+</Steps>
+
+That is a working bot: a TanStack AI agent, answering across platforms,
+replying with clickable UI. The [Quickstart](/channels/quickstart) adds the
+dashboard setup and environment, and [the UI library](/channels/ui-library) shows how to register that card so
+its button still works after a restart.
+
+## Two ways to connect a platform
+
+| | Managed (Intelligence adapter) | Direct (platform adapter) |
+| --- | --- | --- |
+| Who holds the platform tokens | CopilotKit Intelligence | You |
+| What your process does | Runs the agent, nothing else | Connects straight to the platform |
+| Add a platform | Attach it in the Intelligence dashboard | Add another adapter in code |
+| Best for | Shipping fast, many platforms, no secrets in your app | Full control, self-hosting one platform |
+
+With the managed path your process holds no Slack or Teams tokens. CopilotKit
+receives the platform event, delivers it to your bot over HTTP, runs the same
+handlers, and does the credentialed send back. Start there. See
+[Platforms](/channels/platforms) for what Intelligence handles for you and the
+per-platform setup.
+
+## What you can build
 
 <Cards>
-  <Card
-    title="Slack quickstart"
-    href="/slack"
-    description="From zero to a working Slack bot in minutes — Socket Mode, streaming replies, and interactive Block Kit buttons."
-  />
-  <Card
-    title="Persistence"
-    href="/channels/persistence"
-    description="Persist actions, locks, and per-thread state across restarts by backing the store with a durable StateStore implementation."
-  />
-  <Card
-    title="Transcripts"
-    href="/channels/transcripts"
-    description="Give the agent a cross-platform memory that follows users from Slack to any other channel — with GDPR-ready delete support."
-  />
-  <Card
-    title="Channels SDK reference"
-    href="/reference/channels"
-    description="Full API reference — createBot, Thread, StateStore, ActionStore, and the Slack adapter."
-  />
+  <Card title="Quickstart" href="/channels/quickstart" description="A working bot that answers messages, end to end." />
+  <Card title="UI library" href="/channels/ui-library" description="Reply with cards, buttons, and inputs using JSX." />
+  <Card title="Interactive flows" href="/channels/interactive" description="Approval gates and reaction handlers built on components." />
+  <Card title="Commands and reactions" href="/channels/commands-and-reactions" description="Slash commands and react-to-any-message handlers." />
+  <Card title="Files and multimodality" href="/channels/files-and-multimodality" description="Let users drop in images and files for the agent to read." />
+  <Card title="MCP servers" href="/channels/mcp" description="Give the bot external tools through MCP." />
+  <Card title="Platforms" href="/channels/platforms" description="Teams, WhatsApp, Slack, Telegram, and Discord, and what Intelligence handles for you." />
+  <Card title="API reference" href="/channels/reference/channel" description="Every method on the channel, the thread, and JSX callbacks." />
 </Cards>

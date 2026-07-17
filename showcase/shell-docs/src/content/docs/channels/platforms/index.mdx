@@ -1,0 +1,63 @@
+---
+title: Platforms
+icon: "lucide/Plug"
+description: Supported chat platforms, and the platform work Intelligence handles for you.
+---
+
+A channel can run on any of these platforms. The same agent, tools, commands,
+and cards work on all of them.
+
+| Platform | Direct adapter | Connect directly |
+| --- | --- | --- |
+| Slack | `@copilotkit/channels/slack` | [Slack](/channels/platforms/slack) |
+| Microsoft Teams | `@copilotkit/channels/teams` | [Teams](/channels/platforms/teams) |
+| WhatsApp | `@copilotkit/channels/whatsapp` | [WhatsApp](/channels/platforms/whatsapp) |
+| Telegram | `@copilotkit/channels/telegram` | [Telegram](/channels/platforms/telegram) |
+| Discord | `@copilotkit/channels/discord` | [Discord](/channels/platforms/discord) |
+
+## What Intelligence handles for you
+
+Each platform has its own login, its own way of delivering events, and its own
+message format. When you connect through the [Intelligence
+adapter](/channels/quickstart), Intelligence takes care of the platform-side
+work, so your process just runs the agent. Connect a platform with its own
+adapter and that work becomes yours.
+
+| Concern | With the Intelligence adapter | With a direct adapter |
+| --- | --- | --- |
+| **Credentials** | Held by Intelligence. No platform tokens in your app. | You hold and rotate every token. |
+| **Ingress** | Intelligence receives the platform event and delivers the turn to your bot over HTTP. | You run the webhook or socket connection. |
+| **Egress** | Intelligence does the credentialed send back to the platform. | You send with your own credentials. |
+| **Files and media** | Fetched, size-checked, and handed to your agent as content parts. | You fetch and cap them on the adapter. |
+| **Delivery** | Retries, de-duplication, and per-thread ordering are managed. | You handle duplicates and retries. |
+| **Adding a platform** | Attach it in the dashboard, no code change. | Add another adapter and its setup. |
+
+Two things are the same either way, because they live in the SDK: components
+render to each platform's native format (Slack Block Kit, Teams Adaptive
+Cards, and so on), and reactions arrive under one [canonical
+name](/channels/interactive/reactions) on every platform.
+
+## Per-platform notes
+
+Some behavior is set by the platform itself and holds no matter how you
+connect:
+
+- **Slack** runs over Socket Mode, and a `/command` must be declared in your
+  Slack app manifest.
+- **Teams** accepts image attachments only for outbound files, and reactions
+  arrive as tokens like `1f504_refresh` (normalized for you).
+- **WhatsApp** and **Telegram** deliver slash commands as plain text.
+- **Discord** has native slash commands with typed arguments.
+
+## Connect a platform directly
+
+Start with the [Quickstart](/channels/quickstart) on the Intelligence adapter.
+Reach for a direct adapter when you want to own one platform end to end:
+
+<Cards>
+  <Card title="Slack" href="/channels/platforms/slack" description="Socket Mode, no public URL needed." />
+  <Card title="Microsoft Teams" href="/channels/platforms/teams" description="Bot Framework endpoint and Entra app." />
+  <Card title="WhatsApp" href="/channels/platforms/whatsapp" description="WhatsApp Cloud API webhook." />
+  <Card title="Telegram" href="/channels/platforms/telegram" description="Just a BotFather token." />
+  <Card title="Discord" href="/channels/platforms/discord" description="Native typed slash commands." />
+</Cards>

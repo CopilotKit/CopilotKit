@@ -1,0 +1,149 @@
+---
+title: Human-in-the-Loop
+icon: "lucide/UserCheck"
+description: Pause the agent for an approve or cancel decision, rendered as buttons.
+---
+
+Some actions should not happen without a human saying yes. Human-in-the-loop
+posts an approve or cancel card, waits for the click, and only then lets the
+agent continue.
+
+This builds on [the UI library](/channels/ui-library). Make sure
+JSX is turned on and your card is registered in `createChannel({ components })`.
+
+## The confirm card
+
+Two buttons. Each repaints the card in place, and the approve button resumes
+the agent with the decision.
+
+```tsx title="confirm-write.tsx"
+import {
+  Message,
+  Header,
+  Section,
+  Actions,
+  Button,
+  type ChannelNode,
+  type InteractionContext,
+} from "@copilotkit/channels/ui";
+
+export function ConfirmWrite({ action }: { action: string }): ChannelNode {
+  return (
+    <Message accent="#F59E0B">
+      <Header>{`Confirm: ${action}`}</Header>
+      <Section>{"Approve to let me continue."}</Section>
+      <Actions>
+        <Button
+          value={{ confirmed: true }}
+          style="primary"
+          onClick={async ({ thread, message }: InteractionContext) => {
+            // repaint the card so the buttons can't be clicked twice
+            await thread.update(
+              message.ref,
+              <Message accent="#27AE60">
+                <Header>{`Approved: ${action}`}</Header>
+              </Message>,
+            );
+            // resume the agent with the answer
+            await thread.runAgent({
+              prompt: `The user approved: ${action}. Go ahead.`,
+            });
+          }}
+        >
+          Approve
+        </Button>
+        <Button
+          value={{ confirmed: false }}
+          style="danger"
+          onClick={async ({ thread, message }: InteractionContext) => {
+            await thread.update(
+              message.ref,
+              <Message accent="#E74C3C">
+                <Header>{"Cancelled"}</Header>
+              </Message>,
+            );
+          }}
+        >
+          Cancel
+        </Button>
+      </Actions>
+    </Message>
+  );
+}
+```
+
+## Ask before a write
+
+Give the agent a tool that shows the card, then ends its turn. The agent
+stops there. The click resumes it.
+
+```ts
+import { defineChannelTool } from "@copilotkit/channels";
+import { z } from "zod";
+import { ConfirmWrite } from "./confirm-write";
+
+export const confirmWriteTool = defineChannelTool({
+  name: "confirm_write",
+  description: "Ask the user to approve an action before doing it.",
+  parameters: z.object({ action: z.string() }),
+  async handler({ action }, { thread }) {
+    await thread.post(<ConfirmWrite action={action} />);
+    // this string is what the model reads back, so it knows to stop
+    return "Showed an approval card. Waiting for the user to decide.";
+  },
+});
+```
+
+Register both the tool and the component:
+
+```ts
+const channel = createChannel({
+  name: "release-bot",
+  agent,
+  adapters: [intelligenceAdapter()],
+  tools: [confirmWriteTool],
+  components: [ConfirmWrite], // so the click resolves after a restart
+});
+```
+
+The flow: the agent calls `confirm_write`, the card appears, the agent's turn
+ends. When the user clicks Approve, `onClick` runs the agent again with the
+decision folded into the prompt, and it finishes the work.
+
+<Callout type="info" title="Direct platforms can block instead">
+On a platform you connect with a direct adapter, `thread.supportsBlockingChoice`
+is `true` and you can wait for the click inline with `awaitChoice`:
+
+```ts
+const { confirmed } = await thread.awaitChoice<{ confirmed?: boolean }>(
+  <ConfirmWrite action={action} />,
+);
+if (confirmed) {
+  // do the write
+}
+```
+
+The Intelligence adapter delivers one turn at a time and does not block, so
+use the post-and-resume pattern above with it.
+</Callout>
+
+## Agent-initiated interrupts
+
+The pattern above is driven by a tool the agent calls. An agent can also pause
+itself by emitting an `on_interrupt` event mid-run, for example a graph node
+that needs a human answer to continue. Handle it with `channel.onInterrupt`,
+collect the answer, and call `thread.resume` to hand it back.
+
+```tsx
+channel.onInterrupt<{ question: string }>("ask_human", async ({ payload, thread }) => {
+  const { value } = await thread.awaitChoice<{ value: string }>(
+    <AskCard question={payload.question} />,
+  );
+  await thread.resume(value); // the run continues with the answer
+});
+```
+
+`onInterrupt` is keyed by the event name (here `"ask_human"`), and the type
+argument types `payload`. On the Intelligence adapter, where `awaitChoice` does
+not block, post a component whose button calls `thread.resume(answer)` instead.
+

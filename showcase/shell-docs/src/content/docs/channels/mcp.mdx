@@ -1,0 +1,122 @@
+---
+title: MCP Servers
+icon: "lucide/Network"
+description: Give your bot external tools by connecting MCP servers on its agent.
+---
+
+A channel runs an agent, and the agent is where tools come from. To give your
+bot tools from a Model Context Protocol server, connect the server inside the
+agent's TanStack factory. Nothing about the channel changes.
+
+The tools then work on every platform the channel is attached to.
+
+## Install
+
+```bash
+npm install @tanstack/ai-mcp
+```
+
+You already have `@copilotkit/runtime`, `@tanstack/ai`, and `@tanstack/ai-openai`
+from the [Quickstart](/channels/quickstart).
+
+## Connect an MCP server in the factory
+
+Create a client with `createMCPClient` and pass it to `chat({ mcp })`. TanStack
+AI connects it for the run and closes it when the run ends.
+
+```ts title="agent.ts"
+import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
+import { chat } from "@tanstack/ai";
+import { openaiText } from "@tanstack/ai-openai";
+import { createMCPClient } from "@tanstack/ai-mcp";
+
+const SYSTEM_PROMPT = "You are an ops assistant. Use the connected tools to answer.";
+
+export const agent = new BuiltInAgent({
+  type: "tanstack",
+  factory: async (ctx) => {
+    const { messages, systemPrompts, tools } = convertInputToTanStackAI(ctx.input);
+
+    // Connect your MCP server for this turn.
+    const client = await createMCPClient({
+      transport: {
+        type: "http",
+        url: "https://mcp.example.com/mcp",
+        headers: { Authorization: `Bearer ${process.env.MCP_TOKEN}` },
+      },
+    });
+
+    return chat({
+      adapter: openaiText("gpt-5.5"),
+      messages,
+      systemPrompts: [SYSTEM_PROMPT, ...systemPrompts],
+      tools,
+      mcp: { clients: [client] },
+      abortController: ctx.abortController,
+    });
+  },
+});
+```
+
+Wire that agent into the channel as usual:
+
+```ts
+import { createChannel } from "@copilotkit/channels";
+import { intelligenceAdapter } from "@copilotkit/channels/intelligence";
+import { agent } from "./agent";
+
+const channel = createChannel({
+  name: "ops-bot",
+  agent,
+  adapters: [intelligenceAdapter()],
+});
+
+channel.onMessage(async ({ thread, message }) => {
+  await thread.runAgent({ prompt: message.text });
+});
+
+await channel.start();
+```
+
+Now when a user asks the bot something that needs an MCP tool, the agent calls
+it and answers with the result, in Slack, Teams, or wherever the channel is
+attached.
+
+## More than one server
+
+Connect each server and pass all the clients:
+
+```ts
+const [linear, notion] = await Promise.all([
+  createMCPClient({ transport: { type: "http", url: process.env.LINEAR_MCP_URL! } }),
+  createMCPClient({ transport: { type: "http", url: process.env.NOTION_MCP_URL! } }),
+]);
+
+return chat({
+  adapter: openaiText("gpt-5.5"),
+  messages,
+  systemPrompts,
+  tools,
+  mcp: { clients: [linear, notion] },
+  abortController: ctx.abortController,
+});
+```
+
+<Callout type="info" title="Don't let one server take down the turn">
+Connecting inside the factory means a slow or misconfigured server can stall a
+turn. Connect each client independently with `Promise.allSettled`, drop the
+ones that fail, and run with whatever connected. The agent still answers with
+the tools that are up.
+</Callout>
+
+## Lifecycle
+
+By default TanStack AI closes the clients when the run ends, so creating them
+in the factory is the simplest choice. If you want a persistent connection,
+create the client once outside the factory and reuse it, and close it yourself
+on shutdown.
+
+<Callout type="info">
+This is the channels view of MCP. For the concept and transports, see the
+[MCP guide](/agentic-protocols/mcp).
+</Callout>
