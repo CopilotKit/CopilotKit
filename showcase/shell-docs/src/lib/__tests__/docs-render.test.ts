@@ -454,6 +454,7 @@ describe("framework nav", () => {
 
     const expected = [
       "Overview",
+      "Thread & History Lifecycle",
       "Threads Drawer",
       "Headless Threads",
       "Threads & Persistence Architecture",
