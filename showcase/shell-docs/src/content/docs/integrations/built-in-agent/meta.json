@@ -15,6 +15,7 @@
       "defaultOpen": true,
       "pages": [
         "threads",
+        "threads-lifecycle",
         "prebuilt-components/copilot-threads-drawer",
         "headless-threads",
         "threads-import"
