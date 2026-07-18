@@ -50,6 +50,7 @@ from agents.agent import (
     _A2uiError,
     _A2uiErrorKind,
     _RENDER_A2UI_FUNCTION_SPEC,
+    _RENDER_A2UI_TOOL_SPEC,
     _a2ui_error,
     _get_a2ui_llm,
     _resolve_a2ui_model,
@@ -318,11 +319,18 @@ def test_generate_a2ui_happy_path_returns_operations():
     with patch("agents.agent._get_a2ui_llm", return_value=fake_llm):
         result = generate_a2ui_via_llm(context="test context")
 
-    # LLM forced-function-call wiring
+    # LLM forced-tool-call wiring. The planner uses the MODERN
+    # tools=/tool_choice= API (not the legacy functions=/function_call=) so
+    # aimock's toolName matcher — which inspects the request's tools[] array
+    # — can discriminate the inner render_a2ui call from the outer
+    # generate_a2ui call. See ``_RENDER_A2UI_TOOL_SPEC`` in agents/agent.py.
     fake_llm.chat.assert_called_once()
     call_kwargs = fake_llm.chat.call_args.kwargs
-    assert call_kwargs["functions"] == [_RENDER_A2UI_FUNCTION_SPEC]
-    assert call_kwargs["function_call"] == {"name": "render_a2ui"}
+    assert call_kwargs["tools"] == [_RENDER_A2UI_TOOL_SPEC]
+    assert call_kwargs["tool_choice"] == {
+        "type": "function",
+        "function": {"name": "render_a2ui"},
+    }
 
     # Message wiring: system prompt from caller's ``context``, plus a user
     # message instructing the planner to emit a dashboard. Both must be
