@@ -98,7 +98,13 @@ export interface AimockWiringInput {
 }
 
 export interface AimockWiringSignal {
-  /** Services missing an aimock BASE_URL override (sorted, deduped). */
+  /**
+   * Services that are NOT routed through aimock (sorted, deduped). Covers two
+   * cases, both of which `pointsAtAimock` collapses to the `mismatch` verdict:
+   * a service with no aimock BASE_URL override at all (missing/unset), AND a
+   * service whose candidate vars point at a confirmed non-aimock host (a
+   * confirmed mismatch, e.g. a real `api.openai.com`).
+   */
   unwired: string[];
   /** Services correctly routing through aimock (sorted, deduped). */
   wired: string[];
@@ -209,7 +215,8 @@ function defaultPortForProtocol(protocol: string): string {
 
 /**
  * Extract the lowercased hostname AND effective port from a URL string.
- * Returns null if the URL is unparseable. Used by `pointsAtAimock` for
+ * Returns null for empty/undefined input as well as when the URL is
+ * unparseable. Used by `pointsAtAimock` for
  * host+port matching so path differences (`/v1` suffix on `OPENAI_BASE_URL`
  * vs bare origin on `AIMOCK_URL`), query strings, and fragments don't cause
  * false mismatches — but a wrong/missing port DOES (internal aimock serves
