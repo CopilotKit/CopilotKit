@@ -932,10 +932,20 @@ export const SERVICES: Record<
     probeDriver: "agent",
     // Tier-2 leaf (default). Runtime dep: the agent routes its LLM traffic
     // at the env-local aimock, so a cluster promote pulls aimock (tier-0)
-    // into the closure. The OPENAI_BASE_URL service-ref is ASSERTED prod→prod
-    // by the Stage-2 Ruby preflight (never copied).
+    // into the closure. The service-refs are ASSERTED prod→prod by the Stage-2
+    // Ruby preflight (never copied). The claude-sdk agent SDK reads
+    // ANTHROPIC_BASE_URL (see src/agents/claude_agent_sdk_adapter.py and the
+    // aimock-wiring probe's claude-sdk pattern), so it must be pinned at aimock
+    // alongside OPENAI_BASE_URL — otherwise a drifted ANTHROPIC_BASE_URL would
+    // silently bypass aimock and hit the real Anthropic API (non-deterministic
+    // results that look like flapping). This is SSOT hygiene: the var is
+    // already set correctly on the live service; declaring the ref makes the
+    // preflight assert it and refuse a cross-env leak.
     runtimeDeps: ["aimock"],
-    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    serviceRefs: [
+      { key: "OPENAI_BASE_URL", target: "aimock" },
+      { key: "ANTHROPIC_BASE_URL", target: "aimock" },
+    ],
     environments: {
       prod: {
         instanceId: "bb18caaf-9a3e-4fdd-85ec-562fd82a3a89",
