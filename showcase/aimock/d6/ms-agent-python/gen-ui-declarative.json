@@ -187,6 +187,34 @@
       "chunkSize": 9999
     },
     {
+      "_comment": "pill sales-dashboard hero — inner secondary LLM (tools=[_design_a2ui_surface], tool_choice forced) emits the flat A2UI components. Discriminated by toolName so it wins over the outer generate_a2ui fixture whose userMessage matches the same prompt. Mirrors LGP gen-ui-declarative.json sales-dashboard render_a2ui entry.",
+      "match": {
+        "userMessage": "Show me my sales dashboard for this quarter.",
+        "toolName": "_design_a2ui_surface"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_dash_design_mspy_001",
+            "name": "_design_a2ui_surface",
+            "arguments": "{\"surfaceId\":\"sales-dashboard\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"gap\":16,\"children\":[\"kpi-row\",\"charts-row\"]},{\"id\":\"kpi-row\",\"component\":\"Row\",\"gap\":16,\"children\":[\"metric-revenue\",\"metric-new-customers\",\"metric-win-rate\",\"metric-deal-size\"]},{\"id\":\"metric-revenue\",\"component\":\"Metric\",\"label\":\"Quarterly Revenue\",\"value\":\"$4.2M\",\"trend\":\"up\",\"trendValue\":\"+12% QoQ\"},{\"id\":\"metric-new-customers\",\"component\":\"Metric\",\"label\":\"New Customers\",\"value\":\"186\",\"trend\":\"up\",\"trendValue\":\"+8%\"},{\"id\":\"metric-win-rate\",\"component\":\"Metric\",\"label\":\"Win Rate\",\"value\":\"31%\",\"trend\":\"down\",\"trendValue\":\"-2 pts\"},{\"id\":\"metric-deal-size\",\"component\":\"Metric\",\"label\":\"Avg Deal Size\",\"value\":\"$22.6k\",\"trend\":\"up\",\"trendValue\":\"+5%\"},{\"id\":\"charts-row\",\"component\":\"Row\",\"gap\":16,\"children\":[\"region-pie\",\"monthly-bar\"]},{\"id\":\"region-pie\",\"component\":\"PieChart\",\"title\":\"Revenue by Region\",\"description\":\"Quarter revenue split across North America, EMEA, APAC, and LATAM.\",\"data\":[{\"label\":\"North America\",\"value\":1900000},{\"label\":\"EMEA\",\"value\":1300000},{\"label\":\"APAC\",\"value\":720000},{\"label\":\"LATAM\",\"value\":280000}]},{\"id\":\"monthly-bar\",\"component\":\"BarChart\",\"title\":\"Monthly Revenue\",\"description\":\"Revenue trend from Jan through Jun.\",\"data\":[{\"label\":\"Jan\",\"value\":1210000},{\"label\":\"Feb\",\"value\":1340000},{\"label\":\"Mar\",\"value\":1650000},{\"label\":\"Apr\",\"value\":1380000},{\"label\":\"May\",\"value\":1420000},{\"label\":\"Jun\",\"value\":1400000}]}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill sales-dashboard hero — outer agent narration after generate_a2ui returns. Matched by toolCallId so the outer agent's post-tool turn resolves; without this the outer generate_a2ui tool call never closes and the run hits 'Cannot send RUN_FINISHED while tool calls are still active'. Mirrors LGP gen-ui-declarative.json sales-dashboard narration entry.",
+      "match": {
+        "context": "ms-agent-python",
+        "toolCallId": "call_d6_decl_dash_outer_mspy_001"
+      },
+      "response": {
+        "content": "Here's your Q2 sales dashboard."
+      },
+      "chunkSize": 9999
+    },
+    {
       "_comment": "pill sales-dashboard hero — outer agent emits generate_a2ui (no args). Mirrors LGP gen-ui-declarative.json sales-dashboard outer entry. Closes the production 503 gap where backend hits aimock with tools=[generate_a2ui] for this userMessage (see /tmp/staging-journal-diff.md shape-B).",
       "match": {
         "userMessage": "Show me my sales dashboard for this quarter.",
