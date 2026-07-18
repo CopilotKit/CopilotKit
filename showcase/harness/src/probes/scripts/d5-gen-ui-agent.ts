@@ -8,14 +8,21 @@
  * `[data-testid="agent-step"]` per step in `state.steps`.
  *
  * Genuine assertion: send each suggestion-pill prompt; after settle,
- * assert the state card mounted with ≥ 2 step rows. Three pills are
- * exercised sequentially in one probe; per-pill aimock fixtures
- * produce different step content so a regression that returns the
- * same canned step list for every pill (e.g. a hard-coded tool reply
- * not keyed on the user prompt) turns the probe red.
+ * assert the state card mounted with ≥ 2 NON-EMPTY step rows AND that
+ * the rendered step text contains that pill's EXPECTED CONTENT MARKERS
+ * (distinctive, stable tokens drawn from the pill's step titles).
+ * Three pills are exercised sequentially in one probe, each with a
+ * different set of markers, so a regression that returns the same
+ * canned step list for every pill (e.g. a hard-coded tool reply not
+ * keyed on the user prompt) renders the WRONG pill's content and turns
+ * the probe red — as does a stale non-adjacent render (pill 3 still
+ * showing pill 1's content) or empty/whitespace-only step rows.
  *
- * Pill prompts are read from `gen-ui-agent/suggestions.ts` so the
- * prompts in this probe stay in sync with the demo's pill set.
+ * Pill prompts and their expected markers are HARDCODED here (they are
+ * NOT read from the demo's `suggestions.ts` — that file is a separate
+ * copy in the frontend). If the demo's pill set changes, update
+ * `GEN_UI_AGENT_PILLS` here to match. The expected markers are derived
+ * from the step titles in `showcase/harness/fixtures/d5/gen-ui-agent.json`.
  */
 
 import {
@@ -25,30 +32,43 @@ import {
 import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
 import { FIRST_SIGNAL_TIMEOUT_MS, waitForTestId } from "./_genuine-shared.js";
 
-/** Pill prompts MUST mirror `gen-ui-agent/suggestions.ts`. */
+/**
+ * Pill prompts MUST mirror the demo's hardcoded suggestion pills.
+ *
+ * `expectedMarkers` are low-brittleness, case-insensitive substrings
+ * that appear robustly in that pill's step titles (see the fixture
+ * `showcase/harness/fixtures/d5/gen-ui-agent.json`):
+ *   - product-launch: titles mention "launch" and "marketing".
+ *   - team-offsite:    titles mention "venue" and "agenda".
+ *   - competitor-research: titles mention "competitor" and "weakness".
+ * These are deliberately partial tokens (not full-text match) so the
+ * assertion is robust to live-LLM (--direct) nondeterminism while still
+ * proving the RIGHT pill's content rendered.
+ */
 export const GEN_UI_AGENT_PILLS = [
   {
     tag: "product-launch",
     prompt: "Plan a product launch for a new mobile app.",
+    expectedMarkers: ["launch", "marketing"],
   },
   {
     tag: "team-offsite",
     prompt: "Organize a three-day engineering team offsite.",
+    expectedMarkers: ["venue", "agenda"],
   },
   {
     tag: "competitor-research",
     prompt:
       "Research our top competitor and summarize their strengths and weaknesses.",
+    expectedMarkers: ["competitor", "weakness"],
   },
 ] as const;
 
-/** Read the count of `[data-testid="agent-step"]` rows currently in
- *  the DOM, plus the joined step text for per-pill content
- *  fingerprinting. */
-async function readAgentStepState(page: Page): Promise<{
-  stepCount: number;
-  stepText: string;
-}> {
+/** Read the per-row text of every `[data-testid="agent-step"]` node
+ *  currently in the DOM. Returns the trimmed text of each row so the
+ *  caller can reject empty/whitespace-only rows and match content
+ *  markers. */
+async function readAgentStepRows(page: Page): Promise<string[]> {
   return (await page.evaluate(() => {
     const win = globalThis as unknown as {
       document: {
@@ -58,35 +78,43 @@ async function readAgentStepState(page: Page): Promise<{
       };
     };
     const nodes = win.document.querySelectorAll('[data-testid="agent-step"]');
-    let acc = "";
+    const rows: string[] = [];
     for (let i = 0; i < nodes.length; i++) {
-      acc += " " + (nodes[i]!.textContent ?? "");
+      rows.push((nodes[i]!.textContent ?? "").trim());
     }
-    return { stepCount: nodes.length, stepText: acc };
-  })) as { stepCount: number; stepText: string };
+    return rows;
+  })) as string[];
 }
 
-/** Build a per-pill assertion. `seenStepTextsRef` accumulates the
- *  observed step-text fingerprint across pills — a regression where
- *  every pill produces the SAME steps would fail at the second pill
- *  because `stepText` would equal a previous entry.
+/** Build a per-pill assertion driven by EXPECTED CONTENT.
  *
- *  Note on the swap-not-accumulate model: the backend's `set_steps`
- *  reducer is `last-write-wins` (see `gen_ui_agent.py`), so each pill
- *  REPLACES `state.steps` rather than appending. The DOM mirrors
- *  state, so step-row count after pill N reflects ONLY pill N's
- *  steps — earlier pills' rows unmount. An earlier "delta vs.
- *  pre-pill baseline ≥ 2" check assumed accumulation and failed at
- *  pill 2+ even when the new steps rendered correctly.
+ *  The state card is populated asynchronously: after a pill click the
+ *  `set_steps` tool streams state over a short swap window, during which
+ *  the DOM may still show the previous pill's rows before this pill's
+ *  content lands. We therefore POLL until the correct content appears
+ *  (exercising the swap-window wait loop), then assert:
  *
- *  Primary signal: ≥ 2 step rows visible after the pill settles. The
- *  fingerprint deduplication keeps catching a fixture that returns
- *  identical content regardless of prompt — that probe still works
- *  under the swap model, since the textContent of the visible rows
- *  IS the per-pill content.
+ *    1. ≥ 2 NON-EMPTY step rows (a row that trims to empty does not
+ *       count — that rejects a card that rendered blank/placeholder
+ *       rows).
+ *    2. The joined step text contains ALL of this pill's expected
+ *       markers (case-insensitive substring).
+ *
+ *  This is robust to live-LLM nondeterminism (it checks the RIGHT
+ *  content rendered, not exact text) WITHOUT false-greening:
+ *    - identical-across-pills canned steps → wrong markers → RED;
+ *    - stale non-adjacent content (pill 3 showing pill 1) → wrong
+ *      markers → RED;
+ *    - empty/whitespace rows → fewer than 2 non-empty rows → RED.
+ *
+ *  `seenStepTextsRef` is retained for diagnostic accumulation only; it
+ *  no longer gates acceptance (the earlier cross-pill-difference
+ *  heuristic was fragile and could false-fail on coincidental live-LLM
+ *  content collisions). Content-marker matching replaces it.
  */
 export function buildAgentStateAssertion(
   pillTag: string,
+  expectedMarkers: readonly string[],
   seenStepTextsRef: { values: string[] },
 ): (page: Page) => Promise<void> {
   return async (page: Page): Promise<void> => {
@@ -96,50 +124,57 @@ export function buildAgentStateAssertion(
       FIRST_SIGNAL_TIMEOUT_MS,
       `gen-ui-agent-${pillTag}`,
     );
-    // Wait briefly for the swap to settle. We need ≥ 2 step rows
-    // visible, AND we need the visible textContent to differ from
-    // any earlier pill (fingerprint dedup).
+
+    const markers = expectedMarkers.map((m) => m.toLowerCase());
     const deadline = Date.now() + 15_000;
-    let last = { stepCount: 0, stepText: "" };
+    let rows: string[] = [];
+    let nonEmpty: string[] = [];
+    let joined = "";
+    let missing: string[] = markers.slice();
+
     while (Date.now() < deadline) {
-      last = await readAgentStepState(page);
-      if (last.stepCount >= 2) {
-        const fingerprint = last.stepText.trim().toLowerCase();
-        if (
-          seenStepTextsRef.values.length > 0 &&
-          seenStepTextsRef.values.includes(fingerprint)
-        ) {
-          // Same content as earlier pill — wait for the swap to
-          // finish landing. (Brief window where the DOM still
-          // shows the previous pill's rows.)
-          await new Promise((r) => setTimeout(r, 300));
-          continue;
-        }
-        // Stable, ≥ 2 rows, content differs from earlier pills.
-        seenStepTextsRef.values.push(fingerprint);
+      rows = await readAgentStepRows(page);
+      nonEmpty = rows.filter((r) => r.length > 0);
+      joined = nonEmpty.join(" ").toLowerCase();
+      missing = markers.filter((m) => !joined.includes(m));
+      if (nonEmpty.length >= 2 && missing.length === 0) {
+        // Correct pill content has landed with ≥ 2 non-empty rows.
+        seenStepTextsRef.values.push(joined);
         return;
       }
+      // Either the swap has not landed yet (still showing the prior
+      // pill / empty rows) or content is missing markers — keep polling
+      // until this pill's expected content appears.
       await new Promise((r) => setTimeout(r, 300));
     }
-    if (last.stepCount < 2) {
+
+    if (nonEmpty.length < 2) {
       throw new Error(
-        `gen-ui-agent-${pillTag}: expected ≥ 2 [data-testid="agent-step"] rows ` +
-          `(observed=${last.stepCount}) within 15s — pill set_steps tool call may not have streamed state`,
+        `gen-ui-agent-${pillTag}: expected ≥ 2 non-empty ` +
+          `[data-testid="agent-step"] rows ` +
+          `(observed ${nonEmpty.length} non-empty of ${rows.length} total) ` +
+          `within 15s — pill set_steps tool call may not have streamed state`,
       );
     }
-    // Reached deadline with enough rows but content kept duplicating
-    // an earlier pill — fixture is not differentiating by prompt.
     throw new Error(
-      `gen-ui-agent-${pillTag}: step content duplicates an earlier pill — fixture is not differentiating by prompt`,
+      `gen-ui-agent-${pillTag}: rendered ${nonEmpty.length} step rows but ` +
+        `their content is missing expected marker(s) [${missing.join(", ")}] ` +
+        `within 15s — the card shows the wrong pill's content ` +
+        `(stale/duplicated steps) rather than this pill's steps. ` +
+        `Observed: ${JSON.stringify(nonEmpty)}`,
     );
   };
 }
 
 export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
   const seenStepTextsRef = { values: [] as string[] };
-  return GEN_UI_AGENT_PILLS.map(({ tag, prompt }) => ({
+  return GEN_UI_AGENT_PILLS.map(({ tag, prompt, expectedMarkers }) => ({
     input: prompt,
-    assertions: buildAgentStateAssertion(tag, seenStepTextsRef),
+    assertions: buildAgentStateAssertion(
+      tag,
+      expectedMarkers,
+      seenStepTextsRef,
+    ),
     responseTimeoutMs: 60_000,
   }));
 }
