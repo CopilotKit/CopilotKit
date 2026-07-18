@@ -54,3 +54,47 @@ describe("IntelligenceFileHistoryClient.getHistory", () => {
     expect(out.map((m) => m.id)).toEqual(["m3", "m4"]);
   });
 });
+
+describe("IntelligenceFileHistoryClient — injectable fetch", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("uses config.fetch for binary downloads instead of the global fetch", async () => {
+    // The binary/history/upload paths hardcoded globalThis.fetch, so a consumer
+    // (or test) injecting config.fetch had it ignored here. Stub the global to
+    // throw so the test fails loudly if the injected fetch is not honored.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error(
+          "global fetch must not be used when config.fetch is set",
+        );
+      }),
+    );
+    const png = new Uint8Array([1, 2, 3, 4]);
+    const injectedCalls: string[] = [];
+    const injected = (async (url: string) => {
+      injectedCalls.push(String(url));
+      return {
+        ok: true,
+        status: 200,
+        headers: {
+          get: (k: string) => (k === "content-type" ? "image/png" : null),
+        },
+        body: null,
+        arrayBuffer: async () => png.buffer,
+      };
+    }) as unknown as typeof fetch;
+
+    const client = new IntelligenceFileHistoryClient({
+      baseUrl: "http://x",
+      apiKey: "cpk-test",
+      fetch: injected,
+    });
+
+    await expect(client.fetchFile("fileref_1")).resolves.toEqual({
+      bytes: png,
+      mimeType: "image/png",
+    });
+    expect(injectedCalls).toEqual(["http://x/api/channels/files/fileref_1"]);
+  });
+});
