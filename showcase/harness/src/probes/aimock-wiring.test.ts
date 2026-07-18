@@ -275,8 +275,12 @@ describe("aimock-wiring probe", () => {
   });
 
   it("normalizes URL: default http :80 and https :443 ports collapse to implicit form", async () => {
-    // Declare two services so both default-port variants are exercised in
-    // one run without crossing protocols on the aimock URL itself.
+    // Port-aware matching (c2) still treats a default port and its implicit
+    // form as equivalent: `https://h` ≡ `https://h:443`, `http://h` ≡
+    // `http://h:80`. This would FAIL a naive exact-string port compare
+    // (candidate `URL.port` "443"/"80" vs target `URL.port` "") — the probe
+    // must derive the effective port from the protocol default on BOTH sides.
+    // Implicit target vs explicit candidate (:443):
     const r = await aimockWiringProbe.run(
       {
         aimockUrl: "https://aimock.example",
@@ -290,6 +294,7 @@ describe("aimock-wiring probe", () => {
     expect(r.state).toBe("green");
     expect(r.signal.wiredCount).toBe(1);
 
+    // Implicit target vs explicit candidate (:80):
     const r2 = await aimockWiringProbe.run(
       {
         aimockUrl: "http://aimock.example",
@@ -302,16 +307,31 @@ describe("aimock-wiring probe", () => {
     );
     expect(r2.state).toBe("green");
     expect(r2.signal.wiredCount).toBe(1);
+
+    // Reverse direction — explicit target port vs implicit candidate — must
+    // also collapse (locks both sides of the comparison, not just one).
+    const r3 = await aimockWiringProbe.run(
+      {
+        aimockUrl: "https://aimock.example:443",
+        listServices: async () => [{ name: "s-implicit-443" }],
+        getServiceEnv: async () => ({
+          OPENAI_BASE_URL: "https://aimock.example",
+        }),
+      },
+      ctx,
+    );
+    expect(r3.state).toBe("green");
+    expect(r3.signal.wiredCount).toBe(1);
   });
 
   it("matches the PRIVATE Railway networking host (egress fix): internal aimockUrl vs :4010/v1 base URLs go green", async () => {
     // Egress fix: demo backends route LLM traffic at aimock over free private
     // networking (http://showcase-aimock.railway.internal:4010) instead of the
-    // billed public *.up.railway.app host. The probe matches on HOSTNAME only,
-    // so the harness AIMOCK_URL (bare internal origin) and the demo backends'
-    // OPENAI_BASE_URL (internal host + :4010 port + /v1 suffix) resolve to the
-    // same hostname `showcase-aimock.railway.internal` and the probe stays
-    // green. Locks in that the private-host migration keeps wiring green.
+    // billed public *.up.railway.app host. The probe matches on host+port, so
+    // the harness AIMOCK_URL (internal host + :4010 port) and the demo backends'
+    // OPENAI_BASE_URL (same internal host + :4010 port + /v1 suffix) resolve to
+    // the same host+port `showcase-aimock.railway.internal:4010` and the probe
+    // stays green. Locks in that the private-host migration keeps wiring green.
     const INTERNAL_AIMOCK = "http://showcase-aimock.railway.internal:4010";
     const r = await aimockWiringProbe.run(
       {
@@ -527,7 +547,7 @@ describe("aimock-wiring probe", () => {
 
   it("HF13-C1: malformed aimockUrl emits probeErrored + config-error entry in errored (no per-service iteration)", async () => {
     // Regression: when AIMOCK_BASE_URL is unparseable, the probe used to fall
-    // through `normalizeUrl -> null` and mark every service as mismatch,
+    // through `extractHostPort -> null` and mark every service as mismatch,
     // firing a spurious "all services drifted" alert. The correct behavior is
     // to short-circuit with a config-error sentinel in `errored` so
     // `deriveSignalFlags` emits `set_errored` and the aimock-wiring-drift rule
@@ -569,11 +589,9 @@ describe("aimock-wiring probe", () => {
     expect(r.signal.wired).toEqual([]);
     expect(r.signal.sealed).toEqual([]);
     expect(getServiceEnvCalls).toBe(0);
-    // listServices is allowed to run (needed for excluded filtering would add
-    // noise); assert it didn't iterate services either by checking env wasn't
-    // fetched. We don't constrain listServices itself because the contract is
-    // "no per-service env lookups", not "skip listServices".
-    expect(listServicesCalls).toBeLessThanOrEqual(1);
+    // The config-error short-circuit returns BEFORE `listServices` is called,
+    // so neither the service listing nor any per-service env lookup runs.
+    expect(listServicesCalls).toBe(0);
   });
 
   it("HF13-C1: well-formed probe runs carry probeErrored=false + configError=false", async () => {
@@ -613,7 +631,7 @@ describe("aimock-wiring probe", () => {
   it("wired when OPENAI_BASE_URL has /v1 path suffix and aimockUrl does not", async () => {
     // Most services set OPENAI_BASE_URL=<aimock>/v1 (OpenAI SDK convention)
     // while AIMOCK_URL is just the bare origin. The probe must match by
-    // hostname so the /v1 path difference does not cause a false mismatch.
+    // host+port so the /v1 path difference does not cause a false mismatch.
     const r = await aimockWiringProbe.run(
       {
         aimockUrl: AIMOCK_URL,
@@ -668,43 +686,75 @@ describe("aimock-wiring probe", () => {
     expect(r.signal.unwired).toEqual([]);
   });
 
-  it("excludes harness-workers and bare starter-* services by live name (drift regression)", async () => {
-    // Regression for the EXCLUDE drift: after the egress/private-networking
-    // migration the live Railway roster carries `harness-workers` (harness
-    // background workers — pure infra, no LLM callers) plus starters named
-    // `starter-<framework>[-lang]` (e.g. `starter-strands-python`,
-    // `starter-langgraph-js`). The stale EXCLUDE literals were keyed
-    // `showcase-starter-<framework>` (matching `starter-<framework>` only),
-    // and there was no `harness-workers` entry at all — so these six fell
-    // through to being checked, landed in `unwired`, and kept the probe red.
-    // Starters are intentionally not wired through aimock.
+  it("checks starters like any LLM backend (NOT excluded); infra stays excluded", async () => {
+    // Starters route through aimock identically to showcase-* backends
+    // (OPENAI_BASE_URL / ANTHROPIC_BASE_URL / GOOGLE_GEMINI_BASE_URL point at
+    // aimock), so the probe MUST verify their wiring — `starter-*` services are
+    // no longer excluded. Infra services (aimock/shell/…) remain excluded.
     const r = await aimockWiringProbe.run(
       {
         aimockUrl: AIMOCK_URL,
         listServices: async () => [
-          { name: "harness-workers" },
+          { name: "starter-langgraph-python" }, // checked → wired
+          { name: "starter-mastra" }, // checked → unwired
+          { name: "aimock" }, // infra → still excluded
+          { name: "shell" }, // infra → still excluded
+        ],
+        getServiceEnv: async (name) =>
+          name === "starter-langgraph-python"
+            ? { OPENAI_BASE_URL: AIMOCK_URL }
+            : {},
+      },
+      ctx,
+    );
+    // Infra excluded, so it appears in neither bucket. The wired starter lands
+    // in `wired`; the unwired one surfaces (and trips red) like any backend.
+    expect(r.signal.wired).toEqual(["starter-langgraph-python"]);
+    expect(r.signal.unwired).toEqual(["starter-mastra"]);
+    expect(r.state).toBe("red");
+  });
+
+  it("excludes harness-workers (infra) but checks bare starter-* services", async () => {
+    // Regression for the EXCLUDE drift: the live Railway roster carries
+    // `harness-workers` (harness background workers — pure infra, no LLM
+    // callers) which stays excluded, alongside starters named
+    // `starter-<framework>[-lang]` (e.g. `starter-strands-python`,
+    // `starter-langgraph-js`). Starters ARE checked now — a wired starter must
+    // land in `wired`, not be silently skipped.
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => [
+          { name: "harness-workers" }, // infra → excluded
           { name: "starter-adk" },
           { name: "starter-langgraph-js" },
           { name: "starter-ms-agent-framework-dotnet" },
           { name: "starter-ms-agent-framework-python" },
           { name: "starter-strands-python" },
-          { name: "showcase-ag2" }, // real backend, wired
+          { name: "showcase-ag2" }, // real backend
         ],
         getServiceEnv: async (name) =>
-          name === "showcase-ag2" ? { OPENAI_BASE_URL: AIMOCK_URL } : {},
+          name === "harness-workers" ? {} : { OPENAI_BASE_URL: AIMOCK_URL },
       },
       ctx,
     );
     expect(r.state).toBe("green");
     expect(r.signal.unwired).toEqual([]);
-    expect(r.signal.wired).toEqual(["showcase-ag2"]);
-    expect(r.signal.wiredCount).toBe(1);
+    expect(r.signal.wired).toEqual([
+      "showcase-ag2",
+      "starter-adk",
+      "starter-langgraph-js",
+      "starter-ms-agent-framework-dotnet",
+      "starter-ms-agent-framework-python",
+      "starter-strands-python",
+    ]);
+    expect(r.signal.wiredCount).toBe(6);
   });
 
-  it("starter- prefix excludes starters but never showcase-* backends", async () => {
-    // Guard: the `starter-` prefix rule must exclude the starter scaffold
-    // while leaving the real `showcase-*` backend in the checked universe.
-    // Neither is wired here, so only the backend may surface as unwired.
+  it("checks starters alongside showcase-* backends (both in the checked universe)", async () => {
+    // The old behavior excluded starters by prefix; now starters route through
+    // aimock exactly like showcase-* backends and are checked identically.
+    // Neither is wired here, so BOTH must surface as unwired.
     const r = await aimockWiringProbe.run(
       {
         aimockUrl: AIMOCK_URL,
@@ -717,14 +767,14 @@ describe("aimock-wiring probe", () => {
       ctx,
     );
     expect(r.state).toBe("red");
-    expect(r.signal.unwired).toEqual(["showcase-mastra"]); // starter excluded
+    expect(r.signal.unwired).toEqual(["showcase-mastra", "starter-mastra"]);
   });
 
-  it("full live roster: exactly the 20 showcase-* backends are checked, 21 excluded", async () => {
-    // Locks the "checked universe == the 20 showcase-* LLM backends" contract
-    // against the full 41-service production roster (9 infra + 20 backends +
-    // 12 starters). Backends are all unwired here, so `unwired` must equal
-    // exactly the 20 backends — infra and starters must all be excluded.
+  it("full live roster: the 20 showcase-* backends AND 12 starters are checked, 9 infra excluded", async () => {
+    // Locks the "checked universe == 20 showcase-* backends + 12 starters"
+    // contract against the full 41-service production roster (9 infra + 20
+    // backends + 12 starters). Backends and starters are all unwired here, so
+    // `unwired` must equal exactly those 32 — only the 9 infra are excluded.
     const infra = [
       "aimock",
       "dashboard",
@@ -782,7 +832,227 @@ describe("aimock-wiring probe", () => {
       ctx,
     );
     expect(r.state).toBe("red");
-    expect(r.signal.unwired).toEqual([...backends].sort());
-    expect(r.signal.unwiredCount).toBe(20);
+    expect(r.signal.unwired).toEqual([...backends, ...starters].sort());
+    expect(r.signal.unwiredCount).toBe(32);
+  });
+
+  it("c2 wrong-port: correct aimock host but a DIFFERENT port than aimock target → unwired (red)", async () => {
+    // Internal aimock serves ONLY on :4010. A service on the correct host but
+    // the wrong port is NOT actually routed through aimock — it must read as
+    // unwired. Under naive hostname-only matching this false-passes as wired.
+    const INTERNAL_AIMOCK = "http://showcase-aimock.railway.internal:4010";
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: INTERNAL_AIMOCK,
+        listServices: async () => [{ name: "showcase-ag2" }],
+        getServiceEnv: async () => ({
+          // Same host, WRONG port (8080 instead of 4010).
+          OPENAI_BASE_URL: "http://showcase-aimock.railway.internal:8080/v1",
+        }),
+      },
+      ctx,
+    );
+    expect(r.state).toBe("red");
+    expect(r.signal.unwired).toEqual(["showcase-ag2"]);
+    expect(r.signal.wired).toEqual([]);
+  });
+
+  it("c2 missing-port: correct aimock host but NO port (default :80) when target is :4010 → unwired (red)", async () => {
+    // A bare host with no explicit port resolves to the protocol default
+    // (:80 for http), which is NOT :4010 — so it must not read as wired.
+    const INTERNAL_AIMOCK = "http://showcase-aimock.railway.internal:4010";
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: INTERNAL_AIMOCK,
+        listServices: async () => [{ name: "showcase-ag2" }],
+        getServiceEnv: async () => ({
+          OPENAI_BASE_URL: "http://showcase-aimock.railway.internal/v1",
+        }),
+      },
+      ctx,
+    );
+    expect(r.state).toBe("red");
+    expect(r.signal.unwired).toEqual(["showcase-ag2"]);
+  });
+
+  it("c2 correct-port: correct aimock host AND :4010 port (with /v1) → wired (green)", async () => {
+    // The happy path the live prod roster uses: internal host + :4010 + /v1.
+    // Port matches the target's :4010, path is irrelevant → wired.
+    const INTERNAL_AIMOCK = "http://showcase-aimock.railway.internal:4010";
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: INTERNAL_AIMOCK,
+        listServices: async () => [{ name: "showcase-ag2" }],
+        getServiceEnv: async () => ({
+          OPENAI_BASE_URL: "http://showcase-aimock.railway.internal:4010/v1",
+        }),
+      },
+      ctx,
+    );
+    expect(r.state).toBe("green");
+    expect(r.signal.wired).toEqual(["showcase-ag2"]);
+    expect(r.signal.unwired).toEqual([]);
+  });
+
+  it("c1 confirmed-mismatch beats sealed: a real non-aimock host + a sealed sibling → unwired (red), NOT sealed", async () => {
+    // A candidate that is SET to a confirmed non-aimock host (api.openai.com)
+    // is provable drift and must win over a sealed sibling. Bucketing this as
+    // `sealed` would hide real drift (a service escaping to the real API).
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => [{ name: "svc-drifted" }],
+        getServiceEnv: async () => ({
+          OPENAI_BASE_URL: "https://api.openai.com/v1", // confirmed non-aimock
+          ANTHROPIC_BASE_URL: SEALED_SENTINEL, // sealed sibling
+        }),
+      },
+      ctx,
+    );
+    expect(r.state).toBe("red");
+    expect(r.signal.unwired).toEqual(["svc-drifted"]);
+    expect(r.signal.sealed).toEqual([]);
+    expect(r.signal.wired).toEqual([]);
+  });
+
+  it("c1 purely-sealed still sealed: only signal is a sealed candidate (no confirmed mismatch) → sealed (green)", async () => {
+    // Preserve the sealed bucket for services whose ONLY signal is opaque:
+    // no confirmed mismatch and no confirmed match → sealed, does NOT trip red.
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => [{ name: "svc-only-sealed" }],
+        getServiceEnv: async () => ({
+          OPENAI_BASE_URL: SEALED_SENTINEL,
+        }),
+      },
+      ctx,
+    );
+    expect(r.state).toBe("green");
+    expect(r.signal.sealed).toEqual(["svc-only-sealed"]);
+    expect(r.signal.unwired).toEqual([]);
+    expect(r.signal.wired).toEqual([]);
+  });
+
+  it("precedence rule 1: a confirmed MATCH beats a confirmed MISMATCH on a sibling candidate → wired (green)", async () => {
+    // A service with OPENAI_BASE_URL pointing at the real API (confirmed
+    // mismatch) but ANTHROPIC_BASE_URL pointing at aimock (confirmed match)
+    // is unambiguously wired: any confirmed match wins over everything else,
+    // including a confirmed-mismatch sibling. Locks precedence rule (1).
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => [{ name: "svc-mixed-match" }],
+        getServiceEnv: async () => ({
+          OPENAI_BASE_URL: "https://api.openai.com/v1", // confirmed non-aimock
+          ANTHROPIC_BASE_URL: AIMOCK_URL, // confirmed aimock match
+        }),
+      },
+      ctx,
+    );
+    expect(r.state).toBe("green");
+    expect(r.signal.wired).toEqual(["svc-mixed-match"]);
+    expect(r.signal.unwired).toEqual([]);
+    expect(r.signal.sealed).toEqual([]);
+  });
+
+  it("unparseable candidate value (no matching sibling) → confirmed mismatch → unwired (red)", async () => {
+    // A candidate that is SET but does not parse as a URL ("not a url") is
+    // confirmed non-aimock, not "no signal": with no matching sibling the
+    // service is unwired and trips red. Locks the `cand === null` branch that
+    // still falls through to `anyConfirmedMismatch = true`.
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => [{ name: "svc-garbage-url" }],
+        getServiceEnv: async () => ({
+          OPENAI_BASE_URL: "not a url",
+        }),
+      },
+      ctx,
+    );
+    expect(r.state).toBe("red");
+    expect(r.signal.unwired).toEqual(["svc-garbage-url"]);
+    expect(r.signal.wired).toEqual([]);
+    expect(r.signal.sealed).toEqual([]);
+  });
+
+  it("empty-string candidate is treated as MISSING (no signal), not a confirmed mismatch", async () => {
+    // "" contributes no signal, exactly like an absent var. So:
+    //   - empty OPENAI + matching ANTHROPIC → the match still wins → wired.
+    const wired = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => [{ name: "svc-empty-plus-match" }],
+        getServiceEnv: async () => ({
+          OPENAI_BASE_URL: "",
+          ANTHROPIC_BASE_URL: AIMOCK_URL,
+        }),
+      },
+      ctx,
+    );
+    expect(wired.state).toBe("green");
+    expect(wired.signal.wired).toEqual(["svc-empty-plus-match"]);
+
+    //   - empty everywhere → all-missing → unwired (red), NOT a mismatch that
+    //     would still be red for the wrong reason.
+    const unwired = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => [{ name: "svc-all-empty" }],
+        getServiceEnv: async () => ({
+          OPENAI_BASE_URL: "",
+          ANTHROPIC_BASE_URL: "",
+          GOOGLE_GEMINI_BASE_URL: "",
+        }),
+      },
+      ctx,
+    );
+    expect(unwired.state).toBe("red");
+    expect(unwired.signal.unwired).toEqual(["svc-all-empty"]);
+
+    //   - empty OPENAI + sealed ANTHROPIC → the only real signal is sealed, so
+    //     the service lands in `sealed` (green). If "" were mistakenly treated
+    //     as a confirmed mismatch, rule (2) would demote this to unwired/red —
+    //     this assertion is what discriminates "empty == missing" from
+    //     "empty == confirmed mismatch".
+    const sealed = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => [{ name: "svc-empty-plus-sealed" }],
+        getServiceEnv: async () => ({
+          OPENAI_BASE_URL: "",
+          ANTHROPIC_BASE_URL: SEALED_SENTINEL,
+        }),
+      },
+      ctx,
+    );
+    expect(sealed.state).toBe("green");
+    expect(sealed.signal.sealed).toEqual(["svc-empty-plus-sealed"]);
+    expect(sealed.signal.unwired).toEqual([]);
+  });
+
+  it("sealed and unwired coexist in one run: sealed is surfaced, unwired trips red", async () => {
+    // A run with one genuinely-sealed service and one genuinely-unwired service
+    // must populate BOTH buckets independently: the sealed service does NOT get
+    // swept into `unwired` (which would over-report drift), and the unwired
+    // service still trips the probe red.
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => [
+          { name: "svc-sealed" },
+          { name: "svc-unwired" },
+        ],
+        getServiceEnv: async (name) =>
+          name === "svc-sealed" ? { OPENAI_BASE_URL: SEALED_SENTINEL } : {},
+      },
+      ctx,
+    );
+    expect(r.state).toBe("red");
+    expect(r.signal.sealed).toEqual(["svc-sealed"]);
+    expect(r.signal.unwired).toEqual(["svc-unwired"]);
+    expect(r.signal.hasSealed).toBe(true);
+    expect(r.signal.wired).toEqual([]);
   });
 });
