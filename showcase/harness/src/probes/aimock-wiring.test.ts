@@ -667,4 +667,122 @@ describe("aimock-wiring probe", () => {
     expect(r.signal.sealed).toEqual(["showcase-google-adk"]);
     expect(r.signal.unwired).toEqual([]);
   });
+
+  it("excludes harness-workers and bare starter-* services by live name (drift regression)", async () => {
+    // Regression for the EXCLUDE drift: after the egress/private-networking
+    // migration the live Railway roster carries `harness-workers` (harness
+    // background workers — pure infra, no LLM callers) plus starters named
+    // `starter-<framework>[-lang]` (e.g. `starter-strands-python`,
+    // `starter-langgraph-js`). The stale EXCLUDE literals were keyed
+    // `showcase-starter-<framework>` (matching `starter-<framework>` only),
+    // and there was no `harness-workers` entry at all — so these six fell
+    // through to being checked, landed in `unwired`, and kept the probe red.
+    // Starters are intentionally not wired through aimock.
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => [
+          { name: "harness-workers" },
+          { name: "starter-adk" },
+          { name: "starter-langgraph-js" },
+          { name: "starter-ms-agent-framework-dotnet" },
+          { name: "starter-ms-agent-framework-python" },
+          { name: "starter-strands-python" },
+          { name: "showcase-ag2" }, // real backend, wired
+        ],
+        getServiceEnv: async (name) =>
+          name === "showcase-ag2" ? { OPENAI_BASE_URL: AIMOCK_URL } : {},
+      },
+      ctx,
+    );
+    expect(r.state).toBe("green");
+    expect(r.signal.unwired).toEqual([]);
+    expect(r.signal.wired).toEqual(["showcase-ag2"]);
+    expect(r.signal.wiredCount).toBe(1);
+  });
+
+  it("starter- prefix excludes starters but never showcase-* backends", async () => {
+    // Guard: the `starter-` prefix rule must exclude the starter scaffold
+    // while leaving the real `showcase-*` backend in the checked universe.
+    // Neither is wired here, so only the backend may surface as unwired.
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => [
+          { name: "starter-mastra" },
+          { name: "showcase-mastra" }, // must still be checked
+        ],
+        getServiceEnv: async () => ({}), // neither wired
+      },
+      ctx,
+    );
+    expect(r.state).toBe("red");
+    expect(r.signal.unwired).toEqual(["showcase-mastra"]); // starter excluded
+  });
+
+  it("full live roster: exactly the 20 showcase-* backends are checked, 21 excluded", async () => {
+    // Locks the "checked universe == the 20 showcase-* LLM backends" contract
+    // against the full 41-service production roster (9 infra + 20 backends +
+    // 12 starters). Backends are all unwired here, so `unwired` must equal
+    // exactly the 20 backends — infra and starters must all be excluded.
+    const infra = [
+      "aimock",
+      "dashboard",
+      "docs",
+      "dojo",
+      "harness",
+      "harness-workers",
+      "pocketbase",
+      "shell",
+      "webhooks",
+    ];
+    const backends = [
+      "showcase-ag2",
+      "showcase-agno",
+      "showcase-built-in-agent",
+      "showcase-claude-sdk-python",
+      "showcase-claude-sdk-typescript",
+      "showcase-crewai-crews",
+      "showcase-google-adk",
+      "showcase-langgraph-fastapi",
+      "showcase-langgraph-python",
+      "showcase-langgraph-typescript",
+      "showcase-langroid",
+      "showcase-llamaindex",
+      "showcase-mastra",
+      "showcase-ms-agent-dotnet",
+      "showcase-ms-agent-harness-dotnet",
+      "showcase-ms-agent-python",
+      "showcase-pydantic-ai",
+      "showcase-spring-ai",
+      "showcase-strands",
+      "showcase-strands-typescript",
+    ];
+    const starters = [
+      "starter-adk",
+      "starter-agno",
+      "starter-crewai-crews",
+      "starter-langgraph-fastapi",
+      "starter-langgraph-js",
+      "starter-langgraph-python",
+      "starter-llamaindex",
+      "starter-mastra",
+      "starter-ms-agent-framework-dotnet",
+      "starter-ms-agent-framework-python",
+      "starter-pydantic-ai",
+      "starter-strands-python",
+    ];
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () =>
+          [...infra, ...backends, ...starters].map((name) => ({ name })),
+        getServiceEnv: async () => ({}),
+      },
+      ctx,
+    );
+    expect(r.state).toBe("red");
+    expect(r.signal.unwired).toEqual([...backends].sort());
+    expect(r.signal.unwiredCount).toBe(20);
+  });
 });
