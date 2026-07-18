@@ -668,43 +668,75 @@ describe("aimock-wiring probe", () => {
     expect(r.signal.unwired).toEqual([]);
   });
 
-  it("excludes harness-workers and bare starter-* services by live name (drift regression)", async () => {
-    // Regression for the EXCLUDE drift: after the egress/private-networking
-    // migration the live Railway roster carries `harness-workers` (harness
-    // background workers — pure infra, no LLM callers) plus starters named
-    // `starter-<framework>[-lang]` (e.g. `starter-strands-python`,
-    // `starter-langgraph-js`). The stale EXCLUDE literals were keyed
-    // `showcase-starter-<framework>` (matching `starter-<framework>` only),
-    // and there was no `harness-workers` entry at all — so these six fell
-    // through to being checked, landed in `unwired`, and kept the probe red.
-    // Starters are intentionally not wired through aimock.
+  it("checks starters like any LLM backend (NOT excluded); infra stays excluded", async () => {
+    // Starters route through aimock identically to showcase-* backends
+    // (OPENAI_BASE_URL / ANTHROPIC_BASE_URL / GOOGLE_GEMINI_BASE_URL point at
+    // aimock), so the probe MUST verify their wiring — `starter-*` services are
+    // no longer excluded. Infra services (aimock/shell/…) remain excluded.
     const r = await aimockWiringProbe.run(
       {
         aimockUrl: AIMOCK_URL,
         listServices: async () => [
-          { name: "harness-workers" },
+          { name: "starter-langgraph-python" }, // checked → wired
+          { name: "starter-mastra" }, // checked → unwired
+          { name: "aimock" }, // infra → still excluded
+          { name: "shell" }, // infra → still excluded
+        ],
+        getServiceEnv: async (name) =>
+          name === "starter-langgraph-python"
+            ? { OPENAI_BASE_URL: AIMOCK_URL }
+            : {},
+      },
+      ctx,
+    );
+    // Infra excluded, so it appears in neither bucket. The wired starter lands
+    // in `wired`; the unwired one surfaces (and trips red) like any backend.
+    expect(r.signal.wired).toEqual(["starter-langgraph-python"]);
+    expect(r.signal.unwired).toEqual(["starter-mastra"]);
+    expect(r.state).toBe("red");
+  });
+
+  it("excludes harness-workers (infra) but checks bare starter-* services", async () => {
+    // Regression for the EXCLUDE drift: the live Railway roster carries
+    // `harness-workers` (harness background workers — pure infra, no LLM
+    // callers) which stays excluded, alongside starters named
+    // `starter-<framework>[-lang]` (e.g. `starter-strands-python`,
+    // `starter-langgraph-js`). Starters ARE checked now — a wired starter must
+    // land in `wired`, not be silently skipped.
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => [
+          { name: "harness-workers" }, // infra → excluded
           { name: "starter-adk" },
           { name: "starter-langgraph-js" },
           { name: "starter-ms-agent-framework-dotnet" },
           { name: "starter-ms-agent-framework-python" },
           { name: "starter-strands-python" },
-          { name: "showcase-ag2" }, // real backend, wired
+          { name: "showcase-ag2" }, // real backend
         ],
         getServiceEnv: async (name) =>
-          name === "showcase-ag2" ? { OPENAI_BASE_URL: AIMOCK_URL } : {},
+          name === "harness-workers" ? {} : { OPENAI_BASE_URL: AIMOCK_URL },
       },
       ctx,
     );
     expect(r.state).toBe("green");
     expect(r.signal.unwired).toEqual([]);
-    expect(r.signal.wired).toEqual(["showcase-ag2"]);
-    expect(r.signal.wiredCount).toBe(1);
+    expect(r.signal.wired).toEqual([
+      "showcase-ag2",
+      "starter-adk",
+      "starter-langgraph-js",
+      "starter-ms-agent-framework-dotnet",
+      "starter-ms-agent-framework-python",
+      "starter-strands-python",
+    ]);
+    expect(r.signal.wiredCount).toBe(6);
   });
 
-  it("starter- prefix excludes starters but never showcase-* backends", async () => {
-    // Guard: the `starter-` prefix rule must exclude the starter scaffold
-    // while leaving the real `showcase-*` backend in the checked universe.
-    // Neither is wired here, so only the backend may surface as unwired.
+  it("checks starters alongside showcase-* backends (both in the checked universe)", async () => {
+    // The old behavior excluded starters by prefix; now starters route through
+    // aimock exactly like showcase-* backends and are checked identically.
+    // Neither is wired here, so BOTH must surface as unwired.
     const r = await aimockWiringProbe.run(
       {
         aimockUrl: AIMOCK_URL,
@@ -717,14 +749,14 @@ describe("aimock-wiring probe", () => {
       ctx,
     );
     expect(r.state).toBe("red");
-    expect(r.signal.unwired).toEqual(["showcase-mastra"]); // starter excluded
+    expect(r.signal.unwired).toEqual(["showcase-mastra", "starter-mastra"]);
   });
 
-  it("full live roster: exactly the 20 showcase-* backends are checked, 21 excluded", async () => {
-    // Locks the "checked universe == the 20 showcase-* LLM backends" contract
-    // against the full 41-service production roster (9 infra + 20 backends +
-    // 12 starters). Backends are all unwired here, so `unwired` must equal
-    // exactly the 20 backends — infra and starters must all be excluded.
+  it("full live roster: the 20 showcase-* backends AND 12 starters are checked, 9 infra excluded", async () => {
+    // Locks the "checked universe == 20 showcase-* backends + 12 starters"
+    // contract against the full 41-service production roster (9 infra + 20
+    // backends + 12 starters). Backends and starters are all unwired here, so
+    // `unwired` must equal exactly those 32 — only the 9 infra are excluded.
     const infra = [
       "aimock",
       "dashboard",
@@ -782,7 +814,7 @@ describe("aimock-wiring probe", () => {
       ctx,
     );
     expect(r.state).toBe("red");
-    expect(r.signal.unwired).toEqual([...backends].sort());
-    expect(r.signal.unwiredCount).toBe(20);
+    expect(r.signal.unwired).toEqual([...backends, ...starters].sort());
+    expect(r.signal.unwiredCount).toBe(32);
   });
 });

@@ -65,10 +65,9 @@ export const SEALED_SENTINEL = "__SEALED__";
  * this list in sync with the Railway service roster whenever new infra
  * services are added.
  *
- * NOTE: starter (`starter-*`) exclusion is handled by the prefix rule in
- * `isExcluded`, NOT by literals here — starters are a whole family and were
- * previously listed as `showcase-starter-*` literals that drifted against the
- * live bare `starter-<framework>[-lang]` names. See `isExcluded`.
+ * NOTE: starters (`starter-*`) are NOT excluded — they route through aimock
+ * exactly like the `showcase-*` backends and are checked as ordinary
+ * LLM-calling services. See `isExcluded`.
  */
 const EXCLUDE_SERVICES: ReadonlySet<string> = new Set([
   "showcase-aimock",
@@ -174,19 +173,10 @@ export interface AimockWiringSignal {
 const ERRORED_PREVIEW_MAX = 5;
 
 function isExcluded(name: string): boolean {
-  // Starters are contributor scaffolds, not showcase backends — they are
-  // categorically NOT wired through aimock (per product decision), so exclude
-  // the whole `starter-*` family by PREFIX rather than by per-framework
-  // literal. Matching starters by literal is what drifted: live Railway names
-  // are bare `starter-<framework>[-lang]` (e.g. `starter-strands-python`,
-  // `starter-langgraph-js`) while the stale EXCLUDE entries were keyed
-  // `showcase-starter-<framework>` (matching only `starter-<framework>`), so
-  // renamed/added starters fell through to being checked → unwired → red. A
-  // prefix rule can't re-drift on rename. This is SAFE: the probe's "checked"
-  // universe is intentionally the `showcase-*` LLM backends, and no
-  // `showcase-*` name begins with `starter-`, so this never over-excludes a
-  // real backend.
-  if (name.startsWith("starter-")) return true;
+  // Starters route through aimock identically to the showcase-* backends
+  // (OPENAI_BASE_URL / ANTHROPIC_BASE_URL / GOOGLE_GEMINI_BASE_URL point at
+  // aimock), so they are checked like any other LLM-calling service — NOT
+  // excluded here. Only the pure-infra services in EXCLUDE_SERVICES are skipped.
 
   // Match either the literal name or its `showcase-`-prefixed form. Railway
   // service names in the production project are BARE (`harness`, `shell`,
