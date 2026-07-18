@@ -258,7 +258,19 @@ describe("fixture collision detection", () => {
     // (interrupt/gen-ui-interrupt, declarative/render_a2ui, and copied
     // LangGraph headless/feature-parity routes) that are disambiguated by
     // fixtureFile/demo route like the existing integration parity copies above.
-    const KNOWN_DUPLICATE_CEILING = 297;
+    // Bumped 297 → 300 (+3) porting agno/gen-ui-declarative to the OSS-136
+    // sales flow: agno's two-stage a2ui_dynamic_agent forces the INNER
+    // render_a2ui secondary call with a HARDCODED user message ("Generate a
+    // dynamic A2UI dashboard based on the conversation.") that is identical
+    // across all four pills, so the four inner fixtures cannot be keyed on
+    // userMessage — they discriminate on `systemMessage` (the per-pill
+    // context phrase the outer generate_a2ui injects as "Conversation
+    // context:\n<context>"). `matchKey` here does not encode systemMessage or
+    // context, so the four inner entries collapse to a single
+    // `toolName=render_a2ui` key → 3 exact-key collisions that aimock's router
+    // DOES disambiguate at runtime (verified live: the inner request's system
+    // text carried the pill's context phrase, matched the right surface).
+    const KNOWN_DUPLICATE_CEILING = 300;
 
     const collisions: string[] = [];
 
