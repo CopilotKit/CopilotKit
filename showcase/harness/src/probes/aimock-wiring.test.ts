@@ -275,8 +275,12 @@ describe("aimock-wiring probe", () => {
   });
 
   it("normalizes URL: default http :80 and https :443 ports collapse to implicit form", async () => {
-    // Declare two services so both default-port variants are exercised in
-    // one run without crossing protocols on the aimock URL itself.
+    // Port-aware matching (c2) still treats a default port and its implicit
+    // form as equivalent: `https://h` ≡ `https://h:443`, `http://h` ≡
+    // `http://h:80`. This would FAIL a naive exact-string port compare
+    // (candidate `URL.port` "443"/"80" vs target `URL.port` "") — the probe
+    // must derive the effective port from the protocol default on BOTH sides.
+    // Implicit target vs explicit candidate (:443):
     const r = await aimockWiringProbe.run(
       {
         aimockUrl: "https://aimock.example",
@@ -290,6 +294,7 @@ describe("aimock-wiring probe", () => {
     expect(r.state).toBe("green");
     expect(r.signal.wiredCount).toBe(1);
 
+    // Implicit target vs explicit candidate (:80):
     const r2 = await aimockWiringProbe.run(
       {
         aimockUrl: "http://aimock.example",
@@ -302,6 +307,21 @@ describe("aimock-wiring probe", () => {
     );
     expect(r2.state).toBe("green");
     expect(r2.signal.wiredCount).toBe(1);
+
+    // Reverse direction — explicit target port vs implicit candidate — must
+    // also collapse (locks both sides of the comparison, not just one).
+    const r3 = await aimockWiringProbe.run(
+      {
+        aimockUrl: "https://aimock.example:443",
+        listServices: async () => [{ name: "s-implicit-443" }],
+        getServiceEnv: async () => ({
+          OPENAI_BASE_URL: "https://aimock.example",
+        }),
+      },
+      ctx,
+    );
+    expect(r3.state).toBe("green");
+    expect(r3.signal.wiredCount).toBe(1);
   });
 
   it("matches the PRIVATE Railway networking host (egress fix): internal aimockUrl vs :4010/v1 base URLs go green", async () => {
@@ -816,5 +836,103 @@ describe("aimock-wiring probe", () => {
     expect(r.state).toBe("red");
     expect(r.signal.unwired).toEqual([...backends, ...starters].sort());
     expect(r.signal.unwiredCount).toBe(32);
+  });
+
+  it("c2 wrong-port: correct aimock host but a DIFFERENT port than aimock target → unwired (red)", async () => {
+    // Internal aimock serves ONLY on :4010. A service on the correct host but
+    // the wrong port is NOT actually routed through aimock — it must read as
+    // unwired. Under naive hostname-only matching this false-passes as wired.
+    const INTERNAL_AIMOCK = "http://showcase-aimock.railway.internal:4010";
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: INTERNAL_AIMOCK,
+        listServices: async () => [{ name: "showcase-ag2" }],
+        getServiceEnv: async () => ({
+          // Same host, WRONG port (8080 instead of 4010).
+          OPENAI_BASE_URL: "http://showcase-aimock.railway.internal:8080/v1",
+        }),
+      },
+      ctx,
+    );
+    expect(r.state).toBe("red");
+    expect(r.signal.unwired).toEqual(["showcase-ag2"]);
+    expect(r.signal.wired).toEqual([]);
+  });
+
+  it("c2 missing-port: correct aimock host but NO port (default :80) when target is :4010 → unwired (red)", async () => {
+    // A bare host with no explicit port resolves to the protocol default
+    // (:80 for http), which is NOT :4010 — so it must not read as wired.
+    const INTERNAL_AIMOCK = "http://showcase-aimock.railway.internal:4010";
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: INTERNAL_AIMOCK,
+        listServices: async () => [{ name: "showcase-ag2" }],
+        getServiceEnv: async () => ({
+          OPENAI_BASE_URL: "http://showcase-aimock.railway.internal/v1",
+        }),
+      },
+      ctx,
+    );
+    expect(r.state).toBe("red");
+    expect(r.signal.unwired).toEqual(["showcase-ag2"]);
+  });
+
+  it("c2 correct-port: correct aimock host AND :4010 port (with /v1) → wired (green)", async () => {
+    // The happy path the live prod roster uses: internal host + :4010 + /v1.
+    // Port matches the target's :4010, path is irrelevant → wired.
+    const INTERNAL_AIMOCK = "http://showcase-aimock.railway.internal:4010";
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: INTERNAL_AIMOCK,
+        listServices: async () => [{ name: "showcase-ag2" }],
+        getServiceEnv: async () => ({
+          OPENAI_BASE_URL: "http://showcase-aimock.railway.internal:4010/v1",
+        }),
+      },
+      ctx,
+    );
+    expect(r.state).toBe("green");
+    expect(r.signal.wired).toEqual(["showcase-ag2"]);
+    expect(r.signal.unwired).toEqual([]);
+  });
+
+  it("c1 confirmed-mismatch beats sealed: a real non-aimock host + a sealed sibling → unwired (red), NOT sealed", async () => {
+    // A candidate that is SET to a confirmed non-aimock host (api.openai.com)
+    // is provable drift and must win over a sealed sibling. Bucketing this as
+    // `sealed` would hide real drift (a service escaping to the real API).
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => [{ name: "svc-drifted" }],
+        getServiceEnv: async () => ({
+          OPENAI_BASE_URL: "https://api.openai.com/v1", // confirmed non-aimock
+          ANTHROPIC_BASE_URL: SEALED_SENTINEL, // sealed sibling
+        }),
+      },
+      ctx,
+    );
+    expect(r.state).toBe("red");
+    expect(r.signal.unwired).toEqual(["svc-drifted"]);
+    expect(r.signal.sealed).toEqual([]);
+    expect(r.signal.wired).toEqual([]);
+  });
+
+  it("c1 purely-sealed still sealed: only signal is a sealed candidate (no confirmed mismatch) → sealed (green)", async () => {
+    // Preserve the sealed bucket for services whose ONLY signal is opaque:
+    // no confirmed mismatch and no confirmed match → sealed, does NOT trip red.
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => [{ name: "svc-only-sealed" }],
+        getServiceEnv: async () => ({
+          OPENAI_BASE_URL: SEALED_SENTINEL,
+        }),
+      },
+      ctx,
+    );
+    expect(r.state).toBe("green");
+    expect(r.signal.sealed).toEqual(["svc-only-sealed"]);
+    expect(r.signal.unwired).toEqual([]);
+    expect(r.signal.wired).toEqual([]);
   });
 });

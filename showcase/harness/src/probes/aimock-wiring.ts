@@ -50,20 +50,21 @@ export const SEALED_SENTINEL = "__SEALED__";
  * counted as unwired).
  *
  * Most entries are stored in their `showcase-`-prefixed form. The exclusion
- * check (`isExcluded`) normalizes inputs by stripping a leading `showcase-`
- * so a bare deployed name (e.g. `harness`, `shell`, `aimock`) matches the
- * same canonical entry as the prefixed form (`showcase-harness`, …). This is
- * load-bearing: actual deployed Railway service names in the production
- * project are BARE — without the strip, every bare infra service would have
- * been counted as unwired and the probe would have stayed red forever.
- * `harness-workers` has no `showcase-` legacy form, so it is stored bare —
- * `isExcluded` checks the literal name first, so this matches correctly.
+ * check (`isExcluded`) matches a bare deployed name (e.g. `harness`, `shell`,
+ * `aimock`) by PREPENDING `showcase-` to it and testing that prefixed form
+ * against the set — so the bare name resolves to the same canonical entry as
+ * the prefixed form (`showcase-harness`, …). This is load-bearing: actual
+ * deployed Railway service names in the production project are BARE — without
+ * the prepend, every bare infra service would have been counted as unwired
+ * and the probe would have stayed red forever. `harness-workers` has no
+ * `showcase-` legacy form, so it is stored bare — `isExcluded` checks the
+ * literal name first, so this matches correctly.
  *
- * Match is still effectively EXACT post-strip (not prefix): a hypothetical
- * `showcase-aimock-pinger-mock-for-test` strips to `aimock-pinger-mock-for-test`,
- * which is NOT in the set, so it would correctly surface as unwired. Keep
- * this list in sync with the Railway service roster whenever new infra
- * services are added.
+ * Match is still effectively EXACT (not a prefix match): a hypothetical
+ * `showcase-aimock-pinger-mock-for-test` is tested literally and, prepended,
+ * as `showcase-showcase-aimock-pinger-mock-for-test` — neither is in the set,
+ * so it would correctly surface as unwired. Keep this list in sync with the
+ * Railway service roster whenever new infra services are added.
  *
  * NOTE: starters (`starter-*`) are NOT excluded — they route through aimock
  * exactly like the `showcase-*` backends and are checked as ordinary
@@ -190,15 +191,46 @@ function isExcluded(name: string): boolean {
 }
 
 /**
- * Extract the lowercased hostname from a URL string. Returns null if the
- * URL is unparseable. Used by `pointsAtAimock` for hostname-based matching
- * so path differences (`/v1` suffix on `OPENAI_BASE_URL` vs bare origin on
- * `AIMOCK_URL`) don't cause false mismatches.
+ * Default TCP port for a URL protocol, so an implicit URL (`http://h`) and its
+ * explicit form (`http://h:80`) compare equal. Returns the empty string for
+ * protocols we don't special-case; two such URLs still compare equal to each
+ * other by their (also-empty) `URL.port`.
  */
-function extractHostname(raw: string | undefined): string | null {
+function defaultPortForProtocol(protocol: string): string {
+  switch (protocol) {
+    case "https:":
+      return "443";
+    case "http:":
+      return "80";
+    default:
+      return "";
+  }
+}
+
+/**
+ * Extract the lowercased hostname AND effective port from a URL string.
+ * Returns null if the URL is unparseable. Used by `pointsAtAimock` for
+ * host+port matching so path differences (`/v1` suffix on `OPENAI_BASE_URL`
+ * vs bare origin on `AIMOCK_URL`), query strings, and fragments don't cause
+ * false mismatches — but a wrong/missing port DOES (internal aimock serves
+ * only on :4010, so a service on the right host but the wrong port is not
+ * actually routed through aimock).
+ *
+ * The "effective port" collapses default ports: an empty `URL.port` (implicit
+ * default) is replaced with the protocol's default (`:80` for http, `:443`
+ * for https), so `http://h` ≡ `http://h:80` on both sides of the comparison.
+ * The expected port is derived from the probe's configured `aimockUrl` — the
+ * matcher hardcodes no port (the live cron passes
+ * `http://showcase-aimock.railway.internal:4010`).
+ */
+function extractHostPort(
+  raw: string | undefined,
+): { host: string; port: string } | null {
   if (!raw) return null;
   try {
-    return new URL(raw).hostname.toLowerCase();
+    const u = new URL(raw);
+    const port = u.port !== "" ? u.port : defaultPortForProtocol(u.protocol);
+    return { host: u.hostname.toLowerCase(), port };
   } catch {
     return null;
   }
@@ -223,45 +255,71 @@ const CANDIDATE_ENV_VARS = [
 /**
  * Tri-state match against the aimock base URL.
  *   - `"match"`: env var definitely points at aimock.
- *   - `"mismatch"`: env var is set to something else, or is missing entirely.
- *   - `"sealed"`: at least one of the candidate env vars is the sealed
- *     sentinel and none of the others is a confirmed match — we can't decide,
- *     so the service goes to the `sealed` bucket rather than being flagged
- *     as drift.
+ *   - `"mismatch"`: at least one candidate is a CONFIRMED non-aimock value
+ *     (set, non-sentinel, non-empty, and does not match the aimock target),
+ *     OR every candidate is missing/unset (missing == not wired).
+ *   - `"sealed"`: the only signal is a sealed sentinel — no confirmed match
+ *     and no confirmed mismatch, so we can't decide and route the service to
+ *     the `sealed` bucket rather than flagging drift.
  *
- * Matching is **hostname-based**: a candidate value matches aimock if its
- * parsed hostname equals the aimock URL's hostname (case-insensitive). This
- * tolerates the `/v1` path suffix that `OPENAI_BASE_URL` carries by
- * convention — the path is irrelevant for determining whether traffic routes
- * through the aimock proxy. Query strings, fragments, and default ports are
- * also ignored since hostname extraction discards them.
+ * Matching is **host+port based**: a candidate value matches aimock if its
+ * parsed hostname AND effective port both equal the aimock URL's. Host compare
+ * is case-insensitive. This tolerates the `/v1` path suffix that
+ * `OPENAI_BASE_URL` carries by convention, plus query strings and fragments —
+ * those are irrelevant to whether traffic routes through the aimock proxy. But
+ * the port is NOT ignored: internal aimock serves only on :4010, so a service
+ * on the right host but a wrong/missing port is genuine drift. Default ports
+ * collapse (`http://h` ≡ `http://h:80`, `https://h` ≡ `https://h:443`); the
+ * expected port is derived from the configured `aimockUrl` (no port hardcoded).
  *
- * Ordering rationale: a confirmed match on ANY candidate env var wins, even
- * if another candidate is sealed. This mirrors the original "OR" semantics —
- * a service that exposes `ANTHROPIC_BASE_URL=aimock` and has a sealed
- * `OPENAI_BASE_URL` is unambiguously wired.
+ * Precedence: match > mismatch(confirmed) > sealed > mismatch(all-missing).
+ *   1. A confirmed match on ANY candidate wins over everything — a service
+ *      exposing `ANTHROPIC_BASE_URL=aimock` with a sealed `OPENAI_BASE_URL`
+ *      is unambiguously wired.
+ *   2. A CONFIRMED mismatch (a set, non-sentinel candidate pointing elsewhere)
+ *      beats a sealed sibling: provable drift (e.g. a var on real
+ *      api.openai.com) must NOT be masked as "can't decide". Bucketing that as
+ *      sealed would hide a service escaping aimock.
+ *   3. If the only signal is sealed (no confirmed match/mismatch) → sealed.
+ *   4. All-missing/unset → mismatch (nothing wires the service to aimock).
  */
 function pointsAtAimock(
   env: Record<string, string | undefined>,
   aimockUrl: string,
 ): "match" | "mismatch" | "sealed" {
-  const targetHost = extractHostname(aimockUrl);
+  const target = extractHostPort(aimockUrl);
   // Defense-in-depth: the probe's `run` has already validated `aimockUrl`
-  // with `new URL` and short-circuited on failure, so `targetHost` should
-  // never be null here. If it somehow is (e.g. a future caller invokes
+  // with `new URL` and short-circuited on failure, so `target` should never
+  // be null here. If it somehow is (e.g. a future caller invokes
   // `pointsAtAimock` directly), return "mismatch" rather than silently
   // matching — but this path is unreachable via the probe pipeline today.
-  if (targetHost === null) return "mismatch";
+  if (target === null) return "mismatch";
   let anySealed = false;
+  let anyConfirmedMismatch = false;
   for (const varName of CANDIDATE_ENV_VARS) {
     const raw = env[varName];
+    // Missing / empty contributes no signal — treated like the var being
+    // absent (which, if nothing else fires, lands in mismatch(all-missing)).
+    if (raw === undefined || raw === "") continue;
     if (raw === SEALED_SENTINEL) {
       anySealed = true;
       continue;
     }
-    if (extractHostname(raw) === targetHost) return "match";
+    const cand = extractHostPort(raw);
+    if (
+      cand !== null &&
+      cand.host === target.host &&
+      cand.port === target.port
+    ) {
+      return "match"; // (1) confirmed match wins over everything
+    }
+    // Set, non-sentinel, non-empty, and does not match → confirmed drift.
+    // (An unparseable value is also confirmed non-aimock.)
+    anyConfirmedMismatch = true;
   }
-  return anySealed ? "sealed" : "mismatch";
+  if (anyConfirmedMismatch) return "mismatch"; // (2) confirmed drift beats sealed
+  if (anySealed) return "sealed"; // (3) only signal is opaque
+  return "mismatch"; // (4) all-missing / unset
 }
 
 /**
