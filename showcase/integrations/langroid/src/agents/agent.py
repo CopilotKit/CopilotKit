@@ -24,6 +24,7 @@ aligned.
 # @region[weather-tool-backend]
 from __future__ import annotations
 
+import contextvars
 import functools
 import json
 import logging
@@ -231,6 +232,22 @@ _RENDER_A2UI_FUNCTION_SPEC = lm.LLMFunctionSpec(
     },
 )
 
+# The same spec expressed as a MODERN tool spec (``tools=[...]`` +
+# ``tool_choice=...``) rather than the legacy ``functions=[...]`` +
+# ``function_call=...`` API. This matters for the aimock replay path: the
+# fixture router discriminates the inner planner call from the outer agent
+# call via the ``toolName`` matcher, which inspects the request's
+# ``tools[]`` array — the legacy ``functions[]`` field is invisible to it,
+# so a legacy-API inner call would fall through to the outer
+# ``generate_a2ui`` fixture (yielding an empty surface). Emitting the tool
+# via ``tools[]`` puts ``render_a2ui`` where the matcher looks. langroid's
+# response extractor already reads the modern ``oai_tool_calls`` path first
+# (see ``_extract_tool_call_arguments``), so nothing downstream changes.
+_RENDER_A2UI_TOOL_SPEC = lm.base.OpenAIToolSpec(
+    type="function",
+    function=_RENDER_A2UI_FUNCTION_SPEC,
+)
+
 
 class _LLMResponseLike(Protocol):
     """Structural type for the subset of ``LLMResponse`` we read.
@@ -338,6 +355,32 @@ def _extract_tool_call_arguments(
     return None
 
 
+# The last user turn of the current run, stashed here by the AG-UI adapter
+# (``handle_run``) so the secondary A2UI planner LLM can thread it as the
+# inner ``render_a2ui`` call's user message. The sibling google-adk /
+# strands backends get this for free because their framework middleware
+# (``ag_ui_adk`` / ``ag_ui_strands``) forwards the run's conversation into
+# the inner call — so aimock matches the inner planner call on the pill
+# prompt (the generic render guidance rides as the system prompt). Langroid
+# has no such middleware, so we thread it explicitly. A ContextVar (not a
+# module global) so concurrent requests on the shared worker don't clobber
+# each other; ``asyncio.to_thread`` copies the context into the worker
+# thread, so the value set in the request coroutine is visible inside the
+# backend tool's ``.handle()``.
+_LAST_USER_MESSAGE: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "a2ui_last_user_message", default=""
+)
+
+
+def set_last_user_message(text: str) -> None:
+    """Record the current run's last user turn for the A2UI planner.
+
+    Called by the AG-UI adapter at the top of a run. Best-effort: an empty
+    or missing value simply falls back to the generic inner prompt below.
+    """
+    _LAST_USER_MESSAGE.set(text or "")
+
+
 def generate_a2ui_via_llm(*, context: str) -> _A2uiError | _A2uiSuccess:
     """Run the A2UI planner LLM and return either operations or a structured
     error.
@@ -351,11 +394,20 @@ def generate_a2ui_via_llm(*, context: str) -> _A2uiError | _A2uiSuccess:
     google-adk / strands implementations).
     """
     system_prompt = context or "Generate a useful dashboard UI."
+    # Thread the run's last user turn (the pill prompt) as the inner call's
+    # user message so aimock's dynamic-schema fixtures can discriminate the
+    # per-pill surface by ``userMessage`` — matching the sibling backends'
+    # framework-forwarded behavior. Fall back to the generic guidance string
+    # when no user turn is available (e.g. programmatic invocation / tests).
+    user_message = (
+        _LAST_USER_MESSAGE.get()
+        or "Generate a dynamic A2UI dashboard based on the conversation."
+    )
     messages = [
         lm.LLMMessage(role=lm.Role.SYSTEM, content=system_prompt),
         lm.LLMMessage(
             role=lm.Role.USER,
-            content="Generate a dynamic A2UI dashboard based on the conversation.",
+            content=user_message,
         ),
     ]
 
@@ -383,8 +435,8 @@ def generate_a2ui_via_llm(*, context: str) -> _A2uiError | _A2uiSuccess:
         llm = _get_a2ui_llm(_resolve_a2ui_model())
         response = llm.chat(
             messages=messages,
-            functions=[_RENDER_A2UI_FUNCTION_SPEC],
-            function_call={"name": "render_a2ui"},
+            tools=[_RENDER_A2UI_TOOL_SPEC],
+            tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
         )
     except (
         AttributeError,
@@ -772,7 +824,17 @@ class GenerateA2UITool(ToolMessage):
         "Generate dynamic A2UI components based on the conversation. "
         "A secondary LLM designs the UI schema and data."
     )
-    context: str
+    # Optional (default "") so a no-arg tool call — ``arguments: {}`` —
+    # validates. The two-stage A2UI pattern's outer tool takes no meaningful
+    # arguments: the surface design happens entirely inside the secondary
+    # planner LLM (see ``generate_a2ui_via_llm``), which is steered by the
+    # frontend App Context (sales-context.ts) serialized into its system
+    # prompt, not by an outer-supplied ``context`` string. Making this
+    # required forced the outer LLM (and aimock's outer fixture, which emits
+    # ``{}``) to supply a value or fail pydantic ValidationError before the
+    # tool could run — the root cause of the turn-1 surface-missing failure.
+    # Mirrors the sibling google-adk / strands outer tools, which are no-arg.
+    context: str = ""
 
     def handle(self) -> str:
         # Delegate to the provider-agnostic planner. `generate_a2ui_via_llm`
