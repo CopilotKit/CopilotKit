@@ -221,7 +221,10 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
     // Divider via `border-b last:border-b-0` so the final row doesn't dangle
     // a trailing line, regardless of whether the agent wraps these in a
     // Column or drops them directly into a Card's child slot.
-    <div className="flex items-baseline justify-between gap-4 py-2 border-b border-[var(--border)] last:border-b-0 last:pb-0 first:pt-0">
+    <div
+      data-testid="declarative-info-row"
+      className="flex items-baseline justify-between gap-4 py-2 border-b border-[var(--border)] last:border-b-0 last:pb-0 first:pt-0"
+    >
       <span className="text-sm text-[var(--muted-foreground)]">
         {props.label}
       </span>
