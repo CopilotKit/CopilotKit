@@ -327,11 +327,11 @@ describe("aimock-wiring probe", () => {
   it("matches the PRIVATE Railway networking host (egress fix): internal aimockUrl vs :4010/v1 base URLs go green", async () => {
     // Egress fix: demo backends route LLM traffic at aimock over free private
     // networking (http://showcase-aimock.railway.internal:4010) instead of the
-    // billed public *.up.railway.app host. The probe matches on HOSTNAME only,
-    // so the harness AIMOCK_URL (bare internal origin) and the demo backends'
-    // OPENAI_BASE_URL (internal host + :4010 port + /v1 suffix) resolve to the
-    // same hostname `showcase-aimock.railway.internal` and the probe stays
-    // green. Locks in that the private-host migration keeps wiring green.
+    // billed public *.up.railway.app host. The probe matches on host+port, so
+    // the harness AIMOCK_URL (internal host + :4010 port) and the demo backends'
+    // OPENAI_BASE_URL (same internal host + :4010 port + /v1 suffix) resolve to
+    // the same host+port `showcase-aimock.railway.internal:4010` and the probe
+    // stays green. Locks in that the private-host migration keeps wiring green.
     const INTERNAL_AIMOCK = "http://showcase-aimock.railway.internal:4010";
     const r = await aimockWiringProbe.run(
       {
@@ -547,7 +547,7 @@ describe("aimock-wiring probe", () => {
 
   it("HF13-C1: malformed aimockUrl emits probeErrored + config-error entry in errored (no per-service iteration)", async () => {
     // Regression: when AIMOCK_BASE_URL is unparseable, the probe used to fall
-    // through `normalizeUrl -> null` and mark every service as mismatch,
+    // through `extractHostPort -> null` and mark every service as mismatch,
     // firing a spurious "all services drifted" alert. The correct behavior is
     // to short-circuit with a config-error sentinel in `errored` so
     // `deriveSignalFlags` emits `set_errored` and the aimock-wiring-drift rule
@@ -589,11 +589,9 @@ describe("aimock-wiring probe", () => {
     expect(r.signal.wired).toEqual([]);
     expect(r.signal.sealed).toEqual([]);
     expect(getServiceEnvCalls).toBe(0);
-    // listServices is allowed to run (needed for excluded filtering would add
-    // noise); assert it didn't iterate services either by checking env wasn't
-    // fetched. We don't constrain listServices itself because the contract is
-    // "no per-service env lookups", not "skip listServices".
-    expect(listServicesCalls).toBeLessThanOrEqual(1);
+    // The config-error short-circuit returns BEFORE `listServices` is called,
+    // so neither the service listing nor any per-service env lookup runs.
+    expect(listServicesCalls).toBe(0);
   });
 
   it("HF13-C1: well-formed probe runs carry probeErrored=false + configError=false", async () => {
@@ -633,7 +631,7 @@ describe("aimock-wiring probe", () => {
   it("wired when OPENAI_BASE_URL has /v1 path suffix and aimockUrl does not", async () => {
     // Most services set OPENAI_BASE_URL=<aimock>/v1 (OpenAI SDK convention)
     // while AIMOCK_URL is just the bare origin. The probe must match by
-    // hostname so the /v1 path difference does not cause a false mismatch.
+    // host+port so the /v1 path difference does not cause a false mismatch.
     const r = await aimockWiringProbe.run(
       {
         aimockUrl: AIMOCK_URL,
@@ -933,6 +931,128 @@ describe("aimock-wiring probe", () => {
     expect(r.state).toBe("green");
     expect(r.signal.sealed).toEqual(["svc-only-sealed"]);
     expect(r.signal.unwired).toEqual([]);
+    expect(r.signal.wired).toEqual([]);
+  });
+
+  it("precedence rule 1: a confirmed MATCH beats a confirmed MISMATCH on a sibling candidate → wired (green)", async () => {
+    // A service with OPENAI_BASE_URL pointing at the real API (confirmed
+    // mismatch) but ANTHROPIC_BASE_URL pointing at aimock (confirmed match)
+    // is unambiguously wired: any confirmed match wins over everything else,
+    // including a confirmed-mismatch sibling. Locks precedence rule (1).
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => [{ name: "svc-mixed-match" }],
+        getServiceEnv: async () => ({
+          OPENAI_BASE_URL: "https://api.openai.com/v1", // confirmed non-aimock
+          ANTHROPIC_BASE_URL: AIMOCK_URL, // confirmed aimock match
+        }),
+      },
+      ctx,
+    );
+    expect(r.state).toBe("green");
+    expect(r.signal.wired).toEqual(["svc-mixed-match"]);
+    expect(r.signal.unwired).toEqual([]);
+    expect(r.signal.sealed).toEqual([]);
+  });
+
+  it("unparseable candidate value (no matching sibling) → confirmed mismatch → unwired (red)", async () => {
+    // A candidate that is SET but does not parse as a URL ("not a url") is
+    // confirmed non-aimock, not "no signal": with no matching sibling the
+    // service is unwired and trips red. Locks the `cand === null` branch that
+    // still falls through to `anyConfirmedMismatch = true`.
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => [{ name: "svc-garbage-url" }],
+        getServiceEnv: async () => ({
+          OPENAI_BASE_URL: "not a url",
+        }),
+      },
+      ctx,
+    );
+    expect(r.state).toBe("red");
+    expect(r.signal.unwired).toEqual(["svc-garbage-url"]);
+    expect(r.signal.wired).toEqual([]);
+    expect(r.signal.sealed).toEqual([]);
+  });
+
+  it("empty-string candidate is treated as MISSING (no signal), not a confirmed mismatch", async () => {
+    // "" contributes no signal, exactly like an absent var. So:
+    //   - empty OPENAI + matching ANTHROPIC → the match still wins → wired.
+    const wired = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => [{ name: "svc-empty-plus-match" }],
+        getServiceEnv: async () => ({
+          OPENAI_BASE_URL: "",
+          ANTHROPIC_BASE_URL: AIMOCK_URL,
+        }),
+      },
+      ctx,
+    );
+    expect(wired.state).toBe("green");
+    expect(wired.signal.wired).toEqual(["svc-empty-plus-match"]);
+
+    //   - empty everywhere → all-missing → unwired (red), NOT a mismatch that
+    //     would still be red for the wrong reason.
+    const unwired = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => [{ name: "svc-all-empty" }],
+        getServiceEnv: async () => ({
+          OPENAI_BASE_URL: "",
+          ANTHROPIC_BASE_URL: "",
+          GOOGLE_GEMINI_BASE_URL: "",
+        }),
+      },
+      ctx,
+    );
+    expect(unwired.state).toBe("red");
+    expect(unwired.signal.unwired).toEqual(["svc-all-empty"]);
+
+    //   - empty OPENAI + sealed ANTHROPIC → the only real signal is sealed, so
+    //     the service lands in `sealed` (green). If "" were mistakenly treated
+    //     as a confirmed mismatch, rule (2) would demote this to unwired/red —
+    //     this assertion is what discriminates "empty == missing" from
+    //     "empty == confirmed mismatch".
+    const sealed = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => [{ name: "svc-empty-plus-sealed" }],
+        getServiceEnv: async () => ({
+          OPENAI_BASE_URL: "",
+          ANTHROPIC_BASE_URL: SEALED_SENTINEL,
+        }),
+      },
+      ctx,
+    );
+    expect(sealed.state).toBe("green");
+    expect(sealed.signal.sealed).toEqual(["svc-empty-plus-sealed"]);
+    expect(sealed.signal.unwired).toEqual([]);
+  });
+
+  it("sealed and unwired coexist in one run: sealed is surfaced, unwired trips red", async () => {
+    // A run with one genuinely-sealed service and one genuinely-unwired service
+    // must populate BOTH buckets independently: the sealed service does NOT get
+    // swept into `unwired` (which would over-report drift), and the unwired
+    // service still trips the probe red.
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => [
+          { name: "svc-sealed" },
+          { name: "svc-unwired" },
+        ],
+        getServiceEnv: async (name) =>
+          name === "svc-sealed" ? { OPENAI_BASE_URL: SEALED_SENTINEL } : {},
+      },
+      ctx,
+    );
+    expect(r.state).toBe("red");
+    expect(r.signal.sealed).toEqual(["svc-sealed"]);
+    expect(r.signal.unwired).toEqual(["svc-unwired"]);
+    expect(r.signal.hasSealed).toBe(true);
     expect(r.signal.wired).toEqual([]);
   });
 });

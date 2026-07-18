@@ -86,7 +86,7 @@ const EXCLUDE_SERVICES: ReadonlySet<string> = new Set([
 ]);
 
 export interface AimockWiringInput {
-  /** Base URL of the aimock service (must match per-service BASE_URL exactly). */
+  /** Base URL of the aimock service (matched against each per-service BASE_URL by host+port). */
   aimockUrl: string;
   /** Callback returning the list of services in the Railway project. */
   listServices: () => Promise<{ name: string }[]>;
@@ -153,7 +153,7 @@ export interface AimockWiringSignal {
    * a single config-error sentinel populates `errored` / `erroredPreview`
    * so `deriveSignalFlags` emits `set_errored` and the aimock-wiring-drift
    * rule renders the errored branch (NOT the drift branch). Without this,
-   * `normalizeUrl(aimockUrl)` returned null and every service tripped
+   * `extractHostPort(aimockUrl)` returned null and every service tripped
    * `mismatch`, firing a spurious "all services drifted" page.
    */
   probeErrored: boolean;
@@ -238,7 +238,7 @@ function extractHostPort(
 
 /**
  * Candidate env var names that may point a service at aimock. A service is
- * "wired" if ANY of these resolves to the aimock hostname.
+ * "wired" if ANY of these resolves to the aimock host+port.
  *
  *   - `OPENAI_BASE_URL`: used by the vast majority of services (OpenAI SDK
  *     convention, typically set to `<aimock>/v1`).
@@ -346,15 +346,15 @@ export const aimockWiringProbe: Probe<AimockWiringInput, AimockWiringSignal> = {
     ctx: ProbeContext,
   ): Promise<ProbeResult<AimockWiringSignal>> {
     // HF13-C1: parse the config URL ONCE at probe start. If it fails,
-    // `extractHostname` returns null → `pointsAtAimock` returns "mismatch"
+    // `extractHostPort` returns null → `pointsAtAimock` returns "mismatch"
     // → every service lands in `unwired` → probe goes red with "all
     // services drifted". That paged operators when the actual failure was
     // a config typo in AIMOCK_BASE_URL. Short-circuit here with a
     // dedicated probeErrored signal and skip per-service iteration so
     // Slack renders the errored branch, not the drift branch.
     //
-    // We validate with `new URL` rather than relying on `extractHostname`
-    // alone because a null return from hostname extraction is also a
+    // We validate with `new URL` rather than relying on `extractHostPort`
+    // alone because a null return from host+port extraction is also a
     // legitimate value for per-service env vars (a service without the
     // var set). Parse+throw gives us a clean boot-time guard.
     let aimockUrlValid = true;
