@@ -1,6 +1,6 @@
 import React from "react";
 import { render } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
 
 // ─── Mock react-native ───────────────────────────────────────────────────────
 // jsdom doesn't have react-native, so we provide lightweight stand-ins.
@@ -105,13 +105,20 @@ vi.mock("react-native", () => {
 });
 
 // ─── Mock the Markdown component (B1 owns it, may not exist yet) ─────────────
+const markdownProps = vi.hoisted(() => ({ current: null as any }));
+
 vi.mock("../../Markdown", () => ({
-  CopilotMarkdown: ({ content }: { content: string }) => {
+  CopilotMarkdown: (props: {
+    content: string;
+    style?: Record<string, Record<string, unknown>>;
+    streamingAnimation?: boolean;
+  }) => {
     const React = require("react");
+    markdownProps.current = props;
     return React.createElement(
       "div",
       { "data-testid": "copilot-markdown" },
-      content,
+      props.content,
     );
   },
 }));
@@ -159,9 +166,40 @@ describe("AssistantMessage", () => {
 });
 
 describe("UserMessage", () => {
-  it("renders plain text content", () => {
-    const { container } = render(<UserMessage content="Hello from the user" />);
-    expect(container.textContent).toContain("Hello from the user");
+  beforeEach(() => {
+    markdownProps.current = null;
+  });
+
+  it("renders content via CopilotMarkdown", () => {
+    const { getByTestId } = render(
+      <UserMessage content="Hello **from the user**" />,
+    );
+
+    expect(getByTestId("copilot-markdown").textContent).toBe(
+      "Hello **from the user**",
+    );
+    expect(markdownProps.current).toMatchObject({
+      content: "Hello **from the user**",
+      streamingAnimation: false,
+      style: {
+        paragraph: {
+          color: "#FFFFFF",
+          fontSize: 16,
+          lineHeight: 22,
+          marginTop: 0,
+          marginBottom: 0,
+        },
+        h1: { color: "#FFFFFF" },
+        h2: { color: "#FFFFFF" },
+        h3: { color: "#FFFFFF" },
+        link: { color: "#FFFFFF", underline: true },
+        list: {
+          color: "#FFFFFF",
+          marginTop: 4,
+          marginBottom: 4,
+        },
+      },
+    });
   });
 
   it("displays a timestamp when provided", () => {
