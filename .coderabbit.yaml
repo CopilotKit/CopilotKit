@@ -9,16 +9,16 @@ tone_instructions: >-
   over several minor ones.
 
 reviews:
-  profile: chill            # fewer, higher-signal comments (we run high PR volume)
+  profile: chill # fewer, higher-signal comments (we run high PR volume)
   request_changes_workflow: false
   high_level_summary: true
   review_status: true
-  poem: false               # cut noise
+  poem: false # cut noise
   sequence_diagrams: false
 
   auto_review:
     enabled: true
-    drafts: false           # skip WIP drafts
+    drafts: false # skip WIP drafts
     base_branches:
       - main
     # Skip machine-generated PRs so review budget goes to real contributor work.
@@ -39,8 +39,8 @@ reviews:
     - "!**/__snapshots__/**"
     - "!**/fixtures/**"
     - "!**/*.generated.*"
-    - "!showcase/**/aimock/**"          # robot fixtures/wiring
-    - "!examples/**/openclaw/**"        # vendored third-party gateway
+    - "!showcase/**/aimock/**" # robot fixtures/wiring
+    - "!examples/**/openclaw/**" # vendored third-party gateway
 
   # Repo-specific review guidance — the high-value part.
   path_instructions:
@@ -73,15 +73,15 @@ reviews:
 
   tools:
     gitleaks:
-      enabled: true         # secret scanning
+      enabled: true # secret scanning
     semgrep:
       enabled: true
     actionlint:
-      enabled: true         # CI workflow safety (complements zizmor)
+      enabled: true # CI workflow safety (complements zizmor)
 
 knowledge_base:
   learnings:
-    scope: auto             # learn from accepted/dismissed review feedback over time
+    scope: auto # learn from accepted/dismissed review feedback over time
 
 chat:
   auto_reply: true
