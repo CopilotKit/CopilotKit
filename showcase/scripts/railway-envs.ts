@@ -302,8 +302,9 @@ export interface EnvironmentConfig {
 /**
  * Railway auto-updates policy for a service in ONE env — the tracked SSOT form
  * of the Railway `source.autoUpdates` setting. This is PER-ENV (see
- * {@link AutoUpdatesByEnv}) to support a staging-first rollout: staging can be
- * managed-"disabled" while prod stays "unmanaged" until a later migration.
+ * {@link AutoUpdatesByEnv}) to support a staging-first rollout. Both staging
+ * and prod are now managed-"disabled" (prod was migrated off "unmanaged" once
+ * its live autoUpdates were flipped to disabled).
  *
  * - "minor"     — Railway's ENABLED form (`source.autoUpdates.type = "minor"`):
  *                 Railway watches the GHCR registry and AUTO-redeploys the
@@ -332,9 +333,9 @@ export type AutoUpdatesPolicy = "disabled" | "minor" | "unmanaged";
 /**
  * Per-env auto-updates policy, keyed by the SAME env names as
  * `ServiceEntry.environments` ("prod" / "staging" / …). Every env a service
- * declares carries its own {@link AutoUpdatesPolicy}. Today staging is
- * managed-"disabled" (drift-gate enforced) and prod is "unmanaged" (skipped)
- * for the staging-first rollout.
+ * declares carries its own {@link AutoUpdatesPolicy}. Today both staging and
+ * prod are managed-"disabled" (drift-gate enforced); prod was migrated off
+ * "unmanaged" once its live autoUpdates were flipped to disabled.
  */
 export type AutoUpdatesByEnv = Record<EnvName, AutoUpdatesPolicy>;
 
@@ -343,10 +344,10 @@ export interface ServiceEntry {
   serviceId: string;
   /**
    * Railway auto-updates policy, PER-ENV. REQUIRED. Today every showcase
-   * service is `{ staging: "disabled", prod: "unmanaged" }` for the
-   * staging-first rollout: staging is drift-gate-enforced to "disabled" (the
-   * CI-explicit redeploy is the single deploy path), while prod is "unmanaged"
-   * (the gate skips it) until a later migration. See {@link AutoUpdatesByEnv}.
+   * service is `{ staging: "disabled", prod: "disabled" }`: both envs are
+   * drift-gate-enforced to "disabled" so the CI-explicit redeploy is the single
+   * deploy path. Prod was migrated off "unmanaged" once its live autoUpdates
+   * were flipped to disabled. See {@link AutoUpdatesByEnv}.
    */
   autoUpdates: AutoUpdatesByEnv;
   /**
@@ -561,7 +562,7 @@ export const SERVICES: Record<
 > = {
   aimock: {
     serviceId: "0fa0435d-8a66-46f0-84fd-e4250b580013",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "showcase-aimock",
@@ -604,7 +605,7 @@ export const SERVICES: Record<
   },
   dashboard: {
     serviceId: "4d5dfd74-be61-40b2-8564-b53b7dd4c15b",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "shell-dashboard",
@@ -634,7 +635,7 @@ export const SERVICES: Record<
   },
   docs: {
     serviceId: "7badfb8d-4228-414c-9145-b4026803714f",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "shell-docs",
@@ -663,7 +664,7 @@ export const SERVICES: Record<
   },
   dojo: {
     serviceId: "7ad1ece7-2228-49cd-8a78-bddf30322907",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "shell-dojo",
@@ -686,7 +687,7 @@ export const SERVICES: Record<
   },
   harness: {
     serviceId: "3a14bfed-0537-4d71-897b-7c593dca161d",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "showcase-harness",
@@ -720,7 +721,7 @@ export const SERVICES: Record<
   // not `showcase-harness-worker`.
   "harness-workers": {
     serviceId: "c2aa8a0b-350e-4b76-8541-3012dfac41d0",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     // Pool-fleet worker. Workers run in BOTH staging and prod: the prod worker
     // is live on Railway (deployed 2026-06-19, HARNESS_ROLE=worker, pool
     // count 2) and is now BACKFILLED as a `prod` env entry below (real
@@ -842,7 +843,7 @@ export const SERVICES: Record<
   },
   pocketbase: {
     serviceId: "ba11e854-d695-4738-9a45-2b0776788824",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     // pocketbase is a first-party ghcr.io/copilotkit/ image whose GHCR
     // repo name is `showcase-pocketbase` (NOT `pocketbase`). It is now
     // built+pushed by showcase_build.yml (the `pocketbase` matrix slot,
@@ -875,7 +876,7 @@ export const SERVICES: Record<
   },
   shell: {
     serviceId: "40eea0da-6071-4ea8-bdb9-39afb19225ec",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "shell",
@@ -900,7 +901,7 @@ export const SERVICES: Record<
   },
   "showcase-ag2": {
     serviceId: "4a37481b-f264-4eb7-a9cd-0a9ebb9ac05c",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "ag2",
@@ -928,7 +929,7 @@ export const SERVICES: Record<
   },
   "showcase-agno": {
     serviceId: "32cab80b-e329-45bd-9c73-c4e1ddc94305",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "agno",
@@ -956,7 +957,7 @@ export const SERVICES: Record<
   },
   "showcase-built-in-agent": {
     serviceId: "f4f8371a-bc46-45b2-b6d4-9c9af608bdbf",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "built-in-agent",
@@ -984,7 +985,7 @@ export const SERVICES: Record<
   },
   "showcase-claude-sdk-python": {
     serviceId: "b122ab65-9854-4cb2-a68e-b50ff13f7481",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "claude-sdk-python",
@@ -1022,7 +1023,7 @@ export const SERVICES: Record<
   },
   "showcase-claude-sdk-typescript": {
     serviceId: "18a98727-5700-44aa-b497-b60795dbbd6a",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "claude-sdk-typescript",
@@ -1050,7 +1051,7 @@ export const SERVICES: Record<
   },
   "showcase-crewai-crews": {
     serviceId: "0e9c284d-8d87-4fcf-9f82-6b704d7e4bd4",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "crewai-crews",
@@ -1078,7 +1079,7 @@ export const SERVICES: Record<
   },
   "showcase-google-adk": {
     serviceId: "87f60507-5a3d-4b8a-9e23-2b1de85d939c",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "google-adk",
@@ -1106,7 +1107,7 @@ export const SERVICES: Record<
   },
   "showcase-langgraph-fastapi": {
     serviceId: "06cccb5c-59f4-46b5-8adc-7113e77011a4",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "langgraph-fastapi",
@@ -1134,7 +1135,7 @@ export const SERVICES: Record<
   },
   "showcase-langgraph-python": {
     serviceId: "90d03214-4569-41b0-b4c1-6438a8a7b203",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "langgraph-python",
@@ -1162,7 +1163,7 @@ export const SERVICES: Record<
   },
   "showcase-langgraph-typescript": {
     serviceId: "66246d3b-a18e-46f0-be51-5f3ff7a36e5a",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "langgraph-typescript",
@@ -1190,7 +1191,7 @@ export const SERVICES: Record<
   },
   "showcase-langroid": {
     serviceId: "6dd9cb0a-66cc-46f1-972e-7cd74756157d",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "langroid",
@@ -1218,7 +1219,7 @@ export const SERVICES: Record<
   },
   "showcase-llamaindex": {
     serviceId: "285386e8-492d-4cb8-b632-0a7d4607378f",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "llamaindex",
@@ -1246,7 +1247,7 @@ export const SERVICES: Record<
   },
   "showcase-mastra": {
     serviceId: "d7979eb7-2405-4aab-ad21-438f4a1b08af",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "mastra",
@@ -1274,7 +1275,7 @@ export const SERVICES: Record<
   },
   "showcase-ms-agent-dotnet": {
     serviceId: "beeb2dd6-87a4-4599-aa07-0578f7bd6519",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "ms-agent-dotnet",
@@ -1302,7 +1303,7 @@ export const SERVICES: Record<
   },
   "showcase-ms-agent-harness-dotnet": {
     serviceId: "6343d7f9-6c3f-4c8d-9a6e-79f03d2f1e37",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "ms-agent-harness-dotnet",
@@ -1330,7 +1331,7 @@ export const SERVICES: Record<
   },
   "showcase-ms-agent-python": {
     serviceId: "655db75a-af8d-427d-a4f9-441570ae5003",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "ms-agent-python",
@@ -1358,7 +1359,7 @@ export const SERVICES: Record<
   },
   "showcase-pydantic-ai": {
     serviceId: "0a106173-2282-4887-a994-0ca276a99d69",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "pydantic-ai",
@@ -1386,7 +1387,7 @@ export const SERVICES: Record<
   },
   "showcase-spring-ai": {
     serviceId: "eed5d041-91be-4282-b414-beea00843401",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "spring-ai",
@@ -1414,7 +1415,7 @@ export const SERVICES: Record<
   },
   "showcase-strands": {
     serviceId: "92e1cfad-ad53-403f-ab2b-5ab380832232",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "strands",
@@ -1448,7 +1449,7 @@ export const SERVICES: Record<
   // legacyJsonCompat prod-domain placeholder removed.
   "showcase-strands-typescript": {
     serviceId: "d6f47c8c-a0a1-4dbe-991c-50f8463fd68d",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "strands-typescript",
@@ -1523,7 +1524,7 @@ export const SERVICES: Record<
   // prod→prod by the Stage-2 Ruby preflight (never copied).
   "starter-adk": {
     serviceId: "37691009-c0b2-4af7-8960-9f0b3f0a6be3",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "starter-adk",
@@ -1548,7 +1549,7 @@ export const SERVICES: Record<
   },
   "starter-agno": {
     serviceId: "5ab3c37e-18a5-44e5-8329-26243dd98da8",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "starter-agno",
@@ -1573,7 +1574,7 @@ export const SERVICES: Record<
   },
   "starter-crewai-crews": {
     serviceId: "2a9a4230-e6cd-4c1d-92a5-36e5c624371a",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "starter-crewai-crews",
@@ -1598,7 +1599,7 @@ export const SERVICES: Record<
   },
   "starter-langgraph-fastapi": {
     serviceId: "6ae57213-52ea-4fea-b4a0-7bc304cbc80e",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "starter-langgraph-fastapi",
@@ -1623,7 +1624,7 @@ export const SERVICES: Record<
   },
   "starter-langgraph-js": {
     serviceId: "d044c3e5-bb27-4d5e-a2bf-e3b382981372",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "starter-langgraph-js",
@@ -1648,7 +1649,7 @@ export const SERVICES: Record<
   },
   "starter-langgraph-python": {
     serviceId: "10dca514-7c8f-4a32-9708-9f29a944da36",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "starter-langgraph-python",
@@ -1673,7 +1674,7 @@ export const SERVICES: Record<
   },
   "starter-llamaindex": {
     serviceId: "3255b27f-ea84-44b7-b587-b1687b409363",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "starter-llamaindex",
@@ -1698,7 +1699,7 @@ export const SERVICES: Record<
   },
   "starter-mastra": {
     serviceId: "6548403e-3fee-4443-9d59-d8b041a3d43a",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "starter-mastra",
@@ -1723,7 +1724,7 @@ export const SERVICES: Record<
   },
   "starter-ms-agent-framework-dotnet": {
     serviceId: "1b4c5296-97f6-463d-90af-6e04d7919957",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "starter-ms-agent-framework-dotnet",
@@ -1748,7 +1749,7 @@ export const SERVICES: Record<
   },
   "starter-ms-agent-framework-python": {
     serviceId: "225d0a06-d1cd-4b82-ae9c-2d1e8ecbaf86",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "starter-ms-agent-framework-python",
@@ -1773,7 +1774,7 @@ export const SERVICES: Record<
   },
   "starter-pydantic-ai": {
     serviceId: "c01d0d24-af88-4631-8a9a-23cffef2b36a",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "starter-pydantic-ai",
@@ -1798,7 +1799,7 @@ export const SERVICES: Record<
   },
   "starter-strands-python": {
     serviceId: "321735ab-c14d-4e45-a1c2-e47f2b29d774",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "starter-strands-python",
@@ -1823,7 +1824,7 @@ export const SERVICES: Record<
   },
   webhooks: {
     serviceId: "ba6acc13-7585-41fe-a5ee-585b34a58fcd",
-    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: false,
     gateValidated: true,
     dispatchName: "webhooks",
