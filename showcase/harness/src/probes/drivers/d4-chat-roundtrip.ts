@@ -2100,7 +2100,7 @@ async function runLevel(opts: {
           // already in the DOM. Gating on `sseDone` let the fast-fail grace
           // window elapse with the DOM still empty under contention, redding a
           // turn that was about to render correctly ("empty assistant
-          // response"). `observed` still includes `sseDone` (below) so a turn
+          // response"). `observed` still includes `sseDone` (above) so a turn
           // whose attribute never appears still gets the wider polling window.
           complete: domDone,
         };
