@@ -646,7 +646,7 @@ export const frozenAvailableSkillV1Schema = z.looseObject({
   versionId: uuidSchema,
   alias: nonEmptyStringSchema,
   name: nonEmptyStringSchema,
-  description: z.string(),
+  description: z.string().nullable(),
   bundle: skillBundleV1Schema,
   registryState: nonEmptyStringSchema,
 });

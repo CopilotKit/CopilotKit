@@ -392,7 +392,7 @@ const canonicalValidValues: Record<
     versionId: UUID.version,
     alias: "idempotent-retries",
     name: "Idempotent retries",
-    description: "Avoid duplicate actions.",
+    description: null,
     bundle: skillBundle,
     registryState: "published",
   },

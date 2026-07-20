@@ -375,7 +375,7 @@
           },
           "schemaVersion": 1
         },
-        "description": "Avoid duplicate actions.",
+        "description": null,
         "name": "Idempotent retries",
         "registryState": "published",
         "skillId": "99999999-9999-4999-8999-999999999999",
@@ -4663,7 +4663,14 @@
           "type": "object"
         },
         "description": {
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "name": {
           "minLength": 1,
@@ -7466,7 +7473,14 @@
                 "type": "object"
               },
               "description": {
-                "type": "string"
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "name": {
                 "minLength": 1,

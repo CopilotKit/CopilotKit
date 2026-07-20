@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
   blobLocatorV1Schema,
   candidateGateResultV1Schema,
+  frozenAvailableSkillV1Schema,
   insightV1Schema,
   learningChunkV1Schema,
   learningContainerIdSchema,
@@ -516,6 +517,76 @@ describe("parent V1 contract schemas", () => {
     ).toBe(false);
   });
 
+  test("preserves a null projection description when freezing an available skill", () => {
+    const bundleLocator = {
+      schemaVersion: 1,
+      backendId: "primary",
+      provider: "awsS3",
+      resource: "skill-bundles",
+      key: "objects/aa/bundle.zip",
+      providerVersion: null,
+      etag: null,
+      applicationSha256: SHA_A,
+      providerChecksum: null,
+      byteLength: 12,
+      contentType: "application/zip",
+    } as const;
+    const projectionEntry = {
+      skillId: UUIDS.skill,
+      versionId: UUIDS.version,
+      position: 0,
+      name: "Idempotent retries",
+      description: null,
+      bundleLocator,
+      bundleSha256: SHA_B,
+      manifestSha256: SHA_A,
+      bundleByteLength: 12,
+      approvalMethod: "manual",
+    } as const;
+    const parsedProjectionEntry = skillSetProjectionV1Schema.parse({
+      schemaVersion: 1,
+      learningContainerId: UUIDS.container,
+      registryRevision: "revision_1",
+      skillSetHash: SHA_A,
+      etag: '"registry-1"',
+      entries: [projectionEntry],
+      publishedAt: NOW,
+      revoked: false,
+    }).entries[0]!;
+
+    const frozen = frozenAvailableSkillV1Schema.parse({
+      skillId: parsedProjectionEntry.skillId,
+      versionId: parsedProjectionEntry.versionId,
+      alias: "idempotent-retries",
+      name: parsedProjectionEntry.name,
+      description: parsedProjectionEntry.description,
+      bundle: {
+        schemaVersion: 1,
+        manifest: {
+          manifestVersion: 1,
+          agentSkillsProfile: "agentskills:v1",
+          files: [
+            {
+              path: "SKILL.md",
+              role: "instructions",
+              mediaType: "text/markdown",
+              byteLength: 12,
+              rawSha256: SHA_A,
+            },
+          ],
+          manifestSha256: SHA_A,
+          bundleSha256: SHA_B,
+          bundleByteLength: 12,
+          provenance: {},
+        },
+        locator: parsedProjectionEntry.bundleLocator,
+      },
+      registryState: "published",
+    });
+
+    expect(frozen.description).toBeNull();
+  });
+
   test("supports only the four normative object-storage providers", () => {
     const locator = {
       schemaVersion: 1,
@@ -551,6 +622,25 @@ describe("parent V1 contract schemas", () => {
     );
     expect(learningContractJsonSchemas.LearningContainerV1).toMatchObject({
       type: "object",
+    });
+  });
+
+  test("publishes frozen available skill descriptions as string or null", () => {
+    expect(learningContractJsonSchemas.LearningWorkflowInputV1).toMatchObject({
+      properties: {
+        availableSkills: {
+          items: {
+            properties: {
+              description: {
+                anyOf: expect.arrayContaining([
+                  { type: "string" },
+                  { type: "null" },
+                ]),
+              },
+            },
+          },
+        },
+      },
     });
   });
 });

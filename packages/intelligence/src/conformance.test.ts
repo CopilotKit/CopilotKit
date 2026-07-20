@@ -110,6 +110,20 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
     }
   });
 
+  test("publishes null as the canonical frozen available skill description", () => {
+    const corpus = buildLearningPlatformConformanceCorpus();
+    const frozenSkillCase = corpus.cases.find(
+      ({ name }) => name === "schema-FrozenAvailableSkillV1-valid",
+    );
+
+    expect(frozenSkillCase?.value).toMatchObject({ description: null });
+    expect(
+      learningPlatformConformanceSchemas.FrozenAvailableSkillV1.safeParse(
+        frozenSkillCase?.value,
+      ).success,
+    ).toBe(true);
+  });
+
   test("covers cross-language assignment, identity, removal, command, and error semantics", () => {
     const names = buildLearningPlatformConformanceCorpus().cases.map(
       ({ name }) => name,
