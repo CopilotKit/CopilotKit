@@ -1367,3 +1367,51 @@ describe("assertClosureValid", () => {
     );
   });
 });
+
+describe("autoUpdates deploy-consolidation policy (per-env, staging-first)", () => {
+  // Railway `source.autoUpdates.type = "minor"` is the ENABLED form (Railway
+  // watches the GHCR registry and auto-redeploys on a new push); the SSOT
+  // target is "disabled" so the ONLY deploy path is the CI-explicit redeploy.
+  // autoUpdates is now PER-ENV to support a staging-first rollout: STAGING is
+  // enforced "disabled" (its live config is being flipped to disabled), while
+  // PROD is "unmanaged" — NOT yet under drift-gate management (its live
+  // autoUpdates are heterogeneous and must be left untouched until a later
+  // migration). The sibling drift gate ENFORCES the concrete-"disabled" envs
+  // and SKIPS the "unmanaged" ones.
+  it("every service declares staging 'disabled' and prod 'unmanaged'", () => {
+    for (const [name, entry] of Object.entries(SERVICES)) {
+      const au = (entry as { autoUpdates?: Record<string, string> })
+        .autoUpdates;
+      expect(
+        au?.staging,
+        `${name}.autoUpdates.staging must be "disabled" (staging is under drift-gate management; CI-explicit redeploy only)`,
+      ).toBe("disabled");
+      expect(
+        au?.prod,
+        `${name}.autoUpdates.prod must be "unmanaged" (prod not yet migrated; drift gate skips it)`,
+      ).toBe("unmanaged");
+    }
+  });
+
+  it("the generated JSON carries per-env autoUpdates (staging disabled, prod unmanaged)", () => {
+    const generated = JSON.parse(
+      readFileSync(resolve(__dirname, "./railway-envs.generated.json"), "utf8"),
+    ) as {
+      services: Array<{
+        name: string;
+        autoUpdates?: { staging?: string; prod?: string };
+      }>;
+    };
+    expect(generated.services.length).toBeGreaterThan(0);
+    for (const svc of generated.services) {
+      expect(
+        svc.autoUpdates?.staging,
+        `generated ${svc.name}.autoUpdates.staging must be "disabled"`,
+      ).toBe("disabled");
+      expect(
+        svc.autoUpdates?.prod,
+        `generated ${svc.name}.autoUpdates.prod must be "unmanaged"`,
+      ).toBe("unmanaged");
+    }
+  });
+});
