@@ -49,7 +49,11 @@ import {
   STAGING_ENV_ID,
   computePromoteClosure,
 } from "./railway-envs";
-import type { ClosurePlan, WorkerProvisioning } from "./railway-envs";
+import type {
+  AutoUpdatesPolicy,
+  ClosurePlan,
+  WorkerProvisioning,
+} from "./railway-envs";
 
 const DEFAULT_OUTPUT_PATH = resolve(
   new URL(".", import.meta.url).pathname,
@@ -113,6 +117,10 @@ interface Emitted {
       prod: WorkerProvisioning;
       staging: WorkerProvisioning;
     };
+    // Railway auto-updates policy (ADDITIVE, env-independent). ALWAYS emitted
+    // ("disabled" fleet-wide) so a sibling drift gate can positively assert the
+    // CI-explicit-only deploy path against live Railway config in both envs.
+    autoUpdates: AutoUpdatesPolicy;
   }>;
   // --- Top-level promote-closure plan (ADDITIVE, U2). The tier-ordered
   // closure for the FULL fleet (`all`), computed via `computePromoteClosure`.
@@ -252,6 +260,10 @@ function projectServiceToLegacyJson(
     ...(entry.workerProvisioning !== undefined
       ? { workerProvisioning: entry.workerProvisioning }
       : {}),
+    // Railway auto-updates policy, appended LAST (additive). ALWAYS present
+    // ("disabled" fleet-wide) — the golden test projects only LEGACY_KEYS, so
+    // this stays byte-safe there, and the drift gate reads it positively.
+    autoUpdates: entry.autoUpdates,
   };
 }
 

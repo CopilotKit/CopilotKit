@@ -1367,3 +1367,35 @@ describe("assertClosureValid", () => {
     );
   });
 });
+
+describe("autoUpdates deploy-consolidation policy (fleet-wide disabled)", () => {
+  // Railway `source.autoUpdates.type = "minor"` is the ENABLED form (Railway
+  // watches the GHCR registry and auto-redeploys on a new push); the SSOT
+  // target is "disabled" so the ONLY deploy path is the CI-explicit redeploy.
+  // autoUpdates was previously tracked NOWHERE, which is how the live fleet
+  // drifted (24 services "minor" / 17 none, incoherently). Tracking it as a
+  // required SSOT field + this positive assertion make the fleet-wide policy
+  // explicit; a sibling drift gate enforces the SAME value against live
+  // Railway config in both envs.
+  it("every service in the SSOT declares autoUpdates 'disabled'", () => {
+    for (const [name, entry] of Object.entries(SERVICES)) {
+      expect(
+        (entry as { autoUpdates?: string }).autoUpdates,
+        `${name}.autoUpdates must be "disabled" (no Railway registry auto-watch; CI-explicit redeploy only)`,
+      ).toBe("disabled");
+    }
+  });
+
+  it("every service in the generated JSON carries autoUpdates 'disabled'", () => {
+    const generated = JSON.parse(
+      readFileSync(resolve(__dirname, "./railway-envs.generated.json"), "utf8"),
+    ) as { services: Array<{ name: string; autoUpdates?: string }> };
+    expect(generated.services.length).toBeGreaterThan(0);
+    for (const svc of generated.services) {
+      expect(
+        svc.autoUpdates,
+        `generated ${svc.name}.autoUpdates must be "disabled"`,
+      ).toBe("disabled");
+    }
+  });
+});

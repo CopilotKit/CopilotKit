@@ -34,7 +34,8 @@
       "healthcheckPath": {
         "prod": "/health",
         "staging": "/health"
-      }
+      },
+      "autoUpdates": "disabled"
     },
     {
       "name": "dashboard",
@@ -58,7 +59,8 @@
         "driver": "dashboard"
       },
       "promoteTier": 1,
-      "runtimeDeps": ["pocketbase", "harness"]
+      "runtimeDeps": ["pocketbase", "harness"],
+      "autoUpdates": "disabled"
     },
     {
       "name": "docs",
@@ -82,7 +84,8 @@
         "driver": "docs"
       },
       "promoteTier": 2,
-      "standalone": true
+      "standalone": true,
+      "autoUpdates": "disabled"
     },
     {
       "name": "dojo",
@@ -105,7 +108,8 @@
         "prod": true,
         "driver": "dojo"
       },
-      "promoteTier": 2
+      "promoteTier": 2,
+      "autoUpdates": "disabled"
     },
     {
       "name": "harness",
@@ -132,7 +136,8 @@
       "healthcheckPath": {
         "prod": "/health",
         "staging": "/health"
-      }
+      },
+      "autoUpdates": "disabled"
     },
     {
       "name": "harness-workers",
@@ -176,7 +181,8 @@
           "overlapSeconds": 45,
           "drainingSeconds": 180
         }
-      }
+      },
+      "autoUpdates": "disabled"
     },
     {
       "name": "pocketbase",
@@ -199,7 +205,8 @@
         "prod": true,
         "driver": "pocketbase"
       },
-      "promoteTier": 0
+      "promoteTier": 0,
+      "autoUpdates": "disabled"
     },
     {
       "name": "shell",
@@ -226,7 +233,8 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
-      }
+      },
+      "autoUpdates": "disabled"
     },
     {
       "name": "showcase-ag2",
@@ -256,7 +264,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "autoUpdates": "disabled"
     },
     {
       "name": "showcase-agno",
@@ -286,7 +295,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "autoUpdates": "disabled"
     },
     {
       "name": "showcase-built-in-agent",
@@ -316,7 +326,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "autoUpdates": "disabled"
     },
     {
       "name": "showcase-claude-sdk-python",
@@ -350,7 +361,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "autoUpdates": "disabled"
     },
     {
       "name": "showcase-claude-sdk-typescript",
@@ -380,7 +392,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "autoUpdates": "disabled"
     },
     {
       "name": "showcase-crewai-crews",
@@ -410,7 +423,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "autoUpdates": "disabled"
     },
     {
       "name": "showcase-google-adk",
@@ -440,7 +454,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "autoUpdates": "disabled"
     },
     {
       "name": "showcase-langgraph-fastapi",
@@ -470,7 +485,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "autoUpdates": "disabled"
     },
     {
       "name": "showcase-langgraph-python",
@@ -500,7 +516,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "autoUpdates": "disabled"
     },
     {
       "name": "showcase-langgraph-typescript",
@@ -530,7 +547,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "autoUpdates": "disabled"
     },
     {
       "name": "showcase-langroid",
@@ -560,7 +578,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "autoUpdates": "disabled"
     },
     {
       "name": "showcase-llamaindex",
@@ -590,7 +609,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "autoUpdates": "disabled"
     },
     {
       "name": "showcase-mastra",
@@ -620,7 +640,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "autoUpdates": "disabled"
     },
     {
       "name": "showcase-ms-agent-dotnet",
@@ -650,7 +671,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "autoUpdates": "disabled"
     },
     {
       "name": "showcase-ms-agent-harness-dotnet",
@@ -680,7 +702,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "autoUpdates": "disabled"
     },
     {
       "name": "showcase-ms-agent-python",
@@ -710,7 +733,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "autoUpdates": "disabled"
     },
     {
       "name": "showcase-pydantic-ai",
@@ -740,7 +764,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "autoUpdates": "disabled"
     },
     {
       "name": "showcase-spring-ai",
@@ -770,7 +795,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "autoUpdates": "disabled"
     },
     {
       "name": "showcase-strands",
@@ -800,7 +826,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "autoUpdates": "disabled"
     },
     {
       "name": "showcase-strands-typescript",
@@ -830,7 +857,8 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
-      }
+      },
+      "autoUpdates": "disabled"
     },
     {
       "name": "starter-adk",
@@ -860,7 +888,8 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
-      }
+      },
+      "autoUpdates": "disabled"
     },
     {
       "name": "starter-agno",
@@ -890,7 +919,8 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
-      }
+      },
+      "autoUpdates": "disabled"
     },
     {
       "name": "starter-crewai-crews",
@@ -920,7 +950,8 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
-      }
+      },
+      "autoUpdates": "disabled"
     },
     {
       "name": "starter-langgraph-fastapi",
@@ -950,7 +981,8 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
-      }
+      },
+      "autoUpdates": "disabled"
     },
     {
       "name": "starter-langgraph-js",
@@ -980,7 +1012,8 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
-      }
+      },
+      "autoUpdates": "disabled"
     },
     {
       "name": "starter-langgraph-python",
@@ -1010,7 +1043,8 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
-      }
+      },
+      "autoUpdates": "disabled"
     },
     {
       "name": "starter-llamaindex",
@@ -1040,7 +1074,8 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
-      }
+      },
+      "autoUpdates": "disabled"
     },
     {
       "name": "starter-mastra",
@@ -1070,7 +1105,8 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
-      }
+      },
+      "autoUpdates": "disabled"
     },
     {
       "name": "starter-ms-agent-framework-dotnet",
@@ -1100,7 +1136,8 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
-      }
+      },
+      "autoUpdates": "disabled"
     },
     {
       "name": "starter-ms-agent-framework-python",
@@ -1130,7 +1167,8 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
-      }
+      },
+      "autoUpdates": "disabled"
     },
     {
       "name": "starter-pydantic-ai",
@@ -1160,7 +1198,8 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
-      }
+      },
+      "autoUpdates": "disabled"
     },
     {
       "name": "starter-strands-python",
@@ -1190,7 +1229,8 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
-      }
+      },
+      "autoUpdates": "disabled"
     },
     {
       "name": "webhooks",
@@ -1213,7 +1253,8 @@
         "prod": true,
         "driver": "webhooks"
       },
-      "promoteTier": 0
+      "promoteTier": 0,
+      "autoUpdates": "disabled"
     }
   ],
   "closure": {
