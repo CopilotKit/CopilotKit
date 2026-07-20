@@ -587,6 +587,18 @@ const commandSchemaNames = [
   "StartLearningContainerRunV1",
 ] as const;
 
+function cloneJsonValue(value: JsonValue): JsonValue {
+  if (Array.isArray(value)) {
+    return value.map(cloneJsonValue);
+  }
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, cloneJsonValue(entry)]),
+    );
+  }
+  return value;
+}
+
 function buildCases(): LearningPlatformConformanceCase[] {
   const cases: LearningPlatformConformanceCase[] = [];
   const schemaNames = Object.keys(
@@ -771,7 +783,10 @@ function buildCases(): LearningPlatformConformanceCase[] {
     },
   );
 
-  return cases;
+  return cases.map((entry) => ({
+    ...entry,
+    value: cloneJsonValue(entry.value),
+  }));
 }
 
 function sortJsonKeys(value: unknown): JsonValue {

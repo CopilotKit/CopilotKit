@@ -141,6 +141,35 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
     expect(readFileSync(corpusPath, "utf8")).toBe(first);
   });
 
+  test("isolates returned cases from later builds and canonical serialization", () => {
+    const canonicalSerialization = serializeLearningPlatformConformanceCorpus();
+    const first = buildLearningPlatformConformanceCorpus();
+    const mutableCase = first.cases.find(
+      ({ name }) => name === "schema-NormalizedMessageV1-valid",
+    );
+
+    if (!mutableCase) {
+      throw new Error("Expected canonical NormalizedMessageV1 case");
+    }
+
+    const mutableValue = mutableCase.value as {
+      toolCalls: Array<{ name: string }>;
+    };
+    mutableValue.toolCalls[0]!.name = "mutated-search";
+
+    const second = buildLearningPlatformConformanceCorpus();
+    const rebuiltCase = second.cases.find(
+      ({ name }) => name === "schema-NormalizedMessageV1-valid",
+    );
+
+    expect(rebuiltCase?.value).toMatchObject({
+      toolCalls: [{ name: "search" }],
+    });
+    expect(serializeLearningPlatformConformanceCorpus()).toBe(
+      canonicalSerialization,
+    );
+  });
+
   test("publishes the corpus through a stable package subpath", () => {
     const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8")) as {
       exports: Record<string, unknown>;
