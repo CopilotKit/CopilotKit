@@ -6,6 +6,7 @@ import {
   learningPlatformConformanceSchemas,
   serializeLearningPlatformConformanceCorpus,
 } from "./conformance.js";
+import { LEARNING_PLATFORM_ERROR_CODES } from "./errors.js";
 
 const corpusPath = fileURLToPath(
   new URL("../conformance/learning-platform-v1.json", import.meta.url),
@@ -140,6 +141,29 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
     expect(first).toBe(second);
     expect(first.endsWith("\n")).toBe(true);
     expect(readFileSync(corpusPath, "utf8")).toBe(first);
+  });
+
+  test("publishes every stable producer error code in the error-envelope schema", () => {
+    const corpus = buildLearningPlatformConformanceCorpus();
+    const errorSchema = corpus.schemas.LearningPlatformErrorResponseV1 as {
+      properties: { error: { properties: { code: { enum: string[] } } } };
+    };
+
+    expect(errorSchema.properties.error.properties.code.enum).toEqual(
+      LEARNING_PLATFORM_ERROR_CODES,
+    );
+    expect(errorSchema.properties.error.properties.code.enum).toContain(
+      "LEARNING_RUN_NOT_FOUND",
+    );
+    expect(errorSchema.properties.error.properties.code.enum).toContain(
+      "LEARNING_CANDIDATE_REVISION_CONFLICT",
+    );
+    expect(errorSchema.properties.error.properties.code.enum).toContain(
+      "LEARNING_BLOB_INTEGRITY_MISMATCH",
+    );
+    expect(errorSchema.properties.error.properties.code.enum).not.toContain(
+      "LEARNING_CANDIDATE_STALE_PARENT",
+    );
   });
 
   test("isolates returned cases from later builds and canonical serialization", () => {
