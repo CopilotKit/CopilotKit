@@ -3546,6 +3546,382 @@
       }
     },
     {
+      "name": "projection-revoked-rejects-entries",
+      "schema": "SkillSetProjectionV1",
+      "valid": false,
+      "value": {
+        "entries": [
+          {
+            "approvalMethod": "manual",
+            "bundleByteLength": 12,
+            "bundleLocator": {
+              "applicationSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "backendId": "primary",
+              "byteLength": 12,
+              "contentType": "application/zip",
+              "etag": null,
+              "key": "objects/aa/bundle.zip",
+              "provider": "awsS3",
+              "providerChecksum": null,
+              "providerVersion": null,
+              "resource": "skill-bundles",
+              "schemaVersion": 1
+            },
+            "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "description": null,
+            "manifestSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "name": "Idempotent retries",
+            "position": 0,
+            "skillId": "99999999-9999-4999-8999-999999999999",
+            "versionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+          }
+        ],
+        "etag": "registry-1",
+        "learningContainerId": "55555555-5555-4555-8555-555555555555",
+        "publishedAt": "2026-07-16T18:00:00.000Z",
+        "registryRevision": "revision_1",
+        "revoked": true,
+        "schemaVersion": 1,
+        "skillSetHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "name": "projection-rejects-position-above-cache-bound",
+      "schema": "SkillSetProjectionV1",
+      "valid": false,
+      "value": {
+        "entries": [
+          {
+            "approvalMethod": "manual",
+            "bundleByteLength": 12,
+            "bundleLocator": {
+              "applicationSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "backendId": "primary",
+              "byteLength": 12,
+              "contentType": "application/zip",
+              "etag": null,
+              "key": "objects/aa/bundle.zip",
+              "provider": "awsS3",
+              "providerChecksum": null,
+              "providerVersion": null,
+              "resource": "skill-bundles",
+              "schemaVersion": 1
+            },
+            "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "description": null,
+            "manifestSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "name": "Idempotent retries",
+            "position": 1000000,
+            "skillId": "99999999-9999-4999-8999-999999999999",
+            "versionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+          }
+        ],
+        "etag": "registry-1",
+        "learningContainerId": "55555555-5555-4555-8555-555555555555",
+        "publishedAt": "2026-07-16T18:00:00.000Z",
+        "registryRevision": "revision_1",
+        "revoked": false,
+        "schemaVersion": 1,
+        "skillSetHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "name": "projection-rejects-unsafe-integer-position",
+      "schema": "SkillSetProjectionV1",
+      "valid": false,
+      "value": {
+        "entries": [
+          {
+            "approvalMethod": "manual",
+            "bundleByteLength": 12,
+            "bundleLocator": {
+              "applicationSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "backendId": "primary",
+              "byteLength": 12,
+              "contentType": "application/zip",
+              "etag": null,
+              "key": "objects/aa/bundle.zip",
+              "provider": "awsS3",
+              "providerChecksum": null,
+              "providerVersion": null,
+              "resource": "skill-bundles",
+              "schemaVersion": 1
+            },
+            "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "description": null,
+            "manifestSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "name": "Idempotent retries",
+            "position": 9007199254740992,
+            "skillId": "99999999-9999-4999-8999-999999999999",
+            "versionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+          }
+        ],
+        "etag": "registry-1",
+        "learningContainerId": "55555555-5555-4555-8555-555555555555",
+        "publishedAt": "2026-07-16T18:00:00.000Z",
+        "registryRevision": "revision_1",
+        "revoked": false,
+        "schemaVersion": 1,
+        "skillSetHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "name": "projection-rejects-duplicate-positions",
+      "schema": "SkillSetProjectionV1",
+      "valid": false,
+      "value": {
+        "entries": [
+          {
+            "approvalMethod": "manual",
+            "bundleByteLength": 12,
+            "bundleLocator": {
+              "applicationSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "backendId": "primary",
+              "byteLength": 12,
+              "contentType": "application/zip",
+              "etag": null,
+              "key": "objects/aa/bundle.zip",
+              "provider": "awsS3",
+              "providerChecksum": null,
+              "providerVersion": null,
+              "resource": "skill-bundles",
+              "schemaVersion": 1
+            },
+            "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "description": null,
+            "manifestSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "name": "Idempotent retries",
+            "position": 0,
+            "skillId": "99999999-9999-4999-8999-999999999999",
+            "versionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+          },
+          {
+            "approvalMethod": "manual",
+            "bundleByteLength": 12,
+            "bundleLocator": {
+              "applicationSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "backendId": "primary",
+              "byteLength": 12,
+              "contentType": "application/zip",
+              "etag": null,
+              "key": "objects/aa/bundle.zip",
+              "provider": "awsS3",
+              "providerChecksum": null,
+              "providerVersion": null,
+              "resource": "skill-bundles",
+              "schemaVersion": 1
+            },
+            "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "description": null,
+            "manifestSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "name": "Idempotent retries",
+            "position": 0,
+            "skillId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "versionId": "22222222-2222-4222-8222-222222222222"
+          }
+        ],
+        "etag": "registry-1",
+        "learningContainerId": "55555555-5555-4555-8555-555555555555",
+        "publishedAt": "2026-07-16T18:00:00.000Z",
+        "registryRevision": "revision_1",
+        "revoked": false,
+        "schemaVersion": 1,
+        "skillSetHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "name": "projection-rejects-position-gaps",
+      "schema": "SkillSetProjectionV1",
+      "valid": false,
+      "value": {
+        "entries": [
+          {
+            "approvalMethod": "manual",
+            "bundleByteLength": 12,
+            "bundleLocator": {
+              "applicationSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "backendId": "primary",
+              "byteLength": 12,
+              "contentType": "application/zip",
+              "etag": null,
+              "key": "objects/aa/bundle.zip",
+              "provider": "awsS3",
+              "providerChecksum": null,
+              "providerVersion": null,
+              "resource": "skill-bundles",
+              "schemaVersion": 1
+            },
+            "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "description": null,
+            "manifestSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "name": "Idempotent retries",
+            "position": 0,
+            "skillId": "99999999-9999-4999-8999-999999999999",
+            "versionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+          },
+          {
+            "approvalMethod": "manual",
+            "bundleByteLength": 12,
+            "bundleLocator": {
+              "applicationSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "backendId": "primary",
+              "byteLength": 12,
+              "contentType": "application/zip",
+              "etag": null,
+              "key": "objects/aa/bundle.zip",
+              "provider": "awsS3",
+              "providerChecksum": null,
+              "providerVersion": null,
+              "resource": "skill-bundles",
+              "schemaVersion": 1
+            },
+            "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "description": null,
+            "manifestSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "name": "Idempotent retries",
+            "position": 2,
+            "skillId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "versionId": "22222222-2222-4222-8222-222222222222"
+          }
+        ],
+        "etag": "registry-1",
+        "learningContainerId": "55555555-5555-4555-8555-555555555555",
+        "publishedAt": "2026-07-16T18:00:00.000Z",
+        "registryRevision": "revision_1",
+        "revoked": false,
+        "schemaVersion": 1,
+        "skillSetHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "name": "projection-rejects-out-of-order-positions",
+      "schema": "SkillSetProjectionV1",
+      "valid": false,
+      "value": {
+        "entries": [
+          {
+            "approvalMethod": "manual",
+            "bundleByteLength": 12,
+            "bundleLocator": {
+              "applicationSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "backendId": "primary",
+              "byteLength": 12,
+              "contentType": "application/zip",
+              "etag": null,
+              "key": "objects/aa/bundle.zip",
+              "provider": "awsS3",
+              "providerChecksum": null,
+              "providerVersion": null,
+              "resource": "skill-bundles",
+              "schemaVersion": 1
+            },
+            "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "description": null,
+            "manifestSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "name": "Idempotent retries",
+            "position": 1,
+            "skillId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "versionId": "22222222-2222-4222-8222-222222222222"
+          },
+          {
+            "approvalMethod": "manual",
+            "bundleByteLength": 12,
+            "bundleLocator": {
+              "applicationSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "backendId": "primary",
+              "byteLength": 12,
+              "contentType": "application/zip",
+              "etag": null,
+              "key": "objects/aa/bundle.zip",
+              "provider": "awsS3",
+              "providerChecksum": null,
+              "providerVersion": null,
+              "resource": "skill-bundles",
+              "schemaVersion": 1
+            },
+            "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "description": null,
+            "manifestSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "name": "Idempotent retries",
+            "position": 0,
+            "skillId": "99999999-9999-4999-8999-999999999999",
+            "versionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+          }
+        ],
+        "etag": "registry-1",
+        "learningContainerId": "55555555-5555-4555-8555-555555555555",
+        "publishedAt": "2026-07-16T18:00:00.000Z",
+        "registryRevision": "revision_1",
+        "revoked": false,
+        "schemaVersion": 1,
+        "skillSetHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "name": "projection-rejects-duplicate-skill-ids",
+      "schema": "SkillSetProjectionV1",
+      "valid": false,
+      "value": {
+        "entries": [
+          {
+            "approvalMethod": "manual",
+            "bundleByteLength": 12,
+            "bundleLocator": {
+              "applicationSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "backendId": "primary",
+              "byteLength": 12,
+              "contentType": "application/zip",
+              "etag": null,
+              "key": "objects/aa/bundle.zip",
+              "provider": "awsS3",
+              "providerChecksum": null,
+              "providerVersion": null,
+              "resource": "skill-bundles",
+              "schemaVersion": 1
+            },
+            "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "description": null,
+            "manifestSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "name": "Idempotent retries",
+            "position": 0,
+            "skillId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "versionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+          },
+          {
+            "approvalMethod": "manual",
+            "bundleByteLength": 12,
+            "bundleLocator": {
+              "applicationSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "backendId": "primary",
+              "byteLength": 12,
+              "contentType": "application/zip",
+              "etag": null,
+              "key": "objects/aa/bundle.zip",
+              "provider": "awsS3",
+              "providerChecksum": null,
+              "providerVersion": null,
+              "resource": "skill-bundles",
+              "schemaVersion": 1
+            },
+            "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "description": null,
+            "manifestSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "name": "Idempotent retries",
+            "position": 1,
+            "skillId": "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA",
+            "versionId": "22222222-2222-4222-8222-222222222222"
+          }
+        ],
+        "etag": "registry-1",
+        "learningContainerId": "55555555-5555-4555-8555-555555555555",
+        "publishedAt": "2026-07-16T18:00:00.000Z",
+        "registryRevision": "revision_1",
+        "revoked": false,
+        "schemaVersion": 1,
+        "skillSetHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
       "name": "generated-add-candidate-forbids-skill-id",
       "schema": "GeneratedSkillCandidateV1",
       "valid": false,
@@ -13319,7 +13695,7 @@
           "type": "string"
         },
         "position": {
-          "maximum": 9007199254740991,
+          "maximum": 999999,
           "minimum": 0,
           "type": "integer"
         },
@@ -13523,7 +13899,7 @@
                 "type": "string"
               },
               "position": {
-                "maximum": 9007199254740991,
+                "maximum": 999999,
                 "minimum": 0,
                 "type": "integer"
               },

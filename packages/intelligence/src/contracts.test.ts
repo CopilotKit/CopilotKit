@@ -176,6 +176,25 @@ const boundProjectionEntry = {
   approvalMethod: "manual",
 } as const;
 
+const orderedProjection = {
+  schemaVersion: 1,
+  learningContainerId: UUIDS.container,
+  registryRevision: "revision_1",
+  skillSetHash: SHA_A,
+  etag: '"registry-1"',
+  entries: [
+    boundProjectionEntry,
+    {
+      ...boundProjectionEntry,
+      skillId: UUIDS.snapshotSecond,
+      versionId: UUIDS.attempt,
+      position: 1,
+    },
+  ],
+  publishedAt: NOW,
+  revoked: false,
+} as const;
+
 function artifactManifestWithPaths(paths: readonly string[]) {
   const template = frozenAvailableSkill.bundle.manifest;
   return {
@@ -1168,6 +1187,83 @@ describe("parent V1 contract schemas", () => {
         entries: [{ skillId: UUIDS.skill }],
       }).success,
     ).toBe(false);
+  });
+
+  test("accepts a complete projection with unique skills in contiguous order", () => {
+    expect(skillSetProjectionV1Schema.parse(orderedProjection)).toEqual(
+      orderedProjection,
+    );
+  });
+
+  test.each([
+    {
+      name: "a revoked projection with entries",
+      value: { ...orderedProjection, revoked: true },
+    },
+    {
+      name: "a position above the six-digit cache bound",
+      value: {
+        ...orderedProjection,
+        entries: [{ ...boundProjectionEntry, position: 1_000_000 }],
+      },
+    },
+    {
+      name: "an unsafe integer position",
+      value: {
+        ...orderedProjection,
+        entries: [
+          {
+            ...boundProjectionEntry,
+            position: Number.MAX_SAFE_INTEGER + 1,
+          },
+        ],
+      },
+    },
+    {
+      name: "duplicate positions",
+      value: {
+        ...orderedProjection,
+        entries: [
+          boundProjectionEntry,
+          { ...orderedProjection.entries[1], position: 0 },
+        ],
+      },
+    },
+    {
+      name: "positions with a gap",
+      value: {
+        ...orderedProjection,
+        entries: [
+          boundProjectionEntry,
+          { ...orderedProjection.entries[1], position: 2 },
+        ],
+      },
+    },
+    {
+      name: "positions outside array order",
+      value: {
+        ...orderedProjection,
+        entries: [orderedProjection.entries[1], boundProjectionEntry],
+      },
+    },
+    {
+      name: "duplicate skill identities",
+      value: {
+        ...orderedProjection,
+        entries: [
+          {
+            ...boundProjectionEntry,
+            skillId: orderedProjection.entries[1].skillId,
+          },
+          {
+            ...orderedProjection.entries[1],
+            skillId: orderedProjection.entries[1].skillId.toUpperCase(),
+          },
+        ],
+      },
+    },
+  ])("rejects $name", ({ value }) => {
+    expect(skillSetProjectionV1Schema.safeParse(value).success).toBe(false);
   });
 
   test("preserves a null projection description when freezing an available skill", () => {

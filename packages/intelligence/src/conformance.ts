@@ -218,6 +218,34 @@ const skillBundle = {
   manifest: artifactManifest,
   locator: blobLocator,
 };
+const projectionEntry = {
+  skillId: UUID.skill,
+  versionId: UUID.version,
+  position: 0,
+  name: "Idempotent retries",
+  description: null,
+  bundleLocator: blobLocator,
+  bundleSha256: SHA_A,
+  manifestSha256: SHA_A,
+  bundleByteLength: 12,
+  approvalMethod: "manual",
+} as const;
+const secondProjectionEntry = {
+  ...projectionEntry,
+  skillId: UUID.snapshot,
+  versionId: UUID.attempt,
+  position: 1,
+} as const;
+const projection = {
+  schemaVersion: 1,
+  learningContainerId: UUID.container,
+  registryRevision: "revision_1",
+  skillSetHash: SHA_A,
+  etag: "registry-1",
+  entries: [],
+  publishedAt: NOW,
+  revoked: false,
+};
 const snapshotIdentity = {
   snapshotId: UUID.snapshot,
   contentSha256: SHA_A,
@@ -602,28 +630,8 @@ const canonicalValidValues: Record<
   SkillArtifactManifestV1: artifactManifest,
   SkillBundleV1: skillBundle,
   SkillCandidateV1: removeCandidate,
-  SkillSetProjectionEntryV1: {
-    skillId: UUID.skill,
-    versionId: UUID.version,
-    position: 0,
-    name: "Idempotent retries",
-    description: null,
-    bundleLocator: blobLocator,
-    bundleSha256: SHA_A,
-    manifestSha256: SHA_A,
-    bundleByteLength: 12,
-    approvalMethod: "manual",
-  },
-  SkillSetProjectionV1: {
-    schemaVersion: 1,
-    learningContainerId: UUID.container,
-    registryRevision: "revision_1",
-    skillSetHash: SHA_A,
-    etag: "registry-1",
-    entries: [],
-    publishedAt: NOW,
-    revoked: false,
-  },
+  SkillSetProjectionEntryV1: projectionEntry,
+  SkillSetProjectionV1: projection,
   SnapshotIdentityV1: snapshotIdentity,
   SourceEventManifestEntryV1: sourceEvent,
   StartLearningContainerRunV1: {
@@ -1095,6 +1103,81 @@ function buildCases(): LearningPlatformConformanceCase[] {
           JsonValue
         >),
         bundleLocator: { ...blobLocator, byteLength: 13 },
+      },
+    },
+    {
+      name: "projection-revoked-rejects-entries",
+      schema: "SkillSetProjectionV1",
+      valid: false,
+      value: {
+        ...projection,
+        entries: [projectionEntry],
+        revoked: true,
+      },
+    },
+    {
+      name: "projection-rejects-position-above-cache-bound",
+      schema: "SkillSetProjectionV1",
+      valid: false,
+      value: {
+        ...projection,
+        entries: [{ ...projectionEntry, position: 1_000_000 }],
+      },
+    },
+    {
+      name: "projection-rejects-unsafe-integer-position",
+      schema: "SkillSetProjectionV1",
+      valid: false,
+      value: {
+        ...projection,
+        entries: [
+          { ...projectionEntry, position: Number.MAX_SAFE_INTEGER + 1 },
+        ],
+      },
+    },
+    {
+      name: "projection-rejects-duplicate-positions",
+      schema: "SkillSetProjectionV1",
+      valid: false,
+      value: {
+        ...projection,
+        entries: [projectionEntry, { ...secondProjectionEntry, position: 0 }],
+      },
+    },
+    {
+      name: "projection-rejects-position-gaps",
+      schema: "SkillSetProjectionV1",
+      valid: false,
+      value: {
+        ...projection,
+        entries: [projectionEntry, { ...secondProjectionEntry, position: 2 }],
+      },
+    },
+    {
+      name: "projection-rejects-out-of-order-positions",
+      schema: "SkillSetProjectionV1",
+      valid: false,
+      value: {
+        ...projection,
+        entries: [secondProjectionEntry, projectionEntry],
+      },
+    },
+    {
+      name: "projection-rejects-duplicate-skill-ids",
+      schema: "SkillSetProjectionV1",
+      valid: false,
+      value: {
+        ...projection,
+        entries: [
+          {
+            ...projectionEntry,
+            skillId: secondProjectionEntry.skillId,
+          },
+          {
+            ...secondProjectionEntry,
+            skillId: secondProjectionEntry.skillId.toUpperCase(),
+          },
+        ],
       },
     },
     {

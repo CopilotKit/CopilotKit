@@ -50,6 +50,7 @@ const uuidSchema = nonNilUuidSchema;
 export const learningContainerIdSchema = uuidSchema.nullable();
 const nonNegativeIntegerSchema = z.int().nonnegative();
 const positiveIntegerSchema = z.int().positive();
+const MAX_SKILL_POSITION = 999_999;
 const timestampSchema = z.iso.datetime({ offset: true });
 const nullableTimestampSchema = timestampSchema.nullable();
 const sha256Schema = z
@@ -696,7 +697,7 @@ export const skillSetProjectionEntryV1Schema = z
   .looseObject({
     skillId: uuidSchema,
     versionId: uuidSchema,
-    position: nonNegativeIntegerSchema,
+    position: nonNegativeIntegerSchema.max(MAX_SKILL_POSITION),
     name: nonEmptyStringSchema,
     description: z.string().nullable(),
     bundleLocator: blobLocatorV1Schema,
@@ -726,16 +727,47 @@ export type SkillSetProjectionEntryV1 = z.infer<
 >;
 
 /** Complete ordered runtime projection; an empty projection is valid. */
-export const skillSetProjectionV1Schema = z.looseObject({
-  schemaVersion: z.literal(1),
-  learningContainerId: uuidSchema,
-  registryRevision: nonEmptyStringSchema,
-  skillSetHash: sha256Schema,
-  etag: nonEmptyStringSchema,
-  entries: z.array(skillSetProjectionEntryV1Schema),
-  publishedAt: timestampSchema,
-  revoked: z.boolean(),
-});
+export const skillSetProjectionV1Schema = z
+  .looseObject({
+    schemaVersion: z.literal(1),
+    learningContainerId: uuidSchema,
+    registryRevision: nonEmptyStringSchema,
+    skillSetHash: sha256Schema,
+    etag: nonEmptyStringSchema,
+    entries: z.array(skillSetProjectionEntryV1Schema),
+    publishedAt: timestampSchema,
+    revoked: z.boolean(),
+  })
+  .superRefine((projection, context) => {
+    if (projection.revoked && projection.entries.length > 0) {
+      context.addIssue({
+        code: "custom",
+        path: ["entries"],
+        message: "A revoked projection must not contain entries",
+      });
+    }
+
+    const skillIds = new Set<string>();
+    for (const [index, entry] of projection.entries.entries()) {
+      if (entry.position !== index) {
+        context.addIssue({
+          code: "custom",
+          path: ["entries", index, "position"],
+          message: "Projection positions must be contiguous and ordered",
+        });
+      }
+
+      const skillId = entry.skillId.toLowerCase();
+      if (skillIds.has(skillId)) {
+        context.addIssue({
+          code: "custom",
+          path: ["entries", index, "skillId"],
+          message: "Projection skill IDs must be unique",
+        });
+      }
+      skillIds.add(skillId);
+    }
+  });
 export type SkillSetProjectionV1 = z.infer<typeof skillSetProjectionV1Schema>;
 
 export const workflowThreadV1Schema = z.looseObject({
