@@ -434,7 +434,7 @@ describe("IntelligenceClient registry SDK", () => {
     ).rejects.toMatchObject({ code: "LEARNING_SDK_CACHE_CORRUPT" });
   });
 
-  it("does not accept artifactManifest as a legacy manifest alias", async () => {
+  it("rejects a projection without its canonical manifest before installation", async () => {
     const golden = await goldenRegistryFixture();
     const root = await cacheRoot();
     const projection = structuredClone(golden.projection) as {
@@ -442,19 +442,21 @@ describe("IntelligenceClient registry SDK", () => {
     };
     projection.entries[0]!.artifactManifest = projection.entries[0]!.manifest;
     delete projection.entries[0]!.manifest;
+    const transport = sequence(jsonResponse(projection));
     const client = new IntelligenceClient({
       baseUrl: golden.identity.baseUrl,
       accessToken: "secret-token",
       projectNamespace: golden.identity.projectNamespace,
       cacheRoot: root,
-      transport: sequence(jsonResponse(projection)),
+      transport,
     });
 
     await expect(
       client.skills.get({
         learningContainerId: golden.identity.learningContainerId,
       }),
-    ).rejects.toMatchObject({ code: "LEARNING_BLOB_INTEGRITY_FAILURE" });
+    ).rejects.toMatchObject({ code: "LEARNING_SDK_CACHE_CORRUPT" });
+    expect(transport).toHaveBeenCalledTimes(1);
   });
 
   it("uses bearer authentication with the fetch transport and preserves loose fields", async () => {
@@ -592,34 +594,46 @@ describe("IntelligenceClient registry SDK", () => {
 
   it("enforces archive bounds, manifest order, integrity, and required SKILL.md", async () => {
     const invalidFixtures = [
-      fixture({
-        files: [
-          {
-            path: "safe/SKILL.md",
-            bytes: new Uint8Array(),
-            declaredSize: 1_000,
-          },
-        ],
-      }),
-      fixture({
-        files: [
-          { path: "safe/a.md", bytes: new TextEncoder().encode("a") },
-          {
-            path: "safe/SKILL.md",
-            bytes: new TextEncoder().encode("# Skill\n"),
-          },
-        ],
-        manifestFiles: [
-          { path: "SKILL.md", bytes: new TextEncoder().encode("# Skill\n") },
-          { path: "a.md", bytes: new TextEncoder().encode("a") },
-        ],
-      }),
-      fixture({
-        files: [{ path: "safe/README.md", bytes: new Uint8Array() }],
-        manifestFiles: [{ path: "README.md", bytes: new Uint8Array() }],
-      }),
-    ];
-    for (const value of invalidFixtures) {
+      {
+        value: fixture({
+          files: [
+            {
+              path: "safe/SKILL.md",
+              bytes: new Uint8Array(),
+              declaredSize: 1_000,
+            },
+          ],
+        }),
+        code: "LEARNING_BLOB_INTEGRITY_FAILURE",
+      },
+      {
+        value: fixture({
+          files: [
+            { path: "safe/a.md", bytes: new TextEncoder().encode("a") },
+            {
+              path: "safe/SKILL.md",
+              bytes: new TextEncoder().encode("# Skill\n"),
+            },
+          ],
+          manifestFiles: [
+            {
+              path: "SKILL.md",
+              bytes: new TextEncoder().encode("# Skill\n"),
+            },
+            { path: "a.md", bytes: new TextEncoder().encode("a") },
+          ],
+        }),
+        code: "LEARNING_BLOB_INTEGRITY_FAILURE",
+      },
+      {
+        value: fixture({
+          files: [{ path: "safe/README.md", bytes: new Uint8Array() }],
+          manifestFiles: [{ path: "README.md", bytes: new Uint8Array() }],
+        }),
+        code: "LEARNING_SDK_CACHE_CORRUPT",
+      },
+    ] as const;
+    for (const { value, code } of invalidFixtures) {
       const root = await cacheRoot();
       const client = new IntelligenceClient({
         baseUrl: "https://registry.test",
@@ -634,7 +648,7 @@ describe("IntelligenceClient registry SDK", () => {
       });
       await expect(
         client.skills.get({ learningContainerId: CONTAINER }),
-      ).rejects.toMatchObject({ code: "LEARNING_BLOB_INTEGRITY_FAILURE" });
+      ).rejects.toMatchObject({ code });
     }
   });
 

@@ -162,8 +162,12 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
         "artifact-manifest-rejects-root-prefixed-skill-md",
         "skill-bundle-rejects-locator-hash-mismatch",
         "skill-bundle-rejects-locator-length-mismatch",
+        "projection-entry-rejects-missing-manifest",
         "projection-entry-rejects-locator-hash-mismatch",
         "projection-entry-rejects-locator-length-mismatch",
+        "projection-entry-rejects-manifest-bundle-hash-mismatch",
+        "projection-entry-rejects-manifest-hash-mismatch",
+        "projection-entry-rejects-manifest-length-mismatch",
         "projection-revoked-rejects-entries",
         "projection-rejects-position-above-cache-bound",
         "projection-rejects-unsafe-integer-position",
@@ -347,6 +351,12 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
     )?.value as {
       bundleSha256: string;
       bundleByteLength: number;
+      manifest: {
+        bundleSha256: string;
+        manifestSha256: string;
+        bundleByteLength: number;
+      };
+      manifestSha256: string;
       bundleLocator: { applicationSha256: string; byteLength: number };
     };
 
@@ -354,5 +364,8 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
     expect(bundle.manifest.bundleByteLength).toBe(bundle.locator.byteLength);
     expect(entry.bundleSha256).toBe(entry.bundleLocator.applicationSha256);
     expect(entry.bundleByteLength).toBe(entry.bundleLocator.byteLength);
+    expect(entry.manifest.bundleSha256).toBe(entry.bundleSha256);
+    expect(entry.manifest.manifestSha256).toBe(entry.manifestSha256);
+    expect(entry.manifest.bundleByteLength).toBe(entry.bundleByteLength);
   });
 });

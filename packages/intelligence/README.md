@@ -66,7 +66,7 @@ The shared cache is namespaced at
 `v1/<sha256(projectNamespace)>/<learningContainerId>/`. Immutable sets live
 under `sets/<skillSetHash>`, while `.copilotkit-current.json` is an atomically
 replaced pointer. Registry entries include the canonical artifact manifest as
-the loose `manifest` field; bundle ZIPs contain one root directory and exactly
+the required `manifest` field; bundle ZIPs contain one root directory and exactly
 the manifest files in manifest order. A fetch-compatible `transport` can be
 injected for custom networking and tests. Canonical API failures surface as
 `IntelligenceSdkError` with stable code, category, retryability, and correlation

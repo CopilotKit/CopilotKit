@@ -173,6 +173,7 @@ const boundProjectionEntry = {
   bundleSha256: SHA_B,
   manifestSha256: SHA_A,
   bundleByteLength: 12,
+  manifest: frozenAvailableSkill.bundle.manifest,
   approvalMethod: "manual",
 } as const;
 
@@ -460,6 +461,51 @@ describe("parent V1 contract schemas", () => {
       false,
     );
   });
+
+  test("requires the canonical artifact manifest on projection entries", () => {
+    const { manifest: _manifest, ...withoutManifest } = {
+      ...boundProjectionEntry,
+      manifest: frozenAvailableSkill.bundle.manifest,
+    };
+
+    expect(
+      skillSetProjectionEntryV1Schema.safeParse(withoutManifest).success,
+    ).toBe(false);
+  });
+
+  test.each([
+    {
+      name: "bundle hash",
+      manifest: {
+        ...frozenAvailableSkill.bundle.manifest,
+        bundleSha256: SHA_A,
+      },
+    },
+    {
+      name: "manifest hash",
+      manifest: {
+        ...frozenAvailableSkill.bundle.manifest,
+        manifestSha256: SHA_B,
+      },
+    },
+    {
+      name: "bundle byte length",
+      manifest: {
+        ...frozenAvailableSkill.bundle.manifest,
+        bundleByteLength: 13,
+      },
+    },
+  ])(
+    "rejects a projection entry with a mismatched manifest $name",
+    ({ manifest }) => {
+      expect(
+        skillSetProjectionEntryV1Schema.safeParse({
+          ...boundProjectionEntry,
+          manifest,
+        }).success,
+      ).toBe(false);
+    },
+  );
 
   test("accepts a workflow output with unique aliases and resolved insight references", () => {
     expect(learningWorkflowOutputV1Schema.parse(workflowOutput)).toEqual(
@@ -1290,6 +1336,23 @@ describe("parent V1 contract schemas", () => {
       bundleSha256: SHA_A,
       manifestSha256: SHA_A,
       bundleByteLength: 12,
+      manifest: {
+        manifestVersion: 1,
+        agentSkillsProfile: "agentskills:v1",
+        files: [
+          {
+            path: "SKILL.md",
+            role: "instructions",
+            mediaType: "text/markdown",
+            byteLength: 12,
+            rawSha256: SHA_A,
+          },
+        ],
+        manifestSha256: SHA_A,
+        bundleSha256: SHA_A,
+        bundleByteLength: 12,
+        provenance: {},
+      },
       approvalMethod: "manual",
     } as const;
     const parsedProjectionEntry = skillSetProjectionV1Schema.parse({

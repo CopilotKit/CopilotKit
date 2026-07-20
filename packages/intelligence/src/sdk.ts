@@ -53,13 +53,9 @@ export interface SkillsGetOptions {
   readonly learningContainerId: string;
 }
 
-export type RegistryProjectionEntry = SkillSetProjectionEntryV1 & {
-  readonly manifest?: SkillArtifactManifestV1;
-};
+export type RegistryProjectionEntry = SkillSetProjectionEntryV1;
 
-export type RegistryProjection = SkillSetProjectionV1 & {
-  readonly entries: RegistryProjectionEntry[];
-};
+export type RegistryProjection = SkillSetProjectionV1;
 
 export interface InstalledSkill {
   readonly skillId: string;
@@ -452,21 +448,13 @@ function parseProjection(
     }
     seenSkills.add(entry.skillId);
   }
-  return parsed.data as RegistryProjection;
+  return parsed.data;
 }
 
 function parseManifest(
   entry: RegistryProjectionEntry,
 ): SkillArtifactManifestV1 {
-  const parsed = skillArtifactManifestV1Schema.safeParse(entry.manifest);
-  if (!parsed.success) {
-    throw sdkError(
-      "Registry entry is missing a valid artifact manifest",
-      "LEARNING_BLOB_INTEGRITY_FAILURE",
-      parsed.error,
-    );
-  }
-  const manifest = parsed.data;
+  const manifest = entry.manifest;
   if (
     manifest.bundleSha256 !== entry.bundleSha256 ||
     manifest.bundleByteLength !== entry.bundleByteLength ||

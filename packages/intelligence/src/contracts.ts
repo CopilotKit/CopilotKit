@@ -704,6 +704,7 @@ export const skillSetProjectionEntryV1Schema = z
     bundleSha256: sha256Schema,
     manifestSha256: sha256Schema,
     bundleByteLength: positiveIntegerSchema,
+    manifest: skillArtifactManifestV1Schema,
     approvalMethod: z.enum(["manual", "automatic"]),
   })
   .superRefine((entry, context) => {
@@ -719,6 +720,27 @@ export const skillSetProjectionEntryV1Schema = z
         code: "custom",
         path: ["bundleLocator", "byteLength"],
         message: "Projection entry and locator byte lengths must match",
+      });
+    }
+    if (entry.manifest.bundleSha256 !== entry.bundleSha256) {
+      context.addIssue({
+        code: "custom",
+        path: ["manifest", "bundleSha256"],
+        message: "Projection entry and manifest bundle hashes must match",
+      });
+    }
+    if (entry.manifest.manifestSha256 !== entry.manifestSha256) {
+      context.addIssue({
+        code: "custom",
+        path: ["manifest", "manifestSha256"],
+        message: "Projection entry and manifest hashes must match",
+      });
+    }
+    if (entry.manifest.bundleByteLength !== entry.bundleByteLength) {
+      context.addIssue({
+        code: "custom",
+        path: ["manifest", "bundleByteLength"],
+        message: "Projection entry and manifest byte lengths must match",
       });
     }
   });

@@ -228,8 +228,11 @@ const projectionEntry = {
   bundleSha256: SHA_A,
   manifestSha256: SHA_A,
   bundleByteLength: 12,
+  manifest: artifactManifest,
   approvalMethod: "manual",
 } as const;
+const { manifest: _projectionManifest, ...projectionEntryWithoutManifest } =
+  projectionEntry;
 const secondProjectionEntry = {
   ...projectionEntry,
   skillId: UUID.snapshot,
@@ -1082,6 +1085,12 @@ function buildCases(): LearningPlatformConformanceCase[] {
       },
     },
     {
+      name: "projection-entry-rejects-missing-manifest",
+      schema: "SkillSetProjectionEntryV1",
+      valid: false,
+      value: projectionEntryWithoutManifest,
+    },
+    {
       name: "projection-entry-rejects-locator-hash-mismatch",
       schema: "SkillSetProjectionEntryV1",
       valid: false,
@@ -1103,6 +1112,33 @@ function buildCases(): LearningPlatformConformanceCase[] {
           JsonValue
         >),
         bundleLocator: { ...blobLocator, byteLength: 13 },
+      },
+    },
+    {
+      name: "projection-entry-rejects-manifest-bundle-hash-mismatch",
+      schema: "SkillSetProjectionEntryV1",
+      valid: false,
+      value: {
+        ...projectionEntry,
+        manifest: { ...artifactManifest, bundleSha256: SHA_B },
+      },
+    },
+    {
+      name: "projection-entry-rejects-manifest-hash-mismatch",
+      schema: "SkillSetProjectionEntryV1",
+      valid: false,
+      value: {
+        ...projectionEntry,
+        manifest: { ...artifactManifest, manifestSha256: SHA_B },
+      },
+    },
+    {
+      name: "projection-entry-rejects-manifest-length-mismatch",
+      schema: "SkillSetProjectionEntryV1",
+      valid: false,
+      value: {
+        ...projectionEntry,
+        manifest: { ...artifactManifest, bundleByteLength: 13 },
       },
     },
     {
