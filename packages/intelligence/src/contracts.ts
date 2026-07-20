@@ -17,6 +17,11 @@ const nullableTimestampSchema = timestampSchema.nullable();
 const sha256Schema = z
   .string()
   .regex(/^[a-f0-9]{64}$/u, "Expected lowercase SHA-256");
+const workerEnvelopeShape = {
+  schemaVersion: z.literal(1),
+  requestId: nonEmptyStringSchema,
+  traceId: nonEmptyStringSchema,
+} as const;
 
 export type JsonValue =
   | string
@@ -737,6 +742,25 @@ export type LearningWorkflowOutputV1 = z.infer<
   typeof learningWorkflowOutputV1Schema
 >;
 
+/** Complete validated output returned by one deterministic workflow attempt. */
+export const learningRunExecutionResultV1Schema = z.looseObject({
+  outputSha256: sha256Schema,
+  chunks: z.array(learningChunkV1Schema),
+  workflowOutput: learningWorkflowOutputV1Schema,
+});
+export type LearningRunExecutionResultV1 = z.infer<
+  typeof learningRunExecutionResultV1Schema
+>;
+
+/** Minimal pg-boss payload whose worker reloads the frozen durable manifest. */
+export const learningRunJobV1Schema = z.looseObject({
+  ...workerEnvelopeShape,
+  learningRunId: uuidSchema,
+  attemptId: uuidSchema,
+  fenceGeneration: nonNegativeIntegerSchema,
+});
+export type LearningRunJobV1 = z.infer<typeof learningRunJobV1Schema>;
+
 /** Named language-neutral JSON Schemas generated from the canonical Zod 4 source. */
 export const learningContractJsonSchemas = {
   BlobLocatorV1: z.toJSONSchema(blobLocatorV1Schema),
@@ -746,6 +770,10 @@ export const learningContractJsonSchemas = {
   LearningChunkV1: z.toJSONSchema(learningChunkV1Schema),
   LearningContainerV1: z.toJSONSchema(learningContainerV1Schema),
   LearningRunV1: z.toJSONSchema(learningRunV1Schema),
+  LearningRunExecutionResultV1: z.toJSONSchema(
+    learningRunExecutionResultV1Schema,
+  ),
+  LearningRunJobV1: z.toJSONSchema(learningRunJobV1Schema),
   LearningWorkflowInputV1: z.toJSONSchema(learningWorkflowInputV1Schema),
   LearningWorkflowOutputV1: z.toJSONSchema(learningWorkflowOutputV1Schema),
   NormalizedMessageV1: z.toJSONSchema(normalizedMessageV1Schema),

@@ -1,6 +1,43 @@
 {
   "cases": [
     {
+      "name": "schema-AppendLearningRunChunkV1-valid",
+      "schema": "AppendLearningRunChunkV1",
+      "valid": true,
+      "value": {
+        "attemptId": "22222222-2222-4222-8222-222222222222",
+        "chunk": {
+          "attemptId": "22222222-2222-4222-8222-222222222222",
+          "chunkIndex": 0,
+          "createdAt": "2026-07-16T18:00:00.000Z",
+          "inputSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "learningRunId": "88888888-8888-4888-8888-888888888888",
+          "outputSha256": null,
+          "privatePayloadRef": {},
+          "snapshotRange": {
+            "firstSequence": 1,
+            "firstSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "lastSequence": 1,
+            "lastSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+          },
+          "status": "planned",
+          "updatedAt": "2026-07-16T18:00:00.000Z"
+        },
+        "chunkIndex": 0,
+        "fenceGeneration": 1,
+        "learningRunId": "88888888-8888-4888-8888-888888888888",
+        "requestId": "request_1",
+        "schemaVersion": 1,
+        "traceId": "trace_1"
+      }
+    },
+    {
+      "name": "schema-AppendLearningRunChunkV1-rejects-null",
+      "schema": "AppendLearningRunChunkV1",
+      "valid": false,
+      "value": null
+    },
+    {
       "name": "schema-BlobLocatorV1-valid",
       "schema": "BlobLocatorV1",
       "valid": true,
@@ -144,6 +181,67 @@
     {
       "name": "schema-CommitLearningRunResultV1-rejects-null",
       "schema": "CommitLearningRunResultV1",
+      "valid": false,
+      "value": null
+    },
+    {
+      "name": "schema-CreateLearningRunV1-valid",
+      "schema": "CreateLearningRunV1",
+      "valid": true,
+      "value": {
+        "containerConfigRevision": 1,
+        "evaluatorProfileRef": "evaluator:v1",
+        "idempotencyKey": "run_1",
+        "learningContainerId": "55555555-5555-4555-8555-555555555555",
+        "learningRunId": "88888888-8888-4888-8888-888888888888",
+        "manifestSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "modelProfileRef": "model:v1",
+        "normalizerVersion": "normalizer:v1",
+        "organizationId": "org_1",
+        "projectId": "project_1",
+        "promptProfileRef": "prompt:v1",
+        "registryRevision": "revision_1",
+        "requestId": "request_1",
+        "sanitizerVersion": "sanitizer:v1",
+        "schemaVersion": 1,
+        "selectedAfterSequence": 0,
+        "selectedAnnotations": [
+          {
+            "annotationId": "11111111-1111-4111-8111-111111111111",
+            "annotationRevision": 0,
+            "authoredAt": "2026-07-16T18:00:00.000Z",
+            "capturedAt": "2026-07-16T18:00:00.000Z",
+            "contentSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "schemaVersion": 1,
+            "targetEvidenceLocator": {
+              "eventIds": [
+                "event_1"
+              ],
+              "messageIds": [
+                "message_1"
+              ]
+            },
+            "targetSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "text": "Prefer idempotent retries."
+          }
+        ],
+        "selectedThroughSequence": 1,
+        "skillSetHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "snapshotIdsAndHashes": [
+          {
+            "containerSequence": 1,
+            "contentSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+          }
+        ],
+        "traceId": "trace_1",
+        "trigger": "manual",
+        "workflowVersion": "workflow:v1"
+      }
+    },
+    {
+      "name": "schema-CreateLearningRunV1-rejects-null",
+      "schema": "CreateLearningRunV1",
       "valid": false,
       "value": null
     },
@@ -564,6 +662,137 @@
     {
       "name": "schema-LearningPlatformErrorResponseV1-rejects-null",
       "schema": "LearningPlatformErrorResponseV1",
+      "valid": false,
+      "value": null
+    },
+    {
+      "name": "schema-LearningRunExecutionResultV1-valid",
+      "schema": "LearningRunExecutionResultV1",
+      "valid": true,
+      "value": {
+        "chunks": [
+          {
+            "attemptId": "22222222-2222-4222-8222-222222222222",
+            "chunkIndex": 0,
+            "createdAt": "2026-07-16T18:00:00.000Z",
+            "inputSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "learningRunId": "88888888-8888-4888-8888-888888888888",
+            "outputSha256": null,
+            "privatePayloadRef": {},
+            "snapshotRange": {
+              "firstSequence": 1,
+              "firstSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+              "lastSequence": 1,
+              "lastSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+            },
+            "status": "planned",
+            "updatedAt": "2026-07-16T18:00:00.000Z"
+          }
+        ],
+        "outputSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "workflowOutput": {
+          "coverage": {},
+          "insights": [
+            {
+              "confidence": 0.9,
+              "evidenceRefs": [
+                {
+                  "annotationId": null,
+                  "annotationSha256": null,
+                  "eventIds": [
+                    "event_1"
+                  ],
+                  "evidenceType": "run_snapshot",
+                  "excerpt": null,
+                  "excerptSha256": null,
+                  "externalRunId": "external_run_1",
+                  "messageIds": [
+                    "message_1"
+                  ],
+                  "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                  "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "threadId": "thread_1",
+                  "truncated": false
+                }
+              ],
+              "impact": "A repeated action can affect a user twice.",
+              "kind": "agent_behavior",
+              "outputAlias": "insight_1",
+              "skillEligible": true,
+              "statement": "The agent retries completed work."
+            }
+          ],
+          "rejections": [],
+          "schemaVersion": 1,
+          "skillCandidates": [
+            {
+              "action": "add",
+              "bundle": {
+                "files": [
+                  {
+                    "contentBase64": "IyBTa2lsbA==",
+                    "path": "SKILL.md"
+                  }
+                ],
+                "rootDirectoryName": "idempotent-retries"
+              },
+              "evidenceRefs": [
+                {
+                  "annotationId": null,
+                  "annotationSha256": null,
+                  "eventIds": [
+                    "event_1"
+                  ],
+                  "evidenceType": "run_snapshot",
+                  "excerpt": null,
+                  "excerptSha256": null,
+                  "externalRunId": "external_run_1",
+                  "messageIds": [
+                    "message_1"
+                  ],
+                  "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                  "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "threadId": "thread_1",
+                  "truncated": false
+                }
+              ],
+              "insightAliases": [
+                "insight_1"
+              ],
+              "outputAlias": "candidate_1",
+              "parentVersionId": null,
+              "reason": "Avoid duplicate actions.",
+              "removalIntent": null,
+              "risk": "low",
+              "skillId": null
+            }
+          ],
+          "usage": {}
+        }
+      }
+    },
+    {
+      "name": "schema-LearningRunExecutionResultV1-rejects-null",
+      "schema": "LearningRunExecutionResultV1",
+      "valid": false,
+      "value": null
+    },
+    {
+      "name": "schema-LearningRunJobV1-valid",
+      "schema": "LearningRunJobV1",
+      "valid": true,
+      "value": {
+        "attemptId": "22222222-2222-4222-8222-222222222222",
+        "fenceGeneration": 1,
+        "learningRunId": "88888888-8888-4888-8888-888888888888",
+        "requestId": "request_1",
+        "schemaVersion": 1,
+        "traceId": "trace_1"
+      }
+    },
+    {
+      "name": "schema-LearningRunJobV1-rejects-null",
+      "schema": "LearningRunJobV1",
       "valid": false,
       "value": null
     },
@@ -1419,6 +1648,37 @@
       "value": null
     },
     {
+      "name": "command-AppendLearningRunChunkV1-valid",
+      "schema": "AppendLearningRunChunkV1",
+      "valid": true,
+      "value": {
+        "attemptId": "22222222-2222-4222-8222-222222222222",
+        "chunk": {
+          "attemptId": "22222222-2222-4222-8222-222222222222",
+          "chunkIndex": 0,
+          "createdAt": "2026-07-16T18:00:00.000Z",
+          "inputSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "learningRunId": "88888888-8888-4888-8888-888888888888",
+          "outputSha256": null,
+          "privatePayloadRef": {},
+          "snapshotRange": {
+            "firstSequence": 1,
+            "firstSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "lastSequence": 1,
+            "lastSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+          },
+          "status": "planned",
+          "updatedAt": "2026-07-16T18:00:00.000Z"
+        },
+        "chunkIndex": 0,
+        "fenceGeneration": 1,
+        "learningRunId": "88888888-8888-4888-8888-888888888888",
+        "requestId": "request_1",
+        "schemaVersion": 1,
+        "traceId": "trace_1"
+      }
+    },
+    {
       "name": "command-CommitLearningRunResultV1-valid",
       "schema": "CommitLearningRunResultV1",
       "valid": true,
@@ -1509,6 +1769,61 @@
           ],
           "usage": {}
         }
+      }
+    },
+    {
+      "name": "command-CreateLearningRunV1-valid",
+      "schema": "CreateLearningRunV1",
+      "valid": true,
+      "value": {
+        "containerConfigRevision": 1,
+        "evaluatorProfileRef": "evaluator:v1",
+        "idempotencyKey": "run_1",
+        "learningContainerId": "55555555-5555-4555-8555-555555555555",
+        "learningRunId": "88888888-8888-4888-8888-888888888888",
+        "manifestSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "modelProfileRef": "model:v1",
+        "normalizerVersion": "normalizer:v1",
+        "organizationId": "org_1",
+        "projectId": "project_1",
+        "promptProfileRef": "prompt:v1",
+        "registryRevision": "revision_1",
+        "requestId": "request_1",
+        "sanitizerVersion": "sanitizer:v1",
+        "schemaVersion": 1,
+        "selectedAfterSequence": 0,
+        "selectedAnnotations": [
+          {
+            "annotationId": "11111111-1111-4111-8111-111111111111",
+            "annotationRevision": 0,
+            "authoredAt": "2026-07-16T18:00:00.000Z",
+            "capturedAt": "2026-07-16T18:00:00.000Z",
+            "contentSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "schemaVersion": 1,
+            "targetEvidenceLocator": {
+              "eventIds": [
+                "event_1"
+              ],
+              "messageIds": [
+                "message_1"
+              ]
+            },
+            "targetSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "text": "Prefer idempotent retries."
+          }
+        ],
+        "selectedThroughSequence": 1,
+        "skillSetHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "snapshotIdsAndHashes": [
+          {
+            "containerSequence": 1,
+            "contentSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+          }
+        ],
+        "traceId": "trace_1",
+        "trigger": "manual",
+        "workflowVersion": "workflow:v1"
       }
     },
     {
@@ -1996,6 +2311,205 @@
       }
     },
     {
+      "name": "create-learning-run-rejects-inverted-selection-interval",
+      "schema": "CreateLearningRunV1",
+      "valid": false,
+      "value": {
+        "containerConfigRevision": 1,
+        "evaluatorProfileRef": "evaluator:v1",
+        "idempotencyKey": "run_1",
+        "learningContainerId": "55555555-5555-4555-8555-555555555555",
+        "learningRunId": "88888888-8888-4888-8888-888888888888",
+        "manifestSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "modelProfileRef": "model:v1",
+        "normalizerVersion": "normalizer:v1",
+        "organizationId": "org_1",
+        "projectId": "project_1",
+        "promptProfileRef": "prompt:v1",
+        "registryRevision": "revision_1",
+        "requestId": "request_1",
+        "sanitizerVersion": "sanitizer:v1",
+        "schemaVersion": 1,
+        "selectedAfterSequence": 2,
+        "selectedAnnotations": [
+          {
+            "annotationId": "11111111-1111-4111-8111-111111111111",
+            "annotationRevision": 0,
+            "authoredAt": "2026-07-16T18:00:00.000Z",
+            "capturedAt": "2026-07-16T18:00:00.000Z",
+            "contentSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "schemaVersion": 1,
+            "targetEvidenceLocator": {
+              "eventIds": [
+                "event_1"
+              ],
+              "messageIds": [
+                "message_1"
+              ]
+            },
+            "targetSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "text": "Prefer idempotent retries."
+          }
+        ],
+        "selectedThroughSequence": 1,
+        "skillSetHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "snapshotIdsAndHashes": [],
+        "traceId": "trace_1",
+        "trigger": "manual",
+        "workflowVersion": "workflow:v1"
+      }
+    },
+    {
+      "name": "append-learning-run-chunk-rejects-mismatched-chunk-identity",
+      "schema": "AppendLearningRunChunkV1",
+      "valid": false,
+      "value": {
+        "attemptId": "22222222-2222-4222-8222-222222222222",
+        "chunk": {
+          "attemptId": "22222222-2222-4222-8222-222222222222",
+          "chunkIndex": 0,
+          "createdAt": "2026-07-16T18:00:00.000Z",
+          "inputSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "learningRunId": "88888888-8888-4888-8888-888888888888",
+          "outputSha256": null,
+          "privatePayloadRef": {},
+          "snapshotRange": {
+            "firstSequence": 1,
+            "firstSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "lastSequence": 1,
+            "lastSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+          },
+          "status": "planned",
+          "updatedAt": "2026-07-16T18:00:00.000Z"
+        },
+        "chunkIndex": 1,
+        "fenceGeneration": 1,
+        "learningRunId": "88888888-8888-4888-8888-888888888888",
+        "requestId": "request_1",
+        "schemaVersion": 1,
+        "traceId": "trace_1"
+      }
+    },
+    {
+      "name": "learning-run-job-rejects-negative-fence-generation",
+      "schema": "LearningRunJobV1",
+      "valid": false,
+      "value": {
+        "attemptId": "22222222-2222-4222-8222-222222222222",
+        "fenceGeneration": -1,
+        "learningRunId": "88888888-8888-4888-8888-888888888888",
+        "requestId": "request_1",
+        "schemaVersion": 1,
+        "traceId": "trace_1"
+      }
+    },
+    {
+      "name": "learning-run-execution-result-rejects-invalid-output-hash",
+      "schema": "LearningRunExecutionResultV1",
+      "valid": false,
+      "value": {
+        "chunks": [
+          {
+            "attemptId": "22222222-2222-4222-8222-222222222222",
+            "chunkIndex": 0,
+            "createdAt": "2026-07-16T18:00:00.000Z",
+            "inputSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "learningRunId": "88888888-8888-4888-8888-888888888888",
+            "outputSha256": null,
+            "privatePayloadRef": {},
+            "snapshotRange": {
+              "firstSequence": 1,
+              "firstSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+              "lastSequence": 1,
+              "lastSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+            },
+            "status": "planned",
+            "updatedAt": "2026-07-16T18:00:00.000Z"
+          }
+        ],
+        "outputSha256": "invalid",
+        "workflowOutput": {
+          "coverage": {},
+          "insights": [
+            {
+              "confidence": 0.9,
+              "evidenceRefs": [
+                {
+                  "annotationId": null,
+                  "annotationSha256": null,
+                  "eventIds": [
+                    "event_1"
+                  ],
+                  "evidenceType": "run_snapshot",
+                  "excerpt": null,
+                  "excerptSha256": null,
+                  "externalRunId": "external_run_1",
+                  "messageIds": [
+                    "message_1"
+                  ],
+                  "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                  "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "threadId": "thread_1",
+                  "truncated": false
+                }
+              ],
+              "impact": "A repeated action can affect a user twice.",
+              "kind": "agent_behavior",
+              "outputAlias": "insight_1",
+              "skillEligible": true,
+              "statement": "The agent retries completed work."
+            }
+          ],
+          "rejections": [],
+          "schemaVersion": 1,
+          "skillCandidates": [
+            {
+              "action": "add",
+              "bundle": {
+                "files": [
+                  {
+                    "contentBase64": "IyBTa2lsbA==",
+                    "path": "SKILL.md"
+                  }
+                ],
+                "rootDirectoryName": "idempotent-retries"
+              },
+              "evidenceRefs": [
+                {
+                  "annotationId": null,
+                  "annotationSha256": null,
+                  "eventIds": [
+                    "event_1"
+                  ],
+                  "evidenceType": "run_snapshot",
+                  "excerpt": null,
+                  "excerptSha256": null,
+                  "externalRunId": "external_run_1",
+                  "messageIds": [
+                    "message_1"
+                  ],
+                  "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                  "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "threadId": "thread_1",
+                  "truncated": false
+                }
+              ],
+              "insightAliases": [
+                "insight_1"
+              ],
+              "outputAlias": "candidate_1",
+              "parentVersionId": null,
+              "reason": "Avoid duplicate actions.",
+              "removalIntent": null,
+              "risk": "low",
+              "skillId": null
+            }
+          ],
+          "usage": {}
+        }
+      }
+    },
+    {
       "name": "remove-candidate-requires-removal-intent",
       "schema": "SkillCandidateV1",
       "valid": false,
@@ -2146,6 +2660,210 @@
   ],
   "schemaVersion": 1,
   "schemas": {
+    "AppendLearningRunChunkV1": {
+      "$defs": {
+        "__schema0": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            },
+            {
+              "items": {
+                "$ref": "#/$defs/__schema0"
+              },
+              "type": "array"
+            },
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/__schema0"
+              },
+              "propertyNames": {
+                "type": "string"
+              },
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": {},
+      "properties": {
+        "attemptId": {
+          "format": "uuid",
+          "not": {
+            "const": "00000000-0000-0000-0000-000000000000"
+          },
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$",
+          "type": "string"
+        },
+        "chunk": {
+          "additionalProperties": {},
+          "properties": {
+            "attemptId": {
+              "format": "uuid",
+              "not": {
+                "const": "00000000-0000-0000-0000-000000000000"
+              },
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$",
+              "type": "string"
+            },
+            "chunkIndex": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "createdAt": {
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-]\\d{2}:\\d{2})))$",
+              "type": "string"
+            },
+            "inputSha256": {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            "learningRunId": {
+              "format": "uuid",
+              "not": {
+                "const": "00000000-0000-0000-0000-000000000000"
+              },
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$",
+              "type": "string"
+            },
+            "outputSha256": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-f0-9]{64}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "privatePayloadRef": {
+              "$ref": "#/$defs/__schema0"
+            },
+            "snapshotRange": {
+              "additionalProperties": {},
+              "properties": {
+                "firstSequence": {
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991,
+                  "type": "integer"
+                },
+                "firstSnapshotId": {
+                  "format": "uuid",
+                  "not": {
+                    "const": "00000000-0000-0000-0000-000000000000"
+                  },
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$",
+                  "type": "string"
+                },
+                "lastSequence": {
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991,
+                  "type": "integer"
+                },
+                "lastSnapshotId": {
+                  "format": "uuid",
+                  "not": {
+                    "const": "00000000-0000-0000-0000-000000000000"
+                  },
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "firstSnapshotId",
+                "lastSnapshotId",
+                "firstSequence",
+                "lastSequence"
+              ],
+              "type": "object"
+            },
+            "status": {
+              "enum": [
+                "planned",
+                "running",
+                "staged",
+                "failed",
+                "discarded",
+                "promoted"
+              ],
+              "type": "string"
+            },
+            "updatedAt": {
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-]\\d{2}:\\d{2})))$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "learningRunId",
+            "attemptId",
+            "chunkIndex",
+            "snapshotRange",
+            "inputSha256",
+            "outputSha256",
+            "status",
+            "privatePayloadRef",
+            "createdAt",
+            "updatedAt"
+          ],
+          "type": "object"
+        },
+        "chunkIndex": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "fenceGeneration": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "learningRunId": {
+          "format": "uuid",
+          "not": {
+            "const": "00000000-0000-0000-0000-000000000000"
+          },
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$",
+          "type": "string"
+        },
+        "requestId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "schemaVersion": {
+          "const": 1,
+          "type": "number"
+        },
+        "traceId": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "requestId",
+        "traceId",
+        "learningRunId",
+        "attemptId",
+        "fenceGeneration",
+        "chunkIndex",
+        "chunk"
+      ],
+      "type": "object"
+    },
     "BlobLocatorV1": {
       "$defs": {
         "__schema0": {
@@ -3100,6 +3818,261 @@
         "fenceGeneration",
         "outputSha256",
         "workflowOutput"
+      ],
+      "type": "object"
+    },
+    "CreateLearningRunV1": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": {},
+      "properties": {
+        "containerConfigRevision": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "evaluatorProfileRef": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "idempotencyKey": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "learningContainerId": {
+          "format": "uuid",
+          "not": {
+            "const": "00000000-0000-0000-0000-000000000000"
+          },
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$",
+          "type": "string"
+        },
+        "learningRunId": {
+          "format": "uuid",
+          "not": {
+            "const": "00000000-0000-0000-0000-000000000000"
+          },
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$",
+          "type": "string"
+        },
+        "manifestSha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "modelProfileRef": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "normalizerVersion": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "organizationId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "projectId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "promptProfileRef": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "registryRevision": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "requestId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "sanitizerVersion": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "schemaVersion": {
+          "const": 1,
+          "type": "number"
+        },
+        "selectedAfterSequence": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "selectedAnnotations": {
+          "items": {
+            "additionalProperties": {},
+            "properties": {
+              "annotationId": {
+                "format": "uuid",
+                "not": {
+                  "const": "00000000-0000-0000-0000-000000000000"
+                },
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$",
+                "type": "string"
+              },
+              "annotationRevision": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "authoredAt": {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-]\\d{2}:\\d{2})))$",
+                "type": "string"
+              },
+              "capturedAt": {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-]\\d{2}:\\d{2})))$",
+                "type": "string"
+              },
+              "contentSha256": {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              "schemaVersion": {
+                "const": 1,
+                "type": "number"
+              },
+              "targetEvidenceLocator": {
+                "anyOf": [
+                  {
+                    "additionalProperties": {},
+                    "properties": {
+                      "eventIds": {
+                        "items": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "messageIds": {
+                        "items": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "messageIds",
+                      "eventIds"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "targetSnapshotId": {
+                "format": "uuid",
+                "not": {
+                  "const": "00000000-0000-0000-0000-000000000000"
+                },
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$",
+                "type": "string"
+              },
+              "text": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "schemaVersion",
+              "annotationId",
+              "targetSnapshotId",
+              "targetEvidenceLocator",
+              "text",
+              "contentSha256",
+              "annotationRevision",
+              "authoredAt",
+              "capturedAt"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "selectedThroughSequence": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "skillSetHash": {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "snapshotIdsAndHashes": {
+          "items": {
+            "additionalProperties": {},
+            "properties": {
+              "containerSequence": {
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991,
+                "type": "integer"
+              },
+              "contentSha256": {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              "snapshotId": {
+                "format": "uuid",
+                "not": {
+                  "const": "00000000-0000-0000-0000-000000000000"
+                },
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "snapshotId",
+              "contentSha256",
+              "containerSequence"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "traceId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "trigger": {
+          "enum": [
+            "nightly",
+            "manual"
+          ],
+          "type": "string"
+        },
+        "workflowVersion": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "requestId",
+        "traceId",
+        "learningRunId",
+        "organizationId",
+        "projectId",
+        "learningContainerId",
+        "trigger",
+        "idempotencyKey",
+        "selectedAfterSequence",
+        "selectedThroughSequence",
+        "snapshotIdsAndHashes",
+        "selectedAnnotations",
+        "registryRevision",
+        "skillSetHash",
+        "containerConfigRevision",
+        "modelProfileRef",
+        "promptProfileRef",
+        "evaluatorProfileRef",
+        "workflowVersion",
+        "normalizerVersion",
+        "sanitizerVersion",
+        "manifestSha256"
       ],
       "type": "object"
     },
@@ -5142,6 +6115,830 @@
         "error",
         "requestId",
         "traceId"
+      ],
+      "type": "object"
+    },
+    "LearningRunExecutionResultV1": {
+      "$defs": {
+        "__schema0": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            },
+            {
+              "items": {
+                "$ref": "#/$defs/__schema0"
+              },
+              "type": "array"
+            },
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/__schema0"
+              },
+              "propertyNames": {
+                "type": "string"
+              },
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": {},
+      "properties": {
+        "chunks": {
+          "items": {
+            "additionalProperties": {},
+            "properties": {
+              "attemptId": {
+                "format": "uuid",
+                "not": {
+                  "const": "00000000-0000-0000-0000-000000000000"
+                },
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$",
+                "type": "string"
+              },
+              "chunkIndex": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "createdAt": {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-]\\d{2}:\\d{2})))$",
+                "type": "string"
+              },
+              "inputSha256": {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              "learningRunId": {
+                "format": "uuid",
+                "not": {
+                  "const": "00000000-0000-0000-0000-000000000000"
+                },
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$",
+                "type": "string"
+              },
+              "outputSha256": {
+                "anyOf": [
+                  {
+                    "pattern": "^[a-f0-9]{64}$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "privatePayloadRef": {
+                "$ref": "#/$defs/__schema0"
+              },
+              "snapshotRange": {
+                "additionalProperties": {},
+                "properties": {
+                  "firstSequence": {
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991,
+                    "type": "integer"
+                  },
+                  "firstSnapshotId": {
+                    "format": "uuid",
+                    "not": {
+                      "const": "00000000-0000-0000-0000-000000000000"
+                    },
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$",
+                    "type": "string"
+                  },
+                  "lastSequence": {
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991,
+                    "type": "integer"
+                  },
+                  "lastSnapshotId": {
+                    "format": "uuid",
+                    "not": {
+                      "const": "00000000-0000-0000-0000-000000000000"
+                    },
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "firstSnapshotId",
+                  "lastSnapshotId",
+                  "firstSequence",
+                  "lastSequence"
+                ],
+                "type": "object"
+              },
+              "status": {
+                "enum": [
+                  "planned",
+                  "running",
+                  "staged",
+                  "failed",
+                  "discarded",
+                  "promoted"
+                ],
+                "type": "string"
+              },
+              "updatedAt": {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-]\\d{2}:\\d{2})))$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "learningRunId",
+              "attemptId",
+              "chunkIndex",
+              "snapshotRange",
+              "inputSha256",
+              "outputSha256",
+              "status",
+              "privatePayloadRef",
+              "createdAt",
+              "updatedAt"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "outputSha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "workflowOutput": {
+          "additionalProperties": {},
+          "properties": {
+            "coverage": {
+              "additionalProperties": {
+                "$ref": "#/$defs/__schema0"
+              },
+              "propertyNames": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "insights": {
+              "items": {
+                "additionalProperties": {},
+                "properties": {
+                  "confidence": {
+                    "maximum": 1,
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  "evidenceRefs": {
+                    "items": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": {},
+                          "properties": {
+                            "annotationId": {
+                              "type": "null"
+                            },
+                            "annotationSha256": {
+                              "type": "null"
+                            },
+                            "eventIds": {
+                              "items": {
+                                "minLength": 1,
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "evidenceType": {
+                              "const": "run_snapshot",
+                              "type": "string"
+                            },
+                            "excerpt": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "excerptSha256": {
+                              "anyOf": [
+                                {
+                                  "pattern": "^[a-f0-9]{64}$",
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "externalRunId": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "messageIds": {
+                              "items": {
+                                "minLength": 1,
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "snapshotId": {
+                              "format": "uuid",
+                              "not": {
+                                "const": "00000000-0000-0000-0000-000000000000"
+                              },
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$",
+                              "type": "string"
+                            },
+                            "snapshotSha256": {
+                              "pattern": "^[a-f0-9]{64}$",
+                              "type": "string"
+                            },
+                            "threadId": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "truncated": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "evidenceType",
+                            "snapshotId",
+                            "snapshotSha256",
+                            "threadId",
+                            "externalRunId",
+                            "messageIds",
+                            "eventIds",
+                            "excerpt",
+                            "excerptSha256",
+                            "truncated"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": {},
+                          "properties": {
+                            "annotationId": {
+                              "format": "uuid",
+                              "not": {
+                                "const": "00000000-0000-0000-0000-000000000000"
+                              },
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$",
+                              "type": "string"
+                            },
+                            "annotationSha256": {
+                              "pattern": "^[a-f0-9]{64}$",
+                              "type": "string"
+                            },
+                            "eventIds": {
+                              "items": {
+                                "minLength": 1,
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "evidenceType": {
+                              "const": "human_annotation",
+                              "type": "string"
+                            },
+                            "excerpt": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "excerptSha256": {
+                              "anyOf": [
+                                {
+                                  "pattern": "^[a-f0-9]{64}$",
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "externalRunId": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "messageIds": {
+                              "items": {
+                                "minLength": 1,
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "snapshotId": {
+                              "format": "uuid",
+                              "not": {
+                                "const": "00000000-0000-0000-0000-000000000000"
+                              },
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$",
+                              "type": "string"
+                            },
+                            "snapshotSha256": {
+                              "pattern": "^[a-f0-9]{64}$",
+                              "type": "string"
+                            },
+                            "threadId": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "truncated": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "evidenceType",
+                            "snapshotId",
+                            "snapshotSha256",
+                            "annotationId",
+                            "annotationSha256",
+                            "threadId",
+                            "externalRunId",
+                            "messageIds",
+                            "eventIds",
+                            "excerpt",
+                            "excerptSha256",
+                            "truncated"
+                          ],
+                          "type": "object"
+                        }
+                      ]
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "impact": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "kind": {
+                    "enum": [
+                      "agent_behavior",
+                      "user_product",
+                      "workflow",
+                      "system_quality"
+                    ],
+                    "type": "string"
+                  },
+                  "outputAlias": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "skillEligible": {
+                    "type": "boolean"
+                  },
+                  "statement": {
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "outputAlias",
+                  "kind",
+                  "statement",
+                  "impact",
+                  "confidence",
+                  "skillEligible",
+                  "evidenceRefs"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "rejections": {
+              "items": {
+                "additionalProperties": {
+                  "$ref": "#/$defs/__schema0"
+                },
+                "propertyNames": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "schemaVersion": {
+              "const": 1,
+              "type": "number"
+            },
+            "skillCandidates": {
+              "items": {
+                "additionalProperties": {},
+                "properties": {
+                  "action": {
+                    "enum": [
+                      "add",
+                      "update",
+                      "remove"
+                    ],
+                    "type": "string"
+                  },
+                  "bundle": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": {},
+                        "properties": {
+                          "files": {
+                            "items": {
+                              "additionalProperties": {},
+                              "properties": {
+                                "contentBase64": {
+                                  "minLength": 1,
+                                  "type": "string"
+                                },
+                                "path": {
+                                  "minLength": 1,
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "path",
+                                "contentBase64"
+                              ],
+                              "type": "object"
+                            },
+                            "minItems": 1,
+                            "type": "array"
+                          },
+                          "rootDirectoryName": {
+                            "minLength": 1,
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "rootDirectoryName",
+                          "files"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "evidenceRefs": {
+                    "items": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": {},
+                          "properties": {
+                            "annotationId": {
+                              "type": "null"
+                            },
+                            "annotationSha256": {
+                              "type": "null"
+                            },
+                            "eventIds": {
+                              "items": {
+                                "minLength": 1,
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "evidenceType": {
+                              "const": "run_snapshot",
+                              "type": "string"
+                            },
+                            "excerpt": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "excerptSha256": {
+                              "anyOf": [
+                                {
+                                  "pattern": "^[a-f0-9]{64}$",
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "externalRunId": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "messageIds": {
+                              "items": {
+                                "minLength": 1,
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "snapshotId": {
+                              "format": "uuid",
+                              "not": {
+                                "const": "00000000-0000-0000-0000-000000000000"
+                              },
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$",
+                              "type": "string"
+                            },
+                            "snapshotSha256": {
+                              "pattern": "^[a-f0-9]{64}$",
+                              "type": "string"
+                            },
+                            "threadId": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "truncated": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "evidenceType",
+                            "snapshotId",
+                            "snapshotSha256",
+                            "threadId",
+                            "externalRunId",
+                            "messageIds",
+                            "eventIds",
+                            "excerpt",
+                            "excerptSha256",
+                            "truncated"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": {},
+                          "properties": {
+                            "annotationId": {
+                              "format": "uuid",
+                              "not": {
+                                "const": "00000000-0000-0000-0000-000000000000"
+                              },
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$",
+                              "type": "string"
+                            },
+                            "annotationSha256": {
+                              "pattern": "^[a-f0-9]{64}$",
+                              "type": "string"
+                            },
+                            "eventIds": {
+                              "items": {
+                                "minLength": 1,
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "evidenceType": {
+                              "const": "human_annotation",
+                              "type": "string"
+                            },
+                            "excerpt": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "excerptSha256": {
+                              "anyOf": [
+                                {
+                                  "pattern": "^[a-f0-9]{64}$",
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "externalRunId": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "messageIds": {
+                              "items": {
+                                "minLength": 1,
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "snapshotId": {
+                              "format": "uuid",
+                              "not": {
+                                "const": "00000000-0000-0000-0000-000000000000"
+                              },
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$",
+                              "type": "string"
+                            },
+                            "snapshotSha256": {
+                              "pattern": "^[a-f0-9]{64}$",
+                              "type": "string"
+                            },
+                            "threadId": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "truncated": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "evidenceType",
+                            "snapshotId",
+                            "snapshotSha256",
+                            "annotationId",
+                            "annotationSha256",
+                            "threadId",
+                            "externalRunId",
+                            "messageIds",
+                            "eventIds",
+                            "excerpt",
+                            "excerptSha256",
+                            "truncated"
+                          ],
+                          "type": "object"
+                        }
+                      ]
+                    },
+                    "type": "array"
+                  },
+                  "insightAliases": {
+                    "items": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "outputAlias": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "parentVersionId": {
+                    "anyOf": [
+                      {
+                        "format": "uuid",
+                        "not": {
+                          "const": "00000000-0000-0000-0000-000000000000"
+                        },
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "reason": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "removalIntent": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": {
+                          "$ref": "#/$defs/__schema0"
+                        },
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "risk": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "skillId": {
+                    "anyOf": [
+                      {
+                        "format": "uuid",
+                        "not": {
+                          "const": "00000000-0000-0000-0000-000000000000"
+                        },
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "outputAlias",
+                  "action",
+                  "skillId",
+                  "parentVersionId",
+                  "bundle",
+                  "removalIntent",
+                  "insightAliases",
+                  "evidenceRefs",
+                  "reason",
+                  "risk"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "usage": {
+              "additionalProperties": {
+                "$ref": "#/$defs/__schema0"
+              },
+              "propertyNames": {
+                "type": "string"
+              },
+              "type": "object"
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "insights",
+            "skillCandidates",
+            "coverage",
+            "rejections",
+            "usage"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "outputSha256",
+        "chunks",
+        "workflowOutput"
+      ],
+      "type": "object"
+    },
+    "LearningRunJobV1": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": {},
+      "properties": {
+        "attemptId": {
+          "format": "uuid",
+          "not": {
+            "const": "00000000-0000-0000-0000-000000000000"
+          },
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$",
+          "type": "string"
+        },
+        "fenceGeneration": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "learningRunId": {
+          "format": "uuid",
+          "not": {
+            "const": "00000000-0000-0000-0000-000000000000"
+          },
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$",
+          "type": "string"
+        },
+        "requestId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "schemaVersion": {
+          "const": 1,
+          "type": "number"
+        },
+        "traceId": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "requestId",
+        "traceId",
+        "learningRunId",
+        "attemptId",
+        "fenceGeneration"
       ],
       "type": "object"
     },

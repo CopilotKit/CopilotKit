@@ -19,7 +19,9 @@ const registrySdkGoldenPath = fileURLToPath(
 );
 
 const commandSchemaNames = [
+  "AppendLearningRunChunkV1",
   "CommitLearningRunResultV1",
+  "CreateLearningRunV1",
   "CreateRegistryRevisionV1",
   "EvaluateCandidateGatesV1",
   "PrepareLearningRunV1",
@@ -44,6 +46,8 @@ const dtoSchemaNames = [
   "LearningChunkV1",
   "LearningContainerV1",
   "LearningRunV1",
+  "LearningRunExecutionResultV1",
+  "LearningRunJobV1",
   "LearningWorkflowInputV1",
   "LearningWorkflowOutputV1",
   "NormalizedMessageV1",
@@ -125,6 +129,10 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
         "learning-run-rejects-duplicate-snapshot-identities",
         "learning-run-rejects-unordered-snapshot-identities",
         "learning-chunk-rejects-inverted-snapshot-range",
+        "create-learning-run-rejects-inverted-selection-interval",
+        "learning-run-job-rejects-negative-fence-generation",
+        "learning-run-execution-result-rejects-invalid-output-hash",
+        "append-learning-run-chunk-rejects-mismatched-chunk-identity",
         "remove-candidate-requires-removal-intent",
         "remove-candidate-forbids-bundle",
         ...commandSchemaNames.map((name) => `command-${name}-valid`),

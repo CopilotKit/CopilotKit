@@ -1,6 +1,8 @@
 import { z } from "zod/v4";
 import {
+  appendLearningRunChunkV1Schema,
   commitLearningRunResultV1Schema,
+  createLearningRunV1Schema,
   createRegistryRevisionV1Schema,
   evaluateCandidateGatesV1Schema,
   prepareLearningRunV1Schema,
@@ -24,6 +26,8 @@ import {
   learningChunkV1Schema,
   learningContainerV1Schema,
   learningRunV1Schema,
+  learningRunExecutionResultV1Schema,
+  learningRunJobV1Schema,
   learningWorkflowInputV1Schema,
   learningWorkflowOutputV1Schema,
   normalizedMessageV1Schema,
@@ -48,9 +52,11 @@ import { learningPlatformErrorResponseV1Schema } from "./errors.js";
 
 /** Canonical Zod schemas corresponding one-to-one with corpus schema names. */
 export const learningPlatformConformanceSchemas = {
+  AppendLearningRunChunkV1: appendLearningRunChunkV1Schema,
   BlobLocatorV1: blobLocatorV1Schema,
   CandidateGateResultV1: candidateGateResultV1Schema,
   CommitLearningRunResultV1: commitLearningRunResultV1Schema,
+  CreateLearningRunV1: createLearningRunV1Schema,
   CreateRegistryRevisionV1: createRegistryRevisionV1Schema,
   EvaluateCandidateGatesV1: evaluateCandidateGatesV1Schema,
   EvidenceLocatorV1: evidenceLocatorV1Schema,
@@ -66,6 +72,8 @@ export const learningPlatformConformanceSchemas = {
   LearningContainerV1: learningContainerV1Schema,
   LearningPlatformErrorResponseV1: learningPlatformErrorResponseV1Schema,
   LearningRunV1: learningRunV1Schema,
+  LearningRunExecutionResultV1: learningRunExecutionResultV1Schema,
+  LearningRunJobV1: learningRunJobV1Schema,
   LearningWorkflowInputV1: learningWorkflowInputV1Schema,
   LearningWorkflowOutputV1: learningWorkflowOutputV1Schema,
   NormalizedMessageV1: normalizedMessageV1Schema,
@@ -215,6 +223,23 @@ const snapshotIdentity = {
   contentSha256: SHA_A,
   containerSequence: 1,
 };
+const learningChunk = {
+  learningRunId: UUID.run,
+  attemptId: UUID.attempt,
+  chunkIndex: 0,
+  snapshotRange: {
+    firstSnapshotId: UUID.snapshot,
+    lastSnapshotId: UUID.snapshot,
+    firstSequence: 1,
+    lastSequence: 1,
+  },
+  inputSha256: SHA_A,
+  outputSha256: null,
+  status: "planned",
+  privatePayloadRef: {},
+  createdAt: NOW,
+  updatedAt: NOW,
+};
 const workflowThread = {
   snapshotId: UUID.snapshot,
   snapshotSha256: SHA_A,
@@ -290,6 +315,14 @@ const canonicalValidValues: Record<
   LearningPlatformConformanceSchemaName,
   JsonValue
 > = {
+  AppendLearningRunChunkV1: {
+    ...commandEnvelope,
+    learningRunId: UUID.run,
+    attemptId: UUID.attempt,
+    fenceGeneration: 1,
+    chunkIndex: 0,
+    chunk: learningChunk,
+  },
   BlobLocatorV1: blobLocator,
   CandidateGateResultV1: {
     gateResultId: UUID.gate,
@@ -311,6 +344,29 @@ const canonicalValidValues: Record<
     fenceGeneration: 1,
     outputSha256: SHA_A,
     workflowOutput,
+  },
+  CreateLearningRunV1: {
+    ...commandEnvelope,
+    learningRunId: UUID.run,
+    organizationId: "org_1",
+    projectId: "project_1",
+    learningContainerId: UUID.container,
+    trigger: "manual",
+    idempotencyKey: "run_1",
+    selectedAfterSequence: 0,
+    selectedThroughSequence: 1,
+    snapshotIdsAndHashes: [snapshotIdentity],
+    selectedAnnotations: [selectedAnnotation],
+    registryRevision: "revision_1",
+    skillSetHash: SHA_A,
+    containerConfigRevision: 1,
+    modelProfileRef: "model:v1",
+    promptProfileRef: "prompt:v1",
+    evaluatorProfileRef: "evaluator:v1",
+    workflowVersion: "workflow:v1",
+    normalizerVersion: "normalizer:v1",
+    sanitizerVersion: "sanitizer:v1",
+    manifestSha256: SHA_B,
   },
   CreateRegistryRevisionV1: {
     ...commandEnvelope,
@@ -385,23 +441,7 @@ const canonicalValidValues: Record<
     evidenceRefs: [evidenceRef],
     createdAt: NOW,
   },
-  LearningChunkV1: {
-    learningRunId: UUID.run,
-    attemptId: UUID.attempt,
-    chunkIndex: 0,
-    snapshotRange: {
-      firstSnapshotId: UUID.snapshot,
-      lastSnapshotId: UUID.snapshot,
-      firstSequence: 1,
-      lastSequence: 1,
-    },
-    inputSha256: SHA_A,
-    outputSha256: null,
-    status: "planned",
-    privatePayloadRef: {},
-    createdAt: NOW,
-    updatedAt: NOW,
-  },
+  LearningChunkV1: learningChunk,
   LearningContainerV1: {
     schemaVersion: 1,
     id: UUID.container,
@@ -457,6 +497,17 @@ const canonicalValidValues: Record<
     createdAt: NOW,
     startedAt: null,
     completedAt: null,
+  },
+  LearningRunExecutionResultV1: {
+    outputSha256: SHA_A,
+    chunks: [learningChunk],
+    workflowOutput,
+  },
+  LearningRunJobV1: {
+    ...commandEnvelope,
+    learningRunId: UUID.run,
+    attemptId: UUID.attempt,
+    fenceGeneration: 1,
   },
   LearningWorkflowInputV1: {
     schemaVersion: 1,
@@ -577,7 +628,9 @@ const canonicalValidValues: Record<
 };
 
 const commandSchemaNames = [
+  "AppendLearningRunChunkV1",
   "CommitLearningRunResultV1",
+  "CreateLearningRunV1",
   "CreateRegistryRevisionV1",
   "EvaluateCandidateGatesV1",
   "PrepareLearningRunV1",
@@ -751,6 +804,53 @@ function buildCases(): LearningPlatformConformanceCase[] {
           firstSequence: 2,
           lastSequence: 1,
         },
+      },
+    },
+    {
+      name: "create-learning-run-rejects-inverted-selection-interval",
+      schema: "CreateLearningRunV1",
+      valid: false,
+      value: {
+        ...(canonicalValidValues.CreateLearningRunV1 as Record<
+          string,
+          JsonValue
+        >),
+        selectedAfterSequence: 2,
+        selectedThroughSequence: 1,
+        snapshotIdsAndHashes: [],
+      },
+    },
+    {
+      name: "append-learning-run-chunk-rejects-mismatched-chunk-identity",
+      schema: "AppendLearningRunChunkV1",
+      valid: false,
+      value: {
+        ...(canonicalValidValues.AppendLearningRunChunkV1 as Record<
+          string,
+          JsonValue
+        >),
+        chunkIndex: 1,
+      },
+    },
+    {
+      name: "learning-run-job-rejects-negative-fence-generation",
+      schema: "LearningRunJobV1",
+      valid: false,
+      value: {
+        ...(canonicalValidValues.LearningRunJobV1 as Record<string, JsonValue>),
+        fenceGeneration: -1,
+      },
+    },
+    {
+      name: "learning-run-execution-result-rejects-invalid-output-hash",
+      schema: "LearningRunExecutionResultV1",
+      valid: false,
+      value: {
+        ...(canonicalValidValues.LearningRunExecutionResultV1 as Record<
+          string,
+          JsonValue
+        >),
+        outputSha256: "invalid",
       },
     },
     {
