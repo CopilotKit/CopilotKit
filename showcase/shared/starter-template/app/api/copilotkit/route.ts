@@ -73,6 +73,7 @@ const runtime = new CopilotRuntime({
         }),
         // Demo stub — replace with real auth-derived user identity for multi-user deployments
         identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
+        licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN,
       }
     : { runner: new InMemoryAgentRunner() }),
 });
