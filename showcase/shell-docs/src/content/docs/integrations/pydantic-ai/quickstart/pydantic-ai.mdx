@@ -4,7 +4,6 @@ description: Turn your Pydantic AI Agents into an agent-native application in 10
 icon: "lucide/Play"
 ---
 
-
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
   className="rounded-lg shadow-xl"
@@ -117,9 +116,28 @@ Before you begin, you'll need the following:
 
                 Create a Next.js app if you don't have one already, then install the required packages:
 
-                ```bash
-                npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client hono
-                ```
+                <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
+                    <Tab value="npm">
+                        ```bash
+                        npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client hono
+                        ```
+                    </Tab>
+                    <Tab value="pnpm">
+                        ```bash
+                        pnpm add @copilotkit/react-core @copilotkit/runtime @ag-ui/client hono
+                        ```
+                    </Tab>
+                    <Tab value="yarn">
+                        ```bash
+                        yarn add @copilotkit/react-core @copilotkit/runtime @ag-ui/client hono
+                        ```
+                    </Tab>
+                    <Tab value="bun">
+                        ```bash
+                        bun add @copilotkit/react-core @copilotkit/runtime @ag-ui/client hono
+                        ```
+                    </Tab>
+                </Tabs>
             </Step>
             <Step>
                 ### Create the API route
