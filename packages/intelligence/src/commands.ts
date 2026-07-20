@@ -3,11 +3,12 @@ import {
   generatedSkillCandidateV1Schema,
   jsonValueSchema,
   learningWorkflowOutputV1Schema,
+  nonNilUuidSchema,
 } from "./contracts.js";
 
 const nonEmptyStringSchema = z.string().min(1);
 const idSchema = nonEmptyStringSchema;
-const uuidSchema = z.uuid();
+const uuidSchema = nonNilUuidSchema;
 const nonNegativeIntegerSchema = z.int().nonnegative();
 const sha256Schema = z
   .string()

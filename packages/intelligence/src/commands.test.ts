@@ -13,30 +13,33 @@ const runId = "22222222-2222-4222-8222-222222222222";
 const attemptId = "33333333-3333-4333-8333-333333333333";
 const candidateRevisionId = "44444444-4444-4444-8444-444444444444";
 const sha256 = "a".repeat(64);
+const nilUuid = "00000000-0000-0000-0000-000000000000";
 
 test("StartLearningContainerRunV1 requires a scoped idempotent trigger", () => {
+  const command = {
+    schemaVersion: 1,
+    organizationId: "org_1",
+    projectId: "42",
+    learningContainerId: containerId,
+    trigger: "manual",
+    idempotencyKey: "request_1",
+    requestId: "req_1",
+    traceId: "trace_1",
+  } as const;
+
+  expect(startLearningContainerRunV1Schema.safeParse(command).success).toBe(
+    true,
+  );
   expect(
     startLearningContainerRunV1Schema.safeParse({
-      schemaVersion: 1,
-      organizationId: "org_1",
-      projectId: "42",
-      learningContainerId: containerId,
-      trigger: "manual",
-      idempotencyKey: "request_1",
-      requestId: "req_1",
-      traceId: "trace_1",
+      ...command,
+      learningContainerId: nilUuid,
     }).success,
-  ).toBe(true);
+  ).toBe(false);
   expect(
     startLearningContainerRunV1Schema.safeParse({
-      schemaVersion: 1,
-      organizationId: "org_1",
-      projectId: "42",
-      learningContainerId: containerId,
-      trigger: "manual",
+      ...command,
       idempotencyKey: "",
-      requestId: "req_1",
-      traceId: "trace_1",
     }).success,
   ).toBe(false);
 });

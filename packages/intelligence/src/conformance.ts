@@ -664,6 +664,15 @@ function buildCases(): LearningPlatformConformanceCase[] {
       },
     },
     {
+      name: "invalid-nil-uuid",
+      schema: "ThreadAssignmentPatchV1",
+      valid: false,
+      value: {
+        learningContainerId: "00000000-0000-0000-0000-000000000000",
+        expectedLearningContainerId: null,
+      },
+    },
+    {
       name: "invalid-sha256",
       schema: "BlobLocatorV1",
       valid: false,

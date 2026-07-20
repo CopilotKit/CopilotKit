@@ -31,6 +31,7 @@ const UUIDS = {
 const SHA_A = "a".repeat(64);
 const SHA_B = "b".repeat(64);
 const NOW = "2026-07-16T18:00:00.000Z";
+const NIL_UUID = "00000000-0000-0000-0000-000000000000";
 
 const learningContainer = {
   schemaVersion: 1,
@@ -164,11 +165,12 @@ const learningChunk = {
 } as const;
 
 describe("parent V1 contract schemas", () => {
-  test("exports the canonical nullable learning container UUID validator", () => {
+  test("accepts ordinary learning container UUIDs and explicit null but rejects the nil UUID", () => {
     expect(learningContainerIdSchema.parse(UUIDS.container)).toBe(
       UUIDS.container,
     );
     expect(learningContainerIdSchema.parse(null)).toBeNull();
+    expect(learningContainerIdSchema.safeParse(NIL_UUID).success).toBe(false);
     expect(learningContainerIdSchema.safeParse("project").success).toBe(false);
   });
 

@@ -2,7 +2,12 @@ import { z } from "zod/v4";
 
 const nonEmptyStringSchema = z.string().min(1);
 const idSchema = nonEmptyStringSchema;
-const uuidSchema = z.uuid();
+const NIL_UUID = "00000000-0000-0000-0000-000000000000";
+export const nonNilUuidSchema = z
+  .uuid()
+  .refine((value) => value !== NIL_UUID, "Expected non-nil UUID")
+  .meta({ not: { const: NIL_UUID } });
+const uuidSchema = nonNilUuidSchema;
 /** Canonical trusted-BFF learning container assignment value. */
 export const learningContainerIdSchema = uuidSchema.nullable();
 const nonNegativeIntegerSchema = z.int().nonnegative();

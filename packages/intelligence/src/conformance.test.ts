@@ -116,6 +116,7 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
         "thread-assignment-missing-is-not-defaulted",
         "unknown-fields-are-forward-compatible",
         "invalid-uuid",
+        "invalid-nil-uuid",
         "invalid-sha256",
         "invalid-assignment-revision",
         "learning-run-rejects-inverted-selection-interval",
