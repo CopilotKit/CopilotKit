@@ -2088,18 +2088,18 @@ async function runLevel(opts: {
         runStartCount: number;
       }): Promise<{
         observed: boolean;
-        complete: boolean;
+        completed: boolean;
       }> => {
         // Route through `safeReadTurnState`: no seam OR a mid-poll read-throw
         // both yield "not observed / not complete" here (the throw returns the
         // degraded sentinel whose all-zero counters can't rise past the
-        // baseline, so `observed`/`complete` stay false). A throw is thus handled
+        // baseline, so `observed`/`completed` stay false). A throw is thus handled
         // CONSISTENTLY with `readDegraded` — the poll treats it as "no reliable
         // signal → degraded", widening the wait rather than escaping as a
         // spurious `level-error`.
         const st = await safeReadTurnState();
         if (st === undefined) {
-          return { observed: false, complete: false };
+          return { observed: false, completed: false };
         }
         const newRunStarted = st.runStartCount > baseline.runStartCount;
         const domDone =
@@ -2126,7 +2126,7 @@ async function runLevel(opts: {
           // turn that was about to render correctly ("empty assistant
           // response"). `observed` still includes `sseDone` (above) so a turn
           // whose attribute never appears still gets the wider polling window.
-          complete: domDone,
+          completed: domDone,
         };
       };
 
@@ -2215,9 +2215,9 @@ async function runLevel(opts: {
               observed: everObserved,
             };
           }
-          const { observed, complete } = await readTurnComplete(baseline);
+          const { observed, completed } = await readTurnComplete(baseline);
           if (observed) everObserved = true;
-          if (complete && completeAtMs === undefined) {
+          if (completed && completeAtMs === undefined) {
             // Stamp completion from the NODE clock at the first poll iteration
             // that observes THIS turn complete. The grace-window deadline math
             // below runs on the Node clock, so the completion instant must too:
