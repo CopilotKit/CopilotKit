@@ -46,14 +46,17 @@ const RAILWAY_API = RAILWAY_GRAPHQL_ENDPOINT;
 /**
  * Auto-updates policy vocabulary. Mirrors the `AutoUpdatesPolicy` type the SSOT
  * (`railway-envs.ts`) exports:
- *   - "disabled" — Railway source auto-updates OFF (the target for EVERY
- *     service). Live shape: `autoUpdates` absent/null, or `type` falsy.
- *   - "minor"    — Railway's ENABLED form (`source.autoUpdates.type = "minor"`).
+ *   - "disabled"  — Railway source auto-updates OFF (the MANAGED target this
+ *     gate enforces). Live shape: `autoUpdates` absent/null, or `type` falsy.
+ *   - "minor"     — Railway's ENABLED form (`source.autoUpdates.type = "minor"`).
+ *   - "unmanaged" — NOT yet under drift-gate management. The gate SKIPS an
+ *     "unmanaged" env entirely (no read, no compare, no flag) and does not
+ *     count it toward the zero-checked floor.
  *
  * Declared locally (not imported) so this gate compiles standalone even before
  * the SSOT field lands in this worktree; the two definitions are identical.
  */
-export type AutoUpdatesPolicy = "disabled" | "minor";
+export type AutoUpdatesPolicy = "disabled" | "minor" | "unmanaged";
 
 /**
  * Shape of a single service's `source.autoUpdates` inside the
@@ -122,7 +125,13 @@ export function parseEnvironmentConfig(raw: unknown): EnvironmentConfigJson {
 export interface AutoUpdatesGateEntry {
   serviceId: string;
   environments: Record<string, unknown>;
-  autoUpdates?: AutoUpdatesPolicy;
+  /**
+   * Per-env auto-updates policy, keyed by the same env names as
+   * `environments`. Structural subset of the SSOT `AutoUpdatesByEnv`. Optional
+   * so the gate compiles/behaves whether or not the SSOT field is present;
+   * `expectedPolicyFor` defaults a missing env to "disabled".
+   */
+  autoUpdates?: Record<string, AutoUpdatesPolicy>;
 }
 
 export interface AutoUpdatesViolation {
@@ -189,16 +198,17 @@ export function checkAutoUpdates(params: {
 }
 
 /**
- * Resolve the SSOT auto-updates expectation for an entry. Reads the SSOT
- * `autoUpdates` field; defaults to "disabled" when absent (the invariant every
- * service satisfies) so the gate is correct both before and after the SSOT
- * field lands. Structural typing lets real `SERVICES` entries flow in whether
- * or not `ServiceEntry` declares the field yet.
+ * Resolve the SSOT auto-updates expectation for an entry in a SPECIFIC env.
+ * Reads the per-env SSOT `autoUpdates[env]` policy; defaults to "disabled"
+ * when absent (the managed invariant) so the gate is correct both before and
+ * after the SSOT field lands. Structural typing lets real `SERVICES` entries
+ * flow in whether or not `ServiceEntry` declares the field yet.
  */
 export function expectedPolicyFor(
   entry: AutoUpdatesGateEntry,
+  env: EnvName,
 ): AutoUpdatesPolicy {
-  return entry.autoUpdates ?? "disabled";
+  return entry.autoUpdates?.[env] ?? "disabled";
 }
 
 /**
@@ -268,6 +278,13 @@ export async function runAutoUpdatesGate(deps: {
       // (matching reconcile-staging.ts) so a declared-but-falsy env value is
       // still asserted rather than silently skipped.
       if (!Object.hasOwn(entry.environments, env)) continue;
+      const expected = expectedPolicyFor(entry, env);
+      // "unmanaged" env: NOT under drift-gate management. Skip it ENTIRELY —
+      // do not read/compare the live value, and do not count it toward the
+      // per-env floor (`expected`) or the global tallies. This is how prod
+      // stays untouched during a staging-first rollout: its heterogeneous
+      // live autoUpdates produce zero violations and never trip the floor.
+      if (expected === "unmanaged") continue;
       stats.expected++;
       const liveSvc = liveServices[entry.serviceId];
       if (!liveSvc) {
@@ -281,7 +298,7 @@ export async function runAutoUpdatesGate(deps: {
       const v = checkAutoUpdates({
         service: name,
         env,
-        expected: expectedPolicyFor(entry),
+        expected,
         liveAutoUpdates: liveSvc.source?.autoUpdates,
       });
       if (v) violations.push(v);

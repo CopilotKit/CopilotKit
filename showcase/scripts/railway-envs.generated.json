@@ -35,7 +35,10 @@
         "prod": "/health",
         "staging": "/health"
       },
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "dashboard",
@@ -60,7 +63,10 @@
       },
       "promoteTier": 1,
       "runtimeDeps": ["pocketbase", "harness"],
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "docs",
@@ -85,7 +91,10 @@
       },
       "promoteTier": 2,
       "standalone": true,
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "dojo",
@@ -109,7 +118,10 @@
         "driver": "dojo"
       },
       "promoteTier": 2,
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "harness",
@@ -137,7 +149,10 @@
         "prod": "/health",
         "staging": "/health"
       },
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "harness-workers",
@@ -182,7 +197,10 @@
           "drainingSeconds": 180
         }
       },
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "pocketbase",
@@ -206,7 +224,10 @@
         "driver": "pocketbase"
       },
       "promoteTier": 0,
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "shell",
@@ -234,7 +255,10 @@
         "prod": "/",
         "staging": "/"
       },
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "showcase-ag2",
@@ -265,7 +289,10 @@
         "prod": "/api/health",
         "staging": "/api/health"
       },
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "showcase-agno",
@@ -296,7 +323,10 @@
         "prod": "/api/health",
         "staging": "/api/health"
       },
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "showcase-built-in-agent",
@@ -327,7 +357,10 @@
         "prod": "/api/health",
         "staging": "/api/health"
       },
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "showcase-claude-sdk-python",
@@ -362,7 +395,10 @@
         "prod": "/api/health",
         "staging": "/api/health"
       },
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "showcase-claude-sdk-typescript",
@@ -393,7 +429,10 @@
         "prod": "/api/health",
         "staging": "/api/health"
       },
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "showcase-crewai-crews",
@@ -424,7 +463,10 @@
         "prod": "/api/health",
         "staging": "/api/health"
       },
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "showcase-google-adk",
@@ -455,7 +497,10 @@
         "prod": "/api/health",
         "staging": "/api/health"
       },
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "showcase-langgraph-fastapi",
@@ -486,7 +531,10 @@
         "prod": "/api/health",
         "staging": "/api/health"
       },
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "showcase-langgraph-python",
@@ -517,7 +565,10 @@
         "prod": "/api/health",
         "staging": "/api/health"
       },
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "showcase-langgraph-typescript",
@@ -548,7 +599,10 @@
         "prod": "/api/health",
         "staging": "/api/health"
       },
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "showcase-langroid",
@@ -579,7 +633,10 @@
         "prod": "/api/health",
         "staging": "/api/health"
       },
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "showcase-llamaindex",
@@ -610,7 +667,10 @@
         "prod": "/api/health",
         "staging": "/api/health"
       },
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "showcase-mastra",
@@ -641,7 +701,10 @@
         "prod": "/api/health",
         "staging": "/api/health"
       },
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "showcase-ms-agent-dotnet",
@@ -672,7 +735,10 @@
         "prod": "/api/health",
         "staging": "/api/health"
       },
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "showcase-ms-agent-harness-dotnet",
@@ -703,7 +769,10 @@
         "prod": "/api/health",
         "staging": "/api/health"
       },
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "showcase-ms-agent-python",
@@ -734,7 +803,10 @@
         "prod": "/api/health",
         "staging": "/api/health"
       },
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "showcase-pydantic-ai",
@@ -765,7 +837,10 @@
         "prod": "/api/health",
         "staging": "/api/health"
       },
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "showcase-spring-ai",
@@ -796,7 +871,10 @@
         "prod": "/api/health",
         "staging": "/api/health"
       },
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "showcase-strands",
@@ -827,7 +905,10 @@
         "prod": "/api/health",
         "staging": "/api/health"
       },
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "showcase-strands-typescript",
@@ -858,7 +939,10 @@
         "prod": "/api/health",
         "staging": "/api/health"
       },
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "starter-adk",
@@ -889,7 +973,10 @@
         "prod": "/",
         "staging": "/"
       },
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "starter-agno",
@@ -920,7 +1007,10 @@
         "prod": "/",
         "staging": "/"
       },
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "starter-crewai-crews",
@@ -951,7 +1041,10 @@
         "prod": "/",
         "staging": "/"
       },
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "starter-langgraph-fastapi",
@@ -982,7 +1075,10 @@
         "prod": "/",
         "staging": "/"
       },
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "starter-langgraph-js",
@@ -1013,7 +1109,10 @@
         "prod": "/",
         "staging": "/"
       },
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "starter-langgraph-python",
@@ -1044,7 +1143,10 @@
         "prod": "/",
         "staging": "/"
       },
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "starter-llamaindex",
@@ -1075,7 +1177,10 @@
         "prod": "/",
         "staging": "/"
       },
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "starter-mastra",
@@ -1106,7 +1211,10 @@
         "prod": "/",
         "staging": "/"
       },
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "starter-ms-agent-framework-dotnet",
@@ -1137,7 +1245,10 @@
         "prod": "/",
         "staging": "/"
       },
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "starter-ms-agent-framework-python",
@@ -1168,7 +1279,10 @@
         "prod": "/",
         "staging": "/"
       },
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "starter-pydantic-ai",
@@ -1199,7 +1313,10 @@
         "prod": "/",
         "staging": "/"
       },
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "starter-strands-python",
@@ -1230,7 +1347,10 @@
         "prod": "/",
         "staging": "/"
       },
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     },
     {
       "name": "webhooks",
@@ -1254,7 +1374,10 @@
         "driver": "webhooks"
       },
       "promoteTier": 0,
-      "autoUpdates": "disabled"
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "unmanaged"
+      }
     }
   ],
   "closure": {

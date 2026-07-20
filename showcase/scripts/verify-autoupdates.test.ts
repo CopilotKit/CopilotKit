@@ -26,18 +26,35 @@ const ENV_IDS = {
   staging: "staging-env-id",
 } as const;
 
-// A tiny SSOT: two services, both expected "disabled" (the invariant every
-// real service satisfies).
+// A tiny SSOT: two services, both MANAGED-"disabled" in BOTH envs (a
+// fully-managed fleet — exercises the general disabled-vs-minor comparison in
+// both envs). autoUpdates is per-env, keyed by the same env names as
+// `environments`.
 const SSOT: Record<string, AutoUpdatesGateEntry> = {
   "showcase-mastra": {
     serviceId: "svc-mastra",
     environments: { prod: {}, staging: {} },
-    autoUpdates: "disabled",
+    autoUpdates: { prod: "disabled", staging: "disabled" },
   },
   "showcase-ag2": {
     serviceId: "svc-ag2",
     environments: { prod: {}, staging: {} },
-    autoUpdates: "disabled",
+    autoUpdates: { prod: "disabled", staging: "disabled" },
+  },
+};
+
+// The staging-first SSOT: staging is MANAGED-"disabled" (enforced) while prod
+// is "unmanaged" (the gate skips it entirely). This is the live rollout shape.
+const SSOT_STAGING_FIRST: Record<string, AutoUpdatesGateEntry> = {
+  "showcase-mastra": {
+    serviceId: "svc-mastra",
+    environments: { prod: {}, staging: {} },
+    autoUpdates: { staging: "disabled", prod: "unmanaged" },
+  },
+  "showcase-ag2": {
+    serviceId: "svc-ag2",
+    environments: { prod: {}, staging: {} },
+    autoUpdates: { staging: "disabled", prod: "unmanaged" },
   },
 };
 
@@ -135,20 +152,33 @@ describe("checkAutoUpdates", () => {
 });
 
 describe("expectedPolicyFor", () => {
-  it("reads the SSOT field", () => {
+  it("reads the per-env SSOT field for the requested env", () => {
     expect(
-      expectedPolicyFor({
-        serviceId: "x",
-        environments: {},
-        autoUpdates: "minor",
-      }),
+      expectedPolicyFor(
+        {
+          serviceId: "x",
+          environments: { prod: {}, staging: {} },
+          autoUpdates: { prod: "minor", staging: "disabled" },
+        },
+        "prod",
+      ),
     ).toBe("minor");
   });
 
+  it("resolves the 'unmanaged' sentinel for the requested env", () => {
+    const entry: AutoUpdatesGateEntry = {
+      serviceId: "x",
+      environments: { prod: {}, staging: {} },
+      autoUpdates: { staging: "disabled", prod: "unmanaged" },
+    };
+    expect(expectedPolicyFor(entry, "staging")).toBe("disabled");
+    expect(expectedPolicyFor(entry, "prod")).toBe("unmanaged");
+  });
+
   it("defaults to disabled when the SSOT field is absent", () => {
-    expect(expectedPolicyFor({ serviceId: "x", environments: {} })).toBe(
-      "disabled",
-    );
+    expect(
+      expectedPolicyFor({ serviceId: "x", environments: {} }, "prod"),
+    ).toBe("disabled");
   });
 });
 
@@ -201,6 +231,139 @@ describe("runAutoUpdatesGate — red/green", () => {
     expect(result.violations).toHaveLength(0);
     expect(result.checked).toBe(2); // only ag2, both envs
     expect(result.skipped).toBe(2); // mastra skipped in both envs
+  });
+});
+
+// ── Staging-first per-env rollout: enforce staging, skip unmanaged prod ─────
+//
+// autoUpdates is per-env. Staging is MANAGED-"disabled" (the gate enforces it:
+// a live-minor staging service is a violation). Prod is "unmanaged" — the gate
+// does NOT check it AT ALL, so prod's heterogeneous live autoUpdates (some
+// minor, some disabled) produce ZERO violations and do not trip the per-env
+// zero-checked floor (an unmanaged env is not counted as expected).
+
+describe("runAutoUpdatesGate — staging-first per-env rollout", () => {
+  it("(a) MANAGED staging with a live-minor service ⇒ violation", async () => {
+    // staging: mastra minor (drift). prod: all disabled (but prod is unmanaged
+    // anyway). Exactly one violation, in staging.
+    const staging: EnvironmentConfigJson = {
+      services: {
+        "svc-mastra": { source: { autoUpdates: { type: "minor" } } },
+        "svc-ag2": { source: {} },
+      },
+    };
+    const prod: EnvironmentConfigJson = {
+      services: {
+        "svc-mastra": { source: { autoUpdates: null } },
+        "svc-ag2": { source: {} },
+      },
+    };
+    const result = await runAutoUpdatesGate({
+      services: SSOT_STAGING_FIRST,
+      envIds: ENV_IDS,
+      fetchEnvConfig: fetcherFor({
+        "staging-env-id": staging,
+        "prod-env-id": prod,
+      }),
+    });
+    expect(result.violations).toHaveLength(1);
+    expect(result.violations[0]).toMatchObject({
+      service: "showcase-mastra",
+      env: "staging",
+      expected: "disabled",
+      liveType: "minor",
+    });
+    // Prod is unmanaged → not checked; only the 2 staging services are.
+    expect(result.checked).toBe(2);
+    const summary = summarizeAutoUpdatesFailures(result);
+    expect(summary.shouldFail).toBe(true);
+    expect(summary.lines.join("\n")).toMatch(/\[staging\]/);
+  });
+
+  it("(b) UNMANAGED prod with a live-minor service ⇒ NOT flagged (skipped)", async () => {
+    // Both envs carry a live-minor mastra. Staging (managed) ⇒ violation;
+    // prod (unmanaged) ⇒ NOT flagged, and prod is not even counted/checked.
+    const minorCfg: EnvironmentConfigJson = {
+      services: {
+        "svc-mastra": { source: { autoUpdates: { type: "minor" } } },
+        "svc-ag2": { source: { autoUpdates: { type: "minor" } } },
+      },
+    };
+    const result = await runAutoUpdatesGate({
+      services: SSOT_STAGING_FIRST,
+      envIds: ENV_IDS,
+      fetchEnvConfig: fetcherFor({
+        "staging-env-id": minorCfg,
+        "prod-env-id": minorCfg,
+      }),
+    });
+    // No prod violations despite prod being live-minor for BOTH services.
+    expect(result.violations.every((v) => v.env !== "prod")).toBe(true);
+    // Both staging services are flagged; prod produced nothing.
+    expect(result.violations).toHaveLength(2);
+    expect(result.violations.map((v) => v.env)).toEqual(["staging", "staging"]);
+    // Prod is unmanaged → not counted as expected, not checked.
+    expect(result.perEnv?.prod).toEqual({
+      expected: 0,
+      checked: 0,
+      skipped: 0,
+    });
+    // The starvation floor must NOT fire for the unmanaged prod env.
+    const summary = summarizeAutoUpdatesFailures(result);
+    expect(summary.lines.join("\n")).not.toMatch(/\[prod\]/);
+  });
+
+  it("(b') all-unmanaged prod is entirely skipped and never trips the floor", async () => {
+    // Even when prod's live config is EMPTY, an unmanaged prod produces no
+    // starvation failure (it is not expected). A clean managed staging passes.
+    const stagingClean: EnvironmentConfigJson = {
+      services: {
+        "svc-mastra": { source: { autoUpdates: null } },
+        "svc-ag2": { source: {} },
+      },
+    };
+    const prodEmpty: EnvironmentConfigJson = { services: {} };
+    const result = await runAutoUpdatesGate({
+      services: SSOT_STAGING_FIRST,
+      envIds: ENV_IDS,
+      fetchEnvConfig: fetcherFor({
+        "staging-env-id": stagingClean,
+        "prod-env-id": prodEmpty,
+      }),
+    });
+    expect(result.violations).toHaveLength(0);
+    expect(result.perEnv?.prod).toEqual({
+      expected: 0,
+      checked: 0,
+      skipped: 0,
+    });
+    expect(summarizeAutoUpdatesFailures(result).shouldFail).toBe(false);
+  });
+
+  it("(c) MANAGED staging that verifies ZERO services ⇒ floor fails (named)", async () => {
+    // Staging is managed (expected>0) but its live config is empty ⇒ checked 0
+    // for a managed env ⇒ the per-env floor fails and names [staging]. Prod is
+    // unmanaged, so it neither contributes nor masks the failure.
+    const stagingEmpty: EnvironmentConfigJson = { services: {} };
+    const prodMinor: EnvironmentConfigJson = {
+      services: {
+        "svc-mastra": { source: { autoUpdates: { type: "minor" } } },
+        "svc-ag2": { source: {} },
+      },
+    };
+    const result = await runAutoUpdatesGate({
+      services: SSOT_STAGING_FIRST,
+      envIds: ENV_IDS,
+      fetchEnvConfig: fetcherFor({
+        "staging-env-id": stagingEmpty,
+        "prod-env-id": prodMinor,
+      }),
+    });
+    const summary = summarizeAutoUpdatesFailures(result);
+    expect(summary.shouldFail).toBe(true);
+    expect(summary.lines.join("\n")).toMatch(/\[staging\]/);
+    // Prod (unmanaged) must not be named as starved.
+    expect(summary.lines.join("\n")).not.toMatch(/\[prod\]/);
   });
 });
 

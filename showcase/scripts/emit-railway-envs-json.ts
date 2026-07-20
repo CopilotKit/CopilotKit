@@ -117,10 +117,11 @@ interface Emitted {
       prod: WorkerProvisioning;
       staging: WorkerProvisioning;
     };
-    // Railway auto-updates policy (ADDITIVE, env-independent). ALWAYS emitted
-    // ("disabled" fleet-wide) so a sibling drift gate can positively assert the
-    // CI-explicit-only deploy path against live Railway config in both envs.
-    autoUpdates: AutoUpdatesPolicy;
+    // Railway auto-updates policy (ADDITIVE, PER-ENV). ALWAYS emitted with both
+    // env keys so the sibling drift gate can enforce the managed (concrete-
+    // "disabled") envs and skip the "unmanaged" ones. Today: staging "disabled"
+    // (enforced), prod "unmanaged" (skipped) for the staging-first rollout.
+    autoUpdates: { staging: AutoUpdatesPolicy; prod: AutoUpdatesPolicy };
   }>;
   // --- Top-level promote-closure plan (ADDITIVE, U2). The tier-ordered
   // closure for the FULL fleet (`all`), computed via `computePromoteClosure`.
@@ -260,10 +261,14 @@ function projectServiceToLegacyJson(
     ...(entry.workerProvisioning !== undefined
       ? { workerProvisioning: entry.workerProvisioning }
       : {}),
-    // Railway auto-updates policy, appended LAST (additive). ALWAYS present
-    // ("disabled" fleet-wide) — the golden test projects only LEGACY_KEYS, so
-    // this stays byte-safe there, and the drift gate reads it positively.
-    autoUpdates: entry.autoUpdates,
+    // Railway auto-updates policy, appended LAST (additive) — PER-ENV. ALWAYS
+    // present with both env keys — the golden test projects only LEGACY_KEYS,
+    // so this stays byte-safe there, and the drift gate reads the per-env
+    // policy (enforces "disabled" envs, skips "unmanaged" ones).
+    autoUpdates: {
+      staging: entry.autoUpdates.staging,
+      prod: entry.autoUpdates.prod,
+    },
   };
 }
 
