@@ -545,6 +545,12 @@ export function createRunRenderer(args: {
       // No-op if the run was interrupted (markInterrupted already drained).
       if (aborted) return;
       await finalizeTurnStream();
+      // Backstop: clear the native "is thinking…" status even when the reply
+      // streamed no text — a tool-only / file-only reply (e.g. a posted chart)
+      // never triggers `onFirstReply`, so without this the indicator lingers
+      // forever. `postedReply` guards against a redundant clear on the normal
+      // streamed-text path (where onFirstReply already cleared it).
+      if (statusMode && !postedReply) await clearStatus();
     },
     async markInterrupted() {
       // Idempotent. Mark BEFORE any await so subsequent subscriber

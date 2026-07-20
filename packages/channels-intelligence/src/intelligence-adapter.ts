@@ -201,10 +201,13 @@ export class IntelligenceAdapter implements PlatformAdapter {
    * Backs `thread.getMessages()` — e.g. the `read_thread` tool — on the managed
    * path by reading the reconstructed thread history via the transport's
    * `getHistory` and mapping it to the {@link ThreadMessage} shape. Without it
-   * the base `Thread.getMessages()` returns `[]`, so tools that inspect the
-   * thread (summaries, "what was in the image") see no messages even though
-   * history exists. Mirrors {@link conversationStore}'s seeding read; the
-   * `route` is the opaque {@link EgressRoute} threaded through {@link ReplyTarget}.
+   * the base `Thread.getMessages()` returns `[]`, so text-inspecting tools
+   * (e.g. `read_thread` summarizing prior turns) see no messages even though
+   * history exists. The mapping is text-only: image/file parts contribute no
+   * text, so `read_thread` never sees image *content* — that reaches the model
+   * only through {@link conversationStore}'s seeding of `agent.messages`.
+   * Mirrors that seeding read; the `route` is the opaque {@link EgressRoute}
+   * threaded through {@link ReplyTarget}.
    * Best-effort: a `getHistory` failure degrades to `[]` (no thrown error).
    */
   getMessages = async (target: ReplyTarget): Promise<ThreadMessage[]> => {
@@ -482,6 +485,10 @@ export class IntelligenceAdapter implements PlatformAdapter {
           rawEmoji: env.rawEmoji,
           added: env.added,
           user,
+          // Source provider (e.g. "teams"/"slack") so core normalizes by it —
+          // this adapter's own `platform` is "intelligence", not an emoji
+          // platform, so without this the managed path would never normalize.
+          platform: env.platform,
           conversationKey: env.conversationKey,
           replyTarget,
           messageId: env.messageId,

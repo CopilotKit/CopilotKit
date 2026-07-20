@@ -15,6 +15,7 @@ import {
   inlineSnippets,
   loadDoc,
   readIcon,
+  readTitle,
   SNIPPET_MAP,
   SNIPPETS_DIR,
 } from "../docs-render";
@@ -67,6 +68,22 @@ function hasPageTitle(navTree: NavNode[], page: string): boolean {
     if (node.type === "group") return hasPageTitle(node.children, page);
     return false;
   });
+}
+
+function groupPageTitles(navTree: NavNode[], groupTitle: string): string[] {
+  for (const node of navTree) {
+    if (node.type !== "group") continue;
+    if (node.title === groupTitle) {
+      return node.children.flatMap((child) =>
+        child.type === "page" ? [child.title] : [],
+      );
+    }
+
+    const nested = groupPageTitles(node.children, groupTitle);
+    if (nested.length > 0) return nested;
+  }
+
+  return [];
 }
 
 function sectionPages(navTree: NavNode[], section: string): string[] {
@@ -174,6 +191,15 @@ describe("loadDoc", () => {
       "integrations/aws-strands/(other)/telemetry/index.mdx",
     );
   });
+
+  it("keeps the Threads overview and headless implementation on separate routes", () => {
+    expect(loadDoc("threads")?.fm.title).toBe("Threads");
+    expect(loadDoc("headless-threads")?.fm.title).toBe("Headless Threads");
+    expect(loadDoc("integrations/mastra/threads")?.fm.title).toBe("Threads");
+    expect(loadDoc("integrations/mastra/headless-threads")?.fm.title).toBe(
+      "Headless Threads",
+    );
+  });
 });
 
 describe("readIcon", () => {
@@ -207,6 +233,26 @@ describe("readIcon", () => {
 
     expect(readIcon(hiddenIconFile)).toBeNull();
     expect(readIcon(visibleIconFile)).toBe("lucide/Bolt");
+  });
+});
+
+describe("readTitle", () => {
+  it("uses nav_title for navigation without changing the page title", () => {
+    const filePath = path.join(tempDir, "nav-title.mdx");
+    fs.writeFileSync(
+      filePath,
+      [
+        "---",
+        'title: "Threads"',
+        'nav_title: "Overview"',
+        "---",
+        "",
+        "Body",
+      ].join("\n"),
+    );
+
+    expect(readTitle(filePath)).toBe("Overview");
+    expect(loadDoc("threads")?.fm.title).toBe("Threads");
   });
 });
 
@@ -397,6 +443,28 @@ describe("framework nav", () => {
     expect(hasPageTitle(sharedFolderAuthoredNav, "CopilotKit CLI")).toBe(true);
   });
 
+  it("orders the Threads job routes consistently across framework modes", () => {
+    const generatedNav = buildFrameworkNav(
+      "langgraph",
+      "LangGraph (Python)",
+      "langgraph-python",
+    );
+    const authoredNav = buildFrameworkOnlyNav("mastra");
+    const builtInNav = buildFrameworkOnlyNav("built-in-agent");
+
+    const expected = [
+      "Overview",
+      "Threads Drawer",
+      "Headless Threads",
+      "Threads & Persistence Architecture",
+      "Import Thread History",
+    ];
+
+    expect(groupPageTitles(generatedNav, "Threads")).toEqual(expected);
+    expect(groupPageTitles(authoredNav, "Threads")).toEqual(expected);
+    expect(groupPageTitles(builtInNav, "Threads")).toEqual(expected);
+  });
+
   it("uses the generated Intelligence Platform section for authored framework nav", () => {
     const navTree = buildFrameworkOnlyNav("ag2");
 
@@ -410,7 +478,6 @@ describe("framework nav", () => {
       "Cloud-Hosted Enterprise Intelligence",
       "Self-Hosting Enterprise Intelligence",
       "Enterprise Intelligence Architecture",
-      "Threads & Persistence Architecture",
     ]);
   });
 });

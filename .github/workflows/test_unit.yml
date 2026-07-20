@@ -183,3 +183,7 @@ jobs:
       - name: Verify packed Channels umbrella contract
         if: matrix.node-version == '20.x'
         run: pnpm run verify:channels-umbrella
+
+      - name: Verify packed Runtime managed Channels contract
+        if: matrix.node-version == '20.x'
+        run: pnpm run verify:runtime-package

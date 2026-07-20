@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/core",
-  "version": "1.62.3",
+  "version": "1.63.1",
   "description": "Core web utilities for CopilotKit2",
   "repository": {
     "type": "git",

@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/runtime",
-  "version": "1.62.3",
+  "version": "1.63.1",
   "private": false,
   "keywords": [
     "ai",
@@ -90,6 +90,7 @@
     "@ai-sdk/mcp": "^1.0.21",
     "@ai-sdk/openai": "^3.0.36",
     "@copilotkit/channels-core": "workspace:^",
+    "@copilotkit/channels-intelligence": "workspace:*",
     "@copilotkit/license-verifier": "~0.5.0",
     "@copilotkit/shared": "workspace:*",
     "@graphql-yoga/plugin-defer-stream": "^3.3.1",
@@ -146,7 +147,6 @@
   },
   "peerDependencies": {
     "@anthropic-ai/sdk": "^0.57.0",
-    "@copilotkit/channels-intelligence": "workspace:*",
     "@langchain/aws": ">=0.1.9",
     "@langchain/community": ">=0.3.58",
     "@langchain/core": ">=0.3.66",
@@ -159,9 +159,6 @@
   },
   "peerDependenciesMeta": {
     "@anthropic-ai/sdk": {
-      "optional": true
-    },
-    "@copilotkit/channels-intelligence": {
       "optional": true
     },
     "@langchain/aws": {

@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/channels",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Batteries-included CopilotKit Channels package with the core engine, JSX UI, and every supported platform adapter.",
   "license": "MIT",
   "repository": {

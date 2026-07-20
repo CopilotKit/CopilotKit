@@ -4,6 +4,8 @@ import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
 Thread import moves already-persisted conversations into Enterprise Intelligence as CopilotKit threads. After import, users can open those conversations through the same thread UI you use for native CopilotKit conversations. Built-in import currently supports Google ADK and LangGraph, with more sources coming soon.
 
+New to the feature? Read the [Threads overview](/threads) first to understand the shared thread store and choose between the prebuilt Drawer and a custom headless UI.
+
 Import is a historical migration, not an ongoing replication job. Run it from a CopilotKit app created with the CLI and Enterprise Intelligence enabled. The importer uses the Enterprise Intelligence project selected for the current directory.
 
 ## Supported sources
@@ -94,7 +96,7 @@ It does not import agent state snapshots, framework transport noise, LangSmith t
     Import only moves existing history. Your CLI-created app already sends new CopilotKit conversations to the selected Enterprise Intelligence project. To keep each conversation continuous, reopen it with the same CopilotKit `threadId`. Choose the thread UI that fits your app:
 
     - **Threads Drawer:** follow the [Threads Drawer guide](/prebuilt-components/copilot-threads-drawer). The drawer and chat share a `CopilotChatConfigurationProvider`, so selecting a conversation updates the active `threadId` without separate state wiring.
-    - **Headless Threads:** follow the [Headless Threads guide](/threads). Select a thread with `useThreads`, store its `thread.id`, and pass that value to your chat component as `threadId`.
+    - **Headless Threads:** follow the [Headless Threads guide](/headless-threads). Select a thread with `useThreads`, store its `thread.id`, and pass that value to your chat component as `threadId`.
 
     For the underlying persistence and replay model, see [Threads & Persistence Architecture](/premium/threads-explained).
   </Step>

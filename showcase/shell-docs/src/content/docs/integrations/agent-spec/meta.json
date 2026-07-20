@@ -9,6 +9,10 @@
     "langgraph",
     "wayflow",
     "---Intelligence Platform---",
-    "threads"
+    {
+      "title": "Threads",
+      "defaultOpen": true,
+      "pages": ["threads", "headless-threads"]
+    }
   ]
 }

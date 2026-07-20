@@ -6,7 +6,10 @@ import {
   InMemoryEgressSink,
   InMemoryRenderEventSink,
 } from "./in-memory-transports.js";
-import { RealtimeGatewayTransport } from "./realtime-gateway-transport.js";
+import {
+  RealtimeGatewayTransport,
+  coerceWireProjectId,
+} from "./realtime-gateway-transport.js";
 import type { RealtimeGatewaySession } from "./realtime-gateway.js";
 import type { ChannelIngressEnvelope } from "./contracts.js";
 
@@ -182,6 +185,25 @@ function makeFakeSession() {
   return { session, pushes, handlers };
 }
 
+describe("coerceWireProjectId", () => {
+  it("accepts a positive integer number and a numeric string, rejects the rest", () => {
+    expect(coerceWireProjectId(7)).toBe(7);
+    expect(coerceWireProjectId("9")).toBe(9);
+    expect(coerceWireProjectId("007")).toBe(7);
+    expect(coerceWireProjectId(0)).toBeUndefined();
+    expect(coerceWireProjectId(-1)).toBeUndefined();
+    expect(coerceWireProjectId(1.5)).toBeUndefined();
+    expect(coerceWireProjectId("0")).toBeUndefined();
+    expect(coerceWireProjectId("12.3")).toBeUndefined();
+    expect(coerceWireProjectId("abc")).toBeUndefined();
+    expect(coerceWireProjectId(undefined)).toBeUndefined();
+    expect(coerceWireProjectId(null)).toBeUndefined();
+    // Beyond MAX_SAFE_INTEGER: Number("...") is lossy, so reject rather than
+    // route under a wrong-but-plausible integer.
+    expect(coerceWireProjectId("99999999999999999999")).toBeUndefined();
+  });
+});
+
 describe("RealtimeGatewayTransport — completion intent, never self-ack", () => {
   const cfg = (session: RealtimeGatewaySession) => ({
     scope: {
@@ -272,6 +294,47 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     )!.payload as { payload: { leaseToken?: string } };
     expect(render.payload.leaseToken).toBe("lease_l1");
     expect(completion.payload.leaseToken).toBe("lease_l1");
+  });
+
+  it("honors a numeric-string projectId from the wire (per-delivery scope authority)", async () => {
+    // The gateway delivery.available payload is untyped JSON, so a projectId can
+    // arrive as "9" (string). It must NOT silently fall back to the transport
+    // default (7) — that would defeat the per-delivery scope authority and route
+    // the render-accept under the wrong project.
+    const fake = makeFakeSession();
+    const t = new RealtimeGatewayTransport(cfg(fake.session));
+    await t.start(async () => {});
+    fake.handlers.get("channel.delivery.available.v1")?.({
+      payload: {
+        delivery: {
+          id: "dlv_d1",
+          leaseToken: "lease_l1",
+          adapter: "slack",
+          projectId: "9",
+          channel: { id: "channel_1", name: "support" },
+          turn: {
+            id: "turn_t1",
+            eventId: "evt_1",
+            replyTarget: { adapter: "slack", teamId: "T1", channel: "C1" },
+            input: { kind: "text", text: "hi" },
+          },
+        },
+      },
+    });
+    await Promise.resolve();
+
+    await t.push({
+      deliveryId: "dlv_d1",
+      turnId: "turn_t1",
+      slot: "main",
+      seq: 0,
+      event: { kind: "run_started" },
+    });
+
+    const render = fake.pushes.find(
+      (p) => p.event === "channel.render_event.v1",
+    )!.payload as { payload: { projectId: number } };
+    expect(render.payload.projectId).toBe(9);
   });
 
   it("throws if a render frame is not accepted (no silent success)", async () => {

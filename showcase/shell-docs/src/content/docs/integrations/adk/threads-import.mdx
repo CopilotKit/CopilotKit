@@ -137,6 +137,6 @@ npx copilotkit@latest import \
 Historical import does not keep polling ADK. Your CLI-created app already sends new CopilotKit conversations to the selected Enterprise Intelligence project. To keep each conversation continuous, reopen it with the same CopilotKit `threadId` using one of these UI paths:
 
 - **Threads Drawer:** follow the [Threads Drawer guide](/prebuilt-components/copilot-threads-drawer). The drawer and chat share a `CopilotChatConfigurationProvider`, so selecting a conversation updates the active `threadId` without separate state wiring.
-- **Headless Threads:** follow the [Headless Threads guide](/threads). Select a thread with `useThreads`, store its `thread.id`, and pass that value to your chat component as `threadId`.
+- **Headless Threads:** follow the [Headless Threads guide](/headless-threads). Select a thread with `useThreads`, store its `thread.id`, and pass that value to your chat component as `threadId`.
 
 If your ADK backend maps CopilotKit thread IDs to ADK session IDs, keep that mapping stable so a resumed CopilotKit thread reaches the expected ADK session.

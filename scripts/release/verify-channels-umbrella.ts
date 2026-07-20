@@ -11,6 +11,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   createConsumerManifest,
+  createConsumerWorkspaceYaml,
   FAMILY,
   validatePackedManifests,
 } from "./lib/channels-umbrella.js";
@@ -76,6 +77,46 @@ function packPackage(
   return { manifest, tarball };
 }
 
+interface SourceManifest {
+  dependencies?: Record<string, string>;
+  peerDependencies?: Record<string, string>;
+}
+
+/**
+ * The Channels family depends on monorepo-versioned packages (e.g.
+ * `@copilotkit/core`, `@copilotkit/shared`) via the `workspace:` protocol.
+ * `pnpm pack` rewrites those ranges to the workspace's current version — which,
+ * on a release PR, is the freshly-bumped version that is not on the registry
+ * until this very release publishes. Packing them locally too keeps the
+ * consumer install hermetic instead of racing the registry against our own
+ * in-flight release. Discovered transitively via `workspace:` so the list never
+ * drifts as the family's internal dependencies change.
+ */
+function workspaceSiblings(): string[] {
+  const seen = new Set<string>(FAMILY);
+  const siblings: string[] = [];
+  const queue: string[] = [...FAMILY];
+
+  while (queue.length) {
+    const name = queue.shift() as string;
+    const source = readJson<SourceManifest>(
+      join(packageDirectory(name), "package.json"),
+    );
+    for (const deps of [source.dependencies, source.peerDependencies]) {
+      for (const [dep, range] of Object.entries(deps ?? {})) {
+        if (!dep.startsWith("@copilotkit/")) continue;
+        if (!range.startsWith("workspace:")) continue;
+        if (seen.has(dep)) continue;
+        seen.add(dep);
+        siblings.push(dep);
+        queue.push(dep);
+      }
+    }
+  }
+
+  return siblings;
+}
+
 function packLocalFamily(tarballDir: string): {
   manifests: Map<string, PackedManifest>;
   tarballs: Map<string, string>;
@@ -86,6 +127,13 @@ function packLocalFamily(tarballDir: string): {
   for (const name of FAMILY) {
     const { manifest, tarball } = packPackage(name, tarballDir);
     manifests.set(name, manifest);
+    tarballs.set(name, tarball);
+  }
+
+  // Pin monorepo siblings to local tarballs too (overrides only — they are not
+  // part of the packed-manifest contract that `validatePackedManifests` checks).
+  for (const name of workspaceSiblings()) {
+    const { tarball } = packPackage(name, tarballDir);
     tarballs.set(name, tarball);
   }
 
@@ -196,6 +244,10 @@ function writeConsumer(
     );
   }
 
+  writeFileSync(
+    join(consumerDir, "pnpm-workspace.yaml"),
+    createConsumerWorkspaceYaml(),
+  );
   writeFileSync(
     join(consumerDir, "package.json"),
     `${JSON.stringify(

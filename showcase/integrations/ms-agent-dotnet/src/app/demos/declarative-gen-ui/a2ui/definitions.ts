@@ -54,6 +54,28 @@ export const myDefinitions = {
     }),
   },
 
+  DataTable: {
+    description:
+      "A data table with column headers and rows. Ideal for rankings and per-person/per-item breakdowns (rep performance vs quota, deal lists). Each row's keys MUST appear in `columns[].key`; unknown row keys render as blank cells and indicate model/schema drift.",
+    // NOTE on row-keys ⊆ columns[].key: we'd normally enforce this with
+    // `z.object(...).refine(...)`, but the host catalog package's
+    // `CatalogComponentDefinition` type requires `props: ZodObject<…>`
+    // (it inspects `.shape` at runtime), and `.refine` returns a
+    // `ZodEffects` that breaks both the `satisfies CatalogDefinitions`
+    // type assertion and the runtime `.shape` access. Until the host type
+    // is broadened, we encode the constraint in the description above so
+    // the LLM sees the rule, and leave hard enforcement to the rendering
+    // pipeline (which already shows the empty cell — detection is the gap,
+    // not behaviour).
+    props: z.object({
+      columns: z.array(z.object({ key: z.string(), label: z.string() })),
+      // Cells may be strings or numbers — the renderer stringifies at
+      // render time, but accepting both lets the LLM emit raw numerics
+      // (e.g. attainment 124) instead of being forced to stringify.
+      rows: z.array(z.record(z.union([z.string(), z.number()]))),
+    }),
+  },
+
   PrimaryButton: {
     description:
       "A styled primary call-to-action button. Attach an optional `action` that will be dispatched back to the agent when the user clicks it.",

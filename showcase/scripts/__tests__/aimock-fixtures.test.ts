@@ -261,34 +261,35 @@ describe("fixture collision detection", () => {
     // (interrupt/gen-ui-interrupt, declarative/render_a2ui, and copied
     // LangGraph headless/feature-parity routes) that are disambiguated by
     // fixtureFile/demo route like the existing integration parity copies above.
+    // Bumped 297 → 300 (+3) porting agno/gen-ui-declarative to the OSS-136
+    // sales flow: agno's two-stage a2ui_dynamic_agent forces the INNER
+    // render_a2ui secondary call with a HARDCODED user message ("Generate a
+    // dynamic A2UI dashboard based on the conversation.") that is identical
+    // across all four pills, so the four inner fixtures cannot be keyed on
+    // userMessage — they discriminate on `systemMessage` (the per-pill
+    // context phrase the outer generate_a2ui injects as "Conversation
+    // context:\n<context>"). `matchKey` here does not encode systemMessage or
+    // context, so the four inner entries collapse to a single
+    // `toolName=render_a2ui` key → 3 exact-key collisions that aimock's router
+    // DOES disambiguate at runtime (verified live: the inner request's system
+    // text carried the pill's context phrase, matched the right surface).
     //
-    // Bumped 297 → 301 (+4) after merging main into the Mastra Partner Refresh
-    // branch: main added cross-demo fixture aliases (e.g. ag2
-    // headless-complete/gen-ui-headless-complete + prebuilt-popup/agentic-chat
-    // greeting reuse) of the same runtime-disambiguated-by-fixtureFile kind.
-    // Verified the +4 are NOT in the mastra context (the refresh's new fixtures —
-    // a2ui-recovery unique prompts, interrupt cells — introduce zero new exact
-    // dupes); they are the merged main integrations' existing alias pattern.
-    //
-    // Bumped 301 → 303 (+2) by the native-interrupt resume-loop fix: the
-    // gen-ui-interrupt + interrupt-headless suspend fixtures gained
-    // `hasToolResult:false` so they stop re-matching once the resolved tool
-    // result is present (letting the resume fall through to the toolCallId
-    // confirmation fixture). That aligns them with the schedule_meeting suspend
-    // fixtures hitl-in-chat.json already carried, so all three mastra cells now
-    // share the same two match keys ("intro call with the sales team" +
-    // "1:1 with Alice", each hasToolResult:false|toolName:schedule_meeting).
-    // These are disambiguated at runtime by route/fixtureFile like every other
-    // cross-demo alias above — one exact-key pair per pill × 2 pills = +2.
-    //
-    // Bumped 303 → 305 (+2) by the cancel-path fix (aimock 1.37.0
-    // toolResultContains): interrupt-headless gained cancelled legs mirroring
-    // gen-ui-interrupt's, keyed userMessage + toolCallId +
-    // toolResultContains:"cancelled". Each headless cancelled leg shares its
-    // exact key with the gen-ui-interrupt one (same pill text, same suspend
-    // toolCallId) and carries the IDENTICAL response text, so first-match-wins
-    // yields the same Denied narration for both demos — one pair per pill = +2.
-    const KNOWN_DUPLICATE_CEILING = 305;
+    // Bumped 300 → 304 (+4) by the Mastra Partner Refresh native-interrupt +
+    // cancel-path fixtures (merged from the Mastra branch):
+    //   +2 native-interrupt resume-loop fix — gen-ui-interrupt +
+    //      interrupt-headless suspend fixtures gained `hasToolResult:false` so
+    //      the resume falls through to the toolCallId confirmation fixture;
+    //      that aligns them with hitl-in-chat.json's schedule_meeting suspend
+    //      fixtures, so all three mastra cells share the same two suspend keys
+    //      ("intro call with the sales team" + "1:1 with Alice").
+    //   +2 cancel-path fix (aimock toolResultContains) — interrupt-headless
+    //      gained cancelled legs mirroring gen-ui-interrupt's, keyed
+    //      userMessage + toolCallId + toolResultContains:"cancelled"; each
+    //      headless cancelled leg shares its exact key + response text with the
+    //      gen-ui-interrupt one, so first-match-wins yields the same Denied
+    //      narration — one pair per pill.
+    // All runtime-disambiguated by route/fixtureFile like every alias above.
+    const KNOWN_DUPLICATE_CEILING = 304;
 
     const collisions: string[] = [];
 

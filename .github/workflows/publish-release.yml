@@ -733,9 +733,17 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          # npm intent: a manual dispatch, or a merged release/publish/* PR.
-          # Computed purely from event-context expressions (no API needed).
-          NPM_INTENDED="${{ (github.event_name == 'workflow_dispatch' || (github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/publish/'))) && 'true' || 'false' }}"
+          # npm intent: a STABLE manual dispatch (mode != prerelease — the default
+          # and the retry escape hatch both publish to npm), or a merged
+          # release/publish/* PR. A prerelease dispatch is a canary: it never pushes
+          # a tag, cuts a GH Release, or posts to Slack (the builder returns
+          # should_post=false, mirroring the `mode != 'prerelease'` guards on the
+          # publish/tag steps), so it is NOT stable-release intent and must never
+          # self-page on failure. Computed purely from event-context expressions
+          # (no API needed). Guarding on mode here is what stops a failed canary
+          # build (e.g. a stale lockfile on a canary/* branch) from tripping the
+          # notifier self-watchdog's best-effort Slack post below.
+          NPM_INTENDED="${{ ((github.event_name == 'workflow_dispatch' && inputs.mode != 'prerelease') || (github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/publish/'))) && 'true' || 'false' }}"
           echo "npm_intended=$NPM_INTENDED" >> "$GITHUB_OUTPUT"
 
           # Python intent: a python_publish dispatch, OR a merged PR that changed
@@ -837,7 +845,7 @@ jobs:
 
       - name: Post to #engr
         if: ${{ steps.build.outputs.should_post == 'true' && env.SLACK_WEBHOOK != '' && inputs.dry-run != true }}
-        uses: slackapi/slack-github-action@0d95c9a7becc1e6e297d76df9bc735c44f4cbcbc # v3.0.5
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_ENGR }}
           webhook-type: incoming-webhook
@@ -880,7 +888,7 @@ jobs:
         # gate is correct and robust. (The ::error:: echo step above stays
         # unconditional — only the Slack POST needs these guards.)
         if: ${{ failure() && env.SLACK_WEBHOOK != '' && inputs.dry-run != true && (steps.intent.outputs.npm_intended == 'true' || steps.intent.outputs.py_intended == 'true') }}
-        uses: slackapi/slack-github-action@0d95c9a7becc1e6e297d76df9bc735c44f4cbcbc # v3.0.5
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_ENGR }}
           webhook-type: incoming-webhook

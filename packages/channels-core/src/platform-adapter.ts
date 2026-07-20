@@ -160,6 +160,15 @@ export interface IncomingReaction extends IngressEventBase {
   messageRef?: MessageRef;
   /** Containing thread/conversation id, when distinct from the message. */
   threadId?: string;
+  /**
+   * Source provider a managed delivery originated from (e.g. `"teams"`,
+   * `"slack"`). Direct adapters omit it — core then normalizes by
+   * {@link PlatformAdapter.platform}. The Intelligence adapter (whose own
+   * `platform` is `"intelligence"`, not an emoji platform) sets it to the
+   * delivery's source provider so central normalization runs on the managed
+   * path.
+   */
+  readonly platform?: string;
   /** Native payload. */
   raw: unknown;
 }

@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   ADAPTERS,
+  createConsumerWorkspaceYaml,
   createConsumerManifest,
+  FAMILY,
+  RELEASE_AGE_EXCLUDE,
   validatePackedManifests,
 } from "./channels-umbrella.js";
 import type { PackedManifest } from "./channels-umbrella.js";
@@ -123,5 +126,29 @@ describe("createConsumerManifest", () => {
         },
       },
     });
+  });
+});
+
+describe("createConsumerWorkspaceYaml", () => {
+  it("exempts first-party packages from the release-age gate", () => {
+    const workspace = createConsumerWorkspaceYaml();
+
+    for (const entry of RELEASE_AGE_EXCLUDE) {
+      expect(workspace).toContain(`  - ${JSON.stringify(entry)}\n`);
+    }
+
+    // Every packed Channels package — and the first-party deps that dragged in
+    // the age-gate failure (@copilotkit/core, @copilotkit/shared) — is covered
+    // by the @copilotkit/* wildcard, so none can trip the gate as new deps are
+    // added.
+    expect(RELEASE_AGE_EXCLUDE).toContain("@copilotkit/*");
+    for (const name of [...FAMILY, "@copilotkit/core", "@copilotkit/shared"]) {
+      expect(name.startsWith("@copilotkit/")).toBe(true);
+    }
+
+    // @ag-ui is a separate upstream org — its packages are enumerated, never
+    // blanket-wildcarded, so we don't extend immediate-install trust to the
+    // whole scope.
+    expect(RELEASE_AGE_EXCLUDE).not.toContain("@ag-ui/*");
   });
 });

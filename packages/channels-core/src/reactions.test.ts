@@ -80,6 +80,27 @@ describe("channel.onReaction", () => {
     expect(hits).toEqual(["thumbs_up"]);
   });
 
+  it("normalizes by the reaction's source platform on the managed path", async () => {
+    // Managed (Intelligence) path: the adapter's own platform is "intelligence"
+    // (not an emoji platform), but the reaction carries `platform: "teams"` from
+    // its source provider. Core must normalize by that source platform, so a
+    // Teams `<codepoint>_<name>` token resolves to its canonical name.
+    const fake = new FakeAdapter({ platform: "intelligence" });
+    const channel = createChannel({ adapters: [fake] });
+    const hits: string[] = [];
+    channel.onReaction(["refresh"], (evt) => {
+      hits.push(evt.emoji);
+    });
+    await channel.start();
+    fake.emitReaction({
+      rawEmoji: "1f504_refresh",
+      added: true,
+      platform: "teams",
+    });
+    await tick();
+    expect(hits).toEqual(["refresh"]);
+  });
+
   it("routes a reaction on a posted message to its <Message onReaction>", async () => {
     const fake = new FakeAdapter();
     const channel = createChannel({ adapters: [fake] });
