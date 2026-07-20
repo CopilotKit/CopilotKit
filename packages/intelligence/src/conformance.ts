@@ -981,6 +981,19 @@ function buildCases(): LearningPlatformConformanceCase[] {
       value: { ...generatedCandidate, parentVersionId: UUID.version },
     },
     {
+      name: "generated-remove-candidate-requires-non-empty-removal-intent",
+      schema: "GeneratedSkillCandidateV1",
+      valid: false,
+      value: {
+        ...generatedCandidate,
+        action: "remove",
+        skillId: UUID.skill,
+        parentVersionId: UUID.version,
+        bundle: null,
+        removalIntent: {},
+      },
+    },
+    {
       name: "create-learning-run-rejects-inverted-selection-interval",
       schema: "CreateLearningRunV1",
       valid: false,

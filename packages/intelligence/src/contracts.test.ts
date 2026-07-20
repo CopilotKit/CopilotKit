@@ -386,6 +386,17 @@ describe("parent V1 contract schemas", () => {
         removalIntent: { reasonCode: "unsafe_behavior" },
       },
     },
+    {
+      name: "remove with an empty removal intent",
+      candidate: {
+        ...generatedCandidate,
+        action: "remove",
+        skillId: UUIDS.skill,
+        parentVersionId: UUIDS.version,
+        bundle: null,
+        removalIntent: {},
+      },
+    },
   ])("rejects a generated $name", ({ candidate }) => {
     expect(generatedSkillCandidateV1Schema.safeParse(candidate).success).toBe(
       false,

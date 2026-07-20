@@ -831,6 +831,17 @@ export const generatedSkillCandidateV1Schema = z
       });
     }
     if (
+      candidate.action === "remove" &&
+      candidate.removalIntent !== null &&
+      Object.keys(candidate.removalIntent).length === 0
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["removalIntent"],
+        message: "Remove requires a non-empty removal intent",
+      });
+    }
+    if (
       (candidate.action === "update" || candidate.action === "remove") &&
       (candidate.skillId === null || candidate.parentVersionId === null)
     ) {

@@ -154,6 +154,7 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
         "workflow-output-rejects-dangling-insight-aliases",
         "generated-add-candidate-forbids-skill-id",
         "generated-add-candidate-forbids-parent-version-id",
+        "generated-remove-candidate-requires-non-empty-removal-intent",
         "create-learning-run-rejects-inverted-selection-interval",
         "learning-run-job-rejects-negative-fence-generation",
         "learning-run-execution-result-rejects-invalid-output-hash",

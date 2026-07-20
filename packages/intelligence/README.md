@@ -14,6 +14,12 @@ consumers must also run the named valid and invalid cases in
 `conformance/learning-platform-v1.json`; those cases are the language-neutral
 executable specification for refinement-only invariants.
 
+In particular, the
+`generated-remove-candidate-requires-non-empty-removal-intent` case requires a
+generated `remove` candidate's `removalIntent` to contain at least one own
+property. No specific property name is required; generated `add` and `update`
+candidates continue to require a null removal intent.
+
 Generated `add` candidates create a new root identity, so both `skillId` and
 `parentVersionId` must be null. Generated `update` and `remove` candidates
 instead require both fields to identify the exact existing target.
