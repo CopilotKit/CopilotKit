@@ -398,6 +398,35 @@ jobs:
           # ::warning:: visible without aborting the cross-post below.
           slack_alert_posted_ok "thread reply" "$thread_resp" || true
 
+          # ---------- add outcome reaction to the init message ----------
+          # Add an emoji REACTION to the ORIGINAL init post reflecting the net
+          # run outcome, so operators see success/failure at a glance without
+          # opening the thread. reactions.add references the message by
+          # `timestamp` (NOT `ts`, unlike chat.postMessage's thread_ts). Keep
+          # this outcome→reaction-name case mapping BYTE-IDENTICAL to the
+          # dry-run mirror's — an anti-drift bats guard enforces it.
+          case "$outcome" in
+            success) reaction_name="white_check_mark" ;;
+            partial) reaction_name="warning" ;;
+            total)   reaction_name="x" ;;
+          esac
+          # Guard: the init post may have failed (init_ts/init_channel_id
+          # empty), in which case there is no message to react to — skip with a
+          # ::warning:: rather than error. This reaction is informational, so a
+          # failed add is WARN-ONLY (`|| true`, mirroring the thread reply) —
+          # NOT fail-loud like the #oss-alerts page below.
+          if [ -n "$init_ts" ] && [ -n "$init_channel_id" ]; then
+            reaction_body=$(jq -nc \
+              --arg channel "$init_channel_id" \
+              --arg timestamp "$init_ts" \
+              --arg name "$reaction_name" \
+              '{channel:$channel, timestamp:$timestamp, name:$name}')
+            reaction_resp=$(slack_api reactions.add "$reaction_body")
+            slack_alert_posted_ok "reactions.add (${reaction_name})" "$reaction_resp" || true
+          else
+            echo "::warning::init post ts/channel unavailable; skipping outcome reaction"
+          fi
+
           # ---------- cross-post to #oss-alerts on partial/total failure ----------
           if [ "$outcome" != "success" ]; then
             # Build the trailing link suffix once so both branches share it
