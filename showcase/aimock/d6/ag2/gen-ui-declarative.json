@@ -1,12 +1,13 @@
 {
  "_meta": {
   "description": "D6 fixtures for ag2 / gen-ui-declarative (A2UI Dynamic Schema)",
-  "_note": "Mirrors langgraph-python gen-ui-declarative.json 1:1 (same 4 sales-context pills, same render_a2ui component trees). ag2 backend is the dedicated a2ui_dynamic.py agent mounted at /declarative-gen-ui (the route points HttpAgent at ${AGENT_URL}/declarative-gen-ui/, injectA2UITool:false). Two-stage pattern: (1) outer agent emits no-arg generate_a2ui toolcall (matched by userMessage+context=ag2); (2) the agent body runs its own secondary render_a2ui LLM call (matched by userMessage+toolName=render_a2ui) and wraps the result in an a2ui_operations container; (3) outer agent emits a one-sentence narration (matched by toolCallId). The outer generate_a2ui handler takes NO arguments — a required context param caused empty-args {} pydantic rejection + a retry hot loop.",
-  "created": "2026-06-23"
+  "_note": "Option A (JS-runtime-injected A2UI). Mirrors langgraph-python gen-ui-declarative.json 1:1 (same 4 sales-context pills, same render_a2ui component trees). ag2 backend is the dedicated a2ui_dynamic.py agent mounted at /declarative-gen-ui (the route points HttpAgent at ${AGENT_URL}/declarative-gen-ui/, injectA2UITool:true default). Two-stage fixture pattern: (1) outer agent emits no-arg generate_a2ui toolcall (matched by userMessage+context=ag2); (2) CopilotKit JS middleware intercepts, drives secondary render_a2ui LLM pass (matched by userMessage+toolName=render_a2ui) and synthesizes the tool result + fires RUN_FINISHED. The outer generate_a2ui handler takes NO arguments.",
+  "created": "2026-06-23",
+  "updated": "2026-07-20"
  },
  "fixtures": [
   {
-   "_comment": "pill sales-dashboard hero — inner secondary LLM (middleware-injected render_a2ui) emits the flat A2UI components.",
+   "_comment": "pill sales-dashboard hero — JS middleware drives secondary render_a2ui LLM pass; emits flat A2UI component tree.",
    "match": {
     "userMessage": "Show me my sales dashboard for this quarter.",
     "toolName": "render_a2ui"
@@ -51,7 +52,7 @@
    "chunkSize": 9999
   },
   {
-   "_comment": "pill team-performance — inner secondary LLM (middleware-injected render_a2ui) emits the flat A2UI components.",
+   "_comment": "pill team-performance — JS middleware drives secondary render_a2ui LLM pass; emits flat A2UI component tree.",
    "match": {
     "userMessage": "How are our sales reps performing against quota?",
     "toolName": "render_a2ui"
@@ -96,7 +97,7 @@
    "chunkSize": 9999
   },
   {
-   "_comment": "pill at-risk — inner secondary LLM (middleware-injected render_a2ui) emits the flat A2UI components.",
+   "_comment": "pill at-risk — JS middleware drives secondary render_a2ui LLM pass; emits flat A2UI component tree.",
    "match": {
     "userMessage": "Are any accounts or pipeline deals at risk this quarter?",
     "toolName": "render_a2ui"
@@ -141,7 +142,7 @@
    "chunkSize": 9999
   },
   {
-   "_comment": "pill top-account — inner secondary LLM (middleware-injected render_a2ui) emits the flat A2UI components.",
+   "_comment": "pill top-account — JS middleware drives secondary render_a2ui LLM pass; emits flat A2UI component tree.",
    "match": {
     "userMessage": "Pull up the details on our biggest account.",
     "toolName": "render_a2ui"
