@@ -251,7 +251,16 @@ export function useAgent({ agentId, updates, throttleMs }: UseAgentProps = {}) {
     agent.threadId = configThreadId;
   }, [agent, configThreadId, configHasExplicitThreadId]);
 
+  // isReady is true once the runtime has finished connecting and a real agent
+  // instance (not a provisional placeholder) is available for the requested
+  // agentId. Callers can use this to defer renders or actions that require a
+  // live agent subscription.
+  const isReady =
+    copilotkit.runtimeConnectionStatus === CopilotKitCoreRuntimeConnectionStatus.Connected &&
+    copilotkit.getAgent(agentId) !== undefined;
+
   return {
     agent,
+    isReady,
   };
 }
