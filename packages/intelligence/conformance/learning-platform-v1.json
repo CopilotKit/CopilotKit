@@ -5926,6 +5926,188 @@
       }
     },
     {
+      "name": "add-candidate-rejects-subject-hash-mismatch",
+      "schema": "SkillCandidateV1",
+      "valid": false,
+      "value": {
+        "action": "add",
+        "approvalModeSnapshot": "manual",
+        "bundleLocator": {
+          "applicationSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "backendId": "primary",
+          "byteLength": 12,
+          "contentType": "application/zip",
+          "etag": null,
+          "key": "objects/aa/bundle.zip",
+          "provider": "awsS3",
+          "providerChecksum": null,
+          "providerVersion": null,
+          "resource": "skill-bundles",
+          "schemaVersion": 1
+        },
+        "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "candidateId": "33333333-3333-4333-8333-333333333333",
+        "candidateRevisionId": "44444444-4444-4444-8444-444444444444",
+        "createdAt": "2026-07-16T18:00:00.000Z",
+        "createdByType": "learning",
+        "evaluatorProfileRef": "evaluator:v1",
+        "evidenceRefs": [
+          {
+            "annotationId": null,
+            "annotationSha256": null,
+            "eventIds": [
+              "event_1"
+            ],
+            "evidenceType": "run_snapshot",
+            "excerpt": null,
+            "excerptSha256": null,
+            "externalRunId": "external_run_1",
+            "messageIds": [
+              "message_1"
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1",
+            "truncated": false
+          }
+        ],
+        "insightIds": [
+          "77777777-7777-4777-8777-777777777777"
+        ],
+        "learningContainerId": "55555555-5555-4555-8555-555555555555",
+        "learningRunId": "88888888-8888-4888-8888-888888888888",
+        "organizationId": "org_1",
+        "parentVersionId": null,
+        "projectId": "project_1",
+        "proposedVersionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "reason": "Teach idempotent retries.",
+        "removalIntent": null,
+        "removalIntentSha256": null,
+        "risk": "low",
+        "skillId": "99999999-9999-4999-8999-999999999999",
+        "status": "pending_review",
+        "subjectSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    },
+    {
+      "name": "update-candidate-rejects-subject-hash-mismatch",
+      "schema": "SkillCandidateV1",
+      "valid": false,
+      "value": {
+        "action": "update",
+        "approvalModeSnapshot": "manual",
+        "bundleLocator": {
+          "applicationSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "backendId": "primary",
+          "byteLength": 12,
+          "contentType": "application/zip",
+          "etag": null,
+          "key": "objects/aa/bundle.zip",
+          "provider": "awsS3",
+          "providerChecksum": null,
+          "providerVersion": null,
+          "resource": "skill-bundles",
+          "schemaVersion": 1
+        },
+        "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "candidateId": "33333333-3333-4333-8333-333333333333",
+        "candidateRevisionId": "44444444-4444-4444-8444-444444444444",
+        "createdAt": "2026-07-16T18:00:00.000Z",
+        "createdByType": "learning",
+        "evaluatorProfileRef": "evaluator:v1",
+        "evidenceRefs": [
+          {
+            "annotationId": null,
+            "annotationSha256": null,
+            "eventIds": [
+              "event_1"
+            ],
+            "evidenceType": "run_snapshot",
+            "excerpt": null,
+            "excerptSha256": null,
+            "externalRunId": "external_run_1",
+            "messageIds": [
+              "message_1"
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1",
+            "truncated": false
+          }
+        ],
+        "insightIds": [
+          "77777777-7777-4777-8777-777777777777"
+        ],
+        "learningContainerId": "55555555-5555-4555-8555-555555555555",
+        "learningRunId": "88888888-8888-4888-8888-888888888888",
+        "organizationId": "org_1",
+        "parentVersionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "projectId": "project_1",
+        "proposedVersionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "reason": "Teach idempotent retries.",
+        "removalIntent": null,
+        "removalIntentSha256": null,
+        "risk": "low",
+        "skillId": "99999999-9999-4999-8999-999999999999",
+        "status": "pending_review",
+        "subjectSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    },
+    {
+      "name": "remove-candidate-rejects-subject-hash-mismatch",
+      "schema": "SkillCandidateV1",
+      "valid": false,
+      "value": {
+        "action": "remove",
+        "approvalModeSnapshot": "manual",
+        "bundleLocator": null,
+        "bundleSha256": null,
+        "candidateId": "33333333-3333-4333-8333-333333333333",
+        "candidateRevisionId": "44444444-4444-4444-8444-444444444444",
+        "createdAt": "2026-07-16T18:00:00.000Z",
+        "createdByType": "learning",
+        "evaluatorProfileRef": "evaluator:v1",
+        "evidenceRefs": [
+          {
+            "annotationId": null,
+            "annotationSha256": null,
+            "eventIds": [
+              "event_1"
+            ],
+            "evidenceType": "run_snapshot",
+            "excerpt": null,
+            "excerptSha256": null,
+            "externalRunId": "external_run_1",
+            "messageIds": [
+              "message_1"
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1",
+            "truncated": false
+          }
+        ],
+        "insightIds": [
+          "77777777-7777-4777-8777-777777777777"
+        ],
+        "learningContainerId": "55555555-5555-4555-8555-555555555555",
+        "learningRunId": "88888888-8888-4888-8888-888888888888",
+        "organizationId": "org_1",
+        "parentVersionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "projectId": "project_1",
+        "proposedVersionId": null,
+        "reason": "Remove unsafe behavior.",
+        "removalIntent": {
+          "reasonCode": "unsafe_behavior"
+        },
+        "removalIntentSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "risk": "high",
+        "skillId": "99999999-9999-4999-8999-999999999999",
+        "status": "pending_review",
+        "subjectSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
       "name": "stable-error-valid",
       "schema": "LearningPlatformErrorResponseV1",
       "valid": true,
@@ -5956,6 +6138,48 @@
       }
     }
   ],
+  "metaSchemas": {
+    "https://copilotkit.ai/schemas/intelligence/learning-platform/v1/candidate-semantics": {
+      "$dynamicAnchor": "meta",
+      "$id": "https://copilotkit.ai/schemas/intelligence/learning-platform/v1/candidate-semantics",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$vocabulary": {
+        "https://copilotkit.ai/schemas/intelligence/learning-platform/v1/candidate-semantics/vocabulary": true,
+        "https://json-schema.org/draft/2020-12/vocab/applicator": true,
+        "https://json-schema.org/draft/2020-12/vocab/content": true,
+        "https://json-schema.org/draft/2020-12/vocab/core": true,
+        "https://json-schema.org/draft/2020-12/vocab/format-annotation": true,
+        "https://json-schema.org/draft/2020-12/vocab/meta-data": true,
+        "https://json-schema.org/draft/2020-12/vocab/unevaluated": true,
+        "https://json-schema.org/draft/2020-12/vocab/validation": true
+      },
+      "allOf": [
+        {
+          "$ref": "https://json-schema.org/draft/2020-12/schema"
+        }
+      ],
+      "properties": {
+        "x-copilotkit-equal-properties": {
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "minLength": 1,
+                "type": "string"
+              }
+            ],
+            "type": "array"
+          },
+          "type": "array"
+        }
+      }
+    }
+  },
   "schemaVersion": 1,
   "schemas": {
     "AppendLearningRunChunkV1": {
@@ -6764,6 +6988,93 @@
             "skillCandidates": {
               "items": {
                 "additionalProperties": {},
+                "allOf": [
+                  {
+                    "if": {
+                      "properties": {
+                        "action": {
+                          "const": "add"
+                        }
+                      },
+                      "required": [
+                        "action"
+                      ]
+                    },
+                    "then": {
+                      "properties": {
+                        "bundle": {
+                          "type": "object"
+                        },
+                        "parentVersionId": {
+                          "type": "null"
+                        },
+                        "removalIntent": {
+                          "type": "null"
+                        },
+                        "skillId": {
+                          "type": "null"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "action": {
+                          "const": "update"
+                        }
+                      },
+                      "required": [
+                        "action"
+                      ]
+                    },
+                    "then": {
+                      "properties": {
+                        "bundle": {
+                          "type": "object"
+                        },
+                        "parentVersionId": {
+                          "type": "string"
+                        },
+                        "removalIntent": {
+                          "type": "null"
+                        },
+                        "skillId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "action": {
+                          "const": "remove"
+                        }
+                      },
+                      "required": [
+                        "action"
+                      ]
+                    },
+                    "then": {
+                      "properties": {
+                        "bundle": {
+                          "type": "null"
+                        },
+                        "parentVersionId": {
+                          "type": "string"
+                        },
+                        "removalIntent": {
+                          "minProperties": 1,
+                          "type": "object"
+                        },
+                        "skillId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                ],
                 "properties": {
                   "action": {
                     "enum": [
@@ -8279,6 +8590,93 @@
       },
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "additionalProperties": {},
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "add"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "bundle": {
+                "type": "object"
+              },
+              "parentVersionId": {
+                "type": "null"
+              },
+              "removalIntent": {
+                "type": "null"
+              },
+              "skillId": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "update"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "bundle": {
+                "type": "object"
+              },
+              "parentVersionId": {
+                "type": "string"
+              },
+              "removalIntent": {
+                "type": "null"
+              },
+              "skillId": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "remove"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "bundle": {
+                "type": "null"
+              },
+              "parentVersionId": {
+                "type": "string"
+              },
+              "removalIntent": {
+                "minProperties": 1,
+                "type": "object"
+              },
+              "skillId": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      ],
       "properties": {
         "action": {
           "enum": [
@@ -9856,6 +10254,93 @@
             "skillCandidates": {
               "items": {
                 "additionalProperties": {},
+                "allOf": [
+                  {
+                    "if": {
+                      "properties": {
+                        "action": {
+                          "const": "add"
+                        }
+                      },
+                      "required": [
+                        "action"
+                      ]
+                    },
+                    "then": {
+                      "properties": {
+                        "bundle": {
+                          "type": "object"
+                        },
+                        "parentVersionId": {
+                          "type": "null"
+                        },
+                        "removalIntent": {
+                          "type": "null"
+                        },
+                        "skillId": {
+                          "type": "null"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "action": {
+                          "const": "update"
+                        }
+                      },
+                      "required": [
+                        "action"
+                      ]
+                    },
+                    "then": {
+                      "properties": {
+                        "bundle": {
+                          "type": "object"
+                        },
+                        "parentVersionId": {
+                          "type": "string"
+                        },
+                        "removalIntent": {
+                          "type": "null"
+                        },
+                        "skillId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "action": {
+                          "const": "remove"
+                        }
+                      },
+                      "required": [
+                        "action"
+                      ]
+                    },
+                    "then": {
+                      "properties": {
+                        "bundle": {
+                          "type": "null"
+                        },
+                        "parentVersionId": {
+                          "type": "string"
+                        },
+                        "removalIntent": {
+                          "minProperties": 1,
+                          "type": "object"
+                        },
+                        "skillId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                ],
                 "properties": {
                   "action": {
                     "enum": [
@@ -11405,6 +11890,93 @@
         "skillCandidates": {
           "items": {
             "additionalProperties": {},
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "action": {
+                      "const": "add"
+                    }
+                  },
+                  "required": [
+                    "action"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "bundle": {
+                      "type": "object"
+                    },
+                    "parentVersionId": {
+                      "type": "null"
+                    },
+                    "removalIntent": {
+                      "type": "null"
+                    },
+                    "skillId": {
+                      "type": "null"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "action": {
+                      "const": "update"
+                    }
+                  },
+                  "required": [
+                    "action"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "bundle": {
+                      "type": "object"
+                    },
+                    "parentVersionId": {
+                      "type": "string"
+                    },
+                    "removalIntent": {
+                      "type": "null"
+                    },
+                    "skillId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "action": {
+                      "const": "remove"
+                    }
+                  },
+                  "required": [
+                    "action"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "bundle": {
+                      "type": "null"
+                    },
+                    "parentVersionId": {
+                      "type": "string"
+                    },
+                    "removalIntent": {
+                      "minProperties": 1,
+                      "type": "object"
+                    },
+                    "skillId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            ],
             "properties": {
               "action": {
                 "enum": [
@@ -12066,6 +12638,93 @@
       "properties": {
         "generatedCandidate": {
           "additionalProperties": {},
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "action": {
+                    "const": "add"
+                  }
+                },
+                "required": [
+                  "action"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "bundle": {
+                    "type": "object"
+                  },
+                  "parentVersionId": {
+                    "type": "null"
+                  },
+                  "removalIntent": {
+                    "type": "null"
+                  },
+                  "skillId": {
+                    "type": "null"
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "action": {
+                    "const": "update"
+                  }
+                },
+                "required": [
+                  "action"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "bundle": {
+                    "type": "object"
+                  },
+                  "parentVersionId": {
+                    "type": "string"
+                  },
+                  "removalIntent": {
+                    "type": "null"
+                  },
+                  "skillId": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "action": {
+                    "const": "remove"
+                  }
+                },
+                "required": [
+                  "action"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "bundle": {
+                    "type": "null"
+                  },
+                  "parentVersionId": {
+                    "type": "string"
+                  },
+                  "removalIntent": {
+                    "minProperties": 1,
+                    "type": "object"
+                  },
+                  "skillId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          ],
           "properties": {
             "action": {
               "enum": [
@@ -13423,8 +14082,130 @@
           ]
         }
       },
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$schema": "https://copilotkit.ai/schemas/intelligence/learning-platform/v1/candidate-semantics",
       "additionalProperties": {},
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "add"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "bundleLocator": {
+                "type": "object"
+              },
+              "bundleSha256": {
+                "type": "string"
+              },
+              "parentVersionId": {
+                "type": "null"
+              },
+              "proposedVersionId": {
+                "type": "string"
+              },
+              "removalIntent": {
+                "type": "null"
+              },
+              "removalIntentSha256": {
+                "type": "null"
+              }
+            },
+            "x-copilotkit-equal-properties": [
+              [
+                "subjectSha256",
+                "bundleSha256"
+              ]
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "update"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "bundleLocator": {
+                "type": "object"
+              },
+              "bundleSha256": {
+                "type": "string"
+              },
+              "parentVersionId": {
+                "type": "string"
+              },
+              "proposedVersionId": {
+                "type": "string"
+              },
+              "removalIntent": {
+                "type": "null"
+              },
+              "removalIntentSha256": {
+                "type": "null"
+              }
+            },
+            "x-copilotkit-equal-properties": [
+              [
+                "subjectSha256",
+                "bundleSha256"
+              ]
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "remove"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "bundleLocator": {
+                "type": "null"
+              },
+              "bundleSha256": {
+                "type": "null"
+              },
+              "parentVersionId": {
+                "type": "string"
+              },
+              "proposedVersionId": {
+                "type": "null"
+              },
+              "removalIntent": {
+                "type": "object"
+              },
+              "removalIntentSha256": {
+                "type": "string"
+              }
+            },
+            "x-copilotkit-equal-properties": [
+              [
+                "subjectSha256",
+                "removalIntentSha256"
+              ]
+            ]
+          }
+        }
+      ],
       "properties": {
         "action": {
           "enum": [

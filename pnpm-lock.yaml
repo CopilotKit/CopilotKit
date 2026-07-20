@@ -2765,6 +2765,9 @@ importers:
       '@types/node':
         specifier: ^22.10.0
         version: 22.19.11
+      ajv:
+        specifier: '>=8.18.0'
+        version: 8.20.0
       typescript:
         specifier: ^5.6.3
         version: 5.9.3

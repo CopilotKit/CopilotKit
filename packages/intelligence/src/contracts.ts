@@ -1032,6 +1032,198 @@ export const generatedSkillCandidateV1Schema = z
     }
   });
 
+/**
+ * Portable JSON Schema keyword for equality between sibling object properties.
+ *
+ * Each tuple is `[leftProperty, rightProperty]`; a conforming validator MUST
+ * reject the object when the two present property values are not equal.
+ */
+export const COPILOTKIT_EQUAL_PROPERTIES_JSON_SCHEMA_KEYWORD =
+  "x-copilotkit-equal-properties" as const;
+export const COPILOTKIT_CANDIDATE_SEMANTICS_VOCABULARY_URI =
+  "https://copilotkit.ai/schemas/intelligence/learning-platform/v1/candidate-semantics/vocabulary" as const;
+export const COPILOTKIT_CANDIDATE_SEMANTICS_META_SCHEMA_URI =
+  "https://copilotkit.ai/schemas/intelligence/learning-platform/v1/candidate-semantics" as const;
+
+/** Required meta-schema for the candidate subject-hash equality vocabulary. */
+export const learningContractCandidateSemanticsMetaSchema: JsonValue = {
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  $id: COPILOTKIT_CANDIDATE_SEMANTICS_META_SCHEMA_URI,
+  $vocabulary: {
+    "https://json-schema.org/draft/2020-12/vocab/core": true,
+    "https://json-schema.org/draft/2020-12/vocab/applicator": true,
+    "https://json-schema.org/draft/2020-12/vocab/unevaluated": true,
+    "https://json-schema.org/draft/2020-12/vocab/validation": true,
+    "https://json-schema.org/draft/2020-12/vocab/meta-data": true,
+    "https://json-schema.org/draft/2020-12/vocab/format-annotation": true,
+    "https://json-schema.org/draft/2020-12/vocab/content": true,
+    [COPILOTKIT_CANDIDATE_SEMANTICS_VOCABULARY_URI]: true,
+  },
+  $dynamicAnchor: "meta",
+  allOf: [{ $ref: "https://json-schema.org/draft/2020-12/schema" }],
+  properties: {
+    [COPILOTKIT_EQUAL_PROPERTIES_JSON_SCHEMA_KEYWORD]: {
+      type: "array",
+      items: {
+        type: "array",
+        prefixItems: [
+          { type: "string", minLength: 1 },
+          { type: "string", minLength: 1 },
+        ],
+        minItems: 2,
+        maxItems: 2,
+      },
+    },
+  },
+};
+
+// oxlint-disable unicorn/no-thenable -- `then` is a JSON Schema keyword here.
+const skillCandidateActionJsonSchema: z.core.JSONSchema.JSONSchema[] = [
+  {
+    if: {
+      properties: { action: { const: "add" } },
+      required: ["action"],
+    },
+    then: {
+      properties: {
+        proposedVersionId: { type: "string" },
+        parentVersionId: { type: "null" },
+        bundleLocator: { type: "object" },
+        bundleSha256: { type: "string" },
+        removalIntent: { type: "null" },
+        removalIntentSha256: { type: "null" },
+      },
+      [COPILOTKIT_EQUAL_PROPERTIES_JSON_SCHEMA_KEYWORD]: [
+        ["subjectSha256", "bundleSha256"],
+      ],
+    },
+  },
+  {
+    if: {
+      properties: { action: { const: "update" } },
+      required: ["action"],
+    },
+    then: {
+      properties: {
+        proposedVersionId: { type: "string" },
+        parentVersionId: { type: "string" },
+        bundleLocator: { type: "object" },
+        bundleSha256: { type: "string" },
+        removalIntent: { type: "null" },
+        removalIntentSha256: { type: "null" },
+      },
+      [COPILOTKIT_EQUAL_PROPERTIES_JSON_SCHEMA_KEYWORD]: [
+        ["subjectSha256", "bundleSha256"],
+      ],
+    },
+  },
+  {
+    if: {
+      properties: { action: { const: "remove" } },
+      required: ["action"],
+    },
+    then: {
+      properties: {
+        proposedVersionId: { type: "null" },
+        parentVersionId: { type: "string" },
+        bundleLocator: { type: "null" },
+        bundleSha256: { type: "null" },
+        removalIntent: { type: "object" },
+        removalIntentSha256: { type: "string" },
+      },
+      [COPILOTKIT_EQUAL_PROPERTIES_JSON_SCHEMA_KEYWORD]: [
+        ["subjectSha256", "removalIntentSha256"],
+      ],
+    },
+  },
+];
+
+const generatedSkillCandidateActionJsonSchema: z.core.JSONSchema.JSONSchema[] =
+  [
+    {
+      if: {
+        properties: { action: { const: "add" } },
+        required: ["action"],
+      },
+      then: {
+        properties: {
+          skillId: { type: "null" },
+          parentVersionId: { type: "null" },
+          bundle: { type: "object" },
+          removalIntent: { type: "null" },
+        },
+      },
+    },
+    {
+      if: {
+        properties: { action: { const: "update" } },
+        required: ["action"],
+      },
+      then: {
+        properties: {
+          skillId: { type: "string" },
+          parentVersionId: { type: "string" },
+          bundle: { type: "object" },
+          removalIntent: { type: "null" },
+        },
+      },
+    },
+    {
+      if: {
+        properties: { action: { const: "remove" } },
+        required: ["action"],
+      },
+      then: {
+        properties: {
+          skillId: { type: "string" },
+          parentVersionId: { type: "string" },
+          bundle: { type: "null" },
+          removalIntent: { type: "object", minProperties: 1 },
+        },
+      },
+    },
+  ];
+// oxlint-enable unicorn/no-thenable
+
+/** Generates JSON Schema while preserving candidate refinement semantics. */
+export function toLearningContractJsonSchema(schema: z.ZodType) {
+  const generatedJsonSchema = z.toJSONSchema(schema, {
+    override: ({ zodSchema, jsonSchema: schemaFragment }) => {
+      const actionConstraints =
+        zodSchema === skillCandidateV1Schema
+          ? skillCandidateActionJsonSchema
+          : zodSchema === generatedSkillCandidateV1Schema
+            ? generatedSkillCandidateActionJsonSchema
+            : undefined;
+      if (actionConstraints) {
+        schemaFragment.allOf = [
+          ...(schemaFragment.allOf ?? []),
+          ...actionConstraints,
+        ];
+      }
+    },
+  });
+
+  if (jsonSchemaContainsEqualPropertiesKeyword(generatedJsonSchema)) {
+    const portableSchema: Record<string, unknown> = generatedJsonSchema;
+    portableSchema.$schema = COPILOTKIT_CANDIDATE_SEMANTICS_META_SCHEMA_URI;
+  }
+  return generatedJsonSchema;
+}
+
+function jsonSchemaContainsEqualPropertiesKeyword(value: unknown): boolean {
+  if (Array.isArray(value)) {
+    return value.some(jsonSchemaContainsEqualPropertiesKeyword);
+  }
+  if (value === null || typeof value !== "object") {
+    return false;
+  }
+  if (Object.hasOwn(value, COPILOTKIT_EQUAL_PROPERTIES_JSON_SCHEMA_KEYWORD)) {
+    return true;
+  }
+  return Object.values(value).some(jsonSchemaContainsEqualPropertiesKeyword);
+}
+
 export const learningWorkflowOutputV1Schema = z
   .looseObject({
     schemaVersion: z.literal(1),
@@ -1121,11 +1313,13 @@ export const learningContractJsonSchemas = {
   ),
   LearningRunJobV1: z.toJSONSchema(learningRunJobV1Schema),
   LearningWorkflowInputV1: z.toJSONSchema(learningWorkflowInputV1Schema),
-  LearningWorkflowOutputV1: z.toJSONSchema(learningWorkflowOutputV1Schema),
+  LearningWorkflowOutputV1: toLearningContractJsonSchema(
+    learningWorkflowOutputV1Schema,
+  ),
   NormalizedMessageV1: z.toJSONSchema(normalizedMessageV1Schema),
   RunSnapshotV1: z.toJSONSchema(runSnapshotV1Schema),
   SelectedHumanAnnotationV1: z.toJSONSchema(selectedHumanAnnotationV1Schema),
   SkillArtifactManifestV1: z.toJSONSchema(skillArtifactManifestV1Schema),
-  SkillCandidateV1: z.toJSONSchema(skillCandidateV1Schema),
+  SkillCandidateV1: toLearningContractJsonSchema(skillCandidateV1Schema),
   SkillSetProjectionV1: z.toJSONSchema(skillSetProjectionV1Schema),
 } as const;

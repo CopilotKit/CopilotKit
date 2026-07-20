@@ -1,4 +1,3 @@
-import { z } from "zod/v4";
 import {
   appendLearningRunChunkV1Schema,
   commitLearningRunResultV1Schema,
@@ -14,6 +13,7 @@ import {
 import {
   blobLocatorV1Schema,
   candidateGateResultV1Schema,
+  COPILOTKIT_CANDIDATE_SEMANTICS_META_SCHEMA_URI,
   evidenceLocatorV1Schema,
   evidenceRefV1Schema,
   frozenAvailableSkillV1Schema,
@@ -25,6 +25,7 @@ import {
   insightV1Schema,
   learningChunkV1Schema,
   learningContainerV1Schema,
+  learningContractCandidateSemanticsMetaSchema,
   learningRunV1Schema,
   learningRunExecutionResultV1Schema,
   learningRunJobV1Schema,
@@ -45,6 +46,7 @@ import {
   sourceEventManifestEntryV1Schema,
   threadAssignmentPatchV1Schema,
   threadAssignmentV1Schema,
+  toLearningContractJsonSchema,
   workflowThreadV1Schema,
 } from "./contracts.js";
 import type { JsonValue } from "./contracts.js";
@@ -111,6 +113,7 @@ export interface LearningPlatformConformanceCase {
 
 export interface LearningPlatformConformanceCorpus {
   readonly schemaVersion: 1;
+  readonly metaSchemas: Readonly<Record<string, JsonValue>>;
   readonly schemas: Readonly<
     Record<LearningPlatformConformanceSchemaName, JsonValue>
   >;
@@ -1500,6 +1503,24 @@ function buildCases(): LearningPlatformConformanceCase[] {
       },
     },
     {
+      name: "add-candidate-rejects-subject-hash-mismatch",
+      schema: "SkillCandidateV1",
+      valid: false,
+      value: { ...addCandidate, subjectSha256: SHA_B },
+    },
+    {
+      name: "update-candidate-rejects-subject-hash-mismatch",
+      schema: "SkillCandidateV1",
+      valid: false,
+      value: { ...updateCandidate, subjectSha256: SHA_B },
+    },
+    {
+      name: "remove-candidate-rejects-subject-hash-mismatch",
+      schema: "SkillCandidateV1",
+      valid: false,
+      value: { ...removeCandidate, subjectSha256: SHA_A },
+    },
+    {
       name: "stable-error-valid",
       schema: "LearningPlatformErrorResponseV1",
       valid: true,
@@ -1547,12 +1568,17 @@ export function buildLearningPlatformConformanceCorpus(): LearningPlatformConfor
   const schemas = Object.fromEntries(
     Object.entries(learningPlatformConformanceSchemas).map(([name, schema]) => [
       name,
-      z.toJSONSchema(schema),
+      toLearningContractJsonSchema(schema),
     ]),
   ) as Record<LearningPlatformConformanceSchemaName, JsonValue>;
 
   return {
     schemaVersion: 1,
+    metaSchemas: {
+      [COPILOTKIT_CANDIDATE_SEMANTICS_META_SCHEMA_URI]: cloneJsonValue(
+        learningContractCandidateSemanticsMetaSchema,
+      ),
+    },
     schemas,
     cases: buildCases(),
   };

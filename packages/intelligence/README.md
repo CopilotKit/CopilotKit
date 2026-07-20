@@ -8,11 +8,16 @@ shared by CopilotKit runtimes, Intelligence services, and language SDKs. The
 package also exports generated JSON Schema objects for language-neutral
 conformance tooling.
 
-Generated JSON Schema preserves the structural contract but does not emit Zod
-`superRefine` semantics such as candidate action/subject coherence. Portable
-consumers must also run the named valid and invalid cases in
-`conformance/learning-platform-v1.json`; those cases are the language-neutral
-executable specification for refinement-only invariants.
+Generated JSON Schema includes standard `if`/`then` constraints for candidate
+action coherence. Candidate subject-hash equality is carried by the portable
+`x-copilotkit-equal-properties` keyword. Each keyword value is an array of
+`[leftProperty, rightProperty]` pairs; a conforming validator must reject the
+containing object when a pair's values differ. Equality-bearing schemas declare
+the required candidate-semantics vocabulary through their custom `$schema` URI;
+validators that do not implement it must reject the schema instead of ignoring
+the keyword. The corpus publishes that meta-schema in `metaSchemas` and executes
+both the standard conditionals and required keyword against a JSON Schema
+validator, including add, update, and remove hash-mismatch cases.
 
 In particular, the
 `generated-remove-candidate-requires-non-empty-removal-intent` case requires a

@@ -1,11 +1,19 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { Ajv2020 } from "ajv/dist/2020.js";
+import type { ValidateFunction } from "ajv/dist/2020.js";
 import { describe, expect, test } from "vitest";
 import {
   buildLearningPlatformConformanceCorpus,
   learningPlatformConformanceSchemas,
   serializeLearningPlatformConformanceCorpus,
 } from "./conformance.js";
+import type { LearningPlatformConformanceSchemaName } from "./conformance.js";
+import {
+  COPILOTKIT_CANDIDATE_SEMANTICS_META_SCHEMA_URI,
+  COPILOTKIT_CANDIDATE_SEMANTICS_VOCABULARY_URI,
+  COPILOTKIT_EQUAL_PROPERTIES_JSON_SCHEMA_KEYWORD,
+} from "./contracts.js";
 import { LEARNING_PLATFORM_ERROR_CODES } from "./errors.js";
 
 const corpusPath = fileURLToPath(
@@ -30,6 +38,42 @@ const commandSchemaNames = [
   "RequestThreadSnapshotBackfillV1",
   "StartLearningContainerRunV1",
 ] as const;
+
+const candidateActionCaseNames = new Set([
+  "generated-add-candidate-forbids-skill-id",
+  "generated-add-candidate-forbids-parent-version-id",
+  "generated-remove-candidate-requires-non-empty-removal-intent",
+  "remove-candidate-requires-removal-intent",
+  "remove-candidate-forbids-bundle",
+  "add-candidate-forbids-removal-intent",
+  "add-candidate-forbids-removal-intent-sha256",
+  "update-candidate-forbids-removal-intent",
+  "update-candidate-forbids-removal-intent-sha256",
+]);
+
+const candidateSubjectHashCaseNames = new Set([
+  "add-candidate-rejects-subject-hash-mismatch",
+  "update-candidate-rejects-subject-hash-mismatch",
+  "remove-candidate-rejects-subject-hash-mismatch",
+]);
+
+function createPortableSchemaValidator(metaSchema: object): Ajv2020 {
+  const ajv = new Ajv2020({ allErrors: true, validateFormats: false });
+  ajv.addKeyword({
+    keyword: COPILOTKIT_EQUAL_PROPERTIES_JSON_SCHEMA_KEYWORD,
+    schemaType: "array",
+    type: "object",
+    errors: false,
+    validate(
+      pairs: readonly (readonly [string, string])[],
+      value: Record<string, unknown>,
+    ) {
+      return pairs.every(([left, right]) => value[left] === value[right]);
+    },
+  });
+  ajv.addMetaSchema(metaSchema);
+  return ajv;
+}
 
 const dtoSchemaNames = [
   "BlobLocatorV1",
@@ -108,6 +152,82 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
       );
       expect(result.success, entry.name).toBe(entry.valid);
     }
+  });
+
+  test("enforces candidate action invariants through emitted JSON Schema", () => {
+    const corpus = buildLearningPlatformConformanceCorpus();
+    const ajv = createPortableSchemaValidator(
+      corpus.metaSchemas[
+        COPILOTKIT_CANDIDATE_SEMANTICS_META_SCHEMA_URI
+      ] as object,
+    );
+    const validators = new Map<
+      LearningPlatformConformanceSchemaName,
+      ValidateFunction
+    >();
+    const actionCases = corpus.cases.filter(({ name }) =>
+      candidateActionCaseNames.has(name),
+    );
+
+    expect(actionCases).toHaveLength(candidateActionCaseNames.size);
+    for (const entry of actionCases) {
+      const validate =
+        validators.get(entry.schema) ??
+        ajv.compile(corpus.schemas[entry.schema] as object);
+      validators.set(entry.schema, validate);
+
+      expect(
+        validate(entry.value),
+        `${entry.name}: ${ajv.errorsText(validate.errors)}`,
+      ).toBe(entry.valid);
+    }
+  });
+
+  test("enforces candidate subject-hash equality through emitted JSON Schema semantics", () => {
+    const corpus = buildLearningPlatformConformanceCorpus();
+    const ajv = createPortableSchemaValidator(
+      corpus.metaSchemas[
+        COPILOTKIT_CANDIDATE_SEMANTICS_META_SCHEMA_URI
+      ] as object,
+    );
+    const validate = ajv.compile(corpus.schemas.SkillCandidateV1 as object);
+    const mismatchCases = corpus.cases.filter(({ name }) =>
+      candidateSubjectHashCaseNames.has(name),
+    );
+
+    expect(mismatchCases).toHaveLength(candidateSubjectHashCaseNames.size);
+    for (const entry of mismatchCases) {
+      expect(
+        validate(entry.value),
+        `${entry.name}: ${ajv.errorsText(validate.errors)}`,
+      ).toBe(entry.valid);
+    }
+  });
+
+  test("fails closed when the required candidate-semantics vocabulary is unavailable", () => {
+    const corpus = buildLearningPlatformConformanceCorpus();
+    const schema = corpus.schemas.SkillCandidateV1 as object & {
+      $schema?: string;
+    };
+    const metaSchema = corpus.metaSchemas[
+      COPILOTKIT_CANDIDATE_SEMANTICS_META_SCHEMA_URI
+    ] as { $vocabulary?: Record<string, boolean> };
+
+    expect(schema.$schema).toBe(COPILOTKIT_CANDIDATE_SEMANTICS_META_SCHEMA_URI);
+    expect(
+      metaSchema.$vocabulary?.[COPILOTKIT_CANDIDATE_SEMANTICS_VOCABULARY_URI],
+    ).toBe(true);
+    expect(() =>
+      new Ajv2020({ validateFormats: false }).compile(schema),
+    ).toThrow(
+      `no schema with key or ref "${COPILOTKIT_CANDIDATE_SEMANTICS_META_SCHEMA_URI}"`,
+    );
+
+    const unsupportedVocabulary = new Ajv2020({ validateFormats: false });
+    unsupportedVocabulary.addMetaSchema(metaSchema);
+    expect(() => unsupportedVocabulary.compile(schema)).toThrow(
+      `strict mode: unknown keyword: "${COPILOTKIT_EQUAL_PROPERTIES_JSON_SCHEMA_KEYWORD}"`,
+    );
   });
 
   test("publishes null as the canonical frozen available skill description", () => {
@@ -206,6 +326,9 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
         "add-candidate-forbids-removal-intent-sha256",
         "update-candidate-forbids-removal-intent",
         "update-candidate-forbids-removal-intent-sha256",
+        "add-candidate-rejects-subject-hash-mismatch",
+        "update-candidate-rejects-subject-hash-mismatch",
+        "remove-candidate-rejects-subject-hash-mismatch",
         ...commandSchemaNames.map((name) => `command-${name}-valid`),
         "stable-error-valid",
         "stable-error-unknown-code",
