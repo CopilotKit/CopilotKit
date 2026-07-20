@@ -1108,13 +1108,21 @@ jobs:
     if: >-
       ${{ !cancelled()
           && needs.detect-changes.outputs.has_changes == 'true'
-          && needs.build.result == 'failure'
+          && needs.build.result != 'skipped'
           && needs.aggregate-build-results.outputs.any_success == 'false' }}
-    # The `needs.build.result == 'failure'` clause guards against the case
-    # where the build job itself was SKIPPED (e.g. verify-image-refs failed
-    # upstream, so the matrix never executed). Without it, the aggregator
-    # would still report `any_success=false` and we'd Slack-spam "all
-    # builds failed" even though builds never ran — a misleading alert.
+    # Previously this keyed off `needs.build.result == 'failure'`, which shared
+    # the redeploy job's cancelled-rollup blind spot: GitHub rolls the build
+    # matrix up to 'cancelled' when ANY leg is cancelled (e.g. the LFS shell
+    # leg under runner contention), so an all-failed build with one cancelled
+    # leg rolled up to 'cancelled', the `== 'failure'` clause went false, and
+    # NO alert fired. `any_success == 'false'` (the artifact-derived signal the
+    # redeploy fix uses) is the authoritative "nothing built" check, so we fire
+    # on it directly. The `!= 'skipped'` clause still guards the case where the
+    # build job was SKIPPED (e.g. verify-image-refs failed upstream, so the
+    # matrix never executed) — the aggregator would report `any_success=false`
+    # for an empty run, and the sibling `notify` job already covers that
+    # upstream red, so firing here too would be a misleading "all builds
+    # failed" alert. `!cancelled()` keeps a user-cancelled RUN silent.
     runs-on: ubuntu-latest
     timeout-minutes: 3
     permissions:
@@ -1150,11 +1158,21 @@ jobs:
     # also missed those pre-build red paths. Adding the early-stage jobs
     # to `needs` extends the alert surface to the full workflow, matching
     # the workflow-level notify pattern in showcase_promote.yml.
-    # `if: failure()` already skips when none of the needs failed — so
-    # this still no-ops for the "no changes → build skipped" path, since
-    # skipped != failure. If `notify-all-builds-failed` also fires
-    # (genuine all-failed case), both alerts firing for the same event is
-    # acceptable per the alert SOP.
+    # The guard is `!cancelled() && (failure() || any_success == 'false')`
+    # rather than a bare `failure()`. Bare `failure()` shared the redeploy
+    # job's cancelled-rollup blind spot: when every real build leg failed but
+    # one leg was CANCELLED (runner contention), the matrix rolled up to
+    # 'cancelled' — which is NOT a `failure()` — so no needs job "failed" and
+    # the alert stayed silent on a genuinely dead build. The extra
+    # `any_success == 'false'` clause (the artifact-derived signal the redeploy
+    # fix uses) fires on "nothing built" regardless of the rollup. `failure()`
+    # is retained so a failure DOWNSTREAM of a successful build (e.g.
+    # redeploy-staging, on which any_success == 'true') still alerts. `!cancelled()`
+    # keeps a user-cancelled RUN silent, and the "no changes → build skipped"
+    # path stays a no-op (aggregate is skipped, so any_success is '' not 'false',
+    # and nothing failed). If `notify-all-builds-failed` also fires (genuine
+    # all-failed case), both alerts firing for the same event is acceptable per
+    # the alert SOP.
     #
     # `detect-starter-changes` + `build-starters` + `redeploy-staging-starters`
     # are included so a FAILED starter image build OR a failed starter staging
@@ -1176,7 +1194,10 @@ jobs:
         redeploy-staging,
         redeploy-staging-starters,
       ]
-    if: failure()
+    if: >-
+      ${{ !cancelled()
+          && (failure()
+              || needs.aggregate-build-results.outputs.any_success == 'false') }}
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write

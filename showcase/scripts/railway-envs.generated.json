@@ -37,7 +37,7 @@
       },
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -65,7 +65,7 @@
       "runtimeDeps": ["pocketbase", "harness"],
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -93,7 +93,7 @@
       "standalone": true,
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -120,7 +120,7 @@
       "promoteTier": 2,
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -151,7 +151,7 @@
       },
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -199,7 +199,7 @@
       },
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -226,7 +226,7 @@
       "promoteTier": 0,
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -257,7 +257,7 @@
       },
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -291,7 +291,7 @@
       },
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -325,7 +325,7 @@
       },
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -359,7 +359,7 @@
       },
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -397,7 +397,7 @@
       },
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -431,7 +431,7 @@
       },
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -465,7 +465,7 @@
       },
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -499,7 +499,7 @@
       },
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -533,7 +533,7 @@
       },
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -567,7 +567,7 @@
       },
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -601,7 +601,7 @@
       },
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -635,7 +635,7 @@
       },
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -669,7 +669,7 @@
       },
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -703,7 +703,7 @@
       },
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -737,7 +737,7 @@
       },
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -771,7 +771,7 @@
       },
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -805,7 +805,7 @@
       },
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -839,7 +839,7 @@
       },
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -873,7 +873,7 @@
       },
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -907,7 +907,7 @@
       },
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -941,7 +941,7 @@
       },
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -975,7 +975,7 @@
       },
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -1009,7 +1009,7 @@
       },
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -1043,7 +1043,7 @@
       },
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -1077,7 +1077,7 @@
       },
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -1111,7 +1111,7 @@
       },
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -1145,7 +1145,7 @@
       },
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -1179,7 +1179,7 @@
       },
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -1213,7 +1213,7 @@
       },
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -1247,7 +1247,7 @@
       },
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -1281,7 +1281,7 @@
       },
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -1315,7 +1315,7 @@
       },
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -1349,7 +1349,7 @@
       },
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     },
     {
@@ -1376,7 +1376,7 @@
       "promoteTier": 0,
       "autoUpdates": {
         "staging": "disabled",
-        "prod": "unmanaged"
+        "prod": "disabled"
       }
     }
   ],
