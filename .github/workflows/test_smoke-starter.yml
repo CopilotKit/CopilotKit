@@ -59,7 +59,7 @@ jobs:
       fail-fast: false
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 1
           lfs: false
@@ -180,7 +180,7 @@ jobs:
 
       - name: Alert Slack on failure
         if: failure() && env.SLACK_WEBHOOK != '' && (github.event_name == 'schedule' || github.event_name == 'workflow_run')
-        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook

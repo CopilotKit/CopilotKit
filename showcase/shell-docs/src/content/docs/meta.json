@@ -11,7 +11,18 @@
     "...agentic-protocols",
     "---Build Chat UIs---",
     "prebuilt-components",
-    "threads",
+    {
+      "title": "Threads",
+      "defaultOpen": true,
+      "pages": [
+        "threads",
+        "prebuilt-components/copilot-threads-drawer",
+        "headless-threads",
+        "threads-import",
+        "premium/threads-explained",
+        "threads-lifecycle"
+      ]
+    },
     "custom-look-and-feel",
     "multimodal-attachments",
     "voice",
@@ -45,7 +56,6 @@
     "premium/managed-intelligence-platform",
     "premium/self-hosting",
     "premium/intelligence-platform",
-    "premium/threads-explained",
     "---Channels---",
     "channels",
     "---Deploy---",

@@ -1,4 +1,7 @@
-import type { InteractionEvent, IncomingReaction } from "@copilotkit/channels";
+import type {
+  InteractionEvent,
+  IncomingReaction,
+} from "@copilotkit/channels-core";
 import type { PlatformUser } from "@copilotkit/channels-ui";
 import { DM_SCOPE } from "./types.js";
 import type {

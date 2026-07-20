@@ -120,7 +120,7 @@ jobs:
       - name: Resolve PR HEAD ref
         id: pr-ref
         if: github.event_name == 'issue_comment'
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
             const { data: pr } = await github.rest.pulls.get({
@@ -139,7 +139,7 @@ jobs:
             core.setOutput('ref', pr.head.sha);
             core.setOutput('pr_number', pr.number);
 
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ steps.pr-ref.outputs.ref || github.sha }}
           # Do NOT leave the workflow's GITHUB_TOKEN in `.git/config` after
@@ -150,13 +150,13 @@ jobs:
           # depth cheap — disable credential persistence.
           persist-credentials: false
 
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22.x
 
       # Omit `version:` so pnpm/action-setup inherits from the repo's
       # `packageManager` field in package.json (via corepack).
-      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
 
       - name: Determine slug
         id: slug
@@ -267,35 +267,34 @@ jobs:
             exit 1
           fi
 
+      - name: Install aimock
+        run: |
+          # aimock is pinned as a workspace dependency (@copilotkit/showcase-scripts)
+          # and installed from the frozen lockfile — no ad-hoc `npm install -g`.
+          # A frozen install guarantees the exact pinned version resolves (the old
+          # caret floor could drift to a bad publish); this keeps the CI signal
+          # reproducible AND satisfies zizmor's adhoc-packages audit.
+          #
+          # `--ignore-scripts`: a trusted commenter can run this workflow on a PR
+          # whose package.json is untrusted content, so we never execute install-time
+          # scripts. aimock's `llmock` bin runs fine without them.
+          #
+          # `--filter` scopes the install to just the aimock owner package so we
+          # don't pay for the full monorepo install here (the per-slug package deps
+          # are installed later in "Install package dependencies").
+          pnpm --filter @copilotkit/showcase-scripts install --frozen-lockfile --ignore-scripts
+
       - name: Start aimock
         run: |
-          # Pin aimock to a known-good floor (caret = safe patch/minor).
-          # An unrestricted `@latest` means a bad aimock publish silently
-          # poisons CI for everyone; pinning makes the upgrade explicit and
-          # keeps this PR's CI signal reproducible.
-          npm install -g "@copilotkit/aimock@^1.16.4" --ignore-scripts
-          # Invoke the installed global binary directly rather than `npx`.
-          # `npx @copilotkit/aimock@^1.16.4` re-resolves the spec against the
-          # registry and MAY re-fetch a package even when an identical global
-          # install exists — which would defeat `--ignore-scripts` on the
-          # npm-install step above (npx's transient install does not inherit
-          # that flag) and would also defeat the caret pin if a new patch
-          # published between those two invocations.
-          #
-          # `npm prefix -g` returns the npm global prefix; its `bin/` subdir
-          # holds globally-installed binaries. We deliberately avoid `npm bin
-          # -g` here: the `bin` subcommand was removed in npm 9.0.0 and
-          # `setup-node@v4` with node 22.x ships npm 10+, so `npm bin -g`
-          # would exit with "Unknown command: 'bin'" and the existence check
-          # below would fire every run. `npm prefix -g` has been stable since
-          # npm 7 and returns the prefix on every supported version. The
-          # `$(npm prefix -g)/bin` dir is also on PATH via setup-node, so we
-          # could call `aimock` directly — keeping the absolute-path pattern
-          # + existence check as defense-in-depth against a PATH-shadowing
-          # binary sneaking in from a prior step on the runner.
-          AIMOCK_BIN="$(npm prefix -g)/bin/aimock"
+          # Invoke the workspace-installed `llmock` bin directly from the repo root.
+          # `llmock` is aimock's fixtures-based CLI (the package also ships an
+          # `aimock` bin, which is the newer config-only CLI that does NOT accept
+          # --fixtures). Running from the repo root keeps the root-relative
+          # --fixtures paths correct (a `pnpm --filter exec` would run inside
+          # showcase/scripts and break them).
+          AIMOCK_BIN="./showcase/scripts/node_modules/.bin/llmock"
           if [ ! -x "$AIMOCK_BIN" ]; then
-            echo "::error::aimock binary not found at $AIMOCK_BIN after global install"
+            echo "::error::aimock binary not found at $AIMOCK_BIN after workspace install"
             exit 1
           fi
           # Fixture layout matches docker-compose.local.yml: feature-parity.json
@@ -333,7 +332,7 @@ jobs:
 
       - name: Setup Python agent
         if: steps.pkg-type.outputs.has_python == 'true'
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
           # Cache pip to avoid reinstalling CrewAI's heavy transitive dep
@@ -534,7 +533,7 @@ jobs:
       issues: write
     steps:
       - name: Post result to PR
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         # Pass dynamic values through env (NOT `${{ ... }}` interpolation into
         # the script body). Even though the slug is whitelisted upstream, the
         # env-var pattern is the defensive default: any future additions that

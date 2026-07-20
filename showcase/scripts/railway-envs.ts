@@ -274,6 +274,20 @@ export interface EnvironmentConfig {
   instanceId: string;
   /** Public host (no scheme). Omitted for domainless workers. */
   domain?: string;
+  /**
+   * Env-scoped PRIVATE Railway networking host (no scheme), e.g.
+   * `showcase-aimock.railway.internal`. Railway bills traffic to the public
+   * `*.up.railway.app` `domain` as egress even intra-project, but private
+   * `*.railway.internal` networking is FREE and env-scoped (staging resolves
+   * to the staging instance, prod to prod). When present, cross-service
+   * serviceRefs resolve to THIS host (via `ssot_target_host` preferring it)
+   * so the ~20 demo backends reach aimock over free private networking
+   * instead of billed public egress. The public `domain` is KEPT for health
+   * probes / external reachability. Same private DNS name in BOTH envs —
+   * env-scoping (not the name) provides the staging/prod isolation.
+   * OPTIONAL; omitted ⇒ serviceRefs fall back to the public `domain`.
+   */
+  internalDomain?: string;
   /** Probe this env in verify-deploy? Defaults to true when omitted. */
   probe?: boolean;
   /** Per-env GHCR repo-name override. Defaults to the service name. */
@@ -519,6 +533,11 @@ export const SERVICES: Record<
         instanceId: "5801d8be-5ad9-4eff-9c9c-7be61d9a023e",
         healthcheckPath: "/health",
         domain: "showcase-aimock-production.up.railway.app",
+        // Private env-scoped host the ~20 demo backends route LLM traffic
+        // at (FREE intra-env networking; the public `domain` above is
+        // billed egress and kept only for health probes). aimock binds
+        // 0.0.0.0:4010; serviceRefs resolve to `http://<this>:4010`.
+        internalDomain: "showcase-aimock.railway.internal",
         probe: true,
         repoName: "showcase-aimock",
       },
@@ -526,6 +545,10 @@ export const SERVICES: Record<
         instanceId: "9f260dfd-d9d4-43e9-98fe-49696f87fe50",
         healthcheckPath: "/health",
         domain: "aimock-staging.up.railway.app",
+        // Same private DNS name as prod — Railway env-scopes the resolution
+        // (staging → staging aimock instance), so demo backends stay
+        // env-local without a per-env host string.
+        internalDomain: "showcase-aimock.railway.internal",
         probe: true,
         repoName: "showcase-aimock",
       },
@@ -909,10 +932,20 @@ export const SERVICES: Record<
     probeDriver: "agent",
     // Tier-2 leaf (default). Runtime dep: the agent routes its LLM traffic
     // at the env-local aimock, so a cluster promote pulls aimock (tier-0)
-    // into the closure. The OPENAI_BASE_URL service-ref is ASSERTED prod→prod
-    // by the Stage-2 Ruby preflight (never copied).
+    // into the closure. The service-refs are ASSERTED prod→prod by the Stage-2
+    // Ruby preflight (never copied). The claude-sdk agent SDK reads
+    // ANTHROPIC_BASE_URL (see src/agents/claude_agent_sdk_adapter.py and the
+    // aimock-wiring probe's claude-sdk pattern), so it must be pinned at aimock
+    // alongside OPENAI_BASE_URL — otherwise a drifted ANTHROPIC_BASE_URL would
+    // silently bypass aimock and hit the real Anthropic API (non-deterministic
+    // results that look like flapping). This is SSOT hygiene: the var is
+    // already set correctly on the live service; declaring the ref makes the
+    // preflight assert it and refuse a cross-env leak.
     runtimeDeps: ["aimock"],
-    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    serviceRefs: [
+      { key: "OPENAI_BASE_URL", target: "aimock" },
+      { key: "ANTHROPIC_BASE_URL", target: "aimock" },
+    ],
     environments: {
       prod: {
         instanceId: "bb18caaf-9a3e-4fdd-85ec-562fd82a3a89",

@@ -52,18 +52,28 @@ export class TeamsMessageStream {
   }
 
   /**
-   * Mark the stream done: cancel any pending throttled flush, enqueue a final
-   * flush, and resolve once the whole queue has drained. The posted activity
-   * then reflects the final buffer. Returns the activity id (or `undefined` if
-   * nothing was ever posted, e.g. an empty stream).
+   * Mark the stream done: cancel any pending throttled flush, drain the in-flight
+   * queue, then perform the FINAL send fail-loud. The posted activity then
+   * reflects the final buffer. Returns the activity id (or `undefined` if nothing
+   * was ever posted, e.g. an empty stream).
+   *
+   * Unlike the throttled mid-stream flushes (which tolerate a dropped edit and
+   * retry on the next append), the final send **rejects** if the transport call
+   * fails: the buffer was never delivered, so the caller must be able to
+   * fail/retry the turn rather than silently mark it "sent".
    */
   async finish(): Promise<string | undefined> {
     if (this.flushTimer) {
       clearTimeout(this.flushTimer);
       this.flushTimer = undefined;
     }
-    this.enqueueFlush();
+    // Drain any in-flight throttled flushes first — their failures stay tolerated
+    // (a dropped mid-stream edit shouldn't sink the reply). `flushNow` swallows,
+    // so the queue never rejects and awaiting it is safe.
     await this.queue;
+    // Then send the final buffer fail-loud: a throw here propagates so the
+    // consumer never marks the turn delivered when the last send didn't land.
+    await this.flushFinal();
     return this.id;
   }
 
@@ -81,24 +91,44 @@ export class TeamsMessageStream {
     this.queue = this.queue.then(() => this.flushNow());
   }
 
-  private async flushNow(): Promise<void> {
+  /**
+   * Send the latest buffer: first send via `post` (capturing the activity id),
+   * subsequent sends via `update`. `posted` is advanced only AFTER the transport
+   * call succeeds, so a throw leaves it unchanged and the next (or final) flush
+   * retries the same buffer. Throws on transport failure — callers decide whether
+   * to tolerate (mid-stream) or propagate (final).
+   */
+  private async doSend(): Promise<void> {
     const text = this.buffer;
     if (text === this.posted) return;
     // Don't post an empty first message; wait for real content.
     if (this.id === undefined && text.trim().length === 0) return;
+    if (this.id === undefined) {
+      if (this.config.typing) await this.config.typing();
+      this.id = await this.config.post(text);
+    } else {
+      await this.config.update(this.id, text);
+    }
     this.posted = text;
+  }
+
+  /** Throttled mid-stream flush: tolerate a dropped edit (log + retry later). */
+  private async flushNow(): Promise<void> {
     try {
-      if (this.id === undefined) {
-        if (this.config.typing) await this.config.typing();
-        this.id = await this.config.post(text);
-      } else {
-        await this.config.update(this.id, text);
-      }
+      await this.doSend();
     } catch (err) {
-      // A single failed edit shouldn't sink the stream; reset `posted` so the
-      // next flush retries with the latest buffer.
-      this.posted = "";
+      // A single failed edit shouldn't sink the stream; `doSend` leaves `posted`
+      // unchanged on failure, so the next flush retries with the latest buffer.
       console.error("[teams-message-stream] flush failed:", err);
+    } finally {
+      this.lastFlushedAt = Date.now();
+    }
+  }
+
+  /** Final flush at {@link finish}: propagate a transport failure fail-loud. */
+  private async flushFinal(): Promise<void> {
+    try {
+      await this.doSend();
     } finally {
       this.lastFlushedAt = Date.now();
     }

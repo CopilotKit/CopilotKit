@@ -5,7 +5,7 @@ import type {
   AgentMessage,
 } from "./transports.js";
 import type {
-  ManagedIngressEnvelope,
+  ChannelIngressEnvelope,
   EgressRoute,
   EgressOperation,
   EgressResult,
@@ -65,13 +65,13 @@ export class InMemoryDeliverySource implements DeliverySource {
    */
   history: AgentMessage[] = [];
   /** Every `getHistory` call, in order — asserts the adapter unwraps the
-   * `ManagedReplyTarget` to the raw route and threads `historyLimit` through. */
+   * `ChannelReplyTarget` to the raw route and threads `historyLimit` through. */
   readonly historyRequests: Array<{ replyTarget: EgressRoute; limit: number }> =
     [];
-  private onDelivery?: (env: ManagedIngressEnvelope) => Promise<void>;
+  private onDelivery?: (env: ChannelIngressEnvelope) => Promise<void>;
 
   async start(
-    onDelivery: (env: ManagedIngressEnvelope) => Promise<void>,
+    onDelivery: (env: ChannelIngressEnvelope) => Promise<void>,
   ): Promise<void> {
     this.onDelivery = onDelivery;
   }
@@ -80,10 +80,10 @@ export class InMemoryDeliverySource implements DeliverySource {
    * Push an envelope through the bound adapter. Resolves after the full
    * dispatch (handler + ack/nack) completes, so tests can assert synchronously.
    */
-  async deliver(env: ManagedIngressEnvelope): Promise<void> {
+  async deliver(env: ChannelIngressEnvelope): Promise<void> {
     if (!this.onDelivery) {
       throw new Error(
-        "InMemoryDeliverySource: not started — call bot.start() first",
+        "InMemoryDeliverySource: not started — call channel.start() first",
       );
     }
     await this.onDelivery(env);
@@ -107,7 +107,9 @@ export class InMemoryDeliverySource implements DeliverySource {
     limit: number,
   ): Promise<AgentMessage[]> {
     this.historyRequests.push({ replyTarget, limit });
-    return this.history.slice(-limit);
+    // `limit <= 0` → no history (a raw `slice(-0)` returns the WHOLE array);
+    // mirrors IntelligenceFileHistoryClient.getHistory's guard.
+    return limit <= 0 ? [] : this.history.slice(-limit);
   }
   async stop(): Promise<void> {}
 }

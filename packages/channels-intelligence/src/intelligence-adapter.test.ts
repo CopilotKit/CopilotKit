@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { createBot, FakeAdapter, FakeAgent } from "@copilotkit/channels";
-import type { ReplyTarget } from "@copilotkit/channels";
+import {
+  createChannel,
+  FakeAdapter,
+  FakeAgent,
+} from "@copilotkit/channels-core";
+import type { ReplyTarget } from "@copilotkit/channels-core";
 import { Section } from "@copilotkit/channels-ui";
 import type { IncomingMessage } from "@copilotkit/channels-ui";
 import { intelligenceAdapter } from "./intelligence-adapter.js";
@@ -10,18 +14,19 @@ import {
 } from "./in-memory-transports.js";
 import { IntelligenceStateStore } from "./intelligence-state-store.js";
 import type { FetchLike } from "./http-transports.js";
+import type { EgressSink } from "./transports.js";
 import type {
-  ManagedIngressEnvelope,
-  ManagedIngressBase,
+  ChannelIngressEnvelope,
+  ChannelIngressBase,
 } from "./contracts.js";
 
-type TurnEnvelope = Extract<ManagedIngressEnvelope, { kind: "turn" }>;
-function envelope(partial?: Partial<TurnEnvelope>): ManagedIngressEnvelope {
+type TurnEnvelope = Extract<ChannelIngressEnvelope, { kind: "turn" }>;
+function envelope(partial?: Partial<TurnEnvelope>): ChannelIngressEnvelope {
   return {
     deliveryId: "d1",
     eventId: "e1",
     turnId: "t1",
-    botName: "support",
+    channelName: "support",
     platform: "slack",
     conversationKey: "c1",
     kind: "turn",
@@ -32,10 +37,10 @@ function envelope(partial?: Partial<TurnEnvelope>): ManagedIngressEnvelope {
 }
 
 describe("intelligenceAdapter — ingress dispatch", () => {
-  it("dispatches a managed turn to the handler and emits a post egress op", async () => {
+  it("dispatches a channel turn to the handler and emits a post egress op", async () => {
     const source = new InMemoryDeliverySource();
     const egress = new InMemoryEgressSink();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -56,10 +61,33 @@ describe("intelligenceAdapter — ingress dispatch", () => {
     expect(seen?.platform).toBe("slack");
   });
 
+  it("maps the provider actor display name onto PlatformUser.name for handlers", async () => {
+    const source = new InMemoryDeliverySource();
+    const egress = new InMemoryEgressSink();
+    const channel = createChannel({
+      adapters: [intelligenceAdapter({ source, egress })],
+      agent: () => new FakeAgent(),
+    });
+    let seenUser: { id: string; name?: string } | undefined;
+    channel.onMessage(async ({ message }) => {
+      seenUser = message.user;
+    });
+    await channel.start();
+    // The wire field is `displayName`; it must surface as PlatformUser.name so
+    // `message.user.name` is observable through the typed API (parity with the
+    // direct Slack adapter, which populates `name`).
+    await source.deliver(
+      envelope({ user: { id: "u1", displayName: "Ada Lovelace" } }),
+    );
+
+    expect(seenUser?.id).toBe("u1");
+    expect(seenUser?.name).toBe("Ada Lovelace");
+  });
+
   it("acks the delivery after the handler completes", async () => {
     const source = new InMemoryDeliverySource();
     const egress = new InMemoryEgressSink();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -73,7 +101,7 @@ describe("intelligenceAdapter — ingress dispatch", () => {
   it("nacks the delivery when the handler throws", async () => {
     const source = new InMemoryDeliverySource();
     const egress = new InMemoryEgressSink();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -93,7 +121,7 @@ describe("intelligenceAdapter — inbound file content parts", () => {
     const egress = new InMemoryEgressSink();
     const png = new Uint8Array([1, 2, 3, 4]);
     source.files.set("fileref_abc", { bytes: png, mimeType: "image/png" });
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -132,7 +160,7 @@ describe("intelligenceAdapter — inbound file content parts", () => {
     const egress = new InMemoryEgressSink();
     // No file seeded → fetchFile throws → the part degrades to a text note
     // (fail-visible, not dropped) and the turn still dispatches + acks.
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -164,7 +192,7 @@ describe("intelligenceAdapter — inbound file content parts", () => {
       bytes: new TextEncoder().encode("hello from a file"),
       mimeType: "text/plain",
     });
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -197,7 +225,7 @@ describe("intelligenceAdapter — inbound file content parts", () => {
       bytes: new Uint8Array([1, 2, 3]),
       mimeType: "application/zip",
     });
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -228,7 +256,7 @@ describe("intelligenceAdapter — deterministic egress ids", () => {
   it("mints turnId:seq op ids and reproduces them on redelivery", async () => {
     const source = new InMemoryDeliverySource();
     const egress = new InMemoryEgressSink();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -242,11 +270,45 @@ describe("intelligenceAdapter — deterministic egress ids", () => {
     expect(egress.ops.map((o) => o.operationId)).toEqual(["t1:0", "t1:1"]);
 
     // Crash-before-ack redelivery: same turn id (and event id), new delivery id.
-    // The handler re-runs (no ingress dedup on the managed path) and re-emits
+    // The handler re-runs (no ingress dedup on the Channel path) and re-emits
     // the SAME op ids, so the Connector Outbox can dedupe the Slack output.
     egress.ops.length = 0;
     await source.deliver(envelope({ turnId: "t1", deliveryId: "d2" }));
     expect(egress.ops.map((o) => o.operationId)).toEqual(["t1:0", "t1:1"]);
+  });
+});
+
+describe("intelligenceAdapter — egress fail-loud", () => {
+  it("throws (does not silently ack) when egress reports { ok: false }", async () => {
+    const source = new InMemoryDeliverySource();
+    // Egress that always rejects the op — the HTTP-fallback failure the adapter
+    // used to swallow by minting a synthetic MessageRef and acking as success.
+    const failingEgress: EgressSink = {
+      emit: async () => ({ ok: false, code: "provider_rejected" }),
+    };
+    const channel = createChannel({
+      adapters: [intelligenceAdapter({ source, egress: failingEgress })],
+      agent: () => new FakeAgent(),
+    });
+    let postError: unknown;
+    channel.onMessage(async ({ thread }) => {
+      try {
+        await thread.post(Section({ children: "reply" }));
+      } catch (err) {
+        postError = err;
+      }
+    });
+    await channel.start();
+    await source.deliver(envelope());
+
+    // Before the fix, thread.post resolved with a synthetic ref and postError
+    // stayed undefined (the drop was acked as success). Now it throws. (This
+    // test asserts the throw at the post() boundary; the handler catches it
+    // here, so no nack is exercised — the run-loop's nack-on-throw is covered
+    // by the render-events dispatch tests.)
+    expect(postError).toBeInstanceOf(Error);
+    expect((postError as Error).message).toMatch(/egress post failed/i);
+    expect((postError as Error).message).toContain("provider_rejected");
   });
 });
 
@@ -281,11 +343,11 @@ describe("intelligenceAdapter — run renderer", () => {
 });
 
 describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
-  const base: ManagedIngressBase = {
+  const base: ChannelIngressBase = {
     deliveryId: "d1",
     eventId: "e1",
     turnId: "t1",
-    botName: "support",
+    channelName: "support",
     platform: "slack",
     conversationKey: "c1",
     route: { r: 1 },
@@ -294,7 +356,7 @@ describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
   it("routes a command to onCommand", async () => {
     const source = new InMemoryDeliverySource();
     const egress = new InMemoryEgressSink();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -317,7 +379,7 @@ describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
   it("routes an interaction to a registered onInteraction handler", async () => {
     const source = new InMemoryDeliverySource();
     const egress = new InMemoryEgressSink();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -340,7 +402,7 @@ describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
   it("stamps the clicked card's ref so an in-place update routes under the live delivery", async () => {
     const source = new InMemoryDeliverySource();
     const egress = new InMemoryEgressSink();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -375,7 +437,7 @@ describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
   it("routes a thread_started event to onThreadStarted", async () => {
     const source = new InMemoryDeliverySource();
     const egress = new InMemoryEgressSink();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -393,7 +455,7 @@ describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
   it("routes a reaction to onReaction", async () => {
     const source = new InMemoryDeliverySource();
     const egress = new InMemoryEgressSink();
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
       agent: () => new FakeAgent(),
     });
@@ -422,22 +484,25 @@ describe("intelligenceAdapter — exclusivity (V1)", () => {
 
   it("rejects combining with another adapter at construction", () => {
     expect(() =>
-      createBot({
+      createChannel({
         adapters: [ia(), new FakeAdapter()],
         agent: () => new FakeAgent(),
       }),
     ).toThrow(/only adapter|alternative modes/i);
   });
 
-  it("rejects adding a second adapter to a managed bot", () => {
-    const bot = createBot({ adapters: [ia()], agent: () => new FakeAgent() });
+  it("rejects adding a second adapter to a Channel Bot", () => {
+    const bot = createChannel({
+      adapters: [ia()],
+      agent: () => new FakeAgent(),
+    });
     expect(() => bot.addAdapter(new FakeAdapter())).toThrow(
       /only adapter|alternative modes/i,
     );
   });
 
   it("rejects adding intelligenceAdapter to a bot that already has an adapter", () => {
-    const bot = createBot({
+    const bot = createChannel({
       adapters: [new FakeAdapter()],
       agent: () => new FakeAgent(),
     });
@@ -474,7 +539,58 @@ describe("intelligenceAdapter — conversation-history seeding", () => {
     expect(agent.messages).toEqual(source.history);
   });
 
-  it("unwraps the ManagedReplyTarget to the raw route and defaults historyLimit to 20", async () => {
+  it("getMessages maps history (string + content-part array) to ThreadMessage[]", async () => {
+    const source = new InMemoryDeliverySource();
+    source.history = [
+      { id: "h1", role: "user", content: "hi there" },
+      {
+        id: "h2",
+        role: "assistant",
+        content: [
+          { type: "text", text: "part one" },
+          {
+            type: "image",
+            source: { type: "data", value: "x", mimeType: "image/png" },
+          },
+          { type: "text", text: "part two" },
+        ],
+      },
+    ] as unknown as typeof source.history;
+    const adapter = intelligenceAdapter({
+      source,
+      egress: new InMemoryEgressSink(),
+    });
+
+    const messages = await adapter.getMessages(target);
+
+    expect(messages).toEqual([
+      // string content → text; role 'user' → isBot false, user 'user'.
+      { text: "hi there", isBot: false, user: { id: "user", name: "user" } },
+      // content-part array → text parts joined; the non-text (image) part
+      // contributes no text and is dropped before the join, so there is no
+      // stray doubled space; assistant → bot.
+      {
+        text: "part one part two",
+        isBot: true,
+        user: { id: "bot", name: "bot" },
+      },
+    ]);
+  });
+
+  it("getMessages returns [] when the transport has no getHistory", async () => {
+    const source = new InMemoryDeliverySource();
+    // Shadow the prototype method with an own `undefined` — `delete` wouldn't
+    // remove a prototype method, so the `source?.getHistory?.()` short-circuit
+    // (the branch under test) would never actually be exercised.
+    (source as { getHistory?: unknown }).getHistory = undefined;
+    const adapter = intelligenceAdapter({
+      source,
+      egress: new InMemoryEgressSink(),
+    });
+    expect(await adapter.getMessages(target)).toEqual([]);
+  });
+
+  it("unwraps the ChannelReplyTarget to the raw route and defaults historyLimit to 20", async () => {
     const source = new InMemoryDeliverySource();
     const adapter = intelligenceAdapter({
       source,
@@ -511,7 +627,10 @@ describe("intelligenceAdapter — conversation-history seeding", () => {
 
   it("starts fresh (empty messages) when the transport has no getHistory", async () => {
     const source = new InMemoryDeliverySource();
-    delete (source as { getHistory?: unknown }).getHistory;
+    // Shadow the prototype method with an own `undefined` — `delete` wouldn't
+    // remove a prototype method, so the `source?.getHistory?.()` short-circuit
+    // (the branch under test) would never actually be exercised.
+    (source as { getHistory?: unknown }).getHistory = undefined;
     const adapter = intelligenceAdapter({
       source,
       egress: new InMemoryEgressSink(),
@@ -544,7 +663,7 @@ describe("intelligenceAdapter — default store resolution", () => {
 
     expect(adapter.stateStore).toBeInstanceOf(IntelligenceStateStore);
     await adapter.stateStore!.kv.get("k");
-    expect(calls[0]).toBe("http://intel.test/api/bots/kv/get");
+    expect(calls[0]).toBe("http://intel.test/api/channels/kv/get");
   });
 
   it("skips the default store when in-memory transports are injected", () => {

@@ -52,7 +52,7 @@ This guide takes you from zero to a WhatsApp bot that replies to every inbound m
         npm init -y && npm pkg set type=module
         ```
 
-        Install the bot packages, plus `@copilotkit/runtime` for the in-process agent and `tsx` to run TypeScript directly:
+        Install the Channels packages, plus `@copilotkit/runtime` for the in-process agent and `tsx` to run TypeScript directly:
 
         <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn']}>
             <Tab value="npm">
@@ -95,7 +95,7 @@ This guide takes you from zero to a WhatsApp bot that replies to every inbound m
         ```
 
         <Callout type="info" title="ESM only">
-          The bot packages are ESM-only — `"type": "module"` (set above) is required.
+          The Channels packages are ESM-only — `"type": "module"` (set above) is required.
         </Callout>
     </Step>
     <Step>
@@ -312,5 +312,5 @@ value instead.
 
 ## Next steps
 
-- **API reference:** the [Channels reference](/reference/channels) — [createBot](/reference/channels/functions/createBot), the [Thread API](/reference/channels/classes/Thread), [tools](/reference/channels/functions/defineBotTool) & [commands](/reference/channels/functions/defineBotCommand), and the [component vocabulary](/reference/channels/components/Message)
+- **API reference:** the [Channels SDK reference](/reference/channels) — [createBot](/reference/channels/functions/createBot), the [Thread API](/reference/channels/classes/Thread), [tools](/reference/channels/functions/defineBotTool) & [commands](/reference/channels/functions/defineBotCommand), and the [component vocabulary](/reference/channels/components/Message)
 - **Full example:** [on-call triage bot over Linear + Notion MCP](https://github.com/CopilotKit/CopilotKit/tree/main/examples/slack) — tools, human-in-the-loop, commands, file uploads, persistent history

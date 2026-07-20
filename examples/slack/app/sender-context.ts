@@ -1,5 +1,5 @@
 import type { ContextEntry } from "@copilotkit/channels";
-import type { PlatformUser } from "@copilotkit/channels-ui";
+import type { PlatformUser } from "@copilotkit/channels";
 
 /**
  * Build the per-turn context naming the requesting user, so the agent can act
@@ -13,7 +13,7 @@ export function senderContext(
   user: PlatformUser | undefined,
   platform: string,
 ): ContextEntry[] {
-  // `createBot` substitutes `{ id: "" }` for an unresolved sender (a truthy
+  // `createChannel` substitutes `{ id: "" }` for an unresolved sender (a truthy
   // object), so guard on a usable id — not mere object presence — otherwise we
   // emit a "Requesting <platform> user (... id )" entry with nothing to attribute.
   if (!user?.id) return [];

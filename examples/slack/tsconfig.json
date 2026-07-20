@@ -14,7 +14,7 @@
     "lib": ["es2022", "dom"],
     "types": ["node"],
     "jsx": "react-jsx",
-    "jsxImportSource": "@copilotkit/channels-ui"
+    "jsxImportSource": "@copilotkit/channels"
   },
   "include": ["app/**/*.ts", "app/**/*.tsx", "runtime.ts"],
   "exclude": ["node_modules", "agent", "e2e"]

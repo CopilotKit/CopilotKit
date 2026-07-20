@@ -1,0 +1,57 @@
+name: "Showcase: Runtime-Route Wiring (PR)"
+
+# Pre-merge guard for the OSS-451 failure class: a demo page whose CopilotKit
+# `runtimeUrl` points at an `/api/copilotkit-<demo>` route that does not exist,
+# so the page 404s on load (runtime_info_fetch_failed) and never mounts.
+#
+# The existing Showcase Build Check (showcase_build_check.yml) is a Docker
+# *build* — it compiles a page that references a non-existent route just fine,
+# because `runtimeUrl` is an opaque string with no build-time link to the
+# route's existence. That blind spot is exactly how OSS-451 shipped. This
+# static check runs alongside the build check and asserts that every SHIPPED
+# demo (a demo listed in its integration's manifest `features`) wires its
+# `runtimeUrl` to a route that actually exists.
+#
+# Fast, no Docker, no secrets. Should be added to the branch-protection
+# required checks so it blocks merge like the build check does.
+
+on:
+  pull_request:
+    paths:
+      - "showcase/integrations/**"
+      - "showcase/scripts/validate-runtime-routes.ts"
+      - "showcase/scripts/validate-runtime-routes.baseline.json"
+      - "showcase/scripts/package.json"
+      - ".github/workflows/showcase_validate-wiring.yml"
+
+concurrency:
+  group: showcase-validate-wiring-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate-runtime-routes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+
+      - name: Install validator deps
+        working-directory: showcase/scripts
+        run: npm ci --no-audit --no-fund --ignore-scripts
+
+      - name: Validate runtime-route wiring (OSS-451 guard)
+        working-directory: showcase/scripts
+        run: npm run validate-routes

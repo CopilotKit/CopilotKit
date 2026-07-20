@@ -1,13 +1,13 @@
 import { describe, it, expect, vi } from "vitest";
 import { readThreadTool } from "../read-thread.js";
-import type { ThreadMessage } from "@copilotkit/channels-ui";
+import type { ThreadMessage } from "@copilotkit/channels";
 
-/** The ctx a BotTool handler receives. */
+/** The ctx a ChannelTool handler receives. */
 type HandlerCtx = Parameters<typeof readThreadTool.handler>[1];
 
 /**
  * Build a fake handler ctx. The handler only touches
- * `thread.getMessages()`; the other `BotToolContext` fields are unused by
+ * `thread.getMessages()`; the other `ChannelToolContext` fields are unused by
  * this tool, so we cast the minimal literal to the handler ctx type.
  */
 function makeCtx(messages: ThreadMessage[]): HandlerCtx {

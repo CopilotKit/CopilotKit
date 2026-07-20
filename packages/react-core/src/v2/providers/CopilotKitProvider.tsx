@@ -575,6 +575,12 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   if (copilotkitRef.current === null) {
     copilotkitRef.current = new CopilotKitCoreReact({
       runtimeUrl: chatApiEndpoint,
+      // Defer the `/info` fetch out of construction. The core is constructed
+      // during render, and React can start-and-discard renders (concurrent
+      // rendering / Suspense / StrictMode) — a network request in the ctor
+      // would fire once per discarded attempt (issue #5801). `connect()` below
+      // starts the single request from a commit-phase effect.
+      deferInitialConnection: true,
       runtimeTransport:
         useSingleEndpoint === true
           ? "single"
@@ -724,6 +730,13 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     );
     copilotkit.setAgents__unsafe_dev_only(mergedAgents);
     copilotkit.setDebug(debug);
+    // Start the runtime `/info` connection now that we're in the commit phase.
+    // The ctor deferred it (see `deferInitialConnection` above) so discarded
+    // renders never fetch; `connect()` is idempotent, so StrictMode's
+    // double-invoked effect and re-runs on unrelated prop changes collapse to a
+    // single request (a real runtimeUrl/transport change reconnects via the
+    // setters above). See #5801.
+    copilotkit.connect();
   }, [
     copilotkit,
     chatApiEndpoint,

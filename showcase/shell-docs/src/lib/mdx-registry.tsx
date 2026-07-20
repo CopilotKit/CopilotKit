@@ -147,7 +147,9 @@ const STUB_PARTIAL_MAP: Record<string, string> = {
     "self-hosting-copilot-runtime-configure-copilotkit-provider.mdx",
   ReasoningMessages:
     "shared/guides/custom-look-and-feel/reasoning-messages.mdx",
-  Threads: "shared/threads/threads.mdx",
+  HeadlessThreads: "shared/threads/headless-threads.mdx",
+  Threads: "shared/threads/headless-threads.mdx",
+  ThreadsOverview: "shared/threads/overview.mdx",
 };
 
 // Dev-only warning helper for stub components that discard their props.

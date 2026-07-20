@@ -190,9 +190,12 @@ export function readTitle(filePath: string): string | null {
   // code sample or example config). Falls back to the first H1 when no
   // frontmatter title is set.
   const fm = extractFrontmatter(raw);
+  const navTitleMatch = fm.match(/^nav_title:\s*["']?(.+?)["']?\s*$/m);
   const fmMatch = fm.match(/^title:\s*["']?(.+?)["']?\s*$/m);
   let title: string | null = null;
-  if (fmMatch) {
+  if (navTitleMatch) {
+    title = navTitleMatch[1].replace(/["']$/, "");
+  } else if (fmMatch) {
     title = fmMatch[1].replace(/["']$/, "");
   } else {
     const headingMatch = raw.match(/^#\s+(.+)$/m);
@@ -640,7 +643,9 @@ export function buildFrameworkOnlyNav(
     return node;
   };
   return dropEmptySections(
-    appendSharedRootSections(nodes.map(rewrite), sharedSections),
+    appendSharedThreadArchitecturePage(
+      appendSharedRootSections(nodes.map(rewrite), sharedSections),
+    ),
   );
 }
 
@@ -726,6 +731,52 @@ function hasPageSlug(navTree: NavNode[], slug: string): boolean {
     if (node.type === "page") return node.slug === slug;
     if (node.type === "group") return hasPageSlug(node.children, slug);
     return false;
+  });
+}
+
+function findPageBySlug(navTree: NavNode[], slug: string): NavNode | null {
+  for (const node of navTree) {
+    if (node.type === "page" && node.slug === slug) return node;
+    if (node.type === "group") {
+      const match = findPageBySlug(node.children, slug);
+      if (match) return match;
+    }
+  }
+  return null;
+}
+
+function appendSharedThreadArchitecturePage(navTree: NavNode[]): NavNode[] {
+  const rootGroup = buildNavTree(CONTENT_DIR).find(
+    (node): node is Extract<NavNode, { type: "group" }> =>
+      node.type === "group" && node.title === "Threads",
+  );
+  if (!rootGroup) return navTree;
+
+  const architecturePage = findPageBySlug(
+    rootGroup.children,
+    "premium/threads-explained",
+  );
+  if (architecturePage?.type !== "page") return navTree;
+
+  return navTree.map((node) => {
+    if (node.type !== "group" || node.title !== "Threads") return node;
+    if (hasPageSlug(node.children, architecturePage.slug)) return node;
+
+    // The Architecture page sits second-to-last in the Threads group,
+    // just before the client-facing Lifecycle page. Fall back to
+    // appending if the Lifecycle anchor isn't present.
+    const lifecycleIndex = node.children.findIndex(
+      (child) => child.type === "page" && child.slug === "threads-lifecycle",
+    );
+    const insertAt =
+      lifecycleIndex === -1 ? node.children.length : lifecycleIndex;
+    const children = [
+      ...node.children.slice(0, insertAt),
+      architecturePage,
+      ...node.children.slice(insertAt),
+    ];
+
+    return { ...node, children };
   });
 }
 
@@ -1025,7 +1076,9 @@ export const SNIPPET_MAP: Record<string, string> = {
     "shared/guides/custom-look-and-feel/reasoning-messages.mdx",
   SelfHosting: "shared/premium/self-hosting.mdx",
   Slots: "shared/basics/slots.mdx",
-  Threads: "shared/threads/threads.mdx",
+  HeadlessThreads: "shared/threads/headless-threads.mdx",
+  Threads: "shared/threads/headless-threads.mdx",
+  ThreadsOverview: "shared/threads/overview.mdx",
   ToolRenderer: "shared/generative-ui/tool-rendering.mdx", // alias of ToolRendering
   ToolRendering: "shared/generative-ui/tool-rendering.mdx",
   DefaultToolRendering: "shared/guides/default-tool-rendering.mdx",

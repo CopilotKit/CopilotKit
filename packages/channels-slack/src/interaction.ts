@@ -3,7 +3,7 @@ import type {
   IncomingReaction,
   IncomingModalSubmit,
   IncomingModalClose,
-} from "@copilotkit/channels";
+} from "@copilotkit/channels-core";
 import { DM_SCOPE } from "./types.js";
 import type { ConversationKey, ReplyTarget } from "./types.js";
 

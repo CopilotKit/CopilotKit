@@ -1,11 +1,11 @@
 /**
  * Render-tools — the agent-facing wrappers that turn the JSX render
- * components into `BotTool`s. The agent calls `issue_card` / `issue_list` /
+ * components into `ChannelTool`s. The agent calls `issue_card` / `issue_list` /
  * `page_list`; each handler renders the finished `@copilotkit/channels-ui`
  * component (`<IssueCard … />` etc.) and posts it to the thread via
  * `thread.post`.
  */
-import { defineBotTool } from "@copilotkit/channels";
+import { defineChannelTool } from "@copilotkit/channels";
 import {
   IssueCard,
   IssueList,
@@ -15,7 +15,7 @@ import {
   pageListSchema,
 } from "../components/index.js";
 
-export const issueCardTool = defineBotTool({
+export const issueCardTool = defineChannelTool({
   name: "issue_card",
   description:
     "Render ONE Linear issue as a rich card with a status header, " +
@@ -29,7 +29,7 @@ export const issueCardTool = defineBotTool({
   },
 });
 
-export const issueListTool = defineBotTool({
+export const issueListTool = defineChannelTool({
   name: "issue_list",
   description:
     "Render a list of Linear issues as a card — a header plus one row per " +
@@ -44,7 +44,7 @@ export const issueListTool = defineBotTool({
   },
 });
 
-export const pageListTool = defineBotTool({
+export const pageListTool = defineChannelTool({
   name: "page_list",
   description:
     "Render a list of Notion pages as a card — a header plus one row per " +

@@ -10,7 +10,17 @@
     "---Concepts---",
     "---Basics---",
     "prebuilt-components",
-    "threads",
+    {
+      "title": "Threads",
+      "defaultOpen": true,
+      "pages": [
+        "threads",
+        "prebuilt-components/copilot-threads-drawer",
+        "headless-threads",
+        "threads-import",
+        "threads-lifecycle"
+      ]
+    },
     "custom-look-and-feel",
     "programmatic-control",
     "inspector",

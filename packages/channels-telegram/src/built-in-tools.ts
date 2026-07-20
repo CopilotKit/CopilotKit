@@ -2,11 +2,11 @@
  * Telegram-platform-universal frontend tools — tools every Telegram bot
  * benefits from, regardless of what the bot does. Apps spread
  * `defaultTelegramTools` into the `tools:` config they pass to
- * `createBot`.
+ * `createChannel`.
  */
 import { z } from "zod";
-import { defineBotTool } from "@copilotkit/channels";
-import type { BotTool } from "@copilotkit/channels";
+import { defineChannelTool } from "@copilotkit/channels-core";
+import type { ChannelTool } from "@copilotkit/channels-core";
 
 const lookupSchema = z.object({
   query: z
@@ -15,7 +15,7 @@ const lookupSchema = z.object({
     .describe("Handle, display name, or first name of the person to look up."),
 });
 
-export const lookupTelegramUserTool = defineBotTool({
+export const lookupTelegramUserTool = defineChannelTool({
   name: "lookup_telegram_user",
   description:
     "Resolve a person to a Telegram user ID so you can mention them. " +
@@ -42,10 +42,10 @@ export const lookupTelegramUserTool = defineBotTool({
 
 /**
  * The flat list of tools the SDK ships. Spread into your
- * `createBot({tools: …})`:
+ * `createChannel({tools: …})`:
  *
  *     tools: [...defaultTelegramTools, ...myAppTools],
  */
-export const defaultTelegramTools: ReadonlyArray<BotTool> = [
+export const defaultTelegramTools: ReadonlyArray<ChannelTool> = [
   lookupTelegramUserTool,
 ];

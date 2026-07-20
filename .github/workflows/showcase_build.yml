@@ -93,12 +93,12 @@ jobs:
       matrix: ${{ steps.build-matrix.outputs.matrix }}
       has_changes: ${{ steps.build-matrix.outputs.has_changes }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       - name: Detect changed paths
-        uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
+        uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
         id: filter
         with:
           # All filter values use list form for consistency. `shell`
@@ -164,6 +164,15 @@ jobs:
               - 'showcase/shared/**'
               - 'showcase/scripts/**'
               - 'showcase/integrations/*/manifest.yaml'
+              # The dashboard re-exports the harness's shared cell-model fold
+              # (src/lib/{cell-model,live-status,staleness,format-ts}.ts →
+              # ../../../harness/src/shared/cell-model/*), so those files are
+              # compiled INTO the dashboard's `next build`. A change to the
+              # fold that only touches showcase/harness/** would otherwise
+              # select `showcase_harness` but NOT this slot — exactly how
+              # #5952 shipped an unbuilt dashboard. Gate the dashboard on the
+              # fold so a fold change can never again bypass its build.
+              - 'showcase/harness/src/shared/**'
             shell_docs:
               - 'showcase/shell-docs/**'
               - 'showcase/shared/**'
@@ -306,7 +315,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       # Omit `version:` so pnpm/action-setup inherits from the repo's
@@ -315,8 +324,8 @@ jobs:
       # drifted from package.json whenever the repo bumped pnpm —
       # resulting in lockfile-vs-engine mismatches that only surfaced on
       # the slow `--frozen-lockfile` path.
-      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22.x
       - run: pnpm install --frozen-lockfile --ignore-scripts
@@ -329,10 +338,10 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22.x
       - name: Verify Railway image refs
@@ -356,7 +365,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # Always pull LFS. Nearly every integration ships LFS-tracked demo
           # assets under public/ (public/demo-files/*.png|*.pdf,
@@ -377,7 +386,7 @@ jobs:
         uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
 
       - name: Login to GHCR
-        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -484,7 +493,7 @@ jobs:
 
       - name: Upload per-slot build-result artifact
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           # Canonical per-slot name (see buildResultArtifactName in
           # showcase/scripts/lib/build-outputs.ts). The aggregator
@@ -522,12 +531,12 @@ jobs:
       matrix: ${{ steps.starter-matrix.outputs.matrix }}
       has_changes: ${{ steps.starter-matrix.outputs.has_changes }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       - name: Detect changed starter paths
-        uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
+        uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
         id: filter
         with:
           filters: |
@@ -639,7 +648,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
@@ -647,7 +656,7 @@ jobs:
         uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
 
       - name: Login to GHCR
-        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -668,6 +677,45 @@ jobs:
             ghcr.io/copilotkit/${{ matrix.starter.image }}:latest
             ghcr.io/copilotkit/${{ matrix.starter.image }}:${{ github.sha }}
 
+      - name: Write per-slot starter build result
+        if: always()
+        env:
+          SERVICE: ${{ matrix.starter.slug }}
+          BUILD_STATUS: ${{ job.status }}
+        run: |
+          # Mirror of the main `build` matrix's per-slot result write
+          # (see "Write per-slot build result" above). job.status is one of
+          # success, failure, cancelled; normalize cancelled→skipped to match
+          # the same {service,status} shape. We publish per-slot via artifact
+          # because matrix-slot outputs aren't aggregable across slots.
+          #
+          # IMPORTANT: starter artifacts use the `starter-build-result-*`
+          # prefix, NOT `build-result-*`. The aggregate-build-results job
+          # downloads every `build-result-*` and feeds it to the showcase
+          # redeploy set (keyed by showcase dispatch_name). Starters are a
+          # separate namespace and must NOT pollute that intersection, so
+          # they get their own prefix. This artifact exists to give the
+          # `notify` job a durable per-starter failure surface.
+          case "$BUILD_STATUS" in
+            success) STATUS=success ;;
+            failure) STATUS=failure ;;
+            *)       STATUS=skipped ;;
+          esac
+          mkdir -p "$RUNNER_TEMP/starter-build-result"
+          printf '{"service":"%s","status":"%s"}\n' "$SERVICE" "$STATUS" \
+            > "$RUNNER_TEMP/starter-build-result/result.json"
+
+      - name: Upload per-slot starter build-result artifact
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          # Distinct `starter-build-result-*` prefix so this never matches the
+          # aggregator's `build-result-*` download pattern.
+          name: starter-build-result-${{ matrix.starter.slug }}
+          path: ${{ runner.temp }}/starter-build-result/result.json
+          if-no-files-found: error
+          retention-days: 7
+
   aggregate-build-results:
     name: Aggregate build results
     needs: [detect-changes, build]
@@ -680,14 +728,14 @@ jobs:
       results: ${{ steps.collect.outputs.results }}
       any_success: ${{ steps.collect.outputs.any_success }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
       - name: Setup Node
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22.x
           cache: pnpm
@@ -695,7 +743,7 @@ jobs:
         run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Download all per-slot build-result artifacts
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           # `pattern` matches every per-slot artifact emitted by the
           # build matrix. `merge-multiple: false` keeps each artifact
@@ -722,7 +770,7 @@ jobs:
           npx tsx showcase/scripts/aggregate-build-results.ts
 
       - name: Upload aggregated build-results artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: build-results
           path: ${{ runner.temp }}/build-results-out/results.json
@@ -754,10 +802,10 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22.x
       - name: Compute changed-service list from build matrix
@@ -785,11 +833,23 @@ jobs:
           csv="$(jq -rn --argjson m "$matrix_names" --argjson s "$success_names" \
             '($m | map(select(. as $n | $s | index($n)))) | join(",")')"
           if [ -z "$csv" ]; then
-            echo "No services in matrix ∩ success-set — skipping redeploy."
-            echo "services=" >> "$GITHUB_OUTPUT"
-          else
-            echo "services=$csv" >> "$GITHUB_OUTPUT"
+            # This job only runs when aggregate-build-results.any_success == 'true'
+            # (see the job-level `if:` guard). So reaching an EMPTY intersection
+            # here does NOT mean "nothing to deploy" — it means at least one slot
+            # BUILT successfully yet none of those successes maps back into the
+            # scheduled build matrix. That is a dispatch_name↔service contract
+            # skew: the aggregator's `service` values and the matrix's
+            # `dispatch_name` values have drifted out of sync. Emitting an empty
+            # `services=` here would let the build go GREEN while redeploying
+            # NOTHING — a silent "we thought we shipped but didn't" hole. Fail
+            # LOUD instead, naming both sides of the skew so it can be diagnosed.
+            echo "::error::Build succeeded (any_success=true) but matrix ∩ success-set is EMPTY — dispatch_name/service contract skew; nothing would be redeployed."
+            echo "Successful build service values (from aggregate-build-results): $success_names"
+            echo "Scheduled matrix dispatch_name values (from detect-changes):    $matrix_names"
+            echo "These two sets share no members — a successful build maps to no matrix entry. Reconcile showcase/scripts/lib/build-outputs.ts (service field) with the build matrix dispatch_name values."
+            exit 1
           fi
+          echo "services=$csv" >> "$GITHUB_OUTPUT"
           echo "Computed services CSV (matrix ∩ build-success): $csv"
       - name: Redeploy changed services in staging
         if: steps.changed.outputs.services != ''
@@ -849,7 +909,7 @@ jobs:
         # Net effect: trades the (already-closed) false-green risk for a
         # false-red on every non-buildable push. Don't do it.
         if: steps.changed.outputs.services != ''
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           # Artifact name MUST stay `redeploy-summary`: showcase_deploy.yml's
           # `resolve-matrix` job downloads it by this exact name and reads
@@ -858,6 +918,172 @@ jobs:
           path: .redeploy/summary.json
           if-no-files-found: error
           retention-days: 7
+
+  redeploy-staging-starters:
+    name: Trigger Railway staging redeploy (starters)
+    needs: [detect-starter-changes, build-starters]
+    # Starter analogue of `redeploy-staging`. The starter lane
+    # (detect-starter-changes → build-starters) previously ENDED at the GHCR
+    # push: a starter-only change (examples/integrations/<slug>/**) built a
+    # fresh `starter-<slug>:latest` image, but nothing ever told Railway to
+    # pull it, so the fix sat undeployed until someone manually redeployed
+    # (the PR #6061 agno incident — merged + built to GHCR, never deployed,
+    # starter-agno stayed crashed). The showcase `redeploy-staging` job only
+    # covers the showcase `build` lane (needs: [detect-changes, build, ...]),
+    # so the starter lane had NO redeploy step at all. This job closes that
+    # gap by redeploying — in STAGING only — exactly the starters that built
+    # successfully.
+    #
+    # Gate mirrors redeploy-staging's skipped/cancelled handling:
+    #   - !cancelled()                               → don't fire on a cancel.
+    #   - detect-starter-changes.has_changes=='true' → at least one starter in
+    #                                                   the build matrix.
+    #   - build-starters.result != 'skipped'         → the starter build job
+    #     && build-starters.result != 'cancelled'       actually ran (a skipped
+    #                                                   build means no starter
+    #                                                   image was pushed —
+    #                                                   nothing to redeploy).
+    #
+    # build-starters.result == 'failure' STILL enters this job (fail-fast is
+    # false, so some slots may have succeeded while others failed). The
+    # "deploy on build failure" footgun is closed NOT by the job `if:` but by
+    # the per-slot success intersection in the compute step below: only
+    # starters whose OWN build slot reported status:success are redeployed,
+    # and an all-failed run yields an EMPTY CSV → the redeploy step is
+    # skipped. So a wholesale starter build failure never redeploys anything
+    # — the same net guarantee redeploy-staging gets from its
+    # aggregate-build-results.any_success guard, computed inline here to avoid
+    # standing up a second aggregator job for the starter lane.
+    if: >-
+      ${{ !cancelled()
+          && needs.detect-starter-changes.outputs.has_changes == 'true'
+          && needs.build-starters.result != 'skipped'
+          && needs.build-starters.result != 'cancelled' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.x
+
+      - name: Download per-slot starter build-result artifacts
+        # `pattern` (not `name`) download: unlike a `name:` download, a
+        # pattern that matches ZERO artifacts logs a warning and SUCCEEDS
+        # rather than hard-failing. That is exactly the wanted behavior when
+        # build-starters hard-crashed before any slot wrote its result
+        # artifact — the compute step then sees an empty success set and the
+        # redeploy step is skipped (no deploy on a total build failure). These
+        # `starter-build-result-*` artifacts are already emitted per-slot by
+        # build-starters; before this job they were write-only.
+        # merge-multiple:false keeps each slot in its own subdirectory so the
+        # find below reads them deterministically.
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: starter-build-result-*
+          path: ${{ runner.temp }}/starter-build-results-in
+          merge-multiple: false
+
+      - name: Compute successfully-built starter services
+        id: changed
+        env:
+          MATRIX_JSON: ${{ needs.detect-starter-changes.outputs.matrix }}
+          RESULTS_DIR: ${{ runner.temp }}/starter-build-results-in
+          BUILD_STARTERS_RESULT: ${{ needs.build-starters.result }}
+        run: |
+          set -euo pipefail
+          # Each per-slot artifact extracts to
+          #   $RESULTS_DIR/starter-build-result-<slug>/result.json
+          # with shape {"service":"<RAW slug>","status":"success|failure|skipped"}
+          # (see build-starters' "Write per-slot starter build result" step).
+          # Slurp ALL result records first. `find -exec cat {} +` runs cat zero
+          # times when nothing matches (empty or absent result dir) → jq -s
+          # slurps zero inputs → `[]`, so an all-failed / crashed build yields
+          # an empty record set with no xargs-on-empty hang.
+          #
+          # NO `2>/dev/null` on the cat (Finding 2): suppressing read errors
+          # would let a starter whose result.json exists-but-is-unreadable be
+          # silently dropped from the success set (a silent under-deploy). Let a
+          # read error surface and trip `pipefail` so the job fails loud.
+          records='[]'
+          if [ -d "$RESULTS_DIR" ]; then
+            records="$(find "$RESULTS_DIR" -name result.json -exec cat {} + \
+              | jq -sc '.')"
+          fi
+          # Fail-loud artifact-completeness check (Finding 2): every matrix slot
+          # writes a result.json ("Write per-slot starter build result" runs
+          # `if: always()`), so when ALL slots built (build-starters.result ==
+          # 'success') the parsed record count MUST equal the matrix slot count.
+          # A shortfall means a `starter-build-result-*` artifact is missing or
+          # expired → a successfully-built starter would be silently dropped
+          # from the redeploy set. Gated on 'success' so a partial/total build
+          # FAILURE (where a crashed slot may legitimately lack its artifact) is
+          # NOT double-reported here — that failure is already surfaced by the
+          # build-starters job itself.
+          matrix_slot_count="$(echo "$MATRIX_JSON" | jq 'length')"
+          record_count="$(echo "$records" | jq 'length')"
+          if [ "$BUILD_STARTERS_RESULT" = "success" ] && [ "$record_count" -ne "$matrix_slot_count" ]; then
+            echo "::error::All starter slots built (build-starters.result=success) but parsed $record_count build-result record(s) for $matrix_slot_count matrix slot(s) — a per-slot starter-build-result-* artifact is missing or expired. A successfully-built starter could be silently dropped from the redeploy set. Check the build-starters upload step and artifact retention (retention-days)."
+            echo "Scheduled starter matrix (detect-starter-changes): $MATRIX_JSON"
+            echo "Parsed build-result records (from RESULTS_DIR):     $records"
+            exit 1
+          fi
+          success_slugs="$(echo "$records" | jq -c '[.[] | select(.status == "success") | .service]')"
+          # Map each successfully-built RAW slug → its SSOT key via the starter
+          # matrix `.image` field (image === "starter-<slug>" === the
+          # railway-envs.ts SERVICES key). redeploy-env.ts resolves that SSOT
+          # key directly. The RAW slug must NOT be passed: e.g. the raw slug
+          # "agno" collides with the SHOWCASE `agno` dispatch_name and would
+          # redeploy the wrong (showcase, not starter) Railway service.
+          csv="$(jq -rn --argjson m "$MATRIX_JSON" --argjson s "$success_slugs" \
+            '($m | map(select(.slug as $sl | $s | index($sl)) | .image)) | join(",")')"
+          # Fail-loud empty-deploy-set check (Finding 1): mirror the sibling
+          # redeploy-staging job's empty-intersection guard. When ALL slots
+          # built (build-starters.result == 'success') yet the matrix ∩ success
+          # CSV is EMPTY, everything built but nothing would be redeployed — a
+          # silent "we thought we shipped but didn't" hole (a slug↔.image
+          # contract skew, or the success set maps to no matrix entry). Fail
+          # loud. Do NOT fail when build-starters merely FAILED (partial or
+          # total): an empty CSV there is the legitimate "no slot succeeded →
+          # nothing to deploy" path, and the build failure is already surfaced
+          # by build-starters itself.
+          if [ -z "$csv" ] && [ "$BUILD_STARTERS_RESULT" = "success" ]; then
+            echo "::error::All starter slots built (build-starters.result=success) but matrix ∩ success-set is EMPTY — nothing would be redeployed. Likely a slug↔.image contract skew between detect-starter-changes' matrix and the per-slot result artifacts' service values."
+            echo "Successful starter slugs (status:success records): $success_slugs"
+            echo "Scheduled starter matrix (detect-starter-changes): $MATRIX_JSON"
+            echo "Reconcile the starter matrix (.slug/.image) with build-starters' per-slot result service values so every built starter maps to a Railway service."
+            exit 1
+          fi
+          if [ -z "$csv" ]; then
+            echo "build-starters.result=$BUILD_STARTERS_RESULT with an empty deploy set — no starter built successfully, nothing to redeploy (any build failure is surfaced by the build-starters job)."
+          fi
+          echo "services=$csv" >> "$GITHUB_OUTPUT"
+          echo "Computed starter services CSV (matrix ∩ build-success): $csv"
+
+      - name: Redeploy changed starters in staging
+        # Empty CSV = no starter built successfully (or the build hard-crashed
+        # before writing any result artifact) → nothing to redeploy → skip.
+        # This is the "no deploy on failure" guard for the starter lane.
+        if: steps.changed.outputs.services != ''
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          SERVICES_CSV: ${{ steps.changed.outputs.services }}
+        run: |
+          # Staging is non-blocking by design: redeploy-env.ts always exits 0
+          # on staging and writes per-service failures to $GITHUB_STEP_SUMMARY.
+          # We deliberately do NOT set REDEPLOY_SUMMARY_JSON or upload a
+          # `redeploy-summary` artifact here: that artifact name is OWNED by
+          # the showcase `redeploy-staging` job and is downloaded by
+          # showcase_deploy.yml by EXACT name, so a second upload of the same
+          # name would collide on a combined (starter + showcase) push.
+          # Starter STAGING verification is intentionally out of scope for
+          # this deploy-gap fix — starters are already smoke-covered by
+          # test_smoke-starter.yml and the harness `starter_smoke` axis.
+          npx tsx showcase/scripts/redeploy-env.ts staging --services "$SERVICES_CSV"
 
   notify-all-builds-failed:
     name: Notify all builds failed (staging unchanged)
@@ -889,7 +1115,7 @@ jobs:
           exit 1
       - name: Slack #oss-alerts
         if: always() && env.SLACK_WEBHOOK != ''
-        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
@@ -916,14 +1142,26 @@ jobs:
     # skipped != failure. If `notify-all-builds-failed` also fires
     # (genuine all-failed case), both alerts firing for the same event is
     # acceptable per the alert SOP.
+    #
+    # `detect-starter-changes` + `build-starters` + `redeploy-staging-starters`
+    # are included so a FAILED starter image build OR a failed starter staging
+    # redeploy (examples/integrations/*) also triggers the Slack alert + PR
+    # comment. Previously the starter lane had NO alert surface: its jobs were
+    # absent from `needs`, so `if: failure()` could never see a starter build
+    # failure and it shipped silently. `if: failure()` still no-ops when the
+    # starter jobs are skipped (no starter changes) — skipped != failure — so
+    # this only fires on a genuine starter build or starter redeploy failure.
     needs:
       [
         detect-changes,
+        detect-starter-changes,
         check-lockfile,
         verify-image-refs,
         build,
+        build-starters,
         aggregate-build-results,
         redeploy-staging,
+        redeploy-staging-starters,
       ]
     if: failure()
     runs-on: ubuntu-latest
@@ -936,7 +1174,7 @@ jobs:
     steps:
       - name: Slack alert
         if: env.SLACK_WEBHOOK != ''
-        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
@@ -949,7 +1187,7 @@ jobs:
             { "text": ${{ toJSON(format(':x: *Showcase Build Failed*{4}Commit: `{0}` by {1}{4}<https://github.com/{2}/actions/runs/{3}|View run>', github.sha, github.actor, github.repository, github.run_id, fromJSON('"\n"'))) }} }
 
       - name: Comment on PR
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
             const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({

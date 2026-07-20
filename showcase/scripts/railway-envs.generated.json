@@ -21,6 +21,10 @@
         "staging": "aimock-staging.up.railway.app",
         "prod": "showcase-aimock-production.up.railway.app"
       },
+      "internalDomains": {
+        "staging": "showcase-aimock.railway.internal",
+        "prod": "showcase-aimock.railway.internal"
+      },
       "probe": {
         "staging": true,
         "prod": true,
@@ -336,6 +340,10 @@
       "serviceRefs": [
         {
           "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        },
+        {
+          "key": "ANTHROPIC_BASE_URL",
           "target": "aimock"
         }
       ],

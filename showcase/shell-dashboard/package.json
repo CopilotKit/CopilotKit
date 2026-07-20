@@ -5,7 +5,7 @@
   "scripts": {
     "postinstall": "cd ../scripts && npm install --no-audit --no-fund --silent",
     "predev": "tsx ../scripts/generate-registry.ts && tsx ../scripts/probe-docs.ts",
-    "dev": "next dev --turbopack --port 3002",
+    "dev": "next dev --port 3002",
     "prebuild": "tsx ../scripts/generate-registry.ts && tsx ../scripts/probe-docs.ts",
     "build": "next build",
     "start": "next start --port 3002",

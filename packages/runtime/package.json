@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/runtime",
-  "version": "1.62.3",
+  "version": "1.63.1",
   "private": false,
   "keywords": [
     "ai",
@@ -89,7 +89,8 @@
     "@ai-sdk/google-vertex": "^3.0.97",
     "@ai-sdk/mcp": "^1.0.21",
     "@ai-sdk/openai": "^3.0.36",
-    "@copilotkit/channels": "workspace:*",
+    "@copilotkit/channels-core": "workspace:^",
+    "@copilotkit/channels-intelligence": "workspace:*",
     "@copilotkit/license-verifier": "~0.5.0",
     "@copilotkit/shared": "workspace:*",
     "@graphql-yoga/plugin-defer-stream": "^3.3.1",
@@ -122,6 +123,7 @@
   },
   "devDependencies": {
     "@copilotkit/aimock": "latest",
+    "@copilotkit/channels": "workspace:*",
     "@swc/core": "1.5.28",
     "@tanstack/intent": "^0.0.29",
     "@types/cors": "^2.8.17",

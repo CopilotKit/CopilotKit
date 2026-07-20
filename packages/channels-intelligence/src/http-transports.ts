@@ -6,17 +6,18 @@ import type {
   AgentMessage,
 } from "./transports.js";
 import type {
-  ManagedIngressEnvelope,
-  ManagedFileRef,
+  ChannelIngressEnvelope,
+  ChannelDeliveryScope,
   EgressRoute,
   EgressOperation,
   EgressResult,
   RenderFrame,
   RenderAccepted,
 } from "./contracts.js";
-import type { MessageRef, AgentContentPart } from "@copilotkit/channels-ui";
 import { irToText } from "./ir-to-text.js";
-import { buildContentParts } from "./content-parts.js";
+import { mapDeliveryToEnvelope } from "./claim-mapping.js";
+import type { ClaimedDelivery } from "./claim-mapping.js";
+import { IntelligenceFileHistoryClient } from "./intelligence-file-history.js";
 
 /**
  * @internal Default HTTP transports for {@link intelligenceAdapter}.
@@ -25,7 +26,7 @@ import { buildContentParts } from "./content-parts.js";
  * {@link HttpDeliverySource} polls the listener `claim` route and lease-fences
  * ack/fail; the {@link HttpEgressSink} posts replies to the egress route.
  * `intelligenceAdapter()` builds them by default (config from env), so a
- * consumer only writes `createBot({ adapters: [intelligenceAdapter()] })`.
+ * consumer only writes `createChannel({ adapters: [intelligenceAdapter()] })`.
  * Exported as undocumented fallbacks — the whole package is `@internal`.
  */
 
@@ -44,14 +45,24 @@ export interface IntelligenceTransportConfig {
   baseUrl: string;
   /** Project runtime API key (`cpk-…`), sent as `Authorization: Bearer`. */
   apiKey: string;
-  /** Project-unique bot name; matches `createBot({ name })`. */
-  botName: string;
+  /** Project-unique channel name; defaults from `createChannel({ name })`. */
+  channelName: string;
   /** Stable runtime instance id (`rti_…`); generated when omitted. */
   runtimeInstanceId: string;
   /** Adapter kind. First slice is `"slack"`. */
   adapter: string;
-  /** Injectable fetch (tests); defaults to global `fetch`. */
+  /** Injectable fetch for the JSON claim/heartbeat/egress calls (text-only
+   * {@link FetchLike}); defaults to global `fetch`. */
   fetch?: FetchLike;
+  /**
+   * Injectable binary-capable `fetch` for the file/history client's download,
+   * history, and upload calls (needs `.body`/`.arrayBuffer()`/`.headers`/
+   * `.json()`, which the text-only {@link FetchLike} above cannot satisfy).
+   * Forwarded to {@link IntelligenceFileHistoryClient}; defaults to global
+   * `fetch`. Separate knob because the JSON and binary paths need different
+   * fetch shapes.
+   */
+  fileFetch?: typeof fetch;
   /** Heartbeat cadence / poll-sleep ceiling in ms (default 15000). */
   heartbeatIntervalMs?: number;
   /** Injectable sleep (tests); defaults to `setTimeout`. */
@@ -70,7 +81,8 @@ export interface IntelligenceTransportConfig {
 /**
  * Resolve transport config from explicit overrides then environment, failing
  * loudly if a required field is missing. Env: `COPILOTKIT_INTELLIGENCE_URL`,
- * `COPILOTKIT_API_KEY`, `COPILOTKIT_BOT_NAME`, `COPILOTKIT_RUNTIME_INSTANCE_ID`.
+ * `COPILOTKIT_API_KEY`, `COPILOTKIT_CHANNEL_NAME`,
+ * `COPILOTKIT_RUNTIME_INSTANCE_ID`.
  */
 export function resolveTransportConfig(
   overrides: Partial<IntelligenceTransportConfig> = {},
@@ -83,7 +95,7 @@ export function resolveTransportConfig(
     overrides.baseUrl ?? env["COPILOTKIT_INTELLIGENCE_URL"]
   )?.replace(/\/+$/, "");
   const apiKey = overrides.apiKey ?? env["COPILOTKIT_API_KEY"];
-  const botName = overrides.botName ?? env["COPILOTKIT_BOT_NAME"];
+  const channelName = overrides.channelName ?? env["COPILOTKIT_CHANNEL_NAME"];
   const runtimeInstanceId =
     overrides.runtimeInstanceId ??
     env["COPILOTKIT_RUNTIME_INSTANCE_ID"] ??
@@ -93,8 +105,10 @@ export function resolveTransportConfig(
   const missing: string[] = [];
   if (!baseUrl) missing.push("baseUrl (COPILOTKIT_INTELLIGENCE_URL)");
   if (!apiKey) missing.push("apiKey (COPILOTKIT_API_KEY)");
-  if (!botName)
-    missing.push("botName (createBot({ name }) / COPILOTKIT_BOT_NAME)");
+  if (!channelName)
+    missing.push(
+      "channelName (createChannel({ name }) / COPILOTKIT_CHANNEL_NAME)",
+    );
   if (missing.length > 0) {
     throw new Error(
       `intelligenceAdapter: missing required transport config: ${missing.join(", ")}`,
@@ -104,10 +118,11 @@ export function resolveTransportConfig(
   return {
     baseUrl: baseUrl!,
     apiKey: apiKey!,
-    botName: botName!,
+    channelName: channelName!,
     runtimeInstanceId,
     adapter,
     fetch: overrides.fetch,
+    fileFetch: overrides.fileFetch,
     heartbeatIntervalMs: overrides.heartbeatIntervalMs,
     sleep: overrides.sleep,
     log: overrides.log,
@@ -116,18 +131,15 @@ export function resolveTransportConfig(
 }
 
 const defaultSleep = (ms: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, ms));
+  new Promise((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    // Don't let a pending poll-sleep hold the event loop open (parity with the
+    // realtime transport's timers) so the process can exit after stop().
+    (timer as unknown as { unref?: () => void }).unref?.();
+  });
 
 /** Default per-turn deadline before a hung turn is nacked and skipped. */
 const DEFAULT_TURN_TIMEOUT_MS = 120_000;
-
-/**
- * Safety backstop on an inbound file download. app-api caps inbound files at
- * 25 MiB, so this generous ceiling never rejects legitimate traffic — it just
- * prevents an unbounded `arrayBuffer()` read if a served body is pathologically
- * large (anomaly / misrouted endpoint) and advertises its size.
- */
-const MAX_INBOUND_FILE_BYTES = 64 * 1024 * 1024;
 
 /**
  * Reject after `ms` if `p` hasn't settled, so a hung turn can't wedge the
@@ -141,6 +153,9 @@ function withTimeout<T>(
 ): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(message)), ms);
+    // Don't let a pending per-turn deadline hold the event loop open (parity
+    // with the realtime transport's withDeliveryTimeout).
+    (timer as unknown as { unref?: () => void }).unref?.();
     p.then(
       (value) => {
         clearTimeout(timer);
@@ -154,71 +169,7 @@ function withTimeout<T>(
   });
 }
 
-/** Slack reply target Intelligence mints at ingress and the sink echoes back. */
-interface SlackReplyTarget {
-  adapter: string;
-  teamId: string;
-  channel: string;
-  threadTs?: string;
-}
-
-/** Successful `claim` delivery envelope (subset the bridge reads). */
-interface ClaimedDelivery {
-  id: string;
-  organizationId: string;
-  projectId: number;
-  bot: { id: string; name: string };
-  adapter: string;
-  leaseToken: string;
-  turn: {
-    id: string;
-    eventId: string;
-    replyTarget: SlackReplyTarget;
-    // NB: there is intentionally no `thread_started` variant here — the claim
-    // path only carries turn/command/reaction/interaction. `thread_started`
-    // envelopes originate on the realtime/Phoenix path, not from `claim`, so a
-    // claimed delivery never maps to `kind:"thread_started"`.
-    input?:
-      | { kind: "text"; text?: string; files?: ManagedFileRef[] }
-      | {
-          kind: "command";
-          command: string;
-          text?: string;
-          triggerId?: string;
-          rawOptions?: Record<string, unknown>;
-        }
-      | {
-          kind: "reaction";
-          rawEmoji: string;
-          added: boolean;
-          messageId: string;
-          threadId?: string;
-          /** SDK post-time ref the reacted message maps to (reverse-resolved by
-           * app-api), so a `<Message onReaction>` handler can be found. */
-          postedRef?: string;
-        }
-      | {
-          kind: "interaction";
-          /** Minted action id (ck:...) the clicked control carried. */
-          actionId: string;
-          /** The clicked control's value (block_actions value / selected options). */
-          value?: unknown;
-          /** The message the interaction occurred on (so a handler can update it). */
-          messageRef?: MessageRef;
-          /** Slack trigger id (for opening a modal off the interaction). */
-          triggerId?: string;
-        };
-  };
-}
-
-/** Per-delivery org/project/bot scope, echoed onto render frames. */
-export interface DeliveryScope {
-  organizationId: string;
-  projectId: number;
-  botId: string;
-  botName: string;
-}
-
+/** The claim route's response: an idle-backoff, or a leased delivery to run. */
 type ClaimResponse =
   | { claimed: false; pollAfterMs: number }
   | { claimed: true; delivery: ClaimedDelivery };
@@ -263,79 +214,10 @@ class IntelligenceHttp {
   }
 }
 
-/** `slack:teamId:channel:thread:threadTs` — stable per Slack thread. */
-function conversationKeyFromReplyTarget(rt: SlackReplyTarget): string {
-  return `${rt.adapter}:${rt.teamId}:${rt.channel}:thread:${rt.threadTs ?? "root"}`;
-}
-
-function mapDeliveryToEnvelope(d: ClaimedDelivery): ManagedIngressEnvelope {
-  const base = {
-    deliveryId: d.id,
-    eventId: d.turn.eventId,
-    turnId: d.turn.id,
-    botName: d.bot.name,
-    platform: d.adapter,
-    conversationKey: conversationKeyFromReplyTarget(d.turn.replyTarget),
-    route: d.turn.replyTarget,
-  };
-  const input = d.turn.input;
-
-  if (input?.kind === "command") {
-    return {
-      ...base,
-      kind: "command",
-      command: input.command,
-      text: input.text ?? "",
-      ...(input.triggerId ? { triggerId: input.triggerId } : {}),
-      ...(input.rawOptions ? { rawOptions: input.rawOptions } : {}),
-    };
-  }
-
-  if (input?.kind === "reaction") {
-    return {
-      ...base,
-      kind: "reaction",
-      rawEmoji: input.rawEmoji,
-      added: input.added,
-      messageId: input.messageId,
-      ...(input.threadId ? { threadId: input.threadId } : {}),
-      ...(input.postedRef ? { postedRef: input.postedRef } : {}),
-    };
-  }
-
-  if (input?.kind === "interaction") {
-    return {
-      ...base,
-      kind: "interaction",
-      actionId: input.actionId,
-      ...(input.value !== undefined ? { value: input.value } : {}),
-      ...(input.messageRef ? { messageRef: input.messageRef } : {}),
-      ...(input.triggerId ? { triggerId: input.triggerId } : {}),
-    };
-  }
-
-  if (input === undefined || input.kind === "text") {
-    return {
-      ...base,
-      kind: "turn",
-      text: input?.text ?? "",
-      ...(input?.files?.length ? { files: input.files } : {}),
-    };
-  }
-
-  // Exhaustiveness guard: mirror the adapter's dispatch switch — an unknown wire
-  // kind must fail loud rather than be silently coerced into an empty turn (which
-  // would then ack as a processed no-op).
-  const unhandled: never = input;
-  throw new Error(
-    `intelligenceAdapter: unknown delivery input kind ${JSON.stringify(unhandled)}`,
-  );
-}
-
 interface LeaseRecord {
   turnId: string;
   leaseToken: string;
-  scope: DeliveryScope;
+  scope: ChannelDeliveryScope;
 }
 
 /**
@@ -346,38 +228,70 @@ interface LeaseRecord {
  */
 export class HttpDeliverySource implements DeliverySource {
   private readonly http: IntelligenceHttp;
+  private readonly fileHistory: IntelligenceFileHistoryClient;
   private readonly leases = new Map<string, LeaseRecord>();
   private running = false;
   private loop?: Promise<void>;
-  private lastHeartbeatAt = 0;
+  /** Standalone recurring heartbeat timer, independent of the claim loop. */
+  private heartbeatTimer?: ReturnType<typeof setTimeout>;
+  /**
+   * Bumped on every {@link start}/{@link stop}. The recurring heartbeat closes
+   * over the generation it was scheduled under and stops rescheduling once it
+   * no longer matches, so a stop→start restart (which can fire while a prior
+   * heartbeat POST is still in flight) cannot leave two reschedule chains
+   * running.
+   */
+  private runGeneration = 0;
+  /**
+   * Resolves when {@link stop} is called, so an in-flight poll-sleep or an
+   * in-flight turn-wait can be interrupted immediately rather than blocking
+   * shutdown for up to a cadence (idle) or `turnTimeoutMs` (mid-turn).
+   */
+  private stopWait?: Promise<void>;
+  private resolveStop?: () => void;
 
   constructor(private readonly cfg: IntelligenceTransportConfig) {
     this.http = new IntelligenceHttp(cfg);
+    this.fileHistory = new IntelligenceFileHistoryClient({
+      baseUrl: cfg.baseUrl,
+      apiKey: cfg.apiKey,
+      log: cfg.log,
+      ...(cfg.fileFetch ? { fetch: cfg.fileFetch } : {}),
+    });
   }
 
   private sleep(ms: number): Promise<void> {
-    return (this.cfg.sleep ?? defaultSleep)(ms);
+    const base = (this.cfg.sleep ?? defaultSleep)(ms);
+    // Interruptible: stop() resolves stopWait so an in-flight poll-sleep ends at
+    // once instead of holding shutdown for up to a full cadence.
+    return this.stopWait ? Promise.race([base, this.stopWait]) : base;
   }
 
-  /** Declare this runtime + bot to Intelligence and keep the activation fresh. */
+  /** Declare this runtime + channel to Intelligence and keep the activation fresh. */
   async heartbeat(): Promise<void> {
-    await this.http.post("/api/bots/listener/heartbeat", {
+    await this.http.post("/api/channels/listener/heartbeat", {
       runtimeInstanceId: this.cfg.runtimeInstanceId,
-      declaredBots: [{ botName: this.cfg.botName, adapter: this.cfg.adapter }],
+      declaredChannels: [
+        { channelName: this.cfg.channelName, adapter: this.cfg.adapter },
+      ],
       observedAt: new Date().toISOString(),
     });
-    this.lastHeartbeatAt = Date.now();
   }
 
   /** Claim a single delivery; returns the mapped envelope, or the idle backoff. */
   async claimOnce(): Promise<
-    { env: ManagedIngressEnvelope } | { pollAfterMs: number }
+    { env: ChannelIngressEnvelope } | { pollAfterMs: number }
   > {
     const res = await this.http.post<ClaimResponse>(
-      "/api/bots/listener/claim",
+      "/api/channels/listener/claim",
       {
+        // Claim provider-agnostically: the Channel runtime emits abstract render
+        // frames and Intelligence renders per the delivery's own reply target, so
+        // a single runtime serves every channel its bot has attached (Slack,
+        // Teams, ...). Declaring a single adapter here made Intelligence withhold
+        // deliveries for the bot's other channels (e.g. a Slack-declared runtime
+        // never received the same bot's Teams messages).
         runtimeInstanceId: this.cfg.runtimeInstanceId,
-        adapters: [this.cfg.adapter],
       },
     );
     if (!res.claimed) return { pollAfterMs: res.pollAfterMs ?? 1000 };
@@ -387,8 +301,8 @@ export class HttpDeliverySource implements DeliverySource {
       scope: {
         organizationId: res.delivery.organizationId,
         projectId: res.delivery.projectId,
-        botId: res.delivery.bot.id,
-        botName: res.delivery.bot.name,
+        channelId: res.delivery.channel.id,
+        channelName: res.delivery.channel.name,
       },
     });
     try {
@@ -416,8 +330,8 @@ export class HttpDeliverySource implements DeliverySource {
     }
   }
 
-  /** The org/project/bot scope for a leased delivery, for render-frame egress. */
-  scopeFor(deliveryId: string): DeliveryScope | undefined {
+  /** The org/project/channel scope for a leased delivery, for render-frame egress. */
+  scopeFor(deliveryId: string): ChannelDeliveryScope | undefined {
     return this.leases.get(deliveryId)?.scope;
   }
 
@@ -428,21 +342,54 @@ export class HttpDeliverySource implements DeliverySource {
   }
 
   async start(
-    onDelivery: (env: ManagedIngressEnvelope) => Promise<void>,
+    onDelivery: (env: ChannelIngressEnvelope) => Promise<void>,
   ): Promise<void> {
     this.running = true;
+    const generation = ++this.runGeneration;
+    this.stopWait = new Promise<void>((resolve) => {
+      this.resolveStop = resolve;
+    });
     await this.heartbeat();
+    this.scheduleHeartbeat(generation);
     this.loop = this.runLoop(onDelivery);
   }
 
+  /**
+   * Keep the activation fresh on a standalone recurring timer, independent of
+   * the claim loop. The loop blocks on `onDelivery` for up to `turnTimeoutMs`
+   * (120s) during a turn; heartbeating only at the top of the loop meant a turn
+   * longer than the cadence sent no heartbeat for its whole duration, so app-api
+   * could mark a healthily-working runtime stale mid-turn and withhold new
+   * deliveries. This timer heartbeats on cadence regardless of what the loop is
+   * doing, rescheduling only after each heartbeat settles (no overlap).
+   */
+  private scheduleHeartbeat(generation: number): void {
+    const cadence = this.cfg.heartbeatIntervalMs ?? 15000;
+    const timer = setTimeout(() => {
+      // Only this run's chain may fire/reschedule. A stop→start restart bumps
+      // runGeneration, so an orphaned chain (or a reschedule queued behind an
+      // in-flight heartbeat POST from the previous run) self-terminates instead
+      // of doubling the heartbeat rate.
+      if (!this.running || generation !== this.runGeneration) return;
+      this.heartbeat()
+        .catch((err) => this.cfg.log?.("intelligence heartbeat failed", err))
+        .finally(() => {
+          if (this.running && generation === this.runGeneration) {
+            this.scheduleHeartbeat(generation);
+          }
+        });
+    }, cadence);
+    // Don't hold the event loop open (parity with the poll-sleep timers).
+    (timer as unknown as { unref?: () => void }).unref?.();
+    this.heartbeatTimer = timer;
+  }
+
   private async runLoop(
-    onDelivery: (env: ManagedIngressEnvelope) => Promise<void>,
+    onDelivery: (env: ChannelIngressEnvelope) => Promise<void>,
   ): Promise<void> {
     const cadence = this.cfg.heartbeatIntervalMs ?? 15000;
     while (this.running) {
       try {
-        if (Date.now() - this.lastHeartbeatAt >= cadence)
-          await this.heartbeat();
         const r = await this.claimOnce();
         if ("env" in r) {
           // The adapter dispatches the turn and calls back into ack/nack
@@ -452,17 +399,36 @@ export class HttpDeliverySource implements DeliverySource {
           // then retries / dead-letters at max_attempts), and keep polling.
           const env = r.env;
           const timeoutMs = this.cfg.turnTimeoutMs ?? DEFAULT_TURN_TIMEOUT_MS;
-          try {
-            await withTimeout(
-              onDelivery(env),
-              timeoutMs,
-              `turn ${env.turnId} exceeded ${timeoutMs}ms`,
-            );
-          } catch (turnErr) {
-            this.cfg.log?.("intelligence turn failed/timed out", turnErr);
+          // Always attach a terminal handler so a turn that rejects AFTER we've
+          // stopped (below) never surfaces as an unhandled rejection.
+          const settled = withTimeout(
+            onDelivery(env),
+            timeoutMs,
+            `turn ${env.turnId} exceeded ${timeoutMs}ms`,
+          ).then(
+            () => ({ ok: true }) as const,
+            (err: unknown) => ({ ok: false, err }) as const,
+          );
+          // Race the turn against stop(): shutting down must not block for up to
+          // turnTimeoutMs waiting on an in-flight turn.
+          const outcome = this.stopWait
+            ? await Promise.race([
+                settled,
+                this.stopWait.then(() => "stopped" as const),
+              ])
+            : await settled;
+          if (outcome === "stopped") {
+            // Leave the lease — app-api re-leases after expiry. Do NOT nack: the
+            // turn didn't fail, we're stopping.
+            break;
+          }
+          if (!outcome.ok) {
+            this.cfg.log?.("intelligence turn failed/timed out", outcome.err);
             await this.nack(
               env.deliveryId,
-              turnErr instanceof Error ? turnErr.message : String(turnErr),
+              outcome.err instanceof Error
+                ? outcome.err.message
+                : String(outcome.err),
             ).catch((nackErr) =>
               this.cfg.log?.(
                 "intelligence nack after turn failure failed",
@@ -492,7 +458,7 @@ export class HttpDeliverySource implements DeliverySource {
     // other sees none and no-ops — exactly one of ack XOR fail reaches app-api.
     this.leases.delete(deliveryId);
     await this.http.post(
-      `/api/bots/deliveries/${encodeURIComponent(deliveryId)}/ack`,
+      `/api/channels/deliveries/${encodeURIComponent(deliveryId)}/ack`,
       {
         turnId: lease.turnId,
         runtimeInstanceId: this.cfg.runtimeInstanceId,
@@ -515,7 +481,7 @@ export class HttpDeliverySource implements DeliverySource {
     // Delete-before-POST for the same reason as `ack`: single terminal signal.
     this.leases.delete(deliveryId);
     await this.http.post(
-      `/api/bots/deliveries/${encodeURIComponent(deliveryId)}/fail`,
+      `/api/channels/deliveries/${encodeURIComponent(deliveryId)}/fail`,
       {
         turnId: lease.turnId,
         runtimeInstanceId: this.cfg.runtimeInstanceId,
@@ -530,143 +496,18 @@ export class HttpDeliverySource implements DeliverySource {
     );
   }
 
-  /**
-   * Download an inbound file's raw bytes by handle from app-api's file-serve
-   * route. Bypasses {@link IntelligenceHttp} on purpose — that helper is
-   * JSON/POST-only and decodes bodies as text, which corrupts binary; the
-   * global `fetch` gives us `arrayBuffer()`. Auth is the same runtime bearer.
-   */
-  async fetchFile(
-    handle: string,
-  ): Promise<{ bytes: Uint8Array; mimeType?: string }> {
-    const gfetch = (globalThis as unknown as { fetch?: typeof fetch }).fetch;
-    if (!gfetch) {
-      throw new Error(
-        "intelligenceAdapter: no global fetch available for file download",
-      );
-    }
-    const url = `${this.cfg.baseUrl}/api/bots/files/${encodeURIComponent(handle)}`;
-    const res = await gfetch(url, {
-      method: "GET",
-      headers: { authorization: `Bearer ${this.cfg.apiKey}` },
-    });
-    if (!res.ok) {
-      throw new Error(`intelligence file ${handle} -> ${res.status}`);
-    }
-    // Bound the body read when the server advertises an oversize length, before
-    // pulling the whole thing into memory as an arrayBuffer.
-    const declaredLen = Number(res.headers.get("content-length") ?? "");
-    if (Number.isFinite(declaredLen) && declaredLen > MAX_INBOUND_FILE_BYTES) {
-      throw new Error(
-        `intelligence file ${handle} too large: ${declaredLen} bytes > ${MAX_INBOUND_FILE_BYTES} cap`,
-      );
-    }
-    const bytes = new Uint8Array(await res.arrayBuffer());
-    const mimeType = res.headers.get("content-type") ?? undefined;
-    return { bytes, mimeType };
+  // fetchFile / getHistory / uploadFile delegate to the shared
+  // IntelligenceFileHistoryClient so the HTTP and realtime transports stay in
+  // lockstep (OSS-476). See {@link IntelligenceFileHistoryClient}.
+  fetchFile(handle: string): Promise<{ bytes: Uint8Array; mimeType?: string }> {
+    return this.fileHistory.fetchFile(handle);
   }
 
-  /**
-   * Fetch prior thread turns from app-api's bot history route for
-   * conversation-history seeding (parity with bot-slack/bot-discord/
-   * bot-whatsapp's reconstructed-history conversation stores). A root-level
-   * turn (no `threadTs`) has no prior thread to look up, so this returns `[]`
-   * without a request. Best-effort like {@link fetchFile}'s sibling paths — any
-   * non-2xx response or thrown error degrades to `[]`; missing history must
-   * never fail the turn. Logging is split by failure class: a 4xx (except
-   * 429) is a permanent misconfiguration (route not mounted / wrong baseUrl /
-   * bad runtime key) and is logged loudly and distinctly so it doesn't hide
-   * forever; a 5xx, 429, or thrown network error is a transient blip and gets
-   * the existing quiet degradation log.
-   */
-  async getHistory(
-    replyTarget: EgressRoute,
-    limit: number,
-  ): Promise<AgentMessage[]> {
-    // Slack-shaped for the V1 slice; `EgressRoute` is opaque, so a second
-    // adapter would need its own route→query mapping here.
-    const rt = replyTarget as
-      | { teamId?: string; channel?: string; threadTs?: string }
-      | undefined;
-    if (!rt?.threadTs) return [];
-    try {
-      const gfetch = (globalThis as unknown as { fetch?: typeof fetch }).fetch;
-      if (!gfetch) {
-        this.cfg.log?.("intelligence history fetch: no global fetch available");
-        return [];
-      }
-      const qs = new URLSearchParams({
-        teamId: rt.teamId ?? "",
-        channel: rt.channel ?? "",
-        threadTs: rt.threadTs,
-        limit: String(limit),
-      });
-      const url = `${this.cfg.baseUrl}/api/bots/history?${qs.toString()}`;
-      const res = await gfetch(url, {
-        method: "GET",
-        headers: { authorization: `Bearer ${this.cfg.apiKey}` },
-      });
-      if (!res.ok) {
-        if (res.status >= 400 && res.status < 500 && res.status !== 429) {
-          // A permanent misconfiguration (missing route, wrong baseUrl, bad
-          // runtime key) looks identical to a transient blip unless it's
-          // called out distinctly — surface it loudly so it doesn't hide
-          // forever behind the best-effort degrade-to-`[]` below.
-          this.cfg.log?.(
-            `[intelligence] getHistory ${res.status} for thread history — likely a misconfigured/unauthorized history endpoint (baseUrl/route/apiKey); managed bot will run WITHOUT prior-turn history`,
-          );
-        } else {
-          // Transient (5xx/429) — quiet best-effort degradation, history is
-          // just skipped for this turn.
-          this.cfg.log?.(`intelligence history fetch -> ${res.status}`);
-        }
-        return [];
-      }
-      const json = (await res.json()) as {
-        messages?: Array<{
-          id: string;
-          role: "user" | "assistant";
-          text: string;
-          files?: ManagedFileRef[];
-        }>;
-      };
-      const out: AgentMessage[] = [];
-      for (const m of json.messages ?? []) {
-        if (!m.files?.length) {
-          out.push({ id: m.id, role: m.role, content: m.text ?? "" });
-          continue;
-        }
-        // Hydrate historical file refs with the SAME logic as the live inbound
-        // turn path, so a past image attachment and a live one produce
-        // identical content parts (e.g. "what was the image I sent?" works).
-        const fileParts = await buildContentParts(
-          m.files,
-          this.fetchFile.bind(this),
-          this.cfg.log,
-        );
-        const content: AgentContentPart[] = [];
-        if (m.text) content.push({ type: "text", text: m.text });
-        content.push(...fileParts);
-        out.push({ id: m.id, role: m.role, content });
-      }
-      // Defensive parity with InMemoryDeliverySource.getHistory (`slice(-limit)`):
-      // the route contract is oldest→newest capped at `limit`, but don't trust
-      // the server to honor it — keep the most recent `limit` so an over-
-      // returning route can't seed more than `historyLimit` onto agent.messages.
-      return out.length > limit ? out.slice(-limit) : out;
-    } catch (err) {
-      this.cfg.log?.("intelligence history fetch failed", err);
-      return [];
-    }
+  getHistory(replyTarget: EgressRoute, limit: number): Promise<AgentMessage[]> {
+    return this.fileHistory.getHistory(replyTarget, limit);
   }
 
-  /**
-   * Stream an outbound file's bytes to app-api's per-delivery upload route
-   * (lease-scoped) ahead of a `file` render frame. Returns the storage handle
-   * the frame references. Bytes go as the raw request body; display metadata
-   * rides query params.
-   */
-  async uploadFile(
+  uploadFile(
     deliveryId: string,
     args: {
       bytes: Uint8Array;
@@ -675,42 +516,20 @@ export class HttpDeliverySource implements DeliverySource {
       altText?: string;
     },
   ): Promise<{ handle: string }> {
-    const gfetch = (globalThis as unknown as { fetch?: typeof fetch }).fetch;
-    if (!gfetch) {
-      throw new Error(
-        "intelligenceAdapter: no global fetch available for file upload",
-      );
-    }
-    const qs = new URLSearchParams({ filename: args.filename });
-    if (args.title) qs.set("title", args.title);
-    if (args.altText) qs.set("altText", args.altText);
-    const url = `${this.cfg.baseUrl}/api/bots/deliveries/${encodeURIComponent(
-      deliveryId,
-    )}/files?${qs.toString()}`;
-    const res = await gfetch(url, {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${this.cfg.apiKey}`,
-        "content-type": "application/octet-stream",
-      },
-      // The runtime (undici) sends the Uint8Array bytes verbatim; the static
-      // `fetch` body type differs across this package's dom vs node-only lib
-      // configs, so bridge with a portable cast (`string` is a valid body in
-      // both). The value is never actually a string at runtime.
-      body: args.bytes as unknown as string,
-    });
-    if (!res.ok) {
-      throw new Error(`intelligence file upload -> ${res.status}`);
-    }
-    const json = (await res.json()) as { handle?: string };
-    if (!json.handle) {
-      throw new Error("intelligence file upload: response missing handle");
-    }
-    return { handle: json.handle };
+    return this.fileHistory.uploadFile(deliveryId, args);
   }
 
   async stop(): Promise<void> {
     this.running = false;
+    // Invalidate the current run's heartbeat chain so any reschedule queued
+    // behind an in-flight heartbeat POST does not re-arm after we stop.
+    this.runGeneration += 1;
+    // Interrupt any in-flight poll-sleep or turn-wait so shutdown is prompt.
+    this.resolveStop?.();
+    if (this.heartbeatTimer !== undefined) {
+      clearTimeout(this.heartbeatTimer);
+      this.heartbeatTimer = undefined;
+    }
     await this.loop?.catch(() => {});
   }
 }
@@ -734,15 +553,37 @@ export class HttpEgressSink implements EgressSink {
     if (op.op.kind === "delete") return { ok: true, ref: op.operationId };
 
     const text = irToText(op.op.ir);
-    // Intelligence requires non-empty text; skip empties without a 400.
-    if (!text) return { ok: true, ref: op.operationId };
+    // Intelligence requires non-empty text. An empty POST is a legitimate no-op
+    // (nothing to say). An empty UPDATE is a real intent (e.g. clearing a
+    // message body) this post-only fallback egress cannot express — but failing
+    // it would throw up the run path and nack+retry the WHOLE turn to
+    // dead-letter (re-running valid work) for a condition a retry can't fix. So
+    // skip it as a no-op too, but log it loudly so it is surfaced, not silent.
+    if (!text) {
+      if (op.op.kind === "update") {
+        this.cfg.log?.(
+          "intelligence egress: skipping empty-text update (post-only fallback cannot clear a message)",
+          { operationId: op.operationId, deliveryId: op.deliveryId },
+        );
+      }
+      return { ok: true, ref: op.operationId };
+    }
 
+    // Derive the adapter from the delivery's own reply route, not the static
+    // config default. One provider-agnostic runtime serves every adapter the
+    // bot has attached (Slack, Teams, ...); posting `this.cfg.adapter` (default
+    // "slack") on a Teams delivery is contradictory with its Teams replyTarget.
+    // app-api routes on `replyTarget.adapter` + `channelName` and ignores this
+    // top-level field, but keep it consistent rather than misleading. Fall back
+    // to the config adapter when the route carries none.
+    const routeAdapter = (op.route as { adapter?: string } | null | undefined)
+      ?.adapter;
     try {
       const res = await this.http.post<EgressResponse>(
-        "/api/bots/egress/messages",
+        "/api/channels/egress/messages",
         {
-          botName: this.cfg.botName,
-          adapter: this.cfg.adapter,
+          channelName: this.cfg.channelName,
+          adapter: routeAdapter ?? this.cfg.adapter,
           deliveryId: op.deliveryId,
           idempotencyKey: op.operationId,
           replyTarget: op.route,
@@ -772,13 +613,13 @@ interface RenderAcceptedResponse {
 /**
  * @internal {@link RenderEventSink} that streams semantic render frames to
  * Intelligence's durable render-acceptance route
- * (`/api/bots/deliveries/:id/render-events/accept`). This is the HTTP-path
- * equivalent of the realtime {@link PhoenixRealtimeTransport}: each frame is
+ * (`/api/channels/deliveries/:id/render-events/accept`). This is the HTTP-path
+ * equivalent of the realtime {@link RealtimeGatewayTransport}: each frame is
  * POSTed and the durable acceptance receipt is awaited before the next. The
  * gateway-side Connector Outbox then renders the accepted frames to Slack, so
  * this path reaches full reply-UX parity without a running realtime gateway.
  *
- * Per-delivery org/project/bot scope is read from the {@link HttpDeliverySource}
+ * Per-delivery org/project/channel scope is read from the {@link HttpDeliverySource}
  * that leased the delivery (populated at claim). The `deliveryId` travels in the
  * URL only — the accept route rejects a body that also carries it.
  */
@@ -788,7 +629,7 @@ export class HttpRenderEventSink implements RenderEventSink {
   constructor(
     private readonly cfg: IntelligenceTransportConfig,
     private readonly scopeSource: {
-      scopeFor(deliveryId: string): DeliveryScope | undefined;
+      scopeFor(deliveryId: string): ChannelDeliveryScope | undefined;
       leaseTokenFor(deliveryId: string): string | undefined;
     },
   ) {
@@ -809,12 +650,12 @@ export class HttpRenderEventSink implements RenderEventSink {
     const leaseToken = this.scopeSource.leaseTokenFor(frame.deliveryId);
     const idempotencyKey = `${frame.turnId}:${frame.slot}:${frame.seq}`;
     const res = await this.http.post<RenderAcceptedResponse>(
-      `/api/bots/deliveries/${encodeURIComponent(frame.deliveryId)}/render-events/accept`,
+      `/api/channels/deliveries/${encodeURIComponent(frame.deliveryId)}/render-events/accept`,
       {
         organizationId: scope.organizationId,
         projectId: scope.projectId,
-        botId: scope.botId,
-        botName: scope.botName,
+        channelId: scope.channelId,
+        channelName: scope.channelName,
         turnId: frame.turnId,
         runtimeInstanceId: this.cfg.runtimeInstanceId,
         slot: frame.slot,

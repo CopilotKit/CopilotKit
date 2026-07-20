@@ -24,7 +24,7 @@ type InspectorInternals = {
 
 type InspectorThreadViewInternals = {
   isOpen: boolean;
-  selectedMenu: "threads";
+  selectedMenu: "ag-ui-events" | "threads";
   selectedThreadId: string | null;
   _threads: Array<{
     id: string;
@@ -32,6 +32,15 @@ type InspectorThreadViewInternals = {
     agentId: string;
     updatedAt?: string | null;
   }>;
+  _threadsByAgent: Map<
+    string,
+    Array<{
+      id: string;
+      name?: string | null;
+      agentId: string;
+      updatedAt?: string | null;
+    }>
+  >;
 };
 
 type InspectorContextInternals = {
@@ -1530,6 +1539,14 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
           properties: Record<string, unknown>;
         };
       });
+  const threadListText = (inspector: WebInspectorElement) =>
+    inspector.shadowRoot?.querySelector("cpk-thread-list")?.shadowRoot
+      ?.textContent ?? "";
+  const expectNoUtmParams = (url: URL) => {
+    expect(url.searchParams.has("utm_source")).toBe(false);
+    expect(url.searchParams.has("utm_medium")).toBe(false);
+    expect(url.searchParams.has("utm_campaign")).toBe(false);
+  };
 
   beforeEach(() => {
     document.body.innerHTML = "";
@@ -1546,6 +1563,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
@@ -1698,13 +1716,17 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
       "Talk to an Engineer",
       "Sign up for Intelligence",
     ]);
+    const engineer = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
+      'a[href^="https://www.copilotkit.ai/talk-to-an-engineer"]',
+    );
+    expect(engineer?.closest("#cpk-main-scroll")).toBeNull();
     expect(text).not.toContain("No threads yet");
     expect(
       fetchMock.mock.calls.some((call) => String(call[0]).includes("/threads")),
     ).toBe(false);
   });
 
-  it("adds ref and posthog distinct ID attribution to locked-state CTAs", async () => {
+  it("adds inspector attribution to locked-state CTAs", async () => {
     const { agent } = createMockAgent("alpha");
     const harness = createHeaderMockCore(
       { alpha: agent },
@@ -1727,7 +1749,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     await inspector.updateComplete;
 
     const signup = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
-      'a[href^="https://go.copilotkit.ai/intelligence-signup"]',
+      'a[href^="https://dashboard.operations.copilotkit.ai/sign-in"]',
     );
     const engineer = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
       'a[href^="https://www.copilotkit.ai/talk-to-an-engineer"]',
@@ -1737,7 +1759,10 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     expect(engineer).not.toBeNull();
 
     const signupUrl = new URL(signup!.href);
+    expect(signupUrl.origin).toBe("https://dashboard.operations.copilotkit.ai");
+    expect(signupUrl.pathname).toBe("/sign-in");
     expect(signupUrl.searchParams.get("ref")).toBe("cpk-inspector");
+    expectNoUtmParams(signupUrl);
     const distinctId = signupUrl.searchParams.get("posthog_distinct_id");
     expect(distinctId).toMatch(/^[0-9a-f-]{36}$/);
 
@@ -1745,6 +1770,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     expect(engineerUrl.origin).toBe("https://www.copilotkit.ai");
     expect(engineerUrl.pathname).toBe("/talk-to-an-engineer");
     expect(engineerUrl.searchParams.get("ref")).toBe("cpk-inspector-threads");
+    expectNoUtmParams(engineerUrl);
     expect(engineerUrl.searchParams.get("posthog_distinct_id")).toBe(
       distinctId,
     );
@@ -1795,7 +1821,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     }
   });
 
-  it("keeps the enabled empty Threads state when thread listing is available", async () => {
+  it("renders example threads and the deselected overview when enabled thread history is empty", async () => {
     const { agent } = createMockAgent("alpha");
     const harness = createHeaderMockCore({ alpha: agent }, {}, {}, true);
 
@@ -1812,13 +1838,454 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     internals.handleMenuSelect("threads");
     await inspector.updateComplete;
 
-    expect(inspector.shadowRoot?.textContent ?? "").toContain("No threads yet");
+    await vi.waitFor(() => {
+      const text = threadListText(inspector);
+      expect(text).toContain("Realtime thread sync");
+      expect(text).toContain("Manage saved conversations");
+      expect(text).toContain("Inspect durable run history");
+    });
+
+    const text = inspector.shadowRoot?.textContent ?? "";
+    expect(text).toContain("Threads are persistent, inspectable conversations");
+    expect(text).toContain(
+      "Take a tour with the example threads in the sidebar.",
+    );
+    const threadsDocs = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
+      'a[href^="https://docs.copilotkit.ai/threads"]',
+    );
+    expect(threadsDocs?.textContent?.trim()).toBe("Learn how Threads work");
+    const threadsDocsUrl = new URL(threadsDocs!.href);
+    expect(threadsDocsUrl.origin).toBe("https://docs.copilotkit.ai");
+    expect(threadsDocsUrl.pathname).toBe("/threads");
+    expect(threadsDocsUrl.searchParams.get("ref")).toBe(
+      "cpk-inspector-threads",
+    );
+    expectNoUtmParams(threadsDocsUrl);
+    const selfHosted = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
+      'a[href^="https://docs.copilotkit.ai/premium/self-hosting"]',
+    );
+    expect(selfHosted?.textContent?.trim()).toBe(
+      "Explore self-hosted Intelligence",
+    );
+    const selfHostedUrl = new URL(selfHosted!.href);
+    expect(selfHostedUrl.origin).toBe("https://docs.copilotkit.ai");
+    expect(selfHostedUrl.pathname).toBe("/premium/self-hosting");
+    expect(selfHostedUrl.searchParams.get("ref")).toBe("cpk-inspector-threads");
+    expectNoUtmParams(selfHostedUrl);
+    expect(threadListText(inspector)).toContain("Example");
+    expect(text).not.toContain("No threads yet");
+    expect(
+      inspector.shadowRoot?.querySelector("cpk-thread-details"),
+    ).toBeNull();
+    expect(
+      (inspector as unknown as InspectorThreadViewInternals).selectedThreadId,
+    ).toBeNull();
+
     const engineer = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
       'a[href^="https://www.copilotkit.ai/talk-to-an-engineer"]',
     );
-    expect(engineer?.href).toBe(
-      "https://www.copilotkit.ai/talk-to-an-engineer?ref=cpk-inspector-threads",
+    const engineerUrl = new URL(engineer!.href);
+    expect(engineerUrl.origin).toBe("https://www.copilotkit.ai");
+    expect(engineerUrl.pathname).toBe("/talk-to-an-engineer");
+    expect(engineerUrl.searchParams.get("ref")).toBe("cpk-inspector-threads");
+    expectNoUtmParams(engineerUrl);
+    expect(engineer?.closest("#cpk-main-scroll")).toBeNull();
+  });
+
+  it("defers loading the empty overview video until after the overview paints", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("matchMedia", () => ({ matches: false }));
+
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore({ alpha: agent }, {}, {}, false);
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+
+    const internals = inspector as unknown as {
+      isOpen: boolean;
+      handleMenuSelect: (key: "threads") => void;
+    };
+    internals.isOpen = true;
+    internals.handleMenuSelect("threads");
+    await inspector.updateComplete;
+
+    expect(inspector.shadowRoot?.textContent ?? "").toContain(
+      "Threads are persistent, inspectable conversations",
     );
+    expect(
+      inspector.shadowRoot?.querySelector(".cpk-threads-overview-video-frame"),
+    ).not.toBeNull();
+    expect(
+      inspector.shadowRoot?.querySelector(".cpk-threads-overview-video"),
+    ).toBeNull();
+
+    await vi.advanceTimersByTimeAsync(450);
+    await inspector.updateComplete;
+
+    const video = inspector.shadowRoot?.querySelector<HTMLVideoElement>(
+      ".cpk-threads-overview-video",
+    );
+    expect(video?.src).toBe(
+      "https://cdn.copilotkit.ai/corp-site/videos/copilotkit-generative-ui-agentic-frontend-demo.webm",
+    );
+  });
+
+  it("does not load the empty overview video when reduced motion is preferred", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("matchMedia", () => ({ matches: true }));
+
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore({ alpha: agent }, {}, {}, false);
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+
+    const internals = inspector as unknown as {
+      isOpen: boolean;
+      handleMenuSelect: (key: "threads") => void;
+    };
+    internals.isOpen = true;
+    internals.handleMenuSelect("threads");
+    await inspector.updateComplete;
+
+    expect(inspector.shadowRoot?.textContent ?? "").toContain(
+      "Threads are persistent, inspectable conversations",
+    );
+    expect(
+      inspector.shadowRoot?.querySelector(".cpk-threads-overview-video-frame"),
+    ).not.toBeNull();
+
+    await vi.advanceTimersByTimeAsync(1200);
+    await inspector.updateComplete;
+
+    expect(
+      inspector.shadowRoot?.querySelector(".cpk-threads-overview-video"),
+    ).toBeNull();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("clears the deferred video timeout when disconnected before load", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("matchMedia", () => ({ matches: false }));
+    Object.defineProperty(window, "requestIdleCallback", {
+      configurable: true,
+      value: undefined,
+    });
+    const clearTimeoutSpy = vi.spyOn(window, "clearTimeout");
+
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore({ alpha: agent }, {}, {}, false);
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+
+    const internals = inspector as unknown as {
+      isOpen: boolean;
+      handleMenuSelect: (key: "threads") => void;
+    };
+    internals.isOpen = true;
+    internals.handleMenuSelect("threads");
+    await inspector.updateComplete;
+
+    expect(vi.getTimerCount()).toBe(1);
+    inspector.remove();
+    expect(clearTimeoutSpy).toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("cancels the deferred video idle callback when disconnected before load", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("matchMedia", () => ({ matches: false }));
+    const requestIdleCallback = vi.fn(() => 123);
+    const cancelIdleCallback = vi.fn();
+    Object.defineProperty(window, "requestIdleCallback", {
+      configurable: true,
+      value: requestIdleCallback,
+    });
+    Object.defineProperty(window, "cancelIdleCallback", {
+      configurable: true,
+      value: cancelIdleCallback,
+    });
+
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore({ alpha: agent }, {}, {}, false);
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+
+    const internals = inspector as unknown as {
+      isOpen: boolean;
+      handleMenuSelect: (key: "threads") => void;
+    };
+    internals.isOpen = true;
+    internals.handleMenuSelect("threads");
+    await inspector.updateComplete;
+
+    expect(requestIdleCallback).toHaveBeenCalledTimes(1);
+    inspector.remove();
+    expect(cancelIdleCallback).toHaveBeenCalledWith(123);
+  });
+
+  it("does not render example threads once real threads are present", async () => {
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = createHeaderMockCore({}, {}, {}, true)
+      .core as unknown as WebInspectorElement["core"];
+
+    const internals = inspector as unknown as InspectorThreadViewInternals;
+    internals.isOpen = true;
+    internals.selectedMenu = "threads";
+    internals._threads = [
+      {
+        id: "real-thread",
+        name: "Real customer thread",
+        agentId: "alpha",
+        updatedAt: "2026-06-25T10:00:00.000Z",
+      },
+    ];
+    internals._threadsByAgent = new Map([["alpha", internals._threads]]);
+    inspector.requestUpdate();
+    await inspector.updateComplete;
+
+    const text = threadListText(inspector);
+    expect(text).toContain("Real customer thread");
+    expect(text).not.toContain("Realtime thread sync");
+    expect(text).not.toContain("Example");
+  });
+
+  it("selects an example thread, shows the tour, and toggles back to the overview on second click", async () => {
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore({ alpha: agent }, {}, {}, true);
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+
+    const internals = inspector as unknown as {
+      isOpen: boolean;
+      handleMenuSelect: (key: "threads") => void;
+      selectedThreadId: string | null;
+    };
+    internals.isOpen = true;
+    internals.handleMenuSelect("threads");
+    await inspector.updateComplete;
+
+    await vi.waitFor(() => {
+      expect(threadListText(inspector)).toContain("Realtime thread sync");
+    });
+
+    const threadList = inspector.shadowRoot?.querySelector("cpk-thread-list");
+    const firstRow =
+      threadList?.shadowRoot?.querySelector<HTMLElement>(".cpk-tl__item");
+    expect(firstRow).toBeDefined();
+
+    firstRow!.click();
+    await inspector.updateComplete;
+    await vi.waitFor(() => {
+      expect(internals.selectedThreadId).toBe("example-realtime-sync");
+      expect(
+        inspector.shadowRoot?.querySelector("cpk-thread-details"),
+      ).not.toBe(null);
+      expect(inspector.shadowRoot?.textContent ?? "").toContain(
+        "Read the run as a story",
+      );
+    });
+
+    firstRow!.click();
+    await inspector.updateComplete;
+
+    await vi.waitFor(() => {
+      expect(internals.selectedThreadId).toBeNull();
+      expect(
+        inspector.shadowRoot?.querySelector("cpk-thread-details"),
+      ).toBeNull();
+      expect(inspector.shadowRoot?.textContent ?? "").toContain(
+        "Threads are persistent, inspectable conversations",
+      );
+    });
+  });
+
+  it("persists example tour dismissal so it does not auto-open again", async () => {
+    const stored = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => stored.get(key) ?? null,
+      setItem: (key: string, value: string) => stored.set(key, value),
+      removeItem: (key: string) => stored.delete(key),
+      clear: () => stored.clear(),
+      get length() {
+        return stored.size;
+      },
+      key: (index: number) => Array.from(stored.keys())[index] ?? null,
+    });
+
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore({ alpha: agent }, {}, {}, false);
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+
+    const internals = inspector as unknown as {
+      isOpen: boolean;
+      handleMenuSelect: (key: "threads") => void;
+    };
+    internals.isOpen = true;
+    internals.handleMenuSelect("threads");
+    await inspector.updateComplete;
+
+    await vi.waitFor(() => {
+      expect(threadListText(inspector)).toContain("Realtime thread sync");
+    });
+
+    const firstRow = inspector.shadowRoot
+      ?.querySelector("cpk-thread-list")
+      ?.shadowRoot?.querySelector<HTMLElement>(".cpk-tl__item");
+    firstRow!.click();
+    await inspector.updateComplete;
+
+    await vi.waitFor(() => {
+      expect(inspector.shadowRoot?.textContent ?? "").toContain(
+        "Read the run as a story",
+      );
+    });
+
+    const skip = Array.from(
+      inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ?? [],
+    ).find((button) => button.textContent?.trim() === "Skip");
+    expect(skip).toBeDefined();
+    skip!.click();
+    await inspector.updateComplete;
+
+    expect(stored.get("cpk:inspector:threads-example-tour:v1")).toContain(
+      '"dismissed":true',
+    );
+
+    const secondInspector = new WebInspectorElement();
+    document.body.appendChild(secondInspector);
+    secondInspector.core =
+      harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+    const secondInternals = secondInspector as unknown as {
+      isOpen: boolean;
+      handleMenuSelect: (key: "threads") => void;
+    };
+    secondInternals.isOpen = true;
+    secondInternals.handleMenuSelect("threads");
+    await secondInspector.updateComplete;
+
+    await vi.waitFor(() => {
+      expect(threadListText(secondInspector)).toContain("Realtime thread sync");
+    });
+
+    const secondRow = secondInspector.shadowRoot
+      ?.querySelector("cpk-thread-list")
+      ?.shadowRoot?.querySelector<HTMLElement>(".cpk-tl__item");
+    secondRow!.click();
+    await secondInspector.updateComplete;
+
+    await vi.waitFor(() => {
+      expect(
+        secondInspector.shadowRoot?.querySelector("cpk-thread-details"),
+      ).not.toBeNull();
+    });
+    expect(secondInspector.shadowRoot?.textContent ?? "").not.toContain(
+      "Read the run as a story",
+    );
+    expect(secondInspector.shadowRoot?.textContent ?? "").toContain(
+      "Show tour",
+    );
+
+    const showTour = Array.from(
+      secondInspector.shadowRoot?.querySelectorAll<HTMLButtonElement>(
+        "button",
+      ) ?? [],
+    ).find((button) => button.textContent?.trim() === "Show tour");
+    expect(showTour).toBeDefined();
+    showTour!.click();
+    await secondInspector.updateComplete;
+
+    await vi.waitFor(() => {
+      expect(secondInspector.shadowRoot?.textContent ?? "").toContain(
+        "Read the run as a story",
+      );
+    });
+  });
+
+  it("tracks example thread selection and tour dismissal telemetry", async () => {
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore({ alpha: agent }, {}, {}, false);
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+
+    const internals = inspector as unknown as {
+      isOpen: boolean;
+      handleMenuSelect: (key: "threads") => void;
+    };
+    internals.isOpen = true;
+    internals.handleMenuSelect("threads");
+    await inspector.updateComplete;
+
+    await vi.waitFor(() => {
+      expect(threadListText(inspector)).toContain("Realtime thread sync");
+    });
+
+    const firstRow = inspector.shadowRoot
+      ?.querySelector("cpk-thread-list")
+      ?.shadowRoot?.querySelector<HTMLElement>(".cpk-tl__item");
+    firstRow!.click();
+    await inspector.updateComplete;
+
+    await vi.waitFor(() => {
+      expect(inspector.shadowRoot?.textContent ?? "").toContain(
+        "Read the run as a story",
+      );
+    });
+
+    const skip = Array.from(
+      inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ?? [],
+    ).find((button) => button.textContent?.trim() === "Skip");
+    skip!.click();
+    await inspector.updateComplete;
+
+    const posts = telemetryPosts();
+    expect(
+      posts.some(
+        (post) => post.event === "oss.inspector.threads_example_selected",
+      ),
+    ).toBe(true);
+    expect(
+      posts.some(
+        (post) => post.event === "oss.inspector.threads_example_tour_started",
+      ),
+    ).toBe(true);
+    const stepViewed = posts.find(
+      (post) => post.event === "oss.inspector.threads_example_tour_step_viewed",
+    );
+    expect(stepViewed?.properties).toMatchObject({
+      example_thread_id: "example-realtime-sync",
+      tour_step: 1,
+    });
+    const dismissed = posts.find(
+      (post) => post.event === "oss.inspector.threads_example_tour_dismissed",
+    );
+    expect(dismissed?.properties).toMatchObject({
+      example_thread_id: "example-realtime-sync",
+      dismiss_method: "skip",
+    });
   });
 });
 
@@ -2097,6 +2564,29 @@ describe("WebInspectorElement memories — view states", () => {
       memoryList,
       "cpk-memory-list should NOT render when locked",
     ).toBeNull();
+  });
+
+  it("does not use Threads onboarding UTM attribution for locked memory CTAs", async () => {
+    const core = makeCoreNoIntelligence();
+    const el = await mountMemories(core);
+
+    const talkToEngineer = el.shadowRoot?.querySelector<HTMLAnchorElement>(
+      'a[href^="https://www.copilotkit.ai/talk-to-an-engineer"]',
+    );
+    const signup = el.shadowRoot?.querySelector<HTMLAnchorElement>(
+      'a[href^="https://go.copilotkit.ai/intelligence-signup"]',
+    );
+
+    expect(talkToEngineer).not.toBeNull();
+    expect(signup).not.toBeNull();
+
+    for (const href of [talkToEngineer!.href, signup!.href]) {
+      const url = new URL(href);
+      expect(url.searchParams.get("ref")).toBeTruthy();
+      expect(url.searchParams.has("utm_source")).toBe(false);
+      expect(url.searchParams.has("utm_medium")).toBe(false);
+      expect(url.searchParams.has("utm_campaign")).toBe(false);
+    }
   });
 
   it("renders the locked teaser when memories are unavailable", async () => {

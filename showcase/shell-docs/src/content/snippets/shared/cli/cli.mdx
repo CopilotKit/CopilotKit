@@ -1,8 +1,10 @@
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+
 ## What is this?
 
-The CopilotKit CLI helps you create CopilotKit apps and connect them to Cloud-Hosted Enterprise Intelligence. It handles browser sign-in, project selection, project-scoped runtime API keys, historical thread import, and local project configuration so your app can use durable threads and hosted conversation history.
+The CopilotKit CLI helps you create CopilotKit apps connected to Enterprise Intelligence, whether cloud-hosted or self-hosted. It handles browser sign-in, project selection, project-scoped runtime API keys, historical thread import, and local project configuration so your app can use durable threads and conversation history.
 
-Use the CLI when you want to start a new app, connect an existing app to a cloud-hosted project, import historical ADK or LangGraph conversations, or install CopilotKit agent skills for your coding agent.
+Use the CLI when you want to start a new app, import historical ADK or LangGraph conversations, or install CopilotKit agent skills for your coding agent.
 
 <OpsPlatformCTA
   variant="inline"
@@ -80,61 +82,38 @@ Use the CLI when you want to start a new app, connect an existing app to a cloud
   </Step>
 </Steps>
 
-## Connect an existing app
+## Import historical conversations
 
-Use agent-assisted onboarding when you already have an application and want help finding the right CopilotKit integration points:
+Use `import` from a CopilotKit app created with the CLI and Enterprise Intelligence enabled. The importer targets the Enterprise Intelligence project already selected for the current directory.
 
-```bash title="Terminal"
-npx copilotkit@latest skills onboard
-```
+<Tabs groupId="cli-import-source" items={["ADK", "LangGraph"]}>
+  <Tab value="ADK">
 
-Then select or create the cloud-hosted project for the app:
+    ```bash
+    npx copilotkit@latest import --source adk --dry-run
+    ```
+
+  </Tab>
+  <Tab value="LangGraph">
+
+    ```bash
+    npx copilotkit@latest import --source langgraph --dry-run
+    ```
+
+  </Tab>
+</Tabs>
+
+The command runs interactively by default. Start with `--dry-run` to discover source agent keys, conversation counts, skips, and the estimated upload size without opening an import batch.
+
+If you need to import into a different project, select it before running the dry run:
 
 ```bash title="Terminal"
 npx copilotkit@latest project select
 ```
 
-`project select` requires a CLI session. If you are signed out, run `npx copilotkit@latest login` first.
+This changes the import target for the current directory and provisions a project-scoped runtime key for the selected project.
 
-## Import historical conversations
-
-Use `import` to bring historical Google ADK or LangGraph conversation threads into the Enterprise Intelligence project selected for your app.
-
-```bash title="Terminal"
-npx copilotkit@latest import --source adk
-```
-
-```bash title="Terminal"
-npx copilotkit@latest import --source langgraph
-```
-
-The command runs interactively by default. It discovers source agent keys and conversation counts, previews the import, asks you to map source agents, and confirms before writing to Enterprise Intelligence.
-
-For scripted runs, pass flags for the prompts:
-
-```bash title="Terminal"
-npx copilotkit@latest import \
-  --source langgraph \
-  --api-url "$INTELLIGENCE_API_URL" \
-  --api-key "$INTELLIGENCE_API_KEY" \
-  --agent-map ./agent-map.json \
-  --user-source configurable.user_id \
-  --yes
-```
-
-For ADK imports, configure the source backend and scopes with flags or environment variables:
-
-```bash title="Terminal"
-npx copilotkit@latest import \
-  --source adk \
-  --adk-source-backend database \
-  --adk-import-scopes "support:user-123" \
-  --agent-map ./agent-map.json
-```
-
-`import` reads source credentials from framework-native environment variables instead of raw CLI flags. ADK uses `ADK_SOURCE_BACKEND`, `ADK_IMPORT_SCOPES`, `ADK_DATABASE_CONNECTION_STRING`, or `ADK_VERTEX_*`. LangGraph uses `LANGGRAPH_API_URL` plus `LANGGRAPH_API_KEY` or `LANGSMITH_API_KEY`.
-
-Run a side-effect-free preview with `--dry-run`. Use `--replace` when you need to refresh threads that were already imported.
+For the full migration flow, see [Import thread history](/threads-import). Source-specific setup lives in [Import ADK threads](/google-adk/threads-import) and [Import LangGraph threads](/langgraph-python/threads-import).
 
 ## Auth commands
 
@@ -149,12 +128,12 @@ Run a side-effect-free preview with `--dry-run`. Use `--replace` when you need t
 | Command | What it does |
 |---|---|
 | `npx copilotkit@latest project select` | Selects or creates a cloud-hosted Enterprise Intelligence project for the current directory. |
-| `npx copilotkit@latest import --source adk` | Imports historical Google ADK conversation threads into Enterprise Intelligence. |
-| `npx copilotkit@latest import --source langgraph` | Imports historical LangGraph conversation threads into Enterprise Intelligence. |
+| `npx copilotkit@latest import --source adk --dry-run` | Previews historical Google ADK conversation threads before import. |
+| `npx copilotkit@latest import --source langgraph --dry-run` | Previews historical LangGraph conversation threads before import. |
 | `npx copilotkit@latest license create` | Issues a CopilotKit license token for flows that require one. |
 | `npx copilotkit@latest license list` | Lists license metadata for the current user or organization. |
 
-Re-running `project select` is safe when you need to move a local app to a different cloud-hosted project. The command updates `.copilotkit/project.json` and provisions a project-scoped API key for the selected project.
+Re-running `project select` is safe when you need to move a CLI-created app to a different cloud-hosted project. The command updates `.copilotkit/project.json` and provisions a project-scoped API key for the selected project.
 
 ## Skills commands
 
@@ -166,5 +145,6 @@ Re-running `project select` is safe when you need to move a local app to a diffe
 ## Next steps
 
 - **Cloud-hosted platform:** [Cloud-Hosted Enterprise Intelligence](/premium/managed-intelligence-platform) — login, projects, API keys, threads, and plans in the hosted web app
-- **Add threads:** [Threads](/threads) — add persistent, resumable conversations to your app
+- **Add threads:** use the [Threads Drawer](/prebuilt-components/copilot-threads-drawer) for a drop-in thread switcher, or [Headless Threads](/headless-threads) to build your own thread UI
+- **Import thread history:** [Import thread history](/threads-import) — migrate existing ADK or LangGraph conversations into Enterprise Intelligence
 - **Self-hosting:** [Self-Hosting Enterprise Intelligence](/premium/self-hosting) — run the Enterprise Intelligence Platform in your own Kubernetes cluster

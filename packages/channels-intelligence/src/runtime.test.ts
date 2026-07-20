@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { createBot, FakeAgent } from "@copilotkit/channels";
+import { createChannel, FakeAgent } from "@copilotkit/channels-core";
 import { Section } from "@copilotkit/channels-ui";
 import {
   InMemoryDeliverySource,
@@ -7,73 +7,93 @@ import {
   InMemoryRenderEventSink,
 } from "./in-memory-transports.js";
 import {
-  assertValidBotNames,
-  buildActivationMetadata,
-  resolveActivationEnv,
-  startManagedBots,
+  assertValidChannelNames,
+  buildChannelActivationMetadata,
+  resolveChannelActivationEnv,
+  startChannels,
 } from "./runtime.js";
 
-describe("assertValidBotNames", () => {
+describe("assertValidChannelNames", () => {
   it("throws when a bot has no name", () => {
-    const bot = createBot({ agent: () => new FakeAgent() });
-    expect(() => assertValidBotNames([bot])).toThrow(/name/i);
+    const bot = createChannel({ agent: () => new FakeAgent() });
+    expect(() => assertValidChannelNames([bot])).toThrow(/name/i);
   });
 
-  it("throws on a non-identifier name", () => {
-    const bot = createBot({ name: "Bad Name!", agent: () => new FakeAgent() });
-    expect(() => assertValidBotNames([bot])).toThrow(/identifier|invalid/i);
+  it("throws on a non-channel name", () => {
+    const bot = createChannel({
+      name: "Bad Name!",
+      agent: () => new FakeAgent(),
+    });
+    expect(() => assertValidChannelNames([bot])).toThrow(
+      /channel name|invalid/i,
+    );
   });
 
   it("throws on duplicate names", () => {
-    const a = createBot({ name: "support", agent: () => new FakeAgent() });
-    const b = createBot({ name: "support", agent: () => new FakeAgent() });
-    expect(() => assertValidBotNames([a, b])).toThrow(/duplicate/i);
+    const a = createChannel({ name: "support", agent: () => new FakeAgent() });
+    const b = createChannel({ name: "support", agent: () => new FakeAgent() });
+    expect(() => assertValidChannelNames([a, b])).toThrow(/duplicate/i);
   });
 
-  it("treats duplicate names case-insensitively", () => {
-    const a = createBot({ name: "Support", agent: () => new FakeAgent() });
-    const b = createBot({ name: "support", agent: () => new FakeAgent() });
-    expect(() => assertValidBotNames([a, b])).toThrow(/duplicate/i);
+  it("rejects uppercase channel names", () => {
+    const bot = createChannel({
+      name: "Support",
+      agent: () => new FakeAgent(),
+    });
+    expect(() => assertValidChannelNames([bot])).toThrow(
+      /lowercase kebab-case/i,
+    );
   });
 
-  it("accepts valid unique identifier-style names", () => {
-    const a = createBot({ name: "support_bot", agent: () => new FakeAgent() });
-    const b = createBot({ name: "triage2", agent: () => new FakeAgent() });
-    expect(() => assertValidBotNames([a, b])).not.toThrow();
+  it("rejects the reserved channels name", () => {
+    const bot = createChannel({
+      name: "channels",
+      agent: () => new FakeAgent(),
+    });
+    expect(() => assertValidChannelNames([bot])).toThrow(/reserved/i);
+  });
+
+  it("accepts valid unique channel names", () => {
+    const a = createChannel({
+      name: "support-bot",
+      agent: () => new FakeAgent(),
+    });
+    const b = createChannel({ name: "triage-2", agent: () => new FakeAgent() });
+    expect(() => assertValidChannelNames([a, b])).not.toThrow();
   });
 });
 
-describe("buildActivationMetadata", () => {
-  it("includes declared bot names and the provided env", () => {
-    const a = createBot({ name: "support", agent: () => new FakeAgent() });
-    const b = createBot({ name: "triage", agent: () => new FakeAgent() });
-    const meta = buildActivationMetadata([a, b], {
+describe("buildChannelActivationMetadata", () => {
+  it("includes declared channel names and the provided env", () => {
+    const a = createChannel({ name: "support", agent: () => new FakeAgent() });
+    const b = createChannel({ name: "triage", agent: () => new FakeAgent() });
+    const meta = buildChannelActivationMetadata([a, b], {
       runtimeEnv: "production",
       nodeVersion: "v20",
       runtimePackageVersion: "1.2.3",
     });
-    expect(meta.declaredBotNames).toEqual(["support", "triage"]);
+    expect(meta.declaredChannelNames).toEqual(["support", "triage"]);
     expect(meta.runtimeEnv).toBe("production");
     expect(meta.nodeVersion).toBe("v20");
     expect(meta.runtimePackageVersion).toBe("1.2.3");
   });
 
-  it("includes each bot's declared command names", () => {
-    const a = createBot({ name: "support", agent: () => new FakeAgent() });
+  it("includes each channel's declared command names", () => {
+    const a = createChannel({ name: "support", agent: () => new FakeAgent() });
     a.onCommand("triage", async () => {});
-    const meta = buildActivationMetadata([a], { runtimeEnv: "test" });
-    expect(meta.declaredBots).toEqual([
-      { name: "support", commands: ["triage"] },
+    const meta = buildChannelActivationMetadata([a], { runtimeEnv: "test" });
+    expect(meta.declaredChannels).toEqual([
+      { channelName: "support", commands: ["triage"] },
     ]);
   });
 });
 
-describe("resolveActivationEnv", () => {
+describe("resolveChannelActivationEnv", () => {
   it("prefers COPILOTKIT_RUNTIME_ENV, includes the node version, and lets overrides win", () => {
     const prev = process.env.COPILOTKIT_RUNTIME_ENV;
     process.env.COPILOTKIT_RUNTIME_ENV = "staging";
     try {
-      const env = resolveActivationEnv({
+      const env = resolveChannelActivationEnv({
         runtimePackageVersion: "9.9.9",
         runtimeInstanceId: "inst-1",
       });
@@ -91,7 +111,7 @@ describe("resolveActivationEnv", () => {
     const prev = process.env.COPILOTKIT_RUNTIME_ENV;
     delete process.env.COPILOTKIT_RUNTIME_ENV;
     try {
-      expect(resolveActivationEnv().runtimeEnv).toBe(
+      expect(resolveChannelActivationEnv().runtimeEnv).toBe(
         process.env.NODE_ENV ?? "development",
       );
     } finally {
@@ -100,10 +120,10 @@ describe("resolveActivationEnv", () => {
   });
 });
 
-describe("startManagedBots", () => {
-  it("validates, wires each bot with a managed adapter, and routes delivery per bot", async () => {
-    const a = createBot({ name: "support", agent: () => new FakeAgent() });
-    const b = createBot({ name: "triage", agent: () => new FakeAgent() });
+describe("startChannels", () => {
+  it("validates, wires each Channel with a channel adapter, and routes delivery per channel", async () => {
+    const a = createChannel({ name: "support", agent: () => new FakeAgent() });
+    const b = createChannel({ name: "triage", agent: () => new FakeAgent() });
     const aPosted: string[] = [];
     const bPosted: string[] = [];
     a.onMessage(async ({ thread }) => {
@@ -117,19 +137,19 @@ describe("startManagedBots", () => {
 
     const sources = new Map<string, InMemoryDeliverySource>();
     const sinks = new Map<string, InMemoryEgressSink>();
-    const handle = await startManagedBots({
-      bots: [a, b],
-      resolveTransport: (botName) => {
+    const handle = await startChannels({
+      channels: [a, b],
+      resolveTransport: (channelName) => {
         const source = new InMemoryDeliverySource();
         const egress = new InMemoryEgressSink();
-        sources.set(botName, source);
-        sinks.set(botName, egress);
+        sources.set(channelName, source);
+        sinks.set(channelName, egress);
         return { source, egress };
       },
       env: { runtimeEnv: "test" },
     });
 
-    expect([...handle.metadata.declaredBotNames].sort()).toEqual([
+    expect([...handle.metadata.declaredChannelNames].sort()).toEqual([
       "support",
       "triage",
     ]);
@@ -138,7 +158,7 @@ describe("startManagedBots", () => {
       deliveryId: "d1",
       eventId: "e1",
       turnId: "t1",
-      botName: "support",
+      channelName: "support",
       platform: "slack",
       conversationKey: "c1",
       route: {},
@@ -153,8 +173,11 @@ describe("startManagedBots", () => {
     await handle.stop();
   });
 
-  it("forwards renderSink so managed runtime streams rich render frames", async () => {
-    const bot = createBot({ name: "support", agent: () => new FakeAgent() });
+  it("forwards renderSink so channel runtime streams rich render frames", async () => {
+    const bot = createChannel({
+      name: "support",
+      agent: () => new FakeAgent(),
+    });
     bot.onMessage(async ({ thread }) => {
       await thread.post(Section({ children: "A" }));
     });
@@ -162,8 +185,8 @@ describe("startManagedBots", () => {
     const source = new InMemoryDeliverySource();
     const egress = new InMemoryEgressSink();
     const renderSink = new InMemoryRenderEventSink();
-    const handle = await startManagedBots({
-      bots: [bot],
+    const handle = await startChannels({
+      channels: [bot],
       resolveTransport: () => ({ source, egress, renderSink }),
       env: { runtimeEnv: "test" },
     });
@@ -172,7 +195,7 @@ describe("startManagedBots", () => {
       deliveryId: "d1",
       eventId: "e1",
       turnId: "t1",
-      botName: "support",
+      channelName: "support",
       platform: "slack",
       conversationKey: "c1",
       route: {},
@@ -187,10 +210,10 @@ describe("startManagedBots", () => {
   });
 
   it("throws on invalid names before wiring anything", async () => {
-    const a = createBot({ agent: () => new FakeAgent() }); // no name
+    const a = createChannel({ agent: () => new FakeAgent() }); // no name
     await expect(
-      startManagedBots({
-        bots: [a],
+      startChannels({
+        channels: [a],
         resolveTransport: () => ({
           source: new InMemoryDeliverySource(),
           egress: new InMemoryEgressSink(),
@@ -201,16 +224,16 @@ describe("startManagedBots", () => {
   });
 
   it("rolls back already-started bots when a later bot fails to start", async () => {
-    const a = createBot({ name: "support", agent: () => new FakeAgent() });
-    const b = createBot({ name: "triage", agent: () => new FakeAgent() });
+    const a = createChannel({ name: "support", agent: () => new FakeAgent() });
+    const b = createChannel({ name: "triage", agent: () => new FakeAgent() });
     const stopA = vi.spyOn(a, "stop");
     await expect(
-      startManagedBots({
-        bots: [a, b],
+      startChannels({
+        channels: [a, b],
         // First bot wires fine; second bot's transport resolution throws
         // AFTER `a` is already live.
-        resolveTransport: (botName) => {
-          if (botName === "triage") throw new Error("boom");
+        resolveTransport: (channelName) => {
+          if (channelName === "triage") throw new Error("boom");
           return {
             source: new InMemoryDeliverySource(),
             egress: new InMemoryEgressSink(),
@@ -225,16 +248,16 @@ describe("startManagedBots", () => {
   it("warns (but does not throw) when called with no bots", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
-      const handle = await startManagedBots({
-        bots: [],
+      const handle = await startChannels({
+        channels: [],
         resolveTransport: () => ({
           source: new InMemoryDeliverySource(),
           egress: new InMemoryEgressSink(),
         }),
         env: { runtimeEnv: "test" },
       });
-      expect(handle.metadata.declaredBotNames).toEqual([]);
-      expect(warn).toHaveBeenCalledWith(expect.stringMatching(/no bots/i));
+      expect(handle.metadata.declaredChannelNames).toEqual([]);
+      expect(warn).toHaveBeenCalledWith(expect.stringMatching(/no channels/i));
       await handle.stop();
     } finally {
       warn.mockRestore();

@@ -18,9 +18,9 @@ import type {
   UserQuery,
   CommandSpec,
   NativePayload,
-} from "@copilotkit/channels";
+} from "@copilotkit/channels-core";
 import type {
-  BotNode,
+  ChannelNode,
   ThreadMessage,
   EmojiValue,
   EphemeralResult,
@@ -314,11 +314,11 @@ export class DiscordAdapter implements PlatformAdapter {
     await this.client.destroy();
   }
 
-  render(ir: BotNode[]) {
+  render(ir: ChannelNode[]) {
     return renderComponents(ir);
   }
 
-  async post(target: BotReplyTarget, ir: BotNode[]): Promise<MessageRef> {
+  async post(target: BotReplyTarget, ir: ChannelNode[]): Promise<MessageRef> {
     const t = target as ReplyTarget;
     const channel = await this.fetchSendable(t.channelId);
     const { components, flags } = renderDiscordMessage(ir);
@@ -326,7 +326,7 @@ export class DiscordAdapter implements PlatformAdapter {
     return { id: msg.id, channelId: t.channelId };
   }
 
-  async update(ref: MessageRef, ir: BotNode[]): Promise<void> {
+  async update(ref: MessageRef, ir: ChannelNode[]): Promise<void> {
     // An empty stream returns a ref with id "" (no message was ever posted);
     // a fetch on "" would throw, so treat update/delete on it as a no-op.
     if (!ref.id) return;
@@ -548,7 +548,7 @@ export class DiscordAdapter implements PlatformAdapter {
   async postEphemeral(
     _target: BotReplyTarget,
     user: PlatformUser | string,
-    ir: BotNode[],
+    ir: ChannelNode[],
     opts: { fallbackToDM: boolean },
   ): Promise<EphemeralResult | null> {
     // Native interaction-ephemeral is only reachable from within a live,
@@ -571,14 +571,14 @@ export class DiscordAdapter implements PlatformAdapter {
     }
   }
 
-  renderModal(ir: BotNode[]): NativePayload {
+  renderModal(ir: ChannelNode[]): NativePayload {
     return renderDiscordModal(ir);
   }
 
   async openModal(
     _target: BotReplyTarget,
     triggerId: string,
-    ir: BotNode[],
+    ir: ChannelNode[],
   ): Promise<{ ok: boolean; error?: string }> {
     let modal: ReturnType<typeof renderDiscordModal>;
     try {

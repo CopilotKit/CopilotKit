@@ -2,13 +2,13 @@
  * Slack-platform-universal context entries — knowledge the LLM needs
  * about Slack itself (tagging procedure, mrkdwn vs Markdown, thread
  * model). Apps spread `defaultSlackContext` into the `context:` config
- * they pass to `createBot`.
+ * they pass to `createChannel`.
  *
  * Each entry is exported individually too so apps can cherry-pick.
  */
-import type { ContextEntry } from "@copilotkit/channels";
+import type { ContextEntry } from "@copilotkit/channels-core";
 
-/** Slack context entry — alias of `@copilotkit/channels`'s {@link ContextEntry}. */
+/** Slack context entry — alias of `@copilotkit/channels-core`'s {@link ContextEntry}. */
 export type SlackContextEntry = ContextEntry;
 
 export const slackTaggingContext: SlackContextEntry = {
@@ -70,7 +70,7 @@ export const slackConversationModelContext: SlackContextEntry = {
 
 /**
  * The default context entries the SDK ships. Spread into your
- * `createBot({context: …})`:
+ * `createChannel({context: …})`:
  *
  *     context: [...defaultSlackContext, ...myAppContext],
  */

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 from collections.abc import AsyncIterator, Callable
 from typing import Any
@@ -149,7 +150,12 @@ def _make_sdk_tool(
     @sdk_tool(name, description, input_schema)
     async def sdk_tool_handler(args: dict[str, Any]):
         try:
-            result_text, next_state = execute_tool(
+            # Offload to a worker thread: execute_tool may run a synchronous
+            # anthropic.Anthropic() LLM round-trip (the generate_a2ui branch),
+            # which would otherwise block the uvicorn event loop and wedge the
+            # :8000 /health endpoint under load.
+            result_text, next_state = await asyncio.to_thread(
+                execute_tool,
                 name,
                 dict(args or {}),
                 get_state(),

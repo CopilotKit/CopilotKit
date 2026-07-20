@@ -1,0 +1,132 @@
+## A durable home for every agent conversation
+
+With Threads, users can close the browser, return on another device, reopen a conversation, and continue from the same event history while active runs reconnect in realtime. Generative UI renders again as part of that history, and multimodal inputs stay stored with the conversation.
+
+Without CopilotKit Threads, your team has to design the storage model, replay historical events and generative UI, persist multimodal inputs, reconnect live streams, synchronize thread lists, coordinate concurrent runs, and build lifecycle APIs before you can ship the conversation experience itself. Enterprise Intelligence handles that infrastructure so you can focus on your agent and product UI.
+
+<OpsPlatformCTA
+  variant="inline"
+  title="Ship persistent conversations without building the backend"
+  body="Enterprise Intelligence handles durable history, replay, realtime sync, and thread lifecycle on the free Developer tier."
+  ctaLabel="Get Enterprise Intelligence free"
+  surface="docs_threads_overview"
+/>
+
+<div
+  aria-label="A support workspace using Threads Drawer to move between customer conversations while CopilotChat renders the selected case details."
+  className="shell-docs-radius-surface relative mb-4 overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[0px_16px_24px_-8px_rgba(1,5,7,0.12)] ring-1 ring-inset ring-white/70 dark:shadow-[0px_16px_32px_-10px_rgba(0,0,0,0.45)] dark:ring-white/10"
+>
+  <img
+    src="/images/threads/support-desk-threads.png"
+    alt="A support desk application with a Threads Drawer listing customer conversations beside CopilotChat case details for Northstar Analytics"
+    className="block w-full !my-0"
+  />
+</div>
+
+## Why use CopilotKit Threads?
+
+Threads turn a streamed agent run into a product experience users can leave and return to. They provide:
+
+- durable event history across reloads, sessions, and devices
+- seamless replay before a conversation reconnects to a live run
+- generative UI restored as part of the conversation history
+- multimodal inputs stored alongside the thread that uses them
+- realtime thread-list updates without polling
+- generated names plus rename, archive, unarchive, delete, and pagination APIs
+- thread-level locking that prevents concurrent runs from interleaving events
+- the same persistence model across agent frameworks
+
+### What CopilotKit handles
+
+| CopilotKit handles | You control |
+|---|---|
+| Durable event storage and replay | Your agent's behavior and tools |
+| Replay-to-live stream reconnection | The conversation experience and layout |
+| Realtime thread metadata synchronization | Which thread actions your users can access |
+| Naming, pagination, archive, and delete semantics | Application authorization and permissions |
+| Runtime-to-platform event plumbing and thread locks | Mapping to native framework sessions when needed |
+| Cloud-hosted or self-hosted platform infrastructure | The deployment model that fits your organization |
+
+## How Threads work
+
+Both UI paths use the same Threads infrastructure. A stable `threadId` connects the visible conversation to the runtime and its durable event history.
+
+<Image
+  src="/images/threads/threads-diagram-light.png"
+  alt="A user starts a conversation on a laptop, leaves or switches devices, and returns to the same conversation on a phone."
+  width={1774}
+  height={919}
+  className="block dark:hidden my-6 w-full mx-auto"
+/>
+<Image
+  src="/images/threads/threads-diagram-dark.png"
+  alt="A user starts a conversation on a laptop, leaves or switches devices, and returns to the same conversation on a phone."
+  width={1775}
+  height={918}
+  className="hidden dark:block my-6 w-full mx-auto"
+/>
+
+1. Your UI opens a conversation with a stable `threadId`.
+2. `CopilotRuntime` runs your agent and sends conversation events to Enterprise Intelligence.
+3. When users return, Enterprise Intelligence replays the stored history, reconnects any live run, and synchronizes thread metadata.
+
+<Callout type="info" title="Headless means custom UI, not custom infrastructure">
+  Threads Drawer and Headless Threads use the same persistence, replay, synchronization, and locking infrastructure. Choose Headless Threads when you want to build the interface yourself, not when you want to rebuild the Threads backend.
+</Callout>
+
+## Choose how to build the UI
+
+<div className="hidden lg:block">
+
+  | If you want to... | Choose | Start here |
+  |---|---|---|
+  | Ship a mobile-friendly conversation sidebar with switching, new conversations, archive, delete, and pagination already wired to your chat | **Threads Drawer** | [Set up the Threads Drawer →](/prebuilt-components/copilot-threads-drawer) |
+  | Build a custom layout, workflow, permission model, or thread action UI while CopilotKit continues to handle the backend | **Headless Threads** | [Build a custom thread UI →](/headless-threads) |
+
+</div>
+
+<div className="not-prose lg:hidden divide-y divide-fd-border overflow-hidden rounded-lg border border-fd-border">
+  <div className="p-5">
+
+  <p className="mb-2 text-lg font-semibold text-fd-foreground">Threads Drawer</p>
+
+  Ship a mobile-friendly conversation sidebar with switching, new conversations, archive, delete, and pagination already wired to your chat.
+
+  <a href="/prebuilt-components/copilot-threads-drawer" className="font-medium !text-[var(--accent)] !underline !decoration-[color-mix(in_oklch,var(--accent)_40%,transparent)] underline-offset-[3px] transition-colors hover:!decoration-[var(--accent)]">Set up the Threads Drawer →</a>
+
+  </div>
+  <div className="p-5">
+
+  <p className="mb-2 text-lg font-semibold text-fd-foreground">Headless Threads</p>
+
+  Build a custom layout, workflow, permission model, or thread action UI while CopilotKit continues to handle the backend.
+
+  <a href="/headless-threads" className="font-medium !text-[var(--accent)] !underline !decoration-[color-mix(in_oklch,var(--accent)_40%,transparent)] underline-offset-[3px] transition-colors hover:!decoration-[var(--accent)]">Build a custom thread UI →</a>
+
+  </div>
+</div>
+
+## Bring existing conversations
+
+Threads capture new CopilotKit conversations once your app uses Enterprise Intelligence. If you already have persisted Google ADK or LangGraph conversations, follow the [Import Thread History guide](/threads-import) to bring supported history into the same thread store. Users can then resume imported and new conversations through the same UI.
+
+CopilotKit Threads are separate from native framework session or checkpoint stores. Your backend can keep a stable mapping when the agent framework also needs its own conversation identifier.
+
+<WhenFrameworkHas flag="thread_persistence_pattern" equals="langgraph">
+  <Callout type="info" title="LangGraph thread IDs">
+    CopilotKit passes the active `threadId` to your LangGraph backend through AG-UI. You can use it directly or persist a mapping to a LangGraph thread or checkpoint identifier. LangGraph Platform thread IDs must be UUIDs.
+  </Callout>
+</WhenFrameworkHas>
+
+<WhenFrameworkHas flag="thread_persistence_pattern" equals="adk-session">
+  <Callout type="info" title="ADK sessions">
+    CopilotKit passes the active `threadId` to your ADK backend through AG-UI. Keep a stable mapping when you also use a durable ADK session service; CopilotKit thread lifecycle actions do not mutate the native ADK session store.
+  </Callout>
+</WhenFrameworkHas>
+
+## Next steps
+
+- **Understand the architecture:** [Threads & Persistence Architecture](/premium/threads-explained) — event replay, live reconnection, synchronization, locking, and lifecycle behavior
+- **Use the hosted platform:** [Cloud-Hosted Enterprise Intelligence](/premium/managed-intelligence-platform) — create and manage the project where your app stores threads and runtime credentials
+- **Run it in your infrastructure:** [Self-Hosting Enterprise Intelligence](/premium/self-hosting) — operate the Threads platform in your own Kubernetes environment
+- **Look up the API:** [useThreads reference](/reference/hooks/useThreads) — parameters, lifecycle methods, pagination, and return types

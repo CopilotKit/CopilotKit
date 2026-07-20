@@ -6,7 +6,15 @@
     "cli",
     "---Basics---",
     "prebuilt-components",
-    "threads",
+    {
+      "title": "Threads",
+      "defaultOpen": true,
+      "pages": [
+        "threads",
+        "headless-threads",
+        "threads-import"
+      ]
+    },
     "custom-look-and-feel",
     "programmatic-control",
     "---Generative UI---",
@@ -20,7 +28,6 @@
     "configurable",
     "subgraphs",
     "auth",
-    "---Intelligence Platform---",
     "---Tutorials---",
     "...tutorials"
   ]

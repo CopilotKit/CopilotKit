@@ -6,9 +6,9 @@ import type {
   RunRenderer,
   ConversationStore,
   UserQuery,
-} from "@copilotkit/channels";
+} from "@copilotkit/channels-core";
 import type {
-  BotNode,
+  ChannelNode,
   MessageRef,
   PlatformUser,
   ThreadMessage,
@@ -107,11 +107,11 @@ export class WhatsAppAdapter implements PlatformAdapter {
     }
   }
 
-  render(ir: BotNode[]): WhatsAppOutbound[] {
+  render(ir: ChannelNode[]): WhatsAppOutbound[] {
     return renderWhatsAppMessage(ir);
   }
 
-  async post(target: ReplyTarget, ir: BotNode[]): Promise<MessageRef> {
+  async post(target: ReplyTarget, ir: ChannelNode[]): Promise<MessageRef> {
     const payloads = this.render(ir);
     let last: WhatsAppMessageRef = {
       id: "",
@@ -125,7 +125,7 @@ export class WhatsAppAdapter implements PlatformAdapter {
     return last;
   }
 
-  async update(ref: MessageRef, ir: BotNode[]): Promise<void> {
+  async update(ref: MessageRef, ir: ChannelNode[]): Promise<void> {
     // WhatsApp can't edit messages; "update" posts a fresh message instead.
     const r = ref as unknown as WhatsAppMessageRef;
     await this.post({ to: r.to, phoneNumberId: r.phoneNumberId }, ir);

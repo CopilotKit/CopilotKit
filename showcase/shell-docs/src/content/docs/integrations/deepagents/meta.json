@@ -13,6 +13,15 @@
     "---Human in the Loop---",
     "...human-in-the-loop",
     "---Intelligence Platform---",
-    "threads"
+    {
+      "title": "Threads",
+      "defaultOpen": true,
+      "pages": [
+        "threads",
+        "headless-threads",
+        "threads-import",
+        "threads-lifecycle"
+      ]
+    }
   ]
 }

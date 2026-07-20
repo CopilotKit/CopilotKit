@@ -1,0 +1,108 @@
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+
+## What is this?
+
+Thread import moves already-persisted conversations into Enterprise Intelligence as CopilotKit threads. After import, users can open those conversations through the same thread UI you use for native CopilotKit conversations. Built-in import currently supports Google ADK and LangGraph, with more sources coming soon.
+
+New to the feature? Read the [Threads overview](/threads) first to understand the shared thread store and choose between the prebuilt Drawer and a custom headless UI.
+
+Import is a historical migration, not an ongoing replication job. Run it from a CopilotKit app created with the CLI and Enterprise Intelligence enabled. The importer uses the Enterprise Intelligence project selected for the current directory.
+
+## Supported sources
+
+| Source | Import guide | Supported history |
+|---|---|---|
+| Google ADK | [Import ADK threads](/google-adk/threads-import) | Persisted ADK sessions from a database session service or Vertex/Agent Engine session service. |
+| LangGraph | [Import LangGraph threads](/langgraph-python/threads-import) | LangGraph Server, LangGraph Platform, or LangSmith Deployment threads exposed through the LangGraph SDK thread/run APIs. |
+
+## What gets imported?
+
+The importer preserves conversation content that can render in the CopilotKit chat UI or help downstream learning systems:
+
+- user, assistant, tool, system, and developer messages
+- tool calls and tool results
+- reasoning traces when the source exposes them
+- media that can be resolved during extraction
+- original timestamps
+- import provenance and per-conversation import outcomes
+
+It does not import agent state snapshots, framework transport noise, LangSmith traces, or unsupported source stores.
+
+## Import flow
+
+<Steps>
+  <Step>
+    ### Confirm the target project
+
+    By default, the importer uses the Enterprise Intelligence project selected when you created the app with the CopilotKit CLI. If that is the project that should receive the imported threads, continue to the dry run.
+
+    To target a different cloud-hosted project, select it before the dry run:
+
+    ```bash title="Terminal"
+    npx copilotkit@latest project select
+    ```
+
+    The command updates the project selected for the current directory and provisions its project-scoped runtime key. For self-hosted deployments, pass `--api-url` and `--api-key` to the import command instead.
+  </Step>
+
+  <Step>
+    ### Run a dry run
+
+    A dry run reads the source, discovers source agent keys, counts conversations, reports skips, and estimates upload size without opening an import batch.
+
+    <Tabs groupId="thread_import_source" items={['ADK', 'LangGraph']}>
+      <Tab value="ADK">
+        ```bash
+        npx copilotkit@latest import --source adk --dry-run
+        ```
+      </Tab>
+      <Tab value="LangGraph">
+        ```bash
+        npx copilotkit@latest import --source langgraph --dry-run
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step>
+    ### Map source agents
+
+    The importer maps each source agent key to the `agentId` your live CopilotKit runtime uses. Keeping those labels aligned prevents imported history and future native traffic from splitting across different agent IDs.
+
+    For scripted imports, put the mapping in a JSON file:
+
+    ```json title="agent-map.json"
+    {
+      "support-agent": "support-agent",
+      "sales-agent": "sales-agent"
+    }
+    ```
+  </Step>
+
+  <Step>
+    ### Run the import
+
+    Run the source-specific import after the dry run looks right:
+
+    - [Import ADK threads](/google-adk/threads-import)
+    - [Import LangGraph threads](/langgraph-python/threads-import)
+
+    Re-running the same import is safe: already-imported conversations are skipped. Use `--replace` when you intentionally want to refresh previously imported threads.
+  </Step>
+
+  <Step>
+    ### Keep future conversations synced
+
+    Import only moves existing history. Your CLI-created app already sends new CopilotKit conversations to the selected Enterprise Intelligence project. To keep each conversation continuous, reopen it with the same CopilotKit `threadId`. Choose the thread UI that fits your app:
+
+    - **Threads Drawer:** follow the [Threads Drawer guide](/prebuilt-components/copilot-threads-drawer). The drawer and chat share a `CopilotChatConfigurationProvider`, so selecting a conversation updates the active `threadId` without separate state wiring.
+    - **Headless Threads:** follow the [Headless Threads guide](/headless-threads). Select a thread with `useThreads`, store its `thread.id`, and pass that value to your chat component as `threadId`.
+
+    For the underlying persistence and replay model, see [Threads & Persistence Architecture](/premium/threads-explained).
+  </Step>
+</Steps>
+
+## Deployment notes
+
+- **Cloud-hosted Enterprise Intelligence:** the importer uses the CLI-selected project by default. Run `project select` before importing only when you need to change the target project. See [Cloud-Hosted Enterprise Intelligence](/premium/managed-intelligence-platform).
+- **Self-hosted Enterprise Intelligence:** pass your deployment's app-api URL with `--api-url` and a project-scoped `cpk` runtime key with `--api-key`. See [Self-Hosting Enterprise Intelligence](/premium/self-hosting).

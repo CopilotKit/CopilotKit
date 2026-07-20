@@ -1,5 +1,5 @@
 import type { AgentContentPart } from "@copilotkit/channels-ui";
-import type { ManagedFileRef } from "./contracts.js";
+import type { ChannelFileRef } from "./contracts.js";
 
 /** Map a MIME type to its `AgentContentPart` media kind, or null for non-media. */
 export function mediaKindForMime(
@@ -27,7 +27,7 @@ export function mediaKindForMime(
  * historical image attachment and a live one produce the same content part.
  */
 export async function buildContentParts(
-  files: ManagedFileRef[] | undefined,
+  files: ChannelFileRef[] | undefined,
   fetchFile:
     | ((handle: string) => Promise<{ bytes: Uint8Array; mimeType?: string }>)
     | undefined,

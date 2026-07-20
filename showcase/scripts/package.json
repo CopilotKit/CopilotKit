@@ -10,6 +10,7 @@
     "probe-claude-quickstarts": "tsx probe-claude-quickstarts.ts",
     "check-claude-quickstarts:runtime": "tsx check-claude-quickstarts-runtime.ts",
     "validate-manifests": "tsx generate-registry.ts --validate-only",
+    "validate-routes": "tsx validate-runtime-routes.ts --all",
     "showcase:audit": "tsx audit.ts",
     "create-integration": "tsx create-integration/index.ts",
     "bundle-content": "tsx bundle-demo-content.ts",
@@ -19,7 +20,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@copilotkit/aimock": "1.26.1",
+    "@copilotkit/aimock": "1.37.4",
     "@playwright/test": "^1.59.1",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",

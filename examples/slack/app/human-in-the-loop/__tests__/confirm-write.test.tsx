@@ -1,35 +1,38 @@
 import { describe, it, expect, vi } from "vitest";
-import {
-  renderToIR,
-  type BotNode,
-  type InteractionContext,
-  type ClickHandler,
-} from "@copilotkit/channels-ui";
-import { renderSlackMessage } from "@copilotkit/channels-slack";
+import { renderToIR } from "@copilotkit/channels";
+import type {
+  ChannelNode,
+  InteractionContext,
+  ClickHandler,
+} from "@copilotkit/channels";
+import { renderSlackMessage } from "@copilotkit/channels/slack";
 import { ConfirmWrite } from "../confirm-write.js";
 
 /** Children of an IR node as an array (empty if none). */
-function childNodes(node: BotNode): BotNode[] {
+function childNodes(node: ChannelNode): ChannelNode[] {
   const children = node.props?.children;
-  if (Array.isArray(children)) return children as BotNode[];
+  if (Array.isArray(children)) return children as ChannelNode[];
   if (
     children &&
     typeof children === "object" &&
     "type" in (children as object)
   ) {
-    return [children as BotNode];
+    return [children as ChannelNode];
   }
   return [];
 }
 
 /** Concatenate the text of all descendant `text` nodes (depth-first). */
-function collectText(node: BotNode): string {
+function collectText(node: ChannelNode): string {
   if (node.type === "text") return String(node.props?.value ?? "");
   return childNodes(node).map(collectText).join("");
 }
 
 /** Walk the whole tree to find the first node of a given intrinsic type. */
-function findByType(nodes: BotNode[], type: string): BotNode | undefined {
+function findByType(
+  nodes: ChannelNode[],
+  type: string,
+): ChannelNode | undefined {
   for (const n of nodes) {
     if (n.type === type) return n;
     const hit = findByType(childNodes(n), type);
@@ -39,8 +42,8 @@ function findByType(nodes: BotNode[], type: string): BotNode | undefined {
 }
 
 /** All button nodes in the tree. */
-function findButtons(nodes: BotNode[]): BotNode[] {
-  const out: BotNode[] = [];
+function findButtons(nodes: ChannelNode[]): ChannelNode[] {
+  const out: ChannelNode[] = [];
   for (const n of nodes) {
     if (n.type === "button") out.push(n);
     out.push(...findButtons(childNodes(n)));
@@ -48,7 +51,7 @@ function findButtons(nodes: BotNode[]): BotNode[] {
   return out;
 }
 
-function buttonByText(ir: BotNode[], text: string): BotNode {
+function buttonByText(ir: ChannelNode[], text: string): ChannelNode {
   const btn = findButtons(ir).find((b) => collectText(b) === text);
   if (!btn) throw new Error(`button "${text}" not found`);
   return btn;

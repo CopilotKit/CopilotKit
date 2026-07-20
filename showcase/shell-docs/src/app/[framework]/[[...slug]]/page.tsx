@@ -582,11 +582,14 @@ export default async function FrameworkScopedDocsPage({
     if (doc) contentSlugPath = frameworkPath;
     if (!doc) doc = loadDoc(slugPath);
   } else {
-    // `/quickstart` at the root is a routing shim — it exists only so
-    // the sidebar's Quickstart entry has a backing page. Real quickstart
-    // content lives per-framework at `integrations/<framework>/quickstart.mdx`,
-    // so for framework-scoped URLs the override always wins over the shim.
-    if (slugPath === "quickstart") {
+    // A few root pages are shared nav shims/overviews whose framework-scoped
+    // URLs should render the per-framework MDX when it exists.
+    //
+    // - `/quickstart` at the root is a routing shim; real quickstart content
+    //   lives per-framework.
+    // - `/threads-import` is a cross-source overview at the root, but ADK and
+    //   LangGraph have source-specific import guides at the same framework URL.
+    if (slugPath === "quickstart" || slugPath === "threads-import") {
       const overridePath = `integrations/${docsFolder}/${slugPath}`;
       doc = loadDoc(overridePath);
       if (doc) contentSlugPath = overridePath;

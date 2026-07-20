@@ -1,4 +1,12 @@
-import { computed, onBeforeUnmount, onMounted, ref, toValue, watch } from "vue";
+import {
+  computed,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  shallowRef,
+  toValue,
+  watch,
+} from "vue";
 import type { MaybeRefOrGetter, Ref } from "vue";
 import {
   randomUUID,
@@ -37,12 +45,12 @@ export interface UseAttachmentsReturn {
 export function useAttachments(
   props: UseAttachmentsProps,
 ): UseAttachmentsReturn {
-  const attachments = ref<Attachment[]>([]);
+  const attachments = shallowRef<Attachment[]>([]);
   const dragOver = ref(false);
   const fileInputRef = ref<HTMLInputElement | null>(null);
   const containerRef = ref<HTMLElement | null>(null);
   const configRef = ref<AttachmentsConfig | undefined>(toValue(props.config));
-  const attachmentsRef = ref<Attachment[]>(attachments.value);
+  const attachmentsRef = shallowRef<Attachment[]>(attachments.value);
   const enabled = computed(() => configRef.value?.enabled ?? false);
 
   watch(

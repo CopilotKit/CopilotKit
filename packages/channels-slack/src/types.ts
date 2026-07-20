@@ -1,4 +1,4 @@
-import type { PlatformUser } from "@copilotkit/channels";
+import type { PlatformUser } from "@copilotkit/channels-core";
 
 /**
  * Where to post a reply in Slack. Used by the renderer; constructed by the

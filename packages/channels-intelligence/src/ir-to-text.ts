@@ -1,11 +1,11 @@
-import type { BotNode } from "@copilotkit/channels-ui";
+import type { ChannelNode } from "@copilotkit/channels-ui";
 
 /**
- * Flatten Bot UI IR (`BotNode[]`) to plain text for the Intelligence egress
+ * Flatten Bot UI IR (`ChannelNode[]`) to plain text for the Intelligence egress
  * first slice, which accepts a plain `text` field only (Intelligence owns the
  * native platform rendering later via per-platform codecs — OSS-363/OSS-377).
  *
- * The dominant managed path — streamed agent text — is already a single
+ * The dominant Channel path — streamed agent text — is already a single
  * `{ type: "text", props: { value } }` node (see {@link IntelligenceAdapter}'s
  * run renderer), so this is usually a no-op concat. Richer IR (sections, lists)
  * is best-effort flattened by concatenating descendant text; formatting is lost
@@ -13,7 +13,7 @@ import type { BotNode } from "@copilotkit/channels-ui";
  *
  * TODO(OSS-377): drop once Intelligence renders IR via the shared codecs.
  */
-export function irToText(ir: BotNode[]): string {
+export function irToText(ir: ChannelNode[]): string {
   return ir
     .map((node) => nodeToText(node))
     .filter((s) => s.length > 0)
