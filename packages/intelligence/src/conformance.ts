@@ -969,6 +969,18 @@ function buildCases(): LearningPlatformConformanceCase[] {
       },
     },
     {
+      name: "generated-add-candidate-forbids-skill-id",
+      schema: "GeneratedSkillCandidateV1",
+      valid: false,
+      value: { ...generatedCandidate, skillId: UUID.skill },
+    },
+    {
+      name: "generated-add-candidate-forbids-parent-version-id",
+      schema: "GeneratedSkillCandidateV1",
+      valid: false,
+      value: { ...generatedCandidate, parentVersionId: UUID.version },
+    },
+    {
       name: "create-learning-run-rejects-inverted-selection-interval",
       schema: "CreateLearningRunV1",
       valid: false,

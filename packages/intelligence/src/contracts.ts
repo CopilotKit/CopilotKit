@@ -840,6 +840,16 @@ export const generatedSkillCandidateV1Schema = z
         message: "Update/remove require exact target and parent version",
       });
     }
+    if (
+      candidate.action === "add" &&
+      (candidate.skillId !== null || candidate.parentVersionId !== null)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["skillId"],
+        message: "Add requires null skill and parent version IDs",
+      });
+    }
   });
 
 export const learningWorkflowOutputV1Schema = z

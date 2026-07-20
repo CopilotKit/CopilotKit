@@ -3173,6 +3173,98 @@
       }
     },
     {
+      "name": "generated-add-candidate-forbids-skill-id",
+      "schema": "GeneratedSkillCandidateV1",
+      "valid": false,
+      "value": {
+        "action": "add",
+        "bundle": {
+          "files": [
+            {
+              "contentBase64": "IyBTa2lsbA==",
+              "path": "SKILL.md"
+            }
+          ],
+          "rootDirectoryName": "idempotent-retries"
+        },
+        "evidenceRefs": [
+          {
+            "annotationId": null,
+            "annotationSha256": null,
+            "eventIds": [
+              "event_1"
+            ],
+            "evidenceType": "run_snapshot",
+            "excerpt": null,
+            "excerptSha256": null,
+            "externalRunId": "external_run_1",
+            "messageIds": [
+              "message_1"
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1",
+            "truncated": false
+          }
+        ],
+        "insightAliases": [
+          "insight_1"
+        ],
+        "outputAlias": "candidate_1",
+        "parentVersionId": null,
+        "reason": "Avoid duplicate actions.",
+        "removalIntent": null,
+        "risk": "low",
+        "skillId": "99999999-9999-4999-8999-999999999999"
+      }
+    },
+    {
+      "name": "generated-add-candidate-forbids-parent-version-id",
+      "schema": "GeneratedSkillCandidateV1",
+      "valid": false,
+      "value": {
+        "action": "add",
+        "bundle": {
+          "files": [
+            {
+              "contentBase64": "IyBTa2lsbA==",
+              "path": "SKILL.md"
+            }
+          ],
+          "rootDirectoryName": "idempotent-retries"
+        },
+        "evidenceRefs": [
+          {
+            "annotationId": null,
+            "annotationSha256": null,
+            "eventIds": [
+              "event_1"
+            ],
+            "evidenceType": "run_snapshot",
+            "excerpt": null,
+            "excerptSha256": null,
+            "externalRunId": "external_run_1",
+            "messageIds": [
+              "message_1"
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1",
+            "truncated": false
+          }
+        ],
+        "insightAliases": [
+          "insight_1"
+        ],
+        "outputAlias": "candidate_1",
+        "parentVersionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "reason": "Avoid duplicate actions.",
+        "removalIntent": null,
+        "risk": "low",
+        "skillId": null
+      }
+    },
+    {
       "name": "create-learning-run-rejects-inverted-selection-interval",
       "schema": "CreateLearningRunV1",
       "valid": false,

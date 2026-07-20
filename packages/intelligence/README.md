@@ -14,6 +14,10 @@ consumers must also run the named valid and invalid cases in
 `conformance/learning-platform-v1.json`; those cases are the language-neutral
 executable specification for refinement-only invariants.
 
+Generated `add` candidates create a new root identity, so both `skillId` and
+`parentVersionId` must be null. Generated `update` and `remove` candidates
+instead require both fields to identify the exact existing target.
+
 ```ts
 import {
   learningContainerV1Schema,

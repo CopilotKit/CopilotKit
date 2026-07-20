@@ -3,6 +3,7 @@ import {
   blobLocatorV1Schema,
   candidateGateResultV1Schema,
   frozenAvailableSkillV1Schema,
+  generatedSkillCandidateV1Schema,
   insightV1Schema,
   learningChunkV1Schema,
   learningContainerIdSchema,
@@ -306,6 +307,88 @@ describe("parent V1 contract schemas", () => {
   test("accepts a workflow output with unique aliases and resolved insight references", () => {
     expect(learningWorkflowOutputV1Schema.parse(workflowOutput)).toEqual(
       workflowOutput,
+    );
+  });
+
+  test.each([
+    { name: "add", candidate: generatedCandidate },
+    {
+      name: "update",
+      candidate: {
+        ...generatedCandidate,
+        action: "update",
+        skillId: UUIDS.skill,
+        parentVersionId: UUIDS.version,
+      },
+    },
+    {
+      name: "remove",
+      candidate: {
+        ...generatedCandidate,
+        action: "remove",
+        skillId: UUIDS.skill,
+        parentVersionId: UUIDS.version,
+        bundle: null,
+        removalIntent: { reasonCode: "unsafe_behavior" },
+      },
+    },
+  ])(
+    "accepts a generated $name candidate with target identity coherence",
+    ({ candidate }) => {
+      expect(generatedSkillCandidateV1Schema.safeParse(candidate).success).toBe(
+        true,
+      );
+    },
+  );
+
+  test.each([
+    {
+      name: "add with an existing skill ID",
+      candidate: { ...generatedCandidate, skillId: UUIDS.skill },
+    },
+    {
+      name: "add with an existing parent version ID",
+      candidate: { ...generatedCandidate, parentVersionId: UUIDS.version },
+    },
+    {
+      name: "update without a skill ID",
+      candidate: {
+        ...generatedCandidate,
+        action: "update",
+        parentVersionId: UUIDS.version,
+      },
+    },
+    {
+      name: "update without a parent version ID",
+      candidate: {
+        ...generatedCandidate,
+        action: "update",
+        skillId: UUIDS.skill,
+      },
+    },
+    {
+      name: "remove without a skill ID",
+      candidate: {
+        ...generatedCandidate,
+        action: "remove",
+        parentVersionId: UUIDS.version,
+        bundle: null,
+        removalIntent: { reasonCode: "unsafe_behavior" },
+      },
+    },
+    {
+      name: "remove without a parent version ID",
+      candidate: {
+        ...generatedCandidate,
+        action: "remove",
+        skillId: UUIDS.skill,
+        bundle: null,
+        removalIntent: { reasonCode: "unsafe_behavior" },
+      },
+    },
+  ])("rejects a generated $name", ({ candidate }) => {
+    expect(generatedSkillCandidateV1Schema.safeParse(candidate).success).toBe(
+      false,
     );
   });
 
