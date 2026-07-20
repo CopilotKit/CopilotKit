@@ -1,0 +1,87 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit config for CopilotKit/CopilotKit.
+# Goal: high-signal reviews on real contributor code, low noise from the
+# showcase automation, and repo-specific checks that encode known failure modes.
+language: en-US
+tone_instructions: >-
+  Be concise and technical. Skip praise and filler; focus on correctness,
+  security, regressions, and repo conventions. Prefer one high-signal comment
+  over several minor ones.
+
+reviews:
+  profile: chill            # fewer, higher-signal comments (we run high PR volume)
+  request_changes_workflow: false
+  high_level_summary: true
+  review_status: true
+  poem: false               # cut noise
+  sequence_diagrams: false
+
+  auto_review:
+    enabled: true
+    drafts: false           # skip WIP drafts
+    base_branches:
+      - main
+    # Skip machine-generated PRs so review budget goes to real contributor work.
+    # The showcase migration robot dominates "fix(showcase)"; releases are noise too.
+    ignore_title_keywords:
+      - "fix(showcase)"
+      - "feat(showcase)"
+      - "chore(release)"
+      - "chore: release"
+
+  # Only excludes here; everything else is reviewed by default.
+  path_filters:
+    - "!**/*.lock"
+    - "!**/pnpm-lock.yaml"
+    - "!**/package-lock.json"
+    - "!**/dist/**"
+    - "!**/*.min.*"
+    - "!**/__snapshots__/**"
+    - "!**/fixtures/**"
+    - "!**/*.generated.*"
+    - "!showcase/**/aimock/**"          # robot fixtures/wiring
+    - "!examples/**/openclaw/**"        # vendored third-party gateway
+
+  # Repo-specific review guidance — the high-value part.
+  path_instructions:
+    - path: "packages/**"
+      instructions: >-
+        Flat monorepo: flag any new files added under packages/v1/ or packages/v2/
+        — those trees were removed; work belongs in the flat packages/*.
+        When a change claims parity with a reference implementation ("matches the
+        Python/React sibling", "aligns with X"), verify it matches the reference's
+        ACTUAL behavior and direction — read the reference, don't trust the PR's
+        description. A PR that inverts the reference while claiming parity is a bug.
+    - path: "**/langgraph/**"
+      instructions: >-
+        For graph routing changes: ending the graph (goto END) on a frontend/HITL
+        tool call is the intended handoff to the frontend, not a dropped tool.
+        Flag re-routing an unresolved tool call back into a node — it can break the
+        tool_call<->ToolMessage pairing ("assistant message with tool_calls must be
+        followed by tool messages") or cause a node loop.
+    - path: ".changeset/**"
+      instructions: >-
+        This repo does NOT use changesets. Flag any file added here as debris to remove.
+    - path: "showcase/shell-docs/src/content/ag-ui/**"
+      instructions: >-
+        These AG-UI docs are a DOWNSTREAM MIRROR of ag-ui-protocol/ag-ui. Changes
+        must be made upstream first, then synced — flag edits made only here.
+    - path: "docs/content/**"
+      instructions: >-
+        Retired docs tree. CopilotKit docs live in showcase/shell-docs/src/content/.
+        Flag additions here as targeting a deleted path.
+
+  tools:
+    gitleaks:
+      enabled: true         # secret scanning
+    semgrep:
+      enabled: true
+    actionlint:
+      enabled: true         # CI workflow safety (complements zizmor)
+
+knowledge_base:
+  learnings:
+    scope: auto             # learn from accepted/dismissed review feedback over time
+
+chat:
+  auto_reply: true
