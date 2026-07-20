@@ -8,6 +8,22 @@ const canonicalBase64Schema = z
     /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/][AQgw]==|[A-Za-z0-9+/]{2}[AEIMQUYcgkosw048]=)?(?![\s\S])/u,
     "Expected canonical RFC 4648 base64",
   );
+const SAFE_RELATIVE_PATH_PATTERN =
+  "^(?![A-Za-z]:)(?!.*[\\u0000-\\u001F\\u007F\\\\])(?!(?:.*\\/)?\\.{1,2}(?:\\/|$))[^/]+(?:\\/[^/]+)*(?![\\s\\S])";
+const safeRelativePathSchema = z
+  .string()
+  .max(512)
+  .regex(
+    new RegExp(SAFE_RELATIVE_PATH_PATTERN, "u"),
+    "Expected a safe relative slash-delimited path",
+  );
+const skillRootDirectoryNameSchema = z
+  .string()
+  .max(512)
+  .regex(
+    /^[a-z0-9]+(?:-[a-z0-9]+)*(?![\s\S])/u,
+    "Expected a single kebab-case root directory name",
+  );
 const idSchema = nonEmptyStringSchema;
 const NIL_UUID = "00000000-0000-0000-0000-000000000000";
 export const nonNilUuidSchema = z
@@ -792,17 +808,41 @@ export const generatedInsightV1Schema = z.looseObject({
   evidenceRefs: z.array(evidenceRefV1Schema).min(1),
 });
 
-const generatedSkillBundleV1Schema = z.looseObject({
-  rootDirectoryName: nonEmptyStringSchema,
-  files: z
-    .array(
-      z.looseObject({
-        path: nonEmptyStringSchema,
-        contentBase64: canonicalBase64Schema,
-      }),
-    )
-    .min(1),
-});
+const generatedSkillBundleV1Schema = z
+  .looseObject({
+    rootDirectoryName: skillRootDirectoryNameSchema,
+    files: z
+      .array(
+        z.looseObject({
+          path: safeRelativePathSchema,
+          contentBase64: canonicalBase64Schema,
+        }),
+      )
+      .min(1),
+  })
+  .superRefine((bundle, context) => {
+    const collisionKeys = new Set<string>();
+    for (const [index, file] of bundle.files.entries()) {
+      const collisionKey = file.path.normalize("NFKC").toLowerCase();
+      if (collisionKeys.has(collisionKey)) {
+        context.addIssue({
+          code: "custom",
+          path: ["files", index, "path"],
+          message:
+            "Generated bundle file paths must be unique after normalization",
+        });
+      }
+      collisionKeys.add(collisionKey);
+    }
+    if (bundle.files.filter(({ path }) => path === "SKILL.md").length !== 1) {
+      context.addIssue({
+        code: "custom",
+        path: ["files"],
+        message:
+          "Generated bundle must contain exactly one root-relative SKILL.md",
+      });
+    }
+  });
 
 export const generatedSkillCandidateV1Schema = z
   .looseObject({

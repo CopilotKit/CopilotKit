@@ -38,6 +38,10 @@ const NOW = "2026-07-16T18:00:00.000Z";
 const NIL_UUID = "00000000-0000-0000-0000-000000000000";
 const CANONICAL_BASE64_PATTERN =
   "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/][AQgw]==|[A-Za-z0-9+/]{2}[AEIMQUYcgkosw048]=)?(?![\\s\\S])";
+const SAFE_RELATIVE_PATH_PATTERN =
+  "^(?![A-Za-z]:)(?!.*[\\u0000-\\u001F\\u007F\\\\])(?!(?:.*\\/)?\\.{1,2}(?:\\/|$))[^/]+(?:\\/[^/]+)*(?![\\s\\S])";
+const SKILL_ROOT_DIRECTORY_NAME_PATTERN =
+  "^[a-z0-9]+(?:-[a-z0-9]+)*(?![\\s\\S])";
 
 const learningContainer = {
   schemaVersion: 1,
@@ -354,10 +358,117 @@ describe("parent V1 contract schemas", () => {
         ...generatedCandidate,
         bundle: {
           ...generatedCandidate.bundle,
-          files: [{ path: "asset.bin", contentBase64 }],
+          files: [
+            ...generatedCandidate.bundle.files,
+            { path: "asset.bin", contentBase64 },
+          ],
         },
       }).success,
     ).toBe(true);
+  });
+
+  test("accepts a safe single root with nested normalized relative files", () => {
+    expect(
+      generatedSkillCandidateV1Schema.safeParse({
+        ...generatedCandidate,
+        bundle: {
+          rootDirectoryName: "idempotent-retries-2",
+          files: [
+            ...generatedCandidate.bundle.files,
+            {
+              path: "references/caf\u00e9.txt",
+              contentBase64: "cmVmZXJlbmNl",
+            },
+          ],
+        },
+      }).success,
+    ).toBe(true);
+  });
+
+  test.each([
+    ".",
+    "..",
+    "/skill",
+    "a/b",
+    "a\\b",
+    "Uppercase-skill",
+    "skill_name",
+  ])("rejects unsafe or non-single generated bundle root %j", (root) => {
+    expect(
+      generatedSkillCandidateV1Schema.safeParse({
+        ...generatedCandidate,
+        bundle: { ...generatedCandidate.bundle, rootDirectoryName: root },
+      }).success,
+    ).toBe(false);
+  });
+
+  test.each([
+    "../escape.txt",
+    "references/../../escape.txt",
+    "/absolute.txt",
+    "C:/absolute.txt",
+    "C:relative.txt",
+    "references\\windows.txt",
+    "references//empty.txt",
+    "references/./same.txt",
+    "references/\u0007control.txt",
+  ])("rejects unsafe generated bundle file path %j", (path) => {
+    expect(
+      generatedSkillCandidateV1Schema.safeParse({
+        ...generatedCandidate,
+        bundle: {
+          ...generatedCandidate.bundle,
+          files: [
+            ...generatedCandidate.bundle.files,
+            { path, contentBase64: "eA==" },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+  });
+
+  test.each([
+    ["same.txt", "same.txt"],
+    ["Case.txt", "case.txt"],
+    ["caf\u00e9.txt", "cafe\u0301.txt"],
+    ["1.txt", "\u2460.txt"],
+  ])("rejects generated bundle path collision %j and %j", (left, right) => {
+    expect(
+      generatedSkillCandidateV1Schema.safeParse({
+        ...generatedCandidate,
+        bundle: {
+          ...generatedCandidate.bundle,
+          files: [
+            ...generatedCandidate.bundle.files,
+            { path: left, contentBase64: "bGVmdA==" },
+            { path: right, contentBase64: "cmlnaHQ=" },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+  });
+
+  test.each([
+    {
+      name: "no SKILL.md",
+      files: [{ path: "README.md", contentBase64: "eA==" }],
+    },
+    {
+      name: "a root-prefixed SKILL.md",
+      files: [
+        {
+          path: "idempotent-retries/SKILL.md",
+          contentBase64: "IyBTa2lsbA==",
+        },
+      ],
+    },
+  ])("rejects a generated bundle with $name", ({ files }) => {
+    expect(
+      generatedSkillCandidateV1Schema.safeParse({
+        ...generatedCandidate,
+        bundle: { ...generatedCandidate.bundle, files },
+      }).success,
+    ).toBe(false);
   });
 
   test.each([
@@ -377,7 +488,10 @@ describe("parent V1 contract schemas", () => {
         ...generatedCandidate,
         bundle: {
           ...generatedCandidate.bundle,
-          files: [{ path: "asset.bin", contentBase64 }],
+          files: [
+            ...generatedCandidate.bundle.files,
+            { path: "asset.bin", contentBase64 },
+          ],
         },
       }).success,
     ).toBe(false);
@@ -1067,6 +1181,44 @@ describe("parent V1 contract schemas", () => {
                             contentBase64: {
                               minLength: 1,
                               pattern: CANONICAL_BASE64_PATTERN,
+                              type: "string",
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                  { type: "null" },
+                ],
+              },
+            },
+          },
+        },
+      },
+    });
+  });
+
+  test("publishes generated bundle root and relative path rules in JSON Schema", () => {
+    expect(learningContractJsonSchemas.LearningWorkflowOutputV1).toMatchObject({
+      properties: {
+        skillCandidates: {
+          items: {
+            properties: {
+              bundle: {
+                anyOf: [
+                  {
+                    properties: {
+                      rootDirectoryName: {
+                        maxLength: 512,
+                        pattern: SKILL_ROOT_DIRECTORY_NAME_PATTERN,
+                        type: "string",
+                      },
+                      files: {
+                        items: {
+                          properties: {
+                            path: {
+                              maxLength: 512,
+                              pattern: SAFE_RELATIVE_PATH_PATTERN,
                               type: "string",
                             },
                           },

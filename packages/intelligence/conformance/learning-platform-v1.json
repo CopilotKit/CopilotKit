@@ -3303,6 +3303,398 @@
       }
     },
     {
+      "name": "generated-bundle-accepts-safe-relative-paths",
+      "schema": "GeneratedSkillCandidateV1",
+      "valid": true,
+      "value": {
+        "action": "add",
+        "bundle": {
+          "files": [
+            {
+              "contentBase64": "IyBTa2lsbA==",
+              "path": "SKILL.md"
+            },
+            {
+              "contentBase64": "cmVmZXJlbmNl",
+              "path": "references/café.txt"
+            }
+          ],
+          "rootDirectoryName": "idempotent-retries-2"
+        },
+        "evidenceRefs": [
+          {
+            "annotationId": null,
+            "annotationSha256": null,
+            "eventIds": [
+              "event_1"
+            ],
+            "evidenceType": "run_snapshot",
+            "excerpt": null,
+            "excerptSha256": null,
+            "externalRunId": "external_run_1",
+            "messageIds": [
+              "message_1"
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1",
+            "truncated": false
+          }
+        ],
+        "insightAliases": [
+          "insight_1"
+        ],
+        "outputAlias": "candidate_1",
+        "parentVersionId": null,
+        "reason": "Avoid duplicate actions.",
+        "removalIntent": null,
+        "risk": "low",
+        "skillId": null
+      }
+    },
+    {
+      "name": "generated-bundle-rejects-invalid-root",
+      "schema": "GeneratedSkillCandidateV1",
+      "valid": false,
+      "value": {
+        "action": "add",
+        "bundle": {
+          "files": [
+            {
+              "contentBase64": "IyBTa2lsbA==",
+              "path": "SKILL.md"
+            }
+          ],
+          "rootDirectoryName": "a/b"
+        },
+        "evidenceRefs": [
+          {
+            "annotationId": null,
+            "annotationSha256": null,
+            "eventIds": [
+              "event_1"
+            ],
+            "evidenceType": "run_snapshot",
+            "excerpt": null,
+            "excerptSha256": null,
+            "externalRunId": "external_run_1",
+            "messageIds": [
+              "message_1"
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1",
+            "truncated": false
+          }
+        ],
+        "insightAliases": [
+          "insight_1"
+        ],
+        "outputAlias": "candidate_1",
+        "parentVersionId": null,
+        "reason": "Avoid duplicate actions.",
+        "removalIntent": null,
+        "risk": "low",
+        "skillId": null
+      }
+    },
+    {
+      "name": "generated-bundle-rejects-traversal-path",
+      "schema": "GeneratedSkillCandidateV1",
+      "valid": false,
+      "value": {
+        "action": "add",
+        "bundle": {
+          "files": [
+            {
+              "contentBase64": "IyBTa2lsbA==",
+              "path": "SKILL.md"
+            },
+            {
+              "contentBase64": "eA==",
+              "path": "../escape.txt"
+            }
+          ],
+          "rootDirectoryName": "idempotent-retries"
+        },
+        "evidenceRefs": [
+          {
+            "annotationId": null,
+            "annotationSha256": null,
+            "eventIds": [
+              "event_1"
+            ],
+            "evidenceType": "run_snapshot",
+            "excerpt": null,
+            "excerptSha256": null,
+            "externalRunId": "external_run_1",
+            "messageIds": [
+              "message_1"
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1",
+            "truncated": false
+          }
+        ],
+        "insightAliases": [
+          "insight_1"
+        ],
+        "outputAlias": "candidate_1",
+        "parentVersionId": null,
+        "reason": "Avoid duplicate actions.",
+        "removalIntent": null,
+        "risk": "low",
+        "skillId": null
+      }
+    },
+    {
+      "name": "generated-bundle-rejects-absolute-path",
+      "schema": "GeneratedSkillCandidateV1",
+      "valid": false,
+      "value": {
+        "action": "add",
+        "bundle": {
+          "files": [
+            {
+              "contentBase64": "IyBTa2lsbA==",
+              "path": "SKILL.md"
+            },
+            {
+              "contentBase64": "eA==",
+              "path": "C:/escape.txt"
+            }
+          ],
+          "rootDirectoryName": "idempotent-retries"
+        },
+        "evidenceRefs": [
+          {
+            "annotationId": null,
+            "annotationSha256": null,
+            "eventIds": [
+              "event_1"
+            ],
+            "evidenceType": "run_snapshot",
+            "excerpt": null,
+            "excerptSha256": null,
+            "externalRunId": "external_run_1",
+            "messageIds": [
+              "message_1"
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1",
+            "truncated": false
+          }
+        ],
+        "insightAliases": [
+          "insight_1"
+        ],
+        "outputAlias": "candidate_1",
+        "parentVersionId": null,
+        "reason": "Avoid duplicate actions.",
+        "removalIntent": null,
+        "risk": "low",
+        "skillId": null
+      }
+    },
+    {
+      "name": "generated-bundle-rejects-backslash-path",
+      "schema": "GeneratedSkillCandidateV1",
+      "valid": false,
+      "value": {
+        "action": "add",
+        "bundle": {
+          "files": [
+            {
+              "contentBase64": "IyBTa2lsbA==",
+              "path": "SKILL.md"
+            },
+            {
+              "contentBase64": "eA==",
+              "path": "references\\escape.txt"
+            }
+          ],
+          "rootDirectoryName": "idempotent-retries"
+        },
+        "evidenceRefs": [
+          {
+            "annotationId": null,
+            "annotationSha256": null,
+            "eventIds": [
+              "event_1"
+            ],
+            "evidenceType": "run_snapshot",
+            "excerpt": null,
+            "excerptSha256": null,
+            "externalRunId": "external_run_1",
+            "messageIds": [
+              "message_1"
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1",
+            "truncated": false
+          }
+        ],
+        "insightAliases": [
+          "insight_1"
+        ],
+        "outputAlias": "candidate_1",
+        "parentVersionId": null,
+        "reason": "Avoid duplicate actions.",
+        "removalIntent": null,
+        "risk": "low",
+        "skillId": null
+      }
+    },
+    {
+      "name": "generated-bundle-rejects-normalized-path-collision",
+      "schema": "GeneratedSkillCandidateV1",
+      "valid": false,
+      "value": {
+        "action": "add",
+        "bundle": {
+          "files": [
+            {
+              "contentBase64": "IyBTa2lsbA==",
+              "path": "SKILL.md"
+            },
+            {
+              "contentBase64": "bGVmdA==",
+              "path": "café.txt"
+            },
+            {
+              "contentBase64": "cmlnaHQ=",
+              "path": "café.txt"
+            }
+          ],
+          "rootDirectoryName": "idempotent-retries"
+        },
+        "evidenceRefs": [
+          {
+            "annotationId": null,
+            "annotationSha256": null,
+            "eventIds": [
+              "event_1"
+            ],
+            "evidenceType": "run_snapshot",
+            "excerpt": null,
+            "excerptSha256": null,
+            "externalRunId": "external_run_1",
+            "messageIds": [
+              "message_1"
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1",
+            "truncated": false
+          }
+        ],
+        "insightAliases": [
+          "insight_1"
+        ],
+        "outputAlias": "candidate_1",
+        "parentVersionId": null,
+        "reason": "Avoid duplicate actions.",
+        "removalIntent": null,
+        "risk": "low",
+        "skillId": null
+      }
+    },
+    {
+      "name": "generated-bundle-rejects-missing-skill-md",
+      "schema": "GeneratedSkillCandidateV1",
+      "valid": false,
+      "value": {
+        "action": "add",
+        "bundle": {
+          "files": [
+            {
+              "contentBase64": "eA==",
+              "path": "README.md"
+            }
+          ],
+          "rootDirectoryName": "idempotent-retries"
+        },
+        "evidenceRefs": [
+          {
+            "annotationId": null,
+            "annotationSha256": null,
+            "eventIds": [
+              "event_1"
+            ],
+            "evidenceType": "run_snapshot",
+            "excerpt": null,
+            "excerptSha256": null,
+            "externalRunId": "external_run_1",
+            "messageIds": [
+              "message_1"
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1",
+            "truncated": false
+          }
+        ],
+        "insightAliases": [
+          "insight_1"
+        ],
+        "outputAlias": "candidate_1",
+        "parentVersionId": null,
+        "reason": "Avoid duplicate actions.",
+        "removalIntent": null,
+        "risk": "low",
+        "skillId": null
+      }
+    },
+    {
+      "name": "generated-bundle-rejects-root-prefixed-skill-md",
+      "schema": "GeneratedSkillCandidateV1",
+      "valid": false,
+      "value": {
+        "action": "add",
+        "bundle": {
+          "files": [
+            {
+              "contentBase64": "IyBTa2lsbA==",
+              "path": "idempotent-retries/SKILL.md"
+            }
+          ],
+          "rootDirectoryName": "idempotent-retries"
+        },
+        "evidenceRefs": [
+          {
+            "annotationId": null,
+            "annotationSha256": null,
+            "eventIds": [
+              "event_1"
+            ],
+            "evidenceType": "run_snapshot",
+            "excerpt": null,
+            "excerptSha256": null,
+            "externalRunId": "external_run_1",
+            "messageIds": [
+              "message_1"
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1",
+            "truncated": false
+          }
+        ],
+        "insightAliases": [
+          "insight_1"
+        ],
+        "outputAlias": "candidate_1",
+        "parentVersionId": null,
+        "reason": "Avoid duplicate actions.",
+        "removalIntent": null,
+        "risk": "low",
+        "skillId": null
+      }
+    },
+    {
       "name": "generated-bundle-rejects-empty-file-content",
       "schema": "GeneratedSkillCandidateV1",
       "valid": false,
@@ -3310,6 +3702,10 @@
         "action": "add",
         "bundle": {
           "files": [
+            {
+              "contentBase64": "IyBTa2lsbA==",
+              "path": "SKILL.md"
+            },
             {
               "contentBase64": "",
               "path": "empty.bin"
@@ -3357,6 +3753,10 @@
         "bundle": {
           "files": [
             {
+              "contentBase64": "IyBTa2lsbA==",
+              "path": "SKILL.md"
+            },
+            {
               "contentBase64": "AA",
               "path": "asset.bin"
             }
@@ -3402,6 +3802,10 @@
         "action": "add",
         "bundle": {
           "files": [
+            {
+              "contentBase64": "IyBTa2lsbA==",
+              "path": "SKILL.md"
+            },
             {
               "contentBase64": "AA=",
               "path": "asset.bin"
@@ -3449,6 +3853,10 @@
         "bundle": {
           "files": [
             {
+              "contentBase64": "IyBTa2lsbA==",
+              "path": "SKILL.md"
+            },
+            {
               "contentBase64": "AA===",
               "path": "asset.bin"
             }
@@ -3494,6 +3902,10 @@
         "action": "add",
         "bundle": {
           "files": [
+            {
+              "contentBase64": "IyBTa2lsbA==",
+              "path": "SKILL.md"
+            },
             {
               "contentBase64": "A=AA",
               "path": "asset.bin"
@@ -3541,6 +3953,10 @@
         "bundle": {
           "files": [
             {
+              "contentBase64": "IyBTa2lsbA==",
+              "path": "SKILL.md"
+            },
+            {
               "contentBase64": "__8=",
               "path": "asset.bin"
             }
@@ -3586,6 +4002,10 @@
         "action": "add",
         "bundle": {
           "files": [
+            {
+              "contentBase64": "IyBTa2lsbA==",
+              "path": "SKILL.md"
+            },
             {
               "contentBase64": "AA==\n",
               "path": "asset.bin"
@@ -3633,6 +4053,10 @@
         "bundle": {
           "files": [
             {
+              "contentBase64": "IyBTa2lsbA==",
+              "path": "SKILL.md"
+            },
+            {
               "contentBase64": "AA!=",
               "path": "asset.bin"
             }
@@ -3679,6 +4103,10 @@
         "bundle": {
           "files": [
             {
+              "contentBase64": "IyBTa2lsbA==",
+              "path": "SKILL.md"
+            },
+            {
               "contentBase64": "AB==",
               "path": "asset.bin"
             }
@@ -3724,6 +4152,10 @@
         "action": "add",
         "bundle": {
           "files": [
+            {
+              "contentBase64": "IyBTa2lsbA==",
+              "path": "SKILL.md"
+            },
             {
               "contentBase64": "AAB=",
               "path": "asset.bin"
@@ -5202,7 +5634,8 @@
                                   "type": "string"
                                 },
                                 "path": {
-                                  "minLength": 1,
+                                  "maxLength": 512,
+                                  "pattern": "^(?![A-Za-z]:)(?!.*[\\u0000-\\u001F\\u007F\\\\])(?!(?:.*\\/)?\\.{1,2}(?:\\/|$))[^/]+(?:\\/[^/]+)*(?![\\s\\S])",
                                   "type": "string"
                                 }
                               },
@@ -5216,7 +5649,8 @@
                             "type": "array"
                           },
                           "rootDirectoryName": {
-                            "minLength": 1,
+                            "maxLength": 512,
+                            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?![\\s\\S])",
                             "type": "string"
                           }
                         },
@@ -6714,7 +7148,8 @@
                         "type": "string"
                       },
                       "path": {
-                        "minLength": 1,
+                        "maxLength": 512,
+                        "pattern": "^(?![A-Za-z]:)(?!.*[\\u0000-\\u001F\\u007F\\\\])(?!(?:.*\\/)?\\.{1,2}(?:\\/|$))[^/]+(?:\\/[^/]+)*(?![\\s\\S])",
                         "type": "string"
                       }
                     },
@@ -6728,7 +7163,8 @@
                   "type": "array"
                 },
                 "rootDirectoryName": {
-                  "minLength": 1,
+                  "maxLength": 512,
+                  "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?![\\s\\S])",
                   "type": "string"
                 }
               },
@@ -8289,7 +8725,8 @@
                                   "type": "string"
                                 },
                                 "path": {
-                                  "minLength": 1,
+                                  "maxLength": 512,
+                                  "pattern": "^(?![A-Za-z]:)(?!.*[\\u0000-\\u001F\\u007F\\\\])(?!(?:.*\\/)?\\.{1,2}(?:\\/|$))[^/]+(?:\\/[^/]+)*(?![\\s\\S])",
                                   "type": "string"
                                 }
                               },
@@ -8303,7 +8740,8 @@
                             "type": "array"
                           },
                           "rootDirectoryName": {
-                            "minLength": 1,
+                            "maxLength": 512,
+                            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?![\\s\\S])",
                             "type": "string"
                           }
                         },
@@ -9835,7 +10273,8 @@
                               "type": "string"
                             },
                             "path": {
-                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "^(?![A-Za-z]:)(?!.*[\\u0000-\\u001F\\u007F\\\\])(?!(?:.*\\/)?\\.{1,2}(?:\\/|$))[^/]+(?:\\/[^/]+)*(?![\\s\\S])",
                               "type": "string"
                             }
                           },
@@ -9849,7 +10288,8 @@
                         "type": "array"
                       },
                       "rootDirectoryName": {
-                        "minLength": 1,
+                        "maxLength": 512,
+                        "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?![\\s\\S])",
                         "type": "string"
                       }
                     },
@@ -10494,7 +10934,8 @@
                             "type": "string"
                           },
                           "path": {
-                            "minLength": 1,
+                            "maxLength": 512,
+                            "pattern": "^(?![A-Za-z]:)(?!.*[\\u0000-\\u001F\\u007F\\\\])(?!(?:.*\\/)?\\.{1,2}(?:\\/|$))[^/]+(?:\\/[^/]+)*(?![\\s\\S])",
                             "type": "string"
                           }
                         },
@@ -10508,7 +10949,8 @@
                       "type": "array"
                     },
                     "rootDirectoryName": {
-                      "minLength": 1,
+                      "maxLength": 512,
+                      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?![\\s\\S])",
                       "type": "string"
                     }
                   },

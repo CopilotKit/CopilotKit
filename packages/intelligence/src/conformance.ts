@@ -994,6 +994,123 @@ function buildCases(): LearningPlatformConformanceCase[] {
       },
     },
     {
+      name: "generated-bundle-accepts-safe-relative-paths",
+      schema: "GeneratedSkillCandidateV1",
+      valid: true,
+      value: {
+        ...generatedCandidate,
+        bundle: {
+          rootDirectoryName: "idempotent-retries-2",
+          files: [
+            ...generatedCandidate.bundle.files,
+            {
+              path: "references/caf\u00e9.txt",
+              contentBase64: "cmVmZXJlbmNl",
+            },
+          ],
+        },
+      },
+    },
+    {
+      name: "generated-bundle-rejects-invalid-root",
+      schema: "GeneratedSkillCandidateV1",
+      valid: false,
+      value: {
+        ...generatedCandidate,
+        bundle: { ...generatedCandidate.bundle, rootDirectoryName: "a/b" },
+      },
+    },
+    {
+      name: "generated-bundle-rejects-traversal-path",
+      schema: "GeneratedSkillCandidateV1",
+      valid: false,
+      value: {
+        ...generatedCandidate,
+        bundle: {
+          ...generatedCandidate.bundle,
+          files: [
+            ...generatedCandidate.bundle.files,
+            { path: "../escape.txt", contentBase64: "eA==" },
+          ],
+        },
+      },
+    },
+    {
+      name: "generated-bundle-rejects-absolute-path",
+      schema: "GeneratedSkillCandidateV1",
+      valid: false,
+      value: {
+        ...generatedCandidate,
+        bundle: {
+          ...generatedCandidate.bundle,
+          files: [
+            ...generatedCandidate.bundle.files,
+            { path: "C:/escape.txt", contentBase64: "eA==" },
+          ],
+        },
+      },
+    },
+    {
+      name: "generated-bundle-rejects-backslash-path",
+      schema: "GeneratedSkillCandidateV1",
+      valid: false,
+      value: {
+        ...generatedCandidate,
+        bundle: {
+          ...generatedCandidate.bundle,
+          files: [
+            ...generatedCandidate.bundle.files,
+            { path: "references\\escape.txt", contentBase64: "eA==" },
+          ],
+        },
+      },
+    },
+    {
+      name: "generated-bundle-rejects-normalized-path-collision",
+      schema: "GeneratedSkillCandidateV1",
+      valid: false,
+      value: {
+        ...generatedCandidate,
+        bundle: {
+          ...generatedCandidate.bundle,
+          files: [
+            ...generatedCandidate.bundle.files,
+            { path: "caf\u00e9.txt", contentBase64: "bGVmdA==" },
+            { path: "cafe\u0301.txt", contentBase64: "cmlnaHQ=" },
+          ],
+        },
+      },
+    },
+    {
+      name: "generated-bundle-rejects-missing-skill-md",
+      schema: "GeneratedSkillCandidateV1",
+      valid: false,
+      value: {
+        ...generatedCandidate,
+        bundle: {
+          ...generatedCandidate.bundle,
+          files: [{ path: "README.md", contentBase64: "eA==" }],
+        },
+      },
+    },
+    {
+      name: "generated-bundle-rejects-root-prefixed-skill-md",
+      schema: "GeneratedSkillCandidateV1",
+      valid: false,
+      value: {
+        ...generatedCandidate,
+        bundle: {
+          ...generatedCandidate.bundle,
+          files: [
+            {
+              path: "idempotent-retries/SKILL.md",
+              contentBase64: "IyBTa2lsbA==",
+            },
+          ],
+        },
+      },
+    },
+    {
       name: "generated-bundle-rejects-empty-file-content",
       schema: "GeneratedSkillCandidateV1",
       valid: false,
@@ -1001,7 +1118,10 @@ function buildCases(): LearningPlatformConformanceCase[] {
         ...generatedCandidate,
         bundle: {
           ...generatedCandidate.bundle,
-          files: [{ path: "empty.bin", contentBase64: "" }],
+          files: [
+            ...generatedCandidate.bundle.files,
+            { path: "empty.bin", contentBase64: "" },
+          ],
         },
       },
     },
@@ -1025,7 +1145,10 @@ function buildCases(): LearningPlatformConformanceCase[] {
         ...generatedCandidate,
         bundle: {
           ...generatedCandidate.bundle,
-          files: [{ path: "asset.bin", contentBase64 }],
+          files: [
+            ...generatedCandidate.bundle.files,
+            { path: "asset.bin", contentBase64 },
+          ],
         },
       },
     })),
