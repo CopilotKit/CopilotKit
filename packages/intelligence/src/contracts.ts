@@ -1,6 +1,13 @@
 import { z } from "zod/v4";
 
 const nonEmptyStringSchema = z.string().min(1);
+const canonicalBase64Schema = z
+  .string()
+  .min(1)
+  .regex(
+    /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/][AQgw]==|[A-Za-z0-9+/]{2}[AEIMQUYcgkosw048]=)?(?![\s\S])/u,
+    "Expected canonical RFC 4648 base64",
+  );
 const idSchema = nonEmptyStringSchema;
 const NIL_UUID = "00000000-0000-0000-0000-000000000000";
 export const nonNilUuidSchema = z
@@ -791,7 +798,7 @@ const generatedSkillBundleV1Schema = z.looseObject({
     .array(
       z.looseObject({
         path: nonEmptyStringSchema,
-        contentBase64: nonEmptyStringSchema,
+        contentBase64: canonicalBase64Schema,
       }),
     )
     .min(1),

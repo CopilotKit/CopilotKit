@@ -36,6 +36,8 @@ const SHA_A = "a".repeat(64);
 const SHA_B = "b".repeat(64);
 const NOW = "2026-07-16T18:00:00.000Z";
 const NIL_UUID = "00000000-0000-0000-0000-000000000000";
+const CANONICAL_BASE64_PATTERN =
+  "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/][AQgw]==|[A-Za-z0-9+/]{2}[AEIMQUYcgkosw048]=)?(?![\\s\\S])";
 
 const learningContainer = {
   schemaVersion: 1,
@@ -340,6 +342,46 @@ describe("parent V1 contract schemas", () => {
       );
     },
   );
+
+  test.each([
+    { name: "one byte", contentBase64: "AA==" },
+    { name: "two bytes", contentBase64: "AAA=" },
+    { name: "complete quantum", contentBase64: "AAAA" },
+    { name: "standard alphabet", contentBase64: "+/8=" },
+  ])("accepts canonical base64 for $name", ({ contentBase64 }) => {
+    expect(
+      generatedSkillCandidateV1Schema.safeParse({
+        ...generatedCandidate,
+        bundle: {
+          ...generatedCandidate.bundle,
+          files: [{ path: "asset.bin", contentBase64 }],
+        },
+      }).success,
+    ).toBe(true);
+  });
+
+  test.each([
+    { name: "empty file content", contentBase64: "" },
+    { name: "missing padding", contentBase64: "AA" },
+    { name: "malformed padding", contentBase64: "AA=" },
+    { name: "excess padding", contentBase64: "AA===" },
+    { name: "interior padding", contentBase64: "A=AA" },
+    { name: "URL-safe alphabet", contentBase64: "__8=" },
+    { name: "whitespace", contentBase64: "AA==\n" },
+    { name: "invalid alphabet", contentBase64: "AA!=" },
+    { name: "non-zero one-byte pad bits", contentBase64: "AB==" },
+    { name: "non-zero two-byte pad bits", contentBase64: "AAB=" },
+  ])("rejects $name in base64 file content", ({ contentBase64 }) => {
+    expect(
+      generatedSkillCandidateV1Schema.safeParse({
+        ...generatedCandidate,
+        bundle: {
+          ...generatedCandidate.bundle,
+          files: [{ path: "asset.bin", contentBase64 }],
+        },
+      }).success,
+    ).toBe(false);
+  });
 
   test.each([
     {
@@ -1001,6 +1043,39 @@ describe("parent V1 contract schemas", () => {
                   { type: "string" },
                   { type: "null" },
                 ]),
+              },
+            },
+          },
+        },
+      },
+    });
+  });
+
+  test("publishes canonical base64 validation in JSON Schema", () => {
+    expect(learningContractJsonSchemas.LearningWorkflowOutputV1).toMatchObject({
+      properties: {
+        skillCandidates: {
+          items: {
+            properties: {
+              bundle: {
+                anyOf: [
+                  {
+                    properties: {
+                      files: {
+                        items: {
+                          properties: {
+                            contentBase64: {
+                              minLength: 1,
+                              pattern: CANONICAL_BASE64_PATTERN,
+                              type: "string",
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                  { type: "null" },
+                ],
               },
             },
           },

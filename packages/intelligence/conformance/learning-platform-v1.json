@@ -3303,6 +3303,466 @@
       }
     },
     {
+      "name": "generated-bundle-rejects-empty-file-content",
+      "schema": "GeneratedSkillCandidateV1",
+      "valid": false,
+      "value": {
+        "action": "add",
+        "bundle": {
+          "files": [
+            {
+              "contentBase64": "",
+              "path": "empty.bin"
+            }
+          ],
+          "rootDirectoryName": "idempotent-retries"
+        },
+        "evidenceRefs": [
+          {
+            "annotationId": null,
+            "annotationSha256": null,
+            "eventIds": [
+              "event_1"
+            ],
+            "evidenceType": "run_snapshot",
+            "excerpt": null,
+            "excerptSha256": null,
+            "externalRunId": "external_run_1",
+            "messageIds": [
+              "message_1"
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1",
+            "truncated": false
+          }
+        ],
+        "insightAliases": [
+          "insight_1"
+        ],
+        "outputAlias": "candidate_1",
+        "parentVersionId": null,
+        "reason": "Avoid duplicate actions.",
+        "removalIntent": null,
+        "risk": "low",
+        "skillId": null
+      }
+    },
+    {
+      "name": "generated-bundle-rejects-base64-missing-padding",
+      "schema": "GeneratedSkillCandidateV1",
+      "valid": false,
+      "value": {
+        "action": "add",
+        "bundle": {
+          "files": [
+            {
+              "contentBase64": "AA",
+              "path": "asset.bin"
+            }
+          ],
+          "rootDirectoryName": "idempotent-retries"
+        },
+        "evidenceRefs": [
+          {
+            "annotationId": null,
+            "annotationSha256": null,
+            "eventIds": [
+              "event_1"
+            ],
+            "evidenceType": "run_snapshot",
+            "excerpt": null,
+            "excerptSha256": null,
+            "externalRunId": "external_run_1",
+            "messageIds": [
+              "message_1"
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1",
+            "truncated": false
+          }
+        ],
+        "insightAliases": [
+          "insight_1"
+        ],
+        "outputAlias": "candidate_1",
+        "parentVersionId": null,
+        "reason": "Avoid duplicate actions.",
+        "removalIntent": null,
+        "risk": "low",
+        "skillId": null
+      }
+    },
+    {
+      "name": "generated-bundle-rejects-base64-malformed-padding",
+      "schema": "GeneratedSkillCandidateV1",
+      "valid": false,
+      "value": {
+        "action": "add",
+        "bundle": {
+          "files": [
+            {
+              "contentBase64": "AA=",
+              "path": "asset.bin"
+            }
+          ],
+          "rootDirectoryName": "idempotent-retries"
+        },
+        "evidenceRefs": [
+          {
+            "annotationId": null,
+            "annotationSha256": null,
+            "eventIds": [
+              "event_1"
+            ],
+            "evidenceType": "run_snapshot",
+            "excerpt": null,
+            "excerptSha256": null,
+            "externalRunId": "external_run_1",
+            "messageIds": [
+              "message_1"
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1",
+            "truncated": false
+          }
+        ],
+        "insightAliases": [
+          "insight_1"
+        ],
+        "outputAlias": "candidate_1",
+        "parentVersionId": null,
+        "reason": "Avoid duplicate actions.",
+        "removalIntent": null,
+        "risk": "low",
+        "skillId": null
+      }
+    },
+    {
+      "name": "generated-bundle-rejects-base64-excess-padding",
+      "schema": "GeneratedSkillCandidateV1",
+      "valid": false,
+      "value": {
+        "action": "add",
+        "bundle": {
+          "files": [
+            {
+              "contentBase64": "AA===",
+              "path": "asset.bin"
+            }
+          ],
+          "rootDirectoryName": "idempotent-retries"
+        },
+        "evidenceRefs": [
+          {
+            "annotationId": null,
+            "annotationSha256": null,
+            "eventIds": [
+              "event_1"
+            ],
+            "evidenceType": "run_snapshot",
+            "excerpt": null,
+            "excerptSha256": null,
+            "externalRunId": "external_run_1",
+            "messageIds": [
+              "message_1"
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1",
+            "truncated": false
+          }
+        ],
+        "insightAliases": [
+          "insight_1"
+        ],
+        "outputAlias": "candidate_1",
+        "parentVersionId": null,
+        "reason": "Avoid duplicate actions.",
+        "removalIntent": null,
+        "risk": "low",
+        "skillId": null
+      }
+    },
+    {
+      "name": "generated-bundle-rejects-base64-interior-padding",
+      "schema": "GeneratedSkillCandidateV1",
+      "valid": false,
+      "value": {
+        "action": "add",
+        "bundle": {
+          "files": [
+            {
+              "contentBase64": "A=AA",
+              "path": "asset.bin"
+            }
+          ],
+          "rootDirectoryName": "idempotent-retries"
+        },
+        "evidenceRefs": [
+          {
+            "annotationId": null,
+            "annotationSha256": null,
+            "eventIds": [
+              "event_1"
+            ],
+            "evidenceType": "run_snapshot",
+            "excerpt": null,
+            "excerptSha256": null,
+            "externalRunId": "external_run_1",
+            "messageIds": [
+              "message_1"
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1",
+            "truncated": false
+          }
+        ],
+        "insightAliases": [
+          "insight_1"
+        ],
+        "outputAlias": "candidate_1",
+        "parentVersionId": null,
+        "reason": "Avoid duplicate actions.",
+        "removalIntent": null,
+        "risk": "low",
+        "skillId": null
+      }
+    },
+    {
+      "name": "generated-bundle-rejects-base64-url-safe-alphabet",
+      "schema": "GeneratedSkillCandidateV1",
+      "valid": false,
+      "value": {
+        "action": "add",
+        "bundle": {
+          "files": [
+            {
+              "contentBase64": "__8=",
+              "path": "asset.bin"
+            }
+          ],
+          "rootDirectoryName": "idempotent-retries"
+        },
+        "evidenceRefs": [
+          {
+            "annotationId": null,
+            "annotationSha256": null,
+            "eventIds": [
+              "event_1"
+            ],
+            "evidenceType": "run_snapshot",
+            "excerpt": null,
+            "excerptSha256": null,
+            "externalRunId": "external_run_1",
+            "messageIds": [
+              "message_1"
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1",
+            "truncated": false
+          }
+        ],
+        "insightAliases": [
+          "insight_1"
+        ],
+        "outputAlias": "candidate_1",
+        "parentVersionId": null,
+        "reason": "Avoid duplicate actions.",
+        "removalIntent": null,
+        "risk": "low",
+        "skillId": null
+      }
+    },
+    {
+      "name": "generated-bundle-rejects-base64-whitespace",
+      "schema": "GeneratedSkillCandidateV1",
+      "valid": false,
+      "value": {
+        "action": "add",
+        "bundle": {
+          "files": [
+            {
+              "contentBase64": "AA==\n",
+              "path": "asset.bin"
+            }
+          ],
+          "rootDirectoryName": "idempotent-retries"
+        },
+        "evidenceRefs": [
+          {
+            "annotationId": null,
+            "annotationSha256": null,
+            "eventIds": [
+              "event_1"
+            ],
+            "evidenceType": "run_snapshot",
+            "excerpt": null,
+            "excerptSha256": null,
+            "externalRunId": "external_run_1",
+            "messageIds": [
+              "message_1"
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1",
+            "truncated": false
+          }
+        ],
+        "insightAliases": [
+          "insight_1"
+        ],
+        "outputAlias": "candidate_1",
+        "parentVersionId": null,
+        "reason": "Avoid duplicate actions.",
+        "removalIntent": null,
+        "risk": "low",
+        "skillId": null
+      }
+    },
+    {
+      "name": "generated-bundle-rejects-base64-invalid-alphabet",
+      "schema": "GeneratedSkillCandidateV1",
+      "valid": false,
+      "value": {
+        "action": "add",
+        "bundle": {
+          "files": [
+            {
+              "contentBase64": "AA!=",
+              "path": "asset.bin"
+            }
+          ],
+          "rootDirectoryName": "idempotent-retries"
+        },
+        "evidenceRefs": [
+          {
+            "annotationId": null,
+            "annotationSha256": null,
+            "eventIds": [
+              "event_1"
+            ],
+            "evidenceType": "run_snapshot",
+            "excerpt": null,
+            "excerptSha256": null,
+            "externalRunId": "external_run_1",
+            "messageIds": [
+              "message_1"
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1",
+            "truncated": false
+          }
+        ],
+        "insightAliases": [
+          "insight_1"
+        ],
+        "outputAlias": "candidate_1",
+        "parentVersionId": null,
+        "reason": "Avoid duplicate actions.",
+        "removalIntent": null,
+        "risk": "low",
+        "skillId": null
+      }
+    },
+    {
+      "name": "generated-bundle-rejects-base64-non-zero-one-byte-pad-bits",
+      "schema": "GeneratedSkillCandidateV1",
+      "valid": false,
+      "value": {
+        "action": "add",
+        "bundle": {
+          "files": [
+            {
+              "contentBase64": "AB==",
+              "path": "asset.bin"
+            }
+          ],
+          "rootDirectoryName": "idempotent-retries"
+        },
+        "evidenceRefs": [
+          {
+            "annotationId": null,
+            "annotationSha256": null,
+            "eventIds": [
+              "event_1"
+            ],
+            "evidenceType": "run_snapshot",
+            "excerpt": null,
+            "excerptSha256": null,
+            "externalRunId": "external_run_1",
+            "messageIds": [
+              "message_1"
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1",
+            "truncated": false
+          }
+        ],
+        "insightAliases": [
+          "insight_1"
+        ],
+        "outputAlias": "candidate_1",
+        "parentVersionId": null,
+        "reason": "Avoid duplicate actions.",
+        "removalIntent": null,
+        "risk": "low",
+        "skillId": null
+      }
+    },
+    {
+      "name": "generated-bundle-rejects-base64-non-zero-two-byte-pad-bits",
+      "schema": "GeneratedSkillCandidateV1",
+      "valid": false,
+      "value": {
+        "action": "add",
+        "bundle": {
+          "files": [
+            {
+              "contentBase64": "AAB=",
+              "path": "asset.bin"
+            }
+          ],
+          "rootDirectoryName": "idempotent-retries"
+        },
+        "evidenceRefs": [
+          {
+            "annotationId": null,
+            "annotationSha256": null,
+            "eventIds": [
+              "event_1"
+            ],
+            "evidenceType": "run_snapshot",
+            "excerpt": null,
+            "excerptSha256": null,
+            "externalRunId": "external_run_1",
+            "messageIds": [
+              "message_1"
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1",
+            "truncated": false
+          }
+        ],
+        "insightAliases": [
+          "insight_1"
+        ],
+        "outputAlias": "candidate_1",
+        "parentVersionId": null,
+        "reason": "Avoid duplicate actions.",
+        "removalIntent": null,
+        "risk": "low",
+        "skillId": null
+      }
+    },
+    {
       "name": "create-learning-run-rejects-inverted-selection-interval",
       "schema": "CreateLearningRunV1",
       "valid": false,
@@ -4738,6 +5198,7 @@
                               "properties": {
                                 "contentBase64": {
                                   "minLength": 1,
+                                  "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/][AQgw]==|[A-Za-z0-9+/]{2}[AEIMQUYcgkosw048]=)?(?![\\s\\S])",
                                   "type": "string"
                                 },
                                 "path": {
@@ -6249,6 +6710,7 @@
                     "properties": {
                       "contentBase64": {
                         "minLength": 1,
+                        "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/][AQgw]==|[A-Za-z0-9+/]{2}[AEIMQUYcgkosw048]=)?(?![\\s\\S])",
                         "type": "string"
                       },
                       "path": {
@@ -7823,6 +8285,7 @@
                               "properties": {
                                 "contentBase64": {
                                   "minLength": 1,
+                                  "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/][AQgw]==|[A-Za-z0-9+/]{2}[AEIMQUYcgkosw048]=)?(?![\\s\\S])",
                                   "type": "string"
                                 },
                                 "path": {
@@ -9368,6 +9831,7 @@
                           "properties": {
                             "contentBase64": {
                               "minLength": 1,
+                              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/][AQgw]==|[A-Za-z0-9+/]{2}[AEIMQUYcgkosw048]=)?(?![\\s\\S])",
                               "type": "string"
                             },
                             "path": {
@@ -10026,6 +10490,7 @@
                         "properties": {
                           "contentBase64": {
                             "minLength": 1,
+                            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/][AQgw]==|[A-Za-z0-9+/]{2}[AEIMQUYcgkosw048]=)?(?![\\s\\S])",
                             "type": "string"
                           },
                           "path": {

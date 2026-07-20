@@ -994,6 +994,42 @@ function buildCases(): LearningPlatformConformanceCase[] {
       },
     },
     {
+      name: "generated-bundle-rejects-empty-file-content",
+      schema: "GeneratedSkillCandidateV1",
+      valid: false,
+      value: {
+        ...generatedCandidate,
+        bundle: {
+          ...generatedCandidate.bundle,
+          files: [{ path: "empty.bin", contentBase64: "" }],
+        },
+      },
+    },
+    ...(
+      [
+        ["missing-padding", "AA"],
+        ["malformed-padding", "AA="],
+        ["excess-padding", "AA==="],
+        ["interior-padding", "A=AA"],
+        ["url-safe-alphabet", "__8="],
+        ["whitespace", "AA==\n"],
+        ["invalid-alphabet", "AA!="],
+        ["non-zero-one-byte-pad-bits", "AB=="],
+        ["non-zero-two-byte-pad-bits", "AAB="],
+      ] as const
+    ).map(([suffix, contentBase64]) => ({
+      name: `generated-bundle-rejects-base64-${suffix}`,
+      schema: "GeneratedSkillCandidateV1" as const,
+      valid: false,
+      value: {
+        ...generatedCandidate,
+        bundle: {
+          ...generatedCandidate.bundle,
+          files: [{ path: "asset.bin", contentBase64 }],
+        },
+      },
+    })),
+    {
       name: "create-learning-run-rejects-inverted-selection-interval",
       schema: "CreateLearningRunV1",
       valid: false,
