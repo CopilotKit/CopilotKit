@@ -2311,6 +2311,547 @@
       }
     },
     {
+      "name": "workflow-input-rejects-duplicate-thread-ids",
+      "schema": "LearningWorkflowInputV1",
+      "valid": false,
+      "value": {
+        "availableSkills": [],
+        "limits": {},
+        "promptContext": null,
+        "schemaVersion": 1,
+        "selectedAnnotations": [
+          {
+            "annotationId": "11111111-1111-4111-8111-111111111111",
+            "annotationRevision": 0,
+            "authoredAt": "2026-07-16T18:00:00.000Z",
+            "capturedAt": "2026-07-16T18:00:00.000Z",
+            "contentSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "schemaVersion": 1,
+            "targetEvidenceLocator": {
+              "eventIds": [
+                "event_1"
+              ],
+              "messageIds": [
+                "message_1"
+              ]
+            },
+            "targetSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "text": "Prefer idempotent retries."
+          }
+        ],
+        "threads": [
+          {
+            "externalRunId": "external_run_1",
+            "messages": [
+              {
+                "content": "done",
+                "eventIds": [
+                  "event_1"
+                ],
+                "messageId": "message_1",
+                "role": "assistant",
+                "timestamp": "2026-07-16T18:00:00.000Z",
+                "toolCalls": [
+                  {
+                    "argsText": "{}",
+                    "id": "call_1",
+                    "name": "search"
+                  }
+                ],
+                "toolResults": [
+                  {
+                    "output": {
+                      "hits": 1
+                    },
+                    "status": "ok",
+                    "toolCallId": "call_1"
+                  }
+                ]
+              }
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1"
+          },
+          {
+            "externalRunId": "external_run_2",
+            "messages": [
+              {
+                "content": "done",
+                "eventIds": [
+                  "event_1"
+                ],
+                "messageId": "message_1",
+                "role": "assistant",
+                "timestamp": "2026-07-16T18:00:00.000Z",
+                "toolCalls": [
+                  {
+                    "argsText": "{}",
+                    "id": "call_1",
+                    "name": "search"
+                  }
+                ],
+                "toolResults": [
+                  {
+                    "output": {
+                      "hits": 1
+                    },
+                    "status": "ok",
+                    "toolCallId": "call_1"
+                  }
+                ]
+              }
+            ],
+            "snapshotId": "11111111-1111-4111-8111-111111111111",
+            "snapshotSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "threadId": "thread_1"
+          }
+        ]
+      }
+    },
+    {
+      "name": "workflow-input-rejects-duplicate-snapshot-ids",
+      "schema": "LearningWorkflowInputV1",
+      "valid": false,
+      "value": {
+        "availableSkills": [],
+        "limits": {},
+        "promptContext": null,
+        "schemaVersion": 1,
+        "selectedAnnotations": [
+          {
+            "annotationId": "11111111-1111-4111-8111-111111111111",
+            "annotationRevision": 0,
+            "authoredAt": "2026-07-16T18:00:00.000Z",
+            "capturedAt": "2026-07-16T18:00:00.000Z",
+            "contentSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "schemaVersion": 1,
+            "targetEvidenceLocator": {
+              "eventIds": [
+                "event_1"
+              ],
+              "messageIds": [
+                "message_1"
+              ]
+            },
+            "targetSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "text": "Prefer idempotent retries."
+          }
+        ],
+        "threads": [
+          {
+            "externalRunId": "external_run_1",
+            "messages": [
+              {
+                "content": "done",
+                "eventIds": [
+                  "event_1"
+                ],
+                "messageId": "message_1",
+                "role": "assistant",
+                "timestamp": "2026-07-16T18:00:00.000Z",
+                "toolCalls": [
+                  {
+                    "argsText": "{}",
+                    "id": "call_1",
+                    "name": "search"
+                  }
+                ],
+                "toolResults": [
+                  {
+                    "output": {
+                      "hits": 1
+                    },
+                    "status": "ok",
+                    "toolCallId": "call_1"
+                  }
+                ]
+              }
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1"
+          },
+          {
+            "externalRunId": "external_run_2",
+            "messages": [
+              {
+                "content": "done",
+                "eventIds": [
+                  "event_1"
+                ],
+                "messageId": "message_1",
+                "role": "assistant",
+                "timestamp": "2026-07-16T18:00:00.000Z",
+                "toolCalls": [
+                  {
+                    "argsText": "{}",
+                    "id": "call_1",
+                    "name": "search"
+                  }
+                ],
+                "toolResults": [
+                  {
+                    "output": {
+                      "hits": 1
+                    },
+                    "status": "ok",
+                    "toolCallId": "call_1"
+                  }
+                ]
+              }
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_2"
+          }
+        ]
+      }
+    },
+    {
+      "name": "workflow-input-rejects-duplicate-skill-aliases",
+      "schema": "LearningWorkflowInputV1",
+      "valid": false,
+      "value": {
+        "availableSkills": [
+          {
+            "alias": "idempotent-retries",
+            "bundle": {
+              "locator": {
+                "applicationSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "backendId": "primary",
+                "byteLength": 12,
+                "contentType": "application/zip",
+                "etag": null,
+                "key": "objects/aa/bundle.zip",
+                "provider": "awsS3",
+                "providerChecksum": null,
+                "providerVersion": null,
+                "resource": "skill-bundles",
+                "schemaVersion": 1
+              },
+              "manifest": {
+                "agentSkillsProfile": "agentskills:v1",
+                "bundleByteLength": 12,
+                "bundleSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "files": [
+                  {
+                    "byteLength": 12,
+                    "mediaType": "text/markdown",
+                    "path": "SKILL.md",
+                    "rawSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "role": "instructions"
+                  }
+                ],
+                "manifestSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "manifestVersion": 1,
+                "provenance": {}
+              },
+              "schemaVersion": 1
+            },
+            "description": null,
+            "name": "Idempotent retries",
+            "registryState": "published",
+            "skillId": "99999999-9999-4999-8999-999999999999",
+            "versionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+          },
+          {
+            "alias": "idempotent-retries",
+            "bundle": {
+              "locator": {
+                "applicationSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "backendId": "primary",
+                "byteLength": 12,
+                "contentType": "application/zip",
+                "etag": null,
+                "key": "objects/aa/bundle.zip",
+                "provider": "awsS3",
+                "providerChecksum": null,
+                "providerVersion": null,
+                "resource": "skill-bundles",
+                "schemaVersion": 1
+              },
+              "manifest": {
+                "agentSkillsProfile": "agentskills:v1",
+                "bundleByteLength": 12,
+                "bundleSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "files": [
+                  {
+                    "byteLength": 12,
+                    "mediaType": "text/markdown",
+                    "path": "SKILL.md",
+                    "rawSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "role": "instructions"
+                  }
+                ],
+                "manifestSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "manifestVersion": 1,
+                "provenance": {}
+              },
+              "schemaVersion": 1
+            },
+            "description": null,
+            "name": "Idempotent retries",
+            "registryState": "published",
+            "skillId": "33333333-3333-4333-8333-333333333333",
+            "versionId": "44444444-4444-4444-8444-444444444444"
+          }
+        ],
+        "limits": {},
+        "promptContext": null,
+        "schemaVersion": 1,
+        "selectedAnnotations": [
+          {
+            "annotationId": "11111111-1111-4111-8111-111111111111",
+            "annotationRevision": 0,
+            "authoredAt": "2026-07-16T18:00:00.000Z",
+            "capturedAt": "2026-07-16T18:00:00.000Z",
+            "contentSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "schemaVersion": 1,
+            "targetEvidenceLocator": {
+              "eventIds": [
+                "event_1"
+              ],
+              "messageIds": [
+                "message_1"
+              ]
+            },
+            "targetSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "text": "Prefer idempotent retries."
+          }
+        ],
+        "threads": [
+          {
+            "externalRunId": "external_run_1",
+            "messages": [
+              {
+                "content": "done",
+                "eventIds": [
+                  "event_1"
+                ],
+                "messageId": "message_1",
+                "role": "assistant",
+                "timestamp": "2026-07-16T18:00:00.000Z",
+                "toolCalls": [
+                  {
+                    "argsText": "{}",
+                    "id": "call_1",
+                    "name": "search"
+                  }
+                ],
+                "toolResults": [
+                  {
+                    "output": {
+                      "hits": 1
+                    },
+                    "status": "ok",
+                    "toolCallId": "call_1"
+                  }
+                ]
+              }
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1"
+          }
+        ]
+      }
+    },
+    {
+      "name": "workflow-input-rejects-annotation-outside-frozen-input",
+      "schema": "LearningWorkflowInputV1",
+      "valid": false,
+      "value": {
+        "availableSkills": [],
+        "limits": {},
+        "promptContext": null,
+        "schemaVersion": 1,
+        "selectedAnnotations": [
+          {
+            "annotationId": "11111111-1111-4111-8111-111111111111",
+            "annotationRevision": 0,
+            "authoredAt": "2026-07-16T18:00:00.000Z",
+            "capturedAt": "2026-07-16T18:00:00.000Z",
+            "contentSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "schemaVersion": 1,
+            "targetEvidenceLocator": {
+              "eventIds": [
+                "event_1"
+              ],
+              "messageIds": [
+                "message_1"
+              ]
+            },
+            "targetSnapshotId": "55555555-5555-4555-8555-555555555555",
+            "text": "Prefer idempotent retries."
+          }
+        ],
+        "threads": [
+          {
+            "externalRunId": "external_run_1",
+            "messages": [
+              {
+                "content": "done",
+                "eventIds": [
+                  "event_1"
+                ],
+                "messageId": "message_1",
+                "role": "assistant",
+                "timestamp": "2026-07-16T18:00:00.000Z",
+                "toolCalls": [
+                  {
+                    "argsText": "{}",
+                    "id": "call_1",
+                    "name": "search"
+                  }
+                ],
+                "toolResults": [
+                  {
+                    "output": {
+                      "hits": 1
+                    },
+                    "status": "ok",
+                    "toolCallId": "call_1"
+                  }
+                ]
+              }
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1"
+          }
+        ]
+      }
+    },
+    {
+      "name": "workflow-input-rejects-annotation-message-outside-target-snapshot",
+      "schema": "LearningWorkflowInputV1",
+      "valid": false,
+      "value": {
+        "availableSkills": [],
+        "limits": {},
+        "promptContext": null,
+        "schemaVersion": 1,
+        "selectedAnnotations": [
+          {
+            "annotationId": "11111111-1111-4111-8111-111111111111",
+            "annotationRevision": 0,
+            "authoredAt": "2026-07-16T18:00:00.000Z",
+            "capturedAt": "2026-07-16T18:00:00.000Z",
+            "contentSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "schemaVersion": 1,
+            "targetEvidenceLocator": {
+              "eventIds": [],
+              "messageIds": [
+                "missing_message"
+              ]
+            },
+            "targetSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "text": "Prefer idempotent retries."
+          }
+        ],
+        "threads": [
+          {
+            "externalRunId": "external_run_1",
+            "messages": [
+              {
+                "content": "done",
+                "eventIds": [
+                  "event_1"
+                ],
+                "messageId": "message_1",
+                "role": "assistant",
+                "timestamp": "2026-07-16T18:00:00.000Z",
+                "toolCalls": [
+                  {
+                    "argsText": "{}",
+                    "id": "call_1",
+                    "name": "search"
+                  }
+                ],
+                "toolResults": [
+                  {
+                    "output": {
+                      "hits": 1
+                    },
+                    "status": "ok",
+                    "toolCallId": "call_1"
+                  }
+                ]
+              }
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1"
+          }
+        ]
+      }
+    },
+    {
+      "name": "workflow-input-rejects-annotation-event-outside-target-snapshot",
+      "schema": "LearningWorkflowInputV1",
+      "valid": false,
+      "value": {
+        "availableSkills": [],
+        "limits": {},
+        "promptContext": null,
+        "schemaVersion": 1,
+        "selectedAnnotations": [
+          {
+            "annotationId": "11111111-1111-4111-8111-111111111111",
+            "annotationRevision": 0,
+            "authoredAt": "2026-07-16T18:00:00.000Z",
+            "capturedAt": "2026-07-16T18:00:00.000Z",
+            "contentSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "schemaVersion": 1,
+            "targetEvidenceLocator": {
+              "eventIds": [
+                "missing_event"
+              ],
+              "messageIds": []
+            },
+            "targetSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "text": "Prefer idempotent retries."
+          }
+        ],
+        "threads": [
+          {
+            "externalRunId": "external_run_1",
+            "messages": [
+              {
+                "content": "done",
+                "eventIds": [
+                  "event_1"
+                ],
+                "messageId": "message_1",
+                "role": "assistant",
+                "timestamp": "2026-07-16T18:00:00.000Z",
+                "toolCalls": [
+                  {
+                    "argsText": "{}",
+                    "id": "call_1",
+                    "name": "search"
+                  }
+                ],
+                "toolResults": [
+                  {
+                    "output": {
+                      "hits": 1
+                    },
+                    "status": "ok",
+                    "toolCallId": "call_1"
+                  }
+                ]
+              }
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1"
+          }
+        ]
+      }
+    },
+    {
       "name": "create-learning-run-rejects-inverted-selection-interval",
       "schema": "CreateLearningRunV1",
       "valid": false,

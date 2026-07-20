@@ -9,6 +9,7 @@ import {
   learningContainerV1Schema,
   learningContractJsonSchemas,
   learningRunV1Schema,
+  learningWorkflowInputV1Schema,
   runSnapshotV1Schema,
   skillCandidateV1Schema,
   skillSetProjectionV1Schema,
@@ -109,6 +110,93 @@ const snapshot = {
   containerSequence: 1,
 } as const;
 
+const frozenAvailableSkill = {
+  skillId: UUIDS.skill,
+  versionId: UUIDS.version,
+  alias: "idempotent-retries",
+  name: "Idempotent retries",
+  description: null,
+  bundle: {
+    schemaVersion: 1,
+    manifest: {
+      manifestVersion: 1,
+      agentSkillsProfile: "agentskills:v1",
+      files: [
+        {
+          path: "SKILL.md",
+          role: "instructions",
+          mediaType: "text/markdown",
+          byteLength: 12,
+          rawSha256: SHA_A,
+        },
+      ],
+      manifestSha256: SHA_A,
+      bundleSha256: SHA_B,
+      bundleByteLength: 12,
+      provenance: {},
+    },
+    locator: {
+      schemaVersion: 1,
+      backendId: "primary",
+      provider: "awsS3",
+      resource: "skill-bundles",
+      key: "objects/aa/bundle.zip",
+      providerVersion: null,
+      etag: null,
+      applicationSha256: SHA_B,
+      providerChecksum: null,
+      byteLength: 12,
+      contentType: "application/zip",
+    },
+  },
+  registryState: "published",
+} as const;
+
+const workflowInput = {
+  schemaVersion: 1,
+  threads: [
+    {
+      snapshotId: UUIDS.snapshot,
+      snapshotSha256: SHA_A,
+      threadId: "thread_1",
+      externalRunId: "run_external_1",
+      messages: snapshot.messages,
+    },
+    {
+      snapshotId: UUIDS.snapshotSecond,
+      snapshotSha256: SHA_B,
+      threadId: "thread_2",
+      externalRunId: "run_external_2",
+      messages: [
+        {
+          ...snapshot.messages[0],
+          messageId: "message_2",
+          eventIds: ["event_2"],
+        },
+      ],
+    },
+  ],
+  selectedAnnotations: [
+    {
+      schemaVersion: 1,
+      annotationId: UUIDS.insight,
+      targetSnapshotId: UUIDS.snapshot,
+      targetEvidenceLocator: {
+        messageIds: ["message_1"],
+        eventIds: ["event_1"],
+      },
+      text: "Prefer idempotent retries.",
+      contentSha256: SHA_B,
+      annotationRevision: 0,
+      authoredAt: NOW,
+      capturedAt: NOW,
+    },
+  ],
+  availableSkills: [frozenAvailableSkill],
+  promptContext: null,
+  limits: {},
+} as const;
+
 const learningRun = {
   learningRunId: UUIDS.run,
   organizationId: "org_1",
@@ -166,6 +254,84 @@ const learningChunk = {
 } as const;
 
 describe("parent V1 contract schemas", () => {
+  test("accepts a workflow input with unique identities and scoped annotation evidence", () => {
+    expect(learningWorkflowInputV1Schema.parse(workflowInput)).toEqual(
+      workflowInput,
+    );
+  });
+
+  test.each([
+    {
+      name: "thread IDs",
+      value: {
+        ...workflowInput,
+        threads: [
+          workflowInput.threads[0],
+          { ...workflowInput.threads[1], threadId: "thread_1" },
+        ],
+      },
+    },
+    {
+      name: "snapshot IDs",
+      value: {
+        ...workflowInput,
+        threads: [
+          workflowInput.threads[0],
+          { ...workflowInput.threads[1], snapshotId: UUIDS.snapshot },
+        ],
+      },
+    },
+    {
+      name: "available-skill aliases",
+      value: {
+        ...workflowInput,
+        availableSkills: [
+          frozenAvailableSkill,
+          {
+            ...frozenAvailableSkill,
+            skillId: UUIDS.candidate,
+            versionId: UUIDS.candidateRevision,
+          },
+        ],
+      },
+    },
+  ])("rejects duplicate $name in a workflow input", ({ value }) => {
+    expect(learningWorkflowInputV1Schema.safeParse(value).success).toBe(false);
+  });
+
+  test.each([
+    {
+      name: "snapshot",
+      targetSnapshotId: UUIDS.container,
+      targetEvidenceLocator: null,
+    },
+    {
+      name: "message in the target thread",
+      targetSnapshotId: UUIDS.snapshotSecond,
+      targetEvidenceLocator: {
+        messageIds: ["message_1"],
+        eventIds: [],
+      },
+    },
+    {
+      name: "event in the target thread",
+      targetSnapshotId: UUIDS.snapshotSecond,
+      targetEvidenceLocator: {
+        messageIds: [],
+        eventIds: ["event_1"],
+      },
+    },
+  ])("rejects an annotation referencing an absent $name", (annotation) => {
+    expect(
+      learningWorkflowInputV1Schema.safeParse({
+        ...workflowInput,
+        selectedAnnotations: [
+          { ...workflowInput.selectedAnnotations[0], ...annotation },
+        ],
+      }).success,
+    ).toBe(false);
+  });
+
   test("accepts ordinary learning container UUIDs and explicit null but rejects the nil UUID", () => {
     expect(learningContainerIdSchema.parse(UUIDS.container)).toBe(
       UUIDS.container,

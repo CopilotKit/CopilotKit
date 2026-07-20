@@ -807,6 +807,121 @@ function buildCases(): LearningPlatformConformanceCase[] {
       },
     },
     {
+      name: "workflow-input-rejects-duplicate-thread-ids",
+      schema: "LearningWorkflowInputV1",
+      valid: false,
+      value: {
+        ...(canonicalValidValues.LearningWorkflowInputV1 as Record<
+          string,
+          JsonValue
+        >),
+        threads: [
+          workflowThread,
+          {
+            ...workflowThread,
+            snapshotId: UUID.annotation,
+            snapshotSha256: SHA_B,
+            externalRunId: "external_run_2",
+          },
+        ],
+      },
+    },
+    {
+      name: "workflow-input-rejects-duplicate-snapshot-ids",
+      schema: "LearningWorkflowInputV1",
+      valid: false,
+      value: {
+        ...(canonicalValidValues.LearningWorkflowInputV1 as Record<
+          string,
+          JsonValue
+        >),
+        threads: [
+          workflowThread,
+          {
+            ...workflowThread,
+            threadId: "thread_2",
+            externalRunId: "external_run_2",
+          },
+        ],
+      },
+    },
+    {
+      name: "workflow-input-rejects-duplicate-skill-aliases",
+      schema: "LearningWorkflowInputV1",
+      valid: false,
+      value: {
+        ...(canonicalValidValues.LearningWorkflowInputV1 as Record<
+          string,
+          JsonValue
+        >),
+        availableSkills: [
+          canonicalValidValues.FrozenAvailableSkillV1,
+          {
+            ...(canonicalValidValues.FrozenAvailableSkillV1 as Record<
+              string,
+              JsonValue
+            >),
+            skillId: UUID.candidate,
+            versionId: UUID.candidateRevision,
+          },
+        ],
+      },
+    },
+    {
+      name: "workflow-input-rejects-annotation-outside-frozen-input",
+      schema: "LearningWorkflowInputV1",
+      valid: false,
+      value: {
+        ...(canonicalValidValues.LearningWorkflowInputV1 as Record<
+          string,
+          JsonValue
+        >),
+        selectedAnnotations: [
+          { ...selectedAnnotation, targetSnapshotId: UUID.container },
+        ],
+      },
+    },
+    {
+      name: "workflow-input-rejects-annotation-message-outside-target-snapshot",
+      schema: "LearningWorkflowInputV1",
+      valid: false,
+      value: {
+        ...(canonicalValidValues.LearningWorkflowInputV1 as Record<
+          string,
+          JsonValue
+        >),
+        selectedAnnotations: [
+          {
+            ...selectedAnnotation,
+            targetEvidenceLocator: {
+              messageIds: ["missing_message"],
+              eventIds: [],
+            },
+          },
+        ],
+      },
+    },
+    {
+      name: "workflow-input-rejects-annotation-event-outside-target-snapshot",
+      schema: "LearningWorkflowInputV1",
+      valid: false,
+      value: {
+        ...(canonicalValidValues.LearningWorkflowInputV1 as Record<
+          string,
+          JsonValue
+        >),
+        selectedAnnotations: [
+          {
+            ...selectedAnnotation,
+            targetEvidenceLocator: {
+              messageIds: [],
+              eventIds: ["missing_event"],
+            },
+          },
+        ],
+      },
+    },
+    {
       name: "create-learning-run-rejects-inverted-selection-interval",
       schema: "CreateLearningRunV1",
       valid: false,

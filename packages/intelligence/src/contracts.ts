@@ -651,14 +651,114 @@ export const frozenAvailableSkillV1Schema = z.looseObject({
   registryState: nonEmptyStringSchema,
 });
 
-export const learningWorkflowInputV1Schema = z.looseObject({
-  schemaVersion: z.literal(1),
-  threads: z.array(workflowThreadV1Schema),
-  selectedAnnotations: z.array(selectedHumanAnnotationV1Schema),
-  availableSkills: z.array(frozenAvailableSkillV1Schema),
-  promptContext: jsonObjectSchema.nullable(),
-  limits: jsonObjectSchema,
-});
+export const learningWorkflowInputV1Schema = z
+  .looseObject({
+    schemaVersion: z.literal(1),
+    threads: z.array(workflowThreadV1Schema),
+    selectedAnnotations: z.array(selectedHumanAnnotationV1Schema),
+    availableSkills: z.array(frozenAvailableSkillV1Schema),
+    promptContext: jsonObjectSchema.nullable(),
+    limits: jsonObjectSchema,
+  })
+  .superRefine((input, context) => {
+    const threadIds = new Set<string>();
+    const snapshots = new Map<string, (typeof input.threads)[number]>();
+    for (const [index, thread] of input.threads.entries()) {
+      if (threadIds.has(thread.threadId)) {
+        context.addIssue({
+          code: "custom",
+          path: ["threads", index, "threadId"],
+          message: "Workflow thread IDs must be unique",
+        });
+      }
+      threadIds.add(thread.threadId);
+
+      if (snapshots.has(thread.snapshotId)) {
+        context.addIssue({
+          code: "custom",
+          path: ["threads", index, "snapshotId"],
+          message: "Workflow snapshot IDs must be unique",
+        });
+      } else {
+        snapshots.set(thread.snapshotId, thread);
+      }
+    }
+
+    const skillAliases = new Set<string>();
+    for (const [index, skill] of input.availableSkills.entries()) {
+      if (skillAliases.has(skill.alias)) {
+        context.addIssue({
+          code: "custom",
+          path: ["availableSkills", index, "alias"],
+          message: "Available skill aliases must be unique",
+        });
+      }
+      skillAliases.add(skill.alias);
+    }
+
+    for (const [
+      annotationIndex,
+      annotation,
+    ] of input.selectedAnnotations.entries()) {
+      const thread = snapshots.get(annotation.targetSnapshotId);
+      if (thread === undefined) {
+        context.addIssue({
+          code: "custom",
+          path: ["selectedAnnotations", annotationIndex, "targetSnapshotId"],
+          message: "Selected annotation must target a workflow snapshot",
+        });
+        continue;
+      }
+      if (annotation.targetEvidenceLocator === null) {
+        continue;
+      }
+
+      const messageIds = new Set(
+        thread.messages.map((message) => message.messageId),
+      );
+      const eventIds = new Set(
+        thread.messages.flatMap((message) => message.eventIds),
+      );
+      for (const [
+        messageIndex,
+        messageId,
+      ] of annotation.targetEvidenceLocator.messageIds.entries()) {
+        if (!messageIds.has(messageId)) {
+          context.addIssue({
+            code: "custom",
+            path: [
+              "selectedAnnotations",
+              annotationIndex,
+              "targetEvidenceLocator",
+              "messageIds",
+              messageIndex,
+            ],
+            message:
+              "Selected annotation message must exist in its target snapshot",
+          });
+        }
+      }
+      for (const [
+        eventIndex,
+        eventId,
+      ] of annotation.targetEvidenceLocator.eventIds.entries()) {
+        if (!eventIds.has(eventId)) {
+          context.addIssue({
+            code: "custom",
+            path: [
+              "selectedAnnotations",
+              annotationIndex,
+              "targetEvidenceLocator",
+              "eventIds",
+              eventIndex,
+            ],
+            message:
+              "Selected annotation event must exist in its target snapshot messages",
+          });
+        }
+      }
+    }
+  });
 export type LearningWorkflowInputV1 = z.infer<
   typeof learningWorkflowInputV1Schema
 >;
