@@ -682,19 +682,41 @@ describe("parent V1 contract schemas", () => {
       contentType: "application/zip",
     } as const;
 
-    expect(
-      skillCandidateV1Schema.safeParse({
-        ...base,
-        action: "add",
-        proposedVersionId: UUIDS.version,
-        parentVersionId: null,
-        bundleLocator,
-        bundleSha256: SHA_A,
-        removalIntent: null,
-        removalIntentSha256: null,
-        subjectSha256: SHA_A,
-      }).success,
-    ).toBe(true);
+    const addCandidate = {
+      ...base,
+      action: "add",
+      proposedVersionId: UUIDS.version,
+      parentVersionId: null,
+      bundleLocator,
+      bundleSha256: SHA_A,
+      removalIntent: null,
+      removalIntentSha256: null,
+      subjectSha256: SHA_A,
+    } as const;
+    const updateCandidate = {
+      ...addCandidate,
+      action: "update",
+      parentVersionId: UUIDS.version,
+    } as const;
+
+    expect(skillCandidateV1Schema.safeParse(addCandidate).success).toBe(true);
+    expect(skillCandidateV1Schema.safeParse(updateCandidate).success).toBe(
+      true,
+    );
+    for (const candidate of [addCandidate, updateCandidate]) {
+      expect(
+        skillCandidateV1Schema.safeParse({
+          ...candidate,
+          removalIntent: { reasonCode: "unsafe_behavior" },
+        }).success,
+      ).toBe(false);
+      expect(
+        skillCandidateV1Schema.safeParse({
+          ...candidate,
+          removalIntentSha256: SHA_B,
+        }).success,
+      ).toBe(false);
+    }
     expect(
       skillCandidateV1Schema.safeParse({
         ...base,

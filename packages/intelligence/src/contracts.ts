@@ -514,6 +514,18 @@ const skillCandidateBaseShape = {
 export const skillCandidateV1Schema = z
   .looseObject(skillCandidateBaseShape)
   .superRefine((candidate, context) => {
+    if (
+      candidate.action !== "remove" &&
+      (candidate.removalIntent !== null ||
+        candidate.removalIntentSha256 !== null)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["removalIntent"],
+        message: "Add/update candidates forbid removal intent fields",
+      });
+    }
+
     if (candidate.action === "add") {
       if (candidate.parentVersionId !== null) {
         context.addIssue({

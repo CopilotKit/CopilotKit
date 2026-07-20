@@ -8,6 +8,12 @@ shared by CopilotKit runtimes, Intelligence services, and language SDKs. The
 package also exports generated JSON Schema objects for language-neutral
 conformance tooling.
 
+Generated JSON Schema preserves the structural contract but does not emit Zod
+`superRefine` semantics such as candidate action/subject coherence. Portable
+consumers must also run the named valid and invalid cases in
+`conformance/learning-platform-v1.json`; those cases are the language-neutral
+executable specification for refinement-only invariants.
+
 ```ts
 import {
   learningContainerV1Schema,

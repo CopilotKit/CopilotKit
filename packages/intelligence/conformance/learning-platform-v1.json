@@ -3490,6 +3490,266 @@
       }
     },
     {
+      "name": "add-candidate-forbids-removal-intent",
+      "schema": "SkillCandidateV1",
+      "valid": false,
+      "value": {
+        "action": "add",
+        "approvalModeSnapshot": "manual",
+        "bundleLocator": {
+          "applicationSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "backendId": "primary",
+          "byteLength": 12,
+          "contentType": "application/zip",
+          "etag": null,
+          "key": "objects/aa/bundle.zip",
+          "provider": "awsS3",
+          "providerChecksum": null,
+          "providerVersion": null,
+          "resource": "skill-bundles",
+          "schemaVersion": 1
+        },
+        "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "candidateId": "33333333-3333-4333-8333-333333333333",
+        "candidateRevisionId": "44444444-4444-4444-8444-444444444444",
+        "createdAt": "2026-07-16T18:00:00.000Z",
+        "createdByType": "learning",
+        "evaluatorProfileRef": "evaluator:v1",
+        "evidenceRefs": [
+          {
+            "annotationId": null,
+            "annotationSha256": null,
+            "eventIds": [
+              "event_1"
+            ],
+            "evidenceType": "run_snapshot",
+            "excerpt": null,
+            "excerptSha256": null,
+            "externalRunId": "external_run_1",
+            "messageIds": [
+              "message_1"
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1",
+            "truncated": false
+          }
+        ],
+        "insightIds": [
+          "77777777-7777-4777-8777-777777777777"
+        ],
+        "learningContainerId": "55555555-5555-4555-8555-555555555555",
+        "learningRunId": "88888888-8888-4888-8888-888888888888",
+        "organizationId": "org_1",
+        "parentVersionId": null,
+        "projectId": "project_1",
+        "proposedVersionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "reason": "Teach idempotent retries.",
+        "removalIntent": {
+          "reasonCode": "unsafe_behavior"
+        },
+        "removalIntentSha256": null,
+        "risk": "low",
+        "skillId": "99999999-9999-4999-8999-999999999999",
+        "status": "pending_review",
+        "subjectSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "name": "add-candidate-forbids-removal-intent-sha256",
+      "schema": "SkillCandidateV1",
+      "valid": false,
+      "value": {
+        "action": "add",
+        "approvalModeSnapshot": "manual",
+        "bundleLocator": {
+          "applicationSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "backendId": "primary",
+          "byteLength": 12,
+          "contentType": "application/zip",
+          "etag": null,
+          "key": "objects/aa/bundle.zip",
+          "provider": "awsS3",
+          "providerChecksum": null,
+          "providerVersion": null,
+          "resource": "skill-bundles",
+          "schemaVersion": 1
+        },
+        "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "candidateId": "33333333-3333-4333-8333-333333333333",
+        "candidateRevisionId": "44444444-4444-4444-8444-444444444444",
+        "createdAt": "2026-07-16T18:00:00.000Z",
+        "createdByType": "learning",
+        "evaluatorProfileRef": "evaluator:v1",
+        "evidenceRefs": [
+          {
+            "annotationId": null,
+            "annotationSha256": null,
+            "eventIds": [
+              "event_1"
+            ],
+            "evidenceType": "run_snapshot",
+            "excerpt": null,
+            "excerptSha256": null,
+            "externalRunId": "external_run_1",
+            "messageIds": [
+              "message_1"
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1",
+            "truncated": false
+          }
+        ],
+        "insightIds": [
+          "77777777-7777-4777-8777-777777777777"
+        ],
+        "learningContainerId": "55555555-5555-4555-8555-555555555555",
+        "learningRunId": "88888888-8888-4888-8888-888888888888",
+        "organizationId": "org_1",
+        "parentVersionId": null,
+        "projectId": "project_1",
+        "proposedVersionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "reason": "Teach idempotent retries.",
+        "removalIntent": null,
+        "removalIntentSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "risk": "low",
+        "skillId": "99999999-9999-4999-8999-999999999999",
+        "status": "pending_review",
+        "subjectSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "name": "update-candidate-forbids-removal-intent",
+      "schema": "SkillCandidateV1",
+      "valid": false,
+      "value": {
+        "action": "update",
+        "approvalModeSnapshot": "manual",
+        "bundleLocator": {
+          "applicationSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "backendId": "primary",
+          "byteLength": 12,
+          "contentType": "application/zip",
+          "etag": null,
+          "key": "objects/aa/bundle.zip",
+          "provider": "awsS3",
+          "providerChecksum": null,
+          "providerVersion": null,
+          "resource": "skill-bundles",
+          "schemaVersion": 1
+        },
+        "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "candidateId": "33333333-3333-4333-8333-333333333333",
+        "candidateRevisionId": "44444444-4444-4444-8444-444444444444",
+        "createdAt": "2026-07-16T18:00:00.000Z",
+        "createdByType": "learning",
+        "evaluatorProfileRef": "evaluator:v1",
+        "evidenceRefs": [
+          {
+            "annotationId": null,
+            "annotationSha256": null,
+            "eventIds": [
+              "event_1"
+            ],
+            "evidenceType": "run_snapshot",
+            "excerpt": null,
+            "excerptSha256": null,
+            "externalRunId": "external_run_1",
+            "messageIds": [
+              "message_1"
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1",
+            "truncated": false
+          }
+        ],
+        "insightIds": [
+          "77777777-7777-4777-8777-777777777777"
+        ],
+        "learningContainerId": "55555555-5555-4555-8555-555555555555",
+        "learningRunId": "88888888-8888-4888-8888-888888888888",
+        "organizationId": "org_1",
+        "parentVersionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "projectId": "project_1",
+        "proposedVersionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "reason": "Teach idempotent retries.",
+        "removalIntent": {
+          "reasonCode": "unsafe_behavior"
+        },
+        "removalIntentSha256": null,
+        "risk": "low",
+        "skillId": "99999999-9999-4999-8999-999999999999",
+        "status": "pending_review",
+        "subjectSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "name": "update-candidate-forbids-removal-intent-sha256",
+      "schema": "SkillCandidateV1",
+      "valid": false,
+      "value": {
+        "action": "update",
+        "approvalModeSnapshot": "manual",
+        "bundleLocator": {
+          "applicationSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "backendId": "primary",
+          "byteLength": 12,
+          "contentType": "application/zip",
+          "etag": null,
+          "key": "objects/aa/bundle.zip",
+          "provider": "awsS3",
+          "providerChecksum": null,
+          "providerVersion": null,
+          "resource": "skill-bundles",
+          "schemaVersion": 1
+        },
+        "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "candidateId": "33333333-3333-4333-8333-333333333333",
+        "candidateRevisionId": "44444444-4444-4444-8444-444444444444",
+        "createdAt": "2026-07-16T18:00:00.000Z",
+        "createdByType": "learning",
+        "evaluatorProfileRef": "evaluator:v1",
+        "evidenceRefs": [
+          {
+            "annotationId": null,
+            "annotationSha256": null,
+            "eventIds": [
+              "event_1"
+            ],
+            "evidenceType": "run_snapshot",
+            "excerpt": null,
+            "excerptSha256": null,
+            "externalRunId": "external_run_1",
+            "messageIds": [
+              "message_1"
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1",
+            "truncated": false
+          }
+        ],
+        "insightIds": [
+          "77777777-7777-4777-8777-777777777777"
+        ],
+        "learningContainerId": "55555555-5555-4555-8555-555555555555",
+        "learningRunId": "88888888-8888-4888-8888-888888888888",
+        "organizationId": "org_1",
+        "parentVersionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "projectId": "project_1",
+        "proposedVersionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "reason": "Teach idempotent retries.",
+        "removalIntent": null,
+        "removalIntentSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "risk": "low",
+        "skillId": "99999999-9999-4999-8999-999999999999",
+        "status": "pending_review",
+        "subjectSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
       "name": "stable-error-valid",
       "schema": "LearningPlatformErrorResponseV1",
       "valid": true,

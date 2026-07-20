@@ -305,6 +305,24 @@ const removeCandidate = {
   createdByType: "learning",
   createdAt: NOW,
 };
+const addCandidate = {
+  ...removeCandidate,
+  action: "add",
+  proposedVersionId: UUID.version,
+  parentVersionId: null,
+  bundleLocator: blobLocator,
+  bundleSha256: SHA_A,
+  removalIntent: null,
+  removalIntentSha256: null,
+  subjectSha256: SHA_A,
+  reason: "Teach idempotent retries.",
+  risk: "low",
+};
+const updateCandidate = {
+  ...addCandidate,
+  action: "update",
+  parentVersionId: UUID.version,
+};
 const commandEnvelope = {
   schemaVersion: 1,
   requestId: "request_1",
@@ -1011,6 +1029,42 @@ function buildCases(): LearningPlatformConformanceCase[] {
         ...removeCandidate,
         bundleLocator: blobLocator,
         bundleSha256: SHA_B,
+      },
+    },
+    {
+      name: "add-candidate-forbids-removal-intent",
+      schema: "SkillCandidateV1",
+      valid: false,
+      value: {
+        ...addCandidate,
+        removalIntent: { reasonCode: "unsafe_behavior" },
+      },
+    },
+    {
+      name: "add-candidate-forbids-removal-intent-sha256",
+      schema: "SkillCandidateV1",
+      valid: false,
+      value: {
+        ...addCandidate,
+        removalIntentSha256: SHA_B,
+      },
+    },
+    {
+      name: "update-candidate-forbids-removal-intent",
+      schema: "SkillCandidateV1",
+      valid: false,
+      value: {
+        ...updateCandidate,
+        removalIntent: { reasonCode: "unsafe_behavior" },
+      },
+    },
+    {
+      name: "update-candidate-forbids-removal-intent-sha256",
+      schema: "SkillCandidateV1",
+      valid: false,
+      value: {
+        ...updateCandidate,
+        removalIntentSha256: SHA_B,
       },
     },
     {
