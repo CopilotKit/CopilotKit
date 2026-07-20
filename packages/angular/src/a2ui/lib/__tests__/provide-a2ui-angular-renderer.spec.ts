@@ -5,11 +5,13 @@ import {
   provideMarkdownRenderer,
   type BoundProperty,
 } from "@a2ui/angular/v0_9";
-import { Component, input } from "@angular/core";
+import { Component, EnvironmentInjector, input } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
+import { CopilotKit, provideCopilotKit } from "@copilotkit/angular";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import type { A2UIAngularCatalog } from "../a2ui-angular-catalog";
+import { A2UI_CATALOG_CONTEXT_DESCRIPTION } from "../a2ui-angular-catalog-context";
 import { CopilotA2UIAngularActivityRenderer } from "../a2ui-angular-activity-renderer";
 import { provideA2UIAngularRenderer } from "../provide-a2ui-angular-renderer";
 import { installConstructableStyleSheetSupport } from "./constructable-stylesheet-support";
@@ -74,7 +76,10 @@ describe("provideA2UIAngularRenderer", () => {
 
   it("extends the basic catalog with custom components and functions", () => {
     TestBed.configureTestingModule({
-      providers: [provideA2UIAngularRenderer(customCatalog())],
+      providers: [
+        provideCopilotKit({}),
+        provideA2UIAngularRenderer(customCatalog()),
+      ],
     });
 
     const config = TestBed.inject(A2UI_RENDERER_CONFIG);
@@ -90,7 +95,10 @@ describe("provideA2UIAngularRenderer", () => {
 
   it("validates function arguments before executing them", () => {
     TestBed.configureTestingModule({
-      providers: [provideA2UIAngularRenderer(customCatalog())],
+      providers: [
+        provideCopilotKit({}),
+        provideA2UIAngularRenderer(customCatalog()),
+      ],
     });
 
     const config = TestBed.inject(A2UI_RENDERER_CONFIG);
@@ -111,6 +119,7 @@ describe("provideA2UIAngularRenderer", () => {
   it("renders a custom Angular component emitted by the agent", async () => {
     TestBed.configureTestingModule({
       providers: [
+        provideCopilotKit({}),
         provideA2UIAngularRenderer(customCatalog()),
         provideMarkdownRenderer(async (markdown) => markdown),
       ],
@@ -156,5 +165,75 @@ describe("provideA2UIAngularRenderer", () => {
     );
     expect(card).not.toBeNull();
     expect(card?.textContent).toContain("Hello Custom");
+  });
+
+  function findCatalogContextEntry(copilotKit: CopilotKit) {
+    return Object.values(copilotKit.core.context).find(
+      (candidate) => candidate.description === A2UI_CATALOG_CONTEXT_DESCRIPTION,
+    );
+  }
+
+  it("registers the catalog descriptor as agent context", () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideCopilotKit({}),
+        provideA2UIAngularRenderer(customCatalog()),
+      ],
+    });
+
+    const copilotKit = TestBed.inject(CopilotKit);
+    const entry = findCatalogContextEntry(copilotKit);
+
+    expect(entry).toBeDefined();
+    const value = JSON.parse(entry!.value);
+    expect(value.catalogId).toBe(CUSTOM_CATALOG_ID);
+    expect(Object.keys(value.components)).toEqual(["TestCard"]);
+    expect(value.components.TestCard.schema.properties.title).toBeDefined();
+  });
+
+  it("forwards only the catalog id when sendCatalogDescription is false", () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideCopilotKit({}),
+        provideA2UIAngularRenderer(customCatalog(), {
+          sendCatalogDescription: false,
+        }),
+      ],
+    });
+
+    const copilotKit = TestBed.inject(CopilotKit);
+    const entry = findCatalogContextEntry(copilotKit);
+
+    expect(entry).toBeDefined();
+    expect(JSON.parse(entry!.value)).toEqual({
+      catalogId: CUSTOM_CATALOG_ID,
+      components: {},
+    });
+  });
+
+  it("does not register catalog context when no catalog is given", () => {
+    TestBed.configureTestingModule({
+      providers: [provideCopilotKit({}), provideA2UIAngularRenderer()],
+    });
+
+    const copilotKit = TestBed.inject(CopilotKit);
+
+    expect(findCatalogContextEntry(copilotKit)).toBeUndefined();
+  });
+
+  it("removes the catalog context when the injector is destroyed", () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideCopilotKit({}),
+        provideA2UIAngularRenderer(customCatalog()),
+      ],
+    });
+
+    const copilotKit = TestBed.inject(CopilotKit);
+    expect(findCatalogContextEntry(copilotKit)).toBeDefined();
+
+    TestBed.inject(EnvironmentInjector).destroy();
+
+    expect(findCatalogContextEntry(copilotKit)).toBeUndefined();
   });
 });
