@@ -969,6 +969,93 @@ function buildCases(): LearningPlatformConformanceCase[] {
       },
     },
     {
+      name: "artifact-manifest-accepts-safe-nfc-distinct-paths",
+      schema: "SkillArtifactManifestV1",
+      valid: true,
+      value: {
+        ...artifactManifest,
+        files: [
+          artifactFile,
+          { ...artifactFile, path: "references/1.txt" },
+          { ...artifactFile, path: "references/\u2460.txt" },
+        ],
+      },
+    },
+    {
+      name: "artifact-manifest-rejects-traversal-path",
+      schema: "SkillArtifactManifestV1",
+      valid: false,
+      value: {
+        ...artifactManifest,
+        files: [artifactFile, { ...artifactFile, path: "../escape.txt" }],
+      },
+    },
+    {
+      name: "artifact-manifest-rejects-absolute-path",
+      schema: "SkillArtifactManifestV1",
+      valid: false,
+      value: {
+        ...artifactManifest,
+        files: [artifactFile, { ...artifactFile, path: "C:/escape.txt" }],
+      },
+    },
+    {
+      name: "artifact-manifest-rejects-backslash-path",
+      schema: "SkillArtifactManifestV1",
+      valid: false,
+      value: {
+        ...artifactManifest,
+        files: [
+          artifactFile,
+          { ...artifactFile, path: "references\\escape.txt" },
+        ],
+      },
+    },
+    {
+      name: "artifact-manifest-rejects-case-path-collision",
+      schema: "SkillArtifactManifestV1",
+      valid: false,
+      value: {
+        ...artifactManifest,
+        files: [
+          artifactFile,
+          { ...artifactFile, path: "references/Case.txt" },
+          { ...artifactFile, path: "references/case.txt" },
+        ],
+      },
+    },
+    {
+      name: "artifact-manifest-rejects-nfc-path-collision",
+      schema: "SkillArtifactManifestV1",
+      valid: false,
+      value: {
+        ...artifactManifest,
+        files: [
+          artifactFile,
+          { ...artifactFile, path: "references/caf\u00e9.txt" },
+          { ...artifactFile, path: "references/cafe\u0301.txt" },
+        ],
+      },
+    },
+    {
+      name: "artifact-manifest-rejects-missing-skill-md",
+      schema: "SkillArtifactManifestV1",
+      valid: false,
+      value: {
+        ...artifactManifest,
+        files: [{ ...artifactFile, path: "README.md" }],
+      },
+    },
+    {
+      name: "artifact-manifest-rejects-root-prefixed-skill-md",
+      schema: "SkillArtifactManifestV1",
+      valid: false,
+      value: {
+        ...artifactManifest,
+        files: [{ ...artifactFile, path: "idempotent-retries/SKILL.md" }],
+      },
+    },
+    {
       name: "generated-add-candidate-forbids-skill-id",
       schema: "GeneratedSkillCandidateV1",
       valid: false,

@@ -13,6 +13,7 @@ import {
   learningWorkflowInputV1Schema,
   learningWorkflowOutputV1Schema,
   runSnapshotV1Schema,
+  skillArtifactManifestV1Schema,
   skillCandidateV1Schema,
   skillSetProjectionV1Schema,
   threadAssignmentPatchV1Schema,
@@ -159,6 +160,14 @@ const frozenAvailableSkill = {
   },
   registryState: "published",
 } as const;
+
+function artifactManifestWithPaths(paths: readonly string[]) {
+  const template = frozenAvailableSkill.bundle.manifest;
+  return {
+    ...template,
+    files: paths.map((path) => ({ ...template.files[0], path })),
+  };
+}
 
 const workflowInput = {
   schemaVersion: 1,
@@ -310,6 +319,62 @@ const learningChunk = {
 } as const;
 
 describe("parent V1 contract schemas", () => {
+  test("accepts safe artifact manifest paths and NFC-distinct compatibility characters", () => {
+    expect(
+      skillArtifactManifestV1Schema.safeParse(
+        artifactManifestWithPaths([
+          "SKILL.md",
+          "references/caf\u00e9.txt",
+          "references/1.txt",
+          "references/\u2460.txt",
+        ]),
+      ).success,
+    ).toBe(true);
+  });
+
+  test.each([
+    "../escape.txt",
+    "references/../../escape.txt",
+    "/absolute.txt",
+    "C:/absolute.txt",
+    "C:relative.txt",
+    "references\\windows.txt",
+    "references//empty.txt",
+    "references/./same.txt",
+    "references/\u0007control.txt",
+  ])("rejects unsafe artifact manifest file path %j", (path) => {
+    expect(
+      skillArtifactManifestV1Schema.safeParse(
+        artifactManifestWithPaths(["SKILL.md", path]),
+      ).success,
+    ).toBe(false);
+  });
+
+  test.each([
+    ["same.txt", "same.txt"],
+    ["Case.txt", "case.txt"],
+    ["caf\u00e9.txt", "cafe\u0301.txt"],
+  ])("rejects artifact manifest path collision %j and %j", (left, right) => {
+    expect(
+      skillArtifactManifestV1Schema.safeParse(
+        artifactManifestWithPaths(["SKILL.md", left, right]),
+      ).success,
+    ).toBe(false);
+  });
+
+  test.each([
+    { name: "missing SKILL.md", paths: ["README.md"] },
+    {
+      name: "only a root-prefixed SKILL.md",
+      paths: ["idempotent-retries/SKILL.md"],
+    },
+  ])("rejects an artifact manifest with $name", ({ paths }) => {
+    expect(
+      skillArtifactManifestV1Schema.safeParse(artifactManifestWithPaths(paths))
+        .success,
+    ).toBe(false);
+  });
+
   test("accepts a workflow output with unique aliases and resolved insight references", () => {
     expect(learningWorkflowOutputV1Schema.parse(workflowOutput)).toEqual(
       workflowOutput,
@@ -1228,6 +1293,22 @@ describe("parent V1 contract schemas", () => {
                   },
                   { type: "null" },
                 ],
+              },
+            },
+          },
+        },
+      },
+    });
+
+    expect(learningContractJsonSchemas.SkillArtifactManifestV1).toMatchObject({
+      properties: {
+        files: {
+          items: {
+            properties: {
+              path: {
+                maxLength: 512,
+                pattern: SAFE_RELATIVE_PATH_PATTERN,
+                type: "string",
               },
             },
           },

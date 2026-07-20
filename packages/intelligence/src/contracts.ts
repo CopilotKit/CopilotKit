@@ -17,6 +17,21 @@ const safeRelativePathSchema = z
     new RegExp(SAFE_RELATIVE_PATH_PATTERN, "u"),
     "Expected a safe relative slash-delimited path",
   );
+function normalizedPathCollisionIndexes(
+  paths: readonly string[],
+  normalizationForm: "NFC" | "NFKC",
+): number[] {
+  const collisionKeys = new Set<string>();
+  const collisionIndexes: number[] = [];
+  for (const [index, path] of paths.entries()) {
+    const collisionKey = path
+      .normalize(normalizationForm)
+      .toLocaleLowerCase("en-US");
+    if (collisionKeys.has(collisionKey)) collisionIndexes.push(index);
+    collisionKeys.add(collisionKey);
+  }
+  return collisionIndexes;
+}
 const skillRootDirectoryNameSchema = z
   .string()
   .max(512)
@@ -443,7 +458,7 @@ export const insightArchiveEventV1Schema = z.looseObject({
 export type InsightArchiveEventV1 = z.infer<typeof insightArchiveEventV1Schema>;
 
 export const skillArtifactFileV1Schema = z.looseObject({
-  path: nonEmptyStringSchema,
+  path: safeRelativePathSchema,
   role: nonEmptyStringSchema,
   mediaType: nonEmptyStringSchema,
   byteLength: nonNegativeIntegerSchema,
@@ -451,15 +466,36 @@ export const skillArtifactFileV1Schema = z.looseObject({
 });
 export type SkillArtifactFileV1 = z.infer<typeof skillArtifactFileV1Schema>;
 
-export const skillArtifactManifestV1Schema = z.looseObject({
-  manifestVersion: z.literal(1),
-  agentSkillsProfile: nonEmptyStringSchema,
-  files: z.array(skillArtifactFileV1Schema).min(1),
-  manifestSha256: sha256Schema,
-  bundleSha256: sha256Schema,
-  bundleByteLength: positiveIntegerSchema,
-  provenance: jsonObjectSchema,
-});
+export const skillArtifactManifestV1Schema = z
+  .looseObject({
+    manifestVersion: z.literal(1),
+    agentSkillsProfile: nonEmptyStringSchema,
+    files: z.array(skillArtifactFileV1Schema).min(1),
+    manifestSha256: sha256Schema,
+    bundleSha256: sha256Schema,
+    bundleByteLength: positiveIntegerSchema,
+    provenance: jsonObjectSchema,
+  })
+  .superRefine((manifest, context) => {
+    for (const index of normalizedPathCollisionIndexes(
+      manifest.files.map(({ path }) => path),
+      "NFC",
+    )) {
+      context.addIssue({
+        code: "custom",
+        path: ["files", index, "path"],
+        message:
+          "Artifact manifest file paths must be unique after normalization",
+      });
+    }
+    if (!manifest.files.some(({ path }) => path === "SKILL.md")) {
+      context.addIssue({
+        code: "custom",
+        path: ["files"],
+        message: "Artifact manifest must contain root-relative SKILL.md",
+      });
+    }
+  });
 export type SkillArtifactManifestV1 = z.infer<
   typeof skillArtifactManifestV1Schema
 >;
@@ -821,18 +857,16 @@ const generatedSkillBundleV1Schema = z
       .min(1),
   })
   .superRefine((bundle, context) => {
-    const collisionKeys = new Set<string>();
-    for (const [index, file] of bundle.files.entries()) {
-      const collisionKey = file.path.normalize("NFKC").toLowerCase();
-      if (collisionKeys.has(collisionKey)) {
-        context.addIssue({
-          code: "custom",
-          path: ["files", index, "path"],
-          message:
-            "Generated bundle file paths must be unique after normalization",
-        });
-      }
-      collisionKeys.add(collisionKey);
+    for (const index of normalizedPathCollisionIndexes(
+      bundle.files.map(({ path }) => path),
+      "NFKC",
+    )) {
+      context.addIssue({
+        code: "custom",
+        path: ["files", index, "path"],
+        message:
+          "Generated bundle file paths must be unique after normalization",
+      });
     }
     if (bundle.files.filter(({ path }) => path === "SKILL.md").length !== 1) {
       context.addIssue({
