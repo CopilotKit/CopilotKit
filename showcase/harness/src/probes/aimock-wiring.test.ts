@@ -92,6 +92,9 @@ describe("aimock-wiring probe", () => {
   });
 
   it("excludes aimock / shell / pocketbase services from the check (exact name match)", async () => {
+    // NOTE: `showcase-harness` is intentionally absent — the harness fleet is
+    // no longer excluded (it's an aimock consumer, see the harness-fleet tests
+    // below). Only the pure-infra services remain excluded.
     const r = await aimockWiringProbe.run(
       {
         aimockUrl: AIMOCK_URL,
@@ -101,7 +104,6 @@ describe("aimock-wiring probe", () => {
           { name: "showcase-shell-dashboard" },
           { name: "showcase-shell-docs" },
           { name: "showcase-pocketbase" },
-          { name: "showcase-harness" },
         ],
         // None of these have aimock base URLs — but all should be excluded.
         getServiceEnv: async () => ({}),
@@ -115,17 +117,17 @@ describe("aimock-wiring probe", () => {
 
   it("excludes BARE-named Railway infra services (no `showcase-` prefix)", async () => {
     // Regression: actual deployed Railway service names are bare
-    // (`harness`, `shell`, `dashboard`, `docs`, `dojo`, `pocketbase`,
-    // `webhooks`, `aimock`) but EXCLUDE_SERVICES only listed the
-    // `showcase-`-prefixed form, so the probe counted all infra services
-    // as unwired and went red on staging/prod despite aimock being
-    // correctly wired. Both forms must be treated as excluded.
+    // (`shell`, `dashboard`, `docs`, `dojo`, `pocketbase`, `webhooks`,
+    // `aimock`) but EXCLUDE_SERVICES only listed the `showcase-`-prefixed
+    // form, so the probe counted all infra services as unwired and went red
+    // on staging/prod despite aimock being correctly wired. Both forms must
+    // be treated as excluded. (`harness`/`harness-workers` are NOT here — they
+    // are aimock consumers now, verified separately below.)
     const r = await aimockWiringProbe.run(
       {
         aimockUrl: AIMOCK_URL,
         listServices: async () => [
           { name: "aimock" },
-          { name: "harness" },
           { name: "shell" },
           { name: "dashboard" },
           { name: "docs" },
@@ -714,18 +716,17 @@ describe("aimock-wiring probe", () => {
     expect(r.state).toBe("red");
   });
 
-  it("excludes harness-workers (infra) but checks bare starter-* services", async () => {
-    // Regression for the EXCLUDE drift: the live Railway roster carries
-    // `harness-workers` (harness background workers — pure infra, no LLM
-    // callers) which stays excluded, alongside starters named
-    // `starter-<framework>[-lang]` (e.g. `starter-strands-python`,
-    // `starter-langgraph-js`). Starters ARE checked now — a wired starter must
-    // land in `wired`, not be silently skipped.
+  it("checks harness-workers as an aimock consumer alongside bare starter-* services", async () => {
+    // The live Railway roster carries `harness-workers` (harness background
+    // probe fleet) which IS an aimock consumer — verified via AIMOCK_URL, no
+    // longer excluded — alongside starters named `starter-<framework>[-lang]`
+    // (e.g. `starter-strands-python`, `starter-langgraph-js`). A wired
+    // harness-worker must land in `wired`, exactly like the starters/backend.
     const r = await aimockWiringProbe.run(
       {
         aimockUrl: AIMOCK_URL,
         listServices: async () => [
-          { name: "harness-workers" }, // infra → excluded
+          { name: "harness-workers" }, // consumer → checked via AIMOCK_URL
           { name: "starter-adk" },
           { name: "starter-langgraph-js" },
           { name: "starter-ms-agent-framework-dotnet" },
@@ -734,13 +735,16 @@ describe("aimock-wiring probe", () => {
           { name: "showcase-ag2" }, // real backend
         ],
         getServiceEnv: async (name) =>
-          name === "harness-workers" ? {} : { OPENAI_BASE_URL: AIMOCK_URL },
+          name === "harness-workers"
+            ? { AIMOCK_URL }
+            : { OPENAI_BASE_URL: AIMOCK_URL },
       },
       ctx,
     );
     expect(r.state).toBe("green");
     expect(r.signal.unwired).toEqual([]);
     expect(r.signal.wired).toEqual([
+      "harness-workers",
       "showcase-ag2",
       "starter-adk",
       "starter-langgraph-js",
@@ -748,7 +752,7 @@ describe("aimock-wiring probe", () => {
       "starter-ms-agent-framework-python",
       "starter-strands-python",
     ]);
-    expect(r.signal.wiredCount).toBe(6);
+    expect(r.signal.wiredCount).toBe(7);
   });
 
   it("checks starters alongside showcase-* backends (both in the checked universe)", async () => {
@@ -770,22 +774,22 @@ describe("aimock-wiring probe", () => {
     expect(r.signal.unwired).toEqual(["showcase-mastra", "starter-mastra"]);
   });
 
-  it("full live roster: the 20 showcase-* backends AND 12 starters are checked, 9 infra excluded", async () => {
-    // Locks the "checked universe == 20 showcase-* backends + 12 starters"
-    // contract against the full 41-service production roster (9 infra + 20
-    // backends + 12 starters). Backends and starters are all unwired here, so
-    // `unwired` must equal exactly those 32 — only the 9 infra are excluded.
+  it("full live roster: 20 showcase-* backends + 12 starters + 2 harness-fleet consumers checked, 7 pure-infra excluded", async () => {
+    // Locks the checked universe against the full 41-service production roster
+    // (7 pure-infra excluded + 2 harness-fleet consumers + 20 backends + 12
+    // starters). The harness fleet is wired via AIMOCK_URL (→ `wired`); the 32
+    // backends+starters are all unwired here; only the 7 pure-infra are excluded.
     const infra = [
       "aimock",
       "dashboard",
       "docs",
       "dojo",
-      "harness",
-      "harness-workers",
       "pocketbase",
       "shell",
       "webhooks",
     ];
+    // Harness fleet: infra that ARE aimock consumers, verified via AIMOCK_URL.
+    const consumers = ["harness", "harness-workers"];
     const backends = [
       "showcase-ag2",
       "showcase-agno",
@@ -826,12 +830,18 @@ describe("aimock-wiring probe", () => {
       {
         aimockUrl: AIMOCK_URL,
         listServices: async () =>
-          [...infra, ...backends, ...starters].map((name) => ({ name })),
-        getServiceEnv: async () => ({}),
+          [...infra, ...consumers, ...backends, ...starters].map((name) => ({
+            name,
+          })),
+        // Harness fleet wired via AIMOCK_URL; everything else unwired.
+        getServiceEnv: async (name) =>
+          consumers.includes(name) ? { AIMOCK_URL } : {},
       },
       ctx,
     );
     expect(r.state).toBe("red");
+    // Pure-infra excluded; harness fleet wired; backends+starters unwired.
+    expect(r.signal.wired).toEqual([...consumers].sort());
     expect(r.signal.unwired).toEqual([...backends, ...starters].sort());
     expect(r.signal.unwiredCount).toBe(32);
   });
@@ -1053,6 +1063,147 @@ describe("aimock-wiring probe", () => {
     expect(r.signal.sealed).toEqual(["svc-sealed"]);
     expect(r.signal.unwired).toEqual(["svc-unwired"]);
     expect(r.signal.hasSealed).toBe(true);
+    expect(r.signal.wired).toEqual([]);
+  });
+
+  // ---------------------------------------------------------------------------
+  // Harness-fleet coverage (egress incident). `harness` and `harness-workers`
+  // reach aimock too and MUST be verified — previously they were in
+  // EXCLUDE_SERVICES, so the probe never flagged them when their aimock
+  // pointers went to the billed PUBLIC host (~$657/mo egress on staging).
+  // `harness-workers` is checked via OPENAI/ANTHROPIC/AIMOCK_URL; `harness`
+  // via its ONLY aimock pointer, AIMOCK_URL. See EXCLUDE_SERVICES /
+  // AIMOCK_CONSUMER_SERVICES / HARNESS_FLEET_CANDIDATE_ENV_VARS in
+  // aimock-wiring.ts.
+  // ---------------------------------------------------------------------------
+
+  it("flags the harness fleet when its aimock pointers are on the PUBLIC host (egress drift)", async () => {
+    // The exact incident: harness-workers had OPENAI/ANTHROPIC/AIMOCK_URL and
+    // harness had AIMOCK_URL pointing at the billed PUBLIC *.up.railway.app
+    // aimock host while the target is the free internal host. Both must surface
+    // as unwired/red. Pre-fix they were excluded and this never fired.
+    const INTERNAL_AIMOCK = "http://showcase-aimock.railway.internal:4010";
+    const PUBLIC_AIMOCK = "https://showcase-aimock-production.up.railway.app";
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: INTERNAL_AIMOCK,
+        listServices: async () => [
+          { name: "harness" },
+          { name: "harness-workers" },
+        ],
+        getServiceEnv: async (name) =>
+          name === "harness"
+            ? { AIMOCK_URL: PUBLIC_AIMOCK }
+            : {
+                OPENAI_BASE_URL: `${PUBLIC_AIMOCK}/v1`,
+                ANTHROPIC_BASE_URL: PUBLIC_AIMOCK,
+                AIMOCK_URL: PUBLIC_AIMOCK,
+              },
+      },
+      ctx,
+    );
+    expect(r.state).toBe("red");
+    expect(r.signal.unwired).toEqual(["harness", "harness-workers"]);
+    expect(r.signal.unwiredCount).toBe(2);
+  });
+
+  it("greens the harness fleet when its aimock pointers are on the PRIVATE internal host", async () => {
+    const INTERNAL_AIMOCK = "http://showcase-aimock.railway.internal:4010";
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: INTERNAL_AIMOCK,
+        listServices: async () => [
+          { name: "harness" },
+          { name: "harness-workers" },
+        ],
+        getServiceEnv: async (name) =>
+          name === "harness"
+            ? { AIMOCK_URL: INTERNAL_AIMOCK }
+            : {
+                OPENAI_BASE_URL: `${INTERNAL_AIMOCK}/v1`,
+                ANTHROPIC_BASE_URL: INTERNAL_AIMOCK,
+                AIMOCK_URL: INTERNAL_AIMOCK,
+              },
+      },
+      ctx,
+    );
+    expect(r.state).toBe("green");
+    expect(r.signal.unwired).toEqual([]);
+    expect(r.signal.wired).toEqual(["harness", "harness-workers"]);
+    expect(r.signal.wiredCount).toBe(2);
+  });
+
+  it("verifies `harness` via its only aimock pointer, AIMOCK_URL", async () => {
+    // harness exposes ONLY AIMOCK_URL (no OPENAI/ANTHROPIC/GEMINI). That var is
+    // NOT in the global candidate set, so harness is checked via the harness-
+    // fleet candidate path that adds AIMOCK_URL. Public → unwired, internal →
+    // wired. Locks that harness is caught at all: without AIMOCK_URL in its
+    // candidate set it would be all-missing/unwired forever, even when wired.
+    const INTERNAL_AIMOCK = "http://showcase-aimock.railway.internal:4010";
+    const PUBLIC_AIMOCK = "https://showcase-aimock-production.up.railway.app";
+    const drift = await aimockWiringProbe.run(
+      {
+        aimockUrl: INTERNAL_AIMOCK,
+        listServices: async () => [{ name: "harness" }],
+        getServiceEnv: async () => ({ AIMOCK_URL: PUBLIC_AIMOCK }),
+      },
+      ctx,
+    );
+    expect(drift.state).toBe("red");
+    expect(drift.signal.unwired).toEqual(["harness"]);
+
+    const wired = await aimockWiringProbe.run(
+      {
+        aimockUrl: INTERNAL_AIMOCK,
+        listServices: async () => [{ name: "harness" }],
+        getServiceEnv: async () => ({ AIMOCK_URL: INTERNAL_AIMOCK }),
+      },
+      ctx,
+    );
+    expect(wired.state).toBe("green");
+    expect(wired.signal.wired).toEqual(["harness"]);
+  });
+
+  it("does NOT flag pure-infra services with no aimock pointer (shell/dashboard/etc stay excluded)", async () => {
+    // Un-excluding the harness fleet must NOT start flagging the genuinely-infra
+    // services: they have no aimock caller, so an empty env is correct, not
+    // drift. aimock itself also stays excluded — it IS aimock, not a consumer.
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => [
+          { name: "aimock" },
+          { name: "shell" },
+          { name: "dashboard" },
+          { name: "docs" },
+          { name: "dojo" },
+          { name: "pocketbase" },
+          { name: "webhooks" },
+        ],
+        getServiceEnv: async () => ({}),
+      },
+      ctx,
+    );
+    expect(r.state).toBe("green");
+    expect(r.signal.unwired).toEqual([]);
+    expect(r.signal.wiredCount).toBe(0);
+  });
+
+  it("does NOT consult AIMOCK_URL for non-harness services (scoping guard)", async () => {
+    // AIMOCK_URL is a candidate ONLY for the harness fleet. A regular showcase-*
+    // backend that sets AIMOCK_URL but not OPENAI/ANTHROPIC/GEMINI is still
+    // unwired — its real pointer is missing. Locks that AIMOCK_URL was NOT added
+    // to the global candidate set (which could otherwise mask real drift).
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => [{ name: "showcase-ag2" }],
+        getServiceEnv: async () => ({ AIMOCK_URL }),
+      },
+      ctx,
+    );
+    expect(r.state).toBe("red");
+    expect(r.signal.unwired).toEqual(["showcase-ag2"]);
     expect(r.signal.wired).toEqual([]);
   });
 });

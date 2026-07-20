@@ -43,22 +43,26 @@ export const SEALED_SENTINEL = "__SEALED__";
  */
 
 /**
- * Infra service names we do NOT check for aimock wiring. The aimock service
- * itself has no upstream to route through, and shell/pocketbase/harness/
- * harness-workers/dashboard/docs/dojo/webhooks are pure infra with no LLM
- * callers (so they have no `*_BASE_URL` overrides and could only ever be
- * counted as unwired).
+ * Pure-infra service names we do NOT check for aimock wiring. The aimock
+ * service itself has no upstream to route through, and shell/pocketbase/
+ * dashboard/docs/dojo/webhooks are pure infra with no LLM callers (so they
+ * have no aimock pointer and could only ever be counted as unwired).
+ *
+ * NOTE: `harness` and `harness-workers` are NOT here — they DO reach aimock
+ * (the probe fleet and its background workers call aimock), so they are
+ * checked as aimock consumers. See `AIMOCK_CONSUMER_SERVICES`. They were
+ * excluded historically, which let the harness fleet's aimock pointers drift
+ * to the billed PUBLIC `*.up.railway.app` host without the probe ever flagging
+ * it (~$657/mo egress on staging).
  *
  * Most entries are stored in their `showcase-`-prefixed form. The exclusion
- * check (`isExcluded`) matches a bare deployed name (e.g. `harness`, `shell`,
- * `aimock`) by PREPENDING `showcase-` to it and testing that prefixed form
- * against the set — so the bare name resolves to the same canonical entry as
- * the prefixed form (`showcase-harness`, …). This is load-bearing: actual
- * deployed Railway service names in the production project are BARE — without
- * the prepend, every bare infra service would have been counted as unwired
- * and the probe would have stayed red forever. `harness-workers` has no
- * `showcase-` legacy form, so it is stored bare — `isExcluded` checks the
- * literal name first, so this matches correctly.
+ * check (`isExcluded`) matches a bare deployed name (e.g. `shell`, `aimock`)
+ * by PREPENDING `showcase-` to it and testing that prefixed form against the
+ * set — so the bare name resolves to the same canonical entry as the prefixed
+ * form (`showcase-shell`, …). This is load-bearing: actual deployed Railway
+ * service names in the production project are BARE — without the prepend, every
+ * bare infra service would have been counted as unwired and the probe would
+ * have stayed red forever.
  *
  * Match is still effectively EXACT (not a prefix match): a hypothetical
  * `showcase-aimock-pinger-mock-for-test` is tested literally and, prepended,
@@ -80,9 +84,29 @@ const EXCLUDE_SERVICES: ReadonlySet<string> = new Set([
   "showcase-shell-dojo",
   "showcase-dojo",
   "showcase-pocketbase",
-  "showcase-harness",
-  "harness-workers",
   "showcase-webhooks",
+]);
+
+/**
+ * Infra services that are ALSO aimock consumers, so they must be verified even
+ * though they are not `showcase-*`/`starter-*` demo backends. The harness fleet
+ * (`harness` — the probe orchestrator; `harness-workers` — its background probe
+ * fleet) reaches aimock and must route over the free internal host, not the
+ * billed public one.
+ *
+ * Consumers are checked via `HARNESS_FLEET_CANDIDATE_ENV_VARS`, which extends
+ * the standard candidate set with `AIMOCK_URL` — `harness` exposes ONLY
+ * `AIMOCK_URL` as its aimock pointer (no OPENAI/ANTHROPIC/GEMINI base URL), so
+ * without that extra candidate it would read as all-missing/unwired forever.
+ * `AIMOCK_URL` is added for THIS path only (not the global candidate set) so a
+ * regular backend's stray `AIMOCK_URL` can't mask a missing real pointer.
+ *
+ * Stored bare (live Railway names are bare); `isAimockConsumer` also tolerates
+ * a legacy `showcase-` prefix, mirroring `isExcluded`.
+ */
+const AIMOCK_CONSUMER_SERVICES: ReadonlySet<string> = new Set([
+  "harness",
+  "harness-workers",
 ]);
 
 export interface AimockWiringInput {
@@ -186,14 +210,29 @@ function isExcluded(name: string): boolean {
   // excluded here. Only the pure-infra services in EXCLUDE_SERVICES are skipped.
 
   // Match either the literal name or its `showcase-`-prefixed form. Railway
-  // service names in the production project are BARE (`harness`, `shell`,
-  // `aimock`, `harness-workers`, …) while some EXCLUDE_SERVICES entries are
-  // keyed by the `showcase-`-prefixed form for historical reasons (the legacy
-  // local-dev project named services with that prefix). Comparing both forms
-  // keeps the set robust to either naming convention without forcing operators
-  // to maintain two parallel sets that can drift.
+  // service names in the production project are BARE (`shell`, `aimock`,
+  // `dashboard`, …) while some EXCLUDE_SERVICES entries are keyed by the
+  // `showcase-`-prefixed form for historical reasons (the legacy local-dev
+  // project named services with that prefix). Comparing both forms keeps the
+  // set robust to either naming convention without forcing operators to
+  // maintain two parallel sets that can drift.
   if (EXCLUDE_SERVICES.has(name)) return true;
   return EXCLUDE_SERVICES.has(`showcase-${name}`);
+}
+
+/**
+ * True for services in `AIMOCK_CONSUMER_SERVICES` — infra that nonetheless
+ * calls aimock and must be verified with the extended
+ * `HARNESS_FLEET_CANDIDATE_ENV_VARS` candidate set. Tolerates both the bare
+ * deployed name (`harness`) and a legacy `showcase-`-prefixed form, mirroring
+ * `isExcluded`.
+ */
+function isAimockConsumer(name: string): boolean {
+  if (AIMOCK_CONSUMER_SERVICES.has(name)) return true;
+  const bare = name.startsWith("showcase-")
+    ? name.slice("showcase-".length)
+    : name;
+  return AIMOCK_CONSUMER_SERVICES.has(bare);
 }
 
 /**
@@ -244,8 +283,9 @@ function extractHostPort(
 }
 
 /**
- * Candidate env var names that may point a service at aimock. A service is
- * "wired" if ANY of these resolves to the aimock host+port.
+ * Default candidate env var names that may point a service at aimock. A service
+ * is "wired" if ANY of these resolves to the aimock host+port. The harness
+ * fleet uses an extended set (`HARNESS_FLEET_CANDIDATE_ENV_VARS`).
  *
  *   - `OPENAI_BASE_URL`: used by the vast majority of services (OpenAI SDK
  *     convention, typically set to `<aimock>/v1`).
@@ -257,6 +297,19 @@ const CANDIDATE_ENV_VARS = [
   "OPENAI_BASE_URL",
   "ANTHROPIC_BASE_URL",
   "GOOGLE_GEMINI_BASE_URL",
+] as const;
+
+/**
+ * Candidate env vars for the harness fleet (`AIMOCK_CONSUMER_SERVICES`). Extends
+ * the standard set with `AIMOCK_URL`, the harness fleet's own aimock pointer:
+ * `harness` exposes ONLY `AIMOCK_URL`, and `harness-workers` exposes
+ * OPENAI/ANTHROPIC/AIMOCK_URL. `AIMOCK_URL` is intentionally scoped to this
+ * path — adding it to the global `CANDIDATE_ENV_VARS` would let a demo backend's
+ * stray `AIMOCK_URL` count as wired and mask a missing real base-URL pointer.
+ */
+const HARNESS_FLEET_CANDIDATE_ENV_VARS = [
+  ...CANDIDATE_ENV_VARS,
+  "AIMOCK_URL",
 ] as const;
 
 /**
@@ -279,6 +332,10 @@ const CANDIDATE_ENV_VARS = [
  * collapse (`http://h` ≡ `http://h:80`, `https://h` ≡ `https://h:443`); the
  * expected port is derived from the configured `aimockUrl` (no port hardcoded).
  *
+ * `candidateVars` selects which env vars are consulted (defaults to
+ * `CANDIDATE_ENV_VARS`; the harness fleet passes
+ * `HARNESS_FLEET_CANDIDATE_ENV_VARS`, which adds `AIMOCK_URL`).
+ *
  * Precedence: match > mismatch(confirmed) > sealed > mismatch(all-missing).
  *   1. A confirmed match on ANY candidate wins over everything — a service
  *      exposing `ANTHROPIC_BASE_URL=aimock` with a sealed `OPENAI_BASE_URL`
@@ -293,6 +350,7 @@ const CANDIDATE_ENV_VARS = [
 function pointsAtAimock(
   env: Record<string, string | undefined>,
   aimockUrl: string,
+  candidateVars: readonly string[] = CANDIDATE_ENV_VARS,
 ): "match" | "mismatch" | "sealed" {
   const target = extractHostPort(aimockUrl);
   // Defense-in-depth: the probe's `run` has already validated `aimockUrl`
@@ -303,7 +361,7 @@ function pointsAtAimock(
   if (target === null) return "mismatch";
   let anySealed = false;
   let anyConfirmedMismatch = false;
-  for (const varName of CANDIDATE_ENV_VARS) {
+  for (const varName of candidateVars) {
     const raw = env[varName];
     // Missing / empty contributes no signal — treated like the var being
     // absent (which, if nothing else fires, lands in mismatch(all-missing)).
@@ -425,7 +483,13 @@ export const aimockWiringProbe: Probe<AimockWiringInput, AimockWiringSignal> = {
         errored.push({ name, errorDesc });
         continue;
       }
-      const verdict = pointsAtAimock(env, input.aimockUrl);
+      // Harness-fleet consumers are verified with the extended candidate set
+      // (adds AIMOCK_URL) since `harness` exposes only that pointer; all other
+      // services use the standard OPENAI/ANTHROPIC/GEMINI candidates.
+      const candidateVars = isAimockConsumer(name)
+        ? HARNESS_FLEET_CANDIDATE_ENV_VARS
+        : CANDIDATE_ENV_VARS;
+      const verdict = pointsAtAimock(env, input.aimockUrl, candidateVars);
       if (verdict === "match") {
         wired.push(name);
       } else if (verdict === "sealed") {
