@@ -1,14 +1,14 @@
 """Dedicated crew for the Declarative Generative UI (A2UI Dynamic Schema) demo.
 
-Mirrors `langgraph-python/src/agents/a2ui_dynamic.py` with CrewAI plumbing:
+Option A (JS-runtime-injected A2UI): the crew wires a no-arg `generate_a2ui`
+tool whose body raises loudly if called — the CopilotKit runtime middleware
+(`a2ui.injectA2UITool: true`, enabled by default in route.ts) intercepts the
+toolcall before it reaches Python and drives the secondary `render_a2ui` LLM
+pass itself.  The frontend renderer paints the emitted `a2ui_operations`.
 
-- A single-agent crew that owns a `GenerateA2uiTool` which invokes a
-  secondary LLM bound to a `render_a2ui` function-call, producing A2UI
-  `a2ui_operations` that the runtime's A2UI middleware forwards to the
-  frontend renderer.
-- The agent is tuned via role/backstory to call `generate_a2ui` whenever a
-  response would benefit from a rich visual, matching the system prompt in
-  the langgraph reference.
+The backend crew is tuned via role/backstory to call `generate_a2ui` (no
+args) whenever a response would benefit from a rich visual, matching the
+pattern in the langgraph-python reference agent (`a2ui_dynamic.py`).
 
 CrewAI caveat: `ChatWithCrewFlow` wraps every chat turn in a CrewAI
 "platform" system prompt that encourages the LLM to introduce itself and
@@ -24,26 +24,58 @@ Reference:
 from __future__ import annotations
 
 from crewai import Agent, Crew, Process, Task
+from crewai.tools import BaseTool
+from pydantic import BaseModel
 
 from agents._chat_flow_helpers import preseed_system_prompt
-from agents.tools.custom_tool import GenerateA2uiTool
+
+
+class _NoArgInput(BaseModel):
+    """Empty input schema — generate_a2ui takes no arguments."""
+
+
+class _GenerateA2uiNoArgTool(BaseTool):
+    """No-arg generate_a2ui tool for the injected A2UI pattern.
+
+    The CopilotKit runtime middleware (`a2ui.injectA2UITool: true`) intercepts
+    this toolcall before it reaches the Python body and drives the secondary
+    `render_a2ui` LLM pass itself.  If this body actually runs, the middleware
+    is misconfigured — fail loud per fail-loud-discipline rather than silently
+    returning an empty surface.
+    """
+
+    name: str = "generate_a2ui"
+    description: str = (
+        "Generate a dynamic A2UI dashboard surface from the current conversation. "
+        "Takes no arguments. The CopilotKit runtime middleware intercepts this call "
+        "and drives the secondary render_a2ui pass automatically."
+    )
+    args_schema: type[BaseModel] = _NoArgInput
+
+    def _run(self) -> str:  # type: ignore[override]
+        raise RuntimeError(
+            "generate_a2ui called directly — the CopilotKit a2ui middleware "
+            "should intercept this call before it reaches the agent. "
+            "Check the route configuration at "
+            "app/api/copilotkit-declarative-gen-ui/route.ts."
+        )
 
 
 DECLARATIVE_GEN_UI_BACKSTORY = (
-    "You are a demo assistant for Declarative Generative UI (A2UI - Dynamic "
-    "Schema). Whenever a response would benefit from a rich visual - a "
-    "dashboard, status report, KPI summary, card layout, info grid, a "
-    "pie/donut chart of part-of-whole breakdowns, a bar chart comparing "
-    "values across categories, or anything more structured than plain text - "
-    "call the generate_a2ui tool to draw it. The registered catalog "
-    "includes Card, StatusBadge, Metric, InfoRow, PrimaryButton, PieChart, "
-    "and BarChart (in addition to the basic A2UI primitives). Prefer "
-    "PieChart for part-of-whole breakdowns (sales by region, traffic "
-    "sources, portfolio allocation) and BarChart for comparisons across "
-    "categories (quarterly revenue, headcount by team, signups per month). "
-    "generate_a2ui takes a single `context` argument; pass the user's "
-    "request as the context and it handles the rendering automatically. "
-    "Keep chat replies to one short sentence; let the UI do the talking."
+    "You are the embedded sales analyst for Vantage Threads, the fictional "
+    "B2B apparel company described in your App Context. Answer every "
+    "business question by calling `generate_a2ui` to draw a rich visual "
+    "surface, and keep the chat reply to one short sentence. "
+    "Ground every number in the sales dataset from App Context — never "
+    "invent figures that contradict it. Follow the dashboard composition "
+    "rules from App Context when choosing components: pick the component "
+    "by the shape of the question (snapshot → composed KPI dashboard with "
+    "charts; team performance → table; risk → status badges; single "
+    "account → info rows; part-of-whole → pie; trend/comparison → bar). "
+    "Never ask the user which chart they want. `generate_a2ui` takes no "
+    "arguments and handles the rendering automatically. Compose "
+    "generously — a dashboard should feel like a real analytics product, "
+    "not a single widget."
 )
 
 CREW_NAME = "DeclarativeGenUI"
@@ -54,11 +86,9 @@ CREW_NAME = "DeclarativeGenUI"
 preseed_system_prompt(
     CREW_NAME,
     (
-        "Declarative Generative UI demo. The registered catalog includes "
-        "Card, StatusBadge, Metric, InfoRow, PrimaryButton, PieChart, and "
-        "BarChart. Prefer calling generate_a2ui whenever a dashboard, chart, "
-        "or card layout would improve the answer. Keep chat replies to one "
-        "short sentence."
+        "Declarative Generative UI demo (Vantage Threads sales analyst). "
+        "Call generate_a2ui (no args) whenever a dashboard, chart, or card "
+        "layout would improve the answer. Keep chat replies to one short sentence."
     ),
 )
 
@@ -72,7 +102,7 @@ def _build_crew() -> Crew:
         ),
         backstory=DECLARATIVE_GEN_UI_BACKSTORY,
         verbose=False,
-        tools=[GenerateA2uiTool()],
+        tools=[_GenerateA2uiNoArgTool()],
     )
 
     task = Task(
