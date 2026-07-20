@@ -458,6 +458,30 @@ function isAgentMessagePost(method: string, url: string): boolean {
 const DEFAULT_TIMEOUT_MS = 3 * 60 * 1000;
 const DEFAULT_PAGE_TIMEOUT_MS = 60 * 1000;
 
+/**
+ * L3 demo route (`/demos/agentic-chat`) — driven on EVERY discovered slug.
+ */
+export const D4_DEMO_ROUTE_AGENTIC_CHAT = "agentic-chat" as const;
+/**
+ * L4 demo route (`/demos/tool-rendering`) — driven only where the slug's
+ * registry exposes the `tool-rendering` demo.
+ */
+export const D4_DEMO_ROUTE_TOOL_RENDERING = "tool-rendering" as const;
+
+/**
+ * SOURCE OF TRUTH for the set of `/demos/<route>` routes this probe navigates:
+ * L3 (`agentic-chat`) always, L4 (`tool-rendering`) conditionally. The
+ * `runLevel` call sites below derive their `demo`/`demoPath` from these same
+ * constants, and the `d4-probe-domdone-guard` test derives its probed-route
+ * scan from this array (instead of a parallel hardcoded literal that could
+ * silently drift) so a future D4 route is covered automatically.
+ */
+export const D4_PROBED_DEMO_ROUTES = [
+  D4_DEMO_ROUTE_AGENTIC_CHAT,
+  D4_DEMO_ROUTE_TOOL_RENDERING,
+] as const;
+export type D4ProbedDemoRoute = (typeof D4_PROBED_DEMO_ROUTES)[number];
+
 // `PendingSseEvent`, `CvdiagProbeSession`, `defaultCvdiagBufferDir`, and
 // `nowMonoMs` were extracted to `../../cvdiag/probe-session.js` so the d5/d6
 // probe path can reuse the SAME probe-layer session. They are imported at the
@@ -1185,7 +1209,7 @@ export function createE2eSmokeDriver(
           demos = [];
         }
       }
-      const hasToolRendering = demos.includes("tool-rendering");
+      const hasToolRendering = demos.includes(D4_DEMO_ROUTE_TOOL_RENDERING);
 
       // Arm an AbortController that combines:
       //   1. The driver's own `timeoutMs` hard cap (triggers teardown).
@@ -1262,8 +1286,8 @@ export function createE2eSmokeDriver(
           slug,
           backendUrl,
           level: "chat",
-          demo: "agentic-chat",
-          demoPath: "/demos/agentic-chat",
+          demo: D4_DEMO_ROUTE_AGENTIC_CHAT,
+          demoPath: `/demos/${D4_DEMO_ROUTE_AGENTIC_CHAT}`,
           message: "Hello, please respond with a brief greeting.",
           testId: `d4-${slug}-${runId}`,
           abortSignal: abort.signal,
@@ -1386,8 +1410,8 @@ export function createE2eSmokeDriver(
             slug,
             backendUrl,
             level: "tools",
-            demo: "tool-rendering",
-            demoPath: "/demos/tool-rendering",
+            demo: D4_DEMO_ROUTE_TOOL_RENDERING,
+            demoPath: `/demos/${D4_DEMO_ROUTE_TOOL_RENDERING}`,
             message: "What's the weather in San Francisco?",
             testId: `d4-${slug}-${runId}`,
             abortSignal: abort.signal,
