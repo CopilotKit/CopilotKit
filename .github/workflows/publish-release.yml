@@ -132,7 +132,7 @@ jobs:
       # (including .git/config) into an artifact — persisting credentials
       # here would leak a workflow-scoped token to anyone with actions:read.
       - name: Checkout Repo
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -480,7 +480,7 @@ jobs:
       pyproject_changed: ${{ steps.changed.outputs.pyproject_changed }}
     steps:
       - name: Checkout merged main
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           ref: main
@@ -519,7 +519,7 @@ jobs:
 
       - name: Set up Python
         if: github.event_name == 'workflow_dispatch' || steps.changed.outputs.pyproject_changed == 'true'
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
 
@@ -576,7 +576,7 @@ jobs:
       id-token: write
     steps:
       - name: Checkout merged main
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           ref: main
@@ -921,7 +921,7 @@ jobs:
           echo "npm_intended=$NPM_INTENDED py_intended=$PY_INTENDED"
 
       - name: Checkout Repo
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 

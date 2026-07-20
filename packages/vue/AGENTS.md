@@ -31,6 +31,12 @@ When porting a React feature:
 12. Keep slots as the primary Vue customization model. `renderCustomMessages` is the approved secondary provider-level parity surface for ordered and agent-scoped custom message registration; do not invent alternative provider-slot registration APIs.
 13. Do not port React `StrictMode` identity assertions literally into Vue by adding runtime remount caches/workarounds; validate Vue lifecycle invariants under rerender/remount instead.
 
+## Vue reactivity boundary
+
+- Externally supplied payloads that may cross serialization or `structuredClone` boundaries must remain raw; Vue reactive proxies are not clone-safe.
+- Treat messages, attachment sources, agent state, forwarded props, runtime properties, interrupt payloads, user callback results, and AG-UI event payloads as agent-bound when they may later be passed to core or emitted through AG-UI.
+- When a reactive container must not proxy nested values, prefer `shallowRef()`. Plain `ref()` is fine for UI-only primitives and local UI state. If unsure, add a Vue-specific test that checks `isProxy(value) === false` and `structuredClone(value)` does not throw before the value crosses into core.
+
 ## Validation gates
 
 Run after meaningful changes:
