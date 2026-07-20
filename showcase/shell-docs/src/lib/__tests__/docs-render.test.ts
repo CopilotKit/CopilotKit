@@ -456,8 +456,9 @@ describe("framework nav", () => {
       "Overview",
       "Threads Drawer",
       "Headless Threads",
-      "Threads & Persistence Architecture",
       "Import Thread History",
+      "Threads & Persistence Architecture",
+      "Thread & History Lifecycle",
     ];
 
     expect(groupPageTitles(generatedNav, "Threads")).toEqual(expected);
