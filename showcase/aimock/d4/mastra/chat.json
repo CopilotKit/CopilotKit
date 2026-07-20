@@ -8,15 +8,6 @@
   "fixtures": [
     {
       "match": {
-        "toolCallId": "call_fp_generate_a2ui_sales_dashboard_001",
-        "context": "mastra"
-      },
-      "response": {
-        "content": "Here's your sales dashboard \u2014 total revenue is $1.2M (+12% MoM), 342 new customers, and 4.2% conversion. The pie shows revenue split by category and the bar chart tracks monthly sales."
-      }
-    },
-    {
-      "match": {
         "userMessage": "with total revenue, new customers, and conversion rate metrics",
         "toolName": "_design_a2ui_surface",
         "context": "mastra"
@@ -34,8 +25,7 @@
     {
       "match": {
         "userMessage": "with total revenue, new customers, and conversion rate metrics",
-        "toolName": "render_a2ui",
-        "context": "mastra"
+        "toolName": "render_a2ui"
       },
       "response": {
         "toolCalls": [
@@ -45,13 +35,22 @@
             "arguments": "{\"surfaceId\":\"beautiful-chat-sales-dashboard\",\"catalogId\":\"copilotkit://app-dashboard-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"children\":[\"row-metrics\",\"row-charts\"],\"gap\":16},{\"id\":\"row-metrics\",\"component\":\"Row\",\"children\":[\"card-revenue\",\"card-customers\",\"card-conversion\"],\"gap\":16},{\"id\":\"card-revenue\",\"component\":\"DashboardCard\",\"title\":\"Total Revenue\",\"child\":\"metric-revenue\"},{\"id\":\"metric-revenue\",\"component\":\"Metric\",\"label\":\"Total Revenue\",\"value\":\"$1.2M\",\"trend\":\"up\",\"trendValue\":\"+12% MoM\"},{\"id\":\"card-customers\",\"component\":\"DashboardCard\",\"title\":\"New Customers\",\"child\":\"metric-customers\"},{\"id\":\"metric-customers\",\"component\":\"Metric\",\"label\":\"New Customers\",\"value\":\"342\",\"trend\":\"up\",\"trendValue\":\"+8% MoM\"},{\"id\":\"card-conversion\",\"component\":\"DashboardCard\",\"title\":\"Conversion Rate\",\"child\":\"metric-conversion\"},{\"id\":\"metric-conversion\",\"component\":\"Metric\",\"label\":\"Conversion Rate\",\"value\":\"4.2%\",\"trend\":\"neutral\"},{\"id\":\"row-charts\",\"component\":\"Row\",\"children\":[\"card-pie\",\"card-bar\"],\"gap\":16},{\"id\":\"card-pie\",\"component\":\"DashboardCard\",\"title\":\"Revenue by Category\",\"child\":\"pie-revenue\"},{\"id\":\"pie-revenue\",\"component\":\"PieChart\",\"data\":[{\"label\":\"Electronics\",\"value\":42000},{\"label\":\"Clothing\",\"value\":28000},{\"label\":\"Food\",\"value\":18000},{\"label\":\"Books\",\"value\":12000}]},{\"id\":\"card-bar\",\"component\":\"DashboardCard\",\"title\":\"Monthly Sales\",\"child\":\"bar-monthly\"},{\"id\":\"bar-monthly\",\"component\":\"BarChart\",\"data\":[{\"label\":\"Jan\",\"value\":50000},{\"label\":\"Feb\",\"value\":62000},{\"label\":\"Mar\",\"value\":58000},{\"label\":\"Apr\",\"value\":71000},{\"label\":\"May\",\"value\":80000},{\"label\":\"Jun\",\"value\":92000}]}]}"
           }
         ]
+      },
+      "_comment": "beautiful-chat Sales Dashboard pill - inner secondary LLM (toolChoice forced render_a2ui) emits the dashboard A2UI tree against app-dashboard-catalog. Matched by toolName only; the secondary request carries no 'mastra' context header, so a context gate would never fire."
+    },
+    {
+      "_comment": "beautiful-chat Sales Dashboard pill - outer agent narration after generate_a2ui returns.",
+      "match": {
+        "toolCallId": "call_fp_generate_a2ui_sales_dashboard_001",
+        "context": "mastra"
+      },
+      "response": {
+        "content": "Here's your sales dashboard - Total Revenue $1.2M (+12% MoM), 342 new customers, and a 4.2% conversion rate. The pie shows revenue by category and the bar chart tracks monthly sales."
       }
     },
     {
       "match": {
         "userMessage": "with total revenue, new customers, and conversion rate metrics",
-        "toolName": "generate_a2ui",
-        "hasToolResult": false,
         "context": "mastra"
       },
       "response": {
@@ -59,10 +58,11 @@
           {
             "id": "call_fp_generate_a2ui_sales_dashboard_001",
             "name": "generate_a2ui",
-            "arguments": "{}"
+            "arguments": "{\"messages\": [{\"role\": \"user\", \"content\": \"First use the query_data tool to fetch the financial sales data, then using A2UI, show me a sales dashboard with total revenue, new customers, and conversion rate metrics. Include a pie chart of revenue by category and a bar chart of monthly sales.\"}], \"contextEntries\": []}"
           }
         ]
-      }
+      },
+      "_comment": "beautiful-chat Sales Dashboard pill - outer agent emits generate_a2ui (carrying the pill message so the inner secondary LLM request matches render_a2ui). Gated on userMessage+context only - a hasToolResult gate broke 2nd+ clicks (aimock hasToolResult is thread-global on this path); the narration leg below (toolCallId-gated, placed first) stops a generate_a2ui loop on the post-tool turn."
     },
     {
       "match": {
