@@ -282,6 +282,22 @@ emit() {
 emit "#team-showcase" "$init_text"
 emit "#team-showcase (thread_ts=<init_ts>)" "$thread_text"
 
+# Mirror the workflow's outcome REACTION on the init message. The live .yml
+# calls reactions.add on the ORIGINAL init post (referencing it by `timestamp`,
+# not `ts`) so operators see the net outcome at a glance. No real Slack call
+# happens here, so EMIT what reaction the workflow WOULD add. Keep this
+# outcome→reaction-name case mapping BYTE-IDENTICAL to the .yml's — an
+# anti-drift bats guard enforces it.
+case "$outcome" in
+  success) reaction_name="white_check_mark" ;;
+  partial) reaction_name="warning" ;;
+  total)   reaction_name="x" ;;
+esac
+echo "--- reactions.add ---"
+echo "channel: #team-showcase (ts=<init_ts>)"
+echo "name: ${reaction_name}"
+echo
+
 # Mirror the workflow's post-and-verify exit semantics so the dry-run exercises
 # the SAME fail-loud/warn-only distinction the live .yml does (see the matching
 # slack_alert_posted_ok calls there). No real Slack call happens here, so we
