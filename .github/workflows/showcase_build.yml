@@ -993,22 +993,46 @@ jobs:
         env:
           MATRIX_JSON: ${{ needs.detect-starter-changes.outputs.matrix }}
           RESULTS_DIR: ${{ runner.temp }}/starter-build-results-in
+          BUILD_STARTERS_RESULT: ${{ needs.build-starters.result }}
         run: |
           set -euo pipefail
           # Each per-slot artifact extracts to
           #   $RESULTS_DIR/starter-build-result-<slug>/result.json
           # with shape {"service":"<RAW slug>","status":"success|failure|skipped"}
           # (see build-starters' "Write per-slot starter build result" step).
-          # Collect the RAW slugs whose slot reported status:success. `find
-          # -exec cat {} +` runs cat zero times when nothing matches (empty
-          # or absent result dir) → jq -s slurps zero inputs → `[]`, so an
-          # all-failed / crashed build yields an empty success set with no
-          # xargs-on-empty hang.
-          success_slugs='[]'
+          # Slurp ALL result records first. `find -exec cat {} +` runs cat zero
+          # times when nothing matches (empty or absent result dir) → jq -s
+          # slurps zero inputs → `[]`, so an all-failed / crashed build yields
+          # an empty record set with no xargs-on-empty hang.
+          #
+          # NO `2>/dev/null` on the cat (Finding 2): suppressing read errors
+          # would let a starter whose result.json exists-but-is-unreadable be
+          # silently dropped from the success set (a silent under-deploy). Let a
+          # read error surface and trip `pipefail` so the job fails loud.
+          records='[]'
           if [ -d "$RESULTS_DIR" ]; then
-            success_slugs="$(find "$RESULTS_DIR" -name result.json -exec cat {} + 2>/dev/null \
-              | jq -sc '[.[] | select(.status == "success") | .service]')"
+            records="$(find "$RESULTS_DIR" -name result.json -exec cat {} + \
+              | jq -sc '.')"
           fi
+          # Fail-loud artifact-completeness check (Finding 2): every matrix slot
+          # writes a result.json ("Write per-slot starter build result" runs
+          # `if: always()`), so when ALL slots built (build-starters.result ==
+          # 'success') the parsed record count MUST equal the matrix slot count.
+          # A shortfall means a `starter-build-result-*` artifact is missing or
+          # expired → a successfully-built starter would be silently dropped
+          # from the redeploy set. Gated on 'success' so a partial/total build
+          # FAILURE (where a crashed slot may legitimately lack its artifact) is
+          # NOT double-reported here — that failure is already surfaced by the
+          # build-starters job itself.
+          matrix_slot_count="$(echo "$MATRIX_JSON" | jq 'length')"
+          record_count="$(echo "$records" | jq 'length')"
+          if [ "$BUILD_STARTERS_RESULT" = "success" ] && [ "$record_count" -ne "$matrix_slot_count" ]; then
+            echo "::error::All starter slots built (build-starters.result=success) but parsed $record_count build-result record(s) for $matrix_slot_count matrix slot(s) — a per-slot starter-build-result-* artifact is missing or expired. A successfully-built starter could be silently dropped from the redeploy set. Check the build-starters upload step and artifact retention (retention-days)."
+            echo "Scheduled starter matrix (detect-starter-changes): $MATRIX_JSON"
+            echo "Parsed build-result records (from RESULTS_DIR):     $records"
+            exit 1
+          fi
+          success_slugs="$(echo "$records" | jq -c '[.[] | select(.status == "success") | .service]')"
           # Map each successfully-built RAW slug → its SSOT key via the starter
           # matrix `.image` field (image === "starter-<slug>" === the
           # railway-envs.ts SERVICES key). redeploy-env.ts resolves that SSOT
@@ -1017,6 +1041,26 @@ jobs:
           # redeploy the wrong (showcase, not starter) Railway service.
           csv="$(jq -rn --argjson m "$MATRIX_JSON" --argjson s "$success_slugs" \
             '($m | map(select(.slug as $sl | $s | index($sl)) | .image)) | join(",")')"
+          # Fail-loud empty-deploy-set check (Finding 1): mirror the sibling
+          # redeploy-staging job's empty-intersection guard. When ALL slots
+          # built (build-starters.result == 'success') yet the matrix ∩ success
+          # CSV is EMPTY, everything built but nothing would be redeployed — a
+          # silent "we thought we shipped but didn't" hole (a slug↔.image
+          # contract skew, or the success set maps to no matrix entry). Fail
+          # loud. Do NOT fail when build-starters merely FAILED (partial or
+          # total): an empty CSV there is the legitimate "no slot succeeded →
+          # nothing to deploy" path, and the build failure is already surfaced
+          # by build-starters itself.
+          if [ -z "$csv" ] && [ "$BUILD_STARTERS_RESULT" = "success" ]; then
+            echo "::error::All starter slots built (build-starters.result=success) but matrix ∩ success-set is EMPTY — nothing would be redeployed. Likely a slug↔.image contract skew between detect-starter-changes' matrix and the per-slot result artifacts' service values."
+            echo "Successful starter slugs (status:success records): $success_slugs"
+            echo "Scheduled starter matrix (detect-starter-changes): $MATRIX_JSON"
+            echo "Reconcile the starter matrix (.slug/.image) with build-starters' per-slot result service values so every built starter maps to a Railway service."
+            exit 1
+          fi
+          if [ -z "$csv" ]; then
+            echo "build-starters.result=$BUILD_STARTERS_RESULT with an empty deploy set — no starter built successfully, nothing to redeploy (any build failure is surfaced by the build-starters job)."
+          fi
           echo "services=$csv" >> "$GITHUB_OUTPUT"
           echo "Computed starter services CSV (matrix ∩ build-success): $csv"
 
