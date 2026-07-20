@@ -1,6 +1,6 @@
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import {
-  BasicAgent,
+  BuiltInAgent,
   CopilotRuntime,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
@@ -158,7 +158,7 @@ class DemoButtonAgent extends AbstractAgent {
 export const createDefaultRuntime = () =>
   new CopilotRuntime({
     agents: {
-      default: new BasicAgent({
+      default: new BuiltInAgent({
         model: determineModel(),
         prompt: "You are a helpful AI assistant.",
         temperature: 0.7,
@@ -185,7 +185,7 @@ export const createCatalogOnlyRuntime = () =>
   });
 
 export const createMcpRuntime = () => {
-  const agent = new BasicAgent({
+  const agent = new BuiltInAgent({
     model: determineModel(),
     prompt: "You are a helpful AI assistant with access to MCP apps and tools.",
     temperature: 0.7,
