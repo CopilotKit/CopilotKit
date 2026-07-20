@@ -667,6 +667,72 @@ function buildCases(): LearningPlatformConformanceCase[] {
       value: { learningContainerId: null, assignmentRevision: -1 },
     },
     {
+      name: "learning-run-rejects-inverted-selection-interval",
+      schema: "LearningRunV1",
+      valid: false,
+      value: {
+        ...(canonicalValidValues.LearningRunV1 as Record<string, JsonValue>),
+        selectedAfterSequence: 2,
+        selectedThroughSequence: 1,
+        snapshotIdsAndHashes: [],
+      },
+    },
+    {
+      name: "learning-run-rejects-snapshot-outside-selection-interval",
+      schema: "LearningRunV1",
+      valid: false,
+      value: {
+        ...(canonicalValidValues.LearningRunV1 as Record<string, JsonValue>),
+        selectedAfterSequence: 1,
+        selectedThroughSequence: 2,
+        snapshotIdsAndHashes: [snapshotIdentity],
+      },
+    },
+    {
+      name: "learning-run-rejects-duplicate-snapshot-identities",
+      schema: "LearningRunV1",
+      valid: false,
+      value: {
+        ...(canonicalValidValues.LearningRunV1 as Record<string, JsonValue>),
+        selectedThroughSequence: 2,
+        snapshotIdsAndHashes: [
+          snapshotIdentity,
+          { ...snapshotIdentity, contentSha256: SHA_B, containerSequence: 2 },
+        ],
+      },
+    },
+    {
+      name: "learning-run-rejects-unordered-snapshot-identities",
+      schema: "LearningRunV1",
+      valid: false,
+      value: {
+        ...(canonicalValidValues.LearningRunV1 as Record<string, JsonValue>),
+        selectedThroughSequence: 2,
+        snapshotIdsAndHashes: [
+          {
+            snapshotId: UUID.annotation,
+            contentSha256: SHA_B,
+            containerSequence: 2,
+          },
+          snapshotIdentity,
+        ],
+      },
+    },
+    {
+      name: "learning-chunk-rejects-inverted-snapshot-range",
+      schema: "LearningChunkV1",
+      valid: false,
+      value: {
+        ...(canonicalValidValues.LearningChunkV1 as Record<string, JsonValue>),
+        snapshotRange: {
+          firstSnapshotId: UUID.snapshot,
+          lastSnapshotId: UUID.snapshot,
+          firstSequence: 2,
+          lastSequence: 1,
+        },
+      },
+    },
+    {
       name: "remove-candidate-requires-removal-intent",
       schema: "SkillCandidateV1",
       valid: false,

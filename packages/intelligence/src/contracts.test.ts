@@ -3,9 +3,11 @@ import {
   blobLocatorV1Schema,
   candidateGateResultV1Schema,
   insightV1Schema,
+  learningChunkV1Schema,
   learningContainerIdSchema,
   learningContainerV1Schema,
   learningContractJsonSchemas,
+  learningRunV1Schema,
   runSnapshotV1Schema,
   skillCandidateV1Schema,
   skillSetProjectionV1Schema,
@@ -15,6 +17,8 @@ import {
 const UUIDS = {
   container: "11111111-1111-4111-8111-111111111111",
   snapshot: "22222222-2222-4222-8222-222222222222",
+  snapshotSecond: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  attempt: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
   insight: "33333333-3333-4333-8333-333333333333",
   run: "44444444-4444-4444-8444-444444444444",
   candidate: "55555555-5555-4555-8555-555555555555",
@@ -101,6 +105,62 @@ const snapshot = {
   byteLength: 100,
   tokenEstimate: 25,
   containerSequence: 1,
+} as const;
+
+const learningRun = {
+  learningRunId: UUIDS.run,
+  organizationId: "org_1",
+  projectId: "42",
+  learningContainerId: UUIDS.container,
+  trigger: "manual",
+  idempotencyKey: "manual:run_1",
+  selectedAfterSequence: 3,
+  selectedThroughSequence: 8,
+  snapshotIdsAndHashes: [
+    {
+      snapshotId: UUIDS.snapshot,
+      contentSha256: SHA_A,
+      containerSequence: 4,
+    },
+    {
+      snapshotId: UUIDS.snapshotSecond,
+      contentSha256: SHA_B,
+      containerSequence: 8,
+    },
+  ],
+  selectedAnnotations: [],
+  registryRevision: "revision_1",
+  skillSetHash: SHA_A,
+  containerConfigRevision: 1,
+  modelProfileRef: "model:v1",
+  promptProfileRef: "prompt:v1",
+  evaluatorProfileRef: "evaluator:v1",
+  workflowVersion: "workflow:v1",
+  normalizerVersion: "normalizer:v1",
+  sanitizerVersion: "sanitizer:v1",
+  manifestSha256: SHA_B,
+  status: "created",
+  createdAt: NOW,
+  startedAt: null,
+  completedAt: null,
+} as const;
+
+const learningChunk = {
+  learningRunId: UUIDS.run,
+  attemptId: UUIDS.attempt,
+  chunkIndex: 0,
+  snapshotRange: {
+    firstSnapshotId: UUIDS.snapshot,
+    lastSnapshotId: UUIDS.snapshotSecond,
+    firstSequence: 4,
+    lastSequence: 8,
+  },
+  inputSha256: SHA_A,
+  outputSha256: null,
+  status: "planned",
+  privatePayloadRef: {},
+  createdAt: NOW,
+  updatedAt: NOW,
 } as const;
 
 describe("parent V1 contract schemas", () => {
@@ -199,6 +259,97 @@ describe("parent V1 contract schemas", () => {
       runSnapshotV1Schema.safeParse({
         ...snapshot,
         capturedAt: "2026-07-16T17:00:00.000Z",
+      }).success,
+    ).toBe(false);
+  });
+
+  test("accepts ordered frozen snapshot identities inside the selected interval", () => {
+    expect(learningRunV1Schema.parse(learningRun)).toEqual(learningRun);
+    expect(
+      learningRunV1Schema.safeParse({
+        ...learningRun,
+        selectedAfterSequence: 8,
+        snapshotIdsAndHashes: [],
+      }).success,
+    ).toBe(true);
+  });
+
+  test("rejects inverted frozen selection intervals", () => {
+    expect(
+      learningRunV1Schema.safeParse({
+        ...learningRun,
+        selectedAfterSequence: 9,
+      }).success,
+    ).toBe(false);
+  });
+
+  test("rejects snapshot identities outside the selected interval", () => {
+    expect(
+      learningRunV1Schema.safeParse({
+        ...learningRun,
+        snapshotIdsAndHashes: [
+          { ...learningRun.snapshotIdsAndHashes[0], containerSequence: 3 },
+        ],
+      }).success,
+    ).toBe(false);
+    expect(
+      learningRunV1Schema.safeParse({
+        ...learningRun,
+        snapshotIdsAndHashes: [
+          { ...learningRun.snapshotIdsAndHashes[0], containerSequence: 9 },
+        ],
+      }).success,
+    ).toBe(false);
+  });
+
+  test("rejects duplicate frozen snapshot identities", () => {
+    expect(
+      learningRunV1Schema.safeParse({
+        ...learningRun,
+        snapshotIdsAndHashes: [
+          learningRun.snapshotIdsAndHashes[0],
+          {
+            ...learningRun.snapshotIdsAndHashes[1],
+            snapshotId: UUIDS.snapshot,
+          },
+        ],
+      }).success,
+    ).toBe(false);
+  });
+
+  test("requires frozen snapshot identities in strictly increasing sequence order", () => {
+    expect(
+      learningRunV1Schema.safeParse({
+        ...learningRun,
+        snapshotIdsAndHashes: [
+          learningRun.snapshotIdsAndHashes[1],
+          learningRun.snapshotIdsAndHashes[0],
+        ],
+      }).success,
+    ).toBe(false);
+    expect(
+      learningRunV1Schema.safeParse({
+        ...learningRun,
+        snapshotIdsAndHashes: [
+          learningRun.snapshotIdsAndHashes[0],
+          {
+            ...learningRun.snapshotIdsAndHashes[1],
+            containerSequence: 4,
+          },
+        ],
+      }).success,
+    ).toBe(false);
+  });
+
+  test("requires learning chunk snapshot ranges in sequence order", () => {
+    expect(learningChunkV1Schema.parse(learningChunk)).toEqual(learningChunk);
+    expect(
+      learningChunkV1Schema.safeParse({
+        ...learningChunk,
+        snapshotRange: {
+          ...learningChunk.snapshotRange,
+          firstSequence: 9,
+        },
       }).success,
     ).toBe(false);
   });

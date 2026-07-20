@@ -214,44 +214,94 @@ export const learningRunStatusV1Schema = z.enum([
 ]);
 
 /** Durable learning run and its immutable frozen manifest. */
-export const learningRunV1Schema = z.looseObject({
-  learningRunId: uuidSchema,
-  organizationId: idSchema,
-  projectId: idSchema,
-  learningContainerId: uuidSchema,
-  trigger: z.enum(["nightly", "manual"]),
-  idempotencyKey: nonEmptyStringSchema,
-  selectedAfterSequence: nonNegativeIntegerSchema,
-  selectedThroughSequence: nonNegativeIntegerSchema,
-  snapshotIdsAndHashes: z.array(snapshotIdentityV1Schema),
-  selectedAnnotations: z.array(selectedHumanAnnotationV1Schema),
-  registryRevision: nonEmptyStringSchema,
-  skillSetHash: sha256Schema,
-  containerConfigRevision: nonNegativeIntegerSchema,
-  modelProfileRef: nonEmptyStringSchema,
-  promptProfileRef: nonEmptyStringSchema,
-  evaluatorProfileRef: nonEmptyStringSchema,
-  workflowVersion: nonEmptyStringSchema,
-  normalizerVersion: nonEmptyStringSchema,
-  sanitizerVersion: nonEmptyStringSchema,
-  manifestSha256: sha256Schema,
-  status: learningRunStatusV1Schema,
-  createdAt: timestampSchema,
-  startedAt: nullableTimestampSchema,
-  completedAt: nullableTimestampSchema,
-});
+export const learningRunV1Schema = z
+  .looseObject({
+    learningRunId: uuidSchema,
+    organizationId: idSchema,
+    projectId: idSchema,
+    learningContainerId: uuidSchema,
+    trigger: z.enum(["nightly", "manual"]),
+    idempotencyKey: nonEmptyStringSchema,
+    selectedAfterSequence: nonNegativeIntegerSchema,
+    selectedThroughSequence: nonNegativeIntegerSchema,
+    snapshotIdsAndHashes: z.array(snapshotIdentityV1Schema),
+    selectedAnnotations: z.array(selectedHumanAnnotationV1Schema),
+    registryRevision: nonEmptyStringSchema,
+    skillSetHash: sha256Schema,
+    containerConfigRevision: nonNegativeIntegerSchema,
+    modelProfileRef: nonEmptyStringSchema,
+    promptProfileRef: nonEmptyStringSchema,
+    evaluatorProfileRef: nonEmptyStringSchema,
+    workflowVersion: nonEmptyStringSchema,
+    normalizerVersion: nonEmptyStringSchema,
+    sanitizerVersion: nonEmptyStringSchema,
+    manifestSha256: sha256Schema,
+    status: learningRunStatusV1Schema,
+    createdAt: timestampSchema,
+    startedAt: nullableTimestampSchema,
+    completedAt: nullableTimestampSchema,
+  })
+  .superRefine((run, context) => {
+    if (run.selectedAfterSequence > run.selectedThroughSequence) {
+      context.addIssue({
+        code: "custom",
+        path: ["selectedThroughSequence"],
+        message: "Selected-through sequence cannot precede selected-after",
+      });
+    }
+
+    const snapshotIds = new Set<string>();
+    let previousSequence: number | undefined;
+    for (const [index, snapshot] of run.snapshotIdsAndHashes.entries()) {
+      if (snapshotIds.has(snapshot.snapshotId)) {
+        context.addIssue({
+          code: "custom",
+          path: ["snapshotIdsAndHashes", index, "snapshotId"],
+          message: "Frozen snapshot identities must be unique",
+        });
+      }
+      snapshotIds.add(snapshot.snapshotId);
+
+      if (
+        snapshot.containerSequence <= run.selectedAfterSequence ||
+        snapshot.containerSequence > run.selectedThroughSequence
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["snapshotIdsAndHashes", index, "containerSequence"],
+          message: "Frozen snapshot sequence is outside the selected interval",
+        });
+      }
+      if (
+        previousSequence !== undefined &&
+        snapshot.containerSequence <= previousSequence
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["snapshotIdsAndHashes", index, "containerSequence"],
+          message: "Frozen snapshot sequences must be strictly increasing",
+        });
+      }
+      previousSequence = snapshot.containerSequence;
+    }
+  });
 export type LearningRunV1 = z.infer<typeof learningRunV1Schema>;
 
 export const learningChunkV1Schema = z.looseObject({
   learningRunId: uuidSchema,
   attemptId: uuidSchema,
   chunkIndex: nonNegativeIntegerSchema,
-  snapshotRange: z.looseObject({
-    firstSnapshotId: uuidSchema,
-    lastSnapshotId: uuidSchema,
-    firstSequence: positiveIntegerSchema,
-    lastSequence: positiveIntegerSchema,
-  }),
+  snapshotRange: z
+    .looseObject({
+      firstSnapshotId: uuidSchema,
+      lastSnapshotId: uuidSchema,
+      firstSequence: positiveIntegerSchema,
+      lastSequence: positiveIntegerSchema,
+    })
+    .refine((range) => range.firstSequence <= range.lastSequence, {
+      path: ["lastSequence"],
+      message: "Last snapshot sequence cannot precede first sequence",
+    }),
   inputSha256: sha256Schema,
   outputSha256: sha256Schema.nullable(),
   status: z.enum([
