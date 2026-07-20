@@ -56,13 +56,21 @@ export type CommitLearningRunResultV1 = z.infer<
 >;
 
 /** Converts one generated output alias into an immutable candidate revision. */
-export const prepareRegistryCandidateV1Schema = z.looseObject({
-  ...commandEnvelopeShape,
-  learningRunId: uuidSchema,
-  outputAlias: nonEmptyStringSchema,
-  idempotencyKey: nonEmptyStringSchema,
-  generatedCandidate: generatedSkillCandidateV1Schema,
-});
+export const prepareRegistryCandidateV1Schema = z
+  .looseObject({
+    ...commandEnvelopeShape,
+    learningRunId: uuidSchema,
+    outputAlias: nonEmptyStringSchema,
+    idempotencyKey: nonEmptyStringSchema,
+    generatedCandidate: generatedSkillCandidateV1Schema,
+  })
+  .refine(
+    (command) => command.outputAlias === command.generatedCandidate.outputAlias,
+    {
+      path: ["generatedCandidate", "outputAlias"],
+      message: "Generated candidate output alias must match the command alias",
+    },
+  );
 export type PrepareRegistryCandidateV1 = z.infer<
   typeof prepareRegistryCandidateV1Schema
 >;

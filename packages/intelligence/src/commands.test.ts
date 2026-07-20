@@ -2,6 +2,7 @@ import { expect, test } from "vitest";
 import {
   commitLearningRunResultV1Schema,
   evaluateCandidateGatesV1Schema,
+  prepareRegistryCandidateV1Schema,
   publishCandidateV1Schema,
   requestThreadSnapshotBackfillV1Schema,
   startLearningContainerRunV1Schema,
@@ -64,6 +65,47 @@ test("CommitLearningRunResultV1 binds output to the active attempt fence", () =>
     commitLearningRunResultV1Schema.safeParse({
       ...command,
       fenceGeneration: -1,
+    }).success,
+  ).toBe(false);
+});
+
+test("PrepareRegistryCandidateV1 binds the command to its generated output alias", () => {
+  const command = {
+    schemaVersion: 1,
+    learningRunId: runId,
+    outputAlias: "candidate_1",
+    idempotencyKey: "candidate_1",
+    generatedCandidate: {
+      outputAlias: "candidate_1",
+      action: "add",
+      skillId: null,
+      parentVersionId: null,
+      bundle: {
+        rootDirectoryName: "candidate-skill",
+        files: [
+          {
+            path: "SKILL.md",
+            contentBase64: "IyBDYW5kaWRhdGU=",
+          },
+        ],
+      },
+      removalIntent: null,
+      insightAliases: ["insight_1"],
+      evidenceRefs: [],
+      reason: "Repeated successful workflow pattern",
+      risk: "low",
+    },
+    requestId: "req_1",
+    traceId: "trace_1",
+  } as const;
+
+  expect(prepareRegistryCandidateV1Schema.safeParse(command).success).toBe(
+    true,
+  );
+  expect(
+    prepareRegistryCandidateV1Schema.safeParse({
+      ...command,
+      outputAlias: "candidate_2",
     }).success,
   ).toBe(false);
 });
