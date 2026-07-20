@@ -2421,6 +2421,26 @@ function makeLateTokenBrowser(opts: {
    * staying latched to the stalled first attempt.
    */
   responsesPerSend?: CvdiagResponseEvent[];
+  /**
+   * Model the ROOT render-race Fix B closes: the transport-level RUN_FINISHED
+   * counter (`sseDone`) firing EARLY — at this many ms after the send — while
+   * the DOM run-stop edge (`domDone`, `runningNow: true→false`) AND the
+   * assistant-text commit land LATER, together, at `completeAtDelayMs` /
+   * `firstTokenDelayMs` (which a test sets EQUAL so they coalesce into one
+   * React commit, faithful to the `use-agent.tsx` batchedForceUpdate/
+   * queueMicrotask coalescing proven in `d4-race-cause.md` §2). Set to `0` to
+   * model `sseDone` firing immediately on send.
+   *
+   * DECOUPLES `runsFinished` (sseDone) from `runningNow`/`lastStoppedAtMs`
+   * (domDone): with this set, `runsFinished` bumps past baseline at
+   * `elapsed >= sseLeadMs` INDEPENDENT of the fixture's `complete` gate, which
+   * now drives ONLY the DOM stop-edge. Every OTHER fixture variant flips both
+   * signals together at the same `complete` edge, so none of them exercise the
+   * sseDone-leads / domDone-lags ordering this option models. When UNSET, the
+   * transport finished edge tracks `complete` exactly (existing coupled
+   * behavior — untouched, so all pre-existing tests are unaffected).
+   */
+  sseLeadMs?: number;
 }): CvE2eBrowser {
   const completeAt = opts.completeAtDelayMs ?? 0;
   const prior = opts.priorFinishedRuns ?? 0;
@@ -2567,6 +2587,21 @@ function makeLateTokenBrowser(opts: {
         // finished edge is a genuine THIS-turn transition the driver observes.
         const complete =
           started && (!opts.neverComplete || rescued) && elapsed >= completeAt;
+        // SSE-LEAD race (Fix B surface): the transport RUN_FINISHED counter
+        // (`sseDone`) can fire BEFORE the DOM run-stop edge (`domDone`). When
+        // `sseLeadMs` is set, `runsFinished` bumps past baseline at
+        // `elapsed >= sseLeadMs` independent of `complete` — which continues to
+        // drive ONLY `runningNow`/`lastStoppedAtMs` (the DOM edge). When unset,
+        // the finished edge tracks `complete` exactly (coupled, as before), so
+        // every existing fixture variant is byte-for-byte unchanged.
+        // NOTE: `sseFinished` is deliberately INDEPENDENT of `neverComplete` —
+        // the formula-pin test models a turn whose transport RUN_FINISHED edge
+        // fires while the DOM edge (`complete`) NEVER does, so `runsFinished`
+        // must bump even under `neverComplete`.
+        const sseFinished =
+          opts.sseLeadMs !== undefined
+            ? started && elapsed >= opts.sseLeadMs
+            : complete;
         // SSE-only completion: the transport `runsFinished` counter bumps but the
         // DOM run-lifecycle attribute never registers a fresh `true→false` stop
         // edge for THIS turn, so `runningNow` stays `true` and `lastStoppedAtMs`
@@ -2580,7 +2615,7 @@ function makeLateTokenBrowser(opts: {
             ? false
             : null;
         return {
-          runsFinished: prior + priorSendsDone + (complete ? 1 : 0),
+          runsFinished: prior + priorSendsDone + (sseFinished ? 1 : 0),
           attrPresent: true,
           sawRunningTrue: prior > 0 || started,
           runningNow,
@@ -3119,6 +3154,80 @@ describe("d4 L4 first-token wait hardening (readTurnState-driven)", () => {
     // `level-error` a floored-1ms `press` throw produced pre-fix.
     expect(errorDesc).toBe("send-budget-exhausted");
   }, 10000);
+});
+
+describe("d4 render-race: sseDone-leads / domDone-lags turn completion (Fix B)", () => {
+  // These two tests pin the fix for the rotating-full-column-red flap whose
+  // ROOT is a probe render-race: `readTurnComplete()` used to gate `complete`
+  // on `domDone || sseDone`. `sseDone` (the transport RUN_FINISHED counter) is
+  // a synchronous raw-byte parse OUTSIDE React and can fire AT-OR-BEFORE the
+  // React commit that renders the assistant text; `domDone` is coalesced into
+  // that SAME commit. Gating on `sseDone` let the fast-fail grace window elapse
+  // with the DOM still empty under contention, redding a turn that was about to
+  // render correctly ("empty assistant response"). Fix B gates on `domDone`
+  // ALONE. See SPEC "Fix B" + "Test / regression coverage".
+
+  it("TIMING SIM: sseDone fires EARLY, domDone+text land LATE together → GREEN (RED pre-fix)", async () => {
+    // The exact race Fix B closes, decoupled IN TIME (not just in kind):
+    //   - `sseDone` fires at send (`sseLeadMs: 0`) — the transport finished
+    //     edge leads.
+    //   - `domDone` (runningNow true→false) AND the assistant-text DOM commit
+    //     land TOGETHER at 2500ms (`completeAtDelayMs === firstTokenDelayMs`),
+    //     modelling the proven same-React-commit coalescing.
+    // 2500ms is PAST the ~2000ms `FIRST_TOKEN_GRACE_MS`. PRE-FIX
+    // (`domDone || sseDone`): `sseDone` stamps completion at ~send, the grace
+    // window elapses at ~2000ms with the DOM still empty, and the poll fast-
+    // fails RED before the real 2500ms token — the classic false red. POST-FIX
+    // (`domDone` only): `complete` stays false until 2500ms (the turn is merely
+    // `observed` in-flight via `sseDone`, so the poll WIDENS to the ceiling
+    // instead of fast-failing), then the token renders and the poll returns it.
+    const { l4State, failureSummary } = await runLateToken(
+      makeLateTokenBrowser({
+        assistantText: "The weather in San Francisco is sunny, 72 degrees.",
+        sseLeadMs: 0,
+        completeAtDelayMs: 2500,
+        firstTokenDelayMs: 2500,
+      }),
+      // Ceiling comfortably past the 2500ms lag so attempt 0 can reach the
+      // token (attempt-0 ceiling ≈ pageTimeoutMs/2 ≈ 4000ms > 2500ms).
+      { pageTimeoutMs: 8000 },
+    );
+    expect(l4State).toBe("green");
+    expect(failureSummary).toBe("");
+  }, 20000);
+
+  it("FORMULA PIN: sseDone alone must NOT flip `complete` — a turn that only ever fires sseDone stalls+retries (does NOT fast-fail as completed-empty)", async () => {
+    // Catches a LITERAL revert to `domDone || sseDone` via an observable that
+    // does not depend on wall-clock thresholds: the send count.
+    //   - `sseLeadMs: 0` → `sseDone` fires immediately.
+    //   - `neverComplete` → `domDone` (and the token) NEVER arrive.
+    // POST-FIX (`domDone`): `complete` stays false, so the turn reads as
+    // OBSERVED-but-in-flight (a stall) → the non-completion retry fires → the
+    // page receives a SECOND send (sends === 2), then reds.
+    // PRE-FIX (`domDone || sseDone`): `sseDone` flips `complete` true → the
+    // turn reads as COMPLETED-empty (a real red) → NO retry → sends === 1.
+    // Asserting sends === 2 therefore FAILS on the pre-fix formula and PASSES
+    // only once completion is gated on `domDone` alone.
+    let sends = 0;
+    const { l3State, failureSummary } = await runLateTokenL3(
+      makeLateTokenBrowser({
+        assistantText: "",
+        firstTokenDelayMs: 100,
+        neverComplete: true,
+        sseLeadMs: 0,
+        onSend: (n) => {
+          sends = Math.max(sends, n);
+        },
+      }),
+      { pageTimeoutMs: 4000 },
+    );
+    // Genuinely empty (no token ever) → red either way; the DISCRIMINATOR is
+    // whether the retry fired, i.e. whether `sseDone` alone was (wrongly)
+    // treated as turn-complete.
+    expect(l3State).toBe("red");
+    expect(failureSummary).toContain("empty assistant response");
+    expect(sends).toBe(2);
+  }, 20000);
 });
 
 describe("d4 mid-poll abort/timeout classification (follow-up)", () => {
