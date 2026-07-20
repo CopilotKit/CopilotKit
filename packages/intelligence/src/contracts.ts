@@ -115,34 +115,62 @@ export type SourceEventManifestEntryV1 = z.infer<
 >;
 
 /** Complete immutable first-terminal-event snapshot. */
-export const runSnapshotV1Schema = z.looseObject({
-  schemaVersion: z.literal(1),
-  snapshotId: uuidSchema,
-  organizationId: idSchema,
-  projectId: idSchema,
-  learningContainerId: uuidSchema,
-  threadId: idSchema,
-  agentRunId: nonEmptyStringSchema,
-  externalRunId: nonEmptyStringSchema,
-  terminalEventId: nonEmptyStringSchema,
-  terminalType: z.enum(["RUN_FINISHED", "RUN_ERROR"]),
-  terminalStatus: z.string().nullable(),
-  startedAt: timestampSchema,
-  terminalAt: timestampSchema,
-  capturedAt: timestampSchema,
-  assignmentRevision: nonNegativeIntegerSchema,
-  sourceEvents: z.array(sourceEventManifestEntryV1Schema),
-  messages: z.array(normalizedMessageV1Schema),
-  stateChanges: z.array(jsonObjectSchema),
-  annotations: z.array(jsonObjectSchema),
-  attachments: z.array(jsonObjectSchema),
-  normalizerVersion: nonEmptyStringSchema,
-  sanitizerVersion: nonEmptyStringSchema,
-  contentSha256: sha256Schema,
-  byteLength: nonNegativeIntegerSchema,
-  tokenEstimate: nonNegativeIntegerSchema,
-  containerSequence: positiveIntegerSchema,
-});
+export const runSnapshotV1Schema = z
+  .looseObject({
+    schemaVersion: z.literal(1),
+    snapshotId: uuidSchema,
+    organizationId: idSchema,
+    projectId: idSchema,
+    learningContainerId: uuidSchema,
+    threadId: idSchema,
+    agentRunId: nonEmptyStringSchema,
+    externalRunId: nonEmptyStringSchema,
+    terminalEventId: nonEmptyStringSchema,
+    terminalType: z.enum(["RUN_FINISHED", "RUN_ERROR"]),
+    terminalStatus: z.string().nullable(),
+    startedAt: timestampSchema,
+    terminalAt: timestampSchema,
+    capturedAt: timestampSchema,
+    assignmentRevision: nonNegativeIntegerSchema,
+    sourceEvents: z.array(sourceEventManifestEntryV1Schema),
+    messages: z.array(normalizedMessageV1Schema),
+    stateChanges: z.array(jsonObjectSchema),
+    annotations: z.array(jsonObjectSchema),
+    attachments: z.array(jsonObjectSchema),
+    normalizerVersion: nonEmptyStringSchema,
+    sanitizerVersion: nonEmptyStringSchema,
+    contentSha256: sha256Schema,
+    byteLength: nonNegativeIntegerSchema,
+    tokenEstimate: nonNegativeIntegerSchema,
+    containerSequence: positiveIntegerSchema,
+  })
+  .superRefine((snapshot, context) => {
+    const terminalEventCount = snapshot.sourceEvents.filter(
+      ({ eventId }) => eventId === snapshot.terminalEventId,
+    ).length;
+    if (terminalEventCount !== 1) {
+      context.addIssue({
+        code: "custom",
+        path: ["sourceEvents"],
+        message: "Source events must contain exactly one terminal event",
+      });
+    }
+
+    if (Date.parse(snapshot.startedAt) > Date.parse(snapshot.terminalAt)) {
+      context.addIssue({
+        code: "custom",
+        path: ["terminalAt"],
+        message: "Terminal time cannot precede start time",
+      });
+    }
+    if (Date.parse(snapshot.terminalAt) > Date.parse(snapshot.capturedAt)) {
+      context.addIssue({
+        code: "custom",
+        path: ["capturedAt"],
+        message: "Capture time cannot precede terminal time",
+      });
+    }
+  });
 export type RunSnapshotV1 = z.infer<typeof runSnapshotV1Schema>;
 
 export const evidenceLocatorV1Schema = z.looseObject({

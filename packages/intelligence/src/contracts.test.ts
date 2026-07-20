@@ -72,6 +72,12 @@ const snapshot = {
       type: "TEXT_MESSAGE_END",
       sha256: SHA_A,
     },
+    {
+      eventId: "event_terminal",
+      sequence: 2,
+      type: "RUN_FINISHED",
+      sha256: SHA_B,
+    },
   ],
   messages: [
     {
@@ -152,6 +158,48 @@ describe("parent V1 contract schemas", () => {
     ).toBe(false);
     expect(
       runSnapshotV1Schema.safeParse({ ...snapshot, byteLength: -1 }).success,
+    ).toBe(false);
+  });
+
+  test("requires exactly one source event matching the terminal event ID", () => {
+    expect(runSnapshotV1Schema.parse(snapshot)).toEqual(snapshot);
+    expect(
+      runSnapshotV1Schema.safeParse({
+        ...snapshot,
+        sourceEvents: snapshot.sourceEvents.filter(
+          ({ eventId }) => eventId !== snapshot.terminalEventId,
+        ),
+      }).success,
+    ).toBe(false);
+    expect(
+      runSnapshotV1Schema.safeParse({
+        ...snapshot,
+        sourceEvents: [...snapshot.sourceEvents, snapshot.sourceEvents[1]],
+      }).success,
+    ).toBe(false);
+  });
+
+  test("requires snapshot timestamps to follow capture order", () => {
+    expect(
+      runSnapshotV1Schema.safeParse({
+        ...snapshot,
+        startedAt: "2026-07-16T17:00:00.000Z",
+        terminalAt: "2026-07-16T18:00:00.000Z",
+        capturedAt: "2026-07-16T19:00:00.000Z",
+      }).success,
+    ).toBe(true);
+    expect(runSnapshotV1Schema.safeParse(snapshot).success).toBe(true);
+    expect(
+      runSnapshotV1Schema.safeParse({
+        ...snapshot,
+        startedAt: "2026-07-16T19:00:00.000Z",
+      }).success,
+    ).toBe(false);
+    expect(
+      runSnapshotV1Schema.safeParse({
+        ...snapshot,
+        capturedAt: "2026-07-16T17:00:00.000Z",
+      }).success,
     ).toBe(false);
   });
 
