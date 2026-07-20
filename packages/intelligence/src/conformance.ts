@@ -922,6 +922,35 @@ function buildCases(): LearningPlatformConformanceCase[] {
       },
     },
     {
+      name: "workflow-output-rejects-duplicate-insight-aliases",
+      schema: "LearningWorkflowOutputV1",
+      valid: false,
+      value: {
+        ...workflowOutput,
+        insights: [generatedInsight, generatedInsight],
+      },
+    },
+    {
+      name: "workflow-output-rejects-duplicate-candidate-aliases",
+      schema: "LearningWorkflowOutputV1",
+      valid: false,
+      value: {
+        ...workflowOutput,
+        skillCandidates: [generatedCandidate, generatedCandidate],
+      },
+    },
+    {
+      name: "workflow-output-rejects-dangling-insight-aliases",
+      schema: "LearningWorkflowOutputV1",
+      valid: false,
+      value: {
+        ...workflowOutput,
+        skillCandidates: [
+          { ...generatedCandidate, insightAliases: ["missing_insight"] },
+        ],
+      },
+    },
+    {
       name: "create-learning-run-rejects-inverted-selection-interval",
       schema: "CreateLearningRunV1",
       valid: false,

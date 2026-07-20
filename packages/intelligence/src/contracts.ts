@@ -830,14 +830,58 @@ export const generatedSkillCandidateV1Schema = z
     }
   });
 
-export const learningWorkflowOutputV1Schema = z.looseObject({
-  schemaVersion: z.literal(1),
-  insights: z.array(generatedInsightV1Schema),
-  skillCandidates: z.array(generatedSkillCandidateV1Schema),
-  coverage: jsonObjectSchema,
-  rejections: z.array(jsonObjectSchema),
-  usage: jsonObjectSchema,
-});
+export const learningWorkflowOutputV1Schema = z
+  .looseObject({
+    schemaVersion: z.literal(1),
+    insights: z.array(generatedInsightV1Schema),
+    skillCandidates: z.array(generatedSkillCandidateV1Schema),
+    coverage: jsonObjectSchema,
+    rejections: z.array(jsonObjectSchema),
+    usage: jsonObjectSchema,
+  })
+  .superRefine((output, context) => {
+    const insightAliases = new Set<string>();
+    for (const [index, insight] of output.insights.entries()) {
+      if (insightAliases.has(insight.outputAlias)) {
+        context.addIssue({
+          code: "custom",
+          path: ["insights", index, "outputAlias"],
+          message: "Insight output aliases must be unique",
+        });
+      }
+      insightAliases.add(insight.outputAlias);
+    }
+
+    const candidateAliases = new Set<string>();
+    for (const [
+      candidateIndex,
+      candidate,
+    ] of output.skillCandidates.entries()) {
+      if (candidateAliases.has(candidate.outputAlias)) {
+        context.addIssue({
+          code: "custom",
+          path: ["skillCandidates", candidateIndex, "outputAlias"],
+          message: "Candidate output aliases must be unique",
+        });
+      }
+      candidateAliases.add(candidate.outputAlias);
+
+      for (const [aliasIndex, alias] of candidate.insightAliases.entries()) {
+        if (!insightAliases.has(alias)) {
+          context.addIssue({
+            code: "custom",
+            path: [
+              "skillCandidates",
+              candidateIndex,
+              "insightAliases",
+              aliasIndex,
+            ],
+            message: "Candidate insight aliases must reference an insight",
+          });
+        }
+      }
+    }
+  });
 export type LearningWorkflowOutputV1 = z.infer<
   typeof learningWorkflowOutputV1Schema
 >;

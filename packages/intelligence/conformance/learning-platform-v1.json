@@ -2852,6 +2852,327 @@
       }
     },
     {
+      "name": "workflow-output-rejects-duplicate-insight-aliases",
+      "schema": "LearningWorkflowOutputV1",
+      "valid": false,
+      "value": {
+        "coverage": {},
+        "insights": [
+          {
+            "confidence": 0.9,
+            "evidenceRefs": [
+              {
+                "annotationId": null,
+                "annotationSha256": null,
+                "eventIds": [
+                  "event_1"
+                ],
+                "evidenceType": "run_snapshot",
+                "excerpt": null,
+                "excerptSha256": null,
+                "externalRunId": "external_run_1",
+                "messageIds": [
+                  "message_1"
+                ],
+                "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "threadId": "thread_1",
+                "truncated": false
+              }
+            ],
+            "impact": "A repeated action can affect a user twice.",
+            "kind": "agent_behavior",
+            "outputAlias": "insight_1",
+            "skillEligible": true,
+            "statement": "The agent retries completed work."
+          },
+          {
+            "confidence": 0.9,
+            "evidenceRefs": [
+              {
+                "annotationId": null,
+                "annotationSha256": null,
+                "eventIds": [
+                  "event_1"
+                ],
+                "evidenceType": "run_snapshot",
+                "excerpt": null,
+                "excerptSha256": null,
+                "externalRunId": "external_run_1",
+                "messageIds": [
+                  "message_1"
+                ],
+                "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "threadId": "thread_1",
+                "truncated": false
+              }
+            ],
+            "impact": "A repeated action can affect a user twice.",
+            "kind": "agent_behavior",
+            "outputAlias": "insight_1",
+            "skillEligible": true,
+            "statement": "The agent retries completed work."
+          }
+        ],
+        "rejections": [],
+        "schemaVersion": 1,
+        "skillCandidates": [
+          {
+            "action": "add",
+            "bundle": {
+              "files": [
+                {
+                  "contentBase64": "IyBTa2lsbA==",
+                  "path": "SKILL.md"
+                }
+              ],
+              "rootDirectoryName": "idempotent-retries"
+            },
+            "evidenceRefs": [
+              {
+                "annotationId": null,
+                "annotationSha256": null,
+                "eventIds": [
+                  "event_1"
+                ],
+                "evidenceType": "run_snapshot",
+                "excerpt": null,
+                "excerptSha256": null,
+                "externalRunId": "external_run_1",
+                "messageIds": [
+                  "message_1"
+                ],
+                "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "threadId": "thread_1",
+                "truncated": false
+              }
+            ],
+            "insightAliases": [
+              "insight_1"
+            ],
+            "outputAlias": "candidate_1",
+            "parentVersionId": null,
+            "reason": "Avoid duplicate actions.",
+            "removalIntent": null,
+            "risk": "low",
+            "skillId": null
+          }
+        ],
+        "usage": {}
+      }
+    },
+    {
+      "name": "workflow-output-rejects-duplicate-candidate-aliases",
+      "schema": "LearningWorkflowOutputV1",
+      "valid": false,
+      "value": {
+        "coverage": {},
+        "insights": [
+          {
+            "confidence": 0.9,
+            "evidenceRefs": [
+              {
+                "annotationId": null,
+                "annotationSha256": null,
+                "eventIds": [
+                  "event_1"
+                ],
+                "evidenceType": "run_snapshot",
+                "excerpt": null,
+                "excerptSha256": null,
+                "externalRunId": "external_run_1",
+                "messageIds": [
+                  "message_1"
+                ],
+                "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "threadId": "thread_1",
+                "truncated": false
+              }
+            ],
+            "impact": "A repeated action can affect a user twice.",
+            "kind": "agent_behavior",
+            "outputAlias": "insight_1",
+            "skillEligible": true,
+            "statement": "The agent retries completed work."
+          }
+        ],
+        "rejections": [],
+        "schemaVersion": 1,
+        "skillCandidates": [
+          {
+            "action": "add",
+            "bundle": {
+              "files": [
+                {
+                  "contentBase64": "IyBTa2lsbA==",
+                  "path": "SKILL.md"
+                }
+              ],
+              "rootDirectoryName": "idempotent-retries"
+            },
+            "evidenceRefs": [
+              {
+                "annotationId": null,
+                "annotationSha256": null,
+                "eventIds": [
+                  "event_1"
+                ],
+                "evidenceType": "run_snapshot",
+                "excerpt": null,
+                "excerptSha256": null,
+                "externalRunId": "external_run_1",
+                "messageIds": [
+                  "message_1"
+                ],
+                "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "threadId": "thread_1",
+                "truncated": false
+              }
+            ],
+            "insightAliases": [
+              "insight_1"
+            ],
+            "outputAlias": "candidate_1",
+            "parentVersionId": null,
+            "reason": "Avoid duplicate actions.",
+            "removalIntent": null,
+            "risk": "low",
+            "skillId": null
+          },
+          {
+            "action": "add",
+            "bundle": {
+              "files": [
+                {
+                  "contentBase64": "IyBTa2lsbA==",
+                  "path": "SKILL.md"
+                }
+              ],
+              "rootDirectoryName": "idempotent-retries"
+            },
+            "evidenceRefs": [
+              {
+                "annotationId": null,
+                "annotationSha256": null,
+                "eventIds": [
+                  "event_1"
+                ],
+                "evidenceType": "run_snapshot",
+                "excerpt": null,
+                "excerptSha256": null,
+                "externalRunId": "external_run_1",
+                "messageIds": [
+                  "message_1"
+                ],
+                "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "threadId": "thread_1",
+                "truncated": false
+              }
+            ],
+            "insightAliases": [
+              "insight_1"
+            ],
+            "outputAlias": "candidate_1",
+            "parentVersionId": null,
+            "reason": "Avoid duplicate actions.",
+            "removalIntent": null,
+            "risk": "low",
+            "skillId": null
+          }
+        ],
+        "usage": {}
+      }
+    },
+    {
+      "name": "workflow-output-rejects-dangling-insight-aliases",
+      "schema": "LearningWorkflowOutputV1",
+      "valid": false,
+      "value": {
+        "coverage": {},
+        "insights": [
+          {
+            "confidence": 0.9,
+            "evidenceRefs": [
+              {
+                "annotationId": null,
+                "annotationSha256": null,
+                "eventIds": [
+                  "event_1"
+                ],
+                "evidenceType": "run_snapshot",
+                "excerpt": null,
+                "excerptSha256": null,
+                "externalRunId": "external_run_1",
+                "messageIds": [
+                  "message_1"
+                ],
+                "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "threadId": "thread_1",
+                "truncated": false
+              }
+            ],
+            "impact": "A repeated action can affect a user twice.",
+            "kind": "agent_behavior",
+            "outputAlias": "insight_1",
+            "skillEligible": true,
+            "statement": "The agent retries completed work."
+          }
+        ],
+        "rejections": [],
+        "schemaVersion": 1,
+        "skillCandidates": [
+          {
+            "action": "add",
+            "bundle": {
+              "files": [
+                {
+                  "contentBase64": "IyBTa2lsbA==",
+                  "path": "SKILL.md"
+                }
+              ],
+              "rootDirectoryName": "idempotent-retries"
+            },
+            "evidenceRefs": [
+              {
+                "annotationId": null,
+                "annotationSha256": null,
+                "eventIds": [
+                  "event_1"
+                ],
+                "evidenceType": "run_snapshot",
+                "excerpt": null,
+                "excerptSha256": null,
+                "externalRunId": "external_run_1",
+                "messageIds": [
+                  "message_1"
+                ],
+                "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "threadId": "thread_1",
+                "truncated": false
+              }
+            ],
+            "insightAliases": [
+              "missing_insight"
+            ],
+            "outputAlias": "candidate_1",
+            "parentVersionId": null,
+            "reason": "Avoid duplicate actions.",
+            "removalIntent": null,
+            "risk": "low",
+            "skillId": null
+          }
+        ],
+        "usage": {}
+      }
+    },
+    {
       "name": "create-learning-run-rejects-inverted-selection-interval",
       "schema": "CreateLearningRunV1",
       "valid": false,

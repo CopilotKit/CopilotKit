@@ -10,6 +10,7 @@ import {
   learningContractJsonSchemas,
   learningRunV1Schema,
   learningWorkflowInputV1Schema,
+  learningWorkflowOutputV1Schema,
   runSnapshotV1Schema,
   skillCandidateV1Schema,
   skillSetProjectionV1Schema,
@@ -197,6 +198,54 @@ const workflowInput = {
   limits: {},
 } as const;
 
+const generatedInsight = {
+  outputAlias: "insight_1",
+  kind: "workflow",
+  statement: "Retries repeat after a completed action.",
+  impact: "Repeated actions can affect a user twice.",
+  confidence: 0.9,
+  skillEligible: true,
+  evidenceRefs: [
+    {
+      evidenceType: "run_snapshot",
+      snapshotId: UUIDS.snapshot,
+      snapshotSha256: SHA_A,
+      threadId: "thread_1",
+      externalRunId: "run_external_1",
+      messageIds: ["message_1"],
+      eventIds: ["event_1"],
+      excerpt: null,
+      excerptSha256: null,
+      truncated: false,
+    },
+  ],
+} as const;
+
+const generatedCandidate = {
+  outputAlias: "candidate_1",
+  action: "add",
+  skillId: null,
+  parentVersionId: null,
+  bundle: {
+    rootDirectoryName: "idempotent-retries",
+    files: [{ path: "SKILL.md", contentBase64: "IyBTa2lsbA==" }],
+  },
+  removalIntent: null,
+  insightAliases: ["insight_1"],
+  evidenceRefs: [],
+  reason: "Avoid duplicate actions.",
+  risk: "low",
+} as const;
+
+const workflowOutput = {
+  schemaVersion: 1,
+  insights: [generatedInsight],
+  skillCandidates: [generatedCandidate],
+  coverage: {},
+  rejections: [],
+  usage: {},
+} as const;
+
 const learningRun = {
   learningRunId: UUIDS.run,
   organizationId: "org_1",
@@ -254,6 +303,40 @@ const learningChunk = {
 } as const;
 
 describe("parent V1 contract schemas", () => {
+  test("accepts a workflow output with unique aliases and resolved insight references", () => {
+    expect(learningWorkflowOutputV1Schema.parse(workflowOutput)).toEqual(
+      workflowOutput,
+    );
+  });
+
+  test.each([
+    {
+      name: "duplicate insight output aliases",
+      value: {
+        ...workflowOutput,
+        insights: [generatedInsight, generatedInsight],
+      },
+    },
+    {
+      name: "duplicate candidate output aliases",
+      value: {
+        ...workflowOutput,
+        skillCandidates: [generatedCandidate, generatedCandidate],
+      },
+    },
+    {
+      name: "an unresolved candidate insight alias",
+      value: {
+        ...workflowOutput,
+        skillCandidates: [
+          { ...generatedCandidate, insightAliases: ["missing_insight"] },
+        ],
+      },
+    },
+  ])("rejects a workflow output alias graph with $name", ({ value }) => {
+    expect(learningWorkflowOutputV1Schema.safeParse(value).success).toBe(false);
+  });
+
   test("accepts a workflow input with unique identities and scoped annotation evidence", () => {
     expect(learningWorkflowInputV1Schema.parse(workflowInput)).toEqual(
       workflowInput,
