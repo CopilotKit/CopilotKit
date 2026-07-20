@@ -341,6 +341,10 @@
         {
           "key": "OPENAI_BASE_URL",
           "target": "aimock"
+        },
+        {
+          "key": "ANTHROPIC_BASE_URL",
+          "target": "aimock"
         }
       ],
       "healthcheckPath": {

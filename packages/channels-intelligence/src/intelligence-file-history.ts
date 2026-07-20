@@ -72,6 +72,14 @@ export interface IntelligenceFileHistoryConfig {
   apiKey: string;
   /** Optional diagnostic sink for best-effort degradation. */
   log?: (msg: string, meta?: unknown) => void;
+  /**
+   * Injectable full `fetch` for the binary download / history / upload paths.
+   * These need a binary-capable client (`.body`/`.arrayBuffer()`/`.headers`/
+   * `.json()`), which the transport's text-only `FetchLike` cannot satisfy, so
+   * this is its OWN injectable rather than a reuse of the transport's fetch.
+   * Defaults to the global `fetch` when omitted.
+   */
+  fetch?: typeof fetch;
 }
 
 /**
@@ -82,6 +90,18 @@ export class IntelligenceFileHistoryClient {
   constructor(private readonly cfg: IntelligenceFileHistoryConfig) {}
 
   /**
+   * Resolve the binary-capable fetch: the injected `config.fetch` when present,
+   * else the global `fetch`. `undefined` on a runtime with neither (each caller
+   * handles that per its own degrade/throw contract).
+   */
+  private resolveFetch(): typeof fetch | undefined {
+    return (
+      this.cfg.fetch ??
+      (globalThis as unknown as { fetch?: typeof fetch }).fetch
+    );
+  }
+
+  /**
    * Download an inbound file's raw bytes by handle from app-api's file-serve
    * route. Uses the global `fetch` directly (not a JSON helper) so the binary
    * body survives via `arrayBuffer()`. Auth is the same runtime bearer.
@@ -89,7 +109,7 @@ export class IntelligenceFileHistoryClient {
   async fetchFile(
     handle: string,
   ): Promise<{ bytes: Uint8Array; mimeType?: string }> {
-    const gfetch = (globalThis as unknown as { fetch?: typeof fetch }).fetch;
+    const gfetch = this.resolveFetch();
     if (!gfetch) {
       throw new Error(
         "intelligenceAdapter: no global fetch available for file download",
@@ -169,7 +189,7 @@ export class IntelligenceFileHistoryClient {
       });
     }
     try {
-      const gfetch = (globalThis as unknown as { fetch?: typeof fetch }).fetch;
+      const gfetch = this.resolveFetch();
       if (!gfetch) {
         this.cfg.log?.("intelligence history fetch: no global fetch available");
         return [];
@@ -250,7 +270,7 @@ export class IntelligenceFileHistoryClient {
       altText?: string;
     },
   ): Promise<{ handle: string }> {
-    const gfetch = (globalThis as unknown as { fetch?: typeof fetch }).fetch;
+    const gfetch = this.resolveFetch();
     if (!gfetch) {
       throw new Error(
         "intelligenceAdapter: no global fetch available for file upload",

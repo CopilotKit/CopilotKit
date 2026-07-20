@@ -51,8 +51,18 @@ export interface IntelligenceTransportConfig {
   runtimeInstanceId: string;
   /** Adapter kind. First slice is `"slack"`. */
   adapter: string;
-  /** Injectable fetch (tests); defaults to global `fetch`. */
+  /** Injectable fetch for the JSON claim/heartbeat/egress calls (text-only
+   * {@link FetchLike}); defaults to global `fetch`. */
   fetch?: FetchLike;
+  /**
+   * Injectable binary-capable `fetch` for the file/history client's download,
+   * history, and upload calls (needs `.body`/`.arrayBuffer()`/`.headers`/
+   * `.json()`, which the text-only {@link FetchLike} above cannot satisfy).
+   * Forwarded to {@link IntelligenceFileHistoryClient}; defaults to global
+   * `fetch`. Separate knob because the JSON and binary paths need different
+   * fetch shapes.
+   */
+  fileFetch?: typeof fetch;
   /** Heartbeat cadence / poll-sleep ceiling in ms (default 15000). */
   heartbeatIntervalMs?: number;
   /** Injectable sleep (tests); defaults to `setTimeout`. */
@@ -112,6 +122,7 @@ export function resolveTransportConfig(
     runtimeInstanceId,
     adapter,
     fetch: overrides.fetch,
+    fileFetch: overrides.fileFetch,
     heartbeatIntervalMs: overrides.heartbeatIntervalMs,
     sleep: overrides.sleep,
     log: overrides.log,
@@ -221,7 +232,23 @@ export class HttpDeliverySource implements DeliverySource {
   private readonly leases = new Map<string, LeaseRecord>();
   private running = false;
   private loop?: Promise<void>;
-  private lastHeartbeatAt = 0;
+  /** Standalone recurring heartbeat timer, independent of the claim loop. */
+  private heartbeatTimer?: ReturnType<typeof setTimeout>;
+  /**
+   * Bumped on every {@link start}/{@link stop}. The recurring heartbeat closes
+   * over the generation it was scheduled under and stops rescheduling once it
+   * no longer matches, so a stop→start restart (which can fire while a prior
+   * heartbeat POST is still in flight) cannot leave two reschedule chains
+   * running.
+   */
+  private runGeneration = 0;
+  /**
+   * Resolves when {@link stop} is called, so an in-flight poll-sleep or an
+   * in-flight turn-wait can be interrupted immediately rather than blocking
+   * shutdown for up to a cadence (idle) or `turnTimeoutMs` (mid-turn).
+   */
+  private stopWait?: Promise<void>;
+  private resolveStop?: () => void;
 
   constructor(private readonly cfg: IntelligenceTransportConfig) {
     this.http = new IntelligenceHttp(cfg);
@@ -229,11 +256,15 @@ export class HttpDeliverySource implements DeliverySource {
       baseUrl: cfg.baseUrl,
       apiKey: cfg.apiKey,
       log: cfg.log,
+      ...(cfg.fileFetch ? { fetch: cfg.fileFetch } : {}),
     });
   }
 
   private sleep(ms: number): Promise<void> {
-    return (this.cfg.sleep ?? defaultSleep)(ms);
+    const base = (this.cfg.sleep ?? defaultSleep)(ms);
+    // Interruptible: stop() resolves stopWait so an in-flight poll-sleep ends at
+    // once instead of holding shutdown for up to a full cadence.
+    return this.stopWait ? Promise.race([base, this.stopWait]) : base;
   }
 
   /** Declare this runtime + channel to Intelligence and keep the activation fresh. */
@@ -245,7 +276,6 @@ export class HttpDeliverySource implements DeliverySource {
       ],
       observedAt: new Date().toISOString(),
     });
-    this.lastHeartbeatAt = Date.now();
   }
 
   /** Claim a single delivery; returns the mapped envelope, or the idle backoff. */
@@ -315,8 +345,43 @@ export class HttpDeliverySource implements DeliverySource {
     onDelivery: (env: ChannelIngressEnvelope) => Promise<void>,
   ): Promise<void> {
     this.running = true;
+    const generation = ++this.runGeneration;
+    this.stopWait = new Promise<void>((resolve) => {
+      this.resolveStop = resolve;
+    });
     await this.heartbeat();
+    this.scheduleHeartbeat(generation);
     this.loop = this.runLoop(onDelivery);
+  }
+
+  /**
+   * Keep the activation fresh on a standalone recurring timer, independent of
+   * the claim loop. The loop blocks on `onDelivery` for up to `turnTimeoutMs`
+   * (120s) during a turn; heartbeating only at the top of the loop meant a turn
+   * longer than the cadence sent no heartbeat for its whole duration, so app-api
+   * could mark a healthily-working runtime stale mid-turn and withhold new
+   * deliveries. This timer heartbeats on cadence regardless of what the loop is
+   * doing, rescheduling only after each heartbeat settles (no overlap).
+   */
+  private scheduleHeartbeat(generation: number): void {
+    const cadence = this.cfg.heartbeatIntervalMs ?? 15000;
+    const timer = setTimeout(() => {
+      // Only this run's chain may fire/reschedule. A stop→start restart bumps
+      // runGeneration, so an orphaned chain (or a reschedule queued behind an
+      // in-flight heartbeat POST from the previous run) self-terminates instead
+      // of doubling the heartbeat rate.
+      if (!this.running || generation !== this.runGeneration) return;
+      this.heartbeat()
+        .catch((err) => this.cfg.log?.("intelligence heartbeat failed", err))
+        .finally(() => {
+          if (this.running && generation === this.runGeneration) {
+            this.scheduleHeartbeat(generation);
+          }
+        });
+    }, cadence);
+    // Don't hold the event loop open (parity with the poll-sleep timers).
+    (timer as unknown as { unref?: () => void }).unref?.();
+    this.heartbeatTimer = timer;
   }
 
   private async runLoop(
@@ -325,8 +390,6 @@ export class HttpDeliverySource implements DeliverySource {
     const cadence = this.cfg.heartbeatIntervalMs ?? 15000;
     while (this.running) {
       try {
-        if (Date.now() - this.lastHeartbeatAt >= cadence)
-          await this.heartbeat();
         const r = await this.claimOnce();
         if ("env" in r) {
           // The adapter dispatches the turn and calls back into ack/nack
@@ -336,17 +399,36 @@ export class HttpDeliverySource implements DeliverySource {
           // then retries / dead-letters at max_attempts), and keep polling.
           const env = r.env;
           const timeoutMs = this.cfg.turnTimeoutMs ?? DEFAULT_TURN_TIMEOUT_MS;
-          try {
-            await withTimeout(
-              onDelivery(env),
-              timeoutMs,
-              `turn ${env.turnId} exceeded ${timeoutMs}ms`,
-            );
-          } catch (turnErr) {
-            this.cfg.log?.("intelligence turn failed/timed out", turnErr);
+          // Always attach a terminal handler so a turn that rejects AFTER we've
+          // stopped (below) never surfaces as an unhandled rejection.
+          const settled = withTimeout(
+            onDelivery(env),
+            timeoutMs,
+            `turn ${env.turnId} exceeded ${timeoutMs}ms`,
+          ).then(
+            () => ({ ok: true }) as const,
+            (err: unknown) => ({ ok: false, err }) as const,
+          );
+          // Race the turn against stop(): shutting down must not block for up to
+          // turnTimeoutMs waiting on an in-flight turn.
+          const outcome = this.stopWait
+            ? await Promise.race([
+                settled,
+                this.stopWait.then(() => "stopped" as const),
+              ])
+            : await settled;
+          if (outcome === "stopped") {
+            // Leave the lease — app-api re-leases after expiry. Do NOT nack: the
+            // turn didn't fail, we're stopping.
+            break;
+          }
+          if (!outcome.ok) {
+            this.cfg.log?.("intelligence turn failed/timed out", outcome.err);
             await this.nack(
               env.deliveryId,
-              turnErr instanceof Error ? turnErr.message : String(turnErr),
+              outcome.err instanceof Error
+                ? outcome.err.message
+                : String(outcome.err),
             ).catch((nackErr) =>
               this.cfg.log?.(
                 "intelligence nack after turn failure failed",
@@ -439,6 +521,15 @@ export class HttpDeliverySource implements DeliverySource {
 
   async stop(): Promise<void> {
     this.running = false;
+    // Invalidate the current run's heartbeat chain so any reschedule queued
+    // behind an in-flight heartbeat POST does not re-arm after we stop.
+    this.runGeneration += 1;
+    // Interrupt any in-flight poll-sleep or turn-wait so shutdown is prompt.
+    this.resolveStop?.();
+    if (this.heartbeatTimer !== undefined) {
+      clearTimeout(this.heartbeatTimer);
+      this.heartbeatTimer = undefined;
+    }
     await this.loop?.catch(() => {});
   }
 }
@@ -462,15 +553,37 @@ export class HttpEgressSink implements EgressSink {
     if (op.op.kind === "delete") return { ok: true, ref: op.operationId };
 
     const text = irToText(op.op.ir);
-    // Intelligence requires non-empty text; skip empties without a 400.
-    if (!text) return { ok: true, ref: op.operationId };
+    // Intelligence requires non-empty text. An empty POST is a legitimate no-op
+    // (nothing to say). An empty UPDATE is a real intent (e.g. clearing a
+    // message body) this post-only fallback egress cannot express — but failing
+    // it would throw up the run path and nack+retry the WHOLE turn to
+    // dead-letter (re-running valid work) for a condition a retry can't fix. So
+    // skip it as a no-op too, but log it loudly so it is surfaced, not silent.
+    if (!text) {
+      if (op.op.kind === "update") {
+        this.cfg.log?.(
+          "intelligence egress: skipping empty-text update (post-only fallback cannot clear a message)",
+          { operationId: op.operationId, deliveryId: op.deliveryId },
+        );
+      }
+      return { ok: true, ref: op.operationId };
+    }
 
+    // Derive the adapter from the delivery's own reply route, not the static
+    // config default. One provider-agnostic runtime serves every adapter the
+    // bot has attached (Slack, Teams, ...); posting `this.cfg.adapter` (default
+    // "slack") on a Teams delivery is contradictory with its Teams replyTarget.
+    // app-api routes on `replyTarget.adapter` + `channelName` and ignores this
+    // top-level field, but keep it consistent rather than misleading. Fall back
+    // to the config adapter when the route carries none.
+    const routeAdapter = (op.route as { adapter?: string } | null | undefined)
+      ?.adapter;
     try {
       const res = await this.http.post<EgressResponse>(
         "/api/channels/egress/messages",
         {
           channelName: this.cfg.channelName,
-          adapter: this.cfg.adapter,
+          adapter: routeAdapter ?? this.cfg.adapter,
           deliveryId: op.deliveryId,
           idempotencyKey: op.operationId,
           replyTarget: op.route,

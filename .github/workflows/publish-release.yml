@@ -886,9 +886,18 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          # npm intent: a manual dispatch, or a merged release/publish/* PR.
-          # Computed purely from event-context expressions (no API needed).
-          NPM_INTENDED="${{ ((github.event_name == 'workflow_dispatch' && inputs.dotnet_publish != true) || (github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/publish/'))) && 'true' || 'false' }}"
+          # npm intent: a STABLE manual dispatch (mode != prerelease — the default
+          # and the retry escape hatch both publish to npm), or a merged
+          # release/publish/* PR. A prerelease dispatch is a canary: it never pushes
+          # a tag, cuts a GH Release, or posts to Slack (the builder returns
+          # should_post=false, mirroring the `mode != 'prerelease'` guards on the
+          # publish/tag steps), so it is NOT stable-release intent and must never
+          # self-page on failure. Computed purely from event-context expressions
+          # (no API needed). NuGet-only dispatches are not npm intent. Guarding on
+          # mode here is what stops a failed canary build (e.g. a stale lockfile on
+          # a canary/* branch) from tripping the notifier self-watchdog's
+          # best-effort Slack post below.
+          NPM_INTENDED="${{ ((github.event_name == 'workflow_dispatch' && inputs.mode != 'prerelease' && inputs.dotnet_publish != true) || (github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/publish/'))) && 'true' || 'false' }}"
           echo "npm_intended=$NPM_INTENDED" >> "$GITHUB_OUTPUT"
 
           # Python intent: a python_publish dispatch, OR a merged PR that changed

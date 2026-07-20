@@ -50,6 +50,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from agents.agent import (
     build_agent_config_system_prompt,
     extract_agent_config_properties,
+    set_last_user_message,
     ALL_TOOLS,
     FRONTEND_TOOL_NAMES,
     SYSTEM_PROMPT,
@@ -524,6 +525,23 @@ async def handle_run(request: Request) -> StreamingResponse:
     oai_messages = _agui_messages_to_openai(run_input.messages or [], system_prompt)
     model = os.getenv("LANGROID_MODEL", "gpt-4.1")
     oai_tools = _get_openai_tools()
+
+    # Thread the last user turn to the A2UI planner (see
+    # ``set_last_user_message``). The ``generate_a2ui`` backend tool uses it
+    # as the inner ``render_a2ui`` call's user message so aimock's
+    # dynamic-schema fixtures can discriminate the surface per pill prompt —
+    # matching the framework-forwarded behavior of the sibling google-adk /
+    # strands backends. Best-effort: no user turn → the planner falls back to
+    # its generic prompt. Set unconditionally (including "") so a prior run's
+    # value on this worker's context cannot leak into a run with no user turn.
+    _last_user_text = ""
+    for _m in reversed(oai_messages):
+        if _m.get("role") == "user":
+            _content = _m.get("content")
+            if isinstance(_content, str) and _content:
+                _last_user_text = _content
+            break
+    set_last_user_message(_last_user_text)
 
     # Compute the effective thread_id ONCE so every event emitted for this
     # run (RUN_STARTED, RUN_FINISHED, ...) references the same thread.

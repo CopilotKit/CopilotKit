@@ -37,9 +37,13 @@ import matter from "gray-matter";
 import { CONTENT_DIR, inlineSnippets, loadDoc } from "./docs-render";
 import { getDocsFolder, getIntegrations, ROOT_FRAMEWORK } from "./registry";
 import {
+  REFERENCE_VERSIONS,
+  loadReferenceVersionItems,
+  resolveReferencePage,
+} from "./reference-items";
+import {
   AG_UI_CONTENT_DIR,
   DOCS_CONTENT_DIR,
-  REFERENCE_CONTENT_DIR,
   walkMdx,
 } from "./sitemap-helpers";
 import demoContent from "@/data/demo-content.json";
@@ -204,18 +208,52 @@ export function getAllLlmPages(): LlmPage[] {
     }
   }
 
-  // 3. Reference docs.
-  for (const { slug, filePath } of walkMdx(REFERENCE_CONTENT_DIR)) {
-    const meta = readMetaFromFile(filePath);
-    push({
-      url: slug ? `reference/${slug}` : "reference",
-      title: meta.title ?? slug,
-      description: meta.description,
-      filePath,
-      // Reference docs live outside CONTENT_DIR; we can't reuse
-      // loadDoc(). Caller branches on this prefix when reading source.
-      loadSlug: `__reference__/${slug || "index"}`,
-    });
+  // 3. Reference docs — all SDK versions at their canonical versioned URLs.
+  //
+  //    The v2 (current) API reference lives at the root of
+  //    `src/content/reference/` (e.g. `hooks/useCopilotAction.mdx`) and is
+  //    served at `/reference/v2/hooks/useCopilotAction`. Older versions live
+  //    under their own subfolder (`v1/`, `react-native/`, etc.) and are
+  //    served at `/reference/v1/hooks/...`.
+  //
+  //    We enumerate via `loadReferenceVersionItems` (which already knows the
+  //    canonical URL for each version) rather than walking the filesystem
+  //    directly, so that LLM consumers see the same versioned URL they would
+  //    navigate to in the browser.
+  for (const version of REFERENCE_VERSIONS) {
+    // Version root index page (e.g. `/reference/v2`, `/reference/v1`).
+    const rootResolved = resolveReferencePage([version]);
+    if (rootResolved) {
+      const rootMeta = readMetaFromFile(rootResolved.filePath);
+      push({
+        url: `reference/${version}`,
+        title: rootMeta.title ?? version,
+        description: rootMeta.description,
+        filePath: rootResolved.filePath,
+        loadSlug: `__reference__/${rootResolved.contentSlug}`,
+      });
+    }
+
+    // Individual API reference pages within this version.
+    for (const item of loadReferenceVersionItems(version)) {
+      // item.url is the canonical path, e.g. "/reference/v2/hooks/foo".
+      // Strip the leading "/" so LlmPage.url has no leading slash.
+      const url = item.url.replace(/^\//, "");
+      // Resolve the source file via the same logic the page renderer uses.
+      const resolved = resolveReferencePage(
+        url.replace(/^reference\//, "").split("/"),
+      );
+      if (!resolved) continue;
+      push({
+        url,
+        title: item.title,
+        description: item.description,
+        filePath: resolved.filePath,
+        // Reference docs live outside CONTENT_DIR; readSource branches on
+        // this prefix to read via fs.readFileSync instead of loadDoc().
+        loadSlug: `__reference__/${resolved.contentSlug}`,
+      });
+    }
   }
 
   // 4. AG-UI.
