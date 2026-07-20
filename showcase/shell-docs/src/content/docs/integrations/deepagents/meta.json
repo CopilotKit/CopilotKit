@@ -18,9 +18,9 @@
       "defaultOpen": true,
       "pages": [
         "threads",
-        "threads-lifecycle",
         "headless-threads",
-        "threads-import"
+        "threads-import",
+        "threads-lifecycle"
       ]
     }
   ]

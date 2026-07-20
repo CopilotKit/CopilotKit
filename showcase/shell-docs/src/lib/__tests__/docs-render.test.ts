@@ -454,11 +454,11 @@ describe("framework nav", () => {
 
     const expected = [
       "Overview",
-      "Thread & History Lifecycle",
       "Threads Drawer",
       "Headless Threads",
-      "Threads & Persistence Architecture",
       "Import Thread History",
+      "Threads & Persistence Architecture",
+      "Thread & History Lifecycle",
     ];
 
     expect(groupPageTitles(generatedNav, "Threads")).toEqual(expected);

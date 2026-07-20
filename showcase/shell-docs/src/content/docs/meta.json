@@ -16,11 +16,11 @@
       "defaultOpen": true,
       "pages": [
         "threads",
-        "threads-lifecycle",
         "prebuilt-components/copilot-threads-drawer",
         "headless-threads",
+        "threads-import",
         "premium/threads-explained",
-        "threads-import"
+        "threads-lifecycle"
       ]
     },
     "custom-look-and-feel",
