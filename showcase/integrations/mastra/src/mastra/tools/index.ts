@@ -43,7 +43,12 @@ export const weatherTool = createTool({
   inputSchema: z.object({
     location: z.string().describe("City name"),
   }),
-  execute: async ({ location }) => JSON.stringify(getWeatherImpl(location)),
+  // Return the OBJECT, not JSON.stringify: the @ag-ui/mastra bridge encodes the
+  // tool result exactly once on the way to the frontend, so stringifying here
+  // double-encodes it and the typed cards' single-parse (parseJsonResult) reads
+  // back a string with undefined fields ("--%"). Single-encode by returning the
+  // object (same rule as browse_web / the Mastra capability-map memory).
+  execute: async ({ location }) => getWeatherImpl(location),
 });
 // @endregion[weather-tool-backend]
 
@@ -59,11 +64,12 @@ export const stockPriceTool = createTool({
   }),
   execute: async ({ ticker: rawTicker }) => {
     const ticker = (rawTicker ?? "").toUpperCase();
-    return JSON.stringify({
+    // Return an object (single-encode) — see weatherTool.
+    return {
       ticker,
       price_usd: 189.42,
       change_pct: 1.27,
-    });
+    };
   },
 });
 
@@ -81,10 +87,13 @@ export const rollDiceTool = createTool({
   }),
   execute: async ({ sides }) => {
     const s = typeof sides === "number" && sides > 1 ? Math.floor(sides) : 6;
-    return JSON.stringify({
+    // Return an object (single-encode) — see weatherTool. The catchall
+    // renderers (default/custom/reasoning-chain) JSON.parse once, so this also
+    // renders cleanly there instead of an escaped double-encoded string.
+    return {
       sides: s,
       result: Math.floor(Math.random() * s) + 1,
-    });
+    };
   },
 });
 
@@ -94,7 +103,8 @@ export const queryDataTool = createTool({
   inputSchema: z.object({
     query: z.string().describe("Natural language query"),
   }),
-  execute: async ({ query }) => JSON.stringify(queryDataImpl(query)),
+  // Return the object (single-encode) — see weatherTool.
+  execute: async ({ query }) => queryDataImpl(query),
 });
 
 // Beautiful Chat task-manager tools. Ports langgraph-python's
@@ -189,7 +199,8 @@ export const searchFlightsTool = createTool({
       )
       .describe("Array of flight results"),
   }),
-  execute: async ({ flights }) => JSON.stringify(searchFlightsImpl(flights)),
+  // Return the object (single-encode) — see weatherTool.
+  execute: async ({ flights }) => searchFlightsImpl(flights),
 });
 
 // The `generate-a2ui` tool runs a secondary LLM call with a forced
