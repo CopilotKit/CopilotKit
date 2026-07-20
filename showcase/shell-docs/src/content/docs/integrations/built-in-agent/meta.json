@@ -17,7 +17,8 @@
         "threads",
         "prebuilt-components/copilot-threads-drawer",
         "headless-threads",
-        "threads-import"
+        "threads-import",
+        "threads-lifecycle"
       ]
     },
     "custom-look-and-feel",

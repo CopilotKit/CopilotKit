@@ -19,7 +19,8 @@
       "pages": [
         "threads",
         "headless-threads",
-        "threads-import"
+        "threads-import",
+        "threads-lifecycle"
       ]
     }
   ]
