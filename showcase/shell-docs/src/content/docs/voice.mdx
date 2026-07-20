@@ -27,7 +27,7 @@ The `runtimeUrl="/api/copilotkit-voice"` points to your Next.js API route. When 
 
 ### Driving the demo without a mic
 
-For Playwright runs, screenshots, or any flow where prompting for mic permissions is awkward, ship a button that POSTs a bundled audio clip directly to the same `/transcribe` endpoint:
+For Playwright runs, screenshots, or any flow where prompting for mic permissions is awkward, ship a button that synchronously injects a canned sample phrase directly into the composer textarea, bypassing the transcription endpoint entirely:
 
 <Snippet
   region="sample-audio-button"
