@@ -359,7 +359,7 @@
           "manifest": {
             "agentSkillsProfile": "agentskills:v1",
             "bundleByteLength": 12,
-            "bundleSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "files": [
               {
                 "byteLength": 12,
@@ -1338,7 +1338,7 @@
       "value": {
         "agentSkillsProfile": "agentskills:v1",
         "bundleByteLength": 12,
-        "bundleSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "files": [
           {
             "byteLength": 12,
@@ -1380,7 +1380,7 @@
         "manifest": {
           "agentSkillsProfile": "agentskills:v1",
           "bundleByteLength": 12,
-          "bundleSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "files": [
             {
               "byteLength": 12,
@@ -1483,7 +1483,7 @@
           "resource": "skill-bundles",
           "schemaVersion": 1
         },
-        "bundleSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "description": null,
         "manifestSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "name": "Idempotent retries",
@@ -2533,7 +2533,7 @@
               "manifest": {
                 "agentSkillsProfile": "agentskills:v1",
                 "bundleByteLength": 12,
-                "bundleSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "files": [
                   {
                     "byteLength": 12,
@@ -2574,7 +2574,7 @@
               "manifest": {
                 "agentSkillsProfile": "agentskills:v1",
                 "bundleByteLength": 12,
-                "bundleSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "files": [
                   {
                     "byteLength": 12,
@@ -3179,7 +3179,7 @@
       "value": {
         "agentSkillsProfile": "agentskills:v1",
         "bundleByteLength": 12,
-        "bundleSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "files": [
           {
             "byteLength": 12,
@@ -3215,7 +3215,7 @@
       "value": {
         "agentSkillsProfile": "agentskills:v1",
         "bundleByteLength": 12,
-        "bundleSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "files": [
           {
             "byteLength": 12,
@@ -3244,7 +3244,7 @@
       "value": {
         "agentSkillsProfile": "agentskills:v1",
         "bundleByteLength": 12,
-        "bundleSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "files": [
           {
             "byteLength": 12,
@@ -3273,7 +3273,7 @@
       "value": {
         "agentSkillsProfile": "agentskills:v1",
         "bundleByteLength": 12,
-        "bundleSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "files": [
           {
             "byteLength": 12,
@@ -3302,7 +3302,7 @@
       "value": {
         "agentSkillsProfile": "agentskills:v1",
         "bundleByteLength": 12,
-        "bundleSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "files": [
           {
             "byteLength": 12,
@@ -3338,7 +3338,7 @@
       "value": {
         "agentSkillsProfile": "agentskills:v1",
         "bundleByteLength": 12,
-        "bundleSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "files": [
           {
             "byteLength": 12,
@@ -3374,7 +3374,7 @@
       "value": {
         "agentSkillsProfile": "agentskills:v1",
         "bundleByteLength": 12,
-        "bundleSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "files": [
           {
             "byteLength": 12,
@@ -3396,7 +3396,7 @@
       "value": {
         "agentSkillsProfile": "agentskills:v1",
         "bundleByteLength": 12,
-        "bundleSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "files": [
           {
             "byteLength": 12,
@@ -3409,6 +3409,140 @@
         "manifestSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "manifestVersion": 1,
         "provenance": {}
+      }
+    },
+    {
+      "name": "skill-bundle-rejects-locator-hash-mismatch",
+      "schema": "SkillBundleV1",
+      "valid": false,
+      "value": {
+        "locator": {
+          "applicationSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "backendId": "primary",
+          "byteLength": 12,
+          "contentType": "application/zip",
+          "etag": null,
+          "key": "objects/aa/bundle.zip",
+          "provider": "awsS3",
+          "providerChecksum": null,
+          "providerVersion": null,
+          "resource": "skill-bundles",
+          "schemaVersion": 1
+        },
+        "manifest": {
+          "agentSkillsProfile": "agentskills:v1",
+          "bundleByteLength": 12,
+          "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "files": [
+            {
+              "byteLength": 12,
+              "mediaType": "text/markdown",
+              "path": "SKILL.md",
+              "rawSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "role": "instructions"
+            }
+          ],
+          "manifestSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "manifestVersion": 1,
+          "provenance": {}
+        },
+        "schemaVersion": 1
+      }
+    },
+    {
+      "name": "skill-bundle-rejects-locator-length-mismatch",
+      "schema": "SkillBundleV1",
+      "valid": false,
+      "value": {
+        "locator": {
+          "applicationSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "backendId": "primary",
+          "byteLength": 13,
+          "contentType": "application/zip",
+          "etag": null,
+          "key": "objects/aa/bundle.zip",
+          "provider": "awsS3",
+          "providerChecksum": null,
+          "providerVersion": null,
+          "resource": "skill-bundles",
+          "schemaVersion": 1
+        },
+        "manifest": {
+          "agentSkillsProfile": "agentskills:v1",
+          "bundleByteLength": 12,
+          "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "files": [
+            {
+              "byteLength": 12,
+              "mediaType": "text/markdown",
+              "path": "SKILL.md",
+              "rawSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "role": "instructions"
+            }
+          ],
+          "manifestSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "manifestVersion": 1,
+          "provenance": {}
+        },
+        "schemaVersion": 1
+      }
+    },
+    {
+      "name": "projection-entry-rejects-locator-hash-mismatch",
+      "schema": "SkillSetProjectionEntryV1",
+      "valid": false,
+      "value": {
+        "approvalMethod": "manual",
+        "bundleByteLength": 12,
+        "bundleLocator": {
+          "applicationSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "backendId": "primary",
+          "byteLength": 12,
+          "contentType": "application/zip",
+          "etag": null,
+          "key": "objects/aa/bundle.zip",
+          "provider": "awsS3",
+          "providerChecksum": null,
+          "providerVersion": null,
+          "resource": "skill-bundles",
+          "schemaVersion": 1
+        },
+        "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "description": null,
+        "manifestSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "name": "Idempotent retries",
+        "position": 0,
+        "skillId": "99999999-9999-4999-8999-999999999999",
+        "versionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+      }
+    },
+    {
+      "name": "projection-entry-rejects-locator-length-mismatch",
+      "schema": "SkillSetProjectionEntryV1",
+      "valid": false,
+      "value": {
+        "approvalMethod": "manual",
+        "bundleByteLength": 12,
+        "bundleLocator": {
+          "applicationSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "backendId": "primary",
+          "byteLength": 13,
+          "contentType": "application/zip",
+          "etag": null,
+          "key": "objects/aa/bundle.zip",
+          "provider": "awsS3",
+          "providerChecksum": null,
+          "providerVersion": null,
+          "resource": "skill-bundles",
+          "schemaVersion": 1
+        },
+        "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "description": null,
+        "manifestSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "name": "Idempotent retries",
+        "position": 0,
+        "skillId": "99999999-9999-4999-8999-999999999999",
+        "versionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
       }
     },
     {

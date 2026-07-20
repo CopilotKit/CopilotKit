@@ -14,7 +14,9 @@ import {
   learningWorkflowOutputV1Schema,
   runSnapshotV1Schema,
   skillArtifactManifestV1Schema,
+  skillBundleV1Schema,
   skillCandidateV1Schema,
+  skillSetProjectionEntryV1Schema,
   skillSetProjectionV1Schema,
   threadAssignmentPatchV1Schema,
 } from "./contracts.js";
@@ -159,6 +161,19 @@ const frozenAvailableSkill = {
     },
   },
   registryState: "published",
+} as const;
+
+const boundProjectionEntry = {
+  skillId: UUIDS.skill,
+  versionId: UUIDS.version,
+  position: 0,
+  name: "Idempotent retries",
+  description: null,
+  bundleLocator: frozenAvailableSkill.bundle.locator,
+  bundleSha256: SHA_B,
+  manifestSha256: SHA_A,
+  bundleByteLength: 12,
+  approvalMethod: "manual",
 } as const;
 
 function artifactManifestWithPaths(paths: readonly string[]) {
@@ -373,6 +388,58 @@ describe("parent V1 contract schemas", () => {
       skillArtifactManifestV1Schema.safeParse(artifactManifestWithPaths(paths))
         .success,
     ).toBe(false);
+  });
+
+  test.each([
+    {
+      name: "hash",
+      value: {
+        ...frozenAvailableSkill.bundle,
+        locator: {
+          ...frozenAvailableSkill.bundle.locator,
+          applicationSha256: SHA_A,
+        },
+      },
+    },
+    {
+      name: "byte length",
+      value: {
+        ...frozenAvailableSkill.bundle,
+        locator: {
+          ...frozenAvailableSkill.bundle.locator,
+          byteLength: 13,
+        },
+      },
+    },
+  ])("rejects a skill bundle with a mismatched $name", ({ value }) => {
+    expect(skillBundleV1Schema.safeParse(value).success).toBe(false);
+  });
+
+  test.each([
+    {
+      name: "hash",
+      value: {
+        ...boundProjectionEntry,
+        bundleLocator: {
+          ...boundProjectionEntry.bundleLocator,
+          applicationSha256: SHA_A,
+        },
+      },
+    },
+    {
+      name: "byte length",
+      value: {
+        ...boundProjectionEntry,
+        bundleLocator: {
+          ...boundProjectionEntry.bundleLocator,
+          byteLength: 13,
+        },
+      },
+    },
+  ])("rejects a projection entry with a mismatched $name", ({ value }) => {
+    expect(skillSetProjectionEntryV1Schema.safeParse(value).success).toBe(
+      false,
+    );
   });
 
   test("accepts a workflow output with unique aliases and resolved insight references", () => {
@@ -1124,7 +1191,7 @@ describe("parent V1 contract schemas", () => {
       name: "Idempotent retries",
       description: null,
       bundleLocator,
-      bundleSha256: SHA_B,
+      bundleSha256: SHA_A,
       manifestSha256: SHA_A,
       bundleByteLength: 12,
       approvalMethod: "manual",
@@ -1161,7 +1228,7 @@ describe("parent V1 contract schemas", () => {
             },
           ],
           manifestSha256: SHA_A,
-          bundleSha256: SHA_B,
+          bundleSha256: SHA_A,
           bundleByteLength: 12,
           provenance: {},
         },

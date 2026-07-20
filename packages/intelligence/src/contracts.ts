@@ -521,11 +521,28 @@ export const blobLocatorV1Schema = z.looseObject({
 });
 export type BlobLocatorV1 = z.infer<typeof blobLocatorV1Schema>;
 
-export const skillBundleV1Schema = z.looseObject({
-  schemaVersion: z.literal(1),
-  manifest: skillArtifactManifestV1Schema,
-  locator: blobLocatorV1Schema,
-});
+export const skillBundleV1Schema = z
+  .looseObject({
+    schemaVersion: z.literal(1),
+    manifest: skillArtifactManifestV1Schema,
+    locator: blobLocatorV1Schema,
+  })
+  .superRefine((bundle, context) => {
+    if (bundle.manifest.bundleSha256 !== bundle.locator.applicationSha256) {
+      context.addIssue({
+        code: "custom",
+        path: ["locator", "applicationSha256"],
+        message: "Bundle manifest and locator hashes must match",
+      });
+    }
+    if (bundle.manifest.bundleByteLength !== bundle.locator.byteLength) {
+      context.addIssue({
+        code: "custom",
+        path: ["locator", "byteLength"],
+        message: "Bundle manifest and locator byte lengths must match",
+      });
+    }
+  });
 export type SkillBundleV1 = z.infer<typeof skillBundleV1Schema>;
 
 export const candidateStatusV1Schema = z.enum([
@@ -675,18 +692,35 @@ export const candidateGateResultV1Schema = z.looseObject({
 });
 export type CandidateGateResultV1 = z.infer<typeof candidateGateResultV1Schema>;
 
-export const skillSetProjectionEntryV1Schema = z.looseObject({
-  skillId: uuidSchema,
-  versionId: uuidSchema,
-  position: nonNegativeIntegerSchema,
-  name: nonEmptyStringSchema,
-  description: z.string().nullable(),
-  bundleLocator: blobLocatorV1Schema,
-  bundleSha256: sha256Schema,
-  manifestSha256: sha256Schema,
-  bundleByteLength: positiveIntegerSchema,
-  approvalMethod: z.enum(["manual", "automatic"]),
-});
+export const skillSetProjectionEntryV1Schema = z
+  .looseObject({
+    skillId: uuidSchema,
+    versionId: uuidSchema,
+    position: nonNegativeIntegerSchema,
+    name: nonEmptyStringSchema,
+    description: z.string().nullable(),
+    bundleLocator: blobLocatorV1Schema,
+    bundleSha256: sha256Schema,
+    manifestSha256: sha256Schema,
+    bundleByteLength: positiveIntegerSchema,
+    approvalMethod: z.enum(["manual", "automatic"]),
+  })
+  .superRefine((entry, context) => {
+    if (entry.bundleSha256 !== entry.bundleLocator.applicationSha256) {
+      context.addIssue({
+        code: "custom",
+        path: ["bundleLocator", "applicationSha256"],
+        message: "Projection entry and locator bundle hashes must match",
+      });
+    }
+    if (entry.bundleByteLength !== entry.bundleLocator.byteLength) {
+      context.addIssue({
+        code: "custom",
+        path: ["bundleLocator", "byteLength"],
+        message: "Projection entry and locator byte lengths must match",
+      });
+    }
+  });
 export type SkillSetProjectionEntryV1 = z.infer<
   typeof skillSetProjectionEntryV1Schema
 >;

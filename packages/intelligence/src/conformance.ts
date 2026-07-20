@@ -209,7 +209,7 @@ const artifactManifest = {
   agentSkillsProfile: "agentskills:v1",
   files: [artifactFile],
   manifestSha256: SHA_A,
-  bundleSha256: SHA_B,
+  bundleSha256: SHA_A,
   bundleByteLength: 12,
   provenance: {},
 };
@@ -609,7 +609,7 @@ const canonicalValidValues: Record<
     name: "Idempotent retries",
     description: null,
     bundleLocator: blobLocator,
-    bundleSha256: SHA_B,
+    bundleSha256: SHA_A,
     manifestSha256: SHA_A,
     bundleByteLength: 12,
     approvalMethod: "manual",
@@ -1053,6 +1053,48 @@ function buildCases(): LearningPlatformConformanceCase[] {
       value: {
         ...artifactManifest,
         files: [{ ...artifactFile, path: "idempotent-retries/SKILL.md" }],
+      },
+    },
+    {
+      name: "skill-bundle-rejects-locator-hash-mismatch",
+      schema: "SkillBundleV1",
+      valid: false,
+      value: {
+        ...skillBundle,
+        locator: { ...blobLocator, applicationSha256: SHA_B },
+      },
+    },
+    {
+      name: "skill-bundle-rejects-locator-length-mismatch",
+      schema: "SkillBundleV1",
+      valid: false,
+      value: {
+        ...skillBundle,
+        locator: { ...blobLocator, byteLength: 13 },
+      },
+    },
+    {
+      name: "projection-entry-rejects-locator-hash-mismatch",
+      schema: "SkillSetProjectionEntryV1",
+      valid: false,
+      value: {
+        ...(canonicalValidValues.SkillSetProjectionEntryV1 as Record<
+          string,
+          JsonValue
+        >),
+        bundleLocator: { ...blobLocator, applicationSha256: SHA_B },
+      },
+    },
+    {
+      name: "projection-entry-rejects-locator-length-mismatch",
+      schema: "SkillSetProjectionEntryV1",
+      valid: false,
+      value: {
+        ...(canonicalValidValues.SkillSetProjectionEntryV1 as Record<
+          string,
+          JsonValue
+        >),
+        bundleLocator: { ...blobLocator, byteLength: 13 },
       },
     },
     {

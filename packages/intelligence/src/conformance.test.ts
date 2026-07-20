@@ -160,6 +160,10 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
         "artifact-manifest-rejects-nfc-path-collision",
         "artifact-manifest-rejects-missing-skill-md",
         "artifact-manifest-rejects-root-prefixed-skill-md",
+        "skill-bundle-rejects-locator-hash-mismatch",
+        "skill-bundle-rejects-locator-length-mismatch",
+        "projection-entry-rejects-locator-hash-mismatch",
+        "projection-entry-rejects-locator-length-mismatch",
         "generated-add-candidate-forbids-skill-id",
         "generated-add-candidate-forbids-parent-version-id",
         "generated-remove-candidate-requires-non-empty-removal-intent",
@@ -291,6 +295,21 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
         golden.projection,
       ).success,
     ).toBe(true);
+    const goldenEntry = (
+      golden.projection as {
+        entries: Array<{
+          manifest: unknown;
+          bundleLocator: unknown;
+        }>;
+      }
+    ).entries[0]!;
+    expect(
+      learningPlatformConformanceSchemas.SkillBundleV1.safeParse({
+        schemaVersion: 1,
+        manifest: goldenEntry.manifest,
+        locator: goldenEntry.bundleLocator,
+      }).success,
+    ).toBe(true);
     expect(
       learningPlatformConformanceSchemas.LearningPlatformErrorResponseV1.safeParse(
         golden.errors.canonicalConflict?.body,
@@ -306,5 +325,27 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
         golden.errors.unknownCode?.body,
       ).success,
     ).toBe(false);
+  });
+
+  test("keeps canonical bundle fixtures bound to one hash and length", () => {
+    const cases = buildLearningPlatformConformanceCorpus().cases;
+    const bundle = cases.find(
+      ({ name }) => name === "schema-SkillBundleV1-valid",
+    )?.value as {
+      manifest: { bundleSha256: string; bundleByteLength: number };
+      locator: { applicationSha256: string; byteLength: number };
+    };
+    const entry = cases.find(
+      ({ name }) => name === "schema-SkillSetProjectionEntryV1-valid",
+    )?.value as {
+      bundleSha256: string;
+      bundleByteLength: number;
+      bundleLocator: { applicationSha256: string; byteLength: number };
+    };
+
+    expect(bundle.manifest.bundleSha256).toBe(bundle.locator.applicationSha256);
+    expect(bundle.manifest.bundleByteLength).toBe(bundle.locator.byteLength);
+    expect(entry.bundleSha256).toBe(entry.bundleLocator.applicationSha256);
+    expect(entry.bundleByteLength).toBe(entry.bundleLocator.byteLength);
   });
 });
