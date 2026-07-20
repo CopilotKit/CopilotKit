@@ -94,7 +94,7 @@ Before you begin, you'll need the following:
                 Our examples will also use uvicorn to run the agent.
 
                 ```sh
-                pip install 'pydantic-ai-slim[ag-ui]' uvicorn
+                pip install 'pydantic-ai-slim[ag-ui,openai]' uvicorn
                 ```
             </Step>
             <Step>
@@ -130,7 +130,6 @@ Before you begin, you'll need the following:
                 import { CopilotRuntime, createCopilotEndpoint } from "@copilotkit/runtime/v2";
                 import { HttpAgent } from "@ag-ui/client";
                 import { handle } from "hono/vercel";
-                import { NextRequest } from "next/server";
 
                 // Create the CopilotRuntime instance with your agent
                 const runtime = new CopilotRuntime({
@@ -159,6 +158,7 @@ Before you begin, you'll need the following:
                 ```tsx title="app/layout.tsx"
                 import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
                 import "@copilotkit/react-core/v2/styles.css"; // [!code highlight]
+                import type { ReactNode } from "react"; // [!code highlight]
 
                 export default function RootLayout({ children }: { children: ReactNode }) {
                   return (
