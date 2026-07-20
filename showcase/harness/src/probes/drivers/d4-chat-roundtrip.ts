@@ -491,7 +491,7 @@ const WEATHER_VOCAB = [
  * turn still fails once the grace elapses. Bounded and small so a
  * genuinely-empty completed turn fails fast.
  */
-const FIRST_TOKEN_GRACE_MS = 2000;
+export const FIRST_TOKEN_GRACE_MS = 2000;
 
 /**
  * Fast-fail budget for a turn that COMPLETES with empty assistant text. With a

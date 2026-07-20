@@ -7,6 +7,7 @@ import {
   buildEdgeAbRecord,
   CvdiagProbeSession,
   wirePlaywrightPage,
+  FIRST_TOKEN_GRACE_MS,
 } from "./d4-chat-roundtrip.js";
 import { filterEdgeHeaders } from "../../cvdiag/index.js";
 import { computeAbReport } from "../../cvdiag/ab-report.js";
@@ -3181,16 +3182,30 @@ describe("d4 render-race: sseDone-leads / domDone-lags turn completion (Fix B)",
     // (`domDone` only): `complete` stays false until 2500ms (the turn is merely
     // `observed` in-flight via `sseDone`, so the poll WIDENS to the ceiling
     // instead of fast-failing), then the token renders and the poll returns it.
+    // This test only DISCRIMINATES pre-fix vs post-fix while the token lands
+    // AFTER the grace window but BEFORE the attempt-0 ceiling:
+    //   FIRST_TOKEN_GRACE_MS (2000) < firstTokenDelayMs (2500) < ceiling (~4000)
+    // Pin the lower bound against the ACTUAL source constant so that raising
+    // FIRST_TOKEN_GRACE_MS past this fixture's delay fails this test LOUDLY
+    // (the sim would otherwise silently stop discriminating — the token would
+    // land inside the grace window and both formulas would pass).
+    const firstTokenDelayMs = 2500;
+    const pageTimeoutMs = 8000;
+    // Attempt-0 ceiling ≈ pageTimeoutMs / 2. Both bounds must bracket the delay
+    // for the sim to exercise the post-fix widening.
+    const attempt0CeilingMs = pageTimeoutMs / 2;
+    expect(FIRST_TOKEN_GRACE_MS).toBeLessThan(firstTokenDelayMs);
+    expect(firstTokenDelayMs).toBeLessThan(attempt0CeilingMs);
     const { l4State, failureSummary } = await runLateToken(
       makeLateTokenBrowser({
         assistantText: "The weather in San Francisco is sunny, 72 degrees.",
         sseLeadMs: 0,
-        completeAtDelayMs: 2500,
-        firstTokenDelayMs: 2500,
+        completeAtDelayMs: firstTokenDelayMs,
+        firstTokenDelayMs,
       }),
       // Ceiling comfortably past the 2500ms lag so attempt 0 can reach the
       // token (attempt-0 ceiling ≈ pageTimeoutMs/2 ≈ 4000ms > 2500ms).
-      { pageTimeoutMs: 8000 },
+      { pageTimeoutMs },
     );
     expect(l4State).toBe("green");
     expect(failureSummary).toBe("");
