@@ -491,7 +491,7 @@ const WEATHER_VOCAB = [
  * turn still fails once the grace elapses. Bounded and small so a
  * genuinely-empty completed turn fails fast.
  */
-const FIRST_TOKEN_GRACE_MS = 2000;
+export const FIRST_TOKEN_GRACE_MS = 2000;
 
 /**
  * Fast-fail budget for a turn that COMPLETES with empty assistant text. With a
@@ -2091,7 +2091,18 @@ async function runLevel(opts: {
         const observed = newRunStarted || sseDone;
         return {
           observed,
-          complete: domDone || sseDone,
+          // Gate completion on `domDone` ALONE, not `domDone || sseDone`.
+          // `sseDone` (the transport-level RUN_FINISHED counter) is a
+          // synchronous raw-byte parse OUTSIDE React and can fire at-or-before
+          // the React commit that renders the assistant text; `domDone` is
+          // coalesced into that SAME commit (use-agent.tsx batchedForceUpdate /
+          // queueMicrotask), so the moment `domDone` is true the text is
+          // already in the DOM. Gating on `sseDone` let the fast-fail grace
+          // window elapse with the DOM still empty under contention, redding a
+          // turn that was about to render correctly ("empty assistant
+          // response"). `observed` still includes `sseDone` (above) so a turn
+          // whose attribute never appears still gets the wider polling window.
+          complete: domDone,
         };
       };
 
