@@ -35,6 +35,23 @@ from ._request_context import get_latest_user_message
 
 logger = logging.getLogger(__name__)
 
+# Must match the catalog id the declarative-gen-ui page registers via
+# `createCatalog(..., { catalogId: "declarative-gen-ui-catalog" })`
+# (src/app/demos/declarative-gen-ui/a2ui/catalog.ts) and the route's
+# `a2ui.defaultCatalogId` (api/copilotkit-declarative-gen-ui/route.ts).
+#
+# The shared `render_a2ui` tool schema (tools/generate_a2ui.py) steers the
+# secondary planner toward `copilotkit://app-dashboard-catalog` — the catalog
+# the *beautiful-chat* demo registers, NOT this one. Under aimock the recorded
+# fixture already carries the right id, but against a real LLM the planner
+# emits `copilotkit://app-dashboard-catalog`, the middleware can't resolve it
+# ("[A2UI] processMessages error: Catalog not found:
+# copilotkit://app-dashboard-catalog"), and the surface never mounts. Stamping
+# the correct id here pins this dedicated agent to the page's catalog
+# regardless of what the planner returned. Mirrors the strands sibling's
+# `CATALOG_ID` (strands/src/agents/a2ui_dynamic.py).
+CATALOG_ID = "declarative-gen-ui-catalog"
+
 # Module-level async client: re-used across requests (httpx connection pool is
 # thread-safe). Using AsyncOpenAI inside an `async def` avoids blocking the
 # ASGI event loop on the secondary LLM call.
@@ -160,6 +177,11 @@ async def generate_a2ui() -> str:
 
     try:
         args = json.loads(first_call.function.arguments)
+        # Pin the catalog id to the one this demo's page registers. The shared
+        # render_a2ui schema nudges the planner toward beautiful-chat's
+        # `copilotkit://app-dashboard-catalog`; overriding it here keeps the
+        # emitted createSurface op aligned with `declarative-gen-ui-catalog`.
+        args["catalogId"] = CATALOG_ID
         result = build_a2ui_operations_from_tool_call(args)
         return json.dumps(result)
     except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
