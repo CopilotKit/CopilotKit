@@ -6,20 +6,23 @@ name: triage / on-open
 on:
   issues:
     types: [opened]
-permissions:
-  issues: write
 concurrency:
   group: triage-on-open-${{ github.event.issue.number }}
   cancel-in-progress: true
 jobs:
   triage:
+    name: label + dedup-flag on open
     runs-on: ubuntu-latest
+    # Least privilege: only add labels/comments to the opened issue.
+    permissions:
+      issues: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false # only reads scripts/triage/analyze.js; no git ops
       - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         env:
+          # zizmor: ignore[secrets-outside-env] single read-only classification key; a dedicated GH Environment adds setup friction with marginal benefit here
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         with:
           script: |

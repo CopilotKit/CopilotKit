@@ -40,4 +40,9 @@ and backfill workflows call it, so policy and safety controls live in one place.
   comment. Humans close.
 - **Spam/low-signal gate** — already-flagged or empty-body-from-outsider issues
   skip the LLM call entirely (cost guard).
-- **Pinned actions** — checkout / github-script / stale are SHA-pinned.
+- **Pinned actions** — checkout / github-script / stale are SHA-pinned, with
+  `persist-credentials: false` (no git ops).
+- **Least privilege** — `issues: write` is scoped to the job, not the workflow;
+  no other token scopes are granted.
+- **No template injection** — `workflow_dispatch` inputs are passed via `env`
+  and read from `process.env`, never interpolated into the inline script.
