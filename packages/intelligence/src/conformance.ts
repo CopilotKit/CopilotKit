@@ -1546,6 +1546,18 @@ function buildCases(): LearningPlatformConformanceCase[] {
         chunks: [],
       },
     },
+    {
+      name: "learning-run-execution-result-accepts-multiple-chunks",
+      schema: "LearningRunExecutionResultV1",
+      valid: true,
+      value: {
+        ...(canonicalValidValues.LearningRunExecutionResultV1 as Record<
+          string,
+          JsonValue
+        >),
+        chunks: [learningChunk, secondLearningChunk],
+      },
+    },
     ...(
       [
         [
@@ -1558,6 +1570,17 @@ function buildCases(): LearningPlatformConformanceCase[] {
         [
           "mixed-attempt-ids",
           [learningChunk, { ...secondLearningChunk, attemptId: UUID.version }],
+        ],
+        [
+          "mixed-run-and-attempt-ids",
+          [
+            learningChunk,
+            {
+              ...secondLearningChunk,
+              learningRunId: UUID.skill,
+              attemptId: UUID.version,
+            },
+          ],
         ],
         [
           "duplicate-chunk-indexes",

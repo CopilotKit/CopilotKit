@@ -404,6 +404,8 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
         "create-learning-run-rejects-inverted-selection-interval",
         "learning-run-job-rejects-negative-fence-generation",
         "learning-run-execution-result-rejects-invalid-output-hash",
+        "learning-run-execution-result-accepts-multiple-chunks",
+        "learning-run-execution-result-rejects-mixed-run-and-attempt-ids",
         "append-learning-run-chunk-rejects-mismatched-chunk-identity",
         "remove-candidate-requires-removal-intent",
         "remove-candidate-forbids-bundle",

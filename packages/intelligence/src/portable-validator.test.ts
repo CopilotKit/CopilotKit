@@ -109,6 +109,37 @@ describe("Learning Contract portable validator capability", () => {
     );
   });
 
+  test.each([
+    COPILOTKIT_EQUAL_PROPERTIES_JSON_SCHEMA_KEYWORD,
+    COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD,
+  ])(
+    "rejects in-place tampering with package-owned %s semantics",
+    (keyword) => {
+      const ajv = new Ajv2020({ strict: false, validateFormats: false });
+      registerLearningContractJsonSchemaValidator(ajv);
+      const definition = ajv.getKeyword(keyword);
+      if (
+        definition === false ||
+        definition === null ||
+        typeof definition !== "object"
+      ) {
+        throw new Error(`Expected an object definition for ${keyword}`);
+      }
+      (definition as { validate?: () => boolean }).validate = () => true;
+
+      expect(() =>
+        assertLearningContractJsonSchemaValidatorCapabilities(ajv),
+      ).toThrowError(
+        new RegExp(
+          `LEARNING_CONTRACT_VALIDATOR_CAPABILITY_MISSING.*package-owned registration for ${keyword}`,
+        ),
+      );
+      expect(() =>
+        registerLearningContractJsonSchemaValidator(ajv),
+      ).toThrowError(/LEARNING_CONTRACT_VALIDATOR_CAPABILITY_MISSING/);
+    },
+  );
+
   test("rejects a replaced package-owned meta-schema", () => {
     const ajv = new Ajv2020({ strict: false, validateFormats: false });
     registerLearningContractJsonSchemaValidator(ajv);
@@ -117,6 +148,34 @@ describe("Learning Contract portable validator capability", () => {
       ...learningContractSemanticsMetaSchema,
       title: "foreign replacement",
     });
+
+    expect(() =>
+      compileLearningContractJsonSchema(ajv, equalPropertiesSchema),
+    ).toThrowError(
+      new RegExp(
+        `LEARNING_CONTRACT_VALIDATOR_CAPABILITY_MISSING.*package-owned registration for ${COPILOTKIT_LEARNING_CONTRACT_META_SCHEMA_URI}`,
+      ),
+    );
+  });
+
+  test("rejects in-place tampering with package-owned meta-schema semantics", () => {
+    const ajv = new Ajv2020({ strict: false, validateFormats: false });
+    registerLearningContractJsonSchemaValidator(ajv);
+    const validateMetaSchema = ajv.getSchema(
+      COPILOTKIT_LEARNING_CONTRACT_META_SCHEMA_URI,
+    );
+    if (typeof validateMetaSchema !== "function") {
+      throw new Error("Expected the package-owned meta-schema validator");
+    }
+    const metaSchema = (validateMetaSchema as { schema?: unknown }).schema;
+    if (
+      metaSchema === null ||
+      typeof metaSchema !== "object" ||
+      Array.isArray(metaSchema)
+    ) {
+      throw new Error("Expected package-owned meta-schema semantics");
+    }
+    (metaSchema as Record<string, unknown>).title = "in-place replacement";
 
     expect(() =>
       compileLearningContractJsonSchema(ajv, equalPropertiesSchema),
@@ -461,6 +520,24 @@ describe("Learning Contract assertion pointer grammar", () => {
       ).not.toThrow();
     },
   );
+
+  test("does not treat a leading-zero array token as an array index", () => {
+    const ajv = new Ajv2020({ strict: false, validateFormats: false });
+    registerLearningContractJsonSchemaValidator(ajv);
+    const validate = compileLearningContractJsonSchema(ajv, {
+      type: "object",
+      [COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD]: [
+        {
+          operation: "compare",
+          left: "/values/01",
+          relation: "equal",
+          right: "/values/1",
+        },
+      ],
+    });
+
+    expect(validate({ values: ["zero", "one"] })).toBe(false);
+  });
 });
 
 describe(`${COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD} bounded assertions`, () => {
@@ -680,6 +757,24 @@ describe(`${COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD} bounded assertions`, () =
         paths: ["nested/SKILL.md"],
       }),
     ).toBe(false);
+  });
+
+  test("supports all-equal values with optional normalization", () => {
+    const ajv = new Ajv2020({ strict: false, validateFormats: false });
+    registerLearningContractJsonSchemaValidator(ajv);
+    const validate = compileLearningContractJsonSchema(ajv, {
+      type: "object",
+      [COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD]: [
+        {
+          operation: "all-equal",
+          values: "/ids/*",
+          normalization: { caseFold: true },
+        },
+      ],
+    });
+
+    expect(validate({ ids: ["RUN", "run"] })).toBe(true);
+    expect(validate({ ids: ["run", "other"] })).toBe(false);
   });
 
   test("scopes evidence references to the selected lookup target", () => {

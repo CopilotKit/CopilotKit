@@ -1175,6 +1175,16 @@ export const learningContractAssertionV1JsonSchema: JsonObject = {
       {
         type: "object",
         properties: {
+          operation: { const: "all-equal" },
+          values: assertionJsonPointerJsonSchema,
+          normalization: assertionNormalizationJsonSchema,
+        },
+        required: ["operation", "values"],
+        additionalProperties: false,
+      },
+      {
+        type: "object",
+        properties: {
           operation: { const: "strictly-increasing" },
           values: assertionJsonPointerJsonSchema,
           valueType: assertionValueTypeJsonSchema,
@@ -1888,11 +1898,11 @@ registerLearningContractPortableAssertions(learningWorkflowOutputV1Schema, [
 ]);
 registerLearningContractPortableAssertions(learningRunExecutionResultV1Schema, [
   {
-    operation: "unique",
+    operation: "all-equal",
     values: "/chunks/*/learningRunId",
   },
   {
-    operation: "unique",
+    operation: "all-equal",
     values: "/chunks/*/attemptId",
   },
   {

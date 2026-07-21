@@ -32,6 +32,11 @@ export type LearningContractAssertionV1 =
       readonly normalization?: LearningContractAssertionNormalizationV1;
     }
   | {
+      readonly operation: "all-equal";
+      readonly values: string;
+      readonly normalization?: LearningContractAssertionNormalizationV1;
+    }
+  | {
       readonly operation: "strictly-increasing";
       readonly values: string;
       readonly valueType: LearningContractAssertionValueTypeV1;
@@ -171,16 +176,133 @@ export class LearningContractPortableValidatorCapabilityError extends Error {
   }
 }
 
+interface CapabilityValueAttestation {
+  readonly semanticDigest: string;
+  readonly functions: ReadonlyMap<string, (...args: never[]) => unknown>;
+}
+
+interface KeywordRegistration {
+  readonly definition: unknown;
+  readonly attestation: CapabilityValueAttestation;
+}
+
+interface MetaSchemaRegistration {
+  readonly validator: unknown;
+  readonly semantics: CapabilityValueAttestation;
+}
+
 interface PackageValidatorRegistration {
-  readonly equalPropertiesKeyword: unknown;
-  readonly assertionsKeyword: unknown;
-  readonly metaSchema: unknown;
+  readonly equalPropertiesKeyword: KeywordRegistration;
+  readonly assertionsKeyword: KeywordRegistration;
+  readonly metaSchema: MetaSchemaRegistration;
 }
 
 const packageRegisteredValidators = new WeakMap<
   object,
   PackageValidatorRegistration
 >();
+
+function snapshotCapabilityValue(
+  value: unknown,
+  path: string,
+  functions: Map<string, (...args: never[]) => unknown>,
+  ancestors: Set<object>,
+): unknown {
+  if (value === null) return ["null"];
+  if (value === undefined) return ["undefined"];
+  if (typeof value === "string" || typeof value === "boolean") {
+    return [typeof value, value];
+  }
+  if (typeof value === "number") {
+    return ["number", Number.isNaN(value) ? "NaN" : value];
+  }
+  if (typeof value === "function") {
+    functions.set(path, value as (...args: never[]) => unknown);
+    return ["function", path];
+  }
+  if (typeof value !== "object") {
+    return [typeof value, String(value)];
+  }
+  if (ancestors.has(value)) {
+    throw new TypeError(`Cyclic capability semantics at ${path}`);
+  }
+
+  ancestors.add(value);
+  try {
+    if (Array.isArray(value)) {
+      return [
+        "array",
+        value.map((entry, index) =>
+          snapshotCapabilityValue(
+            entry,
+            `${path}/${index}`,
+            functions,
+            ancestors,
+          ),
+        ),
+      ];
+    }
+    return [
+      "object",
+      Object.keys(value)
+        .sort()
+        .map((key) => [
+          key,
+          snapshotCapabilityValue(
+            (value as Record<string, unknown>)[key],
+            `${path}/${key}`,
+            functions,
+            ancestors,
+          ),
+        ]),
+    ];
+  } finally {
+    ancestors.delete(value);
+  }
+}
+
+function attestCapabilityValue(value: unknown): CapabilityValueAttestation {
+  const functions = new Map<string, (...args: never[]) => unknown>();
+  return {
+    semanticDigest: JSON.stringify(
+      snapshotCapabilityValue(value, "", functions, new Set()),
+    ),
+    functions,
+  };
+}
+
+function capabilityValueMatchesAttestation(
+  value: unknown,
+  expected: CapabilityValueAttestation,
+): boolean {
+  try {
+    const actual = attestCapabilityValue(value);
+    if (
+      actual.semanticDigest !== expected.semanticDigest ||
+      actual.functions.size !== expected.functions.size
+    ) {
+      return false;
+    }
+    for (const [path, implementation] of expected.functions) {
+      if (actual.functions.get(path) !== implementation) return false;
+    }
+    return true;
+  } catch {
+    // Uninspectable capability state is treated as tampering; the caller
+    // converts this false result into the structured capability error.
+    return false;
+  }
+}
+
+function metaSchemaSemantics(metaSchemaValidator: unknown): unknown {
+  if (
+    (typeof metaSchemaValidator !== "object" || metaSchemaValidator === null) &&
+    typeof metaSchemaValidator !== "function"
+  ) {
+    return undefined;
+  }
+  return Reflect.get(metaSchemaValidator, "schema");
+}
 
 function decodeJsonPointerSegment(segment: string): string {
   return segment.replaceAll("~1", "/").replaceAll("~0", "~");
@@ -204,7 +326,7 @@ function selectJsonPointerValues(root: unknown, pointer: string): unknown[] {
         continue;
       }
 
-      if (Array.isArray(value) && /^\d+$/u.test(segment)) {
+      if (Array.isArray(value) && /^(?:0|[1-9]\d*)$/u.test(segment)) {
         const indexedValue = value[Number(segment)];
         if (indexedValue !== undefined) nextValues.push(indexedValue);
       } else if (isJsonObject(value) && Object.hasOwn(value, segment)) {
@@ -318,6 +440,16 @@ function validateUniqueAssertion(
     assertionValueKey(value, assertion.normalization),
   );
   return new Set(keys).size === keys.length;
+}
+
+function validateAllEqualAssertion(
+  assertion: Extract<LearningContractAssertionV1, { operation: "all-equal" }>,
+  data: unknown,
+): boolean {
+  const keys = selectJsonPointerValues(data, assertion.values).map((value) =>
+    assertionValueKey(value, assertion.normalization),
+  );
+  return new Set(keys).size <= 1;
 }
 
 function validateStrictlyIncreasingAssertion(
@@ -555,6 +687,8 @@ function validateLearningContractAssertion(
       return validateCompareAssertion(assertion, data);
     case "unique":
       return validateUniqueAssertion(assertion, data);
+    case "all-equal":
+      return validateAllEqualAssertion(assertion, data);
     case "strictly-increasing":
       return validateStrictlyIncreasingAssertion(assertion, data);
     case "contiguous":
@@ -673,10 +807,26 @@ export function registerLearningContractJsonSchemaValidator<
       "complete package-owned V1 registration",
     );
   }
+  const metaSchemaValue = metaSchemaSemantics(metaSchema);
+  if (metaSchemaValue === undefined) {
+    throw new LearningContractPortableValidatorCapabilityError(
+      "LEARNING_CONTRACT_VALIDATOR_CAPABILITY_MISSING",
+      `package-owned registration for ${LEARNING_CONTRACT_PORTABLE_VALIDATOR_CAPABILITY_V1.metaSchemaUri}`,
+    );
+  }
   packageRegisteredValidators.set(validator, {
-    equalPropertiesKeyword,
-    assertionsKeyword,
-    metaSchema,
+    equalPropertiesKeyword: {
+      definition: equalPropertiesKeyword,
+      attestation: attestCapabilityValue(equalPropertiesKeyword),
+    },
+    assertionsKeyword: {
+      definition: assertionsKeyword,
+      attestation: attestCapabilityValue(assertionsKeyword),
+    },
+    metaSchema: {
+      validator: metaSchema,
+      semantics: attestCapabilityValue(metaSchemaValue),
+    },
   });
   return validator;
 }
@@ -713,7 +863,13 @@ export function assertLearningContractJsonSchemaValidatorCapabilities(
       "package-owned V1 registration",
     );
   }
-  if (metaSchema !== registration.metaSchema) {
+  if (
+    metaSchema !== registration.metaSchema.validator ||
+    !capabilityValueMatchesAttestation(
+      metaSchemaSemantics(metaSchema),
+      registration.metaSchema.semantics,
+    )
+  ) {
     throw new LearningContractPortableValidatorCapabilityError(
       "LEARNING_CONTRACT_VALIDATOR_CAPABILITY_MISSING",
       `package-owned registration for ${LEARNING_CONTRACT_PORTABLE_VALIDATOR_CAPABILITY_V1.metaSchemaUri}`,
@@ -727,7 +883,12 @@ export function assertLearningContractJsonSchemaValidatorCapabilities(
     [COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD, registration.assertionsKeyword],
   ]);
   for (const [keyword, definition] of keywordDefinitions) {
-    if (definition !== expectedKeywordDefinitions.get(keyword)) {
+    const expected = expectedKeywordDefinitions.get(keyword);
+    if (
+      expected === undefined ||
+      definition !== expected.definition ||
+      !capabilityValueMatchesAttestation(definition, expected.attestation)
+    ) {
       throw new LearningContractPortableValidatorCapabilityError(
         "LEARNING_CONTRACT_VALIDATOR_CAPABILITY_MISSING",
         `package-owned registration for ${keyword}`,
