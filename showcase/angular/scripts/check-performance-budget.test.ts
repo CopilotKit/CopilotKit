@@ -77,4 +77,21 @@ describe("Angular Showcase performance budget", () => {
       maximumError: "4600000b",
     });
   });
+
+  it("includes every external input required by registry generation in the image build", () => {
+    const dockerfile = readFileSync(
+      join(projectDirectory, "Dockerfile"),
+      "utf8",
+    );
+
+    expect(dockerfile).toContain(
+      "COPY showcase/harness/src/shared/catalog/ ./showcase/harness/src/shared/catalog/",
+    );
+    expect(dockerfile).toContain(
+      "COPY showcase/harness/package.json ./showcase/harness/package.json",
+    );
+    expect(dockerfile).toContain(
+      "ln -s ../scripts/node_modules showcase/harness/node_modules",
+    );
+  });
 });

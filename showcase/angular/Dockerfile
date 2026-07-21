@@ -10,6 +10,8 @@ COPY showcase/angular/ ./showcase/angular/
 COPY showcase/scripts/ ./showcase/scripts/
 COPY showcase/shared/ ./showcase/shared/
 COPY showcase/integrations/ ./showcase/integrations/
+COPY showcase/harness/package.json ./showcase/harness/package.json
+COPY showcase/harness/src/shared/catalog/ ./showcase/harness/src/shared/catalog/
 
 # generate-registry writes normalized data for every shell. Only the Angular
 # server copies its registry outputs into the final image.
@@ -18,8 +20,8 @@ RUN mkdir -p \
       showcase/shell-docs/src/data \
       showcase/shell-dojo/src/data \
       showcase/shell-dashboard/src/data \
-    && cd showcase/scripts \
-    && npm ci --ignore-scripts --silent
+    && npm ci --prefix showcase/scripts --ignore-scripts --silent \
+    && ln -s ../scripts/node_modules showcase/harness/node_modules
 
 WORKDIR /repo/showcase/angular
 RUN node scripts/use-packed-artifacts.mjs /artifacts \
