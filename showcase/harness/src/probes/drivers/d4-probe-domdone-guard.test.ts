@@ -3,6 +3,7 @@ import { readdirSync, existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
+import { D4_PROBED_DEMO_ROUTES } from "./d4-chat-roundtrip.js";
 
 // Regression guard for the D4 chat probe's `domDone` turn-completion gate.
 //
@@ -42,7 +43,11 @@ const INTEGRATIONS_DIR = path.resolve(WORKSPACE_ROOT, "showcase/integrations");
 // d4-chat-roundtrip.ts): `/demos/agentic-chat` ALWAYS; `/demos/tool-rendering`
 // only where the slug's registry exposes it. We scan the corresponding page
 // entrypoints for every integration that HAS them.
-const PROBED_ROUTES = ["agentic-chat", "tool-rendering"] as const;
+//
+// DERIVED from the probe's own `D4_PROBED_DEMO_ROUTES` source-of-truth (NOT a
+// parallel hardcoded literal) so a future D4 route the probe starts driving is
+// scanned by this guard automatically, with no second edit here.
+const PROBED_ROUTES = D4_PROBED_DEMO_ROUTES;
 
 const COPILOT_CHAT_TAG = "CopilotChat";
 
@@ -122,6 +127,17 @@ function classifyCopilotChatUsage(file: string): {
 
 describe("d4 probe domDone gate: probed-route pages emit data-copilot-running", () => {
   const pages = collectProbedPages();
+
+  it("derives a probed-route set that still covers {agentic-chat, tool-rendering}", () => {
+    // Coverage-floor guard for the SSOT switch: deriving PROBED_ROUTES from the
+    // probe's `D4_PROBED_DEMO_ROUTES` must never NARROW the scan below the two
+    // routes the guard has always covered. Assert the derived set is a SUPERSET
+    // of the historical hardcoded literal so a future probe edit can only ADD
+    // routes, never silently drop coverage.
+    for (const route of ["agentic-chat", "tool-rendering"] as const) {
+      expect(PROBED_ROUTES).toContain(route);
+    }
+  });
 
   it("finds the universal agentic-chat page for every integration", () => {
     // Sanity: the probe navigates to /demos/agentic-chat for EVERY slug, so
