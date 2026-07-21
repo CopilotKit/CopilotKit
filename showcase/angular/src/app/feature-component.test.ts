@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { resolveFeatureComponentKey } from "./app.routes";
 import { suggestionsConfigForFeature } from "./feature-suggestions";
+import frontendRegistryData from "./generated/frontend-registry.json";
 
 describe("Angular showcase feature routing", () => {
   it.each([
@@ -46,6 +47,25 @@ describe("Angular showcase feature routing", () => {
     ["agentic-chat", "chat"],
   ])("maps %s to the %s implementation", (feature, expected) => {
     expect(resolveFeatureComponentKey(feature)).toBe(expected);
+  });
+
+  it("rejects undeclared features instead of silently loading generic chat", () => {
+    expect(() => resolveFeatureComponentKey("misspelled-feature")).toThrow(
+      /does not have an Angular implementation/,
+    );
+  });
+
+  it("resolves every registry-supported Angular feature explicitly", () => {
+    const support = frontendRegistryData.feature_support as Record<
+      string,
+      { angular?: { state?: string } }
+    >;
+    const supported = Object.entries(support)
+      .filter(([, declaration]) => declaration.angular?.state === "supported")
+      .map(([feature]) => feature);
+
+    expect(supported).toHaveLength(39);
+    expect(() => supported.map(resolveFeatureComponentKey)).not.toThrow();
   });
 });
 

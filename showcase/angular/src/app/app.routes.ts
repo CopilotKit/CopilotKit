@@ -97,8 +97,12 @@ export function resolveFeatureComponentKey(
       return "media";
     case "beautiful-chat":
       return "beautiful-chat";
-    default:
+    case "agentic-chat":
       return "chat";
+    default:
+      throw new Error(
+        `Feature "${feature}" does not have an Angular implementation.`,
+      );
   }
 }
 
