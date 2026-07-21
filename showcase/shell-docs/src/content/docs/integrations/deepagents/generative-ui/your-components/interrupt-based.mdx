@@ -30,7 +30,7 @@ you can ensure that the agent is always making the right decisions and ultimatel
 
 Interrupt-based flows are a very intuitive way to implement HITL. Instead of having a node await user input before or after its execution,
 nodes can be interrupted in the middle of their execution to allow for user input. The trade-off is that the agent is not aware of the
-interaction, however [CopilotKit's SDKs provide helpers to alleviate this](#make-your-agent-aware-of-interruptions).
+interaction by default.
 
 ## Implementation
 
@@ -85,9 +85,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
     Now we can call `interrupt` in our Deep Agents agent.
 
     <Callout type="info">
-        Your agent will not be aware of the `interrupt` interaction by default in LangGraph.
-
-        If you want this behavior, see the [section on it below](#make-your-agent-aware-of-interruptions).
+        Your agent will not be aware of the `interrupt` interaction by default in LangGraph. To make state available to your agent, use `CopilotKitMiddleware(expose_state=[...])` as shown in the Python example below.
     </Callout>
 
     <Tabs groupId="agent_language" items={['Python', 'TypeScript']} persist>
