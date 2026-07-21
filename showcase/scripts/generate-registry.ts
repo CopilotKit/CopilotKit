@@ -23,6 +23,8 @@ import {
   generateCatalog,
   MissingReferenceIntegrationError,
 } from "../harness/src/shared/catalog/catalog-flatten.js";
+import { normalizeFrontendRegistry } from "./lib/frontend-registry.js";
+import { generateFrontendCatalog } from "./lib/frontend-catalog.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -34,6 +36,11 @@ const FEATURE_REGISTRY_PATH = path.join(
   ROOT,
   "shared",
   "feature-registry.json",
+);
+const FRONTEND_REGISTRY_PATH = path.join(
+  ROOT,
+  "shared",
+  "frontend-registry.json",
 );
 
 // Backend host pattern — used to synthesize `backend_url` for every
@@ -278,6 +285,13 @@ function loadFeatureRegistry() {
   return readJsonOrExit(FEATURE_REGISTRY_PATH, "feature registry");
 }
 
+function loadFrontendRegistry(
+  features: Array<{ id: string; kind?: string; deprecated?: boolean }>,
+) {
+  const raw = fs.readFileSync(FRONTEND_REGISTRY_PATH, "utf-8");
+  return normalizeFrontendRegistry(JSON.parse(raw), features);
+}
+
 type DocsLinkEntry = {
   og_docs_url: string | null;
   shell_docs_path: string | null;
@@ -420,6 +434,7 @@ function main() {
 
   const schema = loadSchema();
   const featureRegistry = loadFeatureRegistry();
+  const frontendRegistry = loadFrontendRegistry(featureRegistry.features);
   const featureIds = new Set<string>(
     featureRegistry.features.map((f: { id: string }) => f.id),
   );
@@ -588,6 +603,7 @@ function main() {
 
   const registry = {
     feature_registry: featureRegistry,
+    frontend_registry: frontendRegistry,
     integrations,
     packages,
   };
@@ -599,6 +615,7 @@ function main() {
   // missing catalog.json). All-or-nothing: any failure below this
   // comment exits before a single byte is written.
   const registryJson = JSON.stringify(registry, null, 2) + "\n";
+  const frontendRegistryJson = JSON.stringify(frontendRegistry, null, 2) + "\n";
   const constraintsJson = JSON.stringify(constraints, null, 2) + "\n";
 
   // --- Catalog generation (D0-D4 dashboard matrix) ---
@@ -618,6 +635,11 @@ function main() {
     throw e;
   }
   const catalogJson = JSON.stringify(catalog, null, 2) + "\n";
+  const frontendCatalog = generateFrontendCatalog(
+    frontendRegistry,
+    catalog.cells,
+  );
+  const frontendCatalogJson = JSON.stringify(frontendCatalog, null, 2) + "\n";
 
   for (const dir of OUTPUT_DIRS) {
     fs.mkdirSync(dir, { recursive: true });
@@ -625,6 +647,12 @@ function main() {
     writeFileAtomicSync(outputPath, registryJson);
     console.log(
       `\nRegistry generated: ${outputPath} (${integrations.length} integrations)`,
+    );
+    const frontendRegistryOutputPath = path.join(dir, "frontend-registry.json");
+    writeFileAtomicSync(frontendRegistryOutputPath, frontendRegistryJson);
+    console.log(
+      `Frontend registry generated: ${frontendRegistryOutputPath} ` +
+        `(${frontendRegistry.frontends.length} frontends)`,
     );
   }
 
@@ -637,6 +665,12 @@ function main() {
     writeFileAtomicSync(catalogPath, catalogJson);
     console.log(
       `Catalog generated: ${catalogPath} (${catalog.metadata.total_cells} cells)`,
+    );
+    const frontendCatalogPath = path.join(dir, "frontend-catalog.json");
+    writeFileAtomicSync(frontendCatalogPath, frontendCatalogJson);
+    console.log(
+      `Frontend catalog generated: ${frontendCatalogPath} ` +
+        `(${frontendCatalog.metadata.runnable} runnable cells)`,
     );
   }
 }

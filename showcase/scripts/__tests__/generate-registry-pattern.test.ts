@@ -60,9 +60,10 @@ afterEach(() => {
  * Build a minimal throwaway showcase tree the generator can run against:
  *
  *   <root>/scripts/{generate-registry.ts, validate-constraints.ts,
+ *                   lib/{frontend-registry.ts,frontend-catalog.ts},
  *                   package.json, node_modules -> real node_modules}
- *   <root>/shared/{manifest.schema.json, feature-registry.json[,
- *                  constraints.yaml]}
+ *   <root>/shared/{manifest.schema.json, feature-registry.json,
+ *                  frontend-registry.json[, constraints.yaml]}
  *   <root>/integrations/<slug>/manifest.yaml   (copied real manifests)
  *
  * The generator resolves every path relative to its own location, so all
@@ -89,6 +90,14 @@ function makeHarness(
   ]) {
     fs.copyFileSync(path.join(SCRIPTS_DIR, f), path.join(scriptsDir, f));
   }
+  const scriptsLibDir = path.join(scriptsDir, "lib");
+  fs.mkdirSync(scriptsLibDir, { recursive: true });
+  for (const f of ["frontend-registry.ts", "frontend-catalog.ts"]) {
+    fs.copyFileSync(
+      path.join(SCRIPTS_DIR, "lib", f),
+      path.join(scriptsLibDir, f),
+    );
+  }
   // Bare-specifier resolution (yaml, ajv, ajv-formats) for the copied
   // script — symlink the real node_modules instead of installing.
   fs.symlinkSync(
@@ -99,7 +108,11 @@ function makeHarness(
 
   const sharedDir = path.join(root, "shared");
   fs.mkdirSync(sharedDir, { recursive: true });
-  const sharedFiles = ["manifest.schema.json", "feature-registry.json"];
+  const sharedFiles = [
+    "manifest.schema.json",
+    "feature-registry.json",
+    "frontend-registry.json",
+  ];
   if (constraints) sharedFiles.push("constraints.yaml");
   for (const f of sharedFiles) {
     fs.copyFileSync(
