@@ -934,9 +934,9 @@
       }
     },
     {
-      "_comment": "Pilot cell suggestion \u2014 'Give me a fun fact.' (prebuilt-sidebar)",
+      "_comment": "prebuilt-sidebar D4 agentic-chat probe. Keyed on the unique 'fun fact for the prebuilt sidebar' phrase (mirrors gold langgraph-python) \u2014 NOT the bare 'fun fact', which is a substring of the headless-simple pill 'Give me a fun fact.' and (loading in d4, before d6) hijacked headless-simple's own fun-fact fixture. The prebuilt-sidebar demo pill 'Give me a fun fact.' now shares headless-simple's d6 fixture, exactly as gold does.",
       "match": {
-        "userMessage": "fun fact",
+        "userMessage": "fun fact for the prebuilt sidebar",
         "context": "mastra"
       },
       "response": {
