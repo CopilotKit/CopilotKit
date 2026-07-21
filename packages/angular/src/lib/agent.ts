@@ -1,4 +1,4 @@
-import type { Signal } from "@angular/core";
+import type { Signal, WritableSignal } from "@angular/core";
 import {
   DestroyRef,
   Injectable,
@@ -31,13 +31,13 @@ export class AgentStore {
     unsubscribe: () => void;
   };
   readonly #isRunning = signal<boolean>(false);
-  readonly #messages = signal<Message[]>([]);
-  readonly #state = signal<unknown>(undefined);
+  readonly #messages: WritableSignal<Message[]>;
+  readonly #state: WritableSignal<unknown>;
 
   readonly agent: AbstractAgent;
   readonly isRunning = this.#isRunning.asReadonly();
-  readonly messages = this.#messages.asReadonly();
-  readonly state = this.#state.asReadonly();
+  readonly messages: Signal<Message[]>;
+  readonly state: Signal<unknown>;
 
   constructor(
     abstractAgent: AbstractAgent,
@@ -45,13 +45,20 @@ export class AgentStore {
     subscribeToAgent: SubscribeToAgentFn,
   ) {
     this.agent = abstractAgent;
+    // A connected agent can already carry restored thread data before this
+    // store subscribes. Seed the signals synchronously so the first render is
+    // complete instead of waiting for a future mutation that may never occur.
+    this.#messages = signal([...abstractAgent.messages]);
+    this.#state = signal(snapshotState(abstractAgent.state));
+    this.messages = this.#messages.asReadonly();
+    this.state = this.#state.asReadonly();
 
     this.#subscription = subscribeToAgent(abstractAgent, {
       onMessagesChanged: () => {
         this.#messages.set([...abstractAgent.messages]);
       },
       onStateChanged: () => {
-        this.#state.set(abstractAgent.state);
+        this.#state.set(snapshotState(abstractAgent.state));
       },
       onRunInitialized: () => {
         this.#isRunning.set(true);
@@ -79,6 +86,12 @@ export class AgentStore {
       this.#subscription.unsubscribe();
     }
   }
+}
+
+function snapshotState(state: unknown): unknown {
+  if (Array.isArray(state)) return [...state];
+  if (state !== null && typeof state === "object") return { ...state };
+  return state;
 }
 
 @Injectable({ providedIn: "root" })

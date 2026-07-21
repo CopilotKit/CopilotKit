@@ -237,6 +237,29 @@ describe("injectAgentStore", () => {
     expect(store?.isRunning()).toBe(false);
   });
 
+  it("exposes messages and state restored before the store subscribes", () => {
+    const agent = new MockAgent("agent-1");
+    agent.messages = [userMsg("restored", "Welcome back")];
+    agent.state = { document: "Restored draft" };
+    copilotKitStub.setAgents({ "agent-1": agent });
+
+    @Component({
+      standalone: true,
+      template: "",
+    })
+    class RestoredAgentHost {
+      store = injectAgentStore("agent-1");
+    }
+
+    const fixture = TestBed.createComponent(RestoredAgentHost);
+    fixture.detectChanges();
+
+    const store = fixture.componentInstance.store();
+    expect(store.messages()).toEqual([userMsg("restored", "Welcome back")]);
+    expect(store.messages()).not.toBe(agent.messages);
+    expect(store.state()).toEqual({ document: "Restored draft" });
+  });
+
   it("disposes previous store when agent id changes and cleans up on destroy", () => {
     const firstAgent = new MockAgent("agent-1");
     const secondAgent = new MockAgent("agent-2");
