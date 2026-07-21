@@ -22,6 +22,16 @@ export interface A2UIConfig {
   catalog?: Catalog<LitComponentImplementation>;
   loadingComponent?: () => LitRenderable;
   includeSchema?: boolean;
+  recovery?: A2UIRecoveryOptions;
+}
+
+export interface A2UIRecoveryOptions {
+  /** Delay before revealing a transient retry. Defaults to 2000ms. */
+  showAfterMs?: number;
+  /** Attempt number that reveals retry state immediately. Defaults to 2. */
+  showAfterAttempts?: number;
+  /** Client diagnostic visibility, overridden by server lifecycle content. */
+  debugExposure?: "hidden" | "collapsed" | "verbose";
 }
 
 export interface CopilotKitConfig {

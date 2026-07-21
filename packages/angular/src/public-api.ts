@@ -74,6 +74,7 @@ export * from "./lib/components/modal/copilot-sidebar";
 export * from "./lib/components/tools/default-tool-renderer";
 export * from "./lib/components/a2ui/a2ui-activity-renderer";
 export * from "./lib/components/a2ui/a2ui-progress";
+export * from "./lib/components/a2ui/a2ui-recovery";
 export * from "./lib/components/a2ui/a2ui-tool-renderer";
 export * from "./lib/components/a2ui/a2ui-tool-types";
 export * from "./lib/components/open-generative-ui/open-generative-ui-activity-renderer";
