@@ -108,6 +108,34 @@ vi.mock("react-native", () => {
 const markdownProps = vi.hoisted(() => ({ current: null as any }));
 
 vi.mock("../../Markdown", () => ({
+  defaultMarkdownStyles: {
+    h1: {
+      fontSize: 24,
+      fontWeight: "bold",
+      marginTop: 12,
+      marginBottom: 8,
+      color: "#111111",
+    },
+    h2: {
+      fontSize: 20,
+      fontWeight: "bold",
+      marginTop: 10,
+      marginBottom: 6,
+      color: "#111111",
+    },
+    h3: {
+      fontSize: 18,
+      fontWeight: "600",
+      marginTop: 8,
+      marginBottom: 4,
+      color: "#222222",
+    },
+    code: {
+      backgroundColor: "#f0f0f0",
+      fontFamily: "monospace",
+      fontSize: 14,
+    },
+  },
   CopilotMarkdown: (props: {
     content: string;
     style?: Record<string, Record<string, unknown>>;
@@ -189,14 +217,43 @@ describe("UserMessage", () => {
           marginTop: 0,
           marginBottom: 0,
         },
-        h1: { color: "#FFFFFF" },
-        h2: { color: "#FFFFFF" },
-        h3: { color: "#FFFFFF" },
+        h1: {
+          fontSize: 24,
+          fontWeight: "bold",
+          marginTop: 12,
+          marginBottom: 8,
+          color: "#FFFFFF",
+        },
+        h2: {
+          fontSize: 20,
+          fontWeight: "bold",
+          marginTop: 10,
+          marginBottom: 6,
+          color: "#FFFFFF",
+        },
+        h3: {
+          fontSize: 18,
+          fontWeight: "600",
+          marginTop: 8,
+          marginBottom: 4,
+          color: "#FFFFFF",
+        },
+        h4: { color: "#FFFFFF" },
+        h5: { color: "#FFFFFF" },
+        h6: { color: "#FFFFFF" },
         link: { color: "#FFFFFF", underline: true },
         list: {
           color: "#FFFFFF",
+          bulletColor: "#FFFFFF",
+          markerColor: "#FFFFFF",
           marginTop: 4,
           marginBottom: 4,
+        },
+        code: {
+          backgroundColor: "#004C99",
+          color: "#FFFFFF",
+          fontFamily: "monospace",
+          fontSize: 14,
         },
       },
     });

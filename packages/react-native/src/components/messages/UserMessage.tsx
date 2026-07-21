@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import type { ViewStyle } from "react-native";
-import { CopilotMarkdown } from "../Markdown";
+import { CopilotMarkdown, defaultMarkdownStyles } from "../Markdown";
 import type { MarkdownStyle } from "../Markdown";
 import { formatTimestamp } from "./utils";
 
@@ -19,12 +19,24 @@ const userMarkdownStyles: MarkdownStyle = {
     marginBottom: 0,
   },
   h1: {
+    ...defaultMarkdownStyles.h1,
     color: USER_TEXT_COLOR,
   },
   h2: {
+    ...defaultMarkdownStyles.h2,
     color: USER_TEXT_COLOR,
   },
   h3: {
+    ...defaultMarkdownStyles.h3,
+    color: USER_TEXT_COLOR,
+  },
+  h4: {
+    color: USER_TEXT_COLOR,
+  },
+  h5: {
+    color: USER_TEXT_COLOR,
+  },
+  h6: {
     color: USER_TEXT_COLOR,
   },
   link: {
@@ -33,8 +45,15 @@ const userMarkdownStyles: MarkdownStyle = {
   },
   list: {
     color: USER_TEXT_COLOR,
+    bulletColor: USER_TEXT_COLOR,
+    markerColor: USER_TEXT_COLOR,
     marginTop: 4,
     marginBottom: 4,
+  },
+  code: {
+    ...defaultMarkdownStyles.code,
+    color: USER_TEXT_COLOR,
+    backgroundColor: "#004C99",
   },
 };
 

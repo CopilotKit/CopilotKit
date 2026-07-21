@@ -82,6 +82,12 @@ vi.mock("react-native", () => {
 
 // ─── Mock Markdown ────────────────────────────────────────────────────────────
 vi.mock("../../Markdown", () => ({
+  defaultMarkdownStyles: {
+    h1: {},
+    h2: {},
+    h3: {},
+    code: {},
+  },
   CopilotMarkdown: ({ content }: { content: string }) => {
     const React = require("react");
     return React.createElement(
