@@ -23,6 +23,95 @@ const equalPropertiesSchema = {
   [COPILOTKIT_EQUAL_PROPERTIES_JSON_SCHEMA_KEYWORD]: [["expected", "actual"]],
 } as const;
 
+const tamperAssertionsSchema = {
+  $schema: COPILOTKIT_LEARNING_CONTRACT_META_SCHEMA_URI,
+  type: "object",
+  properties: {
+    expected: { type: "string" },
+    actual: { type: "string" },
+  },
+  required: ["expected", "actual"],
+  [COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD]: [
+    {
+      operation: "compare",
+      left: "/expected",
+      relation: "equal",
+      right: "/actual",
+    },
+  ],
+} as const;
+
+function expectAccessorTamperingToFailClosed(
+  target: object,
+  property: string,
+  replacement: unknown,
+  compile: () => unknown,
+): void {
+  const originalDescriptor = Object.getOwnPropertyDescriptor(target, property);
+  if (originalDescriptor === undefined || !("value" in originalDescriptor)) {
+    throw new Error(`Expected ${property} to be an own data property`);
+  }
+
+  let reads = 0;
+  try {
+    Object.defineProperty(target, property, {
+      configurable: true,
+      enumerable: originalDescriptor.enumerable,
+      get: () => {
+        reads += 1;
+        return reads === 1 ? originalDescriptor.value : replacement;
+      },
+    });
+  } catch {
+    expect(
+      Object.getOwnPropertyDescriptor(target, property)?.configurable,
+    ).toBe(false);
+    return;
+  }
+
+  expect(compile).toThrowError(
+    /LEARNING_CONTRACT_VALIDATOR_CAPABILITY_MISSING.*package-owned/u,
+  );
+}
+
+function expectDataPropertyTamperingToFailClosed(
+  target: object,
+  property: string,
+  replacement: unknown,
+  assertCapabilities: () => unknown,
+): boolean {
+  const originalDescriptor = Object.getOwnPropertyDescriptor(target, property);
+  if (originalDescriptor === undefined || !("value" in originalDescriptor)) {
+    throw new Error(`Expected ${property} to be an own data property`);
+  }
+
+  try {
+    Object.defineProperty(target, property, {
+      ...originalDescriptor,
+      value: replacement,
+    });
+  } catch {
+    expect(
+      Object.getOwnPropertyDescriptor(target, property)?.configurable,
+    ).toBe(false);
+    return false;
+  }
+
+  expect(assertCapabilities).toThrowError(
+    /LEARNING_CONTRACT_VALIDATOR_CAPABILITY_MISSING.*package-owned/u,
+  );
+  return true;
+}
+
+function findPropertyOwner(target: object, property: string): object {
+  let current: object | null = target;
+  while (current !== null) {
+    if (Object.hasOwn(current, property)) return current;
+    current = Object.getPrototypeOf(current) as object | null;
+  }
+  throw new Error(`Expected ${property} in the prototype chain`);
+}
+
 describe("Learning Contract portable validator capability", () => {
   test("registers the complete versioned capability and enforces equality", () => {
     const ajv = new Ajv2020({ strict: false, validateFormats: false });
@@ -125,18 +214,48 @@ describe("Learning Contract portable validator capability", () => {
       ) {
         throw new Error(`Expected an object definition for ${keyword}`);
       }
-      (definition as { validate?: () => boolean }).validate = () => true;
 
-      expect(() =>
-        assertLearningContractJsonSchemaValidatorCapabilities(ajv),
-      ).toThrowError(
-        new RegExp(
-          `LEARNING_CONTRACT_VALIDATOR_CAPABILITY_MISSING.*package-owned registration for ${keyword}`,
-        ),
+      const tamperingInstalled = expectDataPropertyTamperingToFailClosed(
+        definition,
+        "validate",
+        () => true,
+        () => assertLearningContractJsonSchemaValidatorCapabilities(ajv),
       );
-      expect(() =>
-        registerLearningContractJsonSchemaValidator(ajv),
-      ).toThrowError(/LEARNING_CONTRACT_VALIDATOR_CAPABILITY_MISSING/);
+      const registerAgain = () =>
+        registerLearningContractJsonSchemaValidator(ajv);
+      if (tamperingInstalled) {
+        expect(registerAgain).toThrowError(
+          /LEARNING_CONTRACT_VALIDATOR_CAPABILITY_MISSING/u,
+        );
+      } else {
+        expect(registerAgain).not.toThrow();
+      }
+    },
+  );
+
+  test.each([
+    [COPILOTKIT_EQUAL_PROPERTIES_JSON_SCHEMA_KEYWORD, equalPropertiesSchema],
+    [COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD, tamperAssertionsSchema],
+  ])(
+    "fails closed on accessor swapping of package-owned %s validation",
+    (keyword, schema) => {
+      const ajv = new Ajv2020({ strict: false, validateFormats: false });
+      registerLearningContractJsonSchemaValidator(ajv);
+      const definition = ajv.getKeyword(keyword);
+      if (
+        definition === false ||
+        definition === null ||
+        typeof definition !== "object"
+      ) {
+        throw new Error(`Expected an object definition for ${keyword}`);
+      }
+
+      expectAccessorTamperingToFailClosed(
+        definition,
+        "validate",
+        () => true,
+        () => compileLearningContractJsonSchema(ajv, schema),
+      );
     },
   );
 
@@ -175,15 +294,96 @@ describe("Learning Contract portable validator capability", () => {
     ) {
       throw new Error("Expected package-owned meta-schema semantics");
     }
-    (metaSchema as Record<string, unknown>).title = "in-place replacement";
+    expectDataPropertyTamperingToFailClosed(
+      metaSchema,
+      "$dynamicAnchor",
+      "foreign replacement",
+      () => compileLearningContractJsonSchema(ajv, equalPropertiesSchema),
+    );
+  });
+
+  test("fails closed on accessor swapping of package-owned meta-schema semantics", () => {
+    const ajv = new Ajv2020({ strict: false, validateFormats: false });
+    registerLearningContractJsonSchemaValidator(ajv);
+    const validateMetaSchema = ajv.getSchema(
+      COPILOTKIT_LEARNING_CONTRACT_META_SCHEMA_URI,
+    );
+    if (typeof validateMetaSchema !== "function") {
+      throw new Error("Expected the package-owned meta-schema validator");
+    }
+
+    expectAccessorTamperingToFailClosed(
+      validateMetaSchema,
+      "schema",
+      { title: "foreign replacement" },
+      () => compileLearningContractJsonSchema(ajv, equalPropertiesSchema),
+    );
+  });
+
+  test("rejects live compile replacement after package registration", () => {
+    const ajv = new Ajv2020({ strict: false, validateFormats: false });
+    registerLearningContractJsonSchemaValidator(ajv);
+    Object.defineProperty(ajv, "compile", {
+      configurable: true,
+      value: () => () => true,
+    });
 
     expect(() =>
       compileLearningContractJsonSchema(ajv, equalPropertiesSchema),
     ).toThrowError(
-      new RegExp(
-        `LEARNING_CONTRACT_VALIDATOR_CAPABILITY_MISSING.*package-owned registration for ${COPILOTKIT_LEARNING_CONTRACT_META_SCHEMA_URI}`,
-      ),
+      /LEARNING_CONTRACT_VALIDATOR_CAPABILITY_MISSING.*package-owned validator operation compile/u,
     );
+  });
+
+  test("rejects prototype compile replacement after package registration", () => {
+    const ajv = new Ajv2020({ strict: false, validateFormats: false });
+    registerLearningContractJsonSchemaValidator(ajv);
+    const compileOwner = findPropertyOwner(ajv, "compile");
+    const originalDescriptor = Object.getOwnPropertyDescriptor(
+      compileOwner,
+      "compile",
+    );
+    if (originalDescriptor === undefined || !("value" in originalDescriptor)) {
+      throw new Error("Expected Ajv2020.prototype.compile to be a data method");
+    }
+
+    try {
+      Object.defineProperty(compileOwner, "compile", {
+        ...originalDescriptor,
+        value: () => () => true,
+      });
+      expect(() =>
+        compileLearningContractJsonSchema(ajv, equalPropertiesSchema),
+      ).toThrowError(
+        /LEARNING_CONTRACT_VALIDATOR_CAPABILITY_MISSING.*package-owned validator operation compile/u,
+      );
+    } finally {
+      Object.defineProperty(compileOwner, "compile", originalDescriptor);
+    }
+  });
+
+  test("rejects prototype compile replacement after facade construction", () => {
+    const validator = createLearningContractJsonSchemaValidator();
+    const compileOwner = findPropertyOwner(Ajv2020.prototype, "compile");
+    const originalDescriptor = Object.getOwnPropertyDescriptor(
+      compileOwner,
+      "compile",
+    );
+    if (originalDescriptor === undefined || !("value" in originalDescriptor)) {
+      throw new Error("Expected Ajv2020.prototype.compile to be a data method");
+    }
+
+    try {
+      Object.defineProperty(compileOwner, "compile", {
+        ...originalDescriptor,
+        value: () => () => true,
+      });
+      expect(() => validator.compile(equalPropertiesSchema)).toThrowError(
+        /LEARNING_CONTRACT_VALIDATOR_CAPABILITY_MISSING.*package-owned validator operation compile/u,
+      );
+    } finally {
+      Object.defineProperty(compileOwner, "compile", originalDescriptor);
+    }
   });
 
   test("rejects malformed equality pairs when the custom $schema is omitted", () => {

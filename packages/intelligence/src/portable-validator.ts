@@ -181,6 +181,35 @@ interface CapabilityValueAttestation {
   readonly functions: ReadonlyMap<string, (...args: never[]) => unknown>;
 }
 
+type ValidatorOperationName =
+  | "addKeyword"
+  | "addMetaSchema"
+  | "compile"
+  | "getKeyword"
+  | "getSchema";
+
+interface CapturedValidatorOperation<
+  TName extends ValidatorOperationName = ValidatorOperationName,
+> {
+  readonly owner: object;
+  readonly implementation: LearningContractJsonSchemaValidatorAdapter[TName];
+  readonly bound: LearningContractJsonSchemaValidatorAdapter[TName];
+  readonly enumerable: boolean;
+  readonly configurable: boolean;
+  readonly writable: boolean;
+}
+
+type CapturedValidatorOperations = {
+  readonly [TName in ValidatorOperationName]: CapturedValidatorOperation<TName>;
+};
+
+interface DataPropertyAttestation {
+  readonly value: unknown;
+  readonly enumerable: boolean;
+  readonly configurable: boolean;
+  readonly writable: boolean;
+}
+
 interface KeywordRegistration {
   readonly definition: unknown;
   readonly attestation: CapabilityValueAttestation;
@@ -188,10 +217,12 @@ interface KeywordRegistration {
 
 interface MetaSchemaRegistration {
   readonly validator: unknown;
+  readonly schemaProperty: DataPropertyAttestation;
   readonly semantics: CapabilityValueAttestation;
 }
 
 interface PackageValidatorRegistration {
+  readonly operations: CapturedValidatorOperations;
   readonly equalPropertiesKeyword: KeywordRegistration;
   readonly assertionsKeyword: KeywordRegistration;
   readonly metaSchema: MetaSchemaRegistration;
@@ -201,6 +232,152 @@ const packageRegisteredValidators = new WeakMap<
   object,
   PackageValidatorRegistration
 >();
+
+function capabilityRegistrationError(
+  missing: string,
+): LearningContractPortableValidatorCapabilityError {
+  return new LearningContractPortableValidatorCapabilityError(
+    "LEARNING_CONTRACT_VALIDATOR_CAPABILITY_MISSING",
+    missing,
+  );
+}
+
+function resolveValidatorOperation<TName extends ValidatorOperationName>(
+  validator: LearningContractJsonSchemaValidatorAdapter,
+  name: TName,
+): {
+  readonly owner: object;
+  readonly descriptor: PropertyDescriptor & {
+    readonly value: LearningContractJsonSchemaValidatorAdapter[TName];
+  };
+} {
+  let owner: object | null = validator;
+  while (owner !== null) {
+    const descriptor = Object.getOwnPropertyDescriptor(owner, name);
+    if (descriptor !== undefined) {
+      if (!("value" in descriptor) || typeof descriptor.value !== "function") {
+        throw capabilityRegistrationError(
+          `package-owned validator operation ${name}`,
+        );
+      }
+      return {
+        owner,
+        descriptor: descriptor as PropertyDescriptor & {
+          readonly value: LearningContractJsonSchemaValidatorAdapter[TName];
+        },
+      };
+    }
+    owner = Object.getPrototypeOf(owner) as object | null;
+  }
+  throw capabilityRegistrationError(
+    `package-owned validator operation ${name}`,
+  );
+}
+
+function captureValidatorOperation<TName extends ValidatorOperationName>(
+  validator: LearningContractJsonSchemaValidatorAdapter,
+  name: TName,
+): CapturedValidatorOperation<TName> {
+  const { owner, descriptor } = resolveValidatorOperation(validator, name);
+  const implementation = descriptor.value;
+  return {
+    owner,
+    implementation,
+    bound: implementation.bind(
+      validator,
+    ) as LearningContractJsonSchemaValidatorAdapter[TName],
+    enumerable: descriptor.enumerable ?? false,
+    configurable: descriptor.configurable ?? false,
+    writable: descriptor.writable ?? false,
+  };
+}
+
+function captureValidatorOperations(
+  validator: LearningContractJsonSchemaValidatorAdapter,
+): CapturedValidatorOperations {
+  return {
+    addKeyword: captureValidatorOperation(validator, "addKeyword"),
+    addMetaSchema: captureValidatorOperation(validator, "addMetaSchema"),
+    compile: captureValidatorOperation(validator, "compile"),
+    getKeyword: captureValidatorOperation(validator, "getKeyword"),
+    getSchema: captureValidatorOperation(validator, "getSchema"),
+  };
+}
+
+function validatorOperationMatches<TName extends ValidatorOperationName>(
+  validator: LearningContractJsonSchemaValidatorAdapter,
+  name: TName,
+  expected: CapturedValidatorOperation<TName>,
+): boolean {
+  try {
+    const { owner, descriptor } = resolveValidatorOperation(validator, name);
+    return (
+      owner === expected.owner &&
+      descriptor.value === expected.implementation &&
+      (descriptor.enumerable ?? false) === expected.enumerable &&
+      (descriptor.configurable ?? false) === expected.configurable &&
+      (descriptor.writable ?? false) === expected.writable
+    );
+  } catch {
+    // Uninspectable operation state is tampering; the caller emits the
+    // structured capability error for the affected operation.
+    return false;
+  }
+}
+
+function assertValidatorOperationsMatch(
+  validator: LearningContractJsonSchemaValidatorAdapter,
+  operations: CapturedValidatorOperations,
+): void {
+  const names = [
+    "addKeyword",
+    "addMetaSchema",
+    "compile",
+    "getKeyword",
+    "getSchema",
+  ] as const;
+  for (const name of names) {
+    if (!validatorOperationMatches(validator, name, operations[name])) {
+      throw capabilityRegistrationError(
+        `package-owned validator operation ${name}`,
+      );
+    }
+  }
+}
+
+function capabilityPropertyPath(path: string, property: string): string {
+  const escaped = property.replaceAll("~", "~0").replaceAll("/", "~1");
+  return `${path}/${escaped}`;
+}
+
+function freezeCapabilityValue(
+  value: unknown,
+  path: string,
+  seen: Set<object>,
+): void {
+  if (typeof value !== "object" || value === null || seen.has(value)) return;
+  seen.add(value);
+
+  if (Object.getOwnPropertySymbols(value).length > 0) {
+    throw new TypeError(`Symbol capability property at ${path}`);
+  }
+  for (const property of Object.getOwnPropertyNames(value)) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, property);
+    if (descriptor === undefined || !("value" in descriptor)) {
+      throw new TypeError(
+        `Accessor capability property at ${capabilityPropertyPath(path, property)}`,
+      );
+    }
+    if (typeof descriptor.value !== "function") {
+      freezeCapabilityValue(
+        descriptor.value,
+        capabilityPropertyPath(path, property),
+        seen,
+      );
+    }
+  }
+  Object.freeze(value);
+}
 
 function snapshotCapabilityValue(
   value: unknown,
@@ -229,32 +406,33 @@ function snapshotCapabilityValue(
 
   ancestors.add(value);
   try {
-    if (Array.isArray(value)) {
-      return [
-        "array",
-        value.map((entry, index) =>
-          snapshotCapabilityValue(
-            entry,
-            `${path}/${index}`,
-            functions,
-            ancestors,
-          ),
-        ),
-      ];
+    if (Object.getOwnPropertySymbols(value).length > 0) {
+      throw new TypeError(`Symbol capability property at ${path}`);
     }
     return [
-      "object",
-      Object.keys(value)
+      Array.isArray(value) ? "array" : "object",
+      Object.getOwnPropertyNames(value)
         .sort()
-        .map((key) => [
-          key,
-          snapshotCapabilityValue(
-            (value as Record<string, unknown>)[key],
-            `${path}/${key}`,
-            functions,
-            ancestors,
-          ),
-        ]),
+        .map((key) => {
+          const descriptor = Object.getOwnPropertyDescriptor(value, key);
+          if (descriptor === undefined || !("value" in descriptor)) {
+            throw new TypeError(
+              `Accessor capability property at ${capabilityPropertyPath(path, key)}`,
+            );
+          }
+          return [
+            key,
+            descriptor.enumerable ?? false,
+            descriptor.configurable ?? false,
+            descriptor.writable ?? false,
+            snapshotCapabilityValue(
+              descriptor.value,
+              capabilityPropertyPath(path, key),
+              functions,
+              ancestors,
+            ),
+          ];
+        }),
     ];
   } finally {
     ancestors.delete(value);
@@ -294,14 +472,61 @@ function capabilityValueMatchesAttestation(
   }
 }
 
-function metaSchemaSemantics(metaSchemaValidator: unknown): unknown {
+function readDataProperty(
+  target: unknown,
+  property: string,
+): DataPropertyAttestation | undefined {
   if (
-    (typeof metaSchemaValidator !== "object" || metaSchemaValidator === null) &&
-    typeof metaSchemaValidator !== "function"
+    (typeof target !== "object" || target === null) &&
+    typeof target !== "function"
   ) {
     return undefined;
   }
-  return Reflect.get(metaSchemaValidator, "schema");
+  const descriptor = Object.getOwnPropertyDescriptor(target, property);
+  if (descriptor === undefined || !("value" in descriptor)) return undefined;
+  return {
+    value: descriptor.value,
+    enumerable: descriptor.enumerable ?? false,
+    configurable: descriptor.configurable ?? false,
+    writable: descriptor.writable ?? false,
+  };
+}
+
+function lockDataProperty(
+  target: object,
+  property: string,
+  expectedValue: unknown,
+): DataPropertyAttestation {
+  const current = readDataProperty(target, property);
+  if (current === undefined || current.value !== expectedValue) {
+    throw new TypeError(`Invalid capability data property ${property}`);
+  }
+  Object.defineProperty(target, property, {
+    value: expectedValue,
+    enumerable: current.enumerable,
+    configurable: false,
+    writable: false,
+  });
+  const locked = readDataProperty(target, property);
+  if (locked === undefined) {
+    throw new TypeError(`Missing locked capability data property ${property}`);
+  }
+  return locked;
+}
+
+function dataPropertyMatchesAttestation(
+  target: unknown,
+  property: string,
+  expected: DataPropertyAttestation,
+): boolean {
+  const actual = readDataProperty(target, property);
+  return (
+    actual !== undefined &&
+    actual.value === expected.value &&
+    actual.enumerable === expected.enumerable &&
+    actual.configurable === expected.configurable &&
+    actual.writable === expected.writable
+  );
 }
 
 function decodeJsonPointerSegment(segment: string): string {
@@ -739,8 +964,10 @@ export function registerLearningContractJsonSchemaValidator<
     return validator;
   }
 
+  const operations = captureValidatorOperations(validator);
+
   for (const keyword of LEARNING_CONTRACT_PORTABLE_VALIDATOR_CAPABILITY_V1.keywords) {
-    if (validator.getKeyword(keyword) !== false) {
+    if (operations.getKeyword.bound(keyword) !== false) {
       throw new LearningContractPortableValidatorCapabilityError(
         "LEARNING_CONTRACT_VALIDATOR_CAPABILITY_MISSING",
         `package-owned registration for ${keyword}`,
@@ -748,7 +975,7 @@ export function registerLearningContractJsonSchemaValidator<
     }
   }
   if (
-    validator.getSchema(
+    operations.getSchema.bound(
       LEARNING_CONTRACT_PORTABLE_VALIDATOR_CAPABILITY_V1.metaSchemaUri,
     ) !== undefined
   ) {
@@ -758,7 +985,7 @@ export function registerLearningContractJsonSchemaValidator<
     );
   }
 
-  validator.addKeyword({
+  operations.addKeyword.bound({
     keyword: COPILOTKIT_EQUAL_PROPERTIES_JSON_SCHEMA_KEYWORD,
     schemaType: "array",
     type: "object",
@@ -772,7 +999,7 @@ export function registerLearningContractJsonSchemaValidator<
         value,
       ),
   });
-  validator.addKeyword({
+  operations.addKeyword.bound({
     keyword: COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD,
     schemaType: "array",
     type: "object",
@@ -786,15 +1013,15 @@ export function registerLearningContractJsonSchemaValidator<
         value,
       ),
   });
-  validator.addMetaSchema(learningContractSemanticsMetaSchema);
+  operations.addMetaSchema.bound(learningContractSemanticsMetaSchema);
 
-  const equalPropertiesKeyword = validator.getKeyword(
+  const equalPropertiesKeyword = operations.getKeyword.bound(
     COPILOTKIT_EQUAL_PROPERTIES_JSON_SCHEMA_KEYWORD,
   );
-  const assertionsKeyword = validator.getKeyword(
+  const assertionsKeyword = operations.getKeyword.bound(
     COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD,
   );
-  const metaSchema = validator.getSchema(
+  const metaSchema = operations.getSchema.bound(
     COPILOTKIT_LEARNING_CONTRACT_META_SCHEMA_URI,
   );
   if (
@@ -807,25 +1034,51 @@ export function registerLearningContractJsonSchemaValidator<
       "complete package-owned V1 registration",
     );
   }
-  const metaSchemaValue = metaSchemaSemantics(metaSchema);
-  if (metaSchemaValue === undefined) {
+
+  const metaSchemaProperty = readDataProperty(metaSchema, "schema");
+  if (metaSchemaProperty === undefined) {
     throw new LearningContractPortableValidatorCapabilityError(
       "LEARNING_CONTRACT_VALIDATOR_CAPABILITY_MISSING",
       `package-owned registration for ${LEARNING_CONTRACT_PORTABLE_VALIDATOR_CAPABILITY_V1.metaSchemaUri}`,
     );
   }
+
+  let equalPropertiesAttestation: CapabilityValueAttestation;
+  let assertionsAttestation: CapabilityValueAttestation;
+  let metaSchemaAttestation: CapabilityValueAttestation;
+  let lockedMetaSchemaProperty: DataPropertyAttestation;
+  try {
+    freezeCapabilityValue(equalPropertiesKeyword, "", new Set());
+    freezeCapabilityValue(assertionsKeyword, "", new Set());
+    freezeCapabilityValue(metaSchemaProperty.value, "", new Set());
+    lockedMetaSchemaProperty = lockDataProperty(
+      metaSchema as object,
+      "schema",
+      metaSchemaProperty.value,
+    );
+    equalPropertiesAttestation = attestCapabilityValue(equalPropertiesKeyword);
+    assertionsAttestation = attestCapabilityValue(assertionsKeyword);
+    metaSchemaAttestation = attestCapabilityValue(metaSchemaProperty.value);
+  } catch {
+    throw capabilityRegistrationError(
+      "complete immutable package-owned V1 registration",
+    );
+  }
+
   packageRegisteredValidators.set(validator, {
+    operations,
     equalPropertiesKeyword: {
       definition: equalPropertiesKeyword,
-      attestation: attestCapabilityValue(equalPropertiesKeyword),
+      attestation: equalPropertiesAttestation,
     },
     assertionsKeyword: {
       definition: assertionsKeyword,
-      attestation: attestCapabilityValue(assertionsKeyword),
+      attestation: assertionsAttestation,
     },
     metaSchema: {
       validator: metaSchema,
-      semantics: attestCapabilityValue(metaSchemaValue),
+      schemaProperty: lockedMetaSchemaProperty,
+      semantics: metaSchemaAttestation,
     },
   });
   return validator;
@@ -835,7 +1088,33 @@ export function registerLearningContractJsonSchemaValidator<
 export function assertLearningContractJsonSchemaValidatorCapabilities(
   validator: LearningContractJsonSchemaValidatorAdapter,
 ): void {
-  const metaSchema = validator.getSchema(
+  const registration = packageRegisteredValidators.get(validator);
+  if (registration === undefined) {
+    const getSchema = captureValidatorOperation(validator, "getSchema");
+    const metaSchema = getSchema.bound(
+      LEARNING_CONTRACT_PORTABLE_VALIDATOR_CAPABILITY_V1.metaSchemaUri,
+    );
+    if (metaSchema === undefined) {
+      throw new LearningContractPortableValidatorCapabilityError(
+        "LEARNING_CONTRACT_VALIDATOR_META_SCHEMA_MISSING",
+        LEARNING_CONTRACT_PORTABLE_VALIDATOR_CAPABILITY_V1.metaSchemaUri,
+      );
+    }
+    const getKeyword = captureValidatorOperation(validator, "getKeyword");
+    for (const keyword of LEARNING_CONTRACT_PORTABLE_VALIDATOR_CAPABILITY_V1.keywords) {
+      if (getKeyword.bound(keyword) === false) {
+        throw new LearningContractPortableValidatorCapabilityError(
+          "LEARNING_CONTRACT_VALIDATOR_CAPABILITY_MISSING",
+          keyword,
+        );
+      }
+    }
+    throw capabilityRegistrationError("package-owned V1 registration");
+  }
+
+  assertValidatorOperationsMatch(validator, registration.operations);
+
+  const metaSchema = registration.operations.getSchema.bound(
     LEARNING_CONTRACT_PORTABLE_VALIDATOR_CAPABILITY_V1.metaSchemaUri,
   );
   if (metaSchema === undefined) {
@@ -846,7 +1125,8 @@ export function assertLearningContractJsonSchemaValidatorCapabilities(
   }
   const keywordDefinitions =
     LEARNING_CONTRACT_PORTABLE_VALIDATOR_CAPABILITY_V1.keywords.map(
-      (keyword) => [keyword, validator.getKeyword(keyword)] as const,
+      (keyword) =>
+        [keyword, registration.operations.getKeyword.bound(keyword)] as const,
     );
   for (const [keyword, definition] of keywordDefinitions) {
     if (definition === false) {
@@ -856,17 +1136,15 @@ export function assertLearningContractJsonSchemaValidatorCapabilities(
       );
     }
   }
-  const registration = packageRegisteredValidators.get(validator);
-  if (registration === undefined) {
-    throw new LearningContractPortableValidatorCapabilityError(
-      "LEARNING_CONTRACT_VALIDATOR_CAPABILITY_MISSING",
-      "package-owned V1 registration",
-    );
-  }
   if (
     metaSchema !== registration.metaSchema.validator ||
+    !dataPropertyMatchesAttestation(
+      metaSchema,
+      "schema",
+      registration.metaSchema.schemaProperty,
+    ) ||
     !capabilityValueMatchesAttestation(
-      metaSchemaSemantics(metaSchema),
+      registration.metaSchema.schemaProperty.value,
       registration.metaSchema.semantics,
     )
   ) {
@@ -903,7 +1181,11 @@ export function compileLearningContractJsonSchema(
   schema: LearningContractJsonSchemaObject | boolean,
 ): LearningContractJsonSchemaValidateFunction {
   assertLearningContractJsonSchemaValidatorCapabilities(validator);
-  return validator.compile(schema);
+  const registration = packageRegisteredValidators.get(validator);
+  if (registration === undefined) {
+    throw capabilityRegistrationError("package-owned V1 registration");
+  }
+  return registration.operations.compile.bound(schema);
 }
 
 export interface LearningContractJsonSchemaValidator {
