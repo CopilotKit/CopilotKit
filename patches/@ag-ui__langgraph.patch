@@ -1,0 +1,84 @@
+diff --git a/dist/index.d.mts b/dist/index.d.mts
+index 4c02fa2ce862527ed862bf1ec5aff35fedbd7f47..6707582dc8974f4e2b224a93b32ae0b4785f182c 100644
+--- a/dist/index.d.mts
++++ b/dist/index.d.mts
+@@ -1,10 +1,8 @@
+ import { AbstractAgent, AgentConfig, CustomEvent, HttpAgent, MessagesSnapshotEvent, RawEvent, ReasoningEncryptedValueEvent, ReasoningEndEvent, ReasoningMessageContentEvent, ReasoningMessageEndEvent, ReasoningMessageStartEvent, ReasoningStartEvent, RunAgentInput, RunErrorEvent, RunFinishedEvent, RunStartedEvent, StateDeltaEvent, StateSnapshotEvent, StepFinishedEvent, StepStartedEvent, TextMessageContentEvent, TextMessageEndEvent, TextMessageStartEvent, ToolCallArgsEvent, ToolCallEndEvent, ToolCallResultEvent, ToolCallStartEvent } from "@ag-ui/client";
+ import { Observable, Subscriber } from "rxjs";
+ import * as _langchain_langgraph_sdk0 from "@langchain/langgraph-sdk";
+ import { Assistant, AssistantGraph, Client, Config, Message, StreamMode, Thread, ThreadState } from "@langchain/langgraph-sdk";
+ import * as _langchain_core_tools1 from "@langchain/core/tools";
+ import { MessageType } from "@langchain/core/messages";
+ import { A2UIAttemptRecord, A2UIGuidelines, A2UIRecoveryConfig, A2UIToolParams, A2UIValidationCatalog, A2UI_OPERATIONS_KEY, BASIC_CATALOG_ID } from "@ag-ui/a2ui-toolkit";
+-import * as _langchain_langgraph_sdk_dist_types_stream0 from "@langchain/langgraph-sdk/dist/types.stream";
+ import { RunAgentInput as RunAgentInput$1 } from "@ag-ui/core";
+-import { RunsStreamPayload } from "@langchain/langgraph-sdk/dist/types";
+@@ -114,5 +112,5 @@ type ProcessedEvents = TextMessageStartEvent | TextMessageContentEvent | TextMe
+ type RunAgentExtendedInput<TStreamMode extends StreamMode | StreamMode[] = StreamMode, TSubgraphs extends boolean = false> = Omit<RunAgentInput, "forwardedProps"> & {
+-  forwardedProps?: Omit<RunsStreamPayload<TStreamMode, TSubgraphs>, "input"> & {
++  forwardedProps?: Omit<NonNullable<Parameters<Client["runs"]["stream"]>[2]>, "input"> & {
+     nodeName?: string;
+     threadMetadata?: Record<string, any>;
+     injectA2UITool?: boolean | string;
+@@ -182,16 +180,16 @@ declare class LangGraphAgent extends AbstractAgent {
+   run(input: RunAgentInput): Observable<ProcessedEvents>;
+   runAgentStream(input: RunAgentExtendedInput, subscriber: Subscriber<ProcessedEvents>): Promise<void>;
+   prepareRegenerateStream(input: RegenerateInput, streamMode: StreamMode | StreamMode[]): Promise<void | {
+-    streamResponse: _langchain_langgraph_sdk_dist_types_stream0.TypedAsyncGenerator<"messages" | "tools" | "values" | "updates" | "events" | "debug" | "tasks" | "checkpoints" | "custom" | "messages-tuple" | StreamMode[], false, _langchain_langgraph_sdk0.DefaultValues, _langchain_langgraph_sdk0.DefaultValues, unknown>;
++    streamResponse: ReturnType<Client["runs"]["stream"]>;
+     state: ThreadState<State>;
+     streamMode: StreamMode | StreamMode[];
+   }>;
+   prepareStream(input: RunAgentExtendedInput, streamMode: StreamMode | StreamMode[]): Promise<void | {
+-    streamResponse: _langchain_langgraph_sdk_dist_types_stream0.TypedAsyncGenerator<"messages" | "tools" | "values" | "updates" | "events" | "debug" | "tasks" | "checkpoints" | "custom" | "messages-tuple" | StreamMode[], false, _langchain_langgraph_sdk0.DefaultValues, _langchain_langgraph_sdk0.DefaultValues, unknown>;
++    streamResponse: ReturnType<Client["runs"]["stream"]>;
+     state: ThreadState<State>;
+     streamMode: StreamMode | StreamMode[];
+   } | {
+-    streamResponse: _langchain_langgraph_sdk_dist_types_stream0.TypedAsyncGenerator<StreamMode, false, _langchain_langgraph_sdk0.DefaultValues, _langchain_langgraph_sdk0.DefaultValues, unknown>;
++    streamResponse: ReturnType<Client["runs"]["stream"]>;
+     state: ThreadState<State>;
+   }>;
+   handleStreamEvents(stream: Awaited<ReturnType<typeof this.prepareStream> | ReturnType<typeof this.prepareRegenerateStream>>, threadId: string, subscriber: Subscriber<ProcessedEvents>, input: RunAgentExtendedInput, streamModes: StreamMode | StreamMode[]): Promise<void>;
+diff --git a/dist/index.d.ts b/dist/index.d.ts
+index 21eb61d0bcbfddf990f374a891a1c3ad8a241c8e..9a45bc82ec72f155287ae9434fbe332daa01c3eb 100644
+--- a/dist/index.d.ts
++++ b/dist/index.d.ts
+@@ -1,10 +1,8 @@
+ import { AbstractAgent, AgentConfig, CustomEvent, HttpAgent, MessagesSnapshotEvent, RawEvent, ReasoningEncryptedValueEvent, ReasoningEndEvent, ReasoningMessageContentEvent, ReasoningMessageEndEvent, ReasoningMessageStartEvent, ReasoningStartEvent, RunAgentInput, RunErrorEvent, RunFinishedEvent, RunStartedEvent, StateDeltaEvent, StateSnapshotEvent, StepFinishedEvent, StepStartedEvent, TextMessageContentEvent, TextMessageEndEvent, TextMessageStartEvent, ToolCallArgsEvent, ToolCallEndEvent, ToolCallResultEvent, ToolCallStartEvent } from "@ag-ui/client";
+ import * as _langchain_langgraph_sdk0 from "@langchain/langgraph-sdk";
+ import { Assistant, AssistantGraph, Client, Config, Message, StreamMode, Thread, ThreadState } from "@langchain/langgraph-sdk";
+-import * as _langchain_langgraph_sdk_dist_types_stream0 from "@langchain/langgraph-sdk/dist/types.stream";
+ import { Observable, Subscriber } from "rxjs";
+ import { MessageType } from "@langchain/core/messages";
+ import { RunAgentInput as RunAgentInput$1 } from "@ag-ui/core";
+-import { RunsStreamPayload } from "@langchain/langgraph-sdk/dist/types";
+ import * as _langchain_core_tools1 from "@langchain/core/tools";
+ import { A2UIAttemptRecord, A2UIGuidelines, A2UIRecoveryConfig, A2UIToolParams, A2UIValidationCatalog, A2UI_OPERATIONS_KEY, BASIC_CATALOG_ID } from "@ag-ui/a2ui-toolkit";
+@@ -114,5 +112,5 @@ type ProcessedEvents = TextMessageStartEvent | TextMessageContentEvent | TextMe
+ type RunAgentExtendedInput<TStreamMode extends StreamMode | StreamMode[] = StreamMode, TSubgraphs extends boolean = false> = Omit<RunAgentInput, "forwardedProps"> & {
+-  forwardedProps?: Omit<RunsStreamPayload<TStreamMode, TSubgraphs>, "input"> & {
++  forwardedProps?: Omit<NonNullable<Parameters<Client["runs"]["stream"]>[2]>, "input"> & {
+     nodeName?: string;
+     threadMetadata?: Record<string, any>;
+     injectA2UITool?: boolean | string;
+@@ -182,16 +180,16 @@ declare class LangGraphAgent extends AbstractAgent {
+   run(input: RunAgentInput): Observable<ProcessedEvents>;
+   runAgentStream(input: RunAgentExtendedInput, subscriber: Subscriber<ProcessedEvents>): Promise<void>;
+   prepareRegenerateStream(input: RegenerateInput, streamMode: StreamMode | StreamMode[]): Promise<void | {
+-    streamResponse: _langchain_langgraph_sdk_dist_types_stream0.TypedAsyncGenerator<"messages" | "tools" | "values" | "updates" | "events" | "debug" | "tasks" | "checkpoints" | "custom" | "messages-tuple" | StreamMode[], false, _langchain_langgraph_sdk0.DefaultValues, _langchain_langgraph_sdk0.DefaultValues, unknown>;
++    streamResponse: ReturnType<Client["runs"]["stream"]>;
+     state: ThreadState<State>;
+     streamMode: StreamMode | StreamMode[];
+   }>;
+   prepareStream(input: RunAgentExtendedInput, streamMode: StreamMode | StreamMode[]): Promise<void | {
+-    streamResponse: _langchain_langgraph_sdk_dist_types_stream0.TypedAsyncGenerator<"messages" | "tools" | "values" | "updates" | "events" | "debug" | "tasks" | "checkpoints" | "custom" | "messages-tuple" | StreamMode[], false, _langchain_langgraph_sdk0.DefaultValues, _langchain_langgraph_sdk0.DefaultValues, unknown>;
++    streamResponse: ReturnType<Client["runs"]["stream"]>;
+     state: ThreadState<State>;
+     streamMode: StreamMode | StreamMode[];
+   } | {
+-    streamResponse: _langchain_langgraph_sdk_dist_types_stream0.TypedAsyncGenerator<StreamMode, false, _langchain_langgraph_sdk0.DefaultValues, _langchain_langgraph_sdk0.DefaultValues, unknown>;
++    streamResponse: ReturnType<Client["runs"]["stream"]>;
+     state: ThreadState<State>;
+   }>;
+   handleStreamEvents(stream: Awaited<ReturnType<typeof this.prepareStream> | ReturnType<typeof this.prepareRegenerateStream>>, threadId: string, subscriber: Subscriber<ProcessedEvents>, input: RunAgentExtendedInput, streamModes: StreamMode | StreamMode[]): Promise<void>;

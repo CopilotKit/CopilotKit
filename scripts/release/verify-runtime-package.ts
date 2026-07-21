@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import {
+  copyFileSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -14,6 +15,7 @@ import { createConsumerWorkspaceYaml } from "./lib/channels-umbrella.js";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const RUNTIME_DIR = join(ROOT, "packages", "runtime");
 const CHANNELS_INTELLIGENCE = "@copilotkit/channels-intelligence";
+const AGUI_LANGGRAPH_PATCH = join(ROOT, "patches", "@ag-ui__langgraph.patch");
 
 interface PackageManifest {
   name: string;
@@ -21,7 +23,10 @@ interface PackageManifest {
   packageManager?: string;
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
+  peerDependencies?: Record<string, string>;
 }
+
+const LANGGRAPH_SDK_VERSIONS = ["1.8.8", "1.8.9"] as const;
 
 function capture(command: string, args: string[], cwd = ROOT): string {
   return execFileSync(command, args, {
@@ -110,17 +115,157 @@ function assertDeclarationContract(tarball: string): void {
     if (file.endsWith(".d.cts") && /^\s*require\s*\(/m.test(declaration)) {
       throw new Error(`${file} contains an executable require statement`);
     }
-    if (/from ["']@ag-ui\/langgraph(?:["'/])/.test(declaration)) {
-      throw new Error(
-        `${file} exposes @ag-ui/langgraph's private declaration chain`,
-      );
-    }
     if (/from ["']@langchain\/langgraph-sdk\/dist\//.test(declaration)) {
       throw new Error(
         `${file} imports a private LangGraph SDK declaration path`,
       );
     }
   }
+}
+
+function verifyLangGraphConsumer(
+  consumerDir: string,
+  sdkVersion: (typeof LANGGRAPH_SDK_VERSIONS)[number],
+  rootManifest: PackageManifest,
+  runtimeManifest: PackageManifest,
+  runtimeTarball: string,
+  localTarballs: Map<string, string>,
+): void {
+  const typescript = rootManifest.devDependencies?.typescript;
+  const nodeTypes = rootManifest.devDependencies?.["@types/node"];
+  const aguiLangGraph = runtimeManifest.dependencies?.["@ag-ui/langgraph"];
+  if (!typescript || !nodeTypes || !aguiLangGraph) {
+    throw new Error("missing packed-consumer type dependencies");
+  }
+
+  mkdirSync(consumerDir);
+  mkdirSync(join(consumerDir, "patches"));
+  copyFileSync(
+    AGUI_LANGGRAPH_PATCH,
+    join(consumerDir, "patches", "@ag-ui__langgraph.patch"),
+  );
+  writeFileSync(
+    join(consumerDir, "pnpm-workspace.yaml"),
+    `${createConsumerWorkspaceYaml()}patchedDependencies:\n  "@ag-ui/langgraph@0.0.42": patches/@ag-ui__langgraph.patch\n`,
+  );
+  writeFileSync(
+    join(consumerDir, "package.json"),
+    `${JSON.stringify(
+      {
+        name: `runtime-package-consumer-sdk-${sdkVersion}`,
+        version: "0.0.0",
+        private: true,
+        type: "module",
+        packageManager: rootManifest.packageManager,
+        dependencies: {
+          "@ag-ui/langgraph": aguiLangGraph,
+          "@copilotkit/runtime": `file:${runtimeTarball}`,
+          "@langchain/core": "1.1.42",
+          "@langchain/langgraph-sdk": sdkVersion,
+        },
+        devDependencies: {
+          "@types/node": nodeTypes,
+          typescript,
+        },
+        pnpm: {
+          overrides: Object.fromEntries(
+            [...localTarballs].map(([name, localTarball]) => [
+              name,
+              `file:${localTarball}`,
+            ]),
+          ),
+        },
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  writeFileSync(
+    join(consumerDir, ".npmrc"),
+    "auto-install-peers=false\nstrict-peer-dependencies=false\n",
+  );
+  writeFileSync(
+    join(consumerDir, "tsconfig.json"),
+    `${JSON.stringify(
+      {
+        compilerOptions: {
+          target: "ES2022",
+          lib: ["ES2023", "DOM"],
+          module: "NodeNext",
+          moduleResolution: "NodeNext",
+          strict: true,
+          skipLibCheck: false,
+          noEmit: true,
+        },
+        include: ["strict-esm.mts", "strict-cjs.cts"],
+      },
+      null,
+      2,
+    )}\n`,
+  );
+
+  const source = `import {
+  LangGraphAgent,
+  LangGraphHttpAgent,
+} from "@copilotkit/runtime/langgraph";
+import { LangGraphAgent as UpstreamLangGraphAgent } from "@ag-ui/langgraph";
+import { Client } from "@langchain/langgraph-sdk";
+
+const client = new Client({ apiUrl: "http://localhost:8000" });
+const agent = new LangGraphAgent({
+  client,
+  graphId: "strict-consumer",
+  deploymentUrl: "http://localhost:8000",
+});
+const clone: LangGraphAgent = agent.clone();
+const upstream: UpstreamLangGraphAgent = agent;
+const httpAgent: LangGraphHttpAgent = new LangGraphHttpAgent({
+  url: "http://localhost:8000",
+});
+const events = agent.run({
+  runId: "run-1",
+  threadId: "thread-1",
+  messages: [],
+  tools: [],
+  context: [],
+  state: {},
+  forwardedProps: {},
+});
+void clone;
+void upstream;
+void httpAgent;
+void events;
+`;
+  writeFileSync(join(consumerDir, "strict-esm.mts"), source);
+  writeFileSync(join(consumerDir, "strict-cjs.cts"), source);
+
+  run("pnpm", ["install", "--ignore-scripts"], consumerDir);
+  run("pnpm", ["exec", "tsc", "-p", "tsconfig.json"], consumerDir);
+  run(
+    "pnpm",
+    [
+      "exec",
+      "node",
+      "--eval",
+      `const { LangGraphHttpAgent } = require("@copilotkit/runtime/langgraph");
+const agent = new LangGraphHttpAgent({ url: "http://localhost:8000" });
+if (!(agent instanceof LangGraphHttpAgent)) throw new Error("CJS HTTP agent construction failed");`,
+    ],
+    consumerDir,
+  );
+  run(
+    "pnpm",
+    [
+      "exec",
+      "node",
+      "--input-type=module",
+      "--eval",
+      `const { LangGraphHttpAgent } = await import("@copilotkit/runtime/langgraph");
+const agent = new LangGraphHttpAgent({ url: "http://localhost:8000" });
+if (!(agent instanceof LangGraphHttpAgent)) throw new Error("ESM HTTP agent construction failed");`,
+    ],
+    consumerDir,
+  );
 }
 
 function main(): void {
@@ -134,9 +279,7 @@ function main(): void {
 
   const temp = mkdtempSync(join(tmpdir(), "runtime-package-"));
   const tarballDir = join(temp, "tarballs");
-  const consumerDir = join(temp, "consumer");
   mkdirSync(tarballDir);
-  mkdirSync(consumerDir);
 
   try {
     const { manifest: packedManifest, tarball } = packPackage(
@@ -149,111 +292,33 @@ function main(): void {
       );
     }
     assertDeclarationContract(tarball);
-    if (!packedManifest.dependencies?.["@langchain/langgraph-sdk"]) {
-      throw new Error(
-        "packed runtime must install its public LangGraph SDK declaration dependency",
-      );
-    }
-
     const localTarballs = packWorkspaceDependencyClosure(
       runtimeManifest,
       tarballDir,
     );
 
-    const typescript = rootManifest.devDependencies?.typescript;
-    const nodeTypes = rootManifest.devDependencies?.["@types/node"];
-    if (!typescript || !nodeTypes) {
-      throw new Error(
-        "root package.json is missing packed-consumer type tools",
+    for (const sdkVersion of LANGGRAPH_SDK_VERSIONS) {
+      verifyLangGraphConsumer(
+        join(temp, `consumer-sdk-${sdkVersion}`),
+        sdkVersion,
+        rootManifest,
+        runtimeManifest,
+        tarball,
+        localTarballs,
       );
     }
-
-    writeFileSync(
-      join(consumerDir, "pnpm-workspace.yaml"),
-      createConsumerWorkspaceYaml(),
-    );
-    writeFileSync(
-      join(consumerDir, "package.json"),
-      `${JSON.stringify(
-        {
-          name: "runtime-package-consumer",
-          version: "0.0.0",
-          private: true,
-          type: "module",
-          packageManager: rootManifest.packageManager,
-          dependencies: {
-            "@copilotkit/runtime": `file:${tarball}`,
-          },
-          devDependencies: {
-            "@types/node": nodeTypes,
-            typescript,
-          },
-          pnpm: {
-            overrides: Object.fromEntries(
-              [...localTarballs].map(([name, localTarball]) => [
-                name,
-                `file:${localTarball}`,
-              ]),
-            ),
-          },
-        },
-        null,
-        2,
-      )}\n`,
-    );
-    writeFileSync(
-      join(consumerDir, ".npmrc"),
-      "auto-install-peers=false\nstrict-peer-dependencies=false\n",
-    );
-    writeFileSync(
-      join(consumerDir, "tsconfig.json"),
-      `${JSON.stringify(
-        {
-          compilerOptions: {
-            target: "ES2022",
-            lib: ["ES2023", "DOM"],
-            module: "NodeNext",
-            moduleResolution: "NodeNext",
-            strict: true,
-            skipLibCheck: false,
-            noEmit: true,
-          },
-          include: ["strict-esm.mts", "strict-cjs.cts"],
-        },
-        null,
-        2,
-      )}\n`,
-    );
-    writeFileSync(
-      join(consumerDir, "strict-esm.mts"),
-      `import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
-
-const agent = new LangGraphAgent({
-  graphId: "strict-consumer",
-  deploymentUrl: "http://localhost:8000",
-});
-const events = agent.run({
-  runId: "run-1",
-  threadId: "thread-1",
-  messages: [],
-  tools: [],
-  context: [],
-  state: {},
-  forwardedProps: {},
-});
-void events;
-`,
-    );
-    writeFileSync(
-      join(consumerDir, "strict-cjs.cts"),
-      `import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
-void LangGraphAgent;
-`,
-    );
-
-    run("pnpm", ["install", "--ignore-scripts"], consumerDir);
-
-    run("pnpm", ["exec", "tsc", "-p", "tsconfig.json"], consumerDir);
+    if (
+      packedManifest.peerDependencies?.["@langchain/langgraph-sdk"] !== "^1.8.8"
+    ) {
+      throw new Error(
+        "packed runtime must support LangGraph SDK ^1.8.8 as a peer dependency",
+      );
+    }
+    if (packedManifest.dependencies?.["@langchain/langgraph-sdk"]) {
+      throw new Error(
+        "packed runtime must not install a second nominal LangGraph SDK Client",
+      );
+    }
 
     run(
       "pnpm",
@@ -264,7 +329,7 @@ void LangGraphAgent;
         `require("@copilotkit/runtime");
 require("@copilotkit/runtime/v2");`,
       ],
-      consumerDir,
+      join(temp, `consumer-sdk-${LANGGRAPH_SDK_VERSIONS.at(-1)}`),
     );
     run(
       "pnpm",
@@ -281,11 +346,11 @@ const channelsIntelligenceUrl = import.meta.resolve(
 );
 await import(channelsIntelligenceUrl);`,
       ],
-      consumerDir,
+      join(temp, `consumer-sdk-${LANGGRAPH_SDK_VERSIONS.at(-1)}`),
     );
 
     console.log(
-      `OK: packed runtime installs ${CHANNELS_INTELLIGENCE}, has strict ESM/CJS NodeNext declarations, and loads through ESM and CJS.`,
+      `OK: packed runtime installs ${CHANNELS_INTELLIGENCE}, accepts LangGraph SDK ${LANGGRAPH_SDK_VERSIONS.join(" and ")} clients in strict ESM/CJS NodeNext consumers, and loads through ESM and CJS.`,
     );
   } finally {
     rmSync(temp, { recursive: true, force: true });

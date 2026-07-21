@@ -25,6 +25,9 @@ packages:
   # harness package imports from it and both use pnpm.
 onlyBuiltDependencies:
   - better-sqlite3
+patchedDependencies:
+  # 0.0.42 declarations deep-import non-exported SDK files; patch to public roots.
+  "@ag-ui/langgraph@0.0.42": patches/@ag-ui__langgraph.patch
 peerDependencyRules:
   ignoreMissing:
     - react

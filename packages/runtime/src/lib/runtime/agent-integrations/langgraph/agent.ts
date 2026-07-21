@@ -1,26 +1,21 @@
 import type { Observable } from "rxjs";
 import { map } from "rxjs";
 import { LangGraphEventTypes } from "../../../../agents/langgraph/events";
-import type { RawEvent } from "@ag-ui/core";
-import {
-  LangGraphAgent as RuntimeLangGraphAgent,
-  LangGraphHttpAgent as RuntimeLangGraphHttpAgent,
-} from "@ag-ui/langgraph";
 import type {
-  Message as LangGraphMessage,
-  ThreadState,
-} from "@langchain/langgraph-sdk";
-import type {
-  AGUILangGraphAgentConstructor,
-  LangGraphAgentConfig,
-  LangGraphHttpAgentConstructor,
   ProcessedEvents,
   SchemaKeys,
   State,
   StateEnrichment,
-} from "./ag-ui-langgraph-types";
-
-const AGUILangGraphAgent: AGUILangGraphAgentConstructor = RuntimeLangGraphAgent;
+} from "@ag-ui/langgraph";
+import {
+  LangGraphAgent as AGUILangGraphAgent,
+  LangGraphHttpAgent,
+} from "@ag-ui/langgraph";
+import type { RawEvent } from "@ag-ui/core";
+import type {
+  Message as LangGraphMessage,
+  ThreadState,
+} from "@langchain/langgraph-sdk";
 
 interface CopilotKitStateEnrichment {
   copilotkit: {
@@ -42,8 +37,8 @@ import { CustomEventNames } from "./consts";
 export { CustomEventNames };
 
 export class LangGraphAgent extends AGUILangGraphAgent {
-  constructor(config: LangGraphAgentConfig) {
-    super(config);
+  clone(): this {
+    return super.clone();
   }
 
   dispatchEvent(event: ProcessedEvents) {
@@ -265,6 +260,4 @@ export class LangGraphAgent extends AGUILangGraphAgent {
   }
 }
 
-const LangGraphHttpAgent: LangGraphHttpAgentConstructor =
-  RuntimeLangGraphHttpAgent;
 export { LangGraphHttpAgent };
