@@ -1,4 +1,4 @@
-import { major as semverMajor } from "semver";
+import { major as semverMajor, satisfies } from "semver";
 
 export interface AngularSupportEntry {
   angular: string;
@@ -10,6 +10,7 @@ export interface AngularSupportEntry {
 export interface AngularSupportContract {
   compilerMajor: number;
   rxjs: string;
+  testedRxjs: string;
   supportedMajors: AngularSupportEntry[];
 }
 
@@ -18,7 +19,7 @@ interface AngularConsumerManifestOptions {
   packageManager: string;
   siblingTarballs: ReadonlyMap<string, string>;
   support: AngularSupportEntry;
-  rxjs: string;
+  testedRxjs: string;
 }
 
 export interface DependencyNode {
@@ -91,6 +92,10 @@ export function readAngularSupportContract(
       "copilotkit.angularSupport.compilerMajor",
     ),
     rxjs: requireString(support.rxjs, "copilotkit.angularSupport.rxjs"),
+    testedRxjs: requireString(
+      support.testedRxjs,
+      "copilotkit.angularSupport.testedRxjs",
+    ),
     supportedMajors: support.supportedMajors.map(readSupportEntry),
   };
 }
@@ -125,6 +130,11 @@ export function validateAngularPackageManifest(manifest: unknown): string[] {
   const peers = isRecord(root.peerDependencies) ? root.peerDependencies : {};
   const dev = isRecord(root.devDependencies) ? root.devDependencies : {};
   const problems: string[] = [];
+  if (root.sideEffects !== false) {
+    problems.push(
+      "sideEffects must be false so packed consumers can tree-shake the Angular FESM bundle",
+    );
+  }
   if (!support.supportedMajors.length) {
     problems.push("supportedMajors must contain at least one entry");
     return problems;
@@ -166,6 +176,11 @@ export function validateAngularPackageManifest(manifest: unknown): string[] {
       `rxjs peer range must be ${support.rxjs}; found ${String(peers.rxjs ?? "missing")}`,
     );
   }
+  if (!satisfies(support.testedRxjs, support.rxjs)) {
+    problems.push(
+      `testedRxjs ${support.testedRxjs} must satisfy the rxjs peer range ${support.rxjs}`,
+    );
+  }
 
   for (const name of [
     "@angular/common",
@@ -197,7 +212,7 @@ export function createAngularConsumerManifest({
   packageManager,
   siblingTarballs,
   support,
-  rxjs,
+  testedRxjs,
 }: AngularConsumerManifestOptions): Record<string, unknown> {
   const manifest: Record<string, unknown> = {
     name: `copilotkit-angular-${support.major}-consumer`,
@@ -218,7 +233,7 @@ export function createAngularConsumerManifest({
       "@angular/ssr": support.angular,
       "@copilotkit/angular": `file:${angularTarball}`,
       express: "^5.1.0",
-      rxjs,
+      rxjs: testedRxjs,
       tslib: "^2.8.1",
       zod: "^3.25.75",
     },

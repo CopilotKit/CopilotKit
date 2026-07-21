@@ -68,6 +68,7 @@ private-agents.md
 # Release artifacts
 release-notes.md
 release-notes-notion.json
+_artifacts/
 
 # Binary artifacts
 *.dSYM/

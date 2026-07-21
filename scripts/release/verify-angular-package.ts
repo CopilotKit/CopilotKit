@@ -17,16 +17,13 @@ import {
   validateAngularPackageManifest,
 } from "./lib/angular-package.js";
 import type { DependencyNode } from "./lib/angular-package.js";
+import {
+  packAngularArtifacts,
+  readAngularArtifactSet,
+} from "./lib/angular-artifacts.js";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const ANGULAR_PACKAGE = "@copilotkit/angular";
-
-interface PackageManifest {
-  name: string;
-  version: string;
-  dependencies?: Record<string, string>;
-  peerDependencies?: Record<string, string>;
-}
 
 interface RootManifest {
   packageManager?: string;
@@ -52,68 +49,6 @@ function run(command: string, args: string[], cwd = ROOT): void {
 
 function readJson(path: string): unknown {
   return JSON.parse(readFileSync(path, "utf8")) as unknown;
-}
-
-function readPackageManifest(path: string): PackageManifest {
-  const value = readJson(path);
-  if (
-    typeof value !== "object" ||
-    value === null ||
-    !("name" in value) ||
-    typeof value.name !== "string" ||
-    !("version" in value) ||
-    typeof value.version !== "string"
-  ) {
-    throw new Error(`${path} is missing a string name or version`);
-  }
-  return value as PackageManifest;
-}
-
-function packageDirectory(name: string): string {
-  return join(ROOT, "packages", name.replace("@copilotkit/", ""));
-}
-
-function tarballName(manifest: PackageManifest): string {
-  return `${manifest.name.replace(/^@/, "").replace("/", "-")}-${manifest.version}.tgz`;
-}
-
-/** Packs one already-built workspace package and returns its artifact path. */
-function packPackage(name: string, tarballDir: string): string {
-  const cwd = packageDirectory(name);
-  const source = readPackageManifest(join(cwd, "package.json"));
-  capture("pnpm", ["pack", "--pack-destination", tarballDir], cwd);
-  return join(tarballDir, tarballName(source));
-}
-
-/**
- * Finds every transitively referenced local CopilotKit package. Packing and
- * overriding these siblings prevents a release-version bump from making the
- * consumer gate depend on artifacts that have not reached npm yet.
- */
-function workspaceSiblings(): string[] {
-  const seen = new Set<string>([ANGULAR_PACKAGE]);
-  const siblings: string[] = [];
-  const queue = [ANGULAR_PACKAGE];
-
-  while (queue.length) {
-    const name = queue.shift();
-    if (!name) break;
-    const source = readPackageManifest(
-      join(packageDirectory(name), "package.json"),
-    );
-    for (const dependencies of [source.dependencies, source.peerDependencies]) {
-      for (const [dependency, range] of Object.entries(dependencies ?? {})) {
-        if (!dependency.startsWith("@copilotkit/")) continue;
-        if (!range.startsWith("workspace:")) continue;
-        if (seen.has(dependency)) continue;
-        seen.add(dependency);
-        siblings.push(dependency);
-        queue.push(dependency);
-      }
-    }
-  }
-
-  return siblings;
 }
 
 function extractPackedManifest(tarball: string): unknown {
@@ -158,12 +93,10 @@ function assertFrameworkIndependent(consumerDir: string): void {
 
 function main(): void {
   const temp = mkdtempSync(join(tmpdir(), "copilotkit-angular-package-"));
-  const tarballDir = join(temp, "tarballs");
-  mkdirSync(tarballDir);
 
   try {
     const sourceManifest = readJson(
-      join(packageDirectory(ANGULAR_PACKAGE), "package.json"),
+      join(ROOT, "packages/angular/package.json"),
     );
     const sourceProblems = validateAngularPackageManifest(sourceManifest);
     if (sourceProblems.length) {
@@ -186,7 +119,16 @@ function main(): void {
     const packageManager = (rootManifest as RootManifest).packageManager;
     if (!packageManager) throw new Error("root packageManager cannot be empty");
 
-    const angularTarball = packPackage(ANGULAR_PACKAGE, tarballDir);
+    const artifactArgument = process.argv.indexOf("--artifacts");
+    const artifactDirectory =
+      artifactArgument === -1 ? undefined : process.argv[artifactArgument + 1];
+    if (artifactArgument !== -1 && !artifactDirectory) {
+      throw new Error("--artifacts requires an artifact directory");
+    }
+    const artifactSet = artifactDirectory
+      ? readAngularArtifactSet(artifactDirectory)
+      : packAngularArtifacts(ROOT, join(temp, "tarballs"));
+    const angularTarball = artifactSet.entryTarball;
     const packedManifest = extractPackedManifest(angularTarball);
     const packedProblems = validateAngularPackageManifest(packedManifest);
     if (packedProblems.length) {
@@ -197,10 +139,8 @@ function main(): void {
       );
     }
 
-    const siblingTarballs = new Map<string, string>();
-    for (const name of workspaceSiblings()) {
-      siblingTarballs.set(name, packPackage(name, tarballDir));
-    }
+    const siblingTarballs = new Map(artifactSet.tarballs);
+    siblingTarballs.delete(ANGULAR_PACKAGE);
 
     const support = readAngularSupportContract(packedManifest);
     for (const entry of support.supportedMajors) {
@@ -213,7 +153,7 @@ function main(): void {
           packageManager,
           siblingTarballs,
           support: entry,
-          rxjs: support.rxjs,
+          testedRxjs: support.testedRxjs,
         }),
       );
       run(

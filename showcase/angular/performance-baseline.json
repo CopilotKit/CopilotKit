@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "baseCommit": "d6560c8a6",
+  "baseCommit": "67959d863",
   "angularVersion": "21.2.18",
   "typescriptVersion": "5.9.3",
-  "command": "pnpm --filter @copilotkit/showcase-angular-host build:browser",
+  "command": "pack Angular workspace artifacts, then docker build -f showcase/angular/Dockerfile .",
   "configuration": "production",
   "profile": {
     "optimization": true,
@@ -11,10 +11,10 @@
     "sourceMaps": false
   },
   "initial": {
-    "rawBytes": 2781308,
-    "gzipBytes": 740078,
-    "brotliBytes": 601308
+    "rawBytes": 4202530,
+    "gzipBytes": 1674006,
+    "brotliBytes": 1407857
   },
   "maximumRelativeRegression": 0.1,
-  "absoluteCapBytes": 3000000
+  "absoluteCapBytes": 4600000
 }

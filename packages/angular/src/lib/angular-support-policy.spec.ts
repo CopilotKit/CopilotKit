@@ -6,6 +6,7 @@ import { z } from "zod";
 const angularSupportPolicySchema = z.object({
   compilerMajor: z.literal(20),
   rxjs: z.literal("^7.8.0"),
+  testedRxjs: z.literal("7.8.1"),
   supportedMajors: z.tuple([
     z.object({
       angular: z.literal("20.3.26"),
@@ -54,6 +55,7 @@ test("publishes the supported Angular and TypeScript consumer matrix", () => {
   expect(manifest.copilotkit.angularSupport).toEqual({
     compilerMajor: 20,
     rxjs: "^7.8.0",
+    testedRxjs: "7.8.1",
     supportedMajors: [
       {
         angular: "20.3.26",

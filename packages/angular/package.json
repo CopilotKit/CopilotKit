@@ -9,6 +9,7 @@
     "directory": "packages/angular"
   },
   "type": "module",
+  "sideEffects": false,
   "main": "dist/fesm2022/copilotkit-angular.mjs",
   "module": "dist/fesm2022/copilotkit-angular.mjs",
   "types": "dist/index.d.ts",
@@ -34,6 +35,7 @@
     "angularSupport": {
       "compilerMajor": 20,
       "rxjs": "^7.8.0",
+      "testedRxjs": "7.8.1",
       "supportedMajors": [
         {
           "angular": "20.3.26",

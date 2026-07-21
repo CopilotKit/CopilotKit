@@ -10,10 +10,12 @@ import {
 
 const validManifest = {
   name: "@copilotkit/angular",
+  sideEffects: false,
   copilotkit: {
     angularSupport: {
       compilerMajor: 20,
       rxjs: "^7.8.0",
+      testedRxjs: "7.8.1",
       supportedMajors: [
         {
           angular: "20.3.26",
@@ -72,6 +74,15 @@ test("rejects support metadata that drifts from peers or the floor compiler", ()
   );
 });
 
+test("rejects a package that prevents consumer tree-shaking", () => {
+  const manifest = structuredClone(validManifest) as Record<string, unknown>;
+  delete manifest.sideEffects;
+
+  expect(validateAngularPackageManifest(manifest)).toContain(
+    "sideEffects must be false so packed consumers can tree-shake the Angular FESM bundle",
+  );
+});
+
 test("rejects duplicate, unordered, and version-mismatched support entries", () => {
   const manifest = structuredClone(validManifest);
   manifest.copilotkit.angularSupport.supportedMajors = [
@@ -110,7 +121,7 @@ test("creates an exact packed Angular consumer without framework overrides", () 
         ["@copilotkit/core", "/tmp/copilotkit-core.tgz"],
       ]),
       support: support.supportedMajors[2],
-      rxjs: support.rxjs,
+      testedRxjs: support.testedRxjs,
     }),
   ).toEqual({
     name: "copilotkit-angular-22-consumer",
@@ -131,7 +142,7 @@ test("creates an exact packed Angular consumer without framework overrides", () 
       "@angular/ssr": "22.0.7",
       "@copilotkit/angular": "file:/tmp/copilotkit-angular.tgz",
       express: "^5.1.0",
-      rxjs: "^7.8.0",
+      rxjs: "7.8.1",
       tslib: "^2.8.1",
       zod: "^3.25.75",
     },
