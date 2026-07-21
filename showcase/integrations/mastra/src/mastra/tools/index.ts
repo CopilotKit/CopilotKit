@@ -45,7 +45,9 @@ export const weatherTool = createTool({
     temperature: z
       .number()
       .optional()
-      .describe("Optional scripted temperature (°F); echoed back when provided"),
+      .describe(
+        "Optional scripted temperature (°F); echoed back when provided",
+      ),
     conditions: z
       .string()
       .optional()
@@ -70,7 +72,13 @@ export const weatherTool = createTool({
   // double-encodes it and the typed cards' single-parse (parseJsonResult) reads
   // back a string with undefined fields ("--%"). Single-encode by returning the
   // object (same rule as browse_web / the Mastra capability-map memory).
-  execute: async ({ location, temperature, conditions, humidity, wind_speed }) => ({
+  execute: async ({
+    location,
+    temperature,
+    conditions,
+    humidity,
+    wind_speed,
+  }) => ({
     ...getWeatherImpl(location),
     ...(typeof temperature === "number" ? { temperature } : {}),
     ...(conditions ? { conditions } : {}),
