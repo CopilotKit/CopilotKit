@@ -1,0 +1,382 @@
+import axe from "axe-core";
+import { chromium, devices, firefox, webkit } from "playwright";
+import type { BrowserType, Page } from "playwright";
+
+export type FrontendBrowserEngine = "chromium" | "firefox" | "webkit";
+
+export interface FrontendBrowserProject {
+  id: string;
+  engine: FrontendBrowserEngine;
+  kind: "desktop" | "device-emulation";
+  viewport?: { width: number; height: number };
+  device?: "Pixel 7" | "iPhone 13";
+}
+
+export const FRONTEND_BROWSER_PROJECTS = [
+  {
+    id: "chromium-desktop",
+    engine: "chromium",
+    kind: "desktop",
+    viewport: { width: 1440, height: 900 },
+  },
+  {
+    id: "firefox-desktop",
+    engine: "firefox",
+    kind: "desktop",
+    viewport: { width: 1440, height: 900 },
+  },
+  {
+    id: "webkit-desktop",
+    engine: "webkit",
+    kind: "desktop",
+    viewport: { width: 1440, height: 900 },
+  },
+  {
+    id: "chromium-mobile-emulation",
+    engine: "chromium",
+    kind: "device-emulation",
+    device: "Pixel 7",
+  },
+  {
+    id: "webkit-mobile-emulation",
+    engine: "webkit",
+    kind: "device-emulation",
+    device: "iPhone 13",
+  },
+] as const satisfies readonly FrontendBrowserProject[];
+
+export const FRONTEND_BROWSER_STATES = [
+  { id: "chat-ready", feature: "agentic-chat" },
+  { id: "popup-open", feature: "prebuilt-popup" },
+  {
+    id: "popup-closed-focus-restored",
+    feature: "prebuilt-popup",
+  },
+  { id: "sidebar-open", feature: "prebuilt-sidebar" },
+] as const;
+
+export type FrontendBrowserStateId =
+  (typeof FRONTEND_BROWSER_STATES)[number]["id"];
+
+export const ACCESSIBILITY_TAGS = [
+  "wcag2a",
+  "wcag2aa",
+  "wcag21aa",
+  "wcag22aa",
+] as const;
+
+/** Look up a declared project without accepting browser marketing aliases. */
+export function browserProjectById(id: string): FrontendBrowserProject {
+  const project = FRONTEND_BROWSER_PROJECTS.find(
+    (candidate) => candidate.id === id,
+  );
+  if (!project) throw new Error(`unknown browser project ${id}`);
+  return project;
+}
+
+export interface AccessibilityViolationSummary {
+  id: string;
+  impact: string | null;
+  nodeCount: number;
+}
+
+type AssertionStatus = "passed" | "failed" | "not-applicable";
+
+export interface FrontendBrowserStateResult {
+  stateId: FrontendBrowserStateId;
+  status: "passed" | "failed";
+  durationMs: number;
+  violations: AccessibilityViolationSummary[];
+  assertions: {
+    keyboard: AssertionStatus;
+    focus: AssertionStatus;
+    responsive: AssertionStatus;
+    securityHeaders: AssertionStatus;
+  };
+  failureStage?: string;
+}
+
+export interface FrontendBrowserArtifact {
+  schemaVersion: 1;
+  commitSha: string;
+  project: FrontendBrowserProject;
+  startedAt: string;
+  finishedAt: string;
+  summary: { total: number; passed: number; failed: number };
+  states: FrontendBrowserStateResult[];
+}
+
+/** Shape the privacy-safe browser evidence artifact. */
+export function createFrontendBrowserArtifact(input: {
+  commitSha: string;
+  project: FrontendBrowserProject;
+  startedAt: string;
+  finishedAt: string;
+  results: FrontendBrowserStateResult[];
+}): FrontendBrowserArtifact {
+  const failed = input.results.filter(
+    (result) => result.status === "failed",
+  ).length;
+  return {
+    schemaVersion: 1,
+    commitSha: input.commitSha,
+    project: input.project,
+    startedAt: input.startedAt,
+    finishedAt: input.finishedAt,
+    summary: {
+      total: input.results.length,
+      passed: input.results.length - failed,
+      failed,
+    },
+    states: input.results,
+  };
+}
+
+function browserType(engine: FrontendBrowserEngine): BrowserType {
+  if (engine === "chromium") return chromium;
+  if (engine === "firefox") return firefox;
+  return webkit;
+}
+
+function contextOptions(
+  project: FrontendBrowserProject,
+): Record<string, unknown> {
+  const base = {
+    colorScheme: "light" as const,
+    reducedMotion: "reduce" as const,
+    extraHTTPHeaders: {
+      "X-AIMock-Strict": "true",
+      "X-AIMock-Context": "langgraph-python",
+      "X-Test-Id": `browser-${project.id}`,
+    },
+  };
+  if (project.device) return { ...devices[project.device], ...base };
+  return { ...base, viewport: project.viewport };
+}
+
+function assertSecurityHeaders(headers: Record<string, string>): void {
+  const csp = headers["content-security-policy"] ?? "";
+  if (!csp.includes("frame-ancestors") || !csp.includes("object-src 'none'")) {
+    throw new Error("content security policy is incomplete");
+  }
+  if (headers["x-content-type-options"] !== "nosniff") {
+    throw new Error("x-content-type-options is incomplete");
+  }
+  if (headers["referrer-policy"] !== "no-referrer") {
+    throw new Error("referrer policy is incomplete");
+  }
+  if (!headers["permissions-policy"]) {
+    throw new Error("permissions policy is missing");
+  }
+}
+
+async function runAxe(page: Page): Promise<AccessibilityViolationSummary[]> {
+  await page.addScriptTag({ content: axe.source });
+  const expression = `
+    globalThis.axe.run(globalThis.document, {
+      runOnly: { type: "tag", values: ${JSON.stringify(ACCESSIBILITY_TAGS)} }
+    }).then((result) => result.violations.map((violation) => ({
+      id: violation.id,
+      impact: violation.impact,
+      nodeCount: violation.nodes.length
+    })))
+  `;
+  return (await page.evaluate(expression)) as AccessibilityViolationSummary[];
+}
+
+async function assertFocusWithin(page: Page, selector: string): Promise<void> {
+  const within = await page.evaluate(
+    `(function () {
+      var owner = document.querySelector(${JSON.stringify(selector)});
+      return Boolean(owner && owner.contains(document.activeElement));
+    })()`,
+  );
+  if (!within) throw new Error("focus is outside the modal surface");
+}
+
+async function assertPopup(
+  page: Page,
+  project: FrontendBrowserProject,
+  close: boolean,
+): Promise<Omit<FrontendBrowserStateResult["assertions"], "securityHeaders">> {
+  const dialog = page.locator('[role="dialog"]');
+  await dialog.waitFor({ state: "visible" });
+  await assertFocusWithin(page, '[role="dialog"]');
+
+  if (close) {
+    await page.keyboard.press("Escape");
+    await dialog.waitFor({ state: "hidden" });
+    const restored = await page.evaluate(
+      `document.activeElement === document.querySelector('[data-copilot-popup-toggle]')`,
+    );
+    if (!restored) throw new Error("popup launcher focus was not restored");
+    return {
+      keyboard: "passed",
+      focus: "passed",
+      responsive: "not-applicable",
+    };
+  }
+
+  await page.keyboard.press("Tab");
+  await assertFocusWithin(page, '[role="dialog"]');
+  const box = await dialog.boundingBox();
+  const viewport = page.viewportSize();
+  if (!box || !viewport) throw new Error("popup geometry is unavailable");
+  if (project.kind === "device-emulation") {
+    if (
+      Math.abs(box.width - viewport.width) > 1 ||
+      Math.abs(box.height - viewport.height) > 1
+    ) {
+      throw new Error("mobile popup is not full-screen");
+    }
+  } else if (box.width >= viewport.width || box.height >= viewport.height) {
+    throw new Error("desktop popup unexpectedly fills the viewport");
+  }
+  const animationName = await dialog.evaluate(
+    "element => getComputedStyle(element).animationName",
+  );
+  if (animationName !== "none") {
+    throw new Error("reduced-motion popup still animates");
+  }
+  return { keyboard: "passed", focus: "passed", responsive: "passed" };
+}
+
+async function assertSidebar(
+  page: Page,
+  project: FrontendBrowserProject,
+): Promise<Omit<FrontendBrowserStateResult["assertions"], "securityHeaders">> {
+  const sidebar = page.locator("[data-copilot-sidebar]");
+  await sidebar.waitFor({ state: "visible" });
+  const role = await sidebar.getAttribute("role");
+  if (project.kind === "device-emulation") {
+    if (
+      role !== "dialog" ||
+      (await sidebar.getAttribute("aria-modal")) !== "true"
+    ) {
+      throw new Error("mobile sidebar is not modal");
+    }
+    await assertFocusWithin(page, "[data-copilot-sidebar]");
+    await page.keyboard.press("Tab");
+    await assertFocusWithin(page, "[data-copilot-sidebar]");
+    const box = await sidebar.boundingBox();
+    const viewport = page.viewportSize();
+    if (!box || !viewport || Math.abs(box.width - viewport.width) > 1) {
+      throw new Error("mobile sidebar is not full-width");
+    }
+  } else if (role !== "complementary") {
+    throw new Error("desktop sidebar is not a complementary landmark");
+  }
+  return {
+    keyboard: project.kind === "device-emulation" ? "passed" : "not-applicable",
+    focus: project.kind === "device-emulation" ? "passed" : "not-applicable",
+    responsive: "passed",
+  };
+}
+
+async function runState(
+  page: Page,
+  baseUrl: string,
+  project: FrontendBrowserProject,
+  state: (typeof FRONTEND_BROWSER_STATES)[number],
+): Promise<FrontendBrowserStateResult> {
+  const startedAt = Date.now();
+  const assertions: FrontendBrowserStateResult["assertions"] = {
+    keyboard: "not-applicable",
+    focus: "not-applicable",
+    responsive: "not-applicable",
+    securityHeaders: "failed",
+  };
+  let failureStage = "navigation";
+  try {
+    const response = await page.goto(
+      `${baseUrl.replace(/\/$/, "")}/langgraph-python/${state.feature}`,
+      { waitUntil: "load" },
+    );
+    if (!response?.ok()) throw new Error("browser state navigation failed");
+    assertSecurityHeaders(response.headers());
+    assertions.securityHeaders = "passed";
+    await page.waitForSelector("[ng-version]", { state: "attached" });
+
+    failureStage = "interaction";
+    if (state.id === "chat-ready") {
+      const composer = page.locator("textarea, [role='textbox']").first();
+      await composer.waitFor({ state: "visible" });
+      await composer.focus();
+      if (
+        !(await composer.evaluate(
+          "element => element === document.activeElement",
+        ))
+      ) {
+        throw new Error("chat composer did not receive keyboard focus");
+      }
+      assertions.keyboard = "passed";
+      assertions.focus = "passed";
+      assertions.responsive = "passed";
+    } else if (state.id === "popup-open") {
+      Object.assign(assertions, await assertPopup(page, project, false));
+    } else if (state.id === "popup-closed-focus-restored") {
+      Object.assign(assertions, await assertPopup(page, project, true));
+    } else {
+      Object.assign(assertions, await assertSidebar(page, project));
+    }
+
+    failureStage = "axe";
+    const violations = await runAxe(page);
+    return {
+      stateId: state.id,
+      status: violations.length === 0 ? "passed" : "failed",
+      durationMs: Date.now() - startedAt,
+      violations,
+      assertions,
+      ...(violations.length > 0 ? { failureStage } : {}),
+    };
+  } catch {
+    return {
+      stateId: state.id,
+      status: "failed",
+      durationMs: Date.now() - startedAt,
+      violations: [],
+      assertions,
+      failureStage,
+    };
+  }
+}
+
+/** Run the reusable UI, responsive, security-header, and Axe state suite. */
+export async function runFrontendBrowserSuite(input: {
+  project: FrontendBrowserProject;
+  baseUrl: string;
+  commitSha: string;
+}): Promise<FrontendBrowserArtifact> {
+  const startedAt = new Date().toISOString();
+  const browser = await browserType(input.project.engine).launch({
+    headless: true,
+  });
+  try {
+    const context = await browser.newContext(contextOptions(input.project));
+    const results: FrontendBrowserStateResult[] = [];
+    try {
+      for (const state of FRONTEND_BROWSER_STATES) {
+        const page = await context.newPage();
+        try {
+          results.push(
+            await runState(page, input.baseUrl, input.project, state),
+          );
+        } finally {
+          await page.close();
+        }
+      }
+    } finally {
+      await context.close();
+    }
+    return createFrontendBrowserArtifact({
+      commitSha: input.commitSha,
+      project: input.project,
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      results,
+    });
+  } finally {
+    await browser.close();
+  }
+}

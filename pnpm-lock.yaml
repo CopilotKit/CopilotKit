@@ -4010,6 +4010,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: ^3.2.4
         version: 3.2.4(vitest@3.2.4)
+      axe-core:
+        specifier: 4.11.1
+        version: 4.11.1
       tsx:
         specifier: ^4.19.0
         version: 4.21.0
