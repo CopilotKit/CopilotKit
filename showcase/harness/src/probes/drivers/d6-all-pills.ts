@@ -1336,7 +1336,6 @@ export function createE2eFullDriver(
                 aimockBaseUrl,
                 runId,
                 slug,
-                featureType: ft,
                 rowPrefix,
                 cvComponent,
                 testId: buildE2eTestId(slug, runId),
@@ -1398,7 +1397,6 @@ export function createE2eFullDriver(
                 aimockBaseUrl,
                 runId,
                 slug,
-                featureType: ft,
                 rowPrefix,
                 cvComponent,
                 testId: buildE2eTestId(slug, runId),
@@ -2131,7 +2129,6 @@ async function joinAimockJournal(opts: {
   aimockBaseUrl?: string;
   runId: string;
   slug: string;
-  featureType: string;
   rowPrefix: "d5" | "d6";
   cvComponent: string;
   testId: string;
@@ -2144,7 +2141,6 @@ async function joinAimockJournal(opts: {
     aimockBaseUrl,
     runId,
     slug,
-    featureType,
     rowPrefix,
     cvComponent,
     testId,
