@@ -8,12 +8,12 @@
 // private.
 //
 // Two attribution modes:
-//   - Identified: a CopilotKit license token is configured. The token is
-//     a JWT (header.payload.sig) whose payload carries `telemetry_id`.
-//     The SDK base64url-decodes the payload — without verifying the
-//     Ed25519 signature, which is the license-verifier's job — and
-//     emits the id via `X-CopilotKit-Telemetry-Id`. The Lambda uses it
-//     to enrich events with the customer's email.
+//   - Identified: a standalone telemetry id or a CopilotKit license token is
+//     configured. Standalone identity takes precedence. License tokens are
+//     JWTs (header.payload.sig) whose payload carries `telemetry_id`; the SDK
+//     base64url-decodes the payload — without verifying the Ed25519 signature,
+//     which is the license-verifier's job. The resolved identity is emitted
+//     only via `X-CopilotKit-Telemetry-Id`.
 //   - Anonymous: no license token, or a malformed/non-JWT one. No
 //     telemetry-id header; events still flow, attribution is best-effort
 //     from request-level signals (IP, UA).
@@ -37,11 +37,31 @@ export interface LambdaSendOptions {
   globalProperties?: Record<string, unknown>;
   packageName?: string;
   packageVersion?: string;
+  /** Standalone analytics identity, resolved before any legacy license claim. */
+  telemetryId?: string;
   // The CopilotKit license token (Ed25519-signed JWT), when one is
   // configured on the runtime. The sender base64url-decodes the payload
   // segment to extract `telemetry_id`; missing or malformed tokens
   // produce an anonymous send.
   licenseToken?: string;
+}
+
+/**
+ * Return the first configured standalone telemetry identity without rewriting it.
+ *
+ * Empty and whitespace-only values are unconfigured placeholders and must not
+ * suppress a later identity source. A nonblank value remains opaque: trimming
+ * is used only for the presence check, and the original string is returned.
+ *
+ * @internal
+ */
+export function firstNonBlankTelemetryId(
+  ...candidates: ReadonlyArray<string | undefined>
+): string | undefined {
+  return candidates.find(
+    (candidate): candidate is string =>
+      candidate !== undefined && candidate.trim().length > 0,
+  );
 }
 
 // These fields aren't used by the telemetry service, so we strip them
@@ -122,7 +142,9 @@ export async function send(opts: LambdaSendOptions): Promise<void> {
       ts: Math.floor(Date.now() / 1000),
     });
 
-    const telemetryId = parseTelemetryIdFromLicense(opts.licenseToken);
+    const telemetryId =
+      firstNonBlankTelemetryId(opts.telemetryId) ??
+      parseTelemetryIdFromLicense(opts.licenseToken);
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       "User-Agent": opts.packageName

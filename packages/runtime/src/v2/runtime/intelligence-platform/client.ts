@@ -1,5 +1,52 @@
 import { logger } from "@copilotkit/shared";
+import type { RuntimeEntitlementResponse } from "@copilotkit/shared";
 import { randomUUID } from "crypto";
+import { z } from "zod";
+
+const RUNTIME_ENTITLEMENTS_REQUEST_TIMEOUT_MS = 5_000;
+
+const runtimeEntitlementSchema = z
+  .object({
+    active: z.boolean(),
+    source: z.enum(["managedOrgSubscription", "selfHostedDeploymentLicense"]),
+    features: z.record(z.string(), z.boolean()),
+    limits: z.record(z.string(), z.number()),
+    planCode: z.string().optional(),
+    entitlementSource: z.string().optional(),
+  })
+  .strict();
+
+const runtimeEntitlementErrorSchema = z
+  .object({
+    code: z.string(),
+    message: z.string(),
+    retryable: z.boolean(),
+    requestId: z.string().optional(),
+    traceId: z.string().optional(),
+  })
+  .strict();
+
+const runtimeEntitlementResponseSchema = z.union([
+  z
+    .object({
+      status: z.literal("ready"),
+      entitlement: runtimeEntitlementSchema,
+    })
+    .strict(),
+  z
+    .object({
+      status: z.enum(["degraded", "misconfigured", "unavailable"]),
+      error: runtimeEntitlementErrorSchema,
+    })
+    .strict(),
+]);
+
+/** Validate and narrow an unknown Runtime entitlement response. */
+function isRuntimeEntitlementResponse(
+  value: unknown,
+): value is RuntimeEntitlementResponse {
+  return runtimeEntitlementResponseSchema.safeParse(value).success;
+}
 
 /**
  * Header name carrying the per-call end-user identity that the CopilotKit
@@ -508,6 +555,84 @@ export class CopilotKitIntelligence {
   /** @internal Used by `attachIntelligenceEnterpriseLearning` to gate MCP attachment. */
   ɵisEnterpriseLearningEnabled(): boolean {
     return this.#enterpriseLearningEnabled;
+  }
+
+  /**
+   * Resolve the Runtime entitlement projection for this project.
+   *
+   * The request is bounded, never retried, and strictly validates the public
+   * response union before returning it. Validation and timeout failures use
+   * stable messages that do not expose rejected upstream payloads.
+   *
+   * @returns The validated Runtime entitlement response.
+   * @throws {@link PlatformRequestError} for non-OK, malformed, network, or
+   *   timeout outcomes.
+   */
+  async getRuntimeEntitlements(): Promise<RuntimeEntitlementResponse> {
+    const path = "/api/entitlements/runtime";
+    const controller = new AbortController();
+    const timeout = setTimeout(
+      () => controller.abort(),
+      RUNTIME_ENTITLEMENTS_REQUEST_TIMEOUT_MS,
+    );
+
+    try {
+      const response = await fetch(`${this.#apiUrl}${path}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${this.#apiKey}`,
+          "Content-Type": "application/json",
+        },
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        await response.body?.cancel();
+        logger.error(
+          { status: response.status, path },
+          "Runtime entitlement request failed",
+        );
+        throw new PlatformRequestError(
+          `Runtime entitlement request failed with status ${response.status}`,
+          response.status,
+        );
+      }
+
+      let payload: unknown;
+      try {
+        payload = await response.json();
+      } catch {
+        throw new PlatformRequestError(
+          "Runtime entitlement response was malformed",
+          502,
+        );
+      }
+
+      if (!isRuntimeEntitlementResponse(payload)) {
+        throw new PlatformRequestError(
+          "Runtime entitlement response was malformed",
+          502,
+        );
+      }
+
+      return payload;
+    } catch (error) {
+      if (error instanceof PlatformRequestError) {
+        throw error;
+      }
+      if (
+        controller.signal.aborted ||
+        (error instanceof DOMException && error.name === "AbortError")
+      ) {
+        throw new PlatformRequestError(
+          "Runtime entitlement request timed out",
+          504,
+        );
+      }
+      throw new PlatformRequestError("Runtime entitlement request failed", 502);
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   async #request<T>(

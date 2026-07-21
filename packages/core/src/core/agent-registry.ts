@@ -5,6 +5,7 @@ import type {
   AgentDescription,
   RuntimeMode,
   RuntimeLicenseStatus,
+  RuntimeEntitlementResponse,
   IntelligenceRuntimeInfo,
   ThreadEndpointRuntimeInfo,
 } from "@copilotkit/shared";
@@ -82,6 +83,7 @@ export class AgentRegistry {
   private _a2uiAgents?: string[];
   private _openGenerativeUIEnabled: boolean = false;
   private _licenseStatus?: RuntimeLicenseStatus;
+  private _runtimeEntitlements?: RuntimeEntitlementResponse;
   private _telemetryDisabled: boolean = false;
 
   /**
@@ -159,6 +161,11 @@ export class AgentRegistry {
 
   get licenseStatus(): RuntimeLicenseStatus | undefined {
     return this._licenseStatus;
+  }
+
+  /** Structured Runtime entitlement authority advertised by `/info`. */
+  get runtimeEntitlements(): RuntimeEntitlementResponse | undefined {
+    return this._runtimeEntitlements;
   }
 
   get telemetryDisabled(): boolean {
@@ -464,6 +471,8 @@ export class AgentRegistry {
       this._a2uiEnabled = false;
       this._a2uiAgents = undefined;
       this._openGenerativeUIEnabled = false;
+      this._licenseStatus = undefined;
+      this._runtimeEntitlements = undefined;
       this.remoteAgents = {};
       this._agents = this.localAgents;
 
@@ -560,6 +569,7 @@ export class AgentRegistry {
       this._openGenerativeUIEnabled =
         runtimeInfoResponse.openGenerativeUIEnabled ?? false;
       this._licenseStatus = runtimeInfoResponse.licenseStatus;
+      this._runtimeEntitlements = runtimeInfoResponse.runtimeEntitlements;
       this._telemetryDisabled = runtimeInfoResponse.telemetryDisabled ?? false;
 
       await this.notifyRuntimeStatusChanged(
@@ -578,6 +588,8 @@ export class AgentRegistry {
       this._a2uiEnabled = false;
       this._a2uiAgents = undefined;
       this._openGenerativeUIEnabled = false;
+      this._licenseStatus = undefined;
+      this._runtimeEntitlements = undefined;
       this.remoteAgents = {};
       this._agents = this.localAgents;
 

@@ -39,6 +39,7 @@ import type { CopilotKitIntelligence } from "../intelligence-platform";
 // by the Channel-listener bootstrap — not here.
 import type { Channel } from "@copilotkit/channels-core";
 import telemetry from "../telemetry/telemetry-client";
+import { firstNonBlankTelemetryId } from "../telemetry/telemetry-identity";
 
 export const VERSION = pkg.version;
 
@@ -154,6 +155,8 @@ interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
   afterRequestMiddleware?: AfterRequestMiddleware;
   /** Signed license token for server-side feature verification. Falls back to COPILOTKIT_LICENSE_TOKEN env var. */
   licenseToken?: string;
+  /** Standalone telemetry identity. Falls back to CPK_TELEMETRY_ID before legacy license identity. */
+  telemetryId?: string;
   /** Enable debug logging for the event pipeline. */
   debug?: DebugConfig;
   /**
@@ -313,14 +316,20 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
     this.resolvedLicenseToken =
       options.licenseToken ?? process.env.COPILOTKIT_LICENSE_TOKEN;
 
-    // Attribute telemetry to the licensed customer for *every* runtime mode.
-    // Done in the shared base (not the subclasses) so SSE and Intelligence
-    // runtimes behave identically — previously only CopilotIntelligenceRuntime
-    // set this, so self-hosted SSE users never got a telemetry_id on their
-    // runtime events even with a license token configured.
-    if (this.resolvedLicenseToken) {
-      telemetry.setLicenseToken(this.resolvedLicenseToken);
-    }
+    // Replace the singleton identity atomically for every construction. This
+    // includes the anonymous case so a prior runtime cannot leak its identity
+    // into a later runtime in the same process.
+    const resolvedTelemetryId = firstNonBlankTelemetryId(
+      options.telemetryId,
+      process.env.CPK_TELEMETRY_ID,
+    );
+    telemetry.setTelemetryIdentity(
+      resolvedTelemetryId !== undefined
+        ? { telemetryId: resolvedTelemetryId }
+        : this.resolvedLicenseToken !== undefined
+          ? { licenseToken: this.resolvedLicenseToken }
+          : {},
+    );
 
     if (process.env.NODE_ENV !== "production") {
       this.debugEventBus = new DebugEventBus();

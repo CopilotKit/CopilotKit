@@ -88,6 +88,17 @@ export type { Anchor } from "./lib/types.js";
 export const WEB_INSPECTOR_TAG = "cpk-web-inspector" as const;
 export const THREAD_INSPECTOR_TAG = "cpk-thread-inspector" as const;
 
+interface RuntimeEntitlementDisplayDiagnostic {
+  status: "ready" | "degraded" | "misconfigured" | "unavailable";
+  error?: {
+    code: string;
+    message: string;
+    retryable: boolean;
+    requestId?: string;
+    traceId?: string;
+  };
+}
+
 type LucideIconName = keyof typeof icons;
 
 type MenuKey =
@@ -8586,6 +8597,7 @@ ${argsString}</pre
 
   private renderThreadsLockedView() {
     this.trackThreadsViewStateOnce("locked", 0);
+    const runtimeEntitlementDiagnostic = this.getRuntimeEntitlementDiagnostic();
     return html`
       <div
         style="
@@ -8667,6 +8679,9 @@ ${argsString}</pre
             Persist conversations and inspect saved thread history from the
             Inspector.
           </p>
+          ${this.renderRuntimeEntitlementDiagnostic(
+            runtimeEntitlementDiagnostic,
+          )}
           <div
             style="
               display: flex;
@@ -8700,6 +8715,104 @@ ${argsString}</pre
             </a>
           </div>
         </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Prefer the Runtime's structured entitlement diagnostic and derive a
+   * compatibility diagnostic only when an older Core exposes legacy status.
+   */
+  private getRuntimeEntitlementDiagnostic(): RuntimeEntitlementDisplayDiagnostic | null {
+    const runtimeEntitlements = this.core?.runtimeEntitlements;
+    if (runtimeEntitlements) {
+      return runtimeEntitlements.status === "ready"
+        ? { status: runtimeEntitlements.status }
+        : {
+            status: runtimeEntitlements.status,
+            error: runtimeEntitlements.error,
+          };
+    }
+
+    switch (this.core?.licenseStatus) {
+      case "valid":
+        return { status: "ready" };
+      case "expired":
+        return {
+          status: "degraded",
+          error: {
+            code: "legacy_license_expired",
+            message: "Legacy Runtime license has expired.",
+            retryable: false,
+          },
+        };
+      case "expiring":
+        return {
+          status: "degraded",
+          error: {
+            code: "legacy_license_expiring",
+            message: "Legacy Runtime license is expiring.",
+            retryable: false,
+          },
+        };
+      case "invalid":
+        return {
+          status: "misconfigured",
+          error: {
+            code: "legacy_license_invalid",
+            message: "Legacy Runtime license is invalid.",
+            retryable: false,
+          },
+        };
+      case "none":
+      case "unknown":
+        return { status: "unavailable" };
+      default:
+        return null;
+    }
+  }
+
+  /** Render exact Runtime entitlement correlation details without gating UI. */
+  private renderRuntimeEntitlementDiagnostic(
+    diagnostic: RuntimeEntitlementDisplayDiagnostic | null,
+  ) {
+    if (!diagnostic) {
+      return nothing;
+    }
+
+    return html`
+      <div
+        role="status"
+        data-runtime-entitlement-status=${diagnostic.status}
+        style="
+          margin: -8px auto 18px;
+          max-width: 380px;
+          font-size: 11px;
+          line-height: 1.5;
+          color: #57575b;
+        "
+      >
+        <div style="font-weight: 600;">
+          Runtime entitlement: ${diagnostic.status}
+        </div>
+        ${
+          diagnostic.error
+            ? html`
+              <div>${diagnostic.error.message}</div>
+              <div>Code: ${diagnostic.error.code}</div>
+              ${
+                diagnostic.error.requestId
+                  ? html`<div>Request ID: ${diagnostic.error.requestId}</div>`
+                  : nothing
+              }
+              ${
+                diagnostic.error.traceId
+                  ? html`<div>Trace ID: ${diagnostic.error.traceId}</div>`
+                  : nothing
+              }
+            `
+            : nothing
+        }
       </div>
     `;
   }

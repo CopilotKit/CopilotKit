@@ -1,29 +1,473 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { CopilotKitIntelligence } from "../client";
+import { describe, it, expect, test, vi, beforeEach } from "vitest";
+import { CopilotKitIntelligence, PlatformRequestError } from "../client";
+import {
+  findForbiddenPublicKeyPaths,
+  READY_RUNTIME_ENTITLEMENTS,
+  RUNTIME_ENTITLEMENT_CONTRACT_CASES,
+  UNAVAILABLE_RUNTIME_ENTITLEMENTS,
+} from "../../__tests__/runtime-entitlement-test-utils";
 
 const fetchMock = vi.fn();
-globalThis.fetch = fetchMock as unknown as typeof fetch;
+vi.stubGlobal("fetch", fetchMock);
 const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
+/** Build a real JSON response for the shared platform fetch mock. */
 function jsonResponse(body: unknown, status = 200) {
-  return Promise.resolve({
-    ok: status >= 200 && status < 300,
-    status,
-    statusText: status === 200 ? "OK" : "Error",
-    json: () => Promise.resolve(body),
-    text: () => Promise.resolve(JSON.stringify(body)),
-  } as Response);
+  return Promise.resolve(
+    new Response(JSON.stringify(body), {
+      status,
+      statusText: status === 200 ? "OK" : "Error",
+      headers: { "content-type": "application/json" },
+    }),
+  );
 }
 
-function emptyResponse(status = 204) {
-  return Promise.resolve({
-    ok: status >= 200 && status < 300,
-    status,
-    statusText: "No Content",
-    json: () => Promise.resolve(null),
-    text: () => Promise.resolve(""),
-  } as Response);
+/** Build a real text response for response-parser failure coverage. */
+function textResponse(body: string, status = 200) {
+  return Promise.resolve(
+    new Response(body, {
+      status,
+      statusText: status === 200 ? "OK" : "Error",
+      headers: { "content-type": "text/plain" },
+    }),
+  );
 }
+
+/** Build a real empty response for successful no-content client operations. */
+function emptyResponse(status = 204) {
+  return Promise.resolve(
+    new Response(null, {
+      status,
+      statusText: "No Content",
+    }),
+  );
+}
+
+/** Build an entitlement client with a trailing-slash URL and project API key. */
+function runtimeEntitlementsClient() {
+  fetchMock.mockReset();
+  return new CopilotKitIntelligence({
+    apiUrl: "https://api.example.com/",
+    wsUrl: "wss://ws.example.com/socket",
+    apiKey: "cpk-project-key",
+  });
+}
+
+/** Require one HTTP-success body to fail strict Runtime entitlement parsing. */
+async function expectRuntimeEntitlementValidationError(
+  response: Promise<Response>,
+): Promise<PlatformRequestError> {
+  const client = runtimeEntitlementsClient();
+  fetchMock.mockReturnValue(response);
+
+  const error: unknown = await client
+    .getRuntimeEntitlements()
+    .catch((caught: unknown) => caught);
+
+  expect(error).toBeInstanceOf(PlatformRequestError);
+  if (!(error instanceof PlatformRequestError)) {
+    throw new Error("Expected a typed Runtime entitlement validation error");
+  }
+  expect({ name: error.name, status: error.status }).toEqual({
+    name: "PlatformRequestError",
+    status: 502,
+  });
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+
+  return error;
+}
+
+test("getRuntimeEntitlements requests the exact App API endpoint with the project key", async () => {
+  const client = runtimeEntitlementsClient();
+  fetchMock.mockReturnValue(jsonResponse(READY_RUNTIME_ENTITLEMENTS));
+
+  const result = await client.getRuntimeEntitlements();
+
+  expect(result).toEqual(READY_RUNTIME_ENTITLEMENTS);
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  expect(fetchMock).toHaveBeenCalledWith(
+    "https://api.example.com/api/entitlements/runtime",
+    expect.objectContaining({
+      method: "GET",
+      headers: expect.objectContaining({
+        Authorization: "Bearer cpk-project-key",
+      }),
+    }),
+  );
+});
+
+test.each(RUNTIME_ENTITLEMENT_CONTRACT_CASES)(
+  "getRuntimeEntitlements preserves the exact $label response union shape",
+  async ({ response, topLevelKeys, detailKeys }) => {
+    const client = runtimeEntitlementsClient();
+    fetchMock.mockReturnValue(jsonResponse(response));
+
+    const result = await client.getRuntimeEntitlements();
+
+    expect(result).toEqual(response);
+    expect(Object.keys(result).sort()).toEqual([...topLevelKeys].sort());
+    if (result.entitlement !== undefined) {
+      expect(Object.keys(result.entitlement).sort()).toEqual(
+        [...detailKeys].sort(),
+      );
+    }
+    if (result.error !== undefined) {
+      expect(Object.keys(result.error).sort()).toEqual([...detailKeys].sort());
+    }
+    expect(findForbiddenPublicKeyPaths(result)).toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  },
+);
+
+test("recursive forbidden-key control detects identity and credential leaks", () => {
+  const leakedProjection = {
+    organizationId: "org-leaked",
+    entitlement: {
+      nested: [{ telemetry_id: "telemetry-leaked" }],
+      licenseToken: "license-leaked",
+    },
+  };
+
+  expect(findForbiddenPublicKeyPaths(leakedProjection)).toEqual([
+    "$.organizationId",
+    "$.entitlement.nested[0].telemetry_id",
+    "$.entitlement.licenseToken",
+  ]);
+});
+
+test("getRuntimeEntitlements aborts a bounded request with a typed timeout error", async () => {
+  vi.useFakeTimers();
+  try {
+    const privateAbortDetail = "private-upstream-timeout-detail";
+    const client = runtimeEntitlementsClient();
+    fetchMock.mockImplementation(
+      (_input: RequestInfo | URL, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => {
+            reject(new DOMException(privateAbortDetail, "AbortError"));
+          });
+        }),
+    );
+
+    const request = client.getRuntimeEntitlements();
+    const capturedError = request.catch((error: unknown) => error);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const signal = fetchMock.mock.calls[0][1].signal;
+    expect(signal).toBeInstanceOf(AbortSignal);
+    expect(signal.aborted).toBe(false);
+    expect(vi.getTimerCount()).toBeGreaterThan(0);
+
+    await vi.advanceTimersToNextTimerAsync();
+
+    expect(signal.aborted).toBe(true);
+    const error = await capturedError;
+    expect(error).toBeInstanceOf(PlatformRequestError);
+    if (!(error instanceof PlatformRequestError)) {
+      throw new Error("Expected a typed Runtime entitlement timeout error");
+    }
+    expect(error.status).toBe(504);
+    expect(error.message).not.toContain(privateAbortDetail);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+const UNKNOWN_FIELD_PRIVATE_VALUE = "private-runtime-entitlement-value";
+
+test.each([
+  {
+    label: "top-level response",
+    response: {
+      ...READY_RUNTIME_ENTITLEMENTS,
+      unexpected: UNKNOWN_FIELD_PRIVATE_VALUE,
+    },
+  },
+  {
+    label: "ready entitlement detail",
+    response: {
+      ...READY_RUNTIME_ENTITLEMENTS,
+      entitlement: {
+        ...READY_RUNTIME_ENTITLEMENTS.entitlement,
+        unexpected: UNKNOWN_FIELD_PRIVATE_VALUE,
+      },
+    },
+  },
+  {
+    label: "error detail",
+    response: {
+      ...UNAVAILABLE_RUNTIME_ENTITLEMENTS,
+      error: {
+        ...UNAVAILABLE_RUNTIME_ENTITLEMENTS.error,
+        unexpected: UNKNOWN_FIELD_PRIVATE_VALUE,
+      },
+    },
+  },
+])(
+  "getRuntimeEntitlements rejects a generic unknown property in the $label without leaking its value",
+  async ({ response }) => {
+    const error = await expectRuntimeEntitlementValidationError(
+      jsonResponse(response),
+    );
+
+    expect(error.message).not.toContain(UNKNOWN_FIELD_PRIVATE_VALUE);
+  },
+);
+
+const BRANCH_COHERENCE_PRIVATE_VALUE =
+  "private-runtime-entitlement-branch-value";
+const ERROR_RUNTIME_ENTITLEMENT_STATUSES = [
+  "degraded",
+  "misconfigured",
+  "unavailable",
+] as const;
+const PRIVATE_READY_ENTITLEMENT = {
+  ...READY_RUNTIME_ENTITLEMENTS.entitlement,
+  planCode: BRANCH_COHERENCE_PRIVATE_VALUE,
+} as const;
+const PRIVATE_RUNTIME_ENTITLEMENT_ERROR = {
+  ...UNAVAILABLE_RUNTIME_ENTITLEMENTS.error,
+  message: BRANCH_COHERENCE_PRIVATE_VALUE,
+} as const;
+
+interface InvalidRuntimeEntitlementBranchCase {
+  readonly label: string;
+  readonly response: {
+    readonly status:
+      | "ready"
+      | (typeof ERROR_RUNTIME_ENTITLEMENT_STATUSES)[number];
+    readonly entitlement?: typeof PRIVATE_READY_ENTITLEMENT;
+    readonly error?: typeof PRIVATE_RUNTIME_ENTITLEMENT_ERROR;
+  };
+}
+
+const INVALID_RUNTIME_ENTITLEMENT_BRANCH_CASES = [
+  {
+    label: "ready without entitlement",
+    response: { status: "ready" },
+  },
+  {
+    label: "ready with only an error branch",
+    response: { status: "ready", error: PRIVATE_RUNTIME_ENTITLEMENT_ERROR },
+  },
+  {
+    label: "ready with both branches",
+    response: {
+      status: "ready",
+      entitlement: PRIVATE_READY_ENTITLEMENT,
+      error: PRIVATE_RUNTIME_ENTITLEMENT_ERROR,
+    },
+  },
+  ...ERROR_RUNTIME_ENTITLEMENT_STATUSES.flatMap(
+    (status): readonly InvalidRuntimeEntitlementBranchCase[] => [
+      {
+        label: `${status} without error`,
+        response: { status },
+      },
+      {
+        label: `${status} with only an entitlement branch`,
+        response: { status, entitlement: PRIVATE_READY_ENTITLEMENT },
+      },
+      {
+        label: `${status} with both branches`,
+        response: {
+          status,
+          entitlement: PRIVATE_READY_ENTITLEMENT,
+          error: PRIVATE_RUNTIME_ENTITLEMENT_ERROR,
+        },
+      },
+    ],
+  ),
+] as const satisfies readonly InvalidRuntimeEntitlementBranchCase[];
+
+test.each(INVALID_RUNTIME_ENTITLEMENT_BRANCH_CASES)(
+  "getRuntimeEntitlements rejects branch-incoherent $label without leaking values",
+  async ({ response }) => {
+    const error = await expectRuntimeEntitlementValidationError(
+      jsonResponse(response),
+    );
+
+    expect(error.message).not.toContain(BRANCH_COHERENCE_PRIVATE_VALUE);
+  },
+);
+
+test.each([
+  ["non-JSON", () => textResponse("not json")],
+  [
+    "off-contract",
+    () =>
+      jsonResponse({
+        ...READY_RUNTIME_ENTITLEMENTS,
+        entitlement: {
+          ...READY_RUNTIME_ENTITLEMENTS.entitlement,
+          active: "yes",
+        },
+      }),
+  ],
+  [
+    "unknown top-level organizationId",
+    () =>
+      jsonResponse({
+        ...READY_RUNTIME_ENTITLEMENTS,
+        organizationId: "org-forbidden",
+      }),
+  ],
+  [
+    "unknown top-level telemetryId",
+    () =>
+      jsonResponse({
+        ...READY_RUNTIME_ENTITLEMENTS,
+        telemetryId: "telemetry-forbidden",
+      }),
+  ],
+  [
+    "unknown top-level licenseToken",
+    () =>
+      jsonResponse({
+        ...READY_RUNTIME_ENTITLEMENTS,
+        licenseToken: "license-forbidden",
+      }),
+  ],
+  [
+    "unknown nested organizationId",
+    () =>
+      jsonResponse({
+        ...READY_RUNTIME_ENTITLEMENTS,
+        entitlement: {
+          ...READY_RUNTIME_ENTITLEMENTS.entitlement,
+          organizationId: "org-forbidden",
+        },
+      }),
+  ],
+  [
+    "unknown nested telemetryId",
+    () =>
+      jsonResponse({
+        ...READY_RUNTIME_ENTITLEMENTS,
+        entitlement: {
+          ...READY_RUNTIME_ENTITLEMENTS.entitlement,
+          telemetryId: "telemetry-forbidden",
+        },
+      }),
+  ],
+  [
+    "unknown nested licenseToken",
+    () =>
+      jsonResponse({
+        ...READY_RUNTIME_ENTITLEMENTS,
+        entitlement: {
+          ...READY_RUNTIME_ENTITLEMENTS.entitlement,
+          licenseToken: "license-forbidden",
+        },
+      }),
+  ],
+])(
+  "getRuntimeEntitlements rejects %s successful body with a typed validation error",
+  async (_label, response) => {
+    await expectRuntimeEntitlementValidationError(response());
+  },
+);
+
+test.each([300, 401, 503, 599])(
+  "getRuntimeEntitlements rejects non-OK status %i after disposing without reading or leaking its body",
+  async (status) => {
+    consoleErrorSpy.mockClear();
+    const client = runtimeEntitlementsClient();
+    const privateUpstreamDetail = `private-upstream-detail-${status}`;
+    const upstreamResponse = new Response(
+      JSON.stringify({ error: privateUpstreamDetail }),
+      { status },
+    );
+    fetchMock.mockResolvedValue(upstreamResponse);
+
+    const error: unknown = await client
+      .getRuntimeEntitlements()
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(PlatformRequestError);
+    if (!(error instanceof PlatformRequestError)) {
+      throw new Error("Expected a typed Runtime entitlement status error");
+    }
+    expect(error.status).toBe(status);
+    expect(error.message).toBe(
+      `Runtime entitlement request failed with status ${status}`,
+    );
+    expect(error.message).not.toContain(privateUpstreamDetail);
+    expect(upstreamResponse.bodyUsed).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(consoleErrorSpy.mock.calls)).not.toContain(
+      privateUpstreamDetail,
+    );
+  },
+);
+
+test("getRuntimeEntitlements bounds stalled non-OK response disposal without leaking its body", async () => {
+  vi.useFakeTimers();
+  try {
+    consoleErrorSpy.mockClear();
+    const privateUpstreamDetail = "private-stalled-error-body-detail";
+    let requestSignal: AbortSignal | null | undefined;
+    let disposalStarted = false;
+    const upstreamResponse = new Response(
+      new ReadableStream<Uint8Array>({
+        cancel() {
+          disposalStarted = true;
+          return new Promise<void>((_resolve, reject) => {
+            /** Reject stalled disposal when the request deadline aborts. */
+            const rejectOnAbort = () => {
+              reject(new DOMException(privateUpstreamDetail, "AbortError"));
+            };
+            if (requestSignal?.aborted === true) {
+              rejectOnAbort();
+            } else {
+              requestSignal?.addEventListener("abort", rejectOnAbort, {
+                once: true,
+              });
+            }
+          });
+        },
+      }),
+      { status: 503 },
+    );
+    const client = runtimeEntitlementsClient();
+    fetchMock.mockImplementation(
+      (_input: RequestInfo | URL, init?: RequestInit) => {
+        requestSignal = init?.signal;
+        return Promise.resolve(upstreamResponse);
+      },
+    );
+
+    const request = client.getRuntimeEntitlements();
+    const capturedError = request.catch((error: unknown) => error);
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(disposalStarted).toBe(true);
+    expect(requestSignal?.aborted).toBe(false);
+
+    await vi.advanceTimersToNextTimerAsync();
+
+    const error = await capturedError;
+    expect(error).toBeInstanceOf(PlatformRequestError);
+    if (!(error instanceof PlatformRequestError)) {
+      throw new Error("Expected a typed Runtime entitlement timeout error");
+    }
+    expect(error.status).toBe(504);
+    expect(error.message).toBe("Runtime entitlement request timed out");
+    expect(error.message).not.toContain(privateUpstreamDetail);
+    expect(upstreamResponse.bodyUsed).toBe(true);
+    expect(requestSignal?.aborted).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(consoleErrorSpy.mock.calls)).not.toContain(
+      privateUpstreamDetail,
+    );
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+/*
+ * Existing client coverage follows. These tests predate the repository's flat
+ * test convention; new Runtime entitlement coverage above remains flat.
+ */
 
 describe("CopilotKitIntelligence", () => {
   let client: CopilotKitIntelligence;

@@ -2,7 +2,11 @@ import { Analytics } from "@segment/analytics-node";
 import type { AnalyticsEvents } from "./events";
 import { flattenObject } from "./utils";
 import { v4 as uuidv4 } from "uuid";
-import { lambdaClient, parseAndWarnTelemetryId } from "./lambda-client";
+import {
+  firstNonBlankTelemetryId,
+  lambdaClient,
+  parseAndWarnTelemetryId,
+} from "./lambda-client";
 
 /**
  * Checks if telemetry is disabled via environment variables.
@@ -30,11 +34,13 @@ export class TelemetryClient {
   // client decodes its payload to extract telemetry_id. Customer API
   // keys are NOT used here — they flow only into Segment.
   private licenseToken: string | null = null;
-  // Parsed telemetry_id from the license-token JWT payload. Cached at
-  // setLicenseToken time so `capture()` can branch on identified vs
-  // anonymous without re-parsing per event. Null when the token is
-  // absent or yielded no telemetry_id.
+  // Standalone analytics identity. This stays separate from the effective
+  // identity so legacy callers continue sending only their license token to
+  // the Lambda transport.
   private telemetryId: string | null = null;
+  // Effective standalone or license-derived identity used only for sampling.
+  // Null means the caller remains anonymous and is subject to sampleRate.
+  private resolvedTelemetryId: string | null = null;
   packageName: string;
   packageVersion: string;
   private telemetryDisabled: boolean = false;
@@ -100,7 +106,7 @@ export class TelemetryClient {
     // Identified callers (license token with telemetry_id) always send —
     // the volume is bounded by paying-customer count and full fidelity
     // per identified customer is worth the marginal cost.
-    if (!this.telemetryId && !this.shouldSendEvent()) {
+    if (!this.resolvedTelemetryId && !this.shouldSendEvent()) {
       return;
     }
 
@@ -109,7 +115,7 @@ export class TelemetryClient {
     // (sampleWeight = 1 / effectiveRate) is correct for both populations;
     // a single global sampleWeight would overweight identified-customer
     // counts by 1/sampleRate.
-    const effectiveSampleRate = this.telemetryId ? 1 : this.sampleRate;
+    const effectiveSampleRate = this.resolvedTelemetryId ? 1 : this.sampleRate;
     const samplingMeta = {
       sampleRate: effectiveSampleRate,
       sampleRateAdjustmentFactor: 1 - effectiveSampleRate,
@@ -138,6 +144,7 @@ export class TelemetryClient {
       globalProperties: { ...this.globalProperties, ...samplingMeta },
       packageName: this.packageName,
       packageVersion: this.packageVersion,
+      telemetryId: this.telemetryId ?? undefined,
       licenseToken: this.licenseToken ?? undefined,
     });
 
@@ -169,12 +176,41 @@ export class TelemetryClient {
     });
   }
 
-  // The license token isn't added to globalProperties — we don't want
-  // the JWT itself shipped on every event. Only its decoded telemetry_id
-  // travels, in the X-CopilotKit-Telemetry-Id header set by lambda-client.
+  /**
+   * Atomically configure standalone, legacy, or anonymous telemetry identity.
+   *
+   * A standalone id takes precedence over a supplied legacy license token.
+   * Neither value is added to event properties; the resolved id travels only
+   * through the Lambda transport's telemetry header.
+   *
+   * @param identity - One standalone id, one legacy license token, or neither.
+   */
+  setTelemetryIdentity(identity: {
+    telemetryId?: string;
+    licenseToken?: string;
+  }): void {
+    const telemetryId = firstNonBlankTelemetryId(identity.telemetryId);
+    if (telemetryId !== undefined) {
+      this.telemetryId = telemetryId;
+      this.licenseToken = null;
+      this.resolvedTelemetryId = telemetryId;
+      return;
+    }
+
+    this.telemetryId = null;
+    this.licenseToken = identity.licenseToken ?? null;
+    this.resolvedTelemetryId = identity.licenseToken
+      ? parseAndWarnTelemetryId(identity.licenseToken)
+      : null;
+  }
+
+  /**
+   * Configure legacy license-derived telemetry identity.
+   *
+   * @param licenseToken - License token whose telemetry claim identifies sends.
+   */
   setLicenseToken(licenseToken: string) {
-    this.licenseToken = licenseToken;
-    this.telemetryId = parseAndWarnTelemetryId(licenseToken);
+    this.setTelemetryIdentity({ licenseToken });
   }
 
   private setSampleRate(sampleRate: number | undefined) {

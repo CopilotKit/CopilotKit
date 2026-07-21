@@ -1,6 +1,43 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
 import { send } from "./lambda-client";
 
+const EXPECTED_TELEMETRY_SINK_URL =
+  process.env.COPILOTKIT_TELEMETRY_URL ??
+  "https://telemetry.copilotkit.ai/ingest";
+const TELEMETRY_ID_HEADER = "x-copilotkit-telemetry-id";
+
+/**
+ * Captures the telemetry request without replacing fetch with an untyped mock.
+ */
+function setupCapturedRequest() {
+  const fetchMock = vi
+    .spyOn(globalThis, "fetch")
+    .mockResolvedValue(new Response("", { status: 202 }));
+
+  const readRequest = () => {
+    const call = fetchMock.mock.calls.at(-1);
+    if (!call) {
+      throw new Error("Expected telemetry send to call fetch");
+    }
+
+    const [input, init] = call;
+    if (typeof init?.body !== "string") {
+      throw new Error("Expected telemetry request body to be a string");
+    }
+
+    return {
+      bodyText: init.body,
+      headers: Object.fromEntries(new Headers(init.headers).entries()),
+      url: String(input),
+    };
+  };
+
+  return {
+    readRequest,
+    teardown: () => fetchMock.mockRestore(),
+  };
+}
+
 describe("lambda-client send()", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
   let originalFetch: typeof fetch;
@@ -108,4 +145,125 @@ describe("lambda-client send()", () => {
       send({ event: "oss.runtime.instance_created" }),
     ).resolves.toBeUndefined();
   });
+});
+
+const lambdaIdentityTransportCases = [
+  {
+    label: "standalone identity over a legacy license identity",
+    explicitTelemetryId: "explicit-telemetry-id",
+    licenseTelemetryId: "license-telemetry-id",
+    expectedTelemetryId: "explicit-telemetry-id",
+  },
+  {
+    label: "legacy license identity without a standalone identity",
+    explicitTelemetryId: undefined,
+    licenseTelemetryId: "license-telemetry-id",
+    expectedTelemetryId: "license-telemetry-id",
+  },
+  {
+    label: "legacy license identity with an empty standalone identity",
+    explicitTelemetryId: "",
+    licenseTelemetryId: "license-telemetry-id",
+    expectedTelemetryId: "license-telemetry-id",
+  },
+  {
+    label: "legacy license identity with a whitespace-only standalone identity",
+    explicitTelemetryId: " \t ",
+    licenseTelemetryId: "license-telemetry-id",
+    expectedTelemetryId: "license-telemetry-id",
+  },
+] as const;
+
+test.each(lambdaIdentityTransportCases)(
+  "sends $label only through the telemetry identity header",
+  async ({ explicitTelemetryId, licenseTelemetryId, expectedTelemetryId }) => {
+    const payload = Buffer.from(
+      JSON.stringify({ telemetry_id: licenseTelemetryId }),
+    ).toString("base64url");
+    const licenseToken = `header.${payload}.sig`;
+    const { readRequest, teardown } = setupCapturedRequest();
+
+    try {
+      await send({
+        event: "oss.runtime.instance_created",
+        properties: { requestType: "run" },
+        globalProperties: { sampleRate: 0.25 },
+        packageName: "@copilotkit/runtime",
+        packageVersion: "1.2.3",
+        licenseToken,
+        telemetryId: explicitTelemetryId,
+      });
+
+      const { bodyText, headers, url } = readRequest();
+      expect(url).toBe(EXPECTED_TELEMETRY_SINK_URL);
+      expect(headers).toEqual({
+        "content-type": "application/json",
+        [TELEMETRY_ID_HEADER]: expectedTelemetryId,
+        "user-agent": "CopilotKit-Runtime/1.2.3 (@copilotkit/runtime)",
+      });
+      expect(JSON.parse(bodyText)).toEqual({
+        event: "oss.runtime.instance_created",
+        properties: { requestType: "run" },
+        global_properties: { sampleRate: 0.25 },
+        package: {
+          name: "@copilotkit/runtime",
+          version: "1.2.3",
+        },
+        ts: expect.any(Number),
+      });
+
+      const nonIdentityHeaders = Object.entries(headers).filter(
+        ([name]) => name !== TELEMETRY_ID_HEADER,
+      );
+      const nonIdentityHeaderText = JSON.stringify(nonIdentityHeaders);
+      for (const identity of [explicitTelemetryId, licenseTelemetryId]) {
+        if (identity === undefined || identity.trim().length === 0) continue;
+        expect(url).not.toContain(identity);
+        expect(bodyText).not.toContain(identity);
+        expect(nonIdentityHeaderText).not.toContain(identity);
+      }
+    } finally {
+      teardown();
+    }
+  },
+);
+
+test.each(["", " \t "])(
+  "blank standalone identity %j without a legacy identity sends no identity header",
+  async (blankTelemetryId) => {
+    const { readRequest, teardown } = setupCapturedRequest();
+
+    try {
+      await send({
+        event: "oss.runtime.instance_created",
+        telemetryId: blankTelemetryId,
+      });
+
+      expect(readRequest().headers[TELEMETRY_ID_HEADER]).toBeUndefined();
+    } finally {
+      teardown();
+    }
+  },
+);
+
+test("does not treat COPILOTKIT_TELEMETRY_ID as an identity alias", async () => {
+  const originalTelemetryId = process.env.COPILOTKIT_TELEMETRY_ID;
+  const envTelemetryId = "environment-telemetry-id";
+  process.env.COPILOTKIT_TELEMETRY_ID = envTelemetryId;
+  const { readRequest, teardown } = setupCapturedRequest();
+
+  try {
+    await send({ event: "oss.runtime.instance_created" });
+
+    const { bodyText, headers } = readRequest();
+    expect(headers[TELEMETRY_ID_HEADER]).toBeUndefined();
+    expect(bodyText).not.toContain(envTelemetryId);
+  } finally {
+    if (originalTelemetryId === undefined) {
+      delete process.env.COPILOTKIT_TELEMETRY_ID;
+    } else {
+      process.env.COPILOTKIT_TELEMETRY_ID = originalTelemetryId;
+    }
+    teardown();
+  }
 });
