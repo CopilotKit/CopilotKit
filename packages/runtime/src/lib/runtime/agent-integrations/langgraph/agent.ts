@@ -1,20 +1,26 @@
 import type { Observable } from "rxjs";
 import { map } from "rxjs";
 import { LangGraphEventTypes } from "../../../../agents/langgraph/events";
-import type { BaseEvent, RawEvent } from "@ag-ui/core";
+import type { RawEvent } from "@ag-ui/core";
+import {
+  LangGraphAgent as RuntimeLangGraphAgent,
+  LangGraphHttpAgent as RuntimeLangGraphHttpAgent,
+} from "@ag-ui/langgraph";
 import type {
+  Message as LangGraphMessage,
+  ThreadState,
+} from "@langchain/langgraph-sdk";
+import type {
+  AGUILangGraphAgentConstructor,
+  LangGraphAgentConfig,
+  LangGraphHttpAgentConstructor,
   ProcessedEvents,
   SchemaKeys,
+  State,
   StateEnrichment,
-} from "@ag-ui/langgraph";
-import {
-  LangGraphAgent as AGUILangGraphAgent,
-  LangGraphHttpAgent,
-  type LangGraphAgentConfig,
-  type State,
-} from "@ag-ui/langgraph";
-import type { Message as LangGraphMessage } from "@langchain/langgraph-sdk/dist/types.messages";
-import type { ThreadState } from "@langchain/langgraph-sdk";
+} from "./ag-ui-langgraph-types";
+
+const AGUILangGraphAgent: AGUILangGraphAgentConstructor = RuntimeLangGraphAgent;
 
 interface CopilotKitStateEnrichment {
   copilotkit: {
@@ -156,8 +162,7 @@ export class LangGraphAgent extends AGUILangGraphAgent {
     return true;
   }
 
-  // @ts-ignore
-  run(input: RunAgentInput): Observable<BaseEvent> {
+  run(input: RunAgentInput): Observable<ProcessedEvents> {
     // @ag-ui/langgraph's message converter throws "message role is not
     // supported." on any role it doesn't enumerate (user|assistant|system|tool).
     // Reasoning-stream agents (e.g. OpenAI Responses API with reasoning summaries)
@@ -260,4 +265,6 @@ export class LangGraphAgent extends AGUILangGraphAgent {
   }
 }
 
+const LangGraphHttpAgent: LangGraphHttpAgentConstructor =
+  RuntimeLangGraphHttpAgent;
 export { LangGraphHttpAgent };

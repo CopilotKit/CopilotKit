@@ -1,4 +1,28 @@
+/// <reference types="node" />
 import { defineConfig } from "tsdown";
+import fs from "node:fs";
+import path from "node:path";
+
+const stripRuntimeBannersFromDeclarations = (dir: string) => {
+  const runtimeBanner =
+    /^[ \t]*(?:require\(["']reflect-metadata["']\)|import\s+["']reflect-metadata["']);?[ \t]*\r?\n/gm;
+  const walk = (current: string) => {
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        walk(full);
+      } else if (/\.d\.[cm]?ts$/.test(entry.name)) {
+        const declaration = fs.readFileSync(full, "utf8");
+        const withoutRuntimeBanner = declaration.replace(runtimeBanner, "");
+        if (withoutRuntimeBanner !== declaration) {
+          fs.writeFileSync(full, withoutRuntimeBanner);
+        }
+      }
+    }
+  };
+
+  if (fs.existsSync(dir)) walk(dir);
+};
 
 export default defineConfig({
   entry: [
@@ -15,6 +39,10 @@ export default defineConfig({
   target: "es2022",
   outDir: "dist",
   unbundle: true,
+  hooks: {
+    "build:done": () =>
+      stripRuntimeBannersFromDeclarations(path.resolve("dist")),
+  },
   banner: ({ format, fileName }) => {
     // tsdown/rolldown reorders bare side-effect imports to the end of the entry chunk,
     // breaking type-graphql which needs reflect-metadata at load time.

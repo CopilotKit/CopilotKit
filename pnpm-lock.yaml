@@ -3277,8 +3277,8 @@ importers:
         specifier: '>=0.1.0'
         version: 0.1.8(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(encoding@0.1.13)(zod@3.25.76)
       '@langchain/langgraph-sdk':
-        specifier: '>=0.1.2'
-        version: 2.0.0(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+        specifier: 1.8.9
+        version: 1.8.9(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))
       '@langchain/openai':
         specifier: '>=0.4.2'
         version: 1.2.9(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(ws@8.19.0)
