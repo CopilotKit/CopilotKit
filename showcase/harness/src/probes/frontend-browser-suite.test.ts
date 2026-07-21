@@ -65,6 +65,21 @@ describe("Angular reusable UI browser suite contract", () => {
             responsive: "passed",
             securityHeaders: "passed",
           },
+          diagnostics: {
+            featurePage: true,
+            unavailablePage: false,
+            copilotChat: false,
+            textareaAttached: false,
+            textareaVisible: false,
+            popupToggle: true,
+            dialogAttached: true,
+            dialogVisible: true,
+            sidebarToggle: false,
+            sidebarAttached: false,
+            sidebarVisible: false,
+            pageErrorCount: 0,
+            consoleErrorCount: 0,
+          },
         },
       ],
     });
@@ -72,6 +87,7 @@ describe("Angular reusable UI browser suite contract", () => {
     expect(artifact.schemaVersion).toBe(1);
     expect(artifact.project.id).toBe("chromium-desktop");
     expect(artifact.summary).toEqual({ total: 1, passed: 0, failed: 1 });
+    expect(artifact.states[0]?.diagnostics.dialogVisible).toBe(true);
     expect(JSON.stringify(artifact)).not.toMatch(/html|target|message|prompt/i);
   });
 });

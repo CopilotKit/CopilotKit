@@ -93,7 +93,24 @@ export interface FrontendBrowserStateResult {
     responsive: AssertionStatus;
     securityHeaders: AssertionStatus;
   };
+  diagnostics: FrontendSurfaceDiagnostics;
   failureStage?: string;
+}
+
+export interface FrontendSurfaceDiagnostics {
+  featurePage: boolean;
+  unavailablePage: boolean;
+  copilotChat: boolean;
+  textareaAttached: boolean;
+  textareaVisible: boolean;
+  popupToggle: boolean;
+  dialogAttached: boolean;
+  dialogVisible: boolean;
+  sidebarToggle: boolean;
+  sidebarAttached: boolean;
+  sidebarVisible: boolean;
+  pageErrorCount: number;
+  consoleErrorCount: number;
 }
 
 export interface FrontendBrowserArtifact {
@@ -194,6 +211,31 @@ async function assertFocusWithin(page: Page, selector: string): Promise<void> {
   if (!within) throw new Error("focus is outside the modal surface");
 }
 
+async function diagnoseSurface(
+  page: Page,
+  errorCounts: { page: number; console: number },
+): Promise<FrontendSurfaceDiagnostics> {
+  const attached = async (selector: string): Promise<boolean> =>
+    (await page.locator(selector).count()) > 0;
+  const visible = async (selector: string): Promise<boolean> =>
+    page.locator(selector).first().isVisible();
+  return {
+    featurePage: await attached(".feature-page"),
+    unavailablePage: await attached("showcase-unavailable-feature"),
+    copilotChat: await attached("copilot-chat"),
+    textareaAttached: await attached("textarea, [role='textbox']"),
+    textareaVisible: await visible("textarea, [role='textbox']"),
+    popupToggle: await attached("[data-copilot-popup-toggle]"),
+    dialogAttached: await attached('[role="dialog"]'),
+    dialogVisible: await visible('[role="dialog"]'),
+    sidebarToggle: await attached("[data-copilot-sidebar-toggle]"),
+    sidebarAttached: await attached("[data-copilot-sidebar]"),
+    sidebarVisible: await visible("[data-copilot-sidebar]"),
+    pageErrorCount: errorCounts.page,
+    consoleErrorCount: errorCounts.console,
+  };
+}
+
 async function assertPopup(
   page: Page,
   project: FrontendBrowserProject,
@@ -280,6 +322,13 @@ async function runState(
   state: (typeof FRONTEND_BROWSER_STATES)[number],
 ): Promise<FrontendBrowserStateResult> {
   const startedAt = Date.now();
+  const errorCounts = { page: 0, console: 0 };
+  page.on("pageerror", () => {
+    errorCounts.page += 1;
+  });
+  page.on("console", (entry) => {
+    if (entry.type() === "error") errorCounts.console += 1;
+  });
   const assertions: FrontendBrowserStateResult["assertions"] = {
     keyboard: "not-applicable",
     focus: "not-applicable",
@@ -328,6 +377,7 @@ async function runState(
       durationMs: Date.now() - startedAt,
       violations,
       assertions,
+      diagnostics: await diagnoseSurface(page, errorCounts),
       ...(violations.length > 0 ? { failureStage } : {}),
     };
   } catch {
@@ -337,6 +387,7 @@ async function runState(
       durationMs: Date.now() - startedAt,
       violations: [],
       assertions,
+      diagnostics: await diagnoseSurface(page, errorCounts),
       failureStage,
     };
   }
