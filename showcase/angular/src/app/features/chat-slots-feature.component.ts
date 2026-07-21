@@ -10,6 +10,7 @@ import { CopilotChat } from "@copilotkit/angular";
 
 import { agentIdForFeature } from "../feature-agent";
 import { FeatureHeaderComponent } from "./feature-header.component";
+import { renderDynamicComponent } from "./render-dynamic-component";
 
 interface SlotMessage {
   id: string;
@@ -54,5 +55,6 @@ export class ChatSlotsFeatureComponent implements AfterViewInit {
     const chat = this.chatHost.createComponent(CopilotChat);
     chat.setInput("agentId", agentIdForFeature("chat-slots"));
     chat.setInput("assistantMessageComponent", CustomAssistantMessageComponent);
+    renderDynamicComponent(chat);
   }
 }

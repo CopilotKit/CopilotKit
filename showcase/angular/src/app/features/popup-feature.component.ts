@@ -8,6 +8,7 @@ import {
 import { CopilotPopup } from "@copilotkit/angular";
 
 import { FeatureHeaderComponent } from "./feature-header.component";
+import { renderDynamicComponent } from "./render-dynamic-component";
 import { ShowcaseChatHostComponent } from "./showcase-chat-host.component";
 
 @Component({
@@ -36,5 +37,6 @@ export class PopupFeatureComponent implements AfterViewInit {
   ngAfterViewInit(): void {
     const popup = this.popupHost().createComponent(CopilotPopup);
     popup.setInput("chatComponent", ShowcaseChatHostComponent);
+    renderDynamicComponent(popup);
   }
 }

@@ -8,6 +8,7 @@ import {
 import { CopilotSidebar } from "@copilotkit/angular";
 
 import { FeatureHeaderComponent } from "./feature-header.component";
+import { renderDynamicComponent } from "./render-dynamic-component";
 import { ShowcaseChatHostComponent } from "./showcase-chat-host.component";
 
 @Component({
@@ -36,5 +37,6 @@ export class SidebarFeatureComponent implements AfterViewInit {
   ngAfterViewInit(): void {
     const sidebar = this.sidebarHost().createComponent(CopilotSidebar);
     sidebar.setInput("chatComponent", ShowcaseChatHostComponent);
+    renderDynamicComponent(sidebar);
   }
 }

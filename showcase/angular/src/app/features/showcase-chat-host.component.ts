@@ -17,6 +17,7 @@ import {
 } from "@copilotkit/angular";
 
 import { agentIdForFeature, threadIdForFeature } from "../feature-agent";
+import { renderDynamicComponent } from "./render-dynamic-component";
 
 @Component({
   selector: "showcase-chat-host",
@@ -70,5 +71,6 @@ export class ShowcaseChatHostComponent implements AfterViewInit {
       this.messageViewChildrenComponent(),
     );
     chat.setInput("attachments", this.attachments());
+    renderDynamicComponent(chat);
   }
 }

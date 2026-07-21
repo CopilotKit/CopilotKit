@@ -11,6 +11,7 @@ import { ActivatedRoute } from "@angular/router";
 import { CopilotChat } from "@copilotkit/angular";
 
 import { agentIdForFeature } from "../../feature-agent";
+import { renderDynamicComponent } from "../render-dynamic-component";
 import { HashbrownAssistantMessage } from "./hashbrown-assistant-message.component";
 
 @Component({
@@ -45,5 +46,6 @@ export class HashbrownFeatureComponent implements AfterViewInit {
     const chat = this.chatHost().createComponent(CopilotChat);
     chat.setInput("agentId", agentIdForFeature("declarative-hashbrown"));
     chat.setInput("assistantMessageComponent", HashbrownAssistantMessage);
+    renderDynamicComponent(chat);
   }
 }
