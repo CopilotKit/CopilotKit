@@ -85,6 +85,11 @@ INTELLIGENCE_API_KEY=
 
 Run `copilotkit license` to provision a license. When `COPILOTKIT_LICENSE_TOKEN` is set, `server.ts` wires `CopilotKitIntelligence` (threads + memory); otherwise it falls back to an in-memory runner and the drawer stays locked.
 
+> **Notes for the Intelligence path:**
+>
+> - The managed-Intelligence path requires **Node.js ≥ 22** (the base UI + runtime run on Node 20+).
+> - `server.ts` ships a demo `identifyUser` stub returning `demo-user`. The Intelligence platform requires the identified user to actually exist, so thread persistence needs a **real, provisioned user id** — replace the stub with your auth-derived identity (the `copilotkit` CLI provisions one when it scaffolds a project). Leaving `demo-user` in place can cause thread operations to fail.
+
 ## 📚 Documentation
 
 - [ADK Documentation](https://google.github.io/adk-docs/) — Learn more about the ADK and its features

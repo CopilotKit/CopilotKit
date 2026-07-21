@@ -30,7 +30,7 @@ class ProverbsState(BaseModel):
 
 def set_proverbs(tool_context: ToolContext, new_proverbs: list[str]) -> Dict[str, str]:
     """
-    Set the list of provers using the provided new list.
+    Set the list of proverbs using the provided new list.
 
     Args:
         "new_proverbs": {
@@ -63,7 +63,7 @@ def on_before_agent(callback_context: CallbackContext):
     """
 
     if "proverbs" not in callback_context.state:
-        # Initialize with default recipe
+        # Initialize with an empty proverbs list
         default_proverbs = []
         callback_context.state["proverbs"] = default_proverbs
 
@@ -71,7 +71,7 @@ def on_before_agent(callback_context: CallbackContext):
 
 
 # --- Define the Callback Function ---
-#  modifying the agent's system prompt to incude the current state of the proverbs list
+#  modifying the agent's system prompt to include the current state of the proverbs list
 def before_model_modifier(
     callback_context: CallbackContext, llm_request: LlmRequest
 ) -> Optional[LlmResponse]:
@@ -94,7 +94,7 @@ def before_model_modifier(
         )
         prefix = f"""You are a helpful assistant for maintaining a list of proverbs.
         This is the current state of the list of proverbs: {proverbs_json}
-        When you modify the list of proverbs (wether to add, remove, or modify one or more proverbs), use the set_proverbs tool to update the list."""
+        When you modify the list of proverbs (whether to add, remove, or modify one or more proverbs), use the set_proverbs tool to update the list."""
         # Ensure system_instruction is Content and parts list exists
         if not isinstance(original_instruction, types.Content):
             # Handle case where it might be a string (though config expects Content)
@@ -147,11 +147,11 @@ proverbs_agent = LlmAgent(
         2. Always pass the COMPLETE LIST of proverbs to the set_proverbs tool. If the list had 5 proverbs and you removed one, you must pass the complete list of 4 remaining proverbs.
         3. You can use existing proverbs if one is relevant to the user's request, but you can also create new proverbs as required.
         4. Be creative and helpful in generating complete, practical proverbs
-        5. After using the tool, provide a brief summary of what you create, removed, or changed        7.
+        5. After using the tool, provide a brief summary of what you created, removed, or changed.
 
         Examples of when to use the set_proverbs tool:
         - "Add a proverb about soap" → Use tool with an array containing the existing list of proverbs with the new proverb about soap at the end.
-        - "Remove the first proverb" → Use tool with an array containing the all of the existing proverbs except the first one"
+        - "Remove the first proverb" → Use tool with an array containing all of the existing proverbs except the first one.
         - "Change any proverbs about cats to mention that they have 18 lives" → If no proverbs mention cats, do not use the tool. If one or more proverbs do mention cats, change them to mention cats having 18 lives, and use the tool with an array of all of the proverbs, including ones that were changed and ones that did not require changes.
 
         Do your best to ensure proverbs plausibly make sense.

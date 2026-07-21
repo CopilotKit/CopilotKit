@@ -1,3 +1,3 @@
 export interface AgentState {
-  proverbs: string[];
+  proverbs?: string[];
 }

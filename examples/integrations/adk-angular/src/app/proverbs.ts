@@ -99,13 +99,14 @@ export class Proverbs {
   );
 
   constructor() {
-    // Seed one proverb once, when the agent first reports empty/undefined state
-    // (mirrors the React page.tsx useEffect seed).
-    let seeded = false;
+    // Seed one proverb whenever the agent reports undefined proverbs — the
+    // initial thread and every fresh "+ New" thread (mirrors the React
+    // page.tsx effect keyed on the agent instance). Once seeded, `proverbs`
+    // is defined so the guard stops re-seeding within the thread; a thread the
+    // user emptied (`[]`) is left alone.
     effect(() => {
       const state = this.#store().state() as AgentState | undefined;
-      if (!seeded && state?.proverbs === undefined) {
-        seeded = true;
+      if (state?.proverbs === undefined) {
         this.#store().agent.setState({
           proverbs: [
             "CopilotKit may be new, but it's the best thing since sliced bread.",

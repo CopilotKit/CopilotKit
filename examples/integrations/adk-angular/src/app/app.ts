@@ -13,7 +13,14 @@ import { MainContent } from "./main-content";
   standalone: true,
   imports: [CopilotChat, CopilotThreadsDrawer, MainContent],
   template: `
-    <div class="layout">
+    <!--
+      Set the theme custom property on the layout ROOT so it cascades into both
+      the center panel and the chat column. The weather card is rendered inside
+      <copilot-chat> (a sibling of the center panel), so a variable scoped to the
+      center alone never reaches it — mirror React, where the themed <main> wraps
+      both the content and the chat.
+    -->
+    <div class="layout" [style.--copilot-kit-primary-color]="themeColor()">
       <!-- License-gated: locked "Upgrade" tease when unlicensed, threads when licensed. -->
       <copilot-threads-drawer [agentId]="AGENT_ID" class="drawer" />
       <app-main-content [themeColor]="themeColor()" class="center" />
@@ -51,13 +58,22 @@ import { MainContent } from "./main-content";
         flex: 1;
         min-height: 0;
       }
+      /*
+        Mobile: stack the center panel above the chat in a single column so the
+        assistant stays reachable (the drawer is desktop-only here — hiding the
+        whole chat would leave mobile users with no way to talk to the agent).
+      */
       @media (max-width: 900px) {
         .layout {
           grid-template-columns: minmax(0, 1fr);
+          grid-template-rows: auto minmax(0, 1fr);
         }
-        .drawer,
-        .chat {
+        .drawer {
           display: none;
+        }
+        .chat {
+          border-left: none;
+          border-top: 1px solid rgba(0, 0, 0, 0.08);
         }
       }
     `,
