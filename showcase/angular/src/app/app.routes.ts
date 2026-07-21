@@ -14,6 +14,23 @@ const supportedFeatures = Object.entries(support)
   .sort();
 
 const catalog = frontendCatalogData as BrowserCellCatalog;
+const hashbrownFeatures = new Set(["byoc-hashbrown", "declarative-hashbrown"]);
+
+/** Resolve a feature to its canonical lazy Angular implementation. */
+function loadFeatureComponent(feature: string) {
+  if (hashbrownFeatures.has(feature)) {
+    return () =>
+      import("./features/hashbrown/hashbrown-feature.component").then(
+        (module) => module.HashbrownFeatureComponent,
+      );
+  }
+
+  return () =>
+    import("./features/chat-feature.component").then(
+      (module) => module.ChatFeatureComponent,
+    );
+}
+
 const canMatchRunnableCell: CanMatchFn = (route, segments) => {
   const integration = segments[0]?.path ?? "";
   const feature = route.data?.["feature"];
@@ -29,10 +46,7 @@ export const routes: Routes = [
     title: `CopilotKit Angular — ${feature}`,
     data: { feature },
     canMatch: [canMatchRunnableCell],
-    loadComponent: () =>
-      import("./features/chat-feature.component").then(
-        (module) => module.ChatFeatureComponent,
-      ),
+    loadComponent: loadFeatureComponent(feature),
   })),
   {
     path: "**",

@@ -174,6 +174,9 @@ import { injectChatLabels } from "../../chat-config";
           [agentId]="agentId()"
           [messageView]="messageViewSlot()"
           [messageViewClass]="messageViewClass()"
+          [assistantMessageComponent]="assistantMessageComponent()"
+          [assistantMessageTemplate]="assistantMessageTemplate()"
+          [assistantMessageClass]="assistantMessageClass()"
           [scrollToBottomButton]="scrollToBottomButtonSlot()"
           [scrollToBottomButtonClass]="scrollToBottomButtonClass()"
           [showCursor]="showCursorSignal()"
@@ -222,6 +225,11 @@ export class CopilotChatView
   messageViewComponent = input<Type<any> | undefined>(undefined);
   messageViewTemplate = input<TemplateRef<any> | undefined>(undefined);
   messageViewClass = input<string | undefined>(undefined);
+
+  // AssistantMessage slot inputs
+  assistantMessageComponent = input<Type<any> | undefined>(undefined);
+  assistantMessageTemplate = input<TemplateRef<any> | undefined>(undefined);
+  assistantMessageClass = input<string | undefined>(undefined);
 
   // ScrollView slot inputs
   scrollViewComponent = input<Type<any> | undefined>(undefined);
@@ -362,6 +370,9 @@ export class CopilotChatView
     agentId: this.agentId(),
     messageView: this.messageViewSlot(),
     messageViewClass: this.messageViewClass(),
+    assistantMessageComponent: this.assistantMessageComponent(),
+    assistantMessageTemplate: this.assistantMessageTemplate(),
+    assistantMessageClass: this.assistantMessageClass(),
   }));
 
   // Removed scrollViewPropsComputed - no longer needed

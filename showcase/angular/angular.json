@@ -18,6 +18,10 @@
             "styles": ["@copilotkit/angular/styles.css", "src/styles.css"]
           },
           "configurations": {
+            "development": {
+              "optimization": false,
+              "sourceMap": true
+            },
             "production": {
               "optimization": true,
               "outputHashing": "all",
@@ -37,6 +41,15 @@
             }
           },
           "defaultConfiguration": "production"
+        },
+        "test": {
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "runner": "vitest",
+            "tsConfig": "tsconfig.spec.json",
+            "include": ["src/**/*.component.test.ts"],
+            "setupFiles": ["src/test-setup.ts"]
+          }
         }
       }
     }

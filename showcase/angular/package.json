@@ -9,7 +9,9 @@
     "build:browser": "pnpm run generate && ng build --stats-json && node scripts/check-performance-budget.mjs && node scripts/check-browser-artifact.mjs",
     "build:server": "pnpm run generate && tsc -p tsconfig.server.json",
     "start": "node dist/server/server/main.js",
-    "test": "vitest run",
+    "test": "pnpm run test:node && pnpm run test:angular",
+    "test:angular": "ng test --watch=false",
+    "test:node": "vitest run",
     "typecheck": "pnpm run generate && tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.server.json"
   },
   "dependencies": {
@@ -31,6 +33,7 @@
     "@angular/compiler": "21.2.18",
     "@angular/compiler-cli": "21.2.18",
     "@types/node": "^22.5.1",
+    "jsdom": "^24.0.0",
     "typescript": "5.9.3",
     "vitest": "^4.1.3"
   }

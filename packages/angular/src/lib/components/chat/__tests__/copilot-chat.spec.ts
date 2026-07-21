@@ -1,4 +1,9 @@
-import { provideZonelessChangeDetection } from "@angular/core";
+import {
+  ChangeDetectionStrategy,
+  Component,
+  input,
+  provideZonelessChangeDetection,
+} from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { test, expect } from "vitest";
 import { Observable } from "rxjs";
@@ -11,6 +16,17 @@ import {
   provideCopilotChatConfiguration,
   type CopilotChatConfiguration,
 } from "../../../chat-configuration";
+
+@Component({
+  selector: "test-assistant-message",
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <p data-testid="custom-assistant">{{ message().content }}</p>
+  `,
+})
+class TestAssistantMessage {
+  readonly message = input.required<{ content?: string }>();
+}
 
 /**
  * Minimal agent stub: `injectAgentStore` resolves it from the configured
@@ -291,4 +307,47 @@ test("a controlled config thread wins over the [threadId] input (input ignored)"
 
   expect(config.threadId()).toBe("cfg-thread");
   expect(agentThreadId()).toBe("cfg-thread");
+});
+
+test("forwards a custom assistant-message component through the prebuilt chat", async () => {
+  Object.defineProperty(HTMLElement.prototype, "scrollTo", {
+    configurable: true,
+    value: () => undefined,
+  });
+
+  const agent = new MockAgent("default");
+  TestBed.resetTestingModule();
+  TestBed.configureTestingModule({
+    imports: [CopilotChat],
+    providers: [
+      provideZonelessChangeDetection(),
+      provideCopilotKit({
+        licenseKey: "ck_pub_00000000000000000000000000000000",
+        agents: { default: agent },
+      }),
+      provideCopilotChatConfiguration(),
+    ],
+  });
+
+  const fixture = TestBed.createComponent(CopilotChat);
+  fixture.componentRef.setInput(
+    "assistantMessageComponent",
+    TestAssistantMessage,
+  );
+  fixture.detectChanges();
+  agent.setMessages([
+    {
+      id: "assistant-1",
+      role: "assistant",
+      content: "Rendered by the application",
+    },
+  ]);
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  fixture.detectChanges();
+
+  const customMessage = (
+    fixture.nativeElement as HTMLElement
+  ).querySelector<HTMLElement>('[data-testid="custom-assistant"]');
+
+  expect(customMessage?.textContent).toBe("Rendered by the application");
 });

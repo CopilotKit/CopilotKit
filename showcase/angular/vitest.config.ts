@@ -5,7 +5,7 @@ export default defineConfig({
     include: [
       "scripts/**/*.test.ts",
       "server/**/*.test.ts",
-      "src/**/*.test.ts",
+      "src/app/cell-context.test.ts",
     ],
   },
 });

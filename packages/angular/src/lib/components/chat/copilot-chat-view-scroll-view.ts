@@ -1,6 +1,8 @@
 import {
   Component,
   input,
+  TemplateRef,
+  Type,
   output,
   ViewChild,
   ElementRef,
@@ -62,6 +64,9 @@ export class CopilotChatViewScrollView implements AfterViewInit, OnDestroy {
   agentId = input<string | undefined>();
   messageView = input<any | undefined>();
   messageViewClass = input<string | undefined>();
+  assistantMessageComponent = input<Type<any> | undefined>();
+  assistantMessageTemplate = input<TemplateRef<any> | undefined>();
+  assistantMessageClass = input<string | undefined>();
   showCursor = input<boolean>(false);
 
   // Handler availability flags removed in favor of DI service
@@ -181,6 +186,9 @@ export class CopilotChatViewScrollView implements AfterViewInit, OnDestroy {
       agentId: this.agentId(),
       inputClass: this.messageViewClass(),
       showCursor: this.showCursor(),
+      assistantMessageComponent: this.assistantMessageComponent(),
+      assistantMessageTemplate: this.assistantMessageTemplate(),
+      assistantMessageClass: this.assistantMessageClass(),
     };
   }
 

@@ -7,6 +7,7 @@ import {
   effect,
   ChangeDetectorRef,
   Injector,
+  TemplateRef,
   Type,
   computed,
   inject,
@@ -64,6 +65,9 @@ import { connectActiveThread } from "../../active-thread-connector";
         [messageViewClass]="'cpk:w-full'"
         [showCursor]="showCursor()"
         [inputComponent]="inputComponent()"
+        [assistantMessageComponent]="assistantMessageComponent()"
+        [assistantMessageTemplate]="assistantMessageTemplate()"
+        [assistantMessageClass]="assistantMessageClass()"
         [hasExplicitThreadId]="hasExplicitThreadId()"
       >
       </copilot-chat-view>
@@ -85,6 +89,12 @@ export class CopilotChat extends ChatState {
   readonly agentId = input<string | undefined>();
   readonly threadId = input<string | undefined>();
   readonly inputComponent = input<Type<any> | undefined>();
+  /** Component used to render each assistant message in the prebuilt chat. */
+  readonly assistantMessageComponent = input<Type<any> | undefined>();
+  /** Template used to render each assistant message in the prebuilt chat. */
+  readonly assistantMessageTemplate = input<TemplateRef<any> | undefined>();
+  /** Class forwarded to the default or custom assistant-message renderer. */
+  readonly assistantMessageClass = input<string | undefined>();
   readonly attachmentsConfig = input<AttachmentsConfig | undefined>(undefined, {
     alias: "attachments",
   });
