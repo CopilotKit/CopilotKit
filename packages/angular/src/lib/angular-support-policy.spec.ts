@@ -91,3 +91,26 @@ test("keeps Angular peers exact and compiles the library at the support floor", 
   expect(manifest.devDependencies["@angular/compiler-cli"]).toBe("20.3.26");
   expect(manifest.devDependencies.typescript).toBe("5.9.3");
 });
+
+test("keeps package and public documentation aligned with the support policy", () => {
+  const readPackageFile = (relativePath: string): string =>
+    readFileSync(resolve(process.cwd(), relativePath), "utf8");
+  const readRepositoryFile = (relativePath: string): string =>
+    readFileSync(resolve(process.cwd(), "../..", relativePath), "utf8");
+
+  const packageReadme = readPackageFile("README.md");
+  const frontendGuide = readRepositoryFile(
+    "showcase/shell-docs/src/content/docs/frontends/angular.mdx",
+  );
+  const referenceIndex = readRepositoryFile(
+    "showcase/shell-docs/src/content/reference/angular/index.mdx",
+  );
+
+  expect(packageReadme).toContain("(20, 21, or 22)");
+  expect(frontendGuide).toContain("- Angular 20, 21, or 22");
+  expect(frontendGuide).toContain("npx @angular/cli@22");
+  expect(referenceIndex).toContain("targets Angular 20, 21, and 22");
+  for (const documentation of [packageReadme, frontendGuide, referenceIndex]) {
+    expect(documentation).not.toMatch(/Angular 19|19, 20/);
+  }
+});

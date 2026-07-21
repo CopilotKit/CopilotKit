@@ -1,0 +1,55 @@
+---
+title: "injectInterrupt"
+description: "Signal-based standard and legacy AG-UI interrupt handling for Angular."
+---
+
+`injectInterrupt` creates an injector-scoped controller for AG-UI interrupts.
+It supports standard interrupt arrays and the legacy `on_interrupt` custom
+event, including multiple simultaneous decisions.
+
+```ts
+function injectInterrupt<TValue = unknown, TResult = never>(
+  options?: InjectInterruptOptions<TValue, TResult>,
+): InterruptController<TValue, TResult>;
+```
+
+```ts
+import { Component } from "@angular/core";
+import { injectInterrupt } from "@copilotkit/angular";
+
+@Component({
+  template: `
+    @if (interrupt.view(); as decision) {
+      <p>{{ decision.event.name }}</p>
+      <button type="button" (click)="decision.cancel()">Cancel</button>
+      <button type="button" (click)="decision.resolve({ approved: true })">
+        Approve
+      </button>
+    }
+  `,
+})
+export class ApprovalView {
+  readonly interrupt = injectInterrupt<{ reason: string }>();
+}
+```
+
+## Options
+
+- `agentId`: string or signal; defaults to the ambient chat agent.
+- `enabled(event)`: synchronous or asynchronous filter. `false` leaves the
+  event available for another controller.
+- `handler(props)`: synchronous or asynchronous preprocessing whose result is
+  exposed through the controller's `result` signal.
+
+The controller exposes `event`, `interrupt`, `interrupts`, `result`, `error`,
+`hasInterrupt`, and `view` signals plus `resolve(payload?, interruptId?)` and
+`cancel(interruptId?)`. When several standard interrupts are pending, resolve
+or cancel every ID before the agent resumes. Tool-backed decisions persist a
+tool-result message before resumption.
+
+The agent subscription is disconnected when the owning injector is destroyed.
+Thread changes and new or failed runs clear stale decisions. Predicate and
+handler failures are captured by `error`; expired decisions use
+`InterruptExpiredError`. A resume failure clears pending state and rejects—it
+is never retried automatically. The controller performs no DOM work and is SSR
+safe, but applications should not resume an agent during server rendering.

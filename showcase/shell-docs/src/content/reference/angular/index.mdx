@@ -6,9 +6,9 @@ description: "API reference for @copilotkit/angular: the CopilotKit providers, p
 `@copilotkit/angular` brings CopilotKit to Angular. It ships a set of [providers](/reference/angular/functions/provideCopilotKit), prebuilt chat components, a `CopilotKit` service, and standalone functions that mirror the React SDK. Everything is built on the [AG-UI](https://docs.ag-ui.com) agent protocol.
 
 <Callout type="info">
-  The package targets Angular 19, 20, and 21, and ships as standalone
-  components and providers. Import everything from the package root,
-  `@copilotkit/angular`. There is no `/v2` subpath.
+  The package targets Angular 20, 21, and 22, and ships as standalone components
+  and providers. Import everything from the package root, `@copilotkit/angular`.
+  There is no `/v2` subpath.
 </Callout>
 
 ## Installation
@@ -87,6 +87,28 @@ A few patterns recur across this reference and differ from the React SDK:
 - **Components are standalone.** Import the component class into your `imports` array and use its element selector in the template, for example `<copilot-chat>` for [`CopilotChat`](/reference/angular/components/CopilotChat).
 - **Templates and directives replace render props.** Where the React SDK uses render props or `children`, the Angular components accept Angular templates and content projection for the same customization.
 
+## Lifecycle and rendering environments
+
+Injectable helpers bind their effects, subscriptions, runtime registrations,
+timers, and observers to the owning Angular `DestroyRef`. Call them from a
+field initializer, constructor, or explicit injection context. Do not cache an
+injected controller beyond that injector's lifetime. Application-owned work
+started inside a tool handler, such as a fetch, remains the application's
+responsibility to cancel.
+
+CopilotKit's Angular components use signals and OnPush change detection and are
+tested with `provideZonelessChangeDetection()`. Browser-only behavior is inert
+during server rendering and activates after hydration. Keep configuration and
+initial model/input values identical for the server and the first client
+render, avoid running agents or tools on the server, and place
+application-owned DOM work behind an Angular platform guard or
+`afterNextRender`.
+
+A2UI, Open Generative UI, audio capture, and MCP Apps can be present in an SSR
+tree, but their custom elements, media APIs, sandboxes, and iframes become
+interactive only in the browser. See [Angular production and lifecycle](/reference/angular/production-lifecycle)
+for the full setup, cleanup, error, SSR, hydration, and zoneless contract.
+
 ## API Reference
 
 <Callout type="info">
@@ -100,7 +122,7 @@ A few patterns recur across this reference and differ from the React SDK:
 <Cards>
   <Card
     title="UI Components"
-    description="Prebuilt chat components: CopilotChat, CopilotChatView, CopilotChatInput, and the message components."
+    description="Prebuilt chat, popup, sidebar, and supported component-slot primitives."
     href="/reference/angular/components/CopilotChat"
     icon={<LinkIcon />}
   />
@@ -120,6 +142,12 @@ A few patterns recur across this reference and differ from the React SDK:
     title="Directives"
     description="The CopilotKitAgentContext directive for sharing application state with the agent from a template."
     href="/reference/angular/directives/CopilotKitAgentContext"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="Public API Inventory"
+    description="The complete root and MCP Apps export contract, including the explicitly internal extension token."
+    href="/reference/angular/public-api"
     icon={<LinkIcon />}
   />
 </Cards>
