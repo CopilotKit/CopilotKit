@@ -497,24 +497,30 @@ describe("afterAgent", () => {
     expect(result!.copilotkit.originalAIMessageId).toBeUndefined();
   });
 
-  it("preserves AIMessage metadata through interception and restoration", () => {
+  it("preserves v1 metadata and content blocks through interception and restoration", () => {
+    const backendToolCall = {
+      id: "backend-1",
+      name: "search",
+      args: { query: "CopilotKit" },
+    };
+    const frontendToolCall = {
+      id: "frontend-1",
+      name: "navigate",
+      args: { path: "/results" },
+    };
     const original = new AIMessage({
       content: [
-        { type: "reasoning", reasoning: "Navigate to the details page." },
+        { type: "reasoning", reasoning: "Search, then open the result." },
+        { type: "tool_call", ...backendToolCall },
+        { type: "tool_call", ...frontendToolCall },
         {
-          type: "tool_call",
-          id: "frontend-1",
-          name: "navigate",
-          args: { path: "/details" },
+          type: "tool_call_chunk",
+          id: "stale-1",
+          name: "stale",
+          args: "{}",
         },
       ],
-      tool_calls: [
-        {
-          id: "frontend-1",
-          name: "navigate",
-          args: { path: "/details" },
-        },
-      ],
+      tool_calls: [backendToolCall, frontendToolCall],
       additional_kwargs: { provider_request_id: "request-1" },
       response_metadata: {
         output_version: "v1",
@@ -534,77 +540,27 @@ describe("afterAgent", () => {
           type: "invalid_tool_call",
         },
       ],
-      id: "ai-metadata",
+      id: "ai-v1",
       name: "assistant-with-tools",
     });
     const state = {
-      messages: [new HumanMessage("open details"), original],
-      copilotkit: { actions: [{ function: { name: "navigate" } }] },
-    };
-
-    const intercepted = copilotkitMiddleware.afterModel(state, {} as any)!;
-    const restored = copilotkitMiddleware.afterAgent(intercepted, {} as any)!;
-    const restoredMessage = restored.messages.at(-1) as AIMessage;
-
-    expect(restoredMessage.additional_kwargs).toEqual(
-      original.additional_kwargs,
-    );
-    expect(restoredMessage.response_metadata).toEqual(
-      original.response_metadata,
-    );
-    expect(restoredMessage.usage_metadata).toEqual(original.usage_metadata);
-    expect(restoredMessage.invalid_tool_calls).toEqual(
-      original.invalid_tool_calls,
-    );
-    expect(restoredMessage.name).toBe(original.name);
-  });
-
-  it("keeps v1 content blocks aligned with intercepted tool calls", () => {
-    const original = new AIMessage({
-      content: [
-        { type: "reasoning", reasoning: "Search, then open the result." },
-        {
-          type: "tool_call",
-          id: "backend-1",
-          name: "search",
-          args: { query: "CopilotKit" },
-        },
-        {
-          type: "tool_call",
-          id: "frontend-1",
-          name: "navigate",
-          args: { path: "/results" },
-        },
-        {
-          type: "tool_call_chunk",
-          id: "stale-1",
-          name: "stale",
-          args: "{}",
-        },
-      ],
-      tool_calls: [
-        {
-          id: "backend-1",
-          name: "search",
-          args: { query: "CopilotKit" },
-        },
-        {
-          id: "frontend-1",
-          name: "navigate",
-          args: { path: "/results" },
-        },
-      ],
-      response_metadata: { output_version: "v1" },
-      id: "ai-v1",
-    });
-    const state = {
-      messages: [original],
+      messages: [new HumanMessage("open the search result"), original],
       copilotkit: { actions: [{ name: "navigate" }] },
     };
 
     const intercepted = copilotkitMiddleware.afterModel(state, {} as any)!;
-    const interceptedContent = intercepted.messages.at(-1)!.content as any[];
+    const interceptedMessage = intercepted.messages.at(-1) as AIMessage;
+    const interceptedContent = interceptedMessage.content as any[];
 
+    expect(interceptedMessage).toMatchObject({
+      additional_kwargs: original.additional_kwargs,
+      response_metadata: original.response_metadata,
+      usage_metadata: original.usage_metadata,
+      invalid_tool_calls: original.invalid_tool_calls,
+      id: original.id,
+      name: original.name,
+      tool_calls: [backendToolCall],
+    });
     expect(
       interceptedContent
         .filter((block) => block.type === "tool_call")
@@ -615,8 +571,18 @@ describe("afterAgent", () => {
     ).toBe(false);
 
     const restored = copilotkitMiddleware.afterAgent(intercepted, {} as any)!;
-    const restoredContent = restored.messages.at(-1)!.content as any[];
+    const restoredMessage = restored.messages.at(-1) as AIMessage;
+    const restoredContent = restoredMessage.content as any[];
 
+    expect(restoredMessage).toMatchObject({
+      additional_kwargs: original.additional_kwargs,
+      response_metadata: original.response_metadata,
+      usage_metadata: original.usage_metadata,
+      invalid_tool_calls: original.invalid_tool_calls,
+      id: original.id,
+      name: original.name,
+      tool_calls: [backendToolCall, frontendToolCall],
+    });
     expect(
       restoredContent
         .filter((block) => block.type === "tool_call")
