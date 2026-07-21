@@ -1,5 +1,10 @@
 import { Component, signal } from "@angular/core";
-import { CopilotChat, CopilotThreadsDrawer } from "@copilotkit/angular";
+import {
+  CopilotChat,
+  CopilotThreadsDrawer,
+  registerFrontendTool,
+} from "@copilotkit/angular";
+import { z } from "zod";
 import { AGENT_ID } from "./app.config";
 import { MainContent } from "./main-content";
 
@@ -59,4 +64,22 @@ import { MainContent } from "./main-content";
 export class App {
   protected readonly AGENT_ID = AGENT_ID;
   protected readonly themeColor = signal("#6366f1");
+
+  constructor() {
+    // 🪁 Frontend tool: let the agent recolor the center panel.
+    registerFrontendTool({
+      name: "setThemeColor",
+      description: "Set the theme color of the page.",
+      parameters: z.object({
+        themeColor: z
+          .string()
+          .describe("The theme color to set. Make sure to pick nice colors."),
+      }),
+      handler: async ({ themeColor }) => {
+        this.themeColor.set(themeColor);
+        return `Changing theme color to ${themeColor}`;
+      },
+      agentId: AGENT_ID,
+    });
+  }
 }
