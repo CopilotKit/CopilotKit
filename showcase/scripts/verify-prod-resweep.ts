@@ -368,6 +368,13 @@ export type { StatusRow };
 // ===========================================================================
 
 import { resolve as resolvePath } from "node:path";
+import type { createJobProducer } from "../harness/src/fleet/control-plane/job-producer";
+import type { createServiceEnumerator } from "../harness/src/fleet/control-plane/catalog-enumerator";
+import type { FLEET_FAMILIES } from "../harness/src/fleet/control-plane/run-view";
+import type { createFleetQueueClient } from "../harness/src/fleet/queue-client";
+import type { createPbClient } from "../harness/src/storage/pb-client";
+import type { createJobClaimClient } from "../harness/src/fleet/job-claim";
+import type { railwayServicesSource } from "../harness/src/probes/discovery/railway-services";
 import type { Logger } from "../harness/src/types/index";
 
 // The prod ENQUEUE reuses the harness producer→queue wiring (the SAME path
@@ -381,14 +388,14 @@ import type { Logger } from "../harness/src/types/index";
 // specifiers mirror the established cross-package pattern in
 // `provision-starter-fleet.ts`.
 type HarnessProducerWiring = {
-  createJobProducer: typeof import("../harness/src/fleet/control-plane/job-producer").createJobProducer;
-  createServiceEnumerator: typeof import("../harness/src/fleet/control-plane/catalog-enumerator").createServiceEnumerator;
+  createJobProducer: typeof createJobProducer;
+  createServiceEnumerator: typeof createServiceEnumerator;
   D6_DRIVER_KIND: string;
-  FLEET_FAMILIES: typeof import("../harness/src/fleet/control-plane/run-view").FLEET_FAMILIES;
-  createFleetQueueClient: typeof import("../harness/src/fleet/queue-client").createFleetQueueClient;
-  createPbClient: typeof import("../harness/src/storage/pb-client").createPbClient;
-  createJobClaimClient: typeof import("../harness/src/fleet/job-claim").createJobClaimClient;
-  railwayServicesSource: typeof import("../harness/src/probes/discovery/railway-services").railwayServicesSource;
+  FLEET_FAMILIES: typeof FLEET_FAMILIES;
+  createFleetQueueClient: typeof createFleetQueueClient;
+  createPbClient: typeof createPbClient;
+  createJobClaimClient: typeof createJobClaimClient;
+  railwayServicesSource: typeof railwayServicesSource;
 };
 
 async function loadHarnessProducerWiring(): Promise<HarnessProducerWiring> {
@@ -499,18 +506,20 @@ function requireEnv(name: string): string {
   return v.trim();
 }
 
+/** Create one privacy-bounded stderr method for the CLI producer logger. */
+const createCliLogMethod =
+  (level: string) =>
+  (msg: string, meta?: Record<string, unknown>): void => {
+    const tail = meta ? ` ${JSON.stringify(meta)}` : "";
+    console.error(`[verify-prod-resweep] ${level} ${msg}${tail}`);
+  };
+
 /** Minimal stderr logger for the prod producer wiring (CLI context). */
 function createCliLogger(): Logger {
-  const emit =
-    (level: string) =>
-    (msg: string, meta?: Record<string, unknown>): void => {
-      const tail = meta ? ` ${JSON.stringify(meta)}` : "";
-      console.error(`[verify-prod-resweep] ${level} ${msg}${tail}`);
-    };
   return {
-    info: emit("info"),
-    warn: emit("warn"),
-    error: emit("error"),
+    info: createCliLogMethod("info"),
+    warn: createCliLogMethod("warn"),
+    error: createCliLogMethod("error"),
     debug: () => {},
   };
 }
