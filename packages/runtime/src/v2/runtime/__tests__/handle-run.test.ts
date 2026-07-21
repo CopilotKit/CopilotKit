@@ -947,6 +947,8 @@ describe("handleRunAgent", () => {
         expect(platform.ɵcleanupThreadLock).toHaveBeenCalledWith({
           threadId: "thread-1",
           runId: "run-1",
+          userId: "user-1",
+          agentId: "my-agent",
         });
         expect(runtime.runner.run).not.toHaveBeenCalled();
       },
@@ -990,6 +992,8 @@ describe("handleRunAgent", () => {
       expect(platform.ɵcleanupThreadLock).toHaveBeenCalledWith({
         threadId: "thread-1",
         runId: "run-1",
+        userId: "user-1",
+        agentId: "my-agent",
       });
       expect(runtime.runner.run).not.toHaveBeenCalled();
     });
@@ -1055,6 +1059,8 @@ describe("handleRunAgent", () => {
       expect(platform.ɵcleanupThreadLock).toHaveBeenCalledWith({
         threadId: "thread-1",
         runId: "run-1",
+        userId: "user-1",
+        agentId: "my-agent",
       });
       expect(runtime.runner.run).not.toHaveBeenCalled();
     });
@@ -1084,6 +1090,8 @@ describe("handleRunAgent", () => {
       expect(platform.ɵcleanupThreadLock).toHaveBeenCalledWith({
         threadId: "thread-1",
         runId: "run-1",
+        userId: "user-1",
+        agentId: "my-agent",
       });
       expect(runtime.runner.run).not.toHaveBeenCalled();
     });
@@ -1155,6 +1163,8 @@ describe("handleRunAgent", () => {
       expect(platform.ɵcleanupThreadLock).toHaveBeenCalledWith({
         threadId: "canonical-thread",
         runId: "canonical-run",
+        userId: "user-1",
+        agentId: "my-agent",
       });
       expect(platform.ɵcleanupThreadLock).toHaveBeenCalledTimes(1);
     });
@@ -1253,6 +1263,8 @@ describe("handleRunAgent", () => {
       expect(platform.ɵcleanupThreadLock).toHaveBeenCalledWith({
         threadId: "canonical-thread",
         runId: "canonical-run",
+        userId: "user-1",
+        agentId: "my-agent",
       });
       expect(platform.ɵcleanupThreadLock).toHaveBeenCalledTimes(1);
     });
@@ -1309,6 +1321,8 @@ describe("handleRunAgent", () => {
         expect(platform.ɵrenewThreadLock).toHaveBeenCalledWith({
           threadId: "canonical-thread",
           runId: "canonical-run",
+          userId: "user-1",
+          agentId: "my-agent",
           ttlSeconds: 5,
         });
         expect(runningAgent.abortRun).toHaveBeenCalledTimes(1);
@@ -1416,6 +1430,8 @@ describe("handleRunAgent", () => {
       expect(platform.ɵcleanupThreadLock).toHaveBeenCalledWith({
         threadId: "thread-1",
         runId: "run-1",
+        userId: "user-1",
+        agentId: "my-agent",
       });
       expect(runtime.runner.run).not.toHaveBeenCalled();
     });

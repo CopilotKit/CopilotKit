@@ -669,12 +669,40 @@ describe("CopilotKitIntelligence", () => {
       await client.ɵcleanupThreadLock({
         threadId: "t-1",
         runId: "r-1",
+        userId: "user-1",
+        agentId: "agent-1",
       });
 
       const [url, opts] = fetchMock.mock.calls[0];
       expect(url).toBe("https://api.example.com/api/threads/t-1/lock");
       expect(opts.method).toBe("DELETE");
-      expect(JSON.parse(opts.body)).toEqual({ runId: "r-1" });
+      expect(JSON.parse(opts.body)).toEqual({
+        runId: "r-1",
+        userId: "user-1",
+        agentId: "agent-1",
+      });
+    });
+
+    it("sends explicit lock ownership on heartbeat renewal", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ ttlSeconds: 120 }));
+
+      await client.ɵrenewThreadLock({
+        threadId: "t-1",
+        runId: "r-1",
+        userId: "user-1",
+        agentId: "agent-1",
+        ttlSeconds: 120,
+      });
+
+      const [url, opts] = fetchMock.mock.calls[0];
+      expect(url).toBe("https://api.example.com/api/threads/t-1/lock");
+      expect(opts.method).toBe("PATCH");
+      expect(JSON.parse(opts.body)).toEqual({
+        runId: "r-1",
+        userId: "user-1",
+        agentId: "agent-1",
+        ttlSeconds: 120,
+      });
     });
   });
 

@@ -280,6 +280,8 @@ export async function handleIntelligenceRun({
       .ɵcleanupThreadLock({
         threadId: canonicalThreadId || input.threadId,
         runId: canonicalRunId || input.runId,
+        userId,
+        agentId,
       })
       .catch((cleanupError) => {
         logger.error(
@@ -369,6 +371,8 @@ export async function handleIntelligenceRun({
       .ɵrenewThreadLock({
         threadId: canonicalThreadId,
         runId: canonicalRunId,
+        userId,
+        agentId,
         ttlSeconds: runtime.lockTtlSeconds,
         ...(runtime.lockKeyPrefix !== undefined
           ? { lockKeyPrefix: runtime.lockKeyPrefix }

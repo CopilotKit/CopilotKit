@@ -366,11 +366,14 @@ export type ThreadStateResponse =
   | { kind: "snapshot-decode-error" }
   | { kind: "snapshot"; state: unknown; skippedDeltas: number };
 
-export interface AcquireThreadLockRequest {
+export interface ThreadLockOwnerRequest {
   threadId: string;
   runId: string;
   userId: string;
   agentId: string;
+}
+
+export interface AcquireThreadLockRequest extends ThreadLockOwnerRequest {
   /** Trusted-BFF learning container assignment. Explicit null means unassigned. */
   learningContainerId?: string | null;
   /** Custom Redis key prefix for the lock (default: "thread"). */
@@ -379,19 +382,14 @@ export interface AcquireThreadLockRequest {
   ttlSeconds?: number;
 }
 
-export interface RenewThreadLockRequest {
-  threadId: string;
-  runId: string;
+export interface RenewThreadLockRequest extends ThreadLockOwnerRequest {
   /** New TTL to set on the lock in seconds. */
   ttlSeconds: number;
   /** Must match the prefix used when acquiring. */
   lockKeyPrefix?: string;
 }
 
-export interface CleanupThreadLockRequest {
-  threadId: string;
-  runId: string;
-}
+export type CleanupThreadLockRequest = ThreadLockOwnerRequest;
 
 export interface RenewThreadLockResponse {
   ttlSeconds: number;
@@ -1053,6 +1051,8 @@ export class CopilotKitIntelligence {
       `/api/threads/${encodeURIComponent(params.threadId)}/lock`,
       {
         runId: params.runId,
+        userId: params.userId,
+        agentId: params.agentId,
       },
     );
   }
@@ -1065,6 +1065,8 @@ export class CopilotKitIntelligence {
       `/api/threads/${encodeURIComponent(params.threadId)}/lock`,
       {
         runId: params.runId,
+        userId: params.userId,
+        agentId: params.agentId,
         ttlSeconds: params.ttlSeconds,
         ...(params.lockKeyPrefix !== undefined
           ? { lockKeyPrefix: params.lockKeyPrefix }
