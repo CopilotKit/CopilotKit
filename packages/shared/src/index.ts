@@ -18,11 +18,6 @@ export {
 import * as packageJson from "../package.json";
 export const COPILOTKIT_VERSION = packageJson.version;
 
-// Re-export only types from license-verifier (types are erased at compile time,
-// so they don't pull in the Node-only `crypto` dependency into client bundles).
-// Server-side packages (e.g. @copilotkit/runtime) should import runtime functions
-// like createLicenseChecker and getLicenseWarningHeader directly from
-// @copilotkit/license-verifier.
 export type {
   LicenseChecker,
   LicenseStatus,
@@ -30,9 +25,9 @@ export type {
   LicenseFeatures,
   LicenseTier,
   LicenseOwner,
-} from "@copilotkit/license-verifier";
+} from "./license-types";
 
-import type { LicensePayload } from "@copilotkit/license-verifier";
+import type { LicensePayload } from "./license-types";
 import type { RuntimeLicenseStatus } from "./utils/types";
 
 // LicenseContextValue was dropped from license-verifier's public API in

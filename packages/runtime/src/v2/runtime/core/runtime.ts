@@ -8,7 +8,7 @@ import {
   RUNTIME_MODE_INTELLIGENCE,
 } from "@copilotkit/shared";
 import { createLicenseChecker } from "@copilotkit/license-verifier";
-import type { LicenseChecker } from "@copilotkit/license-verifier";
+import type { LicenseChecker } from "@copilotkit/shared";
 import { resolveDebugConfig } from "@copilotkit/shared";
 import type { ResolvedDebugConfig, DebugConfig } from "@copilotkit/shared";
 import { resolveForwardHeadersPolicy } from "../handlers/header-utils";

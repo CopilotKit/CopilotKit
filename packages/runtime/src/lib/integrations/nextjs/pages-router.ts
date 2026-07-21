@@ -1,4 +1,5 @@
-import { CreateCopilotRuntimeServerOptions, getCommonConfig } from "../shared";
+import type { CreateCopilotRuntimeServerOptions } from "../shared";
+import { getCommonConfig } from "../shared";
 import telemetry, {
   getRuntimeInstanceTelemetryInfo,
 } from "../../telemetry-client";
@@ -9,12 +10,6 @@ export const config = {
     bodyParser: false,
   },
 };
-
-// This import is needed to fix the type error
-// Fix is currently in TypeScript 5.5 beta, waiting for stable version
-// https://github.com/microsoft/TypeScript/issues/42873#issuecomment-2066874644
-// oxlint-disable-next-line unicorn/require-module-specifiers, typescript/no-useless-empty-export
-export type {} from "@whatwg-node/server";
 
 export function copilotRuntimeNextJSPagesRouterEndpoint(
   options: CreateCopilotRuntimeServerOptions,

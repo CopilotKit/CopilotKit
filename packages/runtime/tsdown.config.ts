@@ -3,9 +3,11 @@ import { defineConfig } from "tsdown";
 import fs from "node:fs";
 import path from "node:path";
 
-const stripRuntimeBannersFromDeclarations = (dir: string) => {
+const finalizeDeclarations = (dir: string) => {
   const runtimeBanner =
     /^[ \t]*(?:require\(["']reflect-metadata["']\)|import\s+["']reflect-metadata["']);?[ \t]*\r?\n/gm;
+  const unusedRolldownHelper =
+    /^import \{ __exportAll, __reExport \} from ["'][^"']+\/_virtual\/_rolldown\/runtime\.[cm]js["'];\r?\n/gm;
   const walk = (current: string) => {
     for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
       const full = path.join(current, entry.name);
@@ -13,15 +15,39 @@ const stripRuntimeBannersFromDeclarations = (dir: string) => {
         walk(full);
       } else if (/\.d\.[cm]?ts$/.test(entry.name)) {
         const declaration = fs.readFileSync(full, "utf8");
-        const withoutRuntimeBanner = declaration.replace(runtimeBanner, "");
-        if (withoutRuntimeBanner !== declaration) {
-          fs.writeFileSync(full, withoutRuntimeBanner);
+        const finalized = declaration
+          .replace(runtimeBanner, "")
+          .replace(unusedRolldownHelper, "");
+        if (finalized !== declaration) {
+          fs.writeFileSync(full, finalized);
         }
       }
     }
   };
 
-  if (fs.existsSync(dir)) walk(dir);
+  if (!fs.existsSync(dir)) return;
+  walk(dir);
+
+  const compatibilityDir = path.join(dir, "compat");
+  fs.mkdirSync(compatibilityDir, { recursive: true });
+  fs.copyFileSync(
+    path.resolve("src/compat/langgraph-sdk.d.ts"),
+    path.join(compatibilityDir, "langgraph-sdk.d.ts"),
+  );
+
+  for (const extension of ["d.mts", "d.cts"] as const) {
+    const agentDeclaration = path.join(
+      dir,
+      "lib/runtime/agent-integrations/langgraph",
+      `agent.${extension}`,
+    );
+    const reference =
+      '/// <reference path="../../../../compat/langgraph-sdk.d.ts" />\n';
+    const declaration = fs.readFileSync(agentDeclaration, "utf8");
+    if (!declaration.startsWith(reference)) {
+      fs.writeFileSync(agentDeclaration, reference + declaration);
+    }
+  }
 };
 
 export default defineConfig({
@@ -40,8 +66,7 @@ export default defineConfig({
   outDir: "dist",
   unbundle: true,
   hooks: {
-    "build:done": () =>
-      stripRuntimeBannersFromDeclarations(path.resolve("dist")),
+    "build:done": () => finalizeDeclarations(path.resolve("dist")),
   },
   banner: ({ format, fileName }) => {
     // tsdown/rolldown reorders bare side-effect imports to the end of the entry chunk,

@@ -1,10 +1,10 @@
-import { YogaInitialContext } from "graphql-yoga";
 import { buildSchemaSync } from "type-graphql";
 import { CopilotResolver } from "../../graphql/resolvers/copilot.resolver";
-import { CopilotRuntime } from "../runtime/copilot-runtime";
-import { CopilotServiceAdapter } from "../../service-adapters";
-import { CopilotCloudOptions } from "../cloud";
-import { LogLevel, createLogger } from "../../lib/logger";
+import type { CopilotRuntime } from "../runtime/copilot-runtime";
+import type { CopilotServiceAdapter } from "../../service-adapters";
+import type { CopilotCloudOptions } from "../cloud";
+import type { LogLevel } from "../../lib/logger";
+import { createLogger } from "../../lib/logger";
 import telemetry from "../telemetry-client";
 import { StateResolver } from "../../graphql/resolvers/state.resolver";
 
@@ -34,7 +34,18 @@ export type CopilotRequestContextProperties = Record<
   AnyPrimitive | Record<string, AnyPrimitive>
 >;
 
-export type GraphQLContext = YogaInitialContext & {
+interface GraphQLInitialContext {
+  waitUntil(promise: Promise<void> | void): void;
+  params: {
+    operationName?: string;
+    query?: string;
+    variables?: Record<string, any>;
+    extensions?: Record<string, any>;
+  };
+  request: Request;
+}
+
+export type GraphQLContext = GraphQLInitialContext & {
   _copilotkit: CreateCopilotRuntimeServerOptions;
   properties: CopilotRequestContextProperties;
   logger: typeof logger;
