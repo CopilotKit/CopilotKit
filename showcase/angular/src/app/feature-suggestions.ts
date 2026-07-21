@@ -74,6 +74,28 @@ const SUGGESTIONS: Readonly<
         "Explain step by step why the sky appears blue during the day but red at sunset.",
     },
   ],
+  "gen-ui-agent": [
+    {
+      title: "Plan a launch",
+      message: "Plan a product launch for a new mobile app.",
+    },
+    {
+      title: "Plan an offsite",
+      message: "Organize a three-day engineering team offsite.",
+    },
+    {
+      title: "Research a competitor",
+      message:
+        "Research our top competitor and summarize their strengths and weaknesses.",
+    },
+  ],
+  subagents: [
+    {
+      title: "Research and draft",
+      message:
+        "Research the benefits of remote work and draft a one-paragraph summary.",
+    },
+  ],
 };
 
 /** Return deterministic static suggestions for a canonical showcase feature. */

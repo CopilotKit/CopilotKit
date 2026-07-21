@@ -23,6 +23,7 @@ export class ShowcaseChatHostComponent implements AfterViewInit {
   readonly agentId = input<string | undefined>();
   readonly chatPlaceholder = input<string | undefined>();
   readonly reasoningMessageComponent = input<Type<unknown> | undefined>();
+  readonly messageViewChildrenComponent = input<Type<unknown> | undefined>();
   private readonly viewContainer = inject(ViewContainerRef);
   private readonly route = inject(ActivatedRoute);
   private readonly injector = inject(Injector);
@@ -50,6 +51,10 @@ export class ShowcaseChatHostComponent implements AfterViewInit {
     chat.setInput(
       "reasoningMessageComponent",
       this.reasoningMessageComponent(),
+    );
+    chat.setInput(
+      "messageViewChildrenComponent",
+      this.messageViewChildrenComponent(),
     );
   }
 }

@@ -30,6 +30,7 @@ export type FeatureComponentKey =
   | "mcp-apps"
   | "state"
   | "reasoning"
+  | "agent-state"
   | "hashbrown"
   | "chat";
 
@@ -82,6 +83,9 @@ export function resolveFeatureComponentKey(
     case "reasoning-default":
     case "reasoning-custom":
       return "reasoning";
+    case "gen-ui-agent":
+    case "subagents":
+      return "agent-state";
     default:
       return "chat";
   }
@@ -154,6 +158,11 @@ function loadFeatureComponent(feature: string) {
       return () =>
         import("./features/reasoning-feature.component").then(
           (module) => module.ReasoningFeatureComponent,
+        );
+    case "agent-state":
+      return () =>
+        import("./features/agent-state/agent-state-feature.component").then(
+          (module) => module.AgentStateFeatureComponent,
         );
     case "hashbrown":
       return () =>
