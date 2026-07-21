@@ -3,9 +3,8 @@
  *
  * The harness emits PB rows keyed `d5:<slug>/<d5FeatureType>` keyed by
  * REGISTRY feature ID via `REGISTRY_TO_D5`. The dashboard reads those
- * rows via its own `CATALOG_TO_D5_KEY` map. The two maps are documented
- * mirrors but the dashboard lives outside this pnpm workspace (its
- * Dockerfile uses `npm ci`), so the type system can't link them.
+ * rows via the shared `CATALOG_TO_D5_KEY` map. The two maps are documented
+ * mirrors but live in separate modules, so the type system can't link them.
  *
  * If they drift:
  *   - Keys in dashboard but not harness ⇒ orphan: dashboard reads a row
@@ -17,27 +16,27 @@
  *     just that mapping.
  *
  * This test catches all three by asserting structural equality. The
- * dashboard side is parsed via fs (no cross-package import — see the
+ * shared cell-model side is parsed via fs (no runtime import — see the
  * exported-comment on `REGISTRY_TO_D5` for why).
  */
-import { describe, it, expect } from "vitest";
+import { expect, test } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { REGISTRY_TO_D5 } from "./d5-feature-mapping.js";
 
-const DASHBOARD_FILE = resolve(
+const LIVE_STATUS_FILE = resolve(
   __dirname,
-  "../../../../shell-dashboard/src/lib/live-status.ts",
+  "../../shared/cell-model/live-status.ts",
 );
 
-/** Parse `CATALOG_TO_D5_KEY` object literal out of the dashboard source. */
-function parseDashboardCatalogMap(): Record<string, string[]> {
-  const src = readFileSync(DASHBOARD_FILE, "utf8");
+/** Parse `CATALOG_TO_D5_KEY` from the canonical shared cell-model source. */
+function parseCatalogMap(): Record<string, string[]> {
+  const src = readFileSync(LIVE_STATUS_FILE, "utf8");
   const block = src.match(/CATALOG_TO_D5_KEY[^=]+=\s*\{([\s\S]+?)\n\};/);
   if (!block || !block[1]) {
     throw new Error(
-      "drift parser: could not locate CATALOG_TO_D5_KEY in dashboard source — " +
-        "if the dashboard file's shape changed, update the regex in this test.",
+      "drift parser: could not locate CATALOG_TO_D5_KEY in shared cell-model source — " +
+        "if the shared file's shape changed, update the regex in this test.",
     );
   }
   const out: Record<string, string[]> = {};
@@ -66,12 +65,12 @@ function normalizeMap(
   return out;
 }
 
-describe("d5-mapping-drift", () => {
-  it("dashboard CATALOG_TO_D5_KEY structurally mirrors harness REGISTRY_TO_D5", () => {
-    const harnNorm = normalizeMap(
-      REGISTRY_TO_D5 as Record<string, readonly string[]>,
-    );
-    const dashNorm = normalizeMap(parseDashboardCatalogMap());
-    expect(dashNorm).toEqual(harnNorm);
-  });
+test("shared CATALOG_TO_D5_KEY structurally mirrors harness REGISTRY_TO_D5", () => {
+  const harnessMap = normalizeMap(
+    REGISTRY_TO_D5 as Record<string, readonly string[]>,
+  );
+
+  const catalogMap = normalizeMap(parseCatalogMap());
+
+  expect(catalogMap).toEqual(harnessMap);
 });
