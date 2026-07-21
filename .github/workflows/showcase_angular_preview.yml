@@ -1,0 +1,252 @@
+name: "Showcase: Angular Preview"
+
+# This workflow is deliberately the only place where the packed Angular
+# consumer opens a browser/server and where the preview image is deployed.
+# Pull requests must be same-repository, draft, and explicitly labeled.
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled, converted_to_draft]
+    paths:
+      - "packages/angular/**"
+      - "packages/core/**"
+      - "packages/runtime-client-gql/**"
+      - "packages/shared/**"
+      - "scripts/release/**"
+      - "showcase/angular/**"
+      - "showcase/scripts/deploy-angular-preview.ts"
+      - "showcase/scripts/__tests__/angular-preview-workflow.test.ts"
+      - ".github/workflows/showcase_angular_preview.yml"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to build and deploy"
+        required: true
+        default: "main"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: angular-preview-${{ github.event.pull_request.number || inputs.ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: "true"
+  NX_CLOUD_DISTRIBUTED_EXECUTION: "false"
+  NX_NO_CLOUD: "true"
+  NX_TUI: "false"
+
+jobs:
+  pack:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.draft == true &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       contains(github.event.pull_request.labels.*.name, 'angular-preview'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      sha: ${{ steps.source.outputs.sha }}
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || inputs.ref || github.sha }}
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Capture exact source SHA
+        id: source
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Build Angular package graph
+        run: pnpm nx run @copilotkit/angular:build
+
+      - name: Pack deterministic Angular package graph
+        run: >-
+          pnpm exec tsx scripts/release/pack-angular-artifacts.ts
+          _artifacts/angular-packages
+
+      - name: Upload Angular package graph
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: angular-package-graph
+          path: _artifacts/angular-packages
+          if-no-files-found: error
+          retention-days: 14
+
+  consumer:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.draft == true &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       contains(github.event.pull_request.labels.*.name, 'angular-preview'))
+    needs: pack
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.pack.outputs.sha }}
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download exact Angular package graph
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: angular-package-graph
+          path: _artifacts/angular-packages
+
+      - name: Install Chromium for packed browser smoke
+        run: pnpm --dir showcase/scripts exec playwright install --with-deps chromium
+
+      - name: Verify exact packed consumers
+        run: >-
+          pnpm exec tsx scripts/release/verify-angular-package.ts
+          --artifacts _artifacts/angular-packages
+
+  image:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.draft == true &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       contains(github.event.pull_request.labels.*.name, 'angular-preview'))
+    needs: [pack, consumer]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    outputs:
+      image: ${{ steps.reference.outputs.image }}
+      sha: ${{ needs.pack.outputs.sha }}
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.pack.outputs.sha }}
+          persist-credentials: false
+
+      - name: Download exact Angular package graph
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: angular-package-graph
+          path: _artifacts/angular-packages
+
+      - name: Setup Depot
+        uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461
+
+      - name: Login to GHCR
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push immutable input image
+        id: build
+        uses: depot/build-push-action@98e78adca7817480b8185f474a400b451d74e287
+        with:
+          project: m2kw2wmmcp
+          context: .
+          file: showcase/angular/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/copilotkit/showcase-angular:preview-${{ needs.pack.outputs.sha }}
+          build-args: COMMIT_SHA=${{ needs.pack.outputs.sha }}
+
+      - name: Export exact image digest
+        id: reference
+        env:
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$IMAGE_DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+            echo "::error::Depot did not return a valid image digest"
+            exit 1
+          fi
+          echo "image=ghcr.io/copilotkit/showcase-angular@${IMAGE_DIGEST}" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.draft == true &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       contains(github.event.pull_request.labels.*.name, 'angular-preview'))
+    needs: image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: railway
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.image.outputs.sha }}
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Install deployment dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Deploy exact digest to isolated Railway staging
+        env:
+          ANGULAR_IMAGE: ${{ needs.image.outputs.image }}
+          ANGULAR_PREVIEW_EVIDENCE: ${{ runner.temp }}/angular-preview-evidence.json
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          GHCR_TOKEN: ${{ secrets.ORG_READ_PACKAGES_PAT }}
+          GHCR_USERNAME: ${{ github.actor }}
+        run: pnpm exec tsx showcase/scripts/deploy-angular-preview.ts
+
+      - name: Publish preview URL
+        env:
+          EVIDENCE: ${{ runner.temp }}/angular-preview-evidence.json
+        run: echo "Angular preview deployed at $(jq -r .url "$EVIDENCE")" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload deployment evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: angular-preview-deployment
+          path: ${{ runner.temp }}/angular-preview-evidence.json
+          if-no-files-found: error
+          retention-days: 30
