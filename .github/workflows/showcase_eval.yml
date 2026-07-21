@@ -38,6 +38,10 @@ on:
         required: false
         default: "d5"
         type: string
+      slug:
+        description: "Integration slug(s) to eval, comma-separated (e.g. mastra). Empty = affected."
+        required: false
+        type: string
 
 concurrency:
   group: showcase-eval-${{ github.event.inputs.pr_number || github.event.issue.number || github.run_id }}
@@ -223,10 +227,42 @@ jobs:
       pr_sha: ${{ steps.resolve.outputs.sha }}
       pr_number: ${{ github.event.inputs.pr_number }}
       level: ${{ github.event.inputs.level || 'd5' }}
-      scope_flag: "--scope affected"
-      scope_display: "affected"
+      scope_flag: ${{ steps.scope.outputs.scope_flag }}
+      scope_display: ${{ steps.scope.outputs.scope_display }}
       check_run_id: ${{ github.event.inputs.check_run_id }}
     steps:
+      - name: Resolve scope from slug input
+        id: scope
+        # `slug` is UNTRUSTED input — read via env, never inline into the shell.
+        # Empty slug keeps the historical default (--scope affected). A provided
+        # slug lets a manual dispatch target one integration like the comment
+        # path (`/eval d5 mastra`), so the fleet bring-up stays bounded instead
+        # of building every affected image.
+        env:
+          SLUG_INPUT: ${{ github.event.inputs.slug }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SLUG_INPUT:-}" ]; then
+            echo "scope_flag=--scope affected" >> "$GITHUB_OUTPUT"
+            echo "scope_display=affected" >> "$GITHUB_OUTPUT"
+          else
+            # Validate each slug against ^[a-z0-9-]+$ (same rule as the comment
+            # gate) before it reaches the eval command unquoted.
+            IFS=',' read -ra SLUGS <<< "$SLUG_INPUT"
+            for s in "${SLUGS[@]}"; do
+              s=$(printf '%s' "$s" | xargs)  # trim whitespace
+              case "$s" in
+                ''|*[!a-z0-9-]*)
+                  echo "::error::Invalid slug '$s' — must match ^[a-z0-9-]+$"
+                  exit 1
+                  ;;
+              esac
+            done
+            CLEAN=$(printf '%s' "$SLUG_INPUT" | tr -d ' ')
+            echo "scope_flag=--slug $CLEAN" >> "$GITHUB_OUTPUT"
+            echo "scope_display=$CLEAN" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Resolve PR HEAD SHA
         id: resolve
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
