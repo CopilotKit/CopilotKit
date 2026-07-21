@@ -5,6 +5,7 @@ export * from "./lib/render-tool-calls";
 export * from "./lib/activity-renderer";
 export * from "./lib/open-generative-ui";
 export * from "./lib/agent";
+export * from "./lib/interrupt";
 export * from "./lib/threads";
 export * from "./lib/chat-config";
 export * from "./lib/chat-configuration";
