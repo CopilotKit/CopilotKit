@@ -77,6 +77,190 @@ showcase-root {
   background: #fff;
 }
 
+.shell-demo-content,
+.headless-page {
+  min-height: 0;
+  padding: clamp(1rem, 4vw, 4rem);
+}
+
+.shell-demo-content {
+  display: grid;
+  place-items: center;
+  color: #31465e;
+  background:
+    radial-gradient(circle at 85% 15%, rgb(37 99 235 / 8%), transparent 30%),
+    #f8fafc;
+}
+
+.shell-demo-content section {
+  width: min(36rem, 100%);
+  padding: clamp(1.5rem, 4vw, 3rem);
+  border: 1px solid #dbe3eb;
+  background: #fff;
+}
+
+.shell-demo-content h2,
+.headless-panel h2 {
+  margin: 0.25rem 0 0.75rem;
+  color: #14213d;
+  font-size: clamp(1.5rem, 4vw, 2.5rem);
+}
+
+.feature-eyebrow {
+  margin: 0;
+  color: #52637a;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.headless-page {
+  overflow: auto;
+  background: #eef3f7;
+}
+
+.headless-panel {
+  display: grid;
+  width: min(56rem, 100%);
+  min-height: 34rem;
+  margin: 0 auto;
+  gap: 1rem;
+  padding: clamp(1rem, 3vw, 2rem);
+  border: 1px solid #dbe3eb;
+  background: #fff;
+}
+
+.headless-messages {
+  display: flex;
+  min-height: 18rem;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid #e2e8f0;
+  overflow-y: auto;
+}
+
+.headless-empty,
+.headless-status {
+  color: #64748b;
+}
+
+.headless-user-message,
+.headless-assistant-message {
+  max-width: 85%;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  line-height: 1.5;
+}
+
+.headless-user-message {
+  align-self: flex-end;
+  color: #fff;
+  background: #1d4ed8;
+}
+
+.headless-assistant-message {
+  align-self: flex-start;
+  background: #eef2f7;
+}
+
+.headless-suggestions,
+.headless-composer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.headless-suggestions button,
+.headless-composer button {
+  padding: 0.55rem 0.85rem;
+  border: 1px solid #9fb3c8;
+  border-radius: 999px;
+  color: #1e3a5f;
+  background: #fff;
+  cursor: pointer;
+}
+
+.headless-composer textarea {
+  min-width: min(20rem, 100%);
+  flex: 1;
+  resize: vertical;
+  padding: 0.75rem;
+  border: 1px solid #9fb3c8;
+  border-radius: 0.5rem;
+  font: inherit;
+}
+
+.headless-suggestions button:focus-visible,
+.headless-composer button:focus-visible,
+.headless-composer textarea:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.headless-suggestions button:disabled,
+.headless-composer button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.headless-error {
+  padding: 0.75rem;
+  border: 1px solid #dc9b9b;
+  color: #7f1d1d;
+  background: #fff5f5;
+}
+
+.headless-tool-card {
+  display: grid;
+  min-width: min(18rem, 100%);
+  gap: 0.35rem;
+  margin-top: 0.75rem;
+  padding: 0.9rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.6rem;
+  background: #fff;
+}
+
+.headless-tool-card > span {
+  color: #64748b;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.headless-tool-card p {
+  margin: 0;
+}
+
+.headless-tool-card.highlight {
+  border-color: #f0c94a;
+  background: #fff8cf;
+}
+
+.mini-bars {
+  display: flex;
+  height: 6rem;
+  align-items: end;
+  gap: 0.35rem;
+}
+
+.mini-bars i {
+  min-height: 0.25rem;
+  flex: 1;
+  background: #2563eb;
+}
+
+.custom-assistant-message {
+  display: block;
+  margin: 0.5rem 0;
+  padding: 1rem;
+  border-left: 3px solid #2563eb;
+  background: #eff6ff;
+}
+
 .status-page {
   display: grid;
   min-height: 100%;

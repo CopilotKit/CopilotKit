@@ -16,19 +16,83 @@ const supportedFeatures = Object.entries(support)
 const catalog = frontendCatalogData as BrowserCellCatalog;
 const hashbrownFeatures = new Set(["byoc-hashbrown", "declarative-hashbrown"]);
 
+export type FeatureComponentKey =
+  | "popup"
+  | "sidebar"
+  | "chat-slots"
+  | "chat-css"
+  | "headless-simple"
+  | "headless-complete"
+  | "hashbrown"
+  | "chat";
+
+/** Select the smallest lazy feature family that implements a showcase route. */
+export function resolveFeatureComponentKey(
+  feature: string,
+): FeatureComponentKey {
+  if (hashbrownFeatures.has(feature)) return "hashbrown";
+  switch (feature) {
+    case "prebuilt-popup":
+      return "popup";
+    case "prebuilt-sidebar":
+      return "sidebar";
+    case "chat-slots":
+      return "chat-slots";
+    case "chat-customization-css":
+      return "chat-css";
+    case "headless-simple":
+      return "headless-simple";
+    case "headless-complete":
+      return "headless-complete";
+    default:
+      return "chat";
+  }
+}
+
 /** Resolve a feature to its canonical lazy Angular implementation. */
 function loadFeatureComponent(feature: string) {
-  if (hashbrownFeatures.has(feature)) {
-    return () =>
-      import("./features/hashbrown/hashbrown-feature.component").then(
-        (module) => module.HashbrownFeatureComponent,
-      );
+  switch (resolveFeatureComponentKey(feature)) {
+    case "popup":
+      return () =>
+        import("./features/popup-feature.component").then(
+          (module) => module.PopupFeatureComponent,
+        );
+    case "sidebar":
+      return () =>
+        import("./features/sidebar-feature.component").then(
+          (module) => module.SidebarFeatureComponent,
+        );
+    case "chat-slots":
+      return () =>
+        import("./features/chat-slots-feature.component").then(
+          (module) => module.ChatSlotsFeatureComponent,
+        );
+    case "chat-css":
+      return () =>
+        import("./features/chat-css-feature.component").then(
+          (module) => module.ChatCssFeatureComponent,
+        );
+    case "headless-simple":
+      return () =>
+        import("./features/headless/headless-simple-feature.component").then(
+          (module) => module.HeadlessSimpleFeatureComponent,
+        );
+    case "headless-complete":
+      return () =>
+        import("./features/headless/headless-complete-feature.component").then(
+          (module) => module.HeadlessCompleteFeatureComponent,
+        );
+    case "hashbrown":
+      return () =>
+        import("./features/hashbrown/hashbrown-feature.component").then(
+          (module) => module.HashbrownFeatureComponent,
+        );
+    case "chat":
+      return () =>
+        import("./features/chat-feature.component").then(
+          (module) => module.ChatFeatureComponent,
+        );
   }
-
-  return () =>
-    import("./features/chat-feature.component").then(
-      (module) => module.ChatFeatureComponent,
-    );
 }
 
 const canMatchRunnableCell: CanMatchFn = (route, segments) => {
