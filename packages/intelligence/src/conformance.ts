@@ -158,6 +158,7 @@ const sourceEvent = {
   type: "TEXT_MESSAGE_END",
   sha256: SHA_A,
 };
+const terminalSourceEvent = { ...sourceEvent, type: "RUN_FINISHED" };
 const evidenceLocator = {
   messageIds: ["message_1"],
   eventIds: ["event_1"],
@@ -273,6 +274,16 @@ const learningChunk = {
   privatePayloadRef: {},
   createdAt: NOW,
   updatedAt: NOW,
+};
+const secondLearningChunk = {
+  ...learningChunk,
+  chunkIndex: 1,
+  snapshotRange: {
+    firstSnapshotId: UUID.annotation,
+    lastSnapshotId: UUID.annotation,
+    firstSequence: 2,
+    lastSequence: 2,
+  },
 };
 const workflowThread = {
   snapshotId: UUID.snapshot,
@@ -619,7 +630,7 @@ const canonicalValidValues: Record<
     terminalAt: NOW,
     capturedAt: NOW,
     assignmentRevision: 0,
-    sourceEvents: [sourceEvent],
+    sourceEvents: [terminalSourceEvent],
     messages: [message],
     stateChanges: [],
     annotations: [],
@@ -808,6 +819,49 @@ function buildCases(): LearningPlatformConformanceCase[] {
       },
     },
     {
+      name: "learning-run-rejects-case-variant-snapshot-identities",
+      schema: "LearningRunV1",
+      valid: false,
+      value: {
+        ...(canonicalValidValues.LearningRunV1 as Record<string, JsonValue>),
+        selectedThroughSequence: 2,
+        snapshotIdsAndHashes: [
+          snapshotIdentity,
+          {
+            ...snapshotIdentity,
+            snapshotId: UUID.snapshot.toUpperCase(),
+            contentSha256: SHA_B,
+            containerSequence: 2,
+          },
+        ],
+      },
+    },
+    {
+      name: "learning-run-rejects-annotation-outside-frozen-snapshots",
+      schema: "LearningRunV1",
+      valid: false,
+      value: {
+        ...(canonicalValidValues.LearningRunV1 as Record<string, JsonValue>),
+        selectedAnnotations: [
+          { ...selectedAnnotation, targetSnapshotId: UUID.container },
+        ],
+      },
+    },
+    {
+      name: "learning-run-resolves-annotation-snapshot-case-insensitively",
+      schema: "LearningRunV1",
+      valid: true,
+      value: {
+        ...(canonicalValidValues.LearningRunV1 as Record<string, JsonValue>),
+        selectedAnnotations: [
+          {
+            ...selectedAnnotation,
+            targetSnapshotId: UUID.snapshot.toUpperCase(),
+          },
+        ],
+      },
+    },
+    {
       name: "learning-run-rejects-unordered-snapshot-identities",
       schema: "LearningRunV1",
       valid: false,
@@ -873,6 +927,43 @@ function buildCases(): LearningPlatformConformanceCase[] {
             ...workflowThread,
             threadId: "thread_2",
             externalRunId: "external_run_2",
+          },
+        ],
+      },
+    },
+    {
+      name: "workflow-input-rejects-case-variant-snapshot-ids",
+      schema: "LearningWorkflowInputV1",
+      valid: false,
+      value: {
+        ...(canonicalValidValues.LearningWorkflowInputV1 as Record<
+          string,
+          JsonValue
+        >),
+        threads: [
+          workflowThread,
+          {
+            ...workflowThread,
+            snapshotId: UUID.snapshot.toUpperCase(),
+            threadId: "thread_2",
+            externalRunId: "external_run_2",
+          },
+        ],
+      },
+    },
+    {
+      name: "workflow-input-resolves-annotation-snapshot-case-insensitively",
+      schema: "LearningWorkflowInputV1",
+      valid: true,
+      value: {
+        ...(canonicalValidValues.LearningWorkflowInputV1 as Record<
+          string,
+          JsonValue
+        >),
+        selectedAnnotations: [
+          {
+            ...selectedAnnotation,
+            targetSnapshotId: UUID.snapshot.toUpperCase(),
           },
         ],
       },
@@ -1418,6 +1509,91 @@ function buildCases(): LearningPlatformConformanceCase[] {
       },
     },
     {
+      name: "create-learning-run-rejects-snapshot-outside-selection-interval",
+      schema: "CreateLearningRunV1",
+      valid: false,
+      value: {
+        ...(canonicalValidValues.CreateLearningRunV1 as Record<
+          string,
+          JsonValue
+        >),
+        selectedAfterSequence: 1,
+        selectedThroughSequence: 2,
+      },
+    },
+    {
+      name: "create-learning-run-rejects-non-increasing-snapshot-sequences",
+      schema: "CreateLearningRunV1",
+      valid: false,
+      value: {
+        ...(canonicalValidValues.CreateLearningRunV1 as Record<
+          string,
+          JsonValue
+        >),
+        selectedThroughSequence: 2,
+        snapshotIdsAndHashes: [
+          snapshotIdentity,
+          {
+            snapshotId: UUID.annotation,
+            contentSha256: SHA_B,
+            containerSequence: 1,
+          },
+        ],
+      },
+    },
+    {
+      name: "create-learning-run-rejects-case-variant-snapshot-identities",
+      schema: "CreateLearningRunV1",
+      valid: false,
+      value: {
+        ...(canonicalValidValues.CreateLearningRunV1 as Record<
+          string,
+          JsonValue
+        >),
+        selectedThroughSequence: 2,
+        snapshotIdsAndHashes: [
+          snapshotIdentity,
+          {
+            ...snapshotIdentity,
+            snapshotId: UUID.snapshot.toUpperCase(),
+            contentSha256: SHA_B,
+            containerSequence: 2,
+          },
+        ],
+      },
+    },
+    {
+      name: "create-learning-run-rejects-annotation-outside-frozen-snapshots",
+      schema: "CreateLearningRunV1",
+      valid: false,
+      value: {
+        ...(canonicalValidValues.CreateLearningRunV1 as Record<
+          string,
+          JsonValue
+        >),
+        selectedAnnotations: [
+          { ...selectedAnnotation, targetSnapshotId: UUID.container },
+        ],
+      },
+    },
+    {
+      name: "create-learning-run-resolves-annotation-snapshot-case-insensitively",
+      schema: "CreateLearningRunV1",
+      valid: true,
+      value: {
+        ...(canonicalValidValues.CreateLearningRunV1 as Record<
+          string,
+          JsonValue
+        >),
+        selectedAnnotations: [
+          {
+            ...selectedAnnotation,
+            targetSnapshotId: UUID.snapshot.toUpperCase(),
+          },
+        ],
+      },
+    },
+    {
       name: "append-learning-run-chunk-rejects-mismatched-chunk-identity",
       schema: "AppendLearningRunChunkV1",
       valid: false,
@@ -1448,6 +1624,123 @@ function buildCases(): LearningPlatformConformanceCase[] {
           JsonValue
         >),
         outputSha256: "invalid",
+      },
+    },
+    {
+      name: "learning-run-execution-result-rejects-zero-chunk-output",
+      schema: "LearningRunExecutionResultV1",
+      valid: false,
+      value: {
+        ...(canonicalValidValues.LearningRunExecutionResultV1 as Record<
+          string,
+          JsonValue
+        >),
+        chunks: [],
+      },
+    },
+    ...(
+      [
+        [
+          "mixed-run-ids",
+          [
+            learningChunk,
+            { ...secondLearningChunk, learningRunId: UUID.skill },
+          ],
+        ],
+        [
+          "mixed-attempt-ids",
+          [learningChunk, { ...secondLearningChunk, attemptId: UUID.version }],
+        ],
+        [
+          "duplicate-chunk-indexes",
+          [learningChunk, { ...secondLearningChunk, chunkIndex: 0 }],
+        ],
+        [
+          "gapped-chunk-indexes",
+          [learningChunk, { ...secondLearningChunk, chunkIndex: 2 }],
+        ],
+        ["out-of-order-chunk-indexes", [secondLearningChunk, learningChunk]],
+        [
+          "overlapping-snapshot-ranges",
+          [
+            learningChunk,
+            {
+              ...secondLearningChunk,
+              snapshotRange: {
+                ...secondLearningChunk.snapshotRange,
+                firstSequence: 1,
+              },
+            },
+          ],
+        ],
+        [
+          "out-of-order-snapshot-ranges",
+          [
+            {
+              ...learningChunk,
+              snapshotRange: {
+                ...learningChunk.snapshotRange,
+                firstSequence: 2,
+                lastSequence: 2,
+              },
+            },
+            {
+              ...secondLearningChunk,
+              snapshotRange: {
+                ...secondLearningChunk.snapshotRange,
+                firstSequence: 1,
+                lastSequence: 1,
+              },
+            },
+          ],
+        ],
+      ] satisfies [string, JsonValue[]][]
+    ).map(([suffix, chunks]) => ({
+      name: `learning-run-execution-result-rejects-${suffix}`,
+      schema: "LearningRunExecutionResultV1" as const,
+      valid: false,
+      value: {
+        ...(canonicalValidValues.LearningRunExecutionResultV1 as Record<
+          string,
+          JsonValue
+        >),
+        chunks,
+      },
+    })),
+    {
+      name: "run-snapshot-rejects-non-terminal-event-at-terminal-id",
+      schema: "RunSnapshotV1",
+      valid: false,
+      value: {
+        ...(canonicalValidValues.RunSnapshotV1 as Record<string, JsonValue>),
+        sourceEvents: [sourceEvent],
+      },
+    },
+    {
+      name: "run-snapshot-rejects-wrong-terminal-type-at-terminal-id",
+      schema: "RunSnapshotV1",
+      valid: false,
+      value: {
+        ...(canonicalValidValues.RunSnapshotV1 as Record<string, JsonValue>),
+        sourceEvents: [{ ...terminalSourceEvent, type: "RUN_ERROR" }],
+      },
+    },
+    {
+      name: "run-snapshot-rejects-second-terminal-event",
+      schema: "RunSnapshotV1",
+      valid: false,
+      value: {
+        ...(canonicalValidValues.RunSnapshotV1 as Record<string, JsonValue>),
+        sourceEvents: [
+          terminalSourceEvent,
+          {
+            ...terminalSourceEvent,
+            eventId: "event_2",
+            sequence: 2,
+            type: "RUN_ERROR",
+            sha256: SHA_B,
+          },
+        ],
       },
     },
     {
@@ -1513,6 +1806,24 @@ function buildCases(): LearningPlatformConformanceCase[] {
       schema: "SkillCandidateV1",
       valid: false,
       value: { ...updateCandidate, subjectSha256: SHA_B },
+    },
+    {
+      name: "add-candidate-rejects-locator-hash-mismatch",
+      schema: "SkillCandidateV1",
+      valid: false,
+      value: {
+        ...addCandidate,
+        bundleLocator: { ...blobLocator, applicationSha256: SHA_B },
+      },
+    },
+    {
+      name: "update-candidate-rejects-locator-hash-mismatch",
+      schema: "SkillCandidateV1",
+      valid: false,
+      value: {
+        ...updateCandidate,
+        bundleLocator: { ...blobLocator, applicationSha256: SHA_B },
+      },
     },
     {
       name: "remove-candidate-rejects-subject-hash-mismatch",

@@ -194,14 +194,35 @@ export const runSnapshotV1Schema = z
     containerSequence: positiveIntegerSchema,
   })
   .superRefine((snapshot, context) => {
-    const terminalEventCount = snapshot.sourceEvents.filter(
+    const referencedTerminalEvents = snapshot.sourceEvents.filter(
       ({ eventId }) => eventId === snapshot.terminalEventId,
-    ).length;
-    if (terminalEventCount !== 1) {
+    );
+    if (referencedTerminalEvents.length !== 1) {
       context.addIssue({
         code: "custom",
         path: ["sourceEvents"],
         message: "Source events must contain exactly one terminal event",
+      });
+    }
+    const referencedTerminalEvent = referencedTerminalEvents[0];
+    if (
+      referencedTerminalEvent !== undefined &&
+      referencedTerminalEvent.type !== snapshot.terminalType
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["sourceEvents"],
+        message: "Referenced terminal event type must match terminalType",
+      });
+    }
+    const terminalTypedEvents = snapshot.sourceEvents.filter(
+      ({ type }) => type === "RUN_FINISHED" || type === "RUN_ERROR",
+    );
+    if (terminalTypedEvents.length !== 1) {
+      context.addIssue({
+        code: "custom",
+        path: ["sourceEvents"],
+        message: "Source events must contain exactly one terminal-typed event",
       });
     }
 
@@ -262,8 +283,8 @@ export const learningRunStatusV1Schema = z.enum([
   "cancelled",
 ]);
 
-/** Durable learning run and its immutable frozen manifest. */
-export const learningRunV1Schema = z
+/** Complete immutable manifest shared by create commands and durable runs. */
+export const learningRunFrozenManifestV1Schema = z
   .looseObject({
     learningRunId: uuidSchema,
     organizationId: idSchema,
@@ -285,13 +306,9 @@ export const learningRunV1Schema = z
     normalizerVersion: nonEmptyStringSchema,
     sanitizerVersion: nonEmptyStringSchema,
     manifestSha256: sha256Schema,
-    status: learningRunStatusV1Schema,
-    createdAt: timestampSchema,
-    startedAt: nullableTimestampSchema,
-    completedAt: nullableTimestampSchema,
   })
-  .superRefine((run, context) => {
-    if (run.selectedAfterSequence > run.selectedThroughSequence) {
+  .superRefine((manifest, context) => {
+    if (manifest.selectedAfterSequence > manifest.selectedThroughSequence) {
       context.addIssue({
         code: "custom",
         path: ["selectedThroughSequence"],
@@ -301,19 +318,20 @@ export const learningRunV1Schema = z
 
     const snapshotIds = new Set<string>();
     let previousSequence: number | undefined;
-    for (const [index, snapshot] of run.snapshotIdsAndHashes.entries()) {
-      if (snapshotIds.has(snapshot.snapshotId)) {
+    for (const [index, snapshot] of manifest.snapshotIdsAndHashes.entries()) {
+      const snapshotId = snapshot.snapshotId.toLowerCase();
+      if (snapshotIds.has(snapshotId)) {
         context.addIssue({
           code: "custom",
           path: ["snapshotIdsAndHashes", index, "snapshotId"],
           message: "Frozen snapshot identities must be unique",
         });
       }
-      snapshotIds.add(snapshot.snapshotId);
+      snapshotIds.add(snapshotId);
 
       if (
-        snapshot.containerSequence <= run.selectedAfterSequence ||
-        snapshot.containerSequence > run.selectedThroughSequence
+        snapshot.containerSequence <= manifest.selectedAfterSequence ||
+        snapshot.containerSequence > manifest.selectedThroughSequence
       ) {
         context.addIssue({
           code: "custom",
@@ -333,7 +351,30 @@ export const learningRunV1Schema = z
       }
       previousSequence = snapshot.containerSequence;
     }
+
+    for (const [index, annotation] of manifest.selectedAnnotations.entries()) {
+      if (!snapshotIds.has(annotation.targetSnapshotId.toLowerCase())) {
+        context.addIssue({
+          code: "custom",
+          path: ["selectedAnnotations", index, "targetSnapshotId"],
+          message: "Selected annotation must target a frozen snapshot",
+        });
+      }
+    }
   });
+export type LearningRunFrozenManifestV1 = z.infer<
+  typeof learningRunFrozenManifestV1Schema
+>;
+
+/** Durable learning run and its immutable frozen manifest. */
+export const learningRunV1Schema = learningRunFrozenManifestV1Schema.safeExtend(
+  {
+    status: learningRunStatusV1Schema,
+    createdAt: timestampSchema,
+    startedAt: nullableTimestampSchema,
+    completedAt: nullableTimestampSchema,
+  },
+);
 export type LearningRunV1 = z.infer<typeof learningRunV1Schema>;
 
 export const learningChunkV1Schema = z.looseObject({
@@ -669,6 +710,18 @@ export const skillCandidateV1Schema = z
           "Candidate subject hash must equal its bundle or removal-intent hash",
       });
     }
+    if (
+      candidate.action !== "remove" &&
+      candidate.bundleLocator !== null &&
+      candidate.bundleSha256 !== null &&
+      candidate.bundleLocator.applicationSha256 !== candidate.bundleSha256
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["bundleLocator", "applicationSha256"],
+        message: "Candidate bundle locator and bundle hashes must match",
+      });
+    }
   });
 export type SkillCandidateV1 = z.infer<typeof skillCandidateV1Schema>;
 
@@ -832,14 +885,15 @@ export const learningWorkflowInputV1Schema = z
       }
       threadIds.add(thread.threadId);
 
-      if (snapshots.has(thread.snapshotId)) {
+      const snapshotId = thread.snapshotId.toLowerCase();
+      if (snapshots.has(snapshotId)) {
         context.addIssue({
           code: "custom",
           path: ["threads", index, "snapshotId"],
           message: "Workflow snapshot IDs must be unique",
         });
       } else {
-        snapshots.set(thread.snapshotId, thread);
+        snapshots.set(snapshotId, thread);
       }
     }
 
@@ -859,7 +913,7 @@ export const learningWorkflowInputV1Schema = z
       annotationIndex,
       annotation,
     ] of input.selectedAnnotations.entries()) {
-      const thread = snapshots.get(annotation.targetSnapshotId);
+      const thread = snapshots.get(annotation.targetSnapshotId.toLowerCase());
       if (thread === undefined) {
         context.addIssue({
           code: "custom",
@@ -1281,11 +1335,54 @@ export type LearningWorkflowOutputV1 = z.infer<
 >;
 
 /** Complete validated output returned by one deterministic workflow attempt. */
-export const learningRunExecutionResultV1Schema = z.looseObject({
-  outputSha256: sha256Schema,
-  chunks: z.array(learningChunkV1Schema),
-  workflowOutput: learningWorkflowOutputV1Schema,
-});
+export const learningRunExecutionResultV1Schema = z
+  .looseObject({
+    outputSha256: sha256Schema,
+    chunks: z.array(learningChunkV1Schema).min(1),
+    workflowOutput: learningWorkflowOutputV1Schema,
+  })
+  .superRefine((result, context) => {
+    const firstChunk = result.chunks[0];
+    if (firstChunk === undefined) return;
+
+    let previousLastSequence: number | undefined;
+    for (const [index, chunk] of result.chunks.entries()) {
+      if (chunk.learningRunId !== firstChunk.learningRunId) {
+        context.addIssue({
+          code: "custom",
+          path: ["chunks", index, "learningRunId"],
+          message: "Execution result chunks must belong to one learning run",
+        });
+      }
+      if (chunk.attemptId !== firstChunk.attemptId) {
+        context.addIssue({
+          code: "custom",
+          path: ["chunks", index, "attemptId"],
+          message: "Execution result chunks must belong to one attempt",
+        });
+      }
+      if (chunk.chunkIndex !== index) {
+        context.addIssue({
+          code: "custom",
+          path: ["chunks", index, "chunkIndex"],
+          message:
+            "Execution result chunk indexes must be contiguous from zero",
+        });
+      }
+      if (
+        previousLastSequence !== undefined &&
+        chunk.snapshotRange.firstSequence <= previousLastSequence
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["chunks", index, "snapshotRange", "firstSequence"],
+          message:
+            "Execution result snapshot ranges must be ordered and non-overlapping",
+        });
+      }
+      previousLastSequence = chunk.snapshotRange.lastSequence;
+    }
+  });
 export type LearningRunExecutionResultV1 = z.infer<
   typeof learningRunExecutionResultV1Schema
 >;

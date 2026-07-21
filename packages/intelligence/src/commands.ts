@@ -3,9 +3,8 @@ import {
   generatedSkillCandidateV1Schema,
   jsonValueSchema,
   learningChunkV1Schema,
+  learningRunFrozenManifestV1Schema,
   learningWorkflowOutputV1Schema,
-  selectedHumanAnnotationV1Schema,
-  snapshotIdentityV1Schema,
   nonNilUuidSchema,
 } from "./contracts.js";
 
@@ -24,36 +23,10 @@ const commandEnvelopeShape = {
 } as const;
 
 /** Freezes a new learning run and its complete deterministic manifest. */
-export const createLearningRunV1Schema = z
-  .looseObject({
+export const createLearningRunV1Schema =
+  learningRunFrozenManifestV1Schema.safeExtend({
     ...commandEnvelopeShape,
-    learningRunId: uuidSchema,
-    organizationId: idSchema,
-    projectId: idSchema,
-    learningContainerId: uuidSchema,
-    trigger: z.enum(["nightly", "manual"]),
-    idempotencyKey: nonEmptyStringSchema,
-    selectedAfterSequence: nonNegativeIntegerSchema,
-    selectedThroughSequence: nonNegativeIntegerSchema,
-    snapshotIdsAndHashes: z.array(snapshotIdentityV1Schema),
-    selectedAnnotations: z.array(selectedHumanAnnotationV1Schema),
-    registryRevision: nonEmptyStringSchema,
-    skillSetHash: sha256Schema,
-    containerConfigRevision: nonNegativeIntegerSchema,
-    modelProfileRef: nonEmptyStringSchema,
-    promptProfileRef: nonEmptyStringSchema,
-    evaluatorProfileRef: nonEmptyStringSchema,
-    workflowVersion: nonEmptyStringSchema,
-    normalizerVersion: nonEmptyStringSchema,
-    sanitizerVersion: nonEmptyStringSchema,
-    manifestSha256: sha256Schema,
-  })
-  .refine(
-    (value) => value.selectedThroughSequence >= value.selectedAfterSequence,
-    {
-      message: "selectedThroughSequence must not precede selectedAfterSequence",
-    },
-  );
+  });
 export type CreateLearningRunV1 = z.infer<typeof createLearningRunV1Schema>;
 
 /** Appends one validated attempt-private learning chunk. */

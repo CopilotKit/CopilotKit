@@ -790,6 +790,35 @@ describe("parent V1 contract schemas", () => {
     );
   });
 
+  test("resolves annotation snapshot UUIDs case-insensitively", () => {
+    expect(
+      learningWorkflowInputV1Schema.safeParse({
+        ...workflowInput,
+        selectedAnnotations: [
+          {
+            ...workflowInput.selectedAnnotations[0],
+            targetSnapshotId: UUIDS.snapshot.toUpperCase(),
+          },
+        ],
+      }).success,
+    ).toBe(true);
+  });
+
+  test("rejects case-variant duplicate workflow snapshot UUIDs", () => {
+    expect(
+      learningWorkflowInputV1Schema.safeParse({
+        ...workflowInput,
+        threads: [
+          workflowInput.threads[0],
+          {
+            ...workflowInput.threads[1],
+            snapshotId: UUIDS.snapshot.toUpperCase(),
+          },
+        ],
+      }).success,
+    ).toBe(false);
+  });
+
   test.each([
     {
       name: "thread IDs",
@@ -938,6 +967,39 @@ describe("parent V1 contract schemas", () => {
     ).toBe(false);
   });
 
+  test.each([
+    { name: "a non-terminal event", type: "TEXT_MESSAGE_END" },
+    { name: "the other terminal type", type: "RUN_ERROR" },
+  ])("rejects $name at the declared terminal event ID", ({ type }) => {
+    expect(
+      runSnapshotV1Schema.safeParse({
+        ...snapshot,
+        sourceEvents: snapshot.sourceEvents.map((event) =>
+          event.eventId === snapshot.terminalEventId
+            ? { ...event, type }
+            : event,
+        ),
+      }).success,
+    ).toBe(false);
+  });
+
+  test("rejects a second terminal-typed source event", () => {
+    expect(
+      runSnapshotV1Schema.safeParse({
+        ...snapshot,
+        sourceEvents: [
+          ...snapshot.sourceEvents,
+          {
+            eventId: "event_later_terminal",
+            sequence: 3,
+            type: "RUN_ERROR",
+            sha256: SHA_A,
+          },
+        ],
+      }).success,
+    ).toBe(false);
+  });
+
   test("requires snapshot timestamps to follow capture order", () => {
     expect(
       runSnapshotV1Schema.safeParse({
@@ -1014,6 +1076,46 @@ describe("parent V1 contract schemas", () => {
         ],
       }).success,
     ).toBe(false);
+  });
+
+  test("treats case variants of a snapshot UUID as the same frozen identity", () => {
+    expect(
+      learningRunV1Schema.safeParse({
+        ...learningRun,
+        snapshotIdsAndHashes: [
+          learningRun.snapshotIdsAndHashes[0],
+          {
+            ...learningRun.snapshotIdsAndHashes[1],
+            snapshotId: UUIDS.snapshot.toUpperCase(),
+          },
+        ],
+      }).success,
+    ).toBe(false);
+  });
+
+  test("requires selected annotations to target a frozen snapshot", () => {
+    expect(
+      learningRunV1Schema.safeParse({
+        ...learningRun,
+        selectedAnnotations: [
+          {
+            ...workflowInput.selectedAnnotations[0],
+            targetSnapshotId: UUIDS.container,
+          },
+        ],
+      }).success,
+    ).toBe(false);
+    expect(
+      learningRunV1Schema.safeParse({
+        ...learningRun,
+        selectedAnnotations: [
+          {
+            ...workflowInput.selectedAnnotations[0],
+            targetSnapshotId: UUIDS.snapshot.toUpperCase(),
+          },
+        ],
+      }).success,
+    ).toBe(true);
   });
 
   test("requires frozen snapshot identities in strictly increasing sequence order", () => {
@@ -1150,6 +1252,17 @@ describe("parent V1 contract schemas", () => {
     expect(skillCandidateV1Schema.safeParse(updateCandidate).success).toBe(
       true,
     );
+    for (const candidate of [addCandidate, updateCandidate]) {
+      expect(
+        skillCandidateV1Schema.safeParse({
+          ...candidate,
+          bundleLocator: {
+            ...candidate.bundleLocator,
+            applicationSha256: SHA_B,
+          },
+        }).success,
+      ).toBe(false);
+    }
     for (const candidate of [addCandidate, updateCandidate]) {
       expect(
         skillCandidateV1Schema.safeParse({

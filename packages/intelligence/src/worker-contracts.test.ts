@@ -4,6 +4,9 @@ import * as intelligence from "./index.js";
 const runId = "88888888-8888-4888-8888-888888888888";
 const attemptId = "22222222-2222-4222-8222-222222222222";
 const snapshotId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const secondSnapshotId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+const otherRunId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+const otherAttemptId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const sha256 = "a".repeat(64);
 const now = "2026-07-16T18:00:00.000Z";
 
@@ -35,6 +38,17 @@ const chunk = {
   privatePayloadRef: {},
   createdAt: now,
   updatedAt: now,
+} as const;
+
+const secondChunk = {
+  ...chunk,
+  chunkIndex: 1,
+  snapshotRange: {
+    firstSnapshotId: secondSnapshotId,
+    lastSnapshotId: secondSnapshotId,
+    firstSequence: 2,
+    lastSequence: 2,
+  },
 } as const;
 
 const workflowOutput = {
@@ -105,6 +119,77 @@ test("CreateLearningRunV1 freezes the complete manifest and rejects inverted seq
       snapshotIdsAndHashes: [],
     }).success,
   ).toBe(false);
+
+  expect(
+    schema.safeParse({
+      ...command,
+      selectedAfterSequence: 1,
+      selectedThroughSequence: 2,
+    }).success,
+  ).toBe(false);
+  expect(
+    schema.safeParse({
+      ...command,
+      selectedThroughSequence: 2,
+      snapshotIdsAndHashes: [
+        selectedSnapshot,
+        {
+          ...selectedSnapshot,
+          snapshotId: secondSnapshotId,
+        },
+      ],
+    }).success,
+  ).toBe(false);
+  expect(
+    schema.safeParse({
+      ...command,
+      selectedThroughSequence: 2,
+      snapshotIdsAndHashes: [
+        selectedSnapshot,
+        {
+          ...selectedSnapshot,
+          snapshotId: snapshotId.toUpperCase(),
+          containerSequence: 2,
+        },
+      ],
+    }).success,
+  ).toBe(false);
+  expect(
+    schema.safeParse({
+      ...command,
+      selectedAnnotations: [
+        {
+          schemaVersion: 1,
+          annotationId: otherAttemptId,
+          targetSnapshotId: secondSnapshotId,
+          targetEvidenceLocator: null,
+          text: "Outside the frozen selection.",
+          contentSha256: sha256,
+          annotationRevision: 0,
+          authoredAt: now,
+          capturedAt: now,
+        },
+      ],
+    }).success,
+  ).toBe(false);
+  expect(
+    schema.safeParse({
+      ...command,
+      selectedAnnotations: [
+        {
+          schemaVersion: 1,
+          annotationId: otherAttemptId,
+          targetSnapshotId: snapshotId.toUpperCase(),
+          targetEvidenceLocator: null,
+          text: "Inside the frozen selection.",
+          contentSha256: sha256,
+          annotationRevision: 0,
+          authoredAt: now,
+          capturedAt: now,
+        },
+      ],
+    }).success,
+  ).toBe(true);
 });
 
 test("LearningRunJobV1 carries only the durable attempt fence", () => {
@@ -132,6 +217,49 @@ test("LearningRunExecutionResultV1 validates chunks and aggregate workflow outpu
   expect(schema.safeParse({ ...result, outputSha256: "short" }).success).toBe(
     false,
   );
+  expect(schema.safeParse({ ...result, chunks: [] }).success).toBe(false);
+  expect(
+    schema.safeParse({ ...result, chunks: [chunk, secondChunk] }).success,
+  ).toBe(true);
+
+  const invalidChunkSets = [
+    [chunk, { ...secondChunk, learningRunId: otherRunId }],
+    [chunk, { ...secondChunk, attemptId: otherAttemptId }],
+    [chunk, { ...secondChunk, chunkIndex: 0 }],
+    [chunk, { ...secondChunk, chunkIndex: 2 }],
+    [secondChunk, chunk],
+    [
+      chunk,
+      {
+        ...secondChunk,
+        snapshotRange: {
+          ...secondChunk.snapshotRange,
+          firstSequence: 1,
+        },
+      },
+    ],
+    [
+      {
+        ...chunk,
+        snapshotRange: {
+          ...chunk.snapshotRange,
+          firstSequence: 2,
+          lastSequence: 2,
+        },
+      },
+      {
+        ...secondChunk,
+        snapshotRange: {
+          ...secondChunk.snapshotRange,
+          firstSequence: 1,
+          lastSequence: 1,
+        },
+      },
+    ],
+  ] as const;
+  for (const chunks of invalidChunkSets) {
+    expect(schema.safeParse({ ...result, chunks }).success).toBe(false);
+  }
 });
 
 test("AppendLearningRunChunkV1 binds chunk identity to its attempt envelope", () => {
