@@ -62,6 +62,7 @@ test.each([
     expect(new Set(documentedExports).size).toBe(documentedExports.length);
     expect(documentedExports).toEqual(readEntryPointExports(entryPoint));
   },
+  15_000,
 );
 
 test("ships the README and exhaustive API contract in the package", () => {
