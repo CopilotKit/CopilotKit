@@ -111,9 +111,9 @@
       }
     },
     {
-      "_comment": "beautiful-chat Search Flights (A2UI Fixed Schema) pill — leg 1: weatherAgent outer generate_a2ui call.",
+      "_comment": "beautiful-chat Search Flights (A2UI Fixed Schema) pill — leg 1: weatherAgent outer generate_a2ui call. Keyed on the pill's unique 'for next Tuesday' tail (mirrors gold langgraph-python) so it does NOT substring-collide with the tool-rendering-reasoning-chain pill 'Find flights from SFO to JFK and show me the weather there.', which loads later and would otherwise be hijacked by this earlier-loading fixture.",
       "match": {
-        "userMessage": "Find flights from SFO to JFK",
+        "userMessage": "for next Tuesday",
         "toolName": "generate_a2ui",
         "hasToolResult": false,
         "context": "mastra"
@@ -129,9 +129,9 @@
       }
     },
     {
-      "_comment": "beautiful-chat Search Flights — leg 2: forced inner render_a2ui. Two FlightCard nodes in a Row, targeting the page's app-dashboard-catalog. Values match tests/e2e/beautiful-chat.spec.ts (United $349, Delta $289).",
+      "_comment": "beautiful-chat Search Flights — leg 2: forced inner render_a2ui. Two FlightCard nodes in a Row, targeting the page's app-dashboard-catalog. Values match tests/e2e/beautiful-chat.spec.ts (United $349, Delta $289). Keyed on 'for next Tuesday' (see leg 1) to avoid colliding with the reasoning-chain flights pill.",
       "match": {
-        "userMessage": "Find flights from SFO to JFK",
+        "userMessage": "for next Tuesday",
         "toolName": "render_a2ui",
         "context": "mastra"
       },
@@ -191,9 +191,9 @@
       }
     },
     {
-      "_comment": "beautiful-chat Search Flights — leg 3: narration after the flight cards render.",
+      "_comment": "beautiful-chat Search Flights — leg 3: narration after the flight cards render. Keyed on 'for next Tuesday' (see leg 1) to avoid colliding with the reasoning-chain flights pill.",
       "match": {
-        "userMessage": "Find flights from SFO to JFK",
+        "userMessage": "for next Tuesday",
         "hasToolResult": true,
         "context": "mastra"
       },

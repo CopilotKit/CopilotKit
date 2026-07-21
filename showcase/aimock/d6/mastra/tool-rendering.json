@@ -117,7 +117,7 @@
       "match": {
         "userMessage": "What's the current price of AAPL?",
         "context": "mastra",
-        "hasToolResult": false
+        "toolName": "get_stock_price"
       },
       "response": {
         "toolCalls": [
@@ -205,11 +205,10 @@
       }
     },
     {
-      "_comment": "First roll. Matches the initial user prompt (no prior d20 tool result in this chain yet). Comes after the toolCallId-chained fixtures above so iterations 2-6 of the loop hit those first.",
+      "_comment": "First roll. Matches the initial user prompt on userMessage only (mirrors gold tool_rendering_agent fixture) — the toolCallId-chained fixtures above win for iterations 2-6, so no hasToolResult gate is needed here (and the gate broke when prior-pill tool results linger in thread history).",
       "match": {
         "userMessage": "Roll a 20-sided die.",
-        "context": "mastra",
-        "hasToolResult": false
+        "context": "mastra"
       },
       "response": {
         "toolCalls": [

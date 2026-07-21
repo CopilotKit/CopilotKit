@@ -48,9 +48,9 @@
       }
     },
     {
-      "_comment": "headless-complete weather pill toolcall \u2014 emit get_weather for Tokyo. Probe sends 'What's the weather in Tokyo?'. Only userMessage+context discriminators because narration fixtures above (toolCallId) already win once the tool result lands.",
+      "_comment": "headless-complete weather pill toolcall \u2014 emit get_weather for Tokyo. Probe sends 'What's the weather in Tokyo?'. Keyed on the full 'What's the weather in Tokyo' prefix (mirrors gold langgraph-python) so it does NOT substring-collide with the tool-rendering 'Chain tools' pill ('...get the weather in Tokyo...'), which loads later and would otherwise be hijacked into emitting only get_weather.",
       "match": {
-        "userMessage": "weather in Tokyo",
+        "userMessage": "What's the weather in Tokyo",
         "context": "mastra"
       },
       "response": {
@@ -66,7 +66,7 @@
     {
       "_comment": "headless-complete stock pill toolcall \u2014 emit get_stock_price for AAPL. Probe sends \"What's the price of AAPL right now?\".",
       "match": {
-        "userMessage": "price of AAPL",
+        "userMessage": "price of AAPL right now",
         "context": "mastra"
       },
       "response": {

@@ -6,6 +6,7 @@
 // `withForwardedHeaders(req, () => handleRequest(req))`.
 import { openai } from "@/mastra/_header_forwarding";
 import { Agent } from "@mastra/core/agent";
+import { stepCountIs } from "ai";
 import {
   weatherTool,
   stockPriceTool,
@@ -486,6 +487,14 @@ export const toolRenderingAgent = new Agent({
     roll_d20: rollD20Tool,
   },
   model: openai("gpt-4o"),
+  // The "Roll a d20" pill chains 5 sequential roll_d20 calls + a closing
+  // narration (6 model turns), and "Chain tools" fans out 3 tools then
+  // summarizes. The AI SDK default stop condition halts the agentic loop
+  // before the sequence completes (only 4/5 dice cards render), so raise the
+  // step cap enough to run the longest scripted chain to completion.
+  defaultOptions: {
+    stopWhen: stepCountIs(8),
+  },
   instructions: `You are a travel & lifestyle concierge. Use the mock tools for weather, flights, stock prices, or d20 rolls when the user asks; otherwise reply in plain text. For flights, default origin to 'SFO' if the user only names a destination. Call multiple tools in one turn if asked. After tools return, summarize in one short sentence. Never fabricate data a tool could provide.`,
   memory: new Memory({
     storage: new LibSQLStore({
