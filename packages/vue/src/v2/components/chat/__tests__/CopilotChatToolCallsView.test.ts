@@ -326,6 +326,52 @@ describe("CopilotChatToolCallsView", () => {
     expect(wrapper.get("[data-testid='slot-label']").text()).toBe("second");
   });
 
+  it("forwards a consumer-provided tool-call slot when slot membership changes", async () => {
+    const message = baseAssistantMessage();
+    const showCustom = ref(false);
+    const Harness = defineComponent({
+      components: { CopilotChatToolCallsView },
+      setup() {
+        return { message, showCustom };
+      },
+      template: `
+        <CopilotChatToolCallsView :message="message" :messages="[message]">
+          <template v-if="showCustom" #tool-call-search_docs>
+            <div data-testid="custom-tool-slot">CUSTOM</div>
+          </template>
+        </CopilotChatToolCallsView>
+      `,
+    });
+
+    const wrapper = mount(CopilotKitProvider, {
+      props: { runtimeUrl: "/api/copilotkit" },
+      slots: {
+        default: () =>
+          h(
+            CopilotChatConfigurationProvider,
+            { threadId: "thread-1", agentId: "default" },
+            { default: () => h(Harness) },
+          ),
+      },
+    });
+
+    expect(wrapper.find("[data-testid='custom-tool-slot']").exists()).toBe(
+      false,
+    );
+
+    showCustom.value = true;
+    await nextTick();
+    expect(wrapper.find("[data-testid='custom-tool-slot']").text()).toBe(
+      "CUSTOM",
+    );
+
+    showCustom.value = false;
+    await nextTick();
+    expect(wrapper.find("[data-testid='custom-tool-slot']").exists()).toBe(
+      false,
+    );
+  });
+
   it("skips unchanged fallback renderers when an unrelated parent value changes", async () => {
     const message = baseAssistantMessage();
     const label = ref("first");

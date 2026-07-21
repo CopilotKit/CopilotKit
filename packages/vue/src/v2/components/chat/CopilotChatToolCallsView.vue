@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, useSlots } from "vue";
+import { useSlots } from "vue";
 import type { AssistantMessage, Message } from "@ag-ui/core";
 import type { CopilotChatToolCallRenderSlotProps } from "./types";
 import CopilotChatToolCallItem from "./CopilotChatToolCallItem.vue";
@@ -26,9 +26,9 @@ const componentSlots = useSlots() as Record<
   ToolCallSlotName,
   (props?: unknown) => unknown
 >;
-const forwardedSlotNames = computed(
-  (): ToolCallSlotName[] => Object.keys(componentSlots) as ToolCallSlotName[],
-);
+function getForwardedSlotNames(): ToolCallSlotName[] {
+  return Object.keys(componentSlots) as ToolCallSlotName[];
+}
 </script>
 
 <template>
@@ -39,7 +39,7 @@ const forwardedSlotNames = computed(
     :messages="messages"
   >
     <template
-      v-for="slotName in forwardedSlotNames"
+      v-for="slotName in getForwardedSlotNames()"
       :key="slotName"
       #[slotName]="slotProps"
     >
