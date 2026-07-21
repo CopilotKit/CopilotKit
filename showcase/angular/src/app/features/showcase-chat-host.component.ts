@@ -1,4 +1,4 @@
-import type { AfterViewInit } from "@angular/core";
+import type { AfterViewInit, Type } from "@angular/core";
 import {
   ChangeDetectionStrategy,
   Component,
@@ -22,6 +22,7 @@ import { agentIdForFeature } from "../feature-agent";
 export class ShowcaseChatHostComponent implements AfterViewInit {
   readonly agentId = input<string | undefined>();
   readonly chatPlaceholder = input<string | undefined>();
+  readonly reasoningMessageComponent = input<Type<unknown> | undefined>();
   private readonly viewContainer = inject(ViewContainerRef);
   private readonly route = inject(ActivatedRoute);
   private readonly injector = inject(Injector);
@@ -46,5 +47,9 @@ export class ShowcaseChatHostComponent implements AfterViewInit {
     const feature =
       (this.route.snapshot.data["feature"] as string | undefined) ?? "default";
     chat.setInput("agentId", this.agentId() ?? agentIdForFeature(feature));
+    chat.setInput(
+      "reasoningMessageComponent",
+      this.reasoningMessageComponent(),
+    );
   }
 }

@@ -60,6 +60,20 @@ const SUGGESTIONS: Readonly<
         "What time is it in my timezone and what should I do for the next hour?",
     },
   ],
+  "reasoning-default": [
+    {
+      title: "Show reasoning",
+      message:
+        "Explain step by step why the sky appears blue during the day but red at sunset.",
+    },
+  ],
+  "reasoning-custom": [
+    {
+      title: "Show reasoning",
+      message:
+        "Explain step by step why the sky appears blue during the day but red at sunset.",
+    },
+  ],
 };
 
 /** Return deterministic static suggestions for a canonical showcase feature. */

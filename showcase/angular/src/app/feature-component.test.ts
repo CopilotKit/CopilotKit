@@ -33,6 +33,8 @@ describe("Angular showcase feature routing", () => {
     ["shared-state-read", "state"],
     ["shared-state-streaming", "state"],
     ["readonly-state-agent-context", "state"],
+    ["reasoning-default", "reasoning"],
+    ["reasoning-custom", "reasoning"],
     ["declarative-hashbrown", "hashbrown"],
     ["agentic-chat", "chat"],
   ])("maps %s to the %s implementation", (feature, expected) => {

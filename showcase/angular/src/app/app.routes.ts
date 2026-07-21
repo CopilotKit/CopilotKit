@@ -29,6 +29,7 @@ export type FeatureComponentKey =
   | "generated-ui"
   | "mcp-apps"
   | "state"
+  | "reasoning"
   | "hashbrown"
   | "chat";
 
@@ -78,6 +79,9 @@ export function resolveFeatureComponentKey(
     case "shared-state-streaming":
     case "readonly-state-agent-context":
       return "state";
+    case "reasoning-default":
+    case "reasoning-custom":
+      return "reasoning";
     default:
       return "chat";
   }
@@ -145,6 +149,11 @@ function loadFeatureComponent(feature: string) {
       return () =>
         import("./features/state/state-feature.component").then(
           (module) => module.StateFeatureComponent,
+        );
+    case "reasoning":
+      return () =>
+        import("./features/reasoning-feature.component").then(
+          (module) => module.ReasoningFeatureComponent,
         );
     case "hashbrown":
       return () =>
