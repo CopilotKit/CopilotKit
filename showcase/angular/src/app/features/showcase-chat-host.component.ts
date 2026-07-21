@@ -1,4 +1,5 @@
 import type { AfterViewInit, Type } from "@angular/core";
+import type { AttachmentsConfig } from "@copilotkit/angular";
 import {
   ChangeDetectionStrategy,
   Component,
@@ -29,6 +30,7 @@ export class ShowcaseChatHostComponent implements AfterViewInit {
   readonly reasoningMessageComponent = input<Type<unknown> | undefined>();
   readonly messageViewChildrenComponent = input<Type<unknown> | undefined>();
   readonly headers = input<Record<string, string> | undefined>();
+  readonly attachments = input<AttachmentsConfig | undefined>();
   private readonly viewContainer = inject(ViewContainerRef);
   private readonly route = inject(ActivatedRoute);
   private readonly injector = inject(Injector);
@@ -65,5 +67,6 @@ export class ShowcaseChatHostComponent implements AfterViewInit {
       "messageViewChildrenComponent",
       this.messageViewChildrenComponent(),
     );
+    chat.setInput("attachments", this.attachments());
   }
 }

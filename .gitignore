@@ -43,6 +43,7 @@ showcase/shell-docs/next-env.d.ts
 # Showcase: staged shared contexts for Docker builds (see showcase/scripts/dev-local.sh)
 showcase/integrations/*/shared_python/
 showcase/integrations/*/shared_typescript/
+showcase/angular/public/demo-files/
 
 # External repos (cloned for development)
 ext-apps/

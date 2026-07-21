@@ -32,6 +32,7 @@ export type FeatureComponentKey =
   | "reasoning"
   | "agent-state"
   | "app-settings"
+  | "media"
   | "hashbrown"
   | "chat";
 
@@ -90,6 +91,9 @@ export function resolveFeatureComponentKey(
     case "auth":
     case "agent-config":
       return "app-settings";
+    case "voice":
+    case "multimodal":
+      return "media";
     default:
       return "chat";
   }
@@ -172,6 +176,11 @@ function loadFeatureComponent(feature: string) {
       return () =>
         import("./features/app-settings/app-settings-feature.component").then(
           (module) => module.AppSettingsFeatureComponent,
+        );
+    case "media":
+      return () =>
+        import("./features/media/media-feature.component").then(
+          (module) => module.MediaFeatureComponent,
         );
     case "hashbrown":
       return () =>

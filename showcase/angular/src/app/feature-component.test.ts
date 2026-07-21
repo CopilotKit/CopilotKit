@@ -39,6 +39,8 @@ describe("Angular showcase feature routing", () => {
     ["subagents", "agent-state"],
     ["auth", "app-settings"],
     ["agent-config", "app-settings"],
+    ["voice", "media"],
+    ["multimodal", "media"],
     ["declarative-hashbrown", "hashbrown"],
     ["agentic-chat", "chat"],
   ])("maps %s to the %s implementation", (feature, expected) => {

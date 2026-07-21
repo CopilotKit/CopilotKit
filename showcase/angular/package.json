@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "generate": "pnpm --dir ../scripts generate-registry",
+    "generate": "node scripts/stage-demo-assets.mjs && pnpm --dir ../scripts generate-registry",
     "build": "pnpm run build:browser && tsc -p tsconfig.server.json",
     "build:browser": "pnpm run generate && ng build --stats-json && node scripts/check-performance-budget.mjs && node scripts/check-browser-artifact.mjs",
     "build:server": "pnpm run generate && tsc -p tsconfig.server.json",
