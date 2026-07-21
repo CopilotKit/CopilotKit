@@ -16,7 +16,7 @@ import {
   provideCopilotChatLabels,
 } from "@copilotkit/angular";
 
-import { agentIdForFeature } from "../feature-agent";
+import { agentIdForFeature, threadIdForFeature } from "../feature-agent";
 
 @Component({
   selector: "showcase-chat-host",
@@ -59,6 +59,8 @@ export class ShowcaseChatHostComponent implements AfterViewInit {
     const feature =
       (this.route.snapshot.data["feature"] as string | undefined) ?? "default";
     chat.setInput("agentId", this.agentId() ?? agentIdForFeature(feature));
+    const threadId = threadIdForFeature(feature);
+    if (threadId !== undefined) chat.setInput("threadId", threadId);
     chat.setInput(
       "reasoningMessageComponent",
       this.reasoningMessageComponent(),
