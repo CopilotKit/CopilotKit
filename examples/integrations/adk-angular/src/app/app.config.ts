@@ -17,12 +17,7 @@ export const appConfig: ApplicationConfig = {
       runtimeUrl: "http://localhost:8200/api/copilotkit",
       // 🪁 Generative UI: render a card whenever the agent calls `get_weather`.
       renderToolCalls: [
-        {
-          name: "get_weather",
-          args: weatherArgs,
-          component: WeatherCard,
-          agentId: AGENT_ID,
-        },
+        { name: "get_weather", args: weatherArgs, component: WeatherCard },
       ],
       // 🪁 Suggestions: static prompt pills shown above the composer.
       suggestionsConfig: [
