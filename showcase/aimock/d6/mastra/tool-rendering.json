@@ -41,8 +41,8 @@
       "_comment": "tool-rendering pill: Chain tools \u2014 emit 3 tool calls in one assistant turn (get_weather Tokyo + search_flights SFO->Tokyo + roll_d20=11). MUST appear before the bare 'weather in Tokyo' fixture below; substring match would otherwise leak into this prompt. No hasToolResult gate: in multi-pill demo sessions prior clicks leave tool results in the thread, which previously caused this fixture to be skipped in favour of the follow-up content fixture and the pill rendered no cards.",
       "match": {
         "userMessage": "Chain a few tools in this single turn",
-        "turnIndex": 0,
-        "context": "mastra"
+        "context": "mastra",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -78,8 +78,8 @@
     {
       "match": {
         "userMessage": "What's the weather in San Francisco?",
-        "turnIndex": 0,
-        "context": "mastra"
+        "context": "mastra",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -116,8 +116,8 @@
     {
       "match": {
         "userMessage": "What's the current price of AAPL?",
-        "turnIndex": 0,
-        "context": "mastra"
+        "context": "mastra",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -208,8 +208,8 @@
       "_comment": "First roll. Matches the initial user prompt (no prior d20 tool result in this chain yet). Comes after the toolCallId-chained fixtures above so iterations 2-6 of the loop hit those first.",
       "match": {
         "userMessage": "Roll a 20-sided die.",
-        "turnIndex": 0,
-        "context": "mastra"
+        "context": "mastra",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -273,8 +273,8 @@
       "_comment": "Final fallback when the agent has neither get_weather nor get-weather registered \u2014 return narrated content with no tool call. Comes last so the tool-emitting fixtures above win when the tool IS available.",
       "match": {
         "userMessage": "weather in Tokyo",
-        "turnIndex": 0,
-        "context": "mastra"
+        "context": "mastra",
+        "hasToolResult": false
       },
       "response": {
         "content": "The weather in Tokyo is currently 22\u00b0C with partly cloudy skies and light easterly winds."

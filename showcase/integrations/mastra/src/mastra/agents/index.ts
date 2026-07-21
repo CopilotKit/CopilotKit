@@ -16,6 +16,7 @@ import {
   scheduleMeetingInterruptTool,
   searchFlightsTool,
   rollDiceTool,
+  rollD20Tool,
   generateA2uiTool,
   setNotesTool,
   setStepsTool,
@@ -462,6 +463,44 @@ Only skip the second tool call when the question is truly atomic and more tool c
   }),
 });
 // @endregion[reasoning-chain-agent]
+
+// @region[tool-rendering-agent]
+/**
+ * Dedicated agent for the tool-rendering demos (tool-rendering,
+ * tool-rendering-default-catchall, tool-rendering-custom-catchall). Binds all
+ * four demo tools under the exact names the aimock fixtures emit — get_weather,
+ * search_flights, get_stock_price, roll_d20 — so Mastra can EXECUTE each pill's
+ * tool call and the card renders. Routing this demo to the default weatherAgent
+ * left get_stock_price / roll_d20 unregistered, so the Stock, d20, and Chain
+ * pills emitted uncallable tool calls that the AI SDK dropped (no card).
+ *
+ * Mirrors langgraph-python's tool_rendering_agent.py (system prompt + toolset).
+ */
+export const toolRenderingAgent = new Agent({
+  id: "tool-rendering-agent",
+  name: "Tool Rendering Agent",
+  tools: {
+    get_weather: weatherTool,
+    search_flights: searchFlightsTool,
+    get_stock_price: stockPriceTool,
+    roll_d20: rollD20Tool,
+  },
+  model: openai("gpt-4o"),
+  instructions: `You are a travel & lifestyle concierge. Use the mock tools for weather, flights, stock prices, or d20 rolls when the user asks; otherwise reply in plain text. For flights, default origin to 'SFO' if the user only names a destination. Call multiple tools in one turn if asked. After tools return, summarize in one short sentence. Never fabricate data a tool could provide.`,
+  memory: new Memory({
+    storage: new LibSQLStore({
+      id: "tool-rendering-agent-memory",
+      url: WORKING_MEMORY_DB_URL,
+    }),
+    options: {
+      workingMemory: {
+        enabled: true,
+        schema: AgentState,
+      },
+    },
+  }),
+});
+// @endregion[tool-rendering-agent]
 
 // @region[shared-state-streaming-agent]
 /**

@@ -114,6 +114,14 @@ const demoAgentIdOverrides: Partial<Record<DemoAgentName, string>> = {
   // names so Mastra executes each leg and the multi-turn chain reaches its
   // closing narration.
   "tool-rendering-reasoning-chain": "reasoningChainAgent",
+  // Plain tool-rendering + its catch-all variants share one backend bound to
+  // all four demo tools (get_weather, search_flights, get_stock_price,
+  // roll_d20) — mirrors gold tool_rendering_agent.py. Without this they fell
+  // back to weatherAgent, which lacks get_stock_price/roll_d20, so the Stock,
+  // d20, and Chain pills emitted uncallable tool calls and rendered no card.
+  "tool-rendering": "toolRenderingAgent",
+  "tool-rendering-default-catchall": "toolRenderingAgent",
+  "tool-rendering-custom-catchall": "toolRenderingAgent",
 };
 
 export type DemoAgentName = (typeof demoAgentNames)[number];

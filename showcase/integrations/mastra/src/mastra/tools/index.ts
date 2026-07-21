@@ -61,14 +61,27 @@ export const stockPriceTool = createTool({
   description: "Get a mock current price for a stock ticker",
   inputSchema: z.object({
     ticker: z.string().describe("Stock ticker symbol, e.g. AAPL"),
+    price_usd: z
+      .number()
+      .optional()
+      .describe("Optional scripted price; echoed back verbatim when provided"),
+    change_pct: z
+      .number()
+      .optional()
+      .describe(
+        "Optional scripted percentage change; echoed back verbatim when provided",
+      ),
   }),
-  execute: async ({ ticker: rawTicker }) => {
+  // Optional price_usd / change_pct let the LLM (or an aimock fixture) script a
+  // deterministic quote — mirrors gold tool_rendering_agent.py get_stock_price.
+  // When omitted, fall back to the fixed mock values. Object (single-encode) —
+  // see weatherTool.
+  execute: async ({ ticker: rawTicker, price_usd, change_pct }) => {
     const ticker = (rawTicker ?? "").toUpperCase();
-    // Return an object (single-encode) — see weatherTool.
     return {
       ticker,
-      price_usd: 189.42,
-      change_pct: 1.27,
+      price_usd: typeof price_usd === "number" ? price_usd : 189.42,
+      change_pct: typeof change_pct === "number" ? change_pct : 1.27,
     };
   },
 });
@@ -94,6 +107,28 @@ export const rollDiceTool = createTool({
       sides: s,
       result: Math.floor(Math.random() * s) + 1,
     };
+  },
+});
+
+// Deterministic 20-sided die used by the tool-rendering demo. Mirrors gold
+// tool_rendering_agent.py roll_d20: the optional `value` lets an aimock fixture
+// script the exact roll (1-20) the e2e sequence asserts; otherwise a random
+// natural roll. Object (single-encode) — see weatherTool.
+export const rollD20Tool = createTool({
+  id: "roll_d20",
+  description: "Roll a 20-sided die",
+  inputSchema: z.object({
+    value: z
+      .number()
+      .optional()
+      .describe("Optional scripted roll (1-20); echoed back verbatim when provided"),
+  }),
+  execute: async ({ value }) => {
+    const rolled =
+      typeof value === "number" && value >= 1 && value <= 20
+        ? Math.floor(value)
+        : Math.floor(Math.random() * 20) + 1;
+    return { sides: 20, value: rolled, result: rolled };
   },
 });
 
@@ -177,30 +212,82 @@ export const scheduleMeetingTool = createTool({
 
 export const searchFlightsTool = createTool({
   id: "search-flights",
-  description: "Search for available flights",
+  description: "Search for available flights from an origin to a destination",
+  // Gold parity (tool_rendering_agent.py search_flights): accept `origin` +
+  // `destination` and GENERATE a deterministic flights list rather than having
+  // the caller pass the flights array. Returns mastra-shaped flight objects so
+  // the existing flight-list renderer is unchanged. Object (single-encode) —
+  // see weatherTool.
   inputSchema: z.object({
+    origin: z.string().optional().describe("Origin airport or city"),
+    destination: z.string().optional().describe("Destination airport or city"),
+    // Legacy shape: some D5 harness probes still pass a pre-built flights
+    // array. Accept it so those keep rendering; the gold path below is the
+    // origin/destination generator that tool-rendering + reasoning-chain use.
     flights: z
-      .array(
-        z.object({
-          airline: z.string(),
-          airlineLogo: z.string().optional(),
-          flightNumber: z.string(),
-          origin: z.string(),
-          destination: z.string(),
-          date: z.string(),
-          departureTime: z.string(),
-          arrivalTime: z.string(),
-          duration: z.string(),
-          status: z.string(),
-          statusColor: z.string().optional(),
-          price: z.string(),
-          currency: z.string().optional(),
-        }),
-      )
-      .describe("Array of flight results"),
+      .array(z.record(z.any()))
+      .optional()
+      .describe("Pre-built flight list (legacy caller-supplied shape)"),
   }),
-  // Return the object (single-encode) — see weatherTool.
-  execute: async ({ flights }) => searchFlightsImpl(flights),
+  execute: async ({ origin, destination, flights: provided }) => {
+    if (Array.isArray(provided) && provided.length > 0) {
+      // Legacy passthrough — caller already built the list.
+      return searchFlightsImpl(provided as never);
+    }
+    const from = origin ?? "SFO";
+    const to = destination ?? "JFK";
+    const flights = [
+      {
+        airline: "United",
+        airlineLogo:
+          "https://www.google.com/s2/favicons?domain=united.com&sz=128",
+        flightNumber: "UA231",
+        origin: from,
+        destination: to,
+        date: "Tue, May 6",
+        departureTime: "08:15",
+        arrivalTime: "16:45",
+        duration: "5h 30m",
+        status: "On Time",
+        statusColor: "#22c55e",
+        price: "$348",
+        currency: "USD",
+      },
+      {
+        airline: "Delta",
+        airlineLogo:
+          "https://www.google.com/s2/favicons?domain=delta.com&sz=128",
+        flightNumber: "DL412",
+        origin: from,
+        destination: to,
+        date: "Tue, May 6",
+        departureTime: "11:20",
+        arrivalTime: "19:55",
+        duration: "5h 35m",
+        status: "On Time",
+        statusColor: "#22c55e",
+        price: "$312",
+        currency: "USD",
+      },
+      {
+        airline: "JetBlue",
+        airlineLogo:
+          "https://www.google.com/s2/favicons?domain=jetblue.com&sz=128",
+        flightNumber: "B6722",
+        origin: from,
+        destination: to,
+        date: "Tue, May 6",
+        departureTime: "17:05",
+        arrivalTime: "01:30",
+        duration: "5h 25m",
+        status: "On Time",
+        statusColor: "#22c55e",
+        price: "$289",
+        currency: "USD",
+      },
+    ];
+    return searchFlightsImpl(flights);
+  },
 });
 
 // The `generate-a2ui` tool runs a secondary LLM call with a forced
