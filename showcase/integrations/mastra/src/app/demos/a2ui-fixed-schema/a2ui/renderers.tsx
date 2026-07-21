@@ -10,7 +10,7 @@
  * `cva` helpers, no shadcn CLI install. Inline-cloned primitives live in
  * `../_components/`.
  */
-import React from "react";
+import React, { useState } from "react";
 import type { CatalogRenderers } from "@copilotkit/a2ui-renderer";
 
 import type { Definitions } from "./definitions";
@@ -23,6 +23,51 @@ import { Separator } from "../_components/separator";
 // the A2UI binder resolves path bindings before render — renderers only ever
 // see resolved strings. One shared helper keeps that narrowing in one place.
 const s = (v: unknown): string => (typeof v === "string" ? v : "");
+
+/**
+ * ActionButton: wires the A2UI Button's `action` to a click handler and tracks
+ * its own `done` state so clicking "Book flight" flips to a "Booked" confirmation.
+ * The GenericBinder resolves the schema `action` (with `{ event }`) into a
+ * callable, so `props.action` is a `() => void` at render time.
+ */
+function ActionButton({
+  action,
+  children: child,
+}: {
+  action: unknown;
+  children?: React.ReactNode;
+}) {
+  const [done, setDone] = useState(false);
+  return (
+    <UIButton
+      variant={done ? "success" : "default"}
+      disabled={done}
+      className="w-full"
+      onClick={() => {
+        if (done) return;
+        if (typeof action === "function") (action as () => void)();
+        setDone(true);
+      }}
+    >
+      {done && (
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
+        >
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      )}
+      {done ? "Booked" : child}
+    </UIButton>
+  );
+}
 
 // @region[renderers-tsx]
 export const renderers: CatalogRenderers<Definitions> = {
@@ -96,15 +141,14 @@ export const renderers: CatalogRenderers<Definitions> = {
     </div>
   ),
   /**
-   * Button override: this is a pure-presentation demo, so the button just
-   * renders its label. The schema declares an `action` for visual fidelity,
-   * but the click handler is inert until the Python SDK exposes
-   * `action_handlers=` on `a2ui.render` (see `src/agents/a2ui_fixed.py`).
+   * Button override: wires the schema `action` to the click and shows a
+   * "Booked" confirmation after click (see ActionButton above). Mirrors the
+   * built-in-agent a2ui-fixed-schema renderer.
    */
   Button: ({ props, children }) => (
-    <UIButton className="w-full">
+    <ActionButton action={(props as { action?: unknown }).action}>
       {props.child ? children(props.child) : null}
-    </UIButton>
+    </ActionButton>
   ),
 };
 // @endregion[renderers-tsx]

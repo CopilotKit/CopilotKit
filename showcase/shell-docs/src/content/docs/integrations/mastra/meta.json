@@ -29,6 +29,7 @@
     "frontend-tools", "shared-state", "agent-app-context",
     "---Mastra---",
     "...human-in-the-loop",
+    "background-tasks",
     "---Backend---",
     "copilot-runtime",
     "ag-ui",
