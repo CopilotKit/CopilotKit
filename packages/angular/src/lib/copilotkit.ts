@@ -308,6 +308,13 @@ export class CopilotKit {
     ]);
   }
 
+  /** Remove one dynamically registered activity renderer by identity. */
+  removeRenderActivityMessage(renderConfig: RenderActivityMessageConfig): void {
+    this.#activityMessageRenderConfigs.update((current) =>
+      current.filter((candidate) => candidate !== renderConfig),
+    );
+  }
+
   #syncBuiltInActivityMessageRenderers(): void {
     const renderers: RenderActivityMessageConfig[] = [];
 

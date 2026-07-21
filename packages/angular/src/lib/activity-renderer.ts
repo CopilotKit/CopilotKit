@@ -1,5 +1,12 @@
-import { InjectionToken, Type, Signal } from "@angular/core";
+import {
+  DestroyRef,
+  InjectionToken,
+  Type,
+  Signal,
+  inject,
+} from "@angular/core";
 import type { AbstractAgent, ActivityMessage } from "@ag-ui/client";
+import { CopilotKit } from "./copilotkit";
 
 export type AngularActivityContentParseResult<T> =
   | { success: true; data: T }
@@ -36,3 +43,14 @@ export const ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS = new InjectionToken<
 export const anyActivityContentSchema: AngularActivityContentSchema<unknown> = {
   safeParse: (content: unknown) => ({ success: true, data: content }),
 };
+
+/** Register an activity renderer for the lifetime of the current injector. */
+export function registerRenderActivityMessage(
+  config: RenderActivityMessageConfig,
+): void {
+  const copilotKit = inject(CopilotKit);
+  const destroyRef = inject(DestroyRef);
+
+  copilotKit.addRenderActivityMessage(config);
+  destroyRef.onDestroy(() => copilotKit.removeRenderActivityMessage(config));
+}
