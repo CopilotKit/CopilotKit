@@ -3973,6 +3973,9 @@ importers:
       glob:
         specifier: ^10.4.0
         version: 10.5.0
+      js-yaml:
+        specifier: '>=4.1.1'
+        version: 4.1.1
       playwright:
         specifier: ^1.59.1
         version: 1.59.1
@@ -3986,6 +3989,9 @@ importers:
         specifier: '>=2.8.3'
         version: 2.8.3
     devDependencies:
+      '@types/js-yaml':
+        specifier: ^4.0.9
+        version: 4.0.9
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.11

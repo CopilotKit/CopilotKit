@@ -39,8 +39,10 @@ export const D4_STALE_AFTER_MS = 60 * 60 * 1000;
  * Staleness window for the D1/D2 (liveness — `health:<slug>`/`agent:<slug>`)
  * dimensions. Tighter than the e2e window because liveness probes are the
  * most frequently written signals; a frozen-green liveness row is a strong
- * stalled-driver indicator. Consumed by `depth-utils.ts` (cell-model has no
- * D1/D2 resolution — D3's failure implicitly covers the D1/D2 gate). Not
+ * stalled-driver indicator. Consumed by `depth-utils.ts` AND by the V2
+ * cell-model pipeline, which now gathers and classifies D1 (`health`) and D2
+ * (`agent`) rungs and applies this window to them (see `collectAgentLadder`,
+ * the null-feature fold, and `computeCellFreshness` in cell-model.ts). Not
  * env-tunable.
  */
 export const LIVENESS_STALE_AFTER_MS = 45 * 60 * 1000;
@@ -64,6 +66,21 @@ export const LIVENESS_STALE_AFTER_MS = 45 * 60 * 1000;
 export const STARTER_STALE_AFTER_MS = 2.5 * 60 * 60 * 1000;
 
 /**
+ * Maximum tolerated FUTURE skew on a row's `observed_at` (§E). A timestamp more
+ * than this far ahead of `now` cannot be trusted as a live "now" reading (clock
+ * skew or a corrupt producer timestamp), so the ladder engine treats it as
+ * STALE and excludes it from the freshest-age pick — it is never recorded as
+ * "swept 0ms ago". Skew WITHIN this tolerance is ordinary clock drift and still
+ * reads as fresh.
+ *
+ * Reuses the same 5m value the comm-error overlay already clamps future skew
+ * with (`COMM_ERROR_FUTURE_SKEW_TOLERANCE_MS`, cell-model.ts). Defined here (not
+ * imported from cell-model.ts) so the classifier can depend on it without
+ * forming an import cycle with the engine hub.
+ */
+export const FUTURE_SKEW_TOLERANCE_MS = 5 * 60 * 1000;
+
+/**
  * Determine whether a row's `observed_at` is older than `maxAgeMs` relative
  * to `now`. An unparseable/missing timestamp is treated as NOT stale —
  * staleness must be a positive signal, never inferred from bad data.
@@ -76,4 +93,16 @@ export function isStale(
   const observedMs = Date.parse(row.observed_at);
   if (Number.isNaN(observedMs)) return false;
   return now - observedMs > maxAgeMs;
+}
+
+/**
+ * Is a row's `observed_at` in the FUTURE beyond `FUTURE_SKEW_TOLERANCE_MS`
+ * (§E)? Such a row is untrustworthy as a live reading and is treated as stale
+ * by the ladder engine. An unparseable timestamp is NOT future-skewed (it is
+ * handled by the unparseable-is-stale branch in the freshness folds).
+ */
+export function isFutureSkewed(row: StatusRow, now: number): boolean {
+  const observedMs = Date.parse(row.observed_at);
+  if (Number.isNaN(observedMs)) return false;
+  return observedMs - now > FUTURE_SKEW_TOLERANCE_MS;
 }
