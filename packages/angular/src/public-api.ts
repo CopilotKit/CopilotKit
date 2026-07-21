@@ -68,6 +68,8 @@ export * from "./lib/components/chat/copilot-chat-view-scroll-to-bottom-button";
 export * from "./lib/components/chat/copilot-chat-view-scroll-view";
 export * from "./lib/components/chat/copilot-chat-view.types";
 export * from "./lib/components/chat/copilot-threads-drawer";
+export * from "./lib/components/modal/copilot-popup";
+export * from "./lib/components/modal/copilot-sidebar";
 export * from "./lib/components/a2ui/a2ui-activity-renderer";
 export * from "./lib/components/a2ui/a2ui-progress";
 export * from "./lib/components/a2ui/a2ui-tool-renderer";
