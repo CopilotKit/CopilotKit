@@ -94,7 +94,8 @@ export class App {
   protected readonly themeColor = signal("#6366f1");
 
   constructor() {
-    // 🪁 Frontend tool: let the agent recolor the center panel.
+    // 🪁 Frontend tool: recolor the center panel (and, via --app-theme-color
+    // on the layout root, the generative-UI weather card in the chat).
     registerFrontendTool({
       name: "setThemeColor",
       description: "Set the theme color of the page.",

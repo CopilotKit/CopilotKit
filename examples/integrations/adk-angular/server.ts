@@ -24,7 +24,9 @@ const runtime = new CopilotRuntime({
             process.env.INTELLIGENCE_GATEWAY_WS_URL ?? "ws://localhost:4401",
         }),
         // Demo stub — replace with your real auth-derived user identity before any
-        // multi-user deployment, or all users share one thread history.
+        // multi-user deployment, or all users share one thread history. The id
+        // must correspond to a user that exists in the Intelligence platform;
+        // an unknown id (like this literal) can make thread operations fail.
         identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
         licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN,
       }
