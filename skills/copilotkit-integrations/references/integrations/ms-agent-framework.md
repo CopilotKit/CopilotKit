@@ -112,7 +112,7 @@ from agent_framework_ag_ui import add_agent_framework_fastapi_endpoint
 from fastapi import FastAPI
 
 chat_client = OpenAIChatClient(
-    model_id=os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-4o-mini"),
+    model=os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-4o-mini"),
     api_key=os.getenv("OPENAI_API_KEY"),
 )
 my_agent = create_agent(chat_client)
@@ -124,13 +124,12 @@ add_agent_framework_fastapi_endpoint(app=app, agent=my_agent, path="/")
 For Azure OpenAI:
 
 ```python
-from agent_framework.azure import AzureOpenAIChatClient
-from azure.identity import DefaultAzureCredential
+from agent_framework.openai import OpenAIChatClient
 
-chat_client = AzureOpenAIChatClient(
-    credential=DefaultAzureCredential(),
-    deployment_name=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", "gpt-4o-mini"),
-    endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+chat_client = OpenAIChatClient(
+    model=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", "gpt-4o-mini"),
+    api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
 )
 ```
 
@@ -148,6 +147,7 @@ Azure OpenAI:
 ```
 AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
 AZURE_OPENAI_CHAT_DEPLOYMENT_NAME=gpt-4o-mini
+AZURE_OPENAI_API_KEY=your-api-key
 ```
 
 ---
