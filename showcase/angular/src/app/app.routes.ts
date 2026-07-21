@@ -23,6 +23,7 @@ export type FeatureComponentKey =
   | "chat-css"
   | "headless-simple"
   | "headless-complete"
+  | "tools"
   | "hashbrown"
   | "chat";
 
@@ -44,6 +45,17 @@ export function resolveFeatureComponentKey(
       return "headless-simple";
     case "headless-complete":
       return "headless-complete";
+    case "gen-ui-tool-based":
+    case "tool-rendering-default-catchall":
+    case "tool-rendering-custom-catchall":
+    case "tool-rendering":
+    case "tool-rendering-reasoning-chain":
+    case "frontend-tools":
+    case "frontend-tools-async":
+    case "threadid-frontend-tool-roundtrip":
+    case "hitl-in-chat":
+    case "hitl-in-app":
+      return "tools";
     default:
       return "chat";
   }
@@ -81,6 +93,11 @@ function loadFeatureComponent(feature: string) {
       return () =>
         import("./features/headless/headless-complete-feature.component").then(
           (module) => module.HeadlessCompleteFeatureComponent,
+        );
+    case "tools":
+      return () =>
+        import("./features/tools/tool-feature.component").then(
+          (module) => module.ToolFeatureComponent,
         );
     case "hashbrown":
       return () =>

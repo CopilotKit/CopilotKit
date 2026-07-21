@@ -1,11 +1,18 @@
-import { ChangeDetectionStrategy, Component } from "@angular/core";
+import type { AfterViewInit } from "@angular/core";
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ViewContainerRef,
+  viewChild,
+} from "@angular/core";
 import { CopilotPopup } from "@copilotkit/angular";
 
 import { FeatureHeaderComponent } from "./feature-header.component";
+import { ShowcaseChatHostComponent } from "./showcase-chat-host.component";
 
 @Component({
   selector: "showcase-popup-feature",
-  imports: [CopilotPopup, FeatureHeaderComponent],
+  imports: [FeatureHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "feature-page" },
   template: `
@@ -16,10 +23,18 @@ import { FeatureHeaderComponent } from "./feature-header.component";
         <h2>Chat from anywhere</h2>
         <p>The popup stays available while the application remains usable.</p>
       </section>
-      <copilot-popup />
+      <ng-container #popupHost />
     </main>
   `,
 })
-export class PopupFeatureComponent {
+export class PopupFeatureComponent implements AfterViewInit {
   protected readonly demoLabel = "Popup chat demonstration";
+  private readonly popupHost = viewChild.required("popupHost", {
+    read: ViewContainerRef,
+  });
+
+  ngAfterViewInit(): void {
+    const popup = this.popupHost().createComponent(CopilotPopup);
+    popup.setInput("chatComponent", ShowcaseChatHostComponent);
+  }
 }

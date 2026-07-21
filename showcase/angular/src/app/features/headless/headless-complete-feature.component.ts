@@ -184,7 +184,7 @@ export class HeadlessCompleteFeatureComponent extends HeadlessChatController {
   ] as const;
 
   constructor() {
-    super();
+    super("headless-complete");
     registerFrontendTool({
       name: "highlight_note",
       description: "Highlight a short note or phrase in the chat.",

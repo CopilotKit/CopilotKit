@@ -78,3 +78,8 @@ export function isRunnableBrowserCell(
     "runnable"
   );
 }
+
+/** Keep unknown tool disclosure opt-in and scoped to its dedicated demo. */
+export function isDefaultToolRenderingCell(feature: string): boolean {
+  return feature === "tool-rendering-default-catchall";
+}

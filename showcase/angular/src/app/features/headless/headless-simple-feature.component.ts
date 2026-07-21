@@ -89,4 +89,8 @@ export class HeadlessSimpleFeatureComponent extends HeadlessChatController {
     "Tell me a one-line joke.",
     "Give me a fun fact.",
   ] as const;
+
+  constructor() {
+    super("headless-simple");
+  }
 }

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { isRunnableBrowserCell, resolveBrowserCell } from "./cell-context";
+import {
+  isDefaultToolRenderingCell,
+  isRunnableBrowserCell,
+  resolveBrowserCell,
+} from "./cell-context";
 
 const catalog = {
   cells: [
@@ -82,5 +86,12 @@ describe("Angular host browser cell context", () => {
         kind: "malformed",
       });
     }
+  });
+
+  it("opts into the built-in wildcard renderer only for its dedicated cell", () => {
+    expect(isDefaultToolRenderingCell("tool-rendering-default-catchall")).toBe(
+      true,
+    );
+    expect(isDefaultToolRenderingCell("tool-rendering")).toBe(false);
   });
 });

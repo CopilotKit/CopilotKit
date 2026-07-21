@@ -8,6 +8,7 @@ import {
 } from "@angular/core";
 import { CopilotChat } from "@copilotkit/angular";
 
+import { agentIdForFeature } from "../feature-agent";
 import { FeatureHeaderComponent } from "./feature-header.component";
 
 interface SlotMessage {
@@ -51,6 +52,7 @@ export class ChatSlotsFeatureComponent implements AfterViewInit {
 
   ngAfterViewInit(): void {
     const chat = this.chatHost.createComponent(CopilotChat);
+    chat.setInput("agentId", agentIdForFeature("chat-slots"));
     chat.setInput("assistantMessageComponent", CustomAssistantMessageComponent);
   }
 }

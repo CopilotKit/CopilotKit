@@ -7,13 +7,17 @@ import type { ShowcaseMessage } from "./headless-chat.types";
 export abstract class HeadlessChatController {
   private readonly copilotKit = inject(CopilotKit);
   private readonly destroyRef = inject(DestroyRef);
-  protected readonly agentStore = injectAgentStore("default");
+  protected readonly agentStore: ReturnType<typeof injectAgentStore>;
   protected readonly inputValue = signal("");
   protected readonly error = signal<string | null>(null);
   protected readonly messages = computed(
     () => this.agentStore().messages() as ShowcaseMessage[],
   );
   protected readonly isRunning = computed(() => this.agentStore().isRunning());
+
+  protected constructor(agentId: string) {
+    this.agentStore = injectAgentStore(agentId);
+  }
 
   protected updateInput(event: Event): void {
     this.inputValue.set((event.target as HTMLTextAreaElement).value);

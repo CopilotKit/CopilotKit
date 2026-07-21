@@ -5,11 +5,11 @@ import {
   inject,
 } from "@angular/core";
 import { ActivatedRoute } from "@angular/router";
-import { CopilotChat } from "@copilotkit/angular";
+import { ShowcaseChatHostComponent } from "./showcase-chat-host.component";
 
 @Component({
   selector: "showcase-chat-feature",
-  imports: [CopilotChat],
+  imports: [ShowcaseChatHostComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "feature-page" },
   template: `
@@ -21,7 +21,7 @@ import { CopilotChat } from "@copilotkit/angular";
       <span class="framework-badge">Angular</span>
     </header>
     <main class="chat-surface" aria-label="CopilotKit Angular demo">
-      <copilot-chat />
+      <showcase-chat-host />
     </main>
   `,
 })

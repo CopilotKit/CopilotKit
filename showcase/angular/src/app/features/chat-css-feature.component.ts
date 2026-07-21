@@ -3,20 +3,19 @@ import {
   Component,
   ViewEncapsulation,
 } from "@angular/core";
-import { CopilotChat } from "@copilotkit/angular";
-
 import { FeatureHeaderComponent } from "./feature-header.component";
+import { ShowcaseChatHostComponent } from "./showcase-chat-host.component";
 
 @Component({
   selector: "showcase-chat-css-feature",
-  imports: [CopilotChat, FeatureHeaderComponent],
+  imports: [ShowcaseChatHostComponent, FeatureHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   host: { class: "feature-page chat-css-demo-scope" },
   template: `
     <showcase-feature-header />
     <main class="chat-surface" [attr.aria-label]="demoLabel">
-      <copilot-chat />
+      <showcase-chat-host />
     </main>
   `,
   styles: `

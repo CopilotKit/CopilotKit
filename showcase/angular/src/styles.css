@@ -261,6 +261,115 @@ showcase-root {
   background: #eff6ff;
 }
 
+.showcase-chat-host {
+  display: block;
+  height: 100%;
+  min-height: 0;
+}
+
+.tool-feature-page {
+  min-height: 0;
+  padding: 1rem;
+  transition: background 180ms ease-out;
+}
+
+.tool-feature-page .chat-surface {
+  height: 100%;
+  margin: 0;
+}
+
+.showcase-tool-card {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.5rem 0;
+  padding: 0.9rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.65rem;
+  color: #14213d;
+  background: #fff;
+  box-shadow: 0 0.25rem 0.75rem rgb(20 33 61 / 6%);
+}
+
+.showcase-tool-card > span {
+  color: #52637a;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.showcase-tool-card p,
+.showcase-tool-card ul {
+  margin: 0;
+}
+
+.showcase-tool-card svg {
+  width: min(12rem, 100%);
+  margin: 0.5rem auto 0;
+}
+
+.showcase-tool-card.haiku p {
+  font-family: ui-serif, Georgia, serif;
+  font-size: 1rem;
+}
+
+.time-picker-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.time-picker-options button,
+.approval-dialog button {
+  padding: 0.55rem 0.8rem;
+  border: 1px solid #9fb3c8;
+  border-radius: 0.4rem;
+  background: #fff;
+  cursor: pointer;
+}
+
+.time-picker-options button:focus-visible,
+.approval-dialog button:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.approval-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(15 23 42 / 42%);
+}
+
+.approval-dialog {
+  width: min(28rem, 100%);
+  padding: 1.25rem;
+  border-radius: 0.75rem;
+  background: #fff;
+  box-shadow: 0 1.5rem 4rem rgb(15 23 42 / 25%);
+}
+
+.approval-dialog > span {
+  color: #52637a;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.approval-dialog h2 {
+  margin: 0.35rem 0;
+}
+
+.approval-dialog > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
 .status-page {
   display: grid;
   min-height: 100%;

@@ -7,7 +7,7 @@ import {
 
 import frontendCatalogData from "./generated/frontend-catalog.json";
 import { routes } from "./app.routes";
-import { resolveBrowserCell } from "./cell-context";
+import { isDefaultToolRenderingCell, resolveBrowserCell } from "./cell-context";
 import type { BrowserCellCatalog } from "./cell-context";
 
 const browserPath =
@@ -24,6 +24,8 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes, withComponentInputBinding()),
     provideCopilotKit({
       runtimeUrl: cell.kind === "runnable" ? cell.runtimeUrl : undefined,
+      defaultToolRendering:
+        cell.kind === "runnable" && isDefaultToolRenderingCell(cell.feature),
       licenseKey: "ck_pub_00000000000000000000000000000000",
     }),
     ...provideCopilotChatConfiguration(),
