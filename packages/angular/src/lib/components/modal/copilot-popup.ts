@@ -47,7 +47,7 @@ import { dimensionToCss } from "./modal-utils";
       <section
         cdkTrapFocus
         [cdkTrapFocusAutoCapture]="true"
-        class="copilot-popup-window"
+        class="copilot-popup-window copilotKitPopup"
         role="dialog"
         aria-modal="true"
         [attr.id]="dialogId"

@@ -427,7 +427,7 @@ export class CopilotChatAssistantMessage {
   // Computed values
   computedClass = computed(() => {
     return cn(
-      "cpk:prose cpk:max-w-full cpk:break-words cpk:dark:prose-invert",
+      "copilotKitMessage copilotKitAssistantMessage cpk:prose cpk:max-w-full cpk:break-words cpk:dark:prose-invert",
       this.customClass(),
     );
   });

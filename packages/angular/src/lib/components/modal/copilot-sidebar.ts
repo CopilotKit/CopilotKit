@@ -58,7 +58,7 @@ export type CopilotSidebarPosition = "left" | "right";
       <aside
         cdkTrapFocus
         [cdkTrapFocusAutoCapture]="true"
-        class="copilot-sidebar-window modal"
+        class="copilot-sidebar-window copilotKitSidebar modal"
         data-copilot-sidebar
         role="dialog"
         aria-modal="true"
@@ -73,7 +73,7 @@ export type CopilotSidebarPosition = "left" | "right";
       </aside>
     } @else if (open() && dockAccepted()) {
       <aside
-        class="copilot-sidebar-window docked"
+        class="copilot-sidebar-window copilotKitSidebar docked"
         data-copilot-sidebar
         role="complementary"
         [attr.id]="sidebarId"

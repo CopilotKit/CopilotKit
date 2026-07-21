@@ -30,6 +30,7 @@ describe("CopilotPopup", () => {
     const dialog = fixture.nativeElement.querySelector("[role=dialog]");
 
     expect(dialog).not.toBeNull();
+    expect(dialog.classList.contains("copilotKitPopup")).toBe(true);
     expect(dialog.getAttribute("aria-modal")).toBe("true");
     expect(dialog.contains(document.activeElement)).toBe(true);
     expect(dialog.style.getPropertyValue("--copilot-popup-width")).toBe(

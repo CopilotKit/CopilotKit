@@ -39,6 +39,7 @@ describe("CopilotSidebar", () => {
     );
 
     expect(sidebar.getAttribute("role")).toBe("complementary");
+    expect(sidebar.classList.contains("copilotKitSidebar")).toBe(true);
     expect(sidebar.getAttribute("data-position")).toBe("left");
     expect(document.body.style.marginInlineStart).toBe("360px");
 

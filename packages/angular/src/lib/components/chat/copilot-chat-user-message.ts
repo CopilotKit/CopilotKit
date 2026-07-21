@@ -228,7 +228,7 @@ export class CopilotChatUserMessage {
 
   computedClass = computed(() =>
     cn(
-      "cpk:flex cpk:flex-col cpk:items-end cpk:group cpk:pt-10",
+      "copilotKitMessage copilotKitUserMessage cpk:flex cpk:flex-col cpk:items-end cpk:group cpk:pt-10",
       this.inputClass(),
     ),
   );
