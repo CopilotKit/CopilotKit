@@ -9,7 +9,11 @@ import {
   input,
 } from "@angular/core";
 import { ActivatedRoute } from "@angular/router";
-import { CopilotChat, provideCopilotChatLabels } from "@copilotkit/angular";
+import {
+  CopilotChat,
+  CopilotKit,
+  provideCopilotChatLabels,
+} from "@copilotkit/angular";
 
 import { agentIdForFeature } from "../feature-agent";
 
@@ -24,12 +28,17 @@ export class ShowcaseChatHostComponent implements AfterViewInit {
   readonly chatPlaceholder = input<string | undefined>();
   readonly reasoningMessageComponent = input<Type<unknown> | undefined>();
   readonly messageViewChildrenComponent = input<Type<unknown> | undefined>();
+  readonly headers = input<Record<string, string> | undefined>();
   private readonly viewContainer = inject(ViewContainerRef);
   private readonly route = inject(ActivatedRoute);
   private readonly injector = inject(Injector);
   private readonly destroyRef = inject(DestroyRef);
 
   ngAfterViewInit(): void {
+    const headers = this.headers();
+    if (headers) {
+      this.injector.get(CopilotKit).updateRuntime({ headers });
+    }
     const placeholder = this.chatPlaceholder();
     const childInjector = placeholder
       ? Injector.create({

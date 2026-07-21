@@ -31,6 +31,7 @@ export type FeatureComponentKey =
   | "state"
   | "reasoning"
   | "agent-state"
+  | "app-settings"
   | "hashbrown"
   | "chat";
 
@@ -86,6 +87,9 @@ export function resolveFeatureComponentKey(
     case "gen-ui-agent":
     case "subagents":
       return "agent-state";
+    case "auth":
+    case "agent-config":
+      return "app-settings";
     default:
       return "chat";
   }
@@ -163,6 +167,11 @@ function loadFeatureComponent(feature: string) {
       return () =>
         import("./features/agent-state/agent-state-feature.component").then(
           (module) => module.AgentStateFeatureComponent,
+        );
+    case "app-settings":
+      return () =>
+        import("./features/app-settings/app-settings-feature.component").then(
+          (module) => module.AppSettingsFeatureComponent,
         );
     case "hashbrown":
       return () =>

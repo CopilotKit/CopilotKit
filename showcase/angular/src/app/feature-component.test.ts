@@ -37,6 +37,8 @@ describe("Angular showcase feature routing", () => {
     ["reasoning-custom", "reasoning"],
     ["gen-ui-agent", "agent-state"],
     ["subagents", "agent-state"],
+    ["auth", "app-settings"],
+    ["agent-config", "app-settings"],
     ["declarative-hashbrown", "hashbrown"],
     ["agentic-chat", "chat"],
   ])("maps %s to the %s implementation", (feature, expected) => {
