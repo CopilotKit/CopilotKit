@@ -372,6 +372,12 @@ const usesV1ContentBlocks = (responseMetadata: unknown) =>
   "output_version" in responseMetadata &&
   responseMetadata.output_version === "v1";
 
+/**
+ * Rebuilds an AIMessage with `toolCalls` as the source of truth while
+ * preserving its non-tool content and metadata. For v1 content blocks, old
+ * tool blocks must be removed before construction so they cannot duplicate or
+ * override the supplied tool calls when AIMessage synchronizes both fields.
+ */
 const rebuildAIMessageWithToolCalls = (
   message: AIMessage,
   toolCalls: AIMessage["tool_calls"],
