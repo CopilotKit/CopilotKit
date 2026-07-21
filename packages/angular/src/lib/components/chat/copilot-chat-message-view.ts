@@ -302,8 +302,6 @@ export class CopilotChatMessageView {
     };
   }
 
-  constructor() {}
-
   // Event handlers - just pass them through
   handleAssistantThumbsUp(event: { message: Message }): void {
     this.assistantMessageThumbsUp.emit(event);
