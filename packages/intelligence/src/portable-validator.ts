@@ -951,6 +951,109 @@ function validateAssertions(
   );
 }
 
+const semanticCompileSelfTestEqualPropertiesSchema = {
+  $schema: COPILOTKIT_LEARNING_CONTRACT_META_SCHEMA_URI,
+  type: "object",
+  properties: {
+    left: { type: "string" },
+    right: { type: "string" },
+  },
+  required: ["left", "right"],
+  [COPILOTKIT_EQUAL_PROPERTIES_JSON_SCHEMA_KEYWORD]: [["left", "right"]],
+} as const;
+
+const semanticCompileSelfTestAssertionsSchema = {
+  $schema: COPILOTKIT_LEARNING_CONTRACT_META_SCHEMA_URI,
+  type: "object",
+  properties: {
+    left: { type: "string" },
+    right: { type: "string" },
+  },
+  required: ["left", "right"],
+  [COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD]: [
+    {
+      operation: "compare",
+      left: "/left",
+      relation: "equal",
+      right: "/right",
+    },
+  ],
+} as const;
+
+const semanticCompileSelfTestInvalidMetaSchema = {
+  ...semanticCompileSelfTestEqualPropertiesSchema,
+  [COPILOTKIT_EQUAL_PROPERTIES_JSON_SCHEMA_KEYWORD]: [["left"]],
+} as const;
+
+const semanticCompileSelfTestValidPayload = Object.freeze({
+  left: "same",
+  right: "same",
+});
+const semanticCompileSelfTestInvalidPayload = Object.freeze({
+  left: "left",
+  right: "right",
+});
+
+function validationReturnsExactly(
+  validate: unknown,
+  value: unknown,
+  expected: boolean,
+): boolean {
+  return typeof validate === "function" && validate(value) === expected;
+}
+
+function assertSemanticCompileSelfTest(
+  operations: CapturedValidatorOperations,
+): void {
+  try {
+    const validateEqualPropertiesProbe = operations.compile.bound(
+      semanticCompileSelfTestEqualPropertiesSchema,
+    );
+    const validateAssertionsProbe = operations.compile.bound(
+      semanticCompileSelfTestAssertionsSchema,
+    );
+    const validateMetaSchema = operations.compile.bound({
+      $ref: COPILOTKIT_LEARNING_CONTRACT_META_SCHEMA_URI,
+    });
+    if (
+      !validationReturnsExactly(
+        validateEqualPropertiesProbe,
+        semanticCompileSelfTestValidPayload,
+        true,
+      ) ||
+      !validationReturnsExactly(
+        validateEqualPropertiesProbe,
+        semanticCompileSelfTestInvalidPayload,
+        false,
+      ) ||
+      !validationReturnsExactly(
+        validateAssertionsProbe,
+        semanticCompileSelfTestValidPayload,
+        true,
+      ) ||
+      !validationReturnsExactly(
+        validateAssertionsProbe,
+        semanticCompileSelfTestInvalidPayload,
+        false,
+      ) ||
+      !validationReturnsExactly(
+        validateMetaSchema,
+        semanticCompileSelfTestEqualPropertiesSchema,
+        true,
+      ) ||
+      !validationReturnsExactly(
+        validateMetaSchema,
+        semanticCompileSelfTestInvalidMetaSchema,
+        false,
+      )
+    ) {
+      throw capabilityRegistrationError("semantic compile self-test");
+    }
+  } catch {
+    throw capabilityRegistrationError("semantic compile self-test");
+  }
+}
+
 /**
  * Installs the exact V1 custom semantics and meta-schema on an Ajv-compatible
  * Draft 2020-12 validator. Existing untrusted keyword implementations are
@@ -1042,6 +1145,8 @@ export function registerLearningContractJsonSchemaValidator<
       `package-owned registration for ${LEARNING_CONTRACT_PORTABLE_VALIDATOR_CAPABILITY_V1.metaSchemaUri}`,
     );
   }
+
+  assertSemanticCompileSelfTest(operations);
 
   let equalPropertiesAttestation: CapabilityValueAttestation;
   let assertionsAttestation: CapabilityValueAttestation;
