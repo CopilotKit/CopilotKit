@@ -496,6 +496,137 @@ describe("afterAgent", () => {
     expect(result!.copilotkit.interceptedToolCalls).toBeUndefined();
     expect(result!.copilotkit.originalAIMessageId).toBeUndefined();
   });
+
+  it("preserves AIMessage metadata through interception and restoration", () => {
+    const original = new AIMessage({
+      content: [
+        { type: "reasoning", reasoning: "Navigate to the details page." },
+        {
+          type: "tool_call",
+          id: "frontend-1",
+          name: "navigate",
+          args: { path: "/details" },
+        },
+      ],
+      tool_calls: [
+        {
+          id: "frontend-1",
+          name: "navigate",
+          args: { path: "/details" },
+        },
+      ],
+      additional_kwargs: { provider_request_id: "request-1" },
+      response_metadata: {
+        output_version: "v1",
+        status: "completed",
+      },
+      usage_metadata: {
+        input_tokens: 10,
+        output_tokens: 5,
+        total_tokens: 15,
+      },
+      invalid_tool_calls: [
+        {
+          id: "invalid-1",
+          name: "broken_tool",
+          args: "{",
+          error: "Invalid JSON",
+          type: "invalid_tool_call",
+        },
+      ],
+      id: "ai-metadata",
+      name: "assistant-with-tools",
+    });
+    const state = {
+      messages: [new HumanMessage("open details"), original],
+      copilotkit: { actions: [{ function: { name: "navigate" } }] },
+    };
+
+    const intercepted = copilotkitMiddleware.afterModel(state, {} as any)!;
+    const restored = copilotkitMiddleware.afterAgent(intercepted, {} as any)!;
+    const restoredMessage = restored.messages.at(-1) as AIMessage;
+
+    expect(restoredMessage.additional_kwargs).toEqual(
+      original.additional_kwargs,
+    );
+    expect(restoredMessage.response_metadata).toEqual(
+      original.response_metadata,
+    );
+    expect(restoredMessage.usage_metadata).toEqual(original.usage_metadata);
+    expect(restoredMessage.invalid_tool_calls).toEqual(
+      original.invalid_tool_calls,
+    );
+    expect(restoredMessage.name).toBe(original.name);
+  });
+
+  it("keeps v1 content blocks aligned with intercepted tool calls", () => {
+    const original = new AIMessage({
+      content: [
+        { type: "reasoning", reasoning: "Search, then open the result." },
+        {
+          type: "tool_call",
+          id: "backend-1",
+          name: "search",
+          args: { query: "CopilotKit" },
+        },
+        {
+          type: "tool_call",
+          id: "frontend-1",
+          name: "navigate",
+          args: { path: "/results" },
+        },
+        {
+          type: "tool_call_chunk",
+          id: "stale-1",
+          name: "stale",
+          args: "{}",
+        },
+      ],
+      tool_calls: [
+        {
+          id: "backend-1",
+          name: "search",
+          args: { query: "CopilotKit" },
+        },
+        {
+          id: "frontend-1",
+          name: "navigate",
+          args: { path: "/results" },
+        },
+      ],
+      response_metadata: { output_version: "v1" },
+      id: "ai-v1",
+    });
+    const state = {
+      messages: [original],
+      copilotkit: { actions: [{ name: "navigate" }] },
+    };
+
+    const intercepted = copilotkitMiddleware.afterModel(state, {} as any)!;
+    const interceptedContent = intercepted.messages.at(-1)!.content as any[];
+
+    expect(
+      interceptedContent
+        .filter((block) => block.type === "tool_call")
+        .map((block) => block.name),
+    ).toEqual(["search"]);
+    expect(
+      interceptedContent.some((block) => block.type === "tool_call_chunk"),
+    ).toBe(false);
+
+    const restored = copilotkitMiddleware.afterAgent(intercepted, {} as any)!;
+    const restoredContent = restored.messages.at(-1)!.content as any[];
+
+    expect(
+      restoredContent
+        .filter((block) => block.type === "tool_call")
+        .map((block) => block.name),
+    ).toEqual(["search", "navigate"]);
+    expect(restoredContent[0]).toEqual({
+      type: "reasoning",
+      reasoning: "Search, then open the result.",
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
