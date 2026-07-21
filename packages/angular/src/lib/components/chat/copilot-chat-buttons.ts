@@ -9,13 +9,13 @@ import {
 } from "@angular/core";
 
 import {
-  LucideAngularModule,
   ArrowUp,
+  CopilotIcon,
   Mic,
   X,
   Check,
   Plus,
-} from "lucide-angular";
+} from "../icons/copilot-icon";
 import { injectChatLabels } from "../../chat-config";
 import { CopilotTooltip } from "../../directives/tooltip";
 import { cn } from "../../utils";
@@ -70,7 +70,7 @@ const chatInputToolbarSecondary = cn(
 
 @Component({
   selector: "copilot-chat-send-button",
-  imports: [LucideAngularModule],
+  imports: [CopilotIcon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -81,7 +81,7 @@ const chatInputToolbarSecondary = cn(
         [class]="buttonClass"
         (click)="onClick()"
       >
-        <lucide-angular [img]="ArrowUpIcon" [size]="18"></lucide-angular>
+        <copilot-icon [img]="ArrowUpIcon" [size]="18"></copilot-icon>
       </button>
     </div>
   `,
@@ -103,7 +103,7 @@ export class CopilotChatSendButton {
 
 @Component({
   selector: "copilot-chat-start-transcribe-button",
-  imports: [LucideAngularModule, CopilotTooltip],
+  imports: [CopilotIcon, CopilotTooltip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -115,7 +115,7 @@ export class CopilotChatSendButton {
       tooltipPosition="below"
       (click)="onClick()"
     >
-      <lucide-angular [img]="MicIcon" [size]="18"></lucide-angular>
+      <copilot-icon [img]="MicIcon" [size]="18"></copilot-icon>
     </button>
   `,
   styles: [``],
@@ -142,7 +142,7 @@ export class CopilotChatStartTranscribeButton {
 
 @Component({
   selector: "copilot-chat-cancel-transcribe-button",
-  imports: [LucideAngularModule, CopilotTooltip],
+  imports: [CopilotIcon, CopilotTooltip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -154,7 +154,7 @@ export class CopilotChatStartTranscribeButton {
       tooltipPosition="below"
       (click)="onClick()"
     >
-      <lucide-angular [img]="XIcon" [size]="18"></lucide-angular>
+      <copilot-icon [img]="XIcon" [size]="18"></copilot-icon>
     </button>
   `,
   styles: [``],
@@ -181,7 +181,7 @@ export class CopilotChatCancelTranscribeButton {
 
 @Component({
   selector: "copilot-chat-finish-transcribe-button",
-  imports: [LucideAngularModule, CopilotTooltip],
+  imports: [CopilotIcon, CopilotTooltip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -193,7 +193,7 @@ export class CopilotChatCancelTranscribeButton {
       tooltipPosition="below"
       (click)="onClick()"
     >
-      <lucide-angular [img]="CheckIcon" [size]="18"></lucide-angular>
+      <copilot-icon [img]="CheckIcon" [size]="18"></copilot-icon>
     </button>
   `,
   styles: [``],
@@ -220,7 +220,7 @@ export class CopilotChatFinishTranscribeButton {
 
 @Component({
   selector: "copilot-chat-add-file-button",
-  imports: [LucideAngularModule, CopilotTooltip],
+  imports: [CopilotIcon, CopilotTooltip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -232,7 +232,7 @@ export class CopilotChatFinishTranscribeButton {
       tooltipPosition="below"
       (click)="onClick()"
     >
-      <lucide-angular [img]="PlusIcon" [size]="20"></lucide-angular>
+      <copilot-icon [img]="PlusIcon" [size]="20"></copilot-icon>
     </button>
   `,
   styles: [``],

@@ -17,6 +17,7 @@ import {
   input,
   output,
   inject,
+  NgZone,
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { CopilotSlot } from "../../slots/copilot-slot";
@@ -35,7 +36,7 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
 import { Subject } from "rxjs";
 import { takeUntil } from "rxjs/operators";
 import { ChatState } from "../../chat-state";
-import { LucideAngularModule, Upload } from "lucide-angular";
+import { CopilotIcon, Upload } from "../icons/copilot-icon";
 import { injectChatLabels } from "../../chat-config";
 
 /**
@@ -59,7 +60,7 @@ import { injectChatLabels } from "../../chat-config";
     CopilotChatViewScrollView,
     CopilotChatAttachmentQueue,
     CopilotChatSuggestionView,
-    LucideAngularModule,
+    CopilotIcon,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
@@ -84,7 +85,7 @@ import { injectChatLabels } from "../../chat-config";
             <div
               class="cpk:flex cpk:flex-col cpk:items-center cpk:gap-2 cpk:text-primary/70"
             >
-              <lucide-angular [img]="UploadIcon" [size]="32"></lucide-angular>
+              <copilot-icon [img]="UploadIcon" [size]="32"></copilot-icon>
               <span class="cpk:text-sm cpk:font-medium">Drop files here</span>
             </div>
           </div>
@@ -158,7 +159,7 @@ import { injectChatLabels } from "../../chat-config";
             <div
               class="cpk:flex cpk:flex-col cpk:items-center cpk:gap-2 cpk:text-primary/70"
             >
-              <lucide-angular [img]="UploadIcon" [size]="32"></lucide-angular>
+              <copilot-icon [img]="UploadIcon" [size]="32"></copilot-icon>
               <span class="cpk:text-sm cpk:font-medium">Drop files here</span>
             </div>
           </div>
@@ -388,6 +389,9 @@ export class CopilotChatView
 
   private destroy$ = new Subject<void>();
   private resizeTimeoutRef?: number;
+  private measurementRetryTimeoutRef?: number;
+  private readonly ngZone = inject(NgZone);
+  private destroyed = false;
 
   constructor(
     private resizeObserverService: ResizeObserverService,
@@ -505,26 +509,41 @@ export class CopilotChatView
       const maxAttempts = 10;
 
       const retry = () => {
+        if (this.destroyed) return;
         attempts++;
         if (measureAndObserve()) {
           // Successfully measured
         } else if (attempts < maxAttempts) {
           // Exponential backoff: 50ms, 100ms, 200ms, 400ms, etc.
           const delay = 50 * Math.pow(2, Math.min(attempts - 1, 4));
-          setTimeout(retry, delay);
+          this.scheduleMeasurementRetry(retry, delay);
         } else {
           // Failed to measure after max attempts
         }
       };
 
       // Start retry with first delay
-      setTimeout(retry, 50);
+      this.scheduleMeasurementRetry(retry, 50);
     }
   }
 
+  /** Schedules a cancellable layout retry without triggering zone-wide ticks. */
+  private scheduleMeasurementRetry(callback: () => void, delay: number): void {
+    this.ngZone.runOutsideAngular(() => {
+      this.measurementRetryTimeoutRef = window.setTimeout(() => {
+        this.measurementRetryTimeoutRef = undefined;
+        callback();
+      }, delay);
+    });
+  }
+
   ngOnDestroy(): void {
+    this.destroyed = true;
     if (this.resizeTimeoutRef) {
       clearTimeout(this.resizeTimeoutRef);
+    }
+    if (this.measurementRetryTimeoutRef) {
+      clearTimeout(this.measurementRetryTimeoutRef);
     }
     this.destroy$.next();
     this.destroy$.complete();

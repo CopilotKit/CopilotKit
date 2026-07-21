@@ -8,14 +8,13 @@ import {
   ViewEncapsulation,
   signal,
   computed,
-  OnInit,
   AfterViewInit,
   OnDestroy,
   inject,
-  PLATFORM_ID,
   ChangeDetectorRef,
+  afterNextRender,
 } from "@angular/core";
-import { isPlatformBrowser, NgTemplateOutlet } from "@angular/common";
+import { NgTemplateOutlet } from "@angular/common";
 import { ScrollingModule } from "@angular/cdk/scrolling";
 import { CopilotSlot } from "../../slots/copilot-slot";
 import { CopilotChatMessageView } from "./copilot-chat-message-view";
@@ -49,9 +48,7 @@ import { takeUntil } from "rxjs/operators";
   providers: [ScrollPosition],
   templateUrl: "./copilot-chat-view-scroll-view.html",
 })
-export class CopilotChatViewScrollView
-  implements OnInit, AfterViewInit, OnDestroy
-{
+export class CopilotChatViewScrollView implements AfterViewInit, OnDestroy {
   private cdr = inject(ChangeDetectorRef);
   protected readonly chatState = inject(ChatState, { optional: true });
 
@@ -109,19 +106,12 @@ export class CopilotChatViewScrollView
   protected computedClass = computed(() => cn(this.inputClass()));
 
   private destroy$ = new Subject<void>();
-  private platformId = inject(PLATFORM_ID);
   private scrollPositionService = inject(ScrollPosition);
 
-  // No mirroring of inputs; derive directly via computed()
-
-  ngOnInit(): void {
-    // Check if we're in the browser
-    if (isPlatformBrowser(this.platformId)) {
-      // Set mounted after a tick to allow for hydration
-      setTimeout(() => {
-        this.hasMounted.set(true);
-      }, 0);
-    }
+  constructor() {
+    afterNextRender(() => {
+      this.hasMounted.set(true);
+    });
   }
 
   ngAfterViewInit(): void {

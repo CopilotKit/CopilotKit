@@ -15,7 +15,6 @@
     "rxjs",
     "zod",
     "zod-to-json-schema",
-    "lucide-angular",
     "highlight.js",
     "katex",
     "marked",

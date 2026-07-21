@@ -184,6 +184,10 @@ jobs:
         if: matrix.node-version == '20.x'
         run: pnpm run verify:channels-umbrella
 
+      - name: Verify packed Angular consumer matrix
+        if: matrix.node-version == '20.x'
+        run: pnpm run verify:angular-package
+
       - name: Verify packed Runtime managed Channels contract
         if: matrix.node-version == '20.x'
         run: pnpm run verify:runtime-package

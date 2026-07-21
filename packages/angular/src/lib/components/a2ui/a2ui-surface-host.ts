@@ -92,7 +92,7 @@ export function connectA2UISurface(options: {
   });
 
   const sync = (element = surfaceRef()?.nativeElement): void => {
-    if (destroyed) return;
+    if (destroyed || !element) return;
     syncA2UISurface(element, operations(), config);
   };
 
@@ -126,7 +126,7 @@ export async function bridgeA2UIAction(
     });
     await copilotKit.core.runAgent({ agent });
   } finally {
-    const { a2uiAction, ...rest } = copilotKit.core.properties;
+    const { a2uiAction: _a2uiAction, ...rest } = copilotKit.core.properties;
     copilotKit.core.setProperties(rest);
   }
 }

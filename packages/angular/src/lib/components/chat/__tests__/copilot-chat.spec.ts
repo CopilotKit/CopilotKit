@@ -1,3 +1,4 @@
+import { provideZonelessChangeDetection } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { test, expect } from "vitest";
 import { Observable } from "rxjs";
@@ -44,6 +45,7 @@ function setup() {
   TestBed.configureTestingModule({
     imports: [CopilotChat],
     providers: [
+      provideZonelessChangeDetection(),
       provideCopilotKit({
         licenseKey: "ck_pub_00000000000000000000000000000000",
         agents: { default: new MockAgent("default") },
@@ -108,6 +110,7 @@ function setupAgentPrecedence({
   TestBed.configureTestingModule({
     imports: [CopilotChat],
     providers: [
+      provideZonelessChangeDetection(),
       provideCopilotKit({
         licenseKey: "ck_pub_00000000000000000000000000000000",
         agents,
@@ -193,6 +196,7 @@ test("clears the loading cursor once the ambient-config connect settles", async 
   TestBed.configureTestingModule({
     imports: [CopilotChat],
     providers: [
+      provideZonelessChangeDetection(),
       provideCopilotKit({
         licenseKey: "ck_pub_00000000000000000000000000000000",
         agents: { default: new CompletingAgent("default") },
@@ -211,20 +215,14 @@ test("clears the loading cursor once the ambient-config connect settles", async 
   config.setActiveThreadId("x", { explicit: true });
   TestBed.flushEffects();
 
-  // Let the connect promise (and its `.finally`) settle and clear the cursor,
-  // mirroring the standalone settle-then-clear. The connect resolution spans
-  // macrotasks (agent teardown), so poll across a few.
-  for (let i = 0; i < 10 && readShowCursor(fixture); i++) {
+  // The agent teardown crosses a macrotask boundary that Angular does not own.
+  // Poll the signal without forcing zone/effect ticks; this suite deliberately
+  // exercises the same zoneless mode as the shipped Angular demo.
+  for (let attempt = 0; attempt < 10 && readShowCursor(fixture); attempt++) {
     await new Promise((resolve) => setTimeout(resolve, 0));
-    TestBed.flushEffects();
   }
 
   expect(readShowCursor(fixture)).toBe(false);
-
-  // Drain the directive's deferred initial-scroll timer so it does not fire
-  // after the test environment tears down (scrollTo is stubbed; this only
-  // settles the pending macrotask).
-  await new Promise((resolve) => setTimeout(resolve, 0));
 });
 
 test("shows the welcome screen while the configuration thread is non-explicit", () => {

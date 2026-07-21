@@ -9,6 +9,7 @@ import {
   inject,
   ChangeDetectionStrategy,
   ViewEncapsulation,
+  afterNextRender,
 } from "@angular/core";
 import { cn } from "../../utils";
 import { injectChatLabels } from "../../chat-config";
@@ -80,17 +81,17 @@ export class CopilotChatTextarea implements AfterViewInit {
     return cn(baseClasses, this.inputClass());
   });
 
-  constructor() {}
+  constructor() {
+    afterNextRender(() => {
+      if (this.inputAutoFocus() ?? true) {
+        this.elementRef.nativeElement.focus();
+      }
+    });
+  }
 
   ngAfterViewInit(): void {
     this.calculateMaxHeight();
     this.adjustHeight();
-
-    if (this.inputAutoFocus() ?? true) {
-      setTimeout(() => {
-        this.elementRef.nativeElement.focus();
-      });
-    }
   }
 
   onInput(event: Event): void {
