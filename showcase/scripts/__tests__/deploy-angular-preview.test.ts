@@ -162,7 +162,7 @@ describe("deployAngularPreview", () => {
       }
       if (query.includes("query AngularPreviewInstance")) {
         if (variables.environmentId === PRODUCTION_ENV_ID) {
-          return { serviceInstance: emptyProductionInstance() };
+          throw new Error("ServiceInstance not found");
         }
         stagingReadCount += 1;
         return {

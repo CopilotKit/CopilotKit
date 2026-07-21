@@ -125,25 +125,35 @@ export function sanitizeAngularPreviewError(
   return sanitizeErrorBody(redacted);
 }
 
-/** Read one environment-scoped service instance. */
+/** Read one environment-scoped service instance, including Railway's absent-instance error shape. */
 async function readServiceInstance(
   gql: RailwayGqlFn,
   serviceId: string,
   environmentId: string,
 ): Promise<ServiceInstance | null> {
-  const result = await gql<ServiceInstanceResult>(
-    `query AngularPreviewInstance($serviceId: String!, $environmentId: String!) {
-      serviceInstance(serviceId: $serviceId, environmentId: $environmentId) {
-        id
-        source { image }
-        healthcheckPath
-        latestDeployment { id status meta }
-        domains { serviceDomains { domain } }
-      }
-    }`,
-    { serviceId, environmentId },
-  );
-  return result.serviceInstance;
+  try {
+    const result = await gql<ServiceInstanceResult>(
+      `query AngularPreviewInstance($serviceId: String!, $environmentId: String!) {
+        serviceInstance(serviceId: $serviceId, environmentId: $environmentId) {
+          id
+          source { image }
+          healthcheckPath
+          latestDeployment { id status meta }
+          domains { serviceDomains { domain } }
+        }
+      }`,
+      { serviceId, environmentId },
+    );
+    return result.serviceInstance;
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      /^ServiceInstance not found\.?$/.test(error.message.trim())
+    ) {
+      return null;
+    }
+    throw error;
+  }
 }
 
 /**
