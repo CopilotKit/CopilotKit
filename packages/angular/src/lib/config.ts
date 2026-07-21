@@ -37,6 +37,8 @@ export interface CopilotKitConfig {
   suggestionsConfig?: SuggestionsConfig[];
   frontendTools?: FrontendToolConfig[];
   humanInTheLoop?: HumanInTheLoopConfig[];
+  /** Opt in to a text-only renderer for otherwise unknown tool calls. */
+  defaultToolRendering?: boolean;
   a2ui?: A2UIConfig;
   openGenerativeUI?: OpenGenerativeUIConfig;
 }

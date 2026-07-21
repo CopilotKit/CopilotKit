@@ -70,6 +70,9 @@ export class CopilotKit {
   );
   readonly #hitl = inject(HumanInTheLoop);
   readonly #rootInjector = inject(Injector);
+  /** Whether unknown tools may use the built-in text-only fallback renderer. */
+  readonly defaultToolRenderingEnabled =
+    this.#config.defaultToolRendering === true;
   readonly #agents = signal<Record<string, AbstractAgent>>(
     this.#config.agents ?? {},
   );

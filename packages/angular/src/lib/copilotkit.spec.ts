@@ -115,6 +115,7 @@ describe("CopilotKit", () => {
           headers: { Authorization: "token" },
           properties: { region: "eu" },
           licenseKey,
+          defaultToolRendering: true,
           tools: [
             {
               name: "search",
@@ -138,6 +139,7 @@ describe("CopilotKit", () => {
 
     const copilotKit = TestBed.inject(CopilotKit);
 
+    expect(copilotKit.defaultToolRenderingEnabled).toBe(true);
     expect(lastCoreConfig.runtimeUrl).toBe("https://runtime.local");
     expect(lastCoreConfig.headers).toEqual({
       Authorization: "token",
