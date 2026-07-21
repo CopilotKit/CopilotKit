@@ -1367,3 +1367,49 @@ describe("assertClosureValid", () => {
     );
   });
 });
+
+describe("autoUpdates deploy-consolidation policy (per-env, staging-first)", () => {
+  // Railway `source.autoUpdates.type = "minor"` is the ENABLED form (Railway
+  // watches the GHCR registry and auto-redeploys on a new push); the SSOT
+  // target is "disabled" so the ONLY deploy path is the CI-explicit redeploy.
+  // autoUpdates is now PER-ENV; the staging-first rollout has completed, so
+  // BOTH staging and prod are enforced "disabled" (prod was migrated off
+  // "unmanaged" once its live autoUpdates were flipped to disabled). The
+  // sibling drift gate ENFORCES the concrete-"disabled" envs for both.
+  it("every service declares staging 'disabled' and prod 'disabled'", () => {
+    for (const [name, entry] of Object.entries(SERVICES)) {
+      const au = (entry as { autoUpdates?: Record<string, string> })
+        .autoUpdates;
+      expect(
+        au?.staging,
+        `${name}.autoUpdates.staging must be "disabled" (staging is under drift-gate management; CI-explicit redeploy only)`,
+      ).toBe("disabled");
+      expect(
+        au?.prod,
+        `${name}.autoUpdates.prod must be "disabled" (prod is now under drift-gate management; CI-explicit redeploy only)`,
+      ).toBe("disabled");
+    }
+  });
+
+  it("the generated JSON carries per-env autoUpdates (staging disabled, prod disabled)", () => {
+    const generated = JSON.parse(
+      readFileSync(resolve(__dirname, "./railway-envs.generated.json"), "utf8"),
+    ) as {
+      services: Array<{
+        name: string;
+        autoUpdates?: { staging?: string; prod?: string };
+      }>;
+    };
+    expect(generated.services.length).toBeGreaterThan(0);
+    for (const svc of generated.services) {
+      expect(
+        svc.autoUpdates?.staging,
+        `generated ${svc.name}.autoUpdates.staging must be "disabled"`,
+      ).toBe("disabled");
+      expect(
+        svc.autoUpdates?.prod,
+        `generated ${svc.name}.autoUpdates.prod must be "disabled"`,
+      ).toBe("disabled");
+    }
+  });
+});

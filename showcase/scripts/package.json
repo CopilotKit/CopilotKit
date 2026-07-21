@@ -20,7 +20,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@copilotkit/aimock": "1.26.1",
+    "@copilotkit/aimock": "1.37.4",
     "@playwright/test": "^1.59.1",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",

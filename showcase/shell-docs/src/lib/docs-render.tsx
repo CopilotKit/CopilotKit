@@ -762,10 +762,14 @@ function appendSharedThreadArchitecturePage(navTree: NavNode[]): NavNode[] {
     if (node.type !== "group" || node.title !== "Threads") return node;
     if (hasPageSlug(node.children, architecturePage.slug)) return node;
 
-    const importIndex = node.children.findIndex(
-      (child) => child.type === "page" && child.slug === "threads-import",
+    // The Architecture page sits second-to-last in the Threads group,
+    // just before the client-facing Lifecycle page. Fall back to
+    // appending if the Lifecycle anchor isn't present.
+    const lifecycleIndex = node.children.findIndex(
+      (child) => child.type === "page" && child.slug === "threads-lifecycle",
     );
-    const insertAt = importIndex === -1 ? node.children.length : importIndex;
+    const insertAt =
+      lifecycleIndex === -1 ? node.children.length : lifecycleIndex;
     const children = [
       ...node.children.slice(0, insertAt),
       architecturePage,

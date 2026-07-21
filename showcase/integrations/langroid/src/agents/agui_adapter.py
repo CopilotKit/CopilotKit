@@ -50,7 +50,6 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from agents.agent import (
     build_agent_config_system_prompt,
     extract_agent_config_properties,
-    set_last_user_message,
     ALL_TOOLS,
     FRONTEND_TOOL_NAMES,
     SYSTEM_PROMPT,
@@ -526,22 +525,39 @@ async def handle_run(request: Request) -> StreamingResponse:
     model = os.getenv("LANGROID_MODEL", "gpt-4.1")
     oai_tools = _get_openai_tools()
 
-    # Thread the last user turn to the A2UI planner (see
-    # ``set_last_user_message``). The ``generate_a2ui`` backend tool uses it
-    # as the inner ``render_a2ui`` call's user message so aimock's
-    # dynamic-schema fixtures can discriminate the surface per pill prompt —
-    # matching the framework-forwarded behavior of the sibling google-adk /
-    # strands backends. Best-effort: no user turn → the planner falls back to
-    # its generic prompt. Set unconditionally (including "") so a prior run's
-    # value on this worker's context cannot leak into a run with no user turn.
-    _last_user_text = ""
-    for _m in reversed(oai_messages):
-        if _m.get("role") == "user":
-            _content = _m.get("content")
-            if isinstance(_content, str) and _content:
-                _last_user_text = _content
-            break
-    set_last_user_message(_last_user_text)
+    # Merge in any tools injected by the AG-UI middleware (e.g. ``render_a2ui``
+    # added by A2UIMiddleware when injectA2UITool is enabled). The langroid
+    # adapter builds its tool list from Python-side ALL_TOOLS, which doesn't
+    # include runtime-injected tools. Without this merge, the LLM never sees
+    # ``render_a2ui`` in its tools list and can't call it directly (Option A).
+    #
+    # RunAgentInput.tools uses ag_ui.core.Tool (name/description/parameters),
+    # so we convert each injected entry to the OpenAI {"type": "function", ...}
+    # shape. Only tools NOT already in the Python-built list are appended so
+    # there are no duplicates.
+    _known_tool_names = {t["function"]["name"] for t in oai_tools}
+    for agui_tool in run_input.tools or []:
+        if agui_tool.name not in _known_tool_names:
+            params: dict[str, Any] = (
+                agui_tool.parameters if isinstance(agui_tool.parameters, dict) else {}
+            )
+            oai_tools = oai_tools + [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": agui_tool.name,
+                        "description": agui_tool.description
+                        or f"Tool: {agui_tool.name}",
+                        "parameters": params
+                        if params
+                        else {"type": "object", "properties": {}},
+                    },
+                }
+            ]
+            _known_tool_names.add(agui_tool.name)
+            logger.debug(
+                "Merged AG-UI-injected tool into OpenAI tool list: %s", agui_tool.name
+            )
 
     # Compute the effective thread_id ONCE so every event emitted for this
     # run (RUN_STARTED, RUN_FINISHED, ...) references the same thread.

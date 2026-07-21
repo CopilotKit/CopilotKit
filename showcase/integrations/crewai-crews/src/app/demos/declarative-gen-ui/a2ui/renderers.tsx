@@ -221,7 +221,10 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
     // Divider via `border-b last:border-b-0` so the final row doesn't dangle
     // a trailing line, regardless of whether the agent wraps these in a
     // Column or drops them directly into a Card's child slot.
-    <div className="flex items-baseline justify-between gap-4 py-2 border-b border-[var(--border)] last:border-b-0 last:pb-0 first:pt-0">
+    <div
+      data-testid="declarative-info-row"
+      className="flex items-baseline justify-between gap-4 py-2 border-b border-[var(--border)] last:border-b-0 last:pb-0 first:pt-0"
+    >
       <span className="text-sm text-[var(--muted-foreground)]">
         {props.label}
       </span>
@@ -300,6 +303,59 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
           )}
         </CardContent>
       </Card>
+    );
+  },
+
+  DataTable: ({ props }) => {
+    const cols = Array.isArray(props.columns) ? props.columns : [];
+    const rows = Array.isArray(props.rows) ? props.rows : [];
+    return (
+      <div
+        data-testid="declarative-data-table"
+        className="w-full overflow-x-auto"
+      >
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr>
+              {cols.map((col) => (
+                <th
+                  key={col.key}
+                  className="border-b-2 border-[var(--border)] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)]"
+                >
+                  {col.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => {
+              // Stable row key: prefer the first column's value (primary-key-ish),
+              // suffix with index in case values repeat, fall back to a JSON
+              // stringify of the row when columns is empty. Stable keys prevent
+              // React from re-mounting every row when the agent re-emits a
+              // slightly different table.
+              const pk = cols.length > 0 ? row[cols[0].key] : undefined;
+              const rowKey =
+                pk !== undefined ? `${pk}-${i}` : JSON.stringify(row);
+              return (
+                <tr
+                  key={rowKey}
+                  className="border-b border-[var(--border)] last:border-b-0"
+                >
+                  {cols.map((col) => (
+                    <td
+                      key={col.key}
+                      className="px-3 py-2 tabular-nums text-[var(--foreground)]"
+                    >
+                      {String(row[col.key] ?? "")}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     );
   },
 
