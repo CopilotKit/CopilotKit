@@ -173,7 +173,10 @@ export async function executeFrontendMatrixShard(
   options: { concurrency: number; execute: FrontendCellExecutor },
 ): Promise<FrontendCellResult[]> {
   const concurrency = positiveInteger(options.concurrency, "concurrency");
-  const results = new Array<FrontendCellResult>(cells.length);
+  const results: Array<FrontendCellResult | undefined> = Array.from(
+    { length: cells.length },
+    () => undefined,
+  );
   let cursor = 0;
 
   const worker = async (): Promise<void> => {
@@ -200,7 +203,12 @@ export async function executeFrontendMatrixShard(
   await Promise.all(
     Array.from({ length: Math.min(concurrency, cells.length) }, worker),
   );
-  return results;
+  return results.map((result, index) => {
+    if (!result) {
+      throw new Error(`matrix worker did not produce result ${index}`);
+    }
+    return result;
+  });
 }
 
 /** Compute the nearest-rank percentile for non-negative timings. */
