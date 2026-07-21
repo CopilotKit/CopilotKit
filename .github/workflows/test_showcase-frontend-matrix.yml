@@ -304,10 +304,91 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+  performance:
+    name: Angular shell readiness p95
+    needs: [build-angular-host]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download canonical Angular host
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: frontend-matrix-angular-host
+          path: showcase/angular/dist
+
+      - name: Install Chromium
+        run: pnpm --dir showcase/harness exec playwright install --with-deps chromium
+
+      - name: Start canonical Angular host
+        env:
+          PORT: "4300"
+          NODE_ENV: production
+          SHOWCASE_BACKEND_HOST_PATTERN: "showcase-{slug}-production.up.railway.app"
+        run: |
+          pnpm --dir showcase/angular start > "$RUNNER_TEMP/angular-host.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/angular-host.pid"
+          for _ in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:4300/healthz > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Angular host did not become ready" >&2
+          exit 1
+
+      - name: Measure ten cold navigations under fixed throttling
+        run: >-
+          pnpm --dir showcase/harness exec tsx src/cli/frontend-performance.ts
+          --base-url "http://127.0.0.1:4300"
+          --output "$RUNNER_TEMP/frontend-performance.json"
+
+      - name: Stop Angular host
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/angular-host.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/angular-host.pid")" 2>/dev/null || true
+          fi
+
+      - name: Upload performance evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: frontend-performance
+          path: ${{ runner.temp }}/frontend-performance.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload host log on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: frontend-performance-host-log
+          path: ${{ runner.temp }}/angular-host.log
+          if-no-files-found: warn
+          retention-days: 7
+
   verify:
     name: verify complete matrix
     if: always()
-    needs: [plan, build-angular-host, matrix, browser-suite]
+    needs: [plan, build-angular-host, matrix, browser-suite, performance]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -335,8 +416,9 @@ jobs:
           BUILD_RESULT: ${{ needs.build-angular-host.result }}
           MATRIX_RESULT: ${{ needs.matrix.result }}
           BROWSER_RESULT: ${{ needs.browser-suite.result }}
+          PERFORMANCE_RESULT: ${{ needs.performance.result }}
         run: |
-          for result in "$PLAN_RESULT" "$BUILD_RESULT" "$MATRIX_RESULT" "$BROWSER_RESULT"; do
+          for result in "$PLAN_RESULT" "$BUILD_RESULT" "$MATRIX_RESULT" "$BROWSER_RESULT" "$PERFORMANCE_RESULT"; do
             if [ "$result" != "success" ]; then
               echo "A required frontend gate did not succeed: $result" >&2
               exit 1
