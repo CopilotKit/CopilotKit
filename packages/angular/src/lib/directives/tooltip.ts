@@ -289,7 +289,7 @@ export class CopilotTooltip implements OnDestroy {
           ]
         : Object.values(positions)
             .filter((p) => p !== primary)
-            .flat();
+            .reduce<ConnectedPosition[]>((acc, arr) => acc.concat(arr), []);
 
     return [...(primary || []), ...fallbacks];
   }

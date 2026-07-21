@@ -11,7 +11,7 @@ npm install @copilotkit/angular
 
 Peer dependencies you provide in your app:
 
-- `@angular/core` and `@angular/common` (19, 20, or 21)
+- `@angular/core` and `@angular/common` (19, 20, 21, or 22)
 - `@angular/cdk` (match your Angular major)
 - `rxjs`
 

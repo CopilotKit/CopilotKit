@@ -12,7 +12,7 @@ The runtime runs on your server, keeps model credentials out of the browser, and
 ## Prerequisites
 
 - An OpenAI API key (or another model provider supported by [Model Selection](/model-selection))
-- Angular 19, 20, or 21 (Angular 22 is not supported yet)
+- Angular 19, 20, 21, or 22
 - Node.js 20+
 
 ## Getting started
@@ -21,10 +21,10 @@ The runtime runs on your server, keeps model credentials out of the browser, and
     <Step>
         ### Create your Angular app
 
-        If you don't have one already. The package supports Angular up to 21, so pin the CLI to a supported major rather than `@latest`:
+        If you don't have one already. The package supports Angular up to 22, so pin the CLI to a supported major rather than `@latest`:
 
         ```bash
-        npx @angular/cli@21 new my-copilot-app
+        npx @angular/cli@22 new my-copilot-app
         cd my-copilot-app
         ```
     </Step>
@@ -55,7 +55,7 @@ The runtime runs on your server, keeps model credentials out of the browser, and
         </Tabs>
 
         <Callout type="info" title="Match @angular/cdk to your Angular version">
-          `@angular/cdk` must share your Angular major version. Most package managers resolve this for you, but if you hit a peer-dependency error, pin it explicitly (for example `@angular/cdk@^21`).
+          `@angular/cdk` must share your Angular major version. Most package managers resolve this for you, but if you hit a peer-dependency error, pin it explicitly (for example `@angular/cdk@^22`).
         </Callout>
     </Step>
     <Step>
@@ -170,7 +170,7 @@ The runtime runs on your server, keeps model credentials out of the browser, and
                 - **No response from the agent**: Confirm the runtime server is running and `http://localhost:8200/api/copilotkit/info` returns agent information.
                 - **CORS errors**: Keep `cors: true` in `createCopilotNodeListener` for local development, or configure CORS to allow your Angular app's origin in production.
                 - **Model auth errors**: Confirm `OPENAI_API_KEY` is set in the terminal running `npx tsx server.ts`.
-                - **Peer-dependency error on install**: `@angular/cdk` must match your Angular major version. Install the matching major, for example `@angular/cdk@^21` on Angular 21.
+                - **Peer-dependency error on install**: `@angular/cdk` must match your Angular major version. Install the matching major, for example `@angular/cdk@^22` on Angular 22.
                 - **Production build exceeds the bundle budget**: CopilotKit pulls in markdown and syntax-highlighting dependencies, so a fresh app can exceed Angular's default 1 MB budget. Raise `budgets` in `angular.json` if your production build fails on size.
             </Accordion>
         </Accordions>
