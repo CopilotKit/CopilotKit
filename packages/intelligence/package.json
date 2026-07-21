@@ -35,7 +35,7 @@
     "attw": "attw --pack . --profile esm-only"
   },
   "dependencies": {
-    "zod": "^4.3.5"
+    "zod": "4.3.5"
   },
   "devDependencies": {
     "@copilotkit/typescript-config": "workspace:^",

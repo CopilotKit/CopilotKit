@@ -1570,7 +1570,7 @@ export function buildLearningPlatformConformanceCorpus(): LearningPlatformConfor
       name,
       toLearningContractJsonSchema(schema),
     ]),
-  ) as Record<LearningPlatformConformanceSchemaName, JsonValue>;
+  ) as unknown as Record<LearningPlatformConformanceSchemaName, JsonValue>;
 
   return {
     schemaVersion: 1,

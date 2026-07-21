@@ -22,6 +22,9 @@ const corpusPath = fileURLToPath(
 const packageJsonPath = fileURLToPath(
   new URL("../package.json", import.meta.url),
 );
+const installedZodPackageJsonPath = fileURLToPath(
+  new URL("../node_modules/zod/package.json", import.meta.url),
+);
 const registrySdkGoldenPath = fileURLToPath(
   new URL("../conformance/registry-sdk-v1.json", import.meta.url),
 );
@@ -343,6 +346,18 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
     expect(first).toBe(second);
     expect(first.endsWith("\n")).toBe(true);
     expect(readFileSync(corpusPath, "utf8")).toBe(first);
+  });
+
+  test("uses the exact published Zod version that generated the committed schemas", () => {
+    const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8")) as {
+      dependencies: { zod: string };
+    };
+    const installedZodPackageJson = JSON.parse(
+      readFileSync(installedZodPackageJsonPath, "utf8"),
+    ) as { version: string };
+
+    expect(packageJson.dependencies.zod).toMatch(/^\d+\.\d+\.\d+$/u);
+    expect(installedZodPackageJson.version).toBe(packageJson.dependencies.zod);
   });
 
   test("publishes every stable producer error code in the error-envelope schema", () => {
