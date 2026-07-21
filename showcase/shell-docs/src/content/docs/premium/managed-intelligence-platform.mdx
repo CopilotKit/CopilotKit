@@ -47,11 +47,16 @@ Inside a project, the web app shows the conversation history connected to that p
 
 ## API keys
 
-Project API keys connect your runtime to the cloud-hosted project. The CLI provisions a project-scoped key during `create` and `project select`, writes it to `.env` as `INTELLIGENCE_API_KEY`, and records the selected project in `.copilotkit/project.json`.
+Project API keys connect your runtime to the cloud-hosted project. The CLI provisions a project-scoped key during `create` and `project select`, writes it to `.env` as `CPK_INTELLIGENCE_API_KEY`, and records the selected project in `.copilotkit/project.json`. It also writes the non-secret `CPK_TELEMETRY_ID` for analytics attribution. Managed setup does not issue or write `COPILOTKIT_LICENSE_TOKEN`.
 
 ![The Cloud-Hosted Enterprise Intelligence API keys page.](/images/enterprise-intelligence/managed-api-keys.png)
 
 When you create an API key in the web app, the plaintext token is shown once. Store it in your runtime environment, not in frontend code. Deleting a key invalidates any application still using it.
+
+If telemetry-identity setup fails, the CLI still commits the project and API
+key, removes stale telemetry identity, and warns that Runtime telemetry will
+stay anonymous. If key creation or local env writing fails, project selection
+does not replace the prior local project and credentials.
 
 ## Threads and conversation history
 

@@ -11,6 +11,14 @@ We use anonymous telemetry (metadata-only) to learn how to improve CopilotKit.
 - We do not use cookies or trackers in open-source telemetry
 - To minimize the frequency of data sent, we apply batching and sampling to telemetry
 
+Managed CLI projects also contain `CPK_TELEMETRY_ID`. This non-secret value
+links CLI setup with identified Runtime use. It does not enable telemetry,
+grant product access, or replace `CPK_INTELLIGENCE_API_KEY`. Without it,
+Runtime keeps the anonymous sampled behavior above.
+
+The Inspector sends telemetry directly with its browser identity. Its delivery
+does not depend on `CPK_TELEMETRY_ID`.
+
 ## How to opt out of anonymous telemetry
 
 Set `COPILOTKIT_TELEMETRY_DISABLED=true` in your runtime environment. This disables telemetry for both the CopilotRuntime and the Inspector dev-console. We also respect [Do Not Track (DNT)](https://consoledonottrack.com/).

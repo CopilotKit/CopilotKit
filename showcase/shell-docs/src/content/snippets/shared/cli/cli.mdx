@@ -64,15 +64,20 @@ Use the CLI when you want to start a new app, import historical ADK or LangGraph
   <Step>
     ### Use the generated environment
 
-    The CLI writes the hosted platform URLs and project-scoped runtime API key to `.env`.
+    The CLI writes the project-scoped runtime key and telemetry metadata to `.env`.
 
     ```bash title=".env"
-    INTELLIGENCE_API_URL=https://...
-    INTELLIGENCE_GATEWAY_WS_URL=wss://...
-    INTELLIGENCE_API_KEY=cpk_...
+    # Your CopilotKit Enterprise Intelligence API Key
+    # Project Name: Support Assistant
+    CPK_INTELLIGENCE_API_KEY=cpk_...
+
+    # CopilotKit Telemetry ID
+    CPK_TELEMETRY_ID=...
     ```
 
-    Keep `INTELLIGENCE_API_KEY` on the server side. It is a runtime key for the selected project, not a frontend token.
+    Keep `CPK_INTELLIGENCE_API_KEY` on the server side. It is the only managed
+    Intelligence credential. The CLI writes `CPK_TELEMETRY_ID` for analytics
+    attribution; it is not a secret and is not required for connectivity.
   </Step>
 
   <Step>
@@ -134,8 +139,8 @@ For the full migration flow, see [Import thread history](/threads-import). Sourc
 | `npx copilotkit@latest project select` | Selects or creates a cloud-hosted Enterprise Intelligence project for the current directory. |
 | `npx copilotkit@latest import --source adk --dry-run` | Previews historical Google ADK conversation threads before import. |
 | `npx copilotkit@latest import --source langgraph --dry-run` | Previews historical LangGraph conversation threads before import. |
-| `npx copilotkit@latest license create` | Issues a CopilotKit license token for flows that require one. |
-| `npx copilotkit@latest license list` | Lists license metadata for the current user or organization. |
+| `npx copilotkit@latest license create` | Issues a license token for an explicit self-hosted or offline enterprise flow. |
+| `npx copilotkit@latest license list` | Lists self-hosted or offline license metadata for the current user or organization. |
 
 Re-running `project select` is safe when you need to move a CLI-created app to a different cloud-hosted project. The command updates `.copilotkit/project.json` and provisions a project-scoped API key for the selected project.
 
