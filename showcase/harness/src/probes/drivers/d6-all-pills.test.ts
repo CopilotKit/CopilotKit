@@ -1241,12 +1241,8 @@ describe("e2e-full feature-timeout pooled-context budget", () => {
 });
 
 // ---------------------------------------------------------------------
-// Per-feature retry uses an isolated AbortController per attempt (e2e-full):
-// a retry after a RETRY-ELIGIBLE failure must actually execute the second
-// attempt rather than being short-circuited by a poisoned (pre-aborted)
-// signal. Observed via context-open count: runFeature returns `abort`
-// WITHOUT opening a context if entered with an aborted signal, so a
-// poisoned retry opens only ONE context; a healthy retry opens TWO.
+// Deterministic D6 failures are evidence, not retry candidates. A navigation
+// or conversation failure must open one context, emit red, and stop.
 // ---------------------------------------------------------------------
 /**
  * Launcher whose first context FAILS with a retry-eligible `goto-error`
@@ -1329,16 +1325,12 @@ function makeRetryLauncherFull(opts: { attempt1DelayMs: number }): {
   return { launcher: async () => browser, state };
 }
 
-describe("e2e-full per-feature retry signal isolation", () => {
+describe("e2e-full deterministic failure policy", () => {
   beforeEach(() => {
     __clearD5RegistryForTesting();
   });
 
-  it("executes the second attempt after a retry-eligible failure (fresh, non-aborted signal)", async () => {
-    // Attempt 1 fails retry-eligibly (goto-error) after
-    // >= RETRY_MIN_DURATION_MS (2s); attempt 2 succeeds. The retry must
-    // run with a fresh, un-aborted signal — observed by TWO contexts
-    // being opened (a poisoned/aborted retry would open only one).
+  it("does not retry a deterministic navigation failure", async () => {
     registerD5Script(makeScript(["agentic-chat"]));
 
     const { launcher, state } = makeRetryLauncherFull({
@@ -1363,10 +1355,9 @@ describe("e2e-full per-feature retry signal isolation", () => {
       features: ["agentic-chat"],
     });
 
-    // Two attempts executed → two contexts opened.
-    expect(state.opened).toBe(2);
+    expect(state.opened).toBe(1);
     const aggRow = sideEmits.find((r) => r.key === "d6:test-slug");
-    expect(aggRow?.state).toBe("green");
+    expect(aggRow?.state).toBe("red");
   }, 15_000);
 
   // --- D5-take-one knobs ---------------------------------------------------

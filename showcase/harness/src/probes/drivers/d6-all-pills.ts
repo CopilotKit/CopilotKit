@@ -1262,34 +1262,9 @@ export function createE2eFullDriver(
                 once: true,
               });
 
-            // Retry logic — same as e2e-deep: retry once on transient
-            // failures (goto-error, conversation-error) that lasted at
-            // least 2s.
-            const RETRY_ELIGIBLE_ERROR_CLASSES = new Set<string>([
-              "goto-error",
-              "conversation-error",
-            ]);
-            const RETRY_MIN_DURATION_MS = 2_000;
-            const runOnce = async (): Promise<
-              Awaited<ReturnType<typeof runFeature>>
-            > => {
-              let featureTimer: ReturnType<typeof setTimeout> | undefined;
-              // Per-attempt child controller. It aborts when the parent
-              // (`featureAbort`) fires OR when THIS attempt's timer wins,
-              // so aborting one attempt never poisons the next — the
-              // retry attempt gets a fresh, un-aborted signal. Without
-              // this, a single shared controller aborted by attempt 1
-              // would make attempt 2's runFeature return immediately with
-              // `aborted before start` (a silent no-op retry).
-              const attemptAbort = new AbortController();
-              const onParentAbortChild = (): void => attemptAbort.abort();
-              if (featureAbort.signal.aborted) attemptAbort.abort();
-              else
-                featureAbort.signal.addEventListener(
-                  "abort",
-                  onParentAbortChild,
-                  { once: true },
-                );
+            let featureResult: Awaited<ReturnType<typeof runFeature>>;
+            let featureTimer: ReturnType<typeof setTimeout> | undefined;
+            try {
               const runFeaturePromise = runFeature({
                 browser: browserRef,
                 url,
@@ -1302,84 +1277,31 @@ export function createE2eFullDriver(
                   featureType: ft,
                   baseUrl: backendUrl,
                 },
-                abortSignal: attemptAbort.signal,
+                abortSignal: featureAbort.signal,
                 logger: ctx.logger,
-                // CVDIAG correlation: thread the per-run id + component tag
-                // so runFeature can inject `x-diag-run-id` / `x-diag-hops`
-                // alongside the `x-aimock-context` slug and emit the
-                // inbound-boundary line at header injection.
                 runId,
                 cvComponent,
-                // CVDIAG probe-session: the emitter (when present) + buffer dir
-                // let runFeature construct a `CvdiagProbeSession` per feature
-                // and emit the probe-layer boundaries (probe.start / navigate /
-                // message.send / firstToken / exit) for THIS d5/d6 cell.
                 cvdiagEmitter,
                 cvdiagBufferDir,
               });
               inFlightRunFeatures.push(runFeaturePromise);
-              try {
-                return await Promise.race([
-                  runFeaturePromise,
-                  new Promise<Awaited<ReturnType<typeof runFeature>>>(
-                    (resolve) => {
-                      featureTimer = setTimeout(() => {
-                        // Abort the parent so the launcher's open-context
-                        // teardown runs; this also aborts the child via
-                        // the listener above.
-                        featureAbort.abort();
-                        resolve({
-                          ok: false,
-                          errorClass: "feature-timeout",
-                          errorDesc: `feature exceeded ${featureTimeoutMs}ms wall-clock`,
-                        });
-                      }, featureTimeoutMs);
-                    },
-                  ),
-                ]);
-              } finally {
-                if (featureTimer) clearTimeout(featureTimer);
-                featureAbort.signal.removeEventListener(
-                  "abort",
-                  onParentAbortChild,
-                );
-              }
-            };
-
-            let featureResult: Awaited<ReturnType<typeof runFeature>>;
-            try {
-              const attempt1Start = Date.now();
-              featureResult = await runOnce();
-              const attempt1Duration = Date.now() - attempt1Start;
-
-              if (
-                !featureResult.ok &&
-                !abort.signal.aborted &&
-                !featureAbort.signal.aborted &&
-                featureResult.errorClass !== undefined &&
-                RETRY_ELIGIBLE_ERROR_CLASSES.has(featureResult.errorClass) &&
-                attempt1Duration >= RETRY_MIN_DURATION_MS
-              ) {
-                ctx.logger.info("probe.e2e-full.feature-retry", {
-                  slug,
-                  featureType: ft,
-                  attempt: 1,
-                  errorClass: featureResult.errorClass,
-                  errorDesc: featureResult.errorDesc,
-                  attempt1DurationMs: attempt1Duration,
-                });
-                featureResult = await runOnce();
-                ctx.logger.info("probe.e2e-full.feature-retry-result", {
-                  slug,
-                  featureType: ft,
-                  attempt: 2,
-                  ok: featureResult.ok,
-                  errorClass: featureResult.ok
-                    ? undefined
-                    : featureResult.errorClass,
-                });
-              }
+              featureResult = await Promise.race([
+                runFeaturePromise,
+                new Promise<Awaited<ReturnType<typeof runFeature>>>(
+                  (resolve) => {
+                    featureTimer = setTimeout(() => {
+                      featureAbort.abort();
+                      resolve({
+                        ok: false,
+                        errorClass: "feature-timeout",
+                        errorDesc: `feature exceeded ${featureTimeoutMs}ms wall-clock`,
+                      });
+                    }, featureTimeoutMs);
+                  },
+                ),
+              ]);
             } finally {
+              if (featureTimer) clearTimeout(featureTimer);
               abort.signal.removeEventListener("abort", onParentAbort);
             }
 
