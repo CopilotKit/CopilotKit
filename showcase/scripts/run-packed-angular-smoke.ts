@@ -6,7 +6,20 @@ import { join, resolve } from "node:path";
 import { chromium } from "playwright";
 import type { Page } from "playwright";
 
-import { validateAngularSsrHtml } from "../../scripts/release/lib/angular-package";
+import * as angularPackageNamespace from "../../scripts/release/lib/angular-package";
+
+type AngularPackageModule = typeof angularPackageNamespace;
+
+const angularPackage = angularPackageNamespace as AngularPackageModule & {
+  default?: AngularPackageModule;
+};
+const validateAngularSsrHtml =
+  angularPackage.validateAngularSsrHtml ??
+  angularPackage.default?.validateAngularSsrHtml;
+
+if (!validateAngularSsrHtml) {
+  throw new Error("could not load the packed Angular SSR validator");
+}
 
 function delay(milliseconds: number): Promise<void> {
   return new Promise((resolveDelay) => setTimeout(resolveDelay, milliseconds));
