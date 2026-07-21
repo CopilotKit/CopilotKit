@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { resolveFeatureComponentKey } from "./app.routes";
+import { suggestionsConfigForFeature } from "./feature-suggestions";
 
 describe("Angular showcase feature routing", () => {
   it.each([
@@ -28,9 +29,35 @@ describe("Angular showcase feature routing", () => {
     ["mcp-apps", "mcp-apps"],
     ["open-gen-ui", "generated-ui"],
     ["open-gen-ui-advanced", "generated-ui"],
+    ["shared-state-read-write", "state"],
+    ["shared-state-read", "state"],
+    ["shared-state-streaming", "state"],
+    ["readonly-state-agent-context", "state"],
     ["declarative-hashbrown", "hashbrown"],
     ["agentic-chat", "chat"],
   ])("maps %s to the %s implementation", (feature, expected) => {
     expect(resolveFeatureComponentKey(feature)).toBe(expected);
+  });
+});
+
+describe("Angular showcase static suggestions", () => {
+  it("pins state-demo suggestions to their canonical prompts", () => {
+    expect(
+      suggestionsConfigForFeature("shared-state-streaming")[0]?.suggestions,
+    ).toContainEqual({
+      title: "Write a short poem",
+      message: "Write a short poem about autumn leaves.",
+    });
+    expect(
+      suggestionsConfigForFeature("readonly-state-agent-context")[0]
+        ?.suggestions,
+    ).toContainEqual({
+      title: "Who am I?",
+      message: "What do you know about me from my context?",
+    });
+  });
+
+  it("does not add feature-specific suggestions to unrelated routes", () => {
+    expect(suggestionsConfigForFeature("agentic-chat")).toEqual([]);
   });
 });

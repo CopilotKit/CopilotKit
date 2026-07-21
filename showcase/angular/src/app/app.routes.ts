@@ -28,6 +28,7 @@ export type FeatureComponentKey =
   | "a2ui"
   | "generated-ui"
   | "mcp-apps"
+  | "state"
   | "hashbrown"
   | "chat";
 
@@ -72,6 +73,11 @@ export function resolveFeatureComponentKey(
       return "generated-ui";
     case "mcp-apps":
       return "mcp-apps";
+    case "shared-state-read-write":
+    case "shared-state-read":
+    case "shared-state-streaming":
+    case "readonly-state-agent-context":
+      return "state";
     default:
       return "chat";
   }
@@ -134,6 +140,11 @@ function loadFeatureComponent(feature: string) {
       return () =>
         import("./features/generated-ui/mcp-apps-feature.component").then(
           (module) => module.MCPAppsFeatureComponent,
+        );
+    case "state":
+      return () =>
+        import("./features/state/state-feature.component").then(
+          (module) => module.StateFeatureComponent,
         );
     case "hashbrown":
       return () =>

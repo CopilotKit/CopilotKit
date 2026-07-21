@@ -11,6 +11,7 @@ import { isDefaultToolRenderingCell, resolveBrowserCell } from "./cell-context";
 import type { BrowserCellCatalog } from "./cell-context";
 import { a2uiConfigForFeature } from "./features/a2ui/a2ui-catalogs";
 import { openGenerativeUIConfigForFeature } from "./features/generated-ui/open-generative-ui-config";
+import { suggestionsConfigForFeature } from "./feature-suggestions";
 
 const browserPath =
   typeof globalThis.location === "undefined"
@@ -36,6 +37,10 @@ export const appConfig: ApplicationConfig = {
         cell.kind === "runnable"
           ? openGenerativeUIConfigForFeature(cell.feature)
           : undefined,
+      suggestionsConfig:
+        cell.kind === "runnable"
+          ? suggestionsConfigForFeature(cell.feature)
+          : [],
       licenseKey: "ck_pub_00000000000000000000000000000000",
     }),
     ...provideCopilotChatConfiguration(),
