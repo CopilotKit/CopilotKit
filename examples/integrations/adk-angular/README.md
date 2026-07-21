@@ -16,7 +16,7 @@ The Angular app talks to the runtime (`http://localhost:8200/api/copilotkit`), a
 
 ## Prerequisites
 
-- Node.js 20+
+- Node.js 20.19+ (required by the Angular 21 toolchain; the managed-Intelligence path below needs ≥ 22)
 - Python 3.12+
 - [`uv`](https://docs.astral.sh/uv/getting-started/installation/) (installs the Python agent's dependencies)
 - Google Makersuite API Key (for the ADK agent) — see https://makersuite.google.com/app/apikey
@@ -66,8 +66,11 @@ The Angular app talks to the runtime (`http://localhost:8200/api/copilotkit`), a
 - `src/app/app.ts` — the three-column layout (threads drawer / themed main panel / chat) and the `setThemeColor` frontend tool.
 - `src/app/app.config.ts` — `provideCopilotKit` wiring: the runtime URL, the `get_weather` generative-UI renderer, and the static suggestions.
 - `src/app/proverbs.ts` — shared agent state (`injectAgentStore`), read and written from the UI.
+- `src/app/main-content.ts` — the themed center panel that hosts the proverbs card.
+- `src/app/agent-state.ts` — the shared `AgentState` type.
 - `src/app/weather-card.ts` — the generative-UI card rendered when the agent calls `get_weather`.
 - `server.ts` — the standalone Copilot Runtime, registering the `default` agent (with env-gated managed Intelligence).
+- `scripts/` — cross-platform launchers used by the `dev`/`install` npm scripts to set up and run the Python agent.
 - `agent/` — the Python ADK agent (unchanged from the React ADK example).
 
 ## Threads & managed Intelligence (optional)

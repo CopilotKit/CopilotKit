@@ -7,7 +7,7 @@ import {
 import { z } from "zod";
 import type { AngularToolCall, ToolRenderer } from "@copilotkit/angular";
 
-export const weatherArgs = z.object({ location: z.string().optional() });
+export const weatherArgs = z.object({ location: z.string() });
 type WeatherArgs = z.infer<typeof weatherArgs>;
 
 @Component({
@@ -52,7 +52,12 @@ type WeatherArgs = z.infer<typeof weatherArgs>;
         margin: 1.5rem 0 1rem;
         max-width: 28rem;
         width: 100%;
-        background: var(--copilot-kit-primary-color, #6366f1);
+        /*
+          Use a demo-specific variable, NOT --copilot-kit-primary-color: the
+          chat subtree re-declares that CopilotKit token on [data-copilotkit]
+          hosts, which would shadow the theme value set on the layout root.
+        */
+        background: var(--app-theme-color, #6366f1);
       }
       .wc-inner {
         background: rgba(255, 255, 255, 0.2);
@@ -109,7 +114,9 @@ type WeatherArgs = z.infer<typeof weatherArgs>;
 })
 export class WeatherCard implements ToolRenderer<WeatherArgs> {
   readonly toolCall = input.required<AngularToolCall<WeatherArgs>>();
+  // args is Partial while the tool call streams (status "in-progress"), so
+  // guard the access and fall back to a label rather than a blank heading.
   protected readonly location = computed(
-    () => this.toolCall().args?.location ?? "",
+    () => this.toolCall().args?.location ?? "Weather",
   );
 }

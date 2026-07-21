@@ -32,7 +32,10 @@ const runtime = new CopilotRuntime({
   // --- /copilotkit:intelligence ---
 });
 
-const port = Number(process.env.PORT ?? 8200);
+// Use a dedicated RUNTIME_PORT rather than PORT: this process and the Python
+// ADK agent are launched together and both load the same root `.env`, and the
+// agent reads `PORT` (default 8000). Sharing `PORT` would bind both to one port.
+const port = Number(process.env.RUNTIME_PORT ?? 8200);
 
 createServer(
   createCopilotNodeListener({

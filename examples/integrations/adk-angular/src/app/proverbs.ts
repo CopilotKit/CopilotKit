@@ -99,15 +99,21 @@ export class Proverbs {
   );
 
   constructor() {
-    // Seed one proverb whenever the agent reports undefined proverbs — the
-    // initial thread and every fresh "+ New" thread (mirrors the React
-    // page.tsx effect keyed on the agent instance). Once seeded, `proverbs`
-    // is defined so the guard stops re-seeding within the thread; a thread the
-    // user emptied (`[]`) is left alone.
+    // Seed one proverb ONCE per agent instance (mirrors the React page.tsx
+    // effect keyed on `[agent]`). Keying the one-shot on the agent — not on the
+    // state value — is what keeps a transient `undefined` state (mid-run, or
+    // while a thread's persisted state loads) from re-seeding and fighting the
+    // agent. A fresh thread that brings a new agent instance seeds once; an
+    // agent whose thread the user emptied (`[]`) is left alone (`[]` is defined).
+    let seededAgent: unknown;
     effect(() => {
-      const state = this.#store().state() as AgentState | undefined;
+      const store = this.#store();
+      const agent = store.agent;
+      if (agent === seededAgent) return;
+      const state = store.state() as AgentState | undefined;
       if (state?.proverbs === undefined) {
-        this.#store().agent.setState({
+        seededAgent = agent;
+        agent.setState({
           proverbs: [
             "CopilotKit may be new, but it's the best thing since sliced bread.",
           ],
@@ -117,7 +123,14 @@ export class Proverbs {
   }
 
   protected remove(index: number): void {
+    // Spread the existing state — agent.setState is a full replace, so dropping
+    // the spread would wipe any non-proverbs state the agent carries (matches
+    // the React reference's `setState({ ...state, proverbs })`).
+    const state = (this.#store().state() as AgentState | undefined) ?? {};
     const next = this.proverbs().filter((_, i) => i !== index);
-    this.#store().agent.setState({ proverbs: next } satisfies AgentState);
+    this.#store().agent.setState({
+      ...state,
+      proverbs: next,
+    } satisfies AgentState);
   }
 }

@@ -14,13 +14,14 @@ import { MainContent } from "./main-content";
   imports: [CopilotChat, CopilotThreadsDrawer, MainContent],
   template: `
     <!--
-      Set the theme custom property on the layout ROOT so it cascades into both
-      the center panel and the chat column. The weather card is rendered inside
-      <copilot-chat> (a sibling of the center panel), so a variable scoped to the
-      center alone never reaches it — mirror React, where the themed <main> wraps
-      both the content and the chat.
+      Expose the theme on the layout ROOT via a demo-specific variable so it
+      cascades into both the center panel and the chat column. The weather card
+      renders inside <copilot-chat> (a sibling of the center panel), so it can
+      only pick the theme up by inheritance. We deliberately do NOT reuse
+      --copilot-kit-primary-color: the chat re-declares that token on its own
+      [data-copilotkit] hosts, which would shadow the value set here.
     -->
-    <div class="layout" [style.--copilot-kit-primary-color]="themeColor()">
+    <div class="layout" [style.--app-theme-color]="themeColor()">
       <!-- License-gated: locked "Upgrade" tease when unlicensed, threads when licensed. -->
       <copilot-threads-drawer [agentId]="AGENT_ID" class="drawer" />
       <app-main-content [themeColor]="themeColor()" class="center" />
@@ -71,7 +72,16 @@ import { MainContent } from "./main-content";
         .drawer {
           display: none;
         }
+        /*
+          Drop the desktop 100dvh on both panels — otherwise the auto row would
+          claim a full viewport and starve the chat row to 0 (clipped off-screen
+          by the layout's overflow:hidden). Let the grid tracks size them.
+        */
+        .center {
+          height: auto;
+        }
         .chat {
+          height: 100%;
           border-left: none;
           border-top: 1px solid rgba(0, 0, 0, 0.08);
         }
