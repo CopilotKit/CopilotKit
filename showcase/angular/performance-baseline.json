@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "baseCommit": "d6560c8a6",
+  "angularVersion": "21.2.18",
+  "typescriptVersion": "5.9.3",
+  "command": "pnpm --filter @copilotkit/showcase-angular-host build:browser",
+  "configuration": "production",
+  "profile": {
+    "optimization": true,
+    "outputHashing": "all",
+    "sourceMaps": false
+  },
+  "initial": {
+    "rawBytes": 2781308,
+    "gzipBytes": 740078,
+    "brotliBytes": 601308
+  },
+  "maximumRelativeRegression": 0.1,
+  "absoluteCapBytes": 3000000
+}

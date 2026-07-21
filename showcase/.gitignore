@@ -19,6 +19,8 @@ shell/src/data/*.json
 shell-dojo/src/data/*.json
 shell-docs/src/data/*.json
 shell-dashboard/src/data/*.json
+angular/server/generated/*.json
+angular/src/app/generated/*.json
 
 # Eval local artifacts
 .eval-results/

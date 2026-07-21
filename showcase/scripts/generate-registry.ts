@@ -238,6 +238,19 @@ const SHELL_DASHBOARD_OUTPUT_DIR = path.join(
   "src",
   "data",
 );
+const ANGULAR_SERVER_OUTPUT_DIR = path.join(
+  ROOT,
+  "angular",
+  "server",
+  "generated",
+);
+const ANGULAR_CLIENT_OUTPUT_DIR = path.join(
+  ROOT,
+  "angular",
+  "src",
+  "app",
+  "generated",
+);
 const OUTPUT_DIRS = [
   SHELL_OUTPUT_DIR,
   SHELL_DOCS_OUTPUT_DIR,
@@ -655,6 +668,45 @@ function main() {
         `(${frontendRegistry.frontends.length} frontends)`,
     );
   }
+
+  // The Angular host keeps backend routing evidence in server-only generated
+  // data. Browser code receives only frontend/cell identities, never the
+  // registry's synthesized backend_url values.
+  fs.mkdirSync(ANGULAR_SERVER_OUTPUT_DIR, { recursive: true });
+  writeFileAtomicSync(
+    path.join(ANGULAR_SERVER_OUTPUT_DIR, "registry.json"),
+    registryJson,
+  );
+  writeFileAtomicSync(
+    path.join(ANGULAR_SERVER_OUTPUT_DIR, "frontend-catalog.json"),
+    frontendCatalogJson,
+  );
+  fs.mkdirSync(ANGULAR_CLIENT_OUTPUT_DIR, { recursive: true });
+  writeFileAtomicSync(
+    path.join(ANGULAR_CLIENT_OUTPUT_DIR, "frontend-registry.json"),
+    frontendRegistryJson,
+  );
+  writeFileAtomicSync(
+    path.join(ANGULAR_CLIENT_OUTPUT_DIR, "frontend-catalog.json"),
+    JSON.stringify(
+      {
+        cells: frontendCatalog.cells
+          .filter((cell) => cell.frontend === "angular")
+          .map((cell) => ({
+            id: cell.id,
+            frontend: cell.frontend,
+            integration: cell.integration,
+            feature: cell.feature,
+            frontend_status: cell.frontend_status,
+            backend_status: cell.backend_status,
+            runnable: cell.runnable,
+            exception: cell.exception,
+          })),
+      },
+      null,
+      2,
+    ) + "\n",
+  );
 
   // Write constraints.json for the shell's client-side filtering
   writeFileAtomicSync(CONSTRAINTS_OUTPUT_PATH, constraintsJson);
