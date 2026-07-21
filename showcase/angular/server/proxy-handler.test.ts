@@ -51,6 +51,11 @@ describe("Angular Showcase proxy handler", () => {
       const headers = new Headers(init?.headers);
       expect(headers.get("authorization")).toBe("Bearer demo-token");
       expect(headers.get("content-type")).toBe("application/json");
+      expect(headers.get("x-aimock-strict")).toBe("true");
+      expect(headers.get("x-aimock-context")).toBe("langgraph-python");
+      expect(headers.get("x-test-id")).toBe("fm-angular-cell-1");
+      expect(headers.get("x-diag-run-id")).toBe("matrix-run-1");
+      expect(headers.get("x-diag-hops")).toBe("frontend-matrix");
       expect(headers.get("cookie")).toBeNull();
       expect(headers.get("x-arbitrary")).toBeNull();
       expect(init?.redirect).toBe("manual");
@@ -77,6 +82,11 @@ describe("Angular Showcase proxy handler", () => {
             "content-type": "application/json",
             cookie: "shell-session=secret",
             "x-arbitrary": "not-forwarded",
+            "x-aimock-strict": "true",
+            "x-aimock-context": "langgraph-python",
+            "x-test-id": "fm-angular-cell-1",
+            "x-diag-run-id": "matrix-run-1",
+            "x-diag-hops": "frontend-matrix",
             "x-copilotkit-correlation-id": "corr_123",
           },
           body: JSON.stringify({ messages: [] }),

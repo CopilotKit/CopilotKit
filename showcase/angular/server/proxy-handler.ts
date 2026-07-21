@@ -31,8 +31,13 @@ const REQUEST_HEADER_ALLOWLIST = [
   "authorization",
   "content-type",
   "if-none-match",
+  "x-aimock-context",
+  "x-aimock-strict",
   "x-copilotcloud-public-api-key",
   "x-copilotkit-correlation-id",
+  "x-diag-hops",
+  "x-diag-run-id",
+  "x-test-id",
 ] as const;
 
 const RESPONSE_HEADER_ALLOWLIST = [
