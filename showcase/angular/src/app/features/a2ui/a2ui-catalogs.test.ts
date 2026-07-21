@@ -20,4 +20,14 @@ describe("a2uiConfigForFeature", () => {
     expect(fixed?.catalog?.components.has("Airport")).toBe(true);
     expect(a2uiConfigForFeature("agentic-chat")).toBeUndefined();
   });
+
+  it("provides the flagship dashboard catalog for Beautiful Chat", () => {
+    const flagship = a2uiConfigForFeature("beautiful-chat");
+
+    expect(flagship?.catalog?.id).toBe("copilotkit://app-dashboard-catalog");
+    expect(flagship?.catalog?.components.has("FlightCard")).toBe(true);
+    expect(flagship?.catalog?.components.has("Metric")).toBe(true);
+    expect(flagship?.catalog?.components.has("PieChart")).toBe(true);
+    expect(flagship?.catalog?.components.has("BarChart")).toBe(true);
+  });
 });

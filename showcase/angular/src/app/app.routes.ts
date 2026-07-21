@@ -33,6 +33,7 @@ export type FeatureComponentKey =
   | "agent-state"
   | "app-settings"
   | "media"
+  | "beautiful-chat"
   | "hashbrown"
   | "chat";
 
@@ -94,6 +95,8 @@ export function resolveFeatureComponentKey(
     case "voice":
     case "multimodal":
       return "media";
+    case "beautiful-chat":
+      return "beautiful-chat";
     default:
       return "chat";
   }
@@ -181,6 +184,11 @@ function loadFeatureComponent(feature: string) {
       return () =>
         import("./features/media/media-feature.component").then(
           (module) => module.MediaFeatureComponent,
+        );
+    case "beautiful-chat":
+      return () =>
+        import("./features/beautiful-chat/beautiful-chat-feature.component").then(
+          (module) => module.BeautifulChatFeatureComponent,
         );
     case "hashbrown":
       return () =>

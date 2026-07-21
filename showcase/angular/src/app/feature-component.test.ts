@@ -41,6 +41,7 @@ describe("Angular showcase feature routing", () => {
     ["agent-config", "app-settings"],
     ["voice", "media"],
     ["multimodal", "media"],
+    ["beautiful-chat", "beautiful-chat"],
     ["declarative-hashbrown", "hashbrown"],
     ["agentic-chat", "chat"],
   ])("maps %s to the %s implementation", (feature, expected) => {
@@ -67,5 +68,20 @@ describe("Angular showcase static suggestions", () => {
 
   it("does not add feature-specific suggestions to unrelated routes", () => {
     expect(suggestionsConfigForFeature("agentic-chat")).toEqual([]);
+  });
+
+  it("exposes every flagship Beautiful Chat capability as a suggestion", () => {
+    const suggestions = suggestionsConfigForFeature("beautiful-chat")[0];
+    expect(suggestions?.consumerAgentId).toBe("beautiful-chat");
+    expect(suggestions?.suggestions).toHaveLength(9);
+    expect(suggestions?.suggestions).toContainEqual({
+      title: "Toggle Theme (Frontend Tools)",
+      message: "Toggle the app theme using the toggleTheme tool.",
+    });
+    expect(suggestions?.suggestions).toContainEqual({
+      title: "Task Manager (Shared State)",
+      message:
+        "Enable app mode and add three todos about learning CopilotKit: one about reading the docs, one about building a prototype, and one about exploring agent state.",
+    });
   });
 });

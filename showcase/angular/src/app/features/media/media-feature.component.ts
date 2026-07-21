@@ -285,18 +285,26 @@ function bufferToBase64(
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onerror = () =>
-      reject(
-        reader.error ?? new Error("The selected media could not be read."),
-      );
-    reader.onload = () => {
-      if (typeof reader.result !== "string") {
-        reject(new Error("The selected media returned an invalid result."));
-        return;
-      }
-      const comma = reader.result.indexOf(",");
-      resolve(comma >= 0 ? reader.result.slice(comma + 1) : reader.result);
-    };
+    reader.addEventListener(
+      "error",
+      () =>
+        reject(
+          reader.error ?? new Error("The selected media could not be read."),
+        ),
+      { once: true },
+    );
+    reader.addEventListener(
+      "load",
+      () => {
+        if (typeof reader.result !== "string") {
+          reject(new Error("The selected media returned an invalid result."));
+          return;
+        }
+        const comma = reader.result.indexOf(",");
+        resolve(comma >= 0 ? reader.result.slice(comma + 1) : reader.result);
+      },
+      { once: true },
+    );
     reader.readAsDataURL(new Blob([buffer], { type: mimeType }));
   });
 }

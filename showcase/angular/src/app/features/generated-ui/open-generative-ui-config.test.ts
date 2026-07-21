@@ -22,6 +22,10 @@ describe("openGenerativeUIConfigForFeature", () => {
     ]);
     expect(openGenerativeUIConfigForFeature("agentic-chat")).toBeUndefined();
   });
+
+  it("enables the standard sandbox for the Beautiful Chat composite", () => {
+    expect(openGenerativeUIConfigForFeature("beautiful-chat")).toEqual({});
+  });
 });
 
 describe("evaluateArithmeticExpression", () => {

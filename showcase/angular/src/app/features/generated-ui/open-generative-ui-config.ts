@@ -47,6 +47,8 @@ export function openGenerativeUIConfigForFeature(
   feature: string,
 ): OpenGenerativeUIConfig | undefined {
   switch (feature) {
+    case "beautiful-chat":
+      return {};
     case "open-gen-ui":
       return { designSkill: VISUALIZATION_DESIGN_SKILL };
     case "open-gen-ui-advanced":
