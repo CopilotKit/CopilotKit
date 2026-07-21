@@ -1,0 +1,51 @@
+# .github/workflows/triage-on-open.yml
+# Consolidated on-open triage: label + dedup-flag in ONE combined LLM call
+# (shared logic in scripts/triage/analyze.js). Advisory / high-confidence,
+# reopen-friendly; flags duplicates but never auto-closes. No key -> clean skip.
+name: triage / on-open
+on:
+  issues:
+    types: [opened]
+permissions:
+  issues: write
+concurrency:
+  group: triage-on-open-${{ github.event.issue.number }}
+  cancel-in-progress: true
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        with:
+          script: |
+            const analyzeIssue = require(`${process.env.GITHUB_WORKSPACE}/scripts/triage/analyze.js`);
+            const { owner, repo } = context.repo;
+            const issue = context.payload.issue;
+
+            const labels = await github.paginate(github.rest.issues.listLabelsForRepo, { owner, repo, per_page: 100 });
+            const valid = new Set(labels.map(l => l.name));
+            // Allow-list (default-deny): the classifier may apply ONLY these. Excludes
+            // process/automation/disposition labels (release, Triaged, version-drift,
+            // bounty, spam, invalid, wontfix…). Curate per repo.
+            const APPLYABLE = new Set(["bug","documentation","feature request","enhancement","question","good first issue","mcp","examples","SDK","Integration","framework","tests"]);
+            const labelList = labels.map(l => `- ${l.name}${l.description ? `: ${l.description}` : ""}`).join("\n");
+
+            const r = await analyzeIssue({ github, owner, repo, issue, labelList });
+            if (r.skipped) { core.info(`skipped: ${r.skipped}`); return; }
+
+            const toApply = r.labels.filter(l => valid.has(l) && APPLYABLE.has(l));
+            if (r.labelConfidence >= 0.75 && toApply.length) {
+              await github.rest.issues.addLabels({ owner, repo, issue_number: issue.number, labels: toApply });
+              core.info(`labeled: ${toApply.join(", ")} (conf ${r.labelConfidence})`);
+            }
+            if (r.duplicateOf && r.dupConfidence >= 0.8 && r.candidates.includes(r.duplicateOf) && valid.has("duplicate")) {
+              await github.rest.issues.addLabels({ owner, repo, issue_number: issue.number, labels: ["duplicate"] });
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: issue.number,
+                body: `Possible duplicate of #${r.duplicateOf} — a maintainer will confirm; if it isn't, just say so and we'll remove the label. (Automated triage flag; nothing closes automatically.)`,
+              });
+              core.info(`flagged possible dup of #${r.duplicateOf} (conf ${r.dupConfidence})`);
+            }

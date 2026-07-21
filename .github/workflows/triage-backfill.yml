@@ -1,0 +1,76 @@
+# .github/workflows/triage-backfill.yml
+# One-time / occasional drain of the ACCRETED backlog — runs the SAME shared
+# analysis (scripts/triage/analyze.js) over EXISTING open issues. Manual only,
+# DRY-RUN by default (preview in the job summary before anything applies), capped.
+name: triage / backfill (manual)
+on:
+  workflow_dispatch:
+    inputs:
+      max_issues:
+        description: "Max issues to process this run (oldest first)"
+        type: number
+        default: 50
+      dry_run:
+        description: "Preview only (no labels/comments applied)"
+        type: boolean
+        default: true
+permissions:
+  issues: write
+concurrency:
+  group: triage-backfill
+  cancel-in-progress: false
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        with:
+          script: |
+            const analyzeIssue = require(`${process.env.GITHUB_WORKSPACE}/scripts/triage/analyze.js`);
+            const { owner, repo } = context.repo;
+            const dryRun = ${{ inputs.dry_run }};
+            const max = Number("${{ inputs.max_issues }}") || 50;
+            if (!process.env.ANTHROPIC_API_KEY) { core.warning("ANTHROPIC_API_KEY not set — nothing to do."); return; }
+            const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+            const labels = await github.paginate(github.rest.issues.listLabelsForRepo, { owner, repo, per_page: 100 });
+            const valid = new Set(labels.map(l => l.name));
+            const APPLYABLE = new Set(["bug","documentation","feature request","enhancement","question","good first issue","mcp","examples","SDK","Integration","framework","tests"]);
+            const labelList = labels.map(l => `- ${l.name}${l.description ? `: ${l.description}` : ""}`).join("\n");
+
+            const all = await github.paginate(github.rest.issues.listForRepo, { owner, repo, state: "open", sort: "created", direction: "asc", per_page: 100 });
+            const issues = all.filter(i => !i.pull_request).slice(0, max);
+            const rows = [];
+
+            for (const issue of issues) {
+              let r;
+              try { r = await analyzeIssue({ github, owner, repo, issue, labelList }); }
+              catch (e) { core.warning(`#${issue.number}: ${e.message}`); continue; }
+              await sleep(2500); // analyze() does a search — stay under the 30/min search limit
+              if (r.skipped) continue;
+
+              const toApply = r.labels.filter(l => valid.has(l) && APPLYABLE.has(l) && !(issue.labels || []).some(x => (x.name || x) === l));
+              const willLabel = r.labelConfidence >= 0.75 && toApply.length;
+              const dup = (r.duplicateOf && r.dupConfidence >= 0.8 && r.candidates.includes(r.duplicateOf) && valid.has("duplicate")) ? r.duplicateOf : null;
+              if (!willLabel && !dup) continue;
+
+              rows.push({ n: issue.number, labels: willLabel ? toApply.join(",") : "", dup: dup ? `#${dup}` : "" });
+              if (!dryRun) {
+                if (willLabel) await github.rest.issues.addLabels({ owner, repo, issue_number: issue.number, labels: toApply });
+                if (dup) {
+                  await github.rest.issues.addLabels({ owner, repo, issue_number: issue.number, labels: ["duplicate"] });
+                  await github.rest.issues.createComment({ owner, repo, issue_number: issue.number, body: `Possible duplicate of #${dup} — a maintainer will confirm; say so if it's not and we'll remove the label. (Automated triage flag.)` });
+                }
+              }
+            }
+
+            core.summary
+              .addHeading(`Triage backfill — ${dryRun ? "DRY RUN (nothing applied)" : "APPLIED"} · ${issues.length} scanned · ${rows.length} actionable`)
+              .addTable([
+                [{ data: "Issue", header: true }, { data: "Labels", header: true }, { data: "Dup-of", header: true }],
+                ...rows.map(r => [`#${r.n}`, r.labels || "—", r.dup || "—"]),
+              ])
+              .write();
