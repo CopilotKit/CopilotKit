@@ -383,6 +383,172 @@ showcase-root {
   }
 }
 
+.a2ui-feature-page {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  background: #fafafc;
+}
+
+.a2ui-feature-page cpk-a2ui-surface {
+  display: block;
+  width: 100%;
+}
+
+.a2ui-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  width: 100%;
+}
+
+.a2ui-row > * {
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+
+.a2ui-column {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+[data-testid="declarative-card"],
+.a2ui-chart-card,
+.a2ui-flight-card {
+  display: block;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+  background: white;
+  box-shadow: 0 8px 22px -18px rgb(15 23 42 / 0.4);
+}
+
+.a2ui-metric {
+  display: grid;
+  min-width: 8rem;
+  gap: 0.25rem;
+}
+
+.a2ui-metric > span,
+.a2ui-metric > small {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.a2ui-metric > strong {
+  font-size: 1.4rem;
+}
+
+.a2ui-status,
+.a2ui-airline {
+  display: inline-flex;
+  width: fit-content;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  background: #eef2ff;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.a2ui-status-success {
+  background: #dcfce7;
+  color: #166534;
+}
+.a2ui-status-warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+.a2ui-status-error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.a2ui-info-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.a2ui-table-wrap {
+  overflow-x: auto;
+}
+.a2ui-table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.a2ui-table-wrap th,
+.a2ui-table-wrap td {
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+
+.a2ui-donut {
+  width: 6rem;
+  aspect-ratio: 1;
+  margin: 0.75rem auto;
+  border-radius: 50%;
+  background: conic-gradient(
+    #2563eb 0 38%,
+    #8b5cf6 38% 68%,
+    #14b8a6 68% 87%,
+    #f59e0b 87%
+  );
+  box-shadow: inset 0 0 0 1.4rem white;
+}
+
+.a2ui-chart-card ul {
+  padding: 0;
+  list-style: none;
+}
+.a2ui-chart-card li {
+  display: flex;
+  justify-content: space-between;
+}
+
+.a2ui-bars {
+  display: flex;
+  align-items: end;
+  gap: 0.4rem;
+  height: 8rem;
+  margin-top: 1rem;
+}
+
+.a2ui-bars > span {
+  display: grid;
+  flex: 1;
+  height: 100%;
+  align-items: end;
+  text-align: center;
+}
+.a2ui-bars i {
+  display: block;
+  min-height: 0.5rem;
+  border-radius: 0.25rem 0.25rem 0 0;
+  background: #6366f1;
+}
+.a2ui-bars small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.a2ui-flight-card {
+  width: min(100%, 30rem);
+}
+.a2ui-airport {
+  font-size: 1.6rem;
+  letter-spacing: 0.12em;
+}
+.a2ui-arrow {
+  padding: 0 0.75rem;
+  color: var(--muted);
+}
+.a2ui-price {
+  font-size: 1.2rem;
+}
+
 .tool-feature-page .chat-surface {
   height: 100%;
   margin: 0;

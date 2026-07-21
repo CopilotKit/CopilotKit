@@ -25,6 +25,7 @@ export type FeatureComponentKey =
   | "headless-complete"
   | "tools"
   | "interrupt"
+  | "a2ui"
   | "hashbrown"
   | "chat";
 
@@ -60,6 +61,10 @@ export function resolveFeatureComponentKey(
     case "gen-ui-interrupt":
     case "interrupt-headless":
       return "interrupt";
+    case "declarative-gen-ui":
+    case "a2ui-fixed-schema":
+    case "a2ui-recovery":
+      return "a2ui";
     default:
       return "chat";
   }
@@ -107,6 +112,11 @@ function loadFeatureComponent(feature: string) {
       return () =>
         import("./features/interrupt/interrupt-feature.component").then(
           (module) => module.InterruptFeatureComponent,
+        );
+    case "a2ui":
+      return () =>
+        import("./features/a2ui/a2ui-feature.component").then(
+          (module) => module.A2UIFeatureComponent,
         );
     case "hashbrown":
       return () =>

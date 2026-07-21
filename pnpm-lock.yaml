@@ -3887,6 +3887,9 @@ importers:
       '@angular/router':
         specifier: 21.2.18
         version: 21.2.18(@angular/common@21.2.18(@angular/core@21.2.18(@angular/compiler@21.2.18)(rxjs@7.8.1)(zone.js@0.15.1))(rxjs@7.8.1))(@angular/core@21.2.18(@angular/compiler@21.2.18)(rxjs@7.8.1)(zone.js@0.15.1))(@angular/platform-browser@21.2.18(@angular/animations@21.2.18(@angular/core@21.2.18(@angular/compiler@21.2.18)(rxjs@7.8.1)(zone.js@0.15.1)))(@angular/common@21.2.18(@angular/core@21.2.18(@angular/compiler@21.2.18)(rxjs@7.8.1)(zone.js@0.15.1))(rxjs@7.8.1))(@angular/core@21.2.18(@angular/compiler@21.2.18)(rxjs@7.8.1)(zone.js@0.15.1)))(rxjs@7.8.1)
+      '@copilotkit/a2ui-renderer':
+        specifier: workspace:*
+        version: link:../../packages/a2ui-renderer
       '@copilotkit/angular':
         specifier: workspace:*
         version: link:../../packages/angular
@@ -3896,6 +3899,9 @@ importers:
       '@hashbrownai/core':
         specifier: 0.5.0
         version: 0.5.0
+      lit:
+        specifier: ^3.3.2
+        version: 3.3.2
       rxjs:
         specifier: ^7.8.1
         version: 7.8.1

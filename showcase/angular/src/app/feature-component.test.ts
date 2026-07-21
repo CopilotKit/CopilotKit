@@ -22,6 +22,9 @@ describe("Angular showcase feature routing", () => {
     ["hitl-in-app", "tools"],
     ["gen-ui-interrupt", "interrupt"],
     ["interrupt-headless", "interrupt"],
+    ["declarative-gen-ui", "a2ui"],
+    ["a2ui-fixed-schema", "a2ui"],
+    ["a2ui-recovery", "a2ui"],
     ["declarative-hashbrown", "hashbrown"],
     ["agentic-chat", "chat"],
   ])("maps %s to the %s implementation", (feature, expected) => {

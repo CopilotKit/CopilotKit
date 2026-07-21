@@ -9,6 +9,7 @@ import frontendCatalogData from "./generated/frontend-catalog.json";
 import { routes } from "./app.routes";
 import { isDefaultToolRenderingCell, resolveBrowserCell } from "./cell-context";
 import type { BrowserCellCatalog } from "./cell-context";
+import { a2uiConfigForFeature } from "./features/a2ui/a2ui-catalogs";
 
 const browserPath =
   typeof globalThis.location === "undefined"
@@ -26,6 +27,10 @@ export const appConfig: ApplicationConfig = {
       runtimeUrl: cell.kind === "runnable" ? cell.runtimeUrl : undefined,
       defaultToolRendering:
         cell.kind === "runnable" && isDefaultToolRenderingCell(cell.feature),
+      a2ui:
+        cell.kind === "runnable"
+          ? a2uiConfigForFeature(cell.feature)
+          : undefined,
       licenseKey: "ck_pub_00000000000000000000000000000000",
     }),
     ...provideCopilotChatConfiguration(),
