@@ -295,8 +295,18 @@ jobs:
 
           # Build the command. EVAL_SCOPE_FLAG may contain spaces (e.g. "--slug mastra,agno")
           # so we intentionally leave it unquoted for word splitting.
+          #
+          # NOTE: no `--ci`. This job runs on a bare runner with NO step that
+          # starts the showcase fleet, so the eval must self-provision. `--ci`
+          # tells the CLI to skip the Docker lifecycle and assume the fleet is
+          # already running (see showcase/harness/src/cli/eval/index.ts), which
+          # here means no healthy container → instant failure. Without it, the
+          # CLI builds + starts the in-scope slug(s) + aimock and health-checks
+          # them before running. `compose()` uses piped (captured) stdio and the
+          # eval's progress logs are all `if (!opts.json)`-guarded, so `--json`
+          # keeps stdout clean JSON for the post-result job to parse.
           # shellcheck disable=SC2086
-          CMD="showcase/bin/showcase eval --${EVAL_LEVEL} ${EVAL_SCOPE_FLAG} --parallel 8 --json --baseline compare --timeout 60000 --ci"
+          CMD="showcase/bin/showcase eval --${EVAL_LEVEL} ${EVAL_SCOPE_FLAG} --parallel 8 --json --baseline compare --timeout 60000"
           echo "::group::Running: $CMD"
 
           EXIT_CODE=0
