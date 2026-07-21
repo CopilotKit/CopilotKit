@@ -55,6 +55,12 @@ export interface RuntimeConfig {
   /** Docs shell host — middleware 308s /docs, /ag-ui, /reference and framework-slug routes here. */
   docsHost: string;
   /**
+   * Canonical Angular demo host origin. Absence deliberately disables Angular
+   * runnable routes for this environment; production therefore fails closed
+   * until an operator explicitly activates the host.
+   */
+  angularHostUrl?: string;
+  /**
    * PostHog project API key — middleware authenticates capture calls
    * with it. Optional: legitimately absent on non-production deploys
    * (capture is disabled, with a warn in middleware). PostHog project
@@ -169,8 +175,16 @@ export function getRuntimeConfig(
       DEFAULT_BACKEND_HOST_PATTERN,
   );
   const docsHost = readDocsHost(baseUrl, isProd);
+  const angularHostUrl = readOptionalAngularHostUrl(isProd);
 
-  return { baseUrl, posthogHost, backendHostPattern, docsHost, posthogKey };
+  return {
+    baseUrl,
+    posthogHost,
+    backendHostPattern,
+    docsHost,
+    posthogKey,
+    ...(angularHostUrl === undefined ? {} : { angularHostUrl }),
+  };
 }
 
 // Loopback hostnames that can never serve TLS on a local dev port —
@@ -200,6 +214,58 @@ function isLoopbackHostValue(value: string): boolean {
 function ensureScheme(value: string): string {
   if (SCHEME_RE.test(value)) return value;
   return isLoopbackHostValue(value) ? `http://${value}` : `https://${value}`;
+}
+
+const angularHostInvalidLogged = new Set<string>();
+
+/**
+ * Read the optional Angular host as an origin-only URL. An absent value is the
+ * production kill switch and is intentionally quiet; a present unsafe value
+ * is an operator error and disables Angular with a bounded loud diagnostic.
+ */
+function readOptionalAngularHostUrl(isProd: boolean): string | undefined {
+  const raw = readEnvPair("SHOWCASE_ANGULAR_HOST_URL");
+  if (raw === undefined) return undefined;
+
+  let reason: string;
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+      reason = `uses unsupported scheme ${JSON.stringify(parsed.protocol)}`;
+    } else if (parsed.username !== "" || parsed.password !== "") {
+      reason = "contains userinfo credentials";
+    } else if (!parsed.hostname || /^https?$/i.test(parsed.hostname)) {
+      reason = "does not contain a usable host";
+    } else if (isProd && LOOPBACK_HOSTNAME_RE.test(parsed.hostname)) {
+      reason = `points at loopback host ${JSON.stringify(parsed.hostname)} in production`;
+    } else if (
+      parsed.pathname !== "/" ||
+      parsed.search !== "" ||
+      parsed.hash !== ""
+    ) {
+      reason = "must be an origin without a path, query, or fragment";
+    } else {
+      return parsed.origin;
+    }
+  } catch {
+    reason = "is not an absolute parseable URL";
+  }
+
+  const logKey = `${isProd ? "prod" : "dev"}:${raw}`;
+  if (!angularHostInvalidLogged.has(logKey)) {
+    angularHostInvalidLogged.add(logKey);
+    const message =
+      `[shell runtime-config] SHOWCASE_ANGULAR_HOST_URL ` +
+      `${JSON.stringify(raw)} ${reason}; Angular runnable routes are disabled.`;
+    if (isProd) {
+      // eslint-disable-next-line no-console
+      console.error(`[shell runtime-config] FATAL-CONFIG: ${message}`);
+    } else {
+      // eslint-disable-next-line no-console
+      console.warn(message);
+    }
+  }
+  return undefined;
 }
 
 // NOTE on once-guard scope: every warn/error once-guard Set in this

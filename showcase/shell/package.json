@@ -33,6 +33,7 @@
     "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.2.3",
     "@types/react-syntax-highlighter": "^15.5.0",
     "jsdom": "^29.0.2",
     "postcss": "^8.5.0",

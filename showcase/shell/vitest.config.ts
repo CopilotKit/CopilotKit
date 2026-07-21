@@ -5,6 +5,12 @@ import path from "node:path";
 const require = createRequire(import.meta.url);
 
 export default defineConfig({
+  oxc: false,
+  esbuild: {
+    // Next keeps JSX for its own compiler, but Vitest must lower TSX before
+    // Vite's import-analysis pass can parse component tests.
+    jsx: "automatic",
+  },
   test: {
     environment: "jsdom",
     globals: true,

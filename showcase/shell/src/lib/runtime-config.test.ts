@@ -20,11 +20,13 @@ describe("server getRuntimeConfig (shell)", () => {
       "POSTHOG_KEY",
       "DOCS_HOST",
       "SHOWCASE_BACKEND_HOST_PATTERN",
+      "SHOWCASE_ANGULAR_HOST_URL",
       "NEXT_PUBLIC_BASE_URL",
       "NEXT_PUBLIC_POSTHOG_HOST",
       "NEXT_PUBLIC_POSTHOG_KEY",
       "NEXT_PUBLIC_DOCS_HOST",
       "NEXT_PUBLIC_SHOWCASE_BACKEND_HOST_PATTERN",
+      "NEXT_PUBLIC_SHOWCASE_ANGULAR_HOST_URL",
       "NODE_ENV",
     ]) {
       delete (process.env as Record<string, string | undefined>)[k];
@@ -123,6 +125,60 @@ describe("server getRuntimeConfig (shell)", () => {
     expect(getRuntimeConfig().docsHost).toBe(
       "https://docs-staging2.example.com",
     );
+  });
+
+  it("exposes a normalized Angular host origin only when explicitly enabled", () => {
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    process.env.BASE_URL = "https://showcase.copilotkit.ai";
+
+    expect(getRuntimeConfig().angularHostUrl).toBeUndefined();
+
+    process.env.SHOWCASE_ANGULAR_HOST_URL =
+      " https://angular.staging.example.com/ ";
+    expect(getRuntimeConfig().angularHostUrl).toBe(
+      "https://angular.staging.example.com",
+    );
+
+    process.env.SHOWCASE_ANGULAR_HOST_URL = "";
+    process.env.NEXT_PUBLIC_SHOWCASE_ANGULAR_HOST_URL =
+      "https://angular.preview.example.com";
+    expect(getRuntimeConfig().angularHostUrl).toBe(
+      "https://angular.preview.example.com",
+    );
+  });
+
+  it("fails closed on unsafe Angular host configuration", async () => {
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    process.env.BASE_URL = "https://showcase.copilotkit.ai";
+
+    for (const bad of [
+      "javascript:alert(1)",
+      "https://user:password@angular.example.com",
+      "https://angular.example.com/tenant-a",
+      "http://127.0.0.1:4200",
+    ]) {
+      process.env.SHOWCASE_ANGULAR_HOST_URL = bad;
+      vi.resetModules();
+      const { getRuntimeConfig: freshGet } = await import("./runtime-config");
+      const errors: string[] = [];
+      const spy = vi
+        .spyOn(console, "error")
+        .mockImplementation((...args: unknown[]) => {
+          errors.push(args.map(String).join(" "));
+        });
+      try {
+        expect(freshGet().angularHostUrl, bad).toBeUndefined();
+        expect(
+          errors.some(
+            (message) =>
+              message.includes("FATAL-CONFIG") &&
+              message.includes("SHOWCASE_ANGULAR_HOST_URL"),
+          ),
+        ).toBe(true);
+      } finally {
+        spy.mockRestore();
+      }
+    }
   });
 
   it("normalizes a scheme-bearing / slash-trailing SHOWCASE_BACKEND_HOST_PATTERN", () => {

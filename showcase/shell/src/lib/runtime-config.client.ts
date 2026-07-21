@@ -138,6 +138,35 @@ export function getRuntimeConfig(): Readonly<RuntimeConfig> {
         `runtime config.`,
     );
   }
+  if (cfg.angularHostUrl !== undefined) {
+    let validAngularOrigin = false;
+    if (
+      typeof cfg.angularHostUrl === "string" &&
+      cfg.angularHostUrl.length > 0
+    ) {
+      try {
+        const parsed = new URL(cfg.angularHostUrl);
+        validAngularOrigin =
+          (parsed.protocol === "https:" || parsed.protocol === "http:") &&
+          parsed.username === "" &&
+          parsed.password === "" &&
+          parsed.pathname === "/" &&
+          parsed.search === "" &&
+          parsed.hash === "" &&
+          parsed.origin === cfg.angularHostUrl;
+      } catch {
+        validAngularOrigin = false;
+      }
+    }
+    if (!validAngularOrigin) {
+      throw new Error(
+        `[runtime-config.client] window.__SHOWCASE_CONFIG__ is malformed: ` +
+          `field "angularHostUrl" must be an absolute http(s) origin or be ` +
+          `absent. The root layout injection ran with broken inputs — check ` +
+          `the server-side runtime config.`,
+      );
+    }
+  }
   return Object.freeze(cfg);
 }
 

@@ -120,6 +120,36 @@ describe("client getRuntimeConfig (shell)", () => {
     expect(getRuntimeConfig().posthogKey).toBeUndefined();
   });
 
+  it("accepts an optional Angular host origin and rejects malformed injection", () => {
+    const base = {
+      baseUrl: "https://showcase.example.com",
+      posthogHost: "https://eu.i.posthog.com",
+      backendHostPattern: "showcase-{slug}-production.up.railway.app",
+      docsHost: "https://docs.showcase.copilotkit.ai",
+    };
+    (window as Window & { __SHOWCASE_CONFIG__?: unknown }).__SHOWCASE_CONFIG__ =
+      {
+        ...base,
+        angularHostUrl: "https://angular.staging.example.com",
+      };
+    expect(getRuntimeConfig().angularHostUrl).toBe(
+      "https://angular.staging.example.com",
+    );
+
+    for (const bad of [
+      "",
+      42,
+      "javascript:alert(1)",
+      "https://user:secret@angular.example.com",
+      "https://angular.example.com/subpath",
+    ]) {
+      (
+        window as unknown as { __SHOWCASE_CONFIG__?: unknown }
+      ).__SHOWCASE_CONFIG__ = { ...base, angularHostUrl: bad };
+      expect(() => getRuntimeConfig(), String(bad)).toThrow(/"angularHostUrl"/);
+    }
+  });
+
   it("throws (naming posthogKey) when a PRESENT posthogKey is not a string", () => {
     // posthogKey's absence exemption (legitimately unset off-prod) must
     // not exempt wrong TYPES: a layout bug injecting a number would
