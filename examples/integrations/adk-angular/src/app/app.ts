@@ -14,12 +14,12 @@ import { MainContent } from "./main-content";
   imports: [CopilotChat, CopilotThreadsDrawer, MainContent],
   template: `
     <!--
-      Expose the theme on the layout ROOT via a demo-specific variable so it
-      cascades into both the center panel and the chat column. The weather card
-      renders inside <copilot-chat> (a sibling of the center panel), so it can
-      only pick the theme up by inheritance. We deliberately do NOT reuse
-      --copilot-kit-primary-color: the chat re-declares that token on its own
-      [data-copilotkit] hosts, which would shadow the value set here.
+      Expose the theme on the layout ROOT via a demo-specific variable so the
+      weather card can inherit it. The card renders inside <copilot-chat>, so
+      inheritance is its only path to the theme (the center panel is themed
+      directly through its themeColor input, not this variable). We deliberately
+      do NOT reuse --copilot-kit-primary-color: the chat re-declares that token
+      on its own [data-copilotkit] hosts, which would shadow the value set here.
     -->
     <div class="layout" [style.--app-theme-color]="themeColor()">
       <!-- License-gated: locked "Upgrade" tease when unlicensed, threads when licensed. -->

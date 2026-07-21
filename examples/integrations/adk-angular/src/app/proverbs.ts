@@ -110,10 +110,20 @@ export class Proverbs {
       const store = this.#store();
       const agent = store.agent;
       if (agent === seededAgent) return;
+      // Mark this agent handled UP FRONT (not only when we seed) so the effect
+      // is a true one-shot per agent instance. Otherwise a first snapshot whose
+      // proverbs are already defined leaves the latch unset, the effect stays
+      // subscribed to state(), and a later transient `undefined` re-seeds and
+      // clobbers live state. (A brand-new agent whose persisted thread is still
+      // hydrating can still be seeded on its first `undefined` snapshot — the
+      // same inherent race the React `[agent]` reference has; acceptable here.)
+      seededAgent = agent;
       const state = store.state() as AgentState | undefined;
       if (state?.proverbs === undefined) {
-        seededAgent = agent;
+        // Spread existing state — setState is a full replace (see remove()).
+        // Spreading `undefined` is a no-op, so no empty-object fallback needed.
         agent.setState({
+          ...state,
           proverbs: [
             "CopilotKit may be new, but it's the best thing since sliced bread.",
           ],
