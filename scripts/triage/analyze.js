@@ -14,18 +14,27 @@ async function ask(prompt, maxTokens) {
       "x-api-key": process.env.ANTHROPIC_API_KEY,
       "anthropic-version": "2023-06-01",
     },
-    body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, messages: [{ role: "user", content: prompt }] }),
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: maxTokens,
+      messages: [{ role: "user", content: prompt }],
+    }),
   });
   if (!res.ok) throw new Error(`Anthropic ${res.status}`);
   const data = await res.json();
   const text = data.content?.[0]?.text || "{}";
-  try { return JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] ?? "{}"); } catch { return {}; }
+  try {
+    return JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] ?? "{}");
+  } catch {
+    return {};
+  }
 }
 
 // Cheap spam / low-signal gate — avoids spending an LLM call on obvious junk (cost guard).
 function lowSignal(issue) {
   const labels = (issue.labels || []).map((l) => l.name || l);
-  if (labels.some((n) => n === "spam" || n === "invalid")) return "already-flagged";
+  if (labels.some((n) => n === "spam" || n === "invalid"))
+    return "already-flagged";
   const assoc = issue.author_association || "NONE";
   const outsider = assoc === "NONE" || assoc === "FIRST_TIMER";
   const bodyLen = (issue.body || "").replace(/\s/g, "").length;
@@ -33,21 +42,41 @@ function lowSignal(issue) {
   return null;
 }
 
-module.exports = async function analyzeIssue({ github, owner, repo, issue, labelList }) {
+module.exports = async function analyzeIssue({
+  github,
+  owner,
+  repo,
+  issue,
+  labelList,
+}) {
   if (!process.env.ANTHROPIC_API_KEY) return { skipped: "no-api-key" };
   const skip = lowSignal(issue);
   if (skip) return { skipped: skip };
 
   // Candidate duplicates — lexical recall (upgrade to an embeddings index later if needed).
-  const kw = (issue.title || "").replace(/[^\w\s]/g, " ").split(/\s+/).filter(Boolean).slice(0, 8).join(" ");
+  const kw = (issue.title || "")
+    .replace(/[^\w\s]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 8)
+    .join(" ");
   let candidates = [];
   try {
-    const found = await github.rest.search.issuesAndPullRequests({ q: `repo:${owner}/${repo} is:issue ${kw}`, per_page: 12 });
-    candidates = found.data.items.filter((i) => i.number !== issue.number && !i.pull_request).slice(0, 8);
-  } catch (_) { /* search rate-limited/failed — proceed label-only */ }
+    const found = await github.rest.search.issuesAndPullRequests({
+      q: `repo:${owner}/${repo} is:issue ${kw}`,
+      per_page: 12,
+    });
+    candidates = found.data.items
+      .filter((i) => i.number !== issue.number && !i.pull_request)
+      .slice(0, 8);
+  } catch (_) {
+    /* search rate-limited/failed — proceed label-only */
+  }
 
   // ONE combined call: classification + dedup together.
-  const candList = candidates.length ? candidates.map((c) => `#${c.number} [${c.state}]: ${c.title}`).join("\n") : "(none)";
+  const candList = candidates.length
+    ? candidates.map((c) => `#${c.number} [${c.state}]: ${c.title}`).join("\n")
+    : "(none)";
   const out = await ask(
     [
       "Triage this GitHub issue. Do BOTH tasks and return a single JSON object.",
@@ -61,7 +90,7 @@ module.exports = async function analyzeIssue({ github, owner, repo, issue, label
       "",
       'Respond with ONLY JSON: {"labels": string[], "labelConfidence": number 0-1, "duplicateOf": number|null, "dupConfidence": number 0-1}',
     ].join("\n"),
-    400
+    400,
   );
 
   return {
