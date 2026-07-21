@@ -169,6 +169,7 @@ export const REGISTRY_TO_D5: Readonly<
   // semantics differ from sync (settle assertions are not reusable).
   "frontend-tools": ["frontend-tools"],
   "frontend-tools-async": ["frontend-tools-async"],
+  "threadid-frontend-tool-roundtrip": ["threadid-frontend-tool-roundtrip"],
 
   // Reasoning family — single `reasoning-display` literal covers both
   // demo routes via preNavigateRoute.

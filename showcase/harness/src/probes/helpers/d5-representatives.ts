@@ -31,6 +31,7 @@ export const D5_REPRESENTATIVES: Readonly<
   "chat-slots": "chat-slots.json",
   "frontend-tools": "frontend-tools.json",
   "frontend-tools-async": "frontend-tools-async.json",
+  "threadid-frontend-tool-roundtrip": "threadid-frontend-tool-roundtrip.json",
   "gen-ui-a2ui-fixed": "render-a2ui.json",
   "gen-ui-agent": "gen-ui-agent.json",
   "gen-ui-custom": "render-a2ui.json", // pie chart fixtures shared with render-a2ui

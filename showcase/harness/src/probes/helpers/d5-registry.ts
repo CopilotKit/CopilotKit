@@ -64,6 +64,7 @@ export type D5FeatureType =
   // Frontend-tools family — sync vs async result settling.
   | "frontend-tools"
   | "frontend-tools-async"
+  | "threadid-frontend-tool-roundtrip"
   // Reasoning family — reasoning/thinking block + final answer.
   | "reasoning-display"
   // State family — streaming state updates and read-only agent context.
@@ -145,6 +146,7 @@ const D5_FEATURE_TYPES: readonly D5FeatureType[] = [
   "agent-config",
   "frontend-tools",
   "frontend-tools-async",
+  "threadid-frontend-tool-roundtrip",
   "reasoning-display",
   "shared-state-streaming",
   "readonly-state-context",

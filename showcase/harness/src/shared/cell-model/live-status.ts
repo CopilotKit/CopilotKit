@@ -439,6 +439,7 @@ export const CATALOG_TO_D5_KEY: Readonly<Record<string, readonly string[]>> = {
   "agent-config": ["agent-config"],
   "frontend-tools": ["frontend-tools"],
   "frontend-tools-async": ["frontend-tools-async"],
+  "threadid-frontend-tool-roundtrip": ["threadid-frontend-tool-roundtrip"],
   // Reasoning family — both demos route through `reasoning-display`.
   "reasoning-custom": ["reasoning-display"],
   "reasoning-default": ["reasoning-display"],
