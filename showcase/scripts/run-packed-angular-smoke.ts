@@ -6,7 +6,7 @@ import { join, resolve } from "node:path";
 import { chromium } from "playwright";
 import type { Page } from "playwright";
 
-import { validateAngularSsrHtml } from "../../scripts/release/lib/angular-package.js";
+import { validateAngularSsrHtml } from "../../scripts/release/lib/angular-package";
 
 function delay(milliseconds: number): Promise<void> {
   return new Promise((resolveDelay) => setTimeout(resolveDelay, milliseconds));
