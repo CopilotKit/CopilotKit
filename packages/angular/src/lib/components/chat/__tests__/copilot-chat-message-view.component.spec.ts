@@ -44,6 +44,16 @@ class TestReasoningMessage {
 }
 
 @Component({
+  standalone: true,
+  template: `
+    <div data-testid="transcript-children">{{ messages().length }} messages</div>
+  `,
+})
+class TestTranscriptChildren {
+  readonly messages = input<Message[]>([]);
+}
+
+@Component({
   imports: [CopilotChatMessageView],
   template: `
     <copilot-chat-message-view
@@ -73,6 +83,18 @@ type MessageViewTestHarness = CopilotChatMessageView & {
 };
 
 describe("CopilotChatMessageView", () => {
+  it("renders transcript children after the message collection", () => {
+    const fixture = TestBed.createComponent(CopilotChatMessageView);
+    fixture.componentRef.setInput("messages", [userMessage]);
+    fixture.componentRef.setInput("childrenComponent", TestTranscriptChildren);
+    fixture.detectChanges();
+
+    const children = (
+      fixture.nativeElement as HTMLElement
+    ).querySelector<HTMLElement>('[data-testid="transcript-children"]');
+    expect(children?.textContent).toContain("1 messages");
+  });
+
   let injector: EnvironmentInjector;
   let component: CopilotChatMessageView;
   let harness: MessageViewTestHarness;

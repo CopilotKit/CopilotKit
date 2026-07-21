@@ -117,6 +117,13 @@ import type { RenderActivityMessageConfig } from "../../activity-renderer";
           }
         }
 
+        @if (childrenComponent() || childrenTemplate()) {
+          <copilot-slot
+            [slot]="childrenTemplate() || childrenComponent()"
+            [context]="childrenContext()"
+          />
+        }
+
         <!-- Cursor - exactly like React's conditional rendering -->
         @if (showCursorValue()) {
           @if (cursorComponent() || cursorTemplate()) {
@@ -154,6 +161,11 @@ export class CopilotChatMessageView {
   reasoningMessageComponent = input<Type<any> | undefined>();
   reasoningMessageTemplate = input<TemplateRef<any> | undefined>();
   reasoningMessageClass = input<string | undefined>();
+
+  // Content rendered after the message collection and before the cursor.
+  childrenComponent = input<Type<any> | undefined>();
+  childrenTemplate = input<TemplateRef<any> | undefined>();
+  childrenClass = input<string | undefined>();
 
   // User message slot inputs
   userMessageComponent = input<Type<any> | undefined>();
@@ -241,6 +253,15 @@ export class CopilotChatMessageView {
       messages: this.messagesValue(),
       isRunning: this.isLoadingValue(),
       inputClass: this.reasoningMessageClass(),
+    };
+  }
+
+  childrenContext() {
+    return {
+      messages: this.messagesValue(),
+      agentId: this.agentId(),
+      isRunning: this.isLoadingValue(),
+      inputClass: this.childrenClass(),
     };
   }
 

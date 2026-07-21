@@ -71,6 +71,9 @@ import { connectActiveThread } from "../../active-thread-connector";
         [reasoningMessageComponent]="reasoningMessageComponent()"
         [reasoningMessageTemplate]="reasoningMessageTemplate()"
         [reasoningMessageClass]="reasoningMessageClass()"
+        [messageViewChildrenComponent]="messageViewChildrenComponent()"
+        [messageViewChildrenTemplate]="messageViewChildrenTemplate()"
+        [messageViewChildrenClass]="messageViewChildrenClass()"
         [hasExplicitThreadId]="hasExplicitThreadId()"
       >
       </copilot-chat-view>
@@ -104,6 +107,12 @@ export class CopilotChat extends ChatState {
   readonly reasoningMessageTemplate = input<TemplateRef<any> | undefined>();
   /** Class forwarded to the default or custom reasoning-message renderer. */
   readonly reasoningMessageClass = input<string | undefined>();
+  /** Component rendered after the transcript messages and before the cursor. */
+  readonly messageViewChildrenComponent = input<Type<any> | undefined>();
+  /** Template rendered after the transcript messages and before the cursor. */
+  readonly messageViewChildrenTemplate = input<TemplateRef<any> | undefined>();
+  /** Class forwarded to custom transcript-children renderers. */
+  readonly messageViewChildrenClass = input<string | undefined>();
   readonly attachmentsConfig = input<AttachmentsConfig | undefined>(undefined, {
     alias: "attachments",
   });

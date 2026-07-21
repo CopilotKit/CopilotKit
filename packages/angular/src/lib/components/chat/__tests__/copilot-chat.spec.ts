@@ -39,6 +39,17 @@ class TestReasoningMessage {
   readonly message = input.required<{ content?: string }>();
 }
 
+@Component({
+  selector: "test-transcript-children",
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <p data-testid="transcript-children">{{ messages().length }} messages</p>
+  `,
+})
+class TestTranscriptChildren {
+  readonly messages = input<unknown[]>([]);
+}
+
 /**
  * Minimal agent stub: `injectAgentStore` resolves it from the configured
  * agents map and subscribes to it. Its `run` never emits, so connecting is a
@@ -404,4 +415,40 @@ test("forwards a custom reasoning-message component through the prebuilt chat", 
   ).querySelector<HTMLElement>('[data-testid="custom-reasoning"]');
 
   expect(customMessage?.textContent).toBe("Rendered reasoning");
+});
+
+test("forwards transcript children through the prebuilt chat", async () => {
+  Object.defineProperty(HTMLElement.prototype, "scrollTo", {
+    configurable: true,
+    value: () => undefined,
+  });
+
+  const agent = new MockAgent("default");
+  TestBed.resetTestingModule();
+  TestBed.configureTestingModule({
+    imports: [CopilotChat],
+    providers: [
+      provideZonelessChangeDetection(),
+      provideCopilotKit({
+        licenseKey: "ck_pub_00000000000000000000000000000000",
+        agents: { default: agent },
+      }),
+      provideCopilotChatConfiguration(),
+    ],
+  });
+
+  const fixture = TestBed.createComponent(CopilotChat);
+  fixture.componentRef.setInput(
+    "messageViewChildrenComponent",
+    TestTranscriptChildren,
+  );
+  fixture.detectChanges();
+  agent.setMessages([{ id: "user-1", role: "user", content: "Plan a launch" }]);
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  fixture.detectChanges();
+
+  const children = (
+    fixture.nativeElement as HTMLElement
+  ).querySelector<HTMLElement>('[data-testid="transcript-children"]');
+  expect(children?.textContent).toContain("1 messages");
 });

@@ -24,6 +24,11 @@ export interface CopilotChatMessageViewProps {
   assistantMessageTemplate?: TemplateRef<any>;
   assistantMessageClass?: string;
 
+  // Transcript children slots
+  childrenComponent?: Type<any>;
+  childrenTemplate?: TemplateRef<any>;
+  childrenClass?: string;
+
   // User message slots
   userMessageComponent?: Type<any>;
   userMessageTemplate?: TemplateRef<any>;
