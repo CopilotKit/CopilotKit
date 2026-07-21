@@ -1,15 +1,17 @@
 import { Component, input } from "@angular/core";
+import { Proverbs } from "./proverbs";
 
 @Component({
   selector: "app-main-content",
   standalone: true,
+  imports: [Proverbs],
   template: `
     <div
       class="main-content"
       [style.--copilot-kit-primary-color]="themeColor()"
       [style.background-color]="themeColor()"
     >
-      <!-- proverbs (A6) + weather (A7) render here -->
+      <app-proverbs />
     </div>
   `,
   styles: [
