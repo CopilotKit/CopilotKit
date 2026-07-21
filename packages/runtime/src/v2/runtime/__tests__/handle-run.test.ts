@@ -815,6 +815,13 @@ describe("handleRunAgent", () => {
           assignmentRevision: -1,
         },
       ],
+      [
+        "unsafe revision",
+        {
+          learningContainerId: "11111111-1111-4111-8111-111111111111",
+          assignmentRevision: Number.MAX_SAFE_INTEGER + 1,
+        },
+      ],
     ])(
       "returns 502 before lock acquisition when the thread echo has %s",
       async (_caseName, assignmentFields) => {
@@ -893,6 +900,13 @@ describe("handleRunAgent", () => {
           assignmentRevision: 1.5,
         },
       ],
+      [
+        "unsafe revision",
+        {
+          learningContainerId: "11111111-1111-4111-8111-111111111111",
+          assignmentRevision: Number.MAX_SAFE_INTEGER + 1,
+        },
+      ],
     ])(
       "returns 502 and cleans the lock when the lock echo has %s",
       async (_caseName, assignmentFields) => {
@@ -908,6 +922,7 @@ describe("handleRunAgent", () => {
             },
             created: false,
           }),
+          getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
           ɵacquireThreadLock: vi.fn().mockResolvedValue({
             threadId: "thread-1",
             runId: "run-1",

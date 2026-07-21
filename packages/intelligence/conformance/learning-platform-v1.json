@@ -8070,7 +8070,7 @@
                 "additionalProperties": false,
                 "properties": {
                   "left": {
-                    "pattern": "^(?:$|/)",
+                    "pattern": "^(?:$|/(?:[^~/]|~[01])*(?:/(?:[^~/]|~[01])*)*)$",
                     "type": "string"
                   },
                   "normalization": {
@@ -8099,7 +8099,7 @@
                     ]
                   },
                   "right": {
-                    "pattern": "^(?:$|/)",
+                    "pattern": "^(?:$|/(?:[^~/]|~[01])*(?:/(?:[^~/]|~[01])*)*)$",
                     "type": "string"
                   },
                   "valueType": {
@@ -8140,7 +8140,7 @@
                     "const": "unique"
                   },
                   "values": {
-                    "pattern": "^(?:$|/)",
+                    "pattern": "^(?:$|/(?:[^~/]|~[01])*(?:/(?:[^~/]|~[01])*)*)$",
                     "type": "string"
                   }
                 },
@@ -8164,7 +8164,7 @@
                     ]
                   },
                   "values": {
-                    "pattern": "^(?:$|/)",
+                    "pattern": "^(?:$|/(?:[^~/]|~[01])*(?:/(?:[^~/]|~[01])*)*)$",
                     "type": "string"
                   }
                 },
@@ -8185,7 +8185,7 @@
                     "type": "integer"
                   },
                   "values": {
-                    "pattern": "^(?:$|/)",
+                    "pattern": "^(?:$|/(?:[^~/]|~[01])*(?:/(?:[^~/]|~[01])*)*)$",
                     "type": "string"
                   }
                 },
@@ -8200,14 +8200,14 @@
                 "additionalProperties": false,
                 "properties": {
                   "maximum": {
-                    "pattern": "^(?:$|/)",
+                    "pattern": "^(?:$|/(?:[^~/]|~[01])*(?:/(?:[^~/]|~[01])*)*)$",
                     "type": "string"
                   },
                   "maximumExclusive": {
                     "type": "boolean"
                   },
                   "minimum": {
-                    "pattern": "^(?:$|/)",
+                    "pattern": "^(?:$|/(?:[^~/]|~[01])*(?:/(?:[^~/]|~[01])*)*)$",
                     "type": "string"
                   },
                   "minimumExclusive": {
@@ -8224,7 +8224,7 @@
                     ]
                   },
                   "values": {
-                    "pattern": "^(?:$|/)",
+                    "pattern": "^(?:$|/(?:[^~/]|~[01])*(?:/(?:[^~/]|~[01])*)*)$",
                     "type": "string"
                   }
                 },
@@ -8259,11 +8259,11 @@
                     "const": "references"
                   },
                   "targets": {
-                    "pattern": "^(?:$|/)",
+                    "pattern": "^(?:$|/(?:[^~/]|~[01])*(?:/(?:[^~/]|~[01])*)*)$",
                     "type": "string"
                   },
                   "values": {
-                    "pattern": "^(?:$|/)",
+                    "pattern": "^(?:$|/(?:[^~/]|~[01])*(?:/(?:[^~/]|~[01])*)*)$",
                     "type": "string"
                   }
                 },
@@ -8278,7 +8278,7 @@
                 "additionalProperties": false,
                 "properties": {
                   "left": {
-                    "pattern": "^(?:$|/)",
+                    "pattern": "^(?:$|/(?:[^~/]|~[01])*(?:/(?:[^~/]|~[01])*)*)$",
                     "type": "string"
                   },
                   "normalization": {
@@ -8300,7 +8300,7 @@
                     "const": "disjoint"
                   },
                   "right": {
-                    "pattern": "^(?:$|/)",
+                    "pattern": "^(?:$|/(?:[^~/]|~[01])*(?:/(?:[^~/]|~[01])*)*)$",
                     "type": "string"
                   }
                 },
@@ -8315,18 +8315,18 @@
                 "additionalProperties": false,
                 "properties": {
                   "first": {
-                    "pattern": "^(?:$|/)",
+                    "pattern": "^(?:$|/(?:[^~/]|~[01])*(?:/(?:[^~/]|~[01])*)*)$",
                     "type": "string"
                   },
                   "last": {
-                    "pattern": "^(?:$|/)",
+                    "pattern": "^(?:$|/(?:[^~/]|~[01])*(?:/(?:[^~/]|~[01])*)*)$",
                     "type": "string"
                   },
                   "operation": {
                     "const": "ordered-ranges"
                   },
                   "ranges": {
-                    "pattern": "^(?:$|/)",
+                    "pattern": "^(?:$|/(?:[^~/]|~[01])*(?:/(?:[^~/]|~[01])*)*)$",
                     "type": "string"
                   },
                   "valueType": {
@@ -8350,15 +8350,15 @@
                 "additionalProperties": false,
                 "properties": {
                   "collection": {
-                    "pattern": "^(?:$|/)",
+                    "pattern": "^(?:$|/(?:[^~/]|~[01])*(?:/(?:[^~/]|~[01])*)*)$",
                     "type": "string"
                   },
                   "expected": {
-                    "pattern": "^(?:$|/)",
+                    "pattern": "^(?:$|/(?:[^~/]|~[01])*(?:/(?:[^~/]|~[01])*)*)$",
                     "type": "string"
                   },
                   "key": {
-                    "pattern": "^(?:$|/)",
+                    "pattern": "^(?:$|/(?:[^~/]|~[01])*(?:/(?:[^~/]|~[01])*)*)$",
                     "type": "string"
                   },
                   "normalization": {
@@ -8380,11 +8380,11 @@
                     "const": "lookup-equal"
                   },
                   "reference": {
-                    "pattern": "^(?:$|/)",
+                    "pattern": "^(?:$|/(?:[^~/]|~[01])*(?:/(?:[^~/]|~[01])*)*)$",
                     "type": "string"
                   },
                   "value": {
-                    "pattern": "^(?:$|/)",
+                    "pattern": "^(?:$|/(?:[^~/]|~[01])*(?:/(?:[^~/]|~[01])*)*)$",
                     "type": "string"
                   }
                 },
@@ -8402,11 +8402,11 @@
                 "additionalProperties": false,
                 "properties": {
                   "collection": {
-                    "pattern": "^(?:$|/)",
+                    "pattern": "^(?:$|/(?:[^~/]|~[01])*(?:/(?:[^~/]|~[01])*)*)$",
                     "type": "string"
                   },
                   "key": {
-                    "pattern": "^(?:$|/)",
+                    "pattern": "^(?:$|/(?:[^~/]|~[01])*(?:/(?:[^~/]|~[01])*)*)$",
                     "type": "string"
                   },
                   "keyNormalization": {
@@ -8428,15 +8428,15 @@
                     "const": "lookup-references"
                   },
                   "reference": {
-                    "pattern": "^(?:$|/)",
+                    "pattern": "^(?:$|/(?:[^~/]|~[01])*(?:/(?:[^~/]|~[01])*)*)$",
                     "type": "string"
                   },
                   "sources": {
-                    "pattern": "^(?:$|/)",
+                    "pattern": "^(?:$|/(?:[^~/]|~[01])*(?:/(?:[^~/]|~[01])*)*)$",
                     "type": "string"
                   },
                   "targets": {
-                    "pattern": "^(?:$|/)",
+                    "pattern": "^(?:$|/(?:[^~/]|~[01])*(?:/(?:[^~/]|~[01])*)*)$",
                     "type": "string"
                   },
                   "valueNormalization": {
@@ -8455,7 +8455,7 @@
                     "type": "object"
                   },
                   "values": {
-                    "pattern": "^(?:$|/)",
+                    "pattern": "^(?:$|/(?:[^~/]|~[01])*(?:/(?:[^~/]|~[01])*)*)$",
                     "type": "string"
                   }
                 },
@@ -8521,7 +8521,7 @@
                     "const": "count"
                   },
                   "values": {
-                    "pattern": "^(?:$|/)",
+                    "pattern": "^(?:$|/(?:[^~/]|~[01])*(?:/(?:[^~/]|~[01])*)*)$",
                     "type": "string"
                   },
                   "where": {
@@ -17991,7 +17991,8 @@
           "then": {
             "properties": {
               "entries": {
-                "maxItems": 0
+                "maxItems": 0,
+                "type": "array"
               }
             }
           }

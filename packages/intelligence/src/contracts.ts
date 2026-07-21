@@ -1125,7 +1125,21 @@ const assertionValueTypeJsonSchema: JsonObject = {
 
 const assertionJsonPointerJsonSchema: JsonObject = {
   type: "string",
-  pattern: "^(?:$|/)",
+  pattern: "^(?:$|/(?:[^~/]|~[01])*(?:/(?:[^~/]|~[01])*)*)$",
+};
+
+/** Exact schema for sibling-property equality pairs. */
+export const learningContractEqualPropertiesV1JsonSchema: JsonObject = {
+  type: "array",
+  items: {
+    type: "array",
+    prefixItems: [
+      { type: "string", minLength: 1 },
+      { type: "string", minLength: 1 },
+    ],
+    minItems: 2,
+    maxItems: 2,
+  },
 };
 
 /** JSON Schema for the bounded V1 portable assertion language. */
@@ -1320,18 +1334,8 @@ export const learningContractSemanticsMetaSchema: JsonObject = {
   $dynamicAnchor: "meta",
   allOf: [{ $ref: "https://json-schema.org/draft/2020-12/schema" }],
   properties: {
-    [COPILOTKIT_EQUAL_PROPERTIES_JSON_SCHEMA_KEYWORD]: {
-      type: "array",
-      items: {
-        type: "array",
-        prefixItems: [
-          { type: "string", minLength: 1 },
-          { type: "string", minLength: 1 },
-        ],
-        minItems: 2,
-        maxItems: 2,
-      },
-    },
+    [COPILOTKIT_EQUAL_PROPERTIES_JSON_SCHEMA_KEYWORD]:
+      learningContractEqualPropertiesV1JsonSchema,
     [COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD]:
       learningContractAssertionV1JsonSchema,
   },
@@ -1490,7 +1494,7 @@ export function toLearningContractJsonSchema(schema: z.ZodType) {
           ...assertions,
         ];
       }
-      const actionConstraints =
+      const actionConstraints: z.core.JSONSchema.JSONSchema[] | undefined =
         zodSchema === skillCandidateV1Schema
           ? skillCandidateActionJsonSchema
           : zodSchema === generatedSkillCandidateV1Schema
@@ -1504,7 +1508,9 @@ export function toLearningContractJsonSchema(schema: z.ZodType) {
                     },
                     // oxlint-disable-next-line unicorn/no-thenable -- `then` is a JSON Schema keyword here.
                     then: {
-                      properties: { entries: { maxItems: 0 } },
+                      properties: {
+                        entries: { type: "array", maxItems: 0 },
+                      },
                     },
                   },
                 ]
@@ -1902,38 +1908,3 @@ registerLearningContractPortableAssertions(learningRunExecutionResultV1Schema, [
     valueType: "number",
   },
 ]);
-
-/** Named language-neutral JSON Schemas generated from the canonical Zod 4 source. */
-export const learningContractJsonSchemas = {
-  BlobLocatorV1: toLearningContractJsonSchema(blobLocatorV1Schema),
-  CandidateGateResultV1: toLearningContractJsonSchema(
-    candidateGateResultV1Schema,
-  ),
-  EvidenceRefV1: toLearningContractJsonSchema(evidenceRefV1Schema),
-  InsightV1: toLearningContractJsonSchema(insightV1Schema),
-  LearningChunkV1: toLearningContractJsonSchema(learningChunkV1Schema),
-  LearningContainerV1: toLearningContractJsonSchema(learningContainerV1Schema),
-  LearningRunV1: toLearningContractJsonSchema(learningRunV1Schema),
-  LearningRunExecutionResultV1: toLearningContractJsonSchema(
-    learningRunExecutionResultV1Schema,
-  ),
-  LearningRunJobV1: toLearningContractJsonSchema(learningRunJobV1Schema),
-  LearningWorkflowInputV1: toLearningContractJsonSchema(
-    learningWorkflowInputV1Schema,
-  ),
-  LearningWorkflowOutputV1: toLearningContractJsonSchema(
-    learningWorkflowOutputV1Schema,
-  ),
-  NormalizedMessageV1: toLearningContractJsonSchema(normalizedMessageV1Schema),
-  RunSnapshotV1: toLearningContractJsonSchema(runSnapshotV1Schema),
-  SelectedHumanAnnotationV1: toLearningContractJsonSchema(
-    selectedHumanAnnotationV1Schema,
-  ),
-  SkillArtifactManifestV1: toLearningContractJsonSchema(
-    skillArtifactManifestV1Schema,
-  ),
-  SkillCandidateV1: toLearningContractJsonSchema(skillCandidateV1Schema),
-  SkillSetProjectionV1: toLearningContractJsonSchema(
-    skillSetProjectionV1Schema,
-  ),
-} as const;

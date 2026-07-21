@@ -8,7 +8,6 @@ import {
   learningChunkV1Schema,
   learningContainerIdSchema,
   learningContainerV1Schema,
-  learningContractJsonSchemas,
   learningRunV1Schema,
   learningWorkflowInputV1Schema,
   learningWorkflowOutputV1Schema,
@@ -20,6 +19,7 @@ import {
   skillSetProjectionV1Schema,
   threadAssignmentPatchV1Schema,
 } from "./contracts.js";
+import { learningContractJsonSchemas } from "./schema-registry.js";
 
 const UUIDS = {
   container: "11111111-1111-4111-8111-111111111111",

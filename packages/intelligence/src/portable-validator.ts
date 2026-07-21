@@ -1,3 +1,4 @@
+import { Ajv2020 } from "ajv/dist/2020.js";
 import type { JsonObject, JsonValue } from "./contracts.js";
 import {
   COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD,
@@ -5,6 +6,7 @@ import {
   COPILOTKIT_LEARNING_CONTRACT_META_SCHEMA_URI,
   COPILOTKIT_LEARNING_CONTRACT_SEMANTICS_VOCABULARY_URI,
   learningContractAssertionV1JsonSchema,
+  learningContractEqualPropertiesV1JsonSchema,
   learningContractSemanticsMetaSchema,
 } from "./contracts.js";
 
@@ -169,7 +171,16 @@ export class LearningContractPortableValidatorCapabilityError extends Error {
   }
 }
 
-const packageRegisteredValidators = new WeakSet<object>();
+interface PackageValidatorRegistration {
+  readonly equalPropertiesKeyword: unknown;
+  readonly assertionsKeyword: unknown;
+  readonly metaSchema: unknown;
+}
+
+const packageRegisteredValidators = new WeakMap<
+  object,
+  PackageValidatorRegistration
+>();
 
 function decodeJsonPointerSegment(segment: string): string {
   return segment.replaceAll("~1", "/").replaceAll("~0", "~");
@@ -589,7 +600,10 @@ function validateAssertions(
 export function registerLearningContractJsonSchemaValidator<
   TValidator extends LearningContractJsonSchemaValidatorAdapter,
 >(validator: TValidator): TValidator {
-  if (packageRegisteredValidators.has(validator)) return validator;
+  if (packageRegisteredValidators.has(validator)) {
+    assertLearningContractJsonSchemaValidatorCapabilities(validator);
+    return validator;
+  }
 
   for (const keyword of LEARNING_CONTRACT_PORTABLE_VALIDATOR_CAPABILITY_V1.keywords) {
     if (validator.getKeyword(keyword) !== false) {
@@ -615,6 +629,7 @@ export function registerLearningContractJsonSchemaValidator<
     schemaType: "array",
     type: "object",
     errors: false,
+    metaSchema: learningContractEqualPropertiesV1JsonSchema,
     validate: (pairs: unknown, value: unknown) =>
       Array.isArray(pairs) &&
       isJsonObject(value) &&
@@ -638,7 +653,31 @@ export function registerLearningContractJsonSchemaValidator<
       ),
   });
   validator.addMetaSchema(learningContractSemanticsMetaSchema);
-  packageRegisteredValidators.add(validator);
+
+  const equalPropertiesKeyword = validator.getKeyword(
+    COPILOTKIT_EQUAL_PROPERTIES_JSON_SCHEMA_KEYWORD,
+  );
+  const assertionsKeyword = validator.getKeyword(
+    COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD,
+  );
+  const metaSchema = validator.getSchema(
+    COPILOTKIT_LEARNING_CONTRACT_META_SCHEMA_URI,
+  );
+  if (
+    equalPropertiesKeyword === false ||
+    assertionsKeyword === false ||
+    metaSchema === undefined
+  ) {
+    throw new LearningContractPortableValidatorCapabilityError(
+      "LEARNING_CONTRACT_VALIDATOR_CAPABILITY_MISSING",
+      "complete package-owned V1 registration",
+    );
+  }
+  packageRegisteredValidators.set(validator, {
+    equalPropertiesKeyword,
+    assertionsKeyword,
+    metaSchema,
+  });
   return validator;
 }
 
@@ -646,29 +685,54 @@ export function registerLearningContractJsonSchemaValidator<
 export function assertLearningContractJsonSchemaValidatorCapabilities(
   validator: LearningContractJsonSchemaValidatorAdapter,
 ): void {
-  if (
-    validator.getSchema(
-      LEARNING_CONTRACT_PORTABLE_VALIDATOR_CAPABILITY_V1.metaSchemaUri,
-    ) === undefined
-  ) {
+  const metaSchema = validator.getSchema(
+    LEARNING_CONTRACT_PORTABLE_VALIDATOR_CAPABILITY_V1.metaSchemaUri,
+  );
+  if (metaSchema === undefined) {
     throw new LearningContractPortableValidatorCapabilityError(
       "LEARNING_CONTRACT_VALIDATOR_META_SCHEMA_MISSING",
       LEARNING_CONTRACT_PORTABLE_VALIDATOR_CAPABILITY_V1.metaSchemaUri,
     );
   }
-  for (const keyword of LEARNING_CONTRACT_PORTABLE_VALIDATOR_CAPABILITY_V1.keywords) {
-    if (validator.getKeyword(keyword) === false) {
+  const keywordDefinitions =
+    LEARNING_CONTRACT_PORTABLE_VALIDATOR_CAPABILITY_V1.keywords.map(
+      (keyword) => [keyword, validator.getKeyword(keyword)] as const,
+    );
+  for (const [keyword, definition] of keywordDefinitions) {
+    if (definition === false) {
       throw new LearningContractPortableValidatorCapabilityError(
         "LEARNING_CONTRACT_VALIDATOR_CAPABILITY_MISSING",
         keyword,
       );
     }
   }
-  if (!packageRegisteredValidators.has(validator)) {
+  const registration = packageRegisteredValidators.get(validator);
+  if (registration === undefined) {
     throw new LearningContractPortableValidatorCapabilityError(
       "LEARNING_CONTRACT_VALIDATOR_CAPABILITY_MISSING",
       "package-owned V1 registration",
     );
+  }
+  if (metaSchema !== registration.metaSchema) {
+    throw new LearningContractPortableValidatorCapabilityError(
+      "LEARNING_CONTRACT_VALIDATOR_CAPABILITY_MISSING",
+      `package-owned registration for ${LEARNING_CONTRACT_PORTABLE_VALIDATOR_CAPABILITY_V1.metaSchemaUri}`,
+    );
+  }
+  const expectedKeywordDefinitions = new Map([
+    [
+      COPILOTKIT_EQUAL_PROPERTIES_JSON_SCHEMA_KEYWORD,
+      registration.equalPropertiesKeyword,
+    ],
+    [COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD, registration.assertionsKeyword],
+  ]);
+  for (const [keyword, definition] of keywordDefinitions) {
+    if (definition !== expectedKeywordDefinitions.get(keyword)) {
+      throw new LearningContractPortableValidatorCapabilityError(
+        "LEARNING_CONTRACT_VALIDATOR_CAPABILITY_MISSING",
+        `package-owned registration for ${keyword}`,
+      );
+    }
   }
 }
 
@@ -688,9 +752,24 @@ export interface LearningContractJsonSchemaValidator {
 }
 
 /** Supported one-step entry point for package-owned registration and compile. */
+export function createLearningContractJsonSchemaValidator(): LearningContractJsonSchemaValidator;
 export function createLearningContractJsonSchemaValidator(
-  validator: LearningContractJsonSchemaValidatorAdapter,
+  ...unexpectedValidators: readonly unknown[]
 ): LearningContractJsonSchemaValidator {
+  if (unexpectedValidators.length > 0) {
+    throw new LearningContractPortableValidatorCapabilityError(
+      "LEARNING_CONTRACT_VALIDATOR_CAPABILITY_MISSING",
+      "package-owned validator instance",
+    );
+  }
+  const validator = new Ajv2020({
+    strict: false,
+    allErrors: true,
+    validateFormats: false,
+    coerceTypes: false,
+    useDefaults: false,
+    removeAdditional: false,
+  });
   registerLearningContractJsonSchemaValidator(validator);
   return Object.freeze({
     compile: (schema: LearningContractJsonSchemaObject | boolean) =>

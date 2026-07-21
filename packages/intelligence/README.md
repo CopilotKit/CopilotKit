@@ -24,15 +24,12 @@ use the package-owned registration and compile entry point, which checks the
 meta-schema and both keyword implementations before schema compilation:
 
 ```ts
-import { Ajv2020 } from "ajv/dist/2020.js";
 import {
   createLearningContractJsonSchemaValidator,
   learningContractJsonSchemas,
 } from "@copilotkit/intelligence";
 
-const portableValidator = createLearningContractJsonSchemaValidator(
-  new Ajv2020({ strict: false, allErrors: true, validateFormats: false }),
-);
+const portableValidator = createLearningContractJsonSchemaValidator();
 const validateCandidate = portableValidator.compile(
   learningContractJsonSchemas.SkillCandidateV1,
 );
@@ -42,8 +39,12 @@ if (!validateCandidate(candidatePayload)) {
 }
 ```
 
-Calling raw `ajv.compile()` is not the supported path for Learning Contract
-schemas. A missing meta-schema raises
+The supported facade owns its Ajv instance and disables coercion, defaults, and
+other payload mutation. Caller-provided validator instances are rejected rather
+than inspected through unstable implementation details. The lower-level adapter
+exports are available for capability integrations, but calling raw
+`ajv.compile()` is not a supported path for Learning Contract schemas. A
+missing meta-schema raises
 `LEARNING_CONTRACT_VALIDATOR_META_SCHEMA_MISSING`; missing or foreign keyword
 registration raises `LEARNING_CONTRACT_VALIDATOR_CAPABILITY_MISSING`, before a
 payload validator is returned. Non-JavaScript validators must provide the full

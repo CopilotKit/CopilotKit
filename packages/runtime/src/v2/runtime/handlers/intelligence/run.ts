@@ -22,15 +22,35 @@ interface LearningContainerIdSchema {
   ): { success: true; data: string | null } | { success: false };
 }
 
-interface IntelligenceContractsModule {
-  learningContainerIdSchema: LearningContainerIdSchema;
+interface ThreadAssignmentV1 {
+  learningContainerId: string | null;
+  assignmentRevision: number;
 }
 
-async function loadLearningContainerIdSchema(): Promise<LearningContainerIdSchema> {
+interface ThreadAssignmentV1Schema {
+  safeParse(
+    value: unknown,
+  ): { success: true; data: ThreadAssignmentV1 } | { success: false };
+}
+
+interface IntelligenceContractsModule {
+  learningContainerIdSchema: LearningContainerIdSchema;
+  threadAssignmentV1Schema: ThreadAssignmentV1Schema;
+}
+
+async function loadIntelligenceContracts(): Promise<IntelligenceContractsModule> {
   const contracts = (await import(
     INTELLIGENCE_CONTRACTS_SPECIFIER
   )) as IntelligenceContractsModule;
-  return contracts.learningContainerIdSchema;
+  if (
+    typeof contracts.learningContainerIdSchema?.safeParse !== "function" ||
+    typeof contracts.threadAssignmentV1Schema?.safeParse !== "function"
+  ) {
+    throw new Error(
+      "@copilotkit/intelligence does not expose the required assignment schemas",
+    );
+  }
+  return contracts;
 }
 
 /**
@@ -76,35 +96,18 @@ interface HandleIntelligenceRunParams {
   input: RunAgentInput;
 }
 
-type AssignmentEcho = {
-  learningContainerId?: unknown;
-  assignmentRevision?: unknown;
-};
-
 function validateAssignmentEcho(
-  echo: AssignmentEcho,
+  echo: unknown,
   expectedLearningContainerId: string | null,
-  learningContainerIdSchema: LearningContainerIdSchema,
+  threadAssignmentV1Schema: ThreadAssignmentV1Schema,
 ): "valid" | "malformed" | "mismatch" {
-  if (
-    !Object.prototype.hasOwnProperty.call(echo, "learningContainerId") ||
-    !Object.prototype.hasOwnProperty.call(echo, "assignmentRevision")
-  ) {
+  const parsedAssignment = threadAssignmentV1Schema.safeParse(echo);
+  if (!parsedAssignment.success) {
     return "malformed";
   }
 
-  const parsedAssignment = learningContainerIdSchema.safeParse(
-    echo.learningContainerId,
-  );
-  if (
-    !parsedAssignment.success ||
-    !Number.isInteger(echo.assignmentRevision) ||
-    (echo.assignmentRevision as number) < 0
-  ) {
-    return "malformed";
-  }
-
-  return parsedAssignment.data === expectedLearningContainerId
+  return parsedAssignment.data.learningContainerId ===
+    expectedLearningContainerId
     ? "valid"
     : "mismatch";
 }
@@ -151,10 +154,10 @@ export async function handleIntelligenceRun({
   const assignmentResolutionConfigured =
     runtime.resolveLearningContainer !== undefined;
   let learningContainerId: string | null | undefined;
-  let learningContainerIdSchema: LearningContainerIdSchema | undefined;
+  let intelligenceContracts: IntelligenceContractsModule | undefined;
   if (runtime.resolveLearningContainer) {
     try {
-      learningContainerIdSchema = await loadLearningContainerIdSchema();
+      intelligenceContracts = await loadIntelligenceContracts();
       const resolvedAssignment = await runtime.resolveLearningContainer({
         request,
         threadId: input.threadId,
@@ -162,7 +165,9 @@ export async function handleIntelligenceRun({
         user,
       });
       const parsedAssignment =
-        learningContainerIdSchema.safeParse(resolvedAssignment);
+        intelligenceContracts.learningContainerIdSchema.safeParse(
+          resolvedAssignment,
+        );
       if (!parsedAssignment.success) {
         logger.error(
           "resolveLearningContainer returned an invalid learning container assignment",
@@ -204,10 +209,22 @@ export async function handleIntelligenceRun({
 
   const { thread, created } = threadResult;
   if (assignmentResolutionConfigured) {
+    if (
+      intelligenceContracts === undefined ||
+      learningContainerId === undefined
+    ) {
+      logger.error(
+        "Learning container assignment contracts were unavailable after resolution",
+      );
+      return Response.json(
+        { error: "Learning container assignment validation unavailable" },
+        { status: 500 },
+      );
+    }
     const validation = validateAssignmentEcho(
       thread,
-      learningContainerId as string | null,
-      learningContainerIdSchema as LearningContainerIdSchema,
+      learningContainerId,
+      intelligenceContracts.threadAssignmentV1Schema,
     );
     if (validation !== "valid") {
       return assignmentValidationResponse(validation);
@@ -272,10 +289,23 @@ export async function handleIntelligenceRun({
       });
 
   if (assignmentResolutionConfigured) {
+    if (
+      intelligenceContracts === undefined ||
+      learningContainerId === undefined
+    ) {
+      await cleanupLock("assignment-contracts-unavailable");
+      logger.error(
+        "Learning container assignment contracts were unavailable after lock acquisition",
+      );
+      return Response.json(
+        { error: "Learning container assignment validation unavailable" },
+        { status: 500 },
+      );
+    }
     const validation = validateAssignmentEcho(
       lockResult,
-      learningContainerId as string | null,
-      learningContainerIdSchema as LearningContainerIdSchema,
+      learningContainerId,
+      intelligenceContracts.threadAssignmentV1Schema,
     );
     if (validation !== "valid") {
       await cleanupLock(

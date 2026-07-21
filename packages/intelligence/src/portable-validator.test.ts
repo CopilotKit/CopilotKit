@@ -50,12 +50,93 @@ describe("Learning Contract portable validator capability", () => {
   });
 
   test("exposes a one-step supported compile facade", () => {
-    const validator = createLearningContractJsonSchemaValidator(
-      new Ajv2020({ strict: false, validateFormats: false }),
-    );
+    const validator = createLearningContractJsonSchemaValidator();
     const validate = validator.compile(equalPropertiesSchema);
 
     expect(validate({ expected: "a", actual: "b" })).toBe(false);
+  });
+
+  test.each([
+    ["coerceTypes", new Ajv2020({ coerceTypes: true })],
+    ["useDefaults", new Ajv2020({ useDefaults: true })],
+  ])("rejects a caller-provided %s validator", (_option, callerValidator) => {
+    expect(() =>
+      Reflect.apply(createLearningContractJsonSchemaValidator, undefined, [
+        callerValidator,
+      ]),
+    ).toThrowError(
+      /LEARNING_CONTRACT_VALIDATOR_CAPABILITY_MISSING.*package-owned validator instance/,
+    );
+  });
+
+  test("does not coerce or inject defaults into validated input", () => {
+    const validator = createLearningContractJsonSchemaValidator();
+    const coercionInput = { count: "1" };
+    const validateInteger = validator.compile({
+      type: "object",
+      properties: { count: { type: "integer" } },
+      required: ["count"],
+    });
+
+    expect(validateInteger(coercionInput)).toBe(false);
+    expect(coercionInput).toEqual({ count: "1" });
+
+    const defaultInput = {};
+    const validateDefault = validator.compile({
+      type: "object",
+      properties: { enabled: { type: "boolean", default: true } },
+    });
+
+    expect(validateDefault(defaultInput)).toBe(true);
+    expect(defaultInput).toEqual({});
+  });
+
+  test.each([
+    COPILOTKIT_EQUAL_PROPERTIES_JSON_SCHEMA_KEYWORD,
+    COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD,
+  ])("rejects a replaced package-owned %s implementation", (keyword) => {
+    const ajv = new Ajv2020({ strict: false, validateFormats: false });
+    registerLearningContractJsonSchemaValidator(ajv);
+    ajv.removeKeyword(keyword);
+    ajv.addKeyword({ keyword, validate: () => true });
+
+    expect(() =>
+      compileLearningContractJsonSchema(ajv, equalPropertiesSchema),
+    ).toThrowError(
+      new RegExp(
+        `LEARNING_CONTRACT_VALIDATOR_CAPABILITY_MISSING.*package-owned registration for ${keyword}`,
+      ),
+    );
+  });
+
+  test("rejects a replaced package-owned meta-schema", () => {
+    const ajv = new Ajv2020({ strict: false, validateFormats: false });
+    registerLearningContractJsonSchemaValidator(ajv);
+    ajv.removeSchema(COPILOTKIT_LEARNING_CONTRACT_META_SCHEMA_URI);
+    ajv.addMetaSchema({
+      ...learningContractSemanticsMetaSchema,
+      title: "foreign replacement",
+    });
+
+    expect(() =>
+      compileLearningContractJsonSchema(ajv, equalPropertiesSchema),
+    ).toThrowError(
+      new RegExp(
+        `LEARNING_CONTRACT_VALIDATOR_CAPABILITY_MISSING.*package-owned registration for ${COPILOTKIT_LEARNING_CONTRACT_META_SCHEMA_URI}`,
+      ),
+    );
+  });
+
+  test("rejects malformed equality pairs when the custom $schema is omitted", () => {
+    const ajv = new Ajv2020({ strict: false, validateFormats: false });
+    registerLearningContractJsonSchemaValidator(ajv);
+
+    expect(() =>
+      compileLearningContractJsonSchema(ajv, {
+        type: "object",
+        [COPILOTKIT_EQUAL_PROPERTIES_JSON_SCHEMA_KEYWORD]: [["left"]],
+      }),
+    ).toThrowError(/must NOT have fewer than 2 items/);
   });
 
   test("rejects a missing meta-schema independently of keyword support", () => {
@@ -123,6 +204,263 @@ describe("Learning Contract portable validator capability", () => {
       compileLearningContractJsonSchema(permissiveAjv, equalPropertiesSchema),
     ).toThrowError(/LEARNING_CONTRACT_VALIDATOR_CAPABILITY_MISSING/);
   });
+});
+
+describe("Learning Contract assertion pointer grammar", () => {
+  test.each([
+    [
+      "compare.left",
+      { operation: "compare", left: "/a~2b", relation: "equal", right: "/ok" },
+    ],
+    [
+      "compare.right",
+      { operation: "compare", left: "/ok", relation: "equal", right: "/a~2b" },
+    ],
+    ["unique.values", { operation: "unique", values: "/a~2b" }],
+    [
+      "strictly-increasing.values",
+      {
+        operation: "strictly-increasing",
+        values: "/a~2b",
+        valueType: "number",
+      },
+    ],
+    [
+      "contiguous.values",
+      { operation: "contiguous", values: "/a~2b", start: 0 },
+    ],
+    [
+      "values-in-range.values",
+      {
+        operation: "values-in-range",
+        values: "/a~2b",
+        minimum: "/min",
+        maximum: "/max",
+        valueType: "number",
+      },
+    ],
+    [
+      "values-in-range.minimum",
+      {
+        operation: "values-in-range",
+        values: "/values",
+        minimum: "/a~2b",
+        maximum: "/max",
+        valueType: "number",
+      },
+    ],
+    [
+      "values-in-range.maximum",
+      {
+        operation: "values-in-range",
+        values: "/values",
+        minimum: "/min",
+        maximum: "/a~2b",
+        valueType: "number",
+      },
+    ],
+    [
+      "references.values",
+      { operation: "references", values: "/a~2b", targets: "/targets" },
+    ],
+    [
+      "references.targets",
+      { operation: "references", values: "/values", targets: "/a~2b" },
+    ],
+    [
+      "disjoint.left",
+      { operation: "disjoint", left: "/a~2b", right: "/right" },
+    ],
+    [
+      "disjoint.right",
+      { operation: "disjoint", left: "/left", right: "/a~2b" },
+    ],
+    [
+      "ordered-ranges.ranges",
+      {
+        operation: "ordered-ranges",
+        ranges: "/a~2b",
+        first: "/first",
+        last: "/last",
+        valueType: "number",
+      },
+    ],
+    [
+      "ordered-ranges.first",
+      {
+        operation: "ordered-ranges",
+        ranges: "/ranges",
+        first: "/a~2b",
+        last: "/last",
+        valueType: "number",
+      },
+    ],
+    [
+      "ordered-ranges.last",
+      {
+        operation: "ordered-ranges",
+        ranges: "/ranges",
+        first: "/first",
+        last: "/a~2b",
+        valueType: "number",
+      },
+    ],
+    [
+      "lookup-equal.collection",
+      {
+        operation: "lookup-equal",
+        collection: "/a~2b",
+        key: "/key",
+        reference: "/reference",
+        value: "/value",
+        expected: "/expected",
+      },
+    ],
+    [
+      "lookup-equal.key",
+      {
+        operation: "lookup-equal",
+        collection: "/collection",
+        key: "/a~2b",
+        reference: "/reference",
+        value: "/value",
+        expected: "/expected",
+      },
+    ],
+    [
+      "lookup-equal.reference",
+      {
+        operation: "lookup-equal",
+        collection: "/collection",
+        key: "/key",
+        reference: "/a~2b",
+        value: "/value",
+        expected: "/expected",
+      },
+    ],
+    [
+      "lookup-equal.value",
+      {
+        operation: "lookup-equal",
+        collection: "/collection",
+        key: "/key",
+        reference: "/reference",
+        value: "/a~2b",
+        expected: "/expected",
+      },
+    ],
+    [
+      "lookup-equal.expected",
+      {
+        operation: "lookup-equal",
+        collection: "/collection",
+        key: "/key",
+        reference: "/reference",
+        value: "/value",
+        expected: "/a~2b",
+      },
+    ],
+    [
+      "lookup-references.sources",
+      {
+        operation: "lookup-references",
+        sources: "/a~2b",
+        reference: "/reference",
+        values: "/values",
+        collection: "/collection",
+        key: "/key",
+        targets: "/targets",
+      },
+    ],
+    [
+      "lookup-references.reference",
+      {
+        operation: "lookup-references",
+        sources: "/sources",
+        reference: "/a~2b",
+        values: "/values",
+        collection: "/collection",
+        key: "/key",
+        targets: "/targets",
+      },
+    ],
+    [
+      "lookup-references.values",
+      {
+        operation: "lookup-references",
+        sources: "/sources",
+        reference: "/reference",
+        values: "/a~2b",
+        collection: "/collection",
+        key: "/key",
+        targets: "/targets",
+      },
+    ],
+    [
+      "lookup-references.collection",
+      {
+        operation: "lookup-references",
+        sources: "/sources",
+        reference: "/reference",
+        values: "/values",
+        collection: "/a~2b",
+        key: "/key",
+        targets: "/targets",
+      },
+    ],
+    [
+      "lookup-references.key",
+      {
+        operation: "lookup-references",
+        sources: "/sources",
+        reference: "/reference",
+        values: "/values",
+        collection: "/collection",
+        key: "/a~2b",
+        targets: "/targets",
+      },
+    ],
+    [
+      "lookup-references.targets",
+      {
+        operation: "lookup-references",
+        sources: "/sources",
+        reference: "/reference",
+        values: "/values",
+        collection: "/collection",
+        key: "/key",
+        targets: "/a~2b",
+      },
+    ],
+    ["count.values", { operation: "count", values: "/a~2b", exactly: 1 }],
+  ])("rejects invalid RFC 6901 escapes in %s", (_field, assertion) => {
+    const ajv = new Ajv2020({ strict: false, validateFormats: false });
+    registerLearningContractJsonSchemaValidator(ajv);
+
+    expect(() =>
+      compileLearningContractJsonSchema(ajv, {
+        type: "object",
+        [COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD]: [assertion],
+      }),
+    ).toThrowError(/must match pattern/);
+  });
+
+  test.each(["", "/a~0b/~1/*", "/empty//segment"])(
+    "accepts the extended RFC 6901 pointer %s",
+    (pointer) => {
+      const ajv = new Ajv2020({ strict: false, validateFormats: false });
+      registerLearningContractJsonSchemaValidator(ajv);
+
+      expect(() =>
+        compileLearningContractJsonSchema(ajv, {
+          type: "object",
+          [COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD]: [
+            { operation: "unique", values: pointer },
+          ],
+        }),
+      ).not.toThrow();
+    },
+  );
 });
 
 describe(`${COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD} bounded assertions`, () => {

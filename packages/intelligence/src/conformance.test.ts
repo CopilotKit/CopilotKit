@@ -13,10 +13,10 @@ import {
   COPILOTKIT_CANDIDATE_SEMANTICS_META_SCHEMA_URI,
   COPILOTKIT_CANDIDATE_SEMANTICS_VOCABULARY_URI,
   COPILOTKIT_EQUAL_PROPERTIES_JSON_SCHEMA_KEYWORD,
-  learningContractJsonSchemas,
 } from "./contracts.js";
 import type { JsonObject } from "./contracts.js";
 import { LEARNING_PLATFORM_ERROR_CODES } from "./errors.js";
+import { learningContractJsonSchemas } from "./schema-registry.js";
 import type { LearningContractJsonSchemaValidateFunction } from "./portable-validator.js";
 import {
   compileLearningContractJsonSchema,
@@ -202,6 +202,9 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
   test("keeps exported and corpus JSON Schemas identical", () => {
     const corpus = buildLearningPlatformConformanceCorpus();
 
+    expect(Object.keys(learningContractJsonSchemas).sort()).toEqual(
+      Object.keys(corpus.schemas).sort(),
+    );
     for (const [name, schema] of Object.entries(learningContractJsonSchemas)) {
       expect(
         corpus.schemas[name as LearningPlatformConformanceSchemaName],
