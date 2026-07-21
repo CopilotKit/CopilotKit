@@ -34,7 +34,7 @@ export default function HomePage() {
       <div className={styles.layout}>
         {/*
           SDK threads drawer (replaces the former hand-rolled fork). SSR-safe and
-          license-gated (shows its own locked view when threads aren't licensed), so it
+          managed-project-backed, so it
           needs no example-level gate.
         */}
         <CopilotThreadsDrawer agentId="default" />

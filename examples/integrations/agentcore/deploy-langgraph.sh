@@ -4,6 +4,9 @@
 # Stack: <stack_name_base>-lg  (isolated from deploy-strands.sh)
 # Using Terraform instead? See infra-terraform/README.md
 set -euo pipefail
+set +a
+set +x
+export -n CPK_INTELLIGENCE_API_KEY
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PATTERN="langgraph-single-agent"
@@ -12,6 +15,38 @@ CONFIG="$SCRIPT_DIR/config.yaml"
 CDK_DIR="$SCRIPT_DIR/infra-cdk"
 SKIP_FRONTEND=false
 SKIP_BACKEND=false
+
+if [ ! -f "$SCRIPT_DIR/.env" ]; then
+  echo "ERROR: $SCRIPT_DIR/.env is required. Copy .env.example and add your managed project credentials."
+  exit 1
+fi
+
+INTELLIGENCE_API_URL_OVERRIDE_SET=false
+if [ "${INTELLIGENCE_API_URL+x}" = x ]; then
+  INTELLIGENCE_API_URL_OVERRIDE="$INTELLIGENCE_API_URL"
+  INTELLIGENCE_API_URL_OVERRIDE_SET=true
+fi
+INTELLIGENCE_GATEWAY_WS_URL_OVERRIDE_SET=false
+if [ "${INTELLIGENCE_GATEWAY_WS_URL+x}" = x ]; then
+  INTELLIGENCE_GATEWAY_WS_URL_OVERRIDE="$INTELLIGENCE_GATEWAY_WS_URL"
+  INTELLIGENCE_GATEWAY_WS_URL_OVERRIDE_SET=true
+fi
+
+source "$SCRIPT_DIR/.env"
+set +a
+set +x
+if [ "$INTELLIGENCE_API_URL_OVERRIDE_SET" = true ]; then
+  export INTELLIGENCE_API_URL="$INTELLIGENCE_API_URL_OVERRIDE"
+fi
+if [ "$INTELLIGENCE_GATEWAY_WS_URL_OVERRIDE_SET" = true ]; then
+  export INTELLIGENCE_GATEWAY_WS_URL="$INTELLIGENCE_GATEWAY_WS_URL_OVERRIDE"
+fi
+: "${CPK_INTELLIGENCE_API_KEY:?CPK_INTELLIGENCE_API_KEY is required in .env}"
+export -n CPK_INTELLIGENCE_API_KEY
+export INTELLIGENCE_API_URL="${INTELLIGENCE_API_URL:-}"
+export INTELLIGENCE_GATEWAY_WS_URL="${INTELLIGENCE_GATEWAY_WS_URL:-}"
+export CPK_TELEMETRY_ID="${CPK_TELEMETRY_ID:-}"
+export VITE_COPILOTKIT_THREADS_ENABLED=true
 
 for arg in "$@"; do
   [[ "$arg" == "--skip-frontend" ]] && SKIP_FRONTEND=true
@@ -24,6 +59,17 @@ echo "── CopilotKit + AWS AgentCore (LangGraph) ─────────�
 check_command() {
   command -v "$1" >/dev/null 2>&1 || { echo "ERROR: $1 is required but not installed."; exit 1; }
 }
+require_remote_endpoint() {
+  local name="$1"
+  local value="$2"
+  local example="$3"
+  if [[ -z "$value" || "$value" =~ ^[a-zA-Z][a-zA-Z0-9+.-]*://(localhost|127\.0\.0\.1)([:/]|$) ]]; then
+    echo "ERROR: $name must be a non-local endpoint reachable from AWS (for example, $example). Set it in .env or prefix the deploy command."
+    exit 1
+  fi
+}
+require_remote_endpoint INTELLIGENCE_API_URL "${INTELLIGENCE_API_URL:-}" "https://intelligence.example.com"
+require_remote_endpoint INTELLIGENCE_GATEWAY_WS_URL "${INTELLIGENCE_GATEWAY_WS_URL:-}" "wss://gateway.example.com"
 check_command aws
 check_command node
 check_command python3
@@ -57,8 +103,21 @@ PYEOF
 
 # ── CDK deploy ───────────────────────────────────────────────────────────────
 if [ "$SKIP_BACKEND" = true ]; then
+  unset CPK_INTELLIGENCE_API_KEY
   echo "⚡ Skipping backend deploy (--skip-backend)"
 else
+  # Materialize the managed key only when backend resources are being deployed.
+  CPK_INTELLIGENCE_API_KEY_SECRET_NAME=$(python3 -c "import re; c=open('$CONFIG').read(); print(re.search(r'^copilotkit_intelligence_api_key_secret_name:\s*([^#\s]+)', c, re.MULTILINE).group(1))")
+  if aws secretsmanager describe-secret --secret-id "$CPK_INTELLIGENCE_API_KEY_SECRET_NAME" >/dev/null 2>&1; then
+    CPK_INTELLIGENCE_API_KEY_SECRET_VERSION_ID=$(printf '%s' "$CPK_INTELLIGENCE_API_KEY" | aws secretsmanager put-secret-value --secret-id "$CPK_INTELLIGENCE_API_KEY_SECRET_NAME" --secret-string file:///dev/stdin --query VersionId --output text)
+  else
+    CPK_INTELLIGENCE_API_KEY_SECRET_VERSION_ID=$(printf '%s' "$CPK_INTELLIGENCE_API_KEY" | aws secretsmanager create-secret --name "$CPK_INTELLIGENCE_API_KEY_SECRET_NAME" --secret-string file:///dev/stdin --query VersionId --output text)
+  fi
+  unset CPK_INTELLIGENCE_API_KEY
+  : "${CPK_INTELLIGENCE_API_KEY_SECRET_VERSION_ID:?Secrets Manager did not return a managed key version ID}"
+  export CPK_INTELLIGENCE_API_KEY_SECRET_VERSION_ID
+  echo "✓ Managed Intelligence key stored in Secrets Manager"
+
   echo "Deploying infrastructure (this takes ~10–15 min on first run)..."
   cd "$CDK_DIR"
   npm install --silent

@@ -61,7 +61,7 @@ function CopilotChatContent() {
     */
     <CopilotChatConfigurationProvider agentId={COPILOTKIT_AGENT_ID}>
       <div className={styles.layout}>
-        {/* SDK threads drawer (replaces the hand-rolled fork). License-gated: the locked view's Upgrade CTA opens the Intelligence docs by default. */}
+        {/* SDK threads drawer backed by the configured managed Intelligence project. */}
         <CopilotThreadsDrawer agentId={COPILOTKIT_AGENT_ID} />
         <div className={styles.mainPanel}>
           <div className="h-full flex flex-row">

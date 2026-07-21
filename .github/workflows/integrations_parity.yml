@@ -4,11 +4,13 @@ on:
   pull_request:
     paths:
       - "examples/integrations/**"
+      - "scripts/__tests__/integration-intelligence-migration.test.ts"
       - ".github/workflows/integrations_parity.yml"
   push:
     branches: [main]
     paths:
       - "examples/integrations/**"
+      - "scripts/__tests__/integration-intelligence-migration.test.ts"
       - ".github/workflows/integrations_parity.yml"
 
 permissions:
@@ -48,3 +50,6 @@ jobs:
           echo "If this fails, run: pnpm parity:sync --target=<instance>"
           echo "and resolve agent-surface drift manually (see _parity/README.md)."
           pnpm parity:check
+
+      - name: Verify managed integration credential contracts
+        run: pnpm exec vitest run scripts/__tests__/integration-intelligence-migration.test.ts

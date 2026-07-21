@@ -1,7 +1,6 @@
 import {
   CopilotRuntime,
   CopilotKitIntelligence,
-  InMemoryAgentRunner,
   createCopilotEndpoint,
 } from "@copilotkit/runtime/v2";
 import { HttpAgent } from "@ag-ui/client";
@@ -17,18 +16,12 @@ const runtime = new CopilotRuntime({
     }),
   },
   // --- copilotkit:intelligence (remove this block to opt out) ---
-  ...(process.env.COPILOTKIT_LICENSE_TOKEN
-    ? {
-        intelligence: new CopilotKitIntelligence({
-          apiKey: process.env.INTELLIGENCE_API_KEY ?? "",
-          apiUrl: process.env.INTELLIGENCE_API_URL ?? "http://localhost:4201",
-          wsUrl:
-            process.env.INTELLIGENCE_GATEWAY_WS_URL ?? "ws://localhost:4401",
-        }),
-        identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
-        licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN,
-      }
-    : { runner: new InMemoryAgentRunner() }),
+  intelligence: new CopilotKitIntelligence({
+    apiKey: process.env.CPK_INTELLIGENCE_API_KEY ?? "",
+    apiUrl: process.env.INTELLIGENCE_API_URL ?? "http://localhost:4201",
+    wsUrl: process.env.INTELLIGENCE_GATEWAY_WS_URL ?? "ws://localhost:4401",
+  }),
+  identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
   // --- /copilotkit:intelligence ---
 });
 

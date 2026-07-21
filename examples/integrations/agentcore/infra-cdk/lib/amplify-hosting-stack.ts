@@ -2,8 +2,8 @@ import * as cdk from "aws-cdk-lib";
 import * as amplify from "@aws-cdk/aws-amplify-alpha";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as iam from "aws-cdk-lib/aws-iam";
-import { Construct } from "constructs";
-import { AppConfig } from "./utils/config-manager";
+import type { Construct } from "constructs";
+import type { AppConfig } from "./utils/config-manager";
 
 export interface AmplifyStackProps extends cdk.NestedStackProps {
   config: AppConfig;
@@ -87,6 +87,12 @@ export class AmplifyHostingStack extends cdk.NestedStack {
       appName: `${props.config.stack_name_base}-frontend`,
       description: `${props.config.stack_name_base} - React Frontend`,
       platform: amplify.Platform.WEB,
+      environmentVariables: {
+        VITE_COPILOTKIT_THREADS_ENABLED: props.config
+          .copilotkit_intelligence_api_key_secret_name
+          ? "true"
+          : "false",
+      },
     });
 
     // Create main branch for the Amplify app
