@@ -780,22 +780,31 @@ jobs:
   redeploy-staging:
     name: Trigger Railway staging redeploy
     needs: [detect-changes, build, aggregate-build-results]
-    # Run if at least one service was in the matrix AND the build job
-    # was not outright cancelled or skipped AND at least one slot
-    # succeeded (per aggregate-build-results.outputs.any_success). The
-    # any_success guard is the explicit "do not redeploy when nothing
-    # was pushed" check — without it, an all-failed build run would
-    # still kick a redeploy that just re-pulls the stale :latest and
-    # silently looks healthy. The skipped/cancelled checks on the build
-    # job still cover the "verify-image-refs gate blocked the build job
-    # entirely" path. Partial build failures (fail-fast: false) still
-    # surface as needs.build.result == 'failure' with any_success ==
-    # 'true', so redeploying what did get pushed is preserved.
+    # Run if the WORKFLOW RUN was not cancelled, at least one service was
+    # scheduled, AND at least one slot actually built
+    # (aggregate-build-results.outputs.any_success). any_success is the
+    # single source of truth for "should we redeploy?": it is derived from
+    # the real per-slot build-result artifacts (see aggregate-build-results),
+    # so it is 'true' on a PARTIAL build (fail-fast: false) and 'false' on a
+    # genuinely dead / entirely-skipped build — subsuming the old
+    # needs.build.result != 'skipped' check. It is the explicit "do not
+    # redeploy when nothing was pushed" guard: without it an all-failed run
+    # would still kick a redeploy that re-pulls the stale :latest and
+    # silently looks healthy.
+    #
+    # We deliberately do NOT gate on needs.build.result (the matrix rollup).
+    # GitHub Actions rolls a matrix job up to 'cancelled' when ANY single leg
+    # is cancelled (e.g. the LFS shell build under runner contention), so
+    # `needs.build.result != 'cancelled'` skipped the redeploy for the WHOLE
+    # fleet even when 27/28 legs succeeded. Mirror the sibling
+    # aggregate-build-results job instead: gate on !cancelled() + has_changes
+    # and let the artifact-derived any_success decide. !cancelled() (a status
+    # function) still overrides GH's default "skip when a needed job did not
+    # succeed", so this job runs even when the build rollup is cancelled/
+    # failure — as long as the RUN itself was not cancelled.
     if: >-
       ${{ !cancelled()
           && needs.detect-changes.outputs.has_changes == 'true'
-          && needs.build.result != 'skipped'
-          && needs.build.result != 'cancelled'
           && needs.aggregate-build-results.outputs.any_success == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -934,31 +943,35 @@ jobs:
     # gap by redeploying — in STAGING only — exactly the starters that built
     # successfully.
     #
-    # Gate mirrors redeploy-staging's skipped/cancelled handling:
-    #   - !cancelled()                               → don't fire on a cancel.
+    # Gate mirrors redeploy-staging:
+    #   - !cancelled()                               → don't fire when the
+    #                                                   whole RUN was cancelled.
     #   - detect-starter-changes.has_changes=='true' → at least one starter in
     #                                                   the build matrix.
-    #   - build-starters.result != 'skipped'         → the starter build job
-    #     && build-starters.result != 'cancelled'       actually ran (a skipped
-    #                                                   build means no starter
-    #                                                   image was pushed —
-    #                                                   nothing to redeploy).
     #
-    # build-starters.result == 'failure' STILL enters this job (fail-fast is
-    # false, so some slots may have succeeded while others failed). The
-    # "deploy on build failure" footgun is closed NOT by the job `if:` but by
-    # the per-slot success intersection in the compute step below: only
-    # starters whose OWN build slot reported status:success are redeployed,
-    # and an all-failed run yields an EMPTY CSV → the redeploy step is
-    # skipped. So a wholesale starter build failure never redeploys anything
-    # — the same net guarantee redeploy-staging gets from its
-    # aggregate-build-results.any_success guard, computed inline here to avoid
-    # standing up a second aggregator job for the starter lane.
+    # We deliberately do NOT gate on needs.build-starters.result (the matrix
+    # rollup). GitHub Actions rolls a matrix job up to 'cancelled' when ANY
+    # single leg is cancelled (e.g. under runner contention), so the old
+    # `build-starters.result != 'cancelled'` clause skipped the redeploy for
+    # the WHOLE starter fleet even when every other starter built fine — the
+    # same P0 defect that hit redeploy-staging.
+    #
+    # This is safe WITHOUT an any_success job guard: the "deploy on a dead
+    # build" footgun is closed NOT by the job `if:` but by the per-slot
+    # success intersection in the compute step below (only starters whose OWN
+    # build slot reported status:success are redeployed) plus the
+    # `if: steps.changed.outputs.services != ''` guard on the redeploy step.
+    # A partial success (fail-fast:false) redeploys exactly what built; a
+    # zero-success run (all failed / all cancelled / build hard-crashed before
+    # writing any result artifact) yields an EMPTY CSV → the redeploy step is
+    # skipped → nothing is deployed. The compute step's fail-loud checks only
+    # fire when build-starters.result == 'success', so a cancelled/failure
+    # rollup does not misfire them. This is the same net guarantee
+    # redeploy-staging gets from aggregate-build-results.any_success, enforced
+    # one level down to avoid standing up a second aggregator job.
     if: >-
       ${{ !cancelled()
-          && needs.detect-starter-changes.outputs.has_changes == 'true'
-          && needs.build-starters.result != 'skipped'
-          && needs.build-starters.result != 'cancelled' }}
+          && needs.detect-starter-changes.outputs.has_changes == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -1095,13 +1108,21 @@ jobs:
     if: >-
       ${{ !cancelled()
           && needs.detect-changes.outputs.has_changes == 'true'
-          && needs.build.result == 'failure'
+          && needs.build.result != 'skipped'
           && needs.aggregate-build-results.outputs.any_success == 'false' }}
-    # The `needs.build.result == 'failure'` clause guards against the case
-    # where the build job itself was SKIPPED (e.g. verify-image-refs failed
-    # upstream, so the matrix never executed). Without it, the aggregator
-    # would still report `any_success=false` and we'd Slack-spam "all
-    # builds failed" even though builds never ran — a misleading alert.
+    # Previously this keyed off `needs.build.result == 'failure'`, which shared
+    # the redeploy job's cancelled-rollup blind spot: GitHub rolls the build
+    # matrix up to 'cancelled' when ANY leg is cancelled (e.g. the LFS shell
+    # leg under runner contention), so an all-failed build with one cancelled
+    # leg rolled up to 'cancelled', the `== 'failure'` clause went false, and
+    # NO alert fired. `any_success == 'false'` (the artifact-derived signal the
+    # redeploy fix uses) is the authoritative "nothing built" check, so we fire
+    # on it directly. The `!= 'skipped'` clause still guards the case where the
+    # build job was SKIPPED (e.g. verify-image-refs failed upstream, so the
+    # matrix never executed) — the aggregator would report `any_success=false`
+    # for an empty run, and the sibling `notify` job already covers that
+    # upstream red, so firing here too would be a misleading "all builds
+    # failed" alert. `!cancelled()` keeps a user-cancelled RUN silent.
     runs-on: ubuntu-latest
     timeout-minutes: 3
     permissions:
@@ -1137,11 +1158,21 @@ jobs:
     # also missed those pre-build red paths. Adding the early-stage jobs
     # to `needs` extends the alert surface to the full workflow, matching
     # the workflow-level notify pattern in showcase_promote.yml.
-    # `if: failure()` already skips when none of the needs failed — so
-    # this still no-ops for the "no changes → build skipped" path, since
-    # skipped != failure. If `notify-all-builds-failed` also fires
-    # (genuine all-failed case), both alerts firing for the same event is
-    # acceptable per the alert SOP.
+    # The guard is `!cancelled() && (failure() || any_success == 'false')`
+    # rather than a bare `failure()`. Bare `failure()` shared the redeploy
+    # job's cancelled-rollup blind spot: when every real build leg failed but
+    # one leg was CANCELLED (runner contention), the matrix rolled up to
+    # 'cancelled' — which is NOT a `failure()` — so no needs job "failed" and
+    # the alert stayed silent on a genuinely dead build. The extra
+    # `any_success == 'false'` clause (the artifact-derived signal the redeploy
+    # fix uses) fires on "nothing built" regardless of the rollup. `failure()`
+    # is retained so a failure DOWNSTREAM of a successful build (e.g.
+    # redeploy-staging, on which any_success == 'true') still alerts. `!cancelled()`
+    # keeps a user-cancelled RUN silent, and the "no changes → build skipped"
+    # path stays a no-op (aggregate is skipped, so any_success is '' not 'false',
+    # and nothing failed). If `notify-all-builds-failed` also fires (genuine
+    # all-failed case), both alerts firing for the same event is acceptable per
+    # the alert SOP.
     #
     # `detect-starter-changes` + `build-starters` + `redeploy-staging-starters`
     # are included so a FAILED starter image build OR a failed starter staging
@@ -1163,7 +1194,10 @@ jobs:
         redeploy-staging,
         redeploy-staging-starters,
       ]
-    if: failure()
+    if: >-
+      ${{ !cancelled()
+          && (failure()
+              || needs.aggregate-build-results.outputs.any_success == 'false') }}
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
