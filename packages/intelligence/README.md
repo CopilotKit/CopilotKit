@@ -12,12 +12,51 @@ Generated JSON Schema includes standard `if`/`then` constraints for candidate
 action coherence. Candidate subject-hash equality is carried by the portable
 `x-copilotkit-equal-properties` keyword. Each keyword value is an array of
 `[leftProperty, rightProperty]` pairs; a conforming validator must reject the
-containing object when a pair's values differ. Equality-bearing schemas declare
-the required candidate-semantics vocabulary through their custom `$schema` URI;
-validators that do not implement it must reject the schema instead of ignoring
-the keyword. The corpus publishes that meta-schema in `metaSchemas` and executes
-both the standard conditionals and required keyword against a JSON Schema
-validator, including add, update, and remove hash-mismatch cases.
+containing object when a pair's values differ. Cross-property and cross-array
+rules use the bounded `x-copilotkit-assertions` keyword. Both keywords belong to
+the versioned Learning Contract portable-validator capability advertised by the
+custom `$schema` URI.
+
+`$vocabulary` advertises the requirement but is not, by itself, a capability
+handshake for every JSON Schema implementation. In particular, permissive Ajv
+configuration can ignore an unknown required keyword. JavaScript consumers must
+use the package-owned registration and compile entry point, which checks the
+meta-schema and both keyword implementations before schema compilation:
+
+```ts
+import { Ajv2020 } from "ajv/dist/2020.js";
+import {
+  createLearningContractJsonSchemaValidator,
+  learningContractJsonSchemas,
+} from "@copilotkit/intelligence";
+
+const portableValidator = createLearningContractJsonSchemaValidator(
+  new Ajv2020({ strict: false, allErrors: true, validateFormats: false }),
+);
+const validateCandidate = portableValidator.compile(
+  learningContractJsonSchemas.SkillCandidateV1,
+);
+
+if (!validateCandidate(candidatePayload)) {
+  throw new Error("SkillCandidateV1 failed portable validation");
+}
+```
+
+Calling raw `ajv.compile()` is not the supported path for Learning Contract
+schemas. A missing meta-schema raises
+`LEARNING_CONTRACT_VALIDATOR_META_SCHEMA_MISSING`; missing or foreign keyword
+registration raises `LEARNING_CONTRACT_VALIDATOR_CAPABILITY_MISSING`, before a
+payload validator is returned. Non-JavaScript validators must provide the full
+capability identified by
+`LEARNING_CONTRACT_PORTABLE_VALIDATOR_CAPABILITY_V1` (version 1) and refuse the
+schema when any declared semantic is unavailable.
+
+The conformance corpus publishes the custom meta-schema in `metaSchemas`.
+Package tests compile every emitted schema through the supported validator and
+require every named corpus case to produce the same result under portable JSON
+Schema validation, canonical Zod validation, and its declared `valid` value.
+They also exercise every bounded assertion operation available to portable
+overlays.
 
 In particular, the
 `generated-remove-candidate-requires-non-empty-removal-intent` case requires a

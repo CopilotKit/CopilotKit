@@ -6,6 +6,7 @@ import {
   learningRunFrozenManifestV1Schema,
   learningWorkflowOutputV1Schema,
   nonNilUuidSchema,
+  registerLearningContractPortableAssertions,
 } from "./contracts.js";
 
 const nonEmptyStringSchema = z.string().min(1);
@@ -162,3 +163,65 @@ export const requestThreadSnapshotBackfillV1Schema = z.looseObject({
 export type RequestThreadSnapshotBackfillV1 = z.infer<
   typeof requestThreadSnapshotBackfillV1Schema
 >;
+
+registerLearningContractPortableAssertions(createLearningRunV1Schema, [
+  {
+    operation: "compare",
+    left: "/selectedAfterSequence",
+    relation: "less-than-or-equal",
+    right: "/selectedThroughSequence",
+    valueType: "number",
+  },
+  {
+    operation: "unique",
+    values: "/snapshotIdsAndHashes/*/snapshotId",
+    normalization: { caseFold: true },
+  },
+  {
+    operation: "values-in-range",
+    values: "/snapshotIdsAndHashes/*/containerSequence",
+    minimum: "/selectedAfterSequence",
+    maximum: "/selectedThroughSequence",
+    minimumExclusive: true,
+    valueType: "number",
+  },
+  {
+    operation: "strictly-increasing",
+    values: "/snapshotIdsAndHashes/*/containerSequence",
+    valueType: "number",
+  },
+  {
+    operation: "references",
+    values: "/selectedAnnotations/*/targetSnapshotId",
+    targets: "/snapshotIdsAndHashes/*/snapshotId",
+    normalization: { caseFold: true },
+  },
+]);
+registerLearningContractPortableAssertions(appendLearningRunChunkV1Schema, [
+  {
+    operation: "compare",
+    left: "/learningRunId",
+    relation: "equal",
+    right: "/chunk/learningRunId",
+  },
+  {
+    operation: "compare",
+    left: "/attemptId",
+    relation: "equal",
+    right: "/chunk/attemptId",
+  },
+  {
+    operation: "compare",
+    left: "/chunkIndex",
+    relation: "equal",
+    right: "/chunk/chunkIndex",
+  },
+]);
+registerLearningContractPortableAssertions(prepareRegistryCandidateV1Schema, [
+  {
+    operation: "compare",
+    left: "/outputAlias",
+    relation: "equal",
+    right: "/generatedCandidate/outputAlias",
+  },
+]);

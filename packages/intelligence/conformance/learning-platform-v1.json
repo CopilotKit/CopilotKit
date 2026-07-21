@@ -1265,7 +1265,7 @@
             "eventId": "event_1",
             "sequence": 1,
             "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "type": "TEXT_MESSAGE_END"
+            "type": "RUN_FINISHED"
           }
         ],
         "startedAt": "2026-07-16T18:00:00.000Z",
@@ -2245,6 +2245,179 @@
       }
     },
     {
+      "name": "learning-run-rejects-case-variant-snapshot-identities",
+      "schema": "LearningRunV1",
+      "valid": false,
+      "value": {
+        "completedAt": null,
+        "containerConfigRevision": 1,
+        "createdAt": "2026-07-16T18:00:00.000Z",
+        "evaluatorProfileRef": "evaluator:v1",
+        "idempotencyKey": "run_1",
+        "learningContainerId": "55555555-5555-4555-8555-555555555555",
+        "learningRunId": "88888888-8888-4888-8888-888888888888",
+        "manifestSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "modelProfileRef": "model:v1",
+        "normalizerVersion": "normalizer:v1",
+        "organizationId": "org_1",
+        "projectId": "project_1",
+        "promptProfileRef": "prompt:v1",
+        "registryRevision": "revision_1",
+        "sanitizerVersion": "sanitizer:v1",
+        "selectedAfterSequence": 0,
+        "selectedAnnotations": [
+          {
+            "annotationId": "11111111-1111-4111-8111-111111111111",
+            "annotationRevision": 0,
+            "authoredAt": "2026-07-16T18:00:00.000Z",
+            "capturedAt": "2026-07-16T18:00:00.000Z",
+            "contentSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "schemaVersion": 1,
+            "targetEvidenceLocator": {
+              "eventIds": [
+                "event_1"
+              ],
+              "messageIds": [
+                "message_1"
+              ]
+            },
+            "targetSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "text": "Prefer idempotent retries."
+          }
+        ],
+        "selectedThroughSequence": 2,
+        "skillSetHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "snapshotIdsAndHashes": [
+          {
+            "containerSequence": 1,
+            "contentSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+          },
+          {
+            "containerSequence": 2,
+            "contentSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "snapshotId": "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA"
+          }
+        ],
+        "startedAt": null,
+        "status": "created",
+        "trigger": "manual",
+        "workflowVersion": "workflow:v1"
+      }
+    },
+    {
+      "name": "learning-run-rejects-annotation-outside-frozen-snapshots",
+      "schema": "LearningRunV1",
+      "valid": false,
+      "value": {
+        "completedAt": null,
+        "containerConfigRevision": 1,
+        "createdAt": "2026-07-16T18:00:00.000Z",
+        "evaluatorProfileRef": "evaluator:v1",
+        "idempotencyKey": "run_1",
+        "learningContainerId": "55555555-5555-4555-8555-555555555555",
+        "learningRunId": "88888888-8888-4888-8888-888888888888",
+        "manifestSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "modelProfileRef": "model:v1",
+        "normalizerVersion": "normalizer:v1",
+        "organizationId": "org_1",
+        "projectId": "project_1",
+        "promptProfileRef": "prompt:v1",
+        "registryRevision": "revision_1",
+        "sanitizerVersion": "sanitizer:v1",
+        "selectedAfterSequence": 0,
+        "selectedAnnotations": [
+          {
+            "annotationId": "11111111-1111-4111-8111-111111111111",
+            "annotationRevision": 0,
+            "authoredAt": "2026-07-16T18:00:00.000Z",
+            "capturedAt": "2026-07-16T18:00:00.000Z",
+            "contentSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "schemaVersion": 1,
+            "targetEvidenceLocator": {
+              "eventIds": [
+                "event_1"
+              ],
+              "messageIds": [
+                "message_1"
+              ]
+            },
+            "targetSnapshotId": "55555555-5555-4555-8555-555555555555",
+            "text": "Prefer idempotent retries."
+          }
+        ],
+        "selectedThroughSequence": 1,
+        "skillSetHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "snapshotIdsAndHashes": [
+          {
+            "containerSequence": 1,
+            "contentSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+          }
+        ],
+        "startedAt": null,
+        "status": "created",
+        "trigger": "manual",
+        "workflowVersion": "workflow:v1"
+      }
+    },
+    {
+      "name": "learning-run-resolves-annotation-snapshot-case-insensitively",
+      "schema": "LearningRunV1",
+      "valid": true,
+      "value": {
+        "completedAt": null,
+        "containerConfigRevision": 1,
+        "createdAt": "2026-07-16T18:00:00.000Z",
+        "evaluatorProfileRef": "evaluator:v1",
+        "idempotencyKey": "run_1",
+        "learningContainerId": "55555555-5555-4555-8555-555555555555",
+        "learningRunId": "88888888-8888-4888-8888-888888888888",
+        "manifestSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "modelProfileRef": "model:v1",
+        "normalizerVersion": "normalizer:v1",
+        "organizationId": "org_1",
+        "projectId": "project_1",
+        "promptProfileRef": "prompt:v1",
+        "registryRevision": "revision_1",
+        "sanitizerVersion": "sanitizer:v1",
+        "selectedAfterSequence": 0,
+        "selectedAnnotations": [
+          {
+            "annotationId": "11111111-1111-4111-8111-111111111111",
+            "annotationRevision": 0,
+            "authoredAt": "2026-07-16T18:00:00.000Z",
+            "capturedAt": "2026-07-16T18:00:00.000Z",
+            "contentSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "schemaVersion": 1,
+            "targetEvidenceLocator": {
+              "eventIds": [
+                "event_1"
+              ],
+              "messageIds": [
+                "message_1"
+              ]
+            },
+            "targetSnapshotId": "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA",
+            "text": "Prefer idempotent retries."
+          }
+        ],
+        "selectedThroughSequence": 1,
+        "skillSetHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "snapshotIdsAndHashes": [
+          {
+            "containerSequence": 1,
+            "contentSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+          }
+        ],
+        "startedAt": null,
+        "status": "created",
+        "trigger": "manual",
+        "workflowVersion": "workflow:v1"
+      }
+    },
+    {
       "name": "learning-run-rejects-unordered-snapshot-identities",
       "schema": "LearningRunV1",
       "valid": false,
@@ -2521,6 +2694,171 @@
             "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
             "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "threadId": "thread_2"
+          }
+        ]
+      }
+    },
+    {
+      "name": "workflow-input-rejects-case-variant-snapshot-ids",
+      "schema": "LearningWorkflowInputV1",
+      "valid": false,
+      "value": {
+        "availableSkills": [],
+        "limits": {},
+        "promptContext": null,
+        "schemaVersion": 1,
+        "selectedAnnotations": [
+          {
+            "annotationId": "11111111-1111-4111-8111-111111111111",
+            "annotationRevision": 0,
+            "authoredAt": "2026-07-16T18:00:00.000Z",
+            "capturedAt": "2026-07-16T18:00:00.000Z",
+            "contentSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "schemaVersion": 1,
+            "targetEvidenceLocator": {
+              "eventIds": [
+                "event_1"
+              ],
+              "messageIds": [
+                "message_1"
+              ]
+            },
+            "targetSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "text": "Prefer idempotent retries."
+          }
+        ],
+        "threads": [
+          {
+            "externalRunId": "external_run_1",
+            "messages": [
+              {
+                "content": "done",
+                "eventIds": [
+                  "event_1"
+                ],
+                "messageId": "message_1",
+                "role": "assistant",
+                "timestamp": "2026-07-16T18:00:00.000Z",
+                "toolCalls": [
+                  {
+                    "argsText": "{}",
+                    "id": "call_1",
+                    "name": "search"
+                  }
+                ],
+                "toolResults": [
+                  {
+                    "output": {
+                      "hits": 1
+                    },
+                    "status": "ok",
+                    "toolCallId": "call_1"
+                  }
+                ]
+              }
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1"
+          },
+          {
+            "externalRunId": "external_run_2",
+            "messages": [
+              {
+                "content": "done",
+                "eventIds": [
+                  "event_1"
+                ],
+                "messageId": "message_1",
+                "role": "assistant",
+                "timestamp": "2026-07-16T18:00:00.000Z",
+                "toolCalls": [
+                  {
+                    "argsText": "{}",
+                    "id": "call_1",
+                    "name": "search"
+                  }
+                ],
+                "toolResults": [
+                  {
+                    "output": {
+                      "hits": 1
+                    },
+                    "status": "ok",
+                    "toolCallId": "call_1"
+                  }
+                ]
+              }
+            ],
+            "snapshotId": "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_2"
+          }
+        ]
+      }
+    },
+    {
+      "name": "workflow-input-resolves-annotation-snapshot-case-insensitively",
+      "schema": "LearningWorkflowInputV1",
+      "valid": true,
+      "value": {
+        "availableSkills": [],
+        "limits": {},
+        "promptContext": null,
+        "schemaVersion": 1,
+        "selectedAnnotations": [
+          {
+            "annotationId": "11111111-1111-4111-8111-111111111111",
+            "annotationRevision": 0,
+            "authoredAt": "2026-07-16T18:00:00.000Z",
+            "capturedAt": "2026-07-16T18:00:00.000Z",
+            "contentSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "schemaVersion": 1,
+            "targetEvidenceLocator": {
+              "eventIds": [
+                "event_1"
+              ],
+              "messageIds": [
+                "message_1"
+              ]
+            },
+            "targetSnapshotId": "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA",
+            "text": "Prefer idempotent retries."
+          }
+        ],
+        "threads": [
+          {
+            "externalRunId": "external_run_1",
+            "messages": [
+              {
+                "content": "done",
+                "eventIds": [
+                  "event_1"
+                ],
+                "messageId": "message_1",
+                "role": "assistant",
+                "timestamp": "2026-07-16T18:00:00.000Z",
+                "toolCalls": [
+                  {
+                    "argsText": "{}",
+                    "id": "call_1",
+                    "name": "search"
+                  }
+                ],
+                "toolResults": [
+                  {
+                    "output": {
+                      "hits": 1
+                    },
+                    "status": "ok",
+                    "toolCallId": "call_1"
+                  }
+                ]
+              }
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1"
           }
         ]
       }
@@ -5398,6 +5736,291 @@
       }
     },
     {
+      "name": "create-learning-run-rejects-snapshot-outside-selection-interval",
+      "schema": "CreateLearningRunV1",
+      "valid": false,
+      "value": {
+        "containerConfigRevision": 1,
+        "evaluatorProfileRef": "evaluator:v1",
+        "idempotencyKey": "run_1",
+        "learningContainerId": "55555555-5555-4555-8555-555555555555",
+        "learningRunId": "88888888-8888-4888-8888-888888888888",
+        "manifestSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "modelProfileRef": "model:v1",
+        "normalizerVersion": "normalizer:v1",
+        "organizationId": "org_1",
+        "projectId": "project_1",
+        "promptProfileRef": "prompt:v1",
+        "registryRevision": "revision_1",
+        "requestId": "request_1",
+        "sanitizerVersion": "sanitizer:v1",
+        "schemaVersion": 1,
+        "selectedAfterSequence": 1,
+        "selectedAnnotations": [
+          {
+            "annotationId": "11111111-1111-4111-8111-111111111111",
+            "annotationRevision": 0,
+            "authoredAt": "2026-07-16T18:00:00.000Z",
+            "capturedAt": "2026-07-16T18:00:00.000Z",
+            "contentSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "schemaVersion": 1,
+            "targetEvidenceLocator": {
+              "eventIds": [
+                "event_1"
+              ],
+              "messageIds": [
+                "message_1"
+              ]
+            },
+            "targetSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "text": "Prefer idempotent retries."
+          }
+        ],
+        "selectedThroughSequence": 2,
+        "skillSetHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "snapshotIdsAndHashes": [
+          {
+            "containerSequence": 1,
+            "contentSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+          }
+        ],
+        "traceId": "trace_1",
+        "trigger": "manual",
+        "workflowVersion": "workflow:v1"
+      }
+    },
+    {
+      "name": "create-learning-run-rejects-non-increasing-snapshot-sequences",
+      "schema": "CreateLearningRunV1",
+      "valid": false,
+      "value": {
+        "containerConfigRevision": 1,
+        "evaluatorProfileRef": "evaluator:v1",
+        "idempotencyKey": "run_1",
+        "learningContainerId": "55555555-5555-4555-8555-555555555555",
+        "learningRunId": "88888888-8888-4888-8888-888888888888",
+        "manifestSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "modelProfileRef": "model:v1",
+        "normalizerVersion": "normalizer:v1",
+        "organizationId": "org_1",
+        "projectId": "project_1",
+        "promptProfileRef": "prompt:v1",
+        "registryRevision": "revision_1",
+        "requestId": "request_1",
+        "sanitizerVersion": "sanitizer:v1",
+        "schemaVersion": 1,
+        "selectedAfterSequence": 0,
+        "selectedAnnotations": [
+          {
+            "annotationId": "11111111-1111-4111-8111-111111111111",
+            "annotationRevision": 0,
+            "authoredAt": "2026-07-16T18:00:00.000Z",
+            "capturedAt": "2026-07-16T18:00:00.000Z",
+            "contentSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "schemaVersion": 1,
+            "targetEvidenceLocator": {
+              "eventIds": [
+                "event_1"
+              ],
+              "messageIds": [
+                "message_1"
+              ]
+            },
+            "targetSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "text": "Prefer idempotent retries."
+          }
+        ],
+        "selectedThroughSequence": 2,
+        "skillSetHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "snapshotIdsAndHashes": [
+          {
+            "containerSequence": 1,
+            "contentSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+          },
+          {
+            "containerSequence": 1,
+            "contentSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "snapshotId": "11111111-1111-4111-8111-111111111111"
+          }
+        ],
+        "traceId": "trace_1",
+        "trigger": "manual",
+        "workflowVersion": "workflow:v1"
+      }
+    },
+    {
+      "name": "create-learning-run-rejects-case-variant-snapshot-identities",
+      "schema": "CreateLearningRunV1",
+      "valid": false,
+      "value": {
+        "containerConfigRevision": 1,
+        "evaluatorProfileRef": "evaluator:v1",
+        "idempotencyKey": "run_1",
+        "learningContainerId": "55555555-5555-4555-8555-555555555555",
+        "learningRunId": "88888888-8888-4888-8888-888888888888",
+        "manifestSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "modelProfileRef": "model:v1",
+        "normalizerVersion": "normalizer:v1",
+        "organizationId": "org_1",
+        "projectId": "project_1",
+        "promptProfileRef": "prompt:v1",
+        "registryRevision": "revision_1",
+        "requestId": "request_1",
+        "sanitizerVersion": "sanitizer:v1",
+        "schemaVersion": 1,
+        "selectedAfterSequence": 0,
+        "selectedAnnotations": [
+          {
+            "annotationId": "11111111-1111-4111-8111-111111111111",
+            "annotationRevision": 0,
+            "authoredAt": "2026-07-16T18:00:00.000Z",
+            "capturedAt": "2026-07-16T18:00:00.000Z",
+            "contentSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "schemaVersion": 1,
+            "targetEvidenceLocator": {
+              "eventIds": [
+                "event_1"
+              ],
+              "messageIds": [
+                "message_1"
+              ]
+            },
+            "targetSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "text": "Prefer idempotent retries."
+          }
+        ],
+        "selectedThroughSequence": 2,
+        "skillSetHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "snapshotIdsAndHashes": [
+          {
+            "containerSequence": 1,
+            "contentSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+          },
+          {
+            "containerSequence": 2,
+            "contentSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "snapshotId": "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA"
+          }
+        ],
+        "traceId": "trace_1",
+        "trigger": "manual",
+        "workflowVersion": "workflow:v1"
+      }
+    },
+    {
+      "name": "create-learning-run-rejects-annotation-outside-frozen-snapshots",
+      "schema": "CreateLearningRunV1",
+      "valid": false,
+      "value": {
+        "containerConfigRevision": 1,
+        "evaluatorProfileRef": "evaluator:v1",
+        "idempotencyKey": "run_1",
+        "learningContainerId": "55555555-5555-4555-8555-555555555555",
+        "learningRunId": "88888888-8888-4888-8888-888888888888",
+        "manifestSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "modelProfileRef": "model:v1",
+        "normalizerVersion": "normalizer:v1",
+        "organizationId": "org_1",
+        "projectId": "project_1",
+        "promptProfileRef": "prompt:v1",
+        "registryRevision": "revision_1",
+        "requestId": "request_1",
+        "sanitizerVersion": "sanitizer:v1",
+        "schemaVersion": 1,
+        "selectedAfterSequence": 0,
+        "selectedAnnotations": [
+          {
+            "annotationId": "11111111-1111-4111-8111-111111111111",
+            "annotationRevision": 0,
+            "authoredAt": "2026-07-16T18:00:00.000Z",
+            "capturedAt": "2026-07-16T18:00:00.000Z",
+            "contentSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "schemaVersion": 1,
+            "targetEvidenceLocator": {
+              "eventIds": [
+                "event_1"
+              ],
+              "messageIds": [
+                "message_1"
+              ]
+            },
+            "targetSnapshotId": "55555555-5555-4555-8555-555555555555",
+            "text": "Prefer idempotent retries."
+          }
+        ],
+        "selectedThroughSequence": 1,
+        "skillSetHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "snapshotIdsAndHashes": [
+          {
+            "containerSequence": 1,
+            "contentSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+          }
+        ],
+        "traceId": "trace_1",
+        "trigger": "manual",
+        "workflowVersion": "workflow:v1"
+      }
+    },
+    {
+      "name": "create-learning-run-resolves-annotation-snapshot-case-insensitively",
+      "schema": "CreateLearningRunV1",
+      "valid": true,
+      "value": {
+        "containerConfigRevision": 1,
+        "evaluatorProfileRef": "evaluator:v1",
+        "idempotencyKey": "run_1",
+        "learningContainerId": "55555555-5555-4555-8555-555555555555",
+        "learningRunId": "88888888-8888-4888-8888-888888888888",
+        "manifestSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "modelProfileRef": "model:v1",
+        "normalizerVersion": "normalizer:v1",
+        "organizationId": "org_1",
+        "projectId": "project_1",
+        "promptProfileRef": "prompt:v1",
+        "registryRevision": "revision_1",
+        "requestId": "request_1",
+        "sanitizerVersion": "sanitizer:v1",
+        "schemaVersion": 1,
+        "selectedAfterSequence": 0,
+        "selectedAnnotations": [
+          {
+            "annotationId": "11111111-1111-4111-8111-111111111111",
+            "annotationRevision": 0,
+            "authoredAt": "2026-07-16T18:00:00.000Z",
+            "capturedAt": "2026-07-16T18:00:00.000Z",
+            "contentSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "schemaVersion": 1,
+            "targetEvidenceLocator": {
+              "eventIds": [
+                "event_1"
+              ],
+              "messageIds": [
+                "message_1"
+              ]
+            },
+            "targetSnapshotId": "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA",
+            "text": "Prefer idempotent retries."
+          }
+        ],
+        "selectedThroughSequence": 1,
+        "skillSetHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "snapshotIdsAndHashes": [
+          {
+            "containerSequence": 1,
+            "contentSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+          }
+        ],
+        "traceId": "trace_1",
+        "trigger": "manual",
+        "workflowVersion": "workflow:v1"
+      }
+    },
+    {
       "name": "append-learning-run-chunk-rejects-mismatched-chunk-identity",
       "schema": "AppendLearningRunChunkV1",
       "valid": false,
@@ -5545,6 +6168,1159 @@
           ],
           "usage": {}
         }
+      }
+    },
+    {
+      "name": "learning-run-execution-result-rejects-zero-chunk-output",
+      "schema": "LearningRunExecutionResultV1",
+      "valid": false,
+      "value": {
+        "chunks": [],
+        "outputSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "workflowOutput": {
+          "coverage": {},
+          "insights": [
+            {
+              "confidence": 0.9,
+              "evidenceRefs": [
+                {
+                  "annotationId": null,
+                  "annotationSha256": null,
+                  "eventIds": [
+                    "event_1"
+                  ],
+                  "evidenceType": "run_snapshot",
+                  "excerpt": null,
+                  "excerptSha256": null,
+                  "externalRunId": "external_run_1",
+                  "messageIds": [
+                    "message_1"
+                  ],
+                  "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                  "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "threadId": "thread_1",
+                  "truncated": false
+                }
+              ],
+              "impact": "A repeated action can affect a user twice.",
+              "kind": "agent_behavior",
+              "outputAlias": "insight_1",
+              "skillEligible": true,
+              "statement": "The agent retries completed work."
+            }
+          ],
+          "rejections": [],
+          "schemaVersion": 1,
+          "skillCandidates": [
+            {
+              "action": "add",
+              "bundle": {
+                "files": [
+                  {
+                    "contentBase64": "IyBTa2lsbA==",
+                    "path": "SKILL.md"
+                  }
+                ],
+                "rootDirectoryName": "idempotent-retries"
+              },
+              "evidenceRefs": [
+                {
+                  "annotationId": null,
+                  "annotationSha256": null,
+                  "eventIds": [
+                    "event_1"
+                  ],
+                  "evidenceType": "run_snapshot",
+                  "excerpt": null,
+                  "excerptSha256": null,
+                  "externalRunId": "external_run_1",
+                  "messageIds": [
+                    "message_1"
+                  ],
+                  "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                  "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "threadId": "thread_1",
+                  "truncated": false
+                }
+              ],
+              "insightAliases": [
+                "insight_1"
+              ],
+              "outputAlias": "candidate_1",
+              "parentVersionId": null,
+              "reason": "Avoid duplicate actions.",
+              "removalIntent": null,
+              "risk": "low",
+              "skillId": null
+            }
+          ],
+          "usage": {}
+        }
+      }
+    },
+    {
+      "name": "learning-run-execution-result-rejects-mixed-run-ids",
+      "schema": "LearningRunExecutionResultV1",
+      "valid": false,
+      "value": {
+        "chunks": [
+          {
+            "attemptId": "22222222-2222-4222-8222-222222222222",
+            "chunkIndex": 0,
+            "createdAt": "2026-07-16T18:00:00.000Z",
+            "inputSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "learningRunId": "88888888-8888-4888-8888-888888888888",
+            "outputSha256": null,
+            "privatePayloadRef": {},
+            "snapshotRange": {
+              "firstSequence": 1,
+              "firstSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+              "lastSequence": 1,
+              "lastSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+            },
+            "status": "planned",
+            "updatedAt": "2026-07-16T18:00:00.000Z"
+          },
+          {
+            "attemptId": "22222222-2222-4222-8222-222222222222",
+            "chunkIndex": 1,
+            "createdAt": "2026-07-16T18:00:00.000Z",
+            "inputSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "learningRunId": "99999999-9999-4999-8999-999999999999",
+            "outputSha256": null,
+            "privatePayloadRef": {},
+            "snapshotRange": {
+              "firstSequence": 2,
+              "firstSnapshotId": "11111111-1111-4111-8111-111111111111",
+              "lastSequence": 2,
+              "lastSnapshotId": "11111111-1111-4111-8111-111111111111"
+            },
+            "status": "planned",
+            "updatedAt": "2026-07-16T18:00:00.000Z"
+          }
+        ],
+        "outputSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "workflowOutput": {
+          "coverage": {},
+          "insights": [
+            {
+              "confidence": 0.9,
+              "evidenceRefs": [
+                {
+                  "annotationId": null,
+                  "annotationSha256": null,
+                  "eventIds": [
+                    "event_1"
+                  ],
+                  "evidenceType": "run_snapshot",
+                  "excerpt": null,
+                  "excerptSha256": null,
+                  "externalRunId": "external_run_1",
+                  "messageIds": [
+                    "message_1"
+                  ],
+                  "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                  "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "threadId": "thread_1",
+                  "truncated": false
+                }
+              ],
+              "impact": "A repeated action can affect a user twice.",
+              "kind": "agent_behavior",
+              "outputAlias": "insight_1",
+              "skillEligible": true,
+              "statement": "The agent retries completed work."
+            }
+          ],
+          "rejections": [],
+          "schemaVersion": 1,
+          "skillCandidates": [
+            {
+              "action": "add",
+              "bundle": {
+                "files": [
+                  {
+                    "contentBase64": "IyBTa2lsbA==",
+                    "path": "SKILL.md"
+                  }
+                ],
+                "rootDirectoryName": "idempotent-retries"
+              },
+              "evidenceRefs": [
+                {
+                  "annotationId": null,
+                  "annotationSha256": null,
+                  "eventIds": [
+                    "event_1"
+                  ],
+                  "evidenceType": "run_snapshot",
+                  "excerpt": null,
+                  "excerptSha256": null,
+                  "externalRunId": "external_run_1",
+                  "messageIds": [
+                    "message_1"
+                  ],
+                  "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                  "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "threadId": "thread_1",
+                  "truncated": false
+                }
+              ],
+              "insightAliases": [
+                "insight_1"
+              ],
+              "outputAlias": "candidate_1",
+              "parentVersionId": null,
+              "reason": "Avoid duplicate actions.",
+              "removalIntent": null,
+              "risk": "low",
+              "skillId": null
+            }
+          ],
+          "usage": {}
+        }
+      }
+    },
+    {
+      "name": "learning-run-execution-result-rejects-mixed-attempt-ids",
+      "schema": "LearningRunExecutionResultV1",
+      "valid": false,
+      "value": {
+        "chunks": [
+          {
+            "attemptId": "22222222-2222-4222-8222-222222222222",
+            "chunkIndex": 0,
+            "createdAt": "2026-07-16T18:00:00.000Z",
+            "inputSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "learningRunId": "88888888-8888-4888-8888-888888888888",
+            "outputSha256": null,
+            "privatePayloadRef": {},
+            "snapshotRange": {
+              "firstSequence": 1,
+              "firstSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+              "lastSequence": 1,
+              "lastSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+            },
+            "status": "planned",
+            "updatedAt": "2026-07-16T18:00:00.000Z"
+          },
+          {
+            "attemptId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            "chunkIndex": 1,
+            "createdAt": "2026-07-16T18:00:00.000Z",
+            "inputSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "learningRunId": "88888888-8888-4888-8888-888888888888",
+            "outputSha256": null,
+            "privatePayloadRef": {},
+            "snapshotRange": {
+              "firstSequence": 2,
+              "firstSnapshotId": "11111111-1111-4111-8111-111111111111",
+              "lastSequence": 2,
+              "lastSnapshotId": "11111111-1111-4111-8111-111111111111"
+            },
+            "status": "planned",
+            "updatedAt": "2026-07-16T18:00:00.000Z"
+          }
+        ],
+        "outputSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "workflowOutput": {
+          "coverage": {},
+          "insights": [
+            {
+              "confidence": 0.9,
+              "evidenceRefs": [
+                {
+                  "annotationId": null,
+                  "annotationSha256": null,
+                  "eventIds": [
+                    "event_1"
+                  ],
+                  "evidenceType": "run_snapshot",
+                  "excerpt": null,
+                  "excerptSha256": null,
+                  "externalRunId": "external_run_1",
+                  "messageIds": [
+                    "message_1"
+                  ],
+                  "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                  "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "threadId": "thread_1",
+                  "truncated": false
+                }
+              ],
+              "impact": "A repeated action can affect a user twice.",
+              "kind": "agent_behavior",
+              "outputAlias": "insight_1",
+              "skillEligible": true,
+              "statement": "The agent retries completed work."
+            }
+          ],
+          "rejections": [],
+          "schemaVersion": 1,
+          "skillCandidates": [
+            {
+              "action": "add",
+              "bundle": {
+                "files": [
+                  {
+                    "contentBase64": "IyBTa2lsbA==",
+                    "path": "SKILL.md"
+                  }
+                ],
+                "rootDirectoryName": "idempotent-retries"
+              },
+              "evidenceRefs": [
+                {
+                  "annotationId": null,
+                  "annotationSha256": null,
+                  "eventIds": [
+                    "event_1"
+                  ],
+                  "evidenceType": "run_snapshot",
+                  "excerpt": null,
+                  "excerptSha256": null,
+                  "externalRunId": "external_run_1",
+                  "messageIds": [
+                    "message_1"
+                  ],
+                  "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                  "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "threadId": "thread_1",
+                  "truncated": false
+                }
+              ],
+              "insightAliases": [
+                "insight_1"
+              ],
+              "outputAlias": "candidate_1",
+              "parentVersionId": null,
+              "reason": "Avoid duplicate actions.",
+              "removalIntent": null,
+              "risk": "low",
+              "skillId": null
+            }
+          ],
+          "usage": {}
+        }
+      }
+    },
+    {
+      "name": "learning-run-execution-result-rejects-duplicate-chunk-indexes",
+      "schema": "LearningRunExecutionResultV1",
+      "valid": false,
+      "value": {
+        "chunks": [
+          {
+            "attemptId": "22222222-2222-4222-8222-222222222222",
+            "chunkIndex": 0,
+            "createdAt": "2026-07-16T18:00:00.000Z",
+            "inputSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "learningRunId": "88888888-8888-4888-8888-888888888888",
+            "outputSha256": null,
+            "privatePayloadRef": {},
+            "snapshotRange": {
+              "firstSequence": 1,
+              "firstSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+              "lastSequence": 1,
+              "lastSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+            },
+            "status": "planned",
+            "updatedAt": "2026-07-16T18:00:00.000Z"
+          },
+          {
+            "attemptId": "22222222-2222-4222-8222-222222222222",
+            "chunkIndex": 0,
+            "createdAt": "2026-07-16T18:00:00.000Z",
+            "inputSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "learningRunId": "88888888-8888-4888-8888-888888888888",
+            "outputSha256": null,
+            "privatePayloadRef": {},
+            "snapshotRange": {
+              "firstSequence": 2,
+              "firstSnapshotId": "11111111-1111-4111-8111-111111111111",
+              "lastSequence": 2,
+              "lastSnapshotId": "11111111-1111-4111-8111-111111111111"
+            },
+            "status": "planned",
+            "updatedAt": "2026-07-16T18:00:00.000Z"
+          }
+        ],
+        "outputSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "workflowOutput": {
+          "coverage": {},
+          "insights": [
+            {
+              "confidence": 0.9,
+              "evidenceRefs": [
+                {
+                  "annotationId": null,
+                  "annotationSha256": null,
+                  "eventIds": [
+                    "event_1"
+                  ],
+                  "evidenceType": "run_snapshot",
+                  "excerpt": null,
+                  "excerptSha256": null,
+                  "externalRunId": "external_run_1",
+                  "messageIds": [
+                    "message_1"
+                  ],
+                  "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                  "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "threadId": "thread_1",
+                  "truncated": false
+                }
+              ],
+              "impact": "A repeated action can affect a user twice.",
+              "kind": "agent_behavior",
+              "outputAlias": "insight_1",
+              "skillEligible": true,
+              "statement": "The agent retries completed work."
+            }
+          ],
+          "rejections": [],
+          "schemaVersion": 1,
+          "skillCandidates": [
+            {
+              "action": "add",
+              "bundle": {
+                "files": [
+                  {
+                    "contentBase64": "IyBTa2lsbA==",
+                    "path": "SKILL.md"
+                  }
+                ],
+                "rootDirectoryName": "idempotent-retries"
+              },
+              "evidenceRefs": [
+                {
+                  "annotationId": null,
+                  "annotationSha256": null,
+                  "eventIds": [
+                    "event_1"
+                  ],
+                  "evidenceType": "run_snapshot",
+                  "excerpt": null,
+                  "excerptSha256": null,
+                  "externalRunId": "external_run_1",
+                  "messageIds": [
+                    "message_1"
+                  ],
+                  "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                  "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "threadId": "thread_1",
+                  "truncated": false
+                }
+              ],
+              "insightAliases": [
+                "insight_1"
+              ],
+              "outputAlias": "candidate_1",
+              "parentVersionId": null,
+              "reason": "Avoid duplicate actions.",
+              "removalIntent": null,
+              "risk": "low",
+              "skillId": null
+            }
+          ],
+          "usage": {}
+        }
+      }
+    },
+    {
+      "name": "learning-run-execution-result-rejects-gapped-chunk-indexes",
+      "schema": "LearningRunExecutionResultV1",
+      "valid": false,
+      "value": {
+        "chunks": [
+          {
+            "attemptId": "22222222-2222-4222-8222-222222222222",
+            "chunkIndex": 0,
+            "createdAt": "2026-07-16T18:00:00.000Z",
+            "inputSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "learningRunId": "88888888-8888-4888-8888-888888888888",
+            "outputSha256": null,
+            "privatePayloadRef": {},
+            "snapshotRange": {
+              "firstSequence": 1,
+              "firstSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+              "lastSequence": 1,
+              "lastSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+            },
+            "status": "planned",
+            "updatedAt": "2026-07-16T18:00:00.000Z"
+          },
+          {
+            "attemptId": "22222222-2222-4222-8222-222222222222",
+            "chunkIndex": 2,
+            "createdAt": "2026-07-16T18:00:00.000Z",
+            "inputSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "learningRunId": "88888888-8888-4888-8888-888888888888",
+            "outputSha256": null,
+            "privatePayloadRef": {},
+            "snapshotRange": {
+              "firstSequence": 2,
+              "firstSnapshotId": "11111111-1111-4111-8111-111111111111",
+              "lastSequence": 2,
+              "lastSnapshotId": "11111111-1111-4111-8111-111111111111"
+            },
+            "status": "planned",
+            "updatedAt": "2026-07-16T18:00:00.000Z"
+          }
+        ],
+        "outputSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "workflowOutput": {
+          "coverage": {},
+          "insights": [
+            {
+              "confidence": 0.9,
+              "evidenceRefs": [
+                {
+                  "annotationId": null,
+                  "annotationSha256": null,
+                  "eventIds": [
+                    "event_1"
+                  ],
+                  "evidenceType": "run_snapshot",
+                  "excerpt": null,
+                  "excerptSha256": null,
+                  "externalRunId": "external_run_1",
+                  "messageIds": [
+                    "message_1"
+                  ],
+                  "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                  "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "threadId": "thread_1",
+                  "truncated": false
+                }
+              ],
+              "impact": "A repeated action can affect a user twice.",
+              "kind": "agent_behavior",
+              "outputAlias": "insight_1",
+              "skillEligible": true,
+              "statement": "The agent retries completed work."
+            }
+          ],
+          "rejections": [],
+          "schemaVersion": 1,
+          "skillCandidates": [
+            {
+              "action": "add",
+              "bundle": {
+                "files": [
+                  {
+                    "contentBase64": "IyBTa2lsbA==",
+                    "path": "SKILL.md"
+                  }
+                ],
+                "rootDirectoryName": "idempotent-retries"
+              },
+              "evidenceRefs": [
+                {
+                  "annotationId": null,
+                  "annotationSha256": null,
+                  "eventIds": [
+                    "event_1"
+                  ],
+                  "evidenceType": "run_snapshot",
+                  "excerpt": null,
+                  "excerptSha256": null,
+                  "externalRunId": "external_run_1",
+                  "messageIds": [
+                    "message_1"
+                  ],
+                  "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                  "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "threadId": "thread_1",
+                  "truncated": false
+                }
+              ],
+              "insightAliases": [
+                "insight_1"
+              ],
+              "outputAlias": "candidate_1",
+              "parentVersionId": null,
+              "reason": "Avoid duplicate actions.",
+              "removalIntent": null,
+              "risk": "low",
+              "skillId": null
+            }
+          ],
+          "usage": {}
+        }
+      }
+    },
+    {
+      "name": "learning-run-execution-result-rejects-out-of-order-chunk-indexes",
+      "schema": "LearningRunExecutionResultV1",
+      "valid": false,
+      "value": {
+        "chunks": [
+          {
+            "attemptId": "22222222-2222-4222-8222-222222222222",
+            "chunkIndex": 1,
+            "createdAt": "2026-07-16T18:00:00.000Z",
+            "inputSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "learningRunId": "88888888-8888-4888-8888-888888888888",
+            "outputSha256": null,
+            "privatePayloadRef": {},
+            "snapshotRange": {
+              "firstSequence": 2,
+              "firstSnapshotId": "11111111-1111-4111-8111-111111111111",
+              "lastSequence": 2,
+              "lastSnapshotId": "11111111-1111-4111-8111-111111111111"
+            },
+            "status": "planned",
+            "updatedAt": "2026-07-16T18:00:00.000Z"
+          },
+          {
+            "attemptId": "22222222-2222-4222-8222-222222222222",
+            "chunkIndex": 0,
+            "createdAt": "2026-07-16T18:00:00.000Z",
+            "inputSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "learningRunId": "88888888-8888-4888-8888-888888888888",
+            "outputSha256": null,
+            "privatePayloadRef": {},
+            "snapshotRange": {
+              "firstSequence": 1,
+              "firstSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+              "lastSequence": 1,
+              "lastSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+            },
+            "status": "planned",
+            "updatedAt": "2026-07-16T18:00:00.000Z"
+          }
+        ],
+        "outputSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "workflowOutput": {
+          "coverage": {},
+          "insights": [
+            {
+              "confidence": 0.9,
+              "evidenceRefs": [
+                {
+                  "annotationId": null,
+                  "annotationSha256": null,
+                  "eventIds": [
+                    "event_1"
+                  ],
+                  "evidenceType": "run_snapshot",
+                  "excerpt": null,
+                  "excerptSha256": null,
+                  "externalRunId": "external_run_1",
+                  "messageIds": [
+                    "message_1"
+                  ],
+                  "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                  "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "threadId": "thread_1",
+                  "truncated": false
+                }
+              ],
+              "impact": "A repeated action can affect a user twice.",
+              "kind": "agent_behavior",
+              "outputAlias": "insight_1",
+              "skillEligible": true,
+              "statement": "The agent retries completed work."
+            }
+          ],
+          "rejections": [],
+          "schemaVersion": 1,
+          "skillCandidates": [
+            {
+              "action": "add",
+              "bundle": {
+                "files": [
+                  {
+                    "contentBase64": "IyBTa2lsbA==",
+                    "path": "SKILL.md"
+                  }
+                ],
+                "rootDirectoryName": "idempotent-retries"
+              },
+              "evidenceRefs": [
+                {
+                  "annotationId": null,
+                  "annotationSha256": null,
+                  "eventIds": [
+                    "event_1"
+                  ],
+                  "evidenceType": "run_snapshot",
+                  "excerpt": null,
+                  "excerptSha256": null,
+                  "externalRunId": "external_run_1",
+                  "messageIds": [
+                    "message_1"
+                  ],
+                  "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                  "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "threadId": "thread_1",
+                  "truncated": false
+                }
+              ],
+              "insightAliases": [
+                "insight_1"
+              ],
+              "outputAlias": "candidate_1",
+              "parentVersionId": null,
+              "reason": "Avoid duplicate actions.",
+              "removalIntent": null,
+              "risk": "low",
+              "skillId": null
+            }
+          ],
+          "usage": {}
+        }
+      }
+    },
+    {
+      "name": "learning-run-execution-result-rejects-overlapping-snapshot-ranges",
+      "schema": "LearningRunExecutionResultV1",
+      "valid": false,
+      "value": {
+        "chunks": [
+          {
+            "attemptId": "22222222-2222-4222-8222-222222222222",
+            "chunkIndex": 0,
+            "createdAt": "2026-07-16T18:00:00.000Z",
+            "inputSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "learningRunId": "88888888-8888-4888-8888-888888888888",
+            "outputSha256": null,
+            "privatePayloadRef": {},
+            "snapshotRange": {
+              "firstSequence": 1,
+              "firstSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+              "lastSequence": 1,
+              "lastSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+            },
+            "status": "planned",
+            "updatedAt": "2026-07-16T18:00:00.000Z"
+          },
+          {
+            "attemptId": "22222222-2222-4222-8222-222222222222",
+            "chunkIndex": 1,
+            "createdAt": "2026-07-16T18:00:00.000Z",
+            "inputSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "learningRunId": "88888888-8888-4888-8888-888888888888",
+            "outputSha256": null,
+            "privatePayloadRef": {},
+            "snapshotRange": {
+              "firstSequence": 1,
+              "firstSnapshotId": "11111111-1111-4111-8111-111111111111",
+              "lastSequence": 2,
+              "lastSnapshotId": "11111111-1111-4111-8111-111111111111"
+            },
+            "status": "planned",
+            "updatedAt": "2026-07-16T18:00:00.000Z"
+          }
+        ],
+        "outputSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "workflowOutput": {
+          "coverage": {},
+          "insights": [
+            {
+              "confidence": 0.9,
+              "evidenceRefs": [
+                {
+                  "annotationId": null,
+                  "annotationSha256": null,
+                  "eventIds": [
+                    "event_1"
+                  ],
+                  "evidenceType": "run_snapshot",
+                  "excerpt": null,
+                  "excerptSha256": null,
+                  "externalRunId": "external_run_1",
+                  "messageIds": [
+                    "message_1"
+                  ],
+                  "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                  "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "threadId": "thread_1",
+                  "truncated": false
+                }
+              ],
+              "impact": "A repeated action can affect a user twice.",
+              "kind": "agent_behavior",
+              "outputAlias": "insight_1",
+              "skillEligible": true,
+              "statement": "The agent retries completed work."
+            }
+          ],
+          "rejections": [],
+          "schemaVersion": 1,
+          "skillCandidates": [
+            {
+              "action": "add",
+              "bundle": {
+                "files": [
+                  {
+                    "contentBase64": "IyBTa2lsbA==",
+                    "path": "SKILL.md"
+                  }
+                ],
+                "rootDirectoryName": "idempotent-retries"
+              },
+              "evidenceRefs": [
+                {
+                  "annotationId": null,
+                  "annotationSha256": null,
+                  "eventIds": [
+                    "event_1"
+                  ],
+                  "evidenceType": "run_snapshot",
+                  "excerpt": null,
+                  "excerptSha256": null,
+                  "externalRunId": "external_run_1",
+                  "messageIds": [
+                    "message_1"
+                  ],
+                  "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                  "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "threadId": "thread_1",
+                  "truncated": false
+                }
+              ],
+              "insightAliases": [
+                "insight_1"
+              ],
+              "outputAlias": "candidate_1",
+              "parentVersionId": null,
+              "reason": "Avoid duplicate actions.",
+              "removalIntent": null,
+              "risk": "low",
+              "skillId": null
+            }
+          ],
+          "usage": {}
+        }
+      }
+    },
+    {
+      "name": "learning-run-execution-result-rejects-out-of-order-snapshot-ranges",
+      "schema": "LearningRunExecutionResultV1",
+      "valid": false,
+      "value": {
+        "chunks": [
+          {
+            "attemptId": "22222222-2222-4222-8222-222222222222",
+            "chunkIndex": 0,
+            "createdAt": "2026-07-16T18:00:00.000Z",
+            "inputSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "learningRunId": "88888888-8888-4888-8888-888888888888",
+            "outputSha256": null,
+            "privatePayloadRef": {},
+            "snapshotRange": {
+              "firstSequence": 2,
+              "firstSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+              "lastSequence": 2,
+              "lastSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+            },
+            "status": "planned",
+            "updatedAt": "2026-07-16T18:00:00.000Z"
+          },
+          {
+            "attemptId": "22222222-2222-4222-8222-222222222222",
+            "chunkIndex": 1,
+            "createdAt": "2026-07-16T18:00:00.000Z",
+            "inputSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "learningRunId": "88888888-8888-4888-8888-888888888888",
+            "outputSha256": null,
+            "privatePayloadRef": {},
+            "snapshotRange": {
+              "firstSequence": 1,
+              "firstSnapshotId": "11111111-1111-4111-8111-111111111111",
+              "lastSequence": 1,
+              "lastSnapshotId": "11111111-1111-4111-8111-111111111111"
+            },
+            "status": "planned",
+            "updatedAt": "2026-07-16T18:00:00.000Z"
+          }
+        ],
+        "outputSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "workflowOutput": {
+          "coverage": {},
+          "insights": [
+            {
+              "confidence": 0.9,
+              "evidenceRefs": [
+                {
+                  "annotationId": null,
+                  "annotationSha256": null,
+                  "eventIds": [
+                    "event_1"
+                  ],
+                  "evidenceType": "run_snapshot",
+                  "excerpt": null,
+                  "excerptSha256": null,
+                  "externalRunId": "external_run_1",
+                  "messageIds": [
+                    "message_1"
+                  ],
+                  "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                  "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "threadId": "thread_1",
+                  "truncated": false
+                }
+              ],
+              "impact": "A repeated action can affect a user twice.",
+              "kind": "agent_behavior",
+              "outputAlias": "insight_1",
+              "skillEligible": true,
+              "statement": "The agent retries completed work."
+            }
+          ],
+          "rejections": [],
+          "schemaVersion": 1,
+          "skillCandidates": [
+            {
+              "action": "add",
+              "bundle": {
+                "files": [
+                  {
+                    "contentBase64": "IyBTa2lsbA==",
+                    "path": "SKILL.md"
+                  }
+                ],
+                "rootDirectoryName": "idempotent-retries"
+              },
+              "evidenceRefs": [
+                {
+                  "annotationId": null,
+                  "annotationSha256": null,
+                  "eventIds": [
+                    "event_1"
+                  ],
+                  "evidenceType": "run_snapshot",
+                  "excerpt": null,
+                  "excerptSha256": null,
+                  "externalRunId": "external_run_1",
+                  "messageIds": [
+                    "message_1"
+                  ],
+                  "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                  "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "threadId": "thread_1",
+                  "truncated": false
+                }
+              ],
+              "insightAliases": [
+                "insight_1"
+              ],
+              "outputAlias": "candidate_1",
+              "parentVersionId": null,
+              "reason": "Avoid duplicate actions.",
+              "removalIntent": null,
+              "risk": "low",
+              "skillId": null
+            }
+          ],
+          "usage": {}
+        }
+      }
+    },
+    {
+      "name": "run-snapshot-rejects-non-terminal-event-at-terminal-id",
+      "schema": "RunSnapshotV1",
+      "valid": false,
+      "value": {
+        "agentRunId": "agent_run_1",
+        "annotations": [],
+        "assignmentRevision": 0,
+        "attachments": [],
+        "byteLength": 100,
+        "capturedAt": "2026-07-16T18:00:00.000Z",
+        "containerSequence": 1,
+        "contentSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "externalRunId": "external_run_1",
+        "learningContainerId": "55555555-5555-4555-8555-555555555555",
+        "messages": [
+          {
+            "content": "done",
+            "eventIds": [
+              "event_1"
+            ],
+            "messageId": "message_1",
+            "role": "assistant",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [
+              {
+                "argsText": "{}",
+                "id": "call_1",
+                "name": "search"
+              }
+            ],
+            "toolResults": [
+              {
+                "output": {
+                  "hits": 1
+                },
+                "status": "ok",
+                "toolCallId": "call_1"
+              }
+            ]
+          }
+        ],
+        "normalizerVersion": "normalizer:v1",
+        "organizationId": "org_1",
+        "projectId": "project_1",
+        "sanitizerVersion": "sanitizer:v1",
+        "schemaVersion": 1,
+        "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "sourceEvents": [
+          {
+            "eventId": "event_1",
+            "sequence": 1,
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "type": "TEXT_MESSAGE_END"
+          }
+        ],
+        "startedAt": "2026-07-16T18:00:00.000Z",
+        "stateChanges": [],
+        "terminalAt": "2026-07-16T18:00:00.000Z",
+        "terminalEventId": "event_1",
+        "terminalStatus": null,
+        "terminalType": "RUN_FINISHED",
+        "threadId": "thread_1",
+        "tokenEstimate": 25
+      }
+    },
+    {
+      "name": "run-snapshot-rejects-wrong-terminal-type-at-terminal-id",
+      "schema": "RunSnapshotV1",
+      "valid": false,
+      "value": {
+        "agentRunId": "agent_run_1",
+        "annotations": [],
+        "assignmentRevision": 0,
+        "attachments": [],
+        "byteLength": 100,
+        "capturedAt": "2026-07-16T18:00:00.000Z",
+        "containerSequence": 1,
+        "contentSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "externalRunId": "external_run_1",
+        "learningContainerId": "55555555-5555-4555-8555-555555555555",
+        "messages": [
+          {
+            "content": "done",
+            "eventIds": [
+              "event_1"
+            ],
+            "messageId": "message_1",
+            "role": "assistant",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [
+              {
+                "argsText": "{}",
+                "id": "call_1",
+                "name": "search"
+              }
+            ],
+            "toolResults": [
+              {
+                "output": {
+                  "hits": 1
+                },
+                "status": "ok",
+                "toolCallId": "call_1"
+              }
+            ]
+          }
+        ],
+        "normalizerVersion": "normalizer:v1",
+        "organizationId": "org_1",
+        "projectId": "project_1",
+        "sanitizerVersion": "sanitizer:v1",
+        "schemaVersion": 1,
+        "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "sourceEvents": [
+          {
+            "eventId": "event_1",
+            "sequence": 1,
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "type": "RUN_ERROR"
+          }
+        ],
+        "startedAt": "2026-07-16T18:00:00.000Z",
+        "stateChanges": [],
+        "terminalAt": "2026-07-16T18:00:00.000Z",
+        "terminalEventId": "event_1",
+        "terminalStatus": null,
+        "terminalType": "RUN_FINISHED",
+        "threadId": "thread_1",
+        "tokenEstimate": 25
+      }
+    },
+    {
+      "name": "run-snapshot-rejects-second-terminal-event",
+      "schema": "RunSnapshotV1",
+      "valid": false,
+      "value": {
+        "agentRunId": "agent_run_1",
+        "annotations": [],
+        "assignmentRevision": 0,
+        "attachments": [],
+        "byteLength": 100,
+        "capturedAt": "2026-07-16T18:00:00.000Z",
+        "containerSequence": 1,
+        "contentSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "externalRunId": "external_run_1",
+        "learningContainerId": "55555555-5555-4555-8555-555555555555",
+        "messages": [
+          {
+            "content": "done",
+            "eventIds": [
+              "event_1"
+            ],
+            "messageId": "message_1",
+            "role": "assistant",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [
+              {
+                "argsText": "{}",
+                "id": "call_1",
+                "name": "search"
+              }
+            ],
+            "toolResults": [
+              {
+                "output": {
+                  "hits": 1
+                },
+                "status": "ok",
+                "toolCallId": "call_1"
+              }
+            ]
+          }
+        ],
+        "normalizerVersion": "normalizer:v1",
+        "organizationId": "org_1",
+        "projectId": "project_1",
+        "sanitizerVersion": "sanitizer:v1",
+        "schemaVersion": 1,
+        "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "sourceEvents": [
+          {
+            "eventId": "event_1",
+            "sequence": 1,
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "type": "RUN_FINISHED"
+          },
+          {
+            "eventId": "event_2",
+            "sequence": 2,
+            "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "type": "RUN_ERROR"
+          }
+        ],
+        "startedAt": "2026-07-16T18:00:00.000Z",
+        "stateChanges": [],
+        "terminalAt": "2026-07-16T18:00:00.000Z",
+        "terminalEventId": "event_1",
+        "terminalStatus": null,
+        "terminalType": "RUN_FINISHED",
+        "threadId": "thread_1",
+        "tokenEstimate": 25
       }
     },
     {
@@ -6054,6 +7830,134 @@
       }
     },
     {
+      "name": "add-candidate-rejects-locator-hash-mismatch",
+      "schema": "SkillCandidateV1",
+      "valid": false,
+      "value": {
+        "action": "add",
+        "approvalModeSnapshot": "manual",
+        "bundleLocator": {
+          "applicationSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "backendId": "primary",
+          "byteLength": 12,
+          "contentType": "application/zip",
+          "etag": null,
+          "key": "objects/aa/bundle.zip",
+          "provider": "awsS3",
+          "providerChecksum": null,
+          "providerVersion": null,
+          "resource": "skill-bundles",
+          "schemaVersion": 1
+        },
+        "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "candidateId": "33333333-3333-4333-8333-333333333333",
+        "candidateRevisionId": "44444444-4444-4444-8444-444444444444",
+        "createdAt": "2026-07-16T18:00:00.000Z",
+        "createdByType": "learning",
+        "evaluatorProfileRef": "evaluator:v1",
+        "evidenceRefs": [
+          {
+            "annotationId": null,
+            "annotationSha256": null,
+            "eventIds": [
+              "event_1"
+            ],
+            "evidenceType": "run_snapshot",
+            "excerpt": null,
+            "excerptSha256": null,
+            "externalRunId": "external_run_1",
+            "messageIds": [
+              "message_1"
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1",
+            "truncated": false
+          }
+        ],
+        "insightIds": [
+          "77777777-7777-4777-8777-777777777777"
+        ],
+        "learningContainerId": "55555555-5555-4555-8555-555555555555",
+        "learningRunId": "88888888-8888-4888-8888-888888888888",
+        "organizationId": "org_1",
+        "parentVersionId": null,
+        "projectId": "project_1",
+        "proposedVersionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "reason": "Teach idempotent retries.",
+        "removalIntent": null,
+        "removalIntentSha256": null,
+        "risk": "low",
+        "skillId": "99999999-9999-4999-8999-999999999999",
+        "status": "pending_review",
+        "subjectSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "name": "update-candidate-rejects-locator-hash-mismatch",
+      "schema": "SkillCandidateV1",
+      "valid": false,
+      "value": {
+        "action": "update",
+        "approvalModeSnapshot": "manual",
+        "bundleLocator": {
+          "applicationSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "backendId": "primary",
+          "byteLength": 12,
+          "contentType": "application/zip",
+          "etag": null,
+          "key": "objects/aa/bundle.zip",
+          "provider": "awsS3",
+          "providerChecksum": null,
+          "providerVersion": null,
+          "resource": "skill-bundles",
+          "schemaVersion": 1
+        },
+        "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "candidateId": "33333333-3333-4333-8333-333333333333",
+        "candidateRevisionId": "44444444-4444-4444-8444-444444444444",
+        "createdAt": "2026-07-16T18:00:00.000Z",
+        "createdByType": "learning",
+        "evaluatorProfileRef": "evaluator:v1",
+        "evidenceRefs": [
+          {
+            "annotationId": null,
+            "annotationSha256": null,
+            "eventIds": [
+              "event_1"
+            ],
+            "evidenceType": "run_snapshot",
+            "excerpt": null,
+            "excerptSha256": null,
+            "externalRunId": "external_run_1",
+            "messageIds": [
+              "message_1"
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1",
+            "truncated": false
+          }
+        ],
+        "insightIds": [
+          "77777777-7777-4777-8777-777777777777"
+        ],
+        "learningContainerId": "55555555-5555-4555-8555-555555555555",
+        "learningRunId": "88888888-8888-4888-8888-888888888888",
+        "organizationId": "org_1",
+        "parentVersionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "projectId": "project_1",
+        "proposedVersionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "reason": "Teach idempotent retries.",
+        "removalIntent": null,
+        "removalIntentSha256": null,
+        "risk": "low",
+        "skillId": "99999999-9999-4999-8999-999999999999",
+        "status": "pending_review",
+        "subjectSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
       "name": "remove-candidate-rejects-subject-hash-mismatch",
       "schema": "SkillCandidateV1",
       "valid": false,
@@ -6159,6 +8063,490 @@
         }
       ],
       "properties": {
+        "x-copilotkit-assertions": {
+          "items": {
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "left": {
+                    "pattern": "^(?:$|/)",
+                    "type": "string"
+                  },
+                  "normalization": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "caseFold": {
+                        "type": "boolean"
+                      },
+                      "unicode": {
+                        "enum": [
+                          "NFC",
+                          "NFKC"
+                        ]
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "operation": {
+                    "const": "compare"
+                  },
+                  "relation": {
+                    "enum": [
+                      "equal",
+                      "less-than",
+                      "less-than-or-equal"
+                    ]
+                  },
+                  "right": {
+                    "pattern": "^(?:$|/)",
+                    "type": "string"
+                  },
+                  "valueType": {
+                    "enum": [
+                      "number",
+                      "string",
+                      "date-time"
+                    ]
+                  }
+                },
+                "required": [
+                  "operation",
+                  "left",
+                  "relation",
+                  "right"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "normalization": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "caseFold": {
+                        "type": "boolean"
+                      },
+                      "unicode": {
+                        "enum": [
+                          "NFC",
+                          "NFKC"
+                        ]
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "operation": {
+                    "const": "unique"
+                  },
+                  "values": {
+                    "pattern": "^(?:$|/)",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "operation",
+                  "values"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "operation": {
+                    "const": "strictly-increasing"
+                  },
+                  "valueType": {
+                    "enum": [
+                      "number",
+                      "string",
+                      "date-time"
+                    ]
+                  },
+                  "values": {
+                    "pattern": "^(?:$|/)",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "operation",
+                  "values",
+                  "valueType"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "operation": {
+                    "const": "contiguous"
+                  },
+                  "start": {
+                    "type": "integer"
+                  },
+                  "values": {
+                    "pattern": "^(?:$|/)",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "operation",
+                  "values",
+                  "start"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "maximum": {
+                    "pattern": "^(?:$|/)",
+                    "type": "string"
+                  },
+                  "maximumExclusive": {
+                    "type": "boolean"
+                  },
+                  "minimum": {
+                    "pattern": "^(?:$|/)",
+                    "type": "string"
+                  },
+                  "minimumExclusive": {
+                    "type": "boolean"
+                  },
+                  "operation": {
+                    "const": "values-in-range"
+                  },
+                  "valueType": {
+                    "enum": [
+                      "number",
+                      "string",
+                      "date-time"
+                    ]
+                  },
+                  "values": {
+                    "pattern": "^(?:$|/)",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "operation",
+                  "values",
+                  "minimum",
+                  "maximum",
+                  "valueType"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "normalization": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "caseFold": {
+                        "type": "boolean"
+                      },
+                      "unicode": {
+                        "enum": [
+                          "NFC",
+                          "NFKC"
+                        ]
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "operation": {
+                    "const": "references"
+                  },
+                  "targets": {
+                    "pattern": "^(?:$|/)",
+                    "type": "string"
+                  },
+                  "values": {
+                    "pattern": "^(?:$|/)",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "operation",
+                  "values",
+                  "targets"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "left": {
+                    "pattern": "^(?:$|/)",
+                    "type": "string"
+                  },
+                  "normalization": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "caseFold": {
+                        "type": "boolean"
+                      },
+                      "unicode": {
+                        "enum": [
+                          "NFC",
+                          "NFKC"
+                        ]
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "operation": {
+                    "const": "disjoint"
+                  },
+                  "right": {
+                    "pattern": "^(?:$|/)",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "operation",
+                  "left",
+                  "right"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "first": {
+                    "pattern": "^(?:$|/)",
+                    "type": "string"
+                  },
+                  "last": {
+                    "pattern": "^(?:$|/)",
+                    "type": "string"
+                  },
+                  "operation": {
+                    "const": "ordered-ranges"
+                  },
+                  "ranges": {
+                    "pattern": "^(?:$|/)",
+                    "type": "string"
+                  },
+                  "valueType": {
+                    "enum": [
+                      "number",
+                      "string",
+                      "date-time"
+                    ]
+                  }
+                },
+                "required": [
+                  "operation",
+                  "ranges",
+                  "first",
+                  "last",
+                  "valueType"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "collection": {
+                    "pattern": "^(?:$|/)",
+                    "type": "string"
+                  },
+                  "expected": {
+                    "pattern": "^(?:$|/)",
+                    "type": "string"
+                  },
+                  "key": {
+                    "pattern": "^(?:$|/)",
+                    "type": "string"
+                  },
+                  "normalization": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "caseFold": {
+                        "type": "boolean"
+                      },
+                      "unicode": {
+                        "enum": [
+                          "NFC",
+                          "NFKC"
+                        ]
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "operation": {
+                    "const": "lookup-equal"
+                  },
+                  "reference": {
+                    "pattern": "^(?:$|/)",
+                    "type": "string"
+                  },
+                  "value": {
+                    "pattern": "^(?:$|/)",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "operation",
+                  "collection",
+                  "key",
+                  "reference",
+                  "value",
+                  "expected"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "collection": {
+                    "pattern": "^(?:$|/)",
+                    "type": "string"
+                  },
+                  "key": {
+                    "pattern": "^(?:$|/)",
+                    "type": "string"
+                  },
+                  "keyNormalization": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "caseFold": {
+                        "type": "boolean"
+                      },
+                      "unicode": {
+                        "enum": [
+                          "NFC",
+                          "NFKC"
+                        ]
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "operation": {
+                    "const": "lookup-references"
+                  },
+                  "reference": {
+                    "pattern": "^(?:$|/)",
+                    "type": "string"
+                  },
+                  "sources": {
+                    "pattern": "^(?:$|/)",
+                    "type": "string"
+                  },
+                  "targets": {
+                    "pattern": "^(?:$|/)",
+                    "type": "string"
+                  },
+                  "valueNormalization": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "caseFold": {
+                        "type": "boolean"
+                      },
+                      "unicode": {
+                        "enum": [
+                          "NFC",
+                          "NFKC"
+                        ]
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "values": {
+                    "pattern": "^(?:$|/)",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "operation",
+                  "sources",
+                  "reference",
+                  "values",
+                  "collection",
+                  "key",
+                  "targets"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "anyOf": [
+                  {
+                    "required": [
+                      "exactly"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "minimum"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "maximum"
+                    ]
+                  }
+                ],
+                "properties": {
+                  "exactly": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "maximum": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "minimum": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "normalization": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "caseFold": {
+                        "type": "boolean"
+                      },
+                      "unicode": {
+                        "enum": [
+                          "NFC",
+                          "NFKC"
+                        ]
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "operation": {
+                    "const": "count"
+                  },
+                  "values": {
+                    "pattern": "^(?:$|/)",
+                    "type": "string"
+                  },
+                  "where": {
+                    "additionalProperties": false,
+                    "maxProperties": 1,
+                    "minProperties": 1,
+                    "properties": {
+                      "equals": true,
+                      "in": {
+                        "type": "array"
+                      }
+                    },
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "operation",
+                  "values"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "type": "array"
+        },
         "x-copilotkit-equal-properties": {
           "items": {
             "maxItems": 2,
@@ -6216,7 +8604,7 @@
           ]
         }
       },
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$schema": "https://copilotkit.ai/schemas/intelligence/learning-platform/v1/candidate-semantics",
       "additionalProperties": {},
       "properties": {
         "attemptId": {
@@ -6341,7 +8729,16 @@
             "createdAt",
             "updatedAt"
           ],
-          "type": "object"
+          "type": "object",
+          "x-copilotkit-assertions": [
+            {
+              "left": "/snapshotRange/firstSequence",
+              "operation": "compare",
+              "relation": "less-than-or-equal",
+              "right": "/snapshotRange/lastSequence",
+              "valueType": "number"
+            }
+          ]
         },
         "chunkIndex": {
           "maximum": 9007199254740991,
@@ -6384,7 +8781,27 @@
         "chunkIndex",
         "chunk"
       ],
-      "type": "object"
+      "type": "object",
+      "x-copilotkit-assertions": [
+        {
+          "left": "/learningRunId",
+          "operation": "compare",
+          "relation": "equal",
+          "right": "/chunk/learningRunId"
+        },
+        {
+          "left": "/attemptId",
+          "operation": "compare",
+          "relation": "equal",
+          "right": "/chunk/attemptId"
+        },
+        {
+          "left": "/chunkIndex",
+          "operation": "compare",
+          "relation": "equal",
+          "right": "/chunk/chunkIndex"
+        }
+      ]
     },
     "BlobLocatorV1": {
       "$defs": {
@@ -6682,7 +9099,7 @@
           ]
         }
       },
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$schema": "https://copilotkit.ai/schemas/intelligence/learning-platform/v1/candidate-semantics",
       "additionalProperties": {},
       "properties": {
         "attemptId": {
@@ -7123,7 +9540,25 @@
                           "rootDirectoryName",
                           "files"
                         ],
-                        "type": "object"
+                        "type": "object",
+                        "x-copilotkit-assertions": [
+                          {
+                            "normalization": {
+                              "caseFold": true,
+                              "unicode": "NFKC"
+                            },
+                            "operation": "unique",
+                            "values": "/files/*/path"
+                          },
+                          {
+                            "exactly": 1,
+                            "operation": "count",
+                            "values": "/files/*/path",
+                            "where": {
+                              "equals": "SKILL.md"
+                            }
+                          }
+                        ]
                       },
                       {
                         "type": "null"
@@ -7418,7 +9853,22 @@
             "rejections",
             "usage"
           ],
-          "type": "object"
+          "type": "object",
+          "x-copilotkit-assertions": [
+            {
+              "operation": "unique",
+              "values": "/insights/*/outputAlias"
+            },
+            {
+              "operation": "unique",
+              "values": "/skillCandidates/*/outputAlias"
+            },
+            {
+              "operation": "references",
+              "targets": "/insights/*/outputAlias",
+              "values": "/skillCandidates/*/insightAliases/*"
+            }
+          ]
         }
       },
       "required": [
@@ -7434,7 +9884,7 @@
       "type": "object"
     },
     "CreateLearningRunV1": {
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$schema": "https://copilotkit.ai/schemas/intelligence/learning-platform/v1/candidate-semantics",
       "additionalProperties": {},
       "properties": {
         "containerConfigRevision": {
@@ -7662,9 +10112,6 @@
         }
       },
       "required": [
-        "schemaVersion",
-        "requestId",
-        "traceId",
         "learningRunId",
         "organizationId",
         "projectId",
@@ -7684,9 +10131,49 @@
         "workflowVersion",
         "normalizerVersion",
         "sanitizerVersion",
-        "manifestSha256"
+        "manifestSha256",
+        "schemaVersion",
+        "requestId",
+        "traceId"
       ],
-      "type": "object"
+      "type": "object",
+      "x-copilotkit-assertions": [
+        {
+          "left": "/selectedAfterSequence",
+          "operation": "compare",
+          "relation": "less-than-or-equal",
+          "right": "/selectedThroughSequence",
+          "valueType": "number"
+        },
+        {
+          "normalization": {
+            "caseFold": true
+          },
+          "operation": "unique",
+          "values": "/snapshotIdsAndHashes/*/snapshotId"
+        },
+        {
+          "maximum": "/selectedThroughSequence",
+          "minimum": "/selectedAfterSequence",
+          "minimumExclusive": true,
+          "operation": "values-in-range",
+          "valueType": "number",
+          "values": "/snapshotIdsAndHashes/*/containerSequence"
+        },
+        {
+          "operation": "strictly-increasing",
+          "valueType": "number",
+          "values": "/snapshotIdsAndHashes/*/containerSequence"
+        },
+        {
+          "normalization": {
+            "caseFold": true
+          },
+          "operation": "references",
+          "targets": "/snapshotIdsAndHashes/*/snapshotId",
+          "values": "/selectedAnnotations/*/targetSnapshotId"
+        }
+      ]
     },
     "CreateRegistryRevisionV1": {
       "$defs": {
@@ -8076,7 +10563,7 @@
           ]
         }
       },
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$schema": "https://copilotkit.ai/schemas/intelligence/learning-platform/v1/candidate-semantics",
       "additionalProperties": {},
       "properties": {
         "alias": {
@@ -8261,7 +10748,25 @@
                 "bundleByteLength",
                 "provenance"
               ],
-              "type": "object"
+              "type": "object",
+              "x-copilotkit-assertions": [
+                {
+                  "normalization": {
+                    "caseFold": true,
+                    "unicode": "NFC"
+                  },
+                  "operation": "unique",
+                  "values": "/files/*/path"
+                },
+                {
+                  "minimum": 1,
+                  "operation": "count",
+                  "values": "/files/*/path",
+                  "where": {
+                    "equals": "SKILL.md"
+                  }
+                }
+              ]
             },
             "schemaVersion": {
               "const": 1,
@@ -8273,7 +10778,21 @@
             "manifest",
             "locator"
           ],
-          "type": "object"
+          "type": "object",
+          "x-copilotkit-assertions": [
+            {
+              "left": "/manifest/bundleSha256",
+              "operation": "compare",
+              "relation": "equal",
+              "right": "/locator/applicationSha256"
+            },
+            {
+              "left": "/manifest/bundleByteLength",
+              "operation": "compare",
+              "relation": "equal",
+              "right": "/locator/byteLength"
+            }
+          ]
         },
         "description": {
           "anyOf": [
@@ -8588,7 +11107,7 @@
           ]
         }
       },
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$schema": "https://copilotkit.ai/schemas/intelligence/learning-platform/v1/candidate-semantics",
       "additionalProperties": {},
       "allOf": [
         {
@@ -8725,7 +11244,25 @@
                 "rootDirectoryName",
                 "files"
               ],
-              "type": "object"
+              "type": "object",
+              "x-copilotkit-assertions": [
+                {
+                  "normalization": {
+                    "caseFold": true,
+                    "unicode": "NFKC"
+                  },
+                  "operation": "unique",
+                  "values": "/files/*/path"
+                },
+                {
+                  "exactly": 1,
+                  "operation": "count",
+                  "values": "/files/*/path",
+                  "where": {
+                    "equals": "SKILL.md"
+                  }
+                }
+              ]
             },
             {
               "type": "null"
@@ -9505,7 +12042,7 @@
           ]
         }
       },
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$schema": "https://copilotkit.ai/schemas/intelligence/learning-platform/v1/candidate-semantics",
       "additionalProperties": {},
       "properties": {
         "attemptId": {
@@ -9619,7 +12156,16 @@
         "createdAt",
         "updatedAt"
       ],
-      "type": "object"
+      "type": "object",
+      "x-copilotkit-assertions": [
+        {
+          "left": "/snapshotRange/firstSequence",
+          "operation": "compare",
+          "relation": "less-than-or-equal",
+          "right": "/snapshotRange/lastSequence",
+          "valueType": "number"
+        }
+      ]
     },
     "LearningContainerV1": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -9862,7 +12408,7 @@
           ]
         }
       },
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$schema": "https://copilotkit.ai/schemas/intelligence/learning-platform/v1/candidate-semantics",
       "additionalProperties": {},
       "properties": {
         "chunks": {
@@ -9980,8 +12526,18 @@
               "createdAt",
               "updatedAt"
             ],
-            "type": "object"
+            "type": "object",
+            "x-copilotkit-assertions": [
+              {
+                "left": "/snapshotRange/firstSequence",
+                "operation": "compare",
+                "relation": "less-than-or-equal",
+                "right": "/snapshotRange/lastSequence",
+                "valueType": "number"
+              }
+            ]
           },
+          "minItems": 1,
           "type": "array"
         },
         "outputSha256": {
@@ -10389,7 +12945,25 @@
                           "rootDirectoryName",
                           "files"
                         ],
-                        "type": "object"
+                        "type": "object",
+                        "x-copilotkit-assertions": [
+                          {
+                            "normalization": {
+                              "caseFold": true,
+                              "unicode": "NFKC"
+                            },
+                            "operation": "unique",
+                            "values": "/files/*/path"
+                          },
+                          {
+                            "exactly": 1,
+                            "operation": "count",
+                            "values": "/files/*/path",
+                            "where": {
+                              "equals": "SKILL.md"
+                            }
+                          }
+                        ]
                       },
                       {
                         "type": "null"
@@ -10684,7 +13258,22 @@
             "rejections",
             "usage"
           ],
-          "type": "object"
+          "type": "object",
+          "x-copilotkit-assertions": [
+            {
+              "operation": "unique",
+              "values": "/insights/*/outputAlias"
+            },
+            {
+              "operation": "unique",
+              "values": "/skillCandidates/*/outputAlias"
+            },
+            {
+              "operation": "references",
+              "targets": "/insights/*/outputAlias",
+              "values": "/skillCandidates/*/insightAliases/*"
+            }
+          ]
         }
       },
       "required": [
@@ -10692,7 +13281,29 @@
         "chunks",
         "workflowOutput"
       ],
-      "type": "object"
+      "type": "object",
+      "x-copilotkit-assertions": [
+        {
+          "operation": "unique",
+          "values": "/chunks/*/learningRunId"
+        },
+        {
+          "operation": "unique",
+          "values": "/chunks/*/attemptId"
+        },
+        {
+          "operation": "contiguous",
+          "start": 0,
+          "values": "/chunks/*/chunkIndex"
+        },
+        {
+          "first": "/snapshotRange/firstSequence",
+          "last": "/snapshotRange/lastSequence",
+          "operation": "ordered-ranges",
+          "ranges": "/chunks/*",
+          "valueType": "number"
+        }
+      ]
     },
     "LearningRunJobV1": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -10743,7 +13354,7 @@
       "type": "object"
     },
     "LearningRunV1": {
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$schema": "https://copilotkit.ai/schemas/intelligence/learning-platform/v1/candidate-semantics",
       "additionalProperties": {},
       "properties": {
         "completedAt": {
@@ -11027,7 +13638,44 @@
         "startedAt",
         "completedAt"
       ],
-      "type": "object"
+      "type": "object",
+      "x-copilotkit-assertions": [
+        {
+          "left": "/selectedAfterSequence",
+          "operation": "compare",
+          "relation": "less-than-or-equal",
+          "right": "/selectedThroughSequence",
+          "valueType": "number"
+        },
+        {
+          "normalization": {
+            "caseFold": true
+          },
+          "operation": "unique",
+          "values": "/snapshotIdsAndHashes/*/snapshotId"
+        },
+        {
+          "maximum": "/selectedThroughSequence",
+          "minimum": "/selectedAfterSequence",
+          "minimumExclusive": true,
+          "operation": "values-in-range",
+          "valueType": "number",
+          "values": "/snapshotIdsAndHashes/*/containerSequence"
+        },
+        {
+          "operation": "strictly-increasing",
+          "valueType": "number",
+          "values": "/snapshotIdsAndHashes/*/containerSequence"
+        },
+        {
+          "normalization": {
+            "caseFold": true
+          },
+          "operation": "references",
+          "targets": "/snapshotIdsAndHashes/*/snapshotId",
+          "values": "/selectedAnnotations/*/targetSnapshotId"
+        }
+      ]
     },
     "LearningWorkflowInputV1": {
       "$defs": {
@@ -11063,7 +13711,7 @@
           ]
         }
       },
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$schema": "https://copilotkit.ai/schemas/intelligence/learning-platform/v1/candidate-semantics",
       "additionalProperties": {},
       "properties": {
         "availableSkills": {
@@ -11252,7 +13900,25 @@
                       "bundleByteLength",
                       "provenance"
                     ],
-                    "type": "object"
+                    "type": "object",
+                    "x-copilotkit-assertions": [
+                      {
+                        "normalization": {
+                          "caseFold": true,
+                          "unicode": "NFC"
+                        },
+                        "operation": "unique",
+                        "values": "/files/*/path"
+                      },
+                      {
+                        "minimum": 1,
+                        "operation": "count",
+                        "values": "/files/*/path",
+                        "where": {
+                          "equals": "SKILL.md"
+                        }
+                      }
+                    ]
                   },
                   "schemaVersion": {
                     "const": 1,
@@ -11264,7 +13930,21 @@
                   "manifest",
                   "locator"
                 ],
-                "type": "object"
+                "type": "object",
+                "x-copilotkit-assertions": [
+                  {
+                    "left": "/manifest/bundleSha256",
+                    "operation": "compare",
+                    "relation": "equal",
+                    "right": "/locator/applicationSha256"
+                  },
+                  {
+                    "left": "/manifest/bundleByteLength",
+                    "operation": "compare",
+                    "relation": "equal",
+                    "right": "/locator/byteLength"
+                  }
+                ]
               },
               "description": {
                 "anyOf": [
@@ -11588,7 +14268,56 @@
         "promptContext",
         "limits"
       ],
-      "type": "object"
+      "type": "object",
+      "x-copilotkit-assertions": [
+        {
+          "operation": "unique",
+          "values": "/threads/*/threadId"
+        },
+        {
+          "normalization": {
+            "caseFold": true
+          },
+          "operation": "unique",
+          "values": "/threads/*/snapshotId"
+        },
+        {
+          "operation": "unique",
+          "values": "/availableSkills/*/alias"
+        },
+        {
+          "normalization": {
+            "caseFold": true
+          },
+          "operation": "references",
+          "targets": "/threads/*/snapshotId",
+          "values": "/selectedAnnotations/*/targetSnapshotId"
+        },
+        {
+          "collection": "/threads/*",
+          "key": "/snapshotId",
+          "keyNormalization": {
+            "caseFold": true
+          },
+          "operation": "lookup-references",
+          "reference": "/targetSnapshotId",
+          "sources": "/selectedAnnotations/*",
+          "targets": "/messages/*/messageId",
+          "values": "/targetEvidenceLocator/messageIds/*"
+        },
+        {
+          "collection": "/threads/*",
+          "key": "/snapshotId",
+          "keyNormalization": {
+            "caseFold": true
+          },
+          "operation": "lookup-references",
+          "reference": "/targetSnapshotId",
+          "sources": "/selectedAnnotations/*",
+          "targets": "/messages/*/eventIds/*",
+          "values": "/targetEvidenceLocator/eventIds/*"
+        }
+      ]
     },
     "LearningWorkflowOutputV1": {
       "$defs": {
@@ -11624,7 +14353,7 @@
           ]
         }
       },
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$schema": "https://copilotkit.ai/schemas/intelligence/learning-platform/v1/candidate-semantics",
       "additionalProperties": {},
       "properties": {
         "coverage": {
@@ -12025,7 +14754,25 @@
                       "rootDirectoryName",
                       "files"
                     ],
-                    "type": "object"
+                    "type": "object",
+                    "x-copilotkit-assertions": [
+                      {
+                        "normalization": {
+                          "caseFold": true,
+                          "unicode": "NFKC"
+                        },
+                        "operation": "unique",
+                        "values": "/files/*/path"
+                      },
+                      {
+                        "exactly": 1,
+                        "operation": "count",
+                        "values": "/files/*/path",
+                        "where": {
+                          "equals": "SKILL.md"
+                        }
+                      }
+                    ]
                   },
                   {
                     "type": "null"
@@ -12320,7 +15067,22 @@
         "rejections",
         "usage"
       ],
-      "type": "object"
+      "type": "object",
+      "x-copilotkit-assertions": [
+        {
+          "operation": "unique",
+          "values": "/insights/*/outputAlias"
+        },
+        {
+          "operation": "unique",
+          "values": "/skillCandidates/*/outputAlias"
+        },
+        {
+          "operation": "references",
+          "targets": "/insights/*/outputAlias",
+          "values": "/skillCandidates/*/insightAliases/*"
+        }
+      ]
     },
     "NormalizedMessageV1": {
       "$defs": {
@@ -12633,7 +15395,7 @@
           ]
         }
       },
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$schema": "https://copilotkit.ai/schemas/intelligence/learning-platform/v1/candidate-semantics",
       "additionalProperties": {},
       "properties": {
         "generatedCandidate": {
@@ -12773,7 +15535,25 @@
                     "rootDirectoryName",
                     "files"
                   ],
-                  "type": "object"
+                  "type": "object",
+                  "x-copilotkit-assertions": [
+                    {
+                      "normalization": {
+                        "caseFold": true,
+                        "unicode": "NFKC"
+                      },
+                      "operation": "unique",
+                      "values": "/files/*/path"
+                    },
+                    {
+                      "exactly": 1,
+                      "operation": "count",
+                      "values": "/files/*/path",
+                      "where": {
+                        "equals": "SKILL.md"
+                      }
+                    }
+                  ]
                 },
                 {
                   "type": "null"
@@ -13086,7 +15866,15 @@
         "idempotencyKey",
         "generatedCandidate"
       ],
-      "type": "object"
+      "type": "object",
+      "x-copilotkit-assertions": [
+        {
+          "left": "/outputAlias",
+          "operation": "compare",
+          "relation": "equal",
+          "right": "/generatedCandidate/outputAlias"
+        }
+      ]
     },
     "PublishCandidateV1": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -13248,7 +16036,7 @@
           ]
         }
       },
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$schema": "https://copilotkit.ai/schemas/intelligence/learning-platform/v1/candidate-semantics",
       "additionalProperties": {},
       "properties": {
         "agentRunId": {
@@ -13574,7 +16362,42 @@
         "tokenEstimate",
         "containerSequence"
       ],
-      "type": "object"
+      "type": "object",
+      "x-copilotkit-assertions": [
+        {
+          "collection": "/sourceEvents/*",
+          "expected": "/terminalType",
+          "key": "/eventId",
+          "operation": "lookup-equal",
+          "reference": "/terminalEventId",
+          "value": "/type"
+        },
+        {
+          "exactly": 1,
+          "operation": "count",
+          "values": "/sourceEvents/*/type",
+          "where": {
+            "in": [
+              "RUN_FINISHED",
+              "RUN_ERROR"
+            ]
+          }
+        },
+        {
+          "left": "/startedAt",
+          "operation": "compare",
+          "relation": "less-than-or-equal",
+          "right": "/terminalAt",
+          "valueType": "date-time"
+        },
+        {
+          "left": "/terminalAt",
+          "operation": "compare",
+          "relation": "less-than-or-equal",
+          "right": "/capturedAt",
+          "valueType": "date-time"
+        }
+      ]
     },
     "SelectedHumanAnnotationV1": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -13738,7 +16561,7 @@
           ]
         }
       },
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$schema": "https://copilotkit.ai/schemas/intelligence/learning-platform/v1/candidate-semantics",
       "additionalProperties": {},
       "properties": {
         "agentSkillsProfile": {
@@ -13820,7 +16643,25 @@
         "bundleByteLength",
         "provenance"
       ],
-      "type": "object"
+      "type": "object",
+      "x-copilotkit-assertions": [
+        {
+          "normalization": {
+            "caseFold": true,
+            "unicode": "NFC"
+          },
+          "operation": "unique",
+          "values": "/files/*/path"
+        },
+        {
+          "minimum": 1,
+          "operation": "count",
+          "values": "/files/*/path",
+          "where": {
+            "equals": "SKILL.md"
+          }
+        }
+      ]
     },
     "SkillBundleV1": {
       "$defs": {
@@ -13856,7 +16697,7 @@
           ]
         }
       },
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$schema": "https://copilotkit.ai/schemas/intelligence/learning-platform/v1/candidate-semantics",
       "additionalProperties": {},
       "properties": {
         "locator": {
@@ -14034,7 +16875,25 @@
             "bundleByteLength",
             "provenance"
           ],
-          "type": "object"
+          "type": "object",
+          "x-copilotkit-assertions": [
+            {
+              "normalization": {
+                "caseFold": true,
+                "unicode": "NFC"
+              },
+              "operation": "unique",
+              "values": "/files/*/path"
+            },
+            {
+              "minimum": 1,
+              "operation": "count",
+              "values": "/files/*/path",
+              "where": {
+                "equals": "SKILL.md"
+              }
+            }
+          ]
         },
         "schemaVersion": {
           "const": 1,
@@ -14046,7 +16905,21 @@
         "manifest",
         "locator"
       ],
-      "type": "object"
+      "type": "object",
+      "x-copilotkit-assertions": [
+        {
+          "left": "/manifest/bundleSha256",
+          "operation": "compare",
+          "relation": "equal",
+          "right": "/locator/applicationSha256"
+        },
+        {
+          "left": "/manifest/bundleByteLength",
+          "operation": "compare",
+          "relation": "equal",
+          "right": "/locator/byteLength"
+        }
+      ]
     },
     "SkillCandidateV1": {
       "$defs": {
@@ -14117,6 +16990,14 @@
                 "type": "null"
               }
             },
+            "x-copilotkit-assertions": [
+              {
+                "left": "/bundleLocator/applicationSha256",
+                "operation": "compare",
+                "relation": "equal",
+                "right": "/bundleSha256"
+              }
+            ],
             "x-copilotkit-equal-properties": [
               [
                 "subjectSha256",
@@ -14157,6 +17038,14 @@
                 "type": "null"
               }
             },
+            "x-copilotkit-assertions": [
+              {
+                "left": "/bundleLocator/applicationSha256",
+                "operation": "compare",
+                "relation": "equal",
+                "right": "/bundleSha256"
+              }
+            ],
             "x-copilotkit-equal-properties": [
               [
                 "subjectSha256",
@@ -14750,7 +17639,7 @@
           ]
         }
       },
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$schema": "https://copilotkit.ai/schemas/intelligence/learning-platform/v1/candidate-semantics",
       "additionalProperties": {},
       "properties": {
         "approvalMethod": {
@@ -14954,7 +17843,25 @@
             "bundleByteLength",
             "provenance"
           ],
-          "type": "object"
+          "type": "object",
+          "x-copilotkit-assertions": [
+            {
+              "normalization": {
+                "caseFold": true,
+                "unicode": "NFC"
+              },
+              "operation": "unique",
+              "values": "/files/*/path"
+            },
+            {
+              "minimum": 1,
+              "operation": "count",
+              "values": "/files/*/path",
+              "where": {
+                "equals": "SKILL.md"
+              }
+            }
+          ]
         },
         "manifestSha256": {
           "pattern": "^[a-f0-9]{64}$",
@@ -14999,7 +17906,39 @@
         "manifest",
         "approvalMethod"
       ],
-      "type": "object"
+      "type": "object",
+      "x-copilotkit-assertions": [
+        {
+          "left": "/bundleSha256",
+          "operation": "compare",
+          "relation": "equal",
+          "right": "/bundleLocator/applicationSha256"
+        },
+        {
+          "left": "/bundleByteLength",
+          "operation": "compare",
+          "relation": "equal",
+          "right": "/bundleLocator/byteLength"
+        },
+        {
+          "left": "/manifest/bundleSha256",
+          "operation": "compare",
+          "relation": "equal",
+          "right": "/bundleSha256"
+        },
+        {
+          "left": "/manifest/manifestSha256",
+          "operation": "compare",
+          "relation": "equal",
+          "right": "/manifestSha256"
+        },
+        {
+          "left": "/manifest/bundleByteLength",
+          "operation": "compare",
+          "relation": "equal",
+          "right": "/bundleByteLength"
+        }
+      ]
     },
     "SkillSetProjectionV1": {
       "$defs": {
@@ -15035,8 +17974,29 @@
           ]
         }
       },
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$schema": "https://copilotkit.ai/schemas/intelligence/learning-platform/v1/candidate-semantics",
       "additionalProperties": {},
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "revoked": {
+                "const": true
+              }
+            },
+            "required": [
+              "revoked"
+            ]
+          },
+          "then": {
+            "properties": {
+              "entries": {
+                "maxItems": 0
+              }
+            }
+          }
+        }
+      ],
       "properties": {
         "entries": {
           "items": {
@@ -15243,7 +18203,25 @@
                   "bundleByteLength",
                   "provenance"
                 ],
-                "type": "object"
+                "type": "object",
+                "x-copilotkit-assertions": [
+                  {
+                    "normalization": {
+                      "caseFold": true,
+                      "unicode": "NFC"
+                    },
+                    "operation": "unique",
+                    "values": "/files/*/path"
+                  },
+                  {
+                    "minimum": 1,
+                    "operation": "count",
+                    "values": "/files/*/path",
+                    "where": {
+                      "equals": "SKILL.md"
+                    }
+                  }
+                ]
               },
               "manifestSha256": {
                 "pattern": "^[a-f0-9]{64}$",
@@ -15288,7 +18266,39 @@
               "manifest",
               "approvalMethod"
             ],
-            "type": "object"
+            "type": "object",
+            "x-copilotkit-assertions": [
+              {
+                "left": "/bundleSha256",
+                "operation": "compare",
+                "relation": "equal",
+                "right": "/bundleLocator/applicationSha256"
+              },
+              {
+                "left": "/bundleByteLength",
+                "operation": "compare",
+                "relation": "equal",
+                "right": "/bundleLocator/byteLength"
+              },
+              {
+                "left": "/manifest/bundleSha256",
+                "operation": "compare",
+                "relation": "equal",
+                "right": "/bundleSha256"
+              },
+              {
+                "left": "/manifest/manifestSha256",
+                "operation": "compare",
+                "relation": "equal",
+                "right": "/manifestSha256"
+              },
+              {
+                "left": "/manifest/bundleByteLength",
+                "operation": "compare",
+                "relation": "equal",
+                "right": "/bundleByteLength"
+              }
+            ]
           },
           "type": "array"
         },
@@ -15335,7 +18345,21 @@
         "publishedAt",
         "revoked"
       ],
-      "type": "object"
+      "type": "object",
+      "x-copilotkit-assertions": [
+        {
+          "operation": "contiguous",
+          "start": 0,
+          "values": "/entries/*/position"
+        },
+        {
+          "normalization": {
+            "caseFold": true
+          },
+          "operation": "unique",
+          "values": "/entries/*/skillId"
+        }
+      ]
     },
     "SnapshotIdentityV1": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",

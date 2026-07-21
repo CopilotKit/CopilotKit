@@ -1,7 +1,6 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { Ajv2020 } from "ajv/dist/2020.js";
-import type { ValidateFunction } from "ajv/dist/2020.js";
 import { describe, expect, test } from "vitest";
 import {
   buildLearningPlatformConformanceCorpus,
@@ -10,11 +9,19 @@ import {
 } from "./conformance.js";
 import type { LearningPlatformConformanceSchemaName } from "./conformance.js";
 import {
+  COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD,
   COPILOTKIT_CANDIDATE_SEMANTICS_META_SCHEMA_URI,
   COPILOTKIT_CANDIDATE_SEMANTICS_VOCABULARY_URI,
   COPILOTKIT_EQUAL_PROPERTIES_JSON_SCHEMA_KEYWORD,
+  learningContractJsonSchemas,
 } from "./contracts.js";
+import type { JsonObject } from "./contracts.js";
 import { LEARNING_PLATFORM_ERROR_CODES } from "./errors.js";
+import type { LearningContractJsonSchemaValidateFunction } from "./portable-validator.js";
+import {
+  compileLearningContractJsonSchema,
+  registerLearningContractJsonSchemaValidator,
+} from "./portable-validator.js";
 
 const corpusPath = fileURLToPath(
   new URL("../conformance/learning-platform-v1.json", import.meta.url),
@@ -60,22 +67,23 @@ const candidateSubjectHashCaseNames = new Set([
   "remove-candidate-rejects-subject-hash-mismatch",
 ]);
 
-function createPortableSchemaValidator(metaSchema: object): Ajv2020 {
+function createPortableSchemaValidator(): Ajv2020 {
   const ajv = new Ajv2020({ allErrors: true, validateFormats: false });
-  ajv.addKeyword({
-    keyword: COPILOTKIT_EQUAL_PROPERTIES_JSON_SCHEMA_KEYWORD,
-    schemaType: "array",
-    type: "object",
-    errors: false,
-    validate(
-      pairs: readonly (readonly [string, string])[],
-      value: Record<string, unknown>,
-    ) {
-      return pairs.every(([left, right]) => value[left] === value[right]);
-    },
-  });
-  ajv.addMetaSchema(metaSchema);
-  return ajv;
+  return registerLearningContractJsonSchemaValidator(ajv);
+}
+
+function containsPortableSemanticKeyword(value: unknown): boolean {
+  if (Array.isArray(value)) {
+    return value.some(containsPortableSemanticKeyword);
+  }
+  if (value === null || typeof value !== "object") return false;
+  if (
+    Object.hasOwn(value, COPILOTKIT_EQUAL_PROPERTIES_JSON_SCHEMA_KEYWORD) ||
+    Object.hasOwn(value, COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD)
+  ) {
+    return true;
+  }
+  return Object.values(value).some(containsPortableSemanticKeyword);
 }
 
 const dtoSchemaNames = [
@@ -157,16 +165,69 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
     }
   });
 
-  test("enforces candidate action invariants through emitted JSON Schema", () => {
+  test("checks every named case against the supported portable validator", () => {
     const corpus = buildLearningPlatformConformanceCorpus();
-    const ajv = createPortableSchemaValidator(
-      corpus.metaSchemas[
-        COPILOTKIT_CANDIDATE_SEMANTICS_META_SCHEMA_URI
-      ] as object,
-    );
+    const ajv = createPortableSchemaValidator();
     const validators = new Map<
       LearningPlatformConformanceSchemaName,
-      ValidateFunction
+      LearningContractJsonSchemaValidateFunction
+    >();
+    const mismatches: string[] = [];
+
+    for (const entry of corpus.cases) {
+      const validate =
+        validators.get(entry.schema) ??
+        compileLearningContractJsonSchema(
+          ajv,
+          corpus.schemas[entry.schema] as JsonObject,
+        );
+      validators.set(entry.schema, validate);
+      const canonicalResult = learningPlatformConformanceSchemas[
+        entry.schema
+      ].safeParse(entry.value).success;
+      const portableResult = validate(entry.value) === true;
+      if (
+        portableResult !== canonicalResult ||
+        canonicalResult !== entry.valid
+      ) {
+        mismatches.push(
+          `${entry.name}: portable=${portableResult} canonical=${canonicalResult} expected=${entry.valid}`,
+        );
+      }
+    }
+
+    expect(mismatches, `mismatchCount: ${mismatches.length}`).toEqual([]);
+  });
+
+  test("keeps exported and corpus JSON Schemas identical", () => {
+    const corpus = buildLearningPlatformConformanceCorpus();
+
+    for (const [name, schema] of Object.entries(learningContractJsonSchemas)) {
+      expect(
+        corpus.schemas[name as LearningPlatformConformanceSchemaName],
+      ).toEqual(schema);
+    }
+  });
+
+  test("declares the custom capability only for schemas that use portable semantic keywords", () => {
+    const corpus = buildLearningPlatformConformanceCorpus();
+
+    for (const [name, schema] of Object.entries(corpus.schemas)) {
+      const expectedMetaSchema = containsPortableSemanticKeyword(schema)
+        ? COPILOTKIT_CANDIDATE_SEMANTICS_META_SCHEMA_URI
+        : "https://json-schema.org/draft/2020-12/schema";
+      expect((schema as { $schema?: string }).$schema, name).toBe(
+        expectedMetaSchema,
+      );
+    }
+  });
+
+  test("enforces candidate action invariants through emitted JSON Schema", () => {
+    const corpus = buildLearningPlatformConformanceCorpus();
+    const ajv = createPortableSchemaValidator();
+    const validators = new Map<
+      LearningPlatformConformanceSchemaName,
+      LearningContractJsonSchemaValidateFunction
     >();
     const actionCases = corpus.cases.filter(({ name }) =>
       candidateActionCaseNames.has(name),
@@ -176,24 +237,26 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
     for (const entry of actionCases) {
       const validate =
         validators.get(entry.schema) ??
-        ajv.compile(corpus.schemas[entry.schema] as object);
+        compileLearningContractJsonSchema(
+          ajv,
+          corpus.schemas[entry.schema] as JsonObject,
+        );
       validators.set(entry.schema, validate);
 
       expect(
         validate(entry.value),
-        `${entry.name}: ${ajv.errorsText(validate.errors)}`,
+        `${entry.name}: ${JSON.stringify(validate.errors)}`,
       ).toBe(entry.valid);
     }
   });
 
   test("enforces candidate subject-hash equality through emitted JSON Schema semantics", () => {
     const corpus = buildLearningPlatformConformanceCorpus();
-    const ajv = createPortableSchemaValidator(
-      corpus.metaSchemas[
-        COPILOTKIT_CANDIDATE_SEMANTICS_META_SCHEMA_URI
-      ] as object,
+    const ajv = createPortableSchemaValidator();
+    const validate = compileLearningContractJsonSchema(
+      ajv,
+      corpus.schemas.SkillCandidateV1 as JsonObject,
     );
-    const validate = ajv.compile(corpus.schemas.SkillCandidateV1 as object);
     const mismatchCases = corpus.cases.filter(({ name }) =>
       candidateSubjectHashCaseNames.has(name),
     );
@@ -202,12 +265,12 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
     for (const entry of mismatchCases) {
       expect(
         validate(entry.value),
-        `${entry.name}: ${ajv.errorsText(validate.errors)}`,
+        `${entry.name}: ${JSON.stringify(validate.errors)}`,
       ).toBe(entry.valid);
     }
   });
 
-  test("fails closed when the required candidate-semantics vocabulary is unavailable", () => {
+  test("gates permissive validation on the required portable capability", () => {
     const corpus = buildLearningPlatformConformanceCorpus();
     const schema = corpus.schemas.SkillCandidateV1 as object & {
       $schema?: string;
@@ -231,6 +294,22 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
     expect(() => unsupportedVocabulary.compile(schema)).toThrow(
       `strict mode: unknown keyword: "${COPILOTKIT_EQUAL_PROPERTIES_JSON_SCHEMA_KEYWORD}"`,
     );
+
+    const permissiveVocabulary = new Ajv2020({
+      strict: false,
+      validateFormats: false,
+    });
+    permissiveVocabulary.addMetaSchema(metaSchema);
+    const permissiveValidate = permissiveVocabulary.compile(schema);
+    const mismatchCase = corpus.cases.find(
+      ({ name }) => name === "add-candidate-rejects-subject-hash-mismatch",
+    );
+
+    expect(mismatchCase).toBeDefined();
+    expect(permissiveValidate(mismatchCase?.value)).toBe(true);
+    expect(() =>
+      compileLearningContractJsonSchema(permissiveVocabulary, schema),
+    ).toThrowError(/LEARNING_CONTRACT_VALIDATOR_CAPABILITY_MISSING/);
   });
 
   test("publishes null as the canonical frozen available skill description", () => {

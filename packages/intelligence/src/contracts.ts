@@ -1,4 +1,5 @@
 import { z } from "zod/v4";
+import type { LearningContractAssertionV1 } from "./portable-validator.js";
 
 const nonEmptyStringSchema = z.string().min(1);
 const canonicalBase64Schema = z
@@ -69,6 +70,7 @@ export type JsonValue =
   | null
   | JsonValue[]
   | { readonly [key: string]: JsonValue };
+export type JsonObject = { readonly [key: string]: JsonValue };
 
 /** JSON-compatible value that rejects non-finite numbers and class instances. */
 export const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
@@ -1094,15 +1096,217 @@ export const generatedSkillCandidateV1Schema = z
  */
 export const COPILOTKIT_EQUAL_PROPERTIES_JSON_SCHEMA_KEYWORD =
   "x-copilotkit-equal-properties" as const;
-export const COPILOTKIT_CANDIDATE_SEMANTICS_VOCABULARY_URI =
+/** Bounded declarative assertions used by portable Learning V1 schemas. */
+export const COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD =
+  "x-copilotkit-assertions" as const;
+export const COPILOTKIT_LEARNING_CONTRACT_SEMANTICS_VOCABULARY_URI =
   "https://copilotkit.ai/schemas/intelligence/learning-platform/v1/candidate-semantics/vocabulary" as const;
-export const COPILOTKIT_CANDIDATE_SEMANTICS_META_SCHEMA_URI =
+export const COPILOTKIT_LEARNING_CONTRACT_META_SCHEMA_URI =
   "https://copilotkit.ai/schemas/intelligence/learning-platform/v1/candidate-semantics" as const;
+/** @deprecated Use the generalized Learning Contract vocabulary name. */
+export const COPILOTKIT_CANDIDATE_SEMANTICS_VOCABULARY_URI =
+  COPILOTKIT_LEARNING_CONTRACT_SEMANTICS_VOCABULARY_URI;
+/** @deprecated Use the generalized Learning Contract meta-schema name. */
+export const COPILOTKIT_CANDIDATE_SEMANTICS_META_SCHEMA_URI =
+  COPILOTKIT_LEARNING_CONTRACT_META_SCHEMA_URI;
 
-/** Required meta-schema for the candidate subject-hash equality vocabulary. */
-export const learningContractCandidateSemanticsMetaSchema: JsonValue = {
+const assertionNormalizationJsonSchema: JsonObject = {
+  type: "object",
+  properties: {
+    caseFold: { type: "boolean" },
+    unicode: { enum: ["NFC", "NFKC"] },
+  },
+  additionalProperties: false,
+};
+
+const assertionValueTypeJsonSchema: JsonObject = {
+  enum: ["number", "string", "date-time"],
+};
+
+const assertionJsonPointerJsonSchema: JsonObject = {
+  type: "string",
+  pattern: "^(?:$|/)",
+};
+
+/** JSON Schema for the bounded V1 portable assertion language. */
+export const learningContractAssertionV1JsonSchema: JsonObject = {
+  type: "array",
+  items: {
+    oneOf: [
+      {
+        type: "object",
+        properties: {
+          operation: { const: "compare" },
+          left: assertionJsonPointerJsonSchema,
+          relation: {
+            enum: ["equal", "less-than", "less-than-or-equal"],
+          },
+          right: assertionJsonPointerJsonSchema,
+          valueType: assertionValueTypeJsonSchema,
+          normalization: assertionNormalizationJsonSchema,
+        },
+        required: ["operation", "left", "relation", "right"],
+        additionalProperties: false,
+      },
+      {
+        type: "object",
+        properties: {
+          operation: { const: "unique" },
+          values: assertionJsonPointerJsonSchema,
+          normalization: assertionNormalizationJsonSchema,
+        },
+        required: ["operation", "values"],
+        additionalProperties: false,
+      },
+      {
+        type: "object",
+        properties: {
+          operation: { const: "strictly-increasing" },
+          values: assertionJsonPointerJsonSchema,
+          valueType: assertionValueTypeJsonSchema,
+        },
+        required: ["operation", "values", "valueType"],
+        additionalProperties: false,
+      },
+      {
+        type: "object",
+        properties: {
+          operation: { const: "contiguous" },
+          values: assertionJsonPointerJsonSchema,
+          start: { type: "integer" },
+        },
+        required: ["operation", "values", "start"],
+        additionalProperties: false,
+      },
+      {
+        type: "object",
+        properties: {
+          operation: { const: "values-in-range" },
+          values: assertionJsonPointerJsonSchema,
+          minimum: assertionJsonPointerJsonSchema,
+          maximum: assertionJsonPointerJsonSchema,
+          minimumExclusive: { type: "boolean" },
+          maximumExclusive: { type: "boolean" },
+          valueType: assertionValueTypeJsonSchema,
+        },
+        required: ["operation", "values", "minimum", "maximum", "valueType"],
+        additionalProperties: false,
+      },
+      {
+        type: "object",
+        properties: {
+          operation: { const: "references" },
+          values: assertionJsonPointerJsonSchema,
+          targets: assertionJsonPointerJsonSchema,
+          normalization: assertionNormalizationJsonSchema,
+        },
+        required: ["operation", "values", "targets"],
+        additionalProperties: false,
+      },
+      {
+        type: "object",
+        properties: {
+          operation: { const: "disjoint" },
+          left: assertionJsonPointerJsonSchema,
+          right: assertionJsonPointerJsonSchema,
+          normalization: assertionNormalizationJsonSchema,
+        },
+        required: ["operation", "left", "right"],
+        additionalProperties: false,
+      },
+      {
+        type: "object",
+        properties: {
+          operation: { const: "ordered-ranges" },
+          ranges: assertionJsonPointerJsonSchema,
+          first: assertionJsonPointerJsonSchema,
+          last: assertionJsonPointerJsonSchema,
+          valueType: assertionValueTypeJsonSchema,
+        },
+        required: ["operation", "ranges", "first", "last", "valueType"],
+        additionalProperties: false,
+      },
+      {
+        type: "object",
+        properties: {
+          operation: { const: "lookup-equal" },
+          collection: assertionJsonPointerJsonSchema,
+          key: assertionJsonPointerJsonSchema,
+          reference: assertionJsonPointerJsonSchema,
+          value: assertionJsonPointerJsonSchema,
+          expected: assertionJsonPointerJsonSchema,
+          normalization: assertionNormalizationJsonSchema,
+        },
+        required: [
+          "operation",
+          "collection",
+          "key",
+          "reference",
+          "value",
+          "expected",
+        ],
+        additionalProperties: false,
+      },
+      {
+        type: "object",
+        properties: {
+          operation: { const: "lookup-references" },
+          sources: assertionJsonPointerJsonSchema,
+          reference: assertionJsonPointerJsonSchema,
+          values: assertionJsonPointerJsonSchema,
+          collection: assertionJsonPointerJsonSchema,
+          key: assertionJsonPointerJsonSchema,
+          targets: assertionJsonPointerJsonSchema,
+          keyNormalization: assertionNormalizationJsonSchema,
+          valueNormalization: assertionNormalizationJsonSchema,
+        },
+        required: [
+          "operation",
+          "sources",
+          "reference",
+          "values",
+          "collection",
+          "key",
+          "targets",
+        ],
+        additionalProperties: false,
+      },
+      {
+        type: "object",
+        properties: {
+          operation: { const: "count" },
+          values: assertionJsonPointerJsonSchema,
+          where: {
+            type: "object",
+            properties: {
+              equals: true,
+              in: { type: "array" },
+            },
+            minProperties: 1,
+            maxProperties: 1,
+            additionalProperties: false,
+          },
+          exactly: { type: "integer", minimum: 0 },
+          minimum: { type: "integer", minimum: 0 },
+          maximum: { type: "integer", minimum: 0 },
+          normalization: assertionNormalizationJsonSchema,
+        },
+        required: ["operation", "values"],
+        anyOf: [
+          { required: ["exactly"] },
+          { required: ["minimum"] },
+          { required: ["maximum"] },
+        ],
+        additionalProperties: false,
+      },
+    ],
+  },
+};
+
+/** Required meta-schema for the versioned Learning Contract semantics. */
+export const learningContractSemanticsMetaSchema: JsonObject = {
   $schema: "https://json-schema.org/draft/2020-12/schema",
-  $id: COPILOTKIT_CANDIDATE_SEMANTICS_META_SCHEMA_URI,
+  $id: COPILOTKIT_LEARNING_CONTRACT_META_SCHEMA_URI,
   $vocabulary: {
     "https://json-schema.org/draft/2020-12/vocab/core": true,
     "https://json-schema.org/draft/2020-12/vocab/applicator": true,
@@ -1111,7 +1315,7 @@ export const learningContractCandidateSemanticsMetaSchema: JsonValue = {
     "https://json-schema.org/draft/2020-12/vocab/meta-data": true,
     "https://json-schema.org/draft/2020-12/vocab/format-annotation": true,
     "https://json-schema.org/draft/2020-12/vocab/content": true,
-    [COPILOTKIT_CANDIDATE_SEMANTICS_VOCABULARY_URI]: true,
+    [COPILOTKIT_LEARNING_CONTRACT_SEMANTICS_VOCABULARY_URI]: true,
   },
   $dynamicAnchor: "meta",
   allOf: [{ $ref: "https://json-schema.org/draft/2020-12/schema" }],
@@ -1128,8 +1332,29 @@ export const learningContractCandidateSemanticsMetaSchema: JsonValue = {
         maxItems: 2,
       },
     },
+    [COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD]:
+      learningContractAssertionV1JsonSchema,
   },
 };
+/** @deprecated Use the generalized Learning Contract meta-schema name. */
+export const learningContractCandidateSemanticsMetaSchema =
+  learningContractSemanticsMetaSchema;
+
+const portableAssertionsBySchema = new WeakMap<
+  object,
+  readonly LearningContractAssertionV1[]
+>();
+
+/** Associates bounded portable semantics with a canonical Learning schema. */
+export function registerLearningContractPortableAssertions(
+  schema: z.ZodType,
+  assertions: readonly LearningContractAssertionV1[],
+): void {
+  if (portableAssertionsBySchema.has(schema)) {
+    throw new Error("Portable assertions are already registered for schema");
+  }
+  portableAssertionsBySchema.set(schema, assertions);
+}
 
 // oxlint-disable unicorn/no-thenable -- `then` is a JSON Schema keyword here.
 const skillCandidateActionJsonSchema: z.core.JSONSchema.JSONSchema[] = [
@@ -1150,6 +1375,14 @@ const skillCandidateActionJsonSchema: z.core.JSONSchema.JSONSchema[] = [
       [COPILOTKIT_EQUAL_PROPERTIES_JSON_SCHEMA_KEYWORD]: [
         ["subjectSha256", "bundleSha256"],
       ],
+      [COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD]: [
+        {
+          operation: "compare",
+          left: "/bundleLocator/applicationSha256",
+          relation: "equal",
+          right: "/bundleSha256",
+        },
+      ] satisfies readonly LearningContractAssertionV1[],
     },
   },
   {
@@ -1169,6 +1402,14 @@ const skillCandidateActionJsonSchema: z.core.JSONSchema.JSONSchema[] = [
       [COPILOTKIT_EQUAL_PROPERTIES_JSON_SCHEMA_KEYWORD]: [
         ["subjectSha256", "bundleSha256"],
       ],
+      [COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD]: [
+        {
+          operation: "compare",
+          left: "/bundleLocator/applicationSha256",
+          relation: "equal",
+          right: "/bundleSha256",
+        },
+      ] satisfies readonly LearningContractAssertionV1[],
     },
   },
   {
@@ -1243,12 +1484,31 @@ const generatedSkillCandidateActionJsonSchema: z.core.JSONSchema.JSONSchema[] =
 export function toLearningContractJsonSchema(schema: z.ZodType) {
   const generatedJsonSchema = z.toJSONSchema(schema, {
     override: ({ zodSchema, jsonSchema: schemaFragment }) => {
+      const assertions = portableAssertionsBySchema.get(zodSchema);
+      if (assertions !== undefined) {
+        schemaFragment[COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD] = [
+          ...assertions,
+        ];
+      }
       const actionConstraints =
         zodSchema === skillCandidateV1Schema
           ? skillCandidateActionJsonSchema
           : zodSchema === generatedSkillCandidateV1Schema
             ? generatedSkillCandidateActionJsonSchema
-            : undefined;
+            : zodSchema === skillSetProjectionV1Schema
+              ? [
+                  {
+                    if: {
+                      properties: { revoked: { const: true } },
+                      required: ["revoked"],
+                    },
+                    // oxlint-disable-next-line unicorn/no-thenable -- `then` is a JSON Schema keyword here.
+                    then: {
+                      properties: { entries: { maxItems: 0 } },
+                    },
+                  },
+                ]
+              : undefined;
       if (actionConstraints) {
         schemaFragment.allOf = [
           ...(schemaFragment.allOf ?? []),
@@ -1258,24 +1518,27 @@ export function toLearningContractJsonSchema(schema: z.ZodType) {
     },
   });
 
-  if (jsonSchemaContainsEqualPropertiesKeyword(generatedJsonSchema)) {
+  if (jsonSchemaContainsCustomSemanticsKeyword(generatedJsonSchema)) {
     const portableSchema: Record<string, unknown> = generatedJsonSchema;
-    portableSchema.$schema = COPILOTKIT_CANDIDATE_SEMANTICS_META_SCHEMA_URI;
+    portableSchema.$schema = COPILOTKIT_LEARNING_CONTRACT_META_SCHEMA_URI;
   }
   return generatedJsonSchema;
 }
 
-function jsonSchemaContainsEqualPropertiesKeyword(value: unknown): boolean {
+function jsonSchemaContainsCustomSemanticsKeyword(value: unknown): boolean {
   if (Array.isArray(value)) {
-    return value.some(jsonSchemaContainsEqualPropertiesKeyword);
+    return value.some(jsonSchemaContainsCustomSemanticsKeyword);
   }
   if (value === null || typeof value !== "object") {
     return false;
   }
-  if (Object.hasOwn(value, COPILOTKIT_EQUAL_PROPERTIES_JSON_SCHEMA_KEYWORD)) {
+  if (
+    Object.hasOwn(value, COPILOTKIT_EQUAL_PROPERTIES_JSON_SCHEMA_KEYWORD) ||
+    Object.hasOwn(value, COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD)
+  ) {
     return true;
   }
-  return Object.values(value).some(jsonSchemaContainsEqualPropertiesKeyword);
+  return Object.values(value).some(jsonSchemaContainsCustomSemanticsKeyword);
 }
 
 export const learningWorkflowOutputV1Schema = z
@@ -1396,27 +1659,281 @@ export const learningRunJobV1Schema = z.looseObject({
 });
 export type LearningRunJobV1 = z.infer<typeof learningRunJobV1Schema>;
 
+const frozenManifestPortableAssertions = [
+  {
+    operation: "compare",
+    left: "/selectedAfterSequence",
+    relation: "less-than-or-equal",
+    right: "/selectedThroughSequence",
+    valueType: "number",
+  },
+  {
+    operation: "unique",
+    values: "/snapshotIdsAndHashes/*/snapshotId",
+    normalization: { caseFold: true },
+  },
+  {
+    operation: "values-in-range",
+    values: "/snapshotIdsAndHashes/*/containerSequence",
+    minimum: "/selectedAfterSequence",
+    maximum: "/selectedThroughSequence",
+    minimumExclusive: true,
+    valueType: "number",
+  },
+  {
+    operation: "strictly-increasing",
+    values: "/snapshotIdsAndHashes/*/containerSequence",
+    valueType: "number",
+  },
+  {
+    operation: "references",
+    values: "/selectedAnnotations/*/targetSnapshotId",
+    targets: "/snapshotIdsAndHashes/*/snapshotId",
+    normalization: { caseFold: true },
+  },
+] as const satisfies readonly LearningContractAssertionV1[];
+
+registerLearningContractPortableAssertions(runSnapshotV1Schema, [
+  {
+    operation: "lookup-equal",
+    collection: "/sourceEvents/*",
+    key: "/eventId",
+    reference: "/terminalEventId",
+    value: "/type",
+    expected: "/terminalType",
+  },
+  {
+    operation: "count",
+    values: "/sourceEvents/*/type",
+    where: { in: ["RUN_FINISHED", "RUN_ERROR"] },
+    exactly: 1,
+  },
+  {
+    operation: "compare",
+    left: "/startedAt",
+    relation: "less-than-or-equal",
+    right: "/terminalAt",
+    valueType: "date-time",
+  },
+  {
+    operation: "compare",
+    left: "/terminalAt",
+    relation: "less-than-or-equal",
+    right: "/capturedAt",
+    valueType: "date-time",
+  },
+]);
+registerLearningContractPortableAssertions(
+  learningRunFrozenManifestV1Schema,
+  frozenManifestPortableAssertions,
+);
+registerLearningContractPortableAssertions(
+  learningRunV1Schema,
+  frozenManifestPortableAssertions,
+);
+registerLearningContractPortableAssertions(learningChunkV1Schema, [
+  {
+    operation: "compare",
+    left: "/snapshotRange/firstSequence",
+    relation: "less-than-or-equal",
+    right: "/snapshotRange/lastSequence",
+    valueType: "number",
+  },
+]);
+registerLearningContractPortableAssertions(skillArtifactManifestV1Schema, [
+  {
+    operation: "unique",
+    values: "/files/*/path",
+    normalization: { unicode: "NFC", caseFold: true },
+  },
+  {
+    operation: "count",
+    values: "/files/*/path",
+    where: { equals: "SKILL.md" },
+    minimum: 1,
+  },
+]);
+registerLearningContractPortableAssertions(skillBundleV1Schema, [
+  {
+    operation: "compare",
+    left: "/manifest/bundleSha256",
+    relation: "equal",
+    right: "/locator/applicationSha256",
+  },
+  {
+    operation: "compare",
+    left: "/manifest/bundleByteLength",
+    relation: "equal",
+    right: "/locator/byteLength",
+  },
+]);
+registerLearningContractPortableAssertions(skillSetProjectionEntryV1Schema, [
+  {
+    operation: "compare",
+    left: "/bundleSha256",
+    relation: "equal",
+    right: "/bundleLocator/applicationSha256",
+  },
+  {
+    operation: "compare",
+    left: "/bundleByteLength",
+    relation: "equal",
+    right: "/bundleLocator/byteLength",
+  },
+  {
+    operation: "compare",
+    left: "/manifest/bundleSha256",
+    relation: "equal",
+    right: "/bundleSha256",
+  },
+  {
+    operation: "compare",
+    left: "/manifest/manifestSha256",
+    relation: "equal",
+    right: "/manifestSha256",
+  },
+  {
+    operation: "compare",
+    left: "/manifest/bundleByteLength",
+    relation: "equal",
+    right: "/bundleByteLength",
+  },
+]);
+registerLearningContractPortableAssertions(skillSetProjectionV1Schema, [
+  {
+    operation: "contiguous",
+    values: "/entries/*/position",
+    start: 0,
+  },
+  {
+    operation: "unique",
+    values: "/entries/*/skillId",
+    normalization: { caseFold: true },
+  },
+]);
+registerLearningContractPortableAssertions(learningWorkflowInputV1Schema, [
+  {
+    operation: "unique",
+    values: "/threads/*/threadId",
+  },
+  {
+    operation: "unique",
+    values: "/threads/*/snapshotId",
+    normalization: { caseFold: true },
+  },
+  {
+    operation: "unique",
+    values: "/availableSkills/*/alias",
+  },
+  {
+    operation: "references",
+    values: "/selectedAnnotations/*/targetSnapshotId",
+    targets: "/threads/*/snapshotId",
+    normalization: { caseFold: true },
+  },
+  {
+    operation: "lookup-references",
+    sources: "/selectedAnnotations/*",
+    reference: "/targetSnapshotId",
+    values: "/targetEvidenceLocator/messageIds/*",
+    collection: "/threads/*",
+    key: "/snapshotId",
+    targets: "/messages/*/messageId",
+    keyNormalization: { caseFold: true },
+  },
+  {
+    operation: "lookup-references",
+    sources: "/selectedAnnotations/*",
+    reference: "/targetSnapshotId",
+    values: "/targetEvidenceLocator/eventIds/*",
+    collection: "/threads/*",
+    key: "/snapshotId",
+    targets: "/messages/*/eventIds/*",
+    keyNormalization: { caseFold: true },
+  },
+]);
+registerLearningContractPortableAssertions(generatedSkillBundleV1Schema, [
+  {
+    operation: "unique",
+    values: "/files/*/path",
+    normalization: { unicode: "NFKC", caseFold: true },
+  },
+  {
+    operation: "count",
+    values: "/files/*/path",
+    where: { equals: "SKILL.md" },
+    exactly: 1,
+  },
+]);
+registerLearningContractPortableAssertions(learningWorkflowOutputV1Schema, [
+  {
+    operation: "unique",
+    values: "/insights/*/outputAlias",
+  },
+  {
+    operation: "unique",
+    values: "/skillCandidates/*/outputAlias",
+  },
+  {
+    operation: "references",
+    values: "/skillCandidates/*/insightAliases/*",
+    targets: "/insights/*/outputAlias",
+  },
+]);
+registerLearningContractPortableAssertions(learningRunExecutionResultV1Schema, [
+  {
+    operation: "unique",
+    values: "/chunks/*/learningRunId",
+  },
+  {
+    operation: "unique",
+    values: "/chunks/*/attemptId",
+  },
+  {
+    operation: "contiguous",
+    values: "/chunks/*/chunkIndex",
+    start: 0,
+  },
+  {
+    operation: "ordered-ranges",
+    ranges: "/chunks/*",
+    first: "/snapshotRange/firstSequence",
+    last: "/snapshotRange/lastSequence",
+    valueType: "number",
+  },
+]);
+
 /** Named language-neutral JSON Schemas generated from the canonical Zod 4 source. */
 export const learningContractJsonSchemas = {
-  BlobLocatorV1: z.toJSONSchema(blobLocatorV1Schema),
-  CandidateGateResultV1: z.toJSONSchema(candidateGateResultV1Schema),
-  EvidenceRefV1: z.toJSONSchema(evidenceRefV1Schema),
-  InsightV1: z.toJSONSchema(insightV1Schema),
-  LearningChunkV1: z.toJSONSchema(learningChunkV1Schema),
-  LearningContainerV1: z.toJSONSchema(learningContainerV1Schema),
-  LearningRunV1: z.toJSONSchema(learningRunV1Schema),
-  LearningRunExecutionResultV1: z.toJSONSchema(
+  BlobLocatorV1: toLearningContractJsonSchema(blobLocatorV1Schema),
+  CandidateGateResultV1: toLearningContractJsonSchema(
+    candidateGateResultV1Schema,
+  ),
+  EvidenceRefV1: toLearningContractJsonSchema(evidenceRefV1Schema),
+  InsightV1: toLearningContractJsonSchema(insightV1Schema),
+  LearningChunkV1: toLearningContractJsonSchema(learningChunkV1Schema),
+  LearningContainerV1: toLearningContractJsonSchema(learningContainerV1Schema),
+  LearningRunV1: toLearningContractJsonSchema(learningRunV1Schema),
+  LearningRunExecutionResultV1: toLearningContractJsonSchema(
     learningRunExecutionResultV1Schema,
   ),
-  LearningRunJobV1: z.toJSONSchema(learningRunJobV1Schema),
-  LearningWorkflowInputV1: z.toJSONSchema(learningWorkflowInputV1Schema),
+  LearningRunJobV1: toLearningContractJsonSchema(learningRunJobV1Schema),
+  LearningWorkflowInputV1: toLearningContractJsonSchema(
+    learningWorkflowInputV1Schema,
+  ),
   LearningWorkflowOutputV1: toLearningContractJsonSchema(
     learningWorkflowOutputV1Schema,
   ),
-  NormalizedMessageV1: z.toJSONSchema(normalizedMessageV1Schema),
-  RunSnapshotV1: z.toJSONSchema(runSnapshotV1Schema),
-  SelectedHumanAnnotationV1: z.toJSONSchema(selectedHumanAnnotationV1Schema),
-  SkillArtifactManifestV1: z.toJSONSchema(skillArtifactManifestV1Schema),
+  NormalizedMessageV1: toLearningContractJsonSchema(normalizedMessageV1Schema),
+  RunSnapshotV1: toLearningContractJsonSchema(runSnapshotV1Schema),
+  SelectedHumanAnnotationV1: toLearningContractJsonSchema(
+    selectedHumanAnnotationV1Schema,
+  ),
+  SkillArtifactManifestV1: toLearningContractJsonSchema(
+    skillArtifactManifestV1Schema,
+  ),
   SkillCandidateV1: toLearningContractJsonSchema(skillCandidateV1Schema),
-  SkillSetProjectionV1: z.toJSONSchema(skillSetProjectionV1Schema),
+  SkillSetProjectionV1: toLearningContractJsonSchema(
+    skillSetProjectionV1Schema,
+  ),
 } as const;
