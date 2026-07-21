@@ -13,6 +13,16 @@ import yaml from "yaml";
 import Ajv from "ajv";
 import addFormats from "ajv-formats";
 import { validateManifestConstraints } from "./validate-constraints.js";
+// The catalog flatten (cross-join + parity tiers) is the SINGLE flattening
+// authority (finding 1), factored into the harness so BOTH this codegen and the
+// harness `GET /api/matrix` read-model (T13) call the ONE implementation. It
+// lives in the harness because the harness build (rootDir: src) cannot import a
+// file outside src/, whereas this script runs under tsx (no emit) and imports
+// across packages freely — cf. scripts/equivalence-gate.ts.
+import {
+  generateCatalog,
+  MissingReferenceIntegrationError,
+} from "../harness/src/shared/catalog/catalog-flatten.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -231,14 +241,41 @@ const PACKAGES_JSON_PATH = path.join(ROOT, "shared", "packages.json");
 const CONSTRAINTS_PATH = path.join(ROOT, "shared", "constraints.yaml");
 const CONSTRAINTS_OUTPUT_PATH = path.join(SHELL_OUTPUT_DIR, "constraints.json");
 
+/**
+ * Read + parse a required JSON source under the labeled-stderr + exit(1)
+ * contract (SU7-F3): a missing/unreadable/malformed file surfaces as a reasoned
+ * `ERROR: …` on stderr, not a raw ENOENT/SyntaxError stack — matching the
+ * constraints.yaml guard below and the peer validation gates.
+ */
+// Returns the parsed JSON with `any` typing to match the prior `JSON.parse`
+// call sites (this script consumes these structurally without a schema type).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function readJsonOrExit(filePath: string, label: string): any {
+  let raw: string;
+  try {
+    raw = fs.readFileSync(filePath, "utf-8");
+  } catch (e) {
+    console.error(
+      `ERROR: failed to read ${label} ${filePath}: ${(e as Error).message}`,
+    );
+    process.exit(1);
+  }
+  try {
+    return JSON.parse(raw);
+  } catch (e) {
+    console.error(
+      `ERROR: failed to parse ${label} ${filePath}: ${(e as Error).message}`,
+    );
+    process.exit(1);
+  }
+}
+
 function loadSchema() {
-  const raw = fs.readFileSync(SCHEMA_PATH, "utf-8");
-  return JSON.parse(raw);
+  return readJsonOrExit(SCHEMA_PATH, "schema");
 }
 
 function loadFeatureRegistry() {
-  const raw = fs.readFileSync(FEATURE_REGISTRY_PATH, "utf-8");
-  return JSON.parse(raw);
+  return readJsonOrExit(FEATURE_REGISTRY_PATH, "feature registry");
 }
 
 type DocsLinkEntry = {
@@ -376,340 +413,6 @@ function validateManifest(
   }
 
   return errors;
-}
-
-// --- Catalog types ---
-
-interface CatalogCell {
-  id: string;
-  manifestation: "integrated" | "starter";
-  integration: string;
-  integration_name: string;
-  feature: string | null;
-  feature_name: string | null;
-  category: string | null;
-  category_name: string | null;
-  status: "wired" | "stub" | "unshipped" | "unsupported";
-  parity_tier: "reference" | "at_parity" | "partial" | "minimal" | "not_wired";
-  max_depth: number;
-}
-
-interface CatalogMetadata {
-  reference: string;
-  total_cells: number;
-  wired: number;
-  stub: number;
-  unshipped: number;
-  unsupported: number;
-  /** Cells for docs-only features — excluded from wired/stub/unshipped/unsupported. */
-  docs_only: number;
-  generated_at: string;
-}
-
-interface Catalog {
-  metadata: CatalogMetadata;
-  cells: CatalogCell[];
-}
-
-/**
- * Determine cell status for a (feature, integration) pair.
- *
- * - unsupported: feature is in manifest.not_supported_features (framework
- *   architecturally cannot support this feature). Checked first so this
- *   takes precedence over the wired/stub/unshipped fallthrough.
- * - wired: manifest declares the feature AND has a demo with a route for it
- * - stub: manifest declares the feature AND has a demo, but no route
- * - unshipped: feature is not in the manifest at all, OR is declared in
- *   `features` without any matching demo entry
- */
-function determineCellStatus(
-  featureId: string,
-  manifest: Record<string, unknown>,
-): "wired" | "stub" | "unshipped" | "unsupported" {
-  const notSupported =
-    (manifest.not_supported_features as string[] | undefined) || [];
-  if (notSupported.includes(featureId)) {
-    return "unsupported";
-  }
-
-  const features = (manifest.features as string[]) || [];
-  if (!features.includes(featureId)) {
-    return "unshipped";
-  }
-
-  const demos = (manifest.demos as Array<{ id: string; route?: string }>) || [];
-  const demo = demos.find((d) => d.id === featureId);
-  if (!demo) {
-    // Feature declared but no demo entry at all
-    return "unshipped";
-  }
-
-  if (demo.route) {
-    return "wired";
-  }
-
-  // Demo exists but no route (e.g. cli-start with command: only)
-  return "stub";
-}
-
-/**
- * Generate the full catalog by cross-joining features x integrations
- * (features.length × integrations.length integrated cells), plus one
- * starter cell per integration that declares a `starter` block. Parity
- * tiers are auto-derived from manifest data.
- */
-function generateCatalog(
-  featureRegistry: {
-    features: Array<{
-      id: string;
-      name: string;
-      category: string;
-      kind?: string;
-      deprecated?: boolean;
-    }>;
-    categories: Array<{ id: string; name: string }>;
-  },
-  integrations: Record<string, unknown>[],
-): Catalog {
-  // Build feature -> category lookup
-  const featureCategoryMap = new Map<string, string>();
-  for (const feature of featureRegistry.features) {
-    featureCategoryMap.set(feature.id, feature.category);
-  }
-
-  // Build feature -> display name lookup
-  const featureNameMap = new Map<string, string>();
-  for (const feature of featureRegistry.features) {
-    featureNameMap.set(feature.id, feature.name);
-  }
-
-  // Build category -> display name lookup
-  const categoryNameMap = new Map<string, string>();
-  for (const category of featureRegistry.categories) {
-    categoryNameMap.set(category.id, category.name);
-  }
-
-  const allFeatureIds = featureRegistry.features.map((f) => f.id);
-
-  // docs-only features (e.g. cli-start) exist for documentation coverage
-  // tracking only — they have no route, no depth probes, and no health
-  // signals. Exclude them from the wired/stub/unshipped/unsupported metadata
-  // so the stats bar reflects only meaningful matrix cells.
-  const docsOnlyFeatureIds = new Set(
-    featureRegistry.features
-      .filter((f) => f.kind === "docs-only")
-      .map((f) => f.id),
-  );
-
-  // Deprecated features — consolidated/replaced patterns that LGP (the
-  // gold-standard reference integration) intentionally does NOT implement,
-  // but legacy integrations still serve. The catalog emits cells for all
-  // (integration × feature) pairs uniformly; visibility is controlled at
-  // the dashboard layer via a "Show deprecated" toggle that filters whole
-  // FEATURE ROWS based on `feature.deprecated`. That way toggle-on
-  // surfaces both the audit trail (integrations that declare these
-  // legacy patterns) and the empty cells (LGP shows N/A for them) in one
-  // pass without missing-data artifacts.
-
-  // Step 1: Cross-join to produce integrated cells and collect wired features
-  // and unsupported features per integration.
-  const wiredFeaturesPerIntegration = new Map<string, Set<string>>();
-  const unsupportedFeaturesPerIntegration = new Map<string, Set<string>>();
-  const cells: CatalogCell[] = [];
-
-  for (const integration of integrations) {
-    const slug = integration.slug as string;
-    const integrationName = integration.name as string;
-    const wiredFeatures = new Set<string>();
-    const unsupportedFeatures = new Set<string>();
-
-    for (const featureId of allFeatureIds) {
-      const status = determineCellStatus(featureId, integration);
-
-      if (status === "wired") {
-        wiredFeatures.add(featureId);
-      }
-      if (status === "unsupported") {
-        unsupportedFeatures.add(featureId);
-      }
-
-      const categoryId = featureCategoryMap.get(featureId) || null;
-
-      // Unsupported and unshipped cells share max_depth=0 — neither has any
-      // probes to regress against. They differ only in *intent*: unsupported
-      // is a hard architectural floor, unshipped is just unbuilt.
-      const maxDepth =
-        status === "unshipped" || status === "unsupported" ? 0 : 4;
-
-      cells.push({
-        id: `${slug}/${featureId}`,
-        manifestation: "integrated",
-        integration: slug,
-        integration_name: integrationName,
-        feature: featureId,
-        feature_name: featureNameMap.get(featureId) || null,
-        category: categoryId,
-        category_name: categoryId
-          ? categoryNameMap.get(categoryId) || null
-          : null,
-        status,
-        parity_tier: "not_wired", // placeholder, computed below
-        max_depth: maxDepth,
-      });
-    }
-
-    wiredFeaturesPerIntegration.set(slug, wiredFeatures);
-    unsupportedFeaturesPerIntegration.set(slug, unsupportedFeatures);
-  }
-
-  // Step 2: Reference integration — always langgraph-python.
-  const referenceSlug = "langgraph-python";
-
-  const referenceWiredFeatures = wiredFeaturesPerIntegration.get(referenceSlug);
-  if (referenceWiredFeatures === undefined) {
-    if (integrations.length === 0) {
-      // The zero-manifests "empty registry" path is supported — main()
-      // logs "No integration packages found." and continues — so the
-      // catalog must short-circuit cleanly instead of crashing on the
-      // absent reference (SU7-F3).
-      console.log("\nCatalog: no integrations — emitting an empty catalog.");
-      return {
-        metadata: {
-          reference: referenceSlug,
-          total_cells: 0,
-          wired: 0,
-          stub: 0,
-          unshipped: 0,
-          unsupported: 0,
-          docs_only: 0,
-          generated_at: new Date().toISOString(),
-        },
-        cells: [],
-      };
-    }
-    // Integrations exist but the reference is absent: every parity tier
-    // is computed against it, so the catalog is meaningless. Fail per
-    // the script's error contract — labeled stderr + exit 1, the same
-    // contract as the {slug} check at the top of this file (consumers
-    // run with stdout ignored and stderr inherited).
-    console.error(
-      `ERROR: reference integration "${referenceSlug}" is missing from the ` +
-        `validated integrations (${integrations
-          .map((i) => i.slug)
-          .join(", ")}) — parity tiers cannot be computed. Restore ` +
-        `integrations/${referenceSlug}/manifest.yaml (or fix its ` +
-        `validation errors).`,
-    );
-    process.exit(1);
-  }
-  console.log(
-    `\nCatalog: reference integration = ${referenceSlug} (${referenceWiredFeatures.size} wired features)`,
-  );
-
-  // Step 3: Compute parity tiers for each integration
-  const integrationTiers = new Map<
-    string,
-    "reference" | "at_parity" | "partial" | "minimal" | "not_wired"
-  >();
-
-  for (const [slug, wiredSet] of wiredFeaturesPerIntegration) {
-    if (slug === referenceSlug) {
-      integrationTiers.set(slug, "reference");
-      continue;
-    }
-
-    // Parity is computed against the *expected* feature set for this
-    // integration: reference features minus features this integration's
-    // framework architecturally cannot support. A framework that legitimately
-    // can't support a feature should not be penalised for the gap.
-    const unsupportedSet =
-      unsupportedFeaturesPerIntegration.get(slug) ?? new Set<string>();
-    const expectedFromReference = [...referenceWiredFeatures].filter(
-      (f) => !unsupportedSet.has(f),
-    );
-
-    // Check if this integration's wired features cover everything in
-    // expectedFromReference (i.e., it has parity over the supportable subset).
-    const isSuperset = expectedFromReference.every((f) => wiredSet.has(f));
-    if (isSuperset) {
-      integrationTiers.set(slug, "at_parity");
-      continue;
-    }
-
-    // Count intersection with the expected (supportable) reference features.
-    const intersectionSize = expectedFromReference.filter((f) =>
-      wiredSet.has(f),
-    ).length;
-    if (intersectionSize >= 3) {
-      integrationTiers.set(slug, "partial");
-    } else if (intersectionSize >= 1) {
-      integrationTiers.set(slug, "minimal");
-    } else {
-      integrationTiers.set(slug, "not_wired");
-    }
-  }
-
-  // Step 4: Apply parity tiers to all integrated cells
-  for (const cell of cells) {
-    if (cell.manifestation === "integrated") {
-      cell.parity_tier = integrationTiers.get(cell.integration)!;
-    }
-  }
-
-  // Step 5: Add one starter cell per integration that declares a
-  // `starter` block
-  for (const integration of integrations) {
-    const slug = integration.slug as string;
-    const integrationName = integration.name as string;
-    const starter = integration.starter as Record<string, unknown> | undefined;
-    if (starter) {
-      cells.push({
-        id: `starter/${slug}`,
-        manifestation: "starter",
-        integration: slug,
-        integration_name: integrationName,
-        feature: null,
-        feature_name: null,
-        category: null,
-        category_name: null,
-        status: "wired",
-        parity_tier: integrationTiers.get(slug) || "not_wired",
-        max_depth: 4,
-      });
-    }
-  }
-
-  // Step 6: Compute metadata
-  // Exclude docs-only cells from the headline counts — they are purely
-  // informational and don't participate in depth, health, or coverage.
-  const countableCells = cells.filter(
-    (c) => c.feature === null || !docsOnlyFeatureIds.has(c.feature),
-  );
-  const docsOnlyCount = cells.length - countableCells.length;
-  const wiredCount = countableCells.filter((c) => c.status === "wired").length;
-  const stubCount = countableCells.filter((c) => c.status === "stub").length;
-  const unshippedCount = countableCells.filter(
-    (c) => c.status === "unshipped",
-  ).length;
-  const unsupportedCount = countableCells.filter(
-    (c) => c.status === "unsupported",
-  ).length;
-
-  const metadata: CatalogMetadata = {
-    reference: referenceSlug,
-    total_cells: countableCells.length,
-    wired: wiredCount,
-    stub: stubCount,
-    unshipped: unshippedCount,
-    unsupported: unsupportedCount,
-    docs_only: docsOnlyCount,
-    generated_at: new Date().toISOString(),
-  };
-
-  return {
-    metadata,
-    cells,
-  };
 }
 
 function main() {
@@ -876,8 +579,10 @@ function main() {
   // Load packages list from shared/packages.json
   let packages: Array<{ slug: string; name: string }> = [];
   if (fs.existsSync(PACKAGES_JSON_PATH)) {
-    const packagesRaw = fs.readFileSync(PACKAGES_JSON_PATH, "utf-8");
-    packages = JSON.parse(packagesRaw);
+    packages = readJsonOrExit(PACKAGES_JSON_PATH, "packages") as Array<{
+      slug: string;
+      name: string;
+    }>;
     console.log(`\nLoaded ${packages.length} packages from packages.json`);
   }
 
@@ -897,7 +602,21 @@ function main() {
   const constraintsJson = JSON.stringify(constraints, null, 2) + "\n";
 
   // --- Catalog generation (D0-D4 dashboard matrix) ---
-  const catalog = generateCatalog(featureRegistry, integrations);
+  // `generateCatalog` is the SINGLE flattening authority shared with the live
+  // harness, so it THROWS (never `process.exit`s) on a fatal input. Here — the
+  // CLI consumer — we own the error contract: a missing reference integration
+  // becomes the labeled stderr + exit(1) that CI/global-setup expect (they run
+  // with stdout ignored and stderr inherited).
+  let catalog: ReturnType<typeof generateCatalog>;
+  try {
+    catalog = generateCatalog(featureRegistry, integrations);
+  } catch (e) {
+    if (e instanceof MissingReferenceIntegrationError) {
+      console.error(`ERROR: ${e.message}`);
+      process.exit(1);
+    }
+    throw e;
+  }
   const catalogJson = JSON.stringify(catalog, null, 2) + "\n";
 
   for (const dir of OUTPUT_DIRS) {
