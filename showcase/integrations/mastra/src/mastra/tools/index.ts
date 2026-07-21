@@ -121,7 +121,9 @@ export const rollD20Tool = createTool({
     value: z
       .number()
       .optional()
-      .describe("Optional scripted roll (1-20); echoed back verbatim when provided"),
+      .describe(
+        "Optional scripted roll (1-20); echoed back verbatim when provided",
+      ),
   }),
   execute: async ({ value }) => {
     const rolled =
