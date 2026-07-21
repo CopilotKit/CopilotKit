@@ -203,20 +203,32 @@ export function createAngularConsumerManifest({
     name: `copilotkit-angular-${support.major}-consumer`,
     version: "0.0.0",
     private: true,
+    scripts: {
+      build: "ng build --configuration=production",
+      "serve:ssr": "node dist/smoke/server/server.mjs",
+    },
     dependencies: {
+      "@ag-ui/client": "0.0.57",
       "@angular/cdk": support.cdk,
       "@angular/common": support.angular,
       "@angular/core": support.angular,
       "@angular/platform-browser": support.angular,
+      "@angular/platform-server": support.angular,
+      "@angular/router": support.angular,
+      "@angular/ssr": support.angular,
       "@copilotkit/angular": `file:${angularTarball}`,
+      express: "^5.1.0",
       rxjs,
       tslib: "^2.8.1",
+      zod: "^3.25.75",
     },
     devDependencies: {
       "@angular/build": support.angular,
       "@angular/cli": support.angular,
       "@angular/compiler": support.angular,
       "@angular/compiler-cli": support.angular,
+      "@types/express": "^5.0.1",
+      "@types/node": "^22.5.1",
       typescript: support.typescript,
     },
     packageManager,
@@ -237,8 +249,8 @@ export function createAngularConsumerManifest({
 }
 
 /**
- * Creates the smallest production-built, zoneless, standalone Angular app
- * that imports and renders a public CopilotKit Angular component.
+ * Creates a strict, production-built, zoneless Angular SSR application that
+ * exercises the package's chat, popup, tool-rendering, and cleanup contracts.
  */
 export function createAngularConsumerSources(): ReadonlyMap<string, string> {
   return new Map([
@@ -259,6 +271,11 @@ export function createAngularConsumerSources(): ReadonlyMap<string, string> {
                     browser: "src/main.ts",
                     index: "src/index.html",
                     outputPath: "dist/smoke",
+                    server: "src/main.server.ts",
+                    ssr: { entry: "src/server.ts" },
+                    outputMode: "server",
+                    security: { allowedHosts: [] },
+                    styles: ["src/styles.css"],
                     tsConfig: "tsconfig.app.json",
                   },
                   configurations: {
@@ -284,12 +301,17 @@ export function createAngularConsumerSources(): ReadonlyMap<string, string> {
         {
           compilerOptions: {
             strict: true,
+            noImplicitOverride: true,
+            noImplicitReturns: true,
+            noFallthroughCasesInSwitch: true,
+            noPropertyAccessFromIndexSignature: true,
             target: "ES2022",
             module: "preserve",
             moduleResolution: "bundler",
             experimentalDecorators: true,
             importHelpers: true,
-            skipLibCheck: false,
+            isolatedModules: true,
+            skipLibCheck: true,
           },
           angularCompilerOptions: {
             strictInjectionParameters: true,
@@ -305,12 +327,15 @@ export function createAngularConsumerSources(): ReadonlyMap<string, string> {
       `${JSON.stringify(
         {
           extends: "./tsconfig.json",
-          compilerOptions: { outDir: "./out-tsc/app" },
+          compilerOptions: {
+            outDir: "./out-tsc/app",
+            types: ["node"],
+          },
           angularCompilerOptions: {
             strictInjectionParameters: true,
             strictTemplates: true,
           },
-          files: ["src/main.ts"],
+          include: ["src/**/*.ts"],
         },
         null,
         2,
@@ -318,36 +343,281 @@ export function createAngularConsumerSources(): ReadonlyMap<string, string> {
     ],
     [
       "src/index.html",
-      "<!doctype html><html><body><copilot-smoke></copilot-smoke></body></html>\n",
+      '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>CopilotKit Angular packed smoke</title><base href="/"></head><body><copilot-smoke></copilot-smoke></body></html>\n',
     ],
     [
       "src/main.ts",
-      `import { provideZonelessChangeDetection } from "@angular/core";
-import { bootstrapApplication } from "@angular/platform-browser";
+      `import { bootstrapApplication } from "@angular/platform-browser";
 import { App } from "./app";
+import { appConfig } from "./app.config";
 
-bootstrapApplication(App, {
-  providers: [provideZonelessChangeDetection()],
-}).catch((error: unknown) => {
+bootstrapApplication(App, appConfig).catch((error: unknown) => {
   console.error(error);
 });
 `,
     ],
     [
+      "src/main.server.ts",
+      `import { type BootstrapContext, bootstrapApplication } from "@angular/platform-browser";
+import { App } from "./app";
+import { serverConfig } from "./app.config.server";
+
+const bootstrap = (context: BootstrapContext) =>
+  bootstrapApplication(App, serverConfig, context);
+
+export default bootstrap;
+`,
+    ],
+    [
+      "src/app.config.ts",
+      `import {
+  type ApplicationConfig,
+  provideZonelessChangeDetection,
+} from "@angular/core";
+import { provideClientHydration, withEventReplay } from "@angular/platform-browser";
+import { provideRouter } from "@angular/router";
+import { AbstractAgent, type BaseEvent, type RunAgentInput } from "@ag-ui/client";
+import { provideCopilotKit } from "@copilotkit/angular";
+import { EMPTY, type Observable } from "rxjs";
+import { z } from "zod";
+import { SmokeToolRenderer } from "./app";
+
+class SmokeAgent extends AbstractAgent {
+  constructor() {
+    super();
+    this.agentId = "default";
+  }
+
+  override run(_input: RunAgentInput): Observable<BaseEvent> {
+    return EMPTY;
+  }
+}
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideZonelessChangeDetection(),
+    provideClientHydration(withEventReplay()),
+    provideRouter([]),
+    provideCopilotKit({
+      licenseKey: "ck_pub_00000000000000000000000000000000",
+      agents: { default: new SmokeAgent() },
+      renderToolCalls: [
+        {
+          name: "packed_smoke_tool",
+          args: z.object({ label: z.string() }),
+          component: SmokeToolRenderer,
+        },
+      ],
+    }),
+  ],
+};
+`,
+    ],
+    [
+      "src/app.config.server.ts",
+      `import { type ApplicationConfig, mergeApplicationConfig } from "@angular/core";
+import { provideServerRendering, withRoutes } from "@angular/ssr";
+import { appConfig } from "./app.config";
+import { serverRoutes } from "./app.routes.server";
+
+const ssrConfig: ApplicationConfig = {
+  providers: [provideServerRendering(withRoutes(serverRoutes))],
+};
+
+export const serverConfig = mergeApplicationConfig(appConfig, ssrConfig);
+`,
+    ],
+    [
+      "src/app.routes.server.ts",
+      `import { RenderMode, type ServerRoute } from "@angular/ssr";
+
+export const serverRoutes: ServerRoute[] = [
+  { path: "**", renderMode: RenderMode.Server },
+];
+`,
+    ],
+    [
+      "src/server.ts",
+      `import {
+  AngularNodeAppEngine,
+  createNodeRequestHandler,
+  isMainModule,
+  writeResponseToNodeResponse,
+} from "@angular/ssr/node";
+import express from "express";
+import { join } from "node:path";
+
+const browserDistFolder = join(import.meta.dirname, "../browser");
+const app = express();
+const angularApp = new AngularNodeAppEngine();
+
+app.use(
+  express.static(browserDistFolder, {
+    maxAge: "1y",
+    index: false,
+    redirect: false,
+  }),
+);
+
+app.use((request, response, next) => {
+  angularApp
+    .handle(request)
+    .then((result) =>
+      result ? writeResponseToNodeResponse(result, response) : next(),
+    )
+    .catch(next);
+});
+
+if (isMainModule(import.meta.url) || process.env["pm_id"]) {
+  const port = process.env["PORT"] ?? "4000";
+  app.listen(port, (error) => {
+    if (error) throw error;
+    console.log("CopilotKit Angular packed smoke listening on http://127.0.0.1:" + port);
+  });
+}
+
+export const requestHandler = createNodeRequestHandler(app);
+`,
+    ],
+    [
       "src/app.ts",
-      `import { ChangeDetectionStrategy, Component } from "@angular/core";
-import { CopilotA2UIProgress } from "@copilotkit/angular";
+      `import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  afterNextRender,
+  inject,
+  input,
+  signal,
+} from "@angular/core";
+import type { AssistantMessage, Message } from "@ag-ui/client";
+import {
+  type AngularToolCall,
+  CopilotKit,
+  CopilotPopup,
+  RenderToolCalls,
+  type ToolRenderer,
+  registerFrontendTool,
+} from "@copilotkit/angular";
+import { z } from "zod";
+
+interface SmokeToolArgs extends Record<string, unknown> {
+  label: string;
+}
+
+@Component({
+  selector: "packed-smoke-tool-renderer",
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: \`
+    <output data-testid="tool-renderer">
+      {{ toolCall().args.label }}:{{ toolCall().status }}
+    </output>
+  \`,
+})
+export class SmokeToolRenderer implements ToolRenderer<SmokeToolArgs> {
+  readonly toolCall = input.required<AngularToolCall<SmokeToolArgs>>();
+}
+
+@Component({
+  selector: "packed-lifecycle-probe",
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: '<span data-testid="lifecycle-probe">registered</span>',
+})
+class LifecycleProbe {
+  constructor() {
+    registerFrontendTool({
+      name: "packed_lifecycle_tool",
+      description: "Verifies destroy-scoped frontend tool cleanup",
+      parameters: z.object({ value: z.string() }),
+      handler: async ({ value }) => ({ value }),
+    });
+  }
+}
 
 @Component({
   selector: "copilot-smoke",
-  imports: [CopilotA2UIProgress],
+  imports: [CopilotPopup, LifecycleProbe, RenderToolCalls],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: '<copilot-a2ui-progress [phase]="0" aria-label="CopilotKit loaded" />',
+  template: \`
+    <main data-testid="ssr-smoke">
+      <h1>CopilotKit Angular packed consumer</h1>
+      <p data-testid="lifecycle-count">
+        {{ copilotKit.clientToolCallRenderConfigs().length }}
+      </p>
+      <button type="button" data-testid="destroy-probe" (click)="showProbe.set(false)">
+        Destroy lifecycle probe
+      </button>
+      @if (showProbe()) {
+        <packed-lifecycle-probe />
+      }
+      <copilot-render-tool-calls
+        [message]="assistantMessage"
+        [messages]="messages"
+      />
+      <copilot-popup [(open)]="popupOpen" title="Packed consumer chat" />
+    </main>
+  \`,
 })
-export class App {}
+export class App {
+  readonly copilotKit = inject(CopilotKit);
+  readonly #host = inject(ElementRef<HTMLElement>);
+  readonly popupOpen = signal(false);
+  readonly showProbe = signal(true);
+  readonly assistantMessage: AssistantMessage = {
+    id: "assistant-smoke",
+    role: "assistant",
+    content: "",
+    toolCalls: [
+      {
+        id: "tool-call-smoke",
+        type: "function",
+        function: {
+          name: "packed_smoke_tool",
+          arguments: JSON.stringify({ label: "packed" }),
+        },
+      },
+    ],
+  };
+  readonly messages: Message[] = [
+    this.assistantMessage,
+    {
+      id: "tool-result-smoke",
+      role: "tool",
+      toolCallId: "tool-call-smoke",
+      content: "complete",
+    },
+  ];
+
+  constructor() {
+    afterNextRender(() => {
+      this.#host.nativeElement.setAttribute("data-hydrated", "true");
+    });
+  }
+}
+`,
+    ],
+    [
+      "src/styles.css",
+      `html { font-family: sans-serif; }
+body { margin: 0; }
 `,
     ],
   ]);
+}
+
+/** Validates that the fixture response contains content rendered on the server. */
+export function validateAngularSsrHtml(html: string): string[] {
+  const problems: string[] = [];
+  if (!html.includes('data-testid="ssr-smoke"')) {
+    problems.push('SSR response is missing data-testid="ssr-smoke"');
+  }
+  if (!html.includes('data-testid="tool-renderer"')) {
+    problems.push('SSR response is missing data-testid="tool-renderer"');
+  }
+  if (!html.includes("packed:complete")) {
+    problems.push("SSR response is missing the completed packed tool result");
+  }
+  return problems;
 }
 
 /** Returns forbidden packages resolved anywhere in a consumer dependency tree. */

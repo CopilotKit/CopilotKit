@@ -232,8 +232,18 @@ function main(): void {
         ["exec", "ng", "build", "--configuration=production"],
         consumerDir,
       );
+      run(
+        "pnpm",
+        [
+          "exec",
+          "tsx",
+          join(ROOT, "showcase/scripts/run-packed-angular-smoke.ts"),
+          consumerDir,
+        ],
+        join(ROOT, "showcase/scripts"),
+      );
       console.log(
-        `OK: packed ${ANGULAR_PACKAGE} installs and production-builds with Angular ${entry.angular}.`,
+        `OK: packed ${ANGULAR_PACKAGE} installs, SSR-renders, hydrates, and runs in a zoneless browser with Angular ${entry.angular}.`,
       );
     }
   } finally {
