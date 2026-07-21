@@ -376,11 +376,13 @@ const rebuildAIMessageWithToolCalls = (
   message: AIMessage,
   toolCalls: AIMessage["tool_calls"],
 ) => {
-  const content =
+  let content = message.content;
+  if (
     usesV1ContentBlocks(message.response_metadata) &&
-    Array.isArray(message.content)
-      ? message.content.filter((block) => !isToolCallContentBlock(block))
-      : message.content;
+    Array.isArray(content)
+  ) {
+    content = content.filter((block) => !isToolCallContentBlock(block));
+  }
 
   return new AIMessage({
     content,
