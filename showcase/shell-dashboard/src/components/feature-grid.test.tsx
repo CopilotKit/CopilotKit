@@ -198,14 +198,21 @@ describe("computeColumnTally", () => {
     { id: "f2", name: "f2", category: "c", description: "" },
   ];
 
-  it("counts by chipColor — green D3 only (no D5/D6) → gray chip", () => {
+  it("counts by chipColor — green D3+D4, D5 unmapped (ceiling 4) → gray chip", () => {
     const live: LiveStatusMap = new Map();
-    // f1: D3=green but D5/D6 absent → chipColor=gray (D6-ceiling algorithm)
+    // f1/f2 are NOT D5-mapped features, so their structural ceiling is 4 and no
+    // D5 rung exists. To genuinely exercise the ceiling-4 "no complete top rung
+    // → gray" branch, the ladder must be GREEN and CONTIGUOUS through D4 (D3 e2e
+    // + D4 chat) — otherwise a missing D4 (chat) grays the cell at the gap (I1)
+    // BEFORE the ceiling-4 branch is ever evaluated, and the test would not
+    // cover the mechanism it names. `chat:i1` is slug-scoped, so it supplies the
+    // green D4 rung for both f1 and f2.
     live.set("e2e:i1/f1", row("e2e:i1/f1", "e2e", "green"));
-    // f2: D3=green but D5/D6 absent → chipColor=gray
     live.set("e2e:i1/f2", row("e2e:i1/f2", "e2e", "green"));
+    live.set("chat:i1", row("chat:i1", "chat", "green"));
     const t = computeColumnTally(integration, features, live);
-    // D6-ceiling: D3-only green with no D5/D6 → gray → not counted
+    // ceiling-4 branch: D3+D4 green, D5 unmapped → no complete top rung → gray
+    // → not counted. (A green D4 ceiling is NOT a complete verification level.)
     expect(t).toEqual({
       green: 0,
       amber: 0,
@@ -232,15 +239,16 @@ describe("computeColumnTally", () => {
     });
   });
 
-  it("health row alone does not contribute to tally", () => {
+  it("a red health (D1) row gates every cell in the column red (§F liveness gate)", () => {
     const live: LiveStatusMap = new Map();
     live.set("health:i1", row("health:i1", "health", "red"));
     const t = computeColumnTally(integration, features, live);
-    // No D3 rows → all cells gray → nothing counted
+    // §F: a present fresh-red D1 (slug-scoped health) gates the cell → red.
+    // The service is down, so every feature cell in the column reds.
     expect(t).toEqual({
       green: 0,
       amber: 0,
-      red: 0,
+      red: 2,
       unknown: false,
       loading: false,
     });

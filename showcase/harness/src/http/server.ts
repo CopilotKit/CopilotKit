@@ -4,12 +4,13 @@ import type { Logger } from "../types/index.js";
 import type { TypedEventBus } from "../events/event-bus.js";
 import type { HarnessRole } from "../fleet/role-config.js";
 import { registerDeployWebhook } from "./webhooks/deploy.js";
-import { registerProbesRoutes, type ProbesRouteDeps } from "./probes.js";
-import {
-  registerFleetRunsRoutes,
-  type FleetRunsRouteDeps,
-} from "./fleet-runs.js";
-import { renderPrometheus, type MetricsRegistry } from "./metrics.js";
+import { registerProbesRoutes } from "./probes.js";
+import type { ProbesRouteDeps } from "./probes.js";
+import { registerFleetRunsRoutes } from "./fleet-runs.js";
+import type { FleetRunsRouteDeps } from "./fleet-runs.js";
+import { registerMatrixRoute } from "./matrix.js";
+import { renderPrometheus } from "./metrics.js";
+import type { MetricsRegistry } from "./metrics.js";
 
 export interface ServerDeps {
   pb: PbClient;
@@ -133,6 +134,12 @@ export function buildServer(deps: ServerDeps): Hono {
     registerFleetRunsRoutes(app, deps.fleetRuns);
   }
 
+  // §11 read-model: GET /api/matrix returns the true per-cell chip state as
+  // JSON off the SAME buildCellModel engine the dashboard renders. Registered
+  // unconditionally — it is a pure read over `pb` (always on ServerDeps) with
+  // no mutating route, matching /api/runs' exposure posture (§11.7).
+  registerMatrixRoute(app, { pb: deps.pb, logger: deps.logger });
+
   if (deps.metrics) {
     const registry = deps.metrics;
     // NOTE: `/metrics` is intentionally unauthenticated so in-cluster
@@ -150,7 +157,17 @@ export function buildServer(deps: ServerDeps): Hono {
   }
 
   app.get("/health", async (c) => {
-    const pbOk = await deps.pb.health();
+    // Guard the PB probe: `pb.health()` REJECTING (vs resolving `false`) must
+    // still fold into the `pb: "down"` / 503 degraded JSON contract below —
+    // an unguarded throw would surface as a bare 500 with no body, defeating
+    // the structured-degradation contract a consumer polls for.
+    let pbOk: boolean;
+    try {
+      pbOk = await deps.pb.health();
+    } catch (err) {
+      deps.logger.error("health.pb-check-failed", { error: String(err) });
+      pbOk = false;
+    }
     const ruleCount = deps.ruleCount();
     // Loop-alive semantics:
     //   - `schedulerStarted` (optional): true once start() returned.
