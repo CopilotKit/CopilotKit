@@ -26,6 +26,7 @@
     "@copilotkit/core": "1.63.1",
     "@copilotkit/runtime": "1.63.1",
     "@copilotkit/shared": "1.63.1",
+    "@copilotkit/web-inspector": "1.63.1",
     "dotenv": "^16.4.5",
     "lucide-angular": "^0.577.0",
     "rxjs": "^7.8.1",

@@ -7,11 +7,12 @@ import {
 import { z } from "zod";
 import { AGENT_ID } from "./app.config";
 import { MainContent } from "./main-content";
+import { WebInspector } from "./web-inspector";
 
 @Component({
   selector: "app-root",
   standalone: true,
-  imports: [CopilotChat, CopilotThreadsDrawer, MainContent],
+  imports: [CopilotChat, CopilotThreadsDrawer, MainContent, WebInspector],
   template: `
     <!--
       Expose the theme on the layout ROOT via a demo-specific variable so the
@@ -29,6 +30,8 @@ import { MainContent } from "./main-content";
         <copilot-chat [agentId]="AGENT_ID" />
       </div>
     </div>
+    <!-- Dev-only floating inspector (mounts into <body>). Remove for production. -->
+    <app-web-inspector />
   `,
   styles: [
     `

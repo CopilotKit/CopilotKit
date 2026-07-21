@@ -69,6 +69,7 @@ The Angular app talks to the runtime (`http://localhost:8200/api/copilotkit`), a
 - `src/app/main-content.ts` — the themed center panel that hosts the proverbs card.
 - `src/app/agent-state.ts` — the shared `AgentState` type.
 - `src/app/weather-card.ts` — the generative-UI card rendered when the agent calls `get_weather`.
+- `src/app/web-inspector.ts` — dev aid: mounts the CopilotKit web inspector (`cpk-web-inspector`) for watching AG-UI events, agent state, and runtime connectivity. Safe to delete for production.
 - `server.ts` — the standalone Copilot Runtime, registering the `default` agent (with env-gated managed Intelligence).
 - `scripts/` — cross-platform launchers used by the `dev`/`install` npm scripts to set up and run the Python agent.
 - `agent/` — the Python ADK agent (unchanged from the React ADK example).
