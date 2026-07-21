@@ -21,8 +21,11 @@ and backfill workflows call it, so policy and safety controls live in one place.
    nothing. Recommend a workspace-scoped key with a monthly spend cap.
 2. **Curate the label allow-list.** The classifier may apply _only_ the labels in
    `APPLYABLE` (top of `triage-on-open.yml` / `triage-backfill.yml`). It's
-   default-deny: process/disposition labels (release, Triaged, spam, bounty…) are
-   intentionally excluded. Adjust per repo.
+   default-deny and currently holds the repo's real content labels only —
+   `bug, feature request, documentation, question, mcp, examples`. Curation/
+   disposition labels (`good first issue`, `help wanted`, `Triaged`, `defer`,
+   `spam`, bounty, release…) are intentionally excluded — those are human calls.
+   Adjust per repo.
 3. **First run:** dispatch `triage-backfill` with dry-run **on** and a small
    `max_issues` to eyeball the proposals before letting it apply anything.
 

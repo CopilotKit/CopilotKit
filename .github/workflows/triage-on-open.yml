@@ -16,6 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false # only reads scripts/triage/analyze.js; no git ops
       - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -27,10 +29,11 @@ jobs:
 
             const labels = await github.paginate(github.rest.issues.listLabelsForRepo, { owner, repo, per_page: 100 });
             const valid = new Set(labels.map(l => l.name));
-            // Allow-list (default-deny): the classifier may apply ONLY these. Excludes
-            // process/automation/disposition labels (release, Triaged, version-drift,
-            // bounty, spam, invalid, wontfix…). Curate per repo.
-            const APPLYABLE = new Set(["bug","documentation","feature request","enhancement","question","good first issue","mcp","examples","SDK","Integration","framework","tests"]);
+            // Allow-list (default-deny): the classifier may apply ONLY these — content
+            // labels that exist in this repo. Excludes disposition/curation labels
+            // (good first issue, help wanted, Triaged, defer, release, version-drift,
+            // bounty, spam, invalid, wontfix…) — those are human calls. Curate per repo.
+            const APPLYABLE = new Set(["bug","feature request","documentation","question","mcp","examples"]);
             const labelList = labels.map(l => `- ${l.name}${l.description ? `: ${l.description}` : ""}`).join("\n");
 
             const r = await analyzeIssue({ github, owner, repo, issue, labelList });
