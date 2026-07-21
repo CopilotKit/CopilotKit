@@ -1,44 +1,53 @@
 import {
-  InjectionToken,
   makeEnvironmentProviders,
   type EnvironmentProviders,
 } from "@angular/core";
-import type {
-  McpUiHostCapabilities,
-  McpUiHostContext,
-} from "@modelcontextprotocol/ext-apps/app-bridge";
-import type { Implementation } from "@modelcontextprotocol/sdk/types.js";
+import { ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS } from "@copilotkit/angular";
+import { mcpAppsActivityRendererConfig } from "./mcp-apps-activity-renderer";
+import {
+  DEFAULT_MCP_APPS_CONFIG,
+  MCP_APPS_CONFIG,
+  type MCPAppsConfig,
+  type MCPAppsHostInfo,
+} from "./mcp-apps-config";
+
+export type { MCPAppsConfig, MCPAppsHostInfo } from "./mcp-apps-config";
+export { DEFAULT_MCP_APPS_CONFIG, MCP_APPS_CONFIG } from "./mcp-apps-config";
 
 /**
- * Maps the server id referenced by `mcp-apps` snapshots to the URL of the
- * MCP server's streamable HTTP endpoint. A function value is resolved once
- * per widget, so URLs can depend on runtime configuration.
+ * Configures and registers the built-in MCP Apps renderer.
+ *
+ * MCP resource and tool requests always travel through the selected AG-UI
+ * agent. Server URLs deliberately are not accepted by this browser provider.
+ * Application renderers retain precedence over this built-in registration.
  */
-export type MCPAppsServerUrls = Record<string, string | (() => string)>;
-
-/** Configuration for rendering MCP Apps. */
-export interface MCPAppsConfig {
-  servers: MCPAppsServerUrls;
-  hostInfo: Implementation;
-  hostCapabilities?: McpUiHostCapabilities;
-  hostContext?: McpUiHostContext;
-}
-
-/** Holds the MCP Apps configuration registered via `provideMCPApps`. */
-export const MCP_APPS_CONFIG = new InjectionToken<MCPAppsConfig>(
-  "MCP_APPS_CONFIG",
-);
-
-/**
- * Registers the MCP Apps configuration: the MCP servers the host may connect
- * to and the host identity, capabilities, and context announced to embedded
- * apps. Required by `CopilotMCPAppsActivityRenderer`.
- */
-export function provideMCPApps(config: MCPAppsConfig): EnvironmentProviders {
+export function provideMCPApps(
+  config: MCPAppsConfig = {},
+): EnvironmentProviders {
   return makeEnvironmentProviders([
     {
       provide: MCP_APPS_CONFIG,
-      useValue: config,
+      useValue: {
+        ...DEFAULT_MCP_APPS_CONFIG,
+        ...config,
+        hostInfo: {
+          ...DEFAULT_MCP_APPS_CONFIG.hostInfo,
+          ...config.hostInfo,
+        },
+        hostCapabilities: {
+          ...DEFAULT_MCP_APPS_CONFIG.hostCapabilities,
+          ...config.hostCapabilities,
+        },
+        hostContext: {
+          ...DEFAULT_MCP_APPS_CONFIG.hostContext,
+          ...config.hostContext,
+        },
+      } satisfies Required<MCPAppsConfig>,
+    },
+    {
+      provide: ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS,
+      multi: true,
+      useValue: mcpAppsActivityRendererConfig,
     },
   ]);
 }

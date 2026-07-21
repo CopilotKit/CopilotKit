@@ -36,6 +36,7 @@ import {
   extractCatalogComponentSchemas,
 } from "@copilotkit/a2ui-renderer/web-components";
 import {
+  ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS,
   RenderActivityMessageConfig,
   anyActivityContentSchema,
 } from "./activity-renderer";
@@ -64,6 +65,9 @@ import { standardSchemaZodToJsonSchema } from "./standard-schema-zod";
 @Injectable({ providedIn: "root" })
 export class CopilotKit {
   readonly #config = injectCopilotKitConfig();
+  readonly #extensionActivityMessageRenderers = inject(
+    ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS,
+  );
   readonly #hitl = inject(HumanInTheLoop);
   readonly #rootInjector = inject(Injector);
   readonly #agents = signal<Record<string, AbstractAgent>>(
@@ -164,6 +168,7 @@ export class CopilotKit {
   readonly activityMessageRenderConfigs: Signal<RenderActivityMessageConfig[]> =
     computed(() => [
       ...this.#activityMessageRenderConfigs(),
+      ...this.#extensionActivityMessageRenderers,
       ...this.#builtInActivityMessageRenderConfigs(),
     ]);
 

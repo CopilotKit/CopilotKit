@@ -12,15 +12,15 @@ import { CopilotMCPAppsWidget } from "./mcp-apps-widget";
 
 /**
  * Activity renderer for `mcp-apps` snapshots. Renders the referenced MCP App
- * inline via {@link CopilotMCPAppsWidget}. Requires `provideMCPApps` to be
- * set up with the MCP servers the host may connect to.
+ * inline via {@link CopilotMCPAppsWidget}. Resource and tool requests are
+ * proxied through the activity's selected AG-UI agent.
  */
 @Component({
   selector: "copilot-mcp-apps-activity-renderer",
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CopilotMCPAppsWidget],
   template: `
-    <copilot-mcp-apps-widget [data]="content()" />
+    <copilot-mcp-apps-widget [data]="content()" [agent]="agent()" />
   `,
 })
 export class CopilotMCPAppsActivityRenderer implements ActivityRenderer<MCPAppsSnapshotContent> {

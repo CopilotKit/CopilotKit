@@ -97,8 +97,6 @@
     "@angular/platform-browser": "20.3.26",
     "@angular/platform-browser-dynamic": "20.3.26",
     "@copilotkit/typescript-config": "workspace:*",
-    "@modelcontextprotocol/ext-apps": "^1.5.0",
-    "@modelcontextprotocol/sdk": "^1.29.0",
     "@tailwindcss/cli": "^4.1.11",
     "@tailwindcss/postcss": "^4.1.11",
     "@tailwindcss/typography": "^0.5.16",
@@ -125,16 +123,6 @@
     "@angular/cdk": "^20.0.0 || ^21.0.0 || ^22.0.0",
     "@angular/common": "^20.0.0 || ^21.0.0 || ^22.0.0",
     "@angular/core": "^20.0.0 || ^21.0.0 || ^22.0.0",
-    "@modelcontextprotocol/ext-apps": "^1.5.0",
-    "@modelcontextprotocol/sdk": "^1.29.0",
     "rxjs": "^7.8.0"
-  },
-  "peerDependenciesMeta": {
-    "@modelcontextprotocol/ext-apps": {
-      "optional": true
-    },
-    "@modelcontextprotocol/sdk": {
-      "optional": true
-    }
   }
 }
