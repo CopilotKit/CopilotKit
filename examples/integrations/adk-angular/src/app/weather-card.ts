@@ -24,11 +24,22 @@ type WeatherArgs = z.infer<typeof weatherArgs>;
           </div>
           <span class="sun">☀️</span>
         </div>
-        <div class="wc-temp"><span class="deg">70°</span><span>Clear skies</span></div>
+        <div class="wc-temp">
+          <span class="deg">70°</span><span>Clear skies</span>
+        </div>
         <div class="wc-grid">
-          <div><p class="k">Humidity</p><p class="v">45%</p></div>
-          <div><p class="k">Wind</p><p class="v">5 mph</p></div>
-          <div><p class="k">Feels Like</p><p class="v">72°</p></div>
+          <div>
+            <p class="k">Humidity</p>
+            <p class="v">45%</p>
+          </div>
+          <div>
+            <p class="k">Wind</p>
+            <p class="v">5 mph</p>
+          </div>
+          <div>
+            <p class="k">Feels Like</p>
+            <p class="v">72°</p>
+          </div>
         </div>
       </div>
     </div>

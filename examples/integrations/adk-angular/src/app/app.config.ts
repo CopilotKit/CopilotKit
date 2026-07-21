@@ -24,7 +24,10 @@ export const appConfig: ApplicationConfig = {
         {
           available: "always",
           suggestions: [
-            { title: "Generative UI", message: "Get the weather in San Francisco." },
+            {
+              title: "Generative UI",
+              message: "Get the weather in San Francisco.",
+            },
             { title: "Frontend Tools", message: "Set the theme to green." },
             { title: "Write Agent State", message: "Add a proverb about AI." },
             {

@@ -26,7 +26,9 @@ import { MainContent } from "./main-content";
     `
       .layout {
         display: grid;
-        grid-template-columns: var(--cpk-drawer-reserved-width, 320px) minmax(0, 1fr) 420px;
+        grid-template-columns:
+          var(--cpk-drawer-reserved-width, 320px) minmax(0, 1fr)
+          420px;
         grid-template-rows: minmax(0, 1fr);
         height: 100dvh;
         width: 100%;
