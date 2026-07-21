@@ -235,6 +235,20 @@ describe("freshnessKeysForCell", () => {
     expect(keys).toContain(keyFor("starter", "google-adk", "interaction"));
     expect(keys).not.toContain(keyFor("e2e", "google-adk", MAPPED_FEATURE));
   });
+
+  it("uses only D1/D2 rows for a liveness-only cell", () => {
+    const keys = freshnessKeysForCell({
+      slug: "langgraph-python",
+      featureId: null,
+      isSupported: true,
+      isWired: true,
+    });
+
+    expect(keys).toEqual([
+      keyFor("health", "langgraph-python"),
+      keyFor("agent", "langgraph-python"),
+    ]);
+  });
 });
 
 // ---------------------------------------------------------------------------

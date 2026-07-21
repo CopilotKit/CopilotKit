@@ -187,6 +187,9 @@ export function freshnessKeysForCell(cell: GateCell): string[] {
   if (cell.probeAxis === "starter") {
     return STARTER_LEVELS.map((level) => keyFor("starter", slug, level));
   }
+  if (featureId === null) {
+    return [keyFor("health", slug), keyFor("agent", slug)];
+  }
   const keys: string[] = [
     keyFor("e2e", slug, featureId),
     keyFor("chat", slug),

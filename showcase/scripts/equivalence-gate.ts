@@ -76,7 +76,7 @@ export type ExclusionReason =
 
 export interface CellComparison {
   slug: string;
-  featureId: string;
+  featureId: string | null;
   /** Resolved staging ChipColor (`buildCellModel`). */
   stagingChip: ChipColor;
   /**
@@ -145,13 +145,16 @@ function newestProdObservation(
   const keys: string[] =
     cell.probeAxis === "starter"
       ? STARTER_LEVELS.map((level) => keyFor("starter", slug, level))
-      : [
-          keyFor("e2e", slug, featureId),
-          keyFor("chat", slug),
-          keyFor("tools", slug),
-          keyFor("health", slug),
-        ];
+      : featureId === null
+        ? [keyFor("health", slug), keyFor("agent", slug)]
+        : [
+            keyFor("e2e", slug, featureId),
+            keyFor("chat", slug),
+            keyFor("tools", slug),
+            keyFor("health", slug),
+          ];
   if (cell.probeAxis !== "starter") {
+    if (featureId === null) return newestObservationForKeys(rows, keys);
     const familyKeys = CATALOG_TO_D5_KEY[featureId];
     if (familyKeys) {
       for (const ft of familyKeys) {
@@ -161,6 +164,14 @@ function newestProdObservation(
     }
   }
 
+  return newestObservationForKeys(rows, keys);
+}
+
+/** Return the newest parseable observation across an already-selected keyset. */
+function newestObservationForKeys(
+  rows: LiveStatusMap,
+  keys: readonly string[],
+): number | null {
   let newest: number | null = null;
   for (const key of keys) {
     const row = rows.get(key);

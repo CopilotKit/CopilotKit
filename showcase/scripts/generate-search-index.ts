@@ -44,7 +44,7 @@ const FRONTEND_SEARCH_PAGES = [
   { id: "teams", name: "Teams", guidanceTitle: "About early access" },
 ] as const;
 
-const FRONTEND_NAMES = new Map(
+const FRONTEND_NAMES = new Map<string, string>(
   FRONTEND_SEARCH_PAGES.map((frontend) => [frontend.id, frontend.name]),
 );
 
