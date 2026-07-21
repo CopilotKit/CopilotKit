@@ -170,7 +170,11 @@ export function buildMeasuredShardPlan(
 /** Execute a shard with bounded concurrency and no deterministic retries. */
 export async function executeFrontendMatrixShard(
   cells: readonly FrontendMatrixCell[],
-  options: { concurrency: number; execute: FrontendCellExecutor },
+  options: {
+    concurrency: number;
+    execute: FrontendCellExecutor;
+    onResult?: (result: FrontendCellResult) => void;
+  },
 ): Promise<FrontendCellResult[]> {
   const concurrency = positiveInteger(options.concurrency, "concurrency");
   const results: Array<FrontendCellResult | undefined> = Array.from(
@@ -197,6 +201,7 @@ export async function executeFrontendMatrixShard(
           error: error instanceof Error ? error.message : String(error),
         };
       }
+      options.onResult?.(results[index]);
     }
   };
 

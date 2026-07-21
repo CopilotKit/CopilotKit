@@ -68,6 +68,7 @@ describe("frontend matrix CI runner", () => {
   });
 
   it("executes every cell once and never retries a deterministic failure", async () => {
+    const onResult = vi.fn();
     const execute: FrontendCellExecutor = vi
       .fn<FrontendCellExecutor>()
       .mockResolvedValueOnce({
@@ -100,6 +101,7 @@ describe("frontend matrix CI runner", () => {
     const results = await executeFrontendMatrixShard(CELLS.slice(0, 2), {
       concurrency: 2,
       execute,
+      onResult,
     });
 
     expect(execute).toHaveBeenCalledTimes(2);
@@ -109,6 +111,7 @@ describe("frontend matrix CI runner", () => {
         .sort(),
     );
     expect(results[0]?.status).toBe("failed");
+    expect(onResult).toHaveBeenCalledTimes(2);
   });
 
   it("emits exact frontend cell identities and p95 timing", () => {

@@ -58,10 +58,22 @@ describe("frontend matrix Playwright execution", () => {
 
   it("uses framework-specific hydration contracts", async () => {
     const angularPage = {
-      waitForFunction: vi.fn(async () => undefined),
+      waitForFunction: vi.fn(
+        async (
+          _expression: string,
+          _argument: undefined,
+          _options: { timeout: number },
+        ) => undefined,
+      ),
     };
     const reactPage = {
-      waitForFunction: vi.fn(async () => undefined),
+      waitForFunction: vi.fn(
+        async (
+          _expression: string,
+          _argument: undefined,
+          _options: { timeout: number },
+        ) => undefined,
+      ),
     };
 
     await waitForFrameworkHydration(angularPage, "angular", 1234);
@@ -72,8 +84,11 @@ describe("frontend matrix Playwright execution", () => {
       undefined,
       { timeout: 1234 },
     );
+    expect(angularPage.waitForFunction.mock.calls[0]?.[0]).not.toMatch(
+      /textarea|textbox/,
+    );
     expect(reactPage.waitForFunction).toHaveBeenCalledWith(
-      expect.stringMatching(/__react/),
+      expect.stringMatching(/querySelectorAll.*__react/s),
       undefined,
       { timeout: 5678 },
     );

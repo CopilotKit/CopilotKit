@@ -151,22 +151,19 @@ interface HydrationPage {
 }
 
 const ANGULAR_HYDRATION_EXPRESSION = `
-  Boolean(document.querySelector('[ng-version]')) &&
-  Boolean(document.querySelector(
-    '[data-testid="copilot-chat-textarea"], [data-testid="copilot-chat-input"] textarea, textarea, input[placeholder="Type a message"], input[type="text"], [role="textbox"]'
-  ))
+  Boolean(document.querySelector('[ng-version]'))
 `;
 
 const REACT_HYDRATION_EXPRESSION = `
   (() => {
-    const element = document.querySelector(
-      '[data-testid="copilot-chat-textarea"], [data-testid="copilot-chat-input"] textarea, textarea, input[placeholder="Type a message"], input[type="text"], [role="textbox"]'
+    const elements = document.querySelectorAll('html, body, body *');
+    return Array.from(elements).some((element) =>
+      Object.getOwnPropertyNames(element).some((key) => key.startsWith('__react'))
     );
-    return Boolean(element) && Object.getOwnPropertyNames(element).some((key) => key.startsWith('__react'));
   })()
 `;
 
-/** Wait for the selected framework to own a visible chat input. */
+/** Wait for the selected framework to hydrate its shell. */
 export async function waitForFrameworkHydration(
   page: HydrationPage,
   frontend: RunnableFrontend,
