@@ -92,11 +92,20 @@ import type { RenderActivityMessageConfig } from "../../activity-renderer";
               </copilot-chat-user-message>
             }
           } @else if (message && message.role === "reasoning") {
-            <copilot-chat-reasoning-message
-              [message]="asReasoningMessage(message)"
-              [messages]="messagesValue()"
-              [isRunning]="isLoadingValue()"
-            />
+            @if (reasoningMessageComponent() || reasoningMessageTemplate()) {
+              <copilot-slot
+                [slot]="reasoningMessageTemplate() || reasoningMessageComponent()"
+                [context]="mergeReasoningProps(asReasoningMessage(message))"
+                [defaultComponent]="defaultReasoningComponent"
+              />
+            } @else {
+              <copilot-chat-reasoning-message
+                [message]="asReasoningMessage(message)"
+                [messages]="messagesValue()"
+                [isRunning]="isLoadingValue()"
+                [inputClass]="reasoningMessageClass()"
+              />
+            }
           } @else if (message && message.role === "activity") {
             @let activityRender = resolveActivityRender(message);
             @if (activityRender) {
@@ -141,6 +150,11 @@ export class CopilotChatMessageView {
   assistantMessageTemplate = input<TemplateRef<any> | undefined>();
   assistantMessageClass = input<string | undefined>();
 
+  // ReasoningMessage slot inputs
+  reasoningMessageComponent = input<Type<any> | undefined>();
+  reasoningMessageTemplate = input<TemplateRef<any> | undefined>();
+  reasoningMessageClass = input<string | undefined>();
+
   // User message slot inputs
   userMessageComponent = input<Type<any> | undefined>();
   userMessageTemplate = input<TemplateRef<any> | undefined>();
@@ -165,6 +179,7 @@ export class CopilotChatMessageView {
   // Default components for slots
   protected readonly defaultAssistantComponent = CopilotChatAssistantMessage;
   protected readonly defaultUserComponent = CopilotChatUserMessage;
+  protected readonly defaultReasoningComponent = CopilotChatReasoningMessage;
   protected readonly defaultCursorComponent = CopilotChatMessageViewCursor;
   protected readonly copilotKit = inject(CopilotKit);
 
@@ -217,6 +232,15 @@ export class CopilotChatMessageView {
       messages: this.messagesValue(),
       isLoading: this.isLoadingValue(),
       inputClass: this.assistantMessageClass(),
+    };
+  }
+
+  mergeReasoningProps(message: ReasoningMessage) {
+    return {
+      message,
+      messages: this.messagesValue(),
+      isRunning: this.isLoadingValue(),
+      inputClass: this.reasoningMessageClass(),
     };
   }
 

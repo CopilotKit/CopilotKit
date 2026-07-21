@@ -177,6 +177,9 @@ import { injectChatLabels } from "../../chat-config";
           [assistantMessageComponent]="assistantMessageComponent()"
           [assistantMessageTemplate]="assistantMessageTemplate()"
           [assistantMessageClass]="assistantMessageClass()"
+          [reasoningMessageComponent]="reasoningMessageComponent()"
+          [reasoningMessageTemplate]="reasoningMessageTemplate()"
+          [reasoningMessageClass]="reasoningMessageClass()"
           [scrollToBottomButton]="scrollToBottomButtonSlot()"
           [scrollToBottomButtonClass]="scrollToBottomButtonClass()"
           [showCursor]="showCursorSignal()"
@@ -230,6 +233,11 @@ export class CopilotChatView
   assistantMessageComponent = input<Type<any> | undefined>(undefined);
   assistantMessageTemplate = input<TemplateRef<any> | undefined>(undefined);
   assistantMessageClass = input<string | undefined>(undefined);
+
+  // ReasoningMessage slot inputs
+  reasoningMessageComponent = input<Type<any> | undefined>(undefined);
+  reasoningMessageTemplate = input<TemplateRef<any> | undefined>(undefined);
+  reasoningMessageClass = input<string | undefined>(undefined);
 
   // ScrollView slot inputs
   scrollViewComponent = input<Type<any> | undefined>(undefined);
@@ -373,6 +381,9 @@ export class CopilotChatView
     assistantMessageComponent: this.assistantMessageComponent(),
     assistantMessageTemplate: this.assistantMessageTemplate(),
     assistantMessageClass: this.assistantMessageClass(),
+    reasoningMessageComponent: this.reasoningMessageComponent(),
+    reasoningMessageTemplate: this.reasoningMessageTemplate(),
+    reasoningMessageClass: this.reasoningMessageClass(),
   }));
 
   // Removed scrollViewPropsComputed - no longer needed

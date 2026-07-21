@@ -68,6 +68,9 @@ import { connectActiveThread } from "../../active-thread-connector";
         [assistantMessageComponent]="assistantMessageComponent()"
         [assistantMessageTemplate]="assistantMessageTemplate()"
         [assistantMessageClass]="assistantMessageClass()"
+        [reasoningMessageComponent]="reasoningMessageComponent()"
+        [reasoningMessageTemplate]="reasoningMessageTemplate()"
+        [reasoningMessageClass]="reasoningMessageClass()"
         [hasExplicitThreadId]="hasExplicitThreadId()"
       >
       </copilot-chat-view>
@@ -95,6 +98,12 @@ export class CopilotChat extends ChatState {
   readonly assistantMessageTemplate = input<TemplateRef<any> | undefined>();
   /** Class forwarded to the default or custom assistant-message renderer. */
   readonly assistantMessageClass = input<string | undefined>();
+  /** Component used to render each reasoning message in the prebuilt chat. */
+  readonly reasoningMessageComponent = input<Type<any> | undefined>();
+  /** Template used to render each reasoning message in the prebuilt chat. */
+  readonly reasoningMessageTemplate = input<TemplateRef<any> | undefined>();
+  /** Class forwarded to the default or custom reasoning-message renderer. */
+  readonly reasoningMessageClass = input<string | undefined>();
   readonly attachmentsConfig = input<AttachmentsConfig | undefined>(undefined, {
     alias: "attachments",
   });

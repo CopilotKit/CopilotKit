@@ -28,6 +28,17 @@ class TestAssistantMessage {
   readonly message = input.required<{ content?: string }>();
 }
 
+@Component({
+  selector: "test-reasoning-message",
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <p data-testid="custom-reasoning">{{ message().content }}</p>
+  `,
+})
+class TestReasoningMessage {
+  readonly message = input.required<{ content?: string }>();
+}
+
 /**
  * Minimal agent stub: `injectAgentStore` resolves it from the configured
  * agents map and subscribes to it. Its `run` never emits, so connecting is a
@@ -350,4 +361,47 @@ test("forwards a custom assistant-message component through the prebuilt chat", 
   ).querySelector<HTMLElement>('[data-testid="custom-assistant"]');
 
   expect(customMessage?.textContent).toBe("Rendered by the application");
+});
+
+test("forwards a custom reasoning-message component through the prebuilt chat", async () => {
+  Object.defineProperty(HTMLElement.prototype, "scrollTo", {
+    configurable: true,
+    value: () => undefined,
+  });
+
+  const agent = new MockAgent("default");
+  TestBed.resetTestingModule();
+  TestBed.configureTestingModule({
+    imports: [CopilotChat],
+    providers: [
+      provideZonelessChangeDetection(),
+      provideCopilotKit({
+        licenseKey: "ck_pub_00000000000000000000000000000000",
+        agents: { default: agent },
+      }),
+      provideCopilotChatConfiguration(),
+    ],
+  });
+
+  const fixture = TestBed.createComponent(CopilotChat);
+  fixture.componentRef.setInput(
+    "reasoningMessageComponent",
+    TestReasoningMessage,
+  );
+  fixture.detectChanges();
+  agent.setMessages([
+    {
+      id: "reasoning-1",
+      role: "reasoning",
+      content: "Rendered reasoning",
+    },
+  ]);
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  fixture.detectChanges();
+
+  const customMessage = (
+    fixture.nativeElement as HTMLElement
+  ).querySelector<HTMLElement>('[data-testid="custom-reasoning"]');
+
+  expect(customMessage?.textContent).toBe("Rendered reasoning");
 });

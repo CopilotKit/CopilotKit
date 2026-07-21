@@ -1,6 +1,7 @@
 import {
   Component,
   EnvironmentInjector,
+  input,
   runInInjectionContext,
   signal,
 } from "@angular/core";
@@ -31,6 +32,16 @@ const reasoningMessage: ReasoningMessage = {
   role: "reasoning",
   content: "**Designing dashboard layout** I should choose the right renderer.",
 };
+
+@Component({
+  standalone: true,
+  template: `
+    <div data-testid="custom-reasoning">{{ message().content }}</div>
+  `,
+})
+class TestReasoningMessage {
+  readonly message = input.required<ReasoningMessage>();
+}
 
 @Component({
   imports: [CopilotChatMessageView],
@@ -223,6 +234,26 @@ describe("CopilotChatMessageView", () => {
     expect(header?.getAttribute("aria-expanded")).toBe("false");
     expect(panel?.style.gridTemplateRows).toBe("0fr");
     expect(chevron?.classList.contains("cpk:rotate-90")).toBe(false);
+  });
+
+  it("renders a custom reasoning-message component with the reasoning context", () => {
+    const fixture = TestBed.createComponent(CopilotChatMessageView);
+    fixture.componentRef.setInput("messages", [userMessage, reasoningMessage]);
+    fixture.componentRef.setInput(
+      "reasoningMessageComponent",
+      TestReasoningMessage,
+    );
+    fixture.detectChanges();
+
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="custom-reasoning"]')
+        ?.textContent,
+    ).toContain("I should choose the right renderer.");
+    expect(
+      fixture.nativeElement.querySelector(
+        '[data-testid="copilot-chat-reasoning-message"]',
+      ),
+    ).toBeNull();
   });
 
   it("renders completed reasoning collapsed by default", () => {
