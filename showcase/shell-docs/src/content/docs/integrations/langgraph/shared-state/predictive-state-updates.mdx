@@ -214,7 +214,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                                     goto=END,
                                     update={
                                         "messages": response,
-                                        "observed_steps": response.tool_calls[0].get("args", None).get('observed_steps')
+                                        "observed_steps": response.tool_calls[0].get("args", {}).get('observed_steps')
                                     }
                                 )
 
