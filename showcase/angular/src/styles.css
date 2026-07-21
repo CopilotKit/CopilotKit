@@ -760,3 +760,10 @@ showcase-root {
     border: 0;
   }
 }
+
+.generated-ui-feature-page {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  background: #fafafc;
+}

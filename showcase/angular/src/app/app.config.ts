@@ -10,6 +10,7 @@ import { routes } from "./app.routes";
 import { isDefaultToolRenderingCell, resolveBrowserCell } from "./cell-context";
 import type { BrowserCellCatalog } from "./cell-context";
 import { a2uiConfigForFeature } from "./features/a2ui/a2ui-catalogs";
+import { openGenerativeUIConfigForFeature } from "./features/generated-ui/open-generative-ui-config";
 
 const browserPath =
   typeof globalThis.location === "undefined"
@@ -30,6 +31,10 @@ export const appConfig: ApplicationConfig = {
       a2ui:
         cell.kind === "runnable"
           ? a2uiConfigForFeature(cell.feature)
+          : undefined,
+      openGenerativeUI:
+        cell.kind === "runnable"
+          ? openGenerativeUIConfigForFeature(cell.feature)
           : undefined,
       licenseKey: "ck_pub_00000000000000000000000000000000",
     }),

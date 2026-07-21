@@ -26,6 +26,8 @@ export type FeatureComponentKey =
   | "tools"
   | "interrupt"
   | "a2ui"
+  | "generated-ui"
+  | "mcp-apps"
   | "hashbrown"
   | "chat";
 
@@ -65,6 +67,11 @@ export function resolveFeatureComponentKey(
     case "a2ui-fixed-schema":
     case "a2ui-recovery":
       return "a2ui";
+    case "open-gen-ui":
+    case "open-gen-ui-advanced":
+      return "generated-ui";
+    case "mcp-apps":
+      return "mcp-apps";
     default:
       return "chat";
   }
@@ -117,6 +124,16 @@ function loadFeatureComponent(feature: string) {
       return () =>
         import("./features/a2ui/a2ui-feature.component").then(
           (module) => module.A2UIFeatureComponent,
+        );
+    case "generated-ui":
+      return () =>
+        import("./features/generated-ui/generated-ui-feature.component").then(
+          (module) => module.GeneratedUIFeatureComponent,
+        );
+    case "mcp-apps":
+      return () =>
+        import("./features/generated-ui/mcp-apps-feature.component").then(
+          (module) => module.MCPAppsFeatureComponent,
         );
     case "hashbrown":
       return () =>

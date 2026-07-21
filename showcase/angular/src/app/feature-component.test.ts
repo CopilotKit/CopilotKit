@@ -25,6 +25,9 @@ describe("Angular showcase feature routing", () => {
     ["declarative-gen-ui", "a2ui"],
     ["a2ui-fixed-schema", "a2ui"],
     ["a2ui-recovery", "a2ui"],
+    ["mcp-apps", "mcp-apps"],
+    ["open-gen-ui", "generated-ui"],
+    ["open-gen-ui-advanced", "generated-ui"],
     ["declarative-hashbrown", "hashbrown"],
     ["agentic-chat", "chat"],
   ])("maps %s to the %s implementation", (feature, expected) => {
