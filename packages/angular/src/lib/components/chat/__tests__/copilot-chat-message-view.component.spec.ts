@@ -73,6 +73,7 @@ describe("CopilotChatMessageView", () => {
     renderers.set([]);
     getAgent.mockReset();
     TestBed.configureTestingModule({
+      imports: [MessageViewHostComponent],
       providers: [
         {
           provide: CopilotKit,
@@ -112,6 +113,20 @@ describe("CopilotChatMessageView", () => {
 
     component.handleAssistantThumbsUp({ message: assistantMessage });
     expect(thumbsUpSpy).toHaveBeenCalledWith({ message: assistantMessage });
+  });
+
+  it("renders canonical cross-frontend message markers", () => {
+    const fixture = TestBed.createComponent(MessageViewHostComponent);
+    fixture.componentInstance.messages = [userMessage, assistantMessage];
+    fixture.detectChanges();
+
+    const assistant = fixture.nativeElement.querySelector(
+      '[data-testid="copilot-assistant-message"]',
+    );
+    expect(assistant?.getAttribute("data-message-role")).toBe("assistant");
+    expect(
+      fixture.nativeElement.querySelector('[data-message-role="user"]'),
+    ).not.toBeNull();
   });
 
   it("resolves activity messages with registered renderers", () => {

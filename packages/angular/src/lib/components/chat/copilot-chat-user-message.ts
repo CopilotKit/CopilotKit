@@ -53,7 +53,12 @@ import {
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
-    <div [class]="computedClass()" [attr.data-message-id]="message()?.id">
+    <div
+      [class]="computedClass()"
+      [attr.data-message-id]="message()?.id"
+      data-message-role="user"
+      role="article"
+    >
       @if (mediaParts().length > 0) {
         <div
           class="cpk:flex cpk:flex-row cpk:flex-wrap cpk:justify-end cpk:gap-2 cpk:mb-2"

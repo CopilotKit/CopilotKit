@@ -40,7 +40,7 @@ export function safeToolValue(value: unknown): string {
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "copilot-default-tool-renderer" },
   template: `
-    <article class="tool-card">
+    <article class="tool-card" data-testid="copilot-tool-render">
       <button
         type="button"
         class="tool-summary"
@@ -48,7 +48,12 @@ export function safeToolValue(value: unknown): string {
         (click)="toggleExpanded()"
       >
         <span class="tool-name">{{ toolCall().name || "Tool call" }}</span>
-        <span class="tool-status" aria-live="polite">{{ statusLabel() }}</span>
+        <span
+          class="tool-status"
+          data-testid="copilot-tool-render-status"
+          aria-live="polite"
+          >{{ statusLabel() }}</span
+        >
         <span aria-hidden="true">{{ expanded() ? "▾" : "▸" }}</span>
       </button>
       @if (expanded()) {
