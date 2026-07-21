@@ -20,6 +20,8 @@ describe("Angular showcase feature routing", () => {
     ["threadid-frontend-tool-roundtrip", "tools"],
     ["hitl-in-chat", "tools"],
     ["hitl-in-app", "tools"],
+    ["gen-ui-interrupt", "interrupt"],
+    ["interrupt-headless", "interrupt"],
     ["declarative-hashbrown", "hashbrown"],
     ["agentic-chat", "chat"],
   ])("maps %s to the %s implementation", (feature, expected) => {

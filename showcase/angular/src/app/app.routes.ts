@@ -24,6 +24,7 @@ export type FeatureComponentKey =
   | "headless-simple"
   | "headless-complete"
   | "tools"
+  | "interrupt"
   | "hashbrown"
   | "chat";
 
@@ -56,6 +57,9 @@ export function resolveFeatureComponentKey(
     case "hitl-in-chat":
     case "hitl-in-app":
       return "tools";
+    case "gen-ui-interrupt":
+    case "interrupt-headless":
+      return "interrupt";
     default:
       return "chat";
   }
@@ -98,6 +102,11 @@ function loadFeatureComponent(feature: string) {
       return () =>
         import("./features/tools/tool-feature.component").then(
           (module) => module.ToolFeatureComponent,
+        );
+    case "interrupt":
+      return () =>
+        import("./features/interrupt/interrupt-feature.component").then(
+          (module) => module.InterruptFeatureComponent,
         );
     case "hashbrown":
       return () =>

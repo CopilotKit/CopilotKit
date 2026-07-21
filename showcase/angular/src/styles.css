@@ -273,6 +273,116 @@ showcase-root {
   transition: background 180ms ease-out;
 }
 
+.interrupt-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 0;
+  flex: 1;
+  background: #fafafc;
+}
+
+.interrupt-layout-headless {
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
+}
+
+.interrupt-app-surface {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 0;
+  border-right: 1px solid var(--line);
+}
+
+.interrupt-app-surface > header {
+  padding: 1.25rem 2rem;
+  border-bottom: 1px solid var(--line);
+  background: white;
+}
+
+.interrupt-app-surface > header span,
+.interrupt-picker > span {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.interrupt-app-surface h2,
+.interrupt-picker h2,
+.interrupt-picker h3,
+.interrupt-empty h3 {
+  margin: 0.35rem 0;
+}
+
+.interrupt-empty,
+.interrupt-picker {
+  align-self: center;
+  justify-self: center;
+  width: min(100% - 3rem, 30rem);
+  padding: 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: white;
+  box-shadow: 0 20px 40px -28px rgb(15 23 42 / 0.35);
+}
+
+.interrupt-empty {
+  text-align: center;
+}
+
+.interrupt-slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.interrupt-picker button {
+  min-height: 2.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: white;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.interrupt-picker button:hover,
+.interrupt-picker button:focus-visible {
+  border-color: #7c83fd;
+  outline: 3px solid rgb(124 131 253 / 0.2);
+}
+
+.interrupt-layout:not(.interrupt-layout-headless) .interrupt-picker {
+  position: absolute;
+  z-index: 2;
+  inset: 4.5rem 1.5rem auto;
+  width: auto;
+}
+
+.interrupt-layout .chat-surface {
+  position: relative;
+}
+
+.interrupt-error {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  color: #991b1b;
+  background: #fef2f2;
+}
+
+@media (max-width: 760px) {
+  .interrupt-layout-headless {
+    grid-template-columns: 1fr;
+  }
+
+  .interrupt-app-surface {
+    min-height: 22rem;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+}
+
 .tool-feature-page .chat-surface {
   height: 100%;
   margin: 0;
