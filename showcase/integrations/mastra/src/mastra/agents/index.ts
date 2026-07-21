@@ -10,6 +10,7 @@ import { stepCountIs } from "ai";
 import {
   weatherTool,
   stockPriceTool,
+  revenueChartTool,
   queryDataTool,
   manageTodosTool,
   getTodosTool,
@@ -217,9 +218,16 @@ export const weatherAgent = new Agent({
 export const headlessCompleteAgent = new Agent({
   id: "headless-complete-agent",
   name: "Headless Complete Agent",
+  // Register under the snake_case names the aimock fixtures + useRenderTool
+  // renderers emit (get_weather / get_stock_price / get_revenue_chart). Object
+  // shorthand ({ weatherTool, stockPriceTool }) exposed the JS variable names
+  // instead, so the fixture-scripted get_* tool calls were never executable and
+  // the WeatherCard / StockCard / ChartCard stalled in their "running" state.
+  // Mirrors gold langgraph-python headless_complete.py tools=[...].
   tools: {
-    weatherTool,
-    stockPriceTool,
+    get_weather: weatherTool,
+    get_stock_price: stockPriceTool,
+    get_revenue_chart: revenueChartTool,
   },
   model: openai("gpt-4o-mini"),
   instructions: `You are a helpful, concise assistant wired into a headless chat surface that demonstrates CopilotKit's full rendering stack. Pick the right surface for each user question and fall back to plain text when none of the tools fit.

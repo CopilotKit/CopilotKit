@@ -14,7 +14,7 @@
         "context": "mastra"
       },
       "response": {
-        "content": "Tokyo is sunny right now \u2014 about 68\u00b0F with light winds. Want a forecast?"
+        "content": "Tokyo is 22\u00b0C and partly cloudy. The headless WeatherCard above shows the sunny snapshot from the tool."
       }
     },
     {
@@ -58,7 +58,7 @@
           {
             "id": "call_d5_headless_weather_001",
             "name": "get_weather",
-            "arguments": "{\"location\":\"Tokyo\"}"
+            "arguments": "{\"location\":\"Tokyo\",\"temperature\":68,\"conditions\":\"Sunny\",\"humidity\":55,\"wind_speed\":10}"
           }
         ]
       }

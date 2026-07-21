@@ -42,13 +42,41 @@ export const weatherTool = createTool({
   description: "Get current weather for a location",
   inputSchema: z.object({
     location: z.string().describe("City name"),
+    temperature: z
+      .number()
+      .optional()
+      .describe("Optional scripted temperature (°F); echoed back when provided"),
+    conditions: z
+      .string()
+      .optional()
+      .describe("Optional scripted conditions; echoed back when provided"),
+    humidity: z
+      .number()
+      .optional()
+      .describe("Optional scripted humidity; echoed back when provided"),
+    wind_speed: z
+      .number()
+      .optional()
+      .describe("Optional scripted wind speed; echoed back when provided"),
   }),
+  // Optional temperature/conditions/humidity/wind_speed let an aimock fixture
+  // script a deterministic snapshot (mirrors get_stock_price's scripted
+  // price_usd — e.g. headless-complete pins Tokyo to a fixed "Sunny / 68°F"
+  // card matching gold langgraph-python). When omitted, the seeded
+  // getWeatherImpl(location) values are used (e.g. tool-rendering's SF pill).
+  //
   // Return the OBJECT, not JSON.stringify: the @ag-ui/mastra bridge encodes the
   // tool result exactly once on the way to the frontend, so stringifying here
   // double-encodes it and the typed cards' single-parse (parseJsonResult) reads
   // back a string with undefined fields ("--%"). Single-encode by returning the
   // object (same rule as browse_web / the Mastra capability-map memory).
-  execute: async ({ location }) => getWeatherImpl(location),
+  execute: async ({ location, temperature, conditions, humidity, wind_speed }) => ({
+    ...getWeatherImpl(location),
+    ...(typeof temperature === "number" ? { temperature } : {}),
+    ...(conditions ? { conditions } : {}),
+    ...(typeof humidity === "number" ? { humidity } : {}),
+    ...(typeof wind_speed === "number" ? { wind_speed } : {}),
+  }),
 });
 // @endregion[weather-tool-backend]
 
@@ -84,6 +112,29 @@ export const stockPriceTool = createTool({
       change_pct: typeof change_pct === "number" ? change_pct : 1.27,
     };
   },
+});
+
+// Mock six-month revenue series for the headless-complete ChartCard. Mirrors
+// the langgraph-python `get_revenue_chart` tool (headless_complete.py) — returns
+// a title/subtitle + {label,value} points. Object (single-encode) — see
+// weatherTool; the ChartCard/useRenderTool reads { title, subtitle, data }.
+export const revenueChartTool = createTool({
+  id: "get-revenue-chart",
+  description:
+    "Get a mock six-month revenue series for a chart visualization. Use whenever the user asks for a chart, graph, or visualization of revenue, sales, or other quarterly/monthly metrics.",
+  inputSchema: z.object({}),
+  execute: async () => ({
+    title: "Quarterly revenue",
+    subtitle: "Last six months · USD thousands",
+    data: [
+      { label: "Jan", value: 38 },
+      { label: "Feb", value: 47 },
+      { label: "Mar", value: 52 },
+      { label: "Apr", value: 49 },
+      { label: "May", value: 63 },
+      { label: "Jun", value: 71 },
+    ],
+  }),
 });
 
 // Mock dice-roll tool used by the tool-rendering-reasoning-chain demo. Mirrors
