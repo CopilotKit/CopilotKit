@@ -112,6 +112,17 @@ We're going to have the agent ask us to name it, so we'll need a state property 
                         name = interrupt("Before we start, what would you like to call me?") # [!code highlight]
                         return {"agent_name": name}
                     return None
+
+            # Now create the agent with the middleware
+            from deepagents import create_deep_agent # [!code highlight]
+            from copilotkit import CopilotKitMiddleware # [!code highlight]
+
+            graph = create_deep_agent( # [!code highlight:5]
+                model="openai:gpt-4o",
+                tools=[],  # Add your tools here
+                middleware=[AgentNameMiddleware(), CopilotKitMiddleware(expose_state=["agent_name"])],
+                system_prompt="You are a helpful assistant."
+            )
             ```
         </Tab>
         <Tab value="TypeScript">
