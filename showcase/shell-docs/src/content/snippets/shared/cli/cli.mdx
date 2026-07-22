@@ -9,7 +9,7 @@ Use the CLI when you want to start a new app, import historical ADK or LangGraph
 <OpsPlatformCTA
   variant="inline"
   title="Start with a hosted Enterprise Intelligence project"
-  body="Create a free account, then copy the create command below to scaffold a connected app."
+  body="Create a free account, then run the init command below to scaffold a connected app."
   ctaLabel="Create a free account"
   surface="docs_cli_intro_signup"
 />
@@ -23,15 +23,15 @@ Use the CLI when you want to start a new app, import historical ADK or LangGraph
 ## Start a new app
 
 <Callout type="info" title="Creating vs. adding to an existing app">
-  `create` (aliased as `init`) scaffolds a brand-new project in its own directory — it prompts for an app name and does not detect or bootstrap an app you already have. To add CopilotKit to an existing app, follow the manual installation in the [Quickstart](/quickstart) instead.
+  `init` (`create` is an exact alias) scaffolds a brand-new project in its own directory — it prompts for an app name and does not detect or bootstrap an app you already have. To add CopilotKit to an existing app, follow the manual installation in the [Quickstart](/quickstart) instead.
 </Callout>
 
 <Steps>
   <Step>
-    ### Run create
+    ### Run init
 
     ```bash title="Terminal"
-    npx copilotkit@latest create
+    npx copilotkit@latest init
     ```
 
     The CLI prompts for the app name and framework, opens browser sign-in when needed, scaffolds the starter, and connects the app to a cloud-hosted Enterprise Intelligence project.

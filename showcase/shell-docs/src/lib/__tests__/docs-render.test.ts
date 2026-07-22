@@ -592,6 +592,10 @@ describe("framework nav", () => {
     expect(drawer).toContain(
       "CLI starters with Rich Threads already include the Drawer",
     );
+    expect(drawer).toContain(
+      "Follow the managed CLI starter flow in the [Rich Threads overview](/threads)",
+    );
+    expect(drawer).not.toContain("Get a free developer account");
     expect(drawer).toContain("## Understand the included setup");
     expect(drawer).not.toContain("## Basic setup");
 
@@ -645,6 +649,13 @@ describe("framework nav", () => {
     expect(managed).toContain(
       "[Import & Synchronize Thread History](/threads-import)",
     );
+    expect(managed).toContain("run npx copilotkit@latest init");
+    expect(managed).toContain(
+      "Use the dashboard to administer projects, API keys, thread history, and plans",
+    );
+    expect(managed).not.toContain(
+      "use the CLI or dashboard to connect your first app",
+    );
     expect(managed).not.toContain("skills onboard");
 
     expect(selfHosted).toContain("Book time with an engineer");
@@ -663,6 +674,11 @@ describe("framework nav", () => {
     }
 
     expect(cli).toContain("connected to cloud-hosted Enterprise Intelligence");
+    expect(cli).toContain("`init` (`create` is an exact alias)");
+    expect(cli).toContain("### Run init");
+    expect(cli).toContain("npx copilotkit@latest init");
+    expect(cli).not.toContain("npx copilotkit@latest create");
+    expect(cli).not.toContain("### Run create");
     expect(cli).toContain(
       "does not provision or connect Enterprise Intelligence",
     );
