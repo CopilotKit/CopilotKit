@@ -70,7 +70,7 @@ const concurrencyContext = () => ({
 });
 
 describe("compileChannelBinding — selectAgent", () => {
-  it("pins an inline agent binding to the 'inline' key", async () => {
+  it("pins an inline agent binding to the 'channel:<name>:inline' key", async () => {
     const inline = new TagAgent("inline-agent");
     const binding = compileChannelBinding(
       fakeChannel({ agentBinding: inline }),
@@ -79,10 +79,10 @@ describe("compileChannelBinding — selectAgent", () => {
 
     const selection = await binding.selectAgent(routeContext());
 
-    expect(selection.key).toBe("inline");
+    expect(selection.key).toBe("channel:support:inline");
   });
 
-  it("pins a named binding to the 'named:<name>' key", async () => {
+  it("pins a named binding to the 'runtime:<name>' key", async () => {
     const binding = compileChannelBinding(
       fakeChannel({ agentBinding: "billing" }),
       {
@@ -93,7 +93,7 @@ describe("compileChannelBinding — selectAgent", () => {
 
     const selection = await binding.selectAgent(routeContext());
 
-    expect(selection.key).toBe("named:billing");
+    expect(selection.key).toBe("runtime:billing");
   });
 
   it("pins an omitted binding to the default agent key", async () => {
@@ -103,7 +103,7 @@ describe("compileChannelBinding — selectAgent", () => {
 
     const selection = await binding.selectAgent(routeContext());
 
-    expect(selection.key).toBe("named:default");
+    expect(selection.key).toBe("runtime:default");
   });
 
   it("runs a router once and pins its returned name", async () => {
@@ -122,7 +122,7 @@ describe("compileChannelBinding — selectAgent", () => {
       routeContext({ user: { id: "travis" } }),
     );
 
-    expect(selection.key).toBe("named:travis");
+    expect(selection.key).toBe("runtime:travis");
     expect(calls).toBe(1);
   });
 
@@ -148,7 +148,7 @@ describe("compileChannelBinding — resolveAgent", () => {
     );
 
     const resolved = await binding.resolveAgent({
-      selectionKey: "inline",
+      selectionKey: "channel:support:inline",
       threadId: "thr_canonical",
       runId: "run_1",
     });
@@ -166,7 +166,7 @@ describe("compileChannelBinding — resolveAgent", () => {
     );
 
     const resolved = await binding.resolveAgent({
-      selectionKey: "named:billing",
+      selectionKey: "runtime:billing",
       threadId: "thr_canonical",
       runId: "run_1",
     });
@@ -184,7 +184,7 @@ describe("compileChannelBinding — resolveAgent", () => {
 
     await expect(
       binding.resolveAgent({
-        selectionKey: "named:billing",
+        selectionKey: "runtime:billing",
         threadId: "thr",
         runId: "run",
       }),
@@ -199,7 +199,7 @@ describe("compileChannelBinding — resolveAgent", () => {
 
     await expect(
       binding.resolveAgent({
-        selectionKey: "inline",
+        selectionKey: "channel:support:inline",
         threadId: "thr",
         runId: "run",
       }),

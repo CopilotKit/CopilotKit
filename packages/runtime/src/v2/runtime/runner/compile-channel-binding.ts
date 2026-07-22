@@ -24,12 +24,22 @@ import type { RuntimeChannelBinding } from "./channel-runner";
  * ChannelRunner contract) a custom runner; not a public surface (A6).
  */
 
-/** Opaque selection key for the single inline agent a Channel may declare. */
-const INLINE_KEY = "inline";
-/** Namespace prefix for a named Runtime agent selection key. */
-const NAMED_PREFIX = "named:";
+/**
+ * Namespace prefix for a named Runtime agent selection key (plan §2):
+ * `runtime:<agent-name>`.
+ */
+const NAMED_PREFIX = "runtime:";
 /** The Runtime agent an omitted binding targets. */
 const DEFAULT_AGENT_NAME = "default";
+
+/**
+ * Stable selection key for a Channel's single inline agent (plan §2):
+ * `channel:<channel-name>:inline`. Namespaced by Channel name so two Channels'
+ * inline agents never collide on one durable pin.
+ */
+function inlineKeyFor(channel: Channel): string {
+  return `channel:${channel.name ?? "(unnamed)"}:inline`;
+}
 
 /** What the compiler needs from the Runtime to resolve named agents. */
 export interface ChannelBindingCompilerDeps {
@@ -60,6 +70,7 @@ export function compileChannelBinding(
     typeof binding !== "function"
       ? (binding as AbstractAgent)
       : undefined;
+  const inlineKey = inlineKeyFor(channel);
 
   /** Resolve a name to its registered agent or fail loud — never a fallback. */
   const requireNamedAgent = (name: string): AbstractAgent => {
@@ -82,7 +93,7 @@ export function compileChannelBinding(
       context: ChannelAgentRouteContext,
     ): Promise<ChannelAgentSelection> {
       if (inlineAgent) {
-        return { key: INLINE_KEY };
+        return { key: inlineKey };
       }
       let name: string;
       if (typeof binding === "string") {
@@ -105,7 +116,7 @@ export function compileChannelBinding(
     }): Promise<AbstractAgent> {
       let source: AbstractAgent;
       let agentId: string | undefined;
-      if (input.selectionKey === INLINE_KEY) {
+      if (input.selectionKey === inlineKey) {
         if (!inlineAgent) {
           throw new Error(
             `Channel "${channel.name ?? "(unnamed)"}" was asked to resolve the ` +
