@@ -745,10 +745,20 @@ function findPageBySlug(navTree: NavNode[], slug: string): NavNode | null {
   return null;
 }
 
+function isRichThreadsGroup(
+  node: NavNode,
+): node is Extract<NavNode, { type: "group" }> {
+  return (
+    node.type === "group" &&
+    hasPageSlug(node.children, "threads") &&
+    hasPageSlug(node.children, "headless-threads")
+  );
+}
+
 function appendSharedThreadArchitecturePage(navTree: NavNode[]): NavNode[] {
   const rootGroup = buildNavTree(CONTENT_DIR).find(
     (node): node is Extract<NavNode, { type: "group" }> =>
-      node.type === "group" && node.title === "Threads",
+      isRichThreadsGroup(node),
   );
   if (!rootGroup) return navTree;
 
@@ -759,24 +769,10 @@ function appendSharedThreadArchitecturePage(navTree: NavNode[]): NavNode[] {
   if (architecturePage?.type !== "page") return navTree;
 
   return navTree.map((node) => {
-    if (node.type !== "group" || node.title !== "Threads") return node;
+    if (!isRichThreadsGroup(node)) return node;
     if (hasPageSlug(node.children, architecturePage.slug)) return node;
 
-    // The Architecture page sits second-to-last in the Threads group,
-    // just before the client-facing Lifecycle page. Fall back to
-    // appending if the Lifecycle anchor isn't present.
-    const lifecycleIndex = node.children.findIndex(
-      (child) => child.type === "page" && child.slug === "threads-lifecycle",
-    );
-    const insertAt =
-      lifecycleIndex === -1 ? node.children.length : lifecycleIndex;
-    const children = [
-      ...node.children.slice(0, insertAt),
-      architecturePage,
-      ...node.children.slice(insertAt),
-    ];
-
-    return { ...node, children };
+    return { ...node, children: [...node.children, architecturePage] };
   });
 }
 
