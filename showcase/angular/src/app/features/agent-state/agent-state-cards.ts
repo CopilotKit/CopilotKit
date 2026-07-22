@@ -238,7 +238,10 @@ function isSubAgentName(value: unknown): value is SubAgentName {
             track delegation.id;
             let index = $index
           ) {
-            <li>
+            <li
+              [attr.data-testid]="testIdFor(delegation.subAgent)"
+              [attr.data-status]="delegation.status"
+            >
               <strong>{{ index + 1 }}. {{ labelFor(delegation.subAgent) }}</strong>
               <span>{{ delegation.status }}</span>
               <p>{{ delegation.task }}</p>
@@ -363,5 +366,10 @@ export class DelegationLogComponent {
 
   protected labelFor(subAgent: SubAgentName): string {
     return SUB_AGENT_META[subAgent].label;
+  }
+
+  /** Resolve the stable cross-frontend probe identity for a delegation. */
+  protected testIdFor(subAgent: SubAgentName): string {
+    return SUB_AGENT_META[subAgent].testId;
   }
 }

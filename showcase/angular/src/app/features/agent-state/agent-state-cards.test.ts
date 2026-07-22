@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   AgentStateCardComponent,
+  DelegationLogComponent,
   SubAgentActivityCard,
 } from "./agent-state-cards";
 
@@ -45,6 +46,44 @@ describe("Angular agent-state cards", () => {
     });
     expect(element.querySelector(`[data-testid="${testId}"]`)).not.toBeNull();
     expect(element.textContent).toContain("Finished result");
+  });
+
+  it("exposes each completed supervisor delegation through the shared probe contract", async () => {
+    const element = await render(DelegationLogComponent, {
+      delegations: [
+        {
+          id: "research",
+          subAgent: "research_agent",
+          task: "Research the topic",
+          status: "completed",
+          result: "Research complete",
+        },
+        {
+          id: "writing",
+          subAgent: "writing_agent",
+          task: "Draft the summary",
+          status: "completed",
+          result: "Draft complete",
+        },
+        {
+          id: "critique",
+          subAgent: "critique_agent",
+          task: "Review the draft",
+          status: "completed",
+          result: "Review complete",
+        },
+      ],
+    });
+
+    expect(
+      element.querySelectorAll('[data-testid="subagent-card-researcher"]'),
+    ).toHaveLength(1);
+    expect(
+      element.querySelectorAll('[data-testid="subagent-card-writer"]'),
+    ).toHaveLength(1);
+    expect(
+      element.querySelectorAll('[data-testid="subagent-card-critic"]'),
+    ).toHaveLength(1);
   });
 });
 
