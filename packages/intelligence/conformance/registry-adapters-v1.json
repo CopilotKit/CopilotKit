@@ -20,25 +20,59 @@
       "maximumSkills": 128,
       "maximumInstructionBytes": 262144,
       "maximumAggregateBytes": 1048576
-    }
+    },
+    "learningContainerId": "55555555-5555-4555-8555-555555555555",
+    "skillId": "99999999-9999-4999-8999-999999999999",
+    "versionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    "skillPosition": 0,
+    "skillName": "Safe skill",
+    "skillDescription": null
   },
   "cases": [
     {
       "name": "cold-fresh-load",
       "operations": [
-        { "atMs": 0, "kind": "load" },
-        { "atMs": 1, "kind": "projection-request" },
-        { "atMs": 2, "kind": "bundle-request" },
-        { "atMs": 3, "kind": "render" }
+        {
+          "atMs": 0,
+          "kind": "load"
+        },
+        {
+          "atMs": 1,
+          "kind": "projection-request"
+        },
+        {
+          "atMs": 2,
+          "kind": "bundle-request"
+        },
+        {
+          "atMs": 3,
+          "kind": "render"
+        }
       ],
       "expected": {
         "calls": {
-          "client": { "projection": 1, "bundle": 1 },
-          "routing": { "readiness": 1, "nativeHook": 1 }
+          "client": {
+            "projection": 1,
+            "bundle": 1,
+            "cached": 0,
+            "network": 2
+          },
+          "routing": {
+            "readiness": 1,
+            "nativeHook": 1
+          }
         },
         "statusTransitions": [
-          { "atMs": 0, "from": "idle", "to": "loading" },
-          { "atMs": 3, "from": "loading", "to": "ready" }
+          {
+            "atMs": 0,
+            "from": "cold",
+            "to": "loading"
+          },
+          {
+            "atMs": 3,
+            "from": "loading",
+            "to": "ready"
+          }
         ],
         "genericSdk": {
           "result": {
@@ -49,16 +83,49 @@
             "aggregateByteLength": 8
           }
         },
-        "readiness": { "result": { "state": "ready" } },
-        "nativeHook": { "proceed": true },
-        "telemetryNames": ["adapter.load.started", "adapter.load.succeeded"],
+        "readiness": {
+          "result": {
+            "state": "ready"
+          }
+        },
+        "nativeHook": {
+          "proceed": true
+        },
+        "telemetryNames": ["load.started", "status.changed", "load.succeeded"],
         "renderedRecords": [
           {
             "position": 0,
             "kind": "instruction",
             "name": "Safe skill",
             "text": "# Skill\n",
-            "byteLength": 8
+            "byteLength": 8,
+            "skillId": "99999999-9999-4999-8999-999999999999",
+            "versionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            "description": null
+          }
+        ],
+        "telemetryRecords": [
+          {
+            "name": "load.started",
+            "atMs": 0,
+            "metadata": {
+              "source": "load"
+            }
+          },
+          {
+            "name": "status.changed",
+            "atMs": 1,
+            "metadata": {
+              "status": "ready"
+            }
+          },
+          {
+            "name": "load.succeeded",
+            "atMs": 2,
+            "metadata": {
+              "outcome": "success",
+              "freshness": "fresh"
+            }
           }
         ]
       }
@@ -66,19 +133,35 @@
     {
       "name": "explicit-cached-preload",
       "operations": [
-        { "atMs": 0, "kind": "preload" },
-        { "atMs": 1, "kind": "projection-request" },
-        { "atMs": 2, "kind": "bundle-request" },
-        { "atMs": 3, "kind": "load" }
+        {
+          "atMs": 0,
+          "kind": "cached-preload"
+        }
       ],
       "expected": {
         "calls": {
-          "client": { "projection": 1, "bundle": 1 },
-          "routing": { "readiness": 1, "nativeHook": 1 }
+          "client": {
+            "projection": 0,
+            "bundle": 0,
+            "cached": 1,
+            "network": 0
+          },
+          "routing": {
+            "readiness": 1,
+            "nativeHook": 1
+          }
         },
         "statusTransitions": [
-          { "atMs": 0, "from": "idle", "to": "loading" },
-          { "atMs": 2, "from": "loading", "to": "ready" }
+          {
+            "atMs": 0,
+            "from": "cold",
+            "to": "loading"
+          },
+          {
+            "atMs": 2,
+            "from": "loading",
+            "to": "ready"
+          }
         ],
         "genericSdk": {
           "result": {
@@ -89,20 +172,49 @@
             "aggregateByteLength": 8
           }
         },
-        "readiness": { "result": { "state": "ready" } },
-        "nativeHook": { "proceed": true },
-        "telemetryNames": [
-          "adapter.preload.started",
-          "adapter.preload.succeeded",
-          "adapter.cache.hit"
-        ],
+        "readiness": {
+          "result": {
+            "state": "ready"
+          }
+        },
+        "nativeHook": {
+          "proceed": true
+        },
+        "telemetryNames": ["load.started", "status.changed", "load.succeeded"],
         "renderedRecords": [
           {
             "position": 0,
             "kind": "instruction",
             "name": "Safe skill",
             "text": "# Skill\n",
-            "byteLength": 8
+            "byteLength": 8,
+            "skillId": "99999999-9999-4999-8999-999999999999",
+            "versionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            "description": null
+          }
+        ],
+        "telemetryRecords": [
+          {
+            "name": "load.started",
+            "atMs": 0,
+            "metadata": {
+              "source": "preload"
+            }
+          },
+          {
+            "name": "status.changed",
+            "atMs": 1,
+            "metadata": {
+              "status": "ready"
+            }
+          },
+          {
+            "name": "load.succeeded",
+            "atMs": 2,
+            "metadata": {
+              "outcome": "success",
+              "freshness": "cached"
+            }
           }
         ]
       }
@@ -110,17 +222,43 @@
     {
       "name": "throttle-hit",
       "operations": [
-        { "atMs": 0, "kind": "load" },
-        { "atMs": 1, "kind": "throttle-hit" }
+        {
+          "atMs": 0,
+          "kind": "load"
+        },
+        {
+          "atMs": 1,
+          "kind": "cache-read"
+        },
+        {
+          "atMs": 2,
+          "kind": "throttle-hit"
+        }
       ],
       "expected": {
         "calls": {
-          "client": { "projection": 0, "bundle": 0 },
-          "routing": { "readiness": 1, "nativeHook": 1 }
+          "client": {
+            "projection": 0,
+            "bundle": 0,
+            "cached": 1,
+            "network": 0
+          },
+          "routing": {
+            "readiness": 1,
+            "nativeHook": 1
+          }
         },
         "statusTransitions": [
-          { "atMs": 0, "from": "ready", "to": "loading" },
-          { "atMs": 1, "from": "loading", "to": "ready" }
+          {
+            "atMs": 0,
+            "from": "ready",
+            "to": "refreshing"
+          },
+          {
+            "atMs": 1,
+            "from": "refreshing",
+            "to": "ready"
+          }
         ],
         "genericSdk": {
           "result": {
@@ -131,16 +269,53 @@
             "aggregateByteLength": 8
           }
         },
-        "readiness": { "result": { "state": "ready" } },
-        "nativeHook": { "proceed": true },
-        "telemetryNames": ["adapter.load.throttled", "adapter.cache.hit"],
+        "readiness": {
+          "result": {
+            "state": "ready"
+          }
+        },
+        "nativeHook": {
+          "proceed": true
+        },
+        "telemetryNames": [
+          "load.throttled",
+          "status.changed",
+          "load.succeeded"
+        ],
         "renderedRecords": [
           {
             "position": 0,
             "kind": "instruction",
             "name": "Safe skill",
             "text": "# Skill\n",
-            "byteLength": 8
+            "byteLength": 8,
+            "skillId": "99999999-9999-4999-8999-999999999999",
+            "versionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            "description": null
+          }
+        ],
+        "telemetryRecords": [
+          {
+            "name": "load.throttled",
+            "atMs": 0,
+            "metadata": {
+              "source": "load"
+            }
+          },
+          {
+            "name": "status.changed",
+            "atMs": 1,
+            "metadata": {
+              "status": "ready"
+            }
+          },
+          {
+            "name": "load.succeeded",
+            "atMs": 2,
+            "metadata": {
+              "outcome": "success",
+              "freshness": "cached"
+            }
           }
         ]
       }
@@ -148,19 +323,49 @@
     {
       "name": "concurrent-singleflight",
       "operations": [
-        { "atMs": 0, "kind": "load-caller-a", "barrier": "load-1" },
-        { "atMs": 1, "kind": "load-caller-b", "barrier": "load-1" },
-        { "atMs": 2, "kind": "projection-request" },
-        { "atMs": 3, "kind": "bundle-request" }
+        {
+          "atMs": 0,
+          "kind": "load-caller-a",
+          "barrier": "load-1"
+        },
+        {
+          "atMs": 1,
+          "kind": "load-caller-b",
+          "barrier": "load-1"
+        },
+        {
+          "atMs": 2,
+          "kind": "projection-request"
+        },
+        {
+          "atMs": 3,
+          "kind": "bundle-request"
+        }
       ],
       "expected": {
         "calls": {
-          "client": { "projection": 1, "bundle": 1 },
-          "routing": { "readiness": 1, "nativeHook": 1 }
+          "client": {
+            "projection": 1,
+            "bundle": 1,
+            "cached": 0,
+            "network": 2
+          },
+          "routing": {
+            "readiness": 1,
+            "nativeHook": 1
+          }
         },
         "statusTransitions": [
-          { "atMs": 0, "from": "idle", "to": "loading" },
-          { "atMs": 3, "from": "loading", "to": "ready" }
+          {
+            "atMs": 0,
+            "from": "cold",
+            "to": "loading"
+          },
+          {
+            "atMs": 3,
+            "from": "loading",
+            "to": "ready"
+          }
         ],
         "genericSdk": {
           "result": {
@@ -171,12 +376,19 @@
             "aggregateByteLength": 8
           }
         },
-        "readiness": { "result": { "state": "ready" } },
-        "nativeHook": { "proceed": true },
+        "readiness": {
+          "result": {
+            "state": "ready"
+          }
+        },
+        "nativeHook": {
+          "proceed": true
+        },
         "telemetryNames": [
-          "adapter.load.started",
-          "adapter.load.joined",
-          "adapter.load.succeeded"
+          "load.started",
+          "load.singleflight_joined",
+          "status.changed",
+          "load.succeeded"
         ],
         "renderedRecords": [
           {
@@ -184,7 +396,41 @@
             "kind": "instruction",
             "name": "Safe skill",
             "text": "# Skill\n",
-            "byteLength": 8
+            "byteLength": 8,
+            "skillId": "99999999-9999-4999-8999-999999999999",
+            "versionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            "description": null
+          }
+        ],
+        "telemetryRecords": [
+          {
+            "name": "load.started",
+            "atMs": 0,
+            "metadata": {
+              "source": "load"
+            }
+          },
+          {
+            "name": "load.singleflight_joined",
+            "atMs": 1,
+            "metadata": {
+              "joinedCallers": 2
+            }
+          },
+          {
+            "name": "status.changed",
+            "atMs": 2,
+            "metadata": {
+              "status": "ready"
+            }
+          },
+          {
+            "name": "load.succeeded",
+            "atMs": 3,
+            "metadata": {
+              "outcome": "success",
+              "freshness": "fresh"
+            }
           }
         ]
       }
@@ -192,18 +438,47 @@
     {
       "name": "etag-unchanged",
       "operations": [
-        { "atMs": 0, "kind": "load" },
-        { "atMs": 1, "kind": "conditional-projection-request" },
-        { "atMs": 2, "kind": "not-modified" }
+        {
+          "atMs": 0,
+          "kind": "load"
+        },
+        {
+          "atMs": 1,
+          "kind": "cache-read"
+        },
+        {
+          "atMs": 2,
+          "kind": "conditional-projection-request"
+        },
+        {
+          "atMs": 3,
+          "kind": "not-modified"
+        }
       ],
       "expected": {
         "calls": {
-          "client": { "projection": 1, "bundle": 0 },
-          "routing": { "readiness": 1, "nativeHook": 1 }
+          "client": {
+            "projection": 1,
+            "bundle": 0,
+            "cached": 1,
+            "network": 1
+          },
+          "routing": {
+            "readiness": 1,
+            "nativeHook": 1
+          }
         },
         "statusTransitions": [
-          { "atMs": 0, "from": "ready", "to": "loading" },
-          { "atMs": 2, "from": "loading", "to": "ready" }
+          {
+            "atMs": 0,
+            "from": "ready",
+            "to": "refreshing"
+          },
+          {
+            "atMs": 2,
+            "from": "refreshing",
+            "to": "ready"
+          }
         ],
         "genericSdk": {
           "result": {
@@ -214,20 +489,49 @@
             "aggregateByteLength": 8
           }
         },
-        "readiness": { "result": { "state": "ready" } },
-        "nativeHook": { "proceed": true },
-        "telemetryNames": [
-          "adapter.load.started",
-          "adapter.projection.unchanged",
-          "adapter.load.succeeded"
-        ],
+        "readiness": {
+          "result": {
+            "state": "ready"
+          }
+        },
+        "nativeHook": {
+          "proceed": true
+        },
+        "telemetryNames": ["load.started", "status.changed", "load.succeeded"],
         "renderedRecords": [
           {
             "position": 0,
             "kind": "instruction",
             "name": "Safe skill",
             "text": "# Skill\n",
-            "byteLength": 8
+            "byteLength": 8,
+            "skillId": "99999999-9999-4999-8999-999999999999",
+            "versionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            "description": null
+          }
+        ],
+        "telemetryRecords": [
+          {
+            "name": "load.started",
+            "atMs": 0,
+            "metadata": {
+              "source": "load"
+            }
+          },
+          {
+            "name": "status.changed",
+            "atMs": 1,
+            "metadata": {
+              "status": "ready"
+            }
+          },
+          {
+            "name": "load.succeeded",
+            "atMs": 2,
+            "metadata": {
+              "outcome": "success",
+              "freshness": "fresh"
+            }
           }
         ]
       }
@@ -235,19 +539,51 @@
     {
       "name": "changed-revision",
       "operations": [
-        { "atMs": 0, "kind": "load" },
-        { "atMs": 1, "kind": "conditional-projection-request" },
-        { "atMs": 2, "kind": "changed-projection" },
-        { "atMs": 3, "kind": "bundle-request" }
+        {
+          "atMs": 0,
+          "kind": "load"
+        },
+        {
+          "atMs": 1,
+          "kind": "cache-read"
+        },
+        {
+          "atMs": 2,
+          "kind": "conditional-projection-request"
+        },
+        {
+          "atMs": 3,
+          "kind": "changed-projection"
+        },
+        {
+          "atMs": 4,
+          "kind": "bundle-request"
+        }
       ],
       "expected": {
         "calls": {
-          "client": { "projection": 1, "bundle": 1 },
-          "routing": { "readiness": 1, "nativeHook": 1 }
+          "client": {
+            "projection": 1,
+            "bundle": 1,
+            "cached": 1,
+            "network": 2
+          },
+          "routing": {
+            "readiness": 1,
+            "nativeHook": 1
+          }
         },
         "statusTransitions": [
-          { "atMs": 0, "from": "ready", "to": "loading" },
-          { "atMs": 3, "from": "loading", "to": "ready" }
+          {
+            "atMs": 0,
+            "from": "ready",
+            "to": "refreshing"
+          },
+          {
+            "atMs": 3,
+            "from": "refreshing",
+            "to": "ready"
+          }
         ],
         "genericSdk": {
           "result": {
@@ -258,20 +594,49 @@
             "aggregateByteLength": 8
           }
         },
-        "readiness": { "result": { "state": "ready" } },
-        "nativeHook": { "proceed": true },
-        "telemetryNames": [
-          "adapter.load.started",
-          "adapter.projection.changed",
-          "adapter.load.succeeded"
-        ],
+        "readiness": {
+          "result": {
+            "state": "ready"
+          }
+        },
+        "nativeHook": {
+          "proceed": true
+        },
+        "telemetryNames": ["load.started", "status.changed", "load.succeeded"],
         "renderedRecords": [
           {
             "position": 0,
             "kind": "instruction",
             "name": "Safe skill",
             "text": "# Skill\n",
-            "byteLength": 8
+            "byteLength": 8,
+            "skillId": "99999999-9999-4999-8999-999999999999",
+            "versionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            "description": null
+          }
+        ],
+        "telemetryRecords": [
+          {
+            "name": "load.started",
+            "atMs": 0,
+            "metadata": {
+              "source": "load"
+            }
+          },
+          {
+            "name": "status.changed",
+            "atMs": 1,
+            "metadata": {
+              "status": "ready"
+            }
+          },
+          {
+            "name": "load.succeeded",
+            "atMs": 2,
+            "metadata": {
+              "outcome": "success",
+              "freshness": "fresh"
+            }
           }
         ]
       }
@@ -279,18 +644,43 @@
     {
       "name": "empty",
       "operations": [
-        { "atMs": 0, "kind": "load" },
-        { "atMs": 1, "kind": "projection-request" },
-        { "atMs": 2, "kind": "render" }
+        {
+          "atMs": 0,
+          "kind": "load"
+        },
+        {
+          "atMs": 1,
+          "kind": "projection-request"
+        },
+        {
+          "atMs": 2,
+          "kind": "render"
+        }
       ],
       "expected": {
         "calls": {
-          "client": { "projection": 1, "bundle": 0 },
-          "routing": { "readiness": 1, "nativeHook": 1 }
+          "client": {
+            "projection": 1,
+            "bundle": 0,
+            "cached": 0,
+            "network": 1
+          },
+          "routing": {
+            "readiness": 1,
+            "nativeHook": 1
+          }
         },
         "statusTransitions": [
-          { "atMs": 0, "from": "idle", "to": "loading" },
-          { "atMs": 2, "from": "loading", "to": "ready" }
+          {
+            "atMs": 0,
+            "from": "cold",
+            "to": "loading"
+          },
+          {
+            "atMs": 2,
+            "from": "loading",
+            "to": "ready"
+          }
         ],
         "genericSdk": {
           "result": {
@@ -301,70 +691,172 @@
             "aggregateByteLength": 0
           }
         },
-        "readiness": { "result": { "state": "ready" } },
-        "nativeHook": { "proceed": true },
-        "telemetryNames": [
-          "adapter.load.started",
-          "adapter.load.empty",
-          "adapter.load.succeeded"
-        ],
-        "renderedRecords": []
+        "readiness": {
+          "result": {
+            "state": "ready"
+          }
+        },
+        "nativeHook": {
+          "proceed": true
+        },
+        "telemetryNames": ["load.started", "status.changed", "load.succeeded"],
+        "renderedRecords": [],
+        "telemetryRecords": [
+          {
+            "name": "load.started",
+            "atMs": 0,
+            "metadata": {
+              "source": "load"
+            }
+          },
+          {
+            "name": "status.changed",
+            "atMs": 1,
+            "metadata": {
+              "status": "ready"
+            }
+          },
+          {
+            "name": "load.succeeded",
+            "atMs": 2,
+            "metadata": {
+              "outcome": "success",
+              "freshness": "fresh"
+            }
+          }
+        ]
       }
     },
     {
       "name": "revoked",
       "operations": [
-        { "atMs": 0, "kind": "load" },
-        { "atMs": 1, "kind": "projection-request" },
-        { "atMs": 2, "kind": "revocation-observed" }
+        {
+          "atMs": 0,
+          "kind": "load"
+        },
+        {
+          "atMs": 1,
+          "kind": "projection-request"
+        },
+        {
+          "atMs": 2,
+          "kind": "revocation-observed"
+        }
       ],
       "expected": {
         "calls": {
-          "client": { "projection": 1, "bundle": 0 },
-          "routing": { "readiness": 1, "nativeHook": 1 }
+          "client": {
+            "projection": 1,
+            "bundle": 0,
+            "cached": 0,
+            "network": 1
+          },
+          "routing": {
+            "readiness": 1,
+            "nativeHook": 1
+          }
         },
         "statusTransitions": [
-          { "atMs": 0, "from": "ready", "to": "loading" },
-          { "atMs": 2, "from": "loading", "to": "denied" }
+          {
+            "atMs": 0,
+            "from": "cold",
+            "to": "loading"
+          },
+          {
+            "atMs": 2,
+            "from": "loading",
+            "to": "revoked"
+          }
         ],
         "genericSdk": {
-          "error": {
-            "code": "LEARNING_CONTAINER_REVOKED",
-            "category": "permission",
-            "retryable": false,
-            "httpStatus": 410,
-            "causeIdentity": "revoked-1"
+          "result": {
+            "state": "revoked",
+            "freshness": "fresh",
+            "registryRevision": "revision-1",
+            "skillCount": 0,
+            "aggregateByteLength": 0
           }
         },
         "readiness": {
-          "error": {
-            "code": "LEARNING_CONTAINER_REVOKED",
-            "category": "permission",
-            "retryable": false,
-            "httpStatus": 410,
-            "causeIdentity": "revoked-1"
+          "result": {
+            "state": "revoked"
           }
         },
-        "nativeHook": { "proceed": false },
-        "telemetryNames": ["adapter.load.started", "adapter.load.denied"],
-        "renderedRecords": []
+        "nativeHook": {
+          "proceed": true
+        },
+        "telemetryNames": ["load.started", "status.changed", "load.succeeded"],
+        "renderedRecords": [],
+        "telemetryRecords": [
+          {
+            "name": "load.started",
+            "atMs": 0,
+            "metadata": {
+              "source": "load"
+            }
+          },
+          {
+            "name": "status.changed",
+            "atMs": 1,
+            "metadata": {
+              "status": "revoked"
+            }
+          },
+          {
+            "name": "load.succeeded",
+            "atMs": 2,
+            "metadata": {
+              "outcome": "success",
+              "freshness": "fresh"
+            }
+          }
+        ]
       }
     },
     {
       "name": "transient-stale",
       "operations": [
-        { "atMs": 0, "kind": "load" },
-        { "atMs": 1, "kind": "projection-request" },
-        { "atMs": 2, "kind": "transient-failure" }
+        {
+          "atMs": 0,
+          "kind": "load"
+        },
+        {
+          "atMs": 1,
+          "kind": "cache-read"
+        },
+        {
+          "atMs": 2,
+          "kind": "projection-request"
+        },
+        {
+          "atMs": 3,
+          "kind": "transient-failure"
+        }
       ],
       "expected": {
         "calls": {
-          "client": { "projection": 1, "bundle": 0 },
-          "routing": { "readiness": 1, "nativeHook": 1 }
+          "client": {
+            "projection": 1,
+            "bundle": 0,
+            "cached": 1,
+            "network": 1
+          },
+          "routing": {
+            "readiness": 1,
+            "nativeHook": 1
+          }
         },
         "statusTransitions": [
-          { "atMs": 0, "from": "ready", "to": "loading" },
-          { "atMs": 2, "from": "loading", "to": "stale" }
+          {
+            "atMs": 0,
+            "from": "ready",
+            "to": "refreshing"
+          },
+          {
+            "atMs": 2,
+            "from": "refreshing",
+            "to": "stale"
+          }
         ],
         "genericSdk": {
           "result": {
@@ -383,15 +875,44 @@
             "causeIdentity": "transient-1"
           }
         },
-        "nativeHook": { "proceed": false },
-        "telemetryNames": ["adapter.load.started", "adapter.load.stale"],
+        "nativeHook": {
+          "proceed": false
+        },
+        "telemetryNames": ["load.started", "status.changed", "load.succeeded"],
         "renderedRecords": [
           {
             "position": 0,
             "kind": "instruction",
             "name": "Safe skill",
             "text": "# Skill\n",
-            "byteLength": 8
+            "byteLength": 8,
+            "skillId": "99999999-9999-4999-8999-999999999999",
+            "versionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            "description": null
+          }
+        ],
+        "telemetryRecords": [
+          {
+            "name": "load.started",
+            "atMs": 0,
+            "metadata": {
+              "source": "load"
+            }
+          },
+          {
+            "name": "status.changed",
+            "atMs": 1,
+            "metadata": {
+              "status": "stale"
+            }
+          },
+          {
+            "name": "load.succeeded",
+            "atMs": 2,
+            "metadata": {
+              "outcome": "success",
+              "freshness": "stale"
+            }
           }
         ]
       }
@@ -399,18 +920,51 @@
     {
       "name": "integrity-stale",
       "operations": [
-        { "atMs": 0, "kind": "load" },
-        { "atMs": 1, "kind": "bundle-request" },
-        { "atMs": 2, "kind": "integrity-failure" }
+        {
+          "atMs": 0,
+          "kind": "load"
+        },
+        {
+          "atMs": 1,
+          "kind": "projection-request"
+        },
+        {
+          "atMs": 2,
+          "kind": "cache-read"
+        },
+        {
+          "atMs": 3,
+          "kind": "bundle-request"
+        },
+        {
+          "atMs": 4,
+          "kind": "integrity-failure"
+        }
       ],
       "expected": {
         "calls": {
-          "client": { "projection": 1, "bundle": 1 },
-          "routing": { "readiness": 1, "nativeHook": 1 }
+          "client": {
+            "projection": 1,
+            "bundle": 1,
+            "cached": 1,
+            "network": 2
+          },
+          "routing": {
+            "readiness": 1,
+            "nativeHook": 1
+          }
         },
         "statusTransitions": [
-          { "atMs": 0, "from": "ready", "to": "loading" },
-          { "atMs": 2, "from": "loading", "to": "stale" }
+          {
+            "atMs": 0,
+            "from": "ready",
+            "to": "refreshing"
+          },
+          {
+            "atMs": 2,
+            "from": "refreshing",
+            "to": "stale"
+          }
         ],
         "genericSdk": {
           "result": {
@@ -429,19 +983,44 @@
             "causeIdentity": "integrity-1"
           }
         },
-        "nativeHook": { "proceed": false },
-        "telemetryNames": [
-          "adapter.load.started",
-          "adapter.integrity.failed",
-          "adapter.load.stale"
-        ],
+        "nativeHook": {
+          "proceed": false
+        },
+        "telemetryNames": ["load.started", "status.changed", "load.succeeded"],
         "renderedRecords": [
           {
             "position": 0,
             "kind": "instruction",
             "name": "Safe skill",
             "text": "# Skill\n",
-            "byteLength": 8
+            "byteLength": 8,
+            "skillId": "99999999-9999-4999-8999-999999999999",
+            "versionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            "description": null
+          }
+        ],
+        "telemetryRecords": [
+          {
+            "name": "load.started",
+            "atMs": 0,
+            "metadata": {
+              "source": "load"
+            }
+          },
+          {
+            "name": "status.changed",
+            "atMs": 1,
+            "metadata": {
+              "status": "stale"
+            }
+          },
+          {
+            "name": "load.succeeded",
+            "atMs": 2,
+            "metadata": {
+              "outcome": "success",
+              "freshness": "stale"
+            }
           }
         ]
       }
@@ -449,18 +1028,43 @@
     {
       "name": "denial",
       "operations": [
-        { "atMs": 0, "kind": "load" },
-        { "atMs": 1, "kind": "projection-request" },
-        { "atMs": 2, "kind": "denial-response" }
+        {
+          "atMs": 0,
+          "kind": "load"
+        },
+        {
+          "atMs": 1,
+          "kind": "projection-request"
+        },
+        {
+          "atMs": 2,
+          "kind": "denial-response"
+        }
       ],
       "expected": {
         "calls": {
-          "client": { "projection": 1, "bundle": 0 },
-          "routing": { "readiness": 1, "nativeHook": 1 }
+          "client": {
+            "projection": 1,
+            "bundle": 0,
+            "cached": 0,
+            "network": 1
+          },
+          "routing": {
+            "readiness": 1,
+            "nativeHook": 1
+          }
         },
         "statusTransitions": [
-          { "atMs": 0, "from": "idle", "to": "loading" },
-          { "atMs": 2, "from": "loading", "to": "denied" }
+          {
+            "atMs": 0,
+            "from": "cold",
+            "to": "loading"
+          },
+          {
+            "atMs": 2,
+            "from": "loading",
+            "to": "denied"
+          }
         ],
         "genericSdk": {
           "error": {
@@ -480,30 +1084,83 @@
             "causeIdentity": "denial-1"
           }
         },
-        "nativeHook": { "proceed": false },
-        "telemetryNames": ["adapter.load.started", "adapter.load.denied"],
-        "renderedRecords": []
+        "nativeHook": {
+          "proceed": false
+        },
+        "telemetryNames": ["load.started", "status.changed", "load.failed"],
+        "renderedRecords": [],
+        "telemetryRecords": [
+          {
+            "name": "load.started",
+            "atMs": 0,
+            "metadata": {
+              "source": "load"
+            }
+          },
+          {
+            "name": "status.changed",
+            "atMs": 1,
+            "metadata": {
+              "status": "denied"
+            }
+          },
+          {
+            "name": "load.failed",
+            "atMs": 2,
+            "metadata": {
+              "outcome": "failure",
+              "reason": "denied",
+              "retryable": false
+            }
+          }
+        ]
       }
     },
     {
       "name": "too-many-skills",
       "operations": [
-        { "atMs": 0, "kind": "load" },
-        { "atMs": 1, "kind": "projection-request" },
-        { "atMs": 2, "kind": "validate-count", "observed": 129 }
+        {
+          "atMs": 0,
+          "kind": "load"
+        },
+        {
+          "atMs": 1,
+          "kind": "projection-request"
+        },
+        {
+          "atMs": 2,
+          "kind": "validate-count",
+          "observed": 129
+        }
       ],
       "expected": {
         "calls": {
-          "client": { "projection": 1, "bundle": 0 },
-          "routing": { "readiness": 1, "nativeHook": 1 }
+          "client": {
+            "projection": 1,
+            "bundle": 0,
+            "cached": 0,
+            "network": 1
+          },
+          "routing": {
+            "readiness": 1,
+            "nativeHook": 1
+          }
         },
         "statusTransitions": [
-          { "atMs": 0, "from": "idle", "to": "loading" },
-          { "atMs": 2, "from": "loading", "to": "error" }
+          {
+            "atMs": 0,
+            "from": "cold",
+            "to": "loading"
+          },
+          {
+            "atMs": 2,
+            "from": "loading",
+            "to": "denied"
+          }
         ],
         "genericSdk": {
           "error": {
-            "code": "LEARNING_REGISTRY_SKILL_LIMIT_EXCEEDED",
+            "code": "INTELLIGENCE_ADAPTER_TOO_MANY_SKILLS",
             "category": "validation",
             "retryable": false,
             "causeIdentity": "count-129"
@@ -511,36 +1168,93 @@
         },
         "readiness": {
           "error": {
-            "code": "LEARNING_REGISTRY_SKILL_LIMIT_EXCEEDED",
+            "code": "INTELLIGENCE_ADAPTER_TOO_MANY_SKILLS",
             "category": "validation",
             "retryable": false,
             "causeIdentity": "count-129"
           }
         },
-        "nativeHook": { "proceed": false },
-        "telemetryNames": ["adapter.load.started", "adapter.limit.exceeded"],
-        "renderedRecords": []
+        "nativeHook": {
+          "proceed": false
+        },
+        "telemetryNames": ["load.started", "status.changed", "load.failed"],
+        "renderedRecords": [],
+        "telemetryRecords": [
+          {
+            "name": "load.started",
+            "atMs": 0,
+            "metadata": {
+              "source": "load"
+            }
+          },
+          {
+            "name": "status.changed",
+            "atMs": 1,
+            "metadata": {
+              "status": "denied"
+            }
+          },
+          {
+            "name": "load.failed",
+            "atMs": 2,
+            "metadata": {
+              "outcome": "failure",
+              "reason": "denied",
+              "retryable": false
+            }
+          }
+        ]
       }
     },
     {
       "name": "skill-md-too-large",
       "operations": [
-        { "atMs": 0, "kind": "load" },
-        { "atMs": 1, "kind": "bundle-request" },
-        { "atMs": 2, "kind": "validate-instruction-bytes", "observed": 262145 }
+        {
+          "atMs": 0,
+          "kind": "load"
+        },
+        {
+          "atMs": 1,
+          "kind": "projection-request"
+        },
+        {
+          "atMs": 2,
+          "kind": "bundle-request"
+        },
+        {
+          "atMs": 3,
+          "kind": "validate-instruction-bytes",
+          "observed": 262145
+        }
       ],
       "expected": {
         "calls": {
-          "client": { "projection": 1, "bundle": 1 },
-          "routing": { "readiness": 1, "nativeHook": 1 }
+          "client": {
+            "projection": 1,
+            "bundle": 1,
+            "cached": 0,
+            "network": 2
+          },
+          "routing": {
+            "readiness": 1,
+            "nativeHook": 1
+          }
         },
         "statusTransitions": [
-          { "atMs": 0, "from": "idle", "to": "loading" },
-          { "atMs": 2, "from": "loading", "to": "error" }
+          {
+            "atMs": 0,
+            "from": "cold",
+            "to": "loading"
+          },
+          {
+            "atMs": 2,
+            "from": "loading",
+            "to": "denied"
+          }
         ],
         "genericSdk": {
           "error": {
-            "code": "LEARNING_REGISTRY_INSTRUCTION_TOO_LARGE",
+            "code": "INTELLIGENCE_ADAPTER_SKILL_TOO_LARGE",
             "category": "validation",
             "retryable": false,
             "causeIdentity": "bytes-262145"
@@ -548,36 +1262,93 @@
         },
         "readiness": {
           "error": {
-            "code": "LEARNING_REGISTRY_INSTRUCTION_TOO_LARGE",
+            "code": "INTELLIGENCE_ADAPTER_SKILL_TOO_LARGE",
             "category": "validation",
             "retryable": false,
             "causeIdentity": "bytes-262145"
           }
         },
-        "nativeHook": { "proceed": false },
-        "telemetryNames": ["adapter.load.started", "adapter.limit.exceeded"],
-        "renderedRecords": []
+        "nativeHook": {
+          "proceed": false
+        },
+        "telemetryNames": ["load.started", "status.changed", "load.failed"],
+        "renderedRecords": [],
+        "telemetryRecords": [
+          {
+            "name": "load.started",
+            "atMs": 0,
+            "metadata": {
+              "source": "load"
+            }
+          },
+          {
+            "name": "status.changed",
+            "atMs": 1,
+            "metadata": {
+              "status": "denied"
+            }
+          },
+          {
+            "name": "load.failed",
+            "atMs": 2,
+            "metadata": {
+              "outcome": "failure",
+              "reason": "denied",
+              "retryable": false
+            }
+          }
+        ]
       }
     },
     {
       "name": "aggregate-too-large",
       "operations": [
-        { "atMs": 0, "kind": "load" },
-        { "atMs": 1, "kind": "bundle-request" },
-        { "atMs": 2, "kind": "validate-aggregate-bytes", "observed": 1048577 }
+        {
+          "atMs": 0,
+          "kind": "load"
+        },
+        {
+          "atMs": 1,
+          "kind": "projection-request"
+        },
+        {
+          "atMs": 2,
+          "kind": "bundle-request"
+        },
+        {
+          "atMs": 3,
+          "kind": "validate-aggregate-bytes",
+          "observed": 1048577
+        }
       ],
       "expected": {
         "calls": {
-          "client": { "projection": 1, "bundle": 1 },
-          "routing": { "readiness": 1, "nativeHook": 1 }
+          "client": {
+            "projection": 1,
+            "bundle": 1,
+            "cached": 0,
+            "network": 2
+          },
+          "routing": {
+            "readiness": 1,
+            "nativeHook": 1
+          }
         },
         "statusTransitions": [
-          { "atMs": 0, "from": "idle", "to": "loading" },
-          { "atMs": 2, "from": "loading", "to": "error" }
+          {
+            "atMs": 0,
+            "from": "cold",
+            "to": "loading"
+          },
+          {
+            "atMs": 2,
+            "from": "loading",
+            "to": "denied"
+          }
         ],
         "genericSdk": {
           "error": {
-            "code": "LEARNING_REGISTRY_AGGREGATE_TOO_LARGE",
+            "code": "INTELLIGENCE_ADAPTER_CONTEXT_TOO_LARGE",
             "category": "validation",
             "retryable": false,
             "causeIdentity": "bytes-1048577"
@@ -585,36 +1356,92 @@
         },
         "readiness": {
           "error": {
-            "code": "LEARNING_REGISTRY_AGGREGATE_TOO_LARGE",
+            "code": "INTELLIGENCE_ADAPTER_CONTEXT_TOO_LARGE",
             "category": "validation",
             "retryable": false,
             "causeIdentity": "bytes-1048577"
           }
         },
-        "nativeHook": { "proceed": false },
-        "telemetryNames": ["adapter.load.started", "adapter.limit.exceeded"],
-        "renderedRecords": []
+        "nativeHook": {
+          "proceed": false
+        },
+        "telemetryNames": ["load.started", "status.changed", "load.failed"],
+        "renderedRecords": [],
+        "telemetryRecords": [
+          {
+            "name": "load.started",
+            "atMs": 0,
+            "metadata": {
+              "source": "load"
+            }
+          },
+          {
+            "name": "status.changed",
+            "atMs": 1,
+            "metadata": {
+              "status": "denied"
+            }
+          },
+          {
+            "name": "load.failed",
+            "atMs": 2,
+            "metadata": {
+              "outcome": "failure",
+              "reason": "denied",
+              "retryable": false
+            }
+          }
+        ]
       }
     },
     {
       "name": "invalid-utf8",
       "operations": [
-        { "atMs": 0, "kind": "load" },
-        { "atMs": 1, "kind": "bundle-request" },
-        { "atMs": 2, "kind": "decode-instruction" }
+        {
+          "atMs": 0,
+          "kind": "load"
+        },
+        {
+          "atMs": 1,
+          "kind": "projection-request"
+        },
+        {
+          "atMs": 2,
+          "kind": "bundle-request"
+        },
+        {
+          "atMs": 3,
+          "kind": "decode-instruction"
+        }
       ],
       "expected": {
         "calls": {
-          "client": { "projection": 1, "bundle": 1 },
-          "routing": { "readiness": 1, "nativeHook": 1 }
+          "client": {
+            "projection": 1,
+            "bundle": 1,
+            "cached": 0,
+            "network": 2
+          },
+          "routing": {
+            "readiness": 1,
+            "nativeHook": 1
+          }
         },
         "statusTransitions": [
-          { "atMs": 0, "from": "idle", "to": "loading" },
-          { "atMs": 2, "from": "loading", "to": "error" }
+          {
+            "atMs": 0,
+            "from": "cold",
+            "to": "loading"
+          },
+          {
+            "atMs": 2,
+            "from": "loading",
+            "to": "denied"
+          }
         ],
         "genericSdk": {
           "error": {
-            "code": "LEARNING_REGISTRY_INVALID_UTF8",
+            "code": "INTELLIGENCE_ADAPTER_INVALID_UTF8",
             "category": "integrity",
             "retryable": false,
             "causeIdentity": "utf8-1"
@@ -622,58 +1449,133 @@
         },
         "readiness": {
           "error": {
-            "code": "LEARNING_REGISTRY_INVALID_UTF8",
+            "code": "INTELLIGENCE_ADAPTER_INVALID_UTF8",
             "category": "integrity",
             "retryable": false,
             "causeIdentity": "utf8-1"
           }
         },
-        "nativeHook": { "proceed": false },
-        "telemetryNames": ["adapter.load.started", "adapter.decode.failed"],
-        "renderedRecords": []
+        "nativeHook": {
+          "proceed": false
+        },
+        "telemetryNames": ["load.started", "status.changed", "load.failed"],
+        "renderedRecords": [],
+        "telemetryRecords": [
+          {
+            "name": "load.started",
+            "atMs": 0,
+            "metadata": {
+              "source": "load"
+            }
+          },
+          {
+            "name": "status.changed",
+            "atMs": 1,
+            "metadata": {
+              "status": "denied"
+            }
+          },
+          {
+            "name": "load.failed",
+            "atMs": 2,
+            "metadata": {
+              "outcome": "failure",
+              "reason": "denied",
+              "retryable": false
+            }
+          }
+        ]
       }
     },
     {
       "name": "script-disabled",
       "operations": [
-        { "atMs": 0, "kind": "load" },
-        { "atMs": 1, "kind": "bundle-request" },
-        { "atMs": 2, "kind": "ignore-script" },
-        { "atMs": 3, "kind": "render" }
+        {
+          "atMs": 0,
+          "kind": "load"
+        },
+        {
+          "atMs": 1,
+          "kind": "projection-request"
+        },
+        {
+          "atMs": 2,
+          "kind": "bundle-request"
+        },
+        {
+          "atMs": 3,
+          "kind": "reject-script"
+        }
       ],
       "expected": {
         "calls": {
-          "client": { "projection": 1, "bundle": 1 },
-          "routing": { "readiness": 1, "nativeHook": 1 }
-        },
-        "statusTransitions": [
-          { "atMs": 0, "from": "idle", "to": "loading" },
-          { "atMs": 3, "from": "loading", "to": "ready" }
-        ],
-        "genericSdk": {
-          "result": {
-            "state": "ready",
-            "freshness": "fresh",
-            "registryRevision": "revision-1",
-            "skillCount": 1,
-            "aggregateByteLength": 8,
-            "scriptsEnabled": false
+          "client": {
+            "projection": 1,
+            "bundle": 1,
+            "cached": 0,
+            "network": 2
+          },
+          "routing": {
+            "readiness": 1,
+            "nativeHook": 1
           }
         },
-        "readiness": { "result": { "state": "ready" } },
-        "nativeHook": { "proceed": true },
-        "telemetryNames": [
-          "adapter.load.started",
-          "adapter.script.ignored",
-          "adapter.load.succeeded"
-        ],
-        "renderedRecords": [
+        "statusTransitions": [
           {
-            "position": 0,
-            "kind": "instruction",
-            "name": "Safe skill",
-            "text": "# Skill\n",
-            "byteLength": 8
+            "atMs": 0,
+            "from": "cold",
+            "to": "loading"
+          },
+          {
+            "atMs": 3,
+            "from": "loading",
+            "to": "denied"
+          }
+        ],
+        "genericSdk": {
+          "error": {
+            "code": "INTELLIGENCE_ADAPTER_SCRIPT_DISABLED",
+            "category": "validation",
+            "retryable": false,
+            "causeIdentity": "script-disabled-1"
+          }
+        },
+        "readiness": {
+          "error": {
+            "code": "INTELLIGENCE_ADAPTER_SCRIPT_DISABLED",
+            "category": "validation",
+            "retryable": false,
+            "causeIdentity": "script-disabled-1"
+          }
+        },
+        "nativeHook": {
+          "proceed": false
+        },
+        "telemetryNames": ["load.started", "status.changed", "load.failed"],
+        "renderedRecords": [],
+        "telemetryRecords": [
+          {
+            "name": "load.started",
+            "atMs": 0,
+            "metadata": {
+              "source": "load"
+            }
+          },
+          {
+            "name": "status.changed",
+            "atMs": 1,
+            "metadata": {
+              "status": "denied"
+            }
+          },
+          {
+            "name": "load.failed",
+            "atMs": 2,
+            "metadata": {
+              "outcome": "failure",
+              "reason": "denied",
+              "retryable": false
+            }
           }
         ]
       }
@@ -681,16 +1583,41 @@
     {
       "name": "close-idempotent",
       "operations": [
-        { "atMs": 0, "kind": "close" },
-        { "atMs": 1, "kind": "close" }
+        {
+          "atMs": 0,
+          "kind": "close"
+        },
+        {
+          "atMs": 1,
+          "kind": "close"
+        }
       ],
       "expected": {
         "calls": {
-          "client": { "projection": 0, "bundle": 0 },
-          "routing": { "readiness": 1, "nativeHook": 1 }
+          "client": {
+            "projection": 0,
+            "bundle": 0,
+            "cached": 0,
+            "network": 0
+          },
+          "routing": {
+            "readiness": 1,
+            "nativeHook": 1
+          }
         },
-        "statusTransitions": [{ "atMs": 0, "from": "idle", "to": "closed" }],
-        "genericSdk": { "result": { "state": "closed", "closeCount": 1 } },
+        "statusTransitions": [
+          {
+            "atMs": 0,
+            "from": "cold",
+            "to": "closed"
+          }
+        ],
+        "genericSdk": {
+          "result": {
+            "state": "closed",
+            "closeCount": 1
+          }
+        },
         "readiness": {
           "error": {
             "code": "LEARNING_REGISTRY_CLOSED",
@@ -699,18 +1626,50 @@
             "causeIdentity": "closed-1"
           }
         },
-        "nativeHook": { "proceed": false },
-        "telemetryNames": ["adapter.closed"],
-        "renderedRecords": []
+        "nativeHook": {
+          "proceed": false
+        },
+        "telemetryNames": ["status.changed", "load.succeeded"],
+        "renderedRecords": [],
+        "telemetryRecords": [
+          {
+            "name": "status.changed",
+            "atMs": 0,
+            "metadata": {
+              "status": "closed"
+            }
+          },
+          {
+            "name": "load.succeeded",
+            "atMs": 1,
+            "metadata": {
+              "outcome": "success",
+              "freshness": "fresh"
+            }
+          }
+        ]
       }
     },
     {
       "name": "readiness-ready",
-      "operations": [{ "atMs": 0, "kind": "readiness" }],
+      "operations": [
+        {
+          "atMs": 0,
+          "kind": "readiness"
+        }
+      ],
       "expected": {
         "calls": {
-          "client": { "projection": 0, "bundle": 0 },
-          "routing": { "readiness": 1, "nativeHook": 1 }
+          "client": {
+            "projection": 0,
+            "bundle": 0,
+            "cached": 0,
+            "network": 0
+          },
+          "routing": {
+            "readiness": 1,
+            "nativeHook": 1
+          }
         },
         "statusTransitions": [],
         "genericSdk": {
@@ -722,16 +1681,42 @@
             "aggregateByteLength": 8
           }
         },
-        "readiness": { "result": { "state": "ready" } },
-        "nativeHook": { "proceed": true },
-        "telemetryNames": ["adapter.readiness.ready"],
+        "readiness": {
+          "result": {
+            "state": "ready"
+          }
+        },
+        "nativeHook": {
+          "proceed": true
+        },
+        "telemetryNames": ["status.changed", "load.succeeded"],
         "renderedRecords": [
           {
             "position": 0,
             "kind": "instruction",
             "name": "Safe skill",
             "text": "# Skill\n",
-            "byteLength": 8
+            "byteLength": 8,
+            "skillId": "99999999-9999-4999-8999-999999999999",
+            "versionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            "description": null
+          }
+        ],
+        "telemetryRecords": [
+          {
+            "name": "status.changed",
+            "atMs": 0,
+            "metadata": {
+              "status": "ready"
+            }
+          },
+          {
+            "name": "load.succeeded",
+            "atMs": 1,
+            "metadata": {
+              "outcome": "success",
+              "freshness": "fresh"
+            }
           }
         ]
       }
@@ -739,13 +1724,27 @@
     {
       "name": "readiness-timeout",
       "operations": [
-        { "atMs": 0, "kind": "readiness" },
-        { "atMs": 30000, "kind": "timeout" }
+        {
+          "atMs": 0,
+          "kind": "readiness"
+        },
+        {
+          "atMs": 30000,
+          "kind": "timeout"
+        }
       ],
       "expected": {
         "calls": {
-          "client": { "projection": 0, "bundle": 0 },
-          "routing": { "readiness": 1, "nativeHook": 1 }
+          "client": {
+            "projection": 0,
+            "bundle": 0,
+            "cached": 0,
+            "network": 0
+          },
+          "routing": {
+            "readiness": 1,
+            "nativeHook": 1
+          }
         },
         "statusTransitions": [],
         "genericSdk": {
@@ -764,18 +1763,51 @@
             "causeIdentity": "timeout-30000"
           }
         },
-        "nativeHook": { "proceed": false },
-        "telemetryNames": ["adapter.readiness.timeout"],
-        "renderedRecords": []
+        "nativeHook": {
+          "proceed": false
+        },
+        "telemetryNames": ["status.changed", "load.failed"],
+        "renderedRecords": [],
+        "telemetryRecords": [
+          {
+            "name": "status.changed",
+            "atMs": 0,
+            "metadata": {
+              "status": "loading"
+            }
+          },
+          {
+            "name": "load.failed",
+            "atMs": 1,
+            "metadata": {
+              "outcome": "failure",
+              "reason": "loading",
+              "retryable": true
+            }
+          }
+        ]
       }
     },
     {
       "name": "readiness-denied-rejects",
-      "operations": [{ "atMs": 0, "kind": "readiness" }],
+      "operations": [
+        {
+          "atMs": 0,
+          "kind": "readiness"
+        }
+      ],
       "expected": {
         "calls": {
-          "client": { "projection": 0, "bundle": 0 },
-          "routing": { "readiness": 1, "nativeHook": 1 }
+          "client": {
+            "projection": 0,
+            "bundle": 0,
+            "cached": 0,
+            "network": 0
+          },
+          "routing": {
+            "readiness": 1,
+            "nativeHook": 1
+          }
         },
         "statusTransitions": [],
         "genericSdk": {
@@ -796,18 +1828,51 @@
             "causeIdentity": "denied-ready-1"
           }
         },
-        "nativeHook": { "proceed": false },
-        "telemetryNames": ["adapter.readiness.denied"],
-        "renderedRecords": []
+        "nativeHook": {
+          "proceed": false
+        },
+        "telemetryNames": ["status.changed", "load.failed"],
+        "renderedRecords": [],
+        "telemetryRecords": [
+          {
+            "name": "status.changed",
+            "atMs": 0,
+            "metadata": {
+              "status": "denied"
+            }
+          },
+          {
+            "name": "load.failed",
+            "atMs": 1,
+            "metadata": {
+              "outcome": "failure",
+              "reason": "denied",
+              "retryable": false
+            }
+          }
+        ]
       }
     },
     {
       "name": "readiness-stale-rejects",
-      "operations": [{ "atMs": 0, "kind": "readiness" }],
+      "operations": [
+        {
+          "atMs": 0,
+          "kind": "readiness"
+        }
+      ],
       "expected": {
         "calls": {
-          "client": { "projection": 0, "bundle": 0 },
-          "routing": { "readiness": 1, "nativeHook": 1 }
+          "client": {
+            "projection": 0,
+            "bundle": 0,
+            "cached": 0,
+            "network": 0
+          },
+          "routing": {
+            "readiness": 1,
+            "nativeHook": 1
+          }
         },
         "statusTransitions": [],
         "genericSdk": {
@@ -826,23 +1891,63 @@
             "causeIdentity": "stale-ready-1"
           }
         },
-        "nativeHook": { "proceed": false },
-        "telemetryNames": ["adapter.readiness.stale"],
-        "renderedRecords": []
+        "nativeHook": {
+          "proceed": false
+        },
+        "telemetryNames": ["status.changed", "load.failed"],
+        "renderedRecords": [],
+        "telemetryRecords": [
+          {
+            "name": "status.changed",
+            "atMs": 0,
+            "metadata": {
+              "status": "stale"
+            }
+          },
+          {
+            "name": "load.failed",
+            "atMs": 1,
+            "metadata": {
+              "outcome": "failure",
+              "reason": "stale",
+              "retryable": true
+            }
+          }
+        ]
       }
     },
     {
       "name": "readiness-closed-rejects",
       "operations": [
-        { "atMs": 0, "kind": "close" },
-        { "atMs": 1, "kind": "readiness" }
+        {
+          "atMs": 0,
+          "kind": "close"
+        },
+        {
+          "atMs": 1,
+          "kind": "readiness"
+        }
       ],
       "expected": {
         "calls": {
-          "client": { "projection": 0, "bundle": 0 },
-          "routing": { "readiness": 1, "nativeHook": 1 }
+          "client": {
+            "projection": 0,
+            "bundle": 0,
+            "cached": 0,
+            "network": 0
+          },
+          "routing": {
+            "readiness": 1,
+            "nativeHook": 1
+          }
         },
-        "statusTransitions": [{ "atMs": 0, "from": "ready", "to": "closed" }],
+        "statusTransitions": [
+          {
+            "atMs": 0,
+            "from": "ready",
+            "to": "closed"
+          }
+        ],
         "genericSdk": {
           "error": {
             "code": "LEARNING_REGISTRY_CLOSED",
@@ -859,26 +1964,84 @@
             "causeIdentity": "closed-1"
           }
         },
-        "nativeHook": { "proceed": false },
-        "telemetryNames": ["adapter.closed", "adapter.readiness.closed"],
-        "renderedRecords": []
+        "nativeHook": {
+          "proceed": false
+        },
+        "telemetryNames": ["status.changed", "load.failed"],
+        "renderedRecords": [],
+        "telemetryRecords": [
+          {
+            "name": "status.changed",
+            "atMs": 0,
+            "metadata": {
+              "status": "closed"
+            }
+          },
+          {
+            "name": "load.failed",
+            "atMs": 1,
+            "metadata": {
+              "outcome": "failure",
+              "reason": "closed",
+              "retryable": false
+            }
+          }
+        ]
       }
     },
     {
       "name": "retry-after-failed-throttle-window",
       "operations": [
-        { "atMs": 0, "kind": "throttle-start" },
-        { "atMs": 29999, "kind": "load" },
-        { "atMs": 30000, "kind": "registry-request" }
+        {
+          "atMs": 0,
+          "kind": "registry-request",
+          "outcome": "failed"
+        },
+        {
+          "atMs": 29999,
+          "kind": "throttle-check",
+          "networkCall": false
+        },
+        {
+          "atMs": 30000,
+          "kind": "registry-request",
+          "outcome": "succeeded"
+        }
       ],
       "expected": {
         "calls": {
-          "client": { "projection": 1, "bundle": 1 },
-          "routing": { "readiness": 1, "nativeHook": 1 }
+          "client": {
+            "projection": 2,
+            "bundle": 0,
+            "cached": 0,
+            "network": 2
+          },
+          "routing": {
+            "readiness": 1,
+            "nativeHook": 1
+          }
         },
         "statusTransitions": [
-          { "atMs": 0, "from": "error", "to": "loading" },
-          { "atMs": 30000, "from": "loading", "to": "ready" }
+          {
+            "atMs": 0,
+            "from": "ready",
+            "to": "refreshing"
+          },
+          {
+            "atMs": 1,
+            "from": "refreshing",
+            "to": "stale"
+          },
+          {
+            "atMs": 30000,
+            "from": "stale",
+            "to": "refreshing"
+          },
+          {
+            "atMs": 30001,
+            "from": "refreshing",
+            "to": "ready"
+          }
         ],
         "genericSdk": {
           "result": {
@@ -889,12 +2052,21 @@
             "aggregateByteLength": 8
           }
         },
-        "readiness": { "result": { "state": "ready" } },
-        "nativeHook": { "proceed": true },
+        "readiness": {
+          "result": {
+            "state": "ready"
+          }
+        },
+        "nativeHook": {
+          "proceed": true
+        },
         "telemetryNames": [
-          "adapter.load.throttled",
-          "adapter.retry.started",
-          "adapter.load.succeeded"
+          "load.started",
+          "load.failed",
+          "load.throttled",
+          "load.started",
+          "status.changed",
+          "load.succeeded"
         ],
         "renderedRecords": [
           {
@@ -902,7 +2074,57 @@
             "kind": "instruction",
             "name": "Safe skill",
             "text": "# Skill\n",
-            "byteLength": 8
+            "byteLength": 8,
+            "skillId": "99999999-9999-4999-8999-999999999999",
+            "versionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            "description": null
+          }
+        ],
+        "telemetryRecords": [
+          {
+            "name": "load.started",
+            "atMs": 0,
+            "metadata": {
+              "source": "refresh"
+            }
+          },
+          {
+            "name": "load.failed",
+            "atMs": 1,
+            "metadata": {
+              "outcome": "failure",
+              "reason": "transient",
+              "retryable": true
+            }
+          },
+          {
+            "name": "load.throttled",
+            "atMs": 29999,
+            "metadata": {
+              "source": "refresh"
+            }
+          },
+          {
+            "name": "load.started",
+            "atMs": 30000,
+            "metadata": {
+              "source": "refresh"
+            }
+          },
+          {
+            "name": "status.changed",
+            "atMs": 30001,
+            "metadata": {
+              "status": "ready"
+            }
+          },
+          {
+            "name": "load.succeeded",
+            "atMs": 30002,
+            "metadata": {
+              "outcome": "success",
+              "freshness": "fresh"
+            }
           }
         ]
       }
@@ -910,15 +2132,35 @@
     {
       "name": "load-after-close-rejects",
       "operations": [
-        { "atMs": 0, "kind": "close" },
-        { "atMs": 1, "kind": "load" }
+        {
+          "atMs": 0,
+          "kind": "close"
+        },
+        {
+          "atMs": 1,
+          "kind": "load"
+        }
       ],
       "expected": {
         "calls": {
-          "client": { "projection": 0, "bundle": 0 },
-          "routing": { "readiness": 1, "nativeHook": 1 }
+          "client": {
+            "projection": 0,
+            "bundle": 0,
+            "cached": 0,
+            "network": 0
+          },
+          "routing": {
+            "readiness": 1,
+            "nativeHook": 1
+          }
         },
-        "statusTransitions": [{ "atMs": 0, "from": "ready", "to": "closed" }],
+        "statusTransitions": [
+          {
+            "atMs": 0,
+            "from": "ready",
+            "to": "closed"
+          }
+        ],
         "genericSdk": {
           "error": {
             "code": "LEARNING_REGISTRY_CLOSED",
@@ -935,27 +2177,84 @@
             "causeIdentity": "closed-1"
           }
         },
-        "nativeHook": { "proceed": false },
-        "telemetryNames": ["adapter.closed", "adapter.load.closed"],
-        "renderedRecords": []
+        "nativeHook": {
+          "proceed": false
+        },
+        "telemetryNames": ["load.started", "status.changed", "load.failed"],
+        "renderedRecords": [],
+        "telemetryRecords": [
+          {
+            "name": "load.started",
+            "atMs": 0,
+            "metadata": {
+              "source": "load"
+            }
+          },
+          {
+            "name": "status.changed",
+            "atMs": 1,
+            "metadata": {
+              "status": "closed"
+            }
+          },
+          {
+            "name": "load.failed",
+            "atMs": 2,
+            "metadata": {
+              "outcome": "failure",
+              "reason": "closed",
+              "retryable": false
+            }
+          }
+        ]
       }
     },
     {
       "name": "telemetry-sink-failure-singleflight",
       "operations": [
-        { "atMs": 0, "kind": "load-caller-a", "barrier": "load-telemetry-1" },
-        { "atMs": 1, "kind": "load-caller-b", "barrier": "load-telemetry-1" },
-        { "atMs": 2, "kind": "projection-request" },
-        { "atMs": 3, "kind": "telemetry-write" }
+        {
+          "atMs": 0,
+          "kind": "load-caller-a",
+          "barrier": "load-telemetry-1"
+        },
+        {
+          "atMs": 1,
+          "kind": "load-caller-b",
+          "barrier": "load-telemetry-1"
+        },
+        {
+          "atMs": 2,
+          "kind": "projection-request"
+        },
+        {
+          "atMs": 3,
+          "kind": "telemetry-write"
+        }
       ],
       "expected": {
         "calls": {
-          "client": { "projection": 1, "bundle": 0 },
-          "routing": { "readiness": 1, "nativeHook": 1 }
+          "client": {
+            "projection": 1,
+            "bundle": 0,
+            "cached": 0,
+            "network": 1
+          },
+          "routing": {
+            "readiness": 1,
+            "nativeHook": 1
+          }
         },
         "statusTransitions": [
-          { "atMs": 0, "from": "idle", "to": "loading" },
-          { "atMs": 3, "from": "loading", "to": "error" }
+          {
+            "atMs": 0,
+            "from": "cold",
+            "to": "loading"
+          },
+          {
+            "atMs": 3,
+            "from": "loading",
+            "to": "denied"
+          }
         ],
         "genericSdk": {
           "error": {
@@ -973,8 +2272,15 @@
             "causeIdentity": "sink-exception-1"
           }
         },
-        "nativeHook": { "proceed": false },
-        "telemetryNames": ["adapter.load.started", "adapter.load.succeeded"],
+        "nativeHook": {
+          "proceed": false
+        },
+        "telemetryNames": [
+          "load.started",
+          "load.singleflight_joined",
+          "status.changed",
+          "load.failed"
+        ],
         "renderedRecords": [],
         "singleflight": {
           "barrier": "load-telemetry-1",
@@ -983,33 +2289,91 @@
           "callers": [
             {
               "name": "caller-a",
-              "rejectionIdentity": "rejection-1",
+              "rejectionIdentity": "sink-exception-1",
               "causeIdentity": "sink-exception-1"
             },
             {
               "name": "caller-b",
-              "rejectionIdentity": "rejection-1",
+              "rejectionIdentity": "sink-exception-1",
               "causeIdentity": "sink-exception-1"
             }
           ]
-        }
+        },
+        "telemetryRecords": [
+          {
+            "name": "load.started",
+            "atMs": 0,
+            "metadata": {
+              "source": "load"
+            }
+          },
+          {
+            "name": "load.singleflight_joined",
+            "atMs": 1,
+            "metadata": {
+              "joinedCallers": 2
+            }
+          },
+          {
+            "name": "status.changed",
+            "atMs": 2,
+            "metadata": {
+              "status": "denied"
+            }
+          },
+          {
+            "name": "load.failed",
+            "atMs": 3,
+            "metadata": {
+              "outcome": "failure",
+              "reason": "denied",
+              "retryable": false
+            }
+          }
+        ]
       }
     },
     {
       "name": "error-category-auth-denied",
       "permanentDenialSource": "error-category-auth",
       "operations": [
-        { "atMs": 0, "kind": "load" },
-        { "atMs": 1, "kind": "registry-error" }
+        {
+          "atMs": 0,
+          "kind": "load"
+        },
+        {
+          "atMs": 1,
+          "kind": "projection-request"
+        },
+        {
+          "atMs": 2,
+          "kind": "registry-error"
+        }
       ],
       "expected": {
         "calls": {
-          "client": { "projection": 1, "bundle": 0 },
-          "routing": { "readiness": 1, "nativeHook": 1 }
+          "client": {
+            "projection": 1,
+            "bundle": 0,
+            "cached": 0,
+            "network": 1
+          },
+          "routing": {
+            "readiness": 1,
+            "nativeHook": 1
+          }
         },
         "statusTransitions": [
-          { "atMs": 0, "from": "idle", "to": "loading" },
-          { "atMs": 1, "from": "loading", "to": "denied" }
+          {
+            "atMs": 0,
+            "from": "cold",
+            "to": "loading"
+          },
+          {
+            "atMs": 2,
+            "from": "loading",
+            "to": "denied"
+          }
         ],
         "genericSdk": {
           "error": {
@@ -1027,26 +2391,79 @@
             "causeIdentity": "error-category-auth"
           }
         },
-        "nativeHook": { "proceed": false },
-        "telemetryNames": ["adapter.load.denied"],
-        "renderedRecords": []
+        "nativeHook": {
+          "proceed": false
+        },
+        "telemetryNames": ["load.started", "status.changed", "load.failed"],
+        "renderedRecords": [],
+        "telemetryRecords": [
+          {
+            "name": "load.started",
+            "atMs": 0,
+            "metadata": {
+              "source": "load"
+            }
+          },
+          {
+            "name": "status.changed",
+            "atMs": 1,
+            "metadata": {
+              "status": "denied"
+            }
+          },
+          {
+            "name": "load.failed",
+            "atMs": 2,
+            "metadata": {
+              "outcome": "failure",
+              "reason": "denied",
+              "retryable": false
+            }
+          }
+        ]
       }
     },
     {
       "name": "error-category-permission-denied",
       "permanentDenialSource": "error-category-permission",
       "operations": [
-        { "atMs": 0, "kind": "load" },
-        { "atMs": 1, "kind": "registry-error" }
+        {
+          "atMs": 0,
+          "kind": "load"
+        },
+        {
+          "atMs": 1,
+          "kind": "projection-request"
+        },
+        {
+          "atMs": 2,
+          "kind": "registry-error"
+        }
       ],
       "expected": {
         "calls": {
-          "client": { "projection": 1, "bundle": 0 },
-          "routing": { "readiness": 1, "nativeHook": 1 }
+          "client": {
+            "projection": 1,
+            "bundle": 0,
+            "cached": 0,
+            "network": 1
+          },
+          "routing": {
+            "readiness": 1,
+            "nativeHook": 1
+          }
         },
         "statusTransitions": [
-          { "atMs": 0, "from": "idle", "to": "loading" },
-          { "atMs": 1, "from": "loading", "to": "denied" }
+          {
+            "atMs": 0,
+            "from": "cold",
+            "to": "loading"
+          },
+          {
+            "atMs": 2,
+            "from": "loading",
+            "to": "denied"
+          }
         ],
         "genericSdk": {
           "error": {
@@ -1064,26 +2481,80 @@
             "causeIdentity": "error-category-permission"
           }
         },
-        "nativeHook": { "proceed": false },
-        "telemetryNames": ["adapter.load.denied"],
-        "renderedRecords": []
+        "nativeHook": {
+          "proceed": false
+        },
+        "telemetryNames": ["load.started", "status.changed", "load.failed"],
+        "renderedRecords": [],
+        "telemetryRecords": [
+          {
+            "name": "load.started",
+            "atMs": 0,
+            "metadata": {
+              "source": "load"
+            }
+          },
+          {
+            "name": "status.changed",
+            "atMs": 1,
+            "metadata": {
+              "status": "denied"
+            }
+          },
+          {
+            "name": "load.failed",
+            "atMs": 2,
+            "metadata": {
+              "outcome": "failure",
+              "reason": "denied",
+              "retryable": false
+            }
+          }
+        ]
       }
     },
     {
       "name": "http-401-denied",
       "permanentDenialSource": "http-401",
       "operations": [
-        { "atMs": 0, "kind": "load" },
-        { "atMs": 1, "kind": "http-response", "status": 401 }
+        {
+          "atMs": 0,
+          "kind": "load"
+        },
+        {
+          "atMs": 1,
+          "kind": "projection-request"
+        },
+        {
+          "atMs": 2,
+          "kind": "http-response",
+          "status": 401
+        }
       ],
       "expected": {
         "calls": {
-          "client": { "projection": 1, "bundle": 0 },
-          "routing": { "readiness": 1, "nativeHook": 1 }
+          "client": {
+            "projection": 1,
+            "bundle": 0,
+            "cached": 0,
+            "network": 1
+          },
+          "routing": {
+            "readiness": 1,
+            "nativeHook": 1
+          }
         },
         "statusTransitions": [
-          { "atMs": 0, "from": "idle", "to": "loading" },
-          { "atMs": 1, "from": "loading", "to": "denied" }
+          {
+            "atMs": 0,
+            "from": "cold",
+            "to": "loading"
+          },
+          {
+            "atMs": 2,
+            "from": "loading",
+            "to": "denied"
+          }
         ],
         "genericSdk": {
           "error": {
@@ -1103,26 +2574,80 @@
             "causeIdentity": "http-401"
           }
         },
-        "nativeHook": { "proceed": false },
-        "telemetryNames": ["adapter.load.denied"],
-        "renderedRecords": []
+        "nativeHook": {
+          "proceed": false
+        },
+        "telemetryNames": ["load.started", "status.changed", "load.failed"],
+        "renderedRecords": [],
+        "telemetryRecords": [
+          {
+            "name": "load.started",
+            "atMs": 0,
+            "metadata": {
+              "source": "load"
+            }
+          },
+          {
+            "name": "status.changed",
+            "atMs": 1,
+            "metadata": {
+              "status": "denied"
+            }
+          },
+          {
+            "name": "load.failed",
+            "atMs": 2,
+            "metadata": {
+              "outcome": "failure",
+              "reason": "denied",
+              "retryable": false
+            }
+          }
+        ]
       }
     },
     {
       "name": "http-403-denied",
       "permanentDenialSource": "http-403",
       "operations": [
-        { "atMs": 0, "kind": "load" },
-        { "atMs": 1, "kind": "http-response", "status": 403 }
+        {
+          "atMs": 0,
+          "kind": "load"
+        },
+        {
+          "atMs": 1,
+          "kind": "projection-request"
+        },
+        {
+          "atMs": 2,
+          "kind": "http-response",
+          "status": 403
+        }
       ],
       "expected": {
         "calls": {
-          "client": { "projection": 1, "bundle": 0 },
-          "routing": { "readiness": 1, "nativeHook": 1 }
+          "client": {
+            "projection": 1,
+            "bundle": 0,
+            "cached": 0,
+            "network": 1
+          },
+          "routing": {
+            "readiness": 1,
+            "nativeHook": 1
+          }
         },
         "statusTransitions": [
-          { "atMs": 0, "from": "idle", "to": "loading" },
-          { "atMs": 1, "from": "loading", "to": "denied" }
+          {
+            "atMs": 0,
+            "from": "cold",
+            "to": "loading"
+          },
+          {
+            "atMs": 2,
+            "from": "loading",
+            "to": "denied"
+          }
         ],
         "genericSdk": {
           "error": {
@@ -1142,26 +2667,80 @@
             "causeIdentity": "http-403"
           }
         },
-        "nativeHook": { "proceed": false },
-        "telemetryNames": ["adapter.load.denied"],
-        "renderedRecords": []
+        "nativeHook": {
+          "proceed": false
+        },
+        "telemetryNames": ["load.started", "status.changed", "load.failed"],
+        "renderedRecords": [],
+        "telemetryRecords": [
+          {
+            "name": "load.started",
+            "atMs": 0,
+            "metadata": {
+              "source": "load"
+            }
+          },
+          {
+            "name": "status.changed",
+            "atMs": 1,
+            "metadata": {
+              "status": "denied"
+            }
+          },
+          {
+            "name": "load.failed",
+            "atMs": 2,
+            "metadata": {
+              "outcome": "failure",
+              "reason": "denied",
+              "retryable": false
+            }
+          }
+        ]
       }
     },
     {
       "name": "http-404-denied",
       "permanentDenialSource": "http-404",
       "operations": [
-        { "atMs": 0, "kind": "load" },
-        { "atMs": 1, "kind": "http-response", "status": 404 }
+        {
+          "atMs": 0,
+          "kind": "load"
+        },
+        {
+          "atMs": 1,
+          "kind": "projection-request"
+        },
+        {
+          "atMs": 2,
+          "kind": "http-response",
+          "status": 404
+        }
       ],
       "expected": {
         "calls": {
-          "client": { "projection": 1, "bundle": 0 },
-          "routing": { "readiness": 1, "nativeHook": 1 }
+          "client": {
+            "projection": 1,
+            "bundle": 0,
+            "cached": 0,
+            "network": 1
+          },
+          "routing": {
+            "readiness": 1,
+            "nativeHook": 1
+          }
         },
         "statusTransitions": [
-          { "atMs": 0, "from": "idle", "to": "loading" },
-          { "atMs": 1, "from": "loading", "to": "denied" }
+          {
+            "atMs": 0,
+            "from": "cold",
+            "to": "loading"
+          },
+          {
+            "atMs": 2,
+            "from": "loading",
+            "to": "denied"
+          }
         ],
         "genericSdk": {
           "error": {
@@ -1181,26 +2760,80 @@
             "causeIdentity": "http-404"
           }
         },
-        "nativeHook": { "proceed": false },
-        "telemetryNames": ["adapter.load.denied"],
-        "renderedRecords": []
+        "nativeHook": {
+          "proceed": false
+        },
+        "telemetryNames": ["load.started", "status.changed", "load.failed"],
+        "renderedRecords": [],
+        "telemetryRecords": [
+          {
+            "name": "load.started",
+            "atMs": 0,
+            "metadata": {
+              "source": "load"
+            }
+          },
+          {
+            "name": "status.changed",
+            "atMs": 1,
+            "metadata": {
+              "status": "denied"
+            }
+          },
+          {
+            "name": "load.failed",
+            "atMs": 2,
+            "metadata": {
+              "outcome": "failure",
+              "reason": "denied",
+              "retryable": false
+            }
+          }
+        ]
       }
     },
     {
       "name": "http-410-denied",
       "permanentDenialSource": "http-410",
       "operations": [
-        { "atMs": 0, "kind": "load" },
-        { "atMs": 1, "kind": "http-response", "status": 410 }
+        {
+          "atMs": 0,
+          "kind": "load"
+        },
+        {
+          "atMs": 1,
+          "kind": "projection-request"
+        },
+        {
+          "atMs": 2,
+          "kind": "http-response",
+          "status": 410
+        }
       ],
       "expected": {
         "calls": {
-          "client": { "projection": 1, "bundle": 0 },
-          "routing": { "readiness": 1, "nativeHook": 1 }
+          "client": {
+            "projection": 1,
+            "bundle": 0,
+            "cached": 0,
+            "network": 1
+          },
+          "routing": {
+            "readiness": 1,
+            "nativeHook": 1
+          }
         },
         "statusTransitions": [
-          { "atMs": 0, "from": "idle", "to": "loading" },
-          { "atMs": 1, "from": "loading", "to": "denied" }
+          {
+            "atMs": 0,
+            "from": "cold",
+            "to": "loading"
+          },
+          {
+            "atMs": 2,
+            "from": "loading",
+            "to": "denied"
+          }
         ],
         "genericSdk": {
           "error": {
@@ -1220,26 +2853,79 @@
             "causeIdentity": "http-410"
           }
         },
-        "nativeHook": { "proceed": false },
-        "telemetryNames": ["adapter.load.denied"],
-        "renderedRecords": []
+        "nativeHook": {
+          "proceed": false
+        },
+        "telemetryNames": ["load.started", "status.changed", "load.failed"],
+        "renderedRecords": [],
+        "telemetryRecords": [
+          {
+            "name": "load.started",
+            "atMs": 0,
+            "metadata": {
+              "source": "load"
+            }
+          },
+          {
+            "name": "status.changed",
+            "atMs": 1,
+            "metadata": {
+              "status": "denied"
+            }
+          },
+          {
+            "name": "load.failed",
+            "atMs": 2,
+            "metadata": {
+              "outcome": "failure",
+              "reason": "denied",
+              "retryable": false
+            }
+          }
+        ]
       }
     },
     {
       "name": "container-archived-denied",
       "permanentDenialSource": "container-archived",
       "operations": [
-        { "atMs": 0, "kind": "load" },
-        { "atMs": 1, "kind": "canonical-error" }
+        {
+          "atMs": 0,
+          "kind": "load"
+        },
+        {
+          "atMs": 1,
+          "kind": "projection-request"
+        },
+        {
+          "atMs": 2,
+          "kind": "canonical-error"
+        }
       ],
       "expected": {
         "calls": {
-          "client": { "projection": 1, "bundle": 0 },
-          "routing": { "readiness": 1, "nativeHook": 1 }
+          "client": {
+            "projection": 1,
+            "bundle": 0,
+            "cached": 0,
+            "network": 1
+          },
+          "routing": {
+            "readiness": 1,
+            "nativeHook": 1
+          }
         },
         "statusTransitions": [
-          { "atMs": 0, "from": "idle", "to": "loading" },
-          { "atMs": 1, "from": "loading", "to": "denied" }
+          {
+            "atMs": 0,
+            "from": "cold",
+            "to": "loading"
+          },
+          {
+            "atMs": 2,
+            "from": "loading",
+            "to": "denied"
+          }
         ],
         "genericSdk": {
           "error": {
@@ -1259,26 +2945,79 @@
             "causeIdentity": "container-archived"
           }
         },
-        "nativeHook": { "proceed": false },
-        "telemetryNames": ["adapter.load.denied"],
-        "renderedRecords": []
+        "nativeHook": {
+          "proceed": false
+        },
+        "telemetryNames": ["load.started", "status.changed", "load.failed"],
+        "renderedRecords": [],
+        "telemetryRecords": [
+          {
+            "name": "load.started",
+            "atMs": 0,
+            "metadata": {
+              "source": "load"
+            }
+          },
+          {
+            "name": "status.changed",
+            "atMs": 1,
+            "metadata": {
+              "status": "denied"
+            }
+          },
+          {
+            "name": "load.failed",
+            "atMs": 2,
+            "metadata": {
+              "outcome": "failure",
+              "reason": "denied",
+              "retryable": false
+            }
+          }
+        ]
       }
     },
     {
       "name": "project-mismatch-denied",
       "permanentDenialSource": "project-mismatch",
       "operations": [
-        { "atMs": 0, "kind": "load" },
-        { "atMs": 1, "kind": "canonical-error" }
+        {
+          "atMs": 0,
+          "kind": "load"
+        },
+        {
+          "atMs": 1,
+          "kind": "projection-request"
+        },
+        {
+          "atMs": 2,
+          "kind": "canonical-error"
+        }
       ],
       "expected": {
         "calls": {
-          "client": { "projection": 1, "bundle": 0 },
-          "routing": { "readiness": 1, "nativeHook": 1 }
+          "client": {
+            "projection": 1,
+            "bundle": 0,
+            "cached": 0,
+            "network": 1
+          },
+          "routing": {
+            "readiness": 1,
+            "nativeHook": 1
+          }
         },
         "statusTransitions": [
-          { "atMs": 0, "from": "idle", "to": "loading" },
-          { "atMs": 1, "from": "loading", "to": "denied" }
+          {
+            "atMs": 0,
+            "from": "cold",
+            "to": "loading"
+          },
+          {
+            "atMs": 2,
+            "from": "loading",
+            "to": "denied"
+          }
         ],
         "genericSdk": {
           "error": {
@@ -1298,26 +3037,79 @@
             "causeIdentity": "project-mismatch"
           }
         },
-        "nativeHook": { "proceed": false },
-        "telemetryNames": ["adapter.load.denied"],
-        "renderedRecords": []
+        "nativeHook": {
+          "proceed": false
+        },
+        "telemetryNames": ["load.started", "status.changed", "load.failed"],
+        "renderedRecords": [],
+        "telemetryRecords": [
+          {
+            "name": "load.started",
+            "atMs": 0,
+            "metadata": {
+              "source": "load"
+            }
+          },
+          {
+            "name": "status.changed",
+            "atMs": 1,
+            "metadata": {
+              "status": "denied"
+            }
+          },
+          {
+            "name": "load.failed",
+            "atMs": 2,
+            "metadata": {
+              "outcome": "failure",
+              "reason": "denied",
+              "retryable": false
+            }
+          }
+        ]
       }
     },
     {
       "name": "container-not-found-denied",
       "permanentDenialSource": "container-not-found",
       "operations": [
-        { "atMs": 0, "kind": "load" },
-        { "atMs": 1, "kind": "canonical-error" }
+        {
+          "atMs": 0,
+          "kind": "load"
+        },
+        {
+          "atMs": 1,
+          "kind": "projection-request"
+        },
+        {
+          "atMs": 2,
+          "kind": "canonical-error"
+        }
       ],
       "expected": {
         "calls": {
-          "client": { "projection": 1, "bundle": 0 },
-          "routing": { "readiness": 1, "nativeHook": 1 }
+          "client": {
+            "projection": 1,
+            "bundle": 0,
+            "cached": 0,
+            "network": 1
+          },
+          "routing": {
+            "readiness": 1,
+            "nativeHook": 1
+          }
         },
         "statusTransitions": [
-          { "atMs": 0, "from": "idle", "to": "loading" },
-          { "atMs": 1, "from": "loading", "to": "denied" }
+          {
+            "atMs": 0,
+            "from": "cold",
+            "to": "loading"
+          },
+          {
+            "atMs": 2,
+            "from": "loading",
+            "to": "denied"
+          }
         ],
         "genericSdk": {
           "error": {
@@ -1337,26 +3129,79 @@
             "causeIdentity": "container-not-found"
           }
         },
-        "nativeHook": { "proceed": false },
-        "telemetryNames": ["adapter.load.denied"],
-        "renderedRecords": []
+        "nativeHook": {
+          "proceed": false
+        },
+        "telemetryNames": ["load.started", "status.changed", "load.failed"],
+        "renderedRecords": [],
+        "telemetryRecords": [
+          {
+            "name": "load.started",
+            "atMs": 0,
+            "metadata": {
+              "source": "load"
+            }
+          },
+          {
+            "name": "status.changed",
+            "atMs": 1,
+            "metadata": {
+              "status": "denied"
+            }
+          },
+          {
+            "name": "load.failed",
+            "atMs": 2,
+            "metadata": {
+              "outcome": "failure",
+              "reason": "denied",
+              "retryable": false
+            }
+          }
+        ]
       }
     },
     {
       "name": "registry-unrecoverable-denied",
       "permanentDenialSource": "registry-unrecoverable",
       "operations": [
-        { "atMs": 0, "kind": "load" },
-        { "atMs": 1, "kind": "canonical-error" }
+        {
+          "atMs": 0,
+          "kind": "load"
+        },
+        {
+          "atMs": 1,
+          "kind": "projection-request"
+        },
+        {
+          "atMs": 2,
+          "kind": "canonical-error"
+        }
       ],
       "expected": {
         "calls": {
-          "client": { "projection": 1, "bundle": 0 },
-          "routing": { "readiness": 1, "nativeHook": 1 }
+          "client": {
+            "projection": 1,
+            "bundle": 0,
+            "cached": 0,
+            "network": 1
+          },
+          "routing": {
+            "readiness": 1,
+            "nativeHook": 1
+          }
         },
         "statusTransitions": [
-          { "atMs": 0, "from": "idle", "to": "loading" },
-          { "atMs": 1, "from": "loading", "to": "denied" }
+          {
+            "atMs": 0,
+            "from": "cold",
+            "to": "loading"
+          },
+          {
+            "atMs": 2,
+            "from": "loading",
+            "to": "denied"
+          }
         ],
         "genericSdk": {
           "error": {
@@ -1376,9 +3221,36 @@
             "causeIdentity": "registry-unrecoverable"
           }
         },
-        "nativeHook": { "proceed": false },
-        "telemetryNames": ["adapter.load.denied"],
-        "renderedRecords": []
+        "nativeHook": {
+          "proceed": false
+        },
+        "telemetryNames": ["load.started", "status.changed", "load.failed"],
+        "renderedRecords": [],
+        "telemetryRecords": [
+          {
+            "name": "load.started",
+            "atMs": 0,
+            "metadata": {
+              "source": "load"
+            }
+          },
+          {
+            "name": "status.changed",
+            "atMs": 1,
+            "metadata": {
+              "status": "denied"
+            }
+          },
+          {
+            "name": "load.failed",
+            "atMs": 2,
+            "metadata": {
+              "outcome": "failure",
+              "reason": "denied",
+              "retryable": false
+            }
+          }
+        ]
       }
     }
   ]
