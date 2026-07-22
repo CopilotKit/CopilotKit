@@ -21,6 +21,7 @@ describe("Angular showcase tool cards", () => {
       element.querySelector('[data-testid="weather-card"]'),
     ).not.toBeNull();
     expect(element.textContent).toContain("Tokyo");
+    expect(element.textContent).toContain("22");
   });
 
   it("identifies every custom wildcard invocation by tool name", async () => {

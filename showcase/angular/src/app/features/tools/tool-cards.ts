@@ -13,7 +13,12 @@ import type { AngularToolCall } from "@copilotkit/angular";
     <article class="showcase-tool-card weather" data-testid="weather-card">
       <span>Weather</span>
       <strong>{{ location() }}</strong>
-      <p>{{ statusText() }}</p>
+      <p>
+        {{ statusText() }}
+        @if (temperature() !== undefined) {
+          <span data-testid="weather-temperature">{{ temperature() }}°</span>
+        }
+      </p>
     </article>
   `,
 })
@@ -28,6 +33,19 @@ export class WeatherToolCard {
       ? "Forecast ready"
       : "Loading forecast…",
   );
+  protected readonly temperature = computed(() => {
+    const result = this.toolCall().result;
+    if (result === undefined) return undefined;
+
+    try {
+      const parsed = JSON.parse(result) as { temperature?: unknown };
+      return typeof parsed.temperature === "number"
+        ? parsed.temperature
+        : undefined;
+    } catch {
+      return undefined;
+    }
+  });
 }
 
 @Component({
