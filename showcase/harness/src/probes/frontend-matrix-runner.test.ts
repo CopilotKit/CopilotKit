@@ -157,4 +157,68 @@ describe("frontend matrix CI runner", () => {
     expect(artifact.summary.p95CellDurationMs).toBe(3);
     expect(percentile([10, 20, 30, 40], 0.95)).toBe(40);
   });
+
+  it("removes page content, runtime URLs, and diagnostics from CI evidence", () => {
+    const cell = CELLS[1]!;
+    const artifact = createFrontendMatrixArtifact({
+      sourceCommit: "abc123",
+      containerImageRevision: "sha256:image",
+      fixtureRevision: "fixture123",
+      featureContractRevision: "contract123",
+      shardIndex: 0,
+      shardCount: 1,
+      startedAt: "2026-07-21T00:00:00.000Z",
+      finishedAt: "2026-07-21T00:00:01.000Z",
+      results: [
+        {
+          cell,
+          status: "failed",
+          durationMs: 500,
+          url: "https://example.test/angular/agentic-chat?token=secret",
+          backendUrl: "https://backend.example.test?key=secret",
+          errorClass: "probe-failed",
+          error: "prompt and provider secret",
+          diagnostics: { pageBody: "generated response" },
+          probes: [
+            {
+              featureType: cell.featureTypes[0]!,
+              status: "failed",
+              durationMs: 500,
+              testId: "fm-private",
+              errorClass: "assertion",
+              error: "tool payload",
+              diagnostics: { fixture: "private fixture content" },
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(artifact.cells[0]).toEqual({
+      cellId: cell.id,
+      frontend: cell.frontend,
+      integration: cell.integration,
+      feature: cell.feature,
+      sourceCommit: "abc123",
+      containerImageRevision: "sha256:image",
+      fixtureRevision: "fixture123",
+      featureContractRevision: "contract123",
+      testIds: ["fm-private"],
+      status: "failed",
+      durationMs: 500,
+      errorClass: "probe-failed",
+      probes: [
+        {
+          featureType: cell.featureTypes[0]!,
+          status: "failed",
+          durationMs: 500,
+          testId: "fm-private",
+          errorClass: "assertion",
+        },
+      ],
+    });
+    expect(JSON.stringify(artifact)).not.toMatch(
+      /secret|prompt|response|payload|fixture content|example\.test/,
+    );
+  });
 });

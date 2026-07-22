@@ -78,8 +78,6 @@ function artifact(index: number): FrontendMatrixArtifact {
         testIds: [`fm-${index}`],
         status: "passed",
         durationMs: 500,
-        url: `https://example.test/${cell.feature}`,
-        backendUrl: `https://${cell.integration}.example.test`,
         probes: [
           {
             featureType: cell.featureTypes[0]!,

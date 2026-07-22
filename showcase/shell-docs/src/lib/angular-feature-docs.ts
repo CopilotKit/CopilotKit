@@ -8,7 +8,8 @@ export interface AngularFeatureDoc {
   description: string;
   state: "supported";
   integration: string;
-  runHref: string;
+  runnable: boolean;
+  runHref: string | null;
   sourceHref: string;
   apiHref: string;
 }
@@ -52,27 +53,34 @@ export function getAngularFeatureDocs(): AngularFeatureDoc[] {
     .filter(([, declaration]) => declaration.angular.state === "supported")
     .map(([id]) => {
       const feature = features.find((candidate) => candidate.id === id);
-      const cell = cells.find(
+      const runnableCell = cells.find(
         (candidate) =>
           candidate.frontend === "angular" &&
           candidate.feature === id &&
           candidate.runnable,
       );
+      const cell =
+        runnableCell ??
+        cells.find(
+          (candidate) =>
+            candidate.frontend === "angular" && candidate.feature === id,
+        );
       if (!feature || !cell) {
         throw new Error(
-          `Supported Angular feature ${JSON.stringify(id)} needs docs metadata and a runnable cell.`,
+          `Supported Angular feature ${JSON.stringify(id)} needs docs metadata and a catalog cell.`,
         );
       }
 
-      const runHref = `https://showcase.copilotkit.ai/angular/${cell.integration}/${id}`;
+      const route = `https://showcase.copilotkit.ai/angular/${cell.integration}/${id}`;
       return {
         id,
         name: feature.name,
         description: feature.description,
         state: "supported" as const,
         integration: cell.integration,
-        runHref,
-        sourceHref: `${runHref}/code`,
+        runnable: runnableCell !== undefined,
+        runHref: runnableCell ? route : null,
+        sourceHref: `${route}/code`,
         apiHref: API_BY_FEATURE[id] ?? "/reference/angular/public-api",
       };
     })

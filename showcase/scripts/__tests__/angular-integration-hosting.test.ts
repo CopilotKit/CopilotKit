@@ -93,7 +93,18 @@ describe("Angular integration hosting contract", () => {
     ).rejects.toMatchObject({ code: "ENOENT" });
   });
 
-  it("builds once and tests both proof images only in CI", async () => {
+  it("generates shell-docs data before tests on a fresh checkout", async () => {
+    const packageJson = JSON.parse(
+      await readFile(
+        resolve(repositoryRoot, "showcase/shell-docs/package.json"),
+        "utf8",
+      ),
+    ) as { scripts?: Record<string, string> };
+
+    expect(packageJson.scripts?.pretest).toBe("npm run pretypecheck");
+  });
+
+  it("builds one canonical artifact and tests both proof images in CI", async () => {
     const workflow = await readFile(
       resolve(
         repositoryRoot,
@@ -102,14 +113,26 @@ describe("Angular integration hosting contract", () => {
       "utf8",
     );
 
-    expect(workflow.match(/pnpm --dir showcase\/angular build/g)).toHaveLength(
-      1,
+    const canonicalBuildJob = workflow.slice(
+      workflow.indexOf("  build-angular:"),
+      workflow.indexOf("\n  hosting:"),
     );
+    const completeMatrixJob = workflow.slice(
+      workflow.indexOf("\n  matrix:") + 1,
+      workflow.indexOf("\n  browser-canary:"),
+    );
+    expect(
+      canonicalBuildJob.match(/pnpm --dir showcase\/angular build/g),
+    ).toHaveLength(1);
     expect(workflow).toContain(
       "matrix:\n        integration: [langgraph-python, mastra]",
     );
     expect(workflow).toContain("actions/upload-artifact");
     expect(workflow).toContain("actions/download-artifact");
+    expect(completeMatrixJob).toContain("max-parallel: 8");
+    expect(workflow).toContain(
+      "npm ci --prefix showcase/shell-docs --ignore-scripts",
+    );
     expect(workflow).toContain(
       '"$GITHUB_WORKSPACE/showcase/harness/config/frontend-matrix-baseline.json"',
     );
@@ -117,6 +140,13 @@ describe("Angular integration hosting contract", () => {
       '"$GITHUB_WORKSPACE/showcase/harness/config/frontend-matrix-baseline-policy.json"',
     );
     expect(workflow).not.toContain("showcase/angular/Dockerfile");
+    expect(workflow).not.toContain("Block on absolute Angular failures");
+    expect(workflow).not.toContain(
+      "Block on absolute Angular foundation failures",
+    );
+    expect(workflow.indexOf("Run absolute Angular canaries")).toBeLessThan(
+      workflow.indexOf("Run paired React and Angular foundation probes"),
+    );
     expect(workflow).not.toMatch(/railway|deploy|push: true/i);
   });
 

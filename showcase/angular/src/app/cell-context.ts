@@ -45,7 +45,11 @@ export function readAngularRuntimeConfig(): AngularRuntimeConfig | undefined {
   ).__COPILOTKIT_SHOWCASE__;
   if (typeof candidate !== "object" || candidate === null) return undefined;
   const manifest = candidate as Record<string, unknown>;
+  const keys = Object.keys(manifest).sort();
   if (
+    keys.length !== 2 ||
+    keys[0] !== "frontendId" ||
+    keys[1] !== "integrationId" ||
     manifest["frontendId"] !== "angular" ||
     typeof manifest["integrationId"] !== "string" ||
     !SAFE_ID_RE.test(manifest["integrationId"])

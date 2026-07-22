@@ -241,7 +241,15 @@ export interface FrontendMatrixArtifactInput {
   results: readonly FrontendCellResult[];
 }
 
-export interface FrontendMatrixArtifactCell extends FrontendCellExecutionResult {
+export interface FrontendMatrixArtifactProbe {
+  featureType: D5FeatureType;
+  status: FrontendProbeStatus;
+  durationMs: number;
+  testId: string;
+  errorClass?: string;
+}
+
+export interface FrontendMatrixArtifactCell {
   cellId: string;
   frontend: RunnableFrontend;
   integration: string;
@@ -251,6 +259,10 @@ export interface FrontendMatrixArtifactCell extends FrontendCellExecutionResult 
   fixtureRevision: string;
   featureContractRevision: string;
   testIds: string[];
+  status: FrontendProbeStatus;
+  durationMs: number;
+  probes: FrontendMatrixArtifactProbe[];
+  errorClass?: string;
 }
 
 export interface FrontendMatrixArtifact {
@@ -276,18 +288,36 @@ export function createFrontendMatrixArtifact(
   input: FrontendMatrixArtifactInput,
 ): FrontendMatrixArtifact {
   const cells = input.results.map(
-    ({ cell, ...result }): FrontendMatrixArtifactCell => ({
-      cellId: cell.id,
-      frontend: cell.frontend,
-      integration: cell.integration,
-      feature: cell.feature,
-      sourceCommit: input.sourceCommit,
-      containerImageRevision: input.containerImageRevision,
-      fixtureRevision: input.fixtureRevision,
-      featureContractRevision: input.featureContractRevision,
-      testIds: result.probes.map((probe) => probe.testId),
-      ...result,
-    }),
+    ({ cell, ...result }): FrontendMatrixArtifactCell => {
+      const probes = result.probes.map(
+        (probe): FrontendMatrixArtifactProbe => ({
+          featureType: probe.featureType,
+          status: probe.status,
+          durationMs: probe.durationMs,
+          testId: probe.testId,
+          ...(probe.errorClass === undefined
+            ? {}
+            : { errorClass: probe.errorClass }),
+        }),
+      );
+      return {
+        cellId: cell.id,
+        frontend: cell.frontend,
+        integration: cell.integration,
+        feature: cell.feature,
+        sourceCommit: input.sourceCommit,
+        containerImageRevision: input.containerImageRevision,
+        fixtureRevision: input.fixtureRevision,
+        featureContractRevision: input.featureContractRevision,
+        testIds: probes.map((probe) => probe.testId),
+        status: result.status,
+        durationMs: result.durationMs,
+        probes,
+        ...(result.errorClass === undefined
+          ? {}
+          : { errorClass: result.errorClass }),
+      };
+    },
   );
   return {
     schemaVersion: 1,

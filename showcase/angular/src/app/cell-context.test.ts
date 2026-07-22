@@ -119,6 +119,11 @@ describe("Angular host browser cell context", () => {
       backendUrl: "https://attacker.example",
     };
     expect(readAngularRuntimeConfig()).toBeUndefined();
+    globalWithManifest.__COPILOTKIT_SHOWCASE__ = {
+      ...runtimeConfig,
+      providerKey: "must-not-reach-the-browser",
+    };
+    expect(readAngularRuntimeConfig()).toBeUndefined();
     delete globalWithManifest.__COPILOTKIT_SHOWCASE__;
   });
 
@@ -128,6 +133,12 @@ describe("Angular host browser cell context", () => {
       "/api/copilotkit-a2ui-recovery",
     );
     expect(runtimePathForFeature("open-gen-ui")).toBe("/api/copilotkit-ogui");
+    expect(runtimePathForFeature("javascript:alert(1)")).toBe(
+      "/api/copilotkit",
+    );
+    expect(runtimePathForFeature("../../provider-secret")).toBe(
+      "/api/copilotkit",
+    );
   });
 
   it("opts into the built-in wildcard renderer only for its dedicated cell", () => {

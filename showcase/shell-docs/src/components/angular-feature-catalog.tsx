@@ -52,12 +52,18 @@ export function AngularFeatureCatalog() {
             aria-label={`${feature.name} resources`}
             className="mt-4 flex flex-wrap gap-4 text-sm"
           >
-            <a
-              className="text-[var(--accent)] underline"
-              href={feature.runHref}
-            >
-              Run example
-            </a>
+            {feature.runHref ? (
+              <a
+                className="text-[var(--accent)] underline"
+                href={feature.runHref}
+              >
+                Run example
+              </a>
+            ) : (
+              <span className="text-[var(--text-muted)]">
+                Backend demo pending
+              </span>
+            )}
             <a
               className="text-[var(--accent)] underline"
               href={feature.sourceHref}
