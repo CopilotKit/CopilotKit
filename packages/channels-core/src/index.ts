@@ -123,6 +123,13 @@ export { mintId, stableStringify } from "./mint-id.js";
 export { runAgentLoop } from "./run-loop.js";
 export type { RunLoopArgs } from "./run-loop.js";
 
+// Product-driven response policy (plan §2)
+export { decideChannelResponse } from "./response-policy.js";
+export type {
+  ChannelResponseDecision,
+  ChannelResponseInput,
+} from "./response-policy.js";
+
 // Pure, per-platform codec seam (shared with the Channel/Connector-Outbox path).
 // The Intelligence Channel adapter itself lives in
 // `@copilotkit/channels-intelligence`.
