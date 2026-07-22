@@ -1,6 +1,7 @@
 {
   "title": "Deploy",
   "pages": [
-    "agentcore"
+    "agentcore",
+    "langsmith"
   ]
 }

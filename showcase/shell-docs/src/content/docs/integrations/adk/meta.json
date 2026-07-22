@@ -8,6 +8,8 @@
     "---App Control---",
     "frontend-tools",
     "shared-state",
+    "---Deploy---",
+    "deploy-langsmith",
     "---Intelligence Platform---",
     {
       "title": "Threads",

@@ -150,6 +150,9 @@ const STUB_PARTIAL_MAP: Record<string, string> = {
   HeadlessThreads: "shared/threads/headless-threads.mdx",
   Threads: "shared/threads/headless-threads.mdx",
   ThreadsOverview: "shared/threads/overview.mdx",
+  // Local / Self-hosted FastAPI / LangGraph-Platform deployment-URL tabs,
+  // reused by the LangSmith deploy partial.
+  LangGraphPlatformDeploymentTabs: "langgraph-platform-deployment-tabs.mdx",
 };
 
 // Dev-only warning helper for stub components that discard their props.
@@ -504,20 +507,30 @@ export const docsComponents = {
   SharedContent: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
-  // <Content framework="..." /> on the `deploy-agentcore` pages
-  // (langgraph/* + aws-strands) renders the shared AgentCore deploy
-  // partial at src/content/snippets/integrations/agentcore/index.mdx.
-  // Unlike the generic `stubWithPartial` stubs, this one threads the
-  // page's `framework` into the partial's MDX scope so the embedded
-  // `<AgentCoreCommandTabs framework={framework} />` collapses to the
-  // single relevant framework (Strands-only / LangGraph-only) instead
-  // of showing both. `stubWithPartial` can't do this — it discards
-  // props by design — so Content is a dedicated loader call. `scope`
-  // keys surface as bare identifiers in the partial (NOT `props.*`);
-  // see PartialLoader.
-  Content: ({ framework }: { framework?: string }) => (
+  // <Content framework="..." partial="..." /> renders a shared deploy
+  // partial and threads the page's `framework` into the partial's MDX
+  // scope so framework-aware bits inside it (e.g.
+  // `<AgentCoreCommandTabs framework={framework} />`, or the
+  // `href={`/${framework}/...`}` cards in the LangSmith partial) collapse
+  // to the single relevant framework instead of showing both. Unlike the
+  // generic `stubWithPartial` stubs, this one forwards props, so it's a
+  // dedicated loader call. `scope` keys surface as bare identifiers in
+  // the partial (NOT `props.*`); see PartialLoader.
+  //
+  // Used by the per-framework deploy wrappers:
+  //   - `deploy-agentcore` (langgraph/* + aws-strands) → defaults to
+  //     integrations/agentcore/index.mdx
+  //   - `deploy-langsmith` (deploy/* + langgraph/* + adk/*) → passes
+  //     partial="integrations/langsmith/index.mdx"
+  Content: ({
+    framework,
+    partial,
+  }: {
+    framework?: string;
+    partial?: string;
+  }) => (
     <PartialLoader
-      relativePath="integrations/agentcore/index.mdx"
+      relativePath={partial ?? "integrations/agentcore/index.mdx"}
       scope={{ framework }}
       components={
         docsComponents as unknown as Record<
@@ -532,6 +545,9 @@ export const docsComponents = {
     <div>{children}</div>
   ),
   A2UI: stubWithPartial("A2UI"),
+  LangGraphPlatformDeploymentTabs: stubWithPartial(
+    "LangGraphPlatformDeploymentTabs",
+  ),
   RunAndConnect: stubWithPartial("RunAndConnect"),
   RunAndConnectSnippet: stubWithPartial("RunAndConnectSnippet"),
   MigrateTo: stubWithPartial("MigrateTo"),
