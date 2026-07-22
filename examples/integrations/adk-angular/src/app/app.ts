@@ -56,15 +56,17 @@ import { WebInspector } from "./web-inspector";
       <copilot-chat [agentId]="AGENT_ID" />
     </aside>
 
-    <!-- Always-visible toggle FAB (React's CopilotChatToggleButton): MessageCircle
-         when closed, X when open; bottom-right, primary-dark. -->
+    <!-- Toggle FAB (React's CopilotChatToggleButton): always a MessageCircle,
+         bottom-right, primary-dark. When the chat is open the panel (higher
+         z-index) covers it, so the only visible close is the header X — matching
+         React, which never shows a bottom-right X. -->
     <button
       type="button"
       class="chat-fab"
       (click)="chatOpen.set(!chatOpen())"
       [attr.aria-label]="chatOpen() ? 'Close chat' : 'Open chat'"
     >
-      <lucide-angular [img]="chatOpen() ? CloseIcon : ChatIcon" [size]="24" />
+      <lucide-angular [img]="ChatIcon" [size]="24" />
     </button>
 
     <!-- Dev-only floating inspector (mounts into <body>). Remove for production. -->
@@ -95,7 +97,9 @@ import { WebInspector } from "./web-inspector";
         position: fixed;
         top: 0;
         right: 0;
-        z-index: 50;
+        /* Above the toggle FAB (z 1100) so an open panel covers it — like
+           React's z-1200 sidebar over its z-1100 toggle button. */
+        z-index: 1200;
         height: 100dvh;
         width: min(440px, 100%);
         display: flex;
