@@ -1,5 +1,6 @@
 const AGENT_ID_OVERRIDES: Readonly<Record<string, string>> = {
   "agentic-chat": "agentic_chat",
+  "declarative-hashbrown": "declarative-hashbrown-demo",
   "frontend-tools": "frontend_tools",
 };
 

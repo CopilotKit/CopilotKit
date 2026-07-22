@@ -6,6 +6,7 @@ describe("Angular showcase agent selection", () => {
   it.each([
     ["agentic-chat", "agentic_chat"],
     ["frontend-tools", "frontend_tools"],
+    ["declarative-hashbrown", "declarative-hashbrown-demo"],
     ["headless-simple", "headless-simple"],
     ["headless-complete", "headless-complete"],
     ["tool-rendering", "tool-rendering"],
