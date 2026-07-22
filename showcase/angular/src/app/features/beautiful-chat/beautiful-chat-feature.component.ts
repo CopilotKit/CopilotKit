@@ -21,6 +21,7 @@ import {
 import { mcpAppsActivityRendererConfig } from "@copilotkit/angular/mcp-apps";
 import { z } from "zod";
 
+import { agentIdForFeature } from "../../feature-agent";
 import { FeatureHeaderComponent } from "../feature-header.component";
 import { ShowcaseChatHostComponent } from "../showcase-chat-host.component";
 import {
@@ -39,6 +40,7 @@ import type { BeautifulTodo } from "./beautiful-todo-canvas";
 type ToolArgs = Record<string, unknown>;
 
 const ATTACHMENTS: AttachmentsConfig = { enabled: true };
+const BEAUTIFUL_CHAT_AGENT_ID = agentIdForFeature("beautiful-chat");
 const chartParameters = z.object({
   title: z.string(),
   description: z.string(),
@@ -78,10 +80,7 @@ const chartParameters = z.object({
           <strong>CopilotKit</strong><span aria-hidden="true">✦</span>
         </header>
         <div class="chat-surface">
-          <showcase-chat-host
-            agentId="beautiful-chat"
-            [attachments]="attachments"
-          />
+          <showcase-chat-host [attachments]="attachments" />
         </div>
       </section>
       <section class="app-pane" aria-label="Shared-state task manager">
@@ -194,7 +193,7 @@ const chartParameters = z.object({
 export class BeautifulChatFeatureComponent {
   protected readonly mode = signal<"chat" | "app">("chat");
   protected readonly attachments = ATTACHMENTS;
-  private readonly agentStore = injectAgentStore("beautiful-chat");
+  private readonly agentStore = injectAgentStore(BEAUTIFUL_CHAT_AGENT_ID);
   protected readonly todos = computed(() =>
     readBeautifulTodos(this.agentStore().state()),
   );

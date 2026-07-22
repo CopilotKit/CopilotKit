@@ -5,6 +5,7 @@ import { agentIdForFeature, threadIdForFeature } from "./feature-agent";
 describe("Angular showcase agent selection", () => {
   it.each([
     ["agentic-chat", "agentic_chat"],
+    ["beautiful-chat", "beautiful_chat"],
     ["frontend-tools", "frontend_tools"],
     ["declarative-hashbrown", "declarative-hashbrown-demo"],
     ["headless-simple", "headless-simple"],
