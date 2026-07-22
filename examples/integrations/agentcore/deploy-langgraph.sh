@@ -16,42 +16,44 @@ CDK_DIR="$SCRIPT_DIR/infra-cdk"
 SKIP_FRONTEND=false
 SKIP_BACKEND=false
 
-if [ ! -f "$SCRIPT_DIR/.env" ]; then
-  echo "ERROR: $SCRIPT_DIR/.env is required. Copy .env.example and add your managed project credentials."
-  exit 1
-fi
-
-INTELLIGENCE_API_URL_OVERRIDE_SET=false
-if [ "${INTELLIGENCE_API_URL+x}" = x ]; then
-  INTELLIGENCE_API_URL_OVERRIDE="$INTELLIGENCE_API_URL"
-  INTELLIGENCE_API_URL_OVERRIDE_SET=true
-fi
-INTELLIGENCE_GATEWAY_WS_URL_OVERRIDE_SET=false
-if [ "${INTELLIGENCE_GATEWAY_WS_URL+x}" = x ]; then
-  INTELLIGENCE_GATEWAY_WS_URL_OVERRIDE="$INTELLIGENCE_GATEWAY_WS_URL"
-  INTELLIGENCE_GATEWAY_WS_URL_OVERRIDE_SET=true
-fi
-
-source "$SCRIPT_DIR/.env"
-set +a
-set +x
-if [ "$INTELLIGENCE_API_URL_OVERRIDE_SET" = true ]; then
-  export INTELLIGENCE_API_URL="$INTELLIGENCE_API_URL_OVERRIDE"
-fi
-if [ "$INTELLIGENCE_GATEWAY_WS_URL_OVERRIDE_SET" = true ]; then
-  export INTELLIGENCE_GATEWAY_WS_URL="$INTELLIGENCE_GATEWAY_WS_URL_OVERRIDE"
-fi
-: "${CPK_INTELLIGENCE_API_KEY:?CPK_INTELLIGENCE_API_KEY is required in .env}"
-export -n CPK_INTELLIGENCE_API_KEY
-export INTELLIGENCE_API_URL="${INTELLIGENCE_API_URL:-}"
-export INTELLIGENCE_GATEWAY_WS_URL="${INTELLIGENCE_GATEWAY_WS_URL:-}"
-export CPK_TELEMETRY_ID="${CPK_TELEMETRY_ID:-}"
-export VITE_COPILOTKIT_THREADS_ENABLED=true
-
 for arg in "$@"; do
   [[ "$arg" == "--skip-frontend" ]] && SKIP_FRONTEND=true
   [[ "$arg" == "--skip-backend" ]] && SKIP_BACKEND=true
 done
+
+if [ "$SKIP_BACKEND" = false ]; then
+  if [ ! -f "$SCRIPT_DIR/.env" ]; then
+    echo "ERROR: $SCRIPT_DIR/.env is required. Copy .env.example and add your managed project credentials."
+    exit 1
+  fi
+
+  INTELLIGENCE_API_URL_OVERRIDE_SET=false
+  if [ "${INTELLIGENCE_API_URL+x}" = x ]; then
+    INTELLIGENCE_API_URL_OVERRIDE="$INTELLIGENCE_API_URL"
+    INTELLIGENCE_API_URL_OVERRIDE_SET=true
+  fi
+  INTELLIGENCE_GATEWAY_WS_URL_OVERRIDE_SET=false
+  if [ "${INTELLIGENCE_GATEWAY_WS_URL+x}" = x ]; then
+    INTELLIGENCE_GATEWAY_WS_URL_OVERRIDE="$INTELLIGENCE_GATEWAY_WS_URL"
+    INTELLIGENCE_GATEWAY_WS_URL_OVERRIDE_SET=true
+  fi
+
+  source "$SCRIPT_DIR/.env"
+  set +a
+  set +x
+  if [ "$INTELLIGENCE_API_URL_OVERRIDE_SET" = true ]; then
+    export INTELLIGENCE_API_URL="$INTELLIGENCE_API_URL_OVERRIDE"
+  fi
+  if [ "$INTELLIGENCE_GATEWAY_WS_URL_OVERRIDE_SET" = true ]; then
+    export INTELLIGENCE_GATEWAY_WS_URL="$INTELLIGENCE_GATEWAY_WS_URL_OVERRIDE"
+  fi
+  : "${CPK_INTELLIGENCE_API_KEY:?CPK_INTELLIGENCE_API_KEY is required in .env}"
+  export -n CPK_INTELLIGENCE_API_KEY
+  export INTELLIGENCE_API_URL="${INTELLIGENCE_API_URL:-}"
+  export INTELLIGENCE_GATEWAY_WS_URL="${INTELLIGENCE_GATEWAY_WS_URL:-}"
+fi
+export CPK_TELEMETRY_ID="${CPK_TELEMETRY_ID:-}"
+export VITE_COPILOTKIT_THREADS_ENABLED=true
 
 echo "── CopilotKit + AWS AgentCore (LangGraph) ──────────────────────────────"
 
@@ -68,12 +70,14 @@ require_remote_endpoint() {
     exit 1
   fi
 }
-require_remote_endpoint INTELLIGENCE_API_URL "${INTELLIGENCE_API_URL:-}" "https://intelligence.example.com"
-require_remote_endpoint INTELLIGENCE_GATEWAY_WS_URL "${INTELLIGENCE_GATEWAY_WS_URL:-}" "wss://gateway.example.com"
 check_command aws
-check_command node
 check_command python3
-check_command docker
+if [ "$SKIP_BACKEND" = false ]; then
+  require_remote_endpoint INTELLIGENCE_API_URL "${INTELLIGENCE_API_URL:-}" "https://intelligence.example.com"
+  require_remote_endpoint INTELLIGENCE_GATEWAY_WS_URL "${INTELLIGENCE_GATEWAY_WS_URL:-}" "wss://gateway.example.com"
+  check_command node
+  check_command docker
+fi
 
 python3 -c "import sys; assert sys.version_info >= (3,8), 'Python 3.8+ required'" || exit 1
 aws sts get-caller-identity --query "Account" --output text >/dev/null 2>&1 || \
