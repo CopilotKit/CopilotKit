@@ -510,12 +510,16 @@ describe("createSkillRegistryMiddleware", () => {
   it("scopes deferred callers to one fresh promise per sealed telemetry epoch", async () => {
     const secondRequest = deferred<InstalledSkillSet>();
     const thirdRequest = deferred<InstalledSkillSet>();
+    const secondRequestStarted = deferred<void>();
+    const thirdRequestStarted = deferred<void>();
     const unhandled = captureUnhandledRejections();
     let middleware!: ReturnType<typeof createSkillRegistryMiddleware>;
     let secondEpochFirst: Promise<AdapterSnapshot> | undefined;
     let secondEpochSecond: Promise<AdapterSnapshot> | undefined;
+    let secondEpochJoinedAfterLaunch: Promise<AdapterSnapshot> | undefined;
     let thirdEpochFirst: Promise<AdapterSnapshot> | undefined;
     let thirdEpochSecond: Promise<AdapterSnapshot> | undefined;
+    let thirdEpochJoinedAfterLaunch: Promise<AdapterSnapshot> | undefined;
     let now = 0;
     let registryRequests = 0;
     let succeededEpochs = 0;
@@ -525,8 +529,14 @@ describe("createSkillRegistryMiddleware", () => {
         if (registryRequests === 1) {
           return installedSkillSet({ registryRevision: "first-epoch" });
         }
-        if (registryRequests === 2) return secondRequest.promise;
-        if (registryRequests === 3) return thirdRequest.promise;
+        if (registryRequests === 2) {
+          secondRequestStarted.resolve();
+          return secondRequest.promise;
+        }
+        if (registryRequests === 3) {
+          thirdRequestStarted.resolve();
+          return thirdRequest.promise;
+        }
         throw new Error("Unexpected Registry request");
       }),
       learningContainerId: CONTAINER_ID,
@@ -566,6 +576,9 @@ describe("createSkillRegistryMiddleware", () => {
       if (secondEpochFirst === undefined || secondEpochSecond === undefined) {
         throw new Error("Both second-epoch callers must be scheduled");
       }
+      await secondRequestStarted.promise;
+      secondEpochJoinedAfterLaunch = middleware.load();
+      expect(secondEpochJoinedAfterLaunch).toBe(secondEpochFirst);
       expect(registryRequests).toBe(2);
       secondRequest.resolve(
         await installedSkillSet({ registryRevision: "second-epoch" }),
@@ -579,17 +592,28 @@ describe("createSkillRegistryMiddleware", () => {
       if (thirdEpochFirst === undefined || thirdEpochSecond === undefined) {
         throw new Error("Both third-epoch callers must be scheduled");
       }
+      await thirdRequestStarted.promise;
+      thirdEpochJoinedAfterLaunch = middleware.load();
+      expect(thirdEpochJoinedAfterLaunch).toBe(thirdEpochFirst);
       expect(registryRequests).toBe(3);
       thirdRequest.resolve(
         await installedSkillSet({ registryRevision: "third-epoch" }),
       );
       const [thirdEpochFirstResult, thirdEpochSecondResult] =
         await Promise.allSettled([thirdEpochFirst, thirdEpochSecond]);
+      const [secondEpochJoinedAfterLaunchResult] = await Promise.allSettled([
+        secondEpochJoinedAfterLaunch,
+      ]);
+      const [thirdEpochJoinedAfterLaunchResult] = await Promise.allSettled([
+        thirdEpochJoinedAfterLaunch,
+      ]);
       expect(firstResult.status).toBe("fulfilled");
       expect(secondEpochFirstResult.status).toBe("fulfilled");
       expect(secondEpochSecondResult.status).toBe("fulfilled");
       expect(thirdEpochFirstResult.status).toBe("fulfilled");
       expect(thirdEpochSecondResult.status).toBe("fulfilled");
+      expect(secondEpochJoinedAfterLaunchResult?.status).toBe("fulfilled");
+      expect(thirdEpochJoinedAfterLaunchResult?.status).toBe("fulfilled");
       if (
         secondEpochFirstResult.status !== "fulfilled" ||
         secondEpochSecondResult.status !== "fulfilled" ||
@@ -620,10 +644,13 @@ describe("createSkillRegistryMiddleware", () => {
 
   it("publishes one throttled next-epoch rejection and clears it after settlement", async () => {
     const sinkFailure = new Error("throttled next-epoch telemetry failed");
+    const throttledStarted = deferred<void>();
+    const releaseThrottled = deferred<void>();
     const unhandled = captureUnhandledRejections();
     let middleware!: ReturnType<typeof createSkillRegistryMiddleware>;
     let firstLate: Promise<AdapterSnapshot> | undefined;
     let secondLate: Promise<AdapterSnapshot> | undefined;
+    let joinedAfterLaunch: Promise<AdapterSnapshot> | undefined;
     let lateResults:
       | Promise<
           readonly [
@@ -639,7 +666,7 @@ describe("createSkillRegistryMiddleware", () => {
       client: testClient(() => installedSkillSet()),
       learningContainerId: CONTAINER_ID,
       clock: () => now,
-      telemetry: (event) => {
+      telemetry: async (event) => {
         if (event.name === "load.succeeded" && !lateJoinScheduled) {
           lateJoinScheduled = true;
           queueMicrotask(() =>
@@ -655,6 +682,8 @@ describe("createSkillRegistryMiddleware", () => {
           );
         }
         if (event.name === "load.throttled" && failThrottle) {
+          throttledStarted.resolve();
+          await releaseThrottled.promise;
           throw sinkFailure;
         }
       },
@@ -672,9 +701,17 @@ describe("createSkillRegistryMiddleware", () => {
       ) {
         throw new Error("Both deferred callers must be scheduled and observed");
       }
+      await throttledStarted.promise;
+      joinedAfterLaunch = middleware.load();
+      expect(joinedAfterLaunch).toBe(firstLate);
+      releaseThrottled.resolve();
       const [firstLateResult, secondLateResult] = await lateResults;
+      const [joinedAfterLaunchResult] = await Promise.allSettled([
+        joinedAfterLaunch,
+      ]);
       expect(firstLateResult.status).toBe("rejected");
       expect(secondLateResult.status).toBe("rejected");
+      expect(joinedAfterLaunchResult?.status).toBe("rejected");
       if (
         firstLateResult.status !== "rejected" ||
         secondLateResult.status !== "rejected"
@@ -682,6 +719,10 @@ describe("createSkillRegistryMiddleware", () => {
         throw new Error("Both deferred callers must reject");
       }
       expect(secondLateResult.reason).toBe(firstLateResult.reason);
+      if (joinedAfterLaunchResult?.status !== "rejected") {
+        throw new Error("The post-launch caller must reject");
+      }
+      expect(joinedAfterLaunchResult.reason).toBe(firstLateResult.reason);
       expect(firstLateResult.reason).toMatchObject({
         code: "LEARNING_TELEMETRY_SINK_FAILED",
         cause: sinkFailure,

@@ -251,6 +251,7 @@ export class RegistryState {
   private closedLatch = false;
   private closeInFlight: Promise<void> | null = null;
   private inFlight: Promise<AdapterSnapshot> | null = null;
+  private publicInFlight: Promise<AdapterSnapshot> | null = null;
   private singleFlightClosing = false;
   private deferredNextFlight: {
     readonly predecessor: Promise<AdapterSnapshot>;
@@ -524,7 +525,7 @@ export class RegistryState {
       // this internal chain unhandled. performLoad still awaits the original
       // rejected chain and surfaces that exact first failure to every caller.
       void this.joinedTelemetryChain.catch(() => undefined);
-      return this.inFlight;
+      return this.publicInFlight ?? this.inFlight;
     }
     let resolveOperation!: (snapshot: AdapterSnapshot) => void;
     let rejectOperation!: (error: unknown) => void;
@@ -535,28 +536,31 @@ export class RegistryState {
       },
     );
     this.inFlight = promise;
+    this.publicInFlight = promise;
     this.singleFlightClosing = false;
     this.joinedCallers = 0;
     this.joinedTelemetryChain = Promise.resolve();
-    const releaseSingleFlight = () => {
-      if (this.inFlight !== promise) return;
-      this.inFlight = null;
-      this.singleFlightClosing = false;
+    const releaseWhenPublicFlightSettles = () => {
+      const publicFlight = this.publicInFlight ?? promise;
+      void publicFlight.then(
+        () => this.releaseSingleFlight(publicFlight),
+        () => this.releaseSingleFlight(publicFlight),
+      );
     };
     try {
       void operation().then(
         (snapshot) => {
-          releaseSingleFlight();
           resolveOperation(snapshot);
+          releaseWhenPublicFlightSettles();
         },
         (error: unknown) => {
-          releaseSingleFlight();
           rejectOperation(error);
+          releaseWhenPublicFlightSettles();
         },
       );
     } catch (error) {
-      releaseSingleFlight();
       rejectOperation(error);
+      releaseWhenPublicFlightSettles();
     }
     return promise;
   }
@@ -564,21 +568,39 @@ export class RegistryState {
   private deferNextFlight(
     operation: () => Promise<AdapterSnapshot>,
   ): Promise<AdapterSnapshot> {
-    const settling = this.inFlight;
+    const settling = this.publicInFlight ?? this.inFlight;
     if (settling === null) return operation();
     if (this.deferredNextFlight?.predecessor === settling) {
       return this.deferredNextFlight.promise;
     }
     const launchNextFlight = () => {
-      if (this.deferredNextFlight?.predecessor === settling) {
-        this.deferredNextFlight = null;
+      this.releaseSingleFlight(settling);
+      const operationPromise = operation();
+      if (this.inFlight === operationPromise) {
+        this.publicInFlight = deferred;
       }
-      return operation();
+      return operationPromise;
     };
     const deferred = settling.then(launchNextFlight, launchNextFlight);
     this.deferredNextFlight = { predecessor: settling, promise: deferred };
-    void deferred.catch(() => undefined);
+    void deferred.then(
+      () => this.releaseDeferredFlight(deferred),
+      () => this.releaseDeferredFlight(deferred),
+    );
     return deferred;
+  }
+
+  private releaseSingleFlight(publicFlight: Promise<AdapterSnapshot>): void {
+    if (this.publicInFlight !== publicFlight) return;
+    this.inFlight = null;
+    this.publicInFlight = null;
+    this.singleFlightClosing = false;
+  }
+
+  private releaseDeferredFlight(deferred: Promise<AdapterSnapshot>): void {
+    if (this.deferredNextFlight?.promise === deferred) {
+      this.deferredNextFlight = null;
+    }
   }
 
   private async performLoad(
