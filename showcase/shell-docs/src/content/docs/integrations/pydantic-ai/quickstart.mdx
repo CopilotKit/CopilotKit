@@ -225,10 +225,11 @@ Before you begin, you'll need the following:
                 ```tsx title="app/layout.tsx"
                 import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
                 import "@copilotkit/react-core/v2/styles.css"; // [!code highlight]
+                import type { ReactNode } from "react"; // [!code highlight]
 
                 // ...
 
-                export default function RootLayout({ children }: {children: React.ReactNode}) {
+                export default function RootLayout({ children }: { children: ReactNode }) {
                   return (
                     <html lang="en">
                       <body>
