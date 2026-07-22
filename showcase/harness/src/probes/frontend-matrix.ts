@@ -19,6 +19,7 @@ interface FrontendCatalogInput {
 export interface FrontendMatrixFilter {
   frontends?: readonly RunnableFrontend[];
   integrations?: readonly string[];
+  features?: readonly string[];
 }
 
 export interface FrontendMatrixCell {
@@ -43,11 +44,14 @@ export function buildFrontendMatrix(
 
   const frontendFilter = new Set(filter.frontends ?? []);
   const integrationFilter = new Set(filter.integrations ?? []);
+  const featureFilter = new Set(filter.features ?? []);
   const runnable = allRunnable.filter(
     (cell) =>
       (frontendFilter.size === 0 ||
         frontendFilter.has(cell.frontend as RunnableFrontend)) &&
-      (integrationFilter.size === 0 || integrationFilter.has(cell.integration)),
+      (integrationFilter.size === 0 ||
+        integrationFilter.has(cell.integration)) &&
+      (featureFilter.size === 0 || featureFilter.has(cell.feature)),
   );
 
   const seen = new Set<string>();

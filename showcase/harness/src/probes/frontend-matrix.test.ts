@@ -51,6 +51,19 @@ describe("frontend showcase matrix", () => {
     ).toBe(true);
   });
 
+  it("limits a proof plan to an explicit feature set", () => {
+    const matrix = buildFrontendMatrix(frontendCatalog, {
+      frontends: ["angular"],
+      integrations: ["mastra"],
+      features: ["agentic-chat", "frontend-tools"],
+    });
+
+    expect(matrix.map((cell) => cell.feature)).toEqual([
+      "agentic-chat",
+      "frontend-tools",
+    ]);
+  });
+
   it("builds exact React and canonical Angular routes", () => {
     const cell = {
       id: "angular/langgraph-python/frontend-tools",

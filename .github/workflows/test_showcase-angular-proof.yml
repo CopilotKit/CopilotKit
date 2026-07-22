@@ -1,0 +1,312 @@
+name: test / showcase Angular proof
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, converted_to_draft]
+    paths:
+      - ".github/workflows/test_showcase-angular-proof.yml"
+      - "packages/angular/**"
+      - "packages/core/**"
+      - "packages/shared/**"
+      - "showcase/angular/**"
+      - "showcase/harness/**"
+      - "showcase/registry/**"
+      - "showcase/scripts/**"
+      - "showcase/integrations/langgraph-python/**"
+      - "showcase/integrations/mastra/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: "true"
+  NX_CLOUD_DISTRIBUTED_EXECUTION: "false"
+  NX_NO_CLOUD: "true"
+  NX_TUI: "false"
+  PROOF_FEATURES: agentic-chat,frontend-tools,gen-ui-tool-based,tool-rendering,shared-state-read-write,gen-ui-interrupt,hitl-in-chat,prebuilt-popup,prebuilt-sidebar,declarative-gen-ui,a2ui-recovery,mcp-apps,open-gen-ui,threadid-frontend-tool-roundtrip,headless-complete
+
+jobs:
+  build-angular:
+    name: Build one Angular proof artifact
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == true }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    outputs:
+      artifact_sha256: ${{ steps.artifact.outputs.sha256 }}
+      source_sha: ${{ steps.source.outputs.sha }}
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          lfs: true
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: 10.33.4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+
+      - name: Install exact build dependencies
+        run: pnpm --filter @copilotkit/showcase-angular-host... --filter @copilotkit/showcase-scripts --filter @copilotkit/showcase-harness install --frozen-lockfile --ignore-scripts
+
+      - name: Capture exact source SHA
+        id: source
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Build the canonical Angular artifact once
+        run: pnpm --dir showcase/angular build
+
+      - name: Check host and staging contracts
+        run: pnpm --dir showcase/scripts exec vitest run __tests__/angular-integration-hosting.test.ts
+
+      - name: Record the artifact identity
+        id: artifact
+        run: |
+          find showcase/angular/dist/showcase-angular/browser -type f -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            | sha256sum \
+            | awk '{ print "sha256=" $1 }' >> "$GITHUB_OUTPUT"
+
+      - name: Upload the one browser artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: angular-proof-browser
+          path: showcase/angular/dist/showcase-angular/browser
+          if-no-files-found: error
+          retention-days: 14
+
+  proof:
+    name: Angular proof / ${{ matrix.integration }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == true }}
+    needs: build-angular
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        integration: [langgraph-python, mastra]
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.build-angular.outputs.source_sha }}
+          persist-credentials: false
+          lfs: true
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: 10.33.4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+
+      - name: Install exact proof and fixture dependencies
+        run: pnpm --filter @copilotkit/showcase-harness --filter @copilotkit/showcase-scripts install --frozen-lockfile --ignore-scripts
+
+      - name: Download the canonical Angular artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: angular-proof-browser
+          path: showcase/angular/dist/showcase-angular/browser
+
+      - name: Verify the artifact identity
+        env:
+          EXPECTED_SHA256: ${{ needs.build-angular.outputs.artifact_sha256 }}
+        run: |
+          ACTUAL_SHA256=$(
+            find showcase/angular/dist/showcase-angular/browser -type f -print0 \
+              | sort -z \
+              | xargs -0 sha256sum \
+              | sha256sum \
+              | awk '{ print $1 }'
+          )
+          test "$ACTUAL_SHA256" = "$EXPECTED_SHA256"
+
+      - name: Install Chromium
+        run: pnpm --dir showcase/harness exec playwright install --with-deps chromium
+
+      - name: Generate the proof plan
+        env:
+          INTEGRATION: ${{ matrix.integration }}
+        run: |
+          pnpm --dir showcase/scripts exec tsx generate-registry.ts
+          pnpm --dir showcase/harness exec tsx src/cli/frontend-matrix-ci.ts plan \
+            --integration "$INTEGRATION" \
+            --features "$PROOF_FEATURES" \
+            --min-shards 1 \
+            --max-shards 1 \
+            --output "$RUNNER_TEMP/angular-proof-plan.json"
+
+      - name: Stage shared sources and the Angular artifact
+        run: |
+          source showcase/scripts/cli/_common.sh
+          stage_shared
+
+      - name: Build the existing integration image
+        env:
+          INTEGRATION: ${{ matrix.integration }}
+          SOURCE_SHA: ${{ needs.build-angular.outputs.source_sha }}
+        run: |
+          docker build \
+            --label "org.opencontainers.image.revision=$SOURCE_SHA" \
+            --tag "angular-proof-$INTEGRATION:$SOURCE_SHA" \
+            "showcase/integrations/$INTEGRATION"
+          docker image inspect \
+            --format '{{.Id}}' \
+            "angular-proof-$INTEGRATION:$SOURCE_SHA" \
+            > "$RUNNER_TEMP/container-image-revision.txt"
+
+      - name: Start the branch-local fixture sidecar
+        run: |
+          showcase/scripts/node_modules/.bin/llmock \
+            --port 4010 \
+            --host 127.0.0.1 \
+            --metrics \
+            --fixtures showcase/aimock/shared \
+            --fixtures showcase/aimock/d4 \
+            --fixtures showcase/aimock/d5-recorded \
+            --fixtures showcase/aimock/d6 \
+            --validate-on-load \
+            > "$RUNNER_TEMP/aimock.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/aimock.pid"
+          for _ in $(seq 1 30); do
+            if curl --fail --silent --max-time 2 http://127.0.0.1:4010/__aimock/health > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Branch-local fixture sidecar did not become ready" >&2
+          exit 1
+
+      - name: Start the existing integration image
+        env:
+          INTEGRATION: ${{ matrix.integration }}
+          SOURCE_SHA: ${{ needs.build-angular.outputs.source_sha }}
+        run: |
+          docker run --detach \
+            --name angular-proof-integration \
+            --add-host host.docker.internal:host-gateway \
+            --publish 10000:10000 \
+            --env OPENAI_API_KEY=sk-mock \
+            --env OPENAI_BASE_URL=http://host.docker.internal:4010/v1 \
+            --env ANTHROPIC_API_KEY=sk-mock-anthropic \
+            --env ANTHROPIC_BASE_URL=http://host.docker.internal:4010 \
+            --env GOOGLE_API_KEY=fake-gemini-key \
+            --env GOOGLE_GEMINI_BASE_URL=http://host.docker.internal:4010 \
+            --env SPRING_AI_OPENAI_BASE_URL=http://host.docker.internal:4010 \
+            --env AIMOCK_URL=http://host.docker.internal:4010 \
+            --env GitHubToken=gh-mock-ci \
+            --env 'LANGGRAPH_HTTP={"configurable_headers":{"include":["x-*"]}}' \
+            "angular-proof-$INTEGRATION:$SOURCE_SHA"
+          for _ in $(seq 1 90); do
+            if curl --fail --silent --max-time 2 http://127.0.0.1:10000/api/health > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Integration image did not become ready" >&2
+          exit 1
+
+      - name: Run paired React and Angular foundation probes
+        env:
+          INTEGRATION: ${{ matrix.integration }}
+          SOURCE_SHA: ${{ needs.build-angular.outputs.source_sha }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/matrix"
+          IMAGE_REVISION=$(cat "$RUNNER_TEMP/container-image-revision.txt")
+          pnpm --dir showcase/harness exec tsx src/cli/frontend-matrix-ci.ts run \
+            --plan "$RUNNER_TEMP/angular-proof-plan.json" \
+            --shard-index 0 \
+            --integration "$INTEGRATION" \
+            --features "$PROOF_FEATURES" \
+            --integration-base-url http://127.0.0.1:10000 \
+            --source-commit "$SOURCE_SHA" \
+            --container-image-revision "$IMAGE_REVISION" \
+            --fixture-revision "$SOURCE_SHA" \
+            --feature-contract-revision c793418d4a456d4c81012a021cd617cd7f3e5712 \
+            --output "$RUNNER_TEMP/matrix/angular-proof-cells.json"
+
+      - name: Aggregate the exact proof pairs
+        env:
+          INTEGRATION: ${{ matrix.integration }}
+        run: |
+          pnpm --dir showcase/harness exec tsx src/cli/frontend-matrix-ci.ts aggregate \
+            --integration "$INTEGRATION" \
+            --features "$PROOF_FEATURES" \
+            --artifacts "$RUNNER_TEMP/matrix" \
+            --output "$RUNNER_TEMP/angular-proof-matrix.json" \
+            --timings-output "$RUNNER_TEMP/angular-proof-timings.json"
+
+      - name: Apply frozen-base pairwise policy
+        env:
+          INTEGRATION: ${{ matrix.integration }}
+        run: |
+          pnpm --dir showcase/harness exec tsx src/cli/frontend-matrix-ci.ts compare \
+            --integration "$INTEGRATION" \
+            --features "$PROOF_FEATURES" \
+            --baseline "$GITHUB_WORKSPACE/showcase/harness/config/frontend-matrix-baseline.json" \
+            --pull-request "$RUNNER_TEMP/angular-proof-matrix.json" \
+            --policy "$GITHUB_WORKSPACE/showcase/harness/config/frontend-matrix-baseline-policy.json" \
+            --output "$RUNNER_TEMP/angular-proof-parity.json"
+
+      - name: Block on absolute Angular foundation failures
+        run: |
+          test "$(jq '[.cells[] | select(.frontend == "angular" and .status == "failed")] | length' "$RUNNER_TEMP/angular-proof-matrix.json")" = "0"
+
+      - name: Run absolute Angular canaries and performance samples
+        env:
+          INTEGRATION: ${{ matrix.integration }}
+          SOURCE_SHA: ${{ needs.build-angular.outputs.source_sha }}
+        run: |
+          IMAGE_REVISION=$(cat "$RUNNER_TEMP/container-image-revision.txt")
+          pnpm --dir showcase/harness exec tsx src/cli/angular-proof-ci.ts \
+            --browser chromium \
+            --integration "$INTEGRATION" \
+            --integration-base-url http://127.0.0.1:10000 \
+            --source-commit "$SOURCE_SHA" \
+            --container-image-revision "$IMAGE_REVISION" \
+            --fixture-revision "$SOURCE_SHA" \
+            --output "$RUNNER_TEMP/angular-proof-canaries.json"
+
+      - name: Stop branch-local services
+        if: always()
+        run: |
+          curl --fail --silent --max-time 2 http://127.0.0.1:4010/metrics \
+            | awk '/^aimock_fixtures_loaded|^aimock_requests_total/ { print }' \
+            || true
+          docker rm --force angular-proof-integration 2>/dev/null || true
+          if [ -f "$RUNNER_TEMP/aimock.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/aimock.pid")" 2>/dev/null || true
+          fi
+
+      - name: Upload bounded proof evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: angular-proof-${{ matrix.integration }}
+          path: |
+            ${{ runner.temp }}/angular-proof-matrix.json
+            ${{ runner.temp }}/angular-proof-timings.json
+            ${{ runner.temp }}/angular-proof-parity.json
+            ${{ runner.temp }}/angular-proof-canaries.json
+          if-no-files-found: warn
+          retention-days: 30

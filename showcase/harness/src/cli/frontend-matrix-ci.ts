@@ -65,6 +65,22 @@ interface FrontendBaselinePolicy {
   acceptedFailures: AcceptedBaselineFailure[];
 }
 
+/** Limit parity inputs and policy entries to one independently run CI scope. */
+export function scopeByIntegrationAndFeature<
+  Item extends { integration: string; feature: string },
+>(
+  items: readonly Item[],
+  options: { integration?: string; features?: readonly string[] },
+): Item[] {
+  const features = new Set(options.features ?? []);
+  return items.filter(
+    (item) =>
+      (options.integration === undefined ||
+        item.integration === options.integration) &&
+      (features.size === 0 || features.has(item.feature)),
+  );
+}
+
 function positiveInteger(value: string): number {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < 1) {
@@ -86,6 +102,17 @@ function frontend(value: string): RunnableFrontend {
     throw new InvalidArgumentError('must be "react" or "angular"');
   }
   return value;
+}
+
+function commaSeparatedValues(value: string): string[] {
+  const values = value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  if (values.length === 0) {
+    throw new InvalidArgumentError("must contain at least one value");
+  }
+  return values;
 }
 
 async function readJson<T>(file: string): Promise<T> {
@@ -114,11 +141,16 @@ async function readTimings(file: string): Promise<TimingInput> {
 
 async function loadMatrix(
   catalogFile: string,
-  options: { frontend?: RunnableFrontend; integration?: string } = {},
+  options: {
+    frontend?: RunnableFrontend;
+    integration?: string;
+    features?: string[];
+  } = {},
 ): Promise<FrontendMatrixCell[]> {
   return buildFrontendMatrix(await readJson(catalogFile), {
     frontends: options.frontend ? [options.frontend] : undefined,
     integrations: options.integration ? [options.integration] : undefined,
+    features: options.features,
   });
 }
 
@@ -184,6 +216,11 @@ function createProgram(): Command {
     .option("--frontend <id>", "limit the plan to one frontend", frontend)
     .option("--integration <slug>", "limit the plan to one integration")
     .option(
+      "--features <slugs>",
+      "limit the plan to comma-separated feature slugs",
+      commaSeparatedValues,
+    )
+    .option(
       "--target-ms <n>",
       "target serial work per shard",
       positiveInteger,
@@ -229,6 +266,11 @@ function createProgram(): Command {
     .requiredOption("--output <file>")
     .option("--catalog <file>", "generated frontend catalog", DEFAULT_CATALOG)
     .option("--frontend <id>", "limit execution to one frontend", frontend)
+    .option(
+      "--features <slugs>",
+      "limit execution to comma-separated feature slugs",
+      commaSeparatedValues,
+    )
     .option("--concurrency <n>", "parallel isolated cells", positiveInteger, 4)
     .action(async (options) => {
       const shardIndex = Number(options.shardIndex);
@@ -291,6 +333,11 @@ function createProgram(): Command {
     .option("--catalog <file>", "generated frontend catalog", DEFAULT_CATALOG)
     .option("--frontend <id>", "limit aggregation to one frontend", frontend)
     .option("--integration <slug>", "limit aggregation to one integration")
+    .option(
+      "--features <slugs>",
+      "limit aggregation to comma-separated feature slugs",
+      commaSeparatedValues,
+    )
     .action(async (options) => {
       const matrix = await loadMatrix(options.catalog, options);
       const artifactFiles = await findArtifactFiles(options.artifacts);
@@ -315,6 +362,12 @@ function createProgram(): Command {
     .requiredOption("--pull-request <file>", "PR React and Angular report")
     .requiredOption("--policy <file>", "owned baseline failure policy")
     .requiredOption("--output <file>")
+    .option("--integration <slug>", "limit comparison to one integration")
+    .option(
+      "--features <slugs>",
+      "limit comparison to comma-separated feature slugs",
+      commaSeparatedValues,
+    )
     .action(async (options) => {
       const baseline = await readJson<FrontendMatrixAggregateReport>(
         options.baseline,
@@ -333,16 +386,31 @@ function createProgram(): Command {
           `baseline source ${baseline.sourceCommit} does not match frozen commit ${policy.frozenBaseCommit}`,
         );
       }
-      const pullRequestCells = frontendParityCellsFromAggregate(pullRequest);
+      const scope = {
+        integration: options.integration,
+        features: options.features,
+      };
+      const baselineCells = scopeByIntegrationAndFeature(
+        frontendParityCellsFromAggregate(baseline),
+        scope,
+      );
+      const pullRequestCells = scopeByIntegrationAndFeature(
+        frontendParityCellsFromAggregate(pullRequest),
+        scope,
+      );
+      const acceptedBaselineFailures = scopeByIntegrationAndFeature(
+        policy.acceptedFailures,
+        scope,
+      );
       const report = evaluateFrontendParity({
         frozenBaseCommit: policy.frozenBaseCommit,
         pullRequestCommit: pullRequest.sourceCommit,
-        baselineReact: frontendParityCellsFromAggregate(baseline),
+        baselineReact: baselineCells,
         pullRequest: pullRequestCells,
         expectedAngularCellIds: pullRequestCells
           .filter((cell) => cell.frontend === "angular")
           .map((cell) => `${cell.integration}/${cell.feature}`),
-        acceptedBaselineFailures: policy.acceptedFailures,
+        acceptedBaselineFailures,
       });
       await writeJson(options.output, report);
       console.log(
