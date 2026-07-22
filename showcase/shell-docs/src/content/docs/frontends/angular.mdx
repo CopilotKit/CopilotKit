@@ -9,10 +9,16 @@ hideTOC: true
 
 The runtime runs on your server, keeps model credentials out of the browser, and exposes the `default` agent that `CopilotChat` uses automatically.
 
+## What is CopilotKit for Angular?
+
+CopilotKit for Angular is the first-party, signal-based Angular frontend for
+AG-UI agents and Copilot Runtime. It provides complete chat surfaces and
+headless APIs without requiring React or Zone.js.
+
 ## Prerequisites
 
-- An OpenAI API key (or another model provider supported by [Model Selection](/model-selection))
-- Angular 19, 20, or 21 (Angular 22 is not supported yet)
+- An OpenAI API key (or another model provider supported by [Model Selection](https://docs.copilotkit.ai/model-selection))
+- Angular 20, 21, or 22
 - Node.js 20+
 
 ## Getting started
@@ -21,10 +27,10 @@ The runtime runs on your server, keeps model credentials out of the browser, and
     <Step>
         ### Create your Angular app
 
-        If you don't have one already. The package supports Angular up to 21, so pin the CLI to a supported major rather than `@latest`:
+        If you don't have one already, pin the CLI to one of the supported majors. This example uses Angular 22:
 
         ```bash
-        npx @angular/cli@21 new my-copilot-app
+        npx @angular/cli@22 new my-copilot-app
         cd my-copilot-app
         ```
     </Step>
@@ -55,7 +61,7 @@ The runtime runs on your server, keeps model credentials out of the browser, and
         </Tabs>
 
         <Callout type="info" title="Match @angular/cdk to your Angular version">
-          `@angular/cdk` must share your Angular major version. Most package managers resolve this for you, but if you hit a peer-dependency error, pin it explicitly (for example `@angular/cdk@^21`).
+          `@angular/cdk` must share your Angular major version. Most package managers resolve this for you, but if you hit a peer-dependency error, pin it explicitly (for example `@angular/cdk@^22`).
         </Callout>
     </Step>
     <Step>
@@ -142,9 +148,6 @@ The runtime runs on your server, keeps model credentials out of the browser, and
         export class App {}
         ```
 
-        <Callout type="info" title="Older Angular projects">
-          Angular 19 names the root component `app.component.ts` with class `AppComponent`. Add the same imports and template there.
-        </Callout>
     </Step>
     <Step>
         ### Run the runtime and app
@@ -170,18 +173,22 @@ The runtime runs on your server, keeps model credentials out of the browser, and
                 - **No response from the agent**: Confirm the runtime server is running and `http://localhost:8200/api/copilotkit/info` returns agent information.
                 - **CORS errors**: Keep `cors: true` in `createCopilotNodeListener` for local development, or configure CORS to allow your Angular app's origin in production.
                 - **Model auth errors**: Confirm `OPENAI_API_KEY` is set in the terminal running `npx tsx server.ts`.
-                - **Peer-dependency error on install**: `@angular/cdk` must match your Angular major version. Install the matching major, for example `@angular/cdk@^21` on Angular 21.
+                - **Peer-dependency error on install**: `@angular/cdk` must match your Angular major version. Install the matching major, for example `@angular/cdk@^22` on Angular 22.
                 - **Production build exceeds the bundle budget**: CopilotKit pulls in markdown and syntax-highlighting dependencies, so a fresh app can exceed Angular's default 1 MB budget. Raise `budgets` in `angular.json` if your production build fails on size.
             </Accordion>
         </Accordions>
     </Step>
+
 </Steps>
 
-## Where to go next
+## Next steps
 
 - [Copilot Runtime](/backend/copilot-runtime): runtime setup, auth, middleware, and routing.
 - [Built-in Agent quickstart](/quickstart): configure the in-process agent used in this quickstart.
 - [Integrations](/integrations/langgraph): connect LangGraph, CrewAI, Mastra, and other agents through the runtime.
 - [Angular + Google ADK in production](/cookbook/angular-adk-agentic-app): the non-obvious gotchas when you wire Angular to an ADK agent with threads and memory.
+- [Angular API reference](https://docs.copilotkit.ai/reference/angular): components, signals, tools, context, and runtime services.
+- [Production and lifecycle](https://docs.copilotkit.ai/reference/angular/production-lifecycle): cleanup, errors, SSR, hydration, zoneless Angular, and browser-only feature boundaries.
+- [Public API inventory](https://docs.copilotkit.ai/reference/angular/public-api): supported entry points and the machine-validated export contract.
 
-For headless setups, custom UIs with `injectAgentStore`, and the full component list, see the [`@copilotkit/angular` README](https://github.com/CopilotKit/CopilotKit/tree/main/packages/angular).
+For headless setups and custom UIs with `injectAgentStore`, see the [`@copilotkit/angular` README](https://github.com/CopilotKit/CopilotKit/tree/main/packages/angular). The installed package also includes `API.md` beside its README with the exact export list for that version.

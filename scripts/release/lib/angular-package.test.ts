@@ -1,0 +1,258 @@
+import { expect, test } from "vitest";
+import { readFileSync } from "node:fs";
+import {
+  createAngularConsumerManifest,
+  createAngularConsumerSources,
+  findPackageResolutions,
+  readAngularSupportContract,
+  validateAngularSsrHtml,
+  validateAngularPackageManifest,
+} from "./angular-package.js";
+
+const validManifest = {
+  name: "@copilotkit/angular",
+  sideEffects: false,
+  copilotkit: {
+    angularSupport: {
+      compilerMajor: 20,
+      rxjs: "^7.8.0",
+      testedRxjs: "7.8.1",
+      supportedMajors: [
+        {
+          angular: "20.3.26",
+          cdk: "20.2.14",
+          major: 20,
+          typescript: "5.9.3",
+        },
+        {
+          angular: "21.2.18",
+          cdk: "21.2.14",
+          major: 21,
+          typescript: "5.9.3",
+        },
+        {
+          angular: "22.0.7",
+          cdk: "22.0.5",
+          major: 22,
+          typescript: "6.0.3",
+        },
+      ],
+    },
+  },
+  devDependencies: {
+    "@angular/common": "20.3.26",
+    "@angular/compiler-cli": "20.3.26",
+    "@angular/core": "20.3.26",
+    typescript: "5.9.3",
+  },
+  peerDependencies: {
+    "@angular/cdk": "^20.0.0 || ^21.0.0 || ^22.0.0",
+    "@angular/common": "^20.0.0 || ^21.0.0 || ^22.0.0",
+    "@angular/core": "^20.0.0 || ^21.0.0 || ^22.0.0",
+    rxjs: "^7.8.0",
+  },
+};
+
+test("runs the Angular 22 packed matrix only on a compatible Node lane", () => {
+  const workflow = readFileSync(
+    new URL("../../../.github/workflows/test_unit.yml", import.meta.url),
+    "utf8",
+  );
+  const angularStep = (name: string): string => {
+    const match = workflow.match(
+      new RegExp(`      - name: ${name}\\n([\\s\\S]*?)(?=\\n      - name:|$)`),
+    );
+    expect(match, `missing workflow step: ${name}`).not.toBeNull();
+    return match?.[1] ?? "";
+  };
+
+  expect(
+    angularStep("Install Chromium for packed Angular browser smoke"),
+  ).toContain("if: matrix.node-version == '22.x'");
+  expect(angularStep("Verify packed Angular consumer matrix")).toContain(
+    "if: matrix.node-version == '22.x'",
+  );
+  expect(angularStep("Verify packed Channels umbrella contract")).toContain(
+    "if: matrix.node-version == '20.x'",
+  );
+  expect(
+    angularStep("Verify packed Runtime managed Channels contract"),
+  ).toContain("if: matrix.node-version == '20.x'");
+});
+
+test("reads an ordered Angular support contract", () => {
+  expect(readAngularSupportContract(validManifest)).toEqual(
+    validManifest.copilotkit.angularSupport,
+  );
+  expect(validateAngularPackageManifest(validManifest)).toEqual([]);
+});
+
+test("rejects support metadata that drifts from peers or the floor compiler", () => {
+  const manifest = structuredClone(validManifest);
+  manifest.copilotkit.angularSupport.compilerMajor = 21;
+  manifest.peerDependencies["@angular/core"] = "^21.0.0 || ^22.0.0";
+
+  expect(validateAngularPackageManifest(manifest)).toEqual(
+    expect.arrayContaining([
+      expect.stringContaining(
+        "compilerMajor must equal the lowest supported major",
+      ),
+      expect.stringContaining("@angular/core peer range"),
+    ]),
+  );
+});
+
+test("rejects a package that prevents consumer tree-shaking", () => {
+  const manifest = structuredClone(validManifest) as Record<string, unknown>;
+  delete manifest.sideEffects;
+
+  expect(validateAngularPackageManifest(manifest)).toContain(
+    "sideEffects must be false so packed consumers can tree-shake the Angular FESM bundle",
+  );
+});
+
+test("rejects duplicate, unordered, and version-mismatched support entries", () => {
+  const manifest = structuredClone(validManifest);
+  manifest.copilotkit.angularSupport.supportedMajors = [
+    {
+      angular: "21.2.18",
+      cdk: "21.2.14",
+      major: 21,
+      typescript: "5.9.3",
+    },
+    {
+      angular: "20.3.26",
+      cdk: "21.2.14",
+      major: 21,
+      typescript: "5.9.3",
+    },
+  ];
+
+  expect(validateAngularPackageManifest(manifest)).toEqual(
+    expect.arrayContaining([
+      expect.stringContaining("strictly increasing"),
+      expect.stringContaining(
+        "Angular version 20.3.26 does not match major 21",
+      ),
+    ]),
+  );
+});
+
+test("creates an exact packed Angular consumer without framework overrides", () => {
+  const support = readAngularSupportContract(validManifest);
+
+  expect(
+    createAngularConsumerManifest({
+      angularTarball: "/tmp/copilotkit-angular.tgz",
+      packageManager: "pnpm@10.33.4",
+      siblingTarballs: new Map([
+        ["@copilotkit/core", "/tmp/copilotkit-core.tgz"],
+      ]),
+      support: support.supportedMajors[2],
+      testedRxjs: support.testedRxjs,
+    }),
+  ).toEqual({
+    name: "copilotkit-angular-22-consumer",
+    version: "0.0.0",
+    private: true,
+    scripts: {
+      build: "ng build --configuration=production",
+      "serve:ssr": "node dist/smoke/server/server.mjs",
+    },
+    dependencies: {
+      "@ag-ui/client": "0.0.57",
+      "@angular/cdk": "22.0.5",
+      "@angular/common": "22.0.7",
+      "@angular/core": "22.0.7",
+      "@angular/platform-browser": "22.0.7",
+      "@angular/platform-server": "22.0.7",
+      "@angular/router": "22.0.7",
+      "@angular/ssr": "22.0.7",
+      "@copilotkit/angular": "file:/tmp/copilotkit-angular.tgz",
+      express: "^5.1.0",
+      rxjs: "7.8.1",
+      tslib: "^2.8.1",
+      zod: "^3.25.75",
+    },
+    devDependencies: {
+      "@angular/build": "22.0.7",
+      "@angular/cli": "22.0.7",
+      "@angular/compiler": "22.0.7",
+      "@angular/compiler-cli": "22.0.7",
+      "@types/express": "^5.0.1",
+      "@types/node": "^22.5.1",
+      typescript: "6.0.3",
+    },
+    packageManager: "pnpm@10.33.4",
+    pnpm: {
+      overrides: {
+        "@copilotkit/core": "file:/tmp/copilotkit-core.tgz",
+      },
+    },
+  });
+});
+
+test("creates a zoneless SSR and hydration browser smoke fixture", () => {
+  const sources = createAngularConsumerSources();
+
+  expect(sources.get("src/main.ts")).toContain(
+    "bootstrapApplication(App, appConfig)",
+  );
+  expect(sources.get("src/main.server.ts")).toContain("BootstrapContext");
+  expect(sources.get("src/server.ts")).toContain("AngularNodeAppEngine");
+  expect(sources.get("src/app.config.ts")).toContain(
+    "provideZonelessChangeDetection",
+  );
+  expect(sources.get("src/app.config.ts")).toContain(
+    "provideClientHydration(withEventReplay())",
+  );
+  expect(sources.get("src/app.config.server.ts")).toContain(
+    "provideServerRendering",
+  );
+  expect(sources.get("src/app.routes.server.ts")).toContain(
+    "RenderMode.Server",
+  );
+  expect(sources.get("src/app.ts")).toContain("CopilotPopup");
+  expect(sources.get("src/app.ts")).toContain("RenderToolCalls");
+  expect(sources.get("src/app.ts")).toContain("registerFrontendTool");
+  expect(sources.get("src/app.ts")).toContain('data-testid="lifecycle-count"');
+  expect(sources.get("src/app.ts")).toContain('data-testid="tool-renderer"');
+  expect(sources.get("src/app.ts")).toContain('data-testid="ssr-smoke"');
+  expect(sources.get("angular.json")).toContain("@angular/build:application");
+  expect(sources.get("angular.json")).toContain('"outputMode": "server"');
+  expect(sources.get("tsconfig.app.json")).toContain("strictTemplates");
+});
+
+test("rejects responses that did not server-render the packed smoke UI", () => {
+  expect(
+    validateAngularSsrHtml(
+      '<main data-testid="ssr-smoke"><output data-testid="tool-renderer">packed:complete</output></main>',
+    ),
+  ).toEqual([]);
+  expect(validateAngularSsrHtml("<copilot-smoke></copilot-smoke>")).toEqual([
+    'SSR response is missing data-testid="ssr-smoke"',
+    'SSR response is missing data-testid="tool-renderer"',
+    "SSR response is missing the completed packed tool result",
+  ]);
+});
+
+test("finds forbidden packages anywhere in a packed consumer graph", () => {
+  expect(
+    findPackageResolutions(
+      [
+        {
+          name: "consumer",
+          dependencies: {
+            "@copilotkit/angular": {
+              version: "0.1.1",
+              optionalDependencies: {
+                react: { version: "19.2.0" },
+              },
+            },
+          },
+        },
+      ],
+      new Set(["react", "react-dom"]),
+    ),
+  ).toEqual(["react@19.2.0"]);
+});

@@ -54,7 +54,13 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
-    <div [class]="computedClass()" [attr.data-message-id]="message().id">
+    <div
+      [class]="computedClass()"
+      [attr.data-message-id]="message().id"
+      data-testid="copilot-assistant-message"
+      data-message-role="assistant"
+      role="article"
+    >
       <!-- Markdown Renderer -->
       @if (markdownRendererTemplate || markdownRendererComponent()) {
         <copilot-slot
@@ -427,7 +433,7 @@ export class CopilotChatAssistantMessage {
   // Computed values
   computedClass = computed(() => {
     return cn(
-      "cpk:prose cpk:max-w-full cpk:break-words cpk:dark:prose-invert",
+      "copilotKitMessage copilotKitAssistantMessage cpk:prose cpk:max-w-full cpk:break-words cpk:dark:prose-invert",
       this.customClass(),
     );
   });

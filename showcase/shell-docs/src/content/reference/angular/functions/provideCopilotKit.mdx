@@ -107,13 +107,16 @@ function provideCopilotKit(config: CopilotKitConfig): Provider;
   </PropertyReference>
 
   <PropertyReference name="a2ui" type="A2UIConfig">
-    Configuration for A2UI (agent-to-UI declarative surfaces).
+    Configuration for A2UI (agent-to-UI declarative surfaces). A runtime may
+    advertise A2UI through `/info`; supplying a catalog also enables the
+    frontend renderers and agent context without that runtime capability.
 
     <PropertyReference name="theme" type="Theme">
       The A2UI theme used to style rendered surfaces.
     </PropertyReference>
     <PropertyReference name="catalog" type="Catalog<LitComponentImplementation>">
-      A catalog of custom components the agent may render.
+      A catalog of custom components the agent may render. Providing it enables
+      A2UI even when the runtime does not advertise A2UI through `/info`.
     </PropertyReference>
     <PropertyReference name="loadingComponent" type="() => LitRenderable">
       A function returning the element shown while a surface is loading.

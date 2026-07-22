@@ -337,6 +337,15 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
   }
 
   connect(input: RunAgentInput): Observable<BaseEvent> {
+    if (
+      this.runtimeMode === "pending" ||
+      (this.transport === "auto" &&
+        this.runtimeMode !== RUNTIME_MODE_INTELLIGENCE)
+    ) {
+      return defer(() => from(this.ensureRuntimeConfiguration())).pipe(
+        switchMap(() => this.connect(input)),
+      );
+    }
     if (this.runtimeMode === RUNTIME_MODE_INTELLIGENCE) {
       return this.#connectViaDelegate(input);
     }
@@ -344,6 +353,15 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
   }
 
   public run(input: RunAgentInput): Observable<BaseEvent> {
+    if (
+      this.runtimeMode === "pending" ||
+      (this.transport === "auto" &&
+        this.runtimeMode !== RUNTIME_MODE_INTELLIGENCE)
+    ) {
+      return defer(() => from(this.ensureRuntimeConfiguration())).pipe(
+        switchMap(() => this.run(input)),
+      );
+    }
     if (this.runtimeMode === RUNTIME_MODE_INTELLIGENCE) {
       return this.#runViaDelegate(input);
     }
@@ -459,7 +477,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
   }
 
   private async resolveDelegate(): Promise<RunnableAgent> {
-    await this.ensureRuntimeMode();
+    await this.ensureRuntimeConfiguration();
 
     if (!this.delegate) {
       if (this.runtimeMode !== RUNTIME_MODE_INTELLIGENCE) {
@@ -475,8 +493,12 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     return this.delegate as unknown as RunnableAgent;
   }
 
-  private async ensureRuntimeMode(): Promise<void> {
-    if (this.runtimeMode !== "pending") {
+  /** Resolve transport and runtime mode before the first outbound request. */
+  private async ensureRuntimeConfiguration(): Promise<void> {
+    if (
+      this.runtimeMode === RUNTIME_MODE_INTELLIGENCE ||
+      (this.runtimeMode !== "pending" && this.transport !== "auto")
+    ) {
       return;
     }
 

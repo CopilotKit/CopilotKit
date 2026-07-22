@@ -1,9 +1,9 @@
 import {
   Directive,
   ElementRef,
-  OnInit,
   OnDestroy,
   AfterViewInit,
+  afterNextRender,
   inject,
   input,
   output,
@@ -41,7 +41,7 @@ export type ScrollBehavior = "smooth" | "instant" | "auto";
   selector: "[copilotStickToBottom]",
   providers: [ScrollPosition, ResizeObserverService],
 })
-export class StickToBottom implements OnInit, AfterViewInit, OnDestroy {
+export class StickToBottom implements AfterViewInit, OnDestroy {
   enabled = input<boolean>(true);
   threshold = input<number>(10);
   initialBehavior = input<ScrollBehavior>("smooth");
@@ -60,9 +60,16 @@ export class StickToBottom implements OnInit, AfterViewInit, OnDestroy {
   private wasAtBottom = true;
   private hasInitialized = false;
   private userHasScrolled = false;
+  private destroyed = false;
 
-  ngOnInit(): void {
-    // Setup will happen in ngAfterViewInit
+  constructor() {
+    afterNextRender(() => {
+      if (this.destroyed) return;
+      this.hasInitialized = true;
+      if (this.enabled()) {
+        this.scrollToBottom(this.initialBehavior());
+      }
+    });
   }
 
   ngAfterViewInit(): void {
@@ -79,14 +86,6 @@ export class StickToBottom implements OnInit, AfterViewInit, OnDestroy {
     this.setupScrollMonitoring();
     this.setupResizeMonitoring();
     this.setupContentMutationObserver();
-
-    // Initial scroll to bottom if enabled
-    setTimeout(() => {
-      this.hasInitialized = true;
-      if (this.enabled()) {
-        this.scrollToBottom(this.initialBehavior());
-      }
-    }, 0);
   }
 
   private setupScrollMonitoring(): void {
@@ -212,6 +211,7 @@ export class StickToBottom implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true;
     this.destroy$.next();
     this.destroy$.complete();
   }
