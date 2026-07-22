@@ -13,6 +13,9 @@ export interface MediaAgentMessage {
   readonly content?: readonly unknown[];
 }
 
+/** Exact backend weather-tool spellings supported by the voice demo. */
+export const VOICE_WEATHER_TOOL_NAMES = ["get_weather", "get-weather"] as const;
+
 const MAGIC_BYTES: Readonly<Record<string, readonly number[]>> = {
   "image/png": [0x89, 0x50, 0x4e, 0x47],
   "application/pdf": [0x25, 0x50, 0x44, 0x46],

@@ -5,9 +5,15 @@ import {
   dedupeUserMessageMedia,
   rewriteMessagesForLegacyConverter,
   validateSampleBytes,
+  VOICE_WEATHER_TOOL_NAMES,
 } from "./media-model";
 
 describe("Angular media showcase model", () => {
+  it("scopes voice rendering to the two explicit weather tool spellings", () => {
+    expect(VOICE_WEATHER_TOOL_NAMES).toEqual(["get_weather", "get-weather"]);
+    expect(VOICE_WEATHER_TOOL_NAMES).not.toContain("*");
+  });
+
   it("builds a modern multimodal user message with file metadata", () => {
     expect(
       createMultimodalMessage(

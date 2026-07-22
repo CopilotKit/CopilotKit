@@ -1,4 +1,7 @@
-import type { AttachmentsConfig } from "@copilotkit/angular";
+import type {
+  AttachmentsConfig,
+  RenderToolCallConfig,
+} from "@copilotkit/angular";
 import {
   ChangeDetectionStrategy,
   Component,
@@ -8,20 +11,38 @@ import {
   viewChild,
 } from "@angular/core";
 import { ActivatedRoute } from "@angular/router";
-import { CopilotKit, injectAgentStore } from "@copilotkit/angular";
+import {
+  CopilotKit,
+  injectAgentStore,
+  registerRenderToolCall,
+} from "@copilotkit/angular";
+import { z } from "zod";
 
 import { agentIdForRoute } from "../../feature-agent";
 import { FeatureHeaderComponent } from "../feature-header.component";
 import { ShowcaseChatHostComponent } from "../showcase-chat-host.component";
+import { WeatherToolCard } from "../tools/tool-cards";
 import {
   createMultimodalMessage,
   dedupeUserMessageMedia,
   rewriteMessagesForLegacyConverter,
   validateSampleBytes,
+  VOICE_WEATHER_TOOL_NAMES,
 } from "./media-model";
 import type { MediaAgentMessage, SampleSpec } from "./media-model";
 
 const VOICE_SAMPLE_TEXT = "What is the weather in Tokyo?";
+
+type VoiceWeatherArgs = Record<string, unknown>;
+
+/** Exact backend weather tools rendered by the voice demo. */
+export const voiceWeatherRendererConfigs: readonly RenderToolCallConfig<VoiceWeatherArgs>[] =
+  VOICE_WEATHER_TOOL_NAMES.map((name) => ({
+    name,
+    args: z.record(z.unknown()),
+    component:
+      WeatherToolCard as unknown as RenderToolCallConfig<VoiceWeatherArgs>["component"],
+  }));
 
 const SAMPLES: readonly SampleSpec[] = [
   {
@@ -193,6 +214,11 @@ export class MediaFeatureComponent {
   protected readonly error = signal<string | null>(null);
 
   constructor() {
+    if (this.feature === "voice") {
+      for (const config of voiceWeatherRendererConfigs) {
+        registerRenderToolCall(config);
+      }
+    }
     if (this.feature === "multimodal") {
       effect((onCleanup) => {
         const handle = installLegacyConverterShim(this.agentStore().agent);
