@@ -115,6 +115,33 @@ describe("Angular Showcase proxy handler", () => {
     expect(JSON.stringify(log.mock.calls)).not.toContain("demo-token");
   });
 
+  it("drops upstream compression metadata after fetch decodes the body", async () => {
+    const response = await handler(
+      vi.fn<typeof fetch>(
+        async () =>
+          new Response("decoded upstream body", {
+            status: 200,
+            headers: {
+              "content-encoding": "gzip",
+              "content-length": "512",
+              "content-language": "en",
+              etag: '"representation-id"',
+            },
+          }),
+      ),
+    )(
+      new Request(
+        "https://angular.example.test/api/copilotkit/langgraph-python/agentic-chat/info",
+      ),
+    );
+
+    expect(response.headers.get("content-encoding")).toBeNull();
+    expect(response.headers.get("content-length")).toBeNull();
+    expect(response.headers.get("content-language")).toBe("en");
+    expect(response.headers.get("etag")).toBe('"representation-id"');
+    expect(await response.text()).toBe("decoded upstream body");
+  });
+
   it("returns safe structured errors for malformed routes without calling fetch", async () => {
     const fetchImpl = vi.fn<typeof fetch>();
     const response = await handler(fetchImpl)(

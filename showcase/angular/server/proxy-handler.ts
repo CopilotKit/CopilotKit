@@ -42,9 +42,7 @@ const REQUEST_HEADER_ALLOWLIST = [
 
 const RESPONSE_HEADER_ALLOWLIST = [
   "cache-control",
-  "content-encoding",
   "content-language",
-  "content-length",
   "content-type",
   "etag",
   "last-modified",
