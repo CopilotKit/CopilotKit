@@ -18,6 +18,22 @@ body {
   margin: 0;
 }
 
+/*
+  Move the dev web-inspector's FAB to the bottom-left. Its default top-right
+  anchor sits on top of the floating chat panel's top-right close button (the
+  inspector uses a max z-index), intercepting the click. Bottom-left clears both
+  the close button (top-right) and the open-chat FAB (bottom-right).
+*/
+cpk-web-inspector {
+  /* The inspector is draggable and positions its FAB with an inline transform
+     (defaulting top-right); neutralize it so the corner below takes effect. */
+  transform: none !important;
+  top: auto !important;
+  bottom: 1rem !important;
+  left: 1rem !important;
+  right: auto !important;
+}
+
 body {
   font-family: Arial, Helvetica, sans-serif;
 }

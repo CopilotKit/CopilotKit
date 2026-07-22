@@ -33,6 +33,9 @@ export class WebInspector {
       // Hand it the app's core rather than letting it auto-attach its own.
       inspector.core = this.#copilotKit.core;
       inspector.setAttribute("auto-attach-core", "false");
+      // Anchor bottom-left so the FAB clears the chat panel's top-right close
+      // button (default anchor is top-right). CSS in styles.css enforces this too.
+      inspector.setAttribute("anchor", "bottom-left");
 
       if (!existing) {
         document.body.appendChild(inspector);
