@@ -5,7 +5,10 @@ import { AIMessage, SystemMessage, fakeModel } from "langchain";
 import type { ModelRequest, WrapModelCallHandler } from "langchain";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { createSkillRegistryMiddleware } from "./index.js";
-import type { SkillRegistryTelemetryEvent } from "./middleware.js";
+import type {
+  AdapterSnapshot,
+  SkillRegistryTelemetryEvent,
+} from "./middleware.js";
 import {
   deferred,
   cleanupInstalledSkillSets,
@@ -202,6 +205,92 @@ describe("createSkillRegistryMiddleware", () => {
     expect(second).toBe(first);
     pending.resolve(await installedSkillSet());
     await expect(first).resolves.toMatchObject({ status: "ready" });
+  });
+
+  it("publishes the shared promise before load-started telemetry can reenter", async () => {
+    const pending = deferred<InstalledSkillSet>();
+    const registryClient = testClient(() => pending.promise);
+    let middleware!: ReturnType<typeof createSkillRegistryMiddleware>;
+    let reentrant: Promise<AdapterSnapshot> | undefined;
+    middleware = createSkillRegistryMiddleware({
+      client: registryClient,
+      learningContainerId: CONTAINER_ID,
+      telemetry: (event) => {
+        if (event.name === "load.started" && reentrant === undefined) {
+          reentrant = middleware.load();
+        }
+      },
+    });
+
+    const initiating = middleware.load();
+    if (!reentrant) throw new Error("load.started telemetry did not reenter");
+    const results = Promise.allSettled([initiating, reentrant]);
+    pending.resolve(await installedSkillSet());
+    const [initiatingResult, reentrantResult] = await results;
+
+    expect(reentrant).toBe(initiating);
+    expect(initiatingResult).toMatchObject({
+      status: "fulfilled",
+      value: { status: "ready" },
+    });
+    expect(reentrantResult).toMatchObject({
+      status: "fulfilled",
+      value: { status: "ready" },
+    });
+    expect(registryClient.skills.get).toHaveBeenCalledOnce();
+  });
+
+  it("denies and clears a shared throttled load when telemetry fails", async () => {
+    const installed = await installedSkillSet();
+    const registryClient = testClient(() => Promise.resolve(installed));
+    const sinkFailure = new Error("throttled telemetry unavailable");
+    let failThrottledTelemetry = false;
+    const middleware = createSkillRegistryMiddleware({
+      client: registryClient,
+      learningContainerId: CONTAINER_ID,
+      clock: () => 0,
+      telemetry: (event) => {
+        if (failThrottledTelemetry && event.name === "load.throttled") {
+          throw sinkFailure;
+        }
+      },
+    });
+    await middleware.load();
+    failThrottledTelemetry = true;
+
+    const first = middleware.load();
+    const second = middleware.load();
+    const [firstResult, secondResult] = await Promise.allSettled([
+      first,
+      second,
+    ]);
+
+    expect(second).toBe(first);
+    expect(firstResult.status).toBe("rejected");
+    expect(secondResult.status).toBe("rejected");
+    if (
+      firstResult.status !== "rejected" ||
+      secondResult.status !== "rejected"
+    ) {
+      throw new Error("Every throttled caller must reject");
+    }
+    expect(firstResult.reason).toBe(secondResult.reason);
+    expect(firstResult.reason).toMatchObject({
+      code: "LEARNING_TELEMETRY_SINK_FAILED",
+      category: "internal",
+      retryable: false,
+      cause: sinkFailure,
+      causeIdentity: sinkFailure.message,
+    });
+    expect(middleware.snapshot).toMatchObject({
+      status: "denied",
+      source: "none",
+      installedSkillSet: null,
+      renderedSkills: [],
+      prompt: "",
+      error: firstResult.reason,
+    });
+    expect(registryClient.skills.get).toHaveBeenCalledOnce();
   });
 
   it("awaits and canonicalizes asynchronous joined telemetry failures", async () => {

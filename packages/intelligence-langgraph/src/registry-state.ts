@@ -321,7 +321,9 @@ export class RegistryState {
       lastAttemptAt !== null &&
       now - lastAttemptAt < this.options.refreshIntervalMs
     ) {
-      if (this.ready) return this.completeThrottledReadyLoad();
+      if (this.ready) {
+        return this.startSingleFlight(() => this.completeThrottledReadyLoad());
+      }
       return this.emit("load.throttled", {
         source: "refresh",
       }).then(() => {
@@ -344,10 +346,18 @@ export class RegistryState {
 
   private async completeThrottledReadyLoad(): Promise<AdapterSnapshot> {
     const ready = this.current;
-    await this.emit("load.throttled", {
-      source: "load",
-    });
-    return ready;
+    try {
+      await this.emit("load.throttled", {
+        source: "load",
+      });
+      await this.drainJoinedTelemetry();
+      this.throwIfClosed();
+      return ready;
+    } catch (error) {
+      this.throwIfClosed();
+      if (this.isTelemetryFailure(error)) return this.failTelemetry(error);
+      throw error;
+    }
   }
 
   async waitUntilReady(options: {
@@ -417,6 +427,12 @@ export class RegistryState {
     source: LoadSource,
     cached: boolean,
   ): Promise<AdapterSnapshot> {
+    return this.startSingleFlight(() => this.performLoad(source, cached));
+  }
+
+  private startSingleFlight(
+    operation: () => Promise<AdapterSnapshot>,
+  ): Promise<AdapterSnapshot> {
     if (this.closedLatch) return Promise.reject(this.closedError());
     if (this.inFlight !== null) {
       this.joinedCallers += 1;
@@ -442,7 +458,14 @@ export class RegistryState {
       void this.joinedTelemetryChain.catch(() => undefined);
       return this.inFlight;
     }
-    const promise = this.performLoad(source, cached);
+    let resolveOperation!: (snapshot: AdapterSnapshot) => void;
+    let rejectOperation!: (error: unknown) => void;
+    const promise = new Promise<AdapterSnapshot>(
+      (resolvePromise, rejectPromise) => {
+        resolveOperation = resolvePromise;
+        rejectOperation = rejectPromise;
+      },
+    );
     this.inFlight = promise;
     this.joinedCallers = 0;
     this.joinedTelemetryChain = Promise.resolve();
@@ -456,6 +479,11 @@ export class RegistryState {
         if (this.inFlight === promise) this.inFlight = null;
       },
     );
+    try {
+      void operation().then(resolveOperation, rejectOperation);
+    } catch (error) {
+      rejectOperation(error);
+    }
     return promise;
   }
 
