@@ -132,6 +132,8 @@ function YourApp() {
 ### Access User in Agent
 
 ```python
+from langgraph.prebuilt import AgentState  # [!code highlight]
+
 async def my_agent_node(state: AgentState):
     # Access context from state (published via useAgentContext)
     copilotkit_state = state.get("copilotkit", {})
@@ -166,6 +168,7 @@ async def my_agent_node(state: AgentState):
 For agents that work in both LangGraph Platform and self-hosted environments, use this pattern:
 
 ```python
+from langgraph.prebuilt import AgentState  # [!code highlight]
 from langchain_core.runnables import RunnableConfig
 
 async def my_agent_node(state: AgentState, config: RunnableConfig):
