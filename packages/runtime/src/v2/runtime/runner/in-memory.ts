@@ -1,7 +1,9 @@
 import type {
   AgentRunnerConnectRequest,
+  AgentRunnerExecuteRequest,
   AgentRunnerIsRunningRequest,
   AgentRunnerRunRequest,
+  AgentTurnController,
 } from "./agent-runner";
 import { AgentRunner } from "./agent-runner";
 import type { AgentRunnerStopRequest } from "./agent-runner";
@@ -74,6 +76,13 @@ class InMemoryEventStore {
 
   /** Reference to the events emitted in the current run. */
   currentEvents: BaseEvent[] | null = null;
+
+  /**
+   * Aborts the in-flight outer run's turn body (via {@link AgentTurnController}
+   * `signal`). Set by {@link InMemoryAgentRunner.execute}; fired by `stop()` and
+   * by a superseding run. Null outside an outer run.
+   */
+  abortController: AbortController | null = null;
 }
 
 const GLOBAL_STORE = new Map<string, InMemoryEventStore>();
@@ -320,6 +329,203 @@ export class InMemoryAgentRunner extends AgentRunner {
     runAgent();
 
     // Return the run subject (only agent events, no injected messages)
+    return runSubject.asObservable();
+  }
+
+  /**
+   * Run a complete Channel turn as one fenced OUTER run (Task 1). The turn body
+   * may call `controller.runAgent` zero or more times; each inner run's
+   * non-lifecycle events are forwarded, inner RUN_STARTED/RUN_FINISHED are
+   * suppressed, and the outer run synthesizes exactly one RUN_STARTED (on first
+   * activity) and exactly one terminal — RUN_FINISHED on success, RUN_ERROR if
+   * the turn body rejects or any inner run errors. A live inner RUN_ERROR fails
+   * the whole outer run.
+   */
+  execute(request: AgentRunnerExecuteRequest): Observable<BaseEvent> {
+    let existingStore = GLOBAL_STORE.get(request.threadId);
+    if (!existingStore) {
+      existingStore = new InMemoryEventStore(request.threadId);
+      GLOBAL_STORE.set(request.threadId, existingStore);
+    }
+    const store = existingStore;
+
+    if (store.isRunning) {
+      if (this.onConcurrentRun !== "supersede") {
+        throw new Error("Thread already running");
+      }
+      // Supersede: abort the prior turn body (via its AbortSignal) and its
+      // in-flight agent. The prior run's async teardown runs later and is
+      // prevented from clobbering this run's state by the per-run-id guard
+      // below (mirrors run()).
+      const priorAgent = store.agent;
+      store.stopRequested = true;
+      store.isRunning = false;
+      store.abortController?.abort();
+      if (priorAgent) {
+        try {
+          priorAgent.abortRun();
+        } catch (error) {
+          console.error("Failed to abort superseded run", error);
+        }
+      }
+      store.stopRequested = false;
+    }
+
+    store.isRunning = true;
+    store.currentRunId = request.runId;
+    store.agent = null;
+    store.stopRequested = false;
+    const abortController = new AbortController();
+    store.abortController = abortController;
+
+    const currentRunEvents: BaseEvent[] = [];
+    store.currentEvents = currentRunEvents;
+
+    const nextSubject = new ReplaySubject<BaseEvent>(Infinity);
+    const prevSubject = store.subject;
+    store.subject = nextSubject;
+    const runSubject = new ReplaySubject<BaseEvent>(Infinity);
+    store.runSubject = runSubject;
+
+    let hasEmittedRunStarted = false;
+    let innerError: Error | null = null;
+
+    const emit = (event: BaseEvent): void => {
+      runSubject.next(event);
+      nextSubject.next(event);
+      currentRunEvents.push(event);
+    };
+
+    const ensureRunStarted = (): void => {
+      if (hasEmittedRunStarted) return;
+      hasEmittedRunStarted = true;
+      emit({
+        type: EventType.RUN_STARTED,
+        threadId: request.threadId,
+        runId: request.runId,
+        input: {
+          ...request.input,
+          threadId: request.threadId,
+          runId: request.runId,
+          ...(request.persistedInputMessages !== undefined
+            ? { messages: request.persistedInputMessages }
+            : {}),
+        },
+      } as RunStartedEvent);
+    };
+
+    const controller: AgentTurnController = {
+      signal: abortController.signal,
+      runAgent: async (inner) => {
+        store.agent = inner.agent;
+        await inner.agent.runAgent(inner.input, {
+          onEvent: ({ event }) => {
+            // The outer run owns RUN_STARTED and the terminal; suppress the
+            // inner agent's own lifecycle events.
+            if (event.type === EventType.RUN_STARTED) {
+              ensureRunStarted();
+              return;
+            }
+            if (event.type === EventType.RUN_FINISHED) {
+              return;
+            }
+            if (event.type === EventType.RUN_ERROR) {
+              // Capture and rethrow after runAgent settles — throwing from the
+              // callback would not reject the agent's promise cleanly.
+              innerError =
+                innerError ??
+                new Error(
+                  (event as BaseEvent & { message?: string }).message ??
+                    "inner run error",
+                );
+              return;
+            }
+            ensureRunStarted();
+            emit(event);
+          },
+        });
+        if (innerError) throw innerError;
+      },
+    };
+
+    const runTurn = async () => {
+      const lastRun = store.historicRuns[store.historicRuns.length - 1];
+      const parentRunId = lastRun?.runId ?? null;
+
+      const persistHistoric = () => {
+        // Per-run-id guard: a superseded run no longer owns the store, so it
+        // must not push history (and never under a newer run's id).
+        if (store.currentRunId !== request.runId) return;
+        if (currentRunEvents.length === 0) return;
+        const agentForHistory = store.agent;
+        store.historicRuns.push({
+          threadId: request.threadId,
+          runId: request.runId,
+          agentId: agentForHistory?.agentId ?? "default",
+          parentRunId,
+          events: compactEvents(currentRunEvents),
+          messages:
+            agentForHistory && Array.isArray(agentForHistory.messages)
+              ? [...agentForHistory.messages]
+              : [],
+          createdAt: Date.now(),
+        });
+      };
+
+      const finalizeStore = () => {
+        if (store.currentRunId !== request.runId) return;
+        store.currentEvents = null;
+        store.currentRunId = null;
+        store.agent = null;
+        store.runSubject = null;
+        store.abortController = null;
+        store.stopRequested = false;
+        store.isRunning = false;
+      };
+
+      try {
+        await request.turn(controller);
+        if (innerError) throw innerError;
+        // A turn that invoked no agent still yields a well-formed empty run.
+        ensureRunStarted();
+        emit({
+          type: EventType.RUN_FINISHED,
+          threadId: request.threadId,
+          runId: request.runId,
+        } as BaseEvent);
+        persistHistoric();
+        finalizeStore();
+        runSubject.complete();
+        nextSubject.complete();
+      } catch (error) {
+        // Failure never completes the run successfully: emit RUN_ERROR as the
+        // single terminal. Nothing follows it.
+        ensureRunStarted();
+        emit({
+          type: EventType.RUN_ERROR,
+          message: error instanceof Error ? error.message : String(error),
+          code: "OUTER_RUN_FAILED",
+        } as BaseEvent);
+        persistHistoric();
+        finalizeStore();
+        runSubject.complete();
+        nextSubject.complete();
+      }
+    };
+
+    // Bridge previous events to the new subject (mirrors run()).
+    if (prevSubject) {
+      prevSubject.subscribe({
+        next: (e) => nextSubject.next(e),
+        error: (err) => nextSubject.error(err),
+        complete: () => {
+          // Keep nextSubject open for the new outer run's events.
+        },
+      });
+    }
+
+    runTurn();
+
     return runSubject.asObservable();
   }
 

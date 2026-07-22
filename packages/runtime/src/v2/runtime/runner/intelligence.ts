@@ -1,7 +1,9 @@
 import type {
   AgentRunnerConnectRequest,
+  AgentRunnerExecuteRequest,
   AgentRunnerIsRunningRequest,
   AgentRunnerRunRequest,
+  AgentTurnController,
 } from "./agent-runner";
 import { AgentRunner } from "./agent-runner";
 import type { AgentRunnerStopRequest } from "./agent-runner";
@@ -43,6 +45,11 @@ interface ThreadState {
   currentEvents: BaseEvent[];
   nextEventSeq: number;
   hasRunStarted: boolean;
+  /**
+   * Aborts the in-flight outer run's turn body (via {@link AgentTurnController}
+   * `signal`) for `execute()`. Null on the single-agent `run()` path.
+   */
+  abortController: AbortController | null;
 }
 
 export class IntelligenceAgentRunner extends AgentRunner {
@@ -158,6 +165,109 @@ export class IntelligenceAgentRunner extends AgentRunner {
     return this.createRunObservable(request);
   }
 
+  /**
+   * Run a complete Channel turn as one fenced OUTER run (Task 1). Opens one
+   * canonical ingestion channel for the outer run, then runs the turn body —
+   * which may invoke `controller.runAgent` zero or more times. Inner agents'
+   * RUN_STARTED/RUN_FINISHED are suppressed; the outer run pushes exactly one
+   * canonical RUN_STARTED and exactly one terminal over the channel.
+   */
+  execute(request: AgentRunnerExecuteRequest): Observable<BaseEvent> {
+    const { threadId } = request;
+
+    const existing = this.threads.get(threadId);
+    if (existing?.isRunning) {
+      throw new Error("Thread already running");
+    }
+
+    return new Observable((observer) => {
+      const socket = this.createSocket();
+      const channel = socket.channel(`ingestion:${request.runId}`, {
+        thread_id: threadId,
+        run_id: request.runId,
+      });
+
+      const abortController = new AbortController();
+      const state: ThreadState = {
+        socket,
+        channel,
+        isRunning: true,
+        stopRequested: false,
+        agent: null,
+        currentEvents: [],
+        nextEventSeq: 1,
+        hasRunStarted: false,
+        abortController,
+      };
+      this.threads.set(threadId, state);
+
+      // Same repeated-socket-error escape hatch as createRunObservable: abort
+      // the turn (and its in-flight agent) so finalization is not lost on a
+      // dead channel.
+      const MAX_CONSECUTIVE_ERRORS = 5;
+      let consecutiveErrors = 0;
+      socket.onError(() => {
+        consecutiveErrors++;
+        if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+          abortController.abort();
+          if (state.agent) {
+            try {
+              state.agent.abortRun();
+            } catch {
+              // Ignore abort errors.
+            }
+          }
+        }
+      });
+      socket.onOpen(() => {
+        consecutiveErrors = 0;
+      });
+
+      channel.on(AG_UI_CHANNEL_EVENT, (payload: BaseEvent) => {
+        if (
+          payload.type === EventType.CUSTOM &&
+          (payload as BaseEvent & { name?: string }).name === "stop"
+        ) {
+          this.stop({ threadId });
+        }
+      });
+
+      channel
+        .join()
+        .receive("ok", () => {
+          this.executeTurn(request, state, threadId).subscribe({
+            complete: () => observer.complete(),
+          });
+        })
+        .receive("error", (resp) => {
+          const errorEvent = {
+            type: EventType.RUN_ERROR,
+            message: `Failed to join channel: ${JSON.stringify(resp)}`,
+            code: "CHANNEL_JOIN_ERROR",
+          } as BaseEvent;
+          observer.next(errorEvent);
+          state.currentEvents.push(errorEvent);
+          this.removeThread(threadId);
+          observer.complete();
+        })
+        .receive("timeout", () => {
+          const errorEvent = {
+            type: EventType.RUN_ERROR,
+            message: "Timed out joining channel",
+            code: "CHANNEL_JOIN_TIMEOUT",
+          } as BaseEvent;
+          observer.next(errorEvent);
+          state.currentEvents.push(errorEvent);
+          this.removeThread(threadId);
+          observer.complete();
+        });
+
+      return () => {
+        this.removeThread(threadId);
+      };
+    });
+  }
+
   runWithStartupBoundary(
     request: AgentRunnerRunRequest,
   ): RunnerStartupBoundary {
@@ -208,6 +318,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
         currentEvents: [],
         nextEventSeq: 1,
         hasRunStarted: false,
+        abortController: null,
       };
       this.threads.set(threadId, state);
 
@@ -462,6 +573,126 @@ export class IntelligenceAgentRunner extends AgentRunner {
             this.createRunnerEventPayload(event, request, state),
           );
         }
+        this.removeThread(threadId);
+      }),
+    );
+  }
+
+  // Runs the turn body under one outer canonical run. Emitted values are
+  // ignored (only `complete` matters); events are pushed over the channel.
+  private executeTurn(
+    request: AgentRunnerExecuteRequest,
+    state: ThreadState,
+    threadId: string,
+  ): Observable<unknown> {
+    const { currentEvents, channel } = state;
+
+    // The canonical stamping helpers key off `input.runId`; pin it to the
+    // OUTER run id so every inner agent's events land under one canonical run.
+    const canonicalInput = {
+      ...request.input,
+      threadId: request.threadId,
+      runId: request.runId,
+    };
+    const canonicalRequest: AgentRunnerRunRequest = {
+      threadId: request.threadId,
+      // Unused by the stamping helpers (they read threadId + input.runId only);
+      // the per-inner-run agent lives on `state.agent`.
+      agent: undefined as unknown as AbstractAgent,
+      input: canonicalInput,
+      ...(request.persistedInputMessages !== undefined
+        ? { persistedInputMessages: request.persistedInputMessages }
+        : {}),
+    };
+
+    const pushCanonicalEvent = (event: BaseEvent): void => {
+      const canonicalEvent = this.stampRunnerMetadata(
+        this.stampCanonicalRunOwnership(event, canonicalRequest),
+        state,
+      );
+      currentEvents.push(canonicalEvent);
+      if (canonicalEvent.type === EventType.RUN_STARTED) {
+        state.hasRunStarted = true;
+      }
+      channel.push(
+        "event",
+        this.createRunnerEventPayload(canonicalEvent, canonicalRequest, state),
+      );
+    };
+
+    const persistedInputMessages =
+      request.persistedInputMessages ?? request.input.messages;
+
+    const ensureRunStarted = (): void => {
+      if (state.hasRunStarted) return;
+      state.hasRunStarted = true;
+      pushCanonicalEvent({
+        type: EventType.RUN_STARTED,
+        threadId: request.threadId,
+        runId: request.runId,
+        input: {
+          ...canonicalInput,
+          ...(persistedInputMessages !== undefined
+            ? { messages: persistedInputMessages }
+            : {}),
+        },
+      } as RunStartedEvent);
+    };
+
+    let innerError: Error | null = null;
+
+    const controller: AgentTurnController = {
+      signal: state.abortController?.signal ?? new AbortController().signal,
+      runAgent: async (inner) => {
+        state.agent = inner.agent;
+        await inner.agent.runAgent(inner.input, {
+          onEvent: ({ event }: { event: BaseEvent }) => {
+            if (event.type === EventType.RUN_STARTED) {
+              ensureRunStarted();
+              return;
+            }
+            if (event.type === EventType.RUN_FINISHED) {
+              return;
+            }
+            if (event.type === EventType.RUN_ERROR) {
+              innerError =
+                innerError ??
+                new Error(
+                  (event as BaseEvent & { message?: string }).message ??
+                    "inner run error",
+                );
+              return;
+            }
+            ensureRunStarted();
+            pushCanonicalEvent(event);
+          },
+        });
+        if (innerError) throw innerError;
+      },
+    };
+
+    return from(
+      (async () => {
+        try {
+          await request.turn(controller);
+          if (innerError) throw innerError;
+          ensureRunStarted();
+          pushCanonicalEvent({
+            type: EventType.RUN_FINISHED,
+            threadId: request.threadId,
+            runId: request.runId,
+          } as BaseEvent);
+        } catch (error) {
+          ensureRunStarted();
+          pushCanonicalEvent({
+            type: EventType.RUN_ERROR,
+            message: error instanceof Error ? error.message : String(error),
+            code: "OUTER_RUN_FAILED",
+          } as BaseEvent);
+        }
+      })(),
+    ).pipe(
+      finalize(() => {
         this.removeThread(threadId);
       }),
     );
