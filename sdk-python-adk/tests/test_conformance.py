@@ -23,6 +23,39 @@ CORPUS_PATH = (
 CORPUS = json.loads(CORPUS_PATH.read_text(encoding="utf-8"))
 CASES = CORPUS["cases"]
 
+_RUNNER_TOP_LEVEL_FIELDS = frozenset({"schemaVersion", "contractVersion", "cases"})
+_REPOSITORY_ONLY_TOP_LEVEL_FIELDS = frozenset(
+    {"distribution", "fixtures", "sourceCorpus"}
+)
+_RUNNER_CASE_FIELDS = frozenset(
+    {"name", "operations", "initialSnapshot", "expected", "permanentDenialSource"}
+)
+_RUNNER_EXPECTED_FIELDS = frozenset(
+    {
+        "calls",
+        "statusTransitions",
+        "genericSdk",
+        "readiness",
+        "nativeHook",
+        "telemetryNames",
+        "renderedRecords",
+        "telemetryRecords",
+        "singleflight",
+    }
+)
+_PERMANENT_DENIAL_SOURCES = (
+    "error-category-auth",
+    "error-category-permission",
+    "http-401",
+    "http-403",
+    "http-404",
+    "http-410",
+    "container-archived",
+    "project-mismatch",
+    "container-not-found",
+    "registry-unrecoverable",
+)
+
 
 def _error_from(fields: dict[str, object]) -> IntelligenceError:
     error_type = (
@@ -163,6 +196,40 @@ def _operation_outcomes(case: dict[str, Any], tmp_path: Path) -> list[object]:
     return [_verified_set(case, tmp_path, "outcome-1")]
 
 
+def _assert_permanent_denial_input(
+    case: dict[str, Any], outcomes: list[object]
+) -> None:
+    source = case.get("permanentDenialSource")
+    if source is None:
+        return
+
+    expected = case["expected"]
+    expected_error = expected["genericSdk"]["error"]
+    assert case["initialSnapshot"]["status"] == "cold"
+    assert "error" not in case["initialSnapshot"]
+    assert len(outcomes) == 1
+    assert isinstance(outcomes[0], IntelligenceError)
+    _assert_error(outcomes[0], expected_error)
+    assert expected_error["causeIdentity"] == source
+    assert expected_error["retryable"] is False
+    assert expected["readiness"] == {"error": expected_error}
+    assert expected["nativeHook"] == {"proceed": False}
+    assert expected["renderedRecords"] == []
+
+    terminal_operation = case["operations"][-1]
+    if source.startswith("error-category-"):
+        assert terminal_operation["kind"] == "registry-error"
+        assert expected_error["category"] == source.removeprefix("error-category-")
+    elif source.startswith("http-"):
+        status = int(source.removeprefix("http-"))
+        assert terminal_operation["kind"] == "http-response"
+        assert terminal_operation["status"] == status
+        assert expected_error["httpStatus"] == status
+    else:
+        assert terminal_operation["kind"] == "canonical-error"
+        assert expected_error["code"].endswith(source.replace("-", "_").upper())
+
+
 async def _pump() -> None:
     for _ in range(12):
         await asyncio.sleep(0)
@@ -179,6 +246,23 @@ class _SnapshotRegistry:
         return self._snapshot
 
 
+def test_conformance_runner_structurally_consumes_declared_fields() -> None:
+    assert CORPUS["schemaVersion"] == 1
+    assert CORPUS["contractVersion"] == "registry-adapters-v1"
+    assert set(CORPUS) == (_RUNNER_TOP_LEVEL_FIELDS | _REPOSITORY_ONLY_TOP_LEVEL_FIELDS)
+    assert {field for case in CASES for field in case} == _RUNNER_CASE_FIELDS
+    assert {
+        field for case in CASES for field in case["expected"]
+    } == _RUNNER_EXPECTED_FIELDS
+    denial_sources = tuple(
+        case["permanentDenialSource"]
+        for case in CASES
+        if "permanentDenialSource" in case
+    )
+    assert denial_sources == _PERMANENT_DENIAL_SOURCES
+    assert len(set(denial_sources)) == len(_PERMANENT_DENIAL_SOURCES)
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("case", CASES, ids=[case["name"] for case in CASES])
 async def test_adapter_conformance(case: dict[str, Any], tmp_path: Path) -> None:
@@ -191,6 +275,7 @@ async def test_adapter_conformance(case: dict[str, Any], tmp_path: Path) -> None
     clock = FakeClock()
     skills = FakeSkillsClient()
     outcomes = _operation_outcomes(case, tmp_path)
+    _assert_permanent_denial_input(case, outcomes)
     loop = asyncio.get_running_loop()
     futures = [loop.create_future() for _ in outcomes]
     if expected["calls"]["client"]["getCached"]:
