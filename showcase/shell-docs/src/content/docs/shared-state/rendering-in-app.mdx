@@ -151,12 +151,13 @@ For LangGraph agents, define defaults in your state class:
     ```python title="agent.py"
     from copilotkit import CopilotKitState
     from dataclasses import field
+    from langchain_core.runnables import RunnableConfig
 
     class AgentState(CopilotKitState):
         title: str = "Default Title"
         items: list[dict] = field(default_factory=list)
 
-    def your_node(state: AgentState, config):
+    def your_node(state: AgentState, config: RunnableConfig):
         # Read with fallback: class defaults may not be read at runtime
         title = state.get("title", "Default Title")
         items = state.get("items", [])
@@ -168,6 +169,7 @@ For LangGraph agents, define defaults in your state class:
     ```ts title="agent.ts"
     import { StateSchema } from "@langchain/langgraph";
     import { CopilotKitStateSchema } from "@copilotkit/sdk-js/langgraph";
+    import { RunnableConfig } from "@langchain/core/runnables";
     import { z } from "zod";
 
     export const AgentStateSchema = new StateSchema({
@@ -180,7 +182,7 @@ For LangGraph agents, define defaults in your state class:
       ...CopilotKitStateSchema.fields,
     });
 
-    async function yourNode(state: typeof AgentStateSchema.State, config) {
+    async function yourNode(state: typeof AgentStateSchema.State, config: RunnableConfig) {
       // Read with fallback
       const title = state.title ?? "Default Title";
       const items = state.items ?? [];
