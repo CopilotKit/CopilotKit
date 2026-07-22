@@ -7,13 +7,13 @@
  * separately — the cell model incorporates all relevant signals.
  */
 import { describe, it, expect } from "vitest";
-import { render } from "@testing-library/react";
+import { render, fireEvent } from "@testing-library/react";
 import { LiveIndicator, computeColumnTally, FeatureGrid } from "./feature-grid";
 import type { CellContext, CellRenderer } from "./feature-grid";
 import { OverlayColumnHeader } from "./overlay-column-header";
 import type { Overlay } from "@/lib/overlay-types";
 import { urlsFor } from "./cell-pieces";
-import { getIntegrations } from "@/lib/registry";
+import { getIntegrations, getFeatures } from "@/lib/registry";
 import { starterIsSupported, STARTER_LEVELS } from "@/lib/live-status";
 import type { Integration, Feature } from "@/lib/registry";
 import type {
@@ -604,5 +604,71 @@ describe("OverlayColumnHeader — loading / offline rendering (§5.3)", () => {
       />,
     );
     expect(container.querySelector("[data-stale='true']")).toBeNull();
+  });
+});
+
+describe("FeatureGrid — Show unique filter", () => {
+  const integrations = getIntegrations();
+  const features = getFeatures();
+
+  // "framework supports a demo" === the integration ships one (isWired).
+  const frameworkCount = (featureId: string) =>
+    integrations.filter((i) => i.demos.some((d) => d.id === featureId)).length;
+
+  const uniqueFeatures = features.filter((f) => frameworkCount(f.id) < 2);
+  // A feature shipped by ≥2 frameworks and not deprecated — visible by default.
+  const commonFeature = features.find(
+    (f) => frameworkCount(f.id) >= 2 && f.deprecated !== true,
+  );
+  // A "unique" feature (≤1 framework) that is NOT deprecated, so only the
+  // unique filter — not the deprecated filter — governs its visibility.
+  const uniqueNonDeprecated = uniqueFeatures.find((f) => f.deprecated !== true);
+
+  const renderGrid = () =>
+    render(
+      <FeatureGrid
+        title="Feature Matrix"
+        renderCell={() => null}
+        liveStatus={new Map() as LiveStatusMap}
+        connection="live"
+        shellUrl="https://showcase.staging.copilotkit.ai"
+      />,
+    );
+
+  it("registry sanity: there is a common feature and a non-deprecated unique feature to assert on", () => {
+    expect(commonFeature, "need a common non-deprecated feature").toBeDefined();
+    expect(
+      uniqueNonDeprecated,
+      "need a non-deprecated unique feature (e.g. a2ui-recovery)",
+    ).toBeDefined();
+  });
+
+  it("hides non-common demo rows by default and shows common ones", () => {
+    const { queryByTestId } = renderGrid();
+    expect(
+      queryByTestId(`feature-row-${commonFeature!.id}`),
+      "common feature row must be visible by default",
+    ).not.toBeNull();
+    expect(
+      queryByTestId(`feature-row-${uniqueNonDeprecated!.id}`),
+      "unique feature row must be hidden by default",
+    ).toBeNull();
+  });
+
+  it("labels the toggle with the count of unique (frameworkCount < 2) features", () => {
+    const { getByTestId } = renderGrid();
+    const toggle = getByTestId("show-unique-toggle");
+    expect(toggle.textContent).toContain("Show unique");
+    expect(toggle.textContent).toContain(`(${uniqueFeatures.length})`);
+  });
+
+  it("reveals the unique rows when the toggle is checked", () => {
+    const { getByTestId, queryByTestId } = renderGrid();
+    const checkbox = getByTestId("show-unique-toggle").querySelector("input")!;
+    fireEvent.click(checkbox);
+    expect(
+      queryByTestId(`feature-row-${uniqueNonDeprecated!.id}`),
+      "unique feature row must appear after enabling Show unique",
+    ).not.toBeNull();
   });
 });
