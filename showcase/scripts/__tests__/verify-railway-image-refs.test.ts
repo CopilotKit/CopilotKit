@@ -33,7 +33,7 @@ describe("ServiceEntry gateIgnore field", () => {
     // branch below. S2: the 12 starter-<slug> services are likewise NO LONGER
     // gate-ignored — they are fully gate-managed (gateValidated, no
     // gateIgnore), exactly like every showcase-* agent.
-    const GATE_IGNORED = new Set<string>([]);
+    const GATE_IGNORED = new Set<string>(["showcase-angular-preview"]);
     const isGateIgnored = (name: string): boolean => GATE_IGNORED.has(name);
     for (const [name, entry] of Object.entries(SERVICES)) {
       const gi = (entry as ServiceEntry).gateIgnore;
@@ -260,18 +260,17 @@ describe("WS-C: all gate-managed services gateValidated, with correct overrides"
     ["harness", "showcase-harness"],
   ] as const;
 
-  it("has 41 services in the SSOT (29 showcase/infra + 12 starter-*)", () => {
-    expect(Object.keys(SERVICES)).toHaveLength(41);
+  it("has 42 services in the SSOT (30 showcase/infra + 12 starter-*)", () => {
+    expect(Object.keys(SERVICES)).toHaveLength(42);
   });
 
   it("marks every gate-managed service gateValidated (no Phase-2 holdouts)", () => {
-    // There is no longer ANY gateIgnore:true / gateValidated:false holdout: the
-    // `harness-workers` worker, formerly the sole exception, has been
-    // backfilled as a dual-env gateValidated:true service. S2 brought the 12
-    // starter-<slug> services UNDER the gate (gateValidated:true);
-    // `showcase-strands-typescript` is provisioned in prod and gateValidated
-    // too — so EVERY service must now be gateValidated:true.
-    const GATE_IGNORED = new Set<string>([]);
+    // Every gate-managed service must be gateValidated:true. The sole current
+    // exception is `showcase-angular-preview` — a TEMPORARY gateIgnore holdout
+    // (staging-only Angular preview running an out-of-band image) added to
+    // unblock the fleet build gate; remove it once that preview is promoted to
+    // a gate-validated service or torn down on Railway (see CPK-7709).
+    const GATE_IGNORED = new Set<string>(["showcase-angular-preview"]);
     const isGateIgnored = (name: string): boolean => GATE_IGNORED.has(name);
     const unvalidated = Object.entries(SERVICES)
       .filter(([name, entry]) => !entry.gateValidated && !isGateIgnored(name))

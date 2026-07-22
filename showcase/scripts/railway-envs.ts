@@ -841,6 +841,39 @@ export const SERVICES: Record<
       },
     },
   },
+  // TEMPORARY — remove me (see CPK-7709). Tracked here ONLY to clear the
+  // Railway->SSOT "untracked service" check in verify-railway-image-refs.ts,
+  // which is currently failing every `Showcase: Build & Push` run on main and
+  // skipping the build + Railway staging redeploy fleet-wide.
+  //
+  // `showcase-angular-preview` is a STAGING-ONLY Angular preview service that
+  // runs the out-of-band `ghcr.io/copilotkit/showcase-angular` image (NOT built
+  // by showcase_build.yml), stood up for the Angular-in-Showcase work
+  // (ENT-1164). It is deliberately UNMANAGED by WS4:
+  //   - gateIgnore:true     -> image-ref gate ignores it in BOTH directions
+  //   - ciBuilt:false        -> excluded from the CI redeploy scope
+  //   - gateValidated:false  -> not shape-checked by the image-ref gate
+  //   - probe:false          -> verify-deploy does not probe it
+  // Remove this entry once the preview is either promoted to a real,
+  // gate-validated fleet service or torn down on Railway.
+  "showcase-angular-preview": {
+    serviceId: "935f7db0-7b50-4e3d-8105-345425aaebf3",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
+    ciBuilt: false,
+    gateValidated: false,
+    gateIgnore: true,
+    // probe:false + gateIgnore, so the driver is inert; "shell" (a frontend
+    // surface) avoids the `agent`-driver contract that mandates
+    // runtimeDeps:["aimock"] (this preview is not an aimock-routing agent).
+    probeDriver: "shell",
+    environments: {
+      staging: {
+        instanceId: "a86a647a-32ac-4f9a-a71c-351b81bf878c",
+        probe: false,
+        repoName: "showcase-angular",
+      },
+    },
+  },
   pocketbase: {
     serviceId: "ba11e854-d695-4738-9a45-2b0776788824",
     autoUpdates: { staging: "disabled", prod: "disabled" },

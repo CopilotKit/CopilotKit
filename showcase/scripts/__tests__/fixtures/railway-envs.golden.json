@@ -159,6 +159,15 @@
       "repoName": "showcase-agno"
     }
   },
+  "showcase-angular-preview": {
+    "staging": {
+      "instanceId": "a86a647a-32ac-4f9a-a71c-351b81bf878c",
+      "domain": null,
+      "probe": false,
+      "driver": "shell",
+      "repoName": "showcase-angular"
+    }
+  },
   "showcase-built-in-agent": {
     "prod": {
       "instanceId": "40018ef7-1ed1-4979-b80c-9c2d957b6d88",

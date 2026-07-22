@@ -329,6 +329,31 @@
       }
     },
     {
+      "name": "showcase-angular-preview",
+      "serviceId": "935f7db0-7b50-4e3d-8105-345425aaebf3",
+      "prodInstanceId": "935f7db0-7b50-4e3d-8105-345425aaebf3",
+      "stagingInstanceId": "a86a647a-32ac-4f9a-a71c-351b81bf878c",
+      "ciBuilt": false,
+      "gateValidated": false,
+      "repoNameOverride": {
+        "staging": "showcase-angular"
+      },
+      "domains": {
+        "staging": "",
+        "prod": ""
+      },
+      "probe": {
+        "staging": false,
+        "prod": false,
+        "driver": "shell"
+      },
+      "promoteTier": 2,
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
       "name": "showcase-built-in-agent",
       "serviceId": "f4f8371a-bc46-45b2-b6d4-9c9af608bdbf",
       "prodInstanceId": "40018ef7-1ed1-4979-b80c-9c2d957b6d88",
@@ -1548,6 +1573,11 @@
         "tier": 2
       }
     ],
-    "skipped": []
+    "skipped": [
+      {
+        "name": "showcase-angular-preview",
+        "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
+      }
+    ]
   }
 }
