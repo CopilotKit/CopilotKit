@@ -1,4 +1,5 @@
 import type { AbstractAgent } from "@ag-ui/client";
+import type { PlatformAdapter } from "./platform-adapter.js";
 
 /**
  * Channel agent binding + routing contracts (Task 2).
@@ -145,4 +146,20 @@ export interface ChannelRuntimeInternals {
   readonly agentBinding?: ChannelAgentBinding;
   /** The Channel's declared per-conversation concurrency policy, if any. */
   readonly concurrency?: ChannelConcurrencyPolicy;
+
+  /**
+   * Attach an adapter before {@link start}. The Channel Runner uses this to
+   * bind the declared local adapter. Throws if called after the Channel has
+   * started.
+   */
+  addAdapter(adapter: PlatformAdapter): void;
+  /**
+   * Resolve persistence/transcripts/actions/telemetry and start every attached
+   * adapter. Idempotent. This is the relocated Channel lifecycle (plan §2): the
+   * production Channel Runner drives it — the public `Channel.start()` is
+   * removed.
+   */
+  start(): Promise<void>;
+  /** Tear down every attached adapter. Mirrors the relocated {@link start}. */
+  stop(): Promise<void>;
 }
