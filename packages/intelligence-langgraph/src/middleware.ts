@@ -48,12 +48,16 @@ export function createSkillRegistryMiddleware(
       );
     }
     const snapshot = await registry.load();
+    const baseContent = request.systemMessage.content;
+    const hasBaseContent = baseContent.length > 0;
     return handler({
       ...request,
       systemMessage:
         snapshot.prompt.length === 0
           ? request.systemMessage
-          : request.systemMessage.concat(snapshot.prompt),
+          : request.systemMessage.concat(
+              `${hasBaseContent ? "\n\n" : ""}${snapshot.prompt}`,
+            ),
     });
   };
   const nativeMiddleware = createMiddleware({

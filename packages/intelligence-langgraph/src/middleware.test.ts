@@ -18,6 +18,45 @@ import {
 
 const CONTAINER_ID = "55555555-5555-4555-8555-555555555555";
 
+function captureUnhandledRejections() {
+  const reasons: unknown[] = [];
+  const onUnhandled = (reason: unknown) => {
+    reasons.push(reason);
+  };
+  process.on("unhandledRejection", onUnhandled);
+  return {
+    reasons,
+    stop: () => process.off("unhandledRejection", onUnhandled),
+  };
+}
+
+function settle<T>(promise: Promise<T>): Promise<PromiseSettledResult<T>> {
+  return promise.then(
+    (value) => ({ status: "fulfilled", value }) as const,
+    (reason: unknown) => ({ status: "rejected", reason }) as const,
+  );
+}
+
+async function settleWithin<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+): Promise<PromiseSettledResult<T> | { readonly status: "timeout" }> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      settle(promise),
+      new Promise<{ readonly status: "timeout" }>((resolveTimeout) => {
+        timeout = setTimeout(
+          () => resolveTimeout({ status: "timeout" }),
+          timeoutMs,
+        );
+      }),
+    ]);
+  } finally {
+    if (timeout !== undefined) clearTimeout(timeout);
+  }
+}
+
 function modelRequest(): ModelRequest {
   return {
     systemMessage: new SystemMessage("base"),
@@ -76,7 +115,9 @@ describe("createSkillRegistryMiddleware", () => {
       tools: request.tools,
       modelSettings: request.modelSettings,
     });
-    expect(forwarded?.systemMessage?.content).toContain("# Skill");
+    expect(forwarded?.systemMessage?.content).toBe(
+      `base\n\n${middleware.snapshot.prompt}`,
+    );
   });
 
   it("retries a stale native model hook at the failed throttle boundary", async () => {
@@ -207,37 +248,98 @@ describe("createSkillRegistryMiddleware", () => {
     await expect(first).resolves.toMatchObject({ status: "ready" });
   });
 
-  it("publishes the shared promise before load-started telemetry can reenter", async () => {
+  it("shares the published promise with an external caller while telemetry is pending", async () => {
     const pending = deferred<InstalledSkillSet>();
+    const telemetryStarted = deferred<void>();
+    const releaseTelemetry = deferred<void>();
     const registryClient = testClient(() => pending.promise);
-    let middleware!: ReturnType<typeof createSkillRegistryMiddleware>;
-    let reentrant: Promise<AdapterSnapshot> | undefined;
-    middleware = createSkillRegistryMiddleware({
+    const middleware = createSkillRegistryMiddleware({
       client: registryClient,
       learningContainerId: CONTAINER_ID,
-      telemetry: (event) => {
-        if (event.name === "load.started" && reentrant === undefined) {
-          reentrant = middleware.load();
+      telemetry: async (event) => {
+        if (event.name === "load.started") {
+          telemetryStarted.resolve();
+          await releaseTelemetry.promise;
         }
       },
     });
 
     const initiating = middleware.load();
-    if (!reentrant) throw new Error("load.started telemetry did not reenter");
-    const results = Promise.allSettled([initiating, reentrant]);
+    await telemetryStarted.promise;
+    const joined = middleware.load();
+    const results = Promise.allSettled([initiating, joined]);
+    releaseTelemetry.resolve();
     pending.resolve(await installedSkillSet());
-    const [initiatingResult, reentrantResult] = await results;
+    const [initiatingResult, joinedResult] = await results;
 
-    expect(reentrant).toBe(initiating);
+    expect(joined).toBe(initiating);
     expect(initiatingResult).toMatchObject({
       status: "fulfilled",
       value: { status: "ready" },
     });
-    expect(reentrantResult).toMatchObject({
+    expect(joinedResult).toMatchObject({
       status: "fulfilled",
       value: { status: "ready" },
     });
     expect(registryClient.skills.get).toHaveBeenCalledOnce();
+  });
+
+  it("rejects an awaited telemetry-context reentrant load instead of deadlocking", async () => {
+    const installed = await installedSkillSet({ revoked: true });
+    const registryClient = testClient(() => Promise.resolve(installed));
+    const unhandled = captureUnhandledRejections();
+    let middleware!: ReturnType<typeof createSkillRegistryMiddleware>;
+    let reentrantResult:
+      | Promise<PromiseSettledResult<AdapterSnapshot>>
+      | undefined;
+    middleware = createSkillRegistryMiddleware({
+      client: registryClient,
+      learningContainerId: CONTAINER_ID,
+      telemetry: async (event) => {
+        if (event.name !== "load.started" || reentrantResult !== undefined)
+          return;
+        const reentrant = middleware.load();
+        reentrantResult = settle(reentrant);
+        await reentrant;
+      },
+    });
+
+    try {
+      const result = await settleWithin(middleware.load(), 100);
+
+      expect(result.status).toBe("rejected");
+      if (result.status !== "rejected" || reentrantResult === undefined) {
+        throw new Error("The outer and reentrant loads must both reject");
+      }
+      const reentrant = await reentrantResult;
+      expect(reentrant.status).toBe("rejected");
+      if (reentrant.status !== "rejected") {
+        throw new Error("The reentrant load must reject");
+      }
+      expect(reentrant.reason).toMatchObject({
+        code: "LEARNING_REGISTRY_REENTRANT_LOAD",
+        category: "lifecycle",
+        retryable: false,
+        causeIdentity: "telemetry-reentrant-load-1",
+      });
+      expect(result.reason).toMatchObject({
+        code: "LEARNING_TELEMETRY_SINK_FAILED",
+        cause: reentrant.reason,
+      });
+      expect(middleware.snapshot).toMatchObject({
+        status: "denied",
+        source: "none",
+        installedSkillSet: null,
+        renderedSkills: [],
+        prompt: "",
+        error: result.reason,
+      });
+      expect(registryClient.skills.get).not.toHaveBeenCalled();
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(unhandled.reasons).toEqual([]);
+    } finally {
+      unhandled.stop();
+    }
   });
 
   it("denies and clears a shared throttled load when telemetry fails", async () => {
@@ -291,6 +393,73 @@ describe("createSkillRegistryMiddleware", () => {
       error: firstResult.reason,
     });
     expect(registryClient.skills.get).toHaveBeenCalledOnce();
+  });
+
+  it("singleflights stale throttled telemetry failure into denied state", async () => {
+    const clientFailure = new IntelligenceSdkError({
+      message: "registry unavailable",
+      code: "LEARNING_SDK_CACHE_CORRUPT",
+      category: "dependency",
+      retryable: true,
+    });
+    const sinkFailure = new Error("stale throttle telemetry unavailable");
+    const registryClient = testClient(() => Promise.reject(clientFailure));
+    const unhandled = captureUnhandledRejections();
+    let failThrottle = false;
+    let throttledEvents = 0;
+    const middleware = createSkillRegistryMiddleware({
+      client: registryClient,
+      learningContainerId: CONTAINER_ID,
+      clock: () => 0,
+      telemetry: (event) => {
+        if (event.name === "load.throttled") {
+          throttledEvents += 1;
+          if (failThrottle) throw sinkFailure;
+        }
+      },
+    });
+
+    try {
+      await expect(middleware.load()).rejects.toBe(clientFailure);
+      expect(middleware.status).toBe("stale");
+      failThrottle = true;
+
+      const first = middleware.load();
+      const second = middleware.load();
+      expect(second).toBe(first);
+      const [firstResult, secondResult] = await Promise.allSettled([
+        first,
+        second,
+      ]);
+
+      expect(firstResult.status).toBe("rejected");
+      expect(secondResult.status).toBe("rejected");
+      if (
+        firstResult.status !== "rejected" ||
+        secondResult.status !== "rejected"
+      ) {
+        throw new Error("Every stale throttled caller must reject");
+      }
+      expect(secondResult.reason).toBe(firstResult.reason);
+      expect(firstResult.reason).toMatchObject({
+        code: "LEARNING_TELEMETRY_SINK_FAILED",
+        cause: sinkFailure,
+      });
+      expect(middleware.snapshot).toMatchObject({
+        status: "denied",
+        source: "none",
+        installedSkillSet: null,
+        renderedSkills: [],
+        prompt: "",
+        error: firstResult.reason,
+      });
+      expect(throttledEvents).toBe(1);
+      expect(registryClient.skills.get).toHaveBeenCalledOnce();
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(unhandled.reasons).toEqual([]);
+    } finally {
+      unhandled.stop();
+    }
   });
 
   it("awaits and canonicalizes asynchronous joined telemetry failures", async () => {
@@ -622,6 +791,96 @@ describe("createSkillRegistryMiddleware", () => {
     expect(middleware.status).toBe("closed");
   });
 
+  it("shares close completion and telemetry failure across concurrent callers", async () => {
+    const statusWrite = deferred<void>();
+    const unhandled = captureUnhandledRejections();
+    const middleware = createSkillRegistryMiddleware({
+      client: testClient(() => installedSkillSet()),
+      learningContainerId: CONTAINER_ID,
+      telemetry: (event) => {
+        if (event.name === "status.changed") return statusWrite.promise;
+      },
+    });
+
+    try {
+      const first = middleware.close();
+      const second = middleware.close();
+      expect(second).toBe(first);
+      const results = Promise.allSettled([first, second]);
+      const sinkFailure = new Error("close telemetry unavailable");
+      statusWrite.reject(sinkFailure);
+      const [firstResult, secondResult] = await results;
+
+      expect(firstResult.status).toBe("rejected");
+      expect(secondResult.status).toBe("rejected");
+      if (
+        firstResult.status !== "rejected" ||
+        secondResult.status !== "rejected"
+      ) {
+        throw new Error("Every concurrent close caller must reject");
+      }
+      expect(secondResult.reason).toBe(firstResult.reason);
+      expect(firstResult.reason).toMatchObject({
+        code: "LEARNING_TELEMETRY_SINK_FAILED",
+        cause: sinkFailure,
+      });
+      expect(middleware.close()).toBe(first);
+      expect(middleware.status).toBe("closed");
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(unhandled.reasons).toEqual([]);
+    } finally {
+      unhandled.stop();
+    }
+  });
+
+  it("rejects telemetry-context close reentrancy instead of deadlocking", async () => {
+    const unhandled = captureUnhandledRejections();
+    let middleware!: ReturnType<typeof createSkillRegistryMiddleware>;
+    let reentrantResult: Promise<PromiseSettledResult<void>> | undefined;
+    middleware = createSkillRegistryMiddleware({
+      client: testClient(() => installedSkillSet()),
+      learningContainerId: CONTAINER_ID,
+      telemetry: async (event) => {
+        if (event.name !== "status.changed" || reentrantResult !== undefined)
+          return;
+        const reentrant = middleware.close();
+        reentrantResult = settle(reentrant);
+        await reentrant;
+      },
+    });
+
+    try {
+      const first = middleware.close();
+      const result = await settleWithin(first, 100);
+
+      expect(result.status).toBe("rejected");
+      if (result.status !== "rejected" || reentrantResult === undefined) {
+        throw new Error("The outer and reentrant closes must both reject");
+      }
+      const reentrant = await reentrantResult;
+      expect(reentrant.status).toBe("rejected");
+      if (reentrant.status !== "rejected") {
+        throw new Error("The reentrant close must reject");
+      }
+      expect(reentrant.reason).toMatchObject({
+        code: "LEARNING_REGISTRY_REENTRANT_CLOSE",
+        category: "lifecycle",
+        retryable: false,
+        causeIdentity: "telemetry-reentrant-close-1",
+      });
+      expect(result.reason).toMatchObject({
+        code: "LEARNING_TELEMETRY_SINK_FAILED",
+        cause: reentrant.reason,
+      });
+      expect(middleware.close()).toBe(first);
+      expect(middleware.status).toBe("closed");
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(unhandled.reasons).toEqual([]);
+    } finally {
+      unhandled.stop();
+    }
+  });
+
   it("rejects pending readiness before blocked close telemetry completes", async () => {
     vi.useFakeTimers();
     const blockedStatusWrite = new Promise<void>(() => undefined);
@@ -785,6 +1044,44 @@ describe("createSkillRegistryMiddleware", () => {
       renderedSkills: [],
     });
     expect(middleware.ready).toBe(true);
+  });
+
+  it("preserves the native system message identity for an empty prompt", async () => {
+    const middleware = createSkillRegistryMiddleware({
+      client: testClient(() => installedSkillSet({ revoked: true })),
+      learningContainerId: CONTAINER_ID,
+    });
+    const request = modelRequest();
+    let forwarded: Parameters<WrapModelCallHandler>[0] | undefined;
+    const handler: WrapModelCallHandler = vi.fn(async (next) => {
+      forwarded = next;
+      return new AIMessage("done");
+    });
+
+    await middleware.wrapModelCall(request, handler);
+
+    expect(forwarded?.systemMessage).toBe(request.systemMessage);
+  });
+
+  it("does not prepend a separator to an empty native base prompt", async () => {
+    const middleware = createSkillRegistryMiddleware({
+      client: testClient(() => installedSkillSet()),
+      learningContainerId: CONTAINER_ID,
+    });
+    const request = {
+      ...modelRequest(),
+      systemMessage: new SystemMessage(""),
+      systemPrompt: "",
+    };
+    let forwarded: Parameters<WrapModelCallHandler>[0] | undefined;
+    const handler: WrapModelCallHandler = vi.fn(async (next) => {
+      forwarded = next;
+      return new AIMessage("done");
+    });
+
+    await middleware.wrapModelCall(request, handler);
+
+    expect(forwarded?.systemMessage?.content).toBe(middleware.snapshot.prompt);
   });
 
   it("fails the complete set for count, byte, aggregate, UTF-8, and script violations", async () => {

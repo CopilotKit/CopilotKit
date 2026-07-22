@@ -50,7 +50,7 @@ The adapter accepts at most 128 skills, 262144 UTF-8 bytes per root `SKILL.md`, 
 
 ## Telemetry
 
-An optional sink receives `load.started`, `load.throttled`, `load.singleflight_joined`, `load.succeeded`, `load.failed`, and `status.changed`. Permitted fields are framework and adapter version, source/freshness/status, skill count, latency, Registry revision, joined count, and canonical error code/category/retryability/request ID/trace ID. Events never include access tokens, project namespace, learning-container ID, skill text, paths, or bundle content. Sink failures are explicit; joined callers receive the same exception.
+An optional sink receives `load.started`, `load.throttled`, `load.singleflight_joined`, `load.succeeded`, `load.failed`, and `status.changed`. Permitted fields are framework and adapter version, source/freshness/status, skill count, latency, Registry revision, joined count, and canonical error code/category/retryability/request ID/trace ID. Events never include access tokens, project namespace, learning-container ID, skill text, paths, or bundle content. Sink failures are explicit; joined callers receive the same exception. A telemetry callback cannot await a load or close operation whose completion depends on that callback: same-registry reentrant loads and closes reject immediately with `LEARNING_REGISTRY_REENTRANT_LOAD` or `LEARNING_REGISTRY_REENTRANT_CLOSE` instead of deadlocking. Calls originating outside the active telemetry callback continue to join the ordinary shared operation.
 
 ## Errors
 

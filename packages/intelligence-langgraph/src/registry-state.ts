@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { readFile } from "node:fs/promises";
 import { posix, resolve } from "node:path";
 import type {
@@ -247,6 +248,7 @@ export class RegistryState {
     Pick<RegistryStateOptions, "client" | "learningContainerId" | "telemetry">;
   private current = emptySnapshot();
   private closedLatch = false;
+  private closeInFlight: Promise<void> | null = null;
   private inFlight: Promise<AdapterSnapshot> | null = null;
   private joinedCallers = 0;
   private joinedTelemetryChain: Promise<void> = Promise.resolve();
@@ -258,6 +260,25 @@ export class RegistryState {
     undefined,
     "closed-1",
   );
+  private readonly reentrantLoadFailure = adapterError(
+    "Registry loads cannot be awaited from their telemetry callback",
+    "LEARNING_REGISTRY_REENTRANT_LOAD",
+    "lifecycle",
+    false,
+    undefined,
+    "telemetry-reentrant-load-1",
+  );
+  private readonly reentrantCloseFailure = adapterError(
+    "Registry close cannot await its own telemetry callback",
+    "LEARNING_REGISTRY_REENTRANT_CLOSE",
+    "lifecycle",
+    false,
+    undefined,
+    "telemetry-reentrant-close-1",
+  );
+  private readonly telemetryContext = new AsyncLocalStorage<{
+    active: boolean;
+  }>();
   private readonly waiters = new Set<{
     readonly resolve: (snapshot: AdapterSnapshot) => void;
     readonly reject: (error: Error) => void;
@@ -324,19 +345,9 @@ export class RegistryState {
       if (this.ready) {
         return this.startSingleFlight(() => this.completeThrottledReadyLoad());
       }
-      return this.emit("load.throttled", {
-        source: "refresh",
-      }).then(() => {
-        throw (
-          this.current.error ??
-          adapterError(
-            "Registry is not ready",
-            "LEARNING_REGISTRY_STALE",
-            "availability",
-            true,
-          )
-        );
-      });
+      return this.startSingleFlight(() =>
+        this.completeThrottledUnavailableLoad(),
+      );
     }
     return this.startLoad(
       this.current.installedSkillSet ? "refresh" : "load",
@@ -353,6 +364,29 @@ export class RegistryState {
       await this.drainJoinedTelemetry();
       this.throwIfClosed();
       return ready;
+    } catch (error) {
+      this.throwIfClosed();
+      if (this.isTelemetryFailure(error)) return this.failTelemetry(error);
+      throw error;
+    }
+  }
+
+  private async completeThrottledUnavailableLoad(): Promise<AdapterSnapshot> {
+    try {
+      await this.emit("load.throttled", {
+        source: "refresh",
+      });
+      await this.drainJoinedTelemetry();
+      this.throwIfClosed();
+      throw (
+        this.current.error ??
+        adapterError(
+          "Registry is not ready",
+          "LEARNING_REGISTRY_STALE",
+          "availability",
+          true,
+        )
+      );
     } catch (error) {
       this.throwIfClosed();
       if (this.isTelemetryFailure(error)) return this.failTelemetry(error);
@@ -406,11 +440,23 @@ export class RegistryState {
     });
   }
 
-  async close(): Promise<void> {
-    if (this.closedLatch) return;
+  close(): Promise<void> {
+    if (this.closeInFlight !== null) {
+      if (this.isTelemetryCallbackActive()) {
+        return Promise.reject(this.reentrantCloseFailure);
+      }
+      return this.closeInFlight;
+    }
+    let resolveClose!: () => void;
+    let rejectClose!: (error: unknown) => void;
+    const close = new Promise<void>((resolvePromise, rejectPromise) => {
+      resolveClose = resolvePromise;
+      rejectClose = rejectPromise;
+    });
+    this.closeInFlight = close;
     this.closedLatch = true;
     const error = this.closedError();
-    await this.swap(
+    void this.swap(
       immutableSnapshot({
         ...this.current,
         status: "closed",
@@ -420,7 +466,8 @@ export class RegistryState {
         prompt: "",
         error,
       }),
-    );
+    ).then(resolveClose, rejectClose);
+    return close;
   }
 
   private startLoad(
@@ -433,6 +480,9 @@ export class RegistryState {
   private startSingleFlight(
     operation: () => Promise<AdapterSnapshot>,
   ): Promise<AdapterSnapshot> {
+    if (this.isTelemetryCallbackActive()) {
+      return Promise.reject(this.reentrantLoadFailure);
+    }
     if (this.closedLatch) return Promise.reject(this.closedError());
     if (this.inFlight !== null) {
       this.joinedCallers += 1;
@@ -775,6 +825,10 @@ export class RegistryState {
     if (this.closedLatch) throw this.closedError();
   }
 
+  private isTelemetryCallbackActive(): boolean {
+    return this.telemetryContext.getStore()?.active === true;
+  }
+
   private isTelemetryFailure(error: unknown): error is AdapterError {
     return (
       error instanceof AdapterError &&
@@ -853,18 +907,22 @@ export class RegistryState {
       "framework" | "adapterVersion"
     >,
   ): Promise<void> {
-    if (!this.options.telemetry) return;
+    const telemetry = this.options.telemetry;
+    if (!telemetry) return;
+    const context = { active: true };
     try {
-      await this.options.telemetry(
-        Object.freeze({
-          name,
-          atMs: this.options.clock(),
-          metadata: Object.freeze({
-            framework: FRAMEWORK,
-            adapterVersion: ADAPTER_VERSION,
-            ...metadata,
+      await this.telemetryContext.run(context, () =>
+        telemetry(
+          Object.freeze({
+            name,
+            atMs: this.options.clock(),
+            metadata: Object.freeze({
+              framework: FRAMEWORK,
+              adapterVersion: ADAPTER_VERSION,
+              ...metadata,
+            }),
           }),
-        }),
+        ),
       );
     } catch (error) {
       throw new AdapterError({
@@ -875,6 +933,8 @@ export class RegistryState {
         causeIdentity: error instanceof Error ? error.message : String(error),
         cause: error,
       });
+    } finally {
+      context.active = false;
     }
   }
 }
