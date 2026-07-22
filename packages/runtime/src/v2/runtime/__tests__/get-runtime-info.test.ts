@@ -153,7 +153,7 @@ test("does not request Runtime entitlements for an SSE-only Runtime", async () =
   }
 });
 
-test("returns Runtime entitlements while preserving compatibility license status", async () => {
+test("maps active Runtime entitlements to the compatible valid license status", async () => {
   const getRuntimeEntitlements = vi
     .fn()
     .mockResolvedValue(READY_RUNTIME_ENTITLEMENTS);
@@ -163,7 +163,7 @@ test("returns Runtime entitlements while preserving compatibility license status
 
   expect(response.status).toBe(200);
   expect(data.runtimeEntitlements).toEqual(READY_RUNTIME_ENTITLEMENTS);
-  expect(data.licenseStatus).toBe("none");
+  expect(data.licenseStatus).toBe("valid");
   expect(findForbiddenPublicKeyPaths(data)).toEqual([]);
   expect(getRuntimeEntitlements).toHaveBeenCalledOnce();
 });
@@ -209,7 +209,7 @@ test.each([
       Promise.reject(new Error("dependency details must stay private")),
   },
 ] as const)(
-  "preserves non-none legacy license status when entitlement lookup $outcome",
+  "preserves an invalid legacy license when entitlement lookup $outcome",
   async ({ lookup }) => {
     const { data, response } = await requestRuntimeInfoWithLookup(lookup, {
       licenseToken: INVALID_LEGACY_LICENSE_TOKEN,

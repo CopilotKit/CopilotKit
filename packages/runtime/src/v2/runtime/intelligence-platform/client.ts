@@ -4,6 +4,23 @@ import { randomUUID } from "crypto";
 import { z } from "zod";
 
 const RUNTIME_ENTITLEMENTS_REQUEST_TIMEOUT_MS = 5_000;
+const RUNTIME_ENTITLEMENTS_SUCCESS_TTL_MS = 30_000;
+const RUNTIME_ENTITLEMENTS_NEGATIVE_TTL_MS = 5_000;
+
+interface RuntimeEntitlementCacheEntry {
+  readonly expiresAt: number;
+  readonly response: RuntimeEntitlementResponse;
+}
+
+interface RuntimeEntitlementFailureEntry {
+  readonly error: unknown;
+  readonly expiresAt: number;
+}
+
+/** Whether a response grants Runtime access and therefore cannot be served stale. */
+function grantsRuntimeAccess(response: RuntimeEntitlementResponse): boolean {
+  return response.status === "ready" && response.entitlement.active;
+}
 
 const runtimeEntitlementSchema = z
   .object({
@@ -447,6 +464,9 @@ export class CopilotKitIntelligence {
   #clientWsUrl: string;
   #apiKey: string;
   #enterpriseLearningEnabled: boolean;
+  #runtimeEntitlementsCache?: RuntimeEntitlementCacheEntry;
+  #runtimeEntitlementsFailure?: RuntimeEntitlementFailureEntry;
+  #runtimeEntitlementsInFlight?: Promise<RuntimeEntitlementResponse>;
   #threadCreatedListeners = new Set<(thread: ThreadSummary) => void>();
   #threadUpdatedListeners = new Set<(thread: ThreadSummary) => void>();
   #threadDeletedListeners = new Set<(params: ThreadDeletedPayload) => void>();
@@ -560,15 +580,75 @@ export class CopilotKitIntelligence {
   /**
    * Resolve the Runtime entitlement projection for this project.
    *
-   * The request is bounded, never retried, and strictly validates the public
-   * response union before returning it. Validation and timeout failures use
-   * stable messages that do not expose rejected upstream payloads.
+   * Calls share one in-flight request and cache grants for 30 seconds or
+   * denials for 5 seconds. Failed refreshes never reuse a stale grant. The
+   * network request is bounded, never retried, and strictly validates the
+   * public response union before returning it. Validation and timeout failures
+   * use stable messages that do not expose rejected upstream payloads.
    *
    * @returns The validated Runtime entitlement response.
    * @throws {@link PlatformRequestError} for non-OK, malformed, network, or
    *   timeout outcomes.
    */
   async getRuntimeEntitlements(): Promise<RuntimeEntitlementResponse> {
+    const now = Date.now();
+    if (
+      this.#runtimeEntitlementsCache &&
+      now < this.#runtimeEntitlementsCache.expiresAt
+    ) {
+      return this.#runtimeEntitlementsCache.response;
+    }
+    if (
+      this.#runtimeEntitlementsFailure &&
+      now < this.#runtimeEntitlementsFailure.expiresAt
+    ) {
+      throw this.#runtimeEntitlementsFailure.error;
+    }
+
+    if (this.#runtimeEntitlementsInFlight) {
+      return this.#runtimeEntitlementsInFlight;
+    }
+
+    const staleEntry = this.#runtimeEntitlementsCache;
+    const request = this.#fetchRuntimeEntitlements()
+      .then((response) => {
+        this.#runtimeEntitlementsFailure = undefined;
+        this.#runtimeEntitlementsCache = {
+          response,
+          expiresAt:
+            Date.now() +
+            (grantsRuntimeAccess(response)
+              ? RUNTIME_ENTITLEMENTS_SUCCESS_TTL_MS
+              : RUNTIME_ENTITLEMENTS_NEGATIVE_TTL_MS),
+        };
+        return response;
+      })
+      .catch((error: unknown) => {
+        if (staleEntry && !grantsRuntimeAccess(staleEntry.response)) {
+          this.#runtimeEntitlementsCache = {
+            response: staleEntry.response,
+            expiresAt: Date.now() + RUNTIME_ENTITLEMENTS_NEGATIVE_TTL_MS,
+          };
+          return staleEntry.response;
+        }
+        this.#runtimeEntitlementsFailure = {
+          error,
+          expiresAt: Date.now() + RUNTIME_ENTITLEMENTS_NEGATIVE_TTL_MS,
+        };
+        throw error;
+      });
+    this.#runtimeEntitlementsInFlight = request;
+    try {
+      return await request;
+    } finally {
+      if (this.#runtimeEntitlementsInFlight === request) {
+        this.#runtimeEntitlementsInFlight = undefined;
+      }
+    }
+  }
+
+  /** Perform one bounded Runtime entitlement request without caching. */
+  async #fetchRuntimeEntitlements(): Promise<RuntimeEntitlementResponse> {
     const path = "/api/entitlements/runtime";
     const controller = new AbortController();
     const timeout = setTimeout(

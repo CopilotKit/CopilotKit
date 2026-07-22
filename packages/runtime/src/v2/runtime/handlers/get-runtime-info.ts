@@ -29,6 +29,29 @@ function resolveLicenseStatus(
   return "unknown";
 }
 
+/**
+ * Map the structured entitlement authority onto the legacy status consumed by
+ * older Core, React, and Angular thread surfaces.
+ */
+function resolveCompatibilityLicenseStatus(
+  runtime: CopilotRuntimeLike,
+  runtimeEntitlements: RuntimeEntitlementResponse | undefined,
+): RuntimeLicenseStatus {
+  const legacyLicenseStatus = resolveLicenseStatus(runtime);
+  if (legacyLicenseStatus !== "none") {
+    return legacyLicenseStatus;
+  }
+
+  if (
+    runtimeEntitlements?.status === "ready" &&
+    runtimeEntitlements.entitlement.active
+  ) {
+    return "valid";
+  }
+
+  return legacyLicenseStatus;
+}
+
 interface HandleGetRuntimeInfoParameters {
   runtime: CopilotRuntimeLike;
   request: Request;
@@ -140,7 +163,12 @@ export async function handleGetRuntimeInfo({
         : {}),
       openGenerativeUIEnabled: !!runtime.openGenerativeUI,
       ...(isIntelligenceRuntime(runtime)
-        ? { licenseStatus: resolveLicenseStatus(runtime) }
+        ? {
+            licenseStatus: resolveCompatibilityLicenseStatus(
+              runtime,
+              runtimeEntitlements,
+            ),
+          }
         : {}),
       ...(runtimeEntitlements ? { runtimeEntitlements } : {}),
       telemetryDisabled: isTelemetryDisabled(),
