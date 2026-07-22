@@ -169,6 +169,7 @@ export const REGISTRY_TO_D5: Readonly<
   // semantics differ from sync (settle assertions are not reusable).
   "frontend-tools": ["frontend-tools"],
   "frontend-tools-async": ["frontend-tools-async"],
+  "threadid-frontend-tool-roundtrip": ["threadid-frontend-tool-roundtrip"],
 
   // Reasoning family — single `reasoning-display` literal covers both
   // demo routes via preNavigateRoute.
@@ -222,6 +223,12 @@ export const REGISTRY_TO_D5: Readonly<
 
   // Voice family — voice input/output.
   voice: ["voice"],
+
+  // Mastra-only features use deterministic activity probes. Browser Use is a
+  // hydration smoke because live web navigation cannot be replayed safely.
+  "background-agents": ["background-agents"],
+  "observational-memory": ["observational-memory"],
+  "browser-use": ["browser-use-smoke"],
 };
 
 /**
