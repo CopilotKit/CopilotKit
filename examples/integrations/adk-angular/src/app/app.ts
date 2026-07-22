@@ -4,6 +4,7 @@ import {
   CopilotThreadsDrawer,
   registerFrontendTool,
 } from "@copilotkit/angular";
+import { LucideAngularModule, MessageCircle, X } from "lucide-angular";
 import { z } from "zod";
 import { AGENT_ID } from "./app.config";
 import { MainContent } from "./main-content";
@@ -12,7 +13,13 @@ import { WebInspector } from "./web-inspector";
 @Component({
   selector: "app-root",
   standalone: true,
-  imports: [CopilotChat, CopilotThreadsDrawer, MainContent, WebInspector],
+  imports: [
+    CopilotChat,
+    CopilotThreadsDrawer,
+    MainContent,
+    WebInspector,
+    LucideAngularModule,
+  ],
   // Expose the theme on the HOST (an ancestor of both the layout and the
   // floating chat) via a demo-specific variable so the generative-UI weather
   // card — rendered inside <copilot-chat>, which now lives in a fixed slide-over
@@ -37,23 +44,28 @@ import { WebInspector } from "./web-inspector";
     <aside class="chat" [class.chat--open]="chatOpen()" aria-label="Assistant">
       <header class="chat__bar">
         <span>Assistant</span>
-        <button type="button" (click)="chatOpen.set(false)" aria-label="Close chat">
-          ✕
+        <button
+          type="button"
+          class="chat__close"
+          (click)="chatOpen.set(false)"
+          aria-label="Close chat"
+        >
+          <lucide-angular [img]="CloseIcon" [size]="20" />
         </button>
       </header>
       <copilot-chat [agentId]="AGENT_ID" />
     </aside>
 
-    @if (!chatOpen()) {
-      <button
-        type="button"
-        class="chat-fab"
-        (click)="chatOpen.set(true)"
-        aria-label="Open chat"
-      >
-        💬
-      </button>
-    }
+    <!-- Always-visible toggle FAB (React's CopilotChatToggleButton): MessageCircle
+         when closed, X when open; bottom-right, primary-dark. -->
+    <button
+      type="button"
+      class="chat-fab"
+      (click)="chatOpen.set(!chatOpen())"
+      [attr.aria-label]="chatOpen() ? 'Close chat' : 'Open chat'"
+    >
+      <lucide-angular [img]="chatOpen() ? CloseIcon : ChatIcon" [size]="24" />
+    </button>
 
     <!-- Dev-only floating inspector (mounts into <body>). Remove for production. -->
     <app-web-inspector />
@@ -97,25 +109,29 @@ import { WebInspector } from "./web-inspector";
       .chat--open {
         transform: translateX(0);
       }
+      /* React's CopilotModalHeader: title left, close right, justify-between,
+         border-b, px-4 py-4. */
       .chat__bar {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0.5rem 0.5rem 0.5rem 1rem;
-        border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+        padding: 1rem;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
         font-weight: 600;
-        font-size: 0.9rem;
+        font-size: 0.95rem;
       }
-      .chat__bar button {
+      .chat__close {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
         border: 0;
         background: transparent;
         cursor: pointer;
-        font-size: 1.1rem;
-        line-height: 1;
-        padding: 0.25rem 0.5rem;
+        padding: 0.25rem;
         border-radius: 0.375rem;
+        color: inherit;
       }
-      .chat__bar button:hover {
+      .chat__close:hover {
         background: rgba(0, 0, 0, 0.06);
       }
       .chat copilot-chat {
@@ -123,20 +139,31 @@ import { WebInspector } from "./web-inspector";
         flex: 1;
         min-height: 0;
       }
+      /* React's CopilotChatToggleButton: fixed bottom-6 right-6, h-14 w-14,
+         rounded-full, primary bg, z-1100. */
       .chat-fab {
         position: fixed;
-        right: 1.25rem;
-        bottom: 1.25rem;
-        z-index: 40;
-        height: 3.25rem;
-        width: 3.25rem;
+        right: 1.5rem;
+        bottom: 1.5rem;
+        z-index: 1100;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 3.5rem;
+        width: 3.5rem;
         border-radius: 9999px;
         border: 0;
-        background: #111;
+        background: #171717;
         color: #fff;
-        font-size: 1.35rem;
         cursor: pointer;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+        transition:
+          transform 0.2s ease,
+          box-shadow 0.2s ease;
+      }
+      .chat-fab:hover {
+        transform: scale(1.04);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
       }
       /* Mobile: the SDK drawer becomes an off-canvas modal at <=768px, so collapse
          the grid to a single content column; the chat overlays full-width. */
@@ -156,6 +183,9 @@ export class App {
   protected readonly themeColor = signal("#6366f1");
   /** Chat starts open (mirrors React's `defaultOpen` CopilotSidebar). */
   protected readonly chatOpen = signal(true);
+  /** lucide icons matching React's sidebar (X for close, MessageCircle to open). */
+  protected readonly CloseIcon = X;
+  protected readonly ChatIcon = MessageCircle;
 
   constructor() {
     // 🪁 Frontend tool: recolor the center panel (and, via --app-theme-color on
