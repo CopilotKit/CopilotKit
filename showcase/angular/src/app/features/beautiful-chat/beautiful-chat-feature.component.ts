@@ -9,8 +9,10 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  inject,
   signal,
 } from "@angular/core";
+import { ActivatedRoute } from "@angular/router";
 import {
   injectAgentStore,
   registerFrontendTool,
@@ -40,7 +42,6 @@ import type { BeautifulTodo } from "./beautiful-todo-canvas";
 type ToolArgs = Record<string, unknown>;
 
 const ATTACHMENTS: AttachmentsConfig = { enabled: true };
-const BEAUTIFUL_CHAT_AGENT_ID = agentIdForFeature("beautiful-chat");
 const chartParameters = z.object({
   title: z.string(),
   description: z.string(),
@@ -193,7 +194,12 @@ const chartParameters = z.object({
 export class BeautifulChatFeatureComponent {
   protected readonly mode = signal<"chat" | "app">("chat");
   protected readonly attachments = ATTACHMENTS;
-  private readonly agentStore = injectAgentStore(BEAUTIFUL_CHAT_AGENT_ID);
+  private readonly route = inject(ActivatedRoute);
+  private readonly agentId = agentIdForFeature(
+    "beautiful-chat",
+    this.route.snapshot.paramMap.get("integration") ?? undefined,
+  );
+  private readonly agentStore = injectAgentStore(this.agentId);
   protected readonly todos = computed(() =>
     readBeautifulTodos(this.agentStore().state()),
   );

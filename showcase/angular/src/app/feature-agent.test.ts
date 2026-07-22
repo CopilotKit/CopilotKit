@@ -5,7 +5,6 @@ import { agentIdForFeature, threadIdForFeature } from "./feature-agent";
 describe("Angular showcase agent selection", () => {
   it.each([
     ["agentic-chat", "agentic_chat"],
-    ["beautiful-chat", "beautiful_chat"],
     ["frontend-tools", "frontend_tools"],
     ["declarative-hashbrown", "declarative-hashbrown-demo"],
     ["headless-simple", "headless-simple"],
@@ -13,6 +12,15 @@ describe("Angular showcase agent selection", () => {
     ["tool-rendering", "tool-rendering"],
   ])("maps %s to backend agent %s", (feature, agentId) => {
     expect(agentIdForFeature(feature)).toBe(agentId);
+  });
+
+  it("uses the Google ADK main-runtime identifier for beautiful chat", () => {
+    expect(agentIdForFeature("beautiful-chat", "google-adk")).toBe(
+      "beautiful_chat",
+    );
+    expect(agentIdForFeature("beautiful-chat", "ms-agent-python")).toBe(
+      "beautiful-chat",
+    );
   });
 
   it("uses the ENT-658 fixed thread only for its round-trip feature", () => {
