@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 1,
+  "cells": [
+    {
+      "adapter": "adk-python",
+      "boundary": "minimum",
+      "language": "python",
+      "runtimeVersion": "3.10",
+      "nodeVersion": "22",
+      "adapterRoot": "sdk-python-adk",
+      "nxProject": "@copilotkit/intelligence-adk",
+      "frameworkRequirements": ["google-adk==2.0.0"]
+    },
+    {
+      "adapter": "adk-python",
+      "boundary": "latest",
+      "language": "python",
+      "runtimeVersion": "3.10",
+      "nodeVersion": "22",
+      "adapterRoot": "sdk-python-adk",
+      "nxProject": "@copilotkit/intelligence-adk",
+      "frameworkRequirements": ["google-adk>=2.0.0,<3.0.0"]
+    },
+    {
+      "adapter": "langgraph-python",
+      "boundary": "minimum",
+      "language": "python",
+      "runtimeVersion": "3.10",
+      "nodeVersion": "22",
+      "adapterRoot": "sdk-python-langgraph",
+      "nxProject": "@copilotkit/intelligence-langgraph-python",
+      "frameworkRequirements": ["langgraph==1.2.2", "langchain==1.3.2"]
+    },
+    {
+      "adapter": "langgraph-python",
+      "boundary": "latest",
+      "language": "python",
+      "runtimeVersion": "3.10",
+      "nodeVersion": "22",
+      "adapterRoot": "sdk-python-langgraph",
+      "nxProject": "@copilotkit/intelligence-langgraph-python",
+      "frameworkRequirements": [
+        "langgraph>=1.2.2,<2.0.0",
+        "langchain>=1.3.2,<2.0.0"
+      ]
+    },
+    {
+      "adapter": "langgraph-typescript",
+      "boundary": "minimum",
+      "language": "typescript",
+      "runtimeVersion": "20",
+      "nodeVersion": "20",
+      "adapterRoot": "packages/intelligence-langgraph",
+      "nxProject": "@copilotkit/intelligence-langgraph",
+      "frameworkRequirements": ["@langchain/langgraph@1.3.0", "langchain@1.4.4"]
+    },
+    {
+      "adapter": "langgraph-typescript",
+      "boundary": "latest",
+      "language": "typescript",
+      "runtimeVersion": "22",
+      "nodeVersion": "22",
+      "adapterRoot": "packages/intelligence-langgraph",
+      "nxProject": "@copilotkit/intelligence-langgraph",
+      "frameworkRequirements": [
+        "@langchain/langgraph@>=1.3.0 <2.0.0",
+        "langchain@>=1.4.4 <2.0.0"
+      ]
+    },
+    {
+      "adapter": "agent-framework-python",
+      "boundary": "minimum",
+      "language": "python",
+      "runtimeVersion": "3.10",
+      "nodeVersion": "22",
+      "adapterRoot": "sdk-python-agent-framework",
+      "nxProject": "@copilotkit/intelligence-agent-framework-python",
+      "frameworkRequirements": ["agent-framework-core==1.11.0"]
+    },
+    {
+      "adapter": "agent-framework-python",
+      "boundary": "latest",
+      "language": "python",
+      "runtimeVersion": "3.10",
+      "nodeVersion": "22",
+      "adapterRoot": "sdk-python-agent-framework",
+      "nxProject": "@copilotkit/intelligence-agent-framework-python",
+      "frameworkRequirements": ["agent-framework-core>=1.11.0,<2.0.0"]
+    },
+    {
+      "adapter": "agent-framework-dotnet",
+      "boundary": "minimum",
+      "language": "dotnet",
+      "runtimeVersion": "8.0.x",
+      "nodeVersion": "22",
+      "adapterRoot": "sdk-dotnet-agent-framework",
+      "nxProject": "@copilotkit/intelligence-agent-framework-dotnet",
+      "frameworkRequirements": ["Microsoft.Agents.AI.Abstractions@1.13.0"]
+    },
+    {
+      "adapter": "agent-framework-dotnet",
+      "boundary": "latest",
+      "language": "dotnet",
+      "runtimeVersion": "8.0.x",
+      "nodeVersion": "22",
+      "adapterRoot": "sdk-dotnet-agent-framework",
+      "nxProject": "@copilotkit/intelligence-agent-framework-dotnet",
+      "frameworkRequirements": [
+        "Microsoft.Agents.AI.Abstractions@[1.13.0,2.0.0)"
+      ]
+    }
+  ]
+}
