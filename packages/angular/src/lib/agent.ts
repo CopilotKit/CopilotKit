@@ -97,6 +97,7 @@ function snapshotState(state: unknown): unknown {
 @Injectable({ providedIn: "root" })
 export class CopilotkitAgentFactory {
   readonly #copilotkit = inject(CopilotKit);
+  readonly #provisionalCache = new Map<string, ProxiedCopilotRuntimeAgent>();
 
   createAgentStoreSignal(
     agentId: Signal<string | undefined>,
@@ -104,7 +105,6 @@ export class CopilotkitAgentFactory {
   ): Signal<AgentStore> {
     let lastAgentStore: AgentStore | undefined;
     let lastAgent: AbstractAgent | undefined;
-    const provisionalCache = new Map<string, ProxiedCopilotRuntimeAgent>();
     const subscribeToAgent: SubscribeToAgentFn =
       this.#copilotkit.core.subscribeToAgentWithOptions.bind(
         this.#copilotkit.core,
@@ -114,7 +114,7 @@ export class CopilotkitAgentFactory {
       const resolvedAgentId = agentId() || DEFAULT_AGENT_ID;
       const existing = this.#copilotkit.getAgent(resolvedAgentId);
       if (existing) {
-        provisionalCache.delete(resolvedAgentId);
+        this.#provisionalCache.delete(resolvedAgentId);
         return existing;
       }
 
@@ -132,7 +132,7 @@ export class CopilotkitAgentFactory {
             CopilotKitCoreRuntimeConnectionStatus.Error)
       ) {
         const headers = this.#copilotkit.headers();
-        const cached = provisionalCache.get(resolvedAgentId);
+        const cached = this.#provisionalCache.get(resolvedAgentId);
         if (cached) {
           if (hasAgentHeaders(cached)) {
             cached.headers = { ...headers };
@@ -148,7 +148,7 @@ export class CopilotkitAgentFactory {
         if (hasAgentHeaders(provisional)) {
           provisional.headers = { ...headers };
         }
-        provisionalCache.set(resolvedAgentId, provisional);
+        this.#provisionalCache.set(resolvedAgentId, provisional);
         return provisional;
       }
 

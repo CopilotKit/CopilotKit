@@ -327,6 +327,30 @@ describe("injectAgentStore", () => {
     expect(proxiedAgent.headers).toEqual({ "x-test": "1" });
   });
 
+  it("shares a provisional runtime agent across same-id consumers", () => {
+    copilotKitStub.setAgents({});
+    copilotKitStub.setRuntimeUrl("https://runtime.local");
+    copilotKitStub.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Connecting,
+    );
+
+    @Component({
+      standalone: true,
+      template: "",
+    })
+    class ParallelConsumersHost {
+      firstStore = injectAgentStore("shared-agent");
+      secondStore = injectAgentStore("shared-agent");
+    }
+
+    const fixture = TestBed.createComponent(ParallelConsumersHost);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.firstStore().agent).toBe(
+      fixture.componentInstance.secondStore().agent,
+    );
+  });
+
   it("throws when agent cannot be resolved after runtime sync", () => {
     copilotKitStub.setAgents({});
     copilotKitStub.setRuntimeUrl("https://runtime.local");
