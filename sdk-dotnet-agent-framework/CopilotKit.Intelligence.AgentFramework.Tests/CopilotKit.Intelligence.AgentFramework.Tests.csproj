@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AgentFrameworkVersion Condition="'$(AgentFrameworkVersion)' == ''">1.13.0</AgentFrameworkVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Agents.AI" Version="$(AgentFrameworkVersion)" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../CopilotKit.Intelligence.AgentFramework/CopilotKit.Intelligence.AgentFramework.csproj" AdditionalProperties="UseLocalIntelligenceSdk=true" />
+  </ItemGroup>
+</Project>

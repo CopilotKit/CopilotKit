@@ -1,0 +1,45 @@
+{
+  "name": "@copilotkit/intelligence-agent-framework-dotnet",
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "sdk-dotnet-agent-framework/CopilotKit.Intelligence.AgentFramework",
+  "projectType": "library",
+  "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "outputs": [
+        "{projectRoot}/CopilotKit.Intelligence.AgentFramework.Tests/TestResults"
+      ],
+      "options": {
+        "command": "dotnet test sdk-dotnet-agent-framework/CopilotKit.Intelligence.AgentFramework.Tests/CopilotKit.Intelligence.AgentFramework.Tests.csproj -c Release -p:UseLocalIntelligenceSdk=true",
+        "cwd": "."
+      }
+    },
+    "check": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "dotnet format sdk-dotnet-agent-framework/CopilotKit.Intelligence.AgentFramework.Tests/CopilotKit.Intelligence.AgentFramework.Tests.csproj --verify-no-changes --no-restore",
+        "cwd": "."
+      }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "outputs": [
+        "{projectRoot}/CopilotKit.Intelligence.AgentFramework/bin",
+        "{projectRoot}/CopilotKit.Intelligence.AgentFramework/obj"
+      ],
+      "options": {
+        "command": "dotnet build sdk-dotnet-agent-framework/CopilotKit.Intelligence.AgentFramework/CopilotKit.Intelligence.AgentFramework.csproj -c Release -p:UseLocalIntelligenceSdk=true",
+        "cwd": "."
+      }
+    },
+    "pack-check": {
+      "executor": "nx:run-commands",
+      "outputs": ["{projectRoot}/artifacts"],
+      "options": {
+        "command": "bash sdk-dotnet-agent-framework/scripts/verify-package.sh",
+        "cwd": "."
+      }
+    }
+  },
+  "tags": ["scope:intelligence", "language:dotnet"]
+}
