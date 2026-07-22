@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        width: 100%;
+        overflow: hidden;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      iframe {
+        background-color: transparent;
+        border: none;
+        padding: 0;
+        overflow: hidden;
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- prettier-ignore -->
+    <script>
+if(window.self===window.top){throw new Error("This file must be used in an iframe.")}
+const inner=document.createElement("iframe");
+inner.style="width:100%;height:100%;border:none;";
+inner.setAttribute("sandbox","allow-scripts allow-same-origin allow-forms");
+document.body.appendChild(inner);
+function withResourceCsp(html,csp){
+if(typeof csp!=="string"||!csp)return html;
+const escaped=csp.replaceAll("&","&amp;").replaceAll('"',"&quot;");
+const meta='<meta http-equiv="Content-Security-Policy" content="'+escaped+'" />';
+const lower=html.toLowerCase();
+const headStart=lower.indexOf("<head");
+if(headStart>=0){const headEnd=html.indexOf(">",headStart);if(headEnd>=0)return html.slice(0,headEnd+1)+meta+html.slice(headEnd+1)}
+const htmlStart=lower.indexOf("<html");
+if(htmlStart>=0){const htmlEnd=html.indexOf(">",htmlStart);if(htmlEnd>=0)return html.slice(0,htmlEnd+1)+"<head>"+meta+"</head>"+html.slice(htmlEnd+1)}
+return "<!doctype html><html><head>"+meta+"</head><body>"+html+"</body></html>";
+}
+window.addEventListener("message",(event)=>{
+if(event.source===window.parent){
+if(event.data&&event.data.method==="ui/notifications/sandbox-resource-ready"){
+const{html,sandbox,resourceCsp}=event.data.params;
+if(typeof sandbox==="string")inner.setAttribute("sandbox",sandbox);
+if(typeof html==="string")inner.srcdoc=withResourceCsp(html,resourceCsp);
+}else if(inner&&inner.contentWindow){inner.contentWindow.postMessage(event.data,"*")}
+}else if(event.source===inner.contentWindow){window.parent.postMessage(event.data,"*")}
+});
+window.parent.postMessage({jsonrpc:"2.0",method:"ui/notifications/sandbox-proxy-ready",params:{}},"*");
+</script>
+  </body>
+</html>

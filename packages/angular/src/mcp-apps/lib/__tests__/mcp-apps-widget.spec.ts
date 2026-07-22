@@ -1,6 +1,8 @@
 import type { AbstractAgent, RunAgentResult } from "@ag-ui/client";
 import { Component } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
+import { readFile } from "node:fs/promises";
+import { resolve as resolvePath } from "node:path";
 import {
   CopilotKit,
   anyActivityContentSchema,
@@ -100,11 +102,16 @@ function configureTestingModule(
   runAgent = vi.fn(async () => ({ result: undefined, newMessages: [] })),
   idleTimeoutMs = 30_000,
   initializationTimeoutMs = 30_000,
+  sandboxProxyUrl?: string,
 ): void {
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     providers: [
-      provideMCPApps({ idleTimeoutMs, initializationTimeoutMs }),
+      provideMCPApps({
+        idleTimeoutMs,
+        initializationTimeoutMs,
+        sandboxProxyUrl,
+      }),
       {
         provide: CopilotKit,
         useValue: { core: { runAgent } },
@@ -201,7 +208,10 @@ it("loads the resource through the selected agent and boots the sandbox", async 
     expect.objectContaining({
       jsonrpc: "2.0",
       method: "ui/notifications/sandbox-resource-ready",
-      params: { html: "<h1>MCP App</h1>" },
+      params: expect.objectContaining({
+        html: "<h1>MCP App</h1>",
+        resourceCsp: expect.stringContaining("script-src"),
+      }),
     }),
     "*",
   );
@@ -222,6 +232,85 @@ it("loads the resource through the selected agent and boots the sandbox", async 
     "*",
   );
   expect(fixture.nativeElement.querySelector("[role='status']")).toBeNull();
+});
+
+it("loads a dedicated sandbox proxy without granting it same-origin access", async () => {
+  configureTestingModule(undefined, 30_000, 30_000, "/mcp-sandbox.html");
+  const agent = createAgent();
+  const fixture = TestBed.createComponent(CopilotMCPAppsWidget);
+  fixture.componentRef.setInput("data", snapshot);
+  fixture.componentRef.setInput("agent", agent);
+  await settle(fixture);
+
+  const frame = fixture.nativeElement.querySelector<HTMLIFrameElement>(
+    "[data-testid='mcp-app-iframe']",
+  );
+  if (!frame?.contentWindow) throw new Error("MCP Apps iframe was not created");
+  await waitFor(
+    () => frame.src.endsWith("/mcp-sandbox.html"),
+    "external sandbox proxy was not selected",
+  );
+  const postMessage = vi.spyOn(frame.contentWindow, "postMessage");
+  dispatchFrameMessage(frame, {
+    jsonrpc: "2.0",
+    method: "ui/notifications/sandbox-proxy-ready",
+    params: {},
+  });
+  await settle(fixture);
+
+  expect(frame.getAttribute("sandbox")).toBe("allow-scripts allow-forms");
+  expect(frame.srcdoc).toBe("");
+  expect(postMessage).toHaveBeenCalledWith(
+    expect.objectContaining({
+      method: "ui/notifications/sandbox-resource-ready",
+      params: {
+        html: "<h1>MCP App</h1>",
+        resourceCsp: expect.stringContaining("script-src"),
+      },
+    }),
+    "*",
+  );
+});
+
+it("rejects a non-HTTP sandbox proxy URL", async () => {
+  configureTestingModule(
+    undefined,
+    30_000,
+    30_000,
+    "javascript:alert(document.cookie)",
+  );
+  const agent = createAgent();
+  const fixture = TestBed.createComponent(CopilotMCPAppsWidget);
+  fixture.componentRef.setInput("data", snapshot);
+  fixture.componentRef.setInput("agent", agent);
+  await settle(fixture);
+  const frame = fixture.nativeElement.querySelector<HTMLIFrameElement>(
+    "[data-testid='mcp-app-iframe']",
+  );
+  if (!frame) throw new Error("MCP Apps iframe was not created");
+  await waitFor(
+    () => frame.srcdoc.includes("sandbox-proxy-ready"),
+    "inline fallback was not installed",
+  );
+
+  expect(frame.getAttribute("sandbox")).toBe(
+    "allow-scripts allow-same-origin allow-forms",
+  );
+  expect(frame.getAttribute("src")).toBeNull();
+});
+
+it("ships the same sandbox protocol script used by the inline fallback", async () => {
+  configureTestingModule();
+  const agent = createAgent();
+  const { frame } = await bootWidget(agent);
+  const inlineScript = /<script>([\s\S]*?)<\/script>/u.exec(frame.srcdoc)?.[1];
+  const staticProxy = await readFile(
+    resolvePath(process.cwd(), "src/mcp-apps/sandbox-proxy.html"),
+    "utf8",
+  );
+  const staticScript = /<script>([\s\S]*?)<\/script>/u.exec(staticProxy)?.[1];
+
+  expect(staticScript).toBe(inlineScript);
 });
 
 it("publishes the exact CSP hash required by the inline sandbox proxy", async () => {
@@ -283,6 +372,7 @@ it("accepts JSON-RPC only from the exact iframe window", async () => {
     expect.objectContaining({ jsonrpc: "2.0", id: 3 }),
     "*",
   );
+  expect(frame.getAttribute("data-mcp-app-initialized")).toBe("true");
 });
 
 it("proxies tool calls through the selected agent", async () => {
@@ -437,12 +527,26 @@ it("filters malformed resource domains before composing sandbox CSP", async () =
   const frame = fixture.nativeElement.querySelector<HTMLIFrameElement>(
     "[data-testid='mcp-app-iframe']",
   );
-  if (!frame) throw new Error("MCP Apps iframe was not created");
+  if (!frame?.contentWindow) throw new Error("MCP Apps iframe was not created");
   await waitFor(() => Boolean(frame.srcdoc), "sandbox proxy was not installed");
+  const postMessage = vi.spyOn(frame.contentWindow, "postMessage");
+  dispatchFrameMessage(frame, {
+    jsonrpc: "2.0",
+    method: "ui/notifications/sandbox-proxy-ready",
+    params: {},
+  });
+  await settle(fixture);
 
-  expect(frame.srcdoc).toContain("https://cdn.example.com");
-  expect(frame.srcdoc).not.toContain("bad.example");
-  expect(frame.srcdoc).not.toContain("<script>alert(1)</script>");
+  const resourceReady = postMessage.mock.calls.find(
+    ([message]) =>
+      (message as { method?: string }).method ===
+      "ui/notifications/sandbox-resource-ready",
+  )?.[0] as { params?: { resourceCsp?: string } } | undefined;
+  const resourceCsp = resourceReady?.params?.resourceCsp ?? "";
+
+  expect(resourceCsp).toContain("https://cdn.example.com");
+  expect(resourceCsp).not.toContain("bad.example");
+  expect(resourceCsp).not.toContain("<script>alert(1)</script>");
 });
 
 it("shows accessible loading and missing-resource errors", async () => {

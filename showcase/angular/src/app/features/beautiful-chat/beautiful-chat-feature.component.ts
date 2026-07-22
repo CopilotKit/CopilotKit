@@ -25,6 +25,7 @@ import { z } from "zod";
 
 import { agentIdForRoute } from "../../feature-agent";
 import { FeatureHeaderComponent } from "../feature-header.component";
+import { SHOWCASE_MCP_APPS_PROVIDER } from "../generated-ui/mcp-apps-provider";
 import { ShowcaseChatHostComponent } from "../showcase-chat-host.component";
 import {
   BarChartCard,
@@ -56,6 +57,7 @@ const chartParameters = z.object({
     FeatureHeaderComponent,
     ShowcaseChatHostComponent,
   ],
+  providers: [SHOWCASE_MCP_APPS_PROVIDER],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "feature-page" },
   template: `

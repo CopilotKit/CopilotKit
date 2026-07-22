@@ -10,6 +10,14 @@ export interface MCPAppsConfig {
   idleTimeoutMs?: number;
   /** Maximum time to wait for the sandbox proxy initialization handshake. */
   initializationTimeoutMs?: number;
+  /**
+   * Optional URL for a dedicated sandbox proxy document.
+   *
+   * Use this when the host sends a strict response-level CSP. The document
+   * must implement the CopilotKit MCP sandbox proxy protocol and be served
+   * with an opaque response sandbox that omits `allow-same-origin`.
+   */
+  sandboxProxyUrl?: string;
   /** Host identity announced during the MCP Apps initialization handshake. */
   hostInfo?: MCPAppsHostInfo;
   /** Additional protocol capabilities announced to embedded MCP Apps. */
@@ -21,6 +29,7 @@ export interface MCPAppsConfig {
 export const DEFAULT_MCP_APPS_CONFIG: Readonly<Required<MCPAppsConfig>> = {
   idleTimeoutMs: 30_000,
   initializationTimeoutMs: 30_000,
+  sandboxProxyUrl: "",
   hostInfo: {
     name: "CopilotKit MCP Apps Host",
     version: "1.0.0",

@@ -70,5 +70,13 @@ test("ships the README and exhaustive API contract in the package", () => {
     readFileSync(resolve(process.cwd(), "ng-package.json"), "utf8"),
   ) as { assets?: unknown };
 
-  expect(packageConfiguration.assets).toEqual(["README.md", "API.md"]);
+  expect(packageConfiguration.assets).toEqual([
+    "README.md",
+    "API.md",
+    {
+      input: "src/mcp-apps",
+      glob: "sandbox-proxy.html",
+      output: "mcp-apps",
+    },
+  ]);
 });

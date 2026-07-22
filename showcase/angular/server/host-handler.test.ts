@@ -46,7 +46,7 @@ describe("Angular Showcase host handler", () => {
     expect(response.headers.get("x-frame-options")).toBeNull();
   });
 
-  it("permits only the package-owned inline MCP sandbox proxy", async () => {
+  it("keeps the application script policy strict", async () => {
     const handle = createHostHandler({
       config: config("valid"),
       runtimeIndex,
@@ -62,10 +62,43 @@ describe("Angular Showcase host handler", () => {
       .split(";")
       .find((directive) => directive.trimStart().startsWith("script-src"));
 
-    expect(scriptPolicy).toContain(
-      "script-src 'self' 'sha256-s0MP3n8Vae8jFX/eWS1yBnmS7QDug5QsfobCIzFoAHE='",
-    );
+    expect(scriptPolicy?.trim()).toBe("script-src 'self'");
     expect(scriptPolicy).not.toContain("'unsafe-inline'");
+  });
+
+  it("serves the dedicated MCP sandbox under an opaque response sandbox", async () => {
+    const serveStatic = vi.fn(async (pathname: string) =>
+      pathname === "/mcp-apps-sandbox.html"
+        ? new Response("sandbox proxy", {
+            headers: {
+              "content-security-policy":
+                "sandbox allow-scripts allow-same-origin",
+              "permissions-policy": "camera=*",
+            },
+          })
+        : undefined,
+    );
+    const handle = createHostHandler({
+      config: config("valid"),
+      runtimeIndex,
+      proxy: vi.fn(),
+      serveStatic,
+    });
+
+    const response = await handle(
+      new Request("https://angular.example.test/mcp-apps-sandbox.html"),
+    );
+    const policy = response.headers.get("content-security-policy") ?? "";
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe("sandbox proxy");
+    expect(policy).toContain("sandbox allow-scripts allow-forms");
+    expect(policy).not.toContain("allow-same-origin");
+    expect(policy).toContain("frame-ancestors 'self'");
+    expect(response.headers.get("permissions-policy")).toBe(
+      "camera=(), geolocation=(), payment=(), usb=(), microphone=()",
+    );
+    expect(serveStatic).toHaveBeenCalledWith("/mcp-apps-sandbox.html");
   });
 
   it("fails closed before serving the SPA when backend configuration is missing", async () => {

@@ -12,14 +12,13 @@ export interface HostHandlerOptions {
 const CELL_PATH_RE =
   /^\/([a-z0-9][a-z0-9-]*[a-z0-9])\/([a-z0-9][a-z0-9-]*[a-z0-9])\/?$/;
 const ASSET_PATH_RE = /^\/[A-Za-z0-9._/-]+\.[A-Za-z0-9]+$/;
-const MCP_APPS_SANDBOX_SCRIPT_CSP_SOURCE =
-  "'sha256-s0MP3n8Vae8jFX/eWS1yBnmS7QDug5QsfobCIzFoAHE='";
+const MCP_APPS_SANDBOX_PATH = "/mcp-apps-sandbox.html";
 
 function securityHeaders(config: HostConfig, contentType?: string): Headers {
   const headers = new Headers({
     "content-security-policy": [
       "default-src 'self'",
-      `script-src 'self' ${MCP_APPS_SANDBOX_SCRIPT_CSP_SOURCE}`,
+      "script-src 'self'",
       "style-src 'self' 'unsafe-inline'",
       "connect-src 'self'",
       "img-src 'self' data: blob:",
@@ -39,9 +38,49 @@ function securityHeaders(config: HostConfig, contentType?: string): Headers {
   return headers;
 }
 
+function sandboxSecurityHeaders(contentType?: string): Headers {
+  const headers = new Headers({
+    "content-security-policy": [
+      "default-src * data: blob:",
+      "script-src * 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' data: blob:",
+      "style-src * 'unsafe-inline' data: blob:",
+      "connect-src *",
+      "img-src * data: blob:",
+      "media-src * data: blob:",
+      "font-src * data: blob:",
+      "frame-src * data: blob:",
+      "frame-ancestors 'self'",
+      "base-uri 'none'",
+      "object-src 'none'",
+      "sandbox allow-scripts allow-forms",
+    ].join("; "),
+    "cross-origin-resource-policy": "same-origin",
+    "permissions-policy":
+      "camera=(), geolocation=(), payment=(), usb=(), microphone=()",
+    "referrer-policy": "no-referrer",
+    "x-content-type-options": "nosniff",
+  });
+  if (contentType) headers.set("content-type", contentType);
+  return headers;
+}
+
 function secured(config: HostConfig, response: Response): Response {
   const headers = securityHeaders(config);
   for (const [name, value] of response.headers) headers.set(name, value);
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
+function securedSandbox(response: Response): Response {
+  const headers = new Headers(response.headers);
+  for (const [name, value] of sandboxSecurityHeaders(
+    "text/html; charset=utf-8",
+  )) {
+    headers.set(name, value);
+  }
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
@@ -115,6 +154,10 @@ export function createHostHandler(
     }
     if (url.pathname.startsWith("/api/copilotkit/")) {
       return secured(config, await options.proxy(request));
+    }
+    if (url.pathname === MCP_APPS_SANDBOX_PATH) {
+      const asset = await options.serveStatic(MCP_APPS_SANDBOX_PATH);
+      if (asset) return securedSandbox(asset);
     }
     if (ASSET_PATH_RE.test(url.pathname)) {
       const asset = await options.serveStatic(url.pathname);

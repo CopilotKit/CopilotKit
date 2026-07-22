@@ -276,3 +276,13 @@ custom hosts, renderers, and protocol testing.
 - `mcpAppsSnapshotContentSchema`
 - `provideMCPApps`
 <!-- public-api:mcp-apps:end -->
+
+`MCPAppsConfig.sandboxProxyUrl` selects the packaged
+`mcp-apps/sandbox-proxy.html` protocol document instead of the inline fallback.
+Use it when the application sends a strict response-level CSP. The proxy
+response must enforce `sandbox allow-scripts allow-forms` without
+`allow-same-origin`; the renderer applies validated MCP resource domains to the
+nested app and exposes initialization only after the app sends `ui/initialize`.
+If `sandboxProxyUrl` is absent, the inline proxy requires
+`MCP_APPS_SANDBOX_SCRIPT_CSP_SOURCE` in the host's `script-src`, and the nested
+resource remains subject to the host response policy.

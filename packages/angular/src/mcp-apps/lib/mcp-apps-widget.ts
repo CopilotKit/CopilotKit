@@ -28,10 +28,12 @@ const PROTOCOL_VERSION = "2025-06-18";
  * CSP source expression for the package-owned inline MCP sandbox proxy.
  *
  * Hosts with a response-level `script-src` directive must include this value
- * or the browser will block the `srcdoc` proxy before its handshake begins.
+ * or the browser will block the fallback `srcdoc` proxy before its handshake
+ * begins. Strict-CSP hosts should prefer `MCPAppsConfig.sandboxProxyUrl` so
+ * the embedded app does not inherit the main document's response policy.
  */
 export const MCP_APPS_SANDBOX_SCRIPT_CSP_SOURCE =
-  "'sha256-s0MP3n8Vae8jFX/eWS1yBnmS7QDug5QsfobCIzFoAHE='";
+  "'sha256-JFmPmlQxrmhhuJzvQorRReZp7gfZzK0a6+nkL8PPOwA='";
 
 const queuesByIdleTimeout = new Map<number, MCPAppsRequestQueue>();
 
@@ -151,6 +153,8 @@ export class CopilotMCPAppsWidget {
         controller.abort();
         this.queue.cancelOwner(this.ownerId);
         frame.removeAttribute("srcdoc");
+        frame.removeAttribute("src");
+        frame.removeAttribute("data-mcp-app-initialized");
       });
 
       if (!isPlatformBrowser(this.platformId)) {
@@ -202,10 +206,7 @@ export class CopilotMCPAppsWidget {
         throw new Error("The MCP App resource has no text or blob content.");
       }
 
-      frame.setAttribute(
-        "sandbox",
-        "allow-scripts allow-same-origin allow-forms",
-      );
+      frame.removeAttribute("data-mcp-app-initialized");
       const sandboxReady = this.connectSandbox(
         frame,
         data,
@@ -213,12 +214,25 @@ export class CopilotMCPAppsWidget {
         controller.signal,
         version,
       );
-      frame.srcdoc = buildSandboxHTML(resource._meta?.ui?.csp?.resourceDomains);
+      const proxyUrl = safeSandboxProxyURL(this.config.sandboxProxyUrl);
+      if (proxyUrl) {
+        frame.setAttribute("sandbox", "allow-scripts allow-forms");
+        frame.removeAttribute("srcdoc");
+        frame.src = proxyUrl;
+      } else {
+        frame.setAttribute(
+          "sandbox",
+          "allow-scripts allow-same-origin allow-forms",
+        );
+        frame.removeAttribute("src");
+        frame.srcdoc = buildSandboxHTML();
+      }
 
       await sandboxReady;
       this.throwIfStale(controller.signal, version);
       this.sendNotification(frame, "ui/notifications/sandbox-resource-ready", {
         html,
+        resourceCsp: buildResourceCSP(resource._meta?.ui?.csp?.resourceDomains),
       });
       this.loading.set(false);
     } catch (error) {
@@ -304,6 +318,7 @@ export class CopilotMCPAppsWidget {
     if (message.id !== undefined) {
       switch (message.method) {
         case "ui/initialize":
+          frame.setAttribute("data-mcp-app-initialized", "true");
           this.sendResponse(frame, message.id, {
             protocolVersion: PROTOCOL_VERSION,
             hostInfo: this.config.hostInfo,
@@ -487,6 +502,8 @@ export class CopilotMCPAppsWidget {
     this.loading.set(false);
     this.error.set(message);
     frame.removeAttribute("srcdoc");
+    frame.removeAttribute("src");
+    frame.removeAttribute("data-mcp-app-initialized");
   }
 
   private resetFrame(frame: HTMLIFrameElement): void {
@@ -494,6 +511,8 @@ export class CopilotMCPAppsWidget {
     this.error.set("");
     frame.style.removeProperty("height");
     frame.removeAttribute("srcdoc");
+    frame.removeAttribute("src");
+    frame.removeAttribute("data-mcp-app-initialized");
   }
 
   private throwIfStale(abortSignal: AbortSignal, version: number): void {
@@ -573,6 +592,11 @@ function safeExternalURL(value: unknown): string | undefined {
   }
 }
 
+function safeSandboxProxyURL(value: string): string | undefined {
+  if (!value) return undefined;
+  return safeExternalURL(value);
+}
+
 function decodeBase64(value: string): string {
   try {
     return atob(value);
@@ -617,18 +641,21 @@ function areStructurallyEqual(left: unknown, right: unknown): boolean {
   );
 }
 
-function buildSandboxHTML(extraCspDomains?: string[]): string {
+function buildResourceCSP(extraCspDomains?: string[]): string {
   const baseScriptSrc =
     "'self' 'wasm-unsafe-eval' 'unsafe-inline' 'unsafe-eval' blob: data: http://localhost:* https://localhost:*";
   const baseFrameSrc = "* blob: data: http://localhost:* https://localhost:*";
   const safeDomains = extraCspDomains?.filter(isSafeCSPDomain) ?? [];
   const extra = safeDomains.length ? ` ${safeDomains.join(" ")}` : "";
 
+  return `default-src 'self'; img-src * data: blob: 'unsafe-inline'; media-src * blob: data:; font-src * blob: data:; script-src ${baseScriptSrc}${extra}; style-src * blob: data: 'unsafe-inline'; connect-src *; frame-src ${baseFrameSrc}${extra}; base-uri 'self';`;
+}
+
+function buildSandboxHTML(): string {
   return `<!doctype html>
 <html>
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src * data: blob: 'unsafe-inline'; media-src * blob: data:; font-src * blob: data:; script-src ${baseScriptSrc}${extra}; style-src * blob: data: 'unsafe-inline'; connect-src *; frame-src ${baseFrameSrc}${extra}; base-uri 'self';" />
 <style>html,body{margin:0;padding:0;height:100%;width:100%;overflow:hidden}*{box-sizing:border-box}iframe{background-color:transparent;border:none;padding:0;overflow:hidden;width:100%;height:100%}</style>
 </head>
 <body>
@@ -638,12 +665,23 @@ const inner=document.createElement("iframe");
 inner.style="width:100%;height:100%;border:none;";
 inner.setAttribute("sandbox","allow-scripts allow-same-origin allow-forms");
 document.body.appendChild(inner);
+function withResourceCsp(html,csp){
+if(typeof csp!=="string"||!csp)return html;
+const escaped=csp.replaceAll("&","&amp;").replaceAll('"',"&quot;");
+const meta='<meta http-equiv="Content-Security-Policy" content="'+escaped+'" />';
+const lower=html.toLowerCase();
+const headStart=lower.indexOf("<head");
+if(headStart>=0){const headEnd=html.indexOf(">",headStart);if(headEnd>=0)return html.slice(0,headEnd+1)+meta+html.slice(headEnd+1)}
+const htmlStart=lower.indexOf("<html");
+if(htmlStart>=0){const htmlEnd=html.indexOf(">",htmlStart);if(htmlEnd>=0)return html.slice(0,htmlEnd+1)+"<head>"+meta+"</head>"+html.slice(htmlEnd+1)}
+return "<!doctype html><html><head>"+meta+"</head><body>"+html+"</body></html>";
+}
 window.addEventListener("message",(event)=>{
 if(event.source===window.parent){
 if(event.data&&event.data.method==="ui/notifications/sandbox-resource-ready"){
-const{html,sandbox}=event.data.params;
+const{html,sandbox,resourceCsp}=event.data.params;
 if(typeof sandbox==="string")inner.setAttribute("sandbox",sandbox);
-if(typeof html==="string")inner.srcdoc=html;
+if(typeof html==="string")inner.srcdoc=withResourceCsp(html,resourceCsp);
 }else if(inner&&inner.contentWindow){inner.contentWindow.postMessage(event.data,"*")}
 }else if(event.source===inner.contentWindow){window.parent.postMessage(event.data,"*")}
 });

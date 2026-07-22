@@ -44,6 +44,7 @@ showcase/shell-docs/next-env.d.ts
 showcase/integrations/*/shared_python/
 showcase/integrations/*/shared_typescript/
 showcase/angular/public/demo-files/
+showcase/angular/public/mcp-apps-sandbox.html
 
 # External repos (cloned for development)
 ext-apps/

@@ -18,3 +18,14 @@ await Promise.all(
     copyFile(`${sourceRoot}/${filename}`, `${destinationRoot}/${filename}`),
   ),
 );
+
+const sandboxProxySource = fileURLToPath(
+  new URL(
+    "../../../packages/angular/src/mcp-apps/sandbox-proxy.html",
+    import.meta.url,
+  ),
+);
+const sandboxProxyDestination = fileURLToPath(
+  new URL("../public/mcp-apps-sandbox.html", import.meta.url),
+);
+await copyFile(sandboxProxySource, sandboxProxyDestination);

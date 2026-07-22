@@ -93,7 +93,7 @@ describe("D5 mcp-apps assertIframePresent", () => {
     await expect(mod.assertIframePresent(page, 50)).resolves.toBeUndefined();
   });
 
-  it("rejects an outer iframe whose CSP-blocked proxy never embeds the resource", async () => {
+  it("rejects a populated iframe whose CSP-blocked app never initializes", async () => {
     const mod = await import("./d5-mcp-apps.js");
     const originalDocument = Object.getOwnPropertyDescriptor(
       globalThis,
@@ -104,7 +104,7 @@ describe("D5 mcp-apps assertIframePresent", () => {
       value: {
         querySelector: (selector: string) =>
           selector === '[data-testid="mcp-app-iframe"]'
-            ? { contentDocument: { querySelector: () => null } }
+            ? { getAttribute: () => null }
             : null,
       },
     });
