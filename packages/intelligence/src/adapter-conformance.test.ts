@@ -120,6 +120,67 @@ interface MutationFixture {
 
 const mutationFixtures: MutationFixture[] = [
   {
+    name: "status telemetry is emitted before its transition",
+    failure: "status.changed timestamp/state must match a status transition",
+    mutate(corpus) {
+      const statusChanged = asObject(
+        asArray(expectedFor(corpus, "cold-fresh-load").telemetryRecords).find(
+          (record) => asObject(record).name === "status.changed",
+        ),
+      );
+      statusChanged.atMs = 0;
+    },
+  },
+  {
+    name: "status telemetry is emitted after its transition",
+    failure: "status.changed timestamp/state must match a status transition",
+    mutate(corpus) {
+      const statusChanged = asObject(
+        asArray(
+          expectedFor(corpus, "explicit-cached-preload").telemetryRecords,
+        ).find((record) => asObject(record).name === "status.changed"),
+      );
+      statusChanged.atMs = 3;
+    },
+  },
+  {
+    name: "failure telemetry is emitted before its producing operation",
+    failure: "load.failed timestamp must match a terminal operation",
+    mutate(corpus) {
+      const failed = asObject(
+        asArray(expectedFor(corpus, "integrity-stale").telemetryRecords).find(
+          (record) => asObject(record).name === "load.failed",
+        ),
+      );
+      failed.atMs = 3;
+    },
+  },
+  {
+    name: "success telemetry is emitted after its producing operation",
+    failure: "load.succeeded timestamp must match a terminal operation",
+    mutate(corpus) {
+      const succeeded = asObject(
+        asArray(expectedFor(corpus, "cold-fresh-load").telemetryRecords).find(
+          (record) => asObject(record).name === "load.succeeded",
+        ),
+      );
+      succeeded.atMs = 4;
+    },
+  },
+  {
+    name: "immediate readiness error fabricates tracing IDs",
+    failure: "immediate error must exactly match initialSnapshot.error",
+    mutate(corpus) {
+      const expected = expectedFor(corpus, "readiness-denied-rejects");
+      for (const outcomeName of ["genericSdk", "readiness"]) {
+        Object.assign(asObject(asObject(expected[outcomeName]).error), {
+          requestId: "invented-request",
+          traceId: "invented-trace",
+        });
+      }
+    },
+  },
+  {
     name: "initial snapshot is missing",
     failure: "initialSnapshot",
     mutate(corpus) {

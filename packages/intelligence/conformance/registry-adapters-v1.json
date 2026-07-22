@@ -117,7 +117,7 @@
           },
           {
             "name": "status.changed",
-            "atMs": 1,
+            "atMs": 3,
             "metadata": {
               "status": "ready",
               "framework": "fixture"
@@ -125,7 +125,7 @@
           },
           {
             "name": "load.succeeded",
-            "atMs": 2,
+            "atMs": 3,
             "metadata": {
               "outcome": "success",
               "freshness": "fresh",
@@ -226,7 +226,7 @@
           },
           {
             "name": "status.changed",
-            "atMs": 1,
+            "atMs": 2,
             "metadata": {
               "status": "ready",
               "framework": "fixture"
@@ -316,7 +316,7 @@
         "telemetryRecords": [
           {
             "name": "load.throttled",
-            "atMs": 0,
+            "atMs": 1,
             "metadata": {
               "source": "load",
               "framework": "fixture"
@@ -437,7 +437,7 @@
           },
           {
             "name": "status.changed",
-            "atMs": 2,
+            "atMs": 3,
             "metadata": {
               "status": "ready",
               "framework": "fixture"
@@ -554,7 +554,7 @@
           },
           {
             "name": "status.changed",
-            "atMs": 1,
+            "atMs": 3,
             "metadata": {
               "status": "ready",
               "framework": "fixture"
@@ -562,7 +562,7 @@
           },
           {
             "name": "load.succeeded",
-            "atMs": 2,
+            "atMs": 3,
             "metadata": {
               "outcome": "success",
               "freshness": "fresh",
@@ -675,7 +675,7 @@
           },
           {
             "name": "status.changed",
-            "atMs": 1,
+            "atMs": 4,
             "metadata": {
               "status": "ready",
               "framework": "fixture"
@@ -683,7 +683,7 @@
           },
           {
             "name": "load.succeeded",
-            "atMs": 2,
+            "atMs": 4,
             "metadata": {
               "outcome": "success",
               "freshness": "fresh",
@@ -777,7 +777,7 @@
           },
           {
             "name": "status.changed",
-            "atMs": 1,
+            "atMs": 2,
             "metadata": {
               "status": "ready",
               "framework": "fixture"
@@ -879,7 +879,7 @@
           },
           {
             "name": "status.changed",
-            "atMs": 1,
+            "atMs": 2,
             "metadata": {
               "status": "revoked",
               "framework": "fixture"
@@ -999,7 +999,7 @@
           },
           {
             "name": "status.changed",
-            "atMs": 1,
+            "atMs": 3,
             "metadata": {
               "status": "stale",
               "framework": "fixture"
@@ -1007,7 +1007,7 @@
           },
           {
             "name": "load.failed",
-            "atMs": 2,
+            "atMs": 3,
             "metadata": {
               "outcome": "failure",
               "reason": "transient",
@@ -1124,7 +1124,7 @@
           },
           {
             "name": "status.changed",
-            "atMs": 1,
+            "atMs": 4,
             "metadata": {
               "status": "stale",
               "framework": "fixture"
@@ -1132,7 +1132,7 @@
           },
           {
             "name": "load.failed",
-            "atMs": 2,
+            "atMs": 4,
             "metadata": {
               "outcome": "failure",
               "reason": "integrity",
@@ -1235,7 +1235,7 @@
           },
           {
             "name": "status.changed",
-            "atMs": 1,
+            "atMs": 2,
             "metadata": {
               "status": "denied",
               "framework": "fixture"
@@ -1343,7 +1343,7 @@
           },
           {
             "name": "status.changed",
-            "atMs": 1,
+            "atMs": 2,
             "metadata": {
               "status": "denied",
               "framework": "fixture"
@@ -1453,7 +1453,7 @@
           },
           {
             "name": "status.changed",
-            "atMs": 1,
+            "atMs": 3,
             "metadata": {
               "status": "denied",
               "framework": "fixture"
@@ -1461,7 +1461,7 @@
           },
           {
             "name": "load.failed",
-            "atMs": 2,
+            "atMs": 3,
             "metadata": {
               "outcome": "failure",
               "reason": "denied",
@@ -1563,7 +1563,7 @@
           },
           {
             "name": "status.changed",
-            "atMs": 1,
+            "atMs": 3,
             "metadata": {
               "status": "denied",
               "framework": "fixture"
@@ -1571,7 +1571,7 @@
           },
           {
             "name": "load.failed",
-            "atMs": 2,
+            "atMs": 3,
             "metadata": {
               "outcome": "failure",
               "reason": "denied",
@@ -1672,7 +1672,7 @@
           },
           {
             "name": "status.changed",
-            "atMs": 1,
+            "atMs": 3,
             "metadata": {
               "status": "denied",
               "framework": "fixture"
@@ -1680,7 +1680,7 @@
           },
           {
             "name": "load.failed",
-            "atMs": 2,
+            "atMs": 3,
             "metadata": {
               "outcome": "failure",
               "reason": "denied",
@@ -1781,7 +1781,7 @@
           },
           {
             "name": "status.changed",
-            "atMs": 1,
+            "atMs": 3,
             "metadata": {
               "status": "denied",
               "framework": "fixture"
@@ -1789,7 +1789,7 @@
           },
           {
             "name": "load.failed",
-            "atMs": 2,
+            "atMs": 3,
             "metadata": {
               "outcome": "failure",
               "reason": "denied",
@@ -2042,9 +2042,7 @@
             "category": "permission",
             "retryable": false,
             "httpStatus": 403,
-            "causeIdentity": "denied-ready-1",
-            "requestId": "request-telemetry",
-            "traceId": "trace-telemetry"
+            "causeIdentity": "denied-ready-1"
           }
         },
         "readiness": {
@@ -2053,9 +2051,7 @@
             "category": "permission",
             "retryable": false,
             "httpStatus": 403,
-            "causeIdentity": "denied-ready-1",
-            "requestId": "request-telemetry",
-            "traceId": "trace-telemetry"
+            "causeIdentity": "denied-ready-1"
           }
         },
         "nativeHook": {
@@ -2340,7 +2336,7 @@
           },
           {
             "name": "load.failed",
-            "atMs": 2,
+            "atMs": 1,
             "metadata": {
               "outcome": "failure",
               "reason": "transient",
@@ -2376,7 +2372,7 @@
           },
           {
             "name": "load.succeeded",
-            "atMs": 30002,
+            "atMs": 30001,
             "metadata": {
               "outcome": "success",
               "freshness": "fresh",
@@ -2584,7 +2580,7 @@
           },
           {
             "name": "status.changed",
-            "atMs": 2,
+            "atMs": 3,
             "metadata": {
               "status": "denied",
               "framework": "fixture"
@@ -2694,7 +2690,7 @@
           },
           {
             "name": "status.changed",
-            "atMs": 1,
+            "atMs": 2,
             "metadata": {
               "status": "denied",
               "framework": "fixture"
@@ -2806,7 +2802,7 @@
           },
           {
             "name": "status.changed",
-            "atMs": 1,
+            "atMs": 2,
             "metadata": {
               "status": "denied",
               "framework": "fixture"
@@ -2921,7 +2917,7 @@
           },
           {
             "name": "status.changed",
-            "atMs": 1,
+            "atMs": 2,
             "metadata": {
               "status": "denied",
               "framework": "fixture"
@@ -3036,7 +3032,7 @@
           },
           {
             "name": "status.changed",
-            "atMs": 1,
+            "atMs": 2,
             "metadata": {
               "status": "denied",
               "framework": "fixture"
@@ -3151,7 +3147,7 @@
           },
           {
             "name": "status.changed",
-            "atMs": 1,
+            "atMs": 2,
             "metadata": {
               "status": "denied",
               "framework": "fixture"
@@ -3266,7 +3262,7 @@
           },
           {
             "name": "status.changed",
-            "atMs": 1,
+            "atMs": 2,
             "metadata": {
               "status": "denied",
               "framework": "fixture"
@@ -3380,7 +3376,7 @@
           },
           {
             "name": "status.changed",
-            "atMs": 1,
+            "atMs": 2,
             "metadata": {
               "status": "denied",
               "framework": "fixture"
@@ -3494,7 +3490,7 @@
           },
           {
             "name": "status.changed",
-            "atMs": 1,
+            "atMs": 2,
             "metadata": {
               "status": "denied",
               "framework": "fixture"
@@ -3608,7 +3604,7 @@
           },
           {
             "name": "status.changed",
-            "atMs": 1,
+            "atMs": 2,
             "metadata": {
               "status": "denied",
               "framework": "fixture"
@@ -3722,7 +3718,7 @@
           },
           {
             "name": "status.changed",
-            "atMs": 1,
+            "atMs": 2,
             "metadata": {
               "status": "denied",
               "framework": "fixture"

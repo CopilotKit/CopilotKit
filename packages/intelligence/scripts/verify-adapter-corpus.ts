@@ -176,6 +176,54 @@ const executableOperationKinds = new Set([
   "canonical-error",
 ]);
 
+const terminalOperationKindsByStatus: Record<string, ReadonlySet<string>> = {
+  ready: new Set([
+    "render",
+    "not-modified",
+    "changed-projection",
+    "bundle-request",
+    "registry-request",
+    "cached-preload",
+  ]),
+  stale: new Set(["transient-failure", "integrity-failure"]),
+  denied: new Set([
+    "denial-response",
+    "validate-count",
+    "validate-instruction-bytes",
+    "validate-aggregate-bytes",
+    "decode-instruction",
+    "reject-script",
+    "telemetry-write",
+    "registry-error",
+    "http-response",
+    "canonical-error",
+  ]),
+  revoked: new Set(["revocation-observed"]),
+  closed: new Set(["close"]),
+};
+
+const directTelemetryOperationKinds: Record<string, ReadonlySet<string>> = {
+  "load.started": new Set([
+    "load",
+    "load-caller-a",
+    "cached-preload",
+    "registry-request",
+  ]),
+  "load.throttled": new Set(["throttle-hit", "throttle-check"]),
+  "load.singleflight_joined": new Set(["load-caller-b"]),
+  "load.succeeded": new Set([
+    "render",
+    "bundle-request",
+    "not-modified",
+    "revocation-observed",
+  ]),
+};
+
+const failedTelemetryOperationKinds = new Set([
+  ...(terminalOperationKindsByStatus.denied ?? []),
+  ...(terminalOperationKindsByStatus.stale ?? []),
+]);
+
 type JsonObject = Record<string, unknown>;
 
 function isJsonObject(value: unknown): value is JsonObject {
@@ -288,10 +336,12 @@ function validateInitialSnapshot(
   ) {
     failures.push(`${label} with source none cannot contain registry data`);
   }
-  if (["denied", "stale"].includes(String(snapshot.status))) {
+  if (["denied", "stale", "closed"].includes(String(snapshot.status))) {
     validateError(snapshot.error, `${label}.error`, failures);
   } else if (snapshot.error !== undefined) {
-    failures.push(`${label}.error is only valid for denied or stale status`);
+    failures.push(
+      `${label}.error is only valid for denied, stale, or closed status`,
+    );
   }
   return snapshot;
 }
@@ -451,33 +501,8 @@ function validateTransitions(
     failures.push(`${label} cannot reach the generic SDK terminal status`);
   }
 
-  const terminalOperationKinds: Record<string, string[]> = {
-    ready: [
-      "render",
-      "not-modified",
-      "changed-projection",
-      "bundle-request",
-      "registry-request",
-      "cached-preload",
-    ],
-    stale: ["transient-failure", "integrity-failure"],
-    denied: [
-      "denial-response",
-      "validate-count",
-      "validate-instruction-bytes",
-      "validate-aggregate-bytes",
-      "decode-instruction",
-      "reject-script",
-      "telemetry-write",
-      "registry-error",
-      "http-response",
-      "canonical-error",
-    ],
-    revoked: ["revocation-observed"],
-    closed: ["close"],
-  };
   const operationMatchesTerminal = (operation: JsonObject): boolean =>
-    terminalOperationKinds[String(terminalStatus)]?.includes(
+    terminalOperationKindsByStatus[String(terminalStatus)]?.has(
       String(operation.kind),
     ) ?? false;
   const terminalOperation =
@@ -660,6 +685,11 @@ function validateTelemetry(
   ).map((entry, index) =>
     object(entry, `${label}.telemetryRecords[${index}]`, failures),
   );
+  const transitions = array(
+    expected.statusTransitions,
+    `${label}.statusTransitions`,
+    failures,
+  ).map((entry) => object(entry, `${label}.transition`, failures));
   if (
     JSON.stringify(names) !==
     JSON.stringify(records.map((record) => record.name))
@@ -696,8 +726,10 @@ function validateTelemetry(
       `${label}.telemetryRecords[${index}].atMs`,
       failures,
     );
-    if (atMs <= priorAtMs) {
-      failures.push(`${label} telemetry records must be exactly ordered`);
+    if (atMs < priorAtMs) {
+      failures.push(
+        `${label} telemetry records must be causally ordered by atMs`,
+      );
     }
     priorAtMs = atMs;
     const metadata = object(
@@ -793,6 +825,16 @@ function validateTelemetry(
       if (metadata.framework === undefined || metadata.status === undefined) {
         failures.push(`${label} status.changed requires framework and status`);
       }
+      if (
+        !transitions.some(
+          (transition) =>
+            transition.atMs === atMs && transition.to === metadata.status,
+        )
+      ) {
+        failures.push(
+          `${label} status.changed timestamp/state must match a status transition`,
+        );
+      }
     } else if (record.name === "load.succeeded") {
       if (
         metadata.framework === undefined ||
@@ -803,6 +845,23 @@ function validateTelemetry(
       ) {
         failures.push(
           `${label} load.succeeded requires framework, success, freshness, skillCount, and registryRevision`,
+        );
+      }
+      const precedingStatus = records
+        .slice(0, index)
+        .findLast((candidate) => candidate.name === "status.changed");
+      if (
+        precedingStatus?.atMs !== atMs ||
+        !operations.some(
+          (operation) =>
+            operation.atMs === atMs &&
+            directTelemetryOperationKinds["load.succeeded"]?.has(
+              String(operation.kind),
+            ),
+        )
+      ) {
+        failures.push(
+          `${label} load.succeeded timestamp must match a terminal operation`,
         );
       }
     } else if (record.name === "load.failed") {
@@ -845,14 +904,41 @@ function validateTelemetry(
           `${label} telemetry IDs must match canonical error requestId and traceId`,
         );
       }
+      const precedingStatus = records
+        .slice(0, index)
+        .findLast((candidate) => candidate.name === "status.changed");
+      if (
+        precedingStatus?.atMs !== atMs ||
+        !operations.some(
+          (operation) =>
+            operation.atMs === atMs &&
+            failedTelemetryOperationKinds.has(String(operation.kind)),
+        )
+      ) {
+        failures.push(
+          `${label} load.failed timestamp must match a terminal operation`,
+        );
+      }
+    }
+
+    const directOperationKinds =
+      typeof record.name === "string"
+        ? directTelemetryOperationKinds[record.name]
+        : undefined;
+    if (
+      directOperationKinds !== undefined &&
+      record.name !== "load.succeeded" &&
+      !operations.some(
+        (operation) =>
+          operation.atMs === atMs &&
+          directOperationKinds.has(String(operation.kind)),
+      )
+    ) {
+      failures.push(
+        `${label} ${String(record.name)} timestamp must match its operation`,
+      );
     }
   }
-
-  const transitions = array(
-    expected.statusTransitions,
-    `${label}.statusTransitions`,
-    failures,
-  ).map((entry) => object(entry, `${label}.transition`, failures));
   const terminalStale = transitions.at(-1)?.to === "stale";
   const succeeded = records.some((record) => record.name === "load.succeeded");
   const failed = records.filter((record) => record.name === "load.failed");
@@ -1115,6 +1201,22 @@ function validateCase(
     if (JSON.stringify(genericSdk.error) !== JSON.stringify(readiness.error)) {
       failures.push(`${label} generic SDK and readiness errors must be exact`);
     }
+  }
+  const statusTransitions = array(
+    expected.statusTransitions,
+    `${label}.expected.statusTransitions`,
+    failures,
+  );
+  if (
+    statusTransitions.length === 0 &&
+    ["denied", "stale", "closed"].includes(String(initialSnapshot.status)) &&
+    (JSON.stringify(genericSdk.error) !==
+      JSON.stringify(initialSnapshot.error) ||
+      JSON.stringify(readiness.error) !== JSON.stringify(initialSnapshot.error))
+  ) {
+    failures.push(
+      `${label} immediate error must exactly match initialSnapshot.error`,
+    );
   }
   validateRenderedRecords(
     expected.renderedRecords,
