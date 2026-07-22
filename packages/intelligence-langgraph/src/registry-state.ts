@@ -246,6 +246,7 @@ export class RegistryState {
   > &
     Pick<RegistryStateOptions, "client" | "learningContainerId" | "telemetry">;
   private current = emptySnapshot();
+  private closedLatch = false;
   private inFlight: Promise<AdapterSnapshot> | null = null;
   private joinedCallers = 0;
   private joinedTelemetryChain: Promise<void> = Promise.resolve();
@@ -310,8 +311,7 @@ export class RegistryState {
   }
 
   load(): Promise<AdapterSnapshot> {
-    if (this.current.status === "closed")
-      return Promise.reject(this.closedError());
+    if (this.closedLatch) return Promise.reject(this.closedError());
     if (this.inFlight !== null) {
       return this.startLoad(this.ready ? "refresh" : "load", false);
     }
@@ -353,6 +353,7 @@ export class RegistryState {
   async waitUntilReady(options: {
     readonly timeoutMs: number;
   }): Promise<AdapterSnapshot> {
+    this.throwIfClosed();
     if (this.ready) return this.current;
     if (
       this.current.status === "denied" ||
@@ -396,7 +397,8 @@ export class RegistryState {
   }
 
   async close(): Promise<void> {
-    if (this.current.status === "closed") return;
+    if (this.closedLatch) return;
+    this.closedLatch = true;
     const error = this.closedError();
     await this.swap(
       immutableSnapshot({
@@ -415,8 +417,7 @@ export class RegistryState {
     source: LoadSource,
     cached: boolean,
   ): Promise<AdapterSnapshot> {
-    if (this.current.status === "closed")
-      return Promise.reject(this.closedError());
+    if (this.closedLatch) return Promise.reject(this.closedError());
     if (this.inFlight !== null) {
       this.joinedCallers += 1;
       const joinedTelemetry = this.emit("load.singleflight_joined", {
@@ -474,6 +475,7 @@ export class RegistryState {
     });
     try {
       await this.emit("load.started", { source });
+      this.throwIfClosed();
       const installed = await (cached
         ? this.options.client.skills.getCached({
             learningContainerId: this.options.learningContainerId,
@@ -482,9 +484,10 @@ export class RegistryState {
             learningContainerId: this.options.learningContainerId,
           }));
       await this.drainJoinedTelemetry();
+      this.throwIfClosed();
       const renderedSkills = await this.render(installed);
       await this.drainJoinedTelemetry();
-      if (this.current.status === "closed") throw this.closedError();
+      this.throwIfClosed();
       const completedAt = this.options.clock();
       const status = installed.projection.revoked ? "revoked" : "ready";
       const next = immutableSnapshot({
@@ -499,6 +502,7 @@ export class RegistryState {
         registryRevision: installed.projection.registryRevision,
       });
       await this.swap(next, false);
+      this.throwIfClosed();
       await this.emit("load.succeeded", {
         outcome: "success",
         freshness: installed.freshness,
@@ -507,19 +511,22 @@ export class RegistryState {
         refreshLatencyMs: completedAt - startedAt,
       });
       await this.drainJoinedTelemetry();
+      this.throwIfClosed();
       this.settleWaiters(next);
       return next;
     } catch (error) {
-      if (this.current.status === "closed") throw this.closedError();
+      this.throwIfClosed();
       if (this.isTelemetryFailure(error)) return this.failTelemetry(error);
       try {
         await this.drainJoinedTelemetry();
       } catch (joinedTelemetryError) {
+        this.throwIfClosed();
         if (this.isTelemetryFailure(joinedTelemetryError)) {
           return this.failTelemetry(joinedTelemetryError);
         }
         throw joinedTelemetryError;
       }
+      this.throwIfClosed();
 
       const canonical = canonicalError(error);
       const denied = isPermanentDenial(canonical);
@@ -550,8 +557,11 @@ export class RegistryState {
       });
       const terminalTelemetry = await (async () => {
         try {
+          this.throwIfClosed();
           await this.swap(next, false);
+          this.throwIfClosed();
           await this.emit("load.failed", this.errorMetadata(surfaced));
+          this.throwIfClosed();
           return { succeeded: true } as const;
         } catch (terminalError) {
           return { succeeded: false, error: terminalError } as const;
@@ -560,11 +570,13 @@ export class RegistryState {
       try {
         await this.drainJoinedTelemetry();
       } catch (joinedTelemetryError) {
+        this.throwIfClosed();
         if (this.isTelemetryFailure(joinedTelemetryError)) {
           return this.failTelemetry(joinedTelemetryError);
         }
         throw joinedTelemetryError;
       }
+      this.throwIfClosed();
       if (!terminalTelemetry.succeeded) {
         if (this.isTelemetryFailure(terminalTelemetry.error)) {
           return this.failTelemetry(terminalTelemetry.error);
@@ -739,6 +751,10 @@ export class RegistryState {
     return this.closedFailure;
   }
 
+  private throwIfClosed(): void {
+    if (this.closedLatch) throw this.closedError();
+  }
+
   private isTelemetryFailure(error: unknown): error is AdapterError {
     return (
       error instanceof AdapterError &&
@@ -747,6 +763,7 @@ export class RegistryState {
   }
 
   private async failTelemetry(error: AdapterError): Promise<never> {
+    this.throwIfClosed();
     const next = immutableSnapshot({
       ...this.current,
       status: "denied",
@@ -758,24 +775,32 @@ export class RegistryState {
     });
     try {
       try {
+        this.throwIfClosed();
         await this.swap(next, false);
+        this.throwIfClosed();
       } catch {
+        this.throwIfClosed();
         // Preserve the initiating canonical failure if the terminal status
         // notification also rejects.
       }
       try {
         await this.emit("load.failed", this.errorMetadata(error));
+        this.throwIfClosed();
       } catch {
+        this.throwIfClosed();
         // Preserve one error identity for every caller of this load.
       }
       try {
         await this.drainJoinedTelemetry();
+        this.throwIfClosed();
       } catch {
+        this.throwIfClosed();
         // The initiating canonical telemetry failure remains authoritative.
       }
     } finally {
-      this.settleWaiters(next);
+      this.settleWaiters(this.closedLatch ? this.current : next);
     }
+    this.throwIfClosed();
     throw error;
   }
 

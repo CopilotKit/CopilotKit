@@ -532,6 +532,67 @@ describe("createSkillRegistryMiddleware", () => {
     expect(middleware.status).toBe("closed");
   });
 
+  it("keeps close terminal while a failed shared load drains joined telemetry", async () => {
+    const pending = deferred<InstalledSkillSet>();
+    const joinedWrite = deferred<void>();
+    const clientFailure = new Error("registry unavailable");
+    const events: Array<{
+      readonly name: SkillRegistryTelemetryEvent["name"];
+      readonly status?: SkillRegistryTelemetryEvent["metadata"]["status"];
+    }> = [];
+    const registryClient = testClient(() => pending.promise);
+    const middleware = createSkillRegistryMiddleware({
+      client: registryClient,
+      learningContainerId: CONTAINER_ID,
+      telemetry: (event) => {
+        events.push({ name: event.name, status: event.metadata.status });
+        if (event.name === "load.singleflight_joined") {
+          return joinedWrite.promise;
+        }
+      },
+    });
+
+    const first = middleware.load();
+    const second = middleware.load();
+    expect(second).toBe(first);
+    const callers = Promise.allSettled([first, second]);
+
+    pending.reject(clientFailure);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(middleware.status).toBe("loading");
+
+    await middleware.close();
+    const closedFailure = middleware.snapshot.error;
+    expect(middleware.status).toBe("closed");
+
+    joinedWrite.resolve();
+    const [firstResult, secondResult] = await callers;
+    expect(firstResult.status).toBe("rejected");
+    expect(secondResult.status).toBe("rejected");
+    if (
+      firstResult.status !== "rejected" ||
+      secondResult.status !== "rejected"
+    ) {
+      throw new Error("Both shared load callers must reject");
+    }
+    expect(firstResult.reason).toBe(secondResult.reason);
+    expect(firstResult.reason).toBe(closedFailure);
+    expect(firstResult.reason).toMatchObject({
+      code: "LEARNING_REGISTRY_CLOSED",
+      causeIdentity: "closed-1",
+    });
+    expect(middleware.status).toBe("closed");
+    expect(events).toEqual([
+      { name: "load.started", status: undefined },
+      { name: "load.singleflight_joined", status: undefined },
+      { name: "status.changed", status: "closed" },
+    ]);
+
+    await expect(middleware.load()).rejects.toBe(closedFailure);
+    expect(registryClient.skills.get).toHaveBeenCalledOnce();
+    expect(events).toHaveLength(3);
+  });
+
   it("rejects loads created after close", async () => {
     const registryClient = testClient(() => installedSkillSet());
     const middleware = createSkillRegistryMiddleware({
