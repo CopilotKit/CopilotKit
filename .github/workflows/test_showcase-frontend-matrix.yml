@@ -37,7 +37,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.event.inputs.branch || github.ref }}
+          ref: ${{ github.event.pull_request.head.sha || github.event.inputs.branch || github.ref }}
           persist-credentials: false
 
       - name: Setup pnpm
@@ -82,7 +82,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.event.inputs.branch || github.ref }}
+          ref: ${{ github.event.pull_request.head.sha || github.event.inputs.branch || github.ref }}
           persist-credentials: false
 
       - name: Setup pnpm
@@ -100,6 +100,16 @@ jobs:
       - name: Build Angular package
         run: pnpm nx run @copilotkit/angular:build
 
+      - name: Pack Angular package graph
+        run: >-
+          pnpm exec tsx scripts/release/pack-angular-artifacts.ts
+          _artifacts/angular-packages
+
+      - name: Install packed Angular package graph
+        run: |
+          pnpm --dir showcase/angular exec node scripts/use-packed-artifacts.mjs ../../_artifacts/angular-packages
+          pnpm --dir showcase/angular install --ignore-scripts --strict-peer-dependencies
+
       - name: Build production Angular host
         run: pnpm --dir showcase/angular build
 
@@ -113,6 +123,7 @@ jobs:
 
   matrix:
     name: cell shard ${{ matrix.shard_index }}
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == true
     needs: [plan, build-angular-host]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -123,7 +134,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.event.inputs.branch || github.ref }}
+          ref: ${{ github.event.pull_request.head.sha || github.event.inputs.branch || github.ref }}
           persist-credentials: false
 
       - name: Setup pnpm
@@ -210,6 +221,7 @@ jobs:
 
   browser-suite:
     name: reusable UI / ${{ matrix.project }}
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == true
     needs: [build-angular-host]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -231,7 +243,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.event.inputs.branch || github.ref }}
+          ref: ${{ github.event.pull_request.head.sha || github.event.inputs.branch || github.ref }}
           persist-credentials: false
 
       - name: Setup pnpm
@@ -312,6 +324,7 @@ jobs:
 
   performance:
     name: Angular shell readiness p95
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == true
     needs: [build-angular-host]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -319,7 +332,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.event.inputs.branch || github.ref }}
+          ref: ${{ github.event.pull_request.head.sha || github.event.inputs.branch || github.ref }}
           persist-credentials: false
 
       - name: Setup pnpm
@@ -393,7 +406,9 @@ jobs:
 
   verify:
     name: verify complete matrix
-    if: always()
+    if: >-
+      always() &&
+      (github.event_name != 'pull_request' || github.event.pull_request.draft == true)
     needs: [plan, build-angular-host, matrix, browser-suite, performance]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -401,7 +416,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.event.inputs.branch || github.ref }}
+          ref: ${{ github.event.pull_request.head.sha || github.event.inputs.branch || github.ref }}
           persist-credentials: false
 
       - name: Setup pnpm
