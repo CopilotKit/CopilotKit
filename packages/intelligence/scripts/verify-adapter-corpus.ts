@@ -143,6 +143,39 @@ const adapterValidationCodes = new Map([
   ["script-disabled", "INTELLIGENCE_ADAPTER_SCRIPT_DISABLED"],
 ]);
 
+const executableOperationKinds = new Set([
+  "load",
+  "cached-preload",
+  "projection-request",
+  "bundle-request",
+  "render",
+  "throttle-hit",
+  "load-caller-a",
+  "load-caller-b",
+  "cache-read",
+  "conditional-projection-request",
+  "not-modified",
+  "changed-projection",
+  "revocation-observed",
+  "transient-failure",
+  "integrity-failure",
+  "denial-response",
+  "validate-count",
+  "validate-instruction-bytes",
+  "validate-aggregate-bytes",
+  "decode-instruction",
+  "reject-script",
+  "close",
+  "readiness",
+  "timeout",
+  "registry-request",
+  "throttle-check",
+  "telemetry-write",
+  "registry-error",
+  "http-response",
+  "canonical-error",
+]);
+
 type JsonObject = Record<string, unknown>;
 
 function isJsonObject(value: unknown): value is JsonObject {
@@ -199,7 +232,68 @@ function validateError(
   ) {
     failures.push(`${label}.httpStatus must be an HTTP status`);
   }
+  for (const field of ["requestId", "traceId"] as const) {
+    if (
+      error[field] !== undefined &&
+      (typeof error[field] !== "string" || error[field].length === 0)
+    ) {
+      failures.push(`${label}.${field} must be a non-empty string when set`);
+    }
+  }
+  if ((error.requestId === undefined) !== (error.traceId === undefined)) {
+    failures.push(`${label} must include requestId and traceId together`);
+  }
   return error;
+}
+
+function validateInitialSnapshot(
+  value: unknown,
+  label: string,
+  failures: string[],
+): JsonObject {
+  const snapshot = object(value, label, failures);
+  if (
+    typeof snapshot.status !== "string" ||
+    !lifecycleStates.has(snapshot.status)
+  ) {
+    failures.push(`${label}.status must be a canonical lifecycle state`);
+  }
+  if (!["fresh", "cached", "none"].includes(String(snapshot.source))) {
+    failures.push(`${label}.source must be fresh, cached, or none`);
+  }
+  if (
+    snapshot.registryRevision !== null &&
+    (typeof snapshot.registryRevision !== "string" ||
+      snapshot.registryRevision.length === 0)
+  ) {
+    failures.push(`${label}.registryRevision must be null or non-empty`);
+  }
+  integer(snapshot.skillCount, `${label}.skillCount`, failures);
+  integer(
+    snapshot.aggregateByteLength,
+    `${label}.aggregateByteLength`,
+    failures,
+  );
+  if (snapshot.lastAttemptAt !== null) {
+    integer(snapshot.lastAttemptAt, `${label}.lastAttemptAt`, failures);
+  }
+  if (typeof snapshot.refreshDue !== "boolean") {
+    failures.push(`${label}.refreshDue must be boolean`);
+  }
+  if (
+    snapshot.source === "none" &&
+    (snapshot.registryRevision !== null ||
+      snapshot.skillCount !== 0 ||
+      snapshot.aggregateByteLength !== 0)
+  ) {
+    failures.push(`${label} with source none cannot contain registry data`);
+  }
+  if (["denied", "stale"].includes(String(snapshot.status))) {
+    validateError(snapshot.error, `${label}.error`, failures);
+  } else if (snapshot.error !== undefined) {
+    failures.push(`${label}.error is only valid for denied or stale status`);
+  }
+  return snapshot;
 }
 
 function validateOutcome(
@@ -255,8 +349,11 @@ function validateOperations(
     }
   }
   for (const [index, operation] of operations.entries()) {
-    if (typeof operation.kind !== "string" || operation.kind.length === 0) {
-      failures.push(`${label}[${index}].kind must be a non-empty string`);
+    if (
+      typeof operation.kind !== "string" ||
+      !executableOperationKinds.has(operation.kind)
+    ) {
+      failures.push(`${label}[${index}] operation kind is not executable`);
     }
   }
   return operations;
@@ -276,7 +373,7 @@ function expectedTerminalStatus(genericSdk: JsonObject): string | undefined {
     case "LEARNING_REGISTRY_STALE":
       return "stale";
     case "LEARNING_REGISTRY_READINESS_TIMEOUT":
-      return "loading";
+      return "cold";
     default:
       return "denied";
   }
@@ -286,21 +383,26 @@ function validateTransitions(
   value: unknown,
   genericSdk: JsonObject,
   operations: JsonObject[],
+  initialSnapshot: JsonObject,
   label: string,
   failures: string[],
 ): void {
   const transitions = array(value, label, failures).map((entry, index) =>
     object(entry, `${label}[${index}]`, failures),
   );
-  const stateChanging = operations.some((operation) =>
-    [
-      "load",
-      "load-caller-a",
-      "cached-preload",
-      "close",
-      "registry-request",
-    ].includes(String(operation.kind)),
-  );
+  const stateChanging = operations.some((operation) => {
+    if (["close", "cached-preload"].includes(String(operation.kind))) {
+      return true;
+    }
+    if (
+      ["load", "load-caller-a", "registry-request"].includes(
+        String(operation.kind),
+      )
+    ) {
+      return initialSnapshot.status === "cold" || initialSnapshot.refreshDue;
+    }
+    return false;
+  });
   if (stateChanging && transitions.length === 0) {
     failures.push(`${label} is missing status transitions`);
   }
@@ -334,8 +436,63 @@ function validateTransitions(
     previousTo = to;
   }
   const terminalStatus = expectedTerminalStatus(genericSdk);
+  if (
+    transitions.length > 0 &&
+    transitions[0]?.from !== initialSnapshot.status
+  ) {
+    failures.push(
+      `${label} first transition disagrees with initialSnapshot status`,
+    );
+  }
   if (transitions.length > 0 && previousTo !== terminalStatus) {
     failures.push(`${label} does not reach the generic SDK terminal status`);
+  }
+  if (transitions.length === 0 && initialSnapshot.status !== terminalStatus) {
+    failures.push(`${label} cannot reach the generic SDK terminal status`);
+  }
+
+  const terminalOperationKinds: Record<string, string[]> = {
+    ready: [
+      "render",
+      "not-modified",
+      "changed-projection",
+      "bundle-request",
+      "registry-request",
+      "cached-preload",
+    ],
+    stale: ["transient-failure", "integrity-failure"],
+    denied: [
+      "denial-response",
+      "validate-count",
+      "validate-instruction-bytes",
+      "validate-aggregate-bytes",
+      "decode-instruction",
+      "reject-script",
+      "telemetry-write",
+      "registry-error",
+      "http-response",
+      "canonical-error",
+    ],
+    revoked: ["revocation-observed"],
+    closed: ["close"],
+  };
+  const operationMatchesTerminal = (operation: JsonObject): boolean =>
+    terminalOperationKinds[String(terminalStatus)]?.includes(
+      String(operation.kind),
+    ) ?? false;
+  const terminalOperation =
+    terminalStatus === "closed"
+      ? operations.find(operationMatchesTerminal)
+      : operations.findLast(operationMatchesTerminal);
+  const finalTransition = transitions.at(-1);
+  if (
+    finalTransition !== undefined &&
+    terminalOperation !== undefined &&
+    finalTransition.atMs !== terminalOperation.atMs
+  ) {
+    failures.push(
+      `${label} terminal transition timestamp disagrees with operation`,
+    );
   }
 }
 
@@ -355,6 +512,12 @@ function validateCalls(
   );
   const bundle = integer(client.bundle, `${label}.client.bundle`, failures);
   const cached = integer(client.cached, `${label}.client.cached`, failures);
+  const get = integer(client.get, `${label}.client.get`, failures);
+  const getCached = integer(
+    client.getCached,
+    `${label}.client.getCached`,
+    failures,
+  );
   const network = integer(client.network, `${label}.client.network`, failures);
   const readiness = integer(
     routing.readiness,
@@ -384,6 +547,17 @@ function validateCalls(
   ).length;
   if (projection !== projectionOperations) {
     failures.push(`${label} projection call count disagrees with operations`);
+  }
+  if (get !== projectionOperations) {
+    failures.push(`${label} adapter get call count disagrees with operations`);
+  }
+  const getCachedOperations = operations.filter(
+    (operation) => operation.kind === "cached-preload",
+  ).length;
+  if (getCached !== getCachedOperations) {
+    failures.push(
+      `${label} adapter getCached call count disagrees with operations`,
+    );
   }
   if (bundle !== bundleOperations) {
     failures.push(`${label} bundle call count disagrees with operations`);
@@ -638,12 +812,10 @@ function validateTelemetry(
         metadata.reason === undefined ||
         metadata.retryable === undefined ||
         metadata.errorCode === undefined ||
-        metadata.errorCategory === undefined ||
-        metadata.requestId === undefined ||
-        metadata.traceId === undefined
+        metadata.errorCategory === undefined
       ) {
         failures.push(
-          `${label} load.failed requires framework, failure, reason, retryability, canonical error, requestId, and traceId`,
+          `${label} load.failed requires framework, failure, reason, retryability, and canonical error`,
         );
       }
       const canonicalError =
@@ -664,6 +836,15 @@ function validateTelemetry(
           );
         }
       }
+      const error = isJsonObject(canonicalError) ? canonicalError : undefined;
+      if (
+        metadata.requestId !== error?.requestId ||
+        metadata.traceId !== error?.traceId
+      ) {
+        failures.push(
+          `${label} telemetry IDs must match canonical error requestId and traceId`,
+        );
+      }
     }
   }
 
@@ -673,15 +854,9 @@ function validateTelemetry(
     failures,
   ).map((entry) => object(entry, `${label}.transition`, failures));
   const terminalStale = transitions.at(-1)?.to === "stale";
-  const explicitFailure = operations.some((operation) =>
-    ["transient-failure", "integrity-failure"].includes(String(operation.kind)),
-  );
   const succeeded = records.some((record) => record.name === "load.succeeded");
   const failed = records.filter((record) => record.name === "load.failed");
-  if (
-    (terminalStale || explicitFailure) &&
-    (failed.length === 0 || succeeded)
-  ) {
+  if (terminalStale && (failed.length === 0 || succeeded)) {
     failures.push(
       `${label} stale load must emit load.failed and never load.succeeded`,
     );
@@ -722,6 +897,110 @@ function validateTelemetry(
       failureMetadata.retryable !== transient
     ) {
       failures.push(`${label} stale failure reason/retryability is incorrect`);
+    }
+  }
+}
+
+function validateExecutableSemantics(
+  caseEntry: JsonObject,
+  operations: JsonObject[],
+  expected: JsonObject,
+  label: string,
+  failures: string[],
+): void {
+  const caseName = String(caseEntry.name);
+  const operationKinds = operations.map((operation) => operation.kind);
+  const telemetryNames = array(
+    expected.telemetryNames,
+    `${label}.telemetryNames`,
+    failures,
+  );
+  const telemetryRecords = array(
+    expected.telemetryRecords,
+    `${label}.telemetryRecords`,
+    failures,
+  ).map((record) => object(record, `${label}.telemetryRecord`, failures));
+  const transitions = array(
+    expected.statusTransitions,
+    `${label}.statusTransitions`,
+    failures,
+  );
+
+  if (
+    caseName === "throttle-hit" &&
+    (JSON.stringify(operationKinds) !==
+      JSON.stringify(["load", "throttle-hit"]) ||
+      transitions.length !== 0 ||
+      JSON.stringify(telemetryNames) !== JSON.stringify(["load.throttled"]))
+  ) {
+    failures.push(
+      `${label} throttle-hit must remain adapter-observable without refresh transitions`,
+    );
+  }
+
+  if (
+    [
+      "readiness-ready",
+      "readiness-timeout",
+      "readiness-denied-rejects",
+      "readiness-stale-rejects",
+    ].includes(caseName) &&
+    telemetryNames.length !== 0
+  ) {
+    failures.push(`${label} readiness telemetry must be empty`);
+  }
+  if (
+    caseName === "readiness-closed-rejects" &&
+    JSON.stringify(telemetryNames) !== JSON.stringify(["status.changed"])
+  ) {
+    failures.push(`${label} readiness telemetry must only reflect close`);
+  }
+  if (
+    caseName === "load-after-close-rejects" &&
+    JSON.stringify(telemetryNames) !== JSON.stringify(["status.changed"])
+  ) {
+    failures.push(`${label} post-close telemetry must only reflect close`);
+  }
+
+  if (
+    [
+      "etag-unchanged",
+      "changed-revision",
+      "transient-stale",
+      "integrity-stale",
+    ].includes(caseName)
+  ) {
+    const started = telemetryRecords.find(
+      (record) => record.name === "load.started",
+    );
+    if ((started?.metadata as JsonObject | undefined)?.source !== "refresh") {
+      failures.push(`${label} refresh source must be refresh`);
+    }
+  }
+
+  if (caseName === "retry-after-failed-throttle-window") {
+    const requiredNames = [
+      "load.started",
+      "status.changed",
+      "load.failed",
+      "load.throttled",
+      "load.started",
+      "status.changed",
+      "load.succeeded",
+    ];
+    const staleRecord = telemetryRecords[1];
+    const failedRecord = telemetryRecords[2];
+    if (
+      JSON.stringify(telemetryNames) !== JSON.stringify(requiredNames) ||
+      staleRecord?.name !== "status.changed" ||
+      (staleRecord.metadata as JsonObject | undefined)?.status !== "stale" ||
+      failedRecord?.name !== "load.failed" ||
+      (failedRecord.metadata as JsonObject | undefined)?.errorCode !==
+        "LEARNING_REGISTRY_STALE"
+    ) {
+      failures.push(
+        `${label} retry stale transition telemetry must precede the boundary retry`,
+      );
     }
   }
 }
@@ -781,6 +1060,11 @@ function validateCase(
 ): JsonObject {
   const label = `cases[${index}]`;
   const entry = object(entryValue, label, failures);
+  const initialSnapshot = validateInitialSnapshot(
+    entry.initialSnapshot,
+    `${label}.initialSnapshot`,
+    failures,
+  );
   const operations = validateOperations(
     entry.operations,
     `${label}.operations`,
@@ -807,6 +1091,7 @@ function validateCase(
     expected.statusTransitions,
     genericSdk,
     operations,
+    initialSnapshot,
     `${label}.expected.statusTransitions`,
     failures,
   );
@@ -843,6 +1128,13 @@ function validateCase(
     entry,
     operations,
     sdkCorpus,
+    `${label}.expected`,
+    failures,
+  );
+  validateExecutableSemantics(
+    entry,
+    operations,
+    expected,
     `${label}.expected`,
     failures,
   );
@@ -1088,13 +1380,16 @@ export function validateAdapterCorpus(
     failures,
   );
   if (
-    preloadOperations.length !== 1 ||
+    preloadOperations.length !== 2 ||
     preloadOperations[0]?.kind !== "cached-preload" ||
+    preloadOperations[1]?.kind !== "render" ||
     preloadClient.cached !== 1 ||
+    preloadClient.getCached !== 1 ||
+    preloadClient.get !== 0 ||
     preloadClient.network !== 0
   ) {
     failures.push(
-      "explicit-cached-preload must be one cached call and zero network calls",
+      "explicit-cached-preload must render one cached call and zero network calls",
     );
   }
 
@@ -1110,22 +1405,13 @@ export function validateAdapterCorpus(
     "retry.operations",
     failures,
   ).map((entry) => object(entry, "retry.operation", failures));
-  const startRequests = retryOperations.filter(
-    (operation) =>
-      operation.kind === "registry-request" &&
-      operation.atMs === 0 &&
-      operation.outcome === "failed",
-  );
-  const insideChecks = retryOperations.filter(
-    (operation) =>
-      operation.atMs === 29999 &&
-      operation.kind === "throttle-check" &&
-      operation.networkCall === false,
-  );
-  const boundaryRequests = retryOperations.filter(
-    (operation) =>
-      operation.kind === "registry-request" && operation.atMs === 30000,
-  );
+  const expectedRetryOperations = [
+    { atMs: 0, kind: "registry-request" },
+    { atMs: 1, kind: "transient-failure" },
+    { atMs: 29999, kind: "throttle-check", networkCall: false },
+    { atMs: 30000, kind: "registry-request" },
+    { atMs: 30001, kind: "not-modified" },
+  ];
   const networkInsideWindow = retryOperations.filter(
     (operation) =>
       ["registry-request", "projection-request", "bundle-request"].includes(
@@ -1135,9 +1421,8 @@ export function validateAdapterCorpus(
       Number(operation.atMs) < 30000,
   );
   if (
-    startRequests.length !== 1 ||
-    insideChecks.length !== 1 ||
-    boundaryRequests.length !== 1 ||
+    JSON.stringify(retryOperations) !==
+      JSON.stringify(expectedRetryOperations) ||
     networkInsideWindow.length !== 0
   ) {
     failures.push(

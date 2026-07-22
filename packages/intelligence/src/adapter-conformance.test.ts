@@ -108,6 +108,10 @@ function expectedFor(corpus: JsonObject, name: string): JsonObject {
   return asObject(caseNamed(corpus, name).expected);
 }
 
+function telemetryNames(corpus: JsonObject, name: string): unknown[] {
+  return asArray(expectedFor(corpus, name).telemetryNames);
+}
+
 interface MutationFixture {
   name: string;
   failure: string;
@@ -115,6 +119,145 @@ interface MutationFixture {
 }
 
 const mutationFixtures: MutationFixture[] = [
+  {
+    name: "initial snapshot is missing",
+    failure: "initialSnapshot",
+    mutate(corpus) {
+      delete caseNamed(corpus, "cold-fresh-load").initialSnapshot;
+    },
+  },
+  {
+    name: "initial snapshot disagrees with first transition",
+    failure: "initialSnapshot status",
+    mutate(corpus) {
+      asObject(caseNamed(corpus, "cold-fresh-load").initialSnapshot).status =
+        "ready";
+    },
+  },
+  {
+    name: "observable adapter get count drifts",
+    failure: "adapter get call count",
+    mutate(corpus) {
+      asObject(
+        asObject(expectedFor(corpus, "cold-fresh-load").calls).client,
+      ).get = 2;
+    },
+  },
+  {
+    name: "observable adapter getCached count drifts",
+    failure: "adapter getCached call count",
+    mutate(corpus) {
+      asObject(
+        asObject(expectedFor(corpus, "explicit-cached-preload").calls).client,
+      ).getCached = 0;
+    },
+  },
+  {
+    name: "operation kind is not executable",
+    failure: "operation kind",
+    mutate(corpus) {
+      asObject(
+        asArray(caseNamed(corpus, "cold-fresh-load").operations)[1],
+      ).kind = "invented-operation";
+    },
+  },
+  {
+    name: "terminal transition precedes its operation",
+    failure: "transition timestamp",
+    mutate(corpus) {
+      asObject(
+        asArray(expectedFor(corpus, "integrity-stale").statusTransitions).at(
+          -1,
+        ),
+      ).atMs = 2;
+    },
+  },
+  {
+    name: "throttle hit fabricates a refresh transition",
+    failure: "throttle-hit",
+    mutate(corpus) {
+      expectedFor(corpus, "throttle-hit").statusTransitions = [
+        { atMs: 0, from: "ready", to: "refreshing" },
+        { atMs: 1, from: "refreshing", to: "ready" },
+      ];
+    },
+  },
+  {
+    name: "readiness-only operation fabricates load telemetry",
+    failure: "readiness telemetry",
+    mutate(corpus) {
+      const expected = expectedFor(corpus, "readiness-ready");
+      expected.telemetryNames = ["load.succeeded"];
+      expected.telemetryRecords = [
+        {
+          name: "load.succeeded",
+          atMs: 0,
+          metadata: {
+            framework: "fixture",
+            outcome: "success",
+            freshness: "fresh",
+            skillCount: 1,
+            registryRevision: "revision-1",
+          },
+        },
+      ];
+    },
+  },
+  {
+    name: "post-close load fabricates telemetry",
+    failure: "post-close telemetry",
+    mutate(corpus) {
+      const expected = expectedFor(corpus, "load-after-close-rejects");
+      asArray(expected.telemetryNames).push("load.failed");
+      asArray(expected.telemetryRecords).push({
+        name: "load.failed",
+        atMs: 1,
+        metadata: {
+          framework: "fixture",
+          outcome: "failure",
+          reason: "closed",
+          retryable: false,
+          errorCode: "LEARNING_REGISTRY_CLOSED",
+          errorCategory: "lifecycle",
+        },
+      });
+    },
+  },
+  {
+    name: "refresh telemetry reports a cold load source",
+    failure: "refresh source",
+    mutate(corpus) {
+      const started = asObject(
+        asArray(expectedFor(corpus, "etag-unchanged").telemetryRecords)[0],
+      );
+      asObject(started.metadata).source = "load";
+    },
+  },
+  {
+    name: "retry omits stale status telemetry",
+    failure: "retry stale transition telemetry",
+    mutate(corpus) {
+      const expected = expectedFor(
+        corpus,
+        "retry-after-failed-throttle-window",
+      );
+      asArray(expected.telemetryNames).splice(1, 1);
+      asArray(expected.telemetryRecords).splice(1, 1);
+    },
+  },
+  {
+    name: "adapter-local failure invents tracing IDs",
+    failure: "telemetry IDs must match canonical error",
+    mutate(corpus) {
+      const failed = asObject(
+        asArray(expectedFor(corpus, "too-many-skills").telemetryRecords).at(-1),
+      );
+      Object.assign(asObject(failed.metadata), {
+        requestId: "invented-request",
+        traceId: "invented-trace",
+      });
+    },
+  },
   {
     name: "revoked blocks native routing",
     failure: "revoked must remain authorized-empty",
@@ -341,6 +484,83 @@ describe("adapter conformance corpus", () => {
         readJsonObject(packageJsonPath),
       ),
     ).toEqual([]);
+  });
+
+  test("declares an executable adapter-observable contract", () => {
+    const corpus = readJsonObject(corpusPath);
+    const cases = asArray(corpus.cases).map(asObject);
+
+    expect(cases).toHaveLength(35);
+    for (const case_ of cases) {
+      expect(case_.initialSnapshot).toEqual(expect.any(Object));
+      const client = asObject(asObject(asObject(case_.expected).calls).client);
+      expect(client.get).toEqual(expect.any(Number));
+      expect(client.getCached).toEqual(expect.any(Number));
+    }
+
+    expect(asArray(caseNamed(corpus, "throttle-hit").operations)).toEqual([
+      { atMs: 0, kind: "load" },
+      { atMs: 1, kind: "throttle-hit" },
+    ]);
+    expect(
+      asArray(expectedFor(corpus, "throttle-hit").statusTransitions),
+    ).toEqual([]);
+    expect(telemetryNames(corpus, "throttle-hit")).toEqual(["load.throttled"]);
+
+    for (const name of [
+      "etag-unchanged",
+      "changed-revision",
+      "transient-stale",
+      "integrity-stale",
+    ]) {
+      const first = asObject(
+        asArray(expectedFor(corpus, name).telemetryRecords)[0],
+      );
+      expect(asObject(first.metadata).source).toBe("refresh");
+    }
+
+    for (const name of [
+      "readiness-ready",
+      "readiness-timeout",
+      "readiness-denied-rejects",
+      "readiness-stale-rejects",
+    ]) {
+      expect(telemetryNames(corpus, name)).toEqual([]);
+      expect(asArray(expectedFor(corpus, name).telemetryRecords)).toEqual([]);
+    }
+    expect(telemetryNames(corpus, "readiness-closed-rejects")).toEqual([
+      "status.changed",
+    ]);
+    expect(telemetryNames(corpus, "load-after-close-rejects")).toEqual([
+      "status.changed",
+    ]);
+
+    expect(
+      telemetryNames(corpus, "retry-after-failed-throttle-window"),
+    ).toEqual([
+      "load.started",
+      "status.changed",
+      "load.failed",
+      "load.throttled",
+      "load.started",
+      "status.changed",
+      "load.succeeded",
+    ]);
+
+    for (const name of [
+      "too-many-skills",
+      "skill-md-too-large",
+      "aggregate-too-large",
+      "invalid-utf8",
+      "script-disabled",
+      "telemetry-sink-failure-singleflight",
+    ]) {
+      const failed = asObject(
+        asArray(expectedFor(corpus, name).telemetryRecords).at(-1),
+      );
+      expect(asObject(failed.metadata)).not.toHaveProperty("requestId");
+      expect(asObject(failed.metadata)).not.toHaveProperty("traceId");
+    }
   });
 
   test.each(mutationFixtures)(

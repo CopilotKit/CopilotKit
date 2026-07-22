@@ -55,7 +55,9 @@
             "projection": 1,
             "bundle": 1,
             "cached": 0,
-            "network": 2
+            "network": 2,
+            "get": 1,
+            "getCached": 0
           },
           "routing": {
             "readiness": 1,
@@ -133,6 +135,15 @@
             }
           }
         ]
+      },
+      "initialSnapshot": {
+        "status": "cold",
+        "source": "none",
+        "registryRevision": null,
+        "skillCount": 0,
+        "aggregateByteLength": 0,
+        "lastAttemptAt": null,
+        "refreshDue": false
       }
     },
     {
@@ -141,6 +152,10 @@
         {
           "atMs": 0,
           "kind": "cached-preload"
+        },
+        {
+          "atMs": 2,
+          "kind": "render"
         }
       ],
       "expected": {
@@ -149,7 +164,9 @@
             "projection": 0,
             "bundle": 0,
             "cached": 1,
-            "network": 0
+            "network": 0,
+            "get": 0,
+            "getCached": 1
           },
           "routing": {
             "readiness": 1,
@@ -227,6 +244,15 @@
             }
           }
         ]
+      },
+      "initialSnapshot": {
+        "status": "cold",
+        "source": "none",
+        "registryRevision": null,
+        "skillCount": 0,
+        "aggregateByteLength": 0,
+        "lastAttemptAt": null,
+        "refreshDue": false
       }
     },
     {
@@ -238,10 +264,6 @@
         },
         {
           "atMs": 1,
-          "kind": "cache-read"
-        },
-        {
-          "atMs": 2,
           "kind": "throttle-hit"
         }
       ],
@@ -250,26 +272,17 @@
           "client": {
             "projection": 0,
             "bundle": 0,
-            "cached": 1,
-            "network": 0
+            "cached": 0,
+            "network": 0,
+            "get": 0,
+            "getCached": 0
           },
           "routing": {
             "readiness": 1,
             "nativeHook": 1
           }
         },
-        "statusTransitions": [
-          {
-            "atMs": 0,
-            "from": "ready",
-            "to": "refreshing"
-          },
-          {
-            "atMs": 1,
-            "from": "refreshing",
-            "to": "ready"
-          }
-        ],
+        "statusTransitions": [],
         "genericSdk": {
           "result": {
             "state": "ready",
@@ -287,11 +300,7 @@
         "nativeHook": {
           "proceed": true
         },
-        "telemetryNames": [
-          "load.throttled",
-          "status.changed",
-          "load.succeeded"
-        ],
+        "telemetryNames": ["load.throttled"],
         "renderedRecords": [
           {
             "position": 0,
@@ -312,27 +321,17 @@
               "source": "load",
               "framework": "fixture"
             }
-          },
-          {
-            "name": "status.changed",
-            "atMs": 1,
-            "metadata": {
-              "status": "ready",
-              "framework": "fixture"
-            }
-          },
-          {
-            "name": "load.succeeded",
-            "atMs": 2,
-            "metadata": {
-              "outcome": "success",
-              "freshness": "cached",
-              "framework": "fixture",
-              "skillCount": 1,
-              "registryRevision": "revision-1"
-            }
           }
         ]
+      },
+      "initialSnapshot": {
+        "status": "ready",
+        "source": "cached",
+        "registryRevision": "revision-1",
+        "skillCount": 1,
+        "aggregateByteLength": 8,
+        "lastAttemptAt": 0,
+        "refreshDue": false
       }
     },
     {
@@ -363,7 +362,9 @@
             "projection": 1,
             "bundle": 1,
             "cached": 0,
-            "network": 2
+            "network": 2,
+            "get": 1,
+            "getCached": 0
           },
           "routing": {
             "readiness": 1,
@@ -454,6 +455,15 @@
             }
           }
         ]
+      },
+      "initialSnapshot": {
+        "status": "cold",
+        "source": "none",
+        "registryRevision": null,
+        "skillCount": 0,
+        "aggregateByteLength": 0,
+        "lastAttemptAt": null,
+        "refreshDue": false
       }
     },
     {
@@ -482,7 +492,9 @@
             "projection": 1,
             "bundle": 0,
             "cached": 1,
-            "network": 1
+            "network": 1,
+            "get": 1,
+            "getCached": 0
           },
           "routing": {
             "readiness": 1,
@@ -496,7 +508,7 @@
             "to": "refreshing"
           },
           {
-            "atMs": 2,
+            "atMs": 3,
             "from": "refreshing",
             "to": "ready"
           }
@@ -536,7 +548,7 @@
             "name": "load.started",
             "atMs": 0,
             "metadata": {
-              "source": "load",
+              "source": "refresh",
               "framework": "fixture"
             }
           },
@@ -560,6 +572,15 @@
             }
           }
         ]
+      },
+      "initialSnapshot": {
+        "status": "ready",
+        "source": "cached",
+        "registryRevision": "revision-1",
+        "skillCount": 1,
+        "aggregateByteLength": 8,
+        "lastAttemptAt": 0,
+        "refreshDue": true
       }
     },
     {
@@ -592,7 +613,9 @@
             "projection": 1,
             "bundle": 1,
             "cached": 1,
-            "network": 2
+            "network": 2,
+            "get": 1,
+            "getCached": 0
           },
           "routing": {
             "readiness": 1,
@@ -606,7 +629,7 @@
             "to": "refreshing"
           },
           {
-            "atMs": 3,
+            "atMs": 4,
             "from": "refreshing",
             "to": "ready"
           }
@@ -646,7 +669,7 @@
             "name": "load.started",
             "atMs": 0,
             "metadata": {
-              "source": "load",
+              "source": "refresh",
               "framework": "fixture"
             }
           },
@@ -670,6 +693,15 @@
             }
           }
         ]
+      },
+      "initialSnapshot": {
+        "status": "ready",
+        "source": "cached",
+        "registryRevision": "revision-1",
+        "skillCount": 1,
+        "aggregateByteLength": 8,
+        "lastAttemptAt": 0,
+        "refreshDue": true
       }
     },
     {
@@ -694,7 +726,9 @@
             "projection": 1,
             "bundle": 0,
             "cached": 0,
-            "network": 1
+            "network": 1,
+            "get": 1,
+            "getCached": 0
           },
           "routing": {
             "readiness": 1,
@@ -761,6 +795,15 @@
             }
           }
         ]
+      },
+      "initialSnapshot": {
+        "status": "cold",
+        "source": "none",
+        "registryRevision": null,
+        "skillCount": 0,
+        "aggregateByteLength": 0,
+        "lastAttemptAt": null,
+        "refreshDue": false
       }
     },
     {
@@ -785,7 +828,9 @@
             "projection": 1,
             "bundle": 0,
             "cached": 0,
-            "network": 1
+            "network": 1,
+            "get": 1,
+            "getCached": 0
           },
           "routing": {
             "readiness": 1,
@@ -852,6 +897,15 @@
             }
           }
         ]
+      },
+      "initialSnapshot": {
+        "status": "cold",
+        "source": "none",
+        "registryRevision": null,
+        "skillCount": 0,
+        "aggregateByteLength": 0,
+        "lastAttemptAt": null,
+        "refreshDue": false
       }
     },
     {
@@ -880,7 +934,9 @@
             "projection": 1,
             "bundle": 0,
             "cached": 1,
-            "network": 1
+            "network": 1,
+            "get": 1,
+            "getCached": 0
           },
           "routing": {
             "readiness": 1,
@@ -894,7 +950,7 @@
             "to": "refreshing"
           },
           {
-            "atMs": 2,
+            "atMs": 3,
             "from": "refreshing",
             "to": "stale"
           }
@@ -937,7 +993,7 @@
             "name": "load.started",
             "atMs": 0,
             "metadata": {
-              "source": "load",
+              "source": "refresh",
               "framework": "fixture"
             }
           },
@@ -958,12 +1014,19 @@
               "retryable": true,
               "framework": "fixture",
               "errorCode": "LEARNING_REGISTRY_STALE",
-              "errorCategory": "availability",
-              "requestId": "request-telemetry",
-              "traceId": "trace-telemetry"
+              "errorCategory": "availability"
             }
           }
         ]
+      },
+      "initialSnapshot": {
+        "status": "ready",
+        "source": "cached",
+        "registryRevision": "revision-1",
+        "skillCount": 1,
+        "aggregateByteLength": 8,
+        "lastAttemptAt": 0,
+        "refreshDue": true
       }
     },
     {
@@ -996,7 +1059,9 @@
             "projection": 1,
             "bundle": 1,
             "cached": 1,
-            "network": 2
+            "network": 2,
+            "get": 1,
+            "getCached": 0
           },
           "routing": {
             "readiness": 1,
@@ -1010,7 +1075,7 @@
             "to": "refreshing"
           },
           {
-            "atMs": 2,
+            "atMs": 4,
             "from": "refreshing",
             "to": "stale"
           }
@@ -1053,7 +1118,7 @@
             "name": "load.started",
             "atMs": 0,
             "metadata": {
-              "source": "load",
+              "source": "refresh",
               "framework": "fixture"
             }
           },
@@ -1074,12 +1139,19 @@
               "retryable": false,
               "framework": "fixture",
               "errorCode": "LEARNING_REGISTRY_STALE",
-              "errorCategory": "integrity",
-              "requestId": "request-telemetry",
-              "traceId": "trace-telemetry"
+              "errorCategory": "integrity"
             }
           }
         ]
+      },
+      "initialSnapshot": {
+        "status": "ready",
+        "source": "cached",
+        "registryRevision": "revision-1",
+        "skillCount": 1,
+        "aggregateByteLength": 8,
+        "lastAttemptAt": 0,
+        "refreshDue": true
       }
     },
     {
@@ -1104,7 +1176,9 @@
             "projection": 1,
             "bundle": 0,
             "cached": 0,
-            "network": 1
+            "network": 1,
+            "get": 1,
+            "getCached": 0
           },
           "routing": {
             "readiness": 1,
@@ -1129,7 +1203,9 @@
             "category": "permission",
             "retryable": false,
             "httpStatus": 403,
-            "causeIdentity": "denial-1"
+            "causeIdentity": "denial-1",
+            "requestId": "request-telemetry",
+            "traceId": "trace-telemetry"
           }
         },
         "readiness": {
@@ -1138,7 +1214,9 @@
             "category": "permission",
             "retryable": false,
             "httpStatus": 403,
-            "causeIdentity": "denial-1"
+            "causeIdentity": "denial-1",
+            "requestId": "request-telemetry",
+            "traceId": "trace-telemetry"
           }
         },
         "nativeHook": {
@@ -1178,6 +1256,15 @@
             }
           }
         ]
+      },
+      "initialSnapshot": {
+        "status": "cold",
+        "source": "none",
+        "registryRevision": null,
+        "skillCount": 0,
+        "aggregateByteLength": 0,
+        "lastAttemptAt": null,
+        "refreshDue": false
       }
     },
     {
@@ -1203,7 +1290,9 @@
             "projection": 1,
             "bundle": 0,
             "cached": 0,
-            "network": 1
+            "network": 1,
+            "get": 1,
+            "getCached": 0
           },
           "routing": {
             "readiness": 1,
@@ -1269,12 +1358,19 @@
               "retryable": false,
               "framework": "fixture",
               "errorCode": "INTELLIGENCE_ADAPTER_TOO_MANY_SKILLS",
-              "errorCategory": "validation",
-              "requestId": "request-telemetry",
-              "traceId": "trace-telemetry"
+              "errorCategory": "validation"
             }
           }
         ]
+      },
+      "initialSnapshot": {
+        "status": "cold",
+        "source": "none",
+        "registryRevision": null,
+        "skillCount": 0,
+        "aggregateByteLength": 0,
+        "lastAttemptAt": null,
+        "refreshDue": false
       }
     },
     {
@@ -1304,7 +1400,9 @@
             "projection": 1,
             "bundle": 1,
             "cached": 0,
-            "network": 2
+            "network": 2,
+            "get": 1,
+            "getCached": 0
           },
           "routing": {
             "readiness": 1,
@@ -1318,7 +1416,7 @@
             "to": "loading"
           },
           {
-            "atMs": 2,
+            "atMs": 3,
             "from": "loading",
             "to": "denied"
           }
@@ -1370,12 +1468,19 @@
               "retryable": false,
               "framework": "fixture",
               "errorCode": "INTELLIGENCE_ADAPTER_SKILL_TOO_LARGE",
-              "errorCategory": "validation",
-              "requestId": "request-telemetry",
-              "traceId": "trace-telemetry"
+              "errorCategory": "validation"
             }
           }
         ]
+      },
+      "initialSnapshot": {
+        "status": "cold",
+        "source": "none",
+        "registryRevision": null,
+        "skillCount": 0,
+        "aggregateByteLength": 0,
+        "lastAttemptAt": null,
+        "refreshDue": false
       }
     },
     {
@@ -1405,7 +1510,9 @@
             "projection": 1,
             "bundle": 1,
             "cached": 0,
-            "network": 2
+            "network": 2,
+            "get": 1,
+            "getCached": 0
           },
           "routing": {
             "readiness": 1,
@@ -1419,7 +1526,7 @@
             "to": "loading"
           },
           {
-            "atMs": 2,
+            "atMs": 3,
             "from": "loading",
             "to": "denied"
           }
@@ -1471,12 +1578,19 @@
               "retryable": false,
               "framework": "fixture",
               "errorCode": "INTELLIGENCE_ADAPTER_CONTEXT_TOO_LARGE",
-              "errorCategory": "validation",
-              "requestId": "request-telemetry",
-              "traceId": "trace-telemetry"
+              "errorCategory": "validation"
             }
           }
         ]
+      },
+      "initialSnapshot": {
+        "status": "cold",
+        "source": "none",
+        "registryRevision": null,
+        "skillCount": 0,
+        "aggregateByteLength": 0,
+        "lastAttemptAt": null,
+        "refreshDue": false
       }
     },
     {
@@ -1505,7 +1619,9 @@
             "projection": 1,
             "bundle": 1,
             "cached": 0,
-            "network": 2
+            "network": 2,
+            "get": 1,
+            "getCached": 0
           },
           "routing": {
             "readiness": 1,
@@ -1519,7 +1635,7 @@
             "to": "loading"
           },
           {
-            "atMs": 2,
+            "atMs": 3,
             "from": "loading",
             "to": "denied"
           }
@@ -1571,12 +1687,19 @@
               "retryable": false,
               "framework": "fixture",
               "errorCode": "INTELLIGENCE_ADAPTER_INVALID_UTF8",
-              "errorCategory": "integrity",
-              "requestId": "request-telemetry",
-              "traceId": "trace-telemetry"
+              "errorCategory": "integrity"
             }
           }
         ]
+      },
+      "initialSnapshot": {
+        "status": "cold",
+        "source": "none",
+        "registryRevision": null,
+        "skillCount": 0,
+        "aggregateByteLength": 0,
+        "lastAttemptAt": null,
+        "refreshDue": false
       }
     },
     {
@@ -1605,7 +1728,9 @@
             "projection": 1,
             "bundle": 1,
             "cached": 0,
-            "network": 2
+            "network": 2,
+            "get": 1,
+            "getCached": 0
           },
           "routing": {
             "readiness": 1,
@@ -1671,12 +1796,19 @@
               "retryable": false,
               "framework": "fixture",
               "errorCode": "INTELLIGENCE_ADAPTER_SCRIPT_DISABLED",
-              "errorCategory": "validation",
-              "requestId": "request-telemetry",
-              "traceId": "trace-telemetry"
+              "errorCategory": "validation"
             }
           }
         ]
+      },
+      "initialSnapshot": {
+        "status": "cold",
+        "source": "none",
+        "registryRevision": null,
+        "skillCount": 0,
+        "aggregateByteLength": 0,
+        "lastAttemptAt": null,
+        "refreshDue": false
       }
     },
     {
@@ -1697,7 +1829,9 @@
             "projection": 0,
             "bundle": 0,
             "cached": 0,
-            "network": 0
+            "network": 0,
+            "get": 0,
+            "getCached": 0
           },
           "routing": {
             "readiness": 1,
@@ -1740,6 +1874,15 @@
             }
           }
         ]
+      },
+      "initialSnapshot": {
+        "status": "cold",
+        "source": "none",
+        "registryRevision": null,
+        "skillCount": 0,
+        "aggregateByteLength": 0,
+        "lastAttemptAt": null,
+        "refreshDue": false
       }
     },
     {
@@ -1756,7 +1899,9 @@
             "projection": 0,
             "bundle": 0,
             "cached": 0,
-            "network": 0
+            "network": 0,
+            "get": 0,
+            "getCached": 0
           },
           "routing": {
             "readiness": 1,
@@ -1781,7 +1926,7 @@
         "nativeHook": {
           "proceed": true
         },
-        "telemetryNames": ["status.changed", "load.succeeded"],
+        "telemetryNames": [],
         "renderedRecords": [
           {
             "position": 0,
@@ -1794,27 +1939,16 @@
             "description": null
           }
         ],
-        "telemetryRecords": [
-          {
-            "name": "status.changed",
-            "atMs": 0,
-            "metadata": {
-              "status": "ready",
-              "framework": "fixture"
-            }
-          },
-          {
-            "name": "load.succeeded",
-            "atMs": 1,
-            "metadata": {
-              "outcome": "success",
-              "freshness": "fresh",
-              "framework": "fixture",
-              "skillCount": 1,
-              "registryRevision": "revision-1"
-            }
-          }
-        ]
+        "telemetryRecords": []
+      },
+      "initialSnapshot": {
+        "status": "ready",
+        "source": "fresh",
+        "registryRevision": "revision-1",
+        "skillCount": 1,
+        "aggregateByteLength": 8,
+        "lastAttemptAt": 0,
+        "refreshDue": false
       }
     },
     {
@@ -1835,7 +1969,9 @@
             "projection": 0,
             "bundle": 0,
             "cached": 0,
-            "network": 0
+            "network": 0,
+            "get": 0,
+            "getCached": 0
           },
           "routing": {
             "readiness": 1,
@@ -1862,32 +1998,18 @@
         "nativeHook": {
           "proceed": false
         },
-        "telemetryNames": ["status.changed", "load.failed"],
+        "telemetryNames": [],
         "renderedRecords": [],
-        "telemetryRecords": [
-          {
-            "name": "status.changed",
-            "atMs": 0,
-            "metadata": {
-              "status": "loading",
-              "framework": "fixture"
-            }
-          },
-          {
-            "name": "load.failed",
-            "atMs": 1,
-            "metadata": {
-              "outcome": "failure",
-              "reason": "loading",
-              "retryable": true,
-              "framework": "fixture",
-              "errorCode": "LEARNING_REGISTRY_READINESS_TIMEOUT",
-              "errorCategory": "availability",
-              "requestId": "request-telemetry",
-              "traceId": "trace-telemetry"
-            }
-          }
-        ]
+        "telemetryRecords": []
+      },
+      "initialSnapshot": {
+        "status": "cold",
+        "source": "none",
+        "registryRevision": null,
+        "skillCount": 0,
+        "aggregateByteLength": 0,
+        "lastAttemptAt": null,
+        "refreshDue": false
       }
     },
     {
@@ -1904,7 +2026,9 @@
             "projection": 0,
             "bundle": 0,
             "cached": 0,
-            "network": 0
+            "network": 0,
+            "get": 0,
+            "getCached": 0
           },
           "routing": {
             "readiness": 1,
@@ -1918,7 +2042,9 @@
             "category": "permission",
             "retryable": false,
             "httpStatus": 403,
-            "causeIdentity": "denied-ready-1"
+            "causeIdentity": "denied-ready-1",
+            "requestId": "request-telemetry",
+            "traceId": "trace-telemetry"
           }
         },
         "readiness": {
@@ -1927,38 +2053,33 @@
             "category": "permission",
             "retryable": false,
             "httpStatus": 403,
-            "causeIdentity": "denied-ready-1"
+            "causeIdentity": "denied-ready-1",
+            "requestId": "request-telemetry",
+            "traceId": "trace-telemetry"
           }
         },
         "nativeHook": {
           "proceed": false
         },
-        "telemetryNames": ["status.changed", "load.failed"],
+        "telemetryNames": [],
         "renderedRecords": [],
-        "telemetryRecords": [
-          {
-            "name": "status.changed",
-            "atMs": 0,
-            "metadata": {
-              "status": "denied",
-              "framework": "fixture"
-            }
-          },
-          {
-            "name": "load.failed",
-            "atMs": 1,
-            "metadata": {
-              "outcome": "failure",
-              "reason": "denied",
-              "retryable": false,
-              "framework": "fixture",
-              "errorCode": "LEARNING_REGISTRY_DENIED",
-              "errorCategory": "permission",
-              "requestId": "request-telemetry",
-              "traceId": "trace-telemetry"
-            }
-          }
-        ]
+        "telemetryRecords": []
+      },
+      "initialSnapshot": {
+        "status": "denied",
+        "source": "none",
+        "registryRevision": null,
+        "skillCount": 0,
+        "aggregateByteLength": 0,
+        "lastAttemptAt": 0,
+        "refreshDue": false,
+        "error": {
+          "code": "LEARNING_REGISTRY_DENIED",
+          "category": "permission",
+          "retryable": false,
+          "httpStatus": 403,
+          "causeIdentity": "denied-ready-1"
+        }
       }
     },
     {
@@ -1975,7 +2096,9 @@
             "projection": 0,
             "bundle": 0,
             "cached": 0,
-            "network": 0
+            "network": 0,
+            "get": 0,
+            "getCached": 0
           },
           "routing": {
             "readiness": 1,
@@ -2002,32 +2125,24 @@
         "nativeHook": {
           "proceed": false
         },
-        "telemetryNames": ["status.changed", "load.failed"],
+        "telemetryNames": [],
         "renderedRecords": [],
-        "telemetryRecords": [
-          {
-            "name": "status.changed",
-            "atMs": 0,
-            "metadata": {
-              "status": "stale",
-              "framework": "fixture"
-            }
-          },
-          {
-            "name": "load.failed",
-            "atMs": 1,
-            "metadata": {
-              "outcome": "failure",
-              "reason": "stale",
-              "retryable": true,
-              "framework": "fixture",
-              "errorCode": "LEARNING_REGISTRY_STALE",
-              "errorCategory": "availability",
-              "requestId": "request-telemetry",
-              "traceId": "trace-telemetry"
-            }
-          }
-        ]
+        "telemetryRecords": []
+      },
+      "initialSnapshot": {
+        "status": "stale",
+        "source": "cached",
+        "registryRevision": "revision-1",
+        "skillCount": 1,
+        "aggregateByteLength": 8,
+        "lastAttemptAt": 0,
+        "refreshDue": false,
+        "error": {
+          "code": "LEARNING_REGISTRY_STALE",
+          "category": "availability",
+          "retryable": true,
+          "causeIdentity": "stale-ready-1"
+        }
       }
     },
     {
@@ -2048,7 +2163,9 @@
             "projection": 0,
             "bundle": 0,
             "cached": 0,
-            "network": 0
+            "network": 0,
+            "get": 0,
+            "getCached": 0
           },
           "routing": {
             "readiness": 1,
@@ -2081,7 +2198,7 @@
         "nativeHook": {
           "proceed": false
         },
-        "telemetryNames": ["status.changed", "load.failed"],
+        "telemetryNames": ["status.changed"],
         "renderedRecords": [],
         "telemetryRecords": [
           {
@@ -2091,22 +2208,17 @@
               "status": "closed",
               "framework": "fixture"
             }
-          },
-          {
-            "name": "load.failed",
-            "atMs": 1,
-            "metadata": {
-              "outcome": "failure",
-              "reason": "closed",
-              "retryable": false,
-              "framework": "fixture",
-              "errorCode": "LEARNING_REGISTRY_CLOSED",
-              "errorCategory": "lifecycle",
-              "requestId": "request-telemetry",
-              "traceId": "trace-telemetry"
-            }
           }
         ]
+      },
+      "initialSnapshot": {
+        "status": "ready",
+        "source": "cached",
+        "registryRevision": "revision-1",
+        "skillCount": 1,
+        "aggregateByteLength": 8,
+        "lastAttemptAt": 0,
+        "refreshDue": false
       }
     },
     {
@@ -2114,8 +2226,11 @@
       "operations": [
         {
           "atMs": 0,
-          "kind": "registry-request",
-          "outcome": "failed"
+          "kind": "registry-request"
+        },
+        {
+          "atMs": 1,
+          "kind": "transient-failure"
         },
         {
           "atMs": 29999,
@@ -2124,8 +2239,11 @@
         },
         {
           "atMs": 30000,
-          "kind": "registry-request",
-          "outcome": "succeeded"
+          "kind": "registry-request"
+        },
+        {
+          "atMs": 30001,
+          "kind": "not-modified"
         }
       ],
       "expected": {
@@ -2134,7 +2252,9 @@
             "projection": 2,
             "bundle": 0,
             "cached": 0,
-            "network": 2
+            "network": 2,
+            "get": 2,
+            "getCached": 0
           },
           "routing": {
             "readiness": 1,
@@ -2182,6 +2302,7 @@
         },
         "telemetryNames": [
           "load.started",
+          "status.changed",
           "load.failed",
           "load.throttled",
           "load.started",
@@ -2210,17 +2331,23 @@
             }
           },
           {
-            "name": "load.failed",
+            "name": "status.changed",
             "atMs": 1,
+            "metadata": {
+              "status": "stale",
+              "framework": "fixture"
+            }
+          },
+          {
+            "name": "load.failed",
+            "atMs": 2,
             "metadata": {
               "outcome": "failure",
               "reason": "transient",
               "retryable": true,
               "framework": "fixture",
-              "errorCode": "INTELLIGENCE_ADAPTER_TRANSIENT_FAILURE",
-              "errorCategory": "availability",
-              "requestId": "request-telemetry",
-              "traceId": "trace-telemetry"
+              "errorCode": "LEARNING_REGISTRY_STALE",
+              "errorCategory": "availability"
             }
           },
           {
@@ -2259,6 +2386,15 @@
             }
           }
         ]
+      },
+      "initialSnapshot": {
+        "status": "ready",
+        "source": "cached",
+        "registryRevision": "revision-1",
+        "skillCount": 1,
+        "aggregateByteLength": 8,
+        "lastAttemptAt": 0,
+        "refreshDue": true
       }
     },
     {
@@ -2279,7 +2415,9 @@
             "projection": 0,
             "bundle": 0,
             "cached": 0,
-            "network": 0
+            "network": 0,
+            "get": 0,
+            "getCached": 0
           },
           "routing": {
             "readiness": 1,
@@ -2312,40 +2450,27 @@
         "nativeHook": {
           "proceed": false
         },
-        "telemetryNames": ["load.started", "status.changed", "load.failed"],
+        "telemetryNames": ["status.changed"],
         "renderedRecords": [],
         "telemetryRecords": [
           {
-            "name": "load.started",
-            "atMs": 0,
-            "metadata": {
-              "source": "load",
-              "framework": "fixture"
-            }
-          },
-          {
             "name": "status.changed",
-            "atMs": 1,
+            "atMs": 0,
             "metadata": {
               "status": "closed",
               "framework": "fixture"
             }
-          },
-          {
-            "name": "load.failed",
-            "atMs": 2,
-            "metadata": {
-              "outcome": "failure",
-              "reason": "closed",
-              "retryable": false,
-              "framework": "fixture",
-              "errorCode": "LEARNING_REGISTRY_CLOSED",
-              "errorCategory": "lifecycle",
-              "requestId": "request-telemetry",
-              "traceId": "trace-telemetry"
-            }
           }
         ]
+      },
+      "initialSnapshot": {
+        "status": "ready",
+        "source": "cached",
+        "registryRevision": "revision-1",
+        "skillCount": 1,
+        "aggregateByteLength": 8,
+        "lastAttemptAt": 0,
+        "refreshDue": false
       }
     },
     {
@@ -2376,7 +2501,9 @@
             "projection": 1,
             "bundle": 0,
             "cached": 0,
-            "network": 1
+            "network": 1,
+            "get": 1,
+            "getCached": 0
           },
           "routing": {
             "readiness": 1,
@@ -2472,12 +2599,19 @@
               "retryable": false,
               "framework": "fixture",
               "errorCode": "LEARNING_TELEMETRY_SINK_FAILED",
-              "errorCategory": "internal",
-              "requestId": "request-telemetry",
-              "traceId": "trace-telemetry"
+              "errorCategory": "internal"
             }
           }
         ]
+      },
+      "initialSnapshot": {
+        "status": "cold",
+        "source": "none",
+        "registryRevision": null,
+        "skillCount": 0,
+        "aggregateByteLength": 0,
+        "lastAttemptAt": null,
+        "refreshDue": false
       }
     },
     {
@@ -2503,7 +2637,9 @@
             "projection": 1,
             "bundle": 0,
             "cached": 0,
-            "network": 1
+            "network": 1,
+            "get": 1,
+            "getCached": 0
           },
           "routing": {
             "readiness": 1,
@@ -2527,7 +2663,9 @@
             "code": "LEARNING_REGISTRY_DENIED",
             "category": "auth",
             "retryable": false,
-            "causeIdentity": "error-category-auth"
+            "causeIdentity": "error-category-auth",
+            "requestId": "request-telemetry",
+            "traceId": "trace-telemetry"
           }
         },
         "readiness": {
@@ -2535,7 +2673,9 @@
             "code": "LEARNING_REGISTRY_DENIED",
             "category": "auth",
             "retryable": false,
-            "causeIdentity": "error-category-auth"
+            "causeIdentity": "error-category-auth",
+            "requestId": "request-telemetry",
+            "traceId": "trace-telemetry"
           }
         },
         "nativeHook": {
@@ -2575,6 +2715,15 @@
             }
           }
         ]
+      },
+      "initialSnapshot": {
+        "status": "cold",
+        "source": "none",
+        "registryRevision": null,
+        "skillCount": 0,
+        "aggregateByteLength": 0,
+        "lastAttemptAt": null,
+        "refreshDue": false
       }
     },
     {
@@ -2600,7 +2749,9 @@
             "projection": 1,
             "bundle": 0,
             "cached": 0,
-            "network": 1
+            "network": 1,
+            "get": 1,
+            "getCached": 0
           },
           "routing": {
             "readiness": 1,
@@ -2624,7 +2775,9 @@
             "code": "LEARNING_REGISTRY_DENIED",
             "category": "permission",
             "retryable": false,
-            "causeIdentity": "error-category-permission"
+            "causeIdentity": "error-category-permission",
+            "requestId": "request-telemetry",
+            "traceId": "trace-telemetry"
           }
         },
         "readiness": {
@@ -2632,7 +2785,9 @@
             "code": "LEARNING_REGISTRY_DENIED",
             "category": "permission",
             "retryable": false,
-            "causeIdentity": "error-category-permission"
+            "causeIdentity": "error-category-permission",
+            "requestId": "request-telemetry",
+            "traceId": "trace-telemetry"
           }
         },
         "nativeHook": {
@@ -2672,6 +2827,15 @@
             }
           }
         ]
+      },
+      "initialSnapshot": {
+        "status": "cold",
+        "source": "none",
+        "registryRevision": null,
+        "skillCount": 0,
+        "aggregateByteLength": 0,
+        "lastAttemptAt": null,
+        "refreshDue": false
       }
     },
     {
@@ -2698,7 +2862,9 @@
             "projection": 1,
             "bundle": 0,
             "cached": 0,
-            "network": 1
+            "network": 1,
+            "get": 1,
+            "getCached": 0
           },
           "routing": {
             "readiness": 1,
@@ -2723,7 +2889,9 @@
             "category": "auth",
             "retryable": false,
             "httpStatus": 401,
-            "causeIdentity": "http-401"
+            "causeIdentity": "http-401",
+            "requestId": "request-telemetry",
+            "traceId": "trace-telemetry"
           }
         },
         "readiness": {
@@ -2732,7 +2900,9 @@
             "category": "auth",
             "retryable": false,
             "httpStatus": 401,
-            "causeIdentity": "http-401"
+            "causeIdentity": "http-401",
+            "requestId": "request-telemetry",
+            "traceId": "trace-telemetry"
           }
         },
         "nativeHook": {
@@ -2772,6 +2942,15 @@
             }
           }
         ]
+      },
+      "initialSnapshot": {
+        "status": "cold",
+        "source": "none",
+        "registryRevision": null,
+        "skillCount": 0,
+        "aggregateByteLength": 0,
+        "lastAttemptAt": null,
+        "refreshDue": false
       }
     },
     {
@@ -2798,7 +2977,9 @@
             "projection": 1,
             "bundle": 0,
             "cached": 0,
-            "network": 1
+            "network": 1,
+            "get": 1,
+            "getCached": 0
           },
           "routing": {
             "readiness": 1,
@@ -2823,7 +3004,9 @@
             "category": "permission",
             "retryable": false,
             "httpStatus": 403,
-            "causeIdentity": "http-403"
+            "causeIdentity": "http-403",
+            "requestId": "request-telemetry",
+            "traceId": "trace-telemetry"
           }
         },
         "readiness": {
@@ -2832,7 +3015,9 @@
             "category": "permission",
             "retryable": false,
             "httpStatus": 403,
-            "causeIdentity": "http-403"
+            "causeIdentity": "http-403",
+            "requestId": "request-telemetry",
+            "traceId": "trace-telemetry"
           }
         },
         "nativeHook": {
@@ -2872,6 +3057,15 @@
             }
           }
         ]
+      },
+      "initialSnapshot": {
+        "status": "cold",
+        "source": "none",
+        "registryRevision": null,
+        "skillCount": 0,
+        "aggregateByteLength": 0,
+        "lastAttemptAt": null,
+        "refreshDue": false
       }
     },
     {
@@ -2898,7 +3092,9 @@
             "projection": 1,
             "bundle": 0,
             "cached": 0,
-            "network": 1
+            "network": 1,
+            "get": 1,
+            "getCached": 0
           },
           "routing": {
             "readiness": 1,
@@ -2923,7 +3119,9 @@
             "category": "not_found",
             "retryable": false,
             "httpStatus": 404,
-            "causeIdentity": "http-404"
+            "causeIdentity": "http-404",
+            "requestId": "request-telemetry",
+            "traceId": "trace-telemetry"
           }
         },
         "readiness": {
@@ -2932,7 +3130,9 @@
             "category": "not_found",
             "retryable": false,
             "httpStatus": 404,
-            "causeIdentity": "http-404"
+            "causeIdentity": "http-404",
+            "requestId": "request-telemetry",
+            "traceId": "trace-telemetry"
           }
         },
         "nativeHook": {
@@ -2972,6 +3172,15 @@
             }
           }
         ]
+      },
+      "initialSnapshot": {
+        "status": "cold",
+        "source": "none",
+        "registryRevision": null,
+        "skillCount": 0,
+        "aggregateByteLength": 0,
+        "lastAttemptAt": null,
+        "refreshDue": false
       }
     },
     {
@@ -2998,7 +3207,9 @@
             "projection": 1,
             "bundle": 0,
             "cached": 0,
-            "network": 1
+            "network": 1,
+            "get": 1,
+            "getCached": 0
           },
           "routing": {
             "readiness": 1,
@@ -3023,7 +3234,9 @@
             "category": "permission",
             "retryable": false,
             "httpStatus": 410,
-            "causeIdentity": "http-410"
+            "causeIdentity": "http-410",
+            "requestId": "request-telemetry",
+            "traceId": "trace-telemetry"
           }
         },
         "readiness": {
@@ -3032,7 +3245,9 @@
             "category": "permission",
             "retryable": false,
             "httpStatus": 410,
-            "causeIdentity": "http-410"
+            "causeIdentity": "http-410",
+            "requestId": "request-telemetry",
+            "traceId": "trace-telemetry"
           }
         },
         "nativeHook": {
@@ -3072,6 +3287,15 @@
             }
           }
         ]
+      },
+      "initialSnapshot": {
+        "status": "cold",
+        "source": "none",
+        "registryRevision": null,
+        "skillCount": 0,
+        "aggregateByteLength": 0,
+        "lastAttemptAt": null,
+        "refreshDue": false
       }
     },
     {
@@ -3097,7 +3321,9 @@
             "projection": 1,
             "bundle": 0,
             "cached": 0,
-            "network": 1
+            "network": 1,
+            "get": 1,
+            "getCached": 0
           },
           "routing": {
             "readiness": 1,
@@ -3122,7 +3348,9 @@
             "category": "conflict",
             "retryable": false,
             "httpStatus": 409,
-            "causeIdentity": "container-archived"
+            "causeIdentity": "container-archived",
+            "requestId": "request-telemetry",
+            "traceId": "trace-telemetry"
           }
         },
         "readiness": {
@@ -3131,7 +3359,9 @@
             "category": "conflict",
             "retryable": false,
             "httpStatus": 409,
-            "causeIdentity": "container-archived"
+            "causeIdentity": "container-archived",
+            "requestId": "request-telemetry",
+            "traceId": "trace-telemetry"
           }
         },
         "nativeHook": {
@@ -3171,6 +3401,15 @@
             }
           }
         ]
+      },
+      "initialSnapshot": {
+        "status": "cold",
+        "source": "none",
+        "registryRevision": null,
+        "skillCount": 0,
+        "aggregateByteLength": 0,
+        "lastAttemptAt": null,
+        "refreshDue": false
       }
     },
     {
@@ -3196,7 +3435,9 @@
             "projection": 1,
             "bundle": 0,
             "cached": 0,
-            "network": 1
+            "network": 1,
+            "get": 1,
+            "getCached": 0
           },
           "routing": {
             "readiness": 1,
@@ -3221,7 +3462,9 @@
             "category": "permission",
             "retryable": false,
             "httpStatus": 403,
-            "causeIdentity": "project-mismatch"
+            "causeIdentity": "project-mismatch",
+            "requestId": "request-telemetry",
+            "traceId": "trace-telemetry"
           }
         },
         "readiness": {
@@ -3230,7 +3473,9 @@
             "category": "permission",
             "retryable": false,
             "httpStatus": 403,
-            "causeIdentity": "project-mismatch"
+            "causeIdentity": "project-mismatch",
+            "requestId": "request-telemetry",
+            "traceId": "trace-telemetry"
           }
         },
         "nativeHook": {
@@ -3270,6 +3515,15 @@
             }
           }
         ]
+      },
+      "initialSnapshot": {
+        "status": "cold",
+        "source": "none",
+        "registryRevision": null,
+        "skillCount": 0,
+        "aggregateByteLength": 0,
+        "lastAttemptAt": null,
+        "refreshDue": false
       }
     },
     {
@@ -3295,7 +3549,9 @@
             "projection": 1,
             "bundle": 0,
             "cached": 0,
-            "network": 1
+            "network": 1,
+            "get": 1,
+            "getCached": 0
           },
           "routing": {
             "readiness": 1,
@@ -3320,7 +3576,9 @@
             "category": "not_found",
             "retryable": false,
             "httpStatus": 404,
-            "causeIdentity": "container-not-found"
+            "causeIdentity": "container-not-found",
+            "requestId": "request-telemetry",
+            "traceId": "trace-telemetry"
           }
         },
         "readiness": {
@@ -3329,7 +3587,9 @@
             "category": "not_found",
             "retryable": false,
             "httpStatus": 404,
-            "causeIdentity": "container-not-found"
+            "causeIdentity": "container-not-found",
+            "requestId": "request-telemetry",
+            "traceId": "trace-telemetry"
           }
         },
         "nativeHook": {
@@ -3369,6 +3629,15 @@
             }
           }
         ]
+      },
+      "initialSnapshot": {
+        "status": "cold",
+        "source": "none",
+        "registryRevision": null,
+        "skillCount": 0,
+        "aggregateByteLength": 0,
+        "lastAttemptAt": null,
+        "refreshDue": false
       }
     },
     {
@@ -3394,7 +3663,9 @@
             "projection": 1,
             "bundle": 0,
             "cached": 0,
-            "network": 1
+            "network": 1,
+            "get": 1,
+            "getCached": 0
           },
           "routing": {
             "readiness": 1,
@@ -3419,7 +3690,9 @@
             "category": "internal",
             "retryable": false,
             "httpStatus": 500,
-            "causeIdentity": "registry-unrecoverable"
+            "causeIdentity": "registry-unrecoverable",
+            "requestId": "request-telemetry",
+            "traceId": "trace-telemetry"
           }
         },
         "readiness": {
@@ -3428,7 +3701,9 @@
             "category": "internal",
             "retryable": false,
             "httpStatus": 500,
-            "causeIdentity": "registry-unrecoverable"
+            "causeIdentity": "registry-unrecoverable",
+            "requestId": "request-telemetry",
+            "traceId": "trace-telemetry"
           }
         },
         "nativeHook": {
@@ -3468,6 +3743,15 @@
             }
           }
         ]
+      },
+      "initialSnapshot": {
+        "status": "cold",
+        "source": "none",
+        "registryRevision": null,
+        "skillCount": 0,
+        "aggregateByteLength": 0,
+        "lastAttemptAt": null,
+        "refreshDue": false
       }
     }
   ]
