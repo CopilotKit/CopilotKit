@@ -25,6 +25,7 @@ import type { AbstractAgent } from "@ag-ui/client";
 import type {
   ChannelAgentBinding,
   ChannelConcurrencyPolicy,
+  ChannelRuntimeInternals,
 } from "./channel-agent.js";
 import type {
   InteractionContext,
@@ -320,6 +321,13 @@ export interface Channel<TState = unknown> {
   stop(): Promise<void>;
   /** Cross-platform transcript store. Append, list, and delete entries per user. */
   transcripts: Transcripts;
+  /**
+   * @internal
+   * Runtime-only binding surface (see {@link ChannelRuntimeInternals}). Reached
+   * by the Runtime to compile this Channel into a RuntimeChannelBinding.
+   * EXPORTED but UNDOCUMENTED — not part of the public Channel API (A6).
+   */
+  readonly ɵruntime: ChannelRuntimeInternals;
 }
 
 /** Build the IncomingMessage object from an IncomingTurn (shared by lock-conflict callback and handler path). */
@@ -806,6 +814,16 @@ export function createChannel<
   const channel: Channel<ThreadStateOf<TStateSchema>> = {
     name: opts.name,
     ...(opts.provider !== undefined ? { provider: opts.provider } : {}),
+    // Runtime-only binding surface (A6): the raw declared agent binding +
+    // concurrency policy, read by the Runtime to compile this Channel into a
+    // RuntimeChannelBinding. Omit each key when undeclared so the seam mirrors
+    // the caller's declaration exactly (undefined binding = default agent).
+    ɵruntime: {
+      ...(opts.agent !== undefined ? { agentBinding: opts.agent } : {}),
+      ...(opts.concurrency !== undefined
+        ? { concurrency: opts.concurrency }
+        : {}),
+    },
     get adapters() {
       // Defensive read-only copy: mutating the returned array must not affect
       // the Channel's private adapter list.

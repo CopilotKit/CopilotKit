@@ -36,6 +36,7 @@ export type {
   ChannelConcurrencyDecision,
   ChannelConcurrencyPolicy,
   ChannelConcurrencyContext,
+  ChannelRuntimeInternals,
 } from "./channel-agent.js";
 
 // Platform adapter boundary

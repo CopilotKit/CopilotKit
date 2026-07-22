@@ -126,3 +126,23 @@ export interface ChannelConcurrencyContext {
   readonly conversationKey: string;
   readonly turnId: string;
 }
+
+/**
+ * @internal
+ * The Runtime-only surface a {@link Channel} exposes so the Runtime can compile
+ * it into a Runtime-executable binding (Task 8). Reached through the
+ * `ɵ`-prefixed `Channel.ɵruntime` member; it is EXPORTED but UNDOCUMENTED — not
+ * part of the public Channel API (review assumption A6). Additive today; the
+ * relocated direct-adapter lifecycle (`start`/`stop`/`addAdapter`) moves here in
+ * the Task 3 rewire.
+ */
+export interface ChannelRuntimeInternals {
+  /**
+   * The Channel's declared four-mode agent binding, verbatim (inline agent /
+   * named / router / omitted). The Runtime resolves named/routed/default
+   * bindings against its agent registry; `undefined` means the default agent.
+   */
+  readonly agentBinding?: ChannelAgentBinding;
+  /** The Channel's declared per-conversation concurrency policy, if any. */
+  readonly concurrency?: ChannelConcurrencyPolicy;
+}
