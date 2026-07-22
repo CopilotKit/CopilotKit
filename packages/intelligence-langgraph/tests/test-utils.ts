@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { skillSetProjectionV1Schema } from "@copilotkit/intelligence";
@@ -8,6 +8,8 @@ import type {
 } from "@copilotkit/intelligence";
 import { vi } from "vitest";
 import sdkCorpus from "../../intelligence/conformance/registry-sdk-v1.json" with { type: "json" };
+
+const installedSkillSetRoots = new Set<string>();
 
 export interface Deferred<T> {
   readonly promise: Promise<T>;
@@ -43,6 +45,7 @@ export async function installedSkillSet(
   const root = await mkdtemp(
     join(tmpdir(), "copilotkit-intelligence-langgraph-"),
   );
+  installedSkillSetRoots.add(root);
   const text = options.text ?? "# Skill\n";
   const count = options.revoked ? 0 : (options.count ?? 1);
   const baseProjection = skillSetProjectionV1Schema.parse(sdkCorpus.projection);
@@ -96,6 +99,13 @@ export async function installedSkillSet(
     skills,
     projection,
   };
+}
+
+export async function cleanupInstalledSkillSets(): Promise<void> {
+  for (const root of installedSkillSetRoots) {
+    await rm(root, { recursive: true, force: true });
+    installedSkillSetRoots.delete(root);
+  }
 }
 
 export function testClient(get: () => Promise<InstalledSkillSet>) {

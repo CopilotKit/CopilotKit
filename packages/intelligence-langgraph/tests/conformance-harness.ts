@@ -4,8 +4,16 @@ import type { SkillRegistryTelemetryEvent } from "../src/registry-state.js";
 
 export type CorpusCase = (typeof corpus.cases)[number];
 type CorpusTelemetryRecord = CorpusCase["expected"]["telemetryRecords"][number];
+type CorpusExpectedWithSingleflight = Extract<
+  CorpusCase["expected"],
+  { readonly singleflight: unknown }
+>;
+type CorpusSingleflight = CorpusExpectedWithSingleflight["singleflight"];
 type ObservedTelemetryMetadata = Readonly<
-  Omit<SkillRegistryTelemetryEvent["metadata"], "framework"> & {
+  Omit<
+    SkillRegistryTelemetryEvent["metadata"],
+    "framework" | "adapterVersion" | "refreshLatencyMs"
+  > & {
     readonly framework: "fixture";
   }
 >;
@@ -32,13 +40,17 @@ export interface ConformanceTelemetryRecord {
 
 export interface ConformanceObservation {
   readonly operations: readonly ConformanceOperation[];
-  readonly calls: CorpusCase["expected"]["calls"];
+  readonly calls: Readonly<{
+    client: Readonly<{ get: number; getCached: number }>;
+    routing: CorpusCase["expected"]["calls"]["routing"];
+  }>;
   readonly statusTransitions: readonly ConformanceTransition[];
   readonly genericSdk: unknown;
   readonly readiness: unknown;
   readonly nativeHook: CorpusCase["expected"]["nativeHook"];
   readonly telemetryRecords: readonly ConformanceTelemetryRecord[];
   readonly renderedRecords: readonly unknown[];
+  readonly singleflight?: CorpusSingleflight;
 }
 
 export function assertConformanceObservation(
@@ -46,7 +58,17 @@ export function assertConformanceObservation(
   actual: ConformanceObservation,
 ): void {
   assert.deepStrictEqual(actual.operations, case_.operations, "operations");
-  assert.deepStrictEqual(actual.calls, case_.expected.calls, "calls");
+  assert.deepStrictEqual(
+    actual.calls,
+    {
+      client: {
+        get: case_.expected.calls.client.get,
+        getCached: case_.expected.calls.client.getCached,
+      },
+      routing: case_.expected.calls.routing,
+    },
+    "actual SDK and routing calls",
+  );
   assert.deepStrictEqual(
     actual.statusTransitions,
     case_.expected.statusTransitions,
@@ -76,5 +98,10 @@ export function assertConformanceObservation(
     actual.renderedRecords,
     case_.expected.renderedRecords,
     "rendered records",
+  );
+  assert.deepStrictEqual(
+    actual.singleflight,
+    "singleflight" in case_.expected ? case_.expected.singleflight : undefined,
+    "single-flight identities",
   );
 }

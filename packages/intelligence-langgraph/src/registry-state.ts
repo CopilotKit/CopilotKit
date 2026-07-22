@@ -6,6 +6,7 @@ import type {
 } from "@copilotkit/intelligence";
 
 const FRAMEWORK = "langgraph-typescript";
+const ADAPTER_VERSION = "0.1.0";
 const DEFAULT_REFRESH_INTERVAL_MS = 30_000;
 const DEFAULT_MAXIMUM_SKILLS = 128;
 const DEFAULT_MAXIMUM_INSTRUCTION_BYTES = 262_144;
@@ -55,6 +56,7 @@ export interface SkillRegistryTelemetryEvent {
   readonly atMs: number;
   readonly metadata: Readonly<{
     framework: typeof FRAMEWORK;
+    adapterVersion: typeof ADAPTER_VERSION;
     source?: "load" | "preload" | "refresh";
     freshness?: "fresh" | "cached";
     status?: AdapterStatus;
@@ -74,6 +76,7 @@ export interface SkillRegistryTelemetryEvent {
     retryable?: boolean;
     requestId?: string;
     traceId?: string;
+    refreshLatencyMs?: number;
   }>;
 }
 
@@ -246,7 +249,6 @@ export class RegistryState {
   private inFlight: Promise<AdapterSnapshot> | null = null;
   private joinedCallers = 0;
   private joinedTelemetryChain: Promise<void> = Promise.resolve();
-  private readonly telemetryFailures = new WeakSet<Error>();
   private readonly closedFailure = adapterError(
     "Registry adapter is closed",
     "LEARNING_REGISTRY_CLOSED",
@@ -378,16 +380,16 @@ export class RegistryState {
           ),
         );
       }, options.timeoutMs);
-      const resolve = waiter.resolve;
-      const reject = waiter.reject;
+      const resolveWaiter = waiter.resolve;
+      const rejectWaiter = waiter.reject;
       Object.assign(waiter, {
         resolve: (snapshot: AdapterSnapshot) => {
           clearTimeout(timeout);
-          resolve(snapshot);
+          resolveWaiter(snapshot);
         },
         reject: (error: Error) => {
           clearTimeout(timeout);
-          reject(error);
+          rejectWaiter(error);
         },
       });
     });
@@ -488,75 +490,53 @@ export class RegistryState {
         freshness: installed.freshness,
         skillCount: renderedSkills.length,
         registryRevision: installed.projection.registryRevision,
+        refreshLatencyMs: completedAt - startedAt,
       });
       await this.drainJoinedTelemetry();
       this.settleWaiters(next);
       return next;
     } catch (error) {
       if (this.current.status === "closed") throw this.closedError();
-      if (!(error instanceof Error)) throw error;
-      if (!this.isTelemetryFailure(error)) {
-        const canonical = canonicalError(error);
-        const denied = isPermanentDenial(canonical);
-        const surfaced = denied
-          ? canonical
-          : new AdapterError({
-              message: "Registry refresh failed; stale skills are unavailable",
-              code: "LEARNING_REGISTRY_STALE",
-              category:
-                canonical.code === "LEARNING_BLOB_INTEGRITY_FAILURE"
-                  ? "integrity"
-                  : "availability",
-              retryable: canonical.retryable,
-              requestId: canonical.requestId,
-              traceId: canonical.traceId,
-              status: canonical.status,
-              causeIdentity: canonical.causeIdentity,
-              cause: canonical,
-            });
-        const next = immutableSnapshot({
-          ...this.current,
-          status: denied ? "denied" : "stale",
-          source: this.current.installedSkillSet ? this.current.source : "none",
-          error: surfaced,
-          installedSkillSet: denied ? null : this.current.installedSkillSet,
-          renderedSkills: denied ? [] : this.current.renderedSkills,
-          prompt: denied ? "" : this.current.prompt,
-        });
-        await this.swap(next);
-        await this.emit("load.failed", this.errorMetadata(surfaced));
-        throw error;
-      }
-      const telemetryError = new AdapterError({
-        message: "Registry telemetry sink failed",
-        code: "LEARNING_TELEMETRY_SINK_FAILED",
-        category: "internal",
-        retryable: false,
-        causeIdentity: error.message,
-        cause: error,
-      });
+      if (this.isTelemetryFailure(error)) return this.failTelemetry(error);
+
+      const canonical = canonicalError(error);
+      const denied = isPermanentDenial(canonical);
+      const surfaced = denied
+        ? canonical
+        : new AdapterError({
+            message: "Registry refresh failed; stale skills are unavailable",
+            code: "LEARNING_REGISTRY_STALE",
+            category:
+              canonical.code === "LEARNING_BLOB_INTEGRITY_FAILURE"
+                ? "integrity"
+                : "availability",
+            retryable: canonical.retryable,
+            requestId: canonical.requestId,
+            traceId: canonical.traceId,
+            status: canonical.status,
+            causeIdentity: canonical.causeIdentity,
+            cause: canonical,
+          });
       const next = immutableSnapshot({
         ...this.current,
-        status: "denied",
-        source: "none",
-        installedSkillSet: null,
-        renderedSkills: [],
-        prompt: "",
-        error: telemetryError,
+        status: denied ? "denied" : "stale",
+        source: this.current.installedSkillSet ? this.current.source : "none",
+        error: surfaced,
+        installedSkillSet: denied ? null : this.current.installedSkillSet,
+        renderedSkills: denied ? [] : this.current.renderedSkills,
+        prompt: denied ? "" : this.current.prompt,
       });
       try {
         await this.swap(next, false);
-      } catch {
-        // The initiating sink failure is surfaced below even if the broken sink
-        // also rejects the terminal status notification.
-      }
-      try {
-        await this.emit("load.failed", this.errorMetadata(telemetryError));
-      } catch {
-        // Preserve the single canonical failure shared by every joined caller.
+        await this.emit("load.failed", this.errorMetadata(surfaced));
+      } catch (terminalError) {
+        if (this.isTelemetryFailure(terminalError)) {
+          return this.failTelemetry(terminalError);
+        }
+        throw terminalError;
       }
       this.settleWaiters(next);
-      throw telemetryError;
+      throw error;
     }
   }
 
@@ -684,10 +664,13 @@ export class RegistryState {
   ): Promise<void> {
     const previous = this.current.status;
     this.current = next;
-    if (previous !== next.status) {
-      await this.emit("status.changed", { status: next.status });
+    try {
+      if (previous !== next.status) {
+        await this.emit("status.changed", { status: next.status });
+      }
+    } finally {
+      if (settleWaiters) this.settleWaiters(next);
     }
-    if (settleWaiters) this.settleWaiters(next);
   }
 
   private settleWaiters(next: AdapterSnapshot): void {
@@ -720,15 +703,48 @@ export class RegistryState {
     return this.closedFailure;
   }
 
-  private isTelemetryFailure(error: Error): boolean {
-    return this.telemetryFailures.has(error);
+  private isTelemetryFailure(error: unknown): error is AdapterError {
+    return (
+      error instanceof AdapterError &&
+      error.code === "LEARNING_TELEMETRY_SINK_FAILED"
+    );
+  }
+
+  private async failTelemetry(error: AdapterError): Promise<never> {
+    const next = immutableSnapshot({
+      ...this.current,
+      status: "denied",
+      source: "none",
+      installedSkillSet: null,
+      renderedSkills: [],
+      prompt: "",
+      error,
+    });
+    try {
+      try {
+        await this.swap(next, false);
+      } catch {
+        // Preserve the initiating canonical failure if the terminal status
+        // notification also rejects.
+      }
+      try {
+        await this.emit("load.failed", this.errorMetadata(error));
+      } catch {
+        // Preserve one error identity for every caller of this load.
+      }
+    } finally {
+      this.settleWaiters(next);
+    }
+    throw error;
   }
 
   private errorMetadata(
     error: CanonicalError,
-  ): SkillRegistryTelemetryEvent["metadata"] {
+  ): Omit<
+    SkillRegistryTelemetryEvent["metadata"],
+    "framework" | "adapterVersion"
+  > {
     return {
-      framework: FRAMEWORK,
       outcome: "failure",
       reason:
         this.current.status === "stale"
@@ -750,7 +766,10 @@ export class RegistryState {
 
   private async emit(
     name: SkillRegistryTelemetryEvent["name"],
-    metadata: Omit<SkillRegistryTelemetryEvent["metadata"], "framework">,
+    metadata: Omit<
+      SkillRegistryTelemetryEvent["metadata"],
+      "framework" | "adapterVersion"
+    >,
   ): Promise<void> {
     if (!this.options.telemetry) return;
     try {
@@ -760,13 +779,20 @@ export class RegistryState {
           atMs: this.options.clock(),
           metadata: Object.freeze({
             framework: FRAMEWORK,
+            adapterVersion: ADAPTER_VERSION,
             ...metadata,
           }),
         }),
       );
     } catch (error) {
-      if (error instanceof Error) this.telemetryFailures.add(error);
-      throw error;
+      throw new AdapterError({
+        message: "Registry telemetry sink failed",
+        code: "LEARNING_TELEMETRY_SINK_FAILED",
+        category: "internal",
+        retryable: false,
+        causeIdentity: error instanceof Error ? error.message : String(error),
+        cause: error,
+      });
     }
   }
 }

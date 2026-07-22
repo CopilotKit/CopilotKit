@@ -1,7 +1,7 @@
 import type { InstalledSkillSet } from "@copilotkit/intelligence";
 import { AIMessage, SystemMessage, fakeModel } from "langchain";
 import type { ModelRequest } from "langchain";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import corpus from "../../intelligence/conformance/registry-adapters-v1.json" with { type: "json" };
 import { createSkillRegistryMiddleware } from "./index.js";
 import type {
@@ -10,6 +10,7 @@ import type {
 } from "./middleware.js";
 import {
   TestCanonicalError,
+  cleanupInstalledSkillSets,
   deferred,
   installedSkillSet,
   testClient,
@@ -270,8 +271,15 @@ function resultForOperations(case_: CorpusCase): Promise<InstalledSkillSet> {
 
 function telemetryObservation(events: readonly SkillRegistryTelemetryEvent[]) {
   return events.map((event) => {
-    const { framework, ...metadata } = event.metadata;
+    const { framework, adapterVersion, refreshLatencyMs, ...metadata } =
+      event.metadata;
     expect(framework).toBe("langgraph-typescript");
+    expect(adapterVersion).toBe("0.1.0");
+    if (event.name === "load.succeeded") {
+      expect(refreshLatencyMs).toEqual(expect.any(Number));
+    } else {
+      expect(refreshLatencyMs).toBeUndefined();
+    }
     return {
       name: event.name,
       atMs: event.atMs,
@@ -383,6 +391,9 @@ async function executeCase(case_: CorpusCase): Promise<void> {
   let readinessPending: Promise<typeof middleware.snapshot> | undefined;
   let readinessObservationPending: Promise<void> | undefined;
   const activeLoads: Promise<typeof middleware.snapshot>[] = [];
+  const activeLoadNames: string[] = [];
+  let activeLoadResults: PromiseSettledResult<typeof middleware.snapshot>[] =
+    [];
 
   const recordTransition = (atMs: number, before: AdapterStatus) => {
     const after = middleware.status;
@@ -397,6 +408,13 @@ async function executeCase(case_: CorpusCase): Promise<void> {
     const before = middleware.status;
     const promise = load();
     activeLoads.push(promise);
+    activeLoadNames.push(
+      operation.kind === "load-caller-a"
+        ? "caller-a"
+        : operation.kind === "load-caller-b"
+          ? "caller-b"
+          : operation.kind,
+    );
     recordTransition(operation.atMs, before);
     return promise;
   };
@@ -411,8 +429,8 @@ async function executeCase(case_: CorpusCase): Promise<void> {
   };
 
   const observeActiveLoads = async (atMs: number) => {
-    const results = await Promise.allSettled(new Set(activeLoads));
-    const rejection = results.find(
+    activeLoadResults = await Promise.allSettled(activeLoads);
+    const rejection = activeLoadResults.find(
       (result): result is PromiseRejectedResult => result.status === "rejected",
     );
     if (rejection) thrown = rejection.reason;
@@ -591,6 +609,31 @@ async function executeCase(case_: CorpusCase): Promise<void> {
     runtime: {},
   };
   const handler = vi.fn(async () => new AIMessage("done"));
+  const observedCalls = {
+    client: {
+      get: client.skills.get.mock.calls.length,
+      getCached: client.skills.getCached.mock.calls.length,
+    },
+    routing: { readiness: 1 as const, nativeHook: 1 as const },
+  };
+  const observedTelemetry = telemetryObservation(events);
+  const observedTransitions = [...transitions];
+  const observedRenderedRecords =
+    middleware.status === "stale" && !attemptedLoad
+      ? []
+      : [...middleware.snapshot.renderedSkills];
+  recordTelemetry = false;
+  if (middleware.status === "cold") {
+    responseFactory = () =>
+      Promise.reject(
+        new TestCanonicalError({
+          code: "INTELLIGENCE_ADAPTER_TRANSIENT_FAILURE",
+          category: "availability",
+          retryable: true,
+          causeIdentity: "native-hook-cold-proof",
+        }),
+      );
+  }
   let nativeHook: ConformanceObservation["nativeHook"];
   try {
     await middleware.wrapModelCall(request, handler);
@@ -599,47 +642,76 @@ async function executeCase(case_: CorpusCase): Promise<void> {
     nativeHook = { proceed: false };
   }
 
-  const projection = case_.operations.filter(
-    ({ kind }) =>
-      kind === "projection-request" ||
-      kind === "conditional-projection-request" ||
-      kind === "registry-request",
-  ).length;
-  const bundle = case_.operations.filter(
-    ({ kind }) => kind === "bundle-request",
-  ).length;
-  const cached = case_.operations.filter(
-    ({ kind }) => kind === "cache-read" || kind === "cached-preload",
-  ).length;
+  let singleflight: ConformanceObservation["singleflight"];
+  if ("singleflight" in case_.expected) {
+    const firstCaller = activeLoadNames.indexOf("caller-a");
+    const secondCaller = activeLoadNames.indexOf("caller-b");
+    const firstResult = activeLoadResults[firstCaller];
+    const secondResult = activeLoadResults[secondCaller];
+    if (
+      firstResult?.status !== "rejected" ||
+      secondResult?.status !== "rejected" ||
+      !isCanonicalError(firstResult.reason) ||
+      !isCanonicalError(secondResult.reason)
+    ) {
+      throw new Error("Single-flight callers must reject canonically");
+    }
+    expect(firstResult.reason).toBe(secondResult.reason);
+    expect(firstResult.reason.cause).toBe(sinkFailure);
+    expect(secondResult.reason.cause).toBe(sinkFailure);
+    const barrier = case_.operations.find(
+      (operation) =>
+        operation.kind === "load-caller-a" && "barrier" in operation,
+    );
+    if (
+      !barrier ||
+      !("barrier" in barrier) ||
+      typeof barrier.barrier !== "string"
+    ) {
+      throw new Error("Single-flight case must declare its barrier");
+    }
+    singleflight = {
+      barrier: barrier.barrier,
+      registryCalls: client.skills.get.mock.calls.length,
+      sinkExceptionIdentity: sinkFailure.message,
+      callers: [
+        {
+          name: "caller-a",
+          rejectionIdentity: firstResult.reason.causeIdentity ?? "",
+          causeIdentity:
+            firstResult.reason.cause === sinkFailure ? sinkFailure.message : "",
+        },
+        {
+          name: "caller-b",
+          rejectionIdentity: secondResult.reason.causeIdentity ?? "",
+          causeIdentity:
+            secondResult.reason.cause === sinkFailure
+              ? sinkFailure.message
+              : "",
+        },
+      ],
+    };
+  }
 
   assertConformanceObservation(case_, {
     operations,
-    calls: {
-      client: {
-        projection,
-        bundle,
-        cached,
-        network: projection + bundle,
-        get: client.skills.get.mock.calls.length,
-        getCached: client.skills.getCached.mock.calls.length,
-      },
-      routing: { readiness: 1, nativeHook: 1 },
-    },
-    statusTransitions: transitions,
+    calls: observedCalls,
+    statusTransitions: observedTransitions,
     genericSdk,
     readiness,
     nativeHook,
-    telemetryRecords: telemetryObservation(events),
-    renderedRecords:
-      middleware.status === "stale" && !attemptedLoad
-        ? []
-        : middleware.snapshot.renderedSkills,
+    telemetryRecords: observedTelemetry,
+    renderedRecords: observedRenderedRecords,
+    ...(singleflight ? { singleflight } : {}),
   });
 }
 
-afterEach(() => {
+afterEach(async () => {
   vi.useRealTimers();
+  await cleanupInstalledSkillSets();
 });
+
+afterAll(cleanupInstalledSkillSets);
 
 describe.each(corpus.cases)("adapter conformance: $name", (case_) => {
   it("executes every declared operation and exact observable contract", async () => {
@@ -658,7 +730,13 @@ describe("conformance harness mutation guards", () => {
   const case_ = corpus.cases[0]!;
   const observation: ConformanceObservation = {
     operations: case_.operations,
-    calls: case_.expected.calls,
+    calls: {
+      client: {
+        get: case_.expected.calls.client.get,
+        getCached: case_.expected.calls.client.getCached,
+      },
+      routing: case_.expected.calls.routing,
+    },
     statusTransitions: case_.expected.statusTransitions,
     genericSdk: case_.expected.genericSdk,
     readiness: case_.expected.readiness,
@@ -681,7 +759,10 @@ describe("conformance harness mutation guards", () => {
         ...actual,
         calls: {
           ...observation.calls,
-          client: { ...observation.calls.client, get: 0 },
+          client: {
+            ...observation.calls.client,
+            get: observation.calls.client.get + 1,
+          },
         },
       }),
     ],

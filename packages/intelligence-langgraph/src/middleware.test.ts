@@ -1,49 +1,117 @@
+import { access } from "node:fs/promises";
 import { IntelligenceSdkError } from "@copilotkit/intelligence";
 import type { InstalledSkillSet } from "@copilotkit/intelligence";
 import { AIMessage, SystemMessage, fakeModel } from "langchain";
 import type { ModelRequest, WrapModelCallHandler } from "langchain";
-import { describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { createSkillRegistryMiddleware } from "./index.js";
+import type { SkillRegistryTelemetryEvent } from "./middleware.js";
 import {
   deferred,
+  cleanupInstalledSkillSets,
   installedSkillSet,
   testClient,
 } from "../tests/test-utils.js";
 
+const CONTAINER_ID = "55555555-5555-4555-8555-555555555555";
+
+function modelRequest(): ModelRequest {
+  return {
+    systemMessage: new SystemMessage("base"),
+    systemPrompt: "base",
+    messages: [],
+    state: { messages: [] },
+    model: fakeModel(),
+    tools: [],
+    runtime: {},
+    modelSettings: { temperature: 0 },
+  };
+}
+
+afterEach(async () => {
+  vi.useRealTimers();
+  await cleanupInstalledSkillSets();
+});
+
+afterAll(cleanupInstalledSkillSets);
+
 describe("createSkillRegistryMiddleware", () => {
-  it("uses the loaded snapshot in the native model hook", async () => {
-    const registryClient = testClient(() => installedSkillSet());
+  it("recursively removes installed skill fixtures", async () => {
+    const fixture = await installedSkillSet();
+
+    await cleanupInstalledSkillSets();
+
+    await expect(access(fixture.directory)).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+  });
+
+  it("blocks a cold native model hook until loading completes", async () => {
+    const pending = deferred<InstalledSkillSet>();
+    const registryClient = testClient(() => pending.promise);
     const middleware = createSkillRegistryMiddleware({
       client: registryClient,
-      learningContainerId: "55555555-5555-4555-8555-555555555555",
+      learningContainerId: CONTAINER_ID,
     });
     let forwarded: Parameters<WrapModelCallHandler>[0] | undefined;
     const handler: WrapModelCallHandler = vi.fn(async (request) => {
       forwarded = request;
       return new AIMessage("done");
     });
-    const request: ModelRequest = {
-      systemMessage: new SystemMessage("base"),
-      systemPrompt: "base",
-      messages: [],
-      state: { messages: [] },
-      model: fakeModel(),
-      tools: [],
-      runtime: {},
-      modelSettings: { temperature: 0 },
-    };
+    const request = modelRequest();
 
-    await middleware.preload();
-    registryClient.skills.get.mockClear();
-    await middleware.wrapModelCall(request, handler);
+    const call = middleware.wrapModelCall(request, handler);
+    await Promise.resolve();
+    expect(registryClient.skills.get).toHaveBeenCalledOnce();
+    expect(handler).not.toHaveBeenCalled();
+
+    pending.resolve(await installedSkillSet());
+    await call;
     expect(handler).toHaveBeenCalledOnce();
-    expect(registryClient.skills.get).not.toHaveBeenCalled();
     expect(forwarded).toMatchObject({
       state: request.state,
       tools: request.tools,
       modelSettings: request.modelSettings,
     });
     expect(forwarded?.systemMessage?.content).toContain("# Skill");
+  });
+
+  it("refreshes a ready native model hook and refuses stale skills", async () => {
+    let now = 0;
+    const failure = new IntelligenceSdkError({
+      message: "refresh unavailable",
+      code: "LEARNING_SDK_CACHE_CORRUPT",
+      category: "dependency",
+      retryable: true,
+    });
+    const response = vi
+      .fn<() => Promise<InstalledSkillSet>>()
+      .mockResolvedValueOnce(await installedSkillSet())
+      .mockRejectedValueOnce(failure);
+    const registryClient = testClient(response);
+    const middleware = createSkillRegistryMiddleware({
+      client: registryClient,
+      learningContainerId: CONTAINER_ID,
+      clock: () => now,
+    });
+    await middleware.preload();
+    now = 30_000;
+    const handler: WrapModelCallHandler = vi.fn(async () =>
+      Promise.resolve(new AIMessage("done")),
+    );
+
+    await expect(
+      middleware.wrapModelCall(modelRequest(), handler),
+    ).rejects.toBe(failure);
+    expect(handler).not.toHaveBeenCalled();
+    expect(registryClient.skills.get).toHaveBeenCalledTimes(2);
+    expect(middleware.status).toBe("stale");
+
+    now = 60_000;
+    await expect(
+      middleware.wrapModelCall(modelRequest(), handler),
+    ).rejects.toMatchObject({ code: "LEARNING_REGISTRY_STALE" });
+    expect(registryClient.skills.get).toHaveBeenCalledTimes(2);
   });
 
   it("retries after the failed throttle window", async () => {
@@ -170,6 +238,149 @@ describe("createSkillRegistryMiddleware", () => {
       "status.changed",
       "load.failed",
     ]);
+  });
+
+  it("reports adapter version and refresh latency on telemetry", async () => {
+    let now = 0;
+    const pending = deferred<InstalledSkillSet>();
+    const events: SkillRegistryTelemetryEvent[] = [];
+    const middleware = createSkillRegistryMiddleware({
+      client: testClient(() => pending.promise),
+      learningContainerId: CONTAINER_ID,
+      clock: () => now,
+      telemetry: (event) => {
+        events.push(event);
+      },
+    });
+
+    const load = middleware.load();
+    now = 3;
+    pending.resolve(await installedSkillSet());
+    await load;
+
+    expect(
+      events.every((event) => event.metadata.adapterVersion === "0.1.0"),
+    ).toBe(true);
+    const succeeded = events.find(({ name }) => name === "load.succeeded");
+    expect(succeeded?.metadata.refreshLatencyMs).toBe(3);
+  });
+
+  it("canonicalizes a primitive sink failure for every joined caller and waiter", async () => {
+    vi.useFakeTimers();
+    const pending = deferred<InstalledSkillSet>();
+    const middleware = createSkillRegistryMiddleware({
+      client: testClient(() => pending.promise),
+      learningContainerId: CONTAINER_ID,
+      telemetry: (event) => {
+        if (event.name === "load.succeeded") {
+          return Promise.reject("primitive-sink-1");
+        }
+      },
+    });
+    const readiness = middleware.waitUntilReady({ timeoutMs: 100 });
+    const first = middleware.load();
+    const second = middleware.load();
+    const callers = Promise.allSettled([first, second]);
+    const readinessResult = Promise.allSettled([readiness]);
+
+    pending.resolve(await installedSkillSet());
+    const [firstResult, secondResult] = await callers;
+    await vi.advanceTimersByTimeAsync(100);
+    const [waiterResult] = await readinessResult;
+
+    expect(firstResult.status).toBe("rejected");
+    expect(secondResult.status).toBe("rejected");
+    expect(waiterResult?.status).toBe("rejected");
+    if (
+      firstResult.status !== "rejected" ||
+      secondResult.status !== "rejected" ||
+      waiterResult?.status !== "rejected"
+    ) {
+      throw new Error("Joined callers and readiness waiter must reject");
+    }
+    expect(firstResult.reason).toBe(secondResult.reason);
+    expect(firstResult.reason).toBe(waiterResult.reason);
+    expect(firstResult.reason).toMatchObject({
+      code: "LEARNING_TELEMETRY_SINK_FAILED",
+      category: "internal",
+      retryable: false,
+      cause: "primitive-sink-1",
+      causeIdentity: "primitive-sink-1",
+    });
+  });
+
+  it("settles readiness when client-failure status telemetry rejects", async () => {
+    vi.useFakeTimers();
+    const clientFailure = new IntelligenceSdkError({
+      message: "denied",
+      code: "LEARNING_CONTAINER_NOT_FOUND",
+      category: "not_found",
+      retryable: false,
+      status: 404,
+    });
+    const sinkFailure = new Error("status-sink-1");
+    const middleware = createSkillRegistryMiddleware({
+      client: testClient(() => Promise.reject(clientFailure)),
+      learningContainerId: CONTAINER_ID,
+      telemetry: (event) => {
+        if (event.name === "status.changed") throw sinkFailure;
+      },
+    });
+    const readiness = middleware.waitUntilReady({ timeoutMs: 100 });
+    const [loadResult] = await Promise.allSettled([middleware.load()]);
+    const readinessResult = Promise.allSettled([readiness]);
+    await vi.advanceTimersByTimeAsync(100);
+    const [waiterResult] = await readinessResult;
+
+    expect(loadResult?.status).toBe("rejected");
+    expect(waiterResult?.status).toBe("rejected");
+    if (
+      loadResult?.status !== "rejected" ||
+      waiterResult?.status !== "rejected"
+    ) {
+      throw new Error("Load and readiness waiter must reject");
+    }
+    expect(loadResult.reason).toBe(waiterResult.reason);
+    expect(loadResult.reason).toMatchObject({
+      code: "LEARNING_TELEMETRY_SINK_FAILED",
+      cause: sinkFailure,
+    });
+    expect(middleware.status).toBe("denied");
+  });
+
+  it("settles readiness when close status telemetry rejects", async () => {
+    vi.useFakeTimers();
+    const middleware = createSkillRegistryMiddleware({
+      client: testClient(() => installedSkillSet()),
+      learningContainerId: CONTAINER_ID,
+      telemetry: (event) => {
+        if (event.name === "status.changed") {
+          return Promise.reject("close-sink-1");
+        }
+      },
+    });
+    const readiness = middleware.waitUntilReady({ timeoutMs: 100 });
+    const [closeResult] = await Promise.allSettled([middleware.close()]);
+    const readinessResult = Promise.allSettled([readiness]);
+    await vi.advanceTimersByTimeAsync(100);
+    const [waiterResult] = await readinessResult;
+
+    expect(closeResult?.status).toBe("rejected");
+    expect(waiterResult?.status).toBe("rejected");
+    if (
+      closeResult?.status !== "rejected" ||
+      waiterResult?.status !== "rejected"
+    ) {
+      throw new Error("Close and readiness waiter must reject");
+    }
+    expect(closeResult.reason).toMatchObject({
+      code: "LEARNING_TELEMETRY_SINK_FAILED",
+      cause: "close-sink-1",
+    });
+    expect(waiterResult.reason).toMatchObject({
+      code: "LEARNING_REGISTRY_CLOSED",
+    });
+    expect(middleware.status).toBe("closed");
   });
 
   it("rejects loads created after close", async () => {
