@@ -12,7 +12,9 @@ function mockGitHistory(): void {
     if (command !== "git") throw new Error(`unexpected command: ${command}`);
 
     if (args[0] === "tag") {
-      return { stdout: "v1.62.3\nchannels/v0.1.1\n" };
+      return {
+        stdout: "v1.62.3\nchannels/v0.1.1\nintelligence-langgraph/v0.1.0\n",
+      };
     }
 
     if (args[0] === "log") {
@@ -51,6 +53,21 @@ describe("Channels release history", () => {
         "--no-merges",
         "--format=%H %s",
       ],
+      expect.any(Object),
+    );
+  });
+});
+
+describe("Intelligence LangGraph release history", () => {
+  it("uses intelligence-langgraph/v* as its independent tag boundary", () => {
+    mockGitHistory();
+
+    expect(getLastReleaseTag("intelligence-langgraph")).toBe(
+      "intelligence-langgraph/v0.1.0",
+    );
+    expect(spawnSyncMock).toHaveBeenCalledWith(
+      "git",
+      ["tag", "--list", "intelligence-langgraph/v*", "--sort=-v:refname"],
       expect.any(Object),
     );
   });

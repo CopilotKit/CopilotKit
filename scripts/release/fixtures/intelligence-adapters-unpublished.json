@@ -1,0 +1,9 @@
+{
+  "packages": {
+    "copilotkit-intelligence-adk": { "status": 404 },
+    "copilotkit-intelligence-langgraph": { "status": 404 },
+    "@copilotkit/intelligence-langgraph": { "status": 404 },
+    "copilotkit-intelligence-agent-framework": { "status": 404 },
+    "CopilotKit.Intelligence.AgentFramework": { "status": 404 }
+  }
+}

@@ -22,7 +22,14 @@ on:
       - ".github/workflows/publish-release.yml"
       - ".github/workflows/canary.yml"
       - ".github/workflows/lint-release-workflows.yml"
+      - ".github/workflows/test-intelligence-adapters.yml"
       - "scripts/release/**"
+      - "sdk-python-adk/**"
+      - "sdk-python-langgraph/**"
+      - "packages/intelligence-langgraph/**"
+      - "sdk-python-agent-framework/**"
+      - "sdk-dotnet-agent-framework/**"
+      - "packages/intelligence/conformance/registry-adapters-v1.json"
       - "sdk-dotnet/CopilotKit.Intelligence/CopilotKit.Intelligence.csproj"
       - "sdk-dotnet/project.json"
       - "sdk-dotnet/README.md"
@@ -34,7 +41,14 @@ on:
       - ".github/workflows/publish-release.yml"
       - ".github/workflows/canary.yml"
       - ".github/workflows/lint-release-workflows.yml"
+      - ".github/workflows/test-intelligence-adapters.yml"
       - "scripts/release/**"
+      - "sdk-python-adk/**"
+      - "sdk-python-langgraph/**"
+      - "packages/intelligence-langgraph/**"
+      - "sdk-python-agent-framework/**"
+      - "sdk-dotnet-agent-framework/**"
+      - "packages/intelligence/conformance/registry-adapters-v1.json"
       - "sdk-dotnet/CopilotKit.Intelligence/CopilotKit.Intelligence.csproj"
       - "sdk-dotnet/project.json"
       - "sdk-dotnet/README.md"
@@ -62,6 +76,7 @@ jobs:
             .github/workflows/publish-release.yml
             .github/workflows/canary.yml
             .github/workflows/lint-release-workflows.yml
+            .github/workflows/test-intelligence-adapters.yml
 
   shellcheck:
     runs-on: ubuntu-latest

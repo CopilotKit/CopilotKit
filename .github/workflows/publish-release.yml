@@ -5,6 +5,9 @@
 # scoped @copilotkit packages are registered against THIS workflow file.
 # Matching happens on the OIDC token's `workflow_ref` claim, which is always
 # publish-release.yml when this workflow is the entry point.
+# The @copilotkit/intelligence-langgraph trusted-publisher identity is exactly:
+# workflow publish-release.yml, environment npm, package
+# @copilotkit/intelligence-langgraph. Keep this as the only npm OIDC publisher.
 #
 # Triggers:
 #   - pull_request: closed on a release/publish/<scope>/v<X.Y.Z> branch → stable
@@ -43,6 +46,7 @@ on:
           - monorepo
           - angular
           - channels
+          - intelligence-langgraph
       mode:
         description: "Release mode: stable (full release with tag + GH Release) or prerelease (canary, no tag/release)"
         required: false
@@ -135,6 +139,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_sha || github.event.pull_request.merge_commit_sha || github.sha }}
           persist-credentials: false
 
       - name: Setup pnpm
@@ -171,8 +176,33 @@ jobs:
             pnpm tsx scripts/release/bump-prerelease.ts --scope "$INPUT_SCOPE"
           fi
 
+      - name: Resolve npm release identity
+        id: release-identity
+        env:
+          SCOPE: ${{ steps.meta.outputs.scope }}
+        run: |
+          set -euo pipefail
+          PACKAGE_ID="$(node --import tsx --input-type=module -e 'import { getScopeConfig } from "./scripts/release/lib/config.ts"; process.stdout.write(getScopeConfig(process.env.SCOPE).versionSource)')"
+          VERSION="$(node --import tsx --input-type=module -e 'import { getCurrentVersion } from "./scripts/release/lib/versions.ts"; process.stdout.write(getCurrentVersion(process.env.SCOPE))')"
+          test -n "$PACKAGE_ID"
+          test -n "$VERSION"
+          echo "package_id=$PACKAGE_ID" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Detect Intelligence LangGraph npm registry state
+        id: adapter-detect
+        if: steps.meta.outputs.scope == 'intelligence-langgraph' && steps.meta.outputs.mode == 'stable'
+        run: pnpm tsx scripts/release/detect-intelligence-adapter-version-changes.ts --package @copilotkit/intelligence-langgraph
+
       - name: Build packages
         run: pnpm run build
+
+      - name: Verify Intelligence LangGraph npm artifact
+        if: steps.meta.outputs.scope == 'intelligence-langgraph'
+        run: |
+          set -euo pipefail
+          pnpm nx run @copilotkit/intelligence-langgraph:check --skip-nx-cache
+          pnpm nx run @copilotkit/intelligence-langgraph:pack-check --skip-nx-cache
 
       # Strip caches and pack the workspace into a single tarball before
       # upload. upload-artifact's path filters are post-walk: it still
@@ -195,12 +225,19 @@ jobs:
     outputs:
       scope: ${{ steps.meta.outputs.scope }}
       mode: ${{ steps.meta.outputs.mode }}
+      package_id: ${{ steps.release-identity.outputs.package_id }}
+      version: ${{ steps.release-identity.outputs.version }}
+      adapter_should_publish: ${{ steps.adapter-detect.outputs.should_publish }}
+      adapter_name: ${{ steps.adapter-detect.outputs.name }}
 
   publish:
     needs: build
     if: ${{ !cancelled() && needs.build.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    concurrency:
+      group: ${{ needs.build.outputs.package_id }}@${{ needs.build.outputs.version }}
+      cancel-in-progress: false
     # npm trusted publishing is bound to this environment. Its deployment
     # branch policy must allow prerelease workflow_dispatch refs; stable
     # releases remain main-only via the build job guard.
@@ -293,7 +330,7 @@ jobs:
 
       - name: Publish to npm
         id: publish
-        if: ${{ inputs.dry-run != true }}
+        if: ${{ inputs.dry-run != true && (steps.meta.outputs.scope != 'intelligence-langgraph' || steps.meta.outputs.mode != 'stable' || needs.build.outputs.adapter_should_publish == 'true') }}
         env:
           NODE_AUTH_TOKEN: ""
           NOTION_API_KEY: ${{ steps.meta.outputs.mode == 'stable' && secrets.NOTION_API_KEY || '' }}
@@ -309,22 +346,39 @@ jobs:
             pnpm tsx scripts/release/publish-release.ts --scope "$SCOPE"
           fi
 
-      - name: Verify publish step emitted version
+      - name: Resolve release version
+        id: release-result
         if: ${{ success() && inputs.dry-run != true }}
         env:
           MODE: ${{ steps.meta.outputs.mode }}
-          VERSION: ${{ steps.publish.outputs.version }}
+          PUBLISHED_VERSION: ${{ steps.publish.outputs.version }}
+          BUILT_VERSION: ${{ needs.build.outputs.version }}
         run: |
           set -euo pipefail
+          VERSION="${PUBLISHED_VERSION:-$BUILT_VERSION}"
           if [ -z "$VERSION" ]; then
-            if [ "$MODE" = "prerelease" ]; then
-              echo "::error::prerelease.ts did not emit 'version' output to GITHUB_OUTPUT. The Prerelease summary would render a blank Version field; aborting."
-            else
-              echo "::error::publish-release.ts did not emit 'version' output to GITHUB_OUTPUT. Tag/release creation would produce malformed artifacts; aborting."
-            fi
+            echo "::error::No release version is available for mode $MODE."
             exit 1
           fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "VERSION=$VERSION confirmed (mode=$MODE)"
+
+      - name: Poll npm for Intelligence LangGraph adapter
+        if: ${{ success() && inputs.dry-run != true && steps.meta.outputs.scope == 'intelligence-langgraph' && steps.meta.outputs.mode == 'stable' }}
+        env:
+          NAME: ${{ needs.build.outputs.adapter_name }}
+          VERSION: ${{ steps.release-result.outputs.version }}
+        run: |
+          set -euo pipefail
+          test -n "$NAME"
+          test -n "$VERSION"
+          for attempt in $(seq 1 30); do
+            if [ "$(npm view "${NAME}@${VERSION}" version 2>/dev/null)" = "$VERSION" ]; then
+              exit 0
+            fi
+            test "$attempt" -lt 30
+            sleep 10
+          done
 
       - name: Configure git user
         if: ${{ success() && inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
@@ -332,35 +386,23 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
 
-      - name: Check for pre-existing tags
-        if: ${{ success() && inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
-        env:
-          SCOPE: ${{ steps.meta.outputs.scope }}
-          VERSION: ${{ steps.publish.outputs.version }}
-        run: |
-          if [ "$SCOPE" == "monorepo" ]; then
-            TAG="v${VERSION}"
-          else
-            TAG="${SCOPE}/v${VERSION}"
-          fi
-          if git rev-parse "$TAG" >/dev/null 2>&1; then
-            echo "ERROR: Tag $TAG already exists" >&2
-            exit 1
-          fi
-
       - name: Create and push git tag
         if: ${{ success() && inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
         env:
           SCOPE: ${{ steps.meta.outputs.scope }}
-          VERSION: ${{ steps.publish.outputs.version }}
+          VERSION: ${{ steps.release-result.outputs.version }}
         run: |
           if [ "$SCOPE" == "monorepo" ]; then
             TAG="v${VERSION}"
           else
             TAG="${SCOPE}/v${VERSION}"
           fi
-          git tag -a "$TAG" -m "Release ${SCOPE} ${VERSION}"
-          git push origin "$TAG"
+          if git show-ref --verify --quiet "refs/tags/$TAG"; then
+            echo "Tag $TAG already exists — reconciliation complete"
+          else
+            git tag -a "$TAG" -m "Release ${SCOPE} ${VERSION}"
+            git push origin "$TAG"
+          fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
         id: tag
 
@@ -370,7 +412,7 @@ jobs:
         env:
           RELEASE_TAG: ${{ steps.tag.outputs.tag }}
           RELEASE_SCOPE: ${{ steps.meta.outputs.scope }}
-          RELEASE_VERSION: ${{ steps.publish.outputs.version }}
+          RELEASE_VERSION: ${{ steps.release-result.outputs.version }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -413,7 +455,7 @@ jobs:
             echo ""
             echo "**Scope:** ${{ steps.meta.outputs.scope }}"
             echo "**Mode:** ${{ steps.meta.outputs.mode }}"
-            echo "**Version:** ${{ steps.publish.outputs.version }}"
+            echo "**Version:** ${{ steps.release-result.outputs.version }}"
             echo "**Tag:** ${{ steps.tag.outputs.tag }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -424,7 +466,7 @@ jobs:
             echo "## Prerelease Published"
             echo ""
             echo "**Scope:** ${{ steps.meta.outputs.scope }}"
-            echo "**Version:** ${{ steps.publish.outputs.version }}"
+            echo "**Version:** ${{ steps.release-result.outputs.version }}"
             echo "**Tag:** (prerelease — no tag created)"
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -443,7 +485,7 @@ jobs:
     # gated on mode != prerelease && dry-run != true). On prerelease, dry-run, or
     # failure these are empty — the notify job gates on that emptiness.
     outputs:
-      version: ${{ steps.publish.outputs.version }}
+      version: ${{ steps.release-result.outputs.version }}
       tag: ${{ steps.tag.outputs.tag }}
 
   # ===========================================================================
@@ -483,7 +525,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
-          ref: main
+          ref: ${{ github.event.workflow_run.head_sha || github.event.pull_request.merge_commit_sha || github.sha }}
           persist-credentials: false
 
       # For PRs, skip early if this PR didn't touch pyproject.toml. Manual
@@ -579,7 +621,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
-          ref: main
+          ref: ${{ github.event.workflow_run.head_sha || github.event.pull_request.merge_commit_sha || github.sha }}
           persist-credentials: false
 
       - name: Install uv
@@ -711,7 +753,7 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0
-          ref: main
+          ref: ${{ github.event.workflow_run.head_sha || github.event.pull_request.merge_commit_sha || github.sha }}
           persist-credentials: false
 
       - name: Check if the .NET package version changed in this PR
@@ -831,6 +873,686 @@ jobs:
             echo ""
             echo "${PACKAGE_NAME}@${PACKAGE_VERSION} already exists on NuGet.org — nothing to publish."
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # ===========================================================================
+  # Intelligence adapter release lanes
+  #
+  # The Python and .NET adapters are independent of the generic SDK lanes and
+  # of one another. Build jobs hold no registry credential. Publish jobs are
+  # serialized by the exact package identity and manifest version.
+  # ===========================================================================
+
+  python-adapter-sdk-gate:
+    if: github.event_name == 'pull_request' && github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout merged main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_sha || github.event.pull_request.merge_commit_sha || github.sha }}
+          persist-credentials: false
+
+      - name: Detect a Python adapter manifest change
+        id: changed
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          set -euo pipefail
+          test -n "$PR_BASE_SHA"
+          test -n "$PR_HEAD_SHA"
+          CHANGED="$(git diff --name-only "$PR_BASE_SHA" "$PR_HEAD_SHA")"
+          if printf '%s\n' "$CHANGED" | grep -Eq '^(sdk-python-adk|sdk-python-langgraph|sdk-python-agent-framework)/pyproject\.toml$'; then
+            echo "required=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "required=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Python 3.10
+        if: steps.changed.outputs.required == 'true'
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.10"
+
+      # Credential-free prerequisite gate. Adapter trusted-publisher jobs must
+      # not start until the exact generic SDK projection is public and imports.
+      - name: Probe copilotkit 0.1.95 from PyPI (30 x 10 seconds)
+        if: steps.changed.outputs.required == 'true'
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 30); do
+            curl -fsS https://pypi.org/pypi/copilotkit/0.1.95/json >/dev/null && break
+            test "$attempt" -lt 30
+            sleep 10
+          done
+          python3.10 -m venv /tmp/copilotkit-intelligence-adapter-release-gate
+          /tmp/copilotkit-intelligence-adapter-release-gate/bin/pip install --no-cache-dir copilotkit==0.1.95
+          /tmp/copilotkit-intelligence-adapter-release-gate/bin/python -c 'from copilotkit import IntelligenceSkillDescriptor, IntelligenceSkillManifestDescriptor, IntelligenceSkillFileDescriptor'
+
+  build-intelligence-adk-python:
+    needs: [python-adapter-sdk-gate]
+    if: github.event_name == 'pull_request' && github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      should_publish: ${{ steps.detect.outputs.should_publish }}
+      name: ${{ steps.detect.outputs.name }}
+      version: ${{ steps.detect.outputs.version }}
+      tag_prefix: ${{ steps.detect.outputs.tag_prefix }}
+    steps:
+      - name: Checkout merged main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_sha || github.event.pull_request.merge_commit_sha || github.sha }}
+          persist-credentials: false
+      - name: Check ADK adapter manifest change
+        id: changed
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          set -euo pipefail
+          test -n "$PR_BASE_SHA"
+          test -n "$PR_HEAD_SHA"
+          CHANGED="$(git diff --name-only "$PR_BASE_SHA" "$PR_HEAD_SHA")"
+          if printf '%s\n' "$CHANGED" | grep -qx 'sdk-python-adk/pyproject.toml'; then
+            echo "manifest_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "manifest_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Setup pnpm
+        if: steps.changed.outputs.manifest_changed == 'true'
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      - name: Setup Node
+        if: steps.changed.outputs.manifest_changed == 'true'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.x
+      - name: Install release detector dependencies
+        if: steps.changed.outputs.manifest_changed == 'true'
+        run: pnpm install --frozen-lockfile
+      - name: Detect ADK adapter version
+        if: steps.changed.outputs.manifest_changed == 'true'
+        id: detect
+        run: pnpm tsx scripts/release/detect-intelligence-adapter-version-changes.ts --package copilotkit-intelligence-adk
+      - name: Setup Python 3.10
+        if: steps.detect.outputs.should_publish == 'true' || steps.detect.outputs.should_publish == 'false'
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.10"
+      - name: Install, test, build, and inspect ADK adapter
+        if: steps.detect.outputs.should_publish == 'true' || steps.detect.outputs.should_publish == 'false'
+        run: |
+          set -euo pipefail
+          python3.10 -m venv sdk-python-adk/.venv-release
+          sdk-python-adk/.venv-release/bin/pip install --no-cache-dir 'copilotkit==0.1.95' 'google-adk>=2.0.0,<3.0.0' pytest pytest-asyncio build twine
+          sdk-python-adk/.venv-release/bin/pip install --no-deps -e sdk-python-adk
+          sdk-python-adk/.venv-release/bin/pytest sdk-python-adk/tests -v
+          sdk-python-adk/.venv-release/bin/python -m compileall -q sdk-python-adk/src
+          sdk-python-adk/.venv-release/bin/python -m build sdk-python-adk --outdir sdk-python-adk/dist
+          sdk-python-adk/.venv-release/bin/twine check sdk-python-adk/dist/*
+          sdk-python-adk/.venv-release/bin/python -m zipfile -l sdk-python-adk/dist/copilotkit_intelligence_adk-*.whl
+      - name: Verify ADK wheel and sdist metadata
+        if: steps.detect.outputs.should_publish == 'true' || steps.detect.outputs.should_publish == 'false'
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          wheels=(sdk-python-adk/dist/*.whl)
+          sdists=(sdk-python-adk/dist/*.tar.gz)
+          test ${#wheels[@]} -eq 1
+          test ${#sdists[@]} -eq 1
+          WHEEL_METADATA="$(unzip -p "${wheels[0]}" '*.dist-info/METADATA')"
+          SDIST_METADATA="$(tar -xOf "${sdists[0]}" --wildcards '*/PKG-INFO')"
+          for metadata in "$WHEEL_METADATA" "$SDIST_METADATA"; do
+            grep -Fq 'Name: copilotkit-intelligence-adk' <<< "$metadata"
+            grep -Fq 'Project-URL: Repository, https://github.com/CopilotKit/CopilotKit/tree/main/sdk-python-adk' <<< "$metadata"
+            grep '^Requires-Dist: copilotkit' <<< "$metadata" | grep -Fq '>=0.1.95' && grep '^Requires-Dist: copilotkit' <<< "$metadata" | grep -Fq '<1.0.0'
+            grep '^Requires-Dist: google-adk' <<< "$metadata" | grep -Fq '>=2.0.0' && grep '^Requires-Dist: google-adk' <<< "$metadata" | grep -Fq '<3.0.0'
+          done
+          unzip -Z1 "${wheels[0]}" | grep -Eq '\.dist-info/licenses/LICENSE$'
+          tar -tzf "${sdists[0]}" | grep -Eq '/README\.md$'
+          tar -tzf "${sdists[0]}" | grep -Eq '/LICENSE$'
+          if unzip -Z1 "${wheels[0]}" | grep -Eq '^copilotkit_intelligence_(langgraph|agent_framework)/'; then
+            echo "::error::ADK wheel contains another adapter package"
+            exit 1
+          fi
+          if tar -tzf "${sdists[0]}" | grep -Eq '/copilotkit_intelligence_(langgraph|agent_framework)/'; then
+            echo "::error::ADK sdist contains another adapter package"
+            exit 1
+          fi
+      - name: Upload ADK adapter artifacts
+        if: steps.detect.outputs.should_publish == 'true' || steps.detect.outputs.should_publish == 'false'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: intelligence-adk-python-${{ steps.detect.outputs.version }}
+          path: sdk-python-adk/dist/
+          retention-days: 1
+
+  # PyPI trusted publisher: package copilotkit-intelligence-adk, workflow
+  # publish-release.yml, environment pypi-copilotkit-intelligence-adk.
+  publish-intelligence-adk-python:
+    needs: [build-intelligence-adk-python]
+    if: ${{ !cancelled() && needs.build-intelligence-adk-python.result == 'success' && (needs.build-intelligence-adk-python.outputs.should_publish == 'true' || needs.build-intelligence-adk-python.outputs.should_publish == 'false') && inputs.dry-run != true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: pypi-copilotkit-intelligence-adk
+    concurrency:
+      group: ${{ needs.build-intelligence-adk-python.outputs.name }}@${{ needs.build-intelligence-adk-python.outputs.version }}
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - name: Checkout merged main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_sha || github.event.pull_request.merge_commit_sha || github.sha }}
+          persist-credentials: false
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: ">=0.8.0"
+      - name: Download ADK adapter artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: intelligence-adk-python-${{ needs.build-intelligence-adk-python.outputs.version }}
+          path: sdk-python-adk/dist
+      - name: Publish ADK adapter to PyPI with OIDC
+        if: needs.build-intelligence-adk-python.outputs.should_publish == 'true'
+        run: uv publish --trusted-publishing always sdk-python-adk/dist/*
+      - name: Poll PyPI for ADK adapter
+        env:
+          NAME: ${{ needs.build-intelligence-adk-python.outputs.name }}
+          VERSION: ${{ needs.build-intelligence-adk-python.outputs.version }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 30); do
+            curl -fsS "https://pypi.org/pypi/${NAME}/${VERSION}/json" >/dev/null && exit 0
+            test "$attempt" -lt 30
+            sleep 10
+          done
+      - name: Tag ADK adapter release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_PREFIX: ${{ needs.build-intelligence-adk-python.outputs.tag_prefix }}
+          VERSION: ${{ needs.build-intelligence-adk-python.outputs.version }}
+          NAME: ${{ needs.build-intelligence-adk-python.outputs.name }}
+        run: |
+          set -euo pipefail
+          TAG="${TAG_PREFIX}${VERSION}"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git config --local url."https://x-access-token:${GH_TOKEN}@github.com/".insteadOf "https://github.com/"
+          git rev-parse "$TAG" >/dev/null 2>&1 || { git tag -a "$TAG" -m "Release ${NAME} ${VERSION}"; git push origin "$TAG"; }
+
+  build-intelligence-langgraph-python:
+    needs: [python-adapter-sdk-gate]
+    if: github.event_name == 'pull_request' && github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      should_publish: ${{ steps.detect.outputs.should_publish }}
+      name: ${{ steps.detect.outputs.name }}
+      version: ${{ steps.detect.outputs.version }}
+      tag_prefix: ${{ steps.detect.outputs.tag_prefix }}
+    steps:
+      - name: Checkout merged main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_sha || github.event.pull_request.merge_commit_sha || github.sha }}
+          persist-credentials: false
+      - name: Check LangGraph Python adapter manifest change
+        id: changed
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          set -euo pipefail
+          test -n "$PR_BASE_SHA"
+          test -n "$PR_HEAD_SHA"
+          CHANGED="$(git diff --name-only "$PR_BASE_SHA" "$PR_HEAD_SHA")"
+          if printf '%s\n' "$CHANGED" | grep -qx 'sdk-python-langgraph/pyproject.toml'; then
+            echo "manifest_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "manifest_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Setup pnpm
+        if: steps.changed.outputs.manifest_changed == 'true'
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      - name: Setup Node
+        if: steps.changed.outputs.manifest_changed == 'true'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.x
+      - name: Install release detector dependencies
+        if: steps.changed.outputs.manifest_changed == 'true'
+        run: pnpm install --frozen-lockfile
+      - name: Detect LangGraph Python adapter version
+        if: steps.changed.outputs.manifest_changed == 'true'
+        id: detect
+        run: pnpm tsx scripts/release/detect-intelligence-adapter-version-changes.ts --package copilotkit-intelligence-langgraph
+      - name: Setup Python 3.10
+        if: steps.detect.outputs.should_publish == 'true' || steps.detect.outputs.should_publish == 'false'
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.10"
+      - name: Install, test, build, and inspect LangGraph Python adapter
+        if: steps.detect.outputs.should_publish == 'true' || steps.detect.outputs.should_publish == 'false'
+        run: |
+          set -euo pipefail
+          python3.10 -m venv sdk-python-langgraph/.venv-release
+          sdk-python-langgraph/.venv-release/bin/pip install --no-cache-dir 'copilotkit==0.1.95' 'langgraph>=1.2.2,<2.0.0' 'langchain>=1.3.2,<2.0.0' pytest pytest-asyncio build twine
+          sdk-python-langgraph/.venv-release/bin/pip install --no-deps -e sdk-python-langgraph
+          sdk-python-langgraph/.venv-release/bin/pytest sdk-python-langgraph/tests -v
+          sdk-python-langgraph/.venv-release/bin/python -m compileall -q sdk-python-langgraph/src
+          sdk-python-langgraph/.venv-release/bin/python -m build sdk-python-langgraph --outdir sdk-python-langgraph/dist
+          sdk-python-langgraph/.venv-release/bin/twine check sdk-python-langgraph/dist/*
+          sdk-python-langgraph/.venv-release/bin/python -m zipfile -l sdk-python-langgraph/dist/copilotkit_intelligence_langgraph-*.whl
+      - name: Verify LangGraph Python wheel and sdist metadata
+        if: steps.detect.outputs.should_publish == 'true' || steps.detect.outputs.should_publish == 'false'
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          wheels=(sdk-python-langgraph/dist/*.whl)
+          sdists=(sdk-python-langgraph/dist/*.tar.gz)
+          test ${#wheels[@]} -eq 1
+          test ${#sdists[@]} -eq 1
+          WHEEL_METADATA="$(unzip -p "${wheels[0]}" '*.dist-info/METADATA')"
+          SDIST_METADATA="$(tar -xOf "${sdists[0]}" --wildcards '*/PKG-INFO')"
+          for metadata in "$WHEEL_METADATA" "$SDIST_METADATA"; do
+            grep -Fq 'Name: copilotkit-intelligence-langgraph' <<< "$metadata"
+            grep -Fq 'Project-URL: Repository, https://github.com/CopilotKit/CopilotKit/tree/main/sdk-python-langgraph' <<< "$metadata"
+            grep '^Requires-Dist: copilotkit' <<< "$metadata" | grep -Fq '>=0.1.95' && grep '^Requires-Dist: copilotkit' <<< "$metadata" | grep -Fq '<1.0.0'
+            grep '^Requires-Dist: langgraph' <<< "$metadata" | grep -Fq '>=1.2.2' && grep '^Requires-Dist: langgraph' <<< "$metadata" | grep -Fq '<2.0.0'
+            grep '^Requires-Dist: langchain' <<< "$metadata" | grep -Fq '>=1.3.2' && grep '^Requires-Dist: langchain' <<< "$metadata" | grep -Fq '<2.0.0'
+          done
+          unzip -Z1 "${wheels[0]}" | grep -Eq '\.dist-info/licenses/LICENSE$'
+          tar -tzf "${sdists[0]}" | grep -Eq '/README\.md$'
+          tar -tzf "${sdists[0]}" | grep -Eq '/LICENSE$'
+          if unzip -Z1 "${wheels[0]}" | grep -Eq '^copilotkit_intelligence_(adk|agent_framework)/'; then
+            echo "::error::LangGraph wheel contains another adapter package"
+            exit 1
+          fi
+          if tar -tzf "${sdists[0]}" | grep -Eq '/copilotkit_intelligence_(adk|agent_framework)/'; then
+            echo "::error::LangGraph sdist contains another adapter package"
+            exit 1
+          fi
+      - name: Upload LangGraph Python adapter artifacts
+        if: steps.detect.outputs.should_publish == 'true' || steps.detect.outputs.should_publish == 'false'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: intelligence-langgraph-python-${{ steps.detect.outputs.version }}
+          path: sdk-python-langgraph/dist/
+          retention-days: 1
+
+  # PyPI trusted publisher: package copilotkit-intelligence-langgraph, workflow
+  # publish-release.yml, environment pypi-copilotkit-intelligence-langgraph.
+  publish-intelligence-langgraph-python:
+    needs: [build-intelligence-langgraph-python]
+    if: ${{ !cancelled() && needs.build-intelligence-langgraph-python.result == 'success' && (needs.build-intelligence-langgraph-python.outputs.should_publish == 'true' || needs.build-intelligence-langgraph-python.outputs.should_publish == 'false') && inputs.dry-run != true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: pypi-copilotkit-intelligence-langgraph
+    concurrency:
+      group: ${{ needs.build-intelligence-langgraph-python.outputs.name }}@${{ needs.build-intelligence-langgraph-python.outputs.version }}
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - name: Checkout merged main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_sha || github.event.pull_request.merge_commit_sha || github.sha }}
+          persist-credentials: false
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: ">=0.8.0"
+      - name: Download LangGraph Python adapter artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: intelligence-langgraph-python-${{ needs.build-intelligence-langgraph-python.outputs.version }}
+          path: sdk-python-langgraph/dist
+      - name: Publish LangGraph Python adapter to PyPI with OIDC
+        if: needs.build-intelligence-langgraph-python.outputs.should_publish == 'true'
+        run: uv publish --trusted-publishing always sdk-python-langgraph/dist/*
+      - name: Poll PyPI for LangGraph Python adapter
+        env:
+          NAME: ${{ needs.build-intelligence-langgraph-python.outputs.name }}
+          VERSION: ${{ needs.build-intelligence-langgraph-python.outputs.version }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 30); do
+            curl -fsS "https://pypi.org/pypi/${NAME}/${VERSION}/json" >/dev/null && exit 0
+            test "$attempt" -lt 30
+            sleep 10
+          done
+      - name: Tag LangGraph Python adapter release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_PREFIX: ${{ needs.build-intelligence-langgraph-python.outputs.tag_prefix }}
+          VERSION: ${{ needs.build-intelligence-langgraph-python.outputs.version }}
+          NAME: ${{ needs.build-intelligence-langgraph-python.outputs.name }}
+        run: |
+          set -euo pipefail
+          TAG="${TAG_PREFIX}${VERSION}"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git config --local url."https://x-access-token:${GH_TOKEN}@github.com/".insteadOf "https://github.com/"
+          git rev-parse "$TAG" >/dev/null 2>&1 || { git tag -a "$TAG" -m "Release ${NAME} ${VERSION}"; git push origin "$TAG"; }
+
+  build-intelligence-agent-framework-python:
+    needs: [python-adapter-sdk-gate]
+    if: github.event_name == 'pull_request' && github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      should_publish: ${{ steps.detect.outputs.should_publish }}
+      name: ${{ steps.detect.outputs.name }}
+      version: ${{ steps.detect.outputs.version }}
+      tag_prefix: ${{ steps.detect.outputs.tag_prefix }}
+    steps:
+      - name: Checkout merged main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_sha || github.event.pull_request.merge_commit_sha || github.sha }}
+          persist-credentials: false
+      - name: Check Agent Framework Python adapter manifest change
+        id: changed
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          set -euo pipefail
+          test -n "$PR_BASE_SHA"
+          test -n "$PR_HEAD_SHA"
+          CHANGED="$(git diff --name-only "$PR_BASE_SHA" "$PR_HEAD_SHA")"
+          if printf '%s\n' "$CHANGED" | grep -qx 'sdk-python-agent-framework/pyproject.toml'; then
+            echo "manifest_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "manifest_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Setup pnpm
+        if: steps.changed.outputs.manifest_changed == 'true'
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      - name: Setup Node
+        if: steps.changed.outputs.manifest_changed == 'true'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.x
+      - name: Install release detector dependencies
+        if: steps.changed.outputs.manifest_changed == 'true'
+        run: pnpm install --frozen-lockfile
+      - name: Detect Agent Framework Python adapter version
+        if: steps.changed.outputs.manifest_changed == 'true'
+        id: detect
+        run: pnpm tsx scripts/release/detect-intelligence-adapter-version-changes.ts --package copilotkit-intelligence-agent-framework
+      - name: Setup Python 3.10
+        if: steps.detect.outputs.should_publish == 'true' || steps.detect.outputs.should_publish == 'false'
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.10"
+      - name: Install, test, build, and inspect Agent Framework Python adapter
+        if: steps.detect.outputs.should_publish == 'true' || steps.detect.outputs.should_publish == 'false'
+        run: |
+          set -euo pipefail
+          python3.10 -m venv sdk-python-agent-framework/.venv-release
+          sdk-python-agent-framework/.venv-release/bin/pip install --no-cache-dir 'copilotkit==0.1.95' 'agent-framework-core>=1.11.0,<2.0.0' pytest pytest-asyncio build twine
+          sdk-python-agent-framework/.venv-release/bin/pip install --no-deps -e sdk-python-agent-framework
+          sdk-python-agent-framework/.venv-release/bin/pytest sdk-python-agent-framework/tests -v
+          sdk-python-agent-framework/.venv-release/bin/python -m compileall -q sdk-python-agent-framework/src
+          sdk-python-agent-framework/.venv-release/bin/python -m build sdk-python-agent-framework --outdir sdk-python-agent-framework/dist
+          sdk-python-agent-framework/.venv-release/bin/twine check sdk-python-agent-framework/dist/*
+          sdk-python-agent-framework/.venv-release/bin/python -m zipfile -l sdk-python-agent-framework/dist/copilotkit_intelligence_agent_framework-*.whl
+      - name: Verify Agent Framework Python wheel and sdist metadata
+        if: steps.detect.outputs.should_publish == 'true' || steps.detect.outputs.should_publish == 'false'
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          wheels=(sdk-python-agent-framework/dist/*.whl)
+          sdists=(sdk-python-agent-framework/dist/*.tar.gz)
+          test ${#wheels[@]} -eq 1
+          test ${#sdists[@]} -eq 1
+          WHEEL_METADATA="$(unzip -p "${wheels[0]}" '*.dist-info/METADATA')"
+          SDIST_METADATA="$(tar -xOf "${sdists[0]}" --wildcards '*/PKG-INFO')"
+          for metadata in "$WHEEL_METADATA" "$SDIST_METADATA"; do
+            grep -Fq 'Name: copilotkit-intelligence-agent-framework' <<< "$metadata"
+            grep -Fq 'Project-URL: Repository, https://github.com/CopilotKit/CopilotKit/tree/main/sdk-python-agent-framework' <<< "$metadata"
+            grep '^Requires-Dist: copilotkit' <<< "$metadata" | grep -Fq '>=0.1.95' && grep '^Requires-Dist: copilotkit' <<< "$metadata" | grep -Fq '<1.0.0'
+            grep '^Requires-Dist: agent-framework-core' <<< "$metadata" | grep -Fq '>=1.11.0' && grep '^Requires-Dist: agent-framework-core' <<< "$metadata" | grep -Fq '<2.0.0'
+          done
+          unzip -Z1 "${wheels[0]}" | grep -Eq '\.dist-info/licenses/LICENSE$'
+          tar -tzf "${sdists[0]}" | grep -Eq '/README\.md$'
+          tar -tzf "${sdists[0]}" | grep -Eq '/LICENSE$'
+          if unzip -Z1 "${wheels[0]}" | grep -Eq '^copilotkit_intelligence_(adk|langgraph)/'; then
+            echo "::error::Agent Framework wheel contains another adapter package"
+            exit 1
+          fi
+          if tar -tzf "${sdists[0]}" | grep -Eq '/copilotkit_intelligence_(adk|langgraph)/'; then
+            echo "::error::Agent Framework sdist contains another adapter package"
+            exit 1
+          fi
+      - name: Upload Agent Framework Python adapter artifacts
+        if: steps.detect.outputs.should_publish == 'true' || steps.detect.outputs.should_publish == 'false'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: intelligence-agent-framework-python-${{ steps.detect.outputs.version }}
+          path: sdk-python-agent-framework/dist/
+          retention-days: 1
+
+  # PyPI trusted publisher: package copilotkit-intelligence-agent-framework,
+  # workflow publish-release.yml, environment
+  # pypi-copilotkit-intelligence-agent-framework.
+  publish-intelligence-agent-framework-python:
+    needs: [build-intelligence-agent-framework-python]
+    if: ${{ !cancelled() && needs.build-intelligence-agent-framework-python.result == 'success' && (needs.build-intelligence-agent-framework-python.outputs.should_publish == 'true' || needs.build-intelligence-agent-framework-python.outputs.should_publish == 'false') && inputs.dry-run != true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: pypi-copilotkit-intelligence-agent-framework
+    concurrency:
+      group: ${{ needs.build-intelligence-agent-framework-python.outputs.name }}@${{ needs.build-intelligence-agent-framework-python.outputs.version }}
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - name: Checkout merged main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_sha || github.event.pull_request.merge_commit_sha || github.sha }}
+          persist-credentials: false
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: ">=0.8.0"
+      - name: Download Agent Framework Python adapter artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: intelligence-agent-framework-python-${{ needs.build-intelligence-agent-framework-python.outputs.version }}
+          path: sdk-python-agent-framework/dist
+      - name: Publish Agent Framework Python adapter to PyPI with OIDC
+        if: needs.build-intelligence-agent-framework-python.outputs.should_publish == 'true'
+        run: uv publish --trusted-publishing always sdk-python-agent-framework/dist/*
+      - name: Poll PyPI for Agent Framework Python adapter
+        env:
+          NAME: ${{ needs.build-intelligence-agent-framework-python.outputs.name }}
+          VERSION: ${{ needs.build-intelligence-agent-framework-python.outputs.version }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 30); do
+            curl -fsS "https://pypi.org/pypi/${NAME}/${VERSION}/json" >/dev/null && exit 0
+            test "$attempt" -lt 30
+            sleep 10
+          done
+      - name: Tag Agent Framework Python adapter release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_PREFIX: ${{ needs.build-intelligence-agent-framework-python.outputs.tag_prefix }}
+          VERSION: ${{ needs.build-intelligence-agent-framework-python.outputs.version }}
+          NAME: ${{ needs.build-intelligence-agent-framework-python.outputs.name }}
+        run: |
+          set -euo pipefail
+          TAG="${TAG_PREFIX}${VERSION}"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git config --local url."https://x-access-token:${GH_TOKEN}@github.com/".insteadOf "https://github.com/"
+          git rev-parse "$TAG" >/dev/null 2>&1 || { git tag -a "$TAG" -m "Release ${NAME} ${VERSION}"; git push origin "$TAG"; }
+
+  build-intelligence-agent-framework-dotnet:
+    if: github.event_name == 'pull_request' && github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      should_publish: ${{ steps.detect.outputs.should_publish }}
+      name: ${{ steps.detect.outputs.name }}
+      version: ${{ steps.detect.outputs.version }}
+      tag_prefix: ${{ steps.detect.outputs.tag_prefix }}
+    steps:
+      - name: Checkout merged main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_sha || github.event.pull_request.merge_commit_sha || github.sha }}
+          persist-credentials: false
+      - name: Check Agent Framework .NET adapter manifest change
+        id: changed
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          set -euo pipefail
+          test -n "$PR_BASE_SHA"
+          test -n "$PR_HEAD_SHA"
+          CHANGED="$(git diff --name-only "$PR_BASE_SHA" "$PR_HEAD_SHA")"
+          if printf '%s\n' "$CHANGED" | grep -qx 'sdk-dotnet-agent-framework/CopilotKit.Intelligence.AgentFramework/CopilotKit.Intelligence.AgentFramework.csproj'; then
+            echo "manifest_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "manifest_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Setup pnpm
+        if: steps.changed.outputs.manifest_changed == 'true'
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      - name: Setup Node
+        if: steps.changed.outputs.manifest_changed == 'true'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.x
+      - name: Install release detector dependencies
+        if: steps.changed.outputs.manifest_changed == 'true'
+        run: pnpm install --frozen-lockfile
+      - name: Detect Agent Framework .NET adapter version
+        if: steps.changed.outputs.manifest_changed == 'true'
+        id: detect
+        run: pnpm tsx scripts/release/detect-intelligence-adapter-version-changes.ts --package CopilotKit.Intelligence.AgentFramework
+      - name: Setup .NET 8
+        if: steps.detect.outputs.should_publish == 'true' || steps.detect.outputs.should_publish == 'false'
+        uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d # v5.0.0
+        with:
+          dotnet-version: "8.0.x"
+      - name: Test, build, pack, and inspect Agent Framework .NET adapter
+        if: steps.detect.outputs.should_publish == 'true' || steps.detect.outputs.should_publish == 'false'
+        run: |
+          set -euo pipefail
+          dotnet test sdk-dotnet-agent-framework/CopilotKit.Intelligence.AgentFramework.Tests/CopilotKit.Intelligence.AgentFramework.Tests.csproj -c Release -p:UseLocalIntelligenceSdk=true
+          dotnet build sdk-dotnet-agent-framework/CopilotKit.Intelligence.AgentFramework/CopilotKit.Intelligence.AgentFramework.csproj -c Release -p:UseLocalIntelligenceSdk=true
+          pnpm nx run @copilotkit/intelligence-agent-framework-dotnet:pack-check --skip-nx-cache
+      - name: Upload Agent Framework .NET adapter artifacts
+        if: steps.detect.outputs.should_publish == 'true' || steps.detect.outputs.should_publish == 'false'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: intelligence-agent-framework-dotnet-${{ steps.detect.outputs.version }}
+          path: sdk-dotnet-agent-framework/artifacts/
+          retention-days: 1
+
+  # NuGet push uses only NUGET_API_KEY at the final push step. Its environment
+  # identity is nuget-copilotkit-intelligence-agent-framework and its package
+  # identity is CopilotKit.Intelligence.AgentFramework.
+  publish-intelligence-agent-framework-dotnet:
+    needs: [build-intelligence-agent-framework-dotnet]
+    if: ${{ !cancelled() && needs.build-intelligence-agent-framework-dotnet.result == 'success' && (needs.build-intelligence-agent-framework-dotnet.outputs.should_publish == 'true' || needs.build-intelligence-agent-framework-dotnet.outputs.should_publish == 'false') && inputs.dry-run != true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: nuget-copilotkit-intelligence-agent-framework
+    concurrency:
+      group: ${{ needs.build-intelligence-agent-framework-dotnet.outputs.name }}@${{ needs.build-intelligence-agent-framework-dotnet.outputs.version }}
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout merged main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_sha || github.event.pull_request.merge_commit_sha || github.sha }}
+          persist-credentials: false
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d # v5.0.0
+        with:
+          dotnet-version: "8.0.x"
+      - name: Download Agent Framework .NET adapter artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: intelligence-agent-framework-dotnet-${{ needs.build-intelligence-agent-framework-dotnet.outputs.version }}
+          path: sdk-dotnet-agent-framework/artifacts
+      - name: Publish Agent Framework .NET adapter to NuGet
+        if: needs.build-intelligence-agent-framework-dotnet.outputs.should_publish == 'true'
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$NUGET_API_KEY"
+          shopt -s nullglob
+          packages=(sdk-dotnet-agent-framework/artifacts/*.nupkg)
+          symbols=(sdk-dotnet-agent-framework/artifacts/*.snupkg)
+          test ${#packages[@]} -eq 1
+          test ${#symbols[@]} -eq 1
+          dotnet nuget push "${packages[0]}" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json
+      - name: Poll NuGet for Agent Framework .NET adapter
+        env:
+          NAME: ${{ needs.build-intelligence-agent-framework-dotnet.outputs.name }}
+          VERSION: ${{ needs.build-intelligence-agent-framework-dotnet.outputs.version }}
+        run: |
+          set -euo pipefail
+          PACKAGE_ID="$(printf '%s' "$NAME" | tr '[:upper:]' '[:lower:]')"
+          for attempt in $(seq 1 30); do
+            if curl -fsS "https://api.nuget.org/v3-flatcontainer/${PACKAGE_ID}/index.json" | jq -e --arg version "$VERSION" '.versions | index($version) != null' >/dev/null; then
+              exit 0
+            fi
+            test "$attempt" -lt 30
+            sleep 10
+          done
+      - name: Tag Agent Framework .NET adapter release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_PREFIX: ${{ needs.build-intelligence-agent-framework-dotnet.outputs.tag_prefix }}
+          VERSION: ${{ needs.build-intelligence-agent-framework-dotnet.outputs.version }}
+          NAME: ${{ needs.build-intelligence-agent-framework-dotnet.outputs.name }}
+        run: |
+          set -euo pipefail
+          TAG="${TAG_PREFIX}${VERSION}"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git config --local url."https://x-access-token:${GH_TOKEN}@github.com/".insteadOf "https://github.com/"
+          git rev-parse "$TAG" >/dev/null 2>&1 || { git tag -a "$TAG" -m "Release ${NAME} ${VERSION}"; git push origin "$TAG"; }
 
   # ===========================================================================
   # Slack #engr notification
