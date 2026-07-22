@@ -5,6 +5,7 @@ import {
   inject,
   signal,
   computed,
+  untracked,
 } from "@angular/core";
 import { CopilotKit } from "./copilotkit";
 import type { AbstractAgent } from "@ag-ui/client";
@@ -120,7 +121,10 @@ export class CopilotkitAgentFactory {
       if (existing) {
         const handoff = this.#provisionalCache.get(resolvedAgentId);
         if (handoff && handoff.provisional !== existing) {
-          handoff.attachRegistered(existing);
+          // Runtime discovery invalidates this computed. Handoff mirroring can
+          // synchronously notify the provisional store, whose subscriber must
+          // update signals outside the computed's read-only reactive context.
+          untracked(() => handoff.attachRegistered(existing));
         }
         this.#provisionalCache.delete(resolvedAgentId);
         return existing;

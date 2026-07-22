@@ -395,6 +395,49 @@ describe("injectAgentStore", () => {
     });
   });
 
+  it("synchronizes registered session data without signal-write errors during handoff", () => {
+    copilotKitStub.setAgents({});
+    copilotKitStub.setRuntimeUrl("https://runtime.local");
+    copilotKitStub.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Connecting,
+    );
+
+    @Component({
+      standalone: true,
+      template: "",
+    })
+    class RuntimeHandoffHost {
+      store = injectAgentStore("shared-agent");
+    }
+
+    const fixture = TestBed.createComponent(RuntimeHandoffHost);
+    fixture.detectChanges();
+    const provisionalStore = fixture.componentInstance.store();
+
+    const registeredAgent = new MockAgent("shared-agent");
+    registeredAgent.messages = [userMsg("restored", "Welcome back")];
+    registeredAgent.state = { document: "Restored draft" };
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+
+    copilotKitStub.setAgents({ "shared-agent": registeredAgent });
+    copilotKitStub.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+    expect(fixture.componentInstance.store().agent).toBe(registeredAgent);
+
+    expect(consoleError).not.toHaveBeenCalledWith(
+      expect.stringContaining("callback threw"),
+      expect.anything(),
+    );
+    expect(provisionalStore.messages()).toEqual([
+      userMsg("restored", "Welcome back"),
+    ]);
+    expect(provisionalStore.state()).toEqual({ document: "Restored draft" });
+    consoleError.mockRestore();
+  });
+
   it("bridges events through the subscriber snapshot captured by an active run", async () => {
     copilotKitStub.setAgents({});
     copilotKitStub.setRuntimeUrl("https://runtime.local");
