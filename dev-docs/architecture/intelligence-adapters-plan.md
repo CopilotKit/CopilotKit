@@ -44,7 +44,19 @@ One `shared-integration` owner serializes every file outside the five exclusive 
 - shared conformance and CI contracts: `packages/intelligence/conformance/registry-adapters-v1.json`, `packages/intelligence/conformance/adapter-ci-matrix-v1.json`, `packages/intelligence/scripts/verify-adapter-corpus.ts`, `packages/intelligence/src/adapter-conformance.test.ts`, `packages/intelligence/src/adapter-ci-matrix.test.ts`, `packages/intelligence/package.json`, `.github/workflows/test-intelligence-adapters.yml`, and `pnpm-lock.yaml`;
 - release and ownership integration: `release.config.json`, `.github/CODEOWNERS`, `.github/workflows/publish-release.yml`, `.github/workflows/stable-release.yml`, `.github/workflows/canary.yml`, `.github/workflows/lint-release-workflows.yml`, `scripts/release/detect-intelligence-adapter-version-changes.ts`, `scripts/release/detect-intelligence-adapter-version-changes.test.ts`, `scripts/release/fixtures/intelligence-adapters-unpublished.json`, `scripts/release/lib/config.ts`, `scripts/release/lib/config.test.ts`, `scripts/release/lib/changes.test.ts`, `scripts/release/lib/versions.test.ts`, `scripts/release/lib/build-release-notification.ts`, `scripts/release/lib/build-release-notification.wrapper.test.ts`, and `scripts/release/verify-release-scope-dropdowns.sh`.
 
-The serialized owner lands the generic Python SDK prerequisite first, then the corpus. The `adk-python`, `langgraph-python`, and `agent-framework-python` slots depend on both commits; the TypeScript and .NET slots depend on the corpus commit. Only after all five exclusive-root commits land does the same owner update the lockfile, CI, release files, and ownership. This dependency order prevents an adapter from compensating for a missing generic-SDK projection by reading cache metadata.
+The serialized owner lands the generic Python SDK prerequisite as a separate PR, merges it, and waits for `copilotkit==0.1.95` to install from PyPI before the adapter integration PR may merge. Adapter development and PR CI do not wait on PyPI: they build `sdk-python/dist/copilotkit-0.1.95-py3-none-any.whl` from the prerequisite commit and install that exact local wheel into each Python adapter's isolated virtual environment. The `adk-python`, `langgraph-python`, and `agent-framework-python` slots depend on the Task 0 commit and PyPI release gate for merge/release, while TypeScript and .NET depend only on the corpus commit. Only after all five exclusive-root commits land does the same owner update the lockfile, CI, release files, and ownership. This dependency order prevents an adapter from compensating for a missing generic-SDK projection by reading cache metadata.
+
+Every adapter `project.json` defines the same four Nx targets; integration never guesses language-specific target names:
+
+| Project name | `test` command | `check` command | `build` command | `pack-check` command |
+| --- | --- | --- | --- | --- |
+| `@copilotkit/intelligence-adk` | `sdk-python-adk/.venv/bin/pytest sdk-python-adk/tests -v` | `sdk-python-adk/.venv/bin/python -m compileall -q sdk-python-adk/src && cd sdk-python-adk && poetry check` | `cd sdk-python-adk && poetry build` | `sdk-python-adk/.venv/bin/twine check sdk-python-adk/dist/* && sdk-python-adk/.venv/bin/python -m zipfile -l sdk-python-adk/dist/copilotkit_intelligence_adk-0.1.0-py3-none-any.whl` |
+| `@copilotkit/intelligence-langgraph-python` | `sdk-python-langgraph/.venv/bin/pytest sdk-python-langgraph/tests -v` | `sdk-python-langgraph/.venv/bin/python -m compileall -q sdk-python-langgraph/src && cd sdk-python-langgraph && poetry check` | `cd sdk-python-langgraph && poetry build` | `sdk-python-langgraph/.venv/bin/twine check sdk-python-langgraph/dist/* && sdk-python-langgraph/.venv/bin/python -m zipfile -l sdk-python-langgraph/dist/copilotkit_intelligence_langgraph-0.1.0-py3-none-any.whl` |
+| `@copilotkit/intelligence-langgraph` | `pnpm --dir packages/intelligence-langgraph vitest run` | `pnpm --dir packages/intelligence-langgraph check-types && pnpm --dir packages/intelligence-langgraph publint && pnpm --dir packages/intelligence-langgraph attw` | `pnpm --dir packages/intelligence-langgraph build` | `pnpm --dir packages/intelligence-langgraph verify-package` |
+| `@copilotkit/intelligence-agent-framework-python` | `sdk-python-agent-framework/.venv/bin/pytest sdk-python-agent-framework/tests -v` | `sdk-python-agent-framework/.venv/bin/python -m compileall -q sdk-python-agent-framework/src && cd sdk-python-agent-framework && poetry check` | `cd sdk-python-agent-framework && poetry build` | `sdk-python-agent-framework/.venv/bin/twine check sdk-python-agent-framework/dist/* && sdk-python-agent-framework/.venv/bin/python -m zipfile -l sdk-python-agent-framework/dist/copilotkit_intelligence_agent_framework-0.1.0-py3-none-any.whl` |
+| `@copilotkit/intelligence-agent-framework-dotnet` | `dotnet test sdk-dotnet-agent-framework/CopilotKit.Intelligence.AgentFramework.Tests/CopilotKit.Intelligence.AgentFramework.Tests.csproj -c Release -p:UseLocalIntelligenceSdk=true` | `dotnet format sdk-dotnet-agent-framework/CopilotKit.Intelligence.AgentFramework.Tests/CopilotKit.Intelligence.AgentFramework.Tests.csproj --verify-no-changes --no-restore` | `dotnet build sdk-dotnet-agent-framework/CopilotKit.Intelligence.AgentFramework/CopilotKit.Intelligence.AgentFramework.csproj -c Release -p:UseLocalIntelligenceSdk=true` | `bash sdk-dotnet-agent-framework/scripts/verify-package.sh` |
+
+Each target uses `nx:run-commands`, declares its build/test artifact outputs, and sets the repository root as `cwd`. The TypeScript package keeps its `check-types`, `publint`, `attw`, and `verify-package` package scripts; Nx's common `check` and `pack-check` targets call those exact scripts. The .NET root also creates `sdk-dotnet-agent-framework/scripts/verify-package.sh`, which packs, inspects the `.nuspec`, and compiles the clean example consumer.
 
 The serialized owner records `Intelligence/Learning` in workflow summaries and package metadata. Before changing `.github/CODEOWNERS`, the release slot obtains the repository team slug with `gh api orgs/CopilotKit/teams --paginate --jq '.[] | select(.name == "Intelligence/Learning") | .slug'`; the command must return exactly one line. It then writes `@CopilotKit/<returned-slug>` for all five roots. Zero or multiple results is a blocking repository-configuration error, not a reason to invent a handle.
 
@@ -168,11 +180,11 @@ The exact tests are `test_readme_and_public_api_contract()` in each Python `test
 
 PR CI has ten framework jobs: minimum and newest-compatible for each package. Minimum jobs install the exact lower bounds above. Newest jobs resolve the declared exclusive-major ranges without a lock override, print the resolved dependency tree, and archive it with test results. Python jobs run on 3.10; an additional packaging smoke job imports each wheel on the repository's normal Python matrix. TypeScript runs on Node 20 and the repository current Node. .NET runs `net8.0` and resolves the minimum and newest allowed NuGet versions through generated `Directory.Packages.props` files.
 
-The standard npm release machinery gains a non-shared `intelligence-langgraph` scope whose only package and version source are `@copilotkit/intelligence-langgraph`. The existing `publish-release.yml` receives three separately detected PyPI adapter jobs and one separately detected NuGet adapter job; each key is package identity plus version, each publishes only when that package's own manifest version changed, and no adapter waits for another adapter. Build jobs have no publish credential, PyPI uses OIDC trusted publishing, npm retains its existing OIDC lane, and NuGet receives its API key only in the final push step. Tags are `intelligence-adk-python/vX.Y.Z`, `intelligence-langgraph-python/vX.Y.Z`, `intelligence-langgraph/vX.Y.Z`, `intelligence-agent-framework-python/vX.Y.Z`, and `intelligence-agent-framework-dotnet/vX.Y.Z`.
+The standard npm release machinery gains a non-shared `intelligence-langgraph` scope whose only package and version source are `@copilotkit/intelligence-langgraph`. The existing `publish-release.yml` receives three separately detected PyPI adapter jobs and one separately detected NuGet adapter job; each key is package identity plus version, each publishes only when that package's own manifest version changed, and no adapter waits for another adapter. The three Python adapter build jobs share only the prerequisite `python-adapter-sdk-gate`, which proves `copilotkit==0.1.95` is installable from PyPI, then fan out without edges between adapter identities. Build jobs have no publish credential, PyPI uses OIDC trusted publishing, npm retains its existing OIDC lane, and NuGet receives its API key only in the final push step. Tags are `intelligence-adk-python/vX.Y.Z`, `intelligence-langgraph-python/vX.Y.Z`, `intelligence-langgraph/vX.Y.Z`, `intelligence-agent-framework-python/vX.Y.Z`, and `intelligence-agent-framework-dotnet/vX.Y.Z`.
 
 Release acceptance requires inspecting wheel/sdist contents, npm tarball contents plus publint/ATTW, and NuGet `.nuspec` plus symbols. Every artifact must contain README/license/repository metadata, only its own public package, and bounded runtime dependencies. The release detector treats an already-published identical version as an idempotent success and any registry/auth/network ambiguity as a hard failure.
 
-## Task 0: Publish the generic Python verified-descriptor prerequisite
+## Task 0: Merge and publish the generic Python verified-descriptor prerequisite
 
 **Dependency:** This serialized task must complete before Tasks 2, 3, or 5 begin.
 
@@ -214,6 +226,27 @@ Run `cd sdk-python && poetry build && poetry run python -m zipfile -l dist/copil
 git add sdk-python/copilotkit/intelligence.py sdk-python/copilotkit/__init__.py sdk-python/tests/test_intelligence.py sdk-python/README.md sdk-python/pyproject.toml sdk-python/poetry.lock sdk-python/uv.lock
 git commit -m "feat: expose verified Intelligence skill descriptors"
 ```
+
+- [ ] **Step 7: Merge this prerequisite separately and wait for PyPI**
+
+This commit is its own PR and merges to `main` before the adapter integration PR. The existing `publish-release.yml` `build-python` job detects the `sdk-python/pyproject.toml` version change, `publish-python` publishes with the existing `pypi` trusted publisher, and its built-in visibility loop must succeed. After merge, while still on the prerequisite branch, run:
+
+```bash
+MERGE_SHA=$(gh pr view --json mergeCommit --jq '.mergeCommit.oid')
+RUN_ID=$(gh run list --workflow publish-release.yml --event pull_request --branch main --limit 20 --json databaseId,headSha | jq -r --arg sha "$MERGE_SHA" 'first(.[] | select(.headSha == $sha)).databaseId')
+test -n "$RUN_ID"
+gh run watch "$RUN_ID" --exit-status
+for attempt in $(seq 1 30); do
+  curl -fsS https://pypi.org/pypi/copilotkit/0.1.95/json >/dev/null && break
+  test "$attempt" -lt 30
+  sleep 10
+done
+python3.10 -m venv /tmp/copilotkit-intelligence-sdk-095-probe
+/tmp/copilotkit-intelligence-sdk-095-probe/bin/pip install --no-cache-dir copilotkit==0.1.95
+/tmp/copilotkit-intelligence-sdk-095-probe/bin/python -c 'from copilotkit import IntelligenceSkillDescriptor, IntelligenceSkillManifestDescriptor, IntelligenceSkillFileDescriptor'
+```
+
+Expected GREEN: the workflow concludes successfully, the exact-version PyPI JSON resolves, the wheel installs without a repository path, and all three descriptor imports succeed. Until this gate passes, Tasks 2, 3, and 5 may be developed with the local wheel but their PR cannot merge and none of their release lanes may build an artifact.
 
 ## Task 1: Create and validate the shared corpus
 
@@ -273,7 +306,7 @@ git commit -m "test: define Intelligence adapter conformance"
 
 ## Task 2: Implement the Google ADK package test-first
 
-**Dependencies:** Task 0 and Task 1 commits.
+**Dependencies:** Task 0 commit for local development; Task 0 PyPI gate and Task 1 commit before merge/release.
 
 **Files:**
 
@@ -296,21 +329,21 @@ git commit -m "test: define Intelligence adapter conformance"
 
 - [ ] **Step 1: Scaffold the independently publishable package**
 
-Set Poetry name/version to `copilotkit-intelligence-adk`/`0.1.0`, Python to `>=3.10`, MIT license, README, repository directory `sdk-python-adk`, packages from `src`, and dependencies `copilotkit>=0.1.95,<1.0.0` and `google-adk>=2.0.0,<3.0.0`. Add pytest, pytest-asyncio, build, and twine as development dependencies. `project.json` exposes Nx `test`, `build`, `check`, and `pack-check` commands rooted in this directory.
+Set Poetry name/version to `copilotkit-intelligence-adk`/`0.1.0`, Python to `>=3.10`, MIT license, README, repository directory `sdk-python-adk`, packages from `src`, and dependencies `copilotkit>=0.1.95,<1.0.0` and `google-adk>=2.0.0,<3.0.0`. Add pytest, pytest-asyncio, build, and twine as development dependencies. Define the `@copilotkit/intelligence-adk` Nx `test`, `check`, `build`, and `pack-check` targets with the exact commands in the common target table.
 
-Run `cd sdk-python-adk && poetry install --with dev && poetry run python --version && poetry run python -c 'import copilotkit; assert copilotkit.IntelligenceSkillDescriptor'`; expected setup GREEN is Python 3.10+ and the descriptor-capable generic SDK. Return with `cd ..`.
+Run `cd sdk-python && poetry build && cd .. && python3.10 -m venv sdk-python-adk/.venv && sdk-python-adk/.venv/bin/pip install --upgrade pip && sdk-python-adk/.venv/bin/pip install sdk-python/dist/copilotkit-0.1.95-py3-none-any.whl 'google-adk>=2.0.0,<3.0.0' pytest pytest-asyncio build twine && sdk-python-adk/.venv/bin/pip install --no-deps -e sdk-python-adk && sdk-python-adk/.venv/bin/python -c 'from copilotkit import IntelligenceSkillDescriptor'`. Expected setup GREEN: Python 3.10+, the adapter imports editably, and `copilotkit` comes from the exact local 0.1.95 wheel without a PyPI lookup for that dependency.
 
 - [ ] **Step 2: Pin the native contract with minimum/latest import probes**
 
 The probe imports the ADK public toolset base, inspects its abstract methods, defines a no-op subclass, and passes an instance through the public `LlmAgent(..., tools=[probe])` registration path. Run it once in a clean Python 3.10 environment with `google-adk==2.0.0` and once with `google-adk>=2.0.0,<3.0.0 --upgrade`. Expected: both PASS and print identical required method names; record the verified base and signatures in the README. A mismatch stops this slot.
 
-Execute `cd sdk-python-adk && poetry run pip install 'google-adk==2.0.0' && poetry run pytest tests/api_contract/test_google_adk_contract.py::test_native_toolset_registration_contract -v && poetry run pip install --upgrade 'google-adk>=2.0.0,<3.0.0' && poetry run pytest tests/api_contract/test_google_adk_contract.py::test_native_toolset_registration_contract -v`; expected GREEN is two imports/registrations and printed resolved versions. Return with `cd ..`.
+Execute `sdk-python-adk/.venv/bin/pip install 'google-adk==2.0.0' && sdk-python-adk/.venv/bin/pytest sdk-python-adk/tests/api_contract/test_google_adk_contract.py::test_native_toolset_registration_contract -v && sdk-python-adk/.venv/bin/pip install --upgrade 'google-adk>=2.0.0,<3.0.0' && sdk-python-adk/.venv/bin/pytest sdk-python-adk/tests/api_contract/test_google_adk_contract.py::test_native_toolset_registration_contract -v`; expected GREEN is two imports/registrations and printed resolved versions.
 
 - [ ] **Step 3: Write failing registry lifecycle tests**
 
 Use an async fake generic client, fake monotonic clock, and barrier. Assert fresh/cached routing, 30-second throttling, one call under 20 concurrent loads, immutable snapshot swap, stale refusal, denial clearing, revoked empty readiness, limits, scripts disabled, telemetry fields, and idempotent close. Expected initial failure: `ImportError: cannot import name 'SkillRegistry'`.
 
-Run `cd sdk-python-adk && poetry run pytest tests/test_registry.py::test_load_is_singleflight_and_retries_after_failed_window tests/test_registry.py::test_wait_until_ready_success_timeout_and_immediate_rejections tests/test_registry.py::test_close_rejects_future_loads tests/test_registry.py::test_joined_callers_share_telemetry_sink_failure -v`; expected RED is the missing `SkillRegistry`. After implementation, rerun the identical command; expected GREEN is four passing tests and no unexpected generic-client call. Return with `cd ..`.
+Run `sdk-python-adk/.venv/bin/pytest sdk-python-adk/tests/test_registry.py::test_load_is_singleflight_and_retries_after_failed_window sdk-python-adk/tests/test_registry.py::test_wait_until_ready_success_timeout_and_immediate_rejections sdk-python-adk/tests/test_registry.py::test_close_rejects_future_loads sdk-python-adk/tests/test_registry.py::test_joined_callers_share_telemetry_sink_failure -v`; expected RED is the missing `SkillRegistry`. After implementation, rerun the identical command; expected GREEN is four passing tests and no unexpected generic-client call.
 
 - [ ] **Step 4: Implement `SkillRegistry` minimally to pass lifecycle tests**
 
@@ -326,7 +359,7 @@ Implement `test_adapter_conformance(case: dict[str, object])` in `tests/test_con
 
 - [ ] **Step 7: Verify public API, docs, and artifacts**
 
-`__init__.py` sets `__all__ = ["SkillRegistry", "SkillToolset"]`. Add `test_readme_and_public_api_contract()` with all ten uniform README assertions; its registration snippet imports from the built wheel and attaches to native `LlmAgent`. Run `cd sdk-python-adk && poetry run pytest tests/test_public_api.py::test_readme_and_public_api_contract tests/test_package.py -v && poetry build && poetry run twine check dist/* && poetry run python -m zipfile -l dist/copilotkit_intelligence_adk-0.1.0-py3-none-any.whl`; expected GREEN is exact exports, strict ranges, `py.typed`, no HTTP/archive libraries or agent wrapper, and only `copilotkit_intelligence_adk` in the wheel. Return with `cd ..`.
+`__init__.py` sets `__all__ = ["SkillRegistry", "SkillToolset"]`. Add `test_readme_and_public_api_contract()` with all ten uniform README assertions; its registration snippet imports from the built wheel and attaches to native `LlmAgent`. Run `sdk-python-adk/.venv/bin/pytest sdk-python-adk/tests/test_public_api.py::test_readme_and_public_api_contract sdk-python-adk/tests/test_package.py -v && pnpm nx run @copilotkit/intelligence-adk:build && pnpm nx run @copilotkit/intelligence-adk:pack-check`; expected GREEN is exact exports, strict ranges, `py.typed`, no HTTP/archive libraries or agent wrapper, and only `copilotkit_intelligence_adk` in the wheel.
 
 - [ ] **Step 8: Commit the ADK package**
 
@@ -337,7 +370,7 @@ git commit -m "feat: add Intelligence Google ADK adapter"
 
 ## Task 3: Implement the LangGraph Python package test-first
 
-**Dependencies:** Task 0 and Task 1 commits.
+**Dependencies:** Task 0 commit for local development; Task 0 PyPI gate and Task 1 commit before merge/release.
 
 **Files:**
 
@@ -358,21 +391,21 @@ git commit -m "feat: add Intelligence Google ADK adapter"
 
 - [ ] **Step 1: Scaffold exact package metadata**
 
-Set Poetry name/version to `copilotkit-intelligence-langgraph`/`0.1.0`, Python `>=3.10`, MIT/repository metadata, and dependencies `copilotkit>=0.1.95,<1.0.0`, `langgraph>=1.2.2,<2.0.0`, and `langchain>=1.3.2,<2.0.0`. Configure equivalent Nx targets to Task 2.
+Set Poetry name/version to `copilotkit-intelligence-langgraph`/`0.1.0`, Python `>=3.10`, MIT/repository metadata, and dependencies `copilotkit>=0.1.95,<1.0.0`, `langgraph>=1.2.2,<2.0.0`, and `langchain>=1.3.2,<2.0.0`. Define the `@copilotkit/intelligence-langgraph-python` Nx `test`, `check`, `build`, and `pack-check` targets with the exact commands in the common target table.
 
-Run `cd sdk-python-langgraph && poetry install --with dev && poetry run python --version && poetry run python -c 'import copilotkit; assert copilotkit.IntelligenceSkillDescriptor'`; expected setup GREEN is Python 3.10+ and the public descriptor import. Return with `cd ..`.
+Run `cd sdk-python && poetry build && cd .. && python3.10 -m venv sdk-python-langgraph/.venv && sdk-python-langgraph/.venv/bin/pip install --upgrade pip && sdk-python-langgraph/.venv/bin/pip install sdk-python/dist/copilotkit-0.1.95-py3-none-any.whl 'langgraph>=1.2.2,<2.0.0' 'langchain>=1.3.2,<2.0.0' pytest pytest-asyncio build twine && sdk-python-langgraph/.venv/bin/pip install --no-deps -e sdk-python-langgraph && sdk-python-langgraph/.venv/bin/python -c 'from copilotkit import IntelligenceSkillDescriptor'`. Expected setup GREEN: Python 3.10+, editable adapter import, and the exact local descriptor wheel without a PyPI lookup for `copilotkit`.
 
 - [ ] **Step 2: Verify the native middleware boundary at both floors**
 
 In separate Python 3.10 environments, install the exact minimum pair and then newest compatible pair. The probe imports the public `AgentMiddleware` types, defines a no-op middleware using the public request hook supported by both versions, and registers it with `langchain.agents.create_agent(..., middleware=[probe])` without invoking a model. Record the exact hook signature. Do not copy private functions from `sdk-python/copilotkit/copilotkit_lg_middleware.py`.
 
-Execute `cd sdk-python-langgraph && poetry run pip install 'langgraph==1.2.2' 'langchain==1.3.2' && poetry run pytest tests/api_contract/test_langgraph_contract.py::test_native_middleware_registration_contract -v && poetry run pip install --upgrade 'langgraph>=1.2.2,<2.0.0' 'langchain>=1.3.2,<2.0.0' && poetry run pytest tests/api_contract/test_langgraph_contract.py::test_native_middleware_registration_contract -v`; expected GREEN is two native registrations and printed resolved versions. Return with `cd ..`.
+Execute `sdk-python-langgraph/.venv/bin/pip install 'langgraph==1.2.2' 'langchain==1.3.2' && sdk-python-langgraph/.venv/bin/pytest sdk-python-langgraph/tests/api_contract/test_langgraph_contract.py::test_native_middleware_registration_contract -v && sdk-python-langgraph/.venv/bin/pip install --upgrade 'langgraph>=1.2.2,<2.0.0' 'langchain>=1.3.2,<2.0.0' && sdk-python-langgraph/.venv/bin/pytest sdk-python-langgraph/tests/api_contract/test_langgraph_contract.py::test_native_middleware_registration_contract -v`; expected GREEN is two native registrations and printed resolved versions.
 
 - [ ] **Step 3: Write the failing public factory and lifecycle tests**
 
 Tests import both `createSkillRegistryMiddleware` and `create_skill_registry_middleware`, assert object identity between them, assert the factory returns the verified native middleware type, blocks cold starts, throttles and singleflights refreshes, preserves model request/config fields, injects one complete ordered skill value, and refuses stale/denied/script/oversize snapshots before calling the model handler. Expected initial RED: both exports are missing.
 
-Run `cd sdk-python-langgraph && poetry run pytest tests/test_public_api.py::test_camel_and_snake_case_exports_are_identical tests/test_middleware.py::test_native_middleware_loads_before_model tests/test_middleware.py::test_joined_callers_share_telemetry_sink_failure -v`; expected RED is the missing factory exports. Rerun unchanged after implementation; expected GREEN is three passing tests. Return with `cd ..`.
+Run `sdk-python-langgraph/.venv/bin/pytest sdk-python-langgraph/tests/test_public_api.py::test_camel_and_snake_case_exports_are_identical sdk-python-langgraph/tests/test_middleware.py::test_native_middleware_loads_before_model sdk-python-langgraph/tests/test_middleware.py::test_joined_callers_share_telemetry_sink_failure -v`; expected RED is the missing factory exports. Rerun unchanged after implementation; expected GREEN is three passing tests.
 
 - [ ] **Step 4: Implement the minimum middleware**
 
@@ -384,7 +417,7 @@ Set `create_skill_registry_middleware = createSkillRegistryMiddleware` and inclu
 
 - [ ] **Step 6: Run corpus, minimum/latest, and artifact checks**
 
-Implement parameterized `test_adapter_conformance(case: dict[str, object])` and `test_readme_and_public_api_contract()`. Run all 35 shared cases under the exact minimum pair, repeat under newest compatible versions, then run `cd sdk-python-langgraph && poetry run pytest tests/test_public_api.py::test_readme_and_public_api_contract -v && poetry build && poetry run twine check dist/* && poetry run python -m zipfile -l dist/copilotkit_intelligence_langgraph-0.1.0-py3-none-any.whl`. Assert all ten README headings, both factory names, clean native-registration import, README/LICENSE/`py.typed`, and only `copilotkit_intelligence_langgraph`; return with `cd ..`.
+Implement parameterized `test_adapter_conformance(case: dict[str, object])` and `test_readme_and_public_api_contract()`. Run all 35 shared cases under the exact minimum pair, repeat under newest compatible versions, then run `sdk-python-langgraph/.venv/bin/pytest sdk-python-langgraph/tests/test_public_api.py::test_readme_and_public_api_contract -v && pnpm nx run @copilotkit/intelligence-langgraph-python:build && pnpm nx run @copilotkit/intelligence-langgraph-python:pack-check`. Assert all ten README headings, both factory names, clean native-registration import, README/LICENSE/`py.typed`, and only `copilotkit_intelligence_langgraph`.
 
 - [ ] **Step 7: Commit the Python LangGraph adapter**
 
@@ -419,7 +452,7 @@ git commit -m "feat: add Intelligence LangGraph Python adapter"
 
 - [ ] **Step 1: Scaffold the ESM package and exact ranges**
 
-Use version `0.1.0`, Node engine `>=20`, MIT/repository directory metadata, public access, `dist`/README/LICENSE files, and one root ESM export. Declare peers `@copilotkit/intelligence>=0.1.0 <1.0.0`, `@langchain/langgraph>=1.3.0 <2.0.0`, and `langchain>=1.4.3 <2.0.0`; use the workspace generic SDK and exact framework minima as dev dependencies. Add build, check-types, test, publint, ATTW, and pack verification scripts exposed through Nx.
+Use version `0.1.0`, Node engine `>=20`, MIT/repository directory metadata, public access, `dist`/README/LICENSE files, and one root ESM export. Declare peers `@copilotkit/intelligence>=0.1.0 <1.0.0`, `@langchain/langgraph>=1.3.0 <2.0.0`, and `langchain>=1.4.3 <2.0.0`; use the workspace generic SDK and exact framework minima as dev dependencies. Add package scripts `build`, `check-types`, `test`, `publint`, `attw`, and `verify-package`, then define the `@copilotkit/intelligence-langgraph` Nx `test`, `check`, `build`, and `pack-check` targets with the exact commands in the common target table.
 
 Run `corepack enable && pnpm install --frozen-lockfile=false && node --version`; expected setup GREEN is Node 20+ and a workspace install. This slot does not stage `pnpm-lock.yaml`.
 
@@ -454,7 +487,7 @@ The slot leaves `pnpm-lock.yaml` to the serialized integration task.
 
 ## Task 5: Implement the Microsoft Agent Framework Python package test-first
 
-**Dependencies:** Task 0 and Task 1 commits.
+**Dependencies:** Task 0 commit for local development; Task 0 PyPI gate and Task 1 commit before merge/release.
 
 **Files:**
 
@@ -475,21 +508,21 @@ The slot leaves `pnpm-lock.yaml` to the serialized integration task.
 
 - [ ] **Step 1: Scaffold exact package metadata**
 
-Set Poetry name/version to `copilotkit-intelligence-agent-framework`/`0.1.0`, Python `>=3.10`, MIT/repository metadata, and dependencies `copilotkit>=0.1.95,<1.0.0` and `agent-framework-core>=1.11.0,<2.0.0`. Add the same isolated build/test/package checks as the other Python adapters.
+Set Poetry name/version to `copilotkit-intelligence-agent-framework`/`0.1.0`, Python `>=3.10`, MIT/repository metadata, and dependencies `copilotkit>=0.1.95,<1.0.0` and `agent-framework-core>=1.11.0,<2.0.0`. Define the `@copilotkit/intelligence-agent-framework-python` Nx `test`, `check`, `build`, and `pack-check` targets with the exact commands in the common target table.
 
-Run `cd sdk-python-agent-framework && poetry install --with dev && poetry run python --version && poetry run python -c 'import copilotkit; assert copilotkit.IntelligenceSkillDescriptor'`; expected setup GREEN is Python 3.10+ and the descriptor-capable generic SDK. Return with `cd ..`.
+Run `cd sdk-python && poetry build && cd .. && python3.10 -m venv sdk-python-agent-framework/.venv && sdk-python-agent-framework/.venv/bin/pip install --upgrade pip && sdk-python-agent-framework/.venv/bin/pip install sdk-python/dist/copilotkit-0.1.95-py3-none-any.whl 'agent-framework-core>=1.11.0,<2.0.0' pytest pytest-asyncio build twine && sdk-python-agent-framework/.venv/bin/pip install --no-deps -e sdk-python-agent-framework && sdk-python-agent-framework/.venv/bin/python -c 'from copilotkit import IntelligenceSkillDescriptor'`. Expected setup GREEN: Python 3.10+, editable adapter import, and the exact local descriptor wheel without a PyPI lookup for `copilotkit`.
 
 - [ ] **Step 2: Discover and import-test the public context-provider protocol**
 
 Install `agent-framework-core==1.11.0`, inspect only its public exports and type information, implement a no-op provider, and register that provider through the public agent/chat-client options path without running a model. Repeat against newest compatible. Record the verified base/protocol, invocation method, context result type, and registration keyword in README and the probe assertion. The repository's preview-era `Agent` wrappers and `agent_middleware` examples are orientation only and must not be copied as the provider implementation.
 
-Execute `cd sdk-python-agent-framework && poetry run pip install 'agent-framework-core==1.11.0' && poetry run pytest tests/api_contract/test_agent_framework_contract.py::test_native_context_provider_registration_contract -v && poetry run pip install --upgrade 'agent-framework-core>=1.11.0,<2.0.0' && poetry run pytest tests/api_contract/test_agent_framework_contract.py::test_native_context_provider_registration_contract -v`; expected GREEN is two native registrations and printed resolved versions. Return with `cd ..`.
+Execute `sdk-python-agent-framework/.venv/bin/pip install 'agent-framework-core==1.11.0' && sdk-python-agent-framework/.venv/bin/pytest sdk-python-agent-framework/tests/api_contract/test_agent_framework_contract.py::test_native_context_provider_registration_contract -v && sdk-python-agent-framework/.venv/bin/pip install --upgrade 'agent-framework-core>=1.11.0,<2.0.0' && sdk-python-agent-framework/.venv/bin/pytest sdk-python-agent-framework/tests/api_contract/test_agent_framework_contract.py::test_native_context_provider_registration_contract -v`; expected GREEN is two native registrations and printed resolved versions.
 
 - [ ] **Step 3: Write failing provider behavior tests**
 
 Assert `SkillRegistryContextProvider` satisfies the verified runtime protocol, loads before context generation, returns a complete immutable ordered context block, preserves framework context already supplied by other providers, supports cancellation if the native protocol carries it, and enforces every common lifecycle/error/security case without constructing or delegating an agent.
 
-Run `cd sdk-python-agent-framework && poetry run pytest tests/test_context_provider.py::test_provider_loads_before_context_generation tests/test_context_provider.py::test_retry_after_failed_throttle_window tests/test_context_provider.py::test_joined_callers_share_telemetry_sink_failure tests/test_context_provider.py::test_future_load_after_close_rejects -v`; expected RED is missing `SkillRegistryContextProvider`. Rerun unchanged after implementation; expected GREEN is four passing tests. Return with `cd ..`.
+Run `sdk-python-agent-framework/.venv/bin/pytest sdk-python-agent-framework/tests/test_context_provider.py::test_provider_loads_before_context_generation sdk-python-agent-framework/tests/test_context_provider.py::test_retry_after_failed_throttle_window sdk-python-agent-framework/tests/test_context_provider.py::test_joined_callers_share_telemetry_sink_failure sdk-python-agent-framework/tests/test_context_provider.py::test_future_load_after_close_rejects -v`; expected RED is missing `SkillRegistryContextProvider`. Rerun unchanged after implementation; expected GREEN is four passing tests.
 
 - [ ] **Step 4: Implement the provider and state machine**
 
@@ -497,7 +530,7 @@ Put lifecycle code in `_registry_state.py` and the native protocol implementatio
 
 - [ ] **Step 5: Run corpus, boundaries, and package checks**
 
-Implement parameterized `test_adapter_conformance(case: dict[str, object])` and `test_readme_and_public_api_contract()`, run all 35 corpus cases at `agent-framework-core==1.11.0` and newest compatible, then run `cd sdk-python-agent-framework && poetry run pytest tests/test_public_api.py::test_readme_and_public_api_contract -v && poetry build && poetry run twine check dist/* && poetry run python -m zipfile -l dist/copilotkit_intelligence_agent_framework-0.1.0-py3-none-any.whl`; return with `cd ..`. Expected GREEN includes all ten README headings, a native registration smoke import, and only the declared package in the wheel.
+Implement parameterized `test_adapter_conformance(case: dict[str, object])` and `test_readme_and_public_api_contract()`, run all 35 corpus cases at `agent-framework-core==1.11.0` and newest compatible, then run `sdk-python-agent-framework/.venv/bin/pytest sdk-python-agent-framework/tests/test_public_api.py::test_readme_and_public_api_contract -v && pnpm nx run @copilotkit/intelligence-agent-framework-python:build && pnpm nx run @copilotkit/intelligence-agent-framework-python:pack-check`. Expected GREEN includes all ten README headings, a native registration smoke import, and only the declared package in the wheel.
 
 - [ ] **Step 6: Commit the Python Agent Framework adapter**
 
@@ -523,12 +556,15 @@ git commit -m "feat: add Intelligence Agent Framework Python adapter"
 - Create: `sdk-dotnet-agent-framework/examples/Example.csproj`
 - Create: `sdk-dotnet-agent-framework/examples/Program.cs`
 - Create: `sdk-dotnet-agent-framework/scripts/verify-api-contract.sh`
+- Create: `sdk-dotnet-agent-framework/scripts/verify-package.sh`
 - Create: `sdk-dotnet-agent-framework/README.md`
 - Create: `sdk-dotnet-agent-framework/project.json`
 
 - [ ] **Step 1: Scaffold the independent NuGet project**
 
 Target `net8.0`, enable nullable/implicit usings/XML docs/warnings-as-errors/deterministic build/portable symbols, set PackageId/version `CopilotKit.Intelligence.AgentFramework`/`0.1.0`, MIT/repository/readme metadata, and reference `Microsoft.Agents.AI.Abstractions` `[1.13.0,2.0.0)` plus `CopilotKit.Intelligence` `[0.1.0,1.0.0)`. Use a `UseLocalIntelligenceSdk=true` condition to replace only the latter PackageReference with a ProjectReference during repository tests; pack with the package dependency and assert it in `.nuspec`.
+
+Define the `@copilotkit/intelligence-agent-framework-dotnet` Nx `test`, `check`, `build`, and `pack-check` targets with the exact commands in the common target table. `scripts/verify-package.sh` runs the Task 6 pack, `.nuspec`, symbol-package, and clean-consumer assertions and fails on the first mismatch.
 
 Run `dotnet --version && dotnet restore sdk-dotnet-agent-framework/CopilotKit.Intelligence.AgentFramework.Tests/CopilotKit.Intelligence.AgentFramework.Tests.csproj -p:UseLocalIntelligenceSdk=true`; expected setup GREEN is .NET SDK 8+ and a successful repository restore.
 
@@ -586,6 +622,18 @@ Run `pnpm nx test @copilotkit/intelligence -- --run src/adapter-ci-matrix.test.t
 
 Path filters include all five package roots, three generic SDK roots, the shared corpus, the workflow, and dependency lockfiles. A `matrix` job reads the JSON with `jq -c '{include: .cells}'` into a job output; the test job uses `strategy.matrix: ${{ fromJSON(needs.matrix.outputs.adapter_matrix) }}`. Every cell checks out without persisted credentials, installs the declared runtime floor/range, prints resolved versions, runs its Nx target and corpus runner, and uploads dependency/version plus test reports. Set `fail-fast: false`; no cell has registry write credentials.
 
+Before any Python matrix cell invokes Nx, build the prerequisite once with `cd sdk-python && poetry build && cd ..`. The three Python cells use these exact local-install commands, substituting only their minimum/latest framework range from the checked-in matrix:
+
+```bash
+python3.10 -m venv "${ADAPTER_ROOT}/.venv"
+mapfile -t FRAMEWORK_ARGS < <(jq -r '.[]' <<< '${{ toJSON(matrix.frameworkRequirements) }}')
+"${ADAPTER_ROOT}/.venv/bin/pip" install sdk-python/dist/copilotkit-0.1.95-py3-none-any.whl pytest pytest-asyncio build twine "${FRAMEWORK_ARGS[@]}"
+"${ADAPTER_ROOT}/.venv/bin/pip" install --no-deps -e "${ADAPTER_ROOT}"
+"${ADAPTER_ROOT}/.venv/bin/python" -c 'from copilotkit import IntelligenceSkillDescriptor'
+```
+
+The matrix provides a concrete `ADAPTER_ROOT` string and `frameworkRequirements` JSON array for each cell; the workflow passes the root through `env` and converts the JSON array with `jq` into quoted Bash array elements. Minimum cells use the exact lower bounds; latest cells use the bounded requirements. This local wheel path is required in PR CI even after 0.1.95 is public, so a yanked/mirrored PyPI state cannot change the code under test.
+
 Rerun `pnpm nx test @copilotkit/intelligence -- --run src/adapter-ci-matrix.test.ts`. Expected GREEN: one test proves the real workflow consumes all ten and only ten cells.
 
 - [ ] **Step 4: Add artifact smoke jobs**
@@ -594,7 +642,7 @@ Build all three Python distributions, the npm tarball, and NuGet packages. Verif
 
 - [ ] **Step 5: Run workflow lint and local matrices available on the host**
 
-Run `pnpm nx test @copilotkit/intelligence`, `pnpm nx run-many -t test check build --projects=@copilotkit/intelligence-adk,@copilotkit/intelligence-langgraph-python,@copilotkit/intelligence-langgraph,@copilotkit/intelligence-agent-framework-python,@copilotkit/intelligence-agent-framework-dotnet`, `pnpm check-format`, `actionlint .github/workflows/test-intelligence-adapters.yml`, and `bash scripts/release/verify-release-scope-dropdowns.sh`. Expected: PASS; unavailable host runtimes are exercised by CI rather than silently skipped.
+Run `pnpm nx test @copilotkit/intelligence`, `pnpm nx run-many --targets=test,check,build,pack-check --projects=@copilotkit/intelligence-adk,@copilotkit/intelligence-langgraph-python,@copilotkit/intelligence-langgraph,@copilotkit/intelligence-agent-framework-python,@copilotkit/intelligence-agent-framework-dotnet`, `pnpm check-format`, `actionlint .github/workflows/test-intelligence-adapters.yml`, and `bash scripts/release/verify-release-scope-dropdowns.sh`. Expected: all 20 named adapter targets PASS; unavailable host runtimes are exercised by CI rather than silently skipped.
 
 - [ ] **Step 6: Commit integration CI**
 
@@ -644,7 +692,40 @@ The detector accepts one of the five package IDs, reads only its manifest, valid
 
 - [ ] **Step 4: Add independent build/publish jobs**
 
-Extend `publish-release.yml` without changing existing generic SDK lanes. Three PyPI matrix entries, one npm scope, and one NuGet entry each detect their own manifest change, use a package-specific concurrency group, build/test before credential exposure, inspect artifacts, publish idempotently, verify registry visibility, and tag only that package. Jobs have no `needs` edge between adapter identities. Add `intelligence-langgraph` to the `workflow_dispatch.inputs.scope.options` lists in `stable-release.yml`, `publish-release.yml`, and `canary.yml`; update the scope comment in `build-release-notification.ts`. The existing dynamic validation in `prepare-release.ts`, `bump-prerelease.ts`, `prerelease.ts`, and `publish-release.ts` must accept the new config key without source changes.
+Extend `publish-release.yml` without changing existing generic SDK lanes. Add job `python-adapter-sdk-gate`, with no publish credential, that retries the exact PyPI JSON for `copilotkit/0.1.95` for 30 ten-second attempts, creates a temporary Python 3.10 venv, installs `copilotkit==0.1.95` with `--no-cache-dir`, and imports all three descriptor types. Each of the three separately named Python adapter build jobs declares `needs: [python-adapter-sdk-gate]`; after that gate they have no `needs` edge to one another. Before test/build/inspection, their release environments prove normal index resolution with these exact commands:
+
+The gate's executable probe is:
+
+```bash
+for attempt in $(seq 1 30); do
+  curl -fsS https://pypi.org/pypi/copilotkit/0.1.95/json >/dev/null && break
+  test "$attempt" -lt 30
+  sleep 10
+done
+python3.10 -m venv /tmp/copilotkit-intelligence-adapter-release-gate
+/tmp/copilotkit-intelligence-adapter-release-gate/bin/pip install --no-cache-dir copilotkit==0.1.95
+/tmp/copilotkit-intelligence-adapter-release-gate/bin/python -c 'from copilotkit import IntelligenceSkillDescriptor, IntelligenceSkillManifestDescriptor, IntelligenceSkillFileDescriptor'
+```
+
+Before test/build/inspection, the three adapter release environments prove normal index resolution with these exact commands:
+
+```bash
+python3.10 -m venv sdk-python-adk/.venv-release
+sdk-python-adk/.venv-release/bin/pip install --no-cache-dir 'copilotkit==0.1.95' 'google-adk>=2.0.0,<3.0.0' pytest pytest-asyncio build twine
+sdk-python-adk/.venv-release/bin/pip install --no-deps -e sdk-python-adk
+
+python3.10 -m venv sdk-python-langgraph/.venv-release
+sdk-python-langgraph/.venv-release/bin/pip install --no-cache-dir 'copilotkit==0.1.95' 'langgraph>=1.2.2,<2.0.0' 'langchain>=1.3.2,<2.0.0' pytest pytest-asyncio build twine
+sdk-python-langgraph/.venv-release/bin/pip install --no-deps -e sdk-python-langgraph
+
+python3.10 -m venv sdk-python-agent-framework/.venv-release
+sdk-python-agent-framework/.venv-release/bin/pip install --no-cache-dir 'copilotkit==0.1.95' 'agent-framework-core>=1.11.0,<2.0.0' pytest pytest-asyncio build twine
+sdk-python-agent-framework/.venv-release/bin/pip install --no-deps -e sdk-python-agent-framework
+```
+
+The three PyPI entries, one npm scope, and one NuGet entry each detect their own manifest change, use a package-specific concurrency group, publish idempotently, verify registry visibility, and tag only that package.
+
+Add `intelligence-langgraph` to the `workflow_dispatch.inputs.scope.options` lists in `stable-release.yml`, `publish-release.yml`, and `canary.yml`; update the scope comment in `build-release-notification.ts`. The existing dynamic validation in `prepare-release.ts`, `bump-prerelease.ts`, `prerelease.ts`, and `publish-release.ts` must accept the new config key without source changes.
 
 - [ ] **Step 5: Update trusted-publisher documentation and workflow allowlists**
 
@@ -663,7 +744,7 @@ git commit -m "ci: release Intelligence adapters independently"
 
 ## Task 9: Final cross-package verification and integration order
 
-Integration order is fixed: generic Python descriptor prerequisite; shared corpus; five file-disjoint adapter commits in any order subject to the Python prerequisite dependency; lockfile/CI; release/ownership. If a package slot needs a corpus change, it reports the missing scenario and waits for the serialized owner; it does not edit the corpus itself. If two slots discover incompatible framework semantics, preserve the common observable contract and isolate the difference inside their native hook.
+Integration order is fixed: merge the generic Python descriptor prerequisite PR; wait for the exact 0.1.95 PyPI install/import gate; merge the shared corpus; land the five file-disjoint adapter commits in any order; then land lockfile/CI and release/ownership. The three Python adapters may be developed against the local wheel before PyPI visibility, but cannot merge or enter artifact release builds until the gate passes. If a package slot needs a corpus change, it reports the missing scenario and waits for the serialized owner; it does not edit the corpus itself. If two slots discover incompatible framework semantics, preserve the common observable contract and isolate the difference inside their native hook.
 
 - [ ] **Step 1: Verify exact public names and dependency bounds**
 
@@ -675,7 +756,7 @@ Run `pnpm nx test @copilotkit/intelligence`, `cd sdk-python && poetry run pytest
 
 - [ ] **Step 3: Run the complete test/build/package matrix**
 
-Run `pnpm nx test @copilotkit/intelligence -- --run src/adapter-conformance.test.ts src/adapter-ci-matrix.test.ts`, `pnpm --filter @copilotkit/intelligence verify:adapter-conformance`, and `pnpm nx run-many -t test check build --projects=@copilotkit/intelligence-adk,@copilotkit/intelligence-langgraph-python,@copilotkit/intelligence-langgraph,@copilotkit/intelligence-agent-framework-python,@copilotkit/intelligence-agent-framework-dotnet`. Run the minimum/latest commands recorded in each task, publint/ATTW, all Python `twine check` commands, and the NuGet clean-consumer compile. Expected: `35 adapter conformance cases valid`, exactly ten compatibility cells, and resolved versions captured in the final CI summary.
+Run `pnpm nx test @copilotkit/intelligence -- --run src/adapter-conformance.test.ts src/adapter-ci-matrix.test.ts`, `pnpm --filter @copilotkit/intelligence verify:adapter-conformance`, and `pnpm nx run-many --targets=test,check,build,pack-check --projects=@copilotkit/intelligence-adk,@copilotkit/intelligence-langgraph-python,@copilotkit/intelligence-langgraph,@copilotkit/intelligence-agent-framework-python,@copilotkit/intelligence-agent-framework-dotnet`. Run the minimum/latest commands recorded in each task and the release `python-adapter-sdk-gate` probe. Expected: `35 adapter conformance cases valid`, exactly ten compatibility cells, all 20 explicitly defined Nx targets pass, `copilotkit==0.1.95` imports from PyPI for release, and resolved versions are captured in the final CI summary.
 
 - [ ] **Step 4: Inspect state/failure acceptance tests**
 
