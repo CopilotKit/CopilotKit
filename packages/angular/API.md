@@ -271,6 +271,7 @@ custom hosts, renderers, and protocol testing.
 - `MCPAppsHostInfo`
 - `MCPAppsSnapshotContent`
 - `MCP_APPS_CONFIG`
+- `MCP_APPS_SANDBOX_SCRIPT_CSP_SOURCE`
 - `mcpAppsActivityRendererConfig`
 - `mcpAppsSnapshotContentSchema`
 - `provideMCPApps`

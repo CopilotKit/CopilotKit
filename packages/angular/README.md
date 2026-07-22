@@ -414,7 +414,9 @@ take precedence over optional built-ins.
   `provideMCPApps()` to application providers and import advanced host APIs
   from `@copilotkit/angular/mcp-apps`. MCP resource and tool requests travel
   through the selected AG-UI agent; the browser provider does not accept a
-  server URL.
+  server URL. If the host response sets `script-src`, include the exported
+  `MCP_APPS_SANDBOX_SCRIPT_CSP_SOURCE` expression so the package-owned inline
+  sandbox proxy can initialize without enabling arbitrary inline scripts.
 
 ## Lifecycle and cleanup
 

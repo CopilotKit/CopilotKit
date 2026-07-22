@@ -11,7 +11,10 @@ import {
   CopilotMCPAppsActivityRenderer,
   mcpAppsActivityRendererConfig,
 } from "../mcp-apps-activity-renderer";
-import { CopilotMCPAppsWidget } from "../mcp-apps-widget";
+import {
+  CopilotMCPAppsWidget,
+  MCP_APPS_SANDBOX_SCRIPT_CSP_SOURCE,
+} from "../mcp-apps-widget";
 import { provideMCPApps } from "../provide-mcp-apps";
 import { expect, it, vi } from "vitest";
 
@@ -219,6 +222,24 @@ it("loads the resource through the selected agent and boots the sandbox", async 
     "*",
   );
   expect(fixture.nativeElement.querySelector("[role='status']")).toBeNull();
+});
+
+it("publishes the exact CSP hash required by the inline sandbox proxy", async () => {
+  configureTestingModule();
+  const agent = createAgent();
+  const { frame } = await bootWidget(agent);
+  const script = /<script>([\s\S]*?)<\/script>/u.exec(frame.srcdoc)?.[1];
+
+  expect(script).toBeDefined();
+  const digest = await globalThis.crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(script),
+  );
+  const base64 = btoa(
+    String.fromCharCode(...Array.from(new Uint8Array(digest))),
+  );
+
+  expect(MCP_APPS_SANDBOX_SCRIPT_CSP_SOURCE).toBe(`'sha256-${base64}'`);
 });
 
 it("preserves the sandbox across equivalent activity snapshot updates", async () => {

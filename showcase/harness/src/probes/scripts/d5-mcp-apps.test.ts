@@ -3,11 +3,23 @@ import {
   D5_REGISTRY,
   __clearD5RegistryForTesting,
   getD5Script,
-  type D5BuildContext,
 } from "../helpers/d5-registry.js";
+import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { Page } from "../helpers/conversation-runner.js";
+import type * as D5MCPAppsScript from "./d5-mcp-apps.js";
 
-let scriptModule: typeof import("./d5-mcp-apps.js");
+let scriptModule: typeof D5MCPAppsScript;
+
+function makePageReturning(value: string | null): Page {
+  return {
+    waitForSelector: async () => undefined,
+    fill: async () => undefined,
+    press: async () => undefined,
+    // The script's evaluate runs a function that returns a string|null.
+    // Our fake bypasses the DOM and returns the scripted value verbatim.
+    evaluate: async <R>(_fn: () => R): Promise<R> => value as unknown as R,
+  };
+}
 
 describe("D5 mcp-apps script — registration", () => {
   beforeAll(async () => {
@@ -69,17 +81,6 @@ describe("D5 mcp-apps script — buildTurns", () => {
 });
 
 describe("D5 mcp-apps assertIframePresent", () => {
-  function makePageReturning(value: string | null): Page {
-    return {
-      waitForSelector: async () => undefined,
-      fill: async () => undefined,
-      press: async () => undefined,
-      // The script's evaluate runs a function that returns a string|null.
-      // Our fake bypasses the DOM and returns the scripted value verbatim.
-      evaluate: async <R>(_fn: () => R): Promise<R> => value as unknown as R,
-    };
-  }
-
   it("passes when the canonical testid selector matches", async () => {
     const mod = await import("./d5-mcp-apps.js");
     const page = makePageReturning('[data-testid="mcp-app-iframe"]');
@@ -90,6 +91,41 @@ describe("D5 mcp-apps assertIframePresent", () => {
     const mod = await import("./d5-mcp-apps.js");
     const page = makePageReturning("iframe[sandbox]");
     await expect(mod.assertIframePresent(page, 50)).resolves.toBeUndefined();
+  });
+
+  it("rejects an outer iframe whose CSP-blocked proxy never embeds the resource", async () => {
+    const mod = await import("./d5-mcp-apps.js");
+    const originalDocument = Object.getOwnPropertyDescriptor(
+      globalThis,
+      "document",
+    );
+    Object.defineProperty(globalThis, "document", {
+      configurable: true,
+      value: {
+        querySelector: (selector: string) =>
+          selector === '[data-testid="mcp-app-iframe"]'
+            ? { contentDocument: { querySelector: () => null } }
+            : null,
+      },
+    });
+    const page: Page = {
+      waitForSelector: async () => undefined,
+      fill: async () => undefined,
+      press: async () => undefined,
+      evaluate: async <R>(fn: () => R): Promise<R> => fn(),
+    };
+
+    try {
+      await expect(mod.assertIframePresent(page, 50)).rejects.toThrow(
+        /fully initialized embedded UI/,
+      );
+    } finally {
+      if (originalDocument) {
+        Object.defineProperty(globalThis, "document", originalDocument);
+      } else {
+        Reflect.deleteProperty(globalThis, "document");
+      }
+    }
   });
 
   it("throws when neither selector matches within the timeout", async () => {

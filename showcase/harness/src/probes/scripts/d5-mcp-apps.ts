@@ -8,10 +8,9 @@
  * `/demos/mcp-apps` page, which is an iframe-shell demo (the MCP app
  * runs inside a sandboxed iframe loaded from a remote URL).
  *
- * The D5 signal here is "the page renders an iframe shell" — that's the
- * minimum viable proof the MCP-apps surface composes correctly. We do
- * NOT drive a chat conversation: the page's primary feature is the
- * iframe embedding pipeline, not a chat round-trip.
+ * The D5 signal here is "the sandbox proxy runs and embeds its fetched
+ * resource". An outer iframe alone is insufficient because a response CSP can
+ * block the proxy's inline bootstrap while leaving that iframe in the DOM.
  *
  * Selector cascade (most-specific first):
  *   1. `[data-testid="mcp-app-iframe"]`  — canonical testid (Phase 1
@@ -26,10 +25,8 @@
  * convention.
  */
 
-import {
-  registerD5Script,
-  type D5BuildContext,
-} from "../helpers/d5-registry.js";
+import { registerD5Script } from "../helpers/d5-registry.js";
+import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
 
 /**
@@ -50,8 +47,9 @@ const IFRAME_POLL_TIMEOUT_MS = 15_000;
 const IFRAME_POLL_INTERVAL_MS = 250;
 
 /**
- * Probe the page for an MCP-app iframe. Returns the matching selector
- * or `null` when the cascade matches nothing.
+ * Probe the page for an initialized MCP-app iframe. Returns the matching
+ * selector only after the outer proxy creates an inner frame and assigns the
+ * fetched resource HTML; otherwise returns `null`.
  *
  * The cascade is hard-coded inside the `page.evaluate` body because the
  * `Page.evaluate` type is `() => R` (no closure capture across the
@@ -62,12 +60,21 @@ export async function probeIframeSelector(page: Page): Promise<string | null> {
   return await page.evaluate(() => {
     const win = globalThis as unknown as {
       document: {
-        querySelector(sel: string): unknown;
+        querySelector(sel: string): {
+          contentDocument?: {
+            querySelector(innerSelector: string): {
+              getAttribute(name: string): string | null;
+            } | null;
+          } | null;
+        } | null;
       };
     };
     const selectors = ['[data-testid="mcp-app-iframe"]', "iframe[sandbox]"];
     for (const sel of selectors) {
-      if (win.document.querySelector(sel)) return sel;
+      const frame = win.document.querySelector(sel);
+      const inner = frame?.contentDocument?.querySelector("iframe");
+      const resourceHtml = inner?.getAttribute("srcdoc");
+      if (resourceHtml?.trim()) return sel;
     }
     return null;
   });
@@ -95,7 +102,7 @@ export async function assertIframePresent(
     await new Promise<void>((r) => setTimeout(r, IFRAME_POLL_INTERVAL_MS));
   }
   throw new Error(
-    `mcp-apps: expected iframe but selector cascade matched 0 elements after ${timeoutMs}ms ` +
+    `mcp-apps: expected iframe with a fully initialized embedded UI but no sandbox proxy loaded its resource after ${timeoutMs}ms ` +
       `(tried ${MCP_APP_IFRAME_SELECTORS.join(", ")})`,
   );
 }

@@ -23,6 +23,16 @@ import {
 import { MCP_APPS_CONFIG } from "./mcp-apps-config";
 
 const PROTOCOL_VERSION = "2025-06-18";
+
+/**
+ * CSP source expression for the package-owned inline MCP sandbox proxy.
+ *
+ * Hosts with a response-level `script-src` directive must include this value
+ * or the browser will block the `srcdoc` proxy before its handshake begins.
+ */
+export const MCP_APPS_SANDBOX_SCRIPT_CSP_SOURCE =
+  "'sha256-s0MP3n8Vae8jFX/eWS1yBnmS7QDug5QsfobCIzFoAHE='";
+
 const queuesByIdleTimeout = new Map<number, MCPAppsRequestQueue>();
 
 interface FetchedResource {

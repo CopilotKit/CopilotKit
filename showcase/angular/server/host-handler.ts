@@ -12,12 +12,14 @@ export interface HostHandlerOptions {
 const CELL_PATH_RE =
   /^\/([a-z0-9][a-z0-9-]*[a-z0-9])\/([a-z0-9][a-z0-9-]*[a-z0-9])\/?$/;
 const ASSET_PATH_RE = /^\/[A-Za-z0-9._/-]+\.[A-Za-z0-9]+$/;
+const MCP_APPS_SANDBOX_SCRIPT_CSP_SOURCE =
+  "'sha256-s0MP3n8Vae8jFX/eWS1yBnmS7QDug5QsfobCIzFoAHE='";
 
 function securityHeaders(config: HostConfig, contentType?: string): Headers {
   const headers = new Headers({
     "content-security-policy": [
       "default-src 'self'",
-      "script-src 'self'",
+      `script-src 'self' ${MCP_APPS_SANDBOX_SCRIPT_CSP_SOURCE}`,
       "style-src 'self' 'unsafe-inline'",
       "connect-src 'self'",
       "img-src 'self' data: blob:",

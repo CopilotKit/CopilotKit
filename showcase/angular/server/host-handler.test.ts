@@ -46,6 +46,28 @@ describe("Angular Showcase host handler", () => {
     expect(response.headers.get("x-frame-options")).toBeNull();
   });
 
+  it("permits only the package-owned inline MCP sandbox proxy", async () => {
+    const handle = createHostHandler({
+      config: config("valid"),
+      runtimeIndex,
+      proxy: vi.fn(),
+      serveStatic: vi.fn(async () => new Response("app")),
+    });
+
+    const response = await handle(
+      new Request("https://angular.example.test/langgraph-python/mcp-apps"),
+    );
+    const policy = response.headers.get("content-security-policy") ?? "";
+    const scriptPolicy = policy
+      .split(";")
+      .find((directive) => directive.trimStart().startsWith("script-src"));
+
+    expect(scriptPolicy).toContain(
+      "script-src 'self' 'sha256-s0MP3n8Vae8jFX/eWS1yBnmS7QDug5QsfobCIzFoAHE='",
+    );
+    expect(scriptPolicy).not.toContain("'unsafe-inline'");
+  });
+
   it("fails closed before serving the SPA when backend configuration is missing", async () => {
     const serveStatic = vi.fn(async () => new Response("app"));
     const handle = createHostHandler({
