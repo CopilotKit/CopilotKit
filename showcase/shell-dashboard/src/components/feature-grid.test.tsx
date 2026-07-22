@@ -671,4 +671,17 @@ describe("FeatureGrid — Show unique filter", () => {
       "unique feature row must appear after enabling Show unique",
     ).not.toBeNull();
   });
+
+  it("notes unique rows are hidden in the subtitle by default", () => {
+    const { container } = renderGrid();
+    expect(container.textContent).toContain(
+      `${uniqueFeatures.length} unique hidden`,
+    );
+  });
+
+  it("drops the unique-hidden note once Show unique is enabled", () => {
+    const { getByTestId, container } = renderGrid();
+    fireEvent.click(getByTestId("show-unique-toggle").querySelector("input")!);
+    expect(container.textContent).not.toContain("unique hidden");
+  });
 });

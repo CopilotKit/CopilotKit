@@ -852,9 +852,14 @@ export function FeatureGrid({
         <p className="mt-1 text-sm text-[var(--text-secondary)]">
           {subtitle ? <>{subtitle} · </> : null}
           {visibleFeatures.length} features × {integrations.length} integrations
-          {!showDeprecated && deprecatedCount > 0
-            ? ` (${deprecatedCount} deprecated hidden)`
-            : ""}
+          {(() => {
+            const hidden: string[] = [];
+            if (!showDeprecated && deprecatedCount > 0)
+              hidden.push(`${deprecatedCount} deprecated`);
+            if (!showUnique && uniqueCount > 0)
+              hidden.push(`${uniqueCount} unique`);
+            return hidden.length ? ` (${hidden.join(", ")} hidden)` : "";
+          })()}
           .
         </p>
       </header>
