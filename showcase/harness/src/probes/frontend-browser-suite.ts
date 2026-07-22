@@ -220,8 +220,11 @@ function assertSecurityHeaders(headers: Record<string, string>): void {
   }
 }
 
-async function runAxe(page: Page): Promise<AccessibilityViolationSummary[]> {
-  await page.addScriptTag({ content: axe.source });
+/** Execute Axe without inserting a CSP-blocked inline script element. */
+export async function runAxe(
+  page: Page,
+): Promise<AccessibilityViolationSummary[]> {
+  await page.evaluate(axe.source);
   const expression = `
     globalThis.axe.run(globalThis.document, {
       runOnly: { type: "tag", values: ${JSON.stringify(ACCESSIBILITY_TAGS)} }
@@ -234,14 +237,17 @@ async function runAxe(page: Page): Promise<AccessibilityViolationSummary[]> {
   return (await page.evaluate(expression)) as AccessibilityViolationSummary[];
 }
 
-async function assertFocusWithin(page: Page, selector: string): Promise<void> {
-  const within = await page.evaluate(
+/** Wait for asynchronous render hooks to place focus within a surface. */
+export async function waitForFocusWithin(
+  page: Page,
+  selector: string,
+): Promise<void> {
+  await page.waitForFunction(
     `(function () {
       var owner = document.querySelector(${JSON.stringify(selector)});
       return Boolean(owner && owner.contains(document.activeElement));
     })()`,
   );
-  if (!within) throw new Error("focus is outside the modal surface");
 }
 
 async function diagnoseSurface(
@@ -283,7 +289,7 @@ async function assertPopup(
 ): Promise<Omit<FrontendBrowserStateResult["assertions"], "securityHeaders">> {
   const dialog = page.locator('[role="dialog"]');
   await dialog.waitFor({ state: "visible" });
-  await assertFocusWithin(page, '[role="dialog"]');
+  await waitForFocusWithin(page, '[role="dialog"]');
 
   if (close) {
     await page.keyboard.press("Escape");
@@ -300,7 +306,7 @@ async function assertPopup(
   }
 
   await page.keyboard.press("Tab");
-  await assertFocusWithin(page, '[role="dialog"]');
+  await waitForFocusWithin(page, '[role="dialog"]');
   const box = await dialog.boundingBox();
   const viewport = page.viewportSize();
   if (!box || !viewport) throw new Error("popup geometry is unavailable");
@@ -337,9 +343,9 @@ async function assertSidebar(
     ) {
       throw new Error("mobile sidebar is not modal");
     }
-    await assertFocusWithin(page, "[data-copilot-sidebar]");
+    await waitForFocusWithin(page, "[data-copilot-sidebar]");
     await page.keyboard.press("Tab");
-    await assertFocusWithin(page, "[data-copilot-sidebar]");
+    await waitForFocusWithin(page, "[data-copilot-sidebar]");
     const box = await sidebar.boundingBox();
     const viewport = page.viewportSize();
     if (!box || !viewport || Math.abs(box.width - viewport.width) > 1) {
@@ -400,13 +406,7 @@ async function runState(
       const composer = page.locator("textarea, [role='textbox']").first();
       await composer.waitFor({ state: "visible" });
       await composer.focus();
-      if (
-        !(await composer.evaluate(
-          "element => element === document.activeElement",
-        ))
-      ) {
-        throw new Error("chat composer did not receive keyboard focus");
-      }
+      await waitForFocusWithin(page, "textarea, [role='textbox']");
       assertions.keyboard = "passed";
       assertions.focus = "passed";
       assertions.responsive = "passed";

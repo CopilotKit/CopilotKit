@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   ACCESSIBILITY_TAGS,
@@ -7,6 +7,8 @@ import {
   browserProjectById,
   classifyBrowserError,
   createFrontendBrowserArtifact,
+  runAxe,
+  waitForFocusWithin,
 } from "./frontend-browser-suite.js";
 
 describe("Angular reusable UI browser suite contract", () => {
@@ -57,6 +59,29 @@ describe("Angular reusable UI browser suite contract", () => {
       "wcag21aa",
       "wcag22aa",
     ]);
+  });
+
+  it("injects Axe through browser evaluation so strict CSP remains enabled", async () => {
+    const violations = [
+      { id: "aria-dialog-name", impact: "serious", nodeCount: 1 },
+    ];
+    const evaluate = vi
+      .fn()
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(violations);
+
+    await expect(runAxe({ evaluate } as never)).resolves.toEqual(violations);
+    expect(evaluate).toHaveBeenCalledTimes(2);
+  });
+
+  it("waits for asynchronous render hooks to move focus into a surface", async () => {
+    const waitForFunction = vi.fn().mockResolvedValue(undefined);
+
+    await waitForFocusWithin({ waitForFunction } as never, '[role="dialog"]');
+
+    expect(waitForFunction).toHaveBeenCalledWith(
+      expect.stringContaining('[role=\\"dialog\\"]'),
+    );
   });
 
   it("emits privacy-safe rule summaries without DOM or content payloads", () => {
