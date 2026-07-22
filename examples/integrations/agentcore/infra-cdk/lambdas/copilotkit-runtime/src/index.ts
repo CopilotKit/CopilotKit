@@ -1,8 +1,13 @@
 import { streamHandle } from "hono/aws-lambda";
 import { buildApp } from "./runtime";
+import { withVerifiedRuntimeUserHeader } from "./identity.js";
+import type { ApiGatewayRuntimeEvent } from "./identity.js";
 
 const app = buildApp();
+const honoHandler = streamHandle(app) as (...args: unknown[]) => unknown;
 
-export const handler: (...args: unknown[]) => unknown = streamHandle(app) as (
+/** Inject the verified Cognito subject before Hono converts the event to Request. */
+export const handler = (
+  event: ApiGatewayRuntimeEvent,
   ...args: unknown[]
-) => unknown;
+): unknown => honoHandler(withVerifiedRuntimeUserHeader(event), ...args);

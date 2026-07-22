@@ -17,6 +17,11 @@ import { AgentCoreRole } from "./utils/agentcore-role";
 import * as path from "path";
 import * as fs from "fs";
 import { execSync } from "child_process";
+import {
+  addAuthenticatedRuntimeMethod,
+  createRuntimeAuthorizer,
+  createRuntimeIntegration,
+} from "./copilotkit-runtime-auth";
 
 export interface BackendStackProps extends cdk.NestedStackProps {
   config: AppConfig;
@@ -461,28 +466,38 @@ export class BackendStack extends cdk.NestedStack {
       },
     });
 
-    const runtimeIntegration = new apigateway.LambdaIntegration(
+    const runtimeIntegration = createRuntimeIntegration(
       copilotKitRuntimeLambda,
-      {
-        responseTransferMode: apigateway.ResponseTransferMode.STREAM,
-      },
     );
+    const runtimeAuthorizer = createRuntimeAuthorizer(this, this.userPool);
 
     const runtimeResource = copilotKitApi.root.addResource("copilotkit");
-    runtimeResource.addMethod("GET", runtimeIntegration, {
-      authorizationType: apigateway.AuthorizationType.NONE,
-    });
-    runtimeResource.addMethod("POST", runtimeIntegration, {
-      authorizationType: apigateway.AuthorizationType.NONE,
-    });
+    addAuthenticatedRuntimeMethod(
+      runtimeResource,
+      "GET",
+      runtimeIntegration,
+      runtimeAuthorizer,
+    );
+    addAuthenticatedRuntimeMethod(
+      runtimeResource,
+      "POST",
+      runtimeIntegration,
+      runtimeAuthorizer,
+    );
 
     const runtimeProxy = runtimeResource.addResource("{proxy+}");
-    runtimeProxy.addMethod("GET", runtimeIntegration, {
-      authorizationType: apigateway.AuthorizationType.NONE,
-    });
-    runtimeProxy.addMethod("POST", runtimeIntegration, {
-      authorizationType: apigateway.AuthorizationType.NONE,
-    });
+    addAuthenticatedRuntimeMethod(
+      runtimeProxy,
+      "GET",
+      runtimeIntegration,
+      runtimeAuthorizer,
+    );
+    addAuthenticatedRuntimeMethod(
+      runtimeProxy,
+      "POST",
+      runtimeIntegration,
+      runtimeAuthorizer,
+    );
 
     this.copilotKitRuntimeUrl = copilotKitApi.urlForPath("/copilotkit");
 
@@ -712,16 +727,6 @@ export class BackendStack extends cdk.NestedStack {
     new cdk.CfnOutput(this, "GatewayArn", {
       value: gateway.attrGatewayArn,
       description: "AgentCore Gateway ARN",
-    });
-
-    new cdk.CfnOutput(this, "GatewayTargetId", {
-      value: gatewayTarget.ref,
-      description: "AgentCore Gateway Target ID",
-    });
-
-    new cdk.CfnOutput(this, "ToolLambdaArn", {
-      description: "ARN of the sample tool Lambda",
-      value: toolLambda.functionArn,
     });
   }
 

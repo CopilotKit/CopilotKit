@@ -13,6 +13,10 @@ import {
 } from "@copilotkit/runtime/v2";
 import { concatMap, of } from "rxjs";
 import { randomUUID } from "node:crypto";
+import {
+  resolveLocalRuntimeUser,
+  resolveVerifiedRuntimeUser,
+} from "./identity.js";
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -100,7 +104,9 @@ export class AgentCoreRunner extends InMemoryAgentRunner {
   }
 }
 
-export function buildApp() {
+export function buildApp(
+  options: { readonly localDevelopment?: boolean } = {},
+) {
   const agents = buildAgents();
   const agentName = process.env.COPILOTKIT_AGENT_NAME ?? "default";
   const defaultAgent =
@@ -118,9 +124,10 @@ export function buildApp() {
           wsUrl:
             process.env.INTELLIGENCE_GATEWAY_WS_URL ?? "ws://localhost:4401",
         }),
-        // Demo stub — replace with your real auth-derived user identity before any
-        // multi-user deployment, or all users share one thread history.
-        identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
+        identifyUser: (request) =>
+          options.localDevelopment
+            ? resolveLocalRuntimeUser(request)
+            : resolveVerifiedRuntimeUser(request),
       })
     : new CopilotRuntime({
         agents: { ...agents, default: defaultAgent },
