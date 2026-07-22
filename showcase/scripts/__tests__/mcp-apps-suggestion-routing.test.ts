@@ -38,6 +38,35 @@ const SUGGESTIONS_PATH = path.join(
   "suggestions.ts",
 );
 
+interface FixtureDocument {
+  fixtures?: Array<{
+    response?: {
+      toolCalls?: Array<{
+        name?: unknown;
+        arguments?: unknown;
+      }>;
+    };
+  }>;
+}
+
+/**
+ * Return every checked-in fixture that can emit an Excalidraw MCP tool call.
+ */
+function listCreateViewFixturePaths(): string[] {
+  return globSync(
+    [
+      "showcase/aimock/d6/**/*.json",
+      "showcase/harness/fixtures/d5/mcp-apps.json",
+    ],
+    {
+      cwd: REPO_ROOT,
+      absolute: true,
+    },
+  ).filter((fixturePath) =>
+    readFileSync(fixturePath, "utf8").includes('"name": "create_view"'),
+  );
+}
+
 // Load fixtures for a single integration (langgraph-python, the reference
 // integration) plus shared. At runtime each integration only sees its own
 // scoped fixtures via X-AIMock-Context, so loading a single integration's
@@ -130,6 +159,44 @@ const PILLS = [
 ] as const;
 
 describe("MCP Apps suggestion-pill fixture routing", () => {
+  it("uses the current create_view string contract in every fixture", () => {
+    const fixturePaths = listCreateViewFixturePaths();
+    let createViewCalls = 0;
+
+    for (const fixturePath of fixturePaths) {
+      const document = JSON.parse(
+        readFileSync(fixturePath, "utf8"),
+      ) as FixtureDocument;
+      for (const [fixtureIndex, fixture] of (
+        document.fixtures ?? []
+      ).entries()) {
+        for (const toolCall of fixture.response?.toolCalls ?? []) {
+          if (toolCall.name !== "create_view") continue;
+          createViewCalls += 1;
+
+          const location = `${path.relative(REPO_ROOT, fixturePath)} fixture ${fixtureIndex}`;
+          expect(
+            typeof toolCall.arguments,
+            `${location}: create_view arguments must be serialized JSON`,
+          ).toBe("string");
+          const args = JSON.parse(String(toolCall.arguments)) as {
+            elements?: unknown;
+          };
+          expect(
+            typeof args.elements,
+            `${location}: create_view.elements must be a JSON-array string`,
+          ).toBe("string");
+          expect(
+            Array.isArray(JSON.parse(String(args.elements))),
+            `${location}: create_view.elements must decode to an array`,
+          ).toBe(true);
+        }
+      }
+    }
+
+    expect(createViewCalls).toBeGreaterThan(0);
+  });
+
   it("suggestions.ts still uses the exact pill messages this test asserts on", () => {
     const src = readFileSync(SUGGESTIONS_PATH, "utf8");
     for (const pill of PILLS) {
