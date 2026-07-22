@@ -55,16 +55,16 @@ SYSTEM_PROMPT = (
 # @region[context-extraction]
 def extract_context_programmatically(state: AgentState) -> dict[str, Any]:
     """Demonstrate programmatic reading of useAgentContext values.
-    
+
     This function shows the documented access pattern from configurable.mdx:
     reading authToken and other config values from state["copilotkit"]["context"].
-    
+
     This is useful when you need to use context values in Python code (e.g., for
     API calls with auth tokens) rather than relying only on LLM injection.
     """
     copilotkit_state = state.get("copilotkit", {})
     context_entries = copilotkit_state.get("context", [])
-    
+
     # Extract config values from context entries
     result = {}
     for entry in context_entries:
@@ -83,8 +83,10 @@ def extract_context_programmatically(state: AgentState) -> dict[str, Any]:
             # Extract auth tokens if present
             if "authToken" in value:
                 result["authToken"] = value["authToken"]
-    
+
     return result
+
+
 # @endregion[context-extraction]
 
 # @region[agent-config-setup]
