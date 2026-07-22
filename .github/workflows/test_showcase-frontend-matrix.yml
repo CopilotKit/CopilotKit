@@ -443,21 +443,6 @@ jobs:
       - name: Generate Showcase registry
         run: pnpm --dir showcase/scripts generate-registry
 
-      - name: Require every prerequisite gate
-        env:
-          PLAN_RESULT: ${{ needs.plan.result }}
-          BUILD_RESULT: ${{ needs.build-angular-host.result }}
-          MATRIX_RESULT: ${{ needs.matrix.result }}
-          BROWSER_RESULT: ${{ needs.browser-suite.result }}
-          PERFORMANCE_RESULT: ${{ needs.performance.result }}
-        run: |
-          for result in "$PLAN_RESULT" "$BUILD_RESULT" "$MATRIX_RESULT" "$BROWSER_RESULT" "$PERFORMANCE_RESULT"; do
-            if [ "$result" != "success" ]; then
-              echo "A required frontend gate did not succeed: $result" >&2
-              exit 1
-            fi
-          done
-
       - name: Download matrix artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -473,7 +458,7 @@ jobs:
           --timings-output "$RUNNER_TEMP/frontend-matrix-timings.json"
 
       - name: Upload aggregate evidence
-        if: always()
+        if: always() && !cancelled()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: frontend-matrix-report
@@ -482,3 +467,19 @@ jobs:
             ${{ runner.temp }}/frontend-matrix-timings.json
           if-no-files-found: error
           retention-days: 30
+
+      - name: Require every prerequisite gate
+        if: always() && !cancelled()
+        env:
+          PLAN_RESULT: ${{ needs.plan.result }}
+          BUILD_RESULT: ${{ needs.build-angular-host.result }}
+          MATRIX_RESULT: ${{ needs.matrix.result }}
+          BROWSER_RESULT: ${{ needs.browser-suite.result }}
+          PERFORMANCE_RESULT: ${{ needs.performance.result }}
+        run: |
+          for result in "$PLAN_RESULT" "$BUILD_RESULT" "$MATRIX_RESULT" "$BROWSER_RESULT" "$PERFORMANCE_RESULT"; do
+            if [ "$result" != "success" ]; then
+              echo "A required frontend gate did not succeed: $result" >&2
+              exit 1
+            fi
+          done

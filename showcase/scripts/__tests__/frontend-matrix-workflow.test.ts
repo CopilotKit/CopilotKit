@@ -10,6 +10,7 @@ const WORKFLOW_PATH = resolve(
 );
 
 interface WorkflowStep {
+  if?: string;
   name?: string;
   run?: string;
   with?: Record<string, unknown>;
@@ -79,5 +80,24 @@ describe("complete frontend matrix workflow", () => {
         "CHECKOUT_SHA=$(git rev-parse HEAD)",
       );
     }
+  });
+
+  it("retains aggregate matrix evidence when exact cells fail", () => {
+    const verifySteps = workflowJobs()["verify"]?.steps ?? [];
+    const aggregateIndex = verifySteps.findIndex(
+      (step) => step.name === "Verify exact coverage, results, and p95",
+    );
+    const uploadIndex = verifySteps.findIndex(
+      (step) => step.name === "Upload aggregate evidence",
+    );
+    const prerequisiteIndex = verifySteps.findIndex(
+      (step) => step.name === "Require every prerequisite gate",
+    );
+
+    expect(aggregateIndex).toBeGreaterThan(-1);
+    expect(uploadIndex).toBeGreaterThan(aggregateIndex);
+    expect(prerequisiteIndex).toBeGreaterThan(uploadIndex);
+    expect(verifySteps[uploadIndex]?.if).toBe("always() && !cancelled()");
+    expect(verifySteps[prerequisiteIndex]?.if).toBe("always() && !cancelled()");
   });
 });
