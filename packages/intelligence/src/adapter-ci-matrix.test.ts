@@ -21,33 +21,14 @@ const adapters = [
 ] as const;
 const boundaries = ["minimum", "latest"] as const;
 
-const requirements = {
-  "adk-python:minimum": ["google-adk==2.0.0"],
-  "adk-python:latest": ["google-adk>=2.0.0,<3.0.0"],
-  "langgraph-python:minimum": ["langgraph==1.2.2", "langchain==1.3.2"],
-  "langgraph-python:latest": [
-    "langgraph>=1.2.2,<2.0.0",
-    "langchain>=1.3.2,<2.0.0",
-  ],
-  "langgraph-typescript:minimum": [
-    "@langchain/langgraph@1.3.0",
-    "langchain@1.4.4",
-  ],
-  "langgraph-typescript:latest": [
-    "@langchain/langgraph@>=1.3.0 <2.0.0",
-    "langchain@>=1.4.4 <2.0.0",
-  ],
-  "agent-framework-python:minimum": ["agent-framework-core==1.11.0"],
-  "agent-framework-python:latest": ["agent-framework-core>=1.11.0,<2.0.0"],
-  "agent-framework-dotnet:minimum": ["Microsoft.Agents.AI.Abstractions@1.13.0"],
-  "agent-framework-dotnet:latest": [
-    "Microsoft.Agents.AI.Abstractions@[1.13.0,2.0.0)",
-  ],
-} as const;
-
 interface MatrixCell {
   adapter: (typeof adapters)[number];
   boundary: (typeof boundaries)[number];
+  language: "python" | "typescript" | "dotnet";
+  runtimeVersion: string;
+  nodeVersion: string;
+  adapterRoot: string;
+  nxProject: string;
   frameworkRequirements: string[];
 }
 
@@ -55,6 +36,115 @@ interface AdapterCiMatrix {
   schemaVersion: number;
   cells: MatrixCell[];
 }
+
+const expectedCells: MatrixCell[] = [
+  {
+    adapter: "adk-python",
+    boundary: "minimum",
+    language: "python",
+    runtimeVersion: "3.10",
+    nodeVersion: "22",
+    adapterRoot: "sdk-python-adk",
+    nxProject: "@copilotkit/intelligence-adk",
+    frameworkRequirements: ["google-adk==2.0.0"],
+  },
+  {
+    adapter: "adk-python",
+    boundary: "latest",
+    language: "python",
+    runtimeVersion: "3.10",
+    nodeVersion: "22",
+    adapterRoot: "sdk-python-adk",
+    nxProject: "@copilotkit/intelligence-adk",
+    frameworkRequirements: ["google-adk>=2.0.0,<3.0.0"],
+  },
+  {
+    adapter: "langgraph-python",
+    boundary: "minimum",
+    language: "python",
+    runtimeVersion: "3.10",
+    nodeVersion: "22",
+    adapterRoot: "sdk-python-langgraph",
+    nxProject: "@copilotkit/intelligence-langgraph-python",
+    frameworkRequirements: ["langgraph==1.2.2", "langchain==1.3.2"],
+  },
+  {
+    adapter: "langgraph-python",
+    boundary: "latest",
+    language: "python",
+    runtimeVersion: "3.10",
+    nodeVersion: "22",
+    adapterRoot: "sdk-python-langgraph",
+    nxProject: "@copilotkit/intelligence-langgraph-python",
+    frameworkRequirements: [
+      "langgraph>=1.2.2,<2.0.0",
+      "langchain>=1.3.2,<2.0.0",
+    ],
+  },
+  {
+    adapter: "langgraph-typescript",
+    boundary: "minimum",
+    language: "typescript",
+    runtimeVersion: "20",
+    nodeVersion: "20",
+    adapterRoot: "packages/intelligence-langgraph",
+    nxProject: "@copilotkit/intelligence-langgraph",
+    frameworkRequirements: ["@langchain/langgraph@1.3.0", "langchain@1.4.4"],
+  },
+  {
+    adapter: "langgraph-typescript",
+    boundary: "latest",
+    language: "typescript",
+    runtimeVersion: "22",
+    nodeVersion: "22",
+    adapterRoot: "packages/intelligence-langgraph",
+    nxProject: "@copilotkit/intelligence-langgraph",
+    frameworkRequirements: [
+      "@langchain/langgraph@>=1.3.0 <2.0.0",
+      "langchain@>=1.4.4 <2.0.0",
+    ],
+  },
+  {
+    adapter: "agent-framework-python",
+    boundary: "minimum",
+    language: "python",
+    runtimeVersion: "3.10",
+    nodeVersion: "22",
+    adapterRoot: "sdk-python-agent-framework",
+    nxProject: "@copilotkit/intelligence-agent-framework-python",
+    frameworkRequirements: ["agent-framework-core==1.11.0"],
+  },
+  {
+    adapter: "agent-framework-python",
+    boundary: "latest",
+    language: "python",
+    runtimeVersion: "3.10",
+    nodeVersion: "22",
+    adapterRoot: "sdk-python-agent-framework",
+    nxProject: "@copilotkit/intelligence-agent-framework-python",
+    frameworkRequirements: ["agent-framework-core>=1.11.0,<2.0.0"],
+  },
+  {
+    adapter: "agent-framework-dotnet",
+    boundary: "minimum",
+    language: "dotnet",
+    runtimeVersion: "8.0.x",
+    nodeVersion: "22",
+    adapterRoot: "sdk-dotnet-agent-framework",
+    nxProject: "@copilotkit/intelligence-agent-framework-dotnet",
+    frameworkRequirements: ["Microsoft.Agents.AI.Abstractions@1.13.0"],
+  },
+  {
+    adapter: "agent-framework-dotnet",
+    boundary: "latest",
+    language: "dotnet",
+    runtimeVersion: "8.0.x",
+    nodeVersion: "22",
+    adapterRoot: "sdk-dotnet-agent-framework",
+    nxProject: "@copilotkit/intelligence-agent-framework-dotnet",
+    frameworkRequirements: ["Microsoft.Agents.AI.Abstractions@[1.13.0,2.0.0)"],
+  },
+];
 
 describe("adapter CI matrix", () => {
   test("declares and consumes exactly ten minimum/latest cells", () => {
@@ -74,12 +164,7 @@ describe("adapter CI matrix", () => {
     expect(new Set(actualCellIds).size).toBe(10);
     expect([...actualCellIds].sort()).toEqual([...expectedCellIds].sort());
 
-    for (const cell of matrix.cells) {
-      const cellId = `${cell.adapter}:${cell.boundary}`;
-      expect(cell.frameworkRequirements).toEqual(
-        requirements[cellId as keyof typeof requirements],
-      );
-    }
+    expect(matrix.cells).toEqual(expectedCells);
 
     expect(workflow).toContain(
       "jq -c '{include: .cells}' packages/intelligence/conformance/adapter-ci-matrix-v1.json",
@@ -90,4 +175,53 @@ describe("adapter CI matrix", () => {
     expect(workflow).toContain("fail-fast: false");
     expect(workflow).not.toMatch(/adapter:\s*\[(?:.|\n)*?adk-python/);
   });
+
+  test("smoke-tests both supported LangGraph Python public spellings", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+
+    expect(workflow).toContain(
+      "from copilotkit_intelligence_langgraph import createSkillRegistryMiddleware, create_skill_registry_middleware",
+    );
+    expect(workflow).toContain(
+      "assert createSkillRegistryMiddleware is create_skill_registry_middleware",
+    );
+    expect(workflow).not.toContain("create_skill_registry_before_model");
+  });
+
+  test.each([
+    [
+      "Install Python boundary",
+      '"${ADAPTER_ROOT}/.venv/bin/pip" freeze | tee dependency-versions.txt',
+    ],
+    [
+      "Install TypeScript boundary",
+      'pnpm --dir "${ADAPTER_ROOT}" list --depth 0 --json | tee dependency-versions.txt',
+    ],
+    [
+      "Install .NET boundary",
+      'dotnet list "${ADAPTER_ROOT}/CopilotKit.Intelligence.AgentFramework.Tests/CopilotKit.Intelligence.AgentFramework.Tests.csproj" package --include-transitive | tee -a dependency-versions.txt',
+    ],
+    [
+      "Run Nx target and shared corpus runner",
+      'pnpm nx run "${NX_PROJECT}:test" 2>&1 | tee adapter-test-report.txt',
+    ],
+  ])(
+    "fails the %s step when its version evidence producer fails",
+    (stepName, producer) => {
+      const workflow = readFileSync(workflowPath, "utf8");
+      const nextStepIndex = workflow.indexOf(
+        "\n      - name:",
+        workflow.indexOf(stepName),
+      );
+      const step = workflow.slice(
+        workflow.indexOf(stepName),
+        nextStepIndex === -1 ? undefined : nextStepIndex,
+      );
+      const pipefailIndex = step.indexOf("set -o pipefail");
+      const producerIndex = step.indexOf(producer);
+
+      expect(pipefailIndex).toBeGreaterThanOrEqual(0);
+      expect(producerIndex).toBeGreaterThan(pipefailIndex);
+    },
+  );
 });

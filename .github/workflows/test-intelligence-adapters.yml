@@ -158,6 +158,7 @@ jobs:
       - name: Install Python boundary
         if: matrix.language == 'python'
         run: |
+          set -o pipefail
           python3.10 -m venv "${ADAPTER_ROOT}/.venv"
           mapfile -t FRAMEWORK_ARGS < <(jq -r '.[]' <<< '${{ toJSON(matrix.frameworkRequirements) }}')
           "${ADAPTER_ROOT}/.venv/bin/pip" install sdk-python/dist/copilotkit-0.1.95-py3-none-any.whl pytest pytest-asyncio build twine "${FRAMEWORK_ARGS[@]}"
@@ -167,12 +168,14 @@ jobs:
       - name: Install TypeScript boundary
         if: matrix.language == 'typescript'
         run: |
+          set -o pipefail
           mapfile -t FRAMEWORK_ARGS < <(jq -r '.[]' <<< '${{ toJSON(matrix.frameworkRequirements) }}')
           pnpm --dir "${ADAPTER_ROOT}" add --save-dev --lockfile=false "${FRAMEWORK_ARGS[@]}"
           pnpm --dir "${ADAPTER_ROOT}" list --depth 0 --json | tee dependency-versions.txt
       - name: Install .NET boundary
         if: matrix.language == 'dotnet'
         run: |
+          set -o pipefail
           mapfile -t FRAMEWORK_ARGS < <(jq -r '.[]' <<< '${{ toJSON(matrix.frameworkRequirements) }}')
           if [[ ${#FRAMEWORK_ARGS[@]} -ne 1 ]]; then
             echo ".NET cells require exactly one framework requirement" >&2
@@ -271,7 +274,7 @@ jobs:
         run: |
           python -m venv .artifact-smoke
           .artifact-smoke/bin/pip install sdk-python/dist/*.whl sdk-python-adk/dist/*.whl sdk-python-langgraph/dist/*.whl sdk-python-agent-framework/dist/*.whl
-          .artifact-smoke/bin/python -c 'from copilotkit_intelligence_adk import SkillRegistry, SkillToolset; from copilotkit_intelligence_langgraph import create_skill_registry_before_model, create_skill_registry_middleware; from copilotkit_intelligence_agent_framework import SkillRegistryContextProvider'
+          .artifact-smoke/bin/python -c 'from copilotkit_intelligence_adk import SkillRegistry, SkillToolset; from copilotkit_intelligence_langgraph import createSkillRegistryMiddleware, create_skill_registry_middleware; from copilotkit_intelligence_agent_framework import SkillRegistryContextProvider; assert createSkillRegistryMiddleware is create_skill_registry_middleware'
       - name: Upload Python artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
