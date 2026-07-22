@@ -414,7 +414,7 @@ describe("createSkillRegistryMiddleware", () => {
     expect(succeeded?.metadata.refreshLatencyMs).toBe(3);
   });
 
-  it("canonicalizes a primitive sink failure for every joined caller and waiter", async () => {
+  it("canonicalizes a primitive sink failure after readiness observes the pointer swap", async () => {
     vi.useFakeTimers();
     const pending = deferred<InstalledSkillSet>();
     const middleware = createSkillRegistryMiddleware({
@@ -439,16 +439,15 @@ describe("createSkillRegistryMiddleware", () => {
 
     expect(firstResult.status).toBe("rejected");
     expect(secondResult.status).toBe("rejected");
-    expect(waiterResult?.status).toBe("rejected");
+    expect(waiterResult?.status).toBe("fulfilled");
     if (
       firstResult.status !== "rejected" ||
       secondResult.status !== "rejected" ||
-      waiterResult?.status !== "rejected"
+      waiterResult?.status !== "fulfilled"
     ) {
-      throw new Error("Joined callers and readiness waiter must reject");
+      throw new Error("Joined callers must reject after readiness settles");
     }
     expect(firstResult.reason).toBe(secondResult.reason);
-    expect(firstResult.reason).toBe(waiterResult.reason);
     expect(firstResult.reason).toMatchObject({
       code: "LEARNING_TELEMETRY_SINK_FAILED",
       category: "internal",
@@ -456,6 +455,8 @@ describe("createSkillRegistryMiddleware", () => {
       cause: "primitive-sink-1",
       causeIdentity: "primitive-sink-1",
     });
+    expect(waiterResult.value).toMatchObject({ status: "ready" });
+    expect(middleware.status).toBe("denied");
   });
 
   it("settles readiness when client-failure status telemetry rejects", async () => {
@@ -489,11 +490,11 @@ describe("createSkillRegistryMiddleware", () => {
     ) {
       throw new Error("Load and readiness waiter must reject");
     }
-    expect(loadResult.reason).toBe(waiterResult.reason);
     expect(loadResult.reason).toMatchObject({
       code: "LEARNING_TELEMETRY_SINK_FAILED",
       cause: sinkFailure,
     });
+    expect(waiterResult.reason).toBe(clientFailure);
     expect(middleware.status).toBe("denied");
   });
 
@@ -530,6 +531,40 @@ describe("createSkillRegistryMiddleware", () => {
       code: "LEARNING_REGISTRY_CLOSED",
     });
     expect(middleware.status).toBe("closed");
+  });
+
+  it("rejects pending readiness before blocked close telemetry completes", async () => {
+    vi.useFakeTimers();
+    const blockedStatusWrite = new Promise<void>(() => undefined);
+    let statusWriteStarted = false;
+    const middleware = createSkillRegistryMiddleware({
+      client: testClient(() => installedSkillSet()),
+      learningContainerId: CONTAINER_ID,
+      telemetry: (event) => {
+        if (event.name === "status.changed") {
+          statusWriteStarted = true;
+          return blockedStatusWrite;
+        }
+      },
+    });
+    let readinessFailure: unknown;
+    const readiness = middleware
+      .waitUntilReady({ timeoutMs: 10 })
+      .catch((error: unknown) => {
+        readinessFailure = error;
+      });
+
+    void middleware.close();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(statusWriteStarted).toBe(true);
+    expect(middleware.status).toBe("closed");
+    expect(readinessFailure).toMatchObject({
+      code: "LEARNING_REGISTRY_CLOSED",
+      causeIdentity: "closed-1",
+    });
+    await vi.advanceTimersByTimeAsync(10);
+    await readiness;
   });
 
   it("keeps close terminal while a failed shared load drains joined telemetry", async () => {

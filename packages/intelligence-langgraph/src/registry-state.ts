@@ -501,7 +501,7 @@ export class RegistryState {
         error: null,
         registryRevision: installed.projection.registryRevision,
       });
-      await this.swap(next, false);
+      await this.swap(next);
       this.throwIfClosed();
       await this.emit("load.succeeded", {
         outcome: "success",
@@ -512,7 +512,6 @@ export class RegistryState {
       });
       await this.drainJoinedTelemetry();
       this.throwIfClosed();
-      this.settleWaiters(next);
       return next;
     } catch (error) {
       this.throwIfClosed();
@@ -558,7 +557,7 @@ export class RegistryState {
       const terminalTelemetry = await (async () => {
         try {
           this.throwIfClosed();
-          await this.swap(next, false);
+          await this.swap(next);
           this.throwIfClosed();
           await this.emit("load.failed", this.errorMetadata(surfaced));
           this.throwIfClosed();
@@ -583,7 +582,6 @@ export class RegistryState {
         }
         throw terminalTelemetry.error;
       }
-      this.settleWaiters(next);
       throw error;
     }
   }
@@ -706,18 +704,12 @@ export class RegistryState {
     return Object.freeze(rendered);
   }
 
-  private async swap(
-    next: AdapterSnapshot,
-    settleWaiters = true,
-  ): Promise<void> {
+  private async swap(next: AdapterSnapshot): Promise<void> {
     const previous = this.current.status;
     this.current = next;
-    try {
-      if (previous !== next.status) {
-        await this.emit("status.changed", { status: next.status });
-      }
-    } finally {
-      if (settleWaiters) this.settleWaiters(next);
+    this.settleWaiters(next);
+    if (previous !== next.status) {
+      await this.emit("status.changed", { status: next.status });
     }
   }
 
@@ -774,31 +766,27 @@ export class RegistryState {
       error,
     });
     try {
-      try {
-        this.throwIfClosed();
-        await this.swap(next, false);
-        this.throwIfClosed();
-      } catch {
-        this.throwIfClosed();
-        // Preserve the initiating canonical failure if the terminal status
-        // notification also rejects.
-      }
-      try {
-        await this.emit("load.failed", this.errorMetadata(error));
-        this.throwIfClosed();
-      } catch {
-        this.throwIfClosed();
-        // Preserve one error identity for every caller of this load.
-      }
-      try {
-        await this.drainJoinedTelemetry();
-        this.throwIfClosed();
-      } catch {
-        this.throwIfClosed();
-        // The initiating canonical telemetry failure remains authoritative.
-      }
-    } finally {
-      this.settleWaiters(this.closedLatch ? this.current : next);
+      this.throwIfClosed();
+      await this.swap(next);
+      this.throwIfClosed();
+    } catch {
+      this.throwIfClosed();
+      // Preserve the initiating canonical failure if the terminal status
+      // notification also rejects.
+    }
+    try {
+      await this.emit("load.failed", this.errorMetadata(error));
+      this.throwIfClosed();
+    } catch {
+      this.throwIfClosed();
+      // Preserve one error identity for every caller of this load.
+    }
+    try {
+      await this.drainJoinedTelemetry();
+      this.throwIfClosed();
+    } catch {
+      this.throwIfClosed();
+      // The initiating canonical telemetry failure remains authoritative.
     }
     this.throwIfClosed();
     throw error;
