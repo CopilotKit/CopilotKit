@@ -145,6 +145,10 @@ const adapterValidationCodes = new Map([
 
 type JsonObject = Record<string, unknown>;
 
+function isJsonObject(value: unknown): value is JsonObject {
+  return value !== null && !Array.isArray(value) && typeof value === "object";
+}
+
 function readJson(path: string): JsonObject {
   return JSON.parse(readFileSync(path, "utf8")) as JsonObject;
 }
@@ -204,6 +208,7 @@ function validateOutcome(
   failures: string[],
 ): JsonObject {
   const outcome = object(value, label, failures);
+  const normalized = { ...outcome };
   const hasResult = Object.hasOwn(outcome, "result");
   const hasError = Object.hasOwn(outcome, "error");
   if (hasResult === hasError) {
@@ -211,6 +216,7 @@ function validateOutcome(
   }
   if (hasResult) {
     const result = object(outcome.result, `${label}.result`, failures);
+    normalized.result = result;
     if (
       result.state !== undefined &&
       (typeof result.state !== "string" || !lifecycleStates.has(result.state))
@@ -220,8 +226,10 @@ function validateOutcome(
       );
     }
   }
-  if (hasError) validateError(outcome.error, `${label}.error`, failures);
-  return outcome;
+  if (hasError) {
+    normalized.error = validateError(outcome.error, `${label}.error`, failures);
+  }
+  return normalized;
 }
 
 function validateOperations(
@@ -254,12 +262,12 @@ function validateOperations(
 
 function expectedTerminalStatus(genericSdk: JsonObject): string | undefined {
   if (Object.hasOwn(genericSdk, "result")) {
-    const result = genericSdk.result as JsonObject;
+    const result = isJsonObject(genericSdk.result) ? genericSdk.result : {};
     return typeof result.state === "string" && lifecycleStates.has(result.state)
       ? result.state
       : undefined;
   }
-  const error = genericSdk.error as JsonObject | undefined;
+  const error = isJsonObject(genericSdk.error) ? genericSdk.error : undefined;
   switch (error?.code) {
     case "LEARNING_REGISTRY_CLOSED":
       return "closed";
@@ -716,28 +724,50 @@ function validateTelemetry(
   }
 }
 
-function validateNoPackageVersions(
+const safeVersionFields = new Set([
+  "schemaversion",
+  "contractversion",
+  "versionid",
+]);
+
+function validateCorpusSafety(
   value: unknown,
   path: string,
   failures: string[],
 ): void {
   if (Array.isArray(value)) {
     value.forEach((entry, index) =>
-      validateNoPackageVersions(entry, `${path}[${index}]`, failures),
+      validateCorpusSafety(entry, `${path}[${index}]`, failures),
     );
+    return;
+  }
+  if (typeof value === "string") {
+    if (
+      /\bBearer\s+\S+|-----BEGIN [A-Z ]*PRIVATE KEY-----|\bsk-[A-Za-z0-9_-]{8,}/i.test(
+        value,
+      )
+    ) {
+      failures.push(`${path} contains a secret-bearing value`);
+    }
     return;
   }
   if (value === null || typeof value !== "object") return;
   for (const [key, entry] of Object.entries(value)) {
     const normalized = key.replaceAll(/[-_]/g, "").toLowerCase();
     if (
-      ["version", "packageversion", "adapterversion", "sdkversion"].includes(
-        normalized,
-      )
+      (normalized === "version" || normalized.endsWith("version")) &&
+      !safeVersionFields.has(normalized)
     ) {
       failures.push(`${path}.${key} is a forbidden package version field`);
     }
-    validateNoPackageVersions(entry, `${path}.${key}`, failures);
+    if (
+      /secret|token|authorization|password|credential|privatekey|apikey|accesskey/.test(
+        normalized,
+      )
+    ) {
+      failures.push(`${path}.${key} is a secret-bearing field`);
+    }
+    validateCorpusSafety(entry, `${path}.${key}`, failures);
   }
 }
 
@@ -859,7 +889,7 @@ export function validateAdapterCorpus(
   ) {
     failures.push("the adapter corpus must remain repository-test-only");
   }
-  validateNoPackageVersions(corpus, "corpus", failures);
+  validateCorpusSafety(corpus, "corpus", failures);
 
   const fixtures = object(corpus.fixtures, "fixtures", failures);
   const sdkIdentity = object(sdkCorpus.identity, "sdk.identity", failures);

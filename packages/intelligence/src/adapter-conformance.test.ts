@@ -264,10 +264,48 @@ const mutationFixtures: MutationFixture[] = [
     },
   },
   {
+    name: "generic SDK result is null",
+    failure: "genericSdk.result must be an object",
+    mutate(corpus) {
+      asObject(expectedFor(corpus, "cold-fresh-load").genericSdk).result = null;
+    },
+  },
+  {
+    name: "generic SDK result is a scalar",
+    failure: "genericSdk.result must be an object",
+    mutate(corpus) {
+      asObject(expectedFor(corpus, "cold-fresh-load").genericSdk).result =
+        "not-an-object";
+    },
+  },
+  {
+    name: "nested field contains a secret",
+    failure: "secret-bearing field",
+    mutate(corpus) {
+      asObject(corpus.distribution).nested = {
+        apiToken: "definitely-secret",
+      };
+    },
+  },
+  {
     name: "nested package version is added",
     failure: "version field",
     mutate(corpus) {
       asObject(corpus.distribution).release = { version: "1.2.3" };
+    },
+  },
+  {
+    name: "dependency version is added",
+    failure: "dependencyVersion",
+    mutate(corpus) {
+      asObject(corpus.distribution).dependencyVersion = "1.2.3";
+    },
+  },
+  {
+    name: "release version is added",
+    failure: "releaseVersion",
+    mutate(corpus) {
+      asObject(corpus.distribution).releaseVersion = "1.2.3";
     },
   },
 ];
