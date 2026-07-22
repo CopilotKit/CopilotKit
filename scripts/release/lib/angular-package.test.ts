@@ -1,4 +1,5 @@
 import { expect, test } from "vitest";
+import { readFileSync } from "node:fs";
 import {
   createAngularConsumerManifest,
   createAngularConsumerSources,
@@ -51,6 +52,33 @@ const validManifest = {
     rxjs: "^7.8.0",
   },
 };
+
+test("runs the Angular 22 packed matrix only on a compatible Node lane", () => {
+  const workflow = readFileSync(
+    new URL("../../../.github/workflows/test_unit.yml", import.meta.url),
+    "utf8",
+  );
+  const angularStep = (name: string): string => {
+    const match = workflow.match(
+      new RegExp(`      - name: ${name}\\n([\\s\\S]*?)(?=\\n      - name:|$)`),
+    );
+    expect(match, `missing workflow step: ${name}`).not.toBeNull();
+    return match?.[1] ?? "";
+  };
+
+  expect(
+    angularStep("Install Chromium for packed Angular browser smoke"),
+  ).toContain("if: matrix.node-version == '22.x'");
+  expect(angularStep("Verify packed Angular consumer matrix")).toContain(
+    "if: matrix.node-version == '22.x'",
+  );
+  expect(angularStep("Verify packed Channels umbrella contract")).toContain(
+    "if: matrix.node-version == '20.x'",
+  );
+  expect(
+    angularStep("Verify packed Runtime managed Channels contract"),
+  ).toContain("if: matrix.node-version == '20.x'");
+});
 
 test("reads an ordered Angular support contract", () => {
   expect(readAngularSupportContract(validManifest)).toEqual(
