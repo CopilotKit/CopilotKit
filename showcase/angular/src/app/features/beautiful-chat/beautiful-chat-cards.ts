@@ -241,6 +241,118 @@ export class BarChartCard {
   });
 }
 
+interface FlightResult extends Record<string, unknown> {
+  readonly airline?: string;
+  readonly flightNumber?: string;
+  readonly origin?: string;
+  readonly destination?: string;
+  readonly date?: string;
+  readonly departureTime?: string;
+  readonly arrivalTime?: string;
+  readonly duration?: string;
+  readonly status?: string;
+  readonly price?: string;
+}
+
+interface FlightSearchArgs extends Record<string, unknown> {
+  readonly flights?: readonly FlightResult[];
+}
+
+@Component({
+  selector: "showcase-beautiful-flight-search",
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <section
+      class="flight-results"
+      data-testid="beautiful-flight-results"
+      aria-label="Flight search results"
+    >
+      @for (flight of flights(); track flightKey(flight, $index)) {
+        <article class="flight-card">
+          <header>
+            <strong>{{ flight.airline ?? "Airline" }}</strong>
+            <strong>{{ flight.price ?? "Price unavailable" }}</strong>
+          </header>
+          <div class="flight-meta">
+            <span>{{ flight.flightNumber ?? "Flight" }}</span>
+            <span>{{ flight.date ?? "" }}</span>
+          </div>
+          <div class="flight-times">
+            <strong>{{ flight.departureTime ?? "—" }}</strong>
+            <small>{{ flight.duration ?? "" }}</small>
+            <strong>{{ flight.arrivalTime ?? "—" }}</strong>
+          </div>
+          <div class="flight-route">
+            <strong>{{ flight.origin ?? "—" }}</strong>
+            <span aria-hidden="true">→</span>
+            <strong>{{ flight.destination ?? "—" }}</strong>
+          </div>
+          @if (flight.status; as status) {
+            <small class="flight-status">{{ status }}</small>
+          }
+        </article>
+      } @empty {
+        <p>No matching flights were returned.</p>
+      }
+    </section>
+  `,
+  styles: `
+    .flight-results {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+      gap: 0.75rem;
+      margin: 0.75rem 0;
+    }
+    .flight-card {
+      display: grid;
+      gap: 0.65rem;
+      padding: 1rem;
+      border: 1px solid #d8e0ea;
+      border-radius: 1rem;
+      color: #14213d;
+      background: #fff;
+    }
+    header,
+    .flight-meta,
+    .flight-times,
+    .flight-route {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+    .flight-meta,
+    .flight-times,
+    .flight-status {
+      color: #66758a;
+    }
+    .flight-route {
+      font-size: 1.05rem;
+    }
+    .flight-times small {
+      text-align: center;
+    }
+    p {
+      margin: 0;
+      color: #66758a;
+    }
+  `,
+})
+export class FlightSearchCard {
+  readonly toolCall = input.required<AngularToolCall<FlightSearchArgs>>();
+  protected readonly flights = computed(() => {
+    const flights = this.toolCall().args.flights;
+    return Array.isArray(flights)
+      ? flights.filter((flight): flight is FlightResult => isRecord(flight))
+      : [];
+  });
+
+  /** Produce a stable repeat key without requiring every backend to emit IDs. */
+  protected flightKey(flight: FlightResult, index: number): string {
+    return `${flight.flightNumber ?? flight.airline ?? "flight"}-${index}`;
+  }
+}
+
 interface MeetingArgs extends Record<string, unknown> {
   readonly reasonForScheduling?: string;
   readonly meetingDuration?: number;
@@ -451,4 +563,9 @@ function validData(value: readonly ChartDatum[] | undefined): ChartDatum[] {
 /** Resolve a stable color for one chart-series index. */
 function colorAt(index: number): string {
   return CHART_COLORS[index % CHART_COLORS.length] ?? CHART_COLORS[0];
+}
+
+/** Narrow unknown fixture and provider payloads to safe flight records. */
+function isRecord(value: unknown): value is FlightResult {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

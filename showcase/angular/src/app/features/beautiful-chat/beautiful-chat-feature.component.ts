@@ -29,6 +29,7 @@ import { ShowcaseChatHostComponent } from "../showcase-chat-host.component";
 import {
   BarChartCard,
   BeautifulToolReasoningCard,
+  FlightSearchCard,
   MeetingTimePickerCard,
   PieChartCard,
 } from "./beautiful-chat-cards";
@@ -206,6 +207,11 @@ export class BeautifulChatFeatureComponent {
     registerRenderActivityMessage(mcpAppsActivityRendererConfig);
     this.registerChart("pieChart", PieChartCard);
     this.registerChart("barChart", BarChartCard);
+    registerRenderToolCall({
+      name: "search_flights",
+      args: z.object({ flights: z.array(z.record(z.unknown())) }),
+      component: asRenderer(FlightSearchCard),
+    });
     this.registerMeetingPicker();
     this.registerThemeTool();
     this.registerModeTool("enableAppMode", "app");
