@@ -41,11 +41,7 @@ export function createSkillRegistryMiddleware(
   const wrapModelCall: NonNullable<
     ReturnType<typeof createMiddleware>["wrapModelCall"]
   > = async (request, handler) => {
-    if (
-      registry.status === "stale" ||
-      registry.status === "denied" ||
-      registry.status === "closed"
-    ) {
+    if (registry.status === "denied" || registry.status === "closed") {
       throw (
         registry.snapshot.error ??
         new Error("Registry adapter is not ready for a model call")

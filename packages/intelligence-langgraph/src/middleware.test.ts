@@ -76,7 +76,7 @@ describe("createSkillRegistryMiddleware", () => {
     expect(forwarded?.systemMessage?.content).toContain("# Skill");
   });
 
-  it("refreshes a ready native model hook and refuses stale skills", async () => {
+  it("retries a stale native model hook at the failed throttle boundary", async () => {
     let now = 0;
     const failure = new IntelligenceSdkError({
       message: "refresh unavailable",
@@ -87,7 +87,8 @@ describe("createSkillRegistryMiddleware", () => {
     const response = vi
       .fn<() => Promise<InstalledSkillSet>>()
       .mockResolvedValueOnce(await installedSkillSet())
-      .mockRejectedValueOnce(failure);
+      .mockRejectedValueOnce(failure)
+      .mockResolvedValueOnce(await installedSkillSet());
     const registryClient = testClient(response);
     const middleware = createSkillRegistryMiddleware({
       client: registryClient,
@@ -107,11 +108,19 @@ describe("createSkillRegistryMiddleware", () => {
     expect(registryClient.skills.get).toHaveBeenCalledTimes(2);
     expect(middleware.status).toBe("stale");
 
-    now = 60_000;
+    now = 59_999;
     await expect(
       middleware.wrapModelCall(modelRequest(), handler),
     ).rejects.toMatchObject({ code: "LEARNING_REGISTRY_STALE" });
     expect(registryClient.skills.get).toHaveBeenCalledTimes(2);
+
+    now = 60_000;
+    await expect(
+      middleware.wrapModelCall(modelRequest(), handler),
+    ).resolves.toBeInstanceOf(AIMessage);
+    expect(registryClient.skills.get).toHaveBeenCalledTimes(3);
+    expect(handler).toHaveBeenCalledOnce();
+    expect(middleware.status).toBe("ready");
   });
 
   it("retries after the failed throttle window", async () => {
