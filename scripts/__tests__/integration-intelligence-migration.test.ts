@@ -678,32 +678,54 @@ function objectPropertyExpression(
 
 /** Returns whether the Runtime's Intelligence client owns the API-key read. */
 function hasRuntimeApiKeyRead(sourceFile: ts.SourceFile): boolean {
+  const clientUsesManagedKey = (clientExpression: ts.Expression): boolean => {
+    const client = resolveTopLevelExpression(sourceFile, clientExpression);
+    if (
+      !ts.isNewExpression(client) ||
+      !ts.isIdentifier(client.expression) ||
+      client.expression.text !== "CopilotKitIntelligence"
+    ) {
+      return false;
+    }
+
+    const options = client.arguments?.[0]
+      ? unwrapExpression(client.arguments[0])
+      : null;
+    if (!options || !ts.isObjectLiteralExpression(options)) return false;
+
+    const apiKey = objectPropertyAssignment(options, "apiKey");
+    return Boolean(
+      apiKey &&
+      expressionUsesManagedKeyWithoutTelemetry(
+        resolveTopLevelExpression(sourceFile, apiKey.initializer),
+      ),
+    );
+  };
+
   return newExpressionOptions(sourceFile, "CopilotRuntime").some(
     (runtimeOptions) => {
-      const intelligence = objectPropertyExpression(
+      const directIntelligence = objectPropertyExpression(
         runtimeOptions,
         "intelligence",
       );
-      if (!intelligence) return false;
-
-      const client = resolveTopLevelExpression(sourceFile, intelligence);
-      if (
-        !ts.isNewExpression(client) ||
-        !ts.isIdentifier(client.expression) ||
-        client.expression.text !== "CopilotKitIntelligence"
-      ) {
-        return false;
+      if (directIntelligence && clientUsesManagedKey(directIntelligence)) {
+        return true;
       }
 
-      const options = client.arguments?.[0]
-        ? unwrapExpression(client.arguments[0])
-        : null;
-      if (!options || !ts.isObjectLiteralExpression(options)) return false;
+      let found = false;
+      const visit = (node: ts.Node): void => {
+        if (
+          ts.isNewExpression(node) &&
+          ts.isIdentifier(node.expression) &&
+          node.expression.text === "CopilotKitIntelligence"
+        ) {
+          found = clientUsesManagedKey(node);
+        }
+        if (!found) ts.forEachChild(node, visit);
+      };
 
-      const apiKey = objectPropertyAssignment(options, "apiKey");
-      return Boolean(
-        apiKey && expressionUsesManagedKeyWithoutTelemetry(apiKey.initializer),
-      );
+      visit(runtimeOptions);
+      return found;
     },
   );
 }
