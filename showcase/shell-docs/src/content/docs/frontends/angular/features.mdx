@@ -1,0 +1,24 @@
+---
+title: Angular feature guides
+description: Runnable examples, compiling source, typed APIs, lifecycle rules, and support state for all 41 Angular features.
+hideTOC: true
+---
+
+Every entry below is supported. Each runnable example and source view uses the same integration image and relative Copilot Runtime route.
+
+## Shared setup
+
+Install `@copilotkit/angular` and the matching `@angular/cdk` major. Register the provider in your application config:
+
+```ts title="src/app/app.config.ts"
+import { ApplicationConfig } from "@angular/core";
+import { provideCopilotKit } from "@copilotkit/angular";
+
+export const appConfig: ApplicationConfig = {
+  providers: [provideCopilotKit({ runtimeUrl: "/api/copilotkit" })],
+};
+```
+
+The linked source view opens the feature's real standalone Angular component. It is the minimal compiling example used by the runnable route.
+
+<AngularFeatureCatalog />

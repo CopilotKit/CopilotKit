@@ -4,10 +4,31 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const repositoryRoot = resolve(import.meta.dirname, "../../..");
-const proofIntegrations = ["mastra", "langgraph-python"] as const;
+const integrations = [
+  "ag2",
+  "agno",
+  "built-in-agent",
+  "claude-sdk-python",
+  "claude-sdk-typescript",
+  "crewai-crews",
+  "google-adk",
+  "langgraph-fastapi",
+  "langgraph-python",
+  "langgraph-typescript",
+  "langroid",
+  "llamaindex",
+  "mastra",
+  "ms-agent-dotnet",
+  "ms-agent-harness-dotnet",
+  "ms-agent-python",
+  "pydantic-ai",
+  "spring-ai",
+  "strands",
+  "strands-typescript",
+] as const;
 
 describe("Angular integration hosting contract", () => {
-  it.each(proofIntegrations)(
+  it.each(integrations)(
     "stages the one canonical browser build into %s",
     async (integration) => {
       const link = resolve(
@@ -24,7 +45,7 @@ describe("Angular integration hosting contract", () => {
     },
   );
 
-  it.each(proofIntegrations)(
+  it.each(integrations)(
     "serves Angular deep links from the existing %s image",
     async (integration) => {
       const config = await readFile(
@@ -97,5 +118,24 @@ describe("Angular integration hosting contract", () => {
     );
     expect(workflow).not.toContain("showcase/angular/Dockerfile");
     expect(workflow).not.toMatch(/railway|deploy|push: true/i);
+  });
+
+  it("checks the shared artifact in every existing integration image", async () => {
+    const workflow = await readFile(
+      resolve(
+        repositoryRoot,
+        ".github/workflows/test_showcase-angular-proof.yml",
+      ),
+      "utf8",
+    );
+
+    expect(workflow).toContain(
+      "name: Angular hosting / ${{ matrix.integration }}",
+    );
+    for (const integration of integrations) {
+      expect(workflow).toContain(`- ${integration}`);
+    }
+    expect(workflow).toContain("/angular/agentic-chat");
+    expect(workflow).toContain("angular-proof-browser");
   });
 });

@@ -11,28 +11,8 @@ import type { BrowserCellCatalog } from "./cell-context";
 type FeatureSupport = Record<string, { angular?: { state?: string } }>;
 
 const support = frontendRegistryData.feature_support as FeatureSupport;
-const proofFeatures = new Set([
-  "agentic-chat",
-  "frontend-tools",
-  "gen-ui-tool-based",
-  "tool-rendering",
-  "shared-state-read-write",
-  "gen-ui-interrupt",
-  "hitl-in-chat",
-  "prebuilt-popup",
-  "prebuilt-sidebar",
-  "declarative-gen-ui",
-  "a2ui-recovery",
-  "mcp-apps",
-  "open-gen-ui",
-  "threadid-frontend-tool-roundtrip",
-  "headless-complete",
-]);
 const supportedFeatures = Object.entries(support)
-  .filter(
-    ([feature, declaration]) =>
-      declaration.angular?.state === "supported" && proofFeatures.has(feature),
-  )
+  .filter(([, declaration]) => declaration.angular?.state === "supported")
   .map(([feature]) => feature)
   .sort();
 

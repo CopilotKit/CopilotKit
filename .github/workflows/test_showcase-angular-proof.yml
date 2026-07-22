@@ -13,8 +13,7 @@ on:
       - "showcase/harness/**"
       - "showcase/registry/**"
       - "showcase/scripts/**"
-      - "showcase/integrations/langgraph-python/**"
-      - "showcase/integrations/mastra/**"
+      - "showcase/integrations/**"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
   workflow_dispatch:
@@ -89,6 +88,101 @@ jobs:
           path: showcase/angular/dist/showcase-angular/browser
           if-no-files-found: error
           retention-days: 14
+
+  hosting:
+    name: Angular hosting / ${{ matrix.integration }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == true }}
+    needs: build-angular
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        integration:
+          - ag2
+          - agno
+          - built-in-agent
+          - claude-sdk-python
+          - claude-sdk-typescript
+          - crewai-crews
+          - google-adk
+          - langgraph-fastapi
+          - langgraph-python
+          - langgraph-typescript
+          - langroid
+          - llamaindex
+          - mastra
+          - ms-agent-dotnet
+          - ms-agent-harness-dotnet
+          - ms-agent-python
+          - pydantic-ai
+          - spring-ai
+          - strands
+          - strands-typescript
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.build-angular.outputs.source_sha }}
+          persist-credentials: false
+          lfs: true
+
+      - name: Download the canonical Angular artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: angular-proof-browser
+          path: showcase/angular/dist/showcase-angular/browser
+
+      - name: Stage the shared artifact in existing image contexts
+        run: |
+          source showcase/scripts/cli/_common.sh
+          stage_shared
+
+      - name: Build the existing integration image
+        env:
+          INTEGRATION: ${{ matrix.integration }}
+          SOURCE_SHA: ${{ needs.build-angular.outputs.source_sha }}
+        run: |
+          docker build \
+            --label "org.opencontainers.image.revision=$SOURCE_SHA" \
+            --tag "angular-hosting-$INTEGRATION:$SOURCE_SHA" \
+            "showcase/integrations/$INTEGRATION"
+
+      - name: Check the Angular deep link and bounded manifest through the image port
+        env:
+          INTEGRATION: ${{ matrix.integration }}
+          SOURCE_SHA: ${{ needs.build-angular.outputs.source_sha }}
+        run: |
+          docker run --detach \
+            --name angular-hosting-integration \
+            --publish 10000:10000 \
+            --env OPENAI_API_KEY=sk-mock \
+            --env ANTHROPIC_API_KEY=sk-mock-anthropic \
+            --env GOOGLE_API_KEY=fake-gemini-key \
+            --env GitHubToken=gh-mock-ci \
+            "angular-hosting-$INTEGRATION:$SOURCE_SHA"
+          for _ in $(seq 1 90); do
+            if curl --fail --silent --max-time 2 \
+              http://127.0.0.1:10000/angular/agentic-chat \
+              > "$RUNNER_TEMP/angular-deep-link.html"; then
+              break
+            fi
+            sleep 2
+          done
+          test -s "$RUNNER_TEMP/angular-deep-link.html"
+          grep --fixed-strings '<showcase-root' "$RUNNER_TEMP/angular-deep-link.html"
+          curl --fail --silent --max-time 2 \
+            http://127.0.0.1:10000/angular/runtime-config.js \
+            > "$RUNNER_TEMP/angular-runtime-config.js"
+          grep --fixed-strings '"frontendId":"angular"' \
+            "$RUNNER_TEMP/angular-runtime-config.js"
+          grep --fixed-strings "\"integrationId\":\"$INTEGRATION\"" \
+            "$RUNNER_TEMP/angular-runtime-config.js"
+
+      - name: Stop the integration image
+        if: always()
+        run: docker rm --force angular-hosting-integration 2>/dev/null || true
 
   proof:
     name: Angular proof / ${{ matrix.integration }}

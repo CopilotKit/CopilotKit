@@ -189,12 +189,30 @@ describe("frontend options", () => {
     expect(getFrontendGuidanceContentSlug("vue")).toBe(
       FRONTEND_DOCS_STATUS_CONTENT_SLUG,
     );
+    expect(getFrontendGuidanceContentSlug("angular")).toBe(
+      "frontends/angular/docs-status",
+    );
     expect(getFrontendGuidanceContentSlug("slack")).toBe(
       FRONTEND_GUIDANCE_CONTENT_SLUG,
     );
     expect(getFrontendGuidanceTitle("vue")).toBe("Docs status");
     expect(getFrontendGuidanceTitle("slack")).toBe("About early access");
     expect(isFrontendEarlyAccess("react")).toBe(false);
+  });
+
+  it("gives Angular a standalone feature guide without React fallback", () => {
+    const guidance = loadDoc(getFrontendGuidanceContentSlug("angular"));
+    const pageUrls = collectPageUrls(
+      navTreeToPageTree(getFrontendQuickstartNavTree("angular"), "/angular"),
+    );
+
+    expect(guidance?.source).not.toMatch(/React/i);
+    expect(pageUrls).toContain("/angular/features");
+    expect(getFrontendQuickstartNavTree("angular")).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ variant: "react-docs-proxy" }),
+      ]),
+    );
   });
 
   it("routes frontend sidebars to the most specific reference docs available", () => {

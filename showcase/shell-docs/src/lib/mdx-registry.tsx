@@ -33,6 +33,7 @@ import { DocsLandingNext } from "@/components/docs-landing-next";
 import { WhenFrameworkHas } from "@/components/when-framework-has";
 import { AgentCoreCommandTabs } from "@/components/agentcore-command-tabs";
 import { DemoSource } from "@/components/demo-source";
+import { AngularFeatureCatalog } from "@/components/angular-feature-catalog";
 import { UnsupportedBox } from "@/components/snippet";
 import { getRegistry } from "@/lib/registry";
 import { PartialLoader } from "@/lib/mdx-registry-loader";
@@ -428,6 +429,7 @@ export const docsComponents = {
   // pattern as <Snippet>.
   WhenFrameworkHas,
   AgentCoreCommandTabs,
+  AngularFeatureCatalog,
   FeatureGrid: ({ children }: { children?: React.ReactNode }) => (
     <div
       style={{

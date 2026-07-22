@@ -16,6 +16,7 @@ export const FRONTEND_GUIDANCE_CONTENT_SLUG = "frontends/using-these-docs";
 export const FRONTEND_DOCS_STATUS_CONTENT_SLUG = "frontends/docs-status";
 
 export function getFrontendGuidanceContentSlug(id: FrontendPageId): string {
+  if (id === "angular") return "frontends/angular/docs-status";
   return isFrontendEarlyAccess(id)
     ? FRONTEND_GUIDANCE_CONTENT_SLUG
     : FRONTEND_DOCS_STATUS_CONTENT_SLUG;
@@ -45,6 +46,11 @@ export function getFrontendQuickstartNavTree(id: FrontendPageId): NavNode[] {
   const frontendName =
     FRONTEND_OPTIONS.find((option) => option.id === id)?.name ?? id;
 
+  const featureGuides: NavNode[] =
+    id === "angular"
+      ? [{ type: "page", title: "Feature guides", slug: "features" }]
+      : [];
+
   return [
     { type: "section", title: "Getting Started", icon: "lucide/Rocket" },
     { type: "page", title: "Quickstart", slug: "" },
@@ -53,6 +59,7 @@ export function getFrontendQuickstartNavTree(id: FrontendPageId): NavNode[] {
       title: getFrontendGuidanceTitle(id),
       slug: "using-these-docs",
     },
+    ...featureGuides,
     {
       type: "page",
       title: "Reference docs",

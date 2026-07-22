@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveFeatureComponentKey } from "./app.routes";
+import { resolveFeatureComponentKey, routes } from "./app.routes";
 import { suggestionsConfigForFeature } from "./feature-suggestions";
 import frontendRegistryData from "./generated/frontend-registry.json";
 
@@ -68,6 +68,15 @@ describe("Angular showcase feature routing", () => {
 
     expect(supported).toHaveLength(41);
     expect(() => supported.map(resolveFeatureComponentKey)).not.toThrow();
+  });
+
+  it("publishes all 41 supported features as browser routes", () => {
+    const featureRoutes = routes
+      .map((route) => route.data?.["feature"])
+      .filter((feature): feature is string => typeof feature === "string");
+
+    expect(featureRoutes).toHaveLength(41);
+    expect(new Set(featureRoutes).size).toBe(41);
   });
 });
 
