@@ -93,6 +93,7 @@ export type BrowserErrorKind =
   | "browser-closed"
   | "popup-responsive"
   | "reduced-motion"
+  | "reduced-motion-emulation"
   | "unclassified";
 
 /** Reduce browser failures to a closed, privacy-safe diagnostic vocabulary. */
@@ -118,11 +119,10 @@ export function classifyBrowserError(value: string): BrowserErrorKind {
   ) {
     return "popup-responsive";
   }
-  if (
-    /reduced-motion (?:(?:popup|sidebar) still animates|preference is unavailable)/i.test(
-      value,
-    )
-  ) {
+  if (/reduced-motion preference is unavailable/i.test(value)) {
+    return "reduced-motion-emulation";
+  }
+  if (/reduced-motion (?:popup|sidebar) still animates/i.test(value)) {
     return "reduced-motion";
   }
   return "unclassified";
