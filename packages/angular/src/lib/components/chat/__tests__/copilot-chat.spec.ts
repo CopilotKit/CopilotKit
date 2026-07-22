@@ -43,11 +43,14 @@ class TestReasoningMessage {
   selector: "test-transcript-children",
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <p data-testid="transcript-children">{{ messages().length }} messages</p>
+    <p data-testid="transcript-children">
+      {{ messages().length }} messages {{ state()["phase"] }}
+    </p>
   `,
 })
 class TestTranscriptChildren {
   readonly messages = input<unknown[]>([]);
+  readonly state = input<Record<string, unknown>>({});
 }
 
 /**
@@ -444,6 +447,7 @@ test("forwards transcript children through the prebuilt chat", async () => {
   );
   fixture.detectChanges();
   agent.setMessages([{ id: "user-1", role: "user", content: "Plan a launch" }]);
+  agent.setState({ phase: "streamed" });
   await new Promise<void>((resolve) => setTimeout(resolve, 0));
   fixture.detectChanges();
 
@@ -451,4 +455,5 @@ test("forwards transcript children through the prebuilt chat", async () => {
     fixture.nativeElement as HTMLElement
   ).querySelector<HTMLElement>('[data-testid="transcript-children"]');
   expect(children?.textContent).toContain("1 messages");
+  expect(children?.textContent).toContain("streamed");
 });

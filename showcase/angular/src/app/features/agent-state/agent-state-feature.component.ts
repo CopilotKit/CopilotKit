@@ -3,6 +3,7 @@ import {
   Component,
   computed,
   inject,
+  input,
 } from "@angular/core";
 import { ActivatedRoute } from "@angular/router";
 import { injectAgentStore, registerRenderToolCall } from "@copilotkit/angular";
@@ -29,11 +30,9 @@ import { readDelegations, readSteps } from "./agent-state-model";
   `,
 })
 export class AgentStateTranscriptChildrenComponent {
-  private readonly agentStore = injectAgentStore("gen-ui-agent");
-  protected readonly steps = computed(() =>
-    readSteps(this.agentStore().state()),
-  );
-  protected readonly isRunning = computed(() => this.agentStore().isRunning());
+  readonly state = input<unknown>({});
+  readonly isRunning = input(false);
+  protected readonly steps = computed(() => readSteps(this.state()));
 }
 
 @Component({

@@ -171,6 +171,7 @@ import { injectChatLabels } from "../../chat-config";
           [inputContainerHeight]="inputContainerHeight()"
           [isResizing]="isResizing()"
           [messages]="messagesValue()"
+          [state]="state()"
           [agentId]="agentId()"
           [messageView]="messageViewSlot()"
           [messageViewClass]="messageViewClass()"
@@ -222,6 +223,8 @@ export class CopilotChatView
   protected readonly chatState = inject(ChatState, { optional: true });
   protected readonly UploadIcon = Upload;
   messages = input<Message[]>([]);
+  /** Current agent state forwarded to message-view extension slots. */
+  state = input<unknown>({});
   agentId = input<string | undefined>();
   autoScroll = input<boolean>(true);
   showCursor = input<boolean>(false);
@@ -383,6 +386,7 @@ export class CopilotChatView
     inputContainerHeight: this.inputContainerHeight(),
     isResizing: this.isResizing(),
     messages: this.messagesValue(),
+    state: this.state(),
     agentId: this.agentId(),
     messageView: this.messageViewSlot(),
     messageViewClass: this.messageViewClass(),

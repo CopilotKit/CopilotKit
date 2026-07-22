@@ -395,6 +395,74 @@ describe("injectAgentStore", () => {
     });
   });
 
+  it("bridges events through the subscriber snapshot captured by an active run", async () => {
+    copilotKitStub.setAgents({});
+    copilotKitStub.setRuntimeUrl("https://runtime.local");
+    copilotKitStub.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Connecting,
+    );
+
+    @Component({
+      standalone: true,
+      template: "",
+    })
+    class RuntimeHandoffHost {
+      store = injectAgentStore("shared-agent");
+    }
+
+    const fixture = TestBed.createComponent(RuntimeHandoffHost);
+    fixture.detectChanges();
+
+    const provisionalAgent = fixture.componentInstance.store().agent;
+    provisionalAgent.isRunning = true;
+    const activeRunSubscribers = [
+      ...(
+        provisionalAgent as unknown as {
+          subscribers: AgentSubscriber[];
+        }
+      ).subscribers,
+    ];
+
+    const registeredAgent = new MockAgent("shared-agent");
+    copilotKitStub.setAgents({ "shared-agent": registeredAgent });
+    copilotKitStub.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+    fixture.detectChanges();
+    expect(fixture.componentInstance.store().agent).toBe(registeredAgent);
+
+    const finalState = {
+      steps: [{ id: "launch", status: "completed" }],
+    };
+    const finalMessages: Message[] = [
+      userMsg("user", "Plan a launch"),
+      { id: "assistant", role: "assistant", content: "Launch planned" },
+    ];
+    provisionalAgent.messages = finalMessages;
+    provisionalAgent.state = finalState;
+    for (const subscriber of activeRunSubscribers) {
+      subscriber.onMessagesChanged?.({
+        messages: finalMessages,
+        state: finalState,
+        agent: provisionalAgent,
+        input: DUMMY_RUN_INPUT,
+      });
+      subscriber.onStateChanged?.({
+        messages: finalMessages,
+        state: finalState,
+        agent: provisionalAgent,
+        input: DUMMY_RUN_INPUT,
+      });
+    }
+
+    await vi.waitFor(() => {
+      expect(fixture.componentInstance.store().state()).toEqual(finalState);
+      expect(fixture.componentInstance.store().messages()).toEqual(
+        finalMessages,
+      );
+    });
+  });
+
   it("mirrors registered updates to consumers still bound to the provisional agent", () => {
     copilotKitStub.setAgents({});
     copilotKitStub.setRuntimeUrl("https://runtime.local");

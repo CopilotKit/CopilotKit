@@ -101,7 +101,7 @@ function snapshotState(state: unknown): unknown {
 @Injectable({ providedIn: "root" })
 export class CopilotkitAgentFactory {
   readonly #copilotkit = inject(CopilotKit);
-  readonly #provisionalCache = new Map<string, ProxiedCopilotRuntimeAgent>();
+  readonly #provisionalCache = new Map<string, AgentHandoffBridge>();
 
   createAgentStoreSignal(
     agentId: Signal<string | undefined>,
@@ -118,9 +118,9 @@ export class CopilotkitAgentFactory {
       const resolvedAgentId = agentId() || DEFAULT_AGENT_ID;
       const existing = this.#copilotkit.getAgent(resolvedAgentId);
       if (existing) {
-        const provisional = this.#provisionalCache.get(resolvedAgentId);
-        if (provisional && provisional !== existing) {
-          bridgeAgentHandoff(provisional, existing);
+        const handoff = this.#provisionalCache.get(resolvedAgentId);
+        if (handoff && handoff.provisional !== existing) {
+          handoff.attachRegistered(existing);
         }
         this.#provisionalCache.delete(resolvedAgentId);
         return existing;
@@ -142,10 +142,10 @@ export class CopilotkitAgentFactory {
         const headers = this.#copilotkit.headers();
         const cached = this.#provisionalCache.get(resolvedAgentId);
         if (cached) {
-          if (hasAgentHeaders(cached)) {
-            cached.headers = { ...headers };
+          if (hasAgentHeaders(cached.provisional)) {
+            cached.provisional.headers = { ...headers };
           }
-          return cached;
+          return cached.provisional;
         }
 
         const provisional = new ProxiedCopilotRuntimeAgent({
@@ -156,7 +156,8 @@ export class CopilotkitAgentFactory {
         if (hasAgentHeaders(provisional)) {
           provisional.headers = { ...headers };
         }
-        this.#provisionalCache.set(resolvedAgentId, provisional);
+        const handoff = new AgentHandoffBridge(provisional);
+        this.#provisionalCache.set(resolvedAgentId, handoff);
         return provisional;
       }
 
@@ -189,23 +190,14 @@ export class CopilotkitAgentFactory {
       lastAgentStore?.teardown();
       lastAgent = agent;
       lastAgentStore = new AgentStore(agent, destroyRef, subscribeToAgent);
+      const resolvedAgentId = agentId() || DEFAULT_AGENT_ID;
+      const handoff = this.#provisionalCache.get(resolvedAgentId);
+      if (handoff?.provisional === agent) {
+        handoff.start();
+      }
       return lastAgentStore;
     });
   }
-}
-
-/**
- * Keep provisional and runtime-registered identities synchronized after
- * runtime discovery. Angular consumers evaluate their computed stores
- * independently, so one can switch identities while another remains bound to
- * the provisional agent. Bidirectional mirroring lets both consumers converge
- * without losing an active run or waiting for an unrelated change detection.
- */
-function bridgeAgentHandoff(
-  provisional: AbstractAgent,
-  registered: AbstractAgent,
-): void {
-  new AgentHandoffBridge(provisional, registered).start();
 }
 
 type HandoffSide = "provisional" | "registered";
@@ -213,64 +205,87 @@ type HandoffChannel = "messages" | "state";
 
 class AgentHandoffBridge {
   readonly #provisional: AbstractAgent;
-  readonly #registered: AbstractAgent;
+  #provisionalSubscription?: { unsubscribe: () => void };
+  #registered?: AbstractAgent;
+  #registeredSubscription?: { unsubscribe: () => void };
   readonly #suppressed: Record<HandoffSide, Record<HandoffChannel, number>> = {
     provisional: { messages: 0, state: 0 },
     registered: { messages: 0, state: 0 },
   };
 
-  constructor(provisional: AbstractAgent, registered: AbstractAgent) {
+  constructor(provisional: AbstractAgent) {
     this.#provisional = provisional;
-    this.#registered = registered;
   }
 
+  get provisional(): AbstractAgent {
+    return this.#provisional;
+  }
+
+  /**
+   * Subscribe before a provisional run starts. AG-UI snapshots subscribers at
+   * run initialization, so a bridge added only after runtime discovery cannot
+   * observe the remainder of an already-active run. Re-subscribing after each
+   * store is created also keeps the bridge last in the live subscriber list,
+   * so mirrored updates reach every consumer synchronously before suppression.
+   */
   start(): void {
+    this.#provisionalSubscription?.unsubscribe();
+    this.#provisionalSubscription = this.#provisional.subscribe(
+      this.#subscriber(
+        this.#provisional,
+        () => this.#registered,
+        "provisional",
+        "registered",
+      ),
+    );
+  }
+
+  /** Attach the identity published by runtime discovery and synchronize it. */
+  attachRegistered(registered: AbstractAgent): void {
+    if (this.#registered === registered) return;
+    this.#registeredSubscription?.unsubscribe();
+    this.#registered = registered;
+    this.#registeredSubscription = registered.subscribe(
+      this.#subscriber(
+        registered,
+        () => this.#provisional,
+        "registered",
+        "provisional",
+      ),
+    );
+
     if (hasAgentSessionData(this.#provisional)) {
-      this.#registered.isRunning = this.#provisional.isRunning;
-      this.#registered.threadId = this.#provisional.threadId;
-      this.#registered.messages = [...this.#provisional.messages];
-      this.#registered.state = snapshotState(this.#provisional.state) as State;
+      this.#mirrorMessages(this.#provisional, registered, "registered");
+      this.#mirrorState(this.#provisional, registered, "registered");
+      return;
     }
 
-    this.#provisional.subscribe(
-      this.#subscriber(
-        this.#provisional,
-        this.#registered,
-        "provisional",
-        "registered",
-      ),
-    );
-    this.#registered.subscribe(
-      this.#subscriber(
-        this.#registered,
-        this.#provisional,
-        "registered",
-        "provisional",
-      ),
-    );
-
-    queueMicrotask(() => {
-      this.#mirrorMessages(this.#registered, this.#provisional, "provisional");
-      this.#mirrorState(this.#registered, this.#provisional, "provisional");
-    });
+    this.#mirrorMessages(registered, this.#provisional, "provisional");
+    this.#mirrorState(registered, this.#provisional, "provisional");
   }
 
   #subscriber(
     source: AbstractAgent,
-    target: AbstractAgent,
+    resolveTarget: () => AbstractAgent | undefined,
     sourceSide: HandoffSide,
     targetSide: HandoffSide,
   ): AgentSubscriber {
     const mirrorRunStatus = (): void => {
+      const target = resolveTarget();
+      if (!target) return;
       this.#mirrorRunStatus(source, target, targetSide);
     };
     return {
       onMessagesChanged: () => {
         if (this.#consumeSuppression(sourceSide, "messages")) return;
+        const target = resolveTarget();
+        if (!target) return;
         this.#mirrorMessages(source, target, targetSide);
       },
       onStateChanged: () => {
         if (this.#consumeSuppression(sourceSide, "state")) return;
+        const target = resolveTarget();
+        if (!target) return;
         this.#mirrorState(source, target, targetSide);
       },
       onRunInitialized: mirrorRunStatus,

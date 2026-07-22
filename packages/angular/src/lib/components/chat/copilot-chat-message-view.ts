@@ -145,6 +145,8 @@ import type { RenderActivityMessageConfig } from "../../activity-renderer";
 export class CopilotChatMessageView {
   // Core inputs matching React props
   messages = input<Message[]>([]);
+  /** Current agent state exposed to transcript-children slots. */
+  state = input<unknown>({});
   showCursor = input<boolean>(false);
   isLoading = input<boolean>(false);
   inputClass = input<string | undefined>();
@@ -259,6 +261,7 @@ export class CopilotChatMessageView {
   childrenContext() {
     return {
       messages: this.messagesValue(),
+      state: this.state(),
       agentId: this.agentId(),
       isRunning: this.isLoadingValue(),
       inputClass: this.childrenClass(),

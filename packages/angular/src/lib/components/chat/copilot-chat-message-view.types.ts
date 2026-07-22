@@ -5,6 +5,7 @@ import { Type, TemplateRef } from "@angular/core";
 export interface MessageViewContext {
   showCursor: boolean;
   messages: Message[];
+  state: unknown;
   messageElements: any[]; // Will be populated with rendered elements
 }
 
@@ -16,6 +17,7 @@ export interface CursorContext {
 // Component input props interface
 export interface CopilotChatMessageViewProps {
   messages?: Message[];
+  state?: unknown;
   showCursor?: boolean;
   inputClass?: string;
 

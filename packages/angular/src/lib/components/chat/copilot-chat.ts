@@ -60,6 +60,7 @@ import { connectActiveThread } from "../../active-thread-connector";
     >
       <copilot-chat-view
         [messages]="messages()"
+        [state]="agentState()"
         [agentId]="resolvedAgentId()"
         [autoScroll]="true"
         [messageViewClass]="'cpk:w-full'"
@@ -135,6 +136,7 @@ export class CopilotChat extends ChatState {
   private readonly destroyRef = inject(DestroyRef);
 
   protected messages = computed(() => this.agentStore().messages());
+  protected agentState = computed(() => this.agentStore().state());
   protected isRunning = computed(() => this.agentStore().isRunning());
   protected readonly hasExplicitThreadId =
     this.config?.hasExplicitThreadId ??
