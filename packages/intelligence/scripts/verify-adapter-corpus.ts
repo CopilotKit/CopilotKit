@@ -247,8 +247,10 @@ function validateOperations(
   if (new Set(timestamps).size !== timestamps.length) {
     failures.push(`${label} has duplicate timestamps`);
   }
-  for (let index = 1; index < timestamps.length; index += 1) {
-    if (timestamps[index] <= timestamps[index - 1]) {
+  for (const [index, timestamp] of timestamps.entries()) {
+    if (index === 0) continue;
+    const previousTimestamp = timestamps[index - 1];
+    if (previousTimestamp !== undefined && timestamp <= previousTimestamp) {
       failures.push(`${label} must be ordered by increasing atMs`);
     }
   }
