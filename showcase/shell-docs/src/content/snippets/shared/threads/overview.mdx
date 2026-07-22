@@ -13,9 +13,41 @@ import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 
 ## Get started
 
-### Managed Intelligence: start building
+### Cloud-hosted Enterprise Intelligence
 
-The supported self-serve path starts with a CopilotKit CLI project. Your application and CopilotKit Runtime run locally while cloud-hosted Enterprise Intelligence stores and synchronizes its Rich Threads.
+Create a new CopilotKit app connected to cloud-hosted Enterprise Intelligence. Your application and CopilotKit Runtime run locally while Enterprise Intelligence stores and synchronizes Rich Threads.
+
+<Accordions>
+<Accordion title="Build and verify this with a coding agent">
+
+```text
+Set up and verify a CopilotKit Rich Threads application with cloud-hosted
+Enterprise Intelligence.
+
+First inspect this repository and follow its agent instructions. If this is not
+already a CLI-created CopilotKit Threads starter, run
+`npx copilotkit@latest init` and ask me to complete the interactive browser
+sign-in and Enterprise Intelligence project selection when needed. Use the
+scaffolded local application and CopilotKit Runtime configuration.
+
+Keep the Threads Drawer that comes with the starter. Do not rebuild it or invent
+manual Enterprise Intelligence environment configuration. Do not set up a local
+Intelligence service.
+
+Start the application and Runtime using the generated instructions. Create a
+conversation through the included Threads Drawer, reload or reopen it, and
+verify that the complete conversation returns. If browser interaction requires
+me, give me the exact step and continue after I confirm it.
+
+Finish by reporting the files changed, commands run, and the persistence check
+you completed. Stop and explain the blocker if the cloud-hosted setup cannot be
+completed; do not substitute an undocumented setup.
+```
+
+</Accordion>
+</Accordions>
+
+Or follow the steps yourself:
 
 1. Run the interactive starter command:
 
@@ -35,55 +67,21 @@ The supported self-serve path starts with a CopilotKit CLI project. Your applica
 
 Threads-capable CLI starters already include [Threads Drawer](/prebuilt-components/copilot-threads-drawer). Use its guide when you are ready to customize the drawer. Choose [Headless Threads](/headless-threads) later if your product needs a fully custom thread UI.
 
-<Accordions>
-<Accordion title="Build and verify this with a coding agent">
-
-```text
-Set up and verify a CopilotKit Rich Threads application using the supported
-managed Enterprise Intelligence path.
-
-First inspect this repository and follow its agent instructions. If this is not
-already a CLI-created CopilotKit Threads starter, run
-`npx copilotkit@latest init` and ask me to complete the interactive browser
-sign-in and Enterprise Intelligence project selection when needed. Use the
-scaffolded local application and CopilotKit Runtime configuration.
-
-Keep the Threads Drawer that comes with the starter. Do not rebuild it or invent
-manual Enterprise Intelligence environment configuration. Do not set up a local
-Intelligence service.
-
-Start the application and Runtime using the generated instructions. Create a
-conversation through the included Threads Drawer, reload or reopen it, and
-verify that the complete conversation returns. If browser interaction requires
-me, give me the exact step and continue after I confirm it.
-
-Finish by reporting the files changed, commands run, and the persistence check
-you completed. Stop and explain the blocker if the supported managed path cannot
-be completed; do not substitute an undocumented setup.
-```
-
-</Accordion>
-</Accordions>
-
-### Production self-hosting: plan a deployment
-
-Run Enterprise Intelligence inside your infrastructure when your organization needs its own network boundary, data residency, identity provider, storage, and Kubernetes operations. Production self-hosting is planned and deployed with CopilotKit Engineering.
-
 <OpsPlatformCTA
   variant="inline"
-  title="Plan production self-hosting with CopilotKit Engineering"
-  body="Review your infrastructure, security, identity, and rollout requirements with an engineer."
+  title="Run Enterprise Intelligence in your own infrastructure"
+  body="Production self-hosting keeps Rich Threads, event history, identity, storage, and operations inside your network. Book time with a CopilotKit engineer to get started."
   ctaLabel="Book time with an engineer"
   surface="docs_threads_overview_self_hosting"
   href="https://copilotkit.ai/talk-to-an-engineer"
   analyticsEvent="talk_to_us_clicked"
 />
 
-[Review the architecture](/premium/self-hosting) before the conversation.
+## Why use CopilotKit Rich Threads?
 
-## Conversations that come back complete
+With Rich Threads, users can close the browser, return on another device, reopen a conversation, and continue from the same event history while active runs reconnect in realtime. Generative UI renders again as part of that history, and multimodal inputs stay stored with the conversation.
 
-Rich Threads preserve the complete agent experience across sessions and devices. Built on AG-UI event history, they restore messages, generative UI, multimodal inputs, tool activity, state, and live-run continuity instead of saving only a chat transcript.
+Built on portable AG-UI event history, Rich Threads restore messages, generative UI, multimodal inputs, tool activity, state, and live-run continuity instead of saving only a chat transcript.
 
 Without CopilotKit Rich Threads, your team has to design the storage model, replay historical events and generative UI, persist multimodal inputs, reconnect live streams, synchronize thread lists, coordinate concurrent runs, and build lifecycle APIs before you can ship the conversation experience itself. Enterprise Intelligence handles that infrastructure so you can focus on your agent and product UI.
 
@@ -95,9 +93,7 @@ Without CopilotKit Rich Threads, your team has to design the storage model, repl
   surface="docs_threads_overview"
 />
 
-## Why use CopilotKit Rich Threads?
-
-Rich Threads turn a streamed agent run into a product experience users can leave and return to. Because the history is made of portable AG-UI events rather than only text messages, the same complete experience can be restored across supported agent frameworks. Rich Threads provide:
+Rich Threads provide:
 
 - durable event history across reloads, sessions, and devices
 - seamless replay before a conversation reconnects to a live run
@@ -178,9 +174,9 @@ Both UI paths use the same Threads infrastructure. A stable `threadId` connects 
   </div>
 </div>
 
-## Bring existing conversations
+## Sync existing conversations
 
-Threads capture new CopilotKit conversations once your app uses Enterprise Intelligence. If you already have persisted Google ADK or LangGraph conversations, follow [Import & Synchronize Thread History](/threads-import) to bring supported history into the same thread store. Keep the native storage and analytics you already use; future CopilotKit-mediated runs continue through native durable persistence when it remains wired while Enterprise Intelligence records the Rich Thread experience. Users can then resume imported and new conversations through the same UI.
+Threads capture new CopilotKit conversations once your app uses Enterprise Intelligence. If you already have persisted Google ADK or LangGraph conversations, follow [Import & Synchronize Thread History](/threads-import) to synchronize supported history with the same thread store. Keep the native storage and analytics you already use; future CopilotKit-mediated runs continue through native durable persistence when it remains wired while Enterprise Intelligence records the Rich Thread experience. Users can then resume imported and new conversations through the same UI.
 
 CopilotKit Threads are separate from native framework session or checkpoint stores. Your backend can keep a stable mapping when the agent framework also needs its own conversation identifier.
 

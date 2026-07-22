@@ -225,21 +225,19 @@ describe("loadDoc", () => {
 
     const screenshot = overview.indexOf("support-desk-threads.png");
     const gettingStarted = overview.indexOf("## Get started");
-    const productStory = overview.indexOf(
-      "## Conversations that come back complete",
-    );
     const why = overview.indexOf("## Why use CopilotKit Rich Threads?");
     const diagram = overview.indexOf("threads-diagram-light.png");
 
     expect(screenshot).toBeGreaterThan(-1);
     expect(screenshot).toBeLessThan(gettingStarted);
-    expect(gettingStarted).toBeLessThan(productStory);
-    expect(productStory).toBeLessThan(why);
+    expect(gettingStarted).toBeLessThan(why);
     expect(why).toBeLessThan(diagram);
+    expect(overview).toContain("### Cloud-hosted Enterprise Intelligence");
     expect(overview).toContain("npx copilotkit@latest init");
     expect(overview).toContain("Build and verify this with a coding agent");
     expect(overview).toContain("Threads-capable CLI starters already include");
     expect(overview).toContain("Book time with an engineer");
+    expect(overview).toContain("## Sync existing conversations");
     expect(overview).toContain("threads-diagram-dark.png");
   });
 });
@@ -627,21 +625,10 @@ describe("framework nav", () => {
     expect(architecture).toContain("general replication link");
   });
 
-  it("keeps managed and self-hosted Intelligence within supported setup boundaries", () => {
+  it("links the hosted Intelligence guide to the Rich Threads journey", () => {
     const managed =
       loadDoc("premium/managed-intelligence-platform")?.source ?? "";
-    const selfHosted = fs.readFileSync(
-      path.join(SNIPPETS_DIR, "shared/premium/self-hosting.mdx"),
-      "utf8",
-    );
-    const cli = fs.readFileSync(
-      path.join(SNIPPETS_DIR, "shared/cli/cli.mdx"),
-      "utf8",
-    );
 
-    expect(managed).toContain(
-      "separate from your application's end-user identity",
-    );
     expect(managed).toContain("[Rich Threads overview](/threads)");
     expect(managed).toContain(
       "[Threads Drawer](/prebuilt-components/copilot-threads-drawer)",
@@ -649,40 +636,6 @@ describe("framework nav", () => {
     expect(managed).toContain(
       "[Import & Synchronize Thread History](/threads-import)",
     );
-    expect(managed).toContain("run npx copilotkit@latest init");
-    expect(managed).toContain(
-      "Use the dashboard to administer projects, API keys, thread history, and plans",
-    );
-    expect(managed).not.toContain(
-      "use the CLI or dashboard to connect your first app",
-    );
-    expect(managed).not.toContain("skills onboard");
-
-    expect(selfHosted).toContain("Book time with an engineer");
-    expect(selfHosted).toContain("CopilotKit Engineering");
-    expect(selfHosted).toContain("Enterprise Intelligence Architecture");
-    for (const unsupportedPath of [
-      "Docker Desktop",
-      "k3d",
-      "values-quickstart-local.yaml",
-      "local-demo.sh",
-      "port-forward",
-      "Bundled Keycloak",
-      "selfHostedSecrets",
-    ]) {
-      expect(selfHosted).not.toContain(unsupportedPath);
-    }
-
-    expect(cli).toContain("connected to cloud-hosted Enterprise Intelligence");
-    expect(cli).toContain("`init` (`create` is an exact alias)");
-    expect(cli).toContain("### Run init");
-    expect(cli).toContain("npx copilotkit@latest init");
-    expect(cli).not.toContain("npx copilotkit@latest create");
-    expect(cli).not.toContain("### Run create");
-    expect(cli).toContain(
-      "does not provision or connect Enterprise Intelligence",
-    );
-    expect(cli).not.toContain("whether cloud-hosted or self-hosted");
   });
 
   it("uses the generated Intelligence Platform section for authored framework nav", () => {

@@ -2,14 +2,14 @@ import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
 ## What is this?
 
-The CopilotKit CLI helps you create CopilotKit apps connected to cloud-hosted Enterprise Intelligence. It handles browser sign-in, project selection, project-scoped runtime API keys, historical thread import, and local project configuration so your app can use Rich Threads and durable conversation history.
+The CopilotKit CLI helps you create CopilotKit apps connected to Enterprise Intelligence, whether cloud-hosted or self-hosted. It handles browser sign-in, project selection, project-scoped runtime API keys, historical thread import, and local project configuration so your app can use durable threads and conversation history.
 
 Use the CLI when you want to start a new app, import historical ADK or LangGraph conversations, or install CopilotKit agent skills for your coding agent.
 
 <OpsPlatformCTA
   variant="inline"
   title="Start with a hosted Enterprise Intelligence project"
-  body="Create a free account, then run the init command below to scaffold a connected app."
+  body="Create a free account, then copy the create command below to scaffold a connected app."
   ctaLabel="Create a free account"
   surface="docs_cli_intro_signup"
 />
@@ -23,15 +23,15 @@ Use the CLI when you want to start a new app, import historical ADK or LangGraph
 ## Start a new app
 
 <Callout type="info" title="Creating vs. adding to an existing app">
-  `init` (`create` is an exact alias) scaffolds a brand-new project in its own directory — it prompts for an app name and does not detect or bootstrap an app you already have. To add CopilotKit to an existing app, follow the manual installation in the [Quickstart](/quickstart) instead.
+  `create` (aliased as `init`) scaffolds a brand-new project in its own directory — it prompts for an app name and does not detect or bootstrap an app you already have. To add CopilotKit to an existing app, follow the manual installation in the [Quickstart](/quickstart) instead.
 </Callout>
 
 <Steps>
   <Step>
-    ### Run init
+    ### Run create
 
     ```bash title="Terminal"
-    npx copilotkit@latest init
+    npx copilotkit@latest create
     ```
 
     The CLI prompts for the app name and framework, opens browser sign-in when needed, scaffolds the starter, and connects the app to a cloud-hosted Enterprise Intelligence project.
@@ -147,7 +147,7 @@ Re-running `project select` is safe when you need to move a CLI-created app to a
 | Command | What it does |
 |---|---|
 | `npx copilotkit@latest skills install` | Installs CopilotKit agent skills for supported coding agents. |
-| `npx copilotkit@latest skills onboard` | Installs skills, then starts agent-assisted CopilotKit onboarding for an existing app. It does not provision or connect Enterprise Intelligence. |
+| `npx copilotkit@latest skills onboard` | Installs skills, then starts agent-assisted onboarding for an existing app. |
 
 ## Next steps
 

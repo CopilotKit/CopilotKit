@@ -12,8 +12,8 @@ Cloud-Hosted Enterprise Intelligence is the CopilotKit-operated deployment of th
 
 <OpsPlatformCTA
   variant="inline"
-  title="Create a connected app with the CLI"
-  body="Create a free Enterprise Intelligence account, then run npx copilotkit@latest init to scaffold and connect a new app. Use the dashboard to administer projects, API keys, thread history, and plans."
+  title="Create hosted projects and API keys"
+  body="Create a free Enterprise Intelligence account, then use the CLI or dashboard to connect your first app."
   ctaLabel="Create a free account"
   surface="docs_premium_managed_intelligence_platform_intro"
 />
@@ -30,14 +30,10 @@ Use Cloud-Hosted Enterprise Intelligence when you want the fastest path to produ
 
 You sign in at [dashboard.operations.copilotkit.ai](https://dashboard.operations.copilotkit.ai). After login, choose or create the organization workspace you want to operate in. The ready page gives you two common paths:
 
-- `npx copilotkit@latest init` for a new app with managed Enterprise Intelligence and Rich Threads.
-- The project dashboard for inspecting threads, managing project API keys, and reviewing plan details.
+- `npx copilotkit@latest create` for a new app.
+- `npx copilotkit@latest skills onboard` for adding CopilotKit to an existing app with agent-assisted onboarding.
 
 The [CopilotKit CLI](/cli) uses the same sign-in system. When the CLI needs dashboard access, it opens a browser login flow and then stores a local CLI session so project selection can happen from your terminal.
-
-This sign-in is for developers and administrators operating Enterprise
-Intelligence. It is separate from your application's end-user identity and
-authorization model.
 
 ## Projects
 
@@ -51,13 +47,11 @@ Inside a project, the web app shows the conversation history connected to that p
 
 ## API keys
 
-Project API keys connect your runtime to the cloud-hosted project. During `init`, the CLI provisions a project-scoped key, writes it to `.env` as `INTELLIGENCE_API_KEY`, and records the selected project in `.copilotkit/project.json`. For a CLI-created app, `project select` can replace that generated project configuration.
+Project API keys connect your runtime to the cloud-hosted project. The CLI provisions a project-scoped key during `create` and `project select`, writes it to `.env` as `INTELLIGENCE_API_KEY`, and records the selected project in `.copilotkit/project.json`.
 
 ![The Cloud-Hosted Enterprise Intelligence API keys page.](/images/enterprise-intelligence/managed-api-keys.png)
 
-The dashboard lets administrators inspect and rotate project keys. Keep the
-generated runtime key server-side; deleting a key invalidates any application
-still using it.
+When you create an API key in the web app, the plaintext token is shown once. Store it in your runtime environment, not in frontend code. Deleting a key invalidates any application still using it.
 
 ## Threads and conversation history
 
@@ -92,8 +86,8 @@ Your application code should stay focused on the CopilotKit SDK and runtime. The
 
 ## Next steps
 
-- **Start with Rich Threads:** [Rich Threads overview](/threads) — create a managed starter and verify the included Threads Drawer
+- **Start with Rich Threads:** [Rich Threads overview](/threads) — create a cloud-hosted starter and verify the included Threads Drawer
 - **Customize the included UI:** [Threads Drawer](/prebuilt-components/copilot-threads-drawer) — understand the generated setup and component options
 - **Synchronize existing history:** [Import & Synchronize Thread History](/threads-import) — bring supported ADK or LangGraph history into Rich Threads while retaining native persistence
 - **Thread architecture:** [Threads & Persistence Architecture](/premium/threads-explained) — event replay, realtime sync, and thread lifecycle semantics
-- **Plan production self-hosting:** [Self-Hosting Enterprise Intelligence](/premium/self-hosting) — review the Kubernetes architecture and engage CopilotKit Engineering
+- **Production self-hosting:** [Self-Hosting Enterprise Intelligence](/premium/self-hosting) — review the Kubernetes architecture and engage CopilotKit Engineering
