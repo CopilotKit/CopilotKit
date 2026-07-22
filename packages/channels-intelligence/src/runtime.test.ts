@@ -226,7 +226,8 @@ describe("startChannels", () => {
   it("rolls back already-started bots when a later bot fails to start", async () => {
     const a = createChannel({ name: "support", agent: new FakeAgent() });
     const b = createChannel({ name: "triage", agent: new FakeAgent() });
-    const stopA = vi.spyOn(a, "stop");
+    // startChannels drives the relocated ɵruntime lifecycle (plan §2 / A1).
+    const stopA = vi.spyOn(a.ɵruntime, "stop");
     await expect(
       startChannels({
         channels: [a, b],

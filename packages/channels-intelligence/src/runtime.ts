@@ -184,20 +184,23 @@ export async function startChannels(
       const { source, egress, renderSink, store } = opts.resolveTransport(
         channel.name!,
       );
-      channel.addAdapter(
+      // The Channel lifecycle now lives on `ɵruntime` (plan §2 / A1); the public
+      // start()/stop()/addAdapter() are being removed. (This managed path is
+      // itself rewritten to bound deliveries in Task 7.)
+      channel.ɵruntime.addAdapter(
         intelligenceAdapter({ source, egress, renderSink, store }),
       );
-      await channel.start();
+      await channel.ɵruntime.start();
       startedChannels.push(channel);
     }
   } catch (err) {
-    await Promise.allSettled(startedChannels.map((c) => c.stop()));
+    await Promise.allSettled(startedChannels.map((c) => c.ɵruntime.stop()));
     throw err;
   }
   return {
     metadata,
     async stop() {
-      await Promise.all(opts.channels.map((c) => c.stop()));
+      await Promise.all(opts.channels.map((c) => c.ɵruntime.stop()));
     },
   };
 }
