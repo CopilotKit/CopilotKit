@@ -507,32 +507,38 @@ describe("createSkillRegistryMiddleware", () => {
     ]);
   });
 
-  it("defers callers that arrive after joined telemetry is sealed", async () => {
-    const sinkFailure = new Error("late joined sink failure");
+  it("publishes one fresh next-epoch promise to every caller arriving after telemetry is sealed", async () => {
+    const pendingRefresh = deferred<InstalledSkillSet>();
     const unhandled = captureUnhandledRejections();
     let middleware!: ReturnType<typeof createSkillRegistryMiddleware>;
-    let joined: Promise<AdapterSnapshot> | undefined;
-    let joinedWrites = 0;
+    let firstLate: Promise<AdapterSnapshot> | undefined;
+    let secondLate: Promise<AdapterSnapshot> | undefined;
+    let now = 0;
+    let registryRequests = 0;
     let lateJoinScheduled = false;
     middleware = createSkillRegistryMiddleware({
-      client: testClient(() => installedSkillSet()),
+      client: testClient(() => {
+        registryRequests += 1;
+        return registryRequests === 1
+          ? installedSkillSet()
+          : pendingRefresh.promise;
+      }),
       learningContainerId: CONTAINER_ID,
+      clock: () => now,
       telemetry: (event) => {
         if (event.name === "load.succeeded" && !lateJoinScheduled) {
           lateJoinScheduled = true;
+          now = 30_000;
           queueMicrotask(() =>
             queueMicrotask(() =>
               queueMicrotask(() =>
                 queueMicrotask(() => {
-                  joined = middleware.load();
+                  firstLate = middleware.load();
+                  secondLate = middleware.load();
                 }),
               ),
             ),
           );
-        }
-        if (event.name === "load.singleflight_joined") {
-          joinedWrites += 1;
-          throw sinkFailure;
         }
       },
     });
@@ -542,21 +548,119 @@ describe("createSkillRegistryMiddleware", () => {
       const firstResult = await settle(first);
       await new Promise<void>((resolve) => setImmediate(resolve));
 
-      expect(joined).not.toBe(first);
-      if (joined === undefined)
-        throw new Error("The deferred caller must be scheduled");
-      const joinedResult = await settle(joined);
+      expect(firstLate).not.toBe(first);
+      expect(secondLate).toBe(firstLate);
+      if (firstLate === undefined || secondLate === undefined) {
+        throw new Error("Both deferred callers must be scheduled");
+      }
+      expect(registryRequests).toBe(2);
+      pendingRefresh.resolve(
+        await installedSkillSet({ registryRevision: "fresh-next-epoch" }),
+      );
+      const [firstLateResult, secondLateResult] = await Promise.allSettled([
+        firstLate,
+        secondLate,
+      ]);
       expect(firstResult.status).toBe("fulfilled");
-      expect(joinedResult.status).toBe("fulfilled");
+      expect(firstLateResult.status).toBe("fulfilled");
+      expect(secondLateResult.status).toBe("fulfilled");
       if (
         firstResult.status !== "fulfilled" ||
-        joinedResult.status !== "fulfilled"
+        firstLateResult.status !== "fulfilled" ||
+        secondLateResult.status !== "fulfilled"
       ) {
-        throw new Error("The sealed and deferred loads must both fulfill");
+        throw new Error("The sealed and deferred loads must fulfill");
       }
-      expect(joinedResult.value).toBe(firstResult.value);
-      expect(joinedWrites).toBe(0);
+      expect(secondLateResult.value).toBe(firstLateResult.value);
+      expect(firstLateResult.value.registryRevision).toBe("fresh-next-epoch");
+
+      const afterResolvedEpoch = middleware.load();
+      expect(afterResolvedEpoch).not.toBe(firstLate);
+      await expect(afterResolvedEpoch).resolves.toBe(firstLateResult.value);
       expect(middleware.status).toBe("ready");
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(unhandled.reasons).toEqual([]);
+    } finally {
+      unhandled.stop();
+    }
+  });
+
+  it("publishes one throttled next-epoch rejection and clears it after settlement", async () => {
+    const sinkFailure = new Error("throttled next-epoch telemetry failed");
+    const unhandled = captureUnhandledRejections();
+    let middleware!: ReturnType<typeof createSkillRegistryMiddleware>;
+    let firstLate: Promise<AdapterSnapshot> | undefined;
+    let secondLate: Promise<AdapterSnapshot> | undefined;
+    let lateResults:
+      | Promise<
+          readonly [
+            PromiseSettledResult<AdapterSnapshot>,
+            PromiseSettledResult<AdapterSnapshot>,
+          ]
+        >
+      | undefined;
+    let now = 0;
+    let failThrottle = true;
+    let lateJoinScheduled = false;
+    middleware = createSkillRegistryMiddleware({
+      client: testClient(() => installedSkillSet()),
+      learningContainerId: CONTAINER_ID,
+      clock: () => now,
+      telemetry: (event) => {
+        if (event.name === "load.succeeded" && !lateJoinScheduled) {
+          lateJoinScheduled = true;
+          queueMicrotask(() =>
+            queueMicrotask(() =>
+              queueMicrotask(() =>
+                queueMicrotask(() => {
+                  firstLate = middleware.load();
+                  secondLate = middleware.load();
+                  lateResults = Promise.allSettled([firstLate, secondLate]);
+                }),
+              ),
+            ),
+          );
+        }
+        if (event.name === "load.throttled" && failThrottle) {
+          throw sinkFailure;
+        }
+      },
+    });
+
+    try {
+      await middleware.load();
+      await new Promise<void>((resolve) => setImmediate(resolve));
+
+      expect(secondLate).toBe(firstLate);
+      if (
+        firstLate === undefined ||
+        secondLate === undefined ||
+        lateResults === undefined
+      ) {
+        throw new Error("Both deferred callers must be scheduled and observed");
+      }
+      const [firstLateResult, secondLateResult] = await lateResults;
+      expect(firstLateResult.status).toBe("rejected");
+      expect(secondLateResult.status).toBe("rejected");
+      if (
+        firstLateResult.status !== "rejected" ||
+        secondLateResult.status !== "rejected"
+      ) {
+        throw new Error("Both deferred callers must reject");
+      }
+      expect(secondLateResult.reason).toBe(firstLateResult.reason);
+      expect(firstLateResult.reason).toMatchObject({
+        code: "LEARNING_TELEMETRY_SINK_FAILED",
+        cause: sinkFailure,
+      });
+
+      failThrottle = false;
+      now = 30_000;
+      const afterRejectedEpoch = middleware.load();
+      expect(afterRejectedEpoch).not.toBe(firstLate);
+      await expect(afterRejectedEpoch).resolves.toMatchObject({
+        status: "ready",
+      });
       await new Promise<void>((resolve) => setImmediate(resolve));
       expect(unhandled.reasons).toEqual([]);
     } finally {

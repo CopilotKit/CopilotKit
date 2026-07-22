@@ -251,6 +251,7 @@ export class RegistryState {
   private closeInFlight: Promise<void> | null = null;
   private inFlight: Promise<AdapterSnapshot> | null = null;
   private singleFlightClosing = false;
+  private deferredNextFlight: Promise<AdapterSnapshot> | null = null;
   private joinedCallers = 0;
   private joinedTelemetryChain: Promise<void> = Promise.resolve();
   private readonly closedFailure = adapterError(
@@ -335,11 +336,7 @@ export class RegistryState {
   load(): Promise<AdapterSnapshot> {
     if (this.closedLatch) return Promise.reject(this.closedError());
     if (this.inFlight !== null && this.singleFlightClosing) {
-      const settling = this.inFlight;
-      return settling.then(
-        () => this.load(),
-        () => this.load(),
-      );
+      return this.deferNextFlight(() => this.load());
     }
     if (this.inFlight !== null) {
       return this.startLoad(this.ready ? "refresh" : "load", false);
@@ -494,11 +491,7 @@ export class RegistryState {
     if (this.closedLatch) return Promise.reject(this.closedError());
     if (this.inFlight !== null) {
       if (this.singleFlightClosing) {
-        const settling = this.inFlight;
-        return settling.then(
-          () => this.startSingleFlight(operation),
-          () => this.startSingleFlight(operation),
-        );
+        return this.deferNextFlight(() => this.startSingleFlight(operation));
       }
       this.joinedCallers += 1;
       const joinedTelemetry = this.emit("load.singleflight_joined", {
@@ -556,6 +549,23 @@ export class RegistryState {
       rejectOperation(error);
     }
     return promise;
+  }
+
+  private deferNextFlight(
+    operation: () => Promise<AdapterSnapshot>,
+  ): Promise<AdapterSnapshot> {
+    if (this.deferredNextFlight !== null) return this.deferredNextFlight;
+    const settling = this.inFlight;
+    if (settling === null) return operation();
+    const deferred = settling.then(operation, operation);
+    this.deferredNextFlight = deferred;
+    const releaseDeferred = () => {
+      if (this.deferredNextFlight === deferred) {
+        this.deferredNextFlight = null;
+      }
+    };
+    void deferred.then(releaseDeferred, releaseDeferred);
+    return deferred;
   }
 
   private async performLoad(
