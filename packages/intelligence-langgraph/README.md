@@ -38,7 +38,7 @@ const agent = createAgent({
 
 ## Lifecycle and preload
 
-`await skills.preload()` performs a fresh networked Registry load. `await skills.preloadCached()` is the only explicit offline entry point. Native model calls use `await skills.load()`. Inspect `skills.ready`, `skills.status`, and `skills.snapshot`, or await `skills.waitUntilReady({ timeoutMs })`. A cold model call blocks and fails closed until a complete verified snapshot exists.
+`await skills.preload()` performs a fresh networked Registry load. `await skills.preloadCached()` is the only explicit offline entry point. Native model calls use `await skills.load()`. Inspect `skills.ready`, `skills.status`, and `skills.snapshot`, or await `skills.waitUntilReady({ timeoutMs })`; the timeout must be an integer from 0 through 2147483647 milliseconds. A cold model call blocks and fails closed until a complete verified snapshot exists.
 
 ## Fresh and cached data
 

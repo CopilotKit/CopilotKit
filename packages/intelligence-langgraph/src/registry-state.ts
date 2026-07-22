@@ -12,6 +12,7 @@ const DEFAULT_REFRESH_INTERVAL_MS = 30_000;
 const DEFAULT_MAXIMUM_SKILLS = 128;
 const DEFAULT_MAXIMUM_INSTRUCTION_BYTES = 262_144;
 const DEFAULT_MAXIMUM_AGGREGATE_BYTES = 1_048_576;
+const MAXIMUM_TIMER_DELAY_MS = 2_147_483_647;
 
 export type AdapterStatus =
   | "cold"
@@ -251,7 +252,10 @@ export class RegistryState {
   private closeInFlight: Promise<void> | null = null;
   private inFlight: Promise<AdapterSnapshot> | null = null;
   private singleFlightClosing = false;
-  private deferredNextFlight: Promise<AdapterSnapshot> | null = null;
+  private deferredNextFlight: {
+    readonly predecessor: Promise<AdapterSnapshot>;
+    readonly promise: Promise<AdapterSnapshot>;
+  } | null = null;
   private joinedCallers = 0;
   private joinedTelemetryChain: Promise<void> = Promise.resolve();
   private readonly closedFailure = adapterError(
@@ -411,8 +415,14 @@ export class RegistryState {
     ) {
       throw this.current.error ?? this.closedError();
     }
-    if (!Number.isSafeInteger(options.timeoutMs) || options.timeoutMs < 0) {
-      throw new TypeError("timeoutMs must be a non-negative safe integer");
+    if (
+      !Number.isSafeInteger(options.timeoutMs) ||
+      options.timeoutMs < 0 ||
+      options.timeoutMs > MAXIMUM_TIMER_DELAY_MS
+    ) {
+      throw new TypeError(
+        `timeoutMs must be an integer between 0 and ${MAXIMUM_TIMER_DELAY_MS}`,
+      );
     }
     return new Promise<AdapterSnapshot>((resolveWait, rejectWait) => {
       const waiter = { resolve: resolveWait, reject: rejectWait };
@@ -554,17 +564,20 @@ export class RegistryState {
   private deferNextFlight(
     operation: () => Promise<AdapterSnapshot>,
   ): Promise<AdapterSnapshot> {
-    if (this.deferredNextFlight !== null) return this.deferredNextFlight;
     const settling = this.inFlight;
     if (settling === null) return operation();
-    const deferred = settling.then(operation, operation);
-    this.deferredNextFlight = deferred;
-    const releaseDeferred = () => {
-      if (this.deferredNextFlight === deferred) {
+    if (this.deferredNextFlight?.predecessor === settling) {
+      return this.deferredNextFlight.promise;
+    }
+    const launchNextFlight = () => {
+      if (this.deferredNextFlight?.predecessor === settling) {
         this.deferredNextFlight = null;
       }
+      return operation();
     };
-    void deferred.then(releaseDeferred, releaseDeferred);
+    const deferred = settling.then(launchNextFlight, launchNextFlight);
+    this.deferredNextFlight = { predecessor: settling, promise: deferred };
+    void deferred.catch(() => undefined);
     return deferred;
   }
 

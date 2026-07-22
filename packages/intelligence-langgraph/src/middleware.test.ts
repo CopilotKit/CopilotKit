@@ -507,34 +507,47 @@ describe("createSkillRegistryMiddleware", () => {
     ]);
   });
 
-  it("publishes one fresh next-epoch promise to every caller arriving after telemetry is sealed", async () => {
-    const pendingRefresh = deferred<InstalledSkillSet>();
+  it("scopes deferred callers to one fresh promise per sealed telemetry epoch", async () => {
+    const secondRequest = deferred<InstalledSkillSet>();
+    const thirdRequest = deferred<InstalledSkillSet>();
     const unhandled = captureUnhandledRejections();
     let middleware!: ReturnType<typeof createSkillRegistryMiddleware>;
-    let firstLate: Promise<AdapterSnapshot> | undefined;
-    let secondLate: Promise<AdapterSnapshot> | undefined;
+    let secondEpochFirst: Promise<AdapterSnapshot> | undefined;
+    let secondEpochSecond: Promise<AdapterSnapshot> | undefined;
+    let thirdEpochFirst: Promise<AdapterSnapshot> | undefined;
+    let thirdEpochSecond: Promise<AdapterSnapshot> | undefined;
     let now = 0;
     let registryRequests = 0;
-    let lateJoinScheduled = false;
+    let succeededEpochs = 0;
     middleware = createSkillRegistryMiddleware({
       client: testClient(() => {
         registryRequests += 1;
-        return registryRequests === 1
-          ? installedSkillSet()
-          : pendingRefresh.promise;
+        if (registryRequests === 1) {
+          return installedSkillSet({ registryRevision: "first-epoch" });
+        }
+        if (registryRequests === 2) return secondRequest.promise;
+        if (registryRequests === 3) return thirdRequest.promise;
+        throw new Error("Unexpected Registry request");
       }),
       learningContainerId: CONTAINER_ID,
       clock: () => now,
       telemetry: (event) => {
-        if (event.name === "load.succeeded" && !lateJoinScheduled) {
-          lateJoinScheduled = true;
-          now = 30_000;
+        if (event.name === "load.succeeded") {
+          succeededEpochs += 1;
+          const succeededEpoch = succeededEpochs;
           queueMicrotask(() =>
             queueMicrotask(() =>
               queueMicrotask(() =>
                 queueMicrotask(() => {
-                  firstLate = middleware.load();
-                  secondLate = middleware.load();
+                  if (succeededEpoch === 1) {
+                    now = 30_000;
+                    secondEpochFirst = middleware.load();
+                    secondEpochSecond = middleware.load();
+                  } else if (succeededEpoch === 2) {
+                    now = 60_000;
+                    thirdEpochFirst = middleware.load();
+                    thirdEpochSecond = middleware.load();
+                  }
                 }),
               ),
             ),
@@ -548,35 +561,55 @@ describe("createSkillRegistryMiddleware", () => {
       const firstResult = await settle(first);
       await new Promise<void>((resolve) => setImmediate(resolve));
 
-      expect(firstLate).not.toBe(first);
-      expect(secondLate).toBe(firstLate);
-      if (firstLate === undefined || secondLate === undefined) {
-        throw new Error("Both deferred callers must be scheduled");
+      expect(secondEpochFirst).not.toBe(first);
+      expect(secondEpochSecond).toBe(secondEpochFirst);
+      if (secondEpochFirst === undefined || secondEpochSecond === undefined) {
+        throw new Error("Both second-epoch callers must be scheduled");
       }
       expect(registryRequests).toBe(2);
-      pendingRefresh.resolve(
-        await installedSkillSet({ registryRevision: "fresh-next-epoch" }),
+      secondRequest.resolve(
+        await installedSkillSet({ registryRevision: "second-epoch" }),
       );
-      const [firstLateResult, secondLateResult] = await Promise.allSettled([
-        firstLate,
-        secondLate,
-      ]);
-      expect(firstResult.status).toBe("fulfilled");
-      expect(firstLateResult.status).toBe("fulfilled");
-      expect(secondLateResult.status).toBe("fulfilled");
-      if (
-        firstResult.status !== "fulfilled" ||
-        firstLateResult.status !== "fulfilled" ||
-        secondLateResult.status !== "fulfilled"
-      ) {
-        throw new Error("The sealed and deferred loads must fulfill");
+      const [secondEpochFirstResult, secondEpochSecondResult] =
+        await Promise.allSettled([secondEpochFirst, secondEpochSecond]);
+      await new Promise<void>((resolve) => setImmediate(resolve));
+
+      expect(thirdEpochFirst).not.toBe(secondEpochFirst);
+      expect(thirdEpochSecond).toBe(thirdEpochFirst);
+      if (thirdEpochFirst === undefined || thirdEpochSecond === undefined) {
+        throw new Error("Both third-epoch callers must be scheduled");
       }
-      expect(secondLateResult.value).toBe(firstLateResult.value);
-      expect(firstLateResult.value.registryRevision).toBe("fresh-next-epoch");
+      expect(registryRequests).toBe(3);
+      thirdRequest.resolve(
+        await installedSkillSet({ registryRevision: "third-epoch" }),
+      );
+      const [thirdEpochFirstResult, thirdEpochSecondResult] =
+        await Promise.allSettled([thirdEpochFirst, thirdEpochSecond]);
+      expect(firstResult.status).toBe("fulfilled");
+      expect(secondEpochFirstResult.status).toBe("fulfilled");
+      expect(secondEpochSecondResult.status).toBe("fulfilled");
+      expect(thirdEpochFirstResult.status).toBe("fulfilled");
+      expect(thirdEpochSecondResult.status).toBe("fulfilled");
+      if (
+        secondEpochFirstResult.status !== "fulfilled" ||
+        secondEpochSecondResult.status !== "fulfilled" ||
+        thirdEpochFirstResult.status !== "fulfilled" ||
+        thirdEpochSecondResult.status !== "fulfilled"
+      ) {
+        throw new Error("Every sealed and deferred load must fulfill");
+      }
+      expect(secondEpochSecondResult.value).toBe(secondEpochFirstResult.value);
+      expect(secondEpochFirstResult.value.registryRevision).toBe(
+        "second-epoch",
+      );
+      expect(thirdEpochSecondResult.value).toBe(thirdEpochFirstResult.value);
+      expect(thirdEpochFirstResult.value.registryRevision).toBe("third-epoch");
 
       const afterResolvedEpoch = middleware.load();
-      expect(afterResolvedEpoch).not.toBe(firstLate);
-      await expect(afterResolvedEpoch).resolves.toBe(firstLateResult.value);
+      expect(afterResolvedEpoch).not.toBe(thirdEpochFirst);
+      await expect(afterResolvedEpoch).resolves.toBe(
+        thirdEpochFirstResult.value,
+      );
       expect(middleware.status).toBe("ready");
       await new Promise<void>((resolve) => setImmediate(resolve));
       expect(unhandled.reasons).toEqual([]);
@@ -1192,6 +1225,45 @@ describe("createSkillRegistryMiddleware", () => {
     await expect(cold.waitUntilReady({ timeoutMs: 1 })).rejects.toMatchObject({
       code: "LEARNING_REGISTRY_CLOSED",
     });
+  });
+
+  it("accepts the maximum Node timer delay and rejects larger readiness timeouts", async () => {
+    vi.useFakeTimers();
+    const emitWarning = vi.spyOn(process, "emitWarning");
+    const maximumTimerDelayMs = 2_147_483_647;
+    const middleware = createSkillRegistryMiddleware({
+      client: testClient(() => installedSkillSet()),
+      learningContainerId: CONTAINER_ID,
+    });
+
+    const maximumWait = middleware.waitUntilReady({
+      timeoutMs: maximumTimerDelayMs,
+    });
+    const maximumResult = settle(maximumWait);
+    expect(vi.getTimerCount()).toBe(1);
+    await middleware.close();
+    await expect(maximumResult).resolves.toMatchObject({
+      status: "rejected",
+      reason: { code: "LEARNING_REGISTRY_CLOSED" },
+    });
+    expect(vi.getTimerCount()).toBe(0);
+
+    const overflow = createSkillRegistryMiddleware({
+      client: testClient(() => installedSkillSet()),
+      learningContainerId: CONTAINER_ID,
+    });
+    const overflowWait = overflow.waitUntilReady({
+      timeoutMs: maximumTimerDelayMs + 1,
+    });
+    const overflowResult = settle(overflowWait);
+    expect(vi.getTimerCount()).toBe(0);
+    await expect(overflowResult).resolves.toMatchObject({
+      status: "rejected",
+    });
+    await expect(overflowWait).rejects.toThrow(
+      "timeoutMs must be an integer between 0 and 2147483647",
+    );
+    expect(emitWarning).not.toHaveBeenCalled();
   });
 
   it("renders revoked as an authorized empty ready snapshot", async () => {
