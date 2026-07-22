@@ -4,6 +4,7 @@ import {
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
 import { createBuiltInAgent } from "@/lib/factory/tanstack-factory";
+import { createAgenticChatAgent } from "@/lib/factory/agentic-chat-factory";
 // `withForwardedHeaders` snapshots inbound x-* headers (e.g.
 // x-aimock-context) into an AsyncLocalStorage scope so the wrapped
 // OpenAI client's custom fetch can re-attach them on every outbound
@@ -15,7 +16,13 @@ import { withForwardedHeaders } from "@/lib/header-forwarding";
 import { withCvdiagBackend } from "@/cvdiag-backend";
 
 const runtime = new CopilotRuntime({
-  agents: { default: createBuiltInAgent() },
+  agents: {
+    // Catch-all agent retained during the LGP-parity migration; per-demo
+    // named agents are registered alongside it and resolved by the
+    // byte-identical LGP frontends via `agent="<id>"`.
+    default: createBuiltInAgent(),
+    agentic_chat: createAgenticChatAgent(),
+  },
   runner: new InMemoryAgentRunner(),
 });
 
