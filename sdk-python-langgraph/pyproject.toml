@@ -1,0 +1,42 @@
+[tool.poetry]
+name = "copilotkit-intelligence-langgraph"
+version = "0.1.0"
+description = "LangGraph Python adapter for verified CopilotKit Intelligence Registry skills"
+authors = ["CopilotKit <hello@copilotkit.ai>"]
+license = "MIT"
+readme = "README.md"
+homepage = "https://copilotkit.ai"
+repository = "https://github.com/CopilotKit/CopilotKit/tree/main/sdk-python-langgraph"
+keywords = ["copilotkit", "intelligence", "langgraph", "langchain", "agents", "skills"]
+classifiers = [
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+]
+packages = [{ include = "copilotkit_intelligence_langgraph", from = "src" }]
+include = ["src/copilotkit_intelligence_langgraph/py.typed"]
+
+[tool.poetry.dependencies]
+python = ">=3.10"
+copilotkit = ">=0.1.95,<1.0.0"
+langgraph = ">=1.2.2,<2.0.0"
+langchain = ">=1.3.2,<2.0.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+  "pytest>=9.0.2,<10.0.0",
+  "pytest-asyncio>=1.0.0,<2.0.0",
+  "build>=1.3.0,<2.0.0",
+  "twine>=6.2.0,<7.0.0",
+  "toml>=0.10.2,<1.0.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
