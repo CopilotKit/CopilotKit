@@ -86,6 +86,22 @@ function groupPageTitles(navTree: NavNode[], groupTitle: string): string[] {
   return [];
 }
 
+function groupPageSlugs(navTree: NavNode[], groupTitle: string): string[] {
+  for (const node of navTree) {
+    if (node.type !== "group") continue;
+    if (node.title === groupTitle) {
+      return node.children.flatMap((child) =>
+        child.type === "page" ? [child.slug] : [],
+      );
+    }
+
+    const nested = groupPageSlugs(node.children, groupTitle);
+    if (nested.length > 0) return nested;
+  }
+
+  return [];
+}
+
 function sectionPages(navTree: NavNode[], section: string): string[] {
   const pages: string[] = [];
   let inSection = false;
@@ -486,7 +502,7 @@ describe("framework nav", () => {
       "Threads Drawer",
       "Headless Threads",
       "Thread & History Lifecycle",
-      "Import Thread History",
+      "Synchronize Thread History",
       "Threads & Persistence Architecture",
     ];
 
@@ -497,9 +513,70 @@ describe("framework nav", () => {
       "Overview",
       "Headless Threads",
       "Thread & History Lifecycle",
-      "Import Thread History",
+      "Synchronize Thread History",
       "Threads & Persistence Architecture",
     ]);
+  });
+
+  it("keeps the thread synchronization route while preserving source-specific guides", () => {
+    const generic = loadDoc("threads-import");
+    const adk = loadDoc("integrations/adk/threads-import");
+    const langgraph = loadDoc("integrations/langgraph/threads-import");
+
+    expect(generic?.fm.title).toBe("Import & Synchronize Thread History");
+    expect(adk?.fm.title).toBe("Import ADK Threads");
+    expect(langgraph?.fm.title).toBe("Import LangGraph Threads");
+    expect(generic && readTitle(generic.filePath)).toBe(
+      "Synchronize Thread History",
+    );
+    expect(adk && readTitle(adk.filePath)).toBe("Synchronize Thread History");
+    expect(langgraph && readTitle(langgraph.filePath)).toBe(
+      "Synchronize Thread History",
+    );
+
+    const generatedNav = buildFrameworkNav(
+      "langgraph",
+      "LangGraph (Python)",
+      "langgraph-python",
+    );
+    const authoredNav = buildFrameworkOnlyNav("mastra");
+    const builtInNav = buildFrameworkOnlyNav("built-in-agent");
+
+    expect(groupPageSlugs(generatedNav, "Rich Threads")).toContain(
+      "threads-import",
+    );
+    expect(groupPageSlugs(authoredNav, "Rich Threads")).toContain(
+      "threads-import",
+    );
+    expect(groupPageSlugs(builtInNav, "Rich Threads")).toContain(
+      "threads-import",
+    );
+  });
+
+  it("documents destination credentials without claiming project metadata is imported", () => {
+    const genericDoc = loadDoc("threads-import");
+    const generic = genericDoc
+      ? inlineSnippets(genericDoc.source, "threads-import")
+      : "";
+    const adk = loadDoc("integrations/adk/threads-import")?.source ?? "";
+    const langgraph =
+      loadDoc("integrations/langgraph/threads-import")?.source ?? "";
+
+    for (const source of [generic, adk, langgraph]) {
+      expect(source).toContain(
+        "does not load `.env` or `.copilotkit/project.json` automatically",
+      );
+      expect(source).toContain('export INTELLIGENCE_API_URL="https://..."');
+      expect(source).toContain('export INTELLIGENCE_API_KEY="cpk_..."');
+      expect(source).toContain(
+        "does not need an Enterprise Intelligence URL or API key",
+      );
+    }
+
+    expect(generic).toContain("durable LangGraph checkpointer");
+    expect(generic).toContain("durable ADK session service");
+    expect(adk).toContain("ADK session storage and analytics");
+    expect(langgraph).toContain("LangGraph or LangSmith storage and analytics");
   });
 
   it("uses the generated Intelligence Platform section for authored framework nav", () => {

@@ -167,7 +167,7 @@ A LangGraph checkpointer (an `AsyncPostgresSaver` + `compile(checkpointer=...)`)
 The bridge between the two is the `threadId`: when you pass an explicit CopilotKit `threadId`, it's forwarded to the backend as the AG-UI `threadId`, which your framework can use directly as (or map to) its own checkpoint/thread id.
 
 <Callout type="info">
-  See [LangGraph persistence](/integrations/langgraph/advanced/persistence/message-persistence) for the framework-native (checkpointer) side, and [Importing threads](/threads-import) for bringing existing framework conversations into the platform store. (LangGraph *Platform* requires thread ids to be UUIDs, which CopilotKit's auto-minted ids already are.)
+  See [LangGraph persistence](/integrations/langgraph/advanced/persistence/message-persistence) for the framework-native (checkpointer) side, and [Importing and synchronizing thread history](/threads-import) for bringing existing framework conversations into the platform store. (LangGraph *Platform* requires thread ids to be UUIDs, which CopilotKit's auto-minted ids already are.)
 </Callout>
 
 ## MCP Apps activity and history
@@ -186,4 +186,4 @@ Practically, MCP App UI restores the same way the rest of the conversation does:
 - [Headless Threads](/headless-threads) — the full `useThreads` API
 - [Threads & Persistence Architecture](/premium/threads-explained) — server-side replay, resume, realtime sync
 - [Multi-conversation chat](/tutorials/multi-conversation-chat) — build a chat-history sidebar
-- [Importing threads](/threads-import) — bring existing framework conversations into the platform
+- [Importing and synchronizing thread history](/threads-import) — bring existing framework conversations into the platform and keep future runs continuous
