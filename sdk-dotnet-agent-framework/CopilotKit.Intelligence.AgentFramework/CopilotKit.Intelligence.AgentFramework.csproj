@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);1591</NoWarn>
+    <PackageId>CopilotKit.Intelligence.AgentFramework</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>CopilotKit</Authors>
+    <Company>CopilotKit</Company>
+    <Description>Microsoft Agent Framework context provider for verified CopilotKit Intelligence Registry skills.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/CopilotKit/CopilotKit</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>copilotkit;agents;ai;intelligence;skills</PackageTags>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <DebugType>portable</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Agents.AI.Abstractions" Version="[1.13.0,2.0.0)" />
+    <PackageReference Include="CopilotKit.Intelligence" Version="[0.1.0,1.0.0)" Condition="'$(UseLocalIntelligenceSdk)' != 'true'" />
+    <ProjectReference Include="../../sdk-dotnet/CopilotKit.Intelligence/CopilotKit.Intelligence.csproj" Condition="'$(UseLocalIntelligenceSdk)' == 'true'" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="../README.md" Pack="true" PackagePath="/" />
+    <None Include="../LICENSE" Pack="true" PackagePath="/" />
+    <InternalsVisibleTo Include="CopilotKit.Intelligence.AgentFramework.Tests" />
+  </ItemGroup>
+</Project>
