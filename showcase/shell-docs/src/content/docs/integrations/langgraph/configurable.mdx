@@ -126,6 +126,15 @@ For a full working demonstration, see the [Agent Config demo](https://github.com
 - Agent behavior adaptation based on runtime configuration
 - Proper middleware setup
 
+## Verification
+
+The documented access pattern is verified by unit tests in [`sdk-python/tests/test_context_persistence.py`](https://github.com/CopilotKit/CopilotKit/tree/main/sdk-python/tests/test_context_persistence.py), which confirm that:
+
+- Auth tokens can be read from `state["copilotkit"]["context"]`
+- Tokens remain accessible across multiple agent runs
+- The pattern handles missing or empty context gracefully
+- Multiple context entries can coexist and be extracted independently
+
 ## Legacy Pattern (LangGraph <0.6.0)
 
 <details>
