@@ -8,18 +8,16 @@ import {
   ChangeDetectionStrategy,
   ViewEncapsulation,
   computed,
-  inject,
 } from "@angular/core";
-import { NgComponentOutlet, NgTemplateOutlet } from "@angular/common";
+import { NgTemplateOutlet } from "@angular/common";
 import { CopilotSlot } from "../../slots/copilot-slot";
-import type { ActivityMessage, Message, ReasoningMessage } from "@ag-ui/core";
+import type { Message, ReasoningMessage } from "@ag-ui/core";
 import { CopilotChatAssistantMessage } from "./copilot-chat-assistant-message";
 import { CopilotChatUserMessage } from "./copilot-chat-user-message";
 import { CopilotChatMessageViewCursor } from "./copilot-chat-message-view-cursor";
 import { CopilotChatReasoningMessage } from "./copilot-chat-reasoning-message";
+import { CopilotActivity } from "../activity/copilot-activity";
 import { cn } from "../../utils";
-import { CopilotKit } from "../../copilotkit";
-import type { RenderActivityMessageConfig } from "../../activity-renderer";
 
 /**
  * CopilotChatMessageView component - Angular port of the React component.
@@ -31,12 +29,12 @@ import type { RenderActivityMessageConfig } from "../../activity-renderer";
   host: { "data-copilotkit": "" },
   imports: [
     NgTemplateOutlet,
-    NgComponentOutlet,
     CopilotSlot,
     CopilotChatAssistantMessage,
     CopilotChatUserMessage,
     CopilotChatReasoningMessage,
     CopilotChatMessageViewCursor,
+    CopilotActivity,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
@@ -98,13 +96,7 @@ import type { RenderActivityMessageConfig } from "../../activity-renderer";
               [isRunning]="isLoadingValue()"
             />
           } @else if (message && message.role === "activity") {
-            @let activityRender = resolveActivityRender(message);
-            @if (activityRender) {
-              <ng-container
-                [ngComponentOutlet]="activityRender.component"
-                [ngComponentOutletInputs]="activityRender.inputs"
-              />
-            }
+            <copilot-activity [message]="message" [agentId]="agentId()" />
           }
         }
 
@@ -166,7 +158,6 @@ export class CopilotChatMessageView {
   protected readonly defaultAssistantComponent = CopilotChatAssistantMessage;
   protected readonly defaultUserComponent = CopilotChatUserMessage;
   protected readonly defaultCursorComponent = CopilotChatMessageViewCursor;
-  protected readonly copilotKit = inject(CopilotKit);
 
   // Derived values from inputs
   protected messagesValue = computed(() => this.messages());
@@ -234,48 +225,6 @@ export class CopilotChatMessageView {
   // TrackBy function for performance optimization
   trackByMessageId(index: number, message: Message): string {
     return message?.id || `index-${index}`;
-  }
-
-  private pickActivityRenderer(
-    message: ActivityMessage,
-  ): RenderActivityMessageConfig | undefined {
-    const agentId = this.agentId();
-    const renderers = this.copilotKit.activityMessageRenderConfigs();
-    const matches = renderers.filter(
-      (renderer) => renderer.activityType === message.activityType,
-    );
-
-    return (
-      matches.find((candidate) => candidate.agentId === agentId) ??
-      matches.find((candidate) => candidate.agentId === undefined) ??
-      renderers.find((candidate) => candidate.activityType === "*")
-    );
-  }
-
-  protected resolveActivityRender(message: ActivityMessage) {
-    const renderer = this.pickActivityRenderer(message);
-    if (!renderer) return undefined;
-
-    const parseResult = renderer.content.safeParse(message.content);
-    if (parseResult.success === false) {
-      console.warn(
-        `Failed to parse content for activity message '${message.activityType}':`,
-        parseResult.error,
-      );
-      return undefined;
-    }
-
-    const agentId = this.agentId();
-    const agent = agentId ? this.copilotKit.getAgent(agentId) : undefined;
-    return {
-      component: renderer.component,
-      inputs: {
-        activityType: message.activityType,
-        content: parseResult.data,
-        message,
-        agent,
-      },
-    };
   }
 
   constructor() {}
