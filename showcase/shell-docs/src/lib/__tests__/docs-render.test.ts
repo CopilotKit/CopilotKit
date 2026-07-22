@@ -479,6 +479,7 @@ describe("framework nav", () => {
     );
     const authoredNav = buildFrameworkOnlyNav("mastra");
     const builtInNav = buildFrameworkOnlyNav("built-in-agent");
+    const deepAgentsNav = buildFrameworkOnlyNav("deepagents");
 
     const expected = [
       "Overview",
@@ -492,6 +493,13 @@ describe("framework nav", () => {
     expect(groupPageTitles(generatedNav, "Rich Threads")).toEqual(expected);
     expect(groupPageTitles(authoredNav, "Rich Threads")).toEqual(expected);
     expect(groupPageTitles(builtInNav, "Rich Threads")).toEqual(expected);
+    expect(groupPageTitles(deepAgentsNav, "Rich Threads")).toEqual([
+      "Overview",
+      "Headless Threads",
+      "Thread & History Lifecycle",
+      "Import Thread History",
+      "Threads & Persistence Architecture",
+    ]);
   });
 
   it("uses the generated Intelligence Platform section for authored framework nav", () => {
