@@ -48,6 +48,72 @@ const IFRAME_POLL_TIMEOUT_MS = 15_000;
 const IFRAME_POLL_INTERVAL_MS = 250;
 
 /**
+ * Arm a framework-neutral observer for the MCP Apps initialization request.
+ *
+ * React and Angular both forward the embedded app's JSON-RPC messages through
+ * the outer sandbox iframe to the host window. The Angular renderer also owns
+ * an internal initialized marker, but a shared Showcase probe must not depend
+ * on framework-owned DOM bookkeeping. This observer marks only the outer
+ * iframe whose `contentWindow` is the message source, and only for a valid
+ * JSON-RPC `ui/initialize` request. A shallow or CSP-blocked iframe therefore
+ * cannot satisfy the assertion.
+ */
+export async function armMcpInitializeProbe(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    type ProbeFrame = {
+      contentWindow: unknown;
+      setAttribute(name: string, value: string): void;
+    };
+    type ProbeWindow = {
+      __copilotKitMcpInitializeProbeArmed?: boolean;
+      addEventListener(
+        type: "message",
+        listener: (event: { data: unknown; source: unknown }) => void,
+      ): void;
+    };
+    const root = globalThis as unknown as {
+      window?: ProbeWindow;
+      document: {
+        querySelectorAll(selector: string): ArrayLike<ProbeFrame>;
+      };
+    };
+    const win = root.window ?? (globalThis as unknown as ProbeWindow);
+    if (win.__copilotKitMcpInitializeProbeArmed) return;
+    win.__copilotKitMcpInitializeProbeArmed = true;
+
+    win.addEventListener("message", (event) => {
+      let payload = event.data;
+      if (typeof payload === "string") {
+        try {
+          payload = JSON.parse(payload) as unknown;
+        } catch {
+          return;
+        }
+      }
+      if (
+        typeof payload !== "object" ||
+        payload === null ||
+        (payload as { jsonrpc?: unknown }).jsonrpc !== "2.0" ||
+        (payload as { method?: unknown }).method !== "ui/initialize"
+      ) {
+        return;
+      }
+
+      const frames = root.document.querySelectorAll(
+        'iframe[data-testid="mcp-app-iframe"], iframe[sandbox]',
+      );
+      for (let index = 0; index < frames.length; index += 1) {
+        const frame = frames[index];
+        if (frame?.contentWindow === event.source) {
+          frame.setAttribute("data-mcp-app-initialized", "true");
+          return;
+        }
+      }
+    });
+  });
+}
+
+/**
  * Probe the page for an initialized MCP-app iframe. The Angular renderer sets
  * `data-mcp-app-initialized="true"` only after the embedded app executes and
  * sends `ui/initialize`; this remains observable when the dedicated proxy is
@@ -122,21 +188,17 @@ export async function assertIframePresent(
  * probe matches what a user clicking the suggestion pill would
  * experience.
  *
- * TODO(F4): `showcase/aimock/d5-all.json` currently keys
- * `"Use Excalidraw to sketch"` to a CONTENT-ONLY response (no MCP tool
- * call), and a generic catch-all may absorb the verbatim pill string
- * before it reaches the MCP path. Without a fixture entry that emits
- * an actual MCP tool call AND a runtime configured to talk to a real
- * MCP server, the iframe assertion can only pass on integration runs
- * with a live agent + reachable MCP endpoint. F4 owns the fixture
- * file; this probe is correct in the live-agent topology and is a
- * known false-negative under aimock until the fixture lands.
+ * The integration-specific `mcp-apps.json` fixtures emit that tool call. The
+ * pre-fill hook arms a framework-neutral handshake observer before the prompt
+ * is submitted so both React and Angular are judged by the same protocol
+ * signal.
  */
 export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
   return [
     {
       input:
         "Open Excalidraw and sketch a system diagram with a client, server, and database.",
+      preFill: armMcpInitializeProbe,
       // Wrapped so the assertions callback ignores the Phase-4 `ctx`
       // argument: `assertIframePresent` takes `(page, timeoutMs?)`, not
       // `(page, ctx)`, and ctx is irrelevant to the iframe-mount probe.

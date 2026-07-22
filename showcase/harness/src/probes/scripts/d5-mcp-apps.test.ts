@@ -62,6 +62,7 @@ describe("D5 mcp-apps script — buildTurns", () => {
     const turns = scriptModule.buildTurns(ctx);
     expect(turns).toHaveLength(1);
     expect(typeof turns[0]!.assertions).toBe("function");
+    expect(typeof turns[0]!.preFill).toBe("function");
   });
 
   it("drives a real MCP-tool prompt (not the previous 'hello' no-op)", () => {
@@ -77,6 +78,83 @@ describe("D5 mcp-apps script — buildTurns", () => {
       "Open Excalidraw and sketch a system diagram with a client, server, and database.",
     );
     expect(turns[0]!.input).not.toBe("hello");
+  });
+});
+
+describe("D5 mcp-apps armMcpInitializeProbe", () => {
+  it("marks only the iframe that emitted a valid ui/initialize request", async () => {
+    const mod = await import("./d5-mcp-apps.js");
+    const expectedSource = {};
+    const unrelatedSource = {};
+    const expectedAttributes = new Map<string, string>();
+    const unrelatedAttributes = new Map<string, string>();
+    let onMessage:
+      | ((event: { data: unknown; source: unknown }) => void)
+      | undefined;
+    const originalWindow = Object.getOwnPropertyDescriptor(
+      globalThis,
+      "window",
+    );
+    const originalDocument = Object.getOwnPropertyDescriptor(
+      globalThis,
+      "document",
+    );
+
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: {
+        addEventListener: (
+          type: string,
+          listener: (event: { data: unknown; source: unknown }) => void,
+        ) => {
+          if (type === "message") onMessage = listener;
+        },
+      },
+    });
+    Object.defineProperty(globalThis, "document", {
+      configurable: true,
+      value: {
+        querySelectorAll: () => [
+          {
+            contentWindow: expectedSource,
+            setAttribute: (name: string, value: string) =>
+              expectedAttributes.set(name, value),
+          },
+          {
+            contentWindow: unrelatedSource,
+            setAttribute: (name: string, value: string) =>
+              unrelatedAttributes.set(name, value),
+          },
+        ],
+      },
+    });
+    const page: Page = {
+      waitForSelector: async () => undefined,
+      fill: async () => undefined,
+      press: async () => undefined,
+      evaluate: async <R>(fn: () => R): Promise<R> => fn(),
+    };
+
+    try {
+      await mod.armMcpInitializeProbe(page);
+      onMessage?.({
+        data: { jsonrpc: "2.0", method: "ui/initialize", id: 1 },
+        source: expectedSource,
+      });
+      expect(expectedAttributes.get("data-mcp-app-initialized")).toBe("true");
+      expect(unrelatedAttributes.has("data-mcp-app-initialized")).toBe(false);
+    } finally {
+      if (originalWindow) {
+        Object.defineProperty(globalThis, "window", originalWindow);
+      } else {
+        Reflect.deleteProperty(globalThis, "window");
+      }
+      if (originalDocument) {
+        Object.defineProperty(globalThis, "document", originalDocument);
+      } else {
+        Reflect.deleteProperty(globalThis, "document");
+      }
+    }
   });
 });
 
