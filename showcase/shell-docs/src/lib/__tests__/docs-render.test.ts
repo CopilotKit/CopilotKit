@@ -579,6 +579,96 @@ describe("framework nav", () => {
     expect(langgraph).toContain("LangGraph or LangSmith storage and analytics");
   });
 
+  it("keeps Drawer and Headless guidance on the supported CLI-created path", () => {
+    const drawer = fs.readFileSync(
+      path.join(SNIPPETS_DIR, "shared/basics/copilot-threads-drawer.mdx"),
+      "utf8",
+    );
+    const headless = fs.readFileSync(
+      path.join(SNIPPETS_DIR, "shared/threads/headless-threads.mdx"),
+      "utf8",
+    );
+
+    expect(drawer).toContain(
+      "CLI starters with Rich Threads already include the Drawer",
+    );
+    expect(drawer).toContain("## Understand the included setup");
+    expect(drawer).not.toContain("## Basic setup");
+
+    expect(headless).toContain("npx copilotkit@latest init");
+    expect(headless).toContain("Confirm the generated Runtime configuration");
+    expect(headless).toContain("already include the prebuilt");
+    expect(headless).not.toContain(
+      "Connect your CopilotKit runtime to the Enterprise Intelligence Platform",
+    );
+  });
+
+  it("documents conditional future native persistence without claiming replication", () => {
+    const lifecycle = fs.readFileSync(
+      path.join(SNIPPETS_DIR, "shared/threads/threads-lifecycle.mdx"),
+      "utf8",
+    );
+    const architecture = loadDoc("premium/threads-explained")?.source ?? "";
+
+    for (const source of [lifecycle, architecture]) {
+      const normalized = source.replace(/\s+/g, " ");
+      expect(normalized).toContain("durable session service");
+      expect(normalized).toContain("rename");
+      expect(normalized).toContain("archive");
+      expect(normalized).toContain("delete");
+    }
+    expect(lifecycle).toContain("durable checkpointer");
+    expect(architecture).toContain("durable LangGraph checkpointer");
+    expect(lifecycle).toContain("general database replication");
+    expect(architecture).toContain("general replication link");
+  });
+
+  it("keeps managed and self-hosted Intelligence within supported setup boundaries", () => {
+    const managed =
+      loadDoc("premium/managed-intelligence-platform")?.source ?? "";
+    const selfHosted = fs.readFileSync(
+      path.join(SNIPPETS_DIR, "shared/premium/self-hosting.mdx"),
+      "utf8",
+    );
+    const cli = fs.readFileSync(
+      path.join(SNIPPETS_DIR, "shared/cli/cli.mdx"),
+      "utf8",
+    );
+
+    expect(managed).toContain(
+      "separate from your application's end-user identity",
+    );
+    expect(managed).toContain("[Rich Threads overview](/threads)");
+    expect(managed).toContain(
+      "[Threads Drawer](/prebuilt-components/copilot-threads-drawer)",
+    );
+    expect(managed).toContain(
+      "[Import & Synchronize Thread History](/threads-import)",
+    );
+    expect(managed).not.toContain("skills onboard");
+
+    expect(selfHosted).toContain("Book time with an engineer");
+    expect(selfHosted).toContain("CopilotKit Engineering");
+    expect(selfHosted).toContain("Enterprise Intelligence Architecture");
+    for (const unsupportedPath of [
+      "Docker Desktop",
+      "k3d",
+      "values-quickstart-local.yaml",
+      "local-demo.sh",
+      "port-forward",
+      "Bundled Keycloak",
+      "selfHostedSecrets",
+    ]) {
+      expect(selfHosted).not.toContain(unsupportedPath);
+    }
+
+    expect(cli).toContain("connected to cloud-hosted Enterprise Intelligence");
+    expect(cli).toContain(
+      "does not provision or connect Enterprise Intelligence",
+    );
+    expect(cli).not.toContain("whether cloud-hosted or self-hosted");
+  });
+
   it("uses the generated Intelligence Platform section for authored framework nav", () => {
     const navTree = buildFrameworkOnlyNav("ag2");
 

@@ -12,7 +12,7 @@ doc_type: explanation
   surface="docs_learn_threads"
 />
 
-Start with the [Threads overview](/threads) to understand the product benefits
+Start with the [Rich Threads overview](/threads) to understand the product benefits
 and choose between the prebuilt Drawer and a custom headless UI. This page
 explains the persistence and replay architecture beneath both paths. For the
 client-side lifecycle (minting a `threadId`, hydrating history on load, and
@@ -78,6 +78,21 @@ In either case the transition from replayed history to live updates is seamless.
 
 The `useThreads` hook maintains a WebSocket subscription for thread metadata changes. When any client creates, renames, archives, or deletes a thread, the update is pushed to all connected clients automatically. This is how a thread created on one tab appears in the sidebar on another tab without polling.
 
+### Future runs and native persistence
+
+Importing history is a one-time adoption step. Afterward, future conversations
+that run through CopilotKit are persisted to Enterprise Intelligence. When the
+agent also keeps a durable LangGraph checkpointer or LangGraph Platform
+deployment wired, the same runs continue through LangGraph's native persistence.
+An ADK agent behaves similarly when it remains connected to a durable session
+service that retains its sessions.
+
+That coordinated future persistence lets teams retain native framework storage
+and analytics while adding the Rich Threads experience for users. It is not a
+general replication link between databases: `useThreads` operations such as
+rename, archive, and delete change the Enterprise Intelligence thread and do not
+mutate records in LangGraph, ADK, or another native store.
+
 ### Pessimistic updates
 
 Thread mutations (`rename`, `archive`, `delete`) use a pessimistic update model: the client waits for the server to confirm via WebSocket before updating the thread list. This means:
@@ -139,6 +154,6 @@ The trade-off is that replay is more complex than loading a message array. The p
 ## Next steps
 
 - **Client lifecycle:** [Thread & History Lifecycle](/threads-lifecycle) — how a `threadId` is minted, hydrated, and switched on the client
-- **Product overview:** [Threads](/threads) — understand the feature and choose an implementation path
+- **Product overview:** [Rich Threads](/threads) — understand the feature and choose an implementation path
 - **Step-by-step guide:** [Headless Threads](/headless-threads) — build a custom thread-management UI
 - **API reference:** [useThreads](/reference/hooks/useThreads) — parameters, return values, types
