@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import FrozenInstanceError
+from importlib.metadata import version
 
 import pytest
 from copilotkit import (
@@ -165,6 +166,104 @@ async def test_joined_callers_share_telemetry_sink_failure(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_load_started_telemetry_reentrant_load_fails_fast_without_deadlock(
+    tmp_path,
+) -> None:
+    from copilotkit_intelligence_langgraph import createSkillRegistryMiddleware
+
+    skills = FakeSkillsClient()
+    skills.get_outcomes.append(skill_set(tmp_path))
+    registry = None
+    reentrant_errors: list[BaseException] = []
+
+    async def telemetry(name: str, metadata: dict[str, object]) -> None:
+        del metadata
+        if name != "load.started":
+            return
+        assert registry is not None
+        with pytest.raises(BaseException) as raised:
+            await registry.load()
+        reentrant_errors.append(raised.value)
+
+    registry = createSkillRegistryMiddleware(
+        client(skills), CONTAINER_ID, telemetry=telemetry
+    )
+    snapshot = await asyncio.wait_for(registry.load(), timeout=0.25)
+
+    assert snapshot.status == "ready"
+    assert len(reentrant_errors) == 1
+    assert getattr(reentrant_errors[0], "code", None) == "LEARNING_REGISTRY_STALE"
+    assert skills.get_calls == [CONTAINER_ID]
+
+
+@pytest.mark.asyncio
+async def test_ready_telemetry_reentrant_load_observes_published_snapshot(
+    tmp_path,
+) -> None:
+    from copilotkit_intelligence_langgraph import createSkillRegistryMiddleware
+
+    skills = FakeSkillsClient()
+    skills.get_outcomes.append(skill_set(tmp_path))
+    registry = None
+    nested_snapshots = []
+
+    async def telemetry(name: str, metadata: dict[str, object]) -> None:
+        if name not in {"status.changed", "load.succeeded"}:
+            return
+        if metadata.get("status") not in {None, "ready"}:
+            return
+        assert registry is not None
+        nested_snapshots.append(await registry.load())
+
+    registry = createSkillRegistryMiddleware(
+        client(skills), CONTAINER_ID, telemetry=telemetry
+    )
+    snapshot = await asyncio.wait_for(registry.load(), timeout=0.25)
+
+    assert nested_snapshots == [snapshot, snapshot]
+    assert skills.get_calls == [CONTAINER_ID]
+
+
+@pytest.mark.asyncio
+async def test_failed_telemetry_reentrant_load_observes_published_failure(
+    tmp_path,
+) -> None:
+    from copilotkit_intelligence_langgraph import createSkillRegistryMiddleware
+
+    skills = FakeSkillsClient()
+    skills.get_outcomes.extend(
+        [skill_set(tmp_path), IntelligenceUnavailableError("offline")]
+    )
+    registry = None
+    nested_errors: list[BaseException] = []
+
+    async def telemetry(name: str, metadata: dict[str, object]) -> None:
+        is_stale_transition = (
+            name == "status.changed" and metadata.get("status") == "stale"
+        )
+        if not is_stale_transition and name != "load.failed":
+            return
+        assert registry is not None
+        with pytest.raises(BaseException) as raised:
+            await registry.load()
+        nested_errors.append(raised.value)
+
+    registry = createSkillRegistryMiddleware(
+        client(skills),
+        CONTAINER_ID,
+        refresh_interval=0,
+        telemetry=telemetry,
+    )
+    await registry.load()
+    with pytest.raises(BaseException) as failed:
+        await asyncio.wait_for(registry.load(), timeout=0.25)
+
+    assert getattr(failed.value, "code", None) == "LEARNING_REGISTRY_STALE"
+    assert nested_errors == [failed.value, failed.value]
+    assert len(skills.get_calls) == 2
+
+
+@pytest.mark.asyncio
 async def test_fresh_cached_revoked_and_empty_snapshots(tmp_path) -> None:
     from copilotkit_intelligence_langgraph import createSkillRegistryMiddleware
 
@@ -317,6 +416,10 @@ async def test_telemetry_contains_only_allowlisted_metadata(tmp_path) -> None:
         "load.succeeded",
     ]
     assert all(set(metadata) <= allowed for _, metadata in records)
+    installed_version = version("copilotkit-intelligence-langgraph")
+    assert all(
+        metadata["adapterVersion"] == installed_version for _, metadata in records
+    )
     serialized = repr(records)
     assert CONTAINER_ID not in serialized
     assert "# Skill" not in serialized

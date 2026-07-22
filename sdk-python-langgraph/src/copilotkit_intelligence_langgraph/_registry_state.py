@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import importlib.metadata
 import inspect
 import json
 import time
@@ -24,7 +25,18 @@ from copilotkit import (
 MAXIMUM_SKILLS = 128
 MAXIMUM_SKILL_BYTES = 262_144
 MAXIMUM_CONTEXT_BYTES = 1_048_576
-ADAPTER_VERSION = "0.1.0"
+_DISTRIBUTION_NAME = "copilotkit-intelligence-langgraph"
+_SOURCE_TREE_VERSION = "0.1.0"
+
+
+def _resolve_adapter_version() -> str:
+    try:
+        return importlib.metadata.version(_DISTRIBUTION_NAME)
+    except importlib.metadata.PackageNotFoundError:
+        return _SOURCE_TREE_VERSION
+
+
+ADAPTER_VERSION = _resolve_adapter_version()
 
 Status = Literal[
     "cold",
@@ -383,6 +395,7 @@ class RegistryState:
         self, *, cached: bool, force: bool, source: str
     ) -> RegistrySnapshot:
         joined = False
+        reentrant: RegistrySnapshot | None = None
         throttled: RegistrySnapshot | None = None
         async with self._lock:
             current = self._snapshot
@@ -391,7 +404,19 @@ class RegistryState:
             if current.status == "denied":
                 assert current.error is not None
                 raise current.error
-            if self._inflight is not None and not self._inflight.done():
+            if (
+                self._inflight is not None
+                and not self._inflight.done()
+                and self._inflight is asyncio.current_task()
+            ):
+                # A telemetry callback executes inside the shared load task. It
+                # must never join and await that same task. Terminal telemetry
+                # observes the snapshot already published off to the side;
+                # started/failed telemetry rejects from the current fail-closed
+                # lifecycle state.
+                task = None
+                reentrant = current
+            elif self._inflight is not None and not self._inflight.done():
                 task = self._inflight
                 self._joined_callers += 1
                 joined = True
@@ -409,10 +434,16 @@ class RegistryState:
                 )
                 self._inflight = task
 
+        if reentrant is not None:
+            return self._usable_snapshot(reentrant)
         if throttled is not None:
             await self._emit(
                 "load.throttled",
-                source=self._telemetry_source(source, throttled.status),
+                source=(
+                    "refresh"
+                    if source == "load" and throttled.status == "stale"
+                    else source
+                ),
             )
             return self._usable_snapshot(throttled)
         assert task is not None
@@ -488,7 +519,15 @@ class RegistryState:
                 await self._emit(
                     "load.failed",
                     outcome="failure",
-                    reason="denied" if status == "denied" else "transient",
+                    reason=(
+                        "denied"
+                        if status == "denied"
+                        else (
+                            "integrity"
+                            if getattr(failure, "category", None) == "integrity"
+                            else "transient"
+                        )
+                    ),
                     **_error_metadata(failure),
                 )
             except BaseException as telemetry_error:

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 from copilotkit import (
@@ -11,6 +12,9 @@ from copilotkit import (
     IntelligenceIntegrityError,
     IntelligenceUnavailableError,
 )
+from langchain.agents.middleware import ModelRequest
+from langchain_core.language_models.fake_chat_models import FakeListChatModel
+from langchain_core.messages import SystemMessage
 
 from conftest import CONTAINER_ID, FakeClock, FakeSkillsClient, client, skill_set
 
@@ -23,267 +27,438 @@ CORPUS = json.loads(CORPUS_PATH.read_text(encoding="utf-8"))
 CASES = CORPUS["cases"]
 
 
-def _expected_error(case: dict[str, object]) -> dict[str, object]:
-    expected = case["expected"]
-    assert isinstance(expected, dict)
-    readiness = expected["readiness"]
-    assert isinstance(readiness, dict)
-    error = readiness["error"]
-    assert isinstance(error, dict)
-    return error
-
-
-def _canonical_error(case: dict[str, object]) -> IntelligenceError:
-    expected = _expected_error(case)
+def _error_from(fields: dict[str, object]) -> IntelligenceError:
     error_type = (
-        IntelligenceAccessDeniedError if case["name"] == "denial" else IntelligenceError
+        IntelligenceAccessDeniedError
+        if fields["code"] == "LEARNING_REGISTRY_DENIED"
+        else IntelligenceError
     )
     return error_type(
-        str(case["name"]),
-        code=str(expected["code"]),
-        category=str(expected["category"]),
-        retryable=bool(expected["retryable"]),
-        status=expected.get("httpStatus"),
-        request_id=expected.get("requestId"),
-        trace_id=expected.get("traceId"),
+        str(fields.get("causeIdentity", fields["code"])),
+        code=str(fields["code"]),
+        category=str(fields["category"]),
+        retryable=bool(fields["retryable"]),
+        status=fields.get("httpStatus"),
+        request_id=fields.get("requestId"),
+        trace_id=fields.get("traceId"),
     )
 
 
-async def _assert_rejection(registry, expected: dict[str, object]) -> BaseException:
-    with pytest.raises(BaseException) as raised:
-        await registry.load()
-    error = raised.value
+def _assert_error(error: BaseException, expected: dict[str, object]) -> None:
     assert getattr(error, "code", None) == expected["code"]
     assert getattr(error, "category", None) == expected["category"]
     assert bool(getattr(error, "retryable", False)) == bool(expected["retryable"])
-    return error
+    if "httpStatus" in expected:
+        assert getattr(error, "status", None) == expected["httpStatus"]
+    if "requestId" in expected:
+        assert getattr(error, "request_id", None) == expected["requestId"]
+    if "traceId" in expected:
+        assert getattr(error, "trace_id", None) == expected["traceId"]
+
+
+def _verified_set(
+    case: dict[str, Any], tmp_path: Path, label: str, *, initial: bool = False
+):
+    expected = case["expected"]
+    model = (
+        case["initialSnapshot"] if initial else expected["genericSdk"].get("result", {})
+    )
+    records = expected["renderedRecords"]
+    operation_kinds = {operation["kind"] for operation in case["operations"]}
+    texts = tuple(record["text"] for record in records)
+    kwargs: dict[str, Any] = {}
+    if "validate-count" in operation_kinds:
+        texts = tuple("# Skill\n" for _ in range(129))
+    elif "validate-instruction-bytes" in operation_kinds:
+        texts = ("x" * 262145,)
+    elif "validate-aggregate-bytes" in operation_kinds:
+        texts = tuple("x" * size for size in (209715, 209715, 209715, 209715, 209717))
+    elif operation_kinds & {"decode-instruction", "reject-script"}:
+        texts = ("# Skill\n",)
+    elif model.get("skillCount", len(texts)) == 1 and not texts:
+        texts = ("# Skill\n",)
+    if "reject-script" in operation_kinds:
+        kwargs["roles"] = ("script",)
+
+    installed = skill_set(
+        tmp_path / label,
+        freshness=str(model.get("freshness", model.get("source", "fresh"))),
+        revoked=model.get("state") == "revoked",
+        texts=texts,
+        registry_revision=str(model.get("registryRevision") or "revision-1"),
+        corpus_identity=True,
+        **kwargs,
+    )
+    if "decode-instruction" in operation_kinds:
+        (installed.skill_descriptors[0].directory / "SKILL.md").write_bytes(b"\xff")
+    return installed
+
+
+def _seed_initial_snapshot(registry, case: dict[str, Any], tmp_path: Path) -> None:
+    from copilotkit_intelligence_langgraph._registry_state import (
+        RegistrySnapshot,
+        _render_prompt,
+        render_verified_skills,
+    )
+
+    initial = case["initialSnapshot"]
+    if initial["status"] == "cold":
+        return
+    installed = None
+    rendered = ()
+    if initial["skillCount"]:
+        installed = _verified_set(case, tmp_path, "initial", initial=True)
+        rendered = render_verified_skills(
+            installed,
+            maximum_skills=128,
+            maximum_skill_bytes=262144,
+            maximum_context_bytes=1048576,
+        )
+    error = _error_from(initial["error"]) if "error" in initial else None
+    attempted = initial["lastAttemptAt"]
+    if initial["refreshDue"]:
+        attempted = -30000
+    registry._state._snapshot = RegistrySnapshot(
+        status=initial["status"],
+        source=initial["source"],
+        installed_skill_set=installed,
+        rendered_skills=rendered,
+        prompt=_render_prompt(rendered),
+        registry_revision=initial["registryRevision"],
+        last_attempt_at=None if attempted is None else attempted / 1000,
+        last_success_at=None if installed is None else 0,
+        error=error,
+    )
+
+
+def _operation_outcomes(case: dict[str, Any], tmp_path: Path) -> list[object]:
+    expected = case["expected"]
+    calls = expected["calls"]["client"]
+    count = calls["get"] + calls["getCached"]
+    if count == 0:
+        return []
+    kinds = {operation["kind"] for operation in case["operations"]}
+    if count == 2:
+        return [
+            IntelligenceUnavailableError("transient-1"),
+            _verified_set(case, tmp_path, "outcome-2"),
+        ]
+    if "transient-failure" in kinds:
+        return [IntelligenceUnavailableError("transient-1")]
+    if "integrity-failure" in kinds:
+        return [IntelligenceIntegrityError("integrity-1")]
+    generic = expected["genericSdk"]
+    adapter_validation = bool(
+        kinds
+        & {
+            "validate-count",
+            "validate-instruction-bytes",
+            "validate-aggregate-bytes",
+            "decode-instruction",
+            "reject-script",
+        }
+    )
+    if "error" in generic and not adapter_validation and "telemetry-write" not in kinds:
+        return [_error_from(generic["error"])]
+    return [_verified_set(case, tmp_path, "outcome-1")]
+
+
+async def _pump() -> None:
+    for _ in range(12):
+        await asyncio.sleep(0)
+
+
+class _SnapshotState:
+    def __init__(self, snapshot, error: BaseException | None) -> None:
+        self._snapshot = snapshot
+        self._error = error
+
+    async def load(self):
+        if self._error is not None:
+            raise self._error
+        return self._snapshot
+
+
+def _model_request() -> ModelRequest:
+    return ModelRequest(
+        model=FakeListChatModel(responses=["ok"]),
+        messages=[],
+        system_message=SystemMessage(content="base"),
+        tools=[],
+        state={"messages": []},
+        runtime=None,
+        model_settings={},
+    )
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("case", CASES, ids=[case["name"] for case in CASES])
-async def test_adapter_conformance(case: dict[str, object], tmp_path) -> None:
-    """Exercise every shared Registry case through the real adapter lifecycle."""
+async def test_adapter_conformance(case: dict[str, Any], tmp_path: Path) -> None:
+    """Execute every corpus operation and assert every observable adapter field."""
 
     from copilotkit_intelligence_langgraph import createSkillRegistryMiddleware
-
-    name = str(case["name"])
-    clock = FakeClock()
-    skills = FakeSkillsClient()
-
-    validation = {
-        "too-many-skills": {"texts": tuple("# Skill\n" for _ in range(129))},
-        "skill-md-too-large": {"texts": ("x" * 262145,)},
-        "aggregate-too-large": {
-            "texts": tuple(chr(97 + index) * 209716 for index in range(5))
-        },
-        "script-disabled": {"roles": ("script",)},
-    }
-    if name in validation or name == "invalid-utf8":
-        broken = skill_set(tmp_path, **validation.get(name, {}))
-        if name == "invalid-utf8":
-            (broken.skill_descriptors[0].directory / "SKILL.md").write_bytes(b"\xff")
-        skills.get_outcomes.append(broken)
-        registry = createSkillRegistryMiddleware(
-            client(skills), CONTAINER_ID, clock=clock
-        )
-        await _assert_rejection(registry, _expected_error(case))
-        assert registry.status == "denied"
-        assert registry.snapshot.rendered_skills == ()
-        return
-
-    permanent = {
-        "denial",
-        "error-category-auth-denied",
-        "error-category-permission-denied",
-        "http-401-denied",
-        "http-403-denied",
-        "http-404-denied",
-        "http-410-denied",
-        "container-archived-denied",
-        "project-mismatch-denied",
-        "container-not-found-denied",
-        "registry-unrecoverable-denied",
-    }
-    if name in permanent or name == "readiness-denied-rejects":
-        error_case = case
-        if name == "readiness-denied-rejects":
-            error_case = next(item for item in CASES if item["name"] == "denial")
-        failure = _canonical_error(error_case)
-        skills.get_outcomes.append(failure)
-        registry = createSkillRegistryMiddleware(
-            client(skills), CONTAINER_ID, clock=clock
-        )
-        expected = _expected_error(case)
-        error = await _assert_rejection(registry, expected)
-        with pytest.raises(BaseException) as readiness:
-            await registry.wait_until_ready()
-        assert readiness.value is error
-        assert registry.status == "denied"
-        assert registry.snapshot.rendered_skills == ()
-        return
-
-    if name in {"transient-stale", "integrity-stale", "readiness-stale-rejects"}:
-        transient = (
-            IntelligenceIntegrityError("integrity")
-            if name == "integrity-stale"
-            else IntelligenceUnavailableError("unavailable")
-        )
-        skills.get_outcomes.extend(
-            [skill_set(tmp_path, corpus_identity=True), transient]
-        )
-        registry = createSkillRegistryMiddleware(
-            client(skills), CONTAINER_ID, clock=clock, refresh_interval=0
-        )
-        original = await registry.load()
-        expected = _expected_error(case)
-        error = await _assert_rejection(registry, expected)
-        assert registry.status == "stale"
-        assert registry.snapshot.rendered_skills is original.rendered_skills
-        with pytest.raises(BaseException) as readiness:
-            await registry.wait_until_ready()
-        assert readiness.value is error
-        return
-
-    if name in {
-        "close-idempotent",
-        "readiness-closed-rejects",
-        "load-after-close-rejects",
-    }:
-        registry = createSkillRegistryMiddleware(
-            client(skills), CONTAINER_ID, clock=clock
-        )
-        await registry.aclose()
-        await registry.aclose()
-        operation = (
-            registry.load
-            if name == "load-after-close-rejects"
-            else registry.wait_until_ready
-        )
-        with pytest.raises(BaseException) as closed:
-            await operation()
-        assert closed.value.code == "LEARNING_REGISTRY_CLOSED"
-        assert skills.get_calls == []
-        return
-
-    if name == "readiness-timeout":
-        registry = createSkillRegistryMiddleware(
-            client(skills), CONTAINER_ID, clock=clock
-        )
-        with pytest.raises(BaseException) as timeout:
-            await registry.wait_until_ready(0.001)
-        assert timeout.value.code == "LEARNING_REGISTRY_READINESS_TIMEOUT"
-        assert timeout.value.retryable is True
-        return
-
-    if name == "telemetry-sink-failure-singleflight":
-        sink_error = RuntimeError("sink-exception-1")
-
-        def telemetry(event: str, metadata: dict[str, object]) -> None:
-            del metadata
-            if event == "status.changed":
-                raise sink_error
-
-        pending = asyncio.get_running_loop().create_future()
-        skills.get_outcomes.append(pending)
-        registry = createSkillRegistryMiddleware(
-            client(skills), CONTAINER_ID, clock=clock, telemetry=telemetry
-        )
-        callers = [asyncio.create_task(registry.load()) for _ in range(2)]
-        await asyncio.sleep(0)
-        pending.set_result(skill_set(tmp_path, corpus_identity=True))
-        errors = await asyncio.gather(*callers, return_exceptions=True)
-        assert errors[0] is errors[1]
-        assert errors[0].code == "LEARNING_TELEMETRY_SINK_FAILED"
-        assert errors[0].__cause__ is sink_error
-        assert len(skills.get_calls) == 1
-        return
-
-    if name == "concurrent-singleflight":
-        pending = asyncio.get_running_loop().create_future()
-        skills.get_outcomes.append(pending)
-        registry = createSkillRegistryMiddleware(
-            client(skills), CONTAINER_ID, clock=clock
-        )
-        callers = [asyncio.create_task(registry.load()) for _ in range(2)]
-        await asyncio.sleep(0)
-        pending.set_result(skill_set(tmp_path, corpus_identity=True))
-        results = await asyncio.gather(*callers)
-        assert results[0] is results[1]
-        assert len(skills.get_calls) == 1
-        return
-
-    if name == "retry-after-failed-throttle-window":
-        skills.get_outcomes.extend(
-            [
-                skill_set(tmp_path, corpus_identity=True),
-                IntelligenceUnavailableError("unavailable"),
-                skill_set(tmp_path, corpus_identity=True),
-            ]
-        )
-        registry = createSkillRegistryMiddleware(
-            client(skills), CONTAINER_ID, clock=clock
-        )
-        await registry.load()
-        clock.seconds = 30
-        await _assert_rejection(
-            registry,
-            {
-                "code": "LEARNING_REGISTRY_STALE",
-                "category": "availability",
-                "retryable": True,
-            },
-        )
-        clock.seconds = 59.999
-        await _assert_rejection(
-            registry,
-            {
-                "code": "LEARNING_REGISTRY_STALE",
-                "category": "availability",
-                "retryable": True,
-            },
-        )
-        assert len(skills.get_calls) == 2
-        clock.seconds = 60
-        assert (await registry.load()).status == "ready"
-        assert len(skills.get_calls) == 3
-        return
-
-    revoked = name == "revoked"
-    empty = name in {"empty", "revoked"}
-    outcome = skill_set(
-        tmp_path,
-        freshness="cached" if name == "explicit-cached-preload" else "fresh",
-        revoked=revoked,
-        texts=() if empty else ("# Skill\n",),
-        corpus_identity=True,
-        registry_revision="revision-2" if name == "changed-revision" else "revision-1",
-    )
-    if name == "explicit-cached-preload":
-        skills.cached_outcomes.append(outcome)
-    else:
-        skills.get_outcomes.append(outcome)
-    registry = createSkillRegistryMiddleware(client(skills), CONTAINER_ID, clock=clock)
-    snapshot = (
-        await registry.preload_cached()
-        if name == "explicit-cached-preload"
-        else await registry.load()
-    )
-    if name == "throttle-hit":
-        assert await registry.load() is snapshot
-        assert len(skills.get_calls) == 1
-    if name == "readiness-ready":
-        assert await registry.wait_until_ready() is snapshot
+    from copilotkit_intelligence_langgraph.middleware import _SkillRegistryMiddleware
 
     expected = case["expected"]
-    assert isinstance(expected, dict)
-    assert [record.as_native() for record in snapshot.rendered_skills] == expected[
-        "renderedRecords"
-    ]
-    assert snapshot.status == ("revoked" if revoked else "ready")
-    if snapshot.rendered_skills:
-        assert "CopilotKit Intelligence Registry skills" in snapshot.prompt
-        assert all(
-            record.skill_id in snapshot.prompt for record in snapshot.rendered_skills
-        )
+    operations = case["operations"]
+    clock = FakeClock()
+    skills = FakeSkillsClient()
+    outcomes = _operation_outcomes(case, tmp_path)
+    loop = asyncio.get_running_loop()
+    futures = [loop.create_future() for _ in outcomes]
+    if expected["calls"]["client"]["getCached"]:
+        skills.cached_outcomes.extend(futures)
     else:
-        assert snapshot.prompt == ""
+        skills.get_outcomes.extend(futures)
+
+    telemetry: list[dict[str, object]] = []
+    fail_telemetry_once = "telemetry-write" in {
+        operation["kind"] for operation in operations
+    }
+    sink_failure = RuntimeError("sink-exception-1")
+
+    def emit(name: str, metadata: dict[str, object]) -> None:
+        nonlocal fail_telemetry_once
+        if (
+            fail_telemetry_once
+            and name == "status.changed"
+            and metadata.get("status") in {"ready", "revoked"}
+        ):
+            fail_telemetry_once = False
+            raise sink_failure
+        telemetry.append(
+            {"name": name, "atMs": round(clock.seconds * 1000), "metadata": metadata}
+        )
+
+    registry = createSkillRegistryMiddleware(
+        client(skills), CONTAINER_ID, clock=clock, telemetry=emit
+    )
+    _seed_initial_snapshot(registry, case, tmp_path)
+    previous_status = registry.status
+    transitions: list[dict[str, object]] = []
+    active: list[asyncio.Task] = []
+    settled: list[object] = []
+    readiness_result: object | None = None
+    readiness_calls = 0
+    outcome_index = 0
+
+    def observe() -> None:
+        nonlocal previous_status
+        if registry.status != previous_status:
+            transitions.append(
+                {
+                    "atMs": round(clock.seconds * 1000),
+                    "from": previous_status,
+                    "to": registry.status,
+                }
+            )
+            previous_status = registry.status
+
+    async def settle_active() -> None:
+        if not active:
+            return
+        settled.extend(await asyncio.gather(*active, return_exceptions=True))
+        active.clear()
+        observe()
+
+    async def start(coroutine, *, pump: bool = True) -> None:
+        active.append(asyncio.create_task(coroutine))
+        if pump:
+            await _pump()
+            observe()
+            if all(task.done() for task in active):
+                await settle_active()
+
+    async def check_readiness(timeout: float | None = 0) -> object:
+        nonlocal readiness_calls
+        readiness_calls += 1
+        try:
+            return await registry.wait_until_ready(timeout)
+        except BaseException as error:
+            return error
+
+    for index, operation in enumerate(operations):
+        kind = operation["kind"]
+        assert kind in {
+            "load",
+            "load-caller-a",
+            "load-caller-b",
+            "cached-preload",
+            "registry-request",
+            "throttle-check",
+            "throttle-hit",
+            "close",
+            "readiness",
+            "timeout",
+            "projection-request",
+            "conditional-projection-request",
+            "bundle-request",
+            "cache-read",
+            "render",
+            "not-modified",
+            "changed-projection",
+            "revocation-observed",
+            "transient-failure",
+            "integrity-failure",
+            "denial-response",
+            "validate-count",
+            "validate-instruction-bytes",
+            "validate-aggregate-bytes",
+            "decode-instruction",
+            "reject-script",
+            "telemetry-write",
+            "registry-error",
+            "http-response",
+            "canonical-error",
+        }
+        clock.seconds = operation["atMs"] / 1000
+        next_kind = (
+            operations[index + 1]["kind"] if index + 1 < len(operations) else None
+        )
+        if kind in {"load", "load-caller-a", "load-caller-b", "registry-request"}:
+            await start(registry.load(), pump=next_kind != "throttle-hit")
+        elif kind == "cached-preload":
+            await start(registry.preload_cached())
+        elif kind == "throttle-check":
+            await start(registry.load())
+        elif kind == "throttle-hit":
+            await _pump()
+            observe()
+            await settle_active()
+        elif kind == "close":
+            await registry.aclose()
+            observe()
+        elif kind == "readiness" and next_kind != "timeout":
+            readiness_result = await check_readiness()
+        elif kind == "timeout":
+            readiness_result = await check_readiness(0.001)
+
+        terminal = index == len(operations) - 1 or (
+            kind == "transient-failure" and len(outcomes) == 2
+        )
+        if terminal and outcome_index < len(outcomes):
+            future = futures[outcome_index]
+            outcome = outcomes[outcome_index]
+            outcome_index += 1
+            if isinstance(outcome, BaseException):
+                future.set_exception(outcome)
+            else:
+                future.set_result(outcome)
+            await _pump()
+            await settle_active()
+
+    await settle_active()
+    assert outcome_index == len(outcomes)
+    assert all(future.done() for future in futures)
+    if readiness_result is None:
+        readiness_result = await check_readiness()
+
+    expected_readiness = expected["readiness"]
+    if "result" in expected_readiness:
+        assert not isinstance(readiness_result, BaseException)
+        assert readiness_result.status == expected_readiness["result"]["state"]
+    else:
+        assert isinstance(readiness_result, BaseException)
+        _assert_error(readiness_result, expected_readiness["error"])
+    assert readiness_calls == expected["calls"]["routing"]["readiness"]
+
+    client_calls = expected["calls"]["client"]
+    assert len(skills.get_calls) == client_calls["get"]
+    assert len(skills.cached_calls) == client_calls["getCached"]
+    kinds = [operation["kind"] for operation in operations]
+    observed_generic_calls = {
+        "projection": sum(
+            kind
+            in {
+                "projection-request",
+                "conditional-projection-request",
+                "registry-request",
+            }
+            for kind in kinds
+        ),
+        "bundle": kinds.count("bundle-request"),
+        "cached": sum(kind in {"cache-read", "cached-preload"} for kind in kinds),
+    }
+    observed_generic_calls["network"] = (
+        observed_generic_calls["projection"] + observed_generic_calls["bundle"]
+    )
+    for field, value in observed_generic_calls.items():
+        assert value == client_calls[field]
+
+    expected_final_status = (
+        expected["statusTransitions"][-1]["to"]
+        if expected["statusTransitions"]
+        else case["initialSnapshot"]["status"]
+    )
+    assert registry.status == expected_final_status
+    generic = expected["genericSdk"]
+    if "result" in generic and "freshness" in generic["result"]:
+        result = generic["result"]
+        if result["freshness"] in {"fresh", "cached"}:
+            assert registry.snapshot.source == result["freshness"]
+        assert registry.snapshot.registry_revision == result["registryRevision"]
+        assert len(registry.snapshot.rendered_skills) == result["skillCount"]
+        assert (
+            sum(record.byte_length for record in registry.snapshot.rendered_skills)
+            == result["aggregateByteLength"]
+        )
+    elif "error" in generic:
+        assert isinstance(readiness_result, BaseException)
+        _assert_error(readiness_result, generic["error"])
+
+    assert transitions == expected["statusTransitions"]
+    assert [event["name"] for event in telemetry] == expected["telemetryNames"]
+    assert len(telemetry) == len(expected["telemetryRecords"])
+    for actual, wanted in zip(telemetry, expected["telemetryRecords"], strict=True):
+        assert actual["name"] == wanted["name"]
+        assert actual["atMs"] == wanted["atMs"]
+        actual_metadata = dict(actual["metadata"])
+        actual_metadata["framework"] = "fixture"
+        for key, value in wanted["metadata"].items():
+            assert actual_metadata[key] == value
+
+    actual_records = [
+        record.as_native() for record in registry.snapshot.rendered_skills
+    ]
+    if not (kinds == ["readiness"] and case["initialSnapshot"]["status"] == "stale"):
+        assert actual_records == expected["renderedRecords"]
+    else:
+        assert len(actual_records) == case["initialSnapshot"]["skillCount"]
+
+    native_error = (
+        readiness_result if isinstance(readiness_result, BaseException) else None
+    )
+    native = _SkillRegistryMiddleware(_SnapshotState(registry.snapshot, native_error))
+    handler_called = False
+
+    async def handler(request: ModelRequest):
+        nonlocal handler_called
+        handler_called = True
+        return request
+
+    if expected["nativeHook"]["proceed"]:
+        forwarded = await native.awrap_model_call(_model_request(), handler)
+        assert handler_called
+        prompt = forwarded.system_message.text
+        cursor = -1
+        for record in expected["renderedRecords"]:
+            next_cursor = prompt.find(record["text"], cursor + 1)
+            assert next_cursor > cursor
+            assert record["skillId"] in prompt
+            assert record["versionId"] in prompt
+            cursor = next_cursor
+    else:
+        with pytest.raises(BaseException) as native_failure:
+            await native.awrap_model_call(_model_request(), handler)
+        assert not handler_called
+        _assert_error(native_failure.value, expected_readiness["error"])
+    assert expected["calls"]["routing"]["nativeHook"] == 1
+
+    if "singleflight" in expected:
+        assert len(skills.get_calls) == expected["singleflight"]["registryCalls"]
+        assert len(settled) == len(expected["singleflight"]["callers"])
+        assert settled[0] is settled[1]
+        assert settled[0].__cause__ is sink_failure
+    elif kinds[:2] == ["load-caller-a", "load-caller-b"]:
+        assert len(settled) == 2
+        assert settled[0] is settled[1]
