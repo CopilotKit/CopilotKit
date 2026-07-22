@@ -65,6 +65,14 @@ export interface SkillRegistryTelemetryEvent {
     refreshLatencyMs?: number;
     registryRevision?: string;
     joinedCallers?: number;
+    outcome?: "success" | "failure";
+    reason?:
+      | "closed"
+      | "denied"
+      | "integrity"
+      | "loading"
+      | "stale"
+      | "transient";
     errorCode?: string;
     errorCategory?: string;
     retryable?: boolean;
@@ -227,7 +235,7 @@ export class RegistryState {
   private current = emptySnapshot();
   private inFlight: Promise<AdapterSnapshot> | null = null;
   private joinedCallers = 0;
-  private joinedTelemetryFailure: Error | null = null;
+  private joinedTelemetryChain: Promise<void> = Promise.resolve();
   private readonly telemetryFailures = new WeakSet<Error>();
   private readonly waiters = new Set<{
     readonly resolve: (snapshot: AdapterSnapshot) => void;
@@ -273,38 +281,70 @@ export class RegistryState {
     return this.current.status;
   }
 
-  async preload(): Promise<AdapterSnapshot> {
+  preload(): Promise<AdapterSnapshot> {
     return this.startLoad("preload", false);
   }
 
-  async preloadCached(): Promise<AdapterSnapshot> {
-    return this.startLoad("preloadCached", true);
+  preloadCached(): Promise<AdapterSnapshot> {
+    return this.startLoad("preload", true);
   }
 
-  async load(): Promise<AdapterSnapshot> {
-    if (this.current.status === "closed") throw this.closedError();
+  load(): Promise<AdapterSnapshot> {
+    if (this.current.status === "closed")
+      return Promise.reject(this.closedError());
+    if (this.inFlight !== null) {
+      return this.startLoad(this.ready ? "refresh" : "load", false);
+    }
     const now = this.options.clock();
     const lastAttemptAt = this.current.lastAttemptAt;
     if (
       lastAttemptAt !== null &&
       now - lastAttemptAt < this.options.refreshIntervalMs
     ) {
-      await this.emit("load.throttled", {
-        source: this.ready ? "load" : "refresh",
+      if (this.ready) return this.completeThrottledReadyLoad();
+      return this.emit("load.throttled", {
+        source: "refresh",
         status: this.current.status,
+      }).then(() => {
+        throw (
+          this.current.error ??
+          adapterError(
+            "Registry is not ready",
+            "LEARNING_REGISTRY_STALE",
+            "availability",
+            true,
+          )
+        );
       });
-      if (this.ready) return this.current;
-      throw (
-        this.current.error ??
-        adapterError(
-          "Registry is not ready",
-          "LEARNING_REGISTRY_STALE",
-          "availability",
-          true,
-        )
-      );
     }
-    return this.startLoad(this.ready ? "refresh" : "load", false);
+    return this.startLoad(
+      this.current.installedSkillSet ? "refresh" : "load",
+      false,
+    );
+  }
+
+  private async completeThrottledReadyLoad(): Promise<AdapterSnapshot> {
+    const ready = this.current;
+    this.current = immutableSnapshot({ ...ready, status: "refreshing" });
+    await this.emit("load.throttled", {
+      source: "load",
+      status: "refreshing",
+    });
+    await this.swap(ready, false);
+    await this.emit("load.succeeded", {
+      source: "load",
+      status: ready.status,
+      outcome: "success",
+      ...(ready.source === "fresh" || ready.source === "cached"
+        ? { freshness: ready.source }
+        : {}),
+      skillCount: ready.renderedSkills.length,
+      ...(ready.registryRevision
+        ? { registryRevision: ready.registryRevision }
+        : {}),
+    });
+    this.settleWaiters(ready);
+    return ready;
   }
 
   async waitUntilReady(options: {
@@ -374,20 +414,19 @@ export class RegistryState {
       return Promise.reject(this.closedError());
     if (this.inFlight !== null) {
       this.joinedCallers += 1;
-      void this.emit("load.singleflight_joined", {
+      const joinedTelemetry = this.emit("load.singleflight_joined", {
         source,
         joinedCallers: this.joinedCallers + 1,
-      }).catch((error: unknown) => {
-        if (error instanceof Error) this.joinedTelemetryFailure = error;
       });
+      this.joinedTelemetryChain = this.joinedTelemetryChain.then(
+        () => joinedTelemetry,
+      );
       return this.inFlight;
     }
-    const promise = Promise.resolve().then(() =>
-      this.performLoad(source, cached),
-    );
+    const promise = this.performLoad(source, cached);
     this.inFlight = promise;
     this.joinedCallers = 0;
-    this.joinedTelemetryFailure = null;
+    this.joinedTelemetryChain = Promise.resolve();
     void promise.then(
       () => {
         if (this.inFlight === promise) this.inFlight = null;
@@ -404,7 +443,9 @@ export class RegistryState {
     cached: boolean,
   ): Promise<AdapterSnapshot> {
     const startedAt = this.options.clock();
-    const loadingStatus = this.ready ? "refreshing" : "loading";
+    const loadingStatus = this.current.installedSkillSet
+      ? "refreshing"
+      : "loading";
     this.current = immutableSnapshot({
       ...this.current,
       status: loadingStatus,
@@ -420,9 +461,9 @@ export class RegistryState {
         : this.options.client.skills.get({
             learningContainerId: this.options.learningContainerId,
           }));
-      if (this.joinedTelemetryFailure) throw this.joinedTelemetryFailure;
+      await this.drainJoinedTelemetry();
       const renderedSkills = await this.render(installed);
-      if (this.joinedTelemetryFailure) throw this.joinedTelemetryFailure;
+      await this.drainJoinedTelemetry();
       if (this.current.status === "closed") throw this.closedError();
       const completedAt = this.options.clock();
       const status = installed.projection.revoked ? "revoked" : "ready";
@@ -437,15 +478,18 @@ export class RegistryState {
         error: null,
         registryRevision: installed.projection.registryRevision,
       });
-      await this.swap(next);
+      await this.swap(next, false);
       await this.emit("load.succeeded", {
         source,
         status,
+        outcome: "success",
         freshness: installed.freshness,
         skillCount: renderedSkills.length,
         refreshLatencyMs: completedAt - startedAt,
         registryRevision: installed.projection.registryRevision,
       });
+      await this.drainJoinedTelemetry();
+      this.settleWaiters(next);
       return next;
     } catch (error) {
       if (this.current.status === "closed") throw this.closedError();
@@ -481,6 +525,13 @@ export class RegistryState {
         await this.emit("load.failed", this.errorMetadata(source, surfaced));
         throw error;
       }
+      const telemetryError = new AdapterError({
+        message: "Registry telemetry sink failed",
+        code: "LEARNING_TELEMETRY_SINK_FAILED",
+        category: "internal",
+        retryable: false,
+        cause: error,
+      });
       const next = immutableSnapshot({
         ...this.current,
         status: "denied",
@@ -488,11 +539,24 @@ export class RegistryState {
         installedSkillSet: null,
         renderedSkills: [],
         prompt: "",
-        error,
+        error: telemetryError,
       });
-      this.current = next;
-      this.rejectWaiters(error);
-      throw error;
+      try {
+        await this.swap(next, false);
+      } catch {
+        // The initiating sink failure is surfaced below even if the broken sink
+        // also rejects the terminal status notification.
+      }
+      try {
+        await this.emit(
+          "load.failed",
+          this.errorMetadata(source, telemetryError),
+        );
+      } catch {
+        // Preserve the single canonical failure shared by every joined caller.
+      }
+      this.settleWaiters(next);
+      throw telemetryError;
     }
   }
 
@@ -605,12 +669,19 @@ export class RegistryState {
     return Object.freeze(rendered);
   }
 
-  private async swap(next: AdapterSnapshot): Promise<void> {
+  private async swap(
+    next: AdapterSnapshot,
+    settleWaiters = true,
+  ): Promise<void> {
     const previous = this.current.status;
     this.current = next;
     if (previous !== next.status) {
       await this.emit("status.changed", { status: next.status });
     }
+    if (settleWaiters) this.settleWaiters(next);
+  }
+
+  private settleWaiters(next: AdapterSnapshot): void {
     if (next.status === "ready" || next.status === "revoked") {
       for (const waiter of this.waiters) waiter.resolve(next);
       this.waiters.clear();
@@ -621,6 +692,14 @@ export class RegistryState {
     ) {
       this.rejectWaiters(next.error ?? this.closedError());
     }
+  }
+
+  private async drainJoinedTelemetry(): Promise<void> {
+    let observed: Promise<void>;
+    do {
+      observed = this.joinedTelemetryChain;
+      await observed;
+    } while (observed !== this.joinedTelemetryChain);
   }
 
   private rejectWaiters(error: Error): void {
@@ -650,6 +729,17 @@ export class RegistryState {
       adapterVersion: ADAPTER_VERSION,
       source,
       status: this.current.status,
+      outcome: "failure",
+      reason:
+        this.current.status === "stale"
+          ? error.category === "integrity"
+            ? "integrity"
+            : "transient"
+          : this.current.status === "closed"
+            ? "closed"
+            : this.current.status === "loading"
+              ? "loading"
+              : "denied",
       errorCode: error.code,
       errorCategory: error.category,
       retryable: error.retryable,

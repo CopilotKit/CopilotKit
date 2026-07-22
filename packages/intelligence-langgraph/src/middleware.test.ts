@@ -1,14 +1,7 @@
-import {
-  IntelligenceSdkError,
-  type InstalledSkillSet,
-} from "@copilotkit/intelligence";
-import {
-  AIMessage,
-  SystemMessage,
-  fakeModel,
-  type ModelRequest,
-  type WrapModelCallHandler,
-} from "langchain";
+import { IntelligenceSdkError } from "@copilotkit/intelligence";
+import type { InstalledSkillSet } from "@copilotkit/intelligence";
+import { AIMessage, SystemMessage, fakeModel } from "langchain";
+import type { ModelRequest, WrapModelCallHandler } from "langchain";
 import { describe, expect, it, vi } from "vitest";
 import { createSkillRegistryMiddleware } from "./index.js";
 import {
@@ -110,13 +103,76 @@ describe("createSkillRegistryMiddleware", () => {
     ]);
     expect(firstResult).toMatchObject({
       status: "rejected",
-      reason: sinkFailure,
+      reason: {
+        code: "LEARNING_TELEMETRY_SINK_FAILED",
+        cause: sinkFailure,
+      },
     });
     expect(secondResult).toMatchObject({
       status: "rejected",
-      reason: sinkFailure,
+      reason: firstResult.status === "rejected" ? firstResult.reason : null,
     });
     expect(registryClient.skills.get).toHaveBeenCalledOnce();
+  });
+
+  it("returns the exact in-flight promise to joined public callers", async () => {
+    const pending = deferred<InstalledSkillSet>();
+    const middleware = createSkillRegistryMiddleware({
+      client: testClient(() => pending.promise),
+      learningContainerId: "55555555-5555-4555-8555-555555555555",
+    });
+
+    const first = middleware.load();
+    const second = middleware.load();
+
+    expect(second).toBe(first);
+    pending.resolve(await installedSkillSet());
+    await expect(first).resolves.toMatchObject({ status: "ready" });
+  });
+
+  it("awaits and canonicalizes asynchronous joined telemetry failures", async () => {
+    const pending = deferred<InstalledSkillSet>();
+    const joinedWrite = deferred<void>();
+    const sinkFailure = new Error("asynchronous telemetry unavailable");
+    const events: string[] = [];
+    const middleware = createSkillRegistryMiddleware({
+      client: testClient(() => pending.promise),
+      learningContainerId: "55555555-5555-4555-8555-555555555555",
+      telemetry: async (event) => {
+        events.push(event.name);
+        if (event.name === "load.singleflight_joined") {
+          await joinedWrite.promise;
+        }
+      },
+    });
+
+    const first = middleware.load();
+    const second = middleware.load();
+    pending.resolve(await installedSkillSet());
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    const results = Promise.allSettled([first, second]);
+    joinedWrite.reject(sinkFailure);
+    const [firstResult, secondResult] = await results;
+
+    expect(firstResult.status).toBe("rejected");
+    expect(secondResult.status).toBe("rejected");
+    if (firstResult.status !== "rejected" || secondResult.status !== "rejected")
+      throw new Error("Both joined callers must reject");
+    expect(firstResult.reason).toBe(secondResult.reason);
+    expect(firstResult.reason).toMatchObject({
+      code: "LEARNING_TELEMETRY_SINK_FAILED",
+      category: "internal",
+      retryable: false,
+      cause: sinkFailure,
+    });
+    expect(middleware.status).toBe("denied");
+    expect(events).toEqual([
+      "load.started",
+      "load.singleflight_joined",
+      "status.changed",
+      "load.failed",
+    ]);
   });
 
   it("rejects loads created after close", async () => {

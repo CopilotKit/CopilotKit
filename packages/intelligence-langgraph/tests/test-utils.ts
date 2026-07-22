@@ -1,10 +1,10 @@
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-  skillSetProjectionV1Schema,
-  type InstalledSkillSet,
-  type RegistryProjection,
+import { skillSetProjectionV1Schema } from "@copilotkit/intelligence";
+import type {
+  InstalledSkillSet,
+  RegistryProjection,
 } from "@copilotkit/intelligence";
 import { vi } from "vitest";
 import sdkCorpus from "../../intelligence/conformance/registry-sdk-v1.json" with { type: "json" };
@@ -57,7 +57,8 @@ export async function installedSkillSet(
   const entries: RegistryProjection["entries"] = [];
   const skills: InstalledSkillSet["skills"] = [];
   for (let position = 0; position < count; position++) {
-    const suffix = position.toString(16).padStart(12, "0");
+    const suffix =
+      position === 0 ? "999999999999" : position.toString(16).padStart(12, "0");
     const skillId = `99999999-9999-4999-8999-${suffix}`;
     const directory = join(root, `skill-${position}`);
     await mkdir(directory);
@@ -69,7 +70,7 @@ export async function installedSkillSet(
       ...baseEntry,
       skillId,
       position,
-      name: `Safe skill ${position}`,
+      name: position === 0 ? "Safe skill" : `Safe skill ${position}`,
       manifest: { ...baseEntry.manifest, files },
     });
     skills.push({
@@ -108,8 +109,8 @@ export class TestCanonicalError extends Error {
   readonly category: string;
   readonly retryable: boolean;
   readonly status?: number;
-  readonly requestId = "request-test";
-  readonly traceId = "trace-test";
+  readonly requestId = "request-telemetry";
+  readonly traceId = "trace-telemetry";
 
   constructor(options: {
     readonly code: string;
