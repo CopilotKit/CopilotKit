@@ -57,6 +57,14 @@ for skill in skill_set.skills:
     print(skill.skill_id, skill.path)
 ```
 
+For framework integrations, `skill_set.skill_descriptors` provides an ordered,
+immutable projection of each installed skill's identity, display metadata,
+verified directory, and artifact manifest. Its frozen descriptor records include
+the manifest SHA-256 plus every file's path, role, media type, byte length, and
+raw SHA-256. The client exposes these descriptors only after projection identity,
+manifest, bundle, per-file digest and size, and atomic install verification all
+succeed.
+
 Use `AsyncCopilotKitIntelligence` and `await intelligence.skills.get(...)` in an
 async application. `get()` always contacts the registry and never silently falls
 back after an outage. To explicitly use a fully verified local copy, call

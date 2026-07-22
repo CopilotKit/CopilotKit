@@ -40,6 +40,9 @@ from .intelligence import (
     IntelligenceRequest,
     IntelligenceResponse,
     IntelligenceSkill,
+    IntelligenceSkillDescriptor,
+    IntelligenceSkillFileDescriptor,
+    IntelligenceSkillManifestDescriptor,
     IntelligenceSkillSet,
     IntelligenceUnavailableError,
 )
@@ -78,6 +81,9 @@ __all__ = [
     "IntelligenceRequest",
     "IntelligenceResponse",
     "IntelligenceSkill",
+    "IntelligenceSkillDescriptor",
+    "IntelligenceSkillFileDescriptor",
+    "IntelligenceSkillManifestDescriptor",
     "IntelligenceSkillSet",
     "IntelligenceUnavailableError",
 ]

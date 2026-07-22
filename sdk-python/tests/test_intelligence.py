@@ -9,6 +9,7 @@ import time
 import unicodedata
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import FrozenInstanceError
 from pathlib import Path
 
 import pytest
@@ -16,6 +17,9 @@ import pytest
 from copilotkit import (
     AsyncCopilotKitIntelligence as ExportedAsyncCopilotKitIntelligence,
     CopilotKitIntelligence as ExportedCopilotKitIntelligence,
+    IntelligenceSkillDescriptor as ExportedIntelligenceSkillDescriptor,
+    IntelligenceSkillFileDescriptor as ExportedIntelligenceSkillFileDescriptor,
+    IntelligenceSkillManifestDescriptor as ExportedIntelligenceSkillManifestDescriptor,
 )
 
 CONTAINER = "55555555-5555-4555-8555-555555555555"
@@ -33,6 +37,10 @@ from copilotkit.intelligence import (
     IntelligenceIntegrityError,
     IntelligenceRequest,
     IntelligenceResponse,
+    IntelligenceSkillDescriptor,
+    IntelligenceSkillFileDescriptor,
+    IntelligenceSkillManifestDescriptor,
+    IntelligenceSkillSet,
     IntelligenceUnavailableError,
 )
 
@@ -59,6 +67,120 @@ def golden_client(tmp_path, transport):
 def test_clients_are_exported_from_the_package_root():
     assert ExportedCopilotKitIntelligence is CopilotKitIntelligence
     assert ExportedAsyncCopilotKitIntelligence is AsyncCopilotKitIntelligence
+
+
+def test_skill_descriptors_are_immutable_verified_projection_views(tmp_path):
+    first_archive = bundle(
+        {
+            "root/SKILL.md": "# Introduction",
+            "root/reference.md": "Verified reference",
+        }
+    )
+    second_archive = bundle({"root/SKILL.md": "# Quiz"})
+    payload = projection(
+        [
+            (INTRO, VERSION_ONE, first_archive),
+            (QUIZ, VERSION_TWO, second_archive),
+        ]
+    )
+    payload["entries"][0]["description"] = "Introduces the course"
+
+    result = client(tmp_path, QueueTransport(response(payload))).skills.get(CONTAINER)
+
+    assert ExportedIntelligenceSkillDescriptor is IntelligenceSkillDescriptor
+    assert (
+        ExportedIntelligenceSkillManifestDescriptor
+        is IntelligenceSkillManifestDescriptor
+    )
+    assert ExportedIntelligenceSkillFileDescriptor is IntelligenceSkillFileDescriptor
+    assert isinstance(result.skill_descriptors, tuple)
+    assert [descriptor.skill_id for descriptor in result.skill_descriptors] == [
+        INTRO,
+        QUIZ,
+    ]
+    descriptor = result.skill_descriptors[0]
+    expected_directory = (result.path / "skills" / f"000000-{INTRO}" / "root").resolve()
+    assert descriptor == IntelligenceSkillDescriptor(
+        skill_id=INTRO,
+        version_id=VERSION_ONE,
+        position=0,
+        name="Skill 0",
+        description="Introduces the course",
+        directory=expected_directory,
+        manifest=IntelligenceSkillManifestDescriptor(
+            agent_skills_profile="agentskills:v1",
+            manifest_sha256=payload["entries"][0]["manifestSha256"],
+            files=(
+                IntelligenceSkillFileDescriptor(
+                    path="SKILL.md",
+                    role="instructions",
+                    media_type="text/markdown",
+                    byte_length=len(b"# Introduction"),
+                    raw_sha256=hashlib.sha256(b"# Introduction").hexdigest(),
+                ),
+                IntelligenceSkillFileDescriptor(
+                    path="reference.md",
+                    role="resource",
+                    media_type="text/markdown",
+                    byte_length=len(b"Verified reference"),
+                    raw_sha256=hashlib.sha256(b"Verified reference").hexdigest(),
+                ),
+            ),
+        ),
+    )
+    assert descriptor.directory == descriptor.directory.resolve()
+    assert descriptor.directory.is_dir()
+    assert descriptor.manifest.files == tuple(descriptor.manifest.files)
+    with pytest.raises(FrozenInstanceError):
+        descriptor.name = "Changed"
+    with pytest.raises(FrozenInstanceError):
+        descriptor.manifest.manifest_sha256 = "0" * 64
+    with pytest.raises(FrozenInstanceError):
+        descriptor.manifest.files[0].role = "script"
+
+
+def test_skill_descriptors_are_not_returned_before_full_verification(tmp_path):
+    archive = bundle()
+    payload = projection([(INTRO, VERSION_ONE, archive)])
+    entry = payload["entries"][0]
+    entry["manifest"]["files"][0]["rawSha256"] = "0" * 64
+    manifest_without_hash = {
+        key: value
+        for key, value in entry["manifest"].items()
+        if key != "manifestSha256"
+    }
+    bad_manifest_sha = hashlib.sha256(
+        json.dumps(
+            manifest_without_hash,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
+    entry["manifest"]["manifestSha256"] = bad_manifest_sha
+    entry["manifestSha256"] = bad_manifest_sha
+
+    returned = None
+    with pytest.raises(IntelligenceIntegrityError, match="integrity verification"):
+        returned = client(tmp_path, QueueTransport(response(payload))).skills.get(
+            CONTAINER
+        )
+
+    assert returned is None
+
+
+def test_legacy_skill_set_constructor_remains_compatible(tmp_path):
+    legacy = IntelligenceSkillSet(
+        CONTAINER,
+        "revision",
+        "0" * 64,
+        (),
+        tmp_path,
+        "cached",
+        False,
+    )
+
+    assert legacy.skill_descriptors == ()
 
 
 def test_shared_golden_projection_uses_canonical_v1_http_contract(tmp_path):
