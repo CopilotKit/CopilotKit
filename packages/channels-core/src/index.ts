@@ -24,6 +24,20 @@ export type {
 export { Thread } from "./thread.js";
 export type { ThreadDeps } from "./thread.js";
 
+// Channel agent binding + routing contracts (Task 2).
+export type {
+  ChannelAgentBinding,
+  ChannelAgentRouter,
+  ChannelAgentRouteContext,
+  ChannelRouteEvent,
+  ChannelRouteUser,
+  ChannelConversationKind,
+  ChannelAgentSelection,
+  ChannelConcurrencyDecision,
+  ChannelConcurrencyPolicy,
+  ChannelConcurrencyContext,
+} from "./channel-agent.js";
+
 // Platform adapter boundary
 export type {
   PlatformAdapter,
