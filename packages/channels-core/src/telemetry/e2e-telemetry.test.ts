@@ -40,7 +40,7 @@ describe("oss.channel.* end-to-end (real ChannelTelemetry, only network boundary
     const fake = new FakeAdapter();
     const channel = createChannel({
       adapters: [fake],
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
     channel.onMention(async ({ thread }) => {
       await thread.runAgent();

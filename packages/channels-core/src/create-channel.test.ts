@@ -60,7 +60,7 @@ describe("createChannel", () => {
   it("routes a mention to a handler that posts UI", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    const channel = createChannel({ adapters: [fake], agent: () => agent });
+    const channel = createChannel({ adapters: [fake], agent });
 
     channel.onMention(async ({ thread }) => {
       await thread.post(Section({ children: "hi" }));
@@ -79,7 +79,7 @@ describe("createChannel", () => {
   it("calls renderer.finish() once after a turn's run-loop resolves", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    const channel = createChannel({ adapters: [fake], agent: () => agent });
+    const channel = createChannel({ adapters: [fake], agent });
 
     channel.onMention(async ({ thread }) => {
       await thread.runAgent();
@@ -105,7 +105,7 @@ describe("createChannel", () => {
       added.push(m);
       return origAddMessage(m);
     };
-    const channel = createChannel({ adapters: [fake], agent: () => agent });
+    const channel = createChannel({ adapters: [fake], agent });
 
     const parts = [
       { type: "text" as const, text: "look" },
@@ -142,7 +142,7 @@ describe("createChannel", () => {
   it("dispatches a bound onClick handler on interaction", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    const channel = createChannel({ adapters: [fake], agent: () => agent });
+    const channel = createChannel({ adapters: [fake], agent });
 
     let clicked = false;
     channel.onMention(async ({ thread }) => {
@@ -178,7 +178,7 @@ describe("createChannel", () => {
   it("resolves a HITL awaitChoice with the element value when the event carries none (Telegram)", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    const channel = createChannel({ adapters: [fake], agent: () => agent });
+    const channel = createChannel({ adapters: [fake], agent });
 
     let chosen: unknown;
     channel.onMention(async ({ thread }) => {
@@ -229,7 +229,7 @@ describe("createChannel", () => {
 
     const channel = createChannel({
       adapters: [fake],
-      agent: () => agent,
+      agent,
       context: [{ description: "channel-level", value: "always here" }],
     });
 
@@ -253,7 +253,7 @@ describe("createChannel", () => {
   it("thread.postFile returns a capability-gated error when the adapter can't upload", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    const channel = createChannel({ adapters: [fake], agent: () => agent });
+    const channel = createChannel({ adapters: [fake], agent });
 
     let result: { ok: boolean; error?: string } | undefined;
     channel.onMention(async ({ thread }) => {
@@ -280,7 +280,7 @@ describe("createChannel", () => {
     ];
     fake.user = { id: "u1", name: "Ada" };
     const agent = new FakeAgent();
-    const channel = createChannel({ adapters: [fake], agent: () => agent });
+    const channel = createChannel({ adapters: [fake], agent });
 
     let history: unknown;
     let resolved: unknown;
@@ -302,7 +302,7 @@ describe("createChannel", () => {
   it("resolves awaitChoice when a matching interaction arrives", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    const channel = createChannel({ adapters: [fake], agent: () => agent });
+    const channel = createChannel({ adapters: [fake], agent });
 
     let choicePromise: Promise<unknown> | undefined;
     channel.onMention(async ({ thread }) => {
@@ -347,7 +347,7 @@ describe("createChannel", () => {
     const agent = new FakeAgent();
     const channel = createChannel({
       adapters: [fake],
-      agent: () => agent,
+      agent,
       store: { adapter: state, onLockConflict: "drop" },
     });
     channel.onMention(async () => {
@@ -384,7 +384,7 @@ describe("createChannel", () => {
     const agent = new FakeAgent();
     const channel = createChannel({
       adapters: [fake],
-      agent: () => agent,
+      agent,
       store: { adapter: state, onLockConflict: "force" },
     });
     channel.onMention(async () => {
@@ -419,7 +419,7 @@ describe("createChannel", () => {
     const agent = new FakeAgent();
     const channel = createChannel({
       adapters: [fake],
-      agent: () => agent,
+      agent,
       store: { adapter: state },
     });
     channel.onMention(async () => {
@@ -476,7 +476,7 @@ describe("createChannel", () => {
     const agent = new FakeAgent();
     const channel = createChannel({
       adapters: [fake],
-      agent: () => agent,
+      agent,
       store: {
         adapter: state,
         identity: () => "user@example.com",
@@ -508,7 +508,7 @@ describe("createChannel", () => {
     const agent = new FakeAgent();
     const channel = createChannel({
       adapters: [fake],
-      agent: () => agent,
+      agent,
       store: {
         adapter: state,
         identity: () => "alice@example.com",
@@ -555,7 +555,7 @@ describe("createChannel", () => {
 
     const channel = createChannel({
       adapters: [fake],
-      agent: () => agent,
+      agent,
       store: {
         adapter: state,
         identity: () => "u@x.com",
@@ -630,7 +630,7 @@ describe("createChannel", () => {
     const agent = new FakeAgent();
     const channel = createChannel({
       adapters: [fake],
-      agent: () => agent,
+      agent,
       store: {
         adapter: new MemoryStore(),
         state: z.object({ step: z.string() }),

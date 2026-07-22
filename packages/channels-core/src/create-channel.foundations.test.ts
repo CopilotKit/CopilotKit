@@ -9,7 +9,7 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
 describe("createChannel — optional adapters + addAdapter", () => {
   it("starts with no adapters and runs one added before start()", async () => {
     const fake = new FakeAdapter();
-    const channel = createChannel({ agent: () => new FakeAgent() });
+    const channel = createChannel({ agent: new FakeAgent() });
     channel.addAdapter(fake);
     await channel.start();
     expect(fake.started).toBe(true);
@@ -18,7 +18,7 @@ describe("createChannel — optional adapters + addAdapter", () => {
   it("throws when addAdapter is called after start()", async () => {
     const channel = createChannel({
       adapters: [new FakeAdapter()],
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
     await channel.start();
     expect(() => channel.addAdapter(new FakeAdapter())).toThrow(/start/i);
@@ -28,7 +28,7 @@ describe("createChannel — optional adapters + addAdapter", () => {
     const fake = new FakeAdapter();
     const channel = createChannel({
       adapters: [fake],
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
     const startSpy = vi.spyOn(fake, "start");
     await channel.start();
@@ -43,7 +43,7 @@ describe("createChannel — optional adapters + addAdapter", () => {
     const fake = new FakeAdapter();
     const channel = createChannel({
       adapters: [fake],
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
     const startSpy = vi.spyOn(fake, "start");
     await channel.start();
@@ -57,7 +57,7 @@ describe("createChannel — transcripts deferred to start()", () => {
   it("throws if channel.transcripts is accessed before start()", () => {
     const channel = createChannel({
       adapters: [new FakeAdapter()],
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
       store: {
         adapter: new MemoryStore(),
         identity: () => "u@x.com",
@@ -76,7 +76,7 @@ describe("createChannel — store resolution", () => {
     // channel reads from that exact instance.
     const seeder = createChannel({
       adapters: [new FakeAdapter()],
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
       store: {
         adapter: adapterStore,
         identity: () => "u@x.com",
@@ -94,7 +94,7 @@ describe("createChannel — store resolution", () => {
     fake.stateStore = adapterStore;
     const channel = createChannel({
       adapters: [fake],
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
       store: { identity: () => "u@x.com", transcripts: {} },
     });
     await channel.start();
@@ -110,7 +110,7 @@ describe("createChannel — store resolution", () => {
     const explicit = new MemoryStore();
     const channel = createChannel({
       adapters: [fake],
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
       store: {
         adapter: explicit,
         identity: () => "u@x.com",
@@ -130,7 +130,7 @@ describe("createChannel — store resolution", () => {
     b.stateStore = new MemoryStore();
     const channel = createChannel({
       adapters: [a, b],
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
     await channel.start();
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("state store"));
@@ -143,7 +143,7 @@ describe("createChannel — id propagation to handler context", () => {
     const fake = new FakeAdapter();
     const channel = createChannel({
       adapters: [fake],
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
     let seen: { turnId?: string; deliveryId?: string; eventId?: string } = {};
     channel.onMessage(async ({ message }) => {

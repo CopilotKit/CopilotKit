@@ -23,6 +23,10 @@ import { Thread } from "./thread.js";
 import type { ThreadDeps } from "./thread.js";
 import type { AbstractAgent } from "@ag-ui/client";
 import type {
+  ChannelAgentBinding,
+  ChannelConcurrencyPolicy,
+} from "./channel-agent.js";
+import type {
   InteractionContext,
   IncomingMessage,
   PlatformUser,
@@ -226,7 +230,19 @@ export interface CreateChannelOptions<
    * own adapter, not by managed activation.
    */
   provider?: ManagedChannelProvider;
-  agent?: AbstractAgent | ((threadId: string) => AbstractAgent);
+  /**
+   * Which agent this Channel uses (Task 2). Four modes:
+   * - `AbstractAgent` — a fixed inline agent (the Runtime clones it per run).
+   * - `string`        — a named Runtime agent.
+   * - `ChannelAgentRouter` — selects a named Runtime agent per turn.
+   * - omitted         — the Runtime agent named `"default"`.
+   *
+   * The old `(threadId) => AbstractAgent` per-thread factory is REMOVED. Named,
+   * routed, and default bindings are resolved by the Runtime, not the Channel.
+   */
+  agent?: ChannelAgentBinding;
+  /** Concurrency policy for turns within one canonical conversation. */
+  concurrency?: ChannelConcurrencyPolicy;
   /** @deprecated Pass `store.adapter` instead. */
   actionStore?: ActionStore;
   tools?: ChannelTool[];
@@ -390,14 +406,34 @@ export function createChannel<
   let registry: ActionRegistry | undefined;
   let telemetry: ChannelTelemetry | undefined;
 
+  // Resolve the four-mode ChannelAgentBinding into the internal per-turn agent
+  // factory the Thread/adapters use. Only the INLINE binding is resolvable by
+  // channels-core alone; named/routed/default bindings are resolved by the
+  // Runtime, which overrides this factory (via ɵruntime) when it drives the
+  // Channel. Standalone, they fail loud.
   const agentFactory: (threadId: string) => AbstractAgent = (() => {
-    const a = opts.agent;
-    if (typeof a === "function")
-      return a as (threadId: string) => AbstractAgent;
-    if (a) return () => a;
+    const binding = opts.agent;
+    // Inline agent (an AbstractAgent instance — an object, not a string/fn).
+    if (
+      binding != null &&
+      typeof binding !== "string" &&
+      typeof binding !== "function"
+    ) {
+      // The Runtime clones per execution (Task 8); locally we pass it through.
+      return () => binding;
+    }
+    const describe =
+      typeof binding === "string"
+        ? `the named Runtime agent "${binding}"`
+        : typeof binding === "function"
+          ? "a routed Runtime agent"
+          : 'the Runtime agent named "default"';
     return () => {
       throw new Error(
-        "createChannel: no agent configured (pass `agent` to use runAgent)",
+        `createChannel: this Channel uses ${describe}, which requires a ` +
+          `Runtime to resolve. Run it through CopilotRuntime (with Intelligence ` +
+          `or a custom ChannelRunner) — it cannot resolve named/routed/default ` +
+          `agents standalone.`,
       );
     };
   })();
