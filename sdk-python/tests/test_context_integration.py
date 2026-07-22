@@ -11,13 +11,13 @@ instantiating the middleware and simulating the real agent execution flow.
 """
 
 import pytest
+from typing import Any
 from langchain_core.messages import HumanMessage
-from langgraph.prebuilt import AgentState
 
 from copilotkit import CopilotKitMiddleware
 
 
-def extract_auth_token_from_state(state: AgentState) -> str | None:
+def extract_auth_token_from_state(state: dict[str, Any]) -> str | None:
     """Use the documented pattern from configurable.mdx to extract authToken."""
     copilotkit_state = state.get("copilotkit", {})
     context_entries = copilotkit_state.get("context", [])

@@ -89,9 +89,8 @@ The context published via `useAgentContext` is accessible through the agent `sta
 
 ```python title="agent_node.py"
 from typing import Any
-from langgraph.prebuilt import AgentState  # [!code highlight]
 
-async def agent_node(state: AgentState) -> AgentState:
+async def agent_node(state: dict[str, Any]) -> dict[str, Any]:
     # Access the context published from useAgentContext
     copilotkit_state = state.get("copilotkit", {})
     context_entries = copilotkit_state.get("context", [])
@@ -201,10 +200,10 @@ function YourMainContent() {
 ### Legacy: Access in agent node
 
 ```python title="agent_node.py (legacy)"
-from langgraph.prebuilt import AgentState  # [!code highlight]
+from typing import Any
 from langchain_core.runnables import RunnableConfig
 
-async def agent_node(state: AgentState, config: RunnableConfig):
+async def agent_node(state: dict[str, Any], config: RunnableConfig):
     auth_token = config['configurable'].get('authToken', None)
     return state
 ```

@@ -19,7 +19,6 @@ from typing import Any
 from langchain.agents import create_agent
 from langchain_core.messages import SystemMessage
 from langchain_openai import ChatOpenAI
-from langgraph.prebuilt import AgentState
 
 from copilotkit import CopilotKitMiddleware
 
@@ -53,7 +52,7 @@ SYSTEM_PROMPT = (
 
 
 # @region[context-extraction]
-def extract_context_programmatically(state: AgentState) -> dict[str, Any]:
+def extract_context_programmatically(state: dict[str, Any]) -> dict[str, Any]:
     """Demonstrate programmatic reading of useAgentContext values.
 
     This function shows the documented access pattern from configurable.mdx:
@@ -91,7 +90,7 @@ def extract_context_programmatically(state: AgentState) -> dict[str, Any]:
 
 
 # @region[agent-node-with-context-access]
-async def agent_node_with_context_logging(state: AgentState) -> AgentState:
+async def agent_node_with_context_logging(state: dict[str, Any]) -> dict[str, Any]:
     """Agent node that logs extracted context to demonstrate the documented pattern works.
 
     This proves the documented access pattern from configurable.mdx and auth.mdx works:
