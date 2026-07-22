@@ -18,7 +18,12 @@ internal sealed class RegistryState
     private RegistrySnapshot _snapshot;
     private Task<SkillRegistrySnapshot>? _inflight;
     private TaskCompletionSource _changed = NewSignal();
+    private TaskCompletionSource _joinTelemetrySettled = CompletedSignal();
+    private IntelligenceSdkException? _inflightPoison;
+    private int _pendingJoinTelemetry;
     private int _callerCount;
+    private int _closeCount;
+    private bool _acceptingJoins;
 
     internal RegistryState(
         IIntelligenceRegistryClient client,
@@ -34,6 +39,8 @@ internal sealed class RegistryState
     internal bool IsReady => Status is SkillRegistryStatus.Ready or SkillRegistryStatus.Revoked;
     internal SkillRegistryStatus Status => Volatile.Read(ref _snapshot).Public.Status;
     internal SkillRegistrySnapshot Snapshot => Volatile.Read(ref _snapshot).Public;
+    internal int CloseCount => Volatile.Read(ref _closeCount);
+    internal long? LastAttemptTimestamp => Volatile.Read(ref _snapshot).LastAttemptTimestamp;
 
     internal Task<SkillRegistrySnapshot> PreloadAsync(CancellationToken cancellationToken) =>
         StartOrJoinAsync(cached: false, force: true, source: "preload", cancellationToken);
@@ -95,6 +102,7 @@ internal sealed class RegistryState
         {
             if (_snapshot.Public.Status != SkillRegistryStatus.Closed)
             {
+                _closeCount++;
                 PublishLocked(new RegistrySnapshot(
                     new SkillRegistrySnapshot(
                         SkillRegistryStatus.Closed,
@@ -155,8 +163,15 @@ internal sealed class RegistryState
                 {
                     task = _inflight;
                     _callerCount++;
-                    joinedCallers = _callerCount;
-                    joined = true;
+                    if (_acceptingJoins)
+                    {
+                        joinedCallers = _callerCount;
+                        joined = true;
+                        if (_pendingJoinTelemetry++ == 0)
+                        {
+                            _joinTelemetrySettled = NewSignal();
+                        }
+                    }
                 }
             }
             else if (!force && current.LastAttemptTimestamp is long attempted &&
@@ -179,6 +194,10 @@ internal sealed class RegistryState
                 task = PerformLoadDeferredAsync(cached, source, prior, started, cancellationToken);
                 _inflight = task;
                 _callerCount = 1;
+                _acceptingJoins = true;
+                _pendingJoinTelemetry = 0;
+                _joinTelemetrySettled = CompletedSignal();
+                _inflightPoison = null;
             }
         }
         finally
@@ -202,10 +221,24 @@ internal sealed class RegistryState
 
         if (joined)
         {
-            await EmitAsync(
-                "load.singleflight_joined",
-                cancellationToken,
-                ("joinedCallers", joinedCallers)).ConfigureAwait(false);
+            try
+            {
+                await EmitAsync(
+                    "load.singleflight_joined",
+                    cancellationToken,
+                    ("joinedCallers", joinedCallers)).ConfigureAwait(false);
+                await CompleteJoinTelemetryAsync(null).ConfigureAwait(false);
+            }
+            catch (IntelligenceSdkException telemetryFailure) when (
+                telemetryFailure.Code == "LEARNING_TELEMETRY_SINK_FAILED")
+            {
+                await CompleteJoinTelemetryAsync(telemetryFailure).ConfigureAwait(false);
+            }
+            catch
+            {
+                await CompleteJoinTelemetryAsync(null).ConfigureAwait(false);
+                throw;
+            }
         }
 
         var sharedTask = task!;
@@ -224,6 +257,10 @@ internal sealed class RegistryState
                     {
                         _inflight = null;
                         _callerCount = 0;
+                        _acceptingJoins = false;
+                        _pendingJoinTelemetry = 0;
+                        _joinTelemetrySettled = CompletedSignal();
+                        _inflightPoison = null;
                     }
                 }
                 finally
@@ -262,7 +299,8 @@ internal sealed class RegistryState
         catch (IntelligenceSdkException telemetryFailure) when (
             telemetryFailure.Code == "LEARNING_TELEMETRY_SINK_FAILED")
         {
-            return await DenyForTelemetryFailureAsync(telemetryFailure, started).ConfigureAwait(false);
+            var poison = await SealJoinTelemetryAsync(telemetryFailure).ConfigureAwait(false);
+            return await DenyForTelemetryFailureAsync(poison ?? telemetryFailure, started).ConfigureAwait(false);
         }
 
         InstalledSkillSet installed;
@@ -277,12 +315,30 @@ internal sealed class RegistryState
         }
         catch (OperationCanceledException)
         {
+            var poison = await SealJoinTelemetryAsync().ConfigureAwait(false);
+            if (poison is not null)
+            {
+                return await DenyForTelemetryFailureAsync(poison, started).ConfigureAwait(false);
+            }
+
             await RestoreAfterCancellationAsync(prior).ConfigureAwait(false);
             throw;
         }
         catch (Exception failure)
         {
+            var poison = await SealJoinTelemetryAsync().ConfigureAwait(false);
+            if (poison is not null)
+            {
+                return await DenyForTelemetryFailureAsync(poison, started).ConfigureAwait(false);
+            }
+
             return await FailAsync(failure, prior, started, cancellationToken).ConfigureAwait(false);
+        }
+
+        var terminalPoison = await SealJoinTelemetryAsync().ConfigureAwait(false);
+        if (terminalPoison is not null)
+        {
+            return await DenyForTelemetryFailureAsync(terminalPoison, started).ConfigureAwait(false);
         }
 
         var source = installed.Freshness == CacheFreshness.Cached
@@ -301,17 +357,24 @@ internal sealed class RegistryState
             started,
             _options.TimeProvider.GetTimestamp());
 
+        var published = false;
         await _gate.WaitAsync(CancellationToken.None).ConfigureAwait(false);
         try
         {
             if (_snapshot.Public.Status != SkillRegistryStatus.Closed)
             {
                 PublishLocked(completed);
+                published = true;
             }
         }
         finally
         {
             _gate.Release();
+        }
+
+        if (!published)
+        {
+            return completed.Public;
         }
 
         try
@@ -323,8 +386,7 @@ internal sealed class RegistryState
                 ("outcome", "success"),
                 ("freshness", SourceName(source)),
                 ("skillCount", records.Count),
-                ("registryRevision", installed.Projection.RegistryRevision),
-                ("latencyMs", ElapsedMilliseconds(started))).ConfigureAwait(false);
+                ("registryRevision", installed.Projection.RegistryRevision)).ConfigureAwait(false);
         }
         catch (IntelligenceSdkException telemetryFailure) when (
             telemetryFailure.Code == "LEARNING_TELEMETRY_SINK_FAILED")
@@ -367,6 +429,57 @@ internal sealed class RegistryState
         throw failure;
     }
 
+    private async Task CompleteJoinTelemetryAsync(IntelligenceSdkException? failure)
+    {
+        await _gate.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+        try
+        {
+            _inflightPoison ??= failure;
+            if (_pendingJoinTelemetry <= 0)
+            {
+                throw new InvalidOperationException("Join telemetry completion was not registered.");
+            }
+
+            if (--_pendingJoinTelemetry == 0)
+            {
+                _joinTelemetrySettled.TrySetResult();
+            }
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    private async Task<IntelligenceSdkException?> SealJoinTelemetryAsync(
+        IntelligenceSdkException? failure = null)
+    {
+        Task pending;
+        await _gate.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+        try
+        {
+            _acceptingJoins = false;
+            _inflightPoison ??= failure;
+            pending = _joinTelemetrySettled.Task;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+
+        await pending.ConfigureAwait(false);
+
+        await _gate.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+        try
+        {
+            return _inflightPoison;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     private async Task<SkillRegistrySnapshot> FailAsync(
         Exception failure,
         RegistrySnapshot prior,
@@ -388,17 +501,24 @@ internal sealed class RegistryState
             started,
             prior.LastSuccessTimestamp);
 
+        var published = false;
         await _gate.WaitAsync(CancellationToken.None).ConfigureAwait(false);
         try
         {
             if (_snapshot.Public.Status != SkillRegistryStatus.Closed)
             {
                 PublishLocked(failed);
+                published = true;
             }
         }
         finally
         {
             _gate.Release();
+        }
+
+        if (!published)
+        {
+            throw classified.Error;
         }
 
         await EmitAsync("status.changed", cancellationToken, ("status", StatusName(classified.Status))).ConfigureAwait(false);
@@ -411,8 +531,7 @@ internal sealed class RegistryState
             ("errorCode", classified.Error.Code),
             ("errorCategory", classified.Error.Category),
             ("requestId", classified.Error.RequestId),
-            ("traceId", classified.Error.TraceId),
-            ("latencyMs", ElapsedMilliseconds(started))).ConfigureAwait(false);
+            ("traceId", classified.Error.TraceId)).ConfigureAwait(false);
         throw classified.Error;
     }
 
@@ -693,14 +812,18 @@ internal sealed class RegistryState
             snapshot.Instructions,
             error);
 
-    private long ElapsedMilliseconds(long started) => (long)Math.Round(
-        _options.TimeProvider.GetElapsedTime(started, _options.TimeProvider.GetTimestamp()).TotalMilliseconds);
-
     private static string StatusName(SkillRegistryStatus status) => status.ToString().ToLowerInvariant();
     private static string SourceName(SkillRegistrySource source) => source.ToString().ToLowerInvariant();
 
     private static TaskCompletionSource NewSignal() =>
         new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    private static TaskCompletionSource CompletedSignal()
+    {
+        var signal = NewSignal();
+        signal.SetResult();
+        return signal;
+    }
 
     private static IntelligenceSdkException ValidationError(
         string message,

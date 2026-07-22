@@ -19,6 +19,59 @@ public sealed class ConformanceTests
         }
     }
 
+    [Fact]
+    public void CorpusEnvelopeAndFixturesAreConsumedExactly()
+    {
+        using var document = JsonDocument.Parse(File.ReadAllText(CorpusPath));
+        var root = document.RootElement;
+        Assert.Equal(1, root.GetProperty("schemaVersion").GetInt32());
+        Assert.Equal("registry-adapters-v1", root.GetProperty("contractVersion").GetString());
+        Assert.Equal("registry-sdk-v1.json", root.GetProperty("sourceCorpus").GetString());
+
+        var distribution = root.GetProperty("distribution");
+        Assert.True(distribution.GetProperty("repositoryTestOnly").GetBoolean());
+        Assert.False(distribution.GetProperty("publishedExport").GetBoolean());
+        Assert.False(distribution.GetProperty("runtimeDependency").GetBoolean());
+
+        var fixtures = root.GetProperty("fixtures");
+        Assert.Equal(TestSkillSets.RegistryRevision, fixtures.GetProperty("registryRevision").GetString());
+        Assert.Equal(TestSkillSets.ChangedRegistryRevision, fixtures.GetProperty("changedRegistryRevision").GetString());
+        Assert.Equal("registry-1", fixtures.GetProperty("etag").GetString());
+        Assert.Equal("b86e5ce15092417a26042e892be2341121fc287e6215a49134448fe0e248cf0c", fixtures.GetProperty("bundleSha256").GetString());
+        Assert.Equal(144, fixtures.GetProperty("bundleByteLength").GetInt32());
+        Assert.Equal("# Skill\n", fixtures.GetProperty("instructionText").GetString());
+        Assert.Equal(8, fixtures.GetProperty("instructionByteLength").GetInt32());
+        Assert.Equal(TestSkillSets.ContainerId, fixtures.GetProperty("learningContainerId").GetString());
+        Assert.Equal(TestSkillSets.SkillId, fixtures.GetProperty("skillId").GetString());
+        Assert.Equal(TestSkillSets.VersionId, fixtures.GetProperty("versionId").GetString());
+        Assert.Equal(0, fixtures.GetProperty("skillPosition").GetInt32());
+        Assert.Equal(TestSkillSets.SkillName, fixtures.GetProperty("skillName").GetString());
+        Assert.Equal(JsonValueKind.Null, fixtures.GetProperty("skillDescription").ValueKind);
+
+        var limits = fixtures.GetProperty("limits");
+        var options = new SkillRegistryContextProviderOptions();
+        Assert.Equal(options.RefreshInterval.TotalMilliseconds, limits.GetProperty("throttleWindowMs").GetInt32());
+        Assert.Equal(options.MaximumSkills, limits.GetProperty("maximumSkills").GetInt32());
+        Assert.Equal(options.MaximumSkillBytes, limits.GetProperty("maximumInstructionBytes").GetInt32());
+        Assert.Equal(options.MaximumContextBytes, limits.GetProperty("maximumAggregateBytes").GetInt32());
+
+        var denialSources = root.GetProperty("cases").EnumerateArray()
+            .Where(item => item.TryGetProperty("permanentDenialSource", out _))
+            .Select(item => item.GetProperty("permanentDenialSource").GetString())
+            .ToArray();
+        Assert.Equal(10, denialSources.Length);
+        Assert.Equal(denialSources.Length, denialSources.Distinct(StringComparer.Ordinal).Count());
+    }
+
+    [Fact]
+    public void CorpusLeafFieldConsumptionCannotDriftSilently()
+    {
+        using var document = JsonDocument.Parse(File.ReadAllText(CorpusPath));
+        var actual = new HashSet<string>(StringComparer.Ordinal);
+        CollectLeafPaths(document.RootElement, string.Empty, actual);
+        Assert.Equal(ConsumedCorpusLeafPaths.Order(StringComparer.Ordinal), actual.Order(StringComparer.Ordinal));
+    }
+
     [Theory]
     [MemberData(nameof(ConformanceCases))]
     public async Task AdapterConformance(string name, string caseJson)
@@ -29,17 +82,32 @@ public sealed class ConformanceTests
         var initial = caseElement.GetProperty("initialSnapshot");
         var operations = caseElement.GetProperty("operations");
         var expected = caseElement.GetProperty("expected");
+        var identities = new IdentityMap();
         var root = TestSkillSets.NewRoot();
         Directory.CreateDirectory(root);
         try
         {
             var client = new FakeRegistryClient();
-            var clock = new FakeTimeProvider();
+            var initialLastAttempt = initial.GetProperty("lastAttemptAt");
+            var clock = new FakeTimeProvider(
+                initial.GetProperty("status").GetString() == "stale" && initialLastAttempt.ValueKind == JsonValueKind.Number
+                    ? initialLastAttempt.GetInt64() - 30_000
+                    : 0);
             var telemetry = new List<TelemetryRecord>();
             var captureTelemetry = false;
             var baseline = 0L;
-            var sinkFailure = new InvalidOperationException("sink-exception-1");
+            var sinkFailure = new IntelligenceSdkException(
+                "sink-exception-1",
+                "LEARNING_TELEMETRY_SINK_FAILED",
+                "internal",
+                retryable: false);
             var failTelemetryOnce = OperationsContain(operations, "telemetry-write");
+            if (expected.TryGetProperty("singleflight", out var expectedSingleflight))
+            {
+                identities.Assert(
+                    expectedSingleflight.GetProperty("sinkExceptionIdentity").GetString()!,
+                    sinkFailure);
+            }
             await using var provider = new SkillRegistryContextProvider(
                 client,
                 TestSkillSets.ContainerId,
@@ -68,15 +136,15 @@ public sealed class ConformanceTests
                     },
                 });
 
-            await SeedInitialSnapshotAsync(provider, client, clock, initial, root);
-            AssertInitialSnapshot(provider.Snapshot, initial);
+            await SeedInitialSnapshotAsync(provider, client, clock, initial, root, identities);
+            AssertInitialSnapshot(provider, clock, initial);
             client.NetworkCalls.Clear();
             client.CachedCalls.Clear();
             telemetry.Clear();
             baseline = clock.Milliseconds;
             captureTelemetry = true;
 
-            var outcomes = BuildOutcomes(caseElement, root);
+            var outcomes = BuildOutcomes(caseElement, root, identities);
             var futures = outcomes.Select(_ =>
                 new TaskCompletionSource<InstalledSkillSet>(TaskCreationOptions.RunContinuationsAsynchronously)).ToArray();
             var expectedClientCalls = expected.GetProperty("calls").GetProperty("client");
@@ -127,15 +195,16 @@ public sealed class ConformanceTests
                 Observe();
             }
 
-            async Task StartAsync(Task<SkillRegistrySnapshot> task, bool pump = true)
+            async Task StartAsync(
+                Task<SkillRegistrySnapshot> task,
+                int callsAtStart,
+                int telemetryAtStart)
             {
                 active.Add(task);
-                if (!pump)
-                {
-                    return;
-                }
-
-                await PumpAsync();
+                await WaitForProgressAsync(() =>
+                    task.IsCompleted ||
+                    client.NetworkCalls.Count + client.CachedCalls.Count > callsAtStart ||
+                    telemetry.Count > telemetryAtStart);
                 Observe();
                 if (active.All(item => item.IsCompleted))
                 {
@@ -163,6 +232,8 @@ public sealed class ConformanceTests
                 var kind = operation.GetProperty("kind").GetString()!;
                 Assert.Contains(kind, KnownOperationKinds);
                 clock.SetMilliseconds(baseline + operation.GetProperty("atMs").GetInt64());
+                var callsBefore = client.NetworkCalls.Count + client.CachedCalls.Count;
+                var telemetryBefore = telemetry.Count;
                 var nextKind = index + 1 < operationArray.Length
                     ? operationArray[index + 1].GetProperty("kind").GetString()
                     : null;
@@ -175,17 +246,17 @@ public sealed class ConformanceTests
                     case "load-caller-a":
                     case "load-caller-b":
                     case "registry-request":
-                        await StartAsync(provider.LoadAsync());
+                        await StartAsync(provider.LoadAsync(), callsBefore, telemetryBefore);
                         break;
                     case "cached-preload":
-                        await StartAsync(provider.PreloadCachedAsync());
+                        await StartAsync(provider.PreloadCachedAsync(), callsBefore, telemetryBefore);
                         break;
                     case "throttle-check":
-                        await StartAsync(provider.LoadAsync());
+                        await StartAsync(provider.LoadAsync(), callsBefore, telemetryBefore);
                         break;
                     case "throttle-hit":
                         Assert.NotNull(delayedThrottleLoad);
-                        await StartAsync(delayedThrottleLoad());
+                        await StartAsync(delayedThrottleLoad(), callsBefore, telemetryBefore);
                         delayedThrottleLoad = null;
                         break;
                     case "close":
@@ -198,6 +269,13 @@ public sealed class ConformanceTests
                     case "timeout":
                         readinessResult = await CheckReadinessAsync(TimeSpan.FromMilliseconds(1));
                         break;
+                }
+
+                if (operation.TryGetProperty("networkCall", out var networkCall))
+                {
+                    Assert.Equal(
+                        networkCall.GetBoolean(),
+                        client.NetworkCalls.Count + client.CachedCalls.Count > callsBefore);
                 }
 
                 var terminal = index == operationArray.Length - 1 ||
@@ -226,17 +304,18 @@ public sealed class ConformanceTests
             Assert.All(futures, future => Assert.True(future.Task.IsCompleted));
             readinessResult ??= await CheckReadinessAsync();
 
-            AssertReadiness(readinessResult, expected.GetProperty("readiness"));
+            AssertReadiness(readinessResult, expected.GetProperty("readiness"), identities);
             Assert.Equal(
                 expected.GetProperty("calls").GetProperty("routing").GetProperty("readiness").GetInt32(),
                 readinessCalls);
             Assert.Equal(expectedClientCalls.GetProperty("get").GetInt32(), client.NetworkCalls.Count);
             Assert.Equal(expectedClientCalls.GetProperty("getCached").GetInt32(), client.CachedCalls.Count);
             AssertDeclaredGenericCalls(operationArray, expectedClientCalls);
-            AssertGenericResult(provider.Snapshot, readinessResult, expected.GetProperty("genericSdk"));
+            AssertGenericResult(provider, readinessResult, expected.GetProperty("genericSdk"), identities);
             AssertTransitions(transitions, expected.GetProperty("statusTransitions"));
             AssertTelemetry(telemetry, expected);
-            if (name == "readiness-stale-rejects")
+            if (provider.Status == SkillRegistryStatus.Stale &&
+                expected.GetProperty("renderedRecords").GetArrayLength() == 0)
             {
                 Assert.Equal(initial.GetProperty("skillCount").GetInt32(), provider.Snapshot.Skills.Count);
             }
@@ -262,11 +341,29 @@ public sealed class ConformanceTests
 
             if (expected.TryGetProperty("singleflight", out var singleflight))
             {
+                var barrier = singleflight.GetProperty("barrier").GetString();
+                var barrierOperations = operationArray
+                    .Where(operation => operation.TryGetProperty("barrier", out _))
+                    .ToArray();
+                Assert.NotEmpty(barrierOperations);
+                Assert.All(
+                    barrierOperations,
+                    operation => Assert.Equal(barrier, operation.GetProperty("barrier").GetString()));
                 Assert.Equal(singleflight.GetProperty("registryCalls").GetInt32(), client.NetworkCalls.Count);
-                Assert.Equal(singleflight.GetProperty("callers").GetArrayLength(), settled.Count);
-                Assert.Same(settled[0], settled[1]);
-                var sharedFailure = Assert.IsType<IntelligenceSdkException>(settled[0]);
-                Assert.Same(sinkFailure, sharedFailure.InnerException);
+                var callers = singleflight.GetProperty("callers").EnumerateArray().ToArray();
+                Assert.Equal(callers.Length, settled.Count);
+                for (var callerIndex = 0; callerIndex < callers.Length; callerIndex++)
+                {
+                    var caller = callers[callerIndex];
+                    Assert.Equal(
+                        $"caller-{(char)('a' + callerIndex)}",
+                        caller.GetProperty("name").GetString());
+                    var rejection = Assert.IsType<IntelligenceSdkException>(settled[callerIndex]);
+                    identities.Assert(caller.GetProperty("rejectionIdentity").GetString()!, rejection);
+                    identities.Assert(
+                        caller.GetProperty("causeIdentity").GetString()!,
+                        rejection.InnerException ?? rejection);
+                }
             }
             else if (operationArray.Length >= 2 &&
                      operationArray[0].GetProperty("kind").GetString() == "load-caller-a" &&
@@ -287,7 +384,8 @@ public sealed class ConformanceTests
         FakeRegistryClient client,
         FakeTimeProvider clock,
         JsonElement initial,
-        string root)
+        string root,
+        IdentityMap identities)
     {
         var status = initial.GetProperty("status").GetString();
         if (status == "cold")
@@ -323,19 +421,23 @@ public sealed class ConformanceTests
         {
             clock.Advance(TimeSpan.FromSeconds(30));
             client.NetworkOutcomes.Enqueue(_ => Task.FromException<InstalledSkillSet>(
-                ErrorFrom(initial.GetProperty("error"))));
+                ErrorFrom(initial.GetProperty("error"), identities)));
             await Assert.ThrowsAsync<IntelligenceSdkException>(() => provider.LoadAsync());
         }
         else if (status == "denied")
         {
             client.NetworkOutcomes.Enqueue(_ => Task.FromException<InstalledSkillSet>(
-                ErrorFrom(initial.GetProperty("error"))));
+                ErrorFrom(initial.GetProperty("error"), identities)));
             await Assert.ThrowsAsync<IntelligenceSdkException>(() => provider.PreloadAsync());
         }
     }
 
-    private static void AssertInitialSnapshot(SkillRegistrySnapshot snapshot, JsonElement initial)
+    private static void AssertInitialSnapshot(
+        SkillRegistryContextProvider provider,
+        FakeTimeProvider clock,
+        JsonElement initial)
     {
+        var snapshot = provider.Snapshot;
         Assert.Equal(initial.GetProperty("status").GetString(), StatusName(snapshot.Status));
         Assert.Equal(initial.GetProperty("source").GetString(), SourceName(snapshot.Source));
         Assert.Equal(initial.GetProperty("registryRevision").GetString(), snapshot.RegistryRevision);
@@ -343,11 +445,19 @@ public sealed class ConformanceTests
         Assert.Equal(
             initial.GetProperty("aggregateByteLength").GetInt32(),
             snapshot.Skills.Sum(record => record.ByteLength));
-        _ = initial.GetProperty("lastAttemptAt");
-        _ = initial.GetProperty("refreshDue").GetBoolean();
+        var lastAttempt = initial.GetProperty("lastAttemptAt");
+        Assert.Equal(
+            lastAttempt.ValueKind == JsonValueKind.Null ? null : lastAttempt.GetInt64(),
+            provider.LastAttemptTimestamp);
+        var refreshDue = provider.LastAttemptTimestamp is long attempted &&
+            clock.GetElapsedTime(attempted, clock.GetTimestamp()) >= TimeSpan.FromSeconds(30);
+        Assert.Equal(initial.GetProperty("refreshDue").GetBoolean(), refreshDue);
     }
 
-    private static List<object> BuildOutcomes(JsonElement caseElement, string root)
+    private static List<object> BuildOutcomes(
+        JsonElement caseElement,
+        string root,
+        IdentityMap identities)
     {
         var expected = caseElement.GetProperty("expected");
         var operations = caseElement.GetProperty("operations");
@@ -362,19 +472,31 @@ public sealed class ConformanceTests
         {
             return
             [
-                new IntelligenceSdkException("transient-1", "UPSTREAM_UNAVAILABLE", "availability", retryable: true),
+                identities.Record(
+                    "transient-1",
+                    new IntelligenceSdkException("transient-1", "UPSTREAM_UNAVAILABLE", "availability", retryable: true)),
                 CreateExpectedSet(caseElement, Path.Combine(root, "outcome-2")),
             ];
         }
 
         if (OperationsContain(operations, "transient-failure"))
         {
-            return [new IntelligenceSdkException("transient-1", "UPSTREAM_UNAVAILABLE", "availability", retryable: true)];
+            return
+            [
+                identities.Record(
+                    "transient-1",
+                    new IntelligenceSdkException("transient-1", "UPSTREAM_UNAVAILABLE", "availability", retryable: true)),
+            ];
         }
 
         if (OperationsContain(operations, "integrity-failure"))
         {
-            return [new IntelligenceSdkException("integrity-1", IntelligenceErrorCodes.BlobIntegrityFailure, "integrity", retryable: false)];
+            return
+            [
+                identities.Record(
+                    "integrity-1",
+                    new IntelligenceSdkException("integrity-1", IntelligenceErrorCodes.BlobIntegrityFailure, "integrity", retryable: false)),
+            ];
         }
 
         var adapterValidation = new[]
@@ -386,13 +508,63 @@ public sealed class ConformanceTests
             "reject-script",
         }.Any(kind => OperationsContain(operations, kind));
         var generic = expected.GetProperty("genericSdk");
+        if (caseElement.TryGetProperty("permanentDenialSource", out _))
+        {
+            return [PermanentDenialFrom(caseElement, identities)];
+        }
+
         if (generic.TryGetProperty("error", out var genericError) && !adapterValidation &&
             !OperationsContain(operations, "telemetry-write"))
         {
-            return [ErrorFrom(genericError)];
+            return [ErrorFrom(genericError, identities)];
         }
 
         return [CreateExpectedSet(caseElement, Path.Combine(root, "outcome-1"))];
+    }
+
+    private static IntelligenceSdkException PermanentDenialFrom(
+        JsonElement caseElement,
+        IdentityMap identities)
+    {
+        var source = caseElement.GetProperty("permanentDenialSource").GetString()!;
+        var expected = caseElement.GetProperty("expected").GetProperty("genericSdk").GetProperty("error");
+        var identity = expected.GetProperty("causeIdentity").GetString()!;
+        Assert.Equal(source, identity);
+        var category = expected.GetProperty("category").GetString()!;
+        var status = expected.TryGetProperty("httpStatus", out var expectedStatus)
+            ? expectedStatus.GetInt32()
+            : (int?)null;
+        string code;
+        if (source.StartsWith("error-category-", StringComparison.Ordinal))
+        {
+            code = "UPSTREAM_DENIED";
+            Assert.Null(status);
+        }
+        else if (source.StartsWith("http-", StringComparison.Ordinal))
+        {
+            code = "UPSTREAM_HTTP_ERROR";
+            var operationStatus = caseElement.GetProperty("operations").EnumerateArray()
+                .Single(operation => operation.GetProperty("kind").GetString() == "http-response")
+                .GetProperty("status")
+                .GetInt32();
+            Assert.Equal(status, operationStatus);
+            Assert.Equal($"http-{operationStatus}", source);
+        }
+        else
+        {
+            code = expected.GetProperty("code").GetString()!;
+        }
+
+        return identities.Record(
+            identity,
+            new IntelligenceSdkException(
+                identity,
+                code,
+                category,
+                expected.GetProperty("retryable").GetBoolean(),
+                status,
+                expected.TryGetProperty("requestId", out var requestId) ? requestId.GetString() : null,
+                expected.TryGetProperty("traceId", out var traceId) ? traceId.GetString() : null));
     }
 
     private static InstalledSkillSet CreateExpectedSet(JsonElement caseElement, string root)
@@ -412,19 +584,33 @@ public sealed class ConformanceTests
             : "revision-1";
         if (OperationsContain(operations, "validate-count"))
         {
-            return TestSkillSets.CreateMany(root, Enumerable.Repeat("# Skill\n", 129).ToArray(), freshness, registryRevision: revision);
+            var observed = OperationValue(operations, "validate-count", "observed");
+            return TestSkillSets.CreateMany(
+                root,
+                Enumerable.Repeat("# Skill\n", observed).ToArray(),
+                freshness,
+                registryRevision: revision);
         }
 
         if (OperationsContain(operations, "validate-instruction-bytes"))
         {
-            return TestSkillSets.Create(root, new string('x', 262_145), freshness, registryRevision: revision);
+            var observed = OperationValue(operations, "validate-instruction-bytes", "observed");
+            return TestSkillSets.Create(root, new string('x', observed), freshness, registryRevision: revision);
         }
 
         if (OperationsContain(operations, "validate-aggregate-bytes"))
         {
+            var observed = OperationValue(operations, "validate-aggregate-bytes", "observed");
+            var chunk = observed / 5;
             return TestSkillSets.CreateMany(
                 root,
-                [new string('x', 209_715), new string('x', 209_715), new string('x', 209_715), new string('x', 209_715), new string('x', 209_717)],
+                [
+                    new string('x', chunk),
+                    new string('x', chunk),
+                    new string('x', chunk),
+                    new string('x', chunk),
+                    new string('x', observed - (chunk * 4)),
+                ],
                 freshness,
                 registryRevision: revision);
         }
@@ -450,16 +636,22 @@ public sealed class ConformanceTests
         return set;
     }
 
-    private static IntelligenceSdkException ErrorFrom(JsonElement fields) => new(
-        fields.TryGetProperty("causeIdentity", out var cause) ? cause.GetString()! : fields.GetProperty("code").GetString()!,
-        fields.GetProperty("code").GetString()!,
-        fields.GetProperty("category").GetString()!,
-        fields.GetProperty("retryable").GetBoolean(),
-        fields.TryGetProperty("httpStatus", out var status) ? status.GetInt32() : null,
-        fields.TryGetProperty("requestId", out var requestId) ? requestId.GetString() : null,
-        fields.TryGetProperty("traceId", out var traceId) ? traceId.GetString() : null);
+    private static IntelligenceSdkException ErrorFrom(JsonElement fields, IdentityMap identities)
+    {
+        var identity = fields.GetProperty("causeIdentity").GetString()!;
+        return identities.Record(
+            identity,
+            new IntelligenceSdkException(
+                identity,
+                fields.GetProperty("code").GetString()!,
+                fields.GetProperty("category").GetString()!,
+                fields.GetProperty("retryable").GetBoolean(),
+                fields.TryGetProperty("httpStatus", out var status) ? status.GetInt32() : null,
+                fields.TryGetProperty("requestId", out var requestId) ? requestId.GetString() : null,
+                fields.TryGetProperty("traceId", out var traceId) ? traceId.GetString() : null));
+    }
 
-    private static void AssertReadiness(object actual, JsonElement expected)
+    private static void AssertReadiness(object actual, JsonElement expected, IdentityMap identities)
     {
         if (expected.TryGetProperty("result", out var result))
         {
@@ -468,15 +660,20 @@ public sealed class ConformanceTests
         }
         else
         {
-            AssertError(Assert.IsType<IntelligenceSdkException>(actual), expected.GetProperty("error"));
+            AssertError(
+                Assert.IsType<IntelligenceSdkException>(actual),
+                expected.GetProperty("error"),
+                identities);
         }
     }
 
     private static void AssertGenericResult(
-        SkillRegistrySnapshot snapshot,
+        SkillRegistryContextProvider provider,
         object readiness,
-        JsonElement expected)
+        JsonElement expected,
+        IdentityMap identities)
     {
+        var snapshot = provider.Snapshot;
         if (expected.TryGetProperty("result", out var result))
         {
             Assert.Equal(result.GetProperty("state").GetString(), StatusName(snapshot.Status));
@@ -496,12 +693,15 @@ public sealed class ConformanceTests
             }
             else if (result.TryGetProperty("closeCount", out var closeCount))
             {
-                Assert.Equal(1, closeCount.GetInt32());
+                Assert.Equal(closeCount.GetInt32(), provider.CloseCount);
             }
         }
         else
         {
-            AssertError(Assert.IsType<IntelligenceSdkException>(readiness), expected.GetProperty("error"));
+            AssertError(
+                Assert.IsType<IntelligenceSdkException>(readiness),
+                expected.GetProperty("error"),
+                identities);
         }
     }
 
@@ -543,11 +743,21 @@ public sealed class ConformanceTests
             var wantedName = wanted.GetProperty("name").GetString();
             var wantedAt = wanted.GetProperty("atMs").GetInt64();
             Assert.Equal($"{wantedName}@{wantedAt}", $"{actual[index].Name}@{actual[index].AtMs}");
-            Assert.Equal("agent-framework-dotnet", actual[index].Metadata["framework"]);
-            foreach (var property in wanted.GetProperty("metadata").EnumerateObject())
+            var expectedMetadata = wanted.GetProperty("metadata");
+            var expectedKeys = expectedMetadata.EnumerateObject()
+                .Select(property => property.Name)
+                .Append("adapterVersion")
+                .Order(StringComparer.Ordinal)
+                .ToArray();
+            Assert.Equal(
+                expectedKeys,
+                actual[index].Metadata.Keys.Order(StringComparer.Ordinal));
+            Assert.False(string.IsNullOrWhiteSpace(actual[index].Metadata["adapterVersion"]?.ToString()));
+            foreach (var property in expectedMetadata.EnumerateObject())
             {
                 if (property.Name == "framework")
                 {
+                    Assert.Equal("agent-framework-dotnet", actual[index].Metadata["framework"]);
                     continue;
                 }
 
@@ -602,7 +812,10 @@ public sealed class ConformanceTests
         }
     }
 
-    private static void AssertError(IntelligenceSdkException actual, JsonElement expected)
+    private static void AssertError(
+        IntelligenceSdkException actual,
+        JsonElement expected,
+        IdentityMap identities)
     {
         Assert.Equal(expected.GetProperty("code").GetString(), actual.Code);
         Assert.Equal(expected.GetProperty("category").GetString(), actual.Category);
@@ -621,6 +834,10 @@ public sealed class ConformanceTests
         {
             Assert.Equal(traceId.GetString(), actual.TraceId);
         }
+
+        identities.Assert(
+            expected.GetProperty("causeIdentity").GetString()!,
+            actual.InnerException ?? actual);
     }
 
     private static void AssertJsonValue(object? actual, JsonElement expected)
@@ -658,11 +875,26 @@ public sealed class ConformanceTests
     private static bool OperationsContain(JsonElement operations, string kind) =>
         operations.EnumerateArray().Any(operation => operation.GetProperty("kind").GetString() == kind);
 
+    private static int OperationValue(JsonElement operations, string kind, string property) =>
+        operations.EnumerateArray()
+            .Single(operation => operation.GetProperty("kind").GetString() == kind)
+            .GetProperty(property)
+            .GetInt32();
+
     private static async Task PumpAsync()
     {
         for (var index = 0; index < 12; index++)
         {
             await Task.Yield();
+        }
+    }
+
+    private static async Task WaitForProgressAsync(Func<bool> condition)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(1));
+        while (!condition())
+        {
+            await Task.Delay(1, timeout.Token);
         }
     }
 
@@ -685,6 +917,148 @@ public sealed class ConformanceTests
 
         throw new FileNotFoundException("Could not locate registry-adapters-v1.json.");
     }
+
+    private static void CollectLeafPaths(
+        JsonElement element,
+        string path,
+        ISet<string> paths)
+    {
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var property in element.EnumerateObject())
+            {
+                CollectLeafPaths(
+                    property.Value,
+                    path.Length == 0 ? property.Name : $"{path}.{property.Name}",
+                    paths);
+            }
+
+            return;
+        }
+
+        if (element.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in element.EnumerateArray())
+            {
+                CollectLeafPaths(item, $"{path}.[]", paths);
+            }
+
+            return;
+        }
+
+        paths.Add(path);
+    }
+
+    private static readonly HashSet<string> ConsumedCorpusLeafPaths = new(StringComparer.Ordinal)
+    {
+        "cases.[].expected.calls.client.bundle",
+        "cases.[].expected.calls.client.cached",
+        "cases.[].expected.calls.client.get",
+        "cases.[].expected.calls.client.getCached",
+        "cases.[].expected.calls.client.network",
+        "cases.[].expected.calls.client.projection",
+        "cases.[].expected.calls.routing.nativeHook",
+        "cases.[].expected.calls.routing.readiness",
+        "cases.[].expected.genericSdk.error.category",
+        "cases.[].expected.genericSdk.error.causeIdentity",
+        "cases.[].expected.genericSdk.error.code",
+        "cases.[].expected.genericSdk.error.httpStatus",
+        "cases.[].expected.genericSdk.error.requestId",
+        "cases.[].expected.genericSdk.error.retryable",
+        "cases.[].expected.genericSdk.error.traceId",
+        "cases.[].expected.genericSdk.result.aggregateByteLength",
+        "cases.[].expected.genericSdk.result.closeCount",
+        "cases.[].expected.genericSdk.result.freshness",
+        "cases.[].expected.genericSdk.result.registryRevision",
+        "cases.[].expected.genericSdk.result.skillCount",
+        "cases.[].expected.genericSdk.result.state",
+        "cases.[].expected.nativeHook.proceed",
+        "cases.[].expected.readiness.error.category",
+        "cases.[].expected.readiness.error.causeIdentity",
+        "cases.[].expected.readiness.error.code",
+        "cases.[].expected.readiness.error.httpStatus",
+        "cases.[].expected.readiness.error.requestId",
+        "cases.[].expected.readiness.error.retryable",
+        "cases.[].expected.readiness.error.traceId",
+        "cases.[].expected.readiness.result.state",
+        "cases.[].expected.renderedRecords.[].byteLength",
+        "cases.[].expected.renderedRecords.[].description",
+        "cases.[].expected.renderedRecords.[].kind",
+        "cases.[].expected.renderedRecords.[].name",
+        "cases.[].expected.renderedRecords.[].position",
+        "cases.[].expected.renderedRecords.[].skillId",
+        "cases.[].expected.renderedRecords.[].text",
+        "cases.[].expected.renderedRecords.[].versionId",
+        "cases.[].expected.singleflight.barrier",
+        "cases.[].expected.singleflight.callers.[].causeIdentity",
+        "cases.[].expected.singleflight.callers.[].name",
+        "cases.[].expected.singleflight.callers.[].rejectionIdentity",
+        "cases.[].expected.singleflight.registryCalls",
+        "cases.[].expected.singleflight.sinkExceptionIdentity",
+        "cases.[].expected.statusTransitions.[].atMs",
+        "cases.[].expected.statusTransitions.[].from",
+        "cases.[].expected.statusTransitions.[].to",
+        "cases.[].expected.telemetryNames.[]",
+        "cases.[].expected.telemetryRecords.[].atMs",
+        "cases.[].expected.telemetryRecords.[].metadata.errorCategory",
+        "cases.[].expected.telemetryRecords.[].metadata.errorCode",
+        "cases.[].expected.telemetryRecords.[].metadata.framework",
+        "cases.[].expected.telemetryRecords.[].metadata.freshness",
+        "cases.[].expected.telemetryRecords.[].metadata.joinedCallers",
+        "cases.[].expected.telemetryRecords.[].metadata.outcome",
+        "cases.[].expected.telemetryRecords.[].metadata.reason",
+        "cases.[].expected.telemetryRecords.[].metadata.registryRevision",
+        "cases.[].expected.telemetryRecords.[].metadata.requestId",
+        "cases.[].expected.telemetryRecords.[].metadata.retryable",
+        "cases.[].expected.telemetryRecords.[].metadata.skillCount",
+        "cases.[].expected.telemetryRecords.[].metadata.source",
+        "cases.[].expected.telemetryRecords.[].metadata.status",
+        "cases.[].expected.telemetryRecords.[].metadata.traceId",
+        "cases.[].expected.telemetryRecords.[].name",
+        "cases.[].initialSnapshot.aggregateByteLength",
+        "cases.[].initialSnapshot.error.category",
+        "cases.[].initialSnapshot.error.causeIdentity",
+        "cases.[].initialSnapshot.error.code",
+        "cases.[].initialSnapshot.error.httpStatus",
+        "cases.[].initialSnapshot.error.retryable",
+        "cases.[].initialSnapshot.lastAttemptAt",
+        "cases.[].initialSnapshot.refreshDue",
+        "cases.[].initialSnapshot.registryRevision",
+        "cases.[].initialSnapshot.skillCount",
+        "cases.[].initialSnapshot.source",
+        "cases.[].initialSnapshot.status",
+        "cases.[].name",
+        "cases.[].operations.[].atMs",
+        "cases.[].operations.[].barrier",
+        "cases.[].operations.[].kind",
+        "cases.[].operations.[].networkCall",
+        "cases.[].operations.[].observed",
+        "cases.[].operations.[].status",
+        "cases.[].permanentDenialSource",
+        "contractVersion",
+        "distribution.publishedExport",
+        "distribution.repositoryTestOnly",
+        "distribution.runtimeDependency",
+        "fixtures.bundleByteLength",
+        "fixtures.bundleSha256",
+        "fixtures.changedRegistryRevision",
+        "fixtures.etag",
+        "fixtures.instructionByteLength",
+        "fixtures.instructionText",
+        "fixtures.learningContainerId",
+        "fixtures.limits.maximumAggregateBytes",
+        "fixtures.limits.maximumInstructionBytes",
+        "fixtures.limits.maximumSkills",
+        "fixtures.limits.throttleWindowMs",
+        "fixtures.registryRevision",
+        "fixtures.skillDescription",
+        "fixtures.skillId",
+        "fixtures.skillName",
+        "fixtures.skillPosition",
+        "fixtures.versionId",
+        "schemaVersion",
+        "sourceCorpus",
+    };
 
     private static readonly string[] KnownOperationKinds =
     [
@@ -726,4 +1100,28 @@ public sealed class ConformanceTests
         IReadOnlyDictionary<string, object?> Metadata);
 
     private sealed record Transition(long AtMs, string From, string To);
+
+    private sealed class IdentityMap
+    {
+        private readonly Dictionary<string, object> _instances = new(StringComparer.Ordinal);
+
+        internal T Record<T>(string identity, T instance)
+            where T : class
+        {
+            Assert(identity, instance);
+            return instance;
+        }
+
+        internal void Assert(string identity, object instance)
+        {
+            if (_instances.TryGetValue(identity, out var existing))
+            {
+                Xunit.Assert.Same(existing, instance);
+            }
+            else
+            {
+                _instances.Add(identity, instance);
+            }
+        }
+    }
 }

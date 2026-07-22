@@ -39,6 +39,11 @@ internal sealed class FakeTimeProvider : TimeProvider
 {
     private long _milliseconds;
 
+    internal FakeTimeProvider(long initialMilliseconds = 0)
+    {
+        _milliseconds = initialMilliseconds;
+    }
+
     public override long TimestampFrequency => 1_000;
 
     public override long GetTimestamp() => _milliseconds;
@@ -65,6 +70,9 @@ internal static class TestSkillSets
     internal const string ContainerId = "55555555-5555-4555-8555-555555555555";
     internal const string SkillId = "99999999-9999-4999-8999-999999999999";
     internal const string VersionId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    internal const string RegistryRevision = "revision-1";
+    internal const string ChangedRegistryRevision = "revision-2";
+    internal const string SkillName = "Safe skill";
 
     internal static InstalledSkillSet Create(
         string root,
@@ -73,7 +81,7 @@ internal static class TestSkillSets
         bool revoked = false,
         string role = "instructions",
         string manifestPath = "SKILL.md",
-        string registryRevision = "revision-1")
+        string registryRevision = RegistryRevision)
     {
         return CreateMany(
             root,
@@ -92,7 +100,7 @@ internal static class TestSkillSets
         bool revoked = false,
         IReadOnlyList<string>? roles = null,
         IReadOnlyList<string>? manifestPaths = null,
-        string registryRevision = "revision-1")
+        string registryRevision = RegistryRevision)
     {
         roles ??= Enumerable.Repeat("instructions", texts.Count).ToArray();
         manifestPaths ??= Enumerable.Repeat("SKILL.md", texts.Count).ToArray();
@@ -134,7 +142,7 @@ internal static class TestSkillSets
                 SkillId = skillId,
                 VersionId = versionId,
                 Position = index,
-                Name = index == 0 ? "Safe skill" : $"Skill {index}",
+                Name = index == 0 ? SkillName : $"Skill {index}",
                 Description = null,
                 Manifest = manifest,
                 ManifestSha256 = manifest.ManifestSha256,

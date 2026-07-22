@@ -111,6 +111,8 @@ public sealed class SkillRegistryContextProvider : AIContextProvider, IAsyncDisp
     public bool IsReady => _state.IsReady;
     public SkillRegistryStatus Status => _state.Status;
     public SkillRegistrySnapshot Snapshot => _state.Snapshot;
+    internal int CloseCount => _state.CloseCount;
+    internal long? LastAttemptTimestamp => _state.LastAttemptTimestamp;
 
     public Task<SkillRegistrySnapshot> PreloadAsync(CancellationToken cancellationToken = default) =>
         _state.PreloadAsync(cancellationToken);

@@ -106,6 +106,55 @@ public sealed class SkillRegistryContextProviderTests
     }
 
     [Fact]
+    public async Task JoinTelemetryFailurePoisonsTheSharedInflightOperation()
+    {
+        var root = TestSkillSets.NewRoot();
+        try
+        {
+            var client = new FakeRegistryClient();
+            var pending = new TaskCompletionSource<InstalledSkillSet>(TaskCreationOptions.RunContinuationsAsynchronously);
+            client.NetworkOutcomes.Enqueue(_ => pending.Task);
+            var sinkFailure = new InvalidOperationException("join-sink-exception-1");
+            var joinEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var releaseJoin = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            await using var provider = CreateProvider(
+                client,
+                telemetry: async (name, _, cancellationToken) =>
+                {
+                    if (name != "load.singleflight_joined")
+                    {
+                        return;
+                    }
+
+                    joinEntered.SetResult();
+                    await releaseJoin.Task.WaitAsync(cancellationToken);
+                    throw sinkFailure;
+                });
+
+            var callerA = provider.LoadAsync();
+            await WaitForAsync(() => client.NetworkCalls.Count == 1);
+            var callerB = provider.LoadAsync();
+            await joinEntered.Task;
+            pending.SetResult(TestSkillSets.Create(root));
+            await Task.Yield();
+            Assert.False(callerA.IsCompleted);
+            releaseJoin.SetResult();
+
+            var failureA = await Assert.ThrowsAsync<IntelligenceSdkException>(() => callerA);
+            var failureB = await Assert.ThrowsAsync<IntelligenceSdkException>(() => callerB);
+            Assert.Same(failureA, failureB);
+            Assert.Same(sinkFailure, failureA.InnerException);
+            Assert.Equal("LEARNING_TELEMETRY_SINK_FAILED", failureA.Code);
+            Assert.Equal(SkillRegistryStatus.Denied, provider.Status);
+            Assert.Single(client.NetworkCalls);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task FutureLoadAfterDisposeRejects()
     {
         var client = new FakeRegistryClient();
@@ -261,6 +310,90 @@ public sealed class SkillRegistryContextProviderTests
         }
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CloseDuringSuccessfulLoadSuppressesEveryLaterTerminalEvent(bool revoked)
+    {
+        var root = TestSkillSets.NewRoot();
+        try
+        {
+            var client = new FakeRegistryClient();
+            var pending = new TaskCompletionSource<InstalledSkillSet>(TaskCreationOptions.RunContinuationsAsynchronously);
+            client.NetworkOutcomes.Enqueue(_ => pending.Task);
+            var events = new List<(string Name, object? Status)>();
+            var provider = CreateProvider(
+                client,
+                telemetry: (name, metadata, _) =>
+                {
+                    events.Add((name, metadata.GetValueOrDefault("status")));
+                    return ValueTask.CompletedTask;
+                });
+
+            var load = provider.LoadAsync();
+            await WaitForAsync(() => client.NetworkCalls.Count == 1);
+            await provider.DisposeAsync();
+            pending.SetResult(TestSkillSets.Create(root, revoked: revoked));
+
+            var settled = await load;
+
+            Assert.Equal(revoked ? SkillRegistryStatus.Revoked : SkillRegistryStatus.Ready, settled.Status);
+            Assert.Equal(SkillRegistryStatus.Closed, provider.Status);
+            Assert.Equal(
+                [("load.started", null), ("status.changed", (object?)"closed")],
+                events);
+            await provider.DisposeAsync();
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(false, "LEARNING_REGISTRY_STALE")]
+    [InlineData(true, "LEARNING_REGISTRY_DENIED")]
+    public async Task CloseDuringFailedLoadSuppressesEveryLaterTerminalEvent(
+        bool denied,
+        string expectedCode)
+    {
+        var client = new FakeRegistryClient();
+        var pending = new TaskCompletionSource<InstalledSkillSet>(TaskCreationOptions.RunContinuationsAsynchronously);
+        client.NetworkOutcomes.Enqueue(_ => pending.Task);
+        var events = new List<(string Name, object? Status)>();
+        var provider = CreateProvider(
+            client,
+            telemetry: (name, metadata, _) =>
+            {
+                events.Add((name, metadata.GetValueOrDefault("status")));
+                return ValueTask.CompletedTask;
+            });
+
+        var load = provider.LoadAsync();
+        await WaitForAsync(() => client.NetworkCalls.Count == 1);
+        await provider.DisposeAsync();
+        pending.SetException(denied
+            ? new IntelligenceSdkException(
+                "permission denied",
+                "UPSTREAM_DENIED",
+                "permission",
+                retryable: false,
+                status: 403)
+            : Unavailable());
+
+        var failure = await Assert.ThrowsAsync<IntelligenceSdkException>(() => load);
+
+        Assert.Equal(expectedCode, failure.Code);
+        Assert.Equal(SkillRegistryStatus.Closed, provider.Status);
+        Assert.Equal(
+            [("load.started", null), ("status.changed", (object?)"closed")],
+            events);
+        await provider.DisposeAsync();
+    }
+
     private static SkillRegistryContextProvider CreateProvider(
         FakeRegistryClient client,
         FakeTimeProvider? clock = null,
@@ -287,6 +420,15 @@ public sealed class SkillRegistryContextProviderTests
         var pending = Assert.IsType<ValueTask<AIContext>>(
             method.Invoke(provider, [null, cancellationToken]));
         return await pending;
+    }
+
+    private static async Task WaitForAsync(Func<bool> condition)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(1));
+        while (!condition())
+        {
+            await Task.Delay(1, timeout.Token);
+        }
     }
 
     private static IntelligenceSdkException Unavailable() => new(

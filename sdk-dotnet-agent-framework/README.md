@@ -53,7 +53,7 @@ The adapter accepts at most 128 skills, 262,144 UTF-8 bytes in one `SKILL.md`, a
 
 ## Telemetry
 
-Set `SkillRegistryContextProviderOptions.Telemetry` to receive `load.started`, `load.throttled`, `load.singleflight_joined`, `load.succeeded`, `load.failed`, and `status.changed`. Permitted fields are framework, adapter version, source/freshness, status, joined caller count, skill count, registry revision, latency, outcome, reason, and canonical error code/category/retryability/request ID/trace ID when present. Events never contain access tokens, project namespaces, learning-container IDs, skill text, local paths, or bundle contents. An asynchronous sink failure fails the initiating operation; every joined caller observes the same terminal `LEARNING_TELEMETRY_SINK_FAILED` exception instance.
+Set `SkillRegistryContextProviderOptions.Telemetry` to receive `load.started`, `load.throttled`, `load.singleflight_joined`, `load.succeeded`, `load.failed`, and `status.changed`. Permitted fields are framework, adapter version, source/freshness, status, joined caller count, skill count, registry revision, outcome, reason, and canonical error code/category/retryability/request ID/trace ID when present. Events never contain access tokens, project namespaces, learning-container IDs, skill text, local paths, or bundle contents. An asynchronous sink failure fails the initiating operation; every joined caller observes the same terminal `LEARNING_TELEMETRY_SINK_FAILED` exception instance.
 
 ## Errors
 
