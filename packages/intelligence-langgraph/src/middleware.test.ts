@@ -507,6 +507,63 @@ describe("createSkillRegistryMiddleware", () => {
     ]);
   });
 
+  it("defers callers that arrive after joined telemetry is sealed", async () => {
+    const sinkFailure = new Error("late joined sink failure");
+    const unhandled = captureUnhandledRejections();
+    let middleware!: ReturnType<typeof createSkillRegistryMiddleware>;
+    let joined: Promise<AdapterSnapshot> | undefined;
+    let joinedWrites = 0;
+    let lateJoinScheduled = false;
+    middleware = createSkillRegistryMiddleware({
+      client: testClient(() => installedSkillSet()),
+      learningContainerId: CONTAINER_ID,
+      telemetry: (event) => {
+        if (event.name === "load.succeeded" && !lateJoinScheduled) {
+          lateJoinScheduled = true;
+          queueMicrotask(() =>
+            queueMicrotask(() =>
+              queueMicrotask(() =>
+                queueMicrotask(() => {
+                  joined = middleware.load();
+                }),
+              ),
+            ),
+          );
+        }
+        if (event.name === "load.singleflight_joined") {
+          joinedWrites += 1;
+          throw sinkFailure;
+        }
+      },
+    });
+
+    try {
+      const first = middleware.load();
+      const firstResult = await settle(first);
+      await new Promise<void>((resolve) => setImmediate(resolve));
+
+      expect(joined).not.toBe(first);
+      if (joined === undefined)
+        throw new Error("The deferred caller must be scheduled");
+      const joinedResult = await settle(joined);
+      expect(firstResult.status).toBe("fulfilled");
+      expect(joinedResult.status).toBe("fulfilled");
+      if (
+        firstResult.status !== "fulfilled" ||
+        joinedResult.status !== "fulfilled"
+      ) {
+        throw new Error("The sealed and deferred loads must both fulfill");
+      }
+      expect(joinedResult.value).toBe(firstResult.value);
+      expect(joinedWrites).toBe(0);
+      expect(middleware.status).toBe("ready");
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(unhandled.reasons).toEqual([]);
+    } finally {
+      unhandled.stop();
+    }
+  });
+
   it("observes every joined telemetry rejection while the Registry request is pending", async () => {
     const pending = deferred<InstalledSkillSet>();
     const firstSinkFailure = new Error("first joined sink failure");

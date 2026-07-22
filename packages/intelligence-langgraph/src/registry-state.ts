@@ -250,6 +250,7 @@ export class RegistryState {
   private closedLatch = false;
   private closeInFlight: Promise<void> | null = null;
   private inFlight: Promise<AdapterSnapshot> | null = null;
+  private singleFlightClosing = false;
   private joinedCallers = 0;
   private joinedTelemetryChain: Promise<void> = Promise.resolve();
   private readonly closedFailure = adapterError(
@@ -333,6 +334,13 @@ export class RegistryState {
 
   load(): Promise<AdapterSnapshot> {
     if (this.closedLatch) return Promise.reject(this.closedError());
+    if (this.inFlight !== null && this.singleFlightClosing) {
+      const settling = this.inFlight;
+      return settling.then(
+        () => this.load(),
+        () => this.load(),
+      );
+    }
     if (this.inFlight !== null) {
       return this.startLoad(this.ready ? "refresh" : "load", false);
     }
@@ -361,7 +369,7 @@ export class RegistryState {
       await this.emit("load.throttled", {
         source: "load",
       });
-      await this.drainJoinedTelemetry();
+      await this.sealJoinedTelemetry();
       this.throwIfClosed();
       return ready;
     } catch (error) {
@@ -376,7 +384,7 @@ export class RegistryState {
       await this.emit("load.throttled", {
         source: "refresh",
       });
-      await this.drainJoinedTelemetry();
+      await this.sealJoinedTelemetry();
       this.throwIfClosed();
       throw (
         this.current.error ??
@@ -485,6 +493,13 @@ export class RegistryState {
     }
     if (this.closedLatch) return Promise.reject(this.closedError());
     if (this.inFlight !== null) {
+      if (this.singleFlightClosing) {
+        const settling = this.inFlight;
+        return settling.then(
+          () => this.startSingleFlight(operation),
+          () => this.startSingleFlight(operation),
+        );
+      }
       this.joinedCallers += 1;
       const joinedTelemetry = this.emit("load.singleflight_joined", {
         joinedCallers: this.joinedCallers + 1,
@@ -517,21 +532,27 @@ export class RegistryState {
       },
     );
     this.inFlight = promise;
+    this.singleFlightClosing = false;
     this.joinedCallers = 0;
     this.joinedTelemetryChain = Promise.resolve();
-    // Observe both outcomes solely to release the single-flight slot; callers
-    // still receive the original promise and its rejection unchanged.
-    void promise.then(
-      () => {
-        if (this.inFlight === promise) this.inFlight = null;
-      },
-      () => {
-        if (this.inFlight === promise) this.inFlight = null;
-      },
-    );
+    const releaseSingleFlight = () => {
+      if (this.inFlight !== promise) return;
+      this.inFlight = null;
+      this.singleFlightClosing = false;
+    };
     try {
-      void operation().then(resolveOperation, rejectOperation);
+      void operation().then(
+        (snapshot) => {
+          releaseSingleFlight();
+          resolveOperation(snapshot);
+        },
+        (error: unknown) => {
+          releaseSingleFlight();
+          rejectOperation(error);
+        },
+      );
     } catch (error) {
+      releaseSingleFlight();
       rejectOperation(error);
     }
     return promise;
@@ -588,7 +609,7 @@ export class RegistryState {
         registryRevision: installed.projection.registryRevision,
         refreshLatencyMs: completedAt - startedAt,
       });
-      await this.drainJoinedTelemetry();
+      await this.sealJoinedTelemetry();
       this.throwIfClosed();
       return next;
     } catch (error) {
@@ -645,7 +666,7 @@ export class RegistryState {
         }
       })();
       try {
-        await this.drainJoinedTelemetry();
+        await this.sealJoinedTelemetry();
       } catch (joinedTelemetryError) {
         this.throwIfClosed();
         if (this.isTelemetryFailure(joinedTelemetryError)) {
@@ -812,6 +833,11 @@ export class RegistryState {
     } while (observed !== this.joinedTelemetryChain);
   }
 
+  private async sealJoinedTelemetry(): Promise<void> {
+    this.singleFlightClosing = true;
+    await this.drainJoinedTelemetry();
+  }
+
   private rejectWaiters(error: Error): void {
     for (const waiter of this.waiters) waiter.reject(error);
     this.waiters.clear();
@@ -864,7 +890,7 @@ export class RegistryState {
       // Preserve one error identity for every caller of this load.
     }
     try {
-      await this.drainJoinedTelemetry();
+      await this.sealJoinedTelemetry();
       this.throwIfClosed();
     } catch {
       this.throwIfClosed();
