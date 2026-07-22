@@ -525,15 +525,31 @@ export class SqliteAgentRunner extends AgentRunner {
         ACTIVE_CONNECTIONS.delete(request.threadId);
       };
 
+      // A turn aborted by stop() ends with a single RUN_FINISHED — the terminal
+      // closes any open sub-events on the client — not an error.
+      const emitStoppedTerminal = () => {
+        const appended = finalizeRunEvents(currentRunEvents, {
+          stopRequested: true,
+        });
+        for (const event of appended) {
+          runSubject.next(event);
+          nextSubject.next(event);
+        }
+      };
+
       try {
         await request.turn(controller);
-        if (innerError) throw innerError;
+        if (innerError && !abortController.signal.aborted) throw innerError;
         ensureRunStarted();
-        emit({
-          type: EventType.RUN_FINISHED,
-          threadId: request.threadId,
-          runId: request.runId,
-        } as BaseEvent);
+        if (abortController.signal.aborted) {
+          emitStoppedTerminal();
+        } else {
+          emit({
+            type: EventType.RUN_FINISHED,
+            threadId: request.threadId,
+            runId: request.runId,
+          } as BaseEvent);
+        }
         this.storeRun(
           request.threadId,
           request.runId,
@@ -544,11 +560,15 @@ export class SqliteAgentRunner extends AgentRunner {
         cleanup();
       } catch (error) {
         ensureRunStarted();
-        emit({
-          type: EventType.RUN_ERROR,
-          message: error instanceof Error ? error.message : String(error),
-          code: "OUTER_RUN_FAILED",
-        } as BaseEvent);
+        if (abortController.signal.aborted) {
+          emitStoppedTerminal();
+        } else {
+          emit({
+            type: EventType.RUN_ERROR,
+            message: error instanceof Error ? error.message : String(error),
+            code: "OUTER_RUN_FAILED",
+          } as BaseEvent);
+        }
         if (currentRunEvents.length > 0) {
           this.storeRun(
             request.threadId,
@@ -644,18 +664,29 @@ export class SqliteAgentRunner extends AgentRunner {
     }
 
     const connection = ACTIVE_CONNECTIONS.get(request.threadId);
-    const agent = connection?.agent;
 
-    if (!connection || !agent) {
-      return Promise.resolve(false);
-    }
-
-    if (connection.stopRequested) {
+    if (!connection || connection.stopRequested) {
       return Promise.resolve(false);
     }
 
     connection.stopRequested = true;
     this.setRunState(request.threadId, false);
+
+    // Fire the execute() turn's abort signal (null on the run() path).
+    connection.abortController?.abort();
+
+    const agent = connection.agent;
+    if (!agent) {
+      if (connection.abortController == null) {
+        // run() path with no agent: restore the historic no-op behavior.
+        connection.stopRequested = false;
+        this.setRunState(request.threadId, true);
+        return Promise.resolve(false);
+      }
+      // execute() path: a turn may be mid-flight with no inner agent currently
+      // running; the abort signal fired above still tears it down.
+      return Promise.resolve(true);
+    }
 
     try {
       agent.abortRun();

@@ -468,6 +468,9 @@ export class IntelligenceAgentRunner extends AgentRunner {
 
     state.stopRequested = true;
 
+    // Fire the execute() turn's abort signal (null on the run() path).
+    state.abortController?.abort();
+
     // Direct local abort — the runtime is the authority.
     if (state.agent) {
       try {
@@ -675,7 +678,11 @@ export class IntelligenceAgentRunner extends AgentRunner {
       (async () => {
         try {
           await request.turn(controller);
-          if (innerError) throw innerError;
+          // An inner error only fails the outer run when NOT aborted; an
+          // aborted turn settles as "stopped" (RUN_FINISHED), not "errored".
+          if (innerError && !state.abortController?.signal.aborted) {
+            throw innerError;
+          }
           ensureRunStarted();
           pushCanonicalEvent({
             type: EventType.RUN_FINISHED,
@@ -684,11 +691,20 @@ export class IntelligenceAgentRunner extends AgentRunner {
           } as BaseEvent);
         } catch (error) {
           ensureRunStarted();
-          pushCanonicalEvent({
-            type: EventType.RUN_ERROR,
-            message: error instanceof Error ? error.message : String(error),
-            code: "OUTER_RUN_FAILED",
-          } as BaseEvent);
+          if (state.abortController?.signal.aborted) {
+            // Stopped, not errored: the terminal closes open sub-events.
+            pushCanonicalEvent({
+              type: EventType.RUN_FINISHED,
+              threadId: request.threadId,
+              runId: request.runId,
+            } as BaseEvent);
+          } else {
+            pushCanonicalEvent({
+              type: EventType.RUN_ERROR,
+              message: error instanceof Error ? error.message : String(error),
+              code: "OUTER_RUN_FAILED",
+            } as BaseEvent);
+          }
         }
       })(),
     ).pipe(
