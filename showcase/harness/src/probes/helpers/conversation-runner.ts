@@ -28,6 +28,8 @@
  */
 
 import type { Page as PlaywrightPage } from "playwright";
+
+import { conversationFailureSummary } from "./privacy-safe-diagnostics.js";
 import {
   ASSISTANT_MESSAGE_FALLBACK_SELECTOR,
   ASSISTANT_MESSAGE_HEADLESS_SELECTOR,
@@ -571,7 +573,7 @@ export async function runConversation(
     console.debug(
       `[conversation-runner] turn ${turnNum}/${total} — sending message`,
       {
-        input: turn.input,
+        inputLength: turn.input.length,
         timeoutMs: turnTimeoutMs,
       },
     );
@@ -811,7 +813,11 @@ export async function runConversation(
           coldStartRetries++;
           console.warn(
             `[conversation-runner] turn ${turnNum}/${total} — cold-start banner fast-fail; reloading + re-sending ONCE before fast-fail`,
-            { error: errorMessage(translatedErr) },
+            {
+              errorCategory: conversationFailureSummary(
+                errorMessage(translatedErr),
+              ),
+            },
           );
           // Reload to clear the transient cold-start banner. Safe on turn 1 —
           // no conversation state exists yet — and the plain-fill re-send below
@@ -956,16 +962,15 @@ export async function runConversation(
           hasAssertions: !!turn.assertions,
         },
       );
-      // Preserve the runner's diagnostic log contract — Phase 0 Task 0.3
-      // / Phase 5 Task 5.1 Step 6 / OPEN ISSUE #4: the bubble-race repro
-      // driver parses `[conversation-runner] turn N/total — settled text
-      // { turnNum, text: '…' }` out of verbose stdout. The settled-text
-      // value is now sourced from `waitForTurnComplete`'s return value
-      // (turn-scoped, cascade-consistent, defect-2 safe) instead of a
-      // separate post-settle `page.evaluate` read.
+      // Emit structural turn metadata only. Prompts and generated response
+      // content are intentionally excluded from CI logs.
       console.debug(
-        `[conversation-runner] turn ${turnNum}/${total} — settled text`,
-        { turnNum, text: settleResult.text.slice(0, 200) },
+        `[conversation-runner] turn ${turnNum}/${total} — settled metadata`,
+        {
+          turnNum,
+          bubbleIndex: settleResult.bubbleIndex,
+          textLength: settleResult.text.length,
+        },
       );
 
       if (turn.assertions) {
@@ -1002,13 +1007,16 @@ export async function runConversation(
               querySelector(s: string): unknown;
             };
           };
-          const bodyText =
-            win.document.body?.innerText?.slice(0, 500) ?? "(no body)";
+          const bodyText = win.document.body?.innerText ?? "";
           const hasTextarea = !!win.document.querySelector("textarea");
           const hasErrorBoundary =
             bodyText.includes("Application error") ||
             bodyText.includes("Internal Server Error");
-          return { bodyText, hasTextarea, hasErrorBoundary };
+          return {
+            bodyTextLength: bodyText.length,
+            hasTextarea,
+            hasErrorBoundary,
+          };
         });
       } catch (diagErr) {
         /* diagnostics are best-effort */
@@ -1026,7 +1034,7 @@ export async function runConversation(
         );
       }
       console.warn(`[conversation-runner] turn ${turnNum}/${total} — FAILED`, {
-        error: errorMessage(err),
+        errorCategory: conversationFailureSummary(errorMessage(err)),
         turnsCompleted: idx,
         elapsedMs: Date.now() - startedAt,
         ...failureDiagnostics,
@@ -1227,7 +1235,7 @@ export async function fillAndVerifySend(
 
   const baseline = await readUserMessageCount(page);
   console.debug("[conversation-runner] fillAndVerifySend — start", {
-    input: input.slice(0, 100),
+    inputLength: input.length,
     selector: chatInputSelector,
     userMessageBaseline: baseline,
     maxAttempts,

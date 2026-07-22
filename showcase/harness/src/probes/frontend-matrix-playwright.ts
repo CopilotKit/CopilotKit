@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import type { Browser } from "playwright";
 
 import { runConversation } from "./helpers/conversation-runner.js";
+import { conversationFailureSummary } from "./helpers/privacy-safe-diagnostics.js";
 import type { D5FeatureType, D5Script } from "./helpers/d5-registry.js";
 import {
   installBrowserContextShims,
@@ -23,12 +24,7 @@ import type {
 const DEFAULT_PROBE_TIMEOUT_MS = 90_000;
 const DEFAULT_HYDRATION_TIMEOUT_MS = 15_000;
 const TEST_ID_MAX_LENGTH = 160;
-const SETTLE_FAILURE_REASONS = new Set([
-  "text-unstable",
-  "surface-not-ready",
-  "no-assistant-message",
-  "run-still-active",
-]);
+export { conversationFailureSummary } from "./helpers/privacy-safe-diagnostics.js";
 
 export interface FrontendProbeInput {
   cell: FrontendMatrixCell;
@@ -36,37 +32,6 @@ export interface FrontendProbeInput {
   url: string;
   backendUrl: string;
   testId: string;
-}
-
-/**
- * Reduce a free-form conversation-runner failure to a bounded diagnostic
- * category. Matrix artifacts must remain useful without persisting prompts,
- * generated response text, or assertion payloads.
- */
-export function conversationFailureSummary(error: string | undefined): string {
-  if (!error) return "unknown";
-
-  const settleReason = /\breason=([a-z-]+)/.exec(error)?.[1];
-  if (settleReason && SETTLE_FAILURE_REASONS.has(settleReason)) {
-    return `settle-${settleReason}`;
-  }
-  if (error.includes("done-signal-missing")) return "done-signal-missing";
-  if (error.includes("ui/initialize")) return "mcp-initialization-missing";
-  if (error.includes("assistant response was empty")) {
-    return "assistant-response-empty";
-  }
-  if (
-    error.includes("Observed:") ||
-    error.includes("missing expected marker") ||
-    error.includes("wrong pill")
-  ) {
-    return "rendered-content-mismatch";
-  }
-  if (error.includes("not found") || error.includes("to appear within")) {
-    return "expected-surface-missing";
-  }
-  if (error.toLowerCase().includes("timeout")) return "timeout";
-  return "assertion-failed";
 }
 
 export type FrontendProbeExecutor = (

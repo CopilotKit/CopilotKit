@@ -82,13 +82,14 @@ export function buildTurns(ctx: D5BuildContext): ConversationTurn[] {
   console.debug("[d5-gen-ui-custom] buildTurns", {
     slug: ctx.integrationSlug,
     usePieChart,
-    userMessage: usePieChart ? PIE_CHART_USER_MESSAGE : HAIKU_USER_MESSAGE,
+    inputLength: (usePieChart ? PIE_CHART_USER_MESSAGE : HAIKU_USER_MESSAGE)
+      .length,
   });
 
   return [
     {
       input: usePieChart ? PIE_CHART_USER_MESSAGE : HAIKU_USER_MESSAGE,
-      assertions: async (page, ctx) => {
+      assertions: async (page, assertionCtx) => {
         // 1. Cascade-find the rendered component. Gen-UI components
         //    surface through the same selector hooks regardless of which
         //    tool fired.
@@ -117,10 +118,10 @@ export function buildTurns(ctx: D5BuildContext): ConversationTurn[] {
           // `ctx` is REQUIRED on the runner's `ConversationTurn` type;
           // unit tests driving `turn.assertions` directly must supply
           // a synthetic ctx (`{ bubbleIndex, text }`).
-          const text = ctx.text.toLowerCase();
+          const text = assertionCtx.text.toLowerCase();
           console.debug("[d5-gen-ui-custom] pie chart follow-up text check", {
-            expectedTokens: [...PIE_CHART_FOLLOWUP_TOKENS],
-            assistantText: text.slice(0, 300),
+            expectedTokenCount: PIE_CHART_FOLLOWUP_TOKENS.length,
+            assistantTextLength: text.length,
           });
           const missing = PIE_CHART_FOLLOWUP_TOKENS.filter(
             (tok) => !text.includes(tok),
