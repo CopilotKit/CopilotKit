@@ -419,6 +419,36 @@ describe("CopilotKit", () => {
     );
   });
 
+  it("advertises a provided A2UI catalog in initial and updated runtime properties", () => {
+    const initialProperties = { region: "eu" };
+    const updatedProperties = { locale: "en" };
+    TestBed.configureTestingModule({
+      providers: [
+        provideCopilotKit({
+          licenseKey,
+          properties: initialProperties,
+          a2ui: { catalog: minimalCatalog },
+        }),
+      ],
+    });
+
+    const copilotKit = TestBed.inject(CopilotKit);
+
+    expect(lastCoreConfig.properties).toEqual({
+      region: "eu",
+      a2uiCatalogAvailable: true,
+    });
+    expect(initialProperties).toEqual({ region: "eu" });
+
+    copilotKit.updateRuntime({ properties: updatedProperties });
+
+    expect(mockSetProperties).toHaveBeenCalledWith({
+      locale: "en",
+      a2uiCatalogAvailable: true,
+    });
+    expect(updatedProperties).toEqual({ locale: "en" });
+  });
+
   it("removes tools and renderer configs", () => {
     TestBed.configureTestingModule({
       providers: [provideCopilotKit({ licenseKey })],

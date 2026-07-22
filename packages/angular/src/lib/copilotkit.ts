@@ -62,6 +62,21 @@ import { CopilotOpenGenerativeUIActivityRenderer } from "./components/open-gener
 import { CopilotOpenGenerativeUIToolRenderer } from "./components/open-generative-ui/open-generative-ui-tool-renderer";
 import { standardSchemaZodToJsonSchema } from "./standard-schema-zod";
 
+/**
+ * Advertise a client-provided A2UI catalog to the runtime without mutating the
+ * caller's properties object. The runtime uses this per-run capability to
+ * enable A2UI middleware and inject its render tool when endpoint configuration
+ * does not opt in separately; this mirrors the React provider contract.
+ */
+function withA2UICatalogCapability(
+  properties: Record<string, unknown> | undefined,
+  hasCatalog: boolean,
+): Record<string, unknown> | undefined {
+  return hasCatalog
+    ? { ...properties, a2uiCatalogAvailable: true }
+    : properties;
+}
+
 @Injectable({ providedIn: "root" })
 export class CopilotKit {
   readonly #config = injectCopilotKitConfig();
@@ -125,13 +140,16 @@ export class CopilotKit {
   readonly core = new CopilotKitCore({
     runtimeUrl: this.#config.runtimeUrl,
     headers: this.#config.headers,
-    properties: this.#config.properties,
     agents__unsafe_dev_only: {
       ...this.#config.agents,
       ...this.#config.selfManagedAgents,
     },
     tools: this.#config.tools,
     suggestionsConfig: this.#config.suggestionsConfig,
+    properties: withA2UICatalogCapability(
+      this.#config.properties,
+      this.#config.a2ui?.catalog !== undefined,
+    ),
   });
 
   readonly #toolCallRenderConfigs: WritableSignal<RenderToolCallConfig[]> =
@@ -597,7 +615,12 @@ export class CopilotKit {
       this.#headers.set(options.headers);
     }
     if (options.properties !== undefined) {
-      this.core.setProperties(options.properties);
+      this.core.setProperties(
+        withA2UICatalogCapability(
+          options.properties,
+          this.#config.a2ui?.catalog !== undefined,
+        ) ?? options.properties,
+      );
     }
     if (
       options.agents !== undefined ||
