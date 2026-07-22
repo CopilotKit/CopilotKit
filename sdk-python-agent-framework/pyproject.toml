@@ -1,0 +1,39 @@
+[tool.poetry]
+name = "copilotkit-intelligence-agent-framework"
+version = "0.1.0"
+description = "Microsoft Agent Framework adapter for verified CopilotKit Intelligence Registry skills"
+authors = ["CopilotKit <hello@copilotkit.ai>"]
+license = "MIT"
+readme = "README.md"
+homepage = "https://copilotkit.ai"
+repository = "https://github.com/CopilotKit/CopilotKit/tree/main/sdk-python-agent-framework"
+keywords = ["copilotkit", "intelligence", "agent-framework", "agents", "skills"]
+classifiers = [
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+packages = [{ include = "copilotkit_intelligence_agent_framework", from = "src" }]
+include = ["src/copilotkit_intelligence_agent_framework/py.typed"]
+
+[tool.poetry.dependencies]
+python = ">=3.10"
+copilotkit = ">=0.1.95,<1.0.0"
+agent-framework-core = ">=1.11.0,<2.0.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+  "pytest>=9.0.2,<10.0.0",
+  "pytest-asyncio>=1.0.0,<2.0.0",
+  "build>=1.3.0,<2.0.0",
+  "twine>=6.2.0,<7.0.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
