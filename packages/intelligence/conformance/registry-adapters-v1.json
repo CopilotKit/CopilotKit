@@ -1,0 +1,1385 @@
+{
+  "schemaVersion": 1,
+  "contractVersion": "registry-adapters-v1",
+  "sourceCorpus": "registry-sdk-v1.json",
+  "distribution": {
+    "repositoryTestOnly": true,
+    "publishedExport": false,
+    "runtimeDependency": false
+  },
+  "fixtures": {
+    "registryRevision": "revision-1",
+    "changedRegistryRevision": "revision-2",
+    "etag": "registry-1",
+    "bundleSha256": "b86e5ce15092417a26042e892be2341121fc287e6215a49134448fe0e248cf0c",
+    "bundleByteLength": 144,
+    "instructionText": "# Skill\n",
+    "instructionByteLength": 8,
+    "limits": {
+      "throttleWindowMs": 30000,
+      "maximumSkills": 128,
+      "maximumInstructionBytes": 262144,
+      "maximumAggregateBytes": 1048576
+    }
+  },
+  "cases": [
+    {
+      "name": "cold-fresh-load",
+      "operations": [
+        { "atMs": 0, "kind": "load" },
+        { "atMs": 1, "kind": "projection-request" },
+        { "atMs": 2, "kind": "bundle-request" },
+        { "atMs": 3, "kind": "render" }
+      ],
+      "expected": {
+        "calls": {
+          "client": { "projection": 1, "bundle": 1 },
+          "routing": { "readiness": 1, "nativeHook": 1 }
+        },
+        "statusTransitions": [
+          { "atMs": 0, "from": "idle", "to": "loading" },
+          { "atMs": 3, "from": "loading", "to": "ready" }
+        ],
+        "genericSdk": {
+          "result": {
+            "state": "ready",
+            "freshness": "fresh",
+            "registryRevision": "revision-1",
+            "skillCount": 1,
+            "aggregateByteLength": 8
+          }
+        },
+        "readiness": { "result": { "state": "ready" } },
+        "nativeHook": { "proceed": true },
+        "telemetryNames": ["adapter.load.started", "adapter.load.succeeded"],
+        "renderedRecords": [
+          {
+            "position": 0,
+            "kind": "instruction",
+            "name": "Safe skill",
+            "text": "# Skill\n",
+            "byteLength": 8
+          }
+        ]
+      }
+    },
+    {
+      "name": "explicit-cached-preload",
+      "operations": [
+        { "atMs": 0, "kind": "preload" },
+        { "atMs": 1, "kind": "projection-request" },
+        { "atMs": 2, "kind": "bundle-request" },
+        { "atMs": 3, "kind": "load" }
+      ],
+      "expected": {
+        "calls": {
+          "client": { "projection": 1, "bundle": 1 },
+          "routing": { "readiness": 1, "nativeHook": 1 }
+        },
+        "statusTransitions": [
+          { "atMs": 0, "from": "idle", "to": "loading" },
+          { "atMs": 2, "from": "loading", "to": "ready" }
+        ],
+        "genericSdk": {
+          "result": {
+            "state": "ready",
+            "freshness": "cached",
+            "registryRevision": "revision-1",
+            "skillCount": 1,
+            "aggregateByteLength": 8
+          }
+        },
+        "readiness": { "result": { "state": "ready" } },
+        "nativeHook": { "proceed": true },
+        "telemetryNames": [
+          "adapter.preload.started",
+          "adapter.preload.succeeded",
+          "adapter.cache.hit"
+        ],
+        "renderedRecords": [
+          {
+            "position": 0,
+            "kind": "instruction",
+            "name": "Safe skill",
+            "text": "# Skill\n",
+            "byteLength": 8
+          }
+        ]
+      }
+    },
+    {
+      "name": "throttle-hit",
+      "operations": [
+        { "atMs": 0, "kind": "load" },
+        { "atMs": 1, "kind": "throttle-hit" }
+      ],
+      "expected": {
+        "calls": {
+          "client": { "projection": 0, "bundle": 0 },
+          "routing": { "readiness": 1, "nativeHook": 1 }
+        },
+        "statusTransitions": [
+          { "atMs": 0, "from": "ready", "to": "loading" },
+          { "atMs": 1, "from": "loading", "to": "ready" }
+        ],
+        "genericSdk": {
+          "result": {
+            "state": "ready",
+            "freshness": "cached",
+            "registryRevision": "revision-1",
+            "skillCount": 1,
+            "aggregateByteLength": 8
+          }
+        },
+        "readiness": { "result": { "state": "ready" } },
+        "nativeHook": { "proceed": true },
+        "telemetryNames": ["adapter.load.throttled", "adapter.cache.hit"],
+        "renderedRecords": [
+          {
+            "position": 0,
+            "kind": "instruction",
+            "name": "Safe skill",
+            "text": "# Skill\n",
+            "byteLength": 8
+          }
+        ]
+      }
+    },
+    {
+      "name": "concurrent-singleflight",
+      "operations": [
+        { "atMs": 0, "kind": "load-caller-a", "barrier": "load-1" },
+        { "atMs": 1, "kind": "load-caller-b", "barrier": "load-1" },
+        { "atMs": 2, "kind": "projection-request" },
+        { "atMs": 3, "kind": "bundle-request" }
+      ],
+      "expected": {
+        "calls": {
+          "client": { "projection": 1, "bundle": 1 },
+          "routing": { "readiness": 1, "nativeHook": 1 }
+        },
+        "statusTransitions": [
+          { "atMs": 0, "from": "idle", "to": "loading" },
+          { "atMs": 3, "from": "loading", "to": "ready" }
+        ],
+        "genericSdk": {
+          "result": {
+            "state": "ready",
+            "freshness": "fresh",
+            "registryRevision": "revision-1",
+            "skillCount": 1,
+            "aggregateByteLength": 8
+          }
+        },
+        "readiness": { "result": { "state": "ready" } },
+        "nativeHook": { "proceed": true },
+        "telemetryNames": [
+          "adapter.load.started",
+          "adapter.load.joined",
+          "adapter.load.succeeded"
+        ],
+        "renderedRecords": [
+          {
+            "position": 0,
+            "kind": "instruction",
+            "name": "Safe skill",
+            "text": "# Skill\n",
+            "byteLength": 8
+          }
+        ]
+      }
+    },
+    {
+      "name": "etag-unchanged",
+      "operations": [
+        { "atMs": 0, "kind": "load" },
+        { "atMs": 1, "kind": "conditional-projection-request" },
+        { "atMs": 2, "kind": "not-modified" }
+      ],
+      "expected": {
+        "calls": {
+          "client": { "projection": 1, "bundle": 0 },
+          "routing": { "readiness": 1, "nativeHook": 1 }
+        },
+        "statusTransitions": [
+          { "atMs": 0, "from": "ready", "to": "loading" },
+          { "atMs": 2, "from": "loading", "to": "ready" }
+        ],
+        "genericSdk": {
+          "result": {
+            "state": "ready",
+            "freshness": "fresh",
+            "registryRevision": "revision-1",
+            "skillCount": 1,
+            "aggregateByteLength": 8
+          }
+        },
+        "readiness": { "result": { "state": "ready" } },
+        "nativeHook": { "proceed": true },
+        "telemetryNames": [
+          "adapter.load.started",
+          "adapter.projection.unchanged",
+          "adapter.load.succeeded"
+        ],
+        "renderedRecords": [
+          {
+            "position": 0,
+            "kind": "instruction",
+            "name": "Safe skill",
+            "text": "# Skill\n",
+            "byteLength": 8
+          }
+        ]
+      }
+    },
+    {
+      "name": "changed-revision",
+      "operations": [
+        { "atMs": 0, "kind": "load" },
+        { "atMs": 1, "kind": "conditional-projection-request" },
+        { "atMs": 2, "kind": "changed-projection" },
+        { "atMs": 3, "kind": "bundle-request" }
+      ],
+      "expected": {
+        "calls": {
+          "client": { "projection": 1, "bundle": 1 },
+          "routing": { "readiness": 1, "nativeHook": 1 }
+        },
+        "statusTransitions": [
+          { "atMs": 0, "from": "ready", "to": "loading" },
+          { "atMs": 3, "from": "loading", "to": "ready" }
+        ],
+        "genericSdk": {
+          "result": {
+            "state": "ready",
+            "freshness": "fresh",
+            "registryRevision": "revision-2",
+            "skillCount": 1,
+            "aggregateByteLength": 8
+          }
+        },
+        "readiness": { "result": { "state": "ready" } },
+        "nativeHook": { "proceed": true },
+        "telemetryNames": [
+          "adapter.load.started",
+          "adapter.projection.changed",
+          "adapter.load.succeeded"
+        ],
+        "renderedRecords": [
+          {
+            "position": 0,
+            "kind": "instruction",
+            "name": "Safe skill",
+            "text": "# Skill\n",
+            "byteLength": 8
+          }
+        ]
+      }
+    },
+    {
+      "name": "empty",
+      "operations": [
+        { "atMs": 0, "kind": "load" },
+        { "atMs": 1, "kind": "projection-request" },
+        { "atMs": 2, "kind": "render" }
+      ],
+      "expected": {
+        "calls": {
+          "client": { "projection": 1, "bundle": 0 },
+          "routing": { "readiness": 1, "nativeHook": 1 }
+        },
+        "statusTransitions": [
+          { "atMs": 0, "from": "idle", "to": "loading" },
+          { "atMs": 2, "from": "loading", "to": "ready" }
+        ],
+        "genericSdk": {
+          "result": {
+            "state": "ready",
+            "freshness": "fresh",
+            "registryRevision": "revision-1",
+            "skillCount": 0,
+            "aggregateByteLength": 0
+          }
+        },
+        "readiness": { "result": { "state": "ready" } },
+        "nativeHook": { "proceed": true },
+        "telemetryNames": [
+          "adapter.load.started",
+          "adapter.load.empty",
+          "adapter.load.succeeded"
+        ],
+        "renderedRecords": []
+      }
+    },
+    {
+      "name": "revoked",
+      "operations": [
+        { "atMs": 0, "kind": "load" },
+        { "atMs": 1, "kind": "projection-request" },
+        { "atMs": 2, "kind": "revocation-observed" }
+      ],
+      "expected": {
+        "calls": {
+          "client": { "projection": 1, "bundle": 0 },
+          "routing": { "readiness": 1, "nativeHook": 1 }
+        },
+        "statusTransitions": [
+          { "atMs": 0, "from": "ready", "to": "loading" },
+          { "atMs": 2, "from": "loading", "to": "denied" }
+        ],
+        "genericSdk": {
+          "error": {
+            "code": "LEARNING_CONTAINER_REVOKED",
+            "category": "permission",
+            "retryable": false,
+            "httpStatus": 410,
+            "causeIdentity": "revoked-1"
+          }
+        },
+        "readiness": {
+          "error": {
+            "code": "LEARNING_CONTAINER_REVOKED",
+            "category": "permission",
+            "retryable": false,
+            "httpStatus": 410,
+            "causeIdentity": "revoked-1"
+          }
+        },
+        "nativeHook": { "proceed": false },
+        "telemetryNames": ["adapter.load.started", "adapter.load.denied"],
+        "renderedRecords": []
+      }
+    },
+    {
+      "name": "transient-stale",
+      "operations": [
+        { "atMs": 0, "kind": "load" },
+        { "atMs": 1, "kind": "projection-request" },
+        { "atMs": 2, "kind": "transient-failure" }
+      ],
+      "expected": {
+        "calls": {
+          "client": { "projection": 1, "bundle": 0 },
+          "routing": { "readiness": 1, "nativeHook": 1 }
+        },
+        "statusTransitions": [
+          { "atMs": 0, "from": "ready", "to": "loading" },
+          { "atMs": 2, "from": "loading", "to": "stale" }
+        ],
+        "genericSdk": {
+          "result": {
+            "state": "stale",
+            "freshness": "stale",
+            "registryRevision": "revision-1",
+            "skillCount": 1,
+            "aggregateByteLength": 8
+          }
+        },
+        "readiness": {
+          "error": {
+            "code": "LEARNING_REGISTRY_STALE",
+            "category": "availability",
+            "retryable": true,
+            "causeIdentity": "transient-1"
+          }
+        },
+        "nativeHook": { "proceed": false },
+        "telemetryNames": ["adapter.load.started", "adapter.load.stale"],
+        "renderedRecords": [
+          {
+            "position": 0,
+            "kind": "instruction",
+            "name": "Safe skill",
+            "text": "# Skill\n",
+            "byteLength": 8
+          }
+        ]
+      }
+    },
+    {
+      "name": "integrity-stale",
+      "operations": [
+        { "atMs": 0, "kind": "load" },
+        { "atMs": 1, "kind": "bundle-request" },
+        { "atMs": 2, "kind": "integrity-failure" }
+      ],
+      "expected": {
+        "calls": {
+          "client": { "projection": 1, "bundle": 1 },
+          "routing": { "readiness": 1, "nativeHook": 1 }
+        },
+        "statusTransitions": [
+          { "atMs": 0, "from": "ready", "to": "loading" },
+          { "atMs": 2, "from": "loading", "to": "stale" }
+        ],
+        "genericSdk": {
+          "result": {
+            "state": "stale",
+            "freshness": "stale",
+            "registryRevision": "revision-1",
+            "skillCount": 1,
+            "aggregateByteLength": 8
+          }
+        },
+        "readiness": {
+          "error": {
+            "code": "LEARNING_REGISTRY_STALE",
+            "category": "integrity",
+            "retryable": false,
+            "causeIdentity": "integrity-1"
+          }
+        },
+        "nativeHook": { "proceed": false },
+        "telemetryNames": [
+          "adapter.load.started",
+          "adapter.integrity.failed",
+          "adapter.load.stale"
+        ],
+        "renderedRecords": [
+          {
+            "position": 0,
+            "kind": "instruction",
+            "name": "Safe skill",
+            "text": "# Skill\n",
+            "byteLength": 8
+          }
+        ]
+      }
+    },
+    {
+      "name": "denial",
+      "operations": [
+        { "atMs": 0, "kind": "load" },
+        { "atMs": 1, "kind": "projection-request" },
+        { "atMs": 2, "kind": "denial-response" }
+      ],
+      "expected": {
+        "calls": {
+          "client": { "projection": 1, "bundle": 0 },
+          "routing": { "readiness": 1, "nativeHook": 1 }
+        },
+        "statusTransitions": [
+          { "atMs": 0, "from": "idle", "to": "loading" },
+          { "atMs": 2, "from": "loading", "to": "denied" }
+        ],
+        "genericSdk": {
+          "error": {
+            "code": "LEARNING_REGISTRY_DENIED",
+            "category": "permission",
+            "retryable": false,
+            "httpStatus": 403,
+            "causeIdentity": "denial-1"
+          }
+        },
+        "readiness": {
+          "error": {
+            "code": "LEARNING_REGISTRY_DENIED",
+            "category": "permission",
+            "retryable": false,
+            "httpStatus": 403,
+            "causeIdentity": "denial-1"
+          }
+        },
+        "nativeHook": { "proceed": false },
+        "telemetryNames": ["adapter.load.started", "adapter.load.denied"],
+        "renderedRecords": []
+      }
+    },
+    {
+      "name": "too-many-skills",
+      "operations": [
+        { "atMs": 0, "kind": "load" },
+        { "atMs": 1, "kind": "projection-request" },
+        { "atMs": 2, "kind": "validate-count", "observed": 129 }
+      ],
+      "expected": {
+        "calls": {
+          "client": { "projection": 1, "bundle": 0 },
+          "routing": { "readiness": 1, "nativeHook": 1 }
+        },
+        "statusTransitions": [
+          { "atMs": 0, "from": "idle", "to": "loading" },
+          { "atMs": 2, "from": "loading", "to": "error" }
+        ],
+        "genericSdk": {
+          "error": {
+            "code": "LEARNING_REGISTRY_SKILL_LIMIT_EXCEEDED",
+            "category": "validation",
+            "retryable": false,
+            "causeIdentity": "count-129"
+          }
+        },
+        "readiness": {
+          "error": {
+            "code": "LEARNING_REGISTRY_SKILL_LIMIT_EXCEEDED",
+            "category": "validation",
+            "retryable": false,
+            "causeIdentity": "count-129"
+          }
+        },
+        "nativeHook": { "proceed": false },
+        "telemetryNames": ["adapter.load.started", "adapter.limit.exceeded"],
+        "renderedRecords": []
+      }
+    },
+    {
+      "name": "skill-md-too-large",
+      "operations": [
+        { "atMs": 0, "kind": "load" },
+        { "atMs": 1, "kind": "bundle-request" },
+        { "atMs": 2, "kind": "validate-instruction-bytes", "observed": 262145 }
+      ],
+      "expected": {
+        "calls": {
+          "client": { "projection": 1, "bundle": 1 },
+          "routing": { "readiness": 1, "nativeHook": 1 }
+        },
+        "statusTransitions": [
+          { "atMs": 0, "from": "idle", "to": "loading" },
+          { "atMs": 2, "from": "loading", "to": "error" }
+        ],
+        "genericSdk": {
+          "error": {
+            "code": "LEARNING_REGISTRY_INSTRUCTION_TOO_LARGE",
+            "category": "validation",
+            "retryable": false,
+            "causeIdentity": "bytes-262145"
+          }
+        },
+        "readiness": {
+          "error": {
+            "code": "LEARNING_REGISTRY_INSTRUCTION_TOO_LARGE",
+            "category": "validation",
+            "retryable": false,
+            "causeIdentity": "bytes-262145"
+          }
+        },
+        "nativeHook": { "proceed": false },
+        "telemetryNames": ["adapter.load.started", "adapter.limit.exceeded"],
+        "renderedRecords": []
+      }
+    },
+    {
+      "name": "aggregate-too-large",
+      "operations": [
+        { "atMs": 0, "kind": "load" },
+        { "atMs": 1, "kind": "bundle-request" },
+        { "atMs": 2, "kind": "validate-aggregate-bytes", "observed": 1048577 }
+      ],
+      "expected": {
+        "calls": {
+          "client": { "projection": 1, "bundle": 1 },
+          "routing": { "readiness": 1, "nativeHook": 1 }
+        },
+        "statusTransitions": [
+          { "atMs": 0, "from": "idle", "to": "loading" },
+          { "atMs": 2, "from": "loading", "to": "error" }
+        ],
+        "genericSdk": {
+          "error": {
+            "code": "LEARNING_REGISTRY_AGGREGATE_TOO_LARGE",
+            "category": "validation",
+            "retryable": false,
+            "causeIdentity": "bytes-1048577"
+          }
+        },
+        "readiness": {
+          "error": {
+            "code": "LEARNING_REGISTRY_AGGREGATE_TOO_LARGE",
+            "category": "validation",
+            "retryable": false,
+            "causeIdentity": "bytes-1048577"
+          }
+        },
+        "nativeHook": { "proceed": false },
+        "telemetryNames": ["adapter.load.started", "adapter.limit.exceeded"],
+        "renderedRecords": []
+      }
+    },
+    {
+      "name": "invalid-utf8",
+      "operations": [
+        { "atMs": 0, "kind": "load" },
+        { "atMs": 1, "kind": "bundle-request" },
+        { "atMs": 2, "kind": "decode-instruction" }
+      ],
+      "expected": {
+        "calls": {
+          "client": { "projection": 1, "bundle": 1 },
+          "routing": { "readiness": 1, "nativeHook": 1 }
+        },
+        "statusTransitions": [
+          { "atMs": 0, "from": "idle", "to": "loading" },
+          { "atMs": 2, "from": "loading", "to": "error" }
+        ],
+        "genericSdk": {
+          "error": {
+            "code": "LEARNING_REGISTRY_INVALID_UTF8",
+            "category": "integrity",
+            "retryable": false,
+            "causeIdentity": "utf8-1"
+          }
+        },
+        "readiness": {
+          "error": {
+            "code": "LEARNING_REGISTRY_INVALID_UTF8",
+            "category": "integrity",
+            "retryable": false,
+            "causeIdentity": "utf8-1"
+          }
+        },
+        "nativeHook": { "proceed": false },
+        "telemetryNames": ["adapter.load.started", "adapter.decode.failed"],
+        "renderedRecords": []
+      }
+    },
+    {
+      "name": "script-disabled",
+      "operations": [
+        { "atMs": 0, "kind": "load" },
+        { "atMs": 1, "kind": "bundle-request" },
+        { "atMs": 2, "kind": "ignore-script" },
+        { "atMs": 3, "kind": "render" }
+      ],
+      "expected": {
+        "calls": {
+          "client": { "projection": 1, "bundle": 1 },
+          "routing": { "readiness": 1, "nativeHook": 1 }
+        },
+        "statusTransitions": [
+          { "atMs": 0, "from": "idle", "to": "loading" },
+          { "atMs": 3, "from": "loading", "to": "ready" }
+        ],
+        "genericSdk": {
+          "result": {
+            "state": "ready",
+            "freshness": "fresh",
+            "registryRevision": "revision-1",
+            "skillCount": 1,
+            "aggregateByteLength": 8,
+            "scriptsEnabled": false
+          }
+        },
+        "readiness": { "result": { "state": "ready" } },
+        "nativeHook": { "proceed": true },
+        "telemetryNames": [
+          "adapter.load.started",
+          "adapter.script.ignored",
+          "adapter.load.succeeded"
+        ],
+        "renderedRecords": [
+          {
+            "position": 0,
+            "kind": "instruction",
+            "name": "Safe skill",
+            "text": "# Skill\n",
+            "byteLength": 8
+          }
+        ]
+      }
+    },
+    {
+      "name": "close-idempotent",
+      "operations": [
+        { "atMs": 0, "kind": "close" },
+        { "atMs": 1, "kind": "close" }
+      ],
+      "expected": {
+        "calls": {
+          "client": { "projection": 0, "bundle": 0 },
+          "routing": { "readiness": 1, "nativeHook": 1 }
+        },
+        "statusTransitions": [{ "atMs": 0, "from": "idle", "to": "closed" }],
+        "genericSdk": { "result": { "state": "closed", "closeCount": 1 } },
+        "readiness": {
+          "error": {
+            "code": "LEARNING_REGISTRY_CLOSED",
+            "category": "lifecycle",
+            "retryable": false,
+            "causeIdentity": "closed-1"
+          }
+        },
+        "nativeHook": { "proceed": false },
+        "telemetryNames": ["adapter.closed"],
+        "renderedRecords": []
+      }
+    },
+    {
+      "name": "readiness-ready",
+      "operations": [{ "atMs": 0, "kind": "readiness" }],
+      "expected": {
+        "calls": {
+          "client": { "projection": 0, "bundle": 0 },
+          "routing": { "readiness": 1, "nativeHook": 1 }
+        },
+        "statusTransitions": [],
+        "genericSdk": {
+          "result": {
+            "state": "ready",
+            "freshness": "fresh",
+            "registryRevision": "revision-1",
+            "skillCount": 1,
+            "aggregateByteLength": 8
+          }
+        },
+        "readiness": { "result": { "state": "ready" } },
+        "nativeHook": { "proceed": true },
+        "telemetryNames": ["adapter.readiness.ready"],
+        "renderedRecords": [
+          {
+            "position": 0,
+            "kind": "instruction",
+            "name": "Safe skill",
+            "text": "# Skill\n",
+            "byteLength": 8
+          }
+        ]
+      }
+    },
+    {
+      "name": "readiness-timeout",
+      "operations": [
+        { "atMs": 0, "kind": "readiness" },
+        { "atMs": 30000, "kind": "timeout" }
+      ],
+      "expected": {
+        "calls": {
+          "client": { "projection": 0, "bundle": 0 },
+          "routing": { "readiness": 1, "nativeHook": 1 }
+        },
+        "statusTransitions": [],
+        "genericSdk": {
+          "error": {
+            "code": "LEARNING_REGISTRY_READINESS_TIMEOUT",
+            "category": "availability",
+            "retryable": true,
+            "causeIdentity": "timeout-30000"
+          }
+        },
+        "readiness": {
+          "error": {
+            "code": "LEARNING_REGISTRY_READINESS_TIMEOUT",
+            "category": "availability",
+            "retryable": true,
+            "causeIdentity": "timeout-30000"
+          }
+        },
+        "nativeHook": { "proceed": false },
+        "telemetryNames": ["adapter.readiness.timeout"],
+        "renderedRecords": []
+      }
+    },
+    {
+      "name": "readiness-denied-rejects",
+      "operations": [{ "atMs": 0, "kind": "readiness" }],
+      "expected": {
+        "calls": {
+          "client": { "projection": 0, "bundle": 0 },
+          "routing": { "readiness": 1, "nativeHook": 1 }
+        },
+        "statusTransitions": [],
+        "genericSdk": {
+          "error": {
+            "code": "LEARNING_REGISTRY_DENIED",
+            "category": "permission",
+            "retryable": false,
+            "httpStatus": 403,
+            "causeIdentity": "denied-ready-1"
+          }
+        },
+        "readiness": {
+          "error": {
+            "code": "LEARNING_REGISTRY_DENIED",
+            "category": "permission",
+            "retryable": false,
+            "httpStatus": 403,
+            "causeIdentity": "denied-ready-1"
+          }
+        },
+        "nativeHook": { "proceed": false },
+        "telemetryNames": ["adapter.readiness.denied"],
+        "renderedRecords": []
+      }
+    },
+    {
+      "name": "readiness-stale-rejects",
+      "operations": [{ "atMs": 0, "kind": "readiness" }],
+      "expected": {
+        "calls": {
+          "client": { "projection": 0, "bundle": 0 },
+          "routing": { "readiness": 1, "nativeHook": 1 }
+        },
+        "statusTransitions": [],
+        "genericSdk": {
+          "error": {
+            "code": "LEARNING_REGISTRY_STALE",
+            "category": "availability",
+            "retryable": true,
+            "causeIdentity": "stale-ready-1"
+          }
+        },
+        "readiness": {
+          "error": {
+            "code": "LEARNING_REGISTRY_STALE",
+            "category": "availability",
+            "retryable": true,
+            "causeIdentity": "stale-ready-1"
+          }
+        },
+        "nativeHook": { "proceed": false },
+        "telemetryNames": ["adapter.readiness.stale"],
+        "renderedRecords": []
+      }
+    },
+    {
+      "name": "readiness-closed-rejects",
+      "operations": [
+        { "atMs": 0, "kind": "close" },
+        { "atMs": 1, "kind": "readiness" }
+      ],
+      "expected": {
+        "calls": {
+          "client": { "projection": 0, "bundle": 0 },
+          "routing": { "readiness": 1, "nativeHook": 1 }
+        },
+        "statusTransitions": [{ "atMs": 0, "from": "ready", "to": "closed" }],
+        "genericSdk": {
+          "error": {
+            "code": "LEARNING_REGISTRY_CLOSED",
+            "category": "lifecycle",
+            "retryable": false,
+            "causeIdentity": "closed-1"
+          }
+        },
+        "readiness": {
+          "error": {
+            "code": "LEARNING_REGISTRY_CLOSED",
+            "category": "lifecycle",
+            "retryable": false,
+            "causeIdentity": "closed-1"
+          }
+        },
+        "nativeHook": { "proceed": false },
+        "telemetryNames": ["adapter.closed", "adapter.readiness.closed"],
+        "renderedRecords": []
+      }
+    },
+    {
+      "name": "retry-after-failed-throttle-window",
+      "operations": [
+        { "atMs": 0, "kind": "throttle-start" },
+        { "atMs": 29999, "kind": "load" },
+        { "atMs": 30000, "kind": "registry-request" }
+      ],
+      "expected": {
+        "calls": {
+          "client": { "projection": 1, "bundle": 1 },
+          "routing": { "readiness": 1, "nativeHook": 1 }
+        },
+        "statusTransitions": [
+          { "atMs": 0, "from": "error", "to": "loading" },
+          { "atMs": 30000, "from": "loading", "to": "ready" }
+        ],
+        "genericSdk": {
+          "result": {
+            "state": "ready",
+            "freshness": "fresh",
+            "registryRevision": "revision-1",
+            "skillCount": 1,
+            "aggregateByteLength": 8
+          }
+        },
+        "readiness": { "result": { "state": "ready" } },
+        "nativeHook": { "proceed": true },
+        "telemetryNames": [
+          "adapter.load.throttled",
+          "adapter.retry.started",
+          "adapter.load.succeeded"
+        ],
+        "renderedRecords": [
+          {
+            "position": 0,
+            "kind": "instruction",
+            "name": "Safe skill",
+            "text": "# Skill\n",
+            "byteLength": 8
+          }
+        ]
+      }
+    },
+    {
+      "name": "load-after-close-rejects",
+      "operations": [
+        { "atMs": 0, "kind": "close" },
+        { "atMs": 1, "kind": "load" }
+      ],
+      "expected": {
+        "calls": {
+          "client": { "projection": 0, "bundle": 0 },
+          "routing": { "readiness": 1, "nativeHook": 1 }
+        },
+        "statusTransitions": [{ "atMs": 0, "from": "ready", "to": "closed" }],
+        "genericSdk": {
+          "error": {
+            "code": "LEARNING_REGISTRY_CLOSED",
+            "category": "lifecycle",
+            "retryable": false,
+            "causeIdentity": "closed-1"
+          }
+        },
+        "readiness": {
+          "error": {
+            "code": "LEARNING_REGISTRY_CLOSED",
+            "category": "lifecycle",
+            "retryable": false,
+            "causeIdentity": "closed-1"
+          }
+        },
+        "nativeHook": { "proceed": false },
+        "telemetryNames": ["adapter.closed", "adapter.load.closed"],
+        "renderedRecords": []
+      }
+    },
+    {
+      "name": "telemetry-sink-failure-singleflight",
+      "operations": [
+        { "atMs": 0, "kind": "load-caller-a", "barrier": "load-telemetry-1" },
+        { "atMs": 1, "kind": "load-caller-b", "barrier": "load-telemetry-1" },
+        { "atMs": 2, "kind": "projection-request" },
+        { "atMs": 3, "kind": "telemetry-write" }
+      ],
+      "expected": {
+        "calls": {
+          "client": { "projection": 1, "bundle": 0 },
+          "routing": { "readiness": 1, "nativeHook": 1 }
+        },
+        "statusTransitions": [
+          { "atMs": 0, "from": "idle", "to": "loading" },
+          { "atMs": 3, "from": "loading", "to": "error" }
+        ],
+        "genericSdk": {
+          "error": {
+            "code": "LEARNING_TELEMETRY_SINK_FAILED",
+            "category": "internal",
+            "retryable": false,
+            "causeIdentity": "sink-exception-1"
+          }
+        },
+        "readiness": {
+          "error": {
+            "code": "LEARNING_TELEMETRY_SINK_FAILED",
+            "category": "internal",
+            "retryable": false,
+            "causeIdentity": "sink-exception-1"
+          }
+        },
+        "nativeHook": { "proceed": false },
+        "telemetryNames": ["adapter.load.started", "adapter.load.succeeded"],
+        "renderedRecords": [],
+        "singleflight": {
+          "barrier": "load-telemetry-1",
+          "registryCalls": 1,
+          "sinkExceptionIdentity": "sink-exception-1",
+          "callers": [
+            {
+              "name": "caller-a",
+              "rejectionIdentity": "rejection-1",
+              "causeIdentity": "sink-exception-1"
+            },
+            {
+              "name": "caller-b",
+              "rejectionIdentity": "rejection-1",
+              "causeIdentity": "sink-exception-1"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "error-category-auth-denied",
+      "permanentDenialSource": "error-category-auth",
+      "operations": [
+        { "atMs": 0, "kind": "load" },
+        { "atMs": 1, "kind": "registry-error" }
+      ],
+      "expected": {
+        "calls": {
+          "client": { "projection": 1, "bundle": 0 },
+          "routing": { "readiness": 1, "nativeHook": 1 }
+        },
+        "statusTransitions": [
+          { "atMs": 0, "from": "idle", "to": "loading" },
+          { "atMs": 1, "from": "loading", "to": "denied" }
+        ],
+        "genericSdk": {
+          "error": {
+            "code": "LEARNING_REGISTRY_DENIED",
+            "category": "auth",
+            "retryable": false,
+            "causeIdentity": "error-category-auth"
+          }
+        },
+        "readiness": {
+          "error": {
+            "code": "LEARNING_REGISTRY_DENIED",
+            "category": "auth",
+            "retryable": false,
+            "causeIdentity": "error-category-auth"
+          }
+        },
+        "nativeHook": { "proceed": false },
+        "telemetryNames": ["adapter.load.denied"],
+        "renderedRecords": []
+      }
+    },
+    {
+      "name": "error-category-permission-denied",
+      "permanentDenialSource": "error-category-permission",
+      "operations": [
+        { "atMs": 0, "kind": "load" },
+        { "atMs": 1, "kind": "registry-error" }
+      ],
+      "expected": {
+        "calls": {
+          "client": { "projection": 1, "bundle": 0 },
+          "routing": { "readiness": 1, "nativeHook": 1 }
+        },
+        "statusTransitions": [
+          { "atMs": 0, "from": "idle", "to": "loading" },
+          { "atMs": 1, "from": "loading", "to": "denied" }
+        ],
+        "genericSdk": {
+          "error": {
+            "code": "LEARNING_REGISTRY_DENIED",
+            "category": "permission",
+            "retryable": false,
+            "causeIdentity": "error-category-permission"
+          }
+        },
+        "readiness": {
+          "error": {
+            "code": "LEARNING_REGISTRY_DENIED",
+            "category": "permission",
+            "retryable": false,
+            "causeIdentity": "error-category-permission"
+          }
+        },
+        "nativeHook": { "proceed": false },
+        "telemetryNames": ["adapter.load.denied"],
+        "renderedRecords": []
+      }
+    },
+    {
+      "name": "http-401-denied",
+      "permanentDenialSource": "http-401",
+      "operations": [
+        { "atMs": 0, "kind": "load" },
+        { "atMs": 1, "kind": "http-response", "status": 401 }
+      ],
+      "expected": {
+        "calls": {
+          "client": { "projection": 1, "bundle": 0 },
+          "routing": { "readiness": 1, "nativeHook": 1 }
+        },
+        "statusTransitions": [
+          { "atMs": 0, "from": "idle", "to": "loading" },
+          { "atMs": 1, "from": "loading", "to": "denied" }
+        ],
+        "genericSdk": {
+          "error": {
+            "code": "LEARNING_REGISTRY_DENIED",
+            "category": "auth",
+            "retryable": false,
+            "httpStatus": 401,
+            "causeIdentity": "http-401"
+          }
+        },
+        "readiness": {
+          "error": {
+            "code": "LEARNING_REGISTRY_DENIED",
+            "category": "auth",
+            "retryable": false,
+            "httpStatus": 401,
+            "causeIdentity": "http-401"
+          }
+        },
+        "nativeHook": { "proceed": false },
+        "telemetryNames": ["adapter.load.denied"],
+        "renderedRecords": []
+      }
+    },
+    {
+      "name": "http-403-denied",
+      "permanentDenialSource": "http-403",
+      "operations": [
+        { "atMs": 0, "kind": "load" },
+        { "atMs": 1, "kind": "http-response", "status": 403 }
+      ],
+      "expected": {
+        "calls": {
+          "client": { "projection": 1, "bundle": 0 },
+          "routing": { "readiness": 1, "nativeHook": 1 }
+        },
+        "statusTransitions": [
+          { "atMs": 0, "from": "idle", "to": "loading" },
+          { "atMs": 1, "from": "loading", "to": "denied" }
+        ],
+        "genericSdk": {
+          "error": {
+            "code": "LEARNING_REGISTRY_DENIED",
+            "category": "permission",
+            "retryable": false,
+            "httpStatus": 403,
+            "causeIdentity": "http-403"
+          }
+        },
+        "readiness": {
+          "error": {
+            "code": "LEARNING_REGISTRY_DENIED",
+            "category": "permission",
+            "retryable": false,
+            "httpStatus": 403,
+            "causeIdentity": "http-403"
+          }
+        },
+        "nativeHook": { "proceed": false },
+        "telemetryNames": ["adapter.load.denied"],
+        "renderedRecords": []
+      }
+    },
+    {
+      "name": "http-404-denied",
+      "permanentDenialSource": "http-404",
+      "operations": [
+        { "atMs": 0, "kind": "load" },
+        { "atMs": 1, "kind": "http-response", "status": 404 }
+      ],
+      "expected": {
+        "calls": {
+          "client": { "projection": 1, "bundle": 0 },
+          "routing": { "readiness": 1, "nativeHook": 1 }
+        },
+        "statusTransitions": [
+          { "atMs": 0, "from": "idle", "to": "loading" },
+          { "atMs": 1, "from": "loading", "to": "denied" }
+        ],
+        "genericSdk": {
+          "error": {
+            "code": "LEARNING_REGISTRY_DENIED",
+            "category": "not_found",
+            "retryable": false,
+            "httpStatus": 404,
+            "causeIdentity": "http-404"
+          }
+        },
+        "readiness": {
+          "error": {
+            "code": "LEARNING_REGISTRY_DENIED",
+            "category": "not_found",
+            "retryable": false,
+            "httpStatus": 404,
+            "causeIdentity": "http-404"
+          }
+        },
+        "nativeHook": { "proceed": false },
+        "telemetryNames": ["adapter.load.denied"],
+        "renderedRecords": []
+      }
+    },
+    {
+      "name": "http-410-denied",
+      "permanentDenialSource": "http-410",
+      "operations": [
+        { "atMs": 0, "kind": "load" },
+        { "atMs": 1, "kind": "http-response", "status": 410 }
+      ],
+      "expected": {
+        "calls": {
+          "client": { "projection": 1, "bundle": 0 },
+          "routing": { "readiness": 1, "nativeHook": 1 }
+        },
+        "statusTransitions": [
+          { "atMs": 0, "from": "idle", "to": "loading" },
+          { "atMs": 1, "from": "loading", "to": "denied" }
+        ],
+        "genericSdk": {
+          "error": {
+            "code": "LEARNING_REGISTRY_DENIED",
+            "category": "permission",
+            "retryable": false,
+            "httpStatus": 410,
+            "causeIdentity": "http-410"
+          }
+        },
+        "readiness": {
+          "error": {
+            "code": "LEARNING_REGISTRY_DENIED",
+            "category": "permission",
+            "retryable": false,
+            "httpStatus": 410,
+            "causeIdentity": "http-410"
+          }
+        },
+        "nativeHook": { "proceed": false },
+        "telemetryNames": ["adapter.load.denied"],
+        "renderedRecords": []
+      }
+    },
+    {
+      "name": "container-archived-denied",
+      "permanentDenialSource": "container-archived",
+      "operations": [
+        { "atMs": 0, "kind": "load" },
+        { "atMs": 1, "kind": "canonical-error" }
+      ],
+      "expected": {
+        "calls": {
+          "client": { "projection": 1, "bundle": 0 },
+          "routing": { "readiness": 1, "nativeHook": 1 }
+        },
+        "statusTransitions": [
+          { "atMs": 0, "from": "idle", "to": "loading" },
+          { "atMs": 1, "from": "loading", "to": "denied" }
+        ],
+        "genericSdk": {
+          "error": {
+            "code": "LEARNING_CONTAINER_ARCHIVED",
+            "category": "conflict",
+            "retryable": false,
+            "httpStatus": 409,
+            "causeIdentity": "container-archived"
+          }
+        },
+        "readiness": {
+          "error": {
+            "code": "LEARNING_CONTAINER_ARCHIVED",
+            "category": "conflict",
+            "retryable": false,
+            "httpStatus": 409,
+            "causeIdentity": "container-archived"
+          }
+        },
+        "nativeHook": { "proceed": false },
+        "telemetryNames": ["adapter.load.denied"],
+        "renderedRecords": []
+      }
+    },
+    {
+      "name": "project-mismatch-denied",
+      "permanentDenialSource": "project-mismatch",
+      "operations": [
+        { "atMs": 0, "kind": "load" },
+        { "atMs": 1, "kind": "canonical-error" }
+      ],
+      "expected": {
+        "calls": {
+          "client": { "projection": 1, "bundle": 0 },
+          "routing": { "readiness": 1, "nativeHook": 1 }
+        },
+        "statusTransitions": [
+          { "atMs": 0, "from": "idle", "to": "loading" },
+          { "atMs": 1, "from": "loading", "to": "denied" }
+        ],
+        "genericSdk": {
+          "error": {
+            "code": "LEARNING_CONTAINER_PROJECT_MISMATCH",
+            "category": "permission",
+            "retryable": false,
+            "httpStatus": 403,
+            "causeIdentity": "project-mismatch"
+          }
+        },
+        "readiness": {
+          "error": {
+            "code": "LEARNING_CONTAINER_PROJECT_MISMATCH",
+            "category": "permission",
+            "retryable": false,
+            "httpStatus": 403,
+            "causeIdentity": "project-mismatch"
+          }
+        },
+        "nativeHook": { "proceed": false },
+        "telemetryNames": ["adapter.load.denied"],
+        "renderedRecords": []
+      }
+    },
+    {
+      "name": "container-not-found-denied",
+      "permanentDenialSource": "container-not-found",
+      "operations": [
+        { "atMs": 0, "kind": "load" },
+        { "atMs": 1, "kind": "canonical-error" }
+      ],
+      "expected": {
+        "calls": {
+          "client": { "projection": 1, "bundle": 0 },
+          "routing": { "readiness": 1, "nativeHook": 1 }
+        },
+        "statusTransitions": [
+          { "atMs": 0, "from": "idle", "to": "loading" },
+          { "atMs": 1, "from": "loading", "to": "denied" }
+        ],
+        "genericSdk": {
+          "error": {
+            "code": "LEARNING_CONTAINER_NOT_FOUND",
+            "category": "not_found",
+            "retryable": false,
+            "httpStatus": 404,
+            "causeIdentity": "container-not-found"
+          }
+        },
+        "readiness": {
+          "error": {
+            "code": "LEARNING_CONTAINER_NOT_FOUND",
+            "category": "not_found",
+            "retryable": false,
+            "httpStatus": 404,
+            "causeIdentity": "container-not-found"
+          }
+        },
+        "nativeHook": { "proceed": false },
+        "telemetryNames": ["adapter.load.denied"],
+        "renderedRecords": []
+      }
+    },
+    {
+      "name": "registry-unrecoverable-denied",
+      "permanentDenialSource": "registry-unrecoverable",
+      "operations": [
+        { "atMs": 0, "kind": "load" },
+        { "atMs": 1, "kind": "canonical-error" }
+      ],
+      "expected": {
+        "calls": {
+          "client": { "projection": 1, "bundle": 0 },
+          "routing": { "readiness": 1, "nativeHook": 1 }
+        },
+        "statusTransitions": [
+          { "atMs": 0, "from": "idle", "to": "loading" },
+          { "atMs": 1, "from": "loading", "to": "denied" }
+        ],
+        "genericSdk": {
+          "error": {
+            "code": "LEARNING_REGISTRY_UNRECOVERABLE",
+            "category": "internal",
+            "retryable": false,
+            "httpStatus": 500,
+            "causeIdentity": "registry-unrecoverable"
+          }
+        },
+        "readiness": {
+          "error": {
+            "code": "LEARNING_REGISTRY_UNRECOVERABLE",
+            "category": "internal",
+            "retryable": false,
+            "httpStatus": 500,
+            "causeIdentity": "registry-unrecoverable"
+          }
+        },
+        "nativeHook": { "proceed": false },
+        "telemetryNames": ["adapter.load.denied"],
+        "renderedRecords": []
+      }
+    }
+  ]
+}
