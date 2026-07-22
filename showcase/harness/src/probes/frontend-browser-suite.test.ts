@@ -7,6 +7,7 @@ import {
   browserProjectById,
   classifyBrowserError,
   createFrontendBrowserArtifact,
+  ensureReducedMotion,
   runAxe,
   waitForFocusWithin,
 } from "./frontend-browser-suite.js";
@@ -21,6 +22,7 @@ describe("Angular reusable UI browser suite contract", () => {
     ["mobile popup is not full-screen", "popup-responsive"],
     ["desktop popup unexpectedly fills the viewport", "popup-responsive"],
     ["reduced-motion popup still animates", "reduced-motion"],
+    ["reduced-motion preference is unavailable", "reduced-motion"],
     ["customer prompt must never persist", "unclassified"],
   ] as const)(
     "classifies browser failures without retaining %s",
@@ -85,6 +87,29 @@ describe("Angular reusable UI browser suite contract", () => {
 
     expect(waitForFunction).toHaveBeenCalledWith(
       expect.stringContaining('[role=\\"dialog\\"]'),
+    );
+  });
+
+  it("sets and verifies the reduced-motion precondition on the tested page", async () => {
+    const emulateMedia = vi.fn().mockResolvedValue(undefined);
+    const evaluate = vi.fn().mockResolvedValue(true);
+
+    await ensureReducedMotion({ emulateMedia, evaluate } as never);
+
+    expect(emulateMedia).toHaveBeenCalledWith({ reducedMotion: "reduce" });
+    expect(evaluate).toHaveBeenCalledWith(
+      'matchMedia("(prefers-reduced-motion: reduce)").matches',
+    );
+  });
+
+  it("fails closed when reduced-motion emulation is unavailable", async () => {
+    const page = {
+      emulateMedia: vi.fn().mockResolvedValue(undefined),
+      evaluate: vi.fn().mockResolvedValue(false),
+    };
+
+    await expect(ensureReducedMotion(page as never)).rejects.toThrow(
+      /reduced-motion preference is unavailable/i,
     );
   });
 

@@ -118,7 +118,11 @@ export function classifyBrowserError(value: string): BrowserErrorKind {
   ) {
     return "popup-responsive";
   }
-  if (/reduced-motion popup still animates/i.test(value)) {
+  if (
+    /reduced-motion (?:popup still animates|preference is unavailable)/i.test(
+      value,
+    )
+  ) {
     return "reduced-motion";
   }
   return "unclassified";
@@ -262,6 +266,15 @@ export async function waitForFocusWithin(
   );
 }
 
+/** Apply and verify the media precondition used by motion assertions. */
+export async function ensureReducedMotion(page: Page): Promise<void> {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const reduced = await page.evaluate(
+    'matchMedia("(prefers-reduced-motion: reduce)").matches',
+  );
+  if (!reduced) throw new Error("reduced-motion preference is unavailable");
+}
+
 async function diagnoseSurface(
   page: Page,
   errorCounts: {
@@ -332,6 +345,7 @@ async function assertPopup(
   } else if (box.width >= viewport.width || box.height >= viewport.height) {
     throw new Error("desktop popup unexpectedly fills the viewport");
   }
+  await ensureReducedMotion(page);
   const animationName = await dialog.evaluate(
     "element => getComputedStyle(element).animationName",
   );
