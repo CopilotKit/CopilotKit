@@ -148,6 +148,8 @@ class SkillRegistry:
         self._condition = asyncio.Condition(self._lock)
         self._inflight: asyncio.Task[RegistrySnapshot] | None = None
         self._joined_callers = 1
+        self._accepting_joins = False
+        self._join_telemetry_tasks: list[asyncio.Task[None]] = []
         self._snapshot = RegistrySnapshot(
             status="cold",
             source="none",
@@ -233,7 +235,6 @@ class SkillRegistry:
     async def _start_or_join(
         self, *, cached: bool, force: bool, source: str
     ) -> RegistrySnapshot:
-        joined = False
         throttled: RegistrySnapshot | None = None
         async with self._lock:
             current = self._snapshot
@@ -242,10 +243,26 @@ class SkillRegistry:
             if current.status == "denied":
                 assert current.error is not None
                 raise current.error
-            if self._inflight is not None and not self._inflight.done():
+            if (
+                self._inflight is not None
+                and not self._inflight.done()
+                and self._accepting_joins
+            ):
                 task = self._inflight
                 self._joined_callers += 1
-                joined = True
+                self._join_telemetry_tasks.append(
+                    asyncio.create_task(
+                        self._emit(
+                            "load.singleflight_joined",
+                            joinedCallers=self._joined_callers,
+                        )
+                    )
+                )
+            elif self._inflight is not None and not self._inflight.done():
+                # The shared task is completing and has atomically closed its
+                # join-telemetry gate. A tail waiter can still share its exact
+                # result without creating an event that the task cannot drain.
+                task = self._inflight
             elif (
                 not force
                 and current.last_attempt_at is not None
@@ -255,6 +272,8 @@ class SkillRegistry:
                 throttled = current
             else:
                 self._joined_callers = 1
+                self._accepting_joins = True
+                self._join_telemetry_tasks = []
                 task = asyncio.create_task(
                     self._perform_load(cached=cached, requested_source=source)
                 )
@@ -263,14 +282,14 @@ class SkillRegistry:
         if throttled is not None:
             await self._emit(
                 "load.throttled",
-                source=self._telemetry_source(source, throttled.status),
+                source=(
+                    "refresh"
+                    if source == "load" and throttled.status == "stale"
+                    else source
+                ),
             )
             return self._usable_snapshot(throttled)
         assert task is not None
-        if joined:
-            await self._emit(
-                "load.singleflight_joined", joinedCallers=self._joined_callers
-            )
         try:
             return await asyncio.shield(task)
         finally:
@@ -306,6 +325,7 @@ class SkillRegistry:
                 maximum_skill_bytes=self._maximum_skill_bytes,
                 maximum_context_bytes=self._maximum_context_bytes,
             )
+            await self._drain_join_telemetry()
             finished = self._clock()
             result = RegistrySnapshot(
                 status="revoked" if skill_set.revoked else "ready",
@@ -322,7 +342,11 @@ class SkillRegistry:
                 if not closed:
                     self._snapshot = result
                 self._condition.notify_all()
+            if closed:
+                return result
             await self._emit("status.changed", status=result.status)
+            if self._snapshot.status == "closed":
+                return result
             await self._emit(
                 "load.succeeded",
                 outcome="success",
@@ -335,16 +359,33 @@ class SkillRegistry:
         except BaseException as error:
             if isinstance(error, asyncio.CancelledError):
                 raise
+            try:
+                await self._drain_join_telemetry()
+            except BaseException as telemetry_error:
+                if isinstance(telemetry_error, asyncio.CancelledError):
+                    raise
+                error = telemetry_error
             failure, status = self._classify_failure(error)
-            await self._publish_failure(prior, started, failure, status)
+            published = await self._publish_failure(prior, started, failure, status)
+            if not published:
+                raise failure
             try:
                 await self._emit("status.changed", status=status)
-                await self._emit(
-                    "load.failed",
-                    outcome="failure",
-                    reason=("denied" if status == "denied" else "transient"),
-                    **_error_metadata(failure),
-                )
+                if self._snapshot.status != "closed":
+                    await self._emit(
+                        "load.failed",
+                        outcome="failure",
+                        reason=(
+                            "denied"
+                            if status == "denied"
+                            else (
+                                "integrity"
+                                if getattr(failure, "category", None) == "integrity"
+                                else "transient"
+                            )
+                        ),
+                        **_error_metadata(failure),
+                    )
             except BaseException as telemetry_error:
                 failure = self._telemetry_failure(telemetry_error)
                 await self._publish_failure(prior, started, failure, "denied")
@@ -356,11 +397,11 @@ class SkillRegistry:
         started: float,
         failure: BaseException,
         status: Literal["stale", "denied"],
-    ) -> None:
+    ) -> bool:
         async with self._condition:
             if self._snapshot.status == "closed":
                 self._condition.notify_all()
-                return
+                return False
             if status == "denied":
                 self._snapshot = RegistrySnapshot(
                     status="denied",
@@ -380,6 +421,22 @@ class SkillRegistry:
                     error=failure,
                 )
             self._condition.notify_all()
+            return True
+
+    async def _drain_join_telemetry(self) -> None:
+        """Fold every accepted join event into the shared operation result."""
+
+        while True:
+            async with self._lock:
+                tasks = tuple(self._join_telemetry_tasks)
+                self._join_telemetry_tasks.clear()
+                if not tasks:
+                    self._accepting_joins = False
+                    return
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            for result in results:
+                if isinstance(result, BaseException):
+                    raise result
 
     def _classify_failure(
         self, error: BaseException

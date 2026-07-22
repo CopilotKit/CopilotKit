@@ -161,6 +161,116 @@ async def test_joined_callers_share_telemetry_sink_failure(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_join_event_sink_failure_fails_every_joined_caller_without_leaks(
+    tmp_path,
+) -> None:
+    from copilotkit_intelligence_adk import SkillRegistry
+
+    sink_error = RuntimeError("join telemetry failed")
+    pending = asyncio.get_running_loop().create_future()
+    skills = FakeSkillsClient()
+    skills.get_outcomes.append(pending)
+    leaked: list[dict[str, object]] = []
+    loop = asyncio.get_running_loop()
+    previous_handler = loop.get_exception_handler()
+    loop.set_exception_handler(lambda _loop, context: leaked.append(context))
+
+    def telemetry(name: str, metadata: dict[str, object]) -> None:
+        del metadata
+        if name == "load.singleflight_joined":
+            raise sink_error
+
+    try:
+        registry = SkillRegistry(client(skills), CONTAINER_ID, telemetry=telemetry)
+        first = asyncio.create_task(registry.load())
+        while not skills.get_calls:
+            await asyncio.sleep(0)
+        second = asyncio.create_task(registry.load())
+        await asyncio.sleep(0)
+        pending.set_result(skill_set(tmp_path))
+        results = await asyncio.gather(first, second, return_exceptions=True)
+        await asyncio.sleep(0)
+    finally:
+        loop.set_exception_handler(previous_handler)
+
+    assert results[0] is results[1]
+    assert results[0].code == "LEARNING_TELEMETRY_SINK_FAILED"
+    assert results[0].__cause__ is sink_error
+    assert registry.status == "denied"
+    assert len(skills.get_calls) == 1
+    assert leaked == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("outcome", ["success", "failure"])
+async def test_close_dominates_inflight_completion_state_and_telemetry(
+    tmp_path, outcome: str
+) -> None:
+    from copilotkit_intelligence_adk import SkillRegistry
+
+    events: list[tuple[str, str | None]] = []
+    pending = asyncio.get_running_loop().create_future()
+    skills = FakeSkillsClient()
+    skills.get_outcomes.append(pending)
+    registry = SkillRegistry(
+        client(skills),
+        CONTAINER_ID,
+        telemetry=lambda name, metadata: events.append((name, metadata.get("status"))),
+    )
+    load = asyncio.create_task(registry.load())
+    while not skills.get_calls:
+        await asyncio.sleep(0)
+    await registry.aclose()
+    if outcome == "success":
+        pending.set_result(skill_set(tmp_path))
+        assert (await load).status == "ready"
+    else:
+        pending.set_exception(IntelligenceUnavailableError("offline"))
+        with pytest.raises(Exception) as failure:
+            await load
+        assert failure.value.code == "LEARNING_REGISTRY_STALE"
+
+    assert registry.status == "closed"
+    assert events == [
+        ("load.started", None),
+        ("status.changed", "closed"),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_close_during_async_ready_telemetry_suppresses_later_success_event(
+    tmp_path,
+) -> None:
+    from copilotkit_intelligence_adk import SkillRegistry
+
+    ready_event_started = asyncio.Event()
+    release_ready_event = asyncio.Event()
+    events: list[tuple[str, str | None]] = []
+
+    async def telemetry(name: str, metadata: dict[str, object]) -> None:
+        events.append((name, metadata.get("status")))
+        if name == "status.changed" and metadata.get("status") == "ready":
+            ready_event_started.set()
+            await release_ready_event.wait()
+
+    skills = FakeSkillsClient()
+    skills.get_outcomes.append(skill_set(tmp_path))
+    registry = SkillRegistry(client(skills), CONTAINER_ID, telemetry=telemetry)
+    load = asyncio.create_task(registry.load())
+    await ready_event_started.wait()
+    await registry.aclose()
+    release_ready_event.set()
+
+    assert (await load).status == "ready"
+    assert registry.status == "closed"
+    assert events == [
+        ("load.started", None),
+        ("status.changed", "ready"),
+        ("status.changed", "closed"),
+    ]
+
+
+@pytest.mark.asyncio
 async def test_fresh_cached_revoked_and_empty_snapshots(tmp_path) -> None:
     from copilotkit_intelligence_adk import SkillRegistry
 
