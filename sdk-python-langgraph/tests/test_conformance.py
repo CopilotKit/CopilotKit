@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from copy import deepcopy
 import json
 from pathlib import Path
 from typing import Any
@@ -32,6 +33,9 @@ CORPUS_PATH = (
 )
 CORPUS = json.loads(CORPUS_PATH.read_text(encoding="utf-8"))
 CASES = CORPUS["cases"]
+PERMANENT_DENIAL_CASES = tuple(
+    case for case in CASES if "permanentDenialSource" in case
+)
 CONSUMED_CONTRACT_FIELDS = (
     "cases",
     "contractVersion",
@@ -252,7 +256,9 @@ def _assert_permanent_denial_source(
     if source is None:
         return
 
-    assert case["initialSnapshot"]["status"] == "cold"
+    initial = case["initialSnapshot"]
+    assert initial["status"] == "cold"
+    assert "error" not in initial
     expected_error = case["expected"]["genericSdk"]["error"]
     assert len(outcomes) == 1
     outcome = outcomes[0]
@@ -260,6 +266,45 @@ def _assert_permanent_denial_source(
     assert source == expected_error["causeIdentity"] == outcome.cause_identity
     assert expected_error["retryable"] is False
     assert case["expected"]["statusTransitions"][-1]["to"] == "denied"
+
+    terminal = case["operations"][-1]
+    if source.startswith("error-category-"):
+        category = source.removeprefix("error-category-")
+        assert terminal["kind"] == "registry-error"
+        assert category == expected_error["category"] == outcome.category
+    elif source.startswith("http-"):
+        status = int(source.removeprefix("http-"))
+        assert terminal["kind"] == "http-response"
+        assert status == terminal["status"] == expected_error["httpStatus"]
+        assert outcome.status == status
+    else:
+        code_suffix = source.upper().replace("-", "_")
+        assert terminal["kind"] == "canonical-error"
+        assert expected_error["code"] == outcome.code
+        assert expected_error["code"].endswith(code_suffix)
+
+
+@pytest.mark.parametrize(
+    "case",
+    PERMANENT_DENIAL_CASES,
+    ids=[case["permanentDenialSource"] for case in PERMANENT_DENIAL_CASES],
+)
+def test_permanent_denial_source_rejects_mismatched_source_mapping(
+    case: dict[str, Any], tmp_path: Path
+) -> None:
+    mutated = deepcopy(case)
+    source = mutated["permanentDenialSource"]
+    terminal = mutated["operations"][-1]
+    if source.startswith("error-category-"):
+        terminal["kind"] = "canonical-error"
+    elif source.startswith("http-"):
+        terminal["status"] = 418
+    else:
+        mutated["expected"]["genericSdk"]["error"]["code"] = "LEARNING_REGISTRY_DENIED"
+
+    outcomes = _operation_outcomes(mutated, tmp_path)
+    with pytest.raises(AssertionError):
+        _assert_permanent_denial_source(mutated, outcomes)
 
 
 async def _pump() -> None:
