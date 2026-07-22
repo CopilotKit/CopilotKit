@@ -118,6 +118,39 @@ class IntelligenceSkill:
 
 
 @dataclass(frozen=True)
+class IntelligenceSkillFileDescriptor:
+    """One fully verified file in a skill artifact manifest."""
+
+    path: str
+    role: str
+    media_type: str
+    byte_length: int
+    raw_sha256: str
+
+
+@dataclass(frozen=True)
+class IntelligenceSkillManifestDescriptor:
+    """The immutable verified manifest projection for one skill."""
+
+    agent_skills_profile: str
+    manifest_sha256: str
+    files: tuple[IntelligenceSkillFileDescriptor, ...]
+
+
+@dataclass(frozen=True)
+class IntelligenceSkillDescriptor:
+    """An immutable framework-facing view of one verified installed skill."""
+
+    skill_id: str
+    version_id: str
+    position: int
+    name: str
+    description: str | None
+    directory: Path
+    manifest: IntelligenceSkillManifestDescriptor
+
+
+@dataclass(frozen=True)
 class IntelligenceSkillSet:
     """A completely verified skill set."""
 
@@ -128,6 +161,7 @@ class IntelligenceSkillSet:
     path: Path
     freshness: str
     revoked: bool
+    skill_descriptors: tuple[IntelligenceSkillDescriptor, ...] = ()
 
 
 Transport = Callable[[IntelligenceRequest], IntelligenceResponse]
@@ -1018,6 +1052,7 @@ class _Skills:
         registry_revision: str | None = None,
     ) -> IntelligenceSkillSet:
         manifest = self._verify_set(path)
+        projected_entries = manifest["projection"]["entries"]
         skills = tuple(
             IntelligenceSkill(
                 skill_id=entry["skillId"],
@@ -1030,6 +1065,38 @@ class _Skills:
             )
             for entry in manifest["entries"]
         )
+        skill_descriptors = tuple(
+            IntelligenceSkillDescriptor(
+                skill_id=entry["skillId"],
+                version_id=entry["versionId"],
+                position=entry["position"],
+                name=projected["name"],
+                description=projected["description"],
+                directory=(
+                    path
+                    / "skills"
+                    / f"{entry['position']:06d}-{entry['skillId']}"
+                    / entry["root"]
+                ).resolve(strict=True),
+                manifest=IntelligenceSkillManifestDescriptor(
+                    agent_skills_profile=entry["manifest"]["agentSkillsProfile"],
+                    manifest_sha256=entry["manifest"]["manifestSha256"],
+                    files=tuple(
+                        IntelligenceSkillFileDescriptor(
+                            path=file["path"],
+                            role=file["role"],
+                            media_type=file["mediaType"],
+                            byte_length=file["byteLength"],
+                            raw_sha256=file["rawSha256"],
+                        )
+                        for file in entry["manifest"]["files"]
+                    ),
+                ),
+            )
+            for entry, projected in zip(
+                manifest["entries"], projected_entries, strict=True
+            )
+        )
         return IntelligenceSkillSet(
             learning_container_id=manifest["learningContainerId"],
             registry_revision=registry_revision or manifest["registryRevision"],
@@ -1038,6 +1105,7 @@ class _Skills:
             path=path,
             freshness=freshness,
             revoked=bool(manifest.get("revoked", False)),
+            skill_descriptors=skill_descriptors,
         )
 
     def _read_current(self, container: str, freshness: str) -> IntelligenceSkillSet:
@@ -1145,6 +1213,9 @@ __all__ = [
     "IntelligenceRequest",
     "IntelligenceResponse",
     "IntelligenceSkill",
+    "IntelligenceSkillDescriptor",
+    "IntelligenceSkillFileDescriptor",
+    "IntelligenceSkillManifestDescriptor",
     "IntelligenceSkillSet",
     "IntelligenceUnavailableError",
 ]
