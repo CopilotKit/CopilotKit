@@ -351,7 +351,7 @@ describe("injectAgentStore", () => {
     );
   });
 
-  it("preserves provisional run updates when runtime sync publishes the registered agent", () => {
+  it("preserves provisional run updates when runtime sync publishes the registered agent", async () => {
     copilotKitStub.setAgents({});
     copilotKitStub.setRuntimeUrl("https://runtime.local");
     copilotKitStub.setRuntimeConnectionStatus(
@@ -386,8 +386,51 @@ describe("injectAgentStore", () => {
     provisionalAgent.setState({
       steps: [{ id: "launch", status: "completed" }],
     });
+    await fixture.whenStable();
 
-    expect(fixture.componentInstance.store().state()).toEqual({
+    await vi.waitFor(() => {
+      expect(fixture.componentInstance.store().state()).toEqual({
+        steps: [{ id: "launch", status: "completed" }],
+      });
+    });
+  });
+
+  it("mirrors registered updates to consumers still bound to the provisional agent", () => {
+    copilotKitStub.setAgents({});
+    copilotKitStub.setRuntimeUrl("https://runtime.local");
+    copilotKitStub.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Connecting,
+    );
+
+    @Component({
+      standalone: true,
+      template: "",
+    })
+    class ParallelHandoffHost {
+      firstStore = injectAgentStore("shared-agent");
+      secondStore = injectAgentStore("shared-agent");
+    }
+
+    const fixture = TestBed.createComponent(ParallelHandoffHost);
+    fixture.detectChanges();
+
+    const firstStore = fixture.componentInstance.firstStore();
+    const staleStore = fixture.componentInstance.secondStore();
+    expect(staleStore.agent).toBe(firstStore.agent);
+
+    const registeredAgent = new MockAgent("shared-agent");
+    copilotKitStub.setAgents({ "shared-agent": registeredAgent });
+    copilotKitStub.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+
+    expect(fixture.componentInstance.firstStore().agent).toBe(registeredAgent);
+
+    registeredAgent.emitState({
+      steps: [{ id: "launch", status: "completed" }],
+    });
+
+    expect(staleStore.state()).toEqual({
       steps: [{ id: "launch", status: "completed" }],
     });
   });
