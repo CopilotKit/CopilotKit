@@ -522,7 +522,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                 {
                     name: "step_progress_tool",
                     description: "Reports the current steps being executed",
-                    schema: z.object({ steps: z.array(z.string()) }),
+                    schema: z.object({ observed_steps: z.array(z.string()) }),
                 }
             );
 
