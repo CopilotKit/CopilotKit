@@ -81,6 +81,12 @@ def test_conformance_runner_consumes_every_declared_contract_field() -> None:
         'expected["statusTransitions"]',
         'expected["telemetryNames"]',
         'expected["telemetryRecords"]',
+        'expected["singleflight"]',
+        '"sinkExceptionIdentity"',
+        '"rejectionIdentity"',
+        '"causeIdentity"',
+        "assert actual == expected",
+        "_observe_error",
     )
 
     assert all(field in source for field in required_fields)

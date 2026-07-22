@@ -64,6 +64,9 @@ skill count, Registry revision, and canonical error code/category/retryability,
 request ID, and trace ID. Tokens, container IDs, paths, and instruction content
 are forbidden. A telemetry sink exception is propagated explicitly; every
 caller joined to that load receives the same adapter failure instance.
+Failures from the `load.singleflight_joined` event are folded into the shared
+operation before publication, so both initiating and joining callers see that
+same terminal error identity.
 
 ## Errors
 
@@ -80,6 +83,8 @@ snapshot refuses the native model handler.
 `await middleware.aclose()` is idempotent and changes status to `closed`.
 Closing does not cancel an already running native invocation, but every future
 fresh, cached, or request-time load rejects with `LEARNING_REGISTRY_CLOSED`.
+An in-flight load may finish for its existing caller, but close suppresses every
+later ready/stale/denied transition and success/failure telemetry emission.
 
 ## Compatibility
 

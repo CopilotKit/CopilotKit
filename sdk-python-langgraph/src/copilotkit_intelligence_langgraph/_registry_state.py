@@ -75,6 +75,7 @@ class AdapterError(RuntimeError):
         status: int | None = None,
         request_id: str | None = None,
         trace_id: str | None = None,
+        cause_identity: str | None = None,
     ) -> None:
         super().__init__(message)
         self.code = code
@@ -83,6 +84,7 @@ class AdapterError(RuntimeError):
         self.status = status
         self.request_id = request_id
         self.trace_id = trace_id
+        self.cause_identity = cause_identity
 
 
 @dataclass(frozen=True)
@@ -133,8 +135,15 @@ def _adapter_error(
     category: str,
     retryable: bool = False,
     cause: BaseException | None = None,
+    cause_identity: str | None = None,
 ) -> AdapterError:
-    error = AdapterError(message, code=code, category=category, retryable=retryable)
+    error = AdapterError(
+        message,
+        code=code,
+        category=category,
+        retryable=retryable,
+        cause_identity=cause_identity,
+    )
     if cause is not None:
         error.__cause__ = cause
     return error
@@ -145,13 +154,19 @@ def _closed_error() -> AdapterError:
         "The skill registry is closed",
         code="LEARNING_REGISTRY_CLOSED",
         category="lifecycle",
+        cause_identity="closed-1",
     )
 
 
 def _validation_error(
-    message: str, code: str, category: str = "validation"
+    message: str,
+    code: str,
+    category: str = "validation",
+    cause_identity: str | None = None,
 ) -> AdapterError:
-    return _adapter_error(message, code=code, category=category)
+    return _adapter_error(
+        message, code=code, category=category, cause_identity=cause_identity
+    )
 
 
 def _contains_disabled_script(descriptor: Any) -> bool:
@@ -196,16 +211,19 @@ def render_verified_skills(
         raise _validation_error(
             "The generic SDK did not provide verified skill descriptors",
             "INTELLIGENCE_ADAPTER_UNSUPPORTED_SDK_PROJECTION",
+            cause_identity="unsupported-sdk-projection-1",
         )
     if len(descriptors) > maximum_skills:
         raise _validation_error(
             "The verified Registry set exceeds the adapter skill limit",
             "INTELLIGENCE_ADAPTER_TOO_MANY_SKILLS",
+            cause_identity=f"count-{len(descriptors)}",
         )
     if any(_contains_disabled_script(descriptor) for descriptor in descriptors):
         raise _validation_error(
             "Executable skill artifacts are disabled by this adapter",
             "INTELLIGENCE_ADAPTER_SCRIPT_DISABLED",
+            cause_identity="script-disabled-1",
         )
 
     rendered: list[RenderedSkill] = []
@@ -215,6 +233,7 @@ def render_verified_skills(
             raise _validation_error(
                 "Verified skill descriptor order is not contiguous",
                 "INTELLIGENCE_ADAPTER_UNSUPPORTED_SDK_PROJECTION",
+                cause_identity="unsupported-sdk-projection-1",
             )
         try:
             contents = (descriptor.directory / "SKILL.md").read_bytes()
@@ -223,18 +242,21 @@ def render_verified_skills(
                 "A verified SKILL.md file could not be read",
                 "INTELLIGENCE_ADAPTER_INVALID_UTF8",
                 "integrity",
+                cause_identity="utf8-1",
             )
             raise failure from error
         if len(contents) > maximum_skill_bytes:
             raise _validation_error(
                 "A verified SKILL.md exceeds the adapter byte limit",
                 "INTELLIGENCE_ADAPTER_SKILL_TOO_LARGE",
+                cause_identity=f"bytes-{len(contents)}",
             )
         aggregate += len(contents)
         if aggregate > maximum_context_bytes:
             raise _validation_error(
                 "The rendered skill set exceeds the adapter context limit",
                 "INTELLIGENCE_ADAPTER_CONTEXT_TOO_LARGE",
+                cause_identity=f"bytes-{aggregate}",
             )
         try:
             text = contents.decode("utf-8", errors="strict")
@@ -243,6 +265,7 @@ def render_verified_skills(
                 "A verified SKILL.md is not strict UTF-8",
                 "INTELLIGENCE_ADAPTER_INVALID_UTF8",
                 "integrity",
+                cause_identity="utf8-1",
             )
             raise failure from error
         rendered.append(
@@ -317,6 +340,8 @@ class RegistryState:
         self._condition = asyncio.Condition(self._lock)
         self._inflight: asyncio.Task[RegistrySnapshot] | None = None
         self._joined_callers = 1
+        self._accepting_joins = False
+        self._join_telemetry_tasks: list[asyncio.Task[None]] = []
         self._snapshot = RegistrySnapshot(
             status="cold",
             source="none",
@@ -370,6 +395,7 @@ class RegistryState:
                 category="availability",
                 retryable=True,
                 cause=error,
+                cause_identity="timeout-30000",
             )
             raise failure from error
 
@@ -394,7 +420,6 @@ class RegistryState:
     async def _start_or_join(
         self, *, cached: bool, force: bool, source: str
     ) -> RegistrySnapshot:
-        joined = False
         reentrant: RegistrySnapshot | None = None
         throttled: RegistrySnapshot | None = None
         async with self._lock:
@@ -416,10 +441,23 @@ class RegistryState:
                 # lifecycle state.
                 task = None
                 reentrant = current
-            elif self._inflight is not None and not self._inflight.done():
+            elif (
+                self._inflight is not None
+                and not self._inflight.done()
+                and self._accepting_joins
+            ):
                 task = self._inflight
                 self._joined_callers += 1
-                joined = True
+                self._join_telemetry_tasks.append(
+                    asyncio.create_task(
+                        self._emit(
+                            "load.singleflight_joined",
+                            joinedCallers=self._joined_callers,
+                        )
+                    )
+                )
+            elif self._inflight is not None and not self._inflight.done():
+                task = self._inflight
             elif (
                 not force
                 and current.last_attempt_at is not None
@@ -429,6 +467,8 @@ class RegistryState:
                 throttled = current
             else:
                 self._joined_callers = 1
+                self._accepting_joins = True
+                self._join_telemetry_tasks = []
                 task = asyncio.create_task(
                     self._perform_load(cached=cached, requested_source=source)
                 )
@@ -447,10 +487,6 @@ class RegistryState:
             )
             return self._usable_snapshot(throttled)
         assert task is not None
-        if joined:
-            await self._emit(
-                "load.singleflight_joined", joinedCallers=self._joined_callers
-            )
         try:
             return await asyncio.shield(task)
         finally:
@@ -483,6 +519,7 @@ class RegistryState:
                 maximum_skill_bytes=self._maximum_skill_bytes,
                 maximum_context_bytes=self._maximum_context_bytes,
             )
+            await self._drain_join_telemetry()
             finished = self._clock()
             result = RegistrySnapshot(
                 status="revoked" if skill_set.revoked else "ready",
@@ -496,10 +533,15 @@ class RegistryState:
                 error=None,
             )
             async with self._condition:
-                if self._snapshot.status != "closed":
+                closed = self._snapshot.status == "closed"
+                if not closed:
                     self._snapshot = result
                 self._condition.notify_all()
+            if closed:
+                return result
             await self._emit("status.changed", status=result.status)
+            if self._snapshot.status == "closed":
+                return result
             await self._emit(
                 "load.succeeded",
                 outcome="success",
@@ -512,24 +554,33 @@ class RegistryState:
         except BaseException as error:
             if isinstance(error, asyncio.CancelledError):
                 raise
+            try:
+                await self._drain_join_telemetry()
+            except BaseException as telemetry_error:
+                if isinstance(telemetry_error, asyncio.CancelledError):
+                    raise
+                error = telemetry_error
             failure, status = self._classify_failure(error)
-            await self._publish_failure(prior, started, failure, status)
+            published = await self._publish_failure(prior, started, failure, status)
+            if not published:
+                raise failure
             try:
                 await self._emit("status.changed", status=status)
-                await self._emit(
-                    "load.failed",
-                    outcome="failure",
-                    reason=(
-                        "denied"
-                        if status == "denied"
-                        else (
-                            "integrity"
-                            if getattr(failure, "category", None) == "integrity"
-                            else "transient"
-                        )
-                    ),
-                    **_error_metadata(failure),
-                )
+                if self._snapshot.status != "closed":
+                    await self._emit(
+                        "load.failed",
+                        outcome="failure",
+                        reason=(
+                            "denied"
+                            if status == "denied"
+                            else (
+                                "integrity"
+                                if getattr(failure, "category", None) == "integrity"
+                                else "transient"
+                            )
+                        ),
+                        **_error_metadata(failure),
+                    )
             except BaseException as telemetry_error:
                 failure = self._telemetry_failure(telemetry_error)
                 await self._publish_failure(prior, started, failure, "denied")
@@ -541,11 +592,11 @@ class RegistryState:
         started: float,
         failure: BaseException,
         status: Literal["stale", "denied"],
-    ) -> None:
+    ) -> bool:
         async with self._condition:
             if self._snapshot.status == "closed":
                 self._condition.notify_all()
-                return
+                return False
             if status == "denied":
                 self._snapshot = RegistrySnapshot(
                     status="denied",
@@ -563,6 +614,20 @@ class RegistryState:
                     prior, status="stale", last_attempt_at=started, error=failure
                 )
             self._condition.notify_all()
+            return True
+
+    async def _drain_join_telemetry(self) -> None:
+        while True:
+            async with self._lock:
+                tasks = tuple(self._join_telemetry_tasks)
+                self._join_telemetry_tasks.clear()
+                if not tasks:
+                    self._accepting_joins = False
+                    return
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            for result in results:
+                if isinstance(result, BaseException):
+                    raise result
 
     def _classify_failure(
         self, error: BaseException
@@ -584,6 +649,7 @@ class RegistryState:
                     category="integrity",
                     retryable=False,
                     cause=error,
+                    cause_identity=getattr(error, "cause_identity", None) or str(error),
                 ),
                 "stale",
             )
@@ -595,6 +661,7 @@ class RegistryState:
                 retryable=isinstance(error, IntelligenceUnavailableError)
                 or bool(getattr(error, "retryable", False)),
                 cause=error,
+                cause_identity=getattr(error, "cause_identity", None) or str(error),
             ),
             "stale",
         )
@@ -659,4 +726,5 @@ class RegistryState:
             code="LEARNING_TELEMETRY_SINK_FAILED",
             category="internal",
             cause=error,
+            cause_identity=getattr(error, "cause_identity", None) or str(error),
         )
