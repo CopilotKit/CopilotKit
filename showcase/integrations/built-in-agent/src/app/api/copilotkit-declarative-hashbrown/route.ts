@@ -1,28 +1,28 @@
-// Dedicated runtime for the Multimodal Attachments demo.
+// Dedicated runtime for the BYOC hashbrown demo.
 //
-// Reuses the base built-in-agent factory (which already uses gpt-4o, a
-// vision-capable model). AG-UI image / document parts flow through
-// `convertInputToTanStackAI` natively; no agent-side rewrite is required.
+// Built-in-agent factory with a sales-dashboard system prompt and OpenAI
+// `response_format: { type: "json_object" }` so the model can only emit a
+// single JSON object — exactly what the hashbrown `useJsonParser` consumes.
 
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
-import { createBuiltInAgent } from "@/lib/factory/tanstack-factory";
+import { createByocHashbrownAgent } from "@/lib/factory/byoc-hashbrown-factory";
 // Wrap handlers so inbound x-* headers (e.g. x-aimock-context) are bound
 // into ALS for the factory's `forwardingFetch` to re-attach on outbound
 // LLM calls. See @/lib/header-forwarding for the full rationale.
 import { withForwardedHeaders } from "@/lib/header-forwarding";
 
 const runtime = new CopilotRuntime({
-  agents: { "multimodal-demo": createBuiltInAgent() },
+  agents: { "declarative-hashbrown-demo": createByocHashbrownAgent() },
   runner: new InMemoryAgentRunner(),
 });
 
 const handler = createCopilotRuntimeHandler({
   runtime,
-  basePath: "/api/copilotkit-multimodal",
+  basePath: "/api/copilotkit-declarative-hashbrown",
   mode: "single-route",
 });
 

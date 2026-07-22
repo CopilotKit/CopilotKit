@@ -1,28 +1,33 @@
-// Dedicated runtime for the Multimodal Attachments demo.
-//
-// Reuses the base built-in-agent factory (which already uses gpt-4o, a
-// vision-capable model). AG-UI image / document parts flow through
-// `convertInputToTanStackAI` natively; no agent-side rewrite is required.
-
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
-import { createBuiltInAgent } from "@/lib/factory/tanstack-factory";
+import { createDeclarativeGenUIAgent } from "@/lib/factory/a2ui-factory";
 // Wrap handlers so inbound x-* headers (e.g. x-aimock-context) are bound
 // into ALS for the factory's `forwardingFetch` to re-attach on outbound
 // LLM calls. See @/lib/header-forwarding for the full rationale.
 import { withForwardedHeaders } from "@/lib/header-forwarding";
 
+// Dedicated runtime for the A2UI Error Recovery demo.
+//
+// Reuses the declarative-gen-ui agent + catalog (per the LGP reference, whose
+// recovery_agent reuses the declarative-gen-ui catalog): the validate->retry
+// recovery loop and the recovery-exhausted fallback are exercised through the
+// aimock fixture's staged A2UI operation sequence, not bespoke backend logic.
+// `injectA2UITool: false` — the factory owns the `generate_a2ui` tool.
 const runtime = new CopilotRuntime({
-  agents: { "multimodal-demo": createBuiltInAgent() },
+  agents: { "a2ui-recovery": createDeclarativeGenUIAgent() },
   runner: new InMemoryAgentRunner(),
+  a2ui: {
+    injectA2UITool: false,
+    defaultCatalogId: "declarative-gen-ui-catalog",
+  },
 });
 
 const handler = createCopilotRuntimeHandler({
   runtime,
-  basePath: "/api/copilotkit-multimodal",
+  basePath: "/api/copilotkit-a2ui-recovery",
   mode: "single-route",
 });
 

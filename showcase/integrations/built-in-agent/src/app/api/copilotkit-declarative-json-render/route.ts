@@ -17,13 +17,13 @@ import { createByocJsonRenderAgent } from "@/lib/factory/byoc-json-render-factor
 import { withForwardedHeaders } from "@/lib/header-forwarding";
 
 const runtime = new CopilotRuntime({
-  agents: { default: createByocJsonRenderAgent() },
+  agents: { byoc_json_render: createByocJsonRenderAgent() },
   runner: new InMemoryAgentRunner(),
 });
 
 const handler = createCopilotRuntimeHandler({
   runtime,
-  basePath: "/api/copilotkit-byoc-json-render",
+  basePath: "/api/copilotkit-declarative-json-render",
   mode: "single-route",
 });
 
