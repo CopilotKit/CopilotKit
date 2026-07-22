@@ -126,14 +126,18 @@ For a full working demonstration, see the [Agent Config demo](https://github.com
 - Agent behavior adaptation based on runtime configuration
 - Proper middleware setup
 
+**Programmatic context reading:** The agent implementation includes the [`extract_context_programmatically`](https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/langgraph-python/src/agents/agent_config_agent.py) function that demonstrates reading context values (including auth tokens) from `state["copilotkit"]["context"]` in Python code, verifying the documented access pattern works end-to-end.
+
 ## Verification
 
-The documented access pattern is verified by unit tests in [`sdk-python/tests/test_context_persistence.py`](https://github.com/CopilotKit/CopilotKit/tree/main/sdk-python/tests/test_context_persistence.py), which confirm that:
+**Unit tests:** [`sdk-python/tests/test_context_persistence.py`](https://github.com/CopilotKit/CopilotKit/tree/main/sdk-python/tests/test_context_persistence.py) verifies the access pattern with mock state data, confirming that:
 
 - Auth tokens can be read from `state["copilotkit"]["context"]`
-- Tokens remain accessible across multiple agent runs
+- Tokens remain accessible across multiple simulated agent runs
 - The pattern handles missing or empty context gracefully
 - Multiple context entries can coexist and be extracted independently
+
+**Working implementation:** The [`extract_context_programmatically`](https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/langgraph-python/src/agents/agent_config_agent.py) function in the agent-config demo demonstrates the documented pattern in a real LangGraph agent, showing that context values published via `useAgentContext` are accessible programmatically in agent nodes.
 
 ## Legacy Pattern (LangGraph <0.6.0)
 

@@ -13,10 +13,17 @@ exists for v1-style relays but in @ag-ui/langgraph 0.0.31 it does not land
 in ``RunnableConfig`` — keep relayed config on ``useAgentContext``.
 """
 
+import logging
+from typing import Any
+
 from langchain.agents import create_agent
+from langchain_core.messages import SystemMessage
 from langchain_openai import ChatOpenAI
+from langgraph.prebuilt import AgentState
 
 from copilotkit import CopilotKitMiddleware
+
+logger = logging.getLogger(__name__)
 
 
 SYSTEM_PROMPT = (
@@ -44,6 +51,41 @@ SYSTEM_PROMPT = (
     "user — just apply them."
 )
 
+
+# @region[context-extraction]
+def extract_context_programmatically(state: AgentState) -> dict[str, Any]:
+    """Demonstrate programmatic reading of useAgentContext values.
+    
+    This function shows the documented access pattern from configurable.mdx:
+    reading authToken and other config values from state["copilotkit"]["context"].
+    
+    This is useful when you need to use context values in Python code (e.g., for
+    API calls with auth tokens) rather than relying only on LLM injection.
+    """
+    copilotkit_state = state.get("copilotkit", {})
+    context_entries = copilotkit_state.get("context", [])
+    
+    # Extract config values from context entries
+    result = {}
+    for entry in context_entries:
+        if not isinstance(entry, dict):
+            continue
+        description = entry.get("description", "")
+        value = entry.get("value", {})
+        if isinstance(value, dict):
+            # Extract agent config values
+            if "tone" in value:
+                result["tone"] = value["tone"]
+            if "expertise" in value:
+                result["expertise"] = value["expertise"]
+            if "responseLength" in value:
+                result["responseLength"] = value["responseLength"]
+            # Extract auth tokens if present
+            if "authToken" in value:
+                result["authToken"] = value["authToken"]
+    
+    return result
+# @endregion[context-extraction]
 
 # @region[agent-config-setup]
 graph = create_agent(
