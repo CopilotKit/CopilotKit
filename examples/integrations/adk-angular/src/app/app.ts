@@ -1,4 +1,4 @@
-import { Component, signal } from "@angular/core";
+import { Component, isDevMode, signal } from "@angular/core";
 import {
   CopilotChat,
   CopilotThreadsDrawer,
@@ -49,7 +49,14 @@ const DOCK_BREAKPOINT_PX = 1200;
       on narrower screens it OVERLAYS instead so the content isn't smushed.
       Closeable via the header X.
     -->
-    <aside class="chat" [class.chat--open]="chatOpen()" aria-label="Assistant">
+    <!-- inert while closed: the panel is only translated off-screen, so without
+         this its inputs/buttons stay in the tab order and screen-reader tree. -->
+    <aside
+      class="chat"
+      [class.chat--open]="chatOpen()"
+      [attr.inert]="chatOpen() ? null : ''"
+      aria-label="Assistant"
+    >
       <header class="chat__bar">
         <span>Assistant</span>
         <button
@@ -77,8 +84,12 @@ const DOCK_BREAKPOINT_PX = 1200;
       <lucide-angular [img]="ChatIcon" [size]="24" />
     </button>
 
-    <!-- Dev-only floating inspector (mounts into <body>). Remove for production. -->
-    <app-web-inspector />
+    <!-- Dev-only floating inspector (mounts into <body>). @defer keeps it — and
+         its @copilotkit/web-inspector dependency — out of the production initial
+         bundle: in a prod build isDev is false, so the deferred chunk never loads. -->
+    @defer (when isDev) {
+      <app-web-inspector />
+    }
   `,
   styles: [
     `
@@ -212,6 +223,8 @@ export class App {
   /** lucide icons matching React's sidebar (X for close, MessageCircle to open). */
   protected readonly CloseIcon = X;
   protected readonly ChatIcon = MessageCircle;
+  /** Dev-only: gates the @defer'd web inspector so it stays out of prod builds. */
+  protected readonly isDev = isDevMode();
 
   constructor() {
     // 🪁 Frontend tool: recolor the center panel (and, via --app-theme-color on
