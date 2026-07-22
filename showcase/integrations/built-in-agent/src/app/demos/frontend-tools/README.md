@@ -1,18 +1,31 @@
-# Frontend Tools
+# Frontend Tools (In-App Actions)
 
-Defines a tool entirely in the React tree via `useFrontendTool`. The
-agent sees the schema (forwarded over AG-UI), invokes it, and the
-handler runs in the browser to mutate page state — here, the page
-background.
+## What This Demo Shows
 
-## Files
+Frontend tools (a.k.a. "in-app actions") let the agent call functions that live in your React app. The agent reasons about when to invoke them based on natural conversation.
 
-- `page.tsx` — registers `change_background` and reflects the result in
-  local state.
+## How to Interact
 
-## Backend
+Try asking:
 
-Reuses `createBuiltInAgent` (TanStack AI + `openaiText("gpt-4o")`) at
-`src/app/api/copilotkit/route.ts`. No backend changes — frontend tools
-are entirely in-browser, advertised to the agent via the chat input
-contract.
+- "Change the background to a blue-to-purple gradient"
+- "Make the background a sunset theme"
+- "Set the background to black"
+
+## Technical Details
+
+A frontend tool is registered with `useFrontendTool`:
+
+```tsx
+useFrontendTool({
+  name: "change_background",
+  description: "...",
+  parameters: z.object({ background: z.string() }),
+  handler: async ({ background }) => {
+    setBackground(background);
+    return { status: "success" };
+  },
+});
+```
+
+CopilotKit automatically advertises the tool to the agent. The agent decides when to call it based on the conversation, and the handler runs client-side.
