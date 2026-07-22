@@ -23,6 +23,12 @@ import type {
 const DEFAULT_PROBE_TIMEOUT_MS = 90_000;
 const DEFAULT_HYDRATION_TIMEOUT_MS = 15_000;
 const TEST_ID_MAX_LENGTH = 160;
+const SETTLE_FAILURE_REASONS = new Set([
+  "text-unstable",
+  "surface-not-ready",
+  "no-assistant-message",
+  "run-still-active",
+]);
 
 export interface FrontendProbeInput {
   cell: FrontendMatrixCell;
@@ -30,6 +36,37 @@ export interface FrontendProbeInput {
   url: string;
   backendUrl: string;
   testId: string;
+}
+
+/**
+ * Reduce a free-form conversation-runner failure to a bounded diagnostic
+ * category. Matrix artifacts must remain useful without persisting prompts,
+ * generated response text, or assertion payloads.
+ */
+export function conversationFailureSummary(error: string | undefined): string {
+  if (!error) return "unknown";
+
+  const settleReason = /\breason=([a-z-]+)/.exec(error)?.[1];
+  if (settleReason && SETTLE_FAILURE_REASONS.has(settleReason)) {
+    return `settle-${settleReason}`;
+  }
+  if (error.includes("done-signal-missing")) return "done-signal-missing";
+  if (error.includes("ui/initialize")) return "mcp-initialization-missing";
+  if (error.includes("assistant response was empty")) {
+    return "assistant-response-empty";
+  }
+  if (
+    error.includes("Observed:") ||
+    error.includes("missing expected marker") ||
+    error.includes("wrong pill")
+  ) {
+    return "rendered-content-mismatch";
+  }
+  if (error.includes("not found") || error.includes("to appear within")) {
+    return "expected-surface-missing";
+  }
+  if (error.toLowerCase().includes("timeout")) return "timeout";
+  return "assertion-failed";
 }
 
 export type FrontendProbeExecutor = (
@@ -288,13 +325,14 @@ export function createPlaywrightProbeExecutor(
           }),
         );
         if (conversation.failure_turn !== undefined) {
+          const failureSummary = conversationFailureSummary(conversation.error);
           return {
             featureType: input.featureType,
             status: "failed",
             durationMs: Date.now() - startedAt,
             testId: input.testId,
             errorClass: "conversation-error",
-            error: `conversation failed on turn ${conversation.failure_turn}`,
+            error: `conversation failed on turn ${conversation.failure_turn} (${failureSummary})`,
             diagnostics: {
               frontend: input.cell.frontend,
               turnsCompleted: conversation.turns_completed,

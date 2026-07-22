@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { FrontendMatrixCell } from "./frontend-matrix.js";
 import {
+  conversationFailureSummary,
   createFrontendCellExecutor,
   testIdForFrontendProbe,
   waitForFrameworkHydration,
@@ -17,6 +18,20 @@ const ANGULAR_CELL: FrontendMatrixCell = {
 };
 
 describe("frontend matrix Playwright execution", () => {
+  it("classifies conversation failures without persisting response content", () => {
+    expect(
+      conversationFailureSummary(
+        "timeout: assistant did not settle (reason=text-unstable, runsFinished=2)",
+      ),
+    ).toBe("settle-text-unstable");
+    expect(
+      conversationFailureSummary(
+        'gen-ui-agent-pill: Observed: ["private generated response"]',
+      ),
+    ).toBe("rendered-content-mismatch");
+    expect(conversationFailureSummary(undefined)).toBe("unknown");
+  });
+
   it("runs every mapped probe once at the exact catalog route", async () => {
     const runProbe = vi.fn<FrontendProbeExecutor>(async (input) => ({
       featureType: input.featureType,
