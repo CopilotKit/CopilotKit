@@ -150,11 +150,32 @@ export async function readRechartsBarCount(
 }
 
 /**
- * Wait for a literal text node to be visible. Wraps Playwright's
- * `waitForSelector` with a friendlier error so the failure_turn
- * entry carries a descriptive message — the conversation runner
- * surfaces the thrown message verbatim into the probe's signal blob,
- * which is what the dashboard's drilldown displays.
+ * Read the text exposed by the page's rendered body.
+ *
+ * `innerText` follows rendered layout and therefore excludes hidden
+ * content, which keeps this equivalent to a user-visible assertion
+ * without routing a literal through Playwright's selector grammar.
+ */
+export async function readVisibleBodyText(
+  page: ConversationPage,
+): Promise<string> {
+  return await page.evaluate(() => {
+    const win = globalThis as unknown as {
+      document: { body: { innerText: string } | null };
+    };
+    return win.document.body?.innerText ?? "";
+  });
+}
+
+/**
+ * Wait for literal user-visible text in the rendered page body.
+ *
+ * Playwright's `text=<literal>` selector can miss text that is plainly
+ * present in `document.body.innerText` when the A2UI surface replaces
+ * nodes during streaming. Polling the browser's rendered text directly
+ * avoids selector-engine races while retaining the same bounded timeout.
+ * The descriptive error is surfaced verbatim in the probe signal and in
+ * the dashboard drilldown.
  */
 export async function waitForText(
   page: ConversationPage,
@@ -162,16 +183,20 @@ export async function waitForText(
   timeoutMs: number,
   pillTag: string,
 ): Promise<void> {
-  try {
-    await page.waitForSelector(`text=${text}`, {
-      state: "visible",
-      timeout: timeoutMs,
-    });
-  } catch {
-    throw new Error(
-      `${pillTag}: expected text "${text}" to appear within ${timeoutMs}ms`,
+  const deadline = Date.now() + timeoutMs;
+  while (true) {
+    if ((await readVisibleBodyText(page)).includes(text)) return;
+
+    const remainingMs = deadline - Date.now();
+    if (remainingMs <= 0) break;
+    await new Promise((resolve) =>
+      setTimeout(resolve, Math.min(100, remainingMs)),
     );
   }
+
+  throw new Error(
+    `${pillTag}: expected text "${text}" to appear within ${timeoutMs}ms`,
+  );
 }
 
 /**
@@ -321,11 +346,13 @@ export async function assertToggleTheme(page: ConversationPage): Promise<void> {
     if (closeAware.isClosed?.()) {
       throw new Error(
         `beautiful-chat-toggle-theme: page closed before theme-flip / "Theme toggled" signal landed (initiallyDark=${initiallyDark}) — likely a renderer crash in the demo's toggleTheme handler or surrounding tree`,
+        { cause: err },
       );
     }
     const msg = err instanceof Error ? err.message : String(err);
     throw new Error(
       `beautiful-chat-toggle-theme: neither html.dark flip from ${initiallyDark ? "dark" : "light"} nor visible "Theme toggled" content within 30s — toggleTheme path did not produce either signal (${msg.slice(0, 120)})`,
+      { cause: err },
     );
   }
 }

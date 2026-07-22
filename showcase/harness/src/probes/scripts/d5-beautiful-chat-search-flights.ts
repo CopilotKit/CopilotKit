@@ -7,10 +7,8 @@
  * context.
  */
 
-import {
-  registerD5Script,
-  type D5BuildContext,
-} from "../helpers/d5-registry.js";
+import { registerD5Script } from "../helpers/d5-registry.js";
+import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { ConversationTurn } from "../helpers/conversation-runner.js";
 import {
   assertSearchFlights,
@@ -20,7 +18,7 @@ import {
 export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
   return [
     {
-      input: "d5 beautiful-chat probe: search flights from SFO to JFK",
+      input: "Find flights from SFO to JFK for next Tuesday.",
       assertions: assertSearchFlights,
     },
   ];
