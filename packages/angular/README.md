@@ -402,9 +402,11 @@ Register application activity renderers with `registerRenderActivityMessage`
 or the `renderActivityMessages` provider option. Application registrations
 take precedence over optional built-ins.
 
-- A2UI is enabled with `a2ui: { ... }`. Supply a catalog to render
-  application-specific declarative components and configure recovery exposure
-  independently of server-provided lifecycle content.
+- A2UI is enabled when the runtime advertises the capability or when
+  `a2ui.catalog` is supplied. An explicit catalog enables its renderers and
+  agent context even when runtime `/info` does not advertise A2UI, matching the
+  React provider contract. Configure recovery exposure independently of
+  server-provided lifecycle content.
 - Open Generative UI is enabled with `openGenerativeUI: { ... }`. Generated UI
   runs in an isolated WebSandbox; expose only narrowly scoped
   `sandboxFunctions` and never place credentials in browser configuration.

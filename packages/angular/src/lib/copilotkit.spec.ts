@@ -17,7 +17,10 @@ import {
   AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME,
   RENDER_A2UI_TOOL_NAME,
 } from "./components/a2ui/a2ui-tool-types";
-import { A2UI_SCHEMA_CONTEXT_DESCRIPTION } from "@copilotkit/a2ui-renderer/web-components";
+import {
+  A2UI_SCHEMA_CONTEXT_DESCRIPTION,
+  minimalCatalog,
+} from "@copilotkit/a2ui-renderer/web-components";
 import {
   A2UI_DEFAULT_DESIGN_GUIDELINES,
   A2UI_DEFAULT_GENERATION_GUIDELINES,
@@ -381,6 +384,37 @@ describe("CopilotKit", () => {
         description:
           "A2UI design guidelines — visual design rules, component hierarchy tips, and action handler patterns.",
         value: A2UI_DEFAULT_DESIGN_GUIDELINES,
+      }),
+    );
+  });
+
+  it("enables built-in A2UI when the frontend provides a catalog", () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideCopilotKit({
+          licenseKey,
+          a2ui: { catalog: minimalCatalog },
+        }),
+      ],
+    });
+
+    const copilotKit = TestBed.inject(CopilotKit);
+
+    expect(lastCoreInstance!.a2uiEnabled).toBe(false);
+    expect(copilotKit.activityMessageRenderConfigs()).toEqual([
+      expect.objectContaining({
+        activityType: "a2ui-surface",
+        component: CopilotA2UIActivityRenderer,
+      }),
+    ]);
+    expect(copilotKit.toolCallRenderConfigs()).toEqual([
+      expect.objectContaining({ name: RENDER_A2UI_TOOL_NAME }),
+      expect.objectContaining({ name: AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME }),
+    ]);
+    expect(mockAddContext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description:
+          "A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.",
       }),
     );
   });

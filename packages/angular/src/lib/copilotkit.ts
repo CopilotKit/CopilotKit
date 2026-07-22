@@ -318,7 +318,7 @@ export class CopilotKit {
   #syncBuiltInActivityMessageRenderers(): void {
     const renderers: RenderActivityMessageConfig[] = [];
 
-    if (this.core.a2uiEnabled) {
+    if (this.#isA2UIActive()) {
       renderers.push({
         activityType: "a2ui-surface",
         content: anyActivityContentSchema,
@@ -339,7 +339,7 @@ export class CopilotKit {
   }
 
   #syncBuiltInA2UI(): void {
-    if (!this.core.a2uiEnabled) {
+    if (!this.#isA2UIActive()) {
       this.#builtInToolCallRenderConfigs.set([]);
       this.#removeA2UIContexts();
       return;
@@ -364,6 +364,11 @@ export class CopilotKit {
 
   #getA2UICatalog(): unknown {
     return this.#config.a2ui?.catalog;
+  }
+
+  /** Return whether runtime capability or an explicit catalog enables A2UI. */
+  #isA2UIActive(): boolean {
+    return this.core.a2uiEnabled || this.#getA2UICatalog() !== undefined;
   }
 
   #syncA2UIContexts(): void {
