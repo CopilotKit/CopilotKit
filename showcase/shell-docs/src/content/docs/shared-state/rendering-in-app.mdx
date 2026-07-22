@@ -29,13 +29,13 @@ export function Canvas() {
   const state = (agent.state ?? {}) as Partial<CanvasState>;
 
   // Seed initial state so the canvas has content before the agent runs.
-  // Check each field independently so we don't overwrite existing values.
+  // Check each field for undefined so we don't overwrite intentional empty values.
   useEffect(() => {
     const updates: Partial<CanvasState> = {};
-    if (!state.title) {
+    if (state.title === undefined) {
       updates.title = "My Canvas";
     }
-    if (!state.items || state.items.length === 0) {
+    if (state.items === undefined) {
       updates.items = [
         { id: "1", label: "First item", done: false },
         { id: "2", label: "Second item", done: true },
