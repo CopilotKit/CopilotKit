@@ -83,6 +83,14 @@ class InMemoryEventStore {
    * by a superseding run. Null outside an outer run.
    */
   abortController: AbortController | null = null;
+
+  /**
+   * Resolves when the in-flight outer run's turn has FULLY settled (callbacks
+   * run, history persisted, subjects completed). A superseding `execute` awaits
+   * this before starting — the "awaited replacement barrier" (Task 1). Null
+   * outside an outer run.
+   */
+  turnDone: Promise<void> | null = null;
 }
 
 const GLOBAL_STORE = new Map<string, InMemoryEventStore>();
@@ -349,6 +357,10 @@ export class InMemoryAgentRunner extends AgentRunner {
     }
     const store = existingStore;
 
+    // Capture the prior outer run's completion so this turn can await it (the
+    // awaited replacement barrier) before producing any events.
+    const priorTurnDone = store.turnDone;
+
     if (store.isRunning) {
       if (this.onConcurrentRun !== "supersede") {
         throw new Error("Thread already running");
@@ -449,6 +461,18 @@ export class InMemoryAgentRunner extends AgentRunner {
     };
 
     const runTurn = async () => {
+      // Awaited replacement barrier: when this run supersedes a prior one, wait
+      // for the prior turn to FULLY settle (callbacks, history, subject
+      // completion) before this turn begins. The prior run's failure is
+      // isolated and never fails this one.
+      if (priorTurnDone) {
+        try {
+          await priorTurnDone;
+        } catch {
+          // Prior turn's own error — isolated.
+        }
+      }
+
       const lastRun = store.historicRuns[store.historicRuns.length - 1];
       const parentRunId = lastRun?.runId ?? null;
 
@@ -483,29 +507,52 @@ export class InMemoryAgentRunner extends AgentRunner {
         store.isRunning = false;
       };
 
+      // A turn aborted by stop()/supersede ends with a single RUN_FINISHED —
+      // the terminal closes any open sub-events on the client (see #5812) — not
+      // an error. finalizeRunEvents pushes the terminal into currentRunEvents.
+      const emitStoppedTerminal = () => {
+        const appended = finalizeRunEvents(currentRunEvents, {
+          stopRequested: true,
+        });
+        for (const event of appended) {
+          runSubject.next(event);
+          nextSubject.next(event);
+        }
+      };
+
       try {
         await request.turn(controller);
-        if (innerError) throw innerError;
-        // A turn that invoked no agent still yields a well-formed empty run.
+        // An inner error only fails the outer run when the turn was NOT aborted;
+        // an aborted turn settles as "stopped", not "errored".
+        if (innerError && !abortController.signal.aborted) throw innerError;
         ensureRunStarted();
-        emit({
-          type: EventType.RUN_FINISHED,
-          threadId: request.threadId,
-          runId: request.runId,
-        } as BaseEvent);
+        if (abortController.signal.aborted) {
+          emitStoppedTerminal();
+        } else {
+          // A turn that invoked no agent still yields a well-formed empty run.
+          emit({
+            type: EventType.RUN_FINISHED,
+            threadId: request.threadId,
+            runId: request.runId,
+          } as BaseEvent);
+        }
         persistHistoric();
         finalizeStore();
         runSubject.complete();
         nextSubject.complete();
       } catch (error) {
-        // Failure never completes the run successfully: emit RUN_ERROR as the
-        // single terminal. Nothing follows it.
         ensureRunStarted();
-        emit({
-          type: EventType.RUN_ERROR,
-          message: error instanceof Error ? error.message : String(error),
-          code: "OUTER_RUN_FAILED",
-        } as BaseEvent);
+        if (abortController.signal.aborted) {
+          emitStoppedTerminal();
+        } else {
+          // Failure never completes the run successfully: emit RUN_ERROR as the
+          // single terminal. Nothing follows it.
+          emit({
+            type: EventType.RUN_ERROR,
+            message: error instanceof Error ? error.message : String(error),
+            code: "OUTER_RUN_FAILED",
+          } as BaseEvent);
+        }
         persistHistoric();
         finalizeStore();
         runSubject.complete();
@@ -524,7 +571,8 @@ export class InMemoryAgentRunner extends AgentRunner {
       });
     }
 
-    runTurn();
+    // Track the turn's completion so a superseding execute can await it.
+    store.turnDone = runTurn();
 
     return runSubject.asObservable();
   }
@@ -599,11 +647,21 @@ export class InMemoryAgentRunner extends AgentRunner {
     store.stopRequested = true;
     store.isRunning = false;
 
+    // Fire the outer-run turn's abort signal (execute() path). Null on the
+    // single-agent run() path, where the agent abort below is the only lever.
+    store.abortController?.abort();
+
     const agent = store.agent;
     if (!agent) {
-      store.stopRequested = false;
-      store.isRunning = false;
-      return Promise.resolve(false);
+      if (store.abortController == null) {
+        // run() path with no agent: restore the historic no-op behavior.
+        store.stopRequested = false;
+        store.isRunning = false;
+        return Promise.resolve(false);
+      }
+      // execute() path: a turn may be mid-flight with no inner agent currently
+      // running; the abort signal fired above still tears it down.
+      return Promise.resolve(true);
     }
 
     try {

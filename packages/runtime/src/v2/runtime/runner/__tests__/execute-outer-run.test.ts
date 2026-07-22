@@ -228,4 +228,89 @@ describe("AgentRunner.execute — outer run wrapping multiple inner agent calls"
     expect(types.at(-1)).toBe(EventType.RUN_ERROR);
     expect(types.filter((t) => t === EventType.RUN_FINISHED)).toHaveLength(0);
   });
+
+  it("stop() aborts the turn signal and ends with a single RUN_FINISHED terminal", async () => {
+    const threadId = "execute-stop";
+    let signalAborted = false;
+    const collected: BaseEvent[] = [];
+    const done = new Promise<void>((resolve) => {
+      runner
+        .execute({
+          threadId,
+          runId: "outer-stop",
+          input: makeInput(threadId, "outer-stop"),
+          turn: async (controller) => {
+            controller.signal.addEventListener("abort", () => {
+              signalAborted = true;
+            });
+            // Long-running turn that only ends when the signal aborts.
+            await new Promise<void>((res) => {
+              if (controller.signal.aborted) return res();
+              controller.signal.addEventListener("abort", () => res());
+            });
+          },
+        })
+        .subscribe({
+          next: (e) => collected.push(e),
+          complete: () => resolve(),
+        });
+    });
+
+    await new Promise((r) => setTimeout(r, 5));
+    await runner.stop({ threadId });
+    await done;
+
+    expect(signalAborted).toBe(true);
+    const terminals = collected.filter(
+      (e) =>
+        e.type === EventType.RUN_FINISHED || e.type === EventType.RUN_ERROR,
+    );
+    expect(terminals).toHaveLength(1);
+    expect(terminals[0].type).toBe(EventType.RUN_FINISHED);
+  });
+
+  it("a superseding execute awaits the prior turn's full settle before starting (barrier)", async () => {
+    const supersedeRunner = new InMemoryAgentRunner({
+      onConcurrentRun: "supersede",
+    });
+    supersedeRunner.clearThreads();
+    const threadId = "execute-barrier";
+    const order: string[] = [];
+
+    // Prior turn: hangs until aborted, then simulates teardown before settling.
+    supersedeRunner
+      .execute({
+        threadId,
+        runId: "prior",
+        input: makeInput(threadId, "prior"),
+        turn: async (controller) => {
+          await new Promise<void>((res) => {
+            if (controller.signal.aborted) return res();
+            controller.signal.addEventListener("abort", () => res());
+          });
+          await new Promise((r) => setTimeout(r, 20));
+          order.push("prior-settled");
+        },
+      })
+      .subscribe();
+
+    await new Promise((r) => setTimeout(r, 5));
+
+    const events = await firstValueFrom(
+      supersedeRunner
+        .execute({
+          threadId,
+          runId: "next",
+          input: makeInput(threadId, "next"),
+          turn: async () => {
+            order.push("next-started");
+          },
+        })
+        .pipe(toArray()),
+    );
+
+    // The prior turn must have fully settled before the superseding turn began.
+    expect(order).toEqual(["prior-settled", "next-started"]);
+    expect(events.at(-1)?.type).toBe(EventType.RUN_FINISHED);
+  });
 });
