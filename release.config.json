@@ -28,6 +28,11 @@
       "versionSource": "@copilotkit/angular",
       "sharedVersion": false
     },
+    "intelligence-langgraph": {
+      "packages": ["@copilotkit/intelligence-langgraph"],
+      "versionSource": "@copilotkit/intelligence-langgraph",
+      "sharedVersion": false
+    },
     "channels": {
       "packages": [
         "@copilotkit/channels-ui",

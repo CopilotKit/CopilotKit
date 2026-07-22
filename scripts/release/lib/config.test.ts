@@ -29,3 +29,13 @@ describe("Channels release scope", () => {
     );
   });
 });
+
+describe("Intelligence LangGraph release scope", () => {
+  it("is an independent one-package scope", () => {
+    expect(getScopeConfig("intelligence-langgraph")).toEqual({
+      packages: ["@copilotkit/intelligence-langgraph"],
+      versionSource: "@copilotkit/intelligence-langgraph",
+      sharedVersion: false,
+    });
+  });
+});

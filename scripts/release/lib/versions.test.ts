@@ -31,6 +31,16 @@ vi.mock("./config.js", async () => {
           versionSource: "@copilotkit/angular",
           sharedVersion: false,
         },
+        "intelligence-langgraph": {
+          packages: ["@copilotkit/intelligence-langgraph"],
+          versionSource: "@copilotkit/intelligence-langgraph",
+          sharedVersion: false,
+        },
+        channels: {
+          packages: ["@copilotkit/channels"],
+          versionSource: "@copilotkit/channels",
+          sharedVersion: true,
+        },
       },
     }),
     getScopeConfig: (scope: string) => {
@@ -44,6 +54,16 @@ vi.mock("./config.js", async () => {
           packages: ["@copilotkit/angular"],
           versionSource: "@copilotkit/angular",
           sharedVersion: false,
+        },
+        "intelligence-langgraph": {
+          packages: ["@copilotkit/intelligence-langgraph"],
+          versionSource: "@copilotkit/intelligence-langgraph",
+          sharedVersion: false,
+        },
+        channels: {
+          packages: ["@copilotkit/channels"],
+          versionSource: "@copilotkit/channels",
+          sharedVersion: true,
         },
       };
       return scopes[scope];
@@ -160,6 +180,31 @@ describe("bumpPackages", () => {
       }),
     );
 
+    for (const [directory, name] of [
+      ["angular", "@copilotkit/angular"],
+      ["channels", "@copilotkit/channels"],
+    ]) {
+      const packageDirectory = path.join(packagesDir, directory);
+      fs.mkdirSync(packageDirectory, { recursive: true });
+      fs.writeFileSync(
+        path.join(packageDirectory, "package.json"),
+        JSON.stringify({ name, version: "0.2.0" }),
+      );
+    }
+
+    const intelligenceLangGraphDir = path.join(
+      packagesDir,
+      "intelligence-langgraph",
+    );
+    fs.mkdirSync(intelligenceLangGraphDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(intelligenceLangGraphDir, "package.json"),
+      JSON.stringify({
+        name: "@copilotkit/intelligence-langgraph",
+        version: "0.1.0",
+      }),
+    );
+
     // Create react-core with workspace:* dep on shared
     const reactCoreDir = path.join(packagesDir, "react-core");
     fs.mkdirSync(reactCoreDir, { recursive: true });
@@ -234,5 +279,36 @@ describe("bumpPackages", () => {
       "@copilotkit/react-core",
       "@copilotkit/shared",
     ]);
+  });
+
+  it("resolves only the Intelligence LangGraph package", () => {
+    expect(
+      getPackagesForScope("intelligence-langgraph").map((pkg) => pkg.name),
+    ).toEqual(["@copilotkit/intelligence-langgraph"]);
+  });
+
+  it("bumps Intelligence LangGraph without mutating monorepo, angular, or channels packages", () => {
+    const reactCorePath = path.join(tmpDir, "packages/react-core/package.json");
+    const sharedPath = path.join(tmpDir, "packages/shared/package.json");
+    const angularPath = path.join(tmpDir, "packages/angular/package.json");
+    const channelsPath = path.join(tmpDir, "packages/channels/package.json");
+    const unchangedPackages = new Map(
+      [reactCorePath, sharedPath, angularPath, channelsPath].map(
+        (packagePath) => [packagePath, fs.readFileSync(packagePath, "utf8")],
+      ),
+    );
+
+    const result = bumpPackages("intelligence-langgraph", "0.1.1");
+
+    expect(result).toEqual([
+      {
+        name: "@copilotkit/intelligence-langgraph",
+        oldVersion: "0.1.0",
+        newVersion: "0.1.1",
+      },
+    ]);
+    for (const [packagePath, contents] of unchangedPackages) {
+      expect(fs.readFileSync(packagePath, "utf8")).toBe(contents);
+    }
   });
 });

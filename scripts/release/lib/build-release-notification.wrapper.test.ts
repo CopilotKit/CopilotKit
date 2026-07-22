@@ -17,14 +17,12 @@ const WRAPPER = path.resolve(
   "../build-release-notification.ts",
 );
 
-// Resolve the local tsx binary so the subprocess never hits npx's network /
-// registry path (which is flaky in CI). Walk up from this file to the repo
-// root's node_modules/.bin/tsx.
+// Resolve tsx through Node's loader so the subprocess never hits npx's network
+// path and never opens tsx CLI's IPC socket (which restricted sandboxes deny).
 const REPO_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../..",
 );
-const TSX_BIN = path.join(REPO_ROOT, "node_modules", ".bin", "tsx");
 
 /**
  * Run the wrapper CLI as a subprocess; returns { code, stdout, stderr }.
@@ -47,11 +45,16 @@ function runWrapper(env: Record<string, string | undefined>): {
     if (v !== undefined) cleanEnv[k] = v;
   }
   try {
-    const stdout = execFileSync(TSX_BIN, [WRAPPER], {
-      env: cleanEnv,
-      stdio: "pipe",
-      encoding: "utf8",
-    });
+    const stdout = execFileSync(
+      process.execPath,
+      ["--import", "tsx", WRAPPER],
+      {
+        cwd: REPO_ROOT,
+        env: cleanEnv,
+        stdio: "pipe",
+        encoding: "utf8",
+      },
+    );
     return { code: 0, stdout, stderr: "" };
   } catch (e: unknown) {
     const err = e as { status?: number; stdout?: string; stderr?: string };
@@ -153,6 +156,10 @@ describe("resolvePackageCountSafe", () => {
 
   it("returns the real package count for the shared Channels scope (drift guard)", () => {
     expect(resolvePackageCountSafe("channels")).toBe(9);
+  });
+
+  it("returns one package for the Intelligence LangGraph scope", () => {
+    expect(resolvePackageCountSafe("intelligence-langgraph")).toBe(1);
   });
 
   it("resolves a positive count for EVERY scope in release.config.json (anti-drift)", () => {

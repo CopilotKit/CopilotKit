@@ -62,6 +62,13 @@ if [ -z "$CONFIG_SCOPES" ]; then
   exit 1
 fi
 
+# Task 8 enrollment self-check: this guard must fail if the independently
+# versioned TypeScript adapter is ever dropped from the authoritative config.
+if ! printf '%s\n' "$CONFIG_SCOPES" | grep -Fxq 'intelligence-langgraph'; then
+  echo "ERROR: release.config.json must declare the intelligence-langgraph scope." >&2
+  exit 1
+fi
+
 # Extract the `options:` list belonging to the `scope:` input from a workflow.
 # Uses yq when available (the CI path on ubuntu-latest), otherwise a robust awk
 # pass (the local-dev fallback):
