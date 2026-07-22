@@ -18,7 +18,7 @@ These decisions are inputs to implementation and are not reopened by an adapter 
 | --- | --- | --- | --- |
 | PyPI `copilotkit-intelligence-adk` | `SkillRegistry`, `SkillToolset` | `google-adk>=2.0.0,<3.0.0`; Python >=3.10 | `copilotkit>=0.1.95,<1.0.0` |
 | PyPI `copilotkit-intelligence-langgraph` | `createSkillRegistryMiddleware`, `create_skill_registry_middleware` | `langgraph>=1.2.2,<2.0.0`, `langchain>=1.3.2,<2.0.0`; Python >=3.10 | `copilotkit>=0.1.95,<1.0.0` |
-| npm `@copilotkit/intelligence-langgraph` | `createSkillRegistryMiddleware` | `@langchain/langgraph>=1.3.0 <2.0.0`, `langchain>=1.4.3 <2.0.0`; Node >=20 | peer `@copilotkit/intelligence>=0.1.0 <1.0.0` |
+| npm `@copilotkit/intelligence-langgraph` | `createSkillRegistryMiddleware` | `@langchain/langgraph>=1.3.0 <2.0.0`, `langchain>=1.4.4 <2.0.0`; Node >=20 | peer `@copilotkit/intelligence>=0.1.0 <1.0.0` |
 | PyPI `copilotkit-intelligence-agent-framework` | `SkillRegistryContextProvider` | `agent-framework-core>=1.11.0,<2.0.0`; Python >=3.10 | `copilotkit>=0.1.95,<1.0.0` |
 | NuGet `CopilotKit.Intelligence.AgentFramework` | `SkillRegistryContextProvider` | `Microsoft.Agents.AI.Abstractions` `[1.13.0,2.0.0)`; `net8.0` | `CopilotKit.Intelligence` `[0.1.0,1.0.0)` |
 
@@ -145,7 +145,7 @@ All Python `_snapshot.py`/`_registry_state.py` implementations consume only `ski
 
 ## Native API verification gates
 
-The repository locks or demonstrates older framework APIs, but does not contain installed source for `google-adk` 2.0, `langgraph` 1.2.2/`langchain` 1.3.2, `langchain` TypeScript 1.4.3, `agent-framework-core` 1.11.0, or `Microsoft.Agents.AI.Abstractions` 1.13.0. Exact inheritance names and callback signatures must therefore be discovered, compiled, and recorded before production implementation rather than guessed in this plan.
+The repository locks or demonstrates older framework APIs, but does not contain installed source for `google-adk` 2.0, `langgraph` 1.2.2/`langchain` 1.3.2, `langchain` TypeScript 1.4.4, `agent-framework-core` 1.11.0, or `Microsoft.Agents.AI.Abstractions` 1.13.0. Exact inheritance names and callback signatures must therefore be discovered, compiled, and recorded before production implementation rather than guessed in this plan.
 
 Each adapter slot first creates `tests/api_contract/` probes at both the exact minimum and the newest version below the next major. A probe prints the package version and native base/interface signature, then compiles or imports a minimal no-op extension registered through the same public constructor/API an application will use. The resulting checked-in `README.md` compatibility section names the verified native hook. Production work cannot start until both probes pass; if the minimum lacks the required native extension point, the slot reports that dependency-boundary conflict instead of substituting an agent wrapper.
 
@@ -452,7 +452,7 @@ git commit -m "feat: add Intelligence LangGraph Python adapter"
 
 - [ ] **Step 1: Scaffold the ESM package and exact ranges**
 
-Use version `0.1.0`, Node engine `>=20`, MIT/repository directory metadata, public access, `dist`/README/LICENSE files, and one root ESM export. Declare peers `@copilotkit/intelligence>=0.1.0 <1.0.0`, `@langchain/langgraph>=1.3.0 <2.0.0`, and `langchain>=1.4.3 <2.0.0`; use the workspace generic SDK and exact framework minima as dev dependencies. Add package scripts `build`, `check-types`, `test`, `publint`, `attw`, and `verify-package`, then define the `@copilotkit/intelligence-langgraph` Nx `test`, `check`, `build`, and `pack-check` targets with the exact commands in the common target table.
+Use version `0.1.0`, Node engine `>=20`, MIT/repository directory metadata, public access, `dist`/README/LICENSE files, and one root ESM export. Declare peers `@copilotkit/intelligence>=0.1.0 <1.0.0`, `@langchain/langgraph>=1.3.0 <2.0.0`, and `langchain>=1.4.4 <2.0.0`; use the workspace generic SDK and exact framework minima as dev dependencies. Add package scripts `build`, `check-types`, `test`, `publint`, `attw`, and `verify-package`, then define the `@copilotkit/intelligence-langgraph` Nx `test`, `check`, `build`, and `pack-check` targets with the exact commands in the common target table.
 
 Run `corepack enable && pnpm install --frozen-lockfile=false && node --version`; expected setup GREEN is Node 20+ and a workspace install. This slot does not stage `pnpm-lock.yaml`.
 
@@ -460,7 +460,7 @@ Run `corepack enable && pnpm install --frozen-lockfile=false && node --version`;
 
 Create temporary consumers in `tests/api-contract/.tmp` through `scripts/verify-package.ts`, install the packed adapter with the exact minima and then the unpinned compatible ranges, compile a no-op public middleware registered in `createAgent({ middleware: [...] })`, and delete the temporary consumers in `finally`. Print resolved package versions and save no generated files. A compile failure blocks implementation rather than introducing `as any` or an agent wrapper.
 
-Run `pnpm --filter @copilotkit/intelligence-langgraph verify-package --mode minimum && pnpm --filter @copilotkit/intelligence-langgraph verify-package --mode latest`. Expected GREEN: the minimum consumer resolves `@langchain/langgraph@1.3.0`/`langchain@1.4.3`, the latest consumer stays below 2.0.0, both compile native registration, and `.tmp` is absent afterward.
+Run `pnpm --filter @copilotkit/intelligence-langgraph verify-package --mode minimum && pnpm --filter @copilotkit/intelligence-langgraph verify-package --mode latest`. Expected GREEN: the minimum consumer resolves `@langchain/langgraph@1.3.0`/`langchain@1.4.4`, the latest consumer stays below 2.0.0, both compile native registration, and `.tmp` is absent afterward. The minimum is `1.4.4` because npm never published `langchain@1.4.3`.
 
 - [ ] **Step 3: Write failing Vitest lifecycle tests**
 
