@@ -22,6 +22,7 @@ describe("Angular reusable UI browser suite contract", () => {
     ["mobile popup is not full-screen", "popup-responsive"],
     ["desktop popup unexpectedly fills the viewport", "popup-responsive"],
     ["reduced-motion popup still animates", "reduced-motion"],
+    ["reduced-motion sidebar still animates", "reduced-motion"],
     ["reduced-motion preference is unavailable", "reduced-motion"],
     ["customer prompt must never persist", "unclassified"],
   ] as const)(

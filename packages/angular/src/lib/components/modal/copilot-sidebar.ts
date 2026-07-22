@@ -205,6 +205,11 @@ export type CopilotSidebarPosition = "left" | "right";
         }
       }
     }
+    @media (prefers-reduced-motion: reduce) {
+      .copilot-sidebar-window {
+        animation: none;
+      }
+    }
   `,
 })
 export class CopilotSidebar {

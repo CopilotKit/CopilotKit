@@ -172,6 +172,11 @@ import { dimensionToCss } from "./modal-utils";
         }
       }
     }
+    @media (prefers-reduced-motion: reduce) {
+      .copilot-popup-window {
+        animation: none;
+      }
+    }
   `,
 })
 export class CopilotPopup {

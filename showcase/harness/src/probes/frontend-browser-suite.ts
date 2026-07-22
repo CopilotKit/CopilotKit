@@ -119,7 +119,7 @@ export function classifyBrowserError(value: string): BrowserErrorKind {
     return "popup-responsive";
   }
   if (
-    /reduced-motion (?:popup still animates|preference is unavailable)/i.test(
+    /reduced-motion (?:(?:popup|sidebar) still animates|preference is unavailable)/i.test(
       value,
     )
   ) {
@@ -379,6 +379,13 @@ async function assertSidebar(
     }
   } else if (role !== "complementary") {
     throw new Error("desktop sidebar is not a complementary landmark");
+  }
+  await ensureReducedMotion(page);
+  const animationName = await sidebar.evaluate(
+    "element => getComputedStyle(element).animationName",
+  );
+  if (animationName !== "none") {
+    throw new Error("reduced-motion sidebar still animates");
   }
   return {
     keyboard: project.kind === "device-emulation" ? "passed" : "not-applicable",
