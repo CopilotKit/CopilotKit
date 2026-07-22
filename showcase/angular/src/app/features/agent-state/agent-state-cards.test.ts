@@ -8,6 +8,7 @@ import {
   DelegationLogComponent,
   SubAgentActivityCard,
 } from "./agent-state-cards";
+import { subAgentRendererConfig } from "./subagent-renderer-config";
 
 describe("Angular agent-state cards", () => {
   afterEach(() => {
@@ -48,7 +49,14 @@ describe("Angular agent-state cards", () => {
     expect(element.textContent).toContain("Finished result");
   });
 
-  it("exposes each completed supervisor delegation through the shared probe contract", async () => {
+  it("renders subagent tools when backend messages omit agent identity", () => {
+    const renderer = subAgentRendererConfig("research_agent");
+
+    expect(renderer.component).toBe(SubAgentActivityCard);
+    expect(renderer.agentId).toBeUndefined();
+  });
+
+  it("keeps delegation-log identities distinct from transcript tool cards", async () => {
     const element = await render(DelegationLogComponent, {
       delegations: [
         {
@@ -76,13 +84,18 @@ describe("Angular agent-state cards", () => {
     });
 
     expect(
-      element.querySelectorAll('[data-testid="subagent-card-researcher"]'),
+      element.querySelectorAll('[data-testid^="subagent-card-"]'),
+    ).toHaveLength(0);
+    expect(
+      element.querySelectorAll(
+        '[data-testid="subagent-delegation-researcher"]',
+      ),
     ).toHaveLength(1);
     expect(
-      element.querySelectorAll('[data-testid="subagent-card-writer"]'),
+      element.querySelectorAll('[data-testid="subagent-delegation-writer"]'),
     ).toHaveLength(1);
     expect(
-      element.querySelectorAll('[data-testid="subagent-card-critic"]'),
+      element.querySelectorAll('[data-testid="subagent-delegation-critic"]'),
     ).toHaveLength(1);
   });
 });

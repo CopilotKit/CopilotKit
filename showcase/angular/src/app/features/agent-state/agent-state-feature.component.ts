@@ -7,8 +7,6 @@ import {
 } from "@angular/core";
 import { ActivatedRoute } from "@angular/router";
 import { injectAgentStore, registerRenderToolCall } from "@copilotkit/angular";
-import type { RenderToolCallConfig } from "@copilotkit/angular";
-import { z } from "zod";
 
 import { agentIdForRoute } from "../../feature-agent";
 import { FeatureHeaderComponent } from "../feature-header.component";
@@ -16,9 +14,10 @@ import { ShowcaseChatHostComponent } from "../showcase-chat-host.component";
 import {
   AgentStateCardComponent,
   DelegationLogComponent,
-  SubAgentActivityCard,
 } from "./agent-state-cards";
+import type { SubAgentName } from "./agent-state-model";
 import { readDelegations, readSteps } from "./agent-state-model";
+import { subAgentRendererConfig } from "./subagent-renderer-config";
 
 @Component({
   selector: "showcase-agent-state-transcript-children",
@@ -117,15 +116,7 @@ export class AgentStateFeatureComponent {
     }
   }
 
-  private registerSubAgent(name: string): void {
-    const config: RenderToolCallConfig<{ task: string }> = {
-      name,
-      args: z.object({ task: z.string() }),
-      component: SubAgentActivityCard as unknown as RenderToolCallConfig<{
-        task: string;
-      }>["component"],
-      agentId: this.agentId,
-    };
-    registerRenderToolCall(config);
+  private registerSubAgent(name: SubAgentName): void {
+    registerRenderToolCall(subAgentRendererConfig(name));
   }
 }

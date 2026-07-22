@@ -109,21 +109,32 @@ export class AgentStateCardComponent {
 }
 
 const SUB_AGENT_META: Readonly<
-  Record<SubAgentName, { label: string; testId: string; action: string }>
+  Record<
+    SubAgentName,
+    {
+      label: string;
+      testId: string;
+      delegationTestId: string;
+      action: string;
+    }
+  >
 > = {
   research_agent: {
     label: "Researcher",
     testId: "subagent-card-researcher",
+    delegationTestId: "subagent-delegation-researcher",
     action: "gathering facts",
   },
   writing_agent: {
     label: "Writer",
     testId: "subagent-card-writer",
+    delegationTestId: "subagent-delegation-writer",
     action: "drafting prose",
   },
   critique_agent: {
     label: "Critic",
     testId: "subagent-card-critic",
+    delegationTestId: "subagent-delegation-critic",
     action: "reviewing the draft",
   },
 };
@@ -368,8 +379,8 @@ export class DelegationLogComponent {
     return SUB_AGENT_META[subAgent].label;
   }
 
-  /** Resolve the stable cross-frontend probe identity for a delegation. */
+  /** Resolve a delegation-log identity distinct from transcript tool cards. */
   protected testIdFor(subAgent: SubAgentName): string {
-    return SUB_AGENT_META[subAgent].testId;
+    return SUB_AGENT_META[subAgent].delegationTestId;
   }
 }
