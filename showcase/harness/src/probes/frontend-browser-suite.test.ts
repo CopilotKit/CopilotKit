@@ -5,10 +5,24 @@ import {
   FRONTEND_BROWSER_PROJECTS,
   FRONTEND_BROWSER_STATES,
   browserProjectById,
+  classifyBrowserError,
   createFrontendBrowserArtifact,
 } from "./frontend-browser-suite.js";
 
 describe("Angular reusable UI browser suite contract", () => {
+  it.each([
+    ["RuntimeError: NG0203: inject() failed", "angular-injection-context"],
+    ["NullInjectorError: No provider", "angular-missing-provider"],
+    ["waiting for locator('textarea')", "interaction-timeout"],
+    ["Failed to load resource: net::ERR_FAILED", "network-resource"],
+    ["customer prompt must never persist", "unclassified"],
+  ] as const)(
+    "classifies browser failures without retaining %s",
+    (raw, kind) => {
+      expect(classifyBrowserError(raw)).toBe(kind);
+    },
+  );
+
   it("enumerates three desktop engines and two honest emulation projects", () => {
     expect(FRONTEND_BROWSER_PROJECTS).toEqual([
       expect.objectContaining({ id: "chromium-desktop", engine: "chromium" }),
@@ -79,6 +93,8 @@ describe("Angular reusable UI browser suite contract", () => {
             sidebarVisible: false,
             pageErrorCount: 0,
             consoleErrorCount: 0,
+            consoleErrorKinds: ["angular-injection-context"],
+            pageErrorKinds: [],
           },
         },
       ],
@@ -88,6 +104,9 @@ describe("Angular reusable UI browser suite contract", () => {
     expect(artifact.project.id).toBe("chromium-desktop");
     expect(artifact.summary).toEqual({ total: 1, passed: 0, failed: 1 });
     expect(artifact.states[0]?.diagnostics.dialogVisible).toBe(true);
+    expect(artifact.states[0]?.diagnostics.consoleErrorKinds).toEqual([
+      "angular-injection-context",
+    ]);
     expect(JSON.stringify(artifact)).not.toMatch(/html|target|message|prompt/i);
   });
 });

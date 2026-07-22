@@ -82,6 +82,36 @@ export interface AccessibilityViolationSummary {
 
 type AssertionStatus = "passed" | "failed" | "not-applicable";
 
+export type BrowserErrorKind =
+  | "angular-injection-context"
+  | "angular-missing-provider"
+  | "angular-required-input"
+  | "angular-expression-changed"
+  | "angular-zone-required"
+  | "interaction-timeout"
+  | "network-resource"
+  | "browser-closed"
+  | "unclassified";
+
+/** Reduce browser failures to a closed, privacy-safe diagnostic vocabulary. */
+export function classifyBrowserError(value: string): BrowserErrorKind {
+  if (value.includes("NG0203")) return "angular-injection-context";
+  if (value.includes("NullInjectorError")) return "angular-missing-provider";
+  if (value.includes("NG0950")) return "angular-required-input";
+  if (value.includes("NG0100")) return "angular-expression-changed";
+  if (value.includes("NG0908")) return "angular-zone-required";
+  if (/Timeout|waiting for (?:locator|selector)/i.test(value)) {
+    return "interaction-timeout";
+  }
+  if (/Failed to load resource|net::ERR_/i.test(value)) {
+    return "network-resource";
+  }
+  if (/page, context or browser has been closed/i.test(value)) {
+    return "browser-closed";
+  }
+  return "unclassified";
+}
+
 export interface FrontendBrowserStateResult {
   stateId: FrontendBrowserStateId;
   status: "passed" | "failed";
@@ -95,6 +125,7 @@ export interface FrontendBrowserStateResult {
   };
   diagnostics: FrontendSurfaceDiagnostics;
   failureStage?: string;
+  failureKind?: BrowserErrorKind;
 }
 
 export interface FrontendSurfaceDiagnostics {
@@ -111,6 +142,8 @@ export interface FrontendSurfaceDiagnostics {
   sidebarVisible: boolean;
   pageErrorCount: number;
   consoleErrorCount: number;
+  consoleErrorKinds: BrowserErrorKind[];
+  pageErrorKinds: BrowserErrorKind[];
 }
 
 export interface FrontendBrowserArtifact {
@@ -213,7 +246,12 @@ async function assertFocusWithin(page: Page, selector: string): Promise<void> {
 
 async function diagnoseSurface(
   page: Page,
-  errorCounts: { page: number; console: number },
+  errorCounts: {
+    page: number;
+    console: number;
+    pageKinds: BrowserErrorKind[];
+    consoleKinds: BrowserErrorKind[];
+  },
 ): Promise<FrontendSurfaceDiagnostics> {
   const attached = async (selector: string): Promise<boolean> =>
     (await page.locator(selector).count()) > 0;
@@ -233,6 +271,8 @@ async function diagnoseSurface(
     sidebarVisible: await visible("[data-copilot-sidebar]"),
     pageErrorCount: errorCounts.page,
     consoleErrorCount: errorCounts.console,
+    consoleErrorKinds: [...new Set(errorCounts.consoleKinds)].sort(),
+    pageErrorKinds: [...new Set(errorCounts.pageKinds)].sort(),
   };
 }
 
@@ -322,12 +362,21 @@ async function runState(
   state: (typeof FRONTEND_BROWSER_STATES)[number],
 ): Promise<FrontendBrowserStateResult> {
   const startedAt = Date.now();
-  const errorCounts = { page: 0, console: 0 };
-  page.on("pageerror", () => {
+  const errorCounts: {
+    page: number;
+    console: number;
+    pageKinds: BrowserErrorKind[];
+    consoleKinds: BrowserErrorKind[];
+  } = { page: 0, console: 0, pageKinds: [], consoleKinds: [] };
+  page.on("pageerror", (error) => {
     errorCounts.page += 1;
+    errorCounts.pageKinds.push(classifyBrowserError(error.message));
   });
   page.on("console", (entry) => {
-    if (entry.type() === "error") errorCounts.console += 1;
+    if (entry.type() === "error") {
+      errorCounts.console += 1;
+      errorCounts.consoleKinds.push(classifyBrowserError(entry.text()));
+    }
   });
   const assertions: FrontendBrowserStateResult["assertions"] = {
     keyboard: "not-applicable",
@@ -380,7 +429,7 @@ async function runState(
       diagnostics: await diagnoseSurface(page, errorCounts),
       ...(violations.length > 0 ? { failureStage } : {}),
     };
-  } catch {
+  } catch (error) {
     return {
       stateId: state.id,
       status: "failed",
@@ -389,6 +438,9 @@ async function runState(
       assertions,
       diagnostics: await diagnoseSurface(page, errorCounts),
       failureStage,
+      failureKind: classifyBrowserError(
+        error instanceof Error ? error.message : String(error),
+      ),
     };
   }
 }
