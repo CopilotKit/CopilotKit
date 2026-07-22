@@ -351,6 +351,47 @@ describe("injectAgentStore", () => {
     );
   });
 
+  it("preserves provisional run updates when runtime sync publishes the registered agent", () => {
+    copilotKitStub.setAgents({});
+    copilotKitStub.setRuntimeUrl("https://runtime.local");
+    copilotKitStub.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Connecting,
+    );
+
+    @Component({
+      standalone: true,
+      template: "",
+    })
+    class RuntimeHandoffHost {
+      store = injectAgentStore("shared-agent");
+    }
+
+    const fixture = TestBed.createComponent(RuntimeHandoffHost);
+    fixture.detectChanges();
+
+    const provisionalStore = fixture.componentInstance.store();
+    const provisionalAgent = provisionalStore.agent;
+    provisionalAgent.isRunning = true;
+
+    const registeredAgent = new MockAgent("shared-agent");
+    copilotKitStub.setAgents({ "shared-agent": registeredAgent });
+    copilotKitStub.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.store().agent).toBe(registeredAgent);
+    expect(fixture.componentInstance.store().isRunning()).toBe(true);
+
+    provisionalAgent.setState({
+      steps: [{ id: "launch", status: "completed" }],
+    });
+
+    expect(fixture.componentInstance.store().state()).toEqual({
+      steps: [{ id: "launch", status: "completed" }],
+    });
+  });
+
   it("throws when agent cannot be resolved after runtime sync", () => {
     copilotKitStub.setAgents({});
     copilotKitStub.setRuntimeUrl("https://runtime.local");

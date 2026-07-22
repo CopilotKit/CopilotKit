@@ -8,7 +8,7 @@ import {
 } from "@angular/core";
 import { CopilotKit } from "./copilotkit";
 import type { AbstractAgent } from "@ag-ui/client";
-import type { Message } from "@ag-ui/client";
+import type { Message, State } from "@ag-ui/client";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import type { CopilotKitCore } from "@copilotkit/core";
 import {
@@ -30,12 +30,12 @@ export class AgentStore {
   readonly #subscription?: {
     unsubscribe: () => void;
   };
-  readonly #isRunning = signal<boolean>(false);
+  readonly #isRunning: WritableSignal<boolean>;
   readonly #messages: WritableSignal<Message[]>;
   readonly #state: WritableSignal<unknown>;
 
   readonly agent: AbstractAgent;
-  readonly isRunning = this.#isRunning.asReadonly();
+  readonly isRunning: Signal<boolean>;
   readonly messages: Signal<Message[]>;
   readonly state: Signal<unknown>;
 
@@ -48,6 +48,8 @@ export class AgentStore {
     // A connected agent can already carry restored thread data before this
     // store subscribes. Seed the signals synchronously so the first render is
     // complete instead of waiting for a future mutation that may never occur.
+    this.#isRunning = signal(abstractAgent.isRunning);
+    this.isRunning = this.#isRunning.asReadonly();
     this.#messages = signal([...abstractAgent.messages]);
     this.#state = signal(snapshotState(abstractAgent.state));
     this.messages = this.#messages.asReadonly();
@@ -55,9 +57,11 @@ export class AgentStore {
 
     this.#subscription = subscribeToAgent(abstractAgent, {
       onMessagesChanged: () => {
+        this.#isRunning.set(abstractAgent.isRunning);
         this.#messages.set([...abstractAgent.messages]);
       },
       onStateChanged: () => {
+        this.#isRunning.set(abstractAgent.isRunning);
         this.#state.set(snapshotState(abstractAgent.state));
       },
       onRunInitialized: () => {
@@ -114,6 +118,10 @@ export class CopilotkitAgentFactory {
       const resolvedAgentId = agentId() || DEFAULT_AGENT_ID;
       const existing = this.#copilotkit.getAgent(resolvedAgentId);
       if (existing) {
+        const provisional = this.#provisionalCache.get(resolvedAgentId);
+        if (provisional?.isRunning && provisional !== existing) {
+          bridgeActiveRun(provisional, existing);
+        }
         this.#provisionalCache.delete(resolvedAgentId);
         return existing;
       }
@@ -184,6 +192,48 @@ export class CopilotkitAgentFactory {
       return lastAgentStore;
     });
   }
+}
+
+/**
+ * Transfer an active provisional run to the runtime-registered agent identity.
+ * Runtime discovery can settle after a user submits but before the stream
+ * finishes. Consumers switch to the registered agent at that point, so late
+ * provisional updates must be mirrored until the original run terminates.
+ */
+function bridgeActiveRun(
+  provisional: AbstractAgent,
+  registered: AbstractAgent,
+): void {
+  let subscription: { unsubscribe: () => void } | undefined;
+
+  const syncMessages = (): void => {
+    registered.isRunning = provisional.isRunning;
+    registered.threadId = provisional.threadId;
+    registered.setMessages([...provisional.messages]);
+  };
+  const syncState = (): void => {
+    registered.isRunning = provisional.isRunning;
+    registered.threadId = provisional.threadId;
+    registered.setState(snapshotState(provisional.state) as State);
+  };
+  const finish = (): void => {
+    syncMessages();
+    syncState();
+    subscription?.unsubscribe();
+  };
+
+  registered.isRunning = provisional.isRunning;
+  registered.threadId = provisional.threadId;
+  registered.messages = [...provisional.messages];
+  registered.state = snapshotState(provisional.state) as State;
+
+  subscription = provisional.subscribe({
+    onMessagesChanged: syncMessages,
+    onStateChanged: syncState,
+    onRunFinalized: finish,
+    onRunFailed: finish,
+    onRunErrorEvent: finish,
+  });
 }
 
 export function injectAgentStore(
