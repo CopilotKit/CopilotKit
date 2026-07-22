@@ -63,6 +63,10 @@ describe("D5 mcp-apps script — buildTurns", () => {
     expect(turns).toHaveLength(1);
     expect(typeof turns[0]!.assertions).toBe("function");
     expect(typeof turns[0]!.preFill).toBe("function");
+    expect(turns[0]!.completeOnMount).toEqual({
+      testIds: ["mcp-app-iframe"],
+      minNewMounts: 1,
+    });
   });
 
   it("drives a real MCP-tool prompt (not the previous 'hello' no-op)", () => {
@@ -142,6 +146,7 @@ describe("D5 mcp-apps armMcpInitializeProbe", () => {
         source: expectedSource,
       });
       expect(expectedAttributes.get("data-mcp-app-initialized")).toBe("true");
+      expect(expectedAttributes.get("data-testid")).toBe("mcp-app-iframe");
       expect(unrelatedAttributes.has("data-mcp-app-initialized")).toBe(false);
     } finally {
       if (originalWindow) {

@@ -105,6 +105,7 @@ export async function armMcpInitializeProbe(page: Page): Promise<void> {
       for (let index = 0; index < frames.length; index += 1) {
         const frame = frames[index];
         if (frame?.contentWindow === event.source) {
+          frame.setAttribute("data-testid", "mcp-app-iframe");
           frame.setAttribute("data-mcp-app-initialized", "true");
           return;
         }
@@ -199,6 +200,10 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
       input:
         "Open Excalidraw and sketch a system diagram with a client, server, and database.",
       preFill: armMcpInitializeProbe,
+      completeOnMount: {
+        testIds: ["mcp-app-iframe"],
+        minNewMounts: 1,
+      },
       // Wrapped so the assertions callback ignores the Phase-4 `ctx`
       // argument: `assertIframePresent` takes `(page, timeoutMs?)`, not
       // `(page, ctx)`, and ctx is irrelevant to the iframe-mount probe.
