@@ -223,6 +223,14 @@ export const REGISTRY_TO_D5: Readonly<
 
   // Voice family — voice input/output.
   voice: ["voice"],
+
+  // Mastra feature family. Background tasks and observational memory have
+  // deterministic fixture-backed activity surfaces. Browser Use intentionally
+  // performs a hydration-only smoke because live web navigation is not
+  // replayable and must not require network or credentials in the merge gate.
+  "background-agents": ["background-agents"],
+  "observational-memory": ["observational-memory"],
+  "browser-use": ["browser-use-smoke"],
 };
 
 /**

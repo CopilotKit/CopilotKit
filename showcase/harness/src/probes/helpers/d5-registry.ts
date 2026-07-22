@@ -118,7 +118,10 @@ export type D5FeatureType =
   | "beautiful-chat-pie-chart"
   | "beautiful-chat-bar-chart"
   | "beautiful-chat-search-flights"
-  | "beautiful-chat-schedule-meeting";
+  | "beautiful-chat-schedule-meeting"
+  | "background-agents"
+  | "observational-memory"
+  | "browser-use-smoke";
 
 /**
  * Closed-set runtime mirror of `D5FeatureType`. Kept in lock-step with
@@ -168,6 +171,9 @@ const D5_FEATURE_TYPES: readonly D5FeatureType[] = [
   "beautiful-chat-bar-chart",
   "beautiful-chat-search-flights",
   "beautiful-chat-schedule-meeting",
+  "background-agents",
+  "observational-memory",
+  "browser-use-smoke",
 ] as const satisfies readonly D5FeatureType[];
 
 /**
@@ -226,11 +232,9 @@ export interface D5RouteContext {
  *   - `featureTypes`: every feature this script claims. Multiple entries
  *     mean the same conversation works for >1 feature (e.g. shared-state
  *     read+write).
- *   - `fixtureFile`: basename under `showcase/harness/fixtures/d5/` that the
- *     conversation expects. Reference only — the runtime fixture wiring
- *     happens elsewhere (showcase-aimock loads the file). The driver
- *     surfaces this on the side row's signal so the dashboard can link
- *     directly to the canonical fixture for triage.
+ *   - `fixtureFile`: basename under the integration's D6 fixtures that the
+ *     conversation expects. Omit only for a deliberate no-conversation
+ *     hydration smoke that never contacts the backend.
  *   - `buildTurns`: produces the per-tick conversation turn list. Called
  *     once per (integration, featureType) pair; the script may branch on
  *     `ctx.integrationSlug` if the conversation differs by integration.
@@ -241,7 +245,7 @@ export interface D5RouteContext {
  */
 export interface D5Script {
   featureTypes: D5FeatureType[];
-  fixtureFile: string;
+  fixtureFile?: string;
   buildTurns: (ctx: D5BuildContext) => ConversationTurn[];
   preNavigateRoute?: (
     featureType: D5FeatureType,

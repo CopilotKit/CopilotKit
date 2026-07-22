@@ -26,6 +26,7 @@ export const D5_REPRESENTATIVES: Readonly<
   "beautiful-chat-schedule-meeting": "beautiful-chat.json",
   "beautiful-chat-search-flights": "beautiful-chat.json",
   "beautiful-chat-toggle-theme": "beautiful-chat.json",
+  "background-agents": "background-agents.json",
   byoc: "_from-feature-parity.json",
   "chat-css": "chat-css.json",
   "chat-slots": "chat-slots.json",
@@ -47,6 +48,7 @@ export const D5_REPRESENTATIVES: Readonly<
   "interrupt-headless": "hitl-in-chat.json", // schedule_meeting fixtures shared with hitl
   "mcp-apps": "mcp-apps.json",
   multimodal: "agentic-chat.json",
+  "observational-memory": "observational-memory.json",
   "prebuilt-popup": "agentic-chat.json",
   "prebuilt-sidebar": "agentic-chat.json",
   "readonly-state-context": "readonly-state.json",

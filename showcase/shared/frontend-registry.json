@@ -192,6 +192,18 @@
       "react": { "state": "supported" },
       "angular": { "state": "supported" }
     },
+    "background-agents": {
+      "react": { "state": "supported" },
+      "angular": { "state": "supported" }
+    },
+    "observational-memory": {
+      "react": { "state": "supported" },
+      "angular": { "state": "supported" }
+    },
+    "browser-use": {
+      "react": { "state": "supported" },
+      "angular": { "state": "supported" }
+    },
     "auth": {
       "react": { "state": "supported" },
       "angular": { "state": "supported" }

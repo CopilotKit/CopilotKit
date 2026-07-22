@@ -34,6 +34,7 @@ export type FeatureComponentKey =
   | "app-settings"
   | "media"
   | "beautiful-chat"
+  | "mastra"
   | "hashbrown"
   | "chat";
 
@@ -89,6 +90,10 @@ export function resolveFeatureComponentKey(
     case "gen-ui-agent":
     case "subagents":
       return "agent-state";
+    case "background-agents":
+    case "observational-memory":
+    case "browser-use":
+      return "mastra";
     case "auth":
     case "agent-config":
       return "app-settings";
@@ -113,6 +118,11 @@ function loadFeatureComponent(feature: string) {
       return () =>
         import("./features/popup-feature.component").then(
           (module) => module.PopupFeatureComponent,
+        );
+    case "mastra":
+      return () =>
+        import("./features/mastra/mastra-feature.component").then(
+          (module) => module.MastraFeatureComponent,
         );
     case "sidebar":
       return () =>

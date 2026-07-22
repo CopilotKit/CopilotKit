@@ -38,6 +38,9 @@ describe("Angular showcase feature routing", () => {
     ["reasoning-custom", "reasoning"],
     ["gen-ui-agent", "agent-state"],
     ["subagents", "agent-state"],
+    ["background-agents", "mastra"],
+    ["observational-memory", "mastra"],
+    ["browser-use", "mastra"],
     ["auth", "app-settings"],
     ["agent-config", "app-settings"],
     ["voice", "media"],
@@ -64,7 +67,7 @@ describe("Angular showcase feature routing", () => {
       .filter(([, declaration]) => declaration.angular?.state === "supported")
       .map(([feature]) => feature);
 
-    expect(supported).toHaveLength(39);
+    expect(supported).toHaveLength(42);
     expect(() => supported.map(resolveFeatureComponentKey)).not.toThrow();
   });
 });
@@ -88,6 +91,26 @@ describe("Angular showcase static suggestions", () => {
 
   it("does not add feature-specific suggestions to unrelated routes", () => {
     expect(suggestionsConfigForFeature("agentic-chat")).toEqual([]);
+  });
+
+  it("exposes the canonical Mastra prompts on Angular routes", () => {
+    expect(
+      suggestionsConfigForFeature("background-agents")[0]?.suggestions,
+    ).toContainEqual({
+      title: "Research AI agent frameworks",
+      message:
+        "Kick off deep research on the current landscape of AI agent frameworks.",
+    });
+    expect(
+      suggestionsConfigForFeature("observational-memory")[0]?.suggestions[0]
+        ?.message,
+    ).toContain("Northwind Insights");
+    expect(
+      suggestionsConfigForFeature("browser-use")[0]?.suggestions,
+    ).toContainEqual({
+      title: "Show me the top Hacker News stories",
+      message: "Show me the top Hacker News stories right now.",
+    });
   });
 
   it("exposes every flagship Beautiful Chat capability as a suggestion", () => {

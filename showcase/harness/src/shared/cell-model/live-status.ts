@@ -464,6 +464,9 @@ export const CATALOG_TO_D5_KEY: Readonly<Record<string, readonly string[]>> = {
   "declarative-hashbrown": ["byoc"],
   "declarative-json-render": ["byoc"],
   voice: ["voice"],
+  "background-agents": ["background-agents"],
+  "observational-memory": ["observational-memory"],
+  "browser-use": ["browser-use-smoke"],
 };
 
 /**

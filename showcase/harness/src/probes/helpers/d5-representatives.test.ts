@@ -39,7 +39,9 @@ describe("D5_REPRESENTATIVES", () => {
       await import(path.join(scriptsDir, file));
     }
 
-    const registeredTypes = [...D5_REGISTRY.keys()] as D5FeatureType[];
+    const registeredTypes = [...D5_REGISTRY.entries()]
+      .filter(([, script]) => script.fixtureFile !== undefined)
+      .map(([featureType]) => featureType) as D5FeatureType[];
     expect(registeredTypes.length).toBeGreaterThan(0);
 
     const missing = registeredTypes.filter(

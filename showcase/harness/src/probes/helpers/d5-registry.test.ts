@@ -5,10 +5,8 @@ import {
   getD5Script,
   isD5FeatureType,
   registerD5Script,
-  type D5BuildContext,
-  type D5FeatureType,
-  type D5Script,
 } from "./d5-registry.js";
+import type { D5BuildContext, D5FeatureType, D5Script } from "./d5-registry.js";
 
 // Registry tests cover the three behaviours Wave 2b script authors rely
 // on: (1) multi-feature registration writes one map entry per featureType,
@@ -175,6 +173,9 @@ describe("isD5FeatureType", () => {
       "gen-ui-custom",
       "mcp-apps",
       "subagents",
+      "background-agents",
+      "observational-memory",
+      "browser-use-smoke",
     ];
     for (const k of known) {
       expect(isD5FeatureType(k)).toBe(true);
