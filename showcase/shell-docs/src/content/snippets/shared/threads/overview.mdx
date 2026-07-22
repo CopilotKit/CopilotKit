@@ -1,16 +1,4 @@
-## A durable home for every agent conversation
-
-With Threads, users can close the browser, return on another device, reopen a conversation, and continue from the same event history while active runs reconnect in realtime. Generative UI renders again as part of that history, and multimodal inputs stay stored with the conversation.
-
-Without CopilotKit Threads, your team has to design the storage model, replay historical events and generative UI, persist multimodal inputs, reconnect live streams, synchronize thread lists, coordinate concurrent runs, and build lifecycle APIs before you can ship the conversation experience itself. Enterprise Intelligence handles that infrastructure so you can focus on your agent and product UI.
-
-<OpsPlatformCTA
-  variant="inline"
-  title="Ship persistent conversations without building the backend"
-  body="Enterprise Intelligence handles durable history, replay, realtime sync, and thread lifecycle on the free Developer tier."
-  ctaLabel="Get Enterprise Intelligence free"
-  surface="docs_threads_overview"
-/>
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 
 <div
   aria-label="A support workspace using Threads Drawer to move between customer conversations while CopilotChat renders the selected case details."
@@ -23,9 +11,93 @@ Without CopilotKit Threads, your team has to design the storage model, replay hi
   />
 </div>
 
-## Why use CopilotKit Threads?
+## Get started
 
-Threads turn a streamed agent run into a product experience users can leave and return to. They provide:
+### Managed Intelligence: start building
+
+The supported self-serve path starts with a CopilotKit CLI project. Your application and CopilotKit Runtime run locally while cloud-hosted Enterprise Intelligence stores and synchronizes its Rich Threads.
+
+1. Run the interactive starter command:
+
+   ```bash title="Terminal"
+   npx copilotkit@latest init
+   ```
+
+2. Complete browser sign-in, then create or select an Enterprise Intelligence project when the CLI asks.
+3. Start the generated application and Runtime with the command printed by the CLI. For the standard npm setup:
+
+   ```bash title="Terminal"
+   cd <project-directory>
+   npm run dev
+   ```
+
+4. Use the included Threads Drawer to create a conversation. Reload the page or reopen the conversation and confirm that its complete history returns.
+
+Threads-capable CLI starters already include [Threads Drawer](/prebuilt-components/copilot-threads-drawer). Use its guide when you are ready to customize the drawer. Choose [Headless Threads](/headless-threads) later if your product needs a fully custom thread UI.
+
+<Accordions>
+<Accordion title="Build and verify this with a coding agent">
+
+```text
+Set up and verify a CopilotKit Rich Threads application using the supported
+managed Enterprise Intelligence path.
+
+First inspect this repository and follow its agent instructions. If this is not
+already a CLI-created CopilotKit Threads starter, run
+`npx copilotkit@latest init` and ask me to complete the interactive browser
+sign-in and Enterprise Intelligence project selection when needed. Use the
+scaffolded local application and CopilotKit Runtime configuration.
+
+Keep the Threads Drawer that comes with the starter. Do not rebuild it or invent
+manual Enterprise Intelligence environment configuration. Do not set up a local
+Intelligence service.
+
+Start the application and Runtime using the generated instructions. Create a
+conversation through the included Threads Drawer, reload or reopen it, and
+verify that the complete conversation returns. If browser interaction requires
+me, give me the exact step and continue after I confirm it.
+
+Finish by reporting the files changed, commands run, and the persistence check
+you completed. Stop and explain the blocker if the supported managed path cannot
+be completed; do not substitute an undocumented setup.
+```
+
+</Accordion>
+</Accordions>
+
+### Production self-hosting: plan a deployment
+
+Run Enterprise Intelligence inside your infrastructure when your organization needs its own network boundary, data residency, identity provider, storage, and Kubernetes operations. Production self-hosting is planned and deployed with CopilotKit Engineering.
+
+<OpsPlatformCTA
+  variant="inline"
+  title="Plan production self-hosting with CopilotKit Engineering"
+  body="Review your infrastructure, security, identity, and rollout requirements with an engineer."
+  ctaLabel="Book time with an engineer"
+  surface="docs_threads_overview_self_hosting"
+  href="https://copilotkit.ai/talk-to-an-engineer"
+  analyticsEvent="talk_to_us_clicked"
+/>
+
+[Review the architecture](/premium/self-hosting) before the conversation.
+
+## Conversations that come back complete
+
+Rich Threads preserve the complete agent experience across sessions and devices. Built on AG-UI event history, they restore messages, generative UI, multimodal inputs, tool activity, state, and live-run continuity instead of saving only a chat transcript.
+
+Without CopilotKit Rich Threads, your team has to design the storage model, replay historical events and generative UI, persist multimodal inputs, reconnect live streams, synchronize thread lists, coordinate concurrent runs, and build lifecycle APIs before you can ship the conversation experience itself. Enterprise Intelligence handles that infrastructure so you can focus on your agent and product UI.
+
+<OpsPlatformCTA
+  variant="inline"
+  title="Ship persistent conversations without building the backend"
+  body="Enterprise Intelligence handles durable history, replay, realtime sync, and thread lifecycle on the free Developer tier."
+  ctaLabel="Get Enterprise Intelligence free"
+  surface="docs_threads_overview"
+/>
+
+## Why use CopilotKit Rich Threads?
+
+Rich Threads turn a streamed agent run into a product experience users can leave and return to. Because the history is made of portable AG-UI events rather than only text messages, the same complete experience can be restored across supported agent frameworks. Rich Threads provide:
 
 - durable event history across reloads, sessions, and devices
 - seamless replay before a conversation reconnects to a live run
@@ -35,17 +107,6 @@ Threads turn a streamed agent run into a product experience users can leave and 
 - generated names plus rename, archive, unarchive, delete, and pagination APIs
 - thread-level locking that prevents concurrent runs from interleaving events
 - the same persistence model across agent frameworks
-
-### What CopilotKit handles
-
-| CopilotKit handles | You control |
-|---|---|
-| Durable event storage and replay | Your agent's behavior and tools |
-| Replay-to-live stream reconnection | The conversation experience and layout |
-| Realtime thread metadata synchronization | Which thread actions your users can access |
-| Naming, pagination, archive, and delete semantics | Application authorization and permissions |
-| Runtime-to-platform event plumbing and thread locks | Mapping to native framework sessions when needed |
-| Cloud-hosted or self-hosted platform infrastructure | The deployment model that fits your organization |
 
 ## How Threads work
 
@@ -69,6 +130,17 @@ Both UI paths use the same Threads infrastructure. A stable `threadId` connects 
 1. Your UI opens a conversation with a stable `threadId`.
 2. `CopilotRuntime` runs your agent and sends conversation events to Enterprise Intelligence.
 3. When users return, Enterprise Intelligence replays the stored history, reconnects any live run, and synchronizes thread metadata.
+
+### What CopilotKit handles
+
+| CopilotKit handles | You control |
+|---|---|
+| Durable event storage and replay | Your agent's behavior and tools |
+| Replay-to-live stream reconnection | The conversation experience and layout |
+| Realtime thread metadata synchronization | Which thread actions your users can access |
+| Naming, pagination, archive, and delete semantics | Application authorization and permissions |
+| Runtime-to-platform event plumbing and thread locks | Mapping to native framework sessions when needed |
+| Cloud-hosted or self-hosted platform infrastructure | The deployment model that fits your organization |
 
 <Callout type="info" title="Headless means custom UI, not custom infrastructure">
   Threads Drawer and Headless Threads use the same persistence, replay, synchronization, and locking infrastructure. Choose Headless Threads when you want to build the interface yourself, not when you want to rebuild the Threads backend.

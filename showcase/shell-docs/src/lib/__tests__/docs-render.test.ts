@@ -193,12 +193,40 @@ describe("loadDoc", () => {
   });
 
   it("keeps the Threads overview and headless implementation on separate routes", () => {
-    expect(loadDoc("threads")?.fm.title).toBe("Threads");
+    expect(loadDoc("threads")?.fm.title).toBe("Rich Threads");
     expect(loadDoc("headless-threads")?.fm.title).toBe("Headless Threads");
-    expect(loadDoc("integrations/mastra/threads")?.fm.title).toBe("Threads");
+    expect(loadDoc("integrations/mastra/threads")?.fm.title).toBe(
+      "Rich Threads",
+    );
     expect(loadDoc("integrations/mastra/headless-threads")?.fm.title).toBe(
       "Headless Threads",
     );
+  });
+
+  it("keeps the approved overview assets and activation journey in order", () => {
+    const overview = fs.readFileSync(
+      path.join(SNIPPETS_DIR, "shared/threads/overview.mdx"),
+      "utf8",
+    );
+
+    const screenshot = overview.indexOf("support-desk-threads.png");
+    const gettingStarted = overview.indexOf("## Get started");
+    const productStory = overview.indexOf(
+      "## Conversations that come back complete",
+    );
+    const why = overview.indexOf("## Why use CopilotKit Rich Threads?");
+    const diagram = overview.indexOf("threads-diagram-light.png");
+
+    expect(screenshot).toBeGreaterThan(-1);
+    expect(screenshot).toBeLessThan(gettingStarted);
+    expect(gettingStarted).toBeLessThan(productStory);
+    expect(productStory).toBeLessThan(why);
+    expect(why).toBeLessThan(diagram);
+    expect(overview).toContain("npx copilotkit@latest init");
+    expect(overview).toContain("Build and verify this with a coding agent");
+    expect(overview).toContain("Threads-capable CLI starters already include");
+    expect(overview).toContain("Book time with an engineer");
+    expect(overview).toContain("threads-diagram-dark.png");
   });
 });
 
@@ -252,7 +280,7 @@ describe("readTitle", () => {
     );
 
     expect(readTitle(filePath)).toBe("Overview");
-    expect(loadDoc("threads")?.fm.title).toBe("Threads");
+    expect(loadDoc("threads")?.fm.title).toBe("Rich Threads");
   });
 });
 
@@ -456,14 +484,14 @@ describe("framework nav", () => {
       "Overview",
       "Threads Drawer",
       "Headless Threads",
+      "Thread & History Lifecycle",
       "Import Thread History",
       "Threads & Persistence Architecture",
-      "Thread & History Lifecycle",
     ];
 
-    expect(groupPageTitles(generatedNav, "Threads")).toEqual(expected);
-    expect(groupPageTitles(authoredNav, "Threads")).toEqual(expected);
-    expect(groupPageTitles(builtInNav, "Threads")).toEqual(expected);
+    expect(groupPageTitles(generatedNav, "Rich Threads")).toEqual(expected);
+    expect(groupPageTitles(authoredNav, "Rich Threads")).toEqual(expected);
+    expect(groupPageTitles(builtInNav, "Rich Threads")).toEqual(expected);
   });
 
   it("uses the generated Intelligence Platform section for authored framework nav", () => {
