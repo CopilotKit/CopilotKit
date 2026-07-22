@@ -2,10 +2,10 @@ import type { AttachmentsConfig } from "@copilotkit/angular";
 import {
   ChangeDetectionStrategy,
   Component,
-  ElementRef,
   effect,
   inject,
   signal,
+  viewChild,
 } from "@angular/core";
 import { ActivatedRoute } from "@angular/router";
 import { CopilotKit, injectAgentStore } from "@copilotkit/angular";
@@ -16,7 +16,6 @@ import { ShowcaseChatHostComponent } from "../showcase-chat-host.component";
 import {
   createMultimodalMessage,
   dedupeUserMessageMedia,
-  populateChatComposer,
   rewriteMessagesForLegacyConverter,
   validateSampleBytes,
 } from "./media-model";
@@ -181,8 +180,8 @@ const MULTIMODAL_ATTACHMENTS: AttachmentsConfig = {
 })
 export class MediaFeatureComponent {
   private readonly route = inject(ActivatedRoute);
-  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly copilotKit = inject(CopilotKit);
+  private readonly chatHost = viewChild.required(ShowcaseChatHostComponent);
   protected readonly feature =
     (this.route.snapshot.data["feature"] as string | undefined) ?? "voice";
   protected readonly agentId = agentIdForRoute(this.feature, this.route);
@@ -204,7 +203,7 @@ export class MediaFeatureComponent {
 
   /** Insert the deterministic voice sample into the actual chat composer. */
   protected insertVoiceSample(): void {
-    if (!populateChatComposer(this.host.nativeElement, VOICE_SAMPLE_TEXT)) {
+    if (!this.chatHost().populateComposer(VOICE_SAMPLE_TEXT)) {
       this.error.set("The chat composer is not ready yet. Try again.");
       return;
     }

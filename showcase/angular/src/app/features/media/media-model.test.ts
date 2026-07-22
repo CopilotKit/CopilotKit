@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   createMultimodalMessage,
   dedupeUserMessageMedia,
-  populateChatComposer,
   rewriteMessagesForLegacyConverter,
   validateSampleBytes,
 } from "./media-model";
@@ -112,22 +111,5 @@ describe("Angular media showcase model", () => {
         },
       },
     ]);
-  });
-
-  it("fills the real chat textarea and emits an input event", () => {
-    const root = document.createElement("div");
-    const textarea = document.createElement("textarea");
-    textarea.dataset["testid"] = "copilot-chat-textarea";
-    root.append(textarea);
-    let emitted = false;
-    textarea.addEventListener("input", () => {
-      emitted = true;
-    });
-
-    expect(populateChatComposer(root, "What is the weather in Tokyo?")).toBe(
-      true,
-    );
-    expect(textarea.value).toBe("What is the weather in Tokyo?");
-    expect(emitted).toBe(true);
   });
 });

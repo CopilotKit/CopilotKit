@@ -142,27 +142,6 @@ export function dedupeUserMessageMedia(
   return mutated ? next : null;
 }
 
-/** Populate the rendered prebuilt chat composer through its native input API. */
-export function populateChatComposer(root: ParentNode, text: string): boolean {
-  const textarea = root.querySelector<HTMLTextAreaElement>(
-    '[data-testid="copilot-chat-textarea"]',
-  );
-  if (!textarea) return false;
-  const setter = Object.getOwnPropertyDescriptor(
-    HTMLTextAreaElement.prototype,
-    "value",
-  )?.set;
-  setter?.call(textarea, text);
-  const InputEventConstructor = textarea.ownerDocument.defaultView?.Event;
-  if (InputEventConstructor) {
-    textarea.dispatchEvent(
-      new InputEventConstructor("input", { bubbles: true }),
-    );
-  }
-  textarea.focus();
-  return true;
-}
-
 /** Return whether bytes begin with an exact signature. */
 function bytesStartWith(bytes: Uint8Array, prefix: readonly number[]): boolean {
   if (bytes.length < prefix.length) return false;

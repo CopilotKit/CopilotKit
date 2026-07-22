@@ -1,9 +1,10 @@
-import type { AfterViewInit, Type } from "@angular/core";
+import type { AfterViewInit, ComponentRef, Type } from "@angular/core";
 import type { AttachmentsConfig } from "@copilotkit/angular";
 import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
   Injector,
   ViewContainerRef,
   inject,
@@ -18,6 +19,7 @@ import {
 
 import { agentIdForRoute, threadIdForFeature } from "../feature-agent";
 import { renderDynamicComponent } from "./render-dynamic-component";
+import { populateChatInput } from "./showcase-chat-host-model";
 
 @Component({
   selector: "showcase-chat-host",
@@ -36,6 +38,8 @@ export class ShowcaseChatHostComponent implements AfterViewInit {
   private readonly route = inject(ActivatedRoute);
   private readonly injector = inject(Injector);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private chat: ComponentRef<CopilotChat> | undefined;
 
   ngAfterViewInit(): void {
     const headers = this.headers();
@@ -57,6 +61,7 @@ export class ShowcaseChatHostComponent implements AfterViewInit {
     const chat = this.viewContainer.createComponent(CopilotChat, {
       injector: childInjector,
     });
+    this.chat = chat;
     const feature =
       (this.route.snapshot.data["feature"] as string | undefined) ?? "default";
     chat.setInput(
@@ -75,5 +80,20 @@ export class ShowcaseChatHostComponent implements AfterViewInit {
     );
     chat.setInput("attachments", this.attachments());
     renderDynamicComponent(chat);
+  }
+
+  /** Populate and focus the signal-backed composer created by this host. */
+  populateComposer(value: string): boolean {
+    const populated = populateChatInput(this.chat?.instance, value);
+    if (populated) {
+      queueMicrotask(() => {
+        this.host.nativeElement
+          .querySelector<HTMLTextAreaElement>(
+            '[data-testid="copilot-chat-textarea"]',
+          )
+          ?.focus();
+      });
+    }
+    return populated;
   }
 }
