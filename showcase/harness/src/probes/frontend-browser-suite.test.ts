@@ -4,6 +4,7 @@ import {
   ACCESSIBILITY_TAGS,
   FRONTEND_BROWSER_PROJECTS,
   FRONTEND_BROWSER_STATES,
+  animationNameFor,
   browserProjectById,
   classifyBrowserError,
   createFrontendBrowserArtifact,
@@ -112,6 +113,13 @@ describe("Angular reusable UI browser suite contract", () => {
     await expect(ensureReducedMotion(page as never)).rejects.toThrow(
       /reduced-motion preference is unavailable/i,
     );
+  });
+
+  it("reads computed animation names with an executable page function", async () => {
+    const evaluate = vi.fn().mockResolvedValue("none");
+
+    await expect(animationNameFor({ evaluate } as never)).resolves.toBe("none");
+    expect(evaluate).toHaveBeenCalledWith(expect.any(Function));
   });
 
   it("emits privacy-safe rule summaries without DOM or content payloads", () => {

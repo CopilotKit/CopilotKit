@@ -1,6 +1,6 @@
 import axe from "axe-core";
 import { chromium, devices, firefox, webkit } from "playwright";
-import type { BrowserType, Page } from "playwright";
+import type { BrowserType, Locator, Page } from "playwright";
 
 export type FrontendBrowserEngine = "chromium" | "firefox" | "webkit";
 
@@ -275,6 +275,15 @@ export async function ensureReducedMotion(page: Page): Promise<void> {
   if (!reduced) throw new Error("reduced-motion preference is unavailable");
 }
 
+/** Read the effective animation name using Locator's executable callback API. */
+export async function animationNameFor(locator: Locator): Promise<string> {
+  return locator.evaluate(
+    (element) =>
+      element.ownerDocument.defaultView?.getComputedStyle(element)
+        .animationName ?? "none",
+  );
+}
+
 async function diagnoseSurface(
   page: Page,
   errorCounts: {
@@ -346,9 +355,7 @@ async function assertPopup(
     throw new Error("desktop popup unexpectedly fills the viewport");
   }
   await ensureReducedMotion(page);
-  const animationName = await dialog.evaluate(
-    "element => getComputedStyle(element).animationName",
-  );
+  const animationName = await animationNameFor(dialog);
   if (animationName !== "none") {
     throw new Error("reduced-motion popup still animates");
   }
@@ -381,9 +388,7 @@ async function assertSidebar(
     throw new Error("desktop sidebar is not a complementary landmark");
   }
   await ensureReducedMotion(page);
-  const animationName = await sidebar.evaluate(
-    "element => getComputedStyle(element).animationName",
-  );
+  const animationName = await animationNameFor(sidebar);
   if (animationName !== "none") {
     throw new Error("reduced-motion sidebar still animates");
   }
