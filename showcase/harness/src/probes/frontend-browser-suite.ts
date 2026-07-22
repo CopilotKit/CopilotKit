@@ -91,6 +91,8 @@ export type BrowserErrorKind =
   | "interaction-timeout"
   | "network-resource"
   | "browser-closed"
+  | "popup-responsive"
+  | "reduced-motion"
   | "unclassified";
 
 /** Reduce browser failures to a closed, privacy-safe diagnostic vocabulary. */
@@ -108,6 +110,16 @@ export function classifyBrowserError(value: string): BrowserErrorKind {
   }
   if (/page, context or browser has been closed/i.test(value)) {
     return "browser-closed";
+  }
+  if (
+    /popup geometry is unavailable|mobile popup is not full-screen|desktop popup unexpectedly fills the viewport/i.test(
+      value,
+    )
+  ) {
+    return "popup-responsive";
+  }
+  if (/reduced-motion popup still animates/i.test(value)) {
+    return "reduced-motion";
   }
   return "unclassified";
 }

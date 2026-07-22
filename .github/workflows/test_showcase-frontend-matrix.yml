@@ -137,6 +137,9 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.event.inputs.branch || github.ref }}
           persist-credentials: false
 
+      - name: Record checked-out commit
+        run: echo "CHECKOUT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
 
@@ -246,6 +249,9 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.event.inputs.branch || github.ref }}
           persist-credentials: false
 
+      - name: Record checked-out commit
+        run: echo "CHECKOUT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
 
@@ -334,6 +340,9 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.event.inputs.branch || github.ref }}
           persist-credentials: false
+
+      - name: Record checked-out commit
+        run: echo "CHECKOUT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9

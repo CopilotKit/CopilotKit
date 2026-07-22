@@ -6,6 +6,7 @@ import { pathToFileURL } from "node:url";
 import { Command } from "commander";
 
 import { runFrontendPerformanceSuite } from "../probes/frontend-performance.js";
+import { commitShaFromEnvironment } from "./ci-environment.js";
 
 async function writeJson(file: string, value: unknown): Promise<void> {
   await fs.mkdir(path.dirname(file), { recursive: true });
@@ -23,7 +24,7 @@ export function createProgram(): Command {
     .action(async (options: { baseUrl: string; output: string }) => {
       const artifact = await runFrontendPerformanceSuite({
         baseUrl: options.baseUrl,
-        commitSha: process.env.GITHUB_SHA ?? "local",
+        commitSha: commitShaFromEnvironment(),
       });
       await writeJson(options.output, artifact);
       console.log(

@@ -9,6 +9,7 @@ import {
   browserProjectById,
   runFrontendBrowserSuite,
 } from "../probes/frontend-browser-suite.js";
+import { commitShaFromEnvironment } from "./ci-environment.js";
 
 async function writeJson(file: string, value: unknown): Promise<void> {
   await fs.mkdir(path.dirname(file), { recursive: true });
@@ -31,7 +32,7 @@ export function createProgram(): Command {
         const artifact = await runFrontendBrowserSuite({
           project: browserProjectById(options.project),
           baseUrl: options.baseUrl,
-          commitSha: process.env.GITHUB_SHA ?? "local",
+          commitSha: commitShaFromEnvironment(),
         });
         await writeJson(options.output, artifact);
         console.log(

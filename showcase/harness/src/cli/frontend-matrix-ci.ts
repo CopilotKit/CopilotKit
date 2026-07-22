@@ -31,6 +31,7 @@ import {
   __clearD5RegistryForTesting,
   D5_REGISTRY,
 } from "../probes/helpers/d5-registry.js";
+import { commitShaFromEnvironment } from "./ci-environment.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const HARNESS_DIR = path.resolve(here, "../..");
@@ -234,7 +235,7 @@ function createProgram(): Command {
           },
         });
         const artifact = createFrontendMatrixArtifact({
-          commitSha: process.env.GITHUB_SHA ?? "local",
+          commitSha: commitShaFromEnvironment(),
           shardIndex,
           shardCount: plan.shards.length,
           startedAt,

@@ -17,6 +17,10 @@ describe("Angular reusable UI browser suite contract", () => {
     ["NullInjectorError: No provider", "angular-missing-provider"],
     ["waiting for locator('textarea')", "interaction-timeout"],
     ["Failed to load resource: net::ERR_FAILED", "network-resource"],
+    ["popup geometry is unavailable", "popup-responsive"],
+    ["mobile popup is not full-screen", "popup-responsive"],
+    ["desktop popup unexpectedly fills the viewport", "popup-responsive"],
+    ["reduced-motion popup still animates", "reduced-motion"],
     ["customer prompt must never persist", "unclassified"],
   ] as const)(
     "classifies browser failures without retaining %s",

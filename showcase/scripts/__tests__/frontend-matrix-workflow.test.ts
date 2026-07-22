@@ -70,4 +70,14 @@ describe("complete frontend matrix workflow", () => {
       );
     }
   });
+
+  it("records the checked-out commit for every evidence-producing job", () => {
+    const jobs = workflowJobs();
+
+    for (const name of ["matrix", "browser-suite", "performance"]) {
+      expect(runStep(jobs[name], "Record checked-out commit")).toContain(
+        "CHECKOUT_SHA=$(git rev-parse HEAD)",
+      );
+    }
+  });
 });
