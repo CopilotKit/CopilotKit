@@ -4,6 +4,12 @@ import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import {
+  NATIVE_HOOK_SIGNATURE,
+  assertResolvedCompatibility,
+  extractNativeRegistrationSnippet,
+  formatCompatibilityEvidence,
+} from "./verify-package-lib.js";
 
 const execFileAsync = promisify(execFile);
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -113,6 +119,7 @@ async function verifyConsumer(
         "@copilotkit/intelligence-langgraph": `file:${tarball}`,
         "@langchain/core": mode === "minimum" ? "1.1.48" : "^1.1.48",
         "@langchain/langgraph": mode === "minimum" ? "1.3.0" : ">=1.3.0 <2.0.0",
+        "@types/node": "^20.0.0",
         langchain: mode === "minimum" ? "1.4.4" : ">=1.4.4 <2.0.0",
         typescript: "^5.6.3",
       },
@@ -131,32 +138,16 @@ async function verifyConsumer(
           moduleResolution: "NodeNext",
           skipLibCheck: true,
           noEmit: true,
+          types: ["node"],
         },
-        include: ["index.ts"],
+        include: ["index.ts", "native-signature.ts"],
       }),
     );
-    await writeFile(
-      join(temporary, "index.ts"),
-      `import { IntelligenceClient } from "@copilotkit/intelligence";
-import { createSkillRegistryMiddleware } from "@copilotkit/intelligence-langgraph";
-import { createAgent } from "langchain";
-
-const middleware = createSkillRegistryMiddleware({
-  client: new IntelligenceClient({
-    baseUrl: "https://api.example.com",
-    accessToken: "probe",
-    projectNamespace: "probe",
-    cacheRoot: ".copilotkit/probe",
-  }),
-  learningContainerId: "55555555-5555-4555-8555-555555555555",
-});
-createAgent({ model: "openai:gpt-5.4-mini", tools: [], middleware: [middleware] });
-void middleware.preload;
-void middleware.preloadCached;
-void middleware.load;
-void middleware.waitUntilReady;
-void middleware.close;
-`,
+    const installedPackageRoot = join(
+      temporary,
+      "node_modules",
+      "@copilotkit",
+      "intelligence-langgraph",
     );
     await execFileAsync(
       "npm",
@@ -169,20 +160,51 @@ void middleware.close;
       ],
       { cwd: temporary, maxBuffer: 20 * 1024 * 1024 },
     );
+    const installedReadme = await readFile(
+      join(installedPackageRoot, "README.md"),
+      "utf8",
+    );
+    const registrationSnippet =
+      extractNativeRegistrationSnippet(installedReadme);
+    await writeFile(join(temporary, "index.ts"), `${registrationSnippet}\n`);
+    await writeFile(
+      join(temporary, "native-signature.ts"),
+      `import { createMiddleware } from "langchain";
+
+const probe = createMiddleware({
+  name: "NativeHookSignatureProbe",
+  wrapModelCall: (request, handler) => handler({ ...request }),
+});
+const nativeHook = probe.wrapModelCall;
+if (nativeHook === undefined) throw new Error("wrapModelCall is unavailable");
+void nativeHook;
+const signature = ${JSON.stringify(NATIVE_HOOK_SIGNATURE)};
+void signature;
+`,
+    );
     const tsc = join(temporary, "node_modules", ".bin", "tsc");
     await execFileAsync(tsc, ["--project", "tsconfig.json"], {
       cwd: temporary,
       maxBuffer: 20 * 1024 * 1024,
     });
-    const resolved = JSON.parse(
+    const resolvedLanggraph = JSON.parse(
+      await readFile(
+        join(temporary, "node_modules/@langchain/langgraph/package.json"),
+        "utf8",
+      ),
+    );
+    const resolvedLangchain = JSON.parse(
       await readFile(
         join(temporary, "node_modules/langchain/package.json"),
         "utf8",
       ),
     );
-    process.stdout.write(
-      `${mode}: langchain@${String(resolved.version)} PASS\n`,
-    );
+    const versions = {
+      langgraph: String(resolvedLanggraph.version),
+      langchain: String(resolvedLangchain.version),
+    };
+    assertResolvedCompatibility(mode, versions);
+    process.stdout.write(`${formatCompatibilityEvidence(mode, versions)}\n`);
   } finally {
     await rm(temporary, { recursive: true, force: true });
   }

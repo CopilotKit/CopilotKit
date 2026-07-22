@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import * as publicApi from "./index.js";
+import { extractNativeRegistrationSnippet } from "../scripts/verify-package-lib.js";
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const REQUIRED_HEADINGS = [
@@ -28,8 +29,10 @@ describe("README and public API contract", () => {
       await readFile(join(packageRoot, "project.json"), "utf8"),
     );
     expect(readme.match(/^## .+$/gmu)).toEqual(REQUIRED_HEADINGS);
-    expect(readme).toContain("createAgent({");
-    expect(readme).toContain("middleware: [skills]");
+    const registrationSnippet = extractNativeRegistrationSnippet(readme);
+    expect(registrationSnippet).toContain("createAgent({");
+    expect(registrationSnippet).toContain("middleware: [skills]");
+    expect(registrationSnippet).toContain("createSkillRegistryMiddleware");
     expect(readme).not.toContain("wrapAgent");
     expect(Object.keys(publicApi)).toEqual(["createSkillRegistryMiddleware"]);
     expect(packageJson).toMatchObject({
