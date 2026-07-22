@@ -16,7 +16,14 @@ from langchain.agents.middleware import ModelRequest
 from langchain_core.language_models.fake_chat_models import FakeListChatModel
 from langchain_core.messages import SystemMessage
 
-from conftest import CONTAINER_ID, FakeClock, FakeSkillsClient, client, skill_set
+from conftest import (
+    CONTAINER_ID,
+    FakeClock,
+    FakeSkillsClient,
+    client,
+    declared_contract_fields,
+    skill_set,
+)
 
 
 CORPUS_PATH = (
@@ -25,6 +32,69 @@ CORPUS_PATH = (
 )
 CORPUS = json.loads(CORPUS_PATH.read_text(encoding="utf-8"))
 CASES = CORPUS["cases"]
+CONSUMED_CONTRACT_FIELDS = (
+    "cases",
+    "contractVersion",
+    "distribution",
+    "fixtures",
+    "schemaVersion",
+    "sourceCorpus",
+    "cases[].expected",
+    "cases[].initialSnapshot",
+    "cases[].name",
+    "cases[].operations",
+    "cases[].permanentDenialSource",
+    "cases[].expected.calls",
+    "cases[].expected.genericSdk",
+    "cases[].expected.nativeHook",
+    "cases[].expected.readiness",
+    "cases[].expected.renderedRecords",
+    "cases[].expected.singleflight",
+    "cases[].expected.statusTransitions",
+    "cases[].expected.telemetryNames",
+    "cases[].expected.telemetryRecords",
+)
+
+
+def _assert_contract_structure(corpus: dict[str, Any]) -> None:
+    assert declared_contract_fields(corpus) == set(CONSUMED_CONTRACT_FIELDS)
+    assert corpus["schemaVersion"] == 1
+    assert corpus["contractVersion"] == "registry-adapters-v1"
+    assert corpus["distribution"] == {
+        "repositoryTestOnly": True,
+        "publishedExport": False,
+        "runtimeDependency": False,
+    }
+    assert corpus["sourceCorpus"] == "registry-sdk-v1.json"
+    assert isinstance(corpus["fixtures"], dict)
+    assert len(corpus["cases"]) == 35
+
+    case_fields = {"name", "initialSnapshot", "operations", "expected"}
+    expected_fields = {
+        "calls",
+        "genericSdk",
+        "nativeHook",
+        "readiness",
+        "renderedRecords",
+        "statusTransitions",
+        "telemetryNames",
+        "telemetryRecords",
+    }
+    denial_count = 0
+    for case in corpus["cases"]:
+        assert set(case) in (
+            case_fields,
+            case_fields | {"permanentDenialSource"},
+        )
+        assert set(case["expected"]) in (
+            expected_fields,
+            expected_fields | {"singleflight"},
+        )
+        denial_count += "permanentDenialSource" in case
+    assert denial_count == 10
+
+
+_assert_contract_structure(CORPUS)
 
 
 def _error_from(fields: dict[str, object]) -> IntelligenceError:
@@ -175,6 +245,23 @@ def _operation_outcomes(case: dict[str, Any], tmp_path: Path) -> list[object]:
     return [_verified_set(case, tmp_path, "outcome-1")]
 
 
+def _assert_permanent_denial_source(
+    case: dict[str, Any], outcomes: list[object]
+) -> None:
+    source = case.get("permanentDenialSource")
+    if source is None:
+        return
+
+    assert case["initialSnapshot"]["status"] == "cold"
+    expected_error = case["expected"]["genericSdk"]["error"]
+    assert len(outcomes) == 1
+    outcome = outcomes[0]
+    assert isinstance(outcome, IntelligenceError)
+    assert source == expected_error["causeIdentity"] == outcome.cause_identity
+    assert expected_error["retryable"] is False
+    assert case["expected"]["statusTransitions"][-1]["to"] == "denied"
+
+
 async def _pump() -> None:
     for _ in range(12):
         await asyncio.sleep(0)
@@ -216,6 +303,7 @@ async def test_adapter_conformance(case: dict[str, Any], tmp_path: Path) -> None
     clock = FakeClock()
     skills = FakeSkillsClient()
     outcomes = _operation_outcomes(case, tmp_path)
+    _assert_permanent_denial_source(case, outcomes)
     loop = asyncio.get_running_loop()
     futures = [loop.create_future() for _ in outcomes]
     if expected["calls"]["client"]["getCached"]:

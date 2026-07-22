@@ -2,12 +2,31 @@ from __future__ import annotations
 
 import ast
 import importlib.metadata
+import json
 from pathlib import Path
 
 import toml
 
+from conftest import declared_contract_fields
+
 
 ROOT = Path(__file__).resolve().parents[1]
+CORPUS_PATH = (
+    ROOT.parent / "packages/intelligence/conformance/registry-adapters-v1.json"
+)
+
+
+def _runner_consumed_contract_fields(source: str) -> set[str]:
+    tree = ast.parse(source)
+    for node in tree.body:
+        if not isinstance(node, ast.Assign):
+            continue
+        if any(
+            isinstance(target, ast.Name) and target.id == "CONSUMED_CONTRACT_FIELDS"
+            for target in node.targets
+        ):
+            return set(ast.literal_eval(node.value))
+    return set()
 
 
 def test_package_metadata_and_contents() -> None:
@@ -72,21 +91,6 @@ def test_telemetry_version_resolves_distribution_and_source_fallback(
 
 def test_conformance_runner_consumes_every_declared_contract_field() -> None:
     source = (ROOT / "tests/test_conformance.py").read_text(encoding="utf-8")
-    required_fields = (
-        'case["initialSnapshot"]',
-        'case["operations"]',
-        'expected["calls"]',
-        'expected["genericSdk"]',
-        'expected["nativeHook"]',
-        'expected["statusTransitions"]',
-        'expected["telemetryNames"]',
-        'expected["telemetryRecords"]',
-        'expected["singleflight"]',
-        '"sinkExceptionIdentity"',
-        '"rejectionIdentity"',
-        '"causeIdentity"',
-        "assert actual == expected",
-        "_observe_error",
-    )
+    corpus = json.loads(CORPUS_PATH.read_text(encoding="utf-8"))
 
-    assert all(field in source for field in required_fields)
+    assert _runner_consumed_contract_fields(source) == declared_contract_fields(corpus)

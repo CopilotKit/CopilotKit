@@ -20,6 +20,14 @@ SKILL_ID = "99999999-9999-4999-8999-999999999999"
 VERSION_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
 
 
+def declared_contract_fields(corpus: dict[str, Any]) -> set[str]:
+    fields = set(corpus)
+    for case in corpus["cases"]:
+        fields.update(f"cases[].{field}" for field in case)
+        fields.update(f"cases[].expected.{field}" for field in case["expected"])
+    return fields
+
+
 class FakeClock:
     def __init__(self, seconds: float = 0.0) -> None:
         self.seconds = seconds
