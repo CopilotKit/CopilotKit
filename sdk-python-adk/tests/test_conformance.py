@@ -30,7 +30,7 @@ def _error_from(fields: dict[str, object]) -> IntelligenceError:
         if fields["code"] == "LEARNING_REGISTRY_DENIED"
         else IntelligenceError
     )
-    return error_type(
+    error = error_type(
         str(fields.get("causeIdentity", fields["code"])),
         code=str(fields["code"]),
         category=str(fields["category"]),
@@ -39,18 +39,30 @@ def _error_from(fields: dict[str, object]) -> IntelligenceError:
         request_id=fields.get("requestId"),
         trace_id=fields.get("traceId"),
     )
+    error.cause_identity = fields.get("causeIdentity")
+    return error
+
+
+def _observe_error(error: BaseException) -> dict[str, object]:
+    observed: dict[str, object] = {
+        "code": error.code,
+        "category": error.category,
+        "retryable": bool(error.retryable),
+    }
+    for source, target in (
+        ("status", "httpStatus"),
+        ("cause_identity", "causeIdentity"),
+        ("request_id", "requestId"),
+        ("trace_id", "traceId"),
+    ):
+        value = getattr(error, source, None)
+        if value is not None:
+            observed[target] = value
+    return observed
 
 
 def _assert_error(error: BaseException, expected: dict[str, object]) -> None:
-    assert getattr(error, "code", None) == expected["code"]
-    assert getattr(error, "category", None) == expected["category"]
-    assert bool(getattr(error, "retryable", False)) == bool(expected["retryable"])
-    if "httpStatus" in expected:
-        assert getattr(error, "status", None) == expected["httpStatus"]
-    if "requestId" in expected:
-        assert getattr(error, "request_id", None) == expected["requestId"]
-    if "traceId" in expected:
-        assert getattr(error, "trace_id", None) == expected["traceId"]
+    assert _observe_error(error) == expected
 
 
 def _verified_set(
@@ -214,6 +226,7 @@ async def test_adapter_conformance(case: dict[str, Any], tmp_path: Path) -> None
     readiness_result: object | None = None
     readiness_calls = 0
     outcome_index = 0
+    close_count = 0
 
     def observe() -> None:
         nonlocal previous_status
@@ -299,7 +312,10 @@ async def test_adapter_conformance(case: dict[str, Any], tmp_path: Path) -> None
             observe()
             await settle_active()
         elif kind == "close":
+            before = registry.status
             await registry.aclose()
+            if before != "closed":
+                close_count += 1
             observe()
         elif kind == "readiness" and next_kind != "timeout":
             readiness_result = await check_readiness()
@@ -406,10 +422,12 @@ async def test_adapter_conformance(case: dict[str, Any], tmp_path: Path) -> None
             await tool.run_async(args={}, tool_context=None) for tool in tools
         ]
         assert native_records == expected["renderedRecords"]
+        native_hook = {"proceed": True}
     else:
         with pytest.raises(BaseException) as native_failure:
             await SkillToolset(native_registry).get_tools()
         _assert_error(native_failure.value, expected_readiness["error"])
+        native_hook = {"proceed": False}
     assert expected["calls"]["routing"]["nativeHook"] == 1
 
     if "singleflight" in expected:
@@ -417,6 +435,99 @@ async def test_adapter_conformance(case: dict[str, Any], tmp_path: Path) -> None
         assert len(settled) == len(expected["singleflight"]["callers"])
         assert settled[0] is settled[1]
         assert settled[0].__cause__ is sink_failure
+        barrier = next(
+            operation["barrier"]
+            for operation in operations
+            if operation["kind"] == "load-caller-a"
+        )
+        singleflight = {
+            "barrier": barrier,
+            "registryCalls": len(skills.get_calls),
+            "sinkExceptionIdentity": str(sink_failure),
+            "callers": [
+                {
+                    "name": operation["kind"].removeprefix("load-"),
+                    "rejectionIdentity": result.cause_identity,
+                    "causeIdentity": str(sink_failure),
+                }
+                for operation, result in zip(operations[:2], settled, strict=True)
+            ],
+        }
     elif kinds[:2] == ["load-caller-a", "load-caller-b"]:
         assert len(settled) == 2
         assert settled[0] is settled[1]
+        singleflight = None
+    else:
+        singleflight = None
+
+    attempted_load = bool(
+        set(kinds) & {"load", "load-caller-a", "registry-request", "cached-preload"}
+    )
+    if registry.status == "closed" and all(kind == "close" for kind in kinds):
+        generic_observation: dict[str, object] = {
+            "result": {"state": "closed", "closeCount": close_count}
+        }
+    elif registry.status in {"ready", "revoked"} or (
+        registry.status == "stale" and attempted_load
+    ):
+        generic_observation = {
+            "result": {
+                "state": registry.status,
+                "freshness": (
+                    "stale" if registry.status == "stale" else registry.snapshot.source
+                ),
+                "registryRevision": registry.snapshot.registry_revision,
+                "skillCount": len(registry.snapshot.skills),
+                "aggregateByteLength": sum(
+                    record.byte_length for record in registry.snapshot.skills
+                ),
+            }
+        }
+    else:
+        error = (
+            readiness_result
+            if isinstance(readiness_result, BaseException)
+            else registry.snapshot.error
+        )
+        assert isinstance(error, BaseException)
+        generic_observation = {"error": _observe_error(error)}
+
+    telemetry_observation = []
+    for event in telemetry:
+        metadata = dict(event["metadata"])
+        assert metadata.pop("framework") == "google-adk"
+        assert metadata.pop("adapterVersion") == "0.1.0"
+        metadata.pop("latencyMs", None)
+        metadata["framework"] = "fixture"
+        telemetry_observation.append({**event, "metadata": metadata})
+
+    rendered_observation = (
+        []
+        if kinds == ["readiness"] and case["initialSnapshot"]["status"] == "stale"
+        else actual_records
+    )
+    actual = {
+        "calls": {
+            "client": {
+                **observed_generic_calls,
+                "get": len(skills.get_calls),
+                "getCached": len(skills.cached_calls),
+            },
+            "routing": {"readiness": readiness_calls, "nativeHook": 1},
+        },
+        "statusTransitions": transitions,
+        "genericSdk": generic_observation,
+        "readiness": (
+            {"error": _observe_error(readiness_result)}
+            if isinstance(readiness_result, BaseException)
+            else {"result": {"state": readiness_result.status}}
+        ),
+        "nativeHook": native_hook,
+        "telemetryNames": [event["name"] for event in telemetry_observation],
+        "renderedRecords": rendered_observation,
+        "telemetryRecords": telemetry_observation,
+    }
+    if singleflight is not None:
+        actual["singleflight"] = singleflight
+
+    assert actual == expected

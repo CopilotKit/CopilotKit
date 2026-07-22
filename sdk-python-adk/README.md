@@ -57,6 +57,11 @@ skill count, Registry revision, and canonical error code/category/retryability,
 request ID, and trace ID. Tokens, container IDs, paths, and instruction content
 are forbidden. A telemetry sink exception is propagated explicitly; every
 caller joined to that load receives the same adapter failure instance.
+The adapter version is read from installed distribution metadata, with the
+source-tree package version as its development fallback. A telemetry callback
+cannot await a load or close that depends on that callback: a load during
+`load.started` and any reentrant close reject immediately, while terminal
+callbacks observe the already-published ready snapshot or exact failure.
 
 ## Errors
 

@@ -202,6 +202,105 @@ async def test_join_event_sink_failure_fails_every_joined_caller_without_leaks(
 
 
 @pytest.mark.asyncio
+async def test_load_started_telemetry_reentrant_load_fails_fast_without_deadlock(
+    tmp_path,
+) -> None:
+    from copilotkit_intelligence_adk import SkillRegistry
+
+    skills = FakeSkillsClient()
+    skills.get_outcomes.append(skill_set(tmp_path))
+    registry = None
+    nested: BaseException | None = None
+
+    async def telemetry(name: str, metadata: dict[str, object]) -> None:
+        nonlocal nested
+        del metadata
+        if name != "load.started":
+            return
+        assert registry is not None
+        with pytest.raises(BaseException) as raised:
+            await registry.load()
+        nested = raised.value
+
+    registry = SkillRegistry(client(skills), CONTAINER_ID, telemetry=telemetry)
+    snapshot = await asyncio.wait_for(registry.load(), timeout=0.25)
+
+    assert snapshot.status == "ready"
+    assert nested is not None
+    assert nested.code == "LEARNING_REGISTRY_REENTRANT_LOAD"
+    assert nested.category == "lifecycle"
+    assert len(skills.get_calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_terminal_telemetry_reentrant_load_observes_published_snapshot_and_error(
+    tmp_path,
+) -> None:
+    from copilotkit_intelligence_adk import SkillRegistry
+
+    skills = FakeSkillsClient()
+    skills.get_outcomes.extend(
+        [skill_set(tmp_path), IntelligenceUnavailableError("offline")]
+    )
+    registry = None
+    nested_snapshots = []
+    nested_errors: list[BaseException] = []
+
+    async def telemetry(name: str, metadata: dict[str, object]) -> None:
+        assert registry is not None
+        if name == "status.changed" and metadata.get("status") == "ready":
+            nested_snapshots.append(await registry.load())
+        if (
+            name in {"status.changed", "load.failed"}
+            and metadata.get("status") != "ready"
+            and registry.status == "stale"
+        ):
+            with pytest.raises(BaseException) as raised:
+                await registry.load()
+            nested_errors.append(raised.value)
+
+    registry = SkillRegistry(
+        client(skills), CONTAINER_ID, refresh_interval=0, telemetry=telemetry
+    )
+    ready = await registry.load()
+    with pytest.raises(BaseException) as failed:
+        await registry.load()
+
+    assert nested_snapshots == [ready]
+    assert nested_errors == [failed.value, failed.value]
+    assert len(skills.get_calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_telemetry_reentrant_close_fails_fast_without_recursive_emission() -> (
+    None
+):
+    from copilotkit_intelligence_adk import SkillRegistry
+
+    registry = None
+    nested: BaseException | None = None
+
+    async def telemetry(name: str, metadata: dict[str, object]) -> None:
+        nonlocal nested
+        if name != "status.changed" or metadata.get("status") != "closed":
+            return
+        assert registry is not None
+        with pytest.raises(BaseException) as raised:
+            await registry.aclose()
+        nested = raised.value
+
+    registry = SkillRegistry(
+        client(FakeSkillsClient()), CONTAINER_ID, telemetry=telemetry
+    )
+    await asyncio.wait_for(registry.aclose(), timeout=0.25)
+
+    assert registry.status == "closed"
+    assert nested is not None
+    assert nested.code == "LEARNING_REGISTRY_REENTRANT_CLOSE"
+    assert nested.category == "lifecycle"
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("outcome", ["success", "failure"])
 async def test_close_dominates_inflight_completion_state_and_telemetry(
     tmp_path, outcome: str

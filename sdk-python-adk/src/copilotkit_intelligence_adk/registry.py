@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import contextvars
+import importlib.metadata
 import inspect
 import time
 from dataclasses import dataclass, replace
@@ -40,7 +42,18 @@ Status = Literal[
 Source = Literal["fresh", "cached", "none"]
 TelemetrySink = Callable[[str, dict[str, object]], object]
 
-_ADAPTER_VERSION = "0.1.0"
+_DISTRIBUTION_NAME = "copilotkit-intelligence-adk"
+_SOURCE_TREE_VERSION = "0.1.0"
+
+
+def _resolve_adapter_version() -> str:
+    try:
+        return importlib.metadata.version(_DISTRIBUTION_NAME)
+    except importlib.metadata.PackageNotFoundError:
+        return _SOURCE_TREE_VERSION
+
+
+_ADAPTER_VERSION = _resolve_adapter_version()
 _PERMANENT_CODES = frozenset(
     {
         "LEARNING_REGISTRY_DENIED",
@@ -73,8 +86,15 @@ def _adapter_error(
     category: str,
     retryable: bool = False,
     cause: BaseException | None = None,
+    cause_identity: str | None = None,
 ) -> AdapterError:
-    error = AdapterError(message, code=code, category=category, retryable=retryable)
+    error = AdapterError(
+        message,
+        code=code,
+        category=category,
+        retryable=retryable,
+        cause_identity=cause_identity,
+    )
     if cause is not None:
         error.__cause__ = cause
     return error
@@ -85,6 +105,7 @@ def _closed_error() -> AdapterError:
         "The skill registry is closed",
         code="LEARNING_REGISTRY_CLOSED",
         category="lifecycle",
+        cause_identity="closed-1",
     )
 
 
@@ -150,6 +171,21 @@ class SkillRegistry:
         self._joined_callers = 1
         self._accepting_joins = False
         self._join_telemetry_tasks: list[asyncio.Task[None]] = []
+        self._telemetry_active: contextvars.ContextVar[bool] = contextvars.ContextVar(
+            f"copilotkit_intelligence_adk_telemetry_{id(self)}", default=False
+        )
+        self._reentrant_load_error = _adapter_error(
+            "Registry loads cannot await their telemetry callback",
+            code="LEARNING_REGISTRY_REENTRANT_LOAD",
+            category="lifecycle",
+            cause_identity="telemetry-reentrant-load-1",
+        )
+        self._reentrant_close_error = _adapter_error(
+            "Registry close cannot await its telemetry callback",
+            code="LEARNING_REGISTRY_REENTRANT_CLOSE",
+            category="lifecycle",
+            cause_identity="telemetry-reentrant-close-1",
+        )
         self._snapshot = RegistrySnapshot(
             status="cold",
             source="none",
@@ -210,12 +246,15 @@ class SkillRegistry:
                 category="availability",
                 retryable=True,
                 cause=error,
+                cause_identity="timeout-30000",
             )
             raise failure from error
 
     async def aclose(self) -> None:
         """Close idempotently without cancelling an already-running invocation."""
 
+        if self._telemetry_active.get():
+            raise self._reentrant_close_error
         async with self._condition:
             if self._snapshot.status == "closed":
                 return
@@ -235,6 +274,13 @@ class SkillRegistry:
     async def _start_or_join(
         self, *, cached: bool, force: bool, source: str
     ) -> RegistrySnapshot:
+        if self._telemetry_active.get():
+            current = self._snapshot
+            if current.status in {"ready", "revoked"}:
+                return current
+            if current.status in {"stale", "denied", "closed"}:
+                return self._usable_snapshot(current)
+            raise self._reentrant_load_error
         throttled: RegistrySnapshot | None = None
         async with self._lock:
             current = self._snapshot
@@ -461,6 +507,7 @@ class SkillRegistry:
                     category="integrity",
                     retryable=False,
                     cause=error,
+                    cause_identity=getattr(error, "cause_identity", None) or str(error),
                 ),
                 "stale",
             )
@@ -474,6 +521,7 @@ class SkillRegistry:
                 category="availability",
                 retryable=retryable,
                 cause=error,
+                cause_identity=getattr(error, "cause_identity", None) or str(error),
             ),
             "stale",
         )
@@ -516,6 +564,7 @@ class SkillRegistry:
             "adapterVersion": _ADAPTER_VERSION,
             **{key: value for key, value in metadata.items() if value is not None},
         }
+        token = self._telemetry_active.set(True)
         try:
             result = self._telemetry(name, record)
             if inspect.isawaitable(result):
@@ -524,6 +573,8 @@ class SkillRegistry:
             if isinstance(error, asyncio.CancelledError):
                 raise
             raise self._telemetry_failure(error) from error
+        finally:
+            self._telemetry_active.reset(token)
 
     @staticmethod
     def _telemetry_failure(error: BaseException) -> AdapterError:
@@ -537,4 +588,5 @@ class SkillRegistry:
             code="LEARNING_TELEMETRY_SINK_FAILED",
             category="internal",
             cause=error,
+            cause_identity=getattr(error, "cause_identity", None) or str(error),
         )

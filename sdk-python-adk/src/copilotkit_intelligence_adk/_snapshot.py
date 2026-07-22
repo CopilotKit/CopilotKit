@@ -28,6 +28,7 @@ class AdapterError(RuntimeError):
         status: int | None = None,
         request_id: str | None = None,
         trace_id: str | None = None,
+        cause_identity: str | None = None,
     ) -> None:
         super().__init__(message)
         self.code = code
@@ -36,6 +37,7 @@ class AdapterError(RuntimeError):
         self.status = status
         self.request_id = request_id
         self.trace_id = trace_id
+        self.cause_identity = cause_identity
 
 
 @dataclass(frozen=True)
@@ -66,8 +68,15 @@ class RenderedSkill:
         }
 
 
-def _failure(message: str, code: str, category: str) -> AdapterError:
-    return AdapterError(message, code=code, category=category)
+def _failure(
+    message: str, code: str, category: str, cause_identity: str
+) -> AdapterError:
+    return AdapterError(
+        message,
+        code=code,
+        category=category,
+        cause_identity=cause_identity,
+    )
 
 
 def _contains_disabled_script(descriptor: Any) -> bool:
@@ -96,18 +105,21 @@ def render_verified_skills(
             "The generic SDK did not provide verified skill descriptors",
             "INTELLIGENCE_ADAPTER_UNSUPPORTED_SDK_PROJECTION",
             "validation",
+            "unsupported-sdk-projection-1",
         )
     if len(descriptors) > maximum_skills:
         raise _failure(
             "The verified Registry set exceeds the adapter skill limit",
             "INTELLIGENCE_ADAPTER_TOO_MANY_SKILLS",
             "validation",
+            f"count-{len(descriptors)}",
         )
     if any(_contains_disabled_script(descriptor) for descriptor in descriptors):
         raise _failure(
             "Executable skill artifacts are disabled by this adapter",
             "INTELLIGENCE_ADAPTER_SCRIPT_DISABLED",
             "validation",
+            "script-disabled-1",
         )
 
     rendered: list[RenderedSkill] = []
@@ -118,6 +130,7 @@ def render_verified_skills(
                 "Verified skill descriptor order is not contiguous",
                 "INTELLIGENCE_ADAPTER_UNSUPPORTED_SDK_PROJECTION",
                 "validation",
+                "unsupported-sdk-projection-1",
             )
         path = descriptor.directory / "SKILL.md"
         try:
@@ -127,6 +140,7 @@ def render_verified_skills(
                 "A verified SKILL.md file could not be read",
                 "INTELLIGENCE_ADAPTER_INVALID_UTF8",
                 "integrity",
+                "utf8-1",
             )
             raise failure from error
         if len(contents) > maximum_skill_bytes:
@@ -134,6 +148,7 @@ def render_verified_skills(
                 "A verified SKILL.md exceeds the adapter byte limit",
                 "INTELLIGENCE_ADAPTER_SKILL_TOO_LARGE",
                 "validation",
+                f"bytes-{len(contents)}",
             )
         aggregate += len(contents)
         if aggregate > maximum_context_bytes:
@@ -141,6 +156,7 @@ def render_verified_skills(
                 "The rendered skill set exceeds the adapter context limit",
                 "INTELLIGENCE_ADAPTER_CONTEXT_TOO_LARGE",
                 "validation",
+                f"bytes-{aggregate}",
             )
         try:
             text = contents.decode("utf-8", errors="strict")
@@ -149,6 +165,7 @@ def render_verified_skills(
                 "A verified SKILL.md is not strict UTF-8",
                 "INTELLIGENCE_ADAPTER_INVALID_UTF8",
                 "integrity",
+                "utf8-1",
             )
             raise failure from error
         rendered.append(

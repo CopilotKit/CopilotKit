@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import importlib.metadata
 from pathlib import Path
 
 import toml
@@ -44,3 +45,25 @@ def test_runtime_owns_no_transport_archive_or_process() -> None:
     assert not any(
         path.name in {"agent.py", "builder.py"} for path in source_root.glob("*.py")
     )
+
+
+def test_telemetry_version_resolves_distribution_and_source_fallback(
+    monkeypatch,
+) -> None:
+    from copilotkit_intelligence_adk import registry
+
+    metadata = toml.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    package_version = metadata["tool"]["poetry"]["version"]
+
+    monkeypatch.setattr(
+        registry.importlib.metadata,
+        "version",
+        lambda distribution: "9.8.7",
+    )
+    assert registry._resolve_adapter_version() == "9.8.7"
+
+    def missing(distribution: str) -> str:
+        raise importlib.metadata.PackageNotFoundError(distribution)
+
+    monkeypatch.setattr(registry.importlib.metadata, "version", missing)
+    assert registry._resolve_adapter_version() == package_version
