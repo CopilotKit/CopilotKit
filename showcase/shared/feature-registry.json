@@ -60,6 +60,7 @@
       "id": "beautiful-chat",
       "name": "Beautiful Chat",
       "category": "dev-ex",
+      "runtime_path": "/api/copilotkit-beautiful-chat",
       "description": "Canonical polished starter chat (same as /examples/integrations/langgraph-python)",
       "kind": "primary",
       "og_docs_url": "https://docs.copilotkit.ai/agentic-chat-ui",
@@ -118,6 +119,7 @@
       "id": "headless-complete",
       "name": "Headless UI: Complete",
       "category": "chat-ui",
+      "runtime_path": "/api/copilotkit-mcp-apps",
       "description": "Full headless UI with messages, tools, gen UI",
       "og_docs_url": "https://docs.copilotkit.ai/headless",
       "shell_docs_path": "/headless"
@@ -179,6 +181,7 @@
       "id": "declarative-gen-ui",
       "name": "Declarative UI: Dynamic A2UI",
       "category": "declarative-generative-ui",
+      "runtime_path": "/api/copilotkit-declarative-gen-ui",
       "description": "Canonical A2UI BYOC \u2014 custom catalog wired via a2ui.catalog",
       "og_docs_url": "https://docs.copilotkit.ai/generative-ui/a2ui",
       "shell_docs_path": "/generative-ui/a2ui/dynamic-schema"
@@ -187,6 +190,7 @@
       "id": "a2ui-fixed-schema",
       "name": "Declarative UI: Fixed A2UI",
       "category": "declarative-generative-ui",
+      "runtime_path": "/api/copilotkit-a2ui-fixed-schema",
       "description": "A2UI rendering against a known, fixed client-side schema",
       "og_docs_url": "https://docs.copilotkit.ai/generative-ui/a2ui",
       "shell_docs_path": "/generative-ui/a2ui/fixed-schema"
@@ -195,6 +199,7 @@
       "id": "a2ui-recovery",
       "name": "A2UI Error Recovery",
       "category": "declarative-generative-ui",
+      "runtime_path": "/api/copilotkit-a2ui-recovery",
       "description": "Visible A2UI validate-retry recovery loop: an invalid render heals to a valid one, an always-invalid render shows a graceful recovery-exhausted fallback",
       "og_docs_url": "https://docs.copilotkit.ai/generative-ui/a2ui",
       "shell_docs_path": "/generative-ui/a2ui/dynamic-schema"
@@ -203,6 +208,7 @@
       "id": "mcp-apps",
       "name": "MCP Apps",
       "category": "open-generative-ui",
+      "runtime_path": "/api/copilotkit-mcp-apps",
       "description": "MCP server integration with UI display",
       "og_docs_url": "https://docs.copilotkit.ai/generative-ui/mcp-apps",
       "shell_docs_path": "/generative-ui/mcp-apps"
@@ -211,6 +217,7 @@
       "id": "open-gen-ui",
       "name": "Open Generative UI: Default",
       "category": "open-generative-ui",
+      "runtime_path": "/api/copilotkit-ogui",
       "description": "Agent-generated UI from arbitrary component libraries",
       "og_docs_url": "https://docs.copilotkit.ai/generative-ui/open-generative-ui",
       "shell_docs_path": "/generative-ui/open-generative-ui"
@@ -219,6 +226,7 @@
       "id": "open-gen-ui-advanced",
       "name": "Open Generative UI: Custom",
       "category": "open-generative-ui",
+      "runtime_path": "/api/copilotkit-ogui",
       "description": "Agent-authored UI that can invoke frontend sandbox functions from inside the iframe",
       "og_docs_url": "https://docs.copilotkit.ai/generative-ui/open-generative-ui",
       "shell_docs_path": "/generative-ui/open-generative-ui"
@@ -379,6 +387,7 @@
       "id": "background-agents",
       "name": "Background Agents",
       "category": "multi-agent",
+      "runtime_path": "/api/copilotkit-background-agents",
       "description": "A long-running deep-research tool dispatched as a background task, surfaced inline as a live \"working\" activity card",
       "shell_docs_path": "/background-tasks"
     },
@@ -386,6 +395,7 @@
       "id": "observational-memory",
       "name": "Observational Memory",
       "category": "agent-state",
+      "runtime_path": "/api/copilotkit-observational-memory",
       "description": "Conversation context is compressed and activated out of band; the background work surfaces inline as activity cards",
       "shell_docs_path": "/observational-memory"
     },
@@ -393,6 +403,7 @@
       "id": "browser-use",
       "name": "Browser Use",
       "category": "platform",
+      "runtime_path": "/api/copilotkit-browser-use",
       "description": "The agent drives a real local headless browser to fetch pages and renders the results inline in chat",
       "shell_docs_path": "/browser-use"
     },
@@ -400,6 +411,7 @@
       "id": "auth",
       "name": "Authentication",
       "category": "platform",
+      "runtime_path": "/api/copilotkit-auth",
       "description": "Framework-native authentication",
       "shell_docs_path": "/auth"
     },
@@ -407,6 +419,7 @@
       "id": "agent-config",
       "name": "Agent Config Object",
       "category": "platform",
+      "runtime_path": "/api/copilotkit-agent-config",
       "description": "Forwarded props / config objects",
       "shell_docs_path": "/agent-config"
     },
@@ -414,6 +427,7 @@
       "id": "voice",
       "name": "Voice",
       "category": "platform",
+      "runtime_path": "/api/copilotkit-voice",
       "description": "Real-time voice interaction",
       "shell_docs_path": "/voice"
     },
@@ -421,6 +435,7 @@
       "id": "multimodal",
       "name": "Attachments",
       "category": "platform",
+      "runtime_path": "/api/copilotkit-multimodal",
       "description": "File upload and agent processing",
       "shell_docs_path": "/multimodal-attachments",
       "og_docs_url": "https://docs.copilotkit.ai/multimodal-attachments"
@@ -429,6 +444,7 @@
       "id": "byoc-hashbrown",
       "name": "Declarative UI: Hashbrown",
       "category": "byoc",
+      "runtime_path": "/api/copilotkit-byoc-hashbrown",
       "description": "Hashbrown-style generative UI (legacy slug — superseded by `declarative-hashbrown`; kept so the other 17 integrations whose manifests still declare this ID don't drop out of the catalog before their cross-codebase rename lands)",
       "deprecated": true
     },
@@ -436,6 +452,7 @@
       "id": "byoc-json-render",
       "name": "Declarative UI: json-render",
       "category": "byoc",
+      "runtime_path": "/api/copilotkit-byoc-json-render",
       "description": "Streaming structured-output generative UI via @json-render/react (legacy slug — superseded by `declarative-json-render`; kept for cross-integration parity until the rename completes elsewhere)",
       "deprecated": true
     },
@@ -443,12 +460,14 @@
       "id": "declarative-hashbrown",
       "name": "Declarative UI: Hashbrown",
       "category": "byoc",
+      "runtime_path": "/api/copilotkit-declarative-hashbrown",
       "description": "Hashbrown-style generative UI"
     },
     {
       "id": "declarative-json-render",
       "name": "Declarative UI: json-render",
       "category": "byoc",
+      "runtime_path": "/api/copilotkit-declarative-json-render",
       "description": "Streaming structured-output generative UI via @json-render/react"
     }
   ]

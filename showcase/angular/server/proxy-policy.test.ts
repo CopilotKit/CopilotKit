@@ -18,12 +18,14 @@ const registry: RuntimeRegistryInput = {
         {
           id: "agentic-chat",
           route: "/demos/agentic-chat",
-          highlight: ["src/app/api/copilotkit/route.ts"],
+          runtime_path: "/api/copilotkit",
+          highlight: ["src/app/api/copilotkit-mcp-apps/route.ts"],
         },
         {
           id: "mcp-apps",
           route: "/demos/mcp-apps",
-          highlight: ["src/app/api/copilotkit-mcp-apps/[[...slug]]/route.ts"],
+          runtime_path: "/api/copilotkit-mcp-apps",
+          highlight: ["src/app/api/copilotkit/route.ts"],
         },
       ],
     },
@@ -74,7 +76,7 @@ function resolve(
 }
 
 describe("Angular Showcase proxy policy", () => {
-  it("derives the backend origin and manifest-declared runtime prefix", () => {
+  it("derives the backend origin and explicit manifest runtime path", () => {
     expect(resolve()).toEqual({
       cellId: "angular/langgraph-python/agentic-chat",
       targetUrl:

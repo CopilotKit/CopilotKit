@@ -139,6 +139,14 @@ describe("Registry Generator", () => {
     const manifest = yaml.parse(fs.readFileSync(manifestPath, "utf-8"));
     expect(langgraph.features.length).toBe(manifest.features.length);
     expect(langgraph.demos.length).toBe(manifest.demos.length);
+    expect(
+      langgraph.demos.find((demo: any) => demo.id === "agentic-chat")
+        .runtime_path,
+    ).toBe("/api/copilotkit");
+    expect(
+      langgraph.demos.find((demo: any) => demo.id === "headless-complete")
+        .runtime_path,
+    ).toBe("/api/copilotkit-mcp-apps");
   });
 
   it("sorts integrations by sort_order", () => {
@@ -166,6 +174,53 @@ describe("Registry Generator", () => {
       const currOrder = registry.integrations[i].sort_order ?? 999;
       expect(currOrder).toBeGreaterThanOrEqual(prevOrder);
     }
+  });
+
+  it("materializes runtime paths that match canonical demo providers", () => {
+    runGenerator();
+
+    const registryPath = path.join(SHELL_DATA_DIR, "registry.json");
+    const registry = JSON.parse(fs.readFileSync(registryPath, "utf-8"));
+    const mismatches: string[] = [];
+
+    for (const integration of registry.integrations) {
+      for (const demo of integration.demos) {
+        if (!/^\/api\/copilotkit(?:-[a-z0-9-]+)?$/.test(demo.runtime_path)) {
+          mismatches.push(
+            `${integration.slug}/${demo.id}: invalid generated runtime_path ${JSON.stringify(demo.runtime_path)}`,
+          );
+        }
+        if (typeof demo.route !== "string") continue;
+
+        const demoDirectory = demo.route.replace(/^\/demos\//, "");
+        const pagePath = path.join(
+          SHOWCASE_ROOT,
+          "integrations",
+          integration.slug,
+          "src",
+          "app",
+          "demos",
+          demoDirectory,
+          "page.tsx",
+        );
+        if (!fs.existsSync(pagePath)) continue;
+
+        const providerRuntimePath =
+          /runtimeUrl\s*=\s*["'](\/api\/copilotkit[^"']*)/.exec(
+            fs.readFileSync(pagePath, "utf-8"),
+          )?.[1];
+        if (
+          providerRuntimePath !== undefined &&
+          providerRuntimePath !== demo.runtime_path
+        ) {
+          mismatches.push(
+            `${integration.slug}/${demo.id}: provider ${providerRuntimePath}, registry ${demo.runtime_path}`,
+          );
+        }
+      }
+    }
+
+    expect(mismatches).toEqual([]);
   });
 
   it("validates feature IDs against the registry", async () => {

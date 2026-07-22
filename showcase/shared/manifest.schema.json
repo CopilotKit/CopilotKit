@@ -129,6 +129,11 @@
             "pattern": "^/",
             "description": "Route within the package (e.g. /demos/agentic-chat). Omit for informational demos that expose `command` instead."
           },
+          "runtime_path": {
+            "type": "string",
+            "pattern": "^/api/copilotkit(?:-[a-z0-9-]+)?$",
+            "description": "Optional integration-specific override for the feature's CopilotKit runtime API path. Generated registry data always materializes this field, using the feature registry path or /api/copilotkit by default."
+          },
           "command": {
             "type": "string",
             "description": "Copy-pasteable shell command (e.g. npx degit ...). When present and `route` is omitted, the shell renders an informational cell with a copy button instead of Demo/Code links."
@@ -140,7 +145,7 @@
           "backend_files": {
             "type": "array",
             "items": { "type": "string" },
-            "description": "DEPRECATED. Use `highlight` to pin core files (and drive backend scoping). Will be removed."
+            "description": "DEPRECATED. Use `highlight` to pin core files. Will be removed."
           },
           "highlight": {
             "type": "array",

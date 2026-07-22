@@ -53,6 +53,8 @@ const FRONTEND_REGISTRY_PATH = path.join(
 // the runtime consumer (shell/src/lib/backend-url.ts).
 const DEFAULT_BACKEND_HOST_PATTERN =
   "showcase-{slug}-production.up.railway.app";
+const DEFAULT_RUNTIME_PATH = "/api/copilotkit";
+const RUNTIME_PATH_RE = /^\/api\/copilotkit(?:-[a-z0-9-]+)?$/;
 
 // Env resolution parity with the runtime consumer (readEnvPair in
 // shell/src/lib/runtime-config.ts): values are trimmed, an empty or
@@ -187,6 +189,30 @@ function synthesizeBackendUrl(slug: string): string {
   // substitutes only the FIRST {slug} occurrence, and a plain string
   // replacement is subject to `$` substitution patterns ("$&", "$'", …).
   return `https://${BACKEND_HOST_PATTERN.replaceAll("{slug}", () => slug)}`;
+}
+
+/**
+ * Materialize one explicit server runtime path for every demo in generated
+ * registry data. Feature metadata owns the common route; an integration demo
+ * may override it when that backend deliberately exposes a different route.
+ */
+function normalizeDemoRuntimePaths(
+  manifest: Record<string, unknown>,
+  featureRuntimePaths: ReadonlyMap<string, string>,
+): Record<string, unknown> {
+  const demos =
+    (manifest.demos as Array<Record<string, unknown>> | undefined) ?? [];
+  return {
+    ...manifest,
+    demos: demos.map((demo) => ({
+      ...demo,
+      runtime_path:
+        typeof demo.runtime_path === "string"
+          ? demo.runtime_path
+          : (featureRuntimePaths.get(demo.id as string) ??
+            DEFAULT_RUNTIME_PATH),
+    })),
+  };
 }
 
 // Atomic write (SU4-A7): write to a temp sibling, then rename(2) into
@@ -451,6 +477,24 @@ function main() {
   const featureIds = new Set<string>(
     featureRegistry.features.map((f: { id: string }) => f.id),
   );
+  const featureRuntimePaths = new Map<string, string>();
+  for (const feature of featureRegistry.features as Array<{
+    id: string;
+    runtime_path?: unknown;
+  }>) {
+    if (feature.runtime_path === undefined) continue;
+    if (
+      typeof feature.runtime_path !== "string" ||
+      !RUNTIME_PATH_RE.test(feature.runtime_path)
+    ) {
+      console.error(
+        `ERROR: feature registry entry ${JSON.stringify(feature.id)} has ` +
+          `invalid runtime_path ${JSON.stringify(feature.runtime_path)}`,
+      );
+      process.exit(1);
+    }
+    featureRuntimePaths.set(feature.id, feature.runtime_path);
+  }
 
   const ajv = new Ajv({ allErrors: true });
   addFormats(ajv);
@@ -509,7 +553,7 @@ function main() {
       continue;
     }
 
-    integrations.push(manifest);
+    integrations.push(normalizeDemoRuntimePaths(manifest, featureRuntimePaths));
     console.log(`  OK: ${manifest.name} (${manifest.slug})`);
   }
 

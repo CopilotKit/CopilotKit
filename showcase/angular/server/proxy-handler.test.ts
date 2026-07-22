@@ -12,6 +12,7 @@ const index = buildRuntimeIndex(
           {
             id: "agentic-chat",
             route: "/demos/agentic-chat",
+            runtime_path: "/api/copilotkit",
             highlight: ["src/app/api/copilotkit/route.ts"],
           },
         ],

@@ -4,7 +4,7 @@ export interface RuntimeRegistryInput {
     demos: Array<{
       id: string;
       route?: string;
-      highlight?: string[];
+      runtime_path: string;
     }>;
   }>;
 }
@@ -42,18 +42,6 @@ export class ProxyPolicyError extends Error {
   }
 }
 
-const DEFAULT_RUNTIME_PREFIX = "/api/copilotkit";
-const RUNTIME_SOURCE_RE =
-  /^src\/app(\/api\/copilotkit(?:-[a-z0-9-]+)?)(?:\/.*)?\/route\.(?:ts|js)$/;
-
-function runtimePrefixFromHighlight(highlight: readonly string[]): string {
-  for (const file of highlight) {
-    const match = RUNTIME_SOURCE_RE.exec(file);
-    if (match) return match[1];
-  }
-  return DEFAULT_RUNTIME_PREFIX;
-}
-
 /** Build the immutable Angular cell -> server-owned runtime-prefix index. */
 export function buildRuntimeIndex(
   registry: RuntimeRegistryInput,
@@ -78,7 +66,7 @@ export function buildRuntimeIndex(
       runnable: cell.runnable,
       ...(cell.runnable && demo?.route
         ? {
-            runtimePrefix: runtimePrefixFromHighlight(demo.highlight ?? []),
+            runtimePrefix: demo.runtime_path,
           }
         : {}),
     });

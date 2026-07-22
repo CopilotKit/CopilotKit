@@ -89,6 +89,7 @@ demos:
     tags:
       - chat-ui
     route: /demos/beautiful-chat
+    runtime_path: /api/copilotkit
     highlight:
       - src/app/demos/beautiful-chat/page.tsx
       - src/lib/factory/tanstack-factory.ts
@@ -154,6 +155,7 @@ demos:
     tags:
       - chat-ui
     route: /demos/headless-complete
+    runtime_path: /api/copilotkit
     highlight:
       - src/app/demos/headless-complete/page.tsx
       - src/app/demos/headless-complete/use-rendered-messages.tsx
@@ -353,6 +355,7 @@ demos:
     description: Visible chain-of-thought during normal conversation, rendered via a custom reasoningMessage slot
     tags: [chat-ui]
     route: /demos/reasoning-custom
+    runtime_path: /api/copilotkit-reasoning
     highlight:
       - src/app/demos/reasoning-custom/page.tsx
       - src/app/demos/reasoning-custom/reasoning-block.tsx
@@ -363,6 +366,7 @@ demos:
     description: Zero-config rendering of the agent's reasoning chain via CopilotKit's built-in reasoning message
     tags: [chat-ui]
     route: /demos/reasoning-default
+    runtime_path: /api/copilotkit-reasoning
     highlight:
       - src/app/demos/reasoning-default/page.tsx
       - src/lib/factory/reasoning-factory.ts
@@ -372,6 +376,7 @@ demos:
     description: Sequential tool calls interleaved with the agent's visible reasoning chain
     tags: [agent-capabilities]
     route: /demos/tool-rendering-reasoning-chain
+    runtime_path: /api/copilotkit-reasoning
     highlight:
       - src/app/demos/tool-rendering-reasoning-chain/page.tsx
       - src/app/demos/tool-rendering-reasoning-chain/reasoning-block.tsx

@@ -47,6 +47,12 @@ Everything below should exist in `showcase/integrations/<slug>/`:
 ### Source Files
 
 - [ ] `manifest.yaml` — name, slug, category, language, features, demos, `deployed: false`, `generative_ui`, `interaction_modalities`, and optionally `managed_platform`
+- [ ] Declare a feature-level `runtime_path` in `shared/feature-registry.json`
+      when every backend uses the same non-default CopilotKit API route. Add a
+      demo-level `runtime_path` override in `manifest.yaml` only when that
+      integration differs. Registry generation materializes an explicit path
+      for every demo and defaults to `/api/copilotkit`; `highlight` is display
+      metadata and never controls runtime routing.
 - [ ] `package.json` — dependencies including `@copilotkit/react-core`, `zod`, `tailwindcss`
 - [ ] `tsconfig.json`
 - [ ] `next.config.ts`
