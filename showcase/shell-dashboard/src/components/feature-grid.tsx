@@ -832,7 +832,7 @@ export function FeatureGrid({
             <label
               data-testid="show-unique-toggle"
               className={`${deprecatedCount > 0 ? "" : "ml-auto "}flex cursor-pointer items-center gap-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]`}
-              title={`${uniqueCount} demo${uniqueCount === 1 ? "" : "s"} supported by only one framework — hidden by default so the view shows cross-framework patterns.`}
+              title={`${uniqueCount} demo${uniqueCount === 1 ? "" : "s"} supported by fewer than two frameworks — hidden by default so the view shows cross-framework patterns.`}
             >
               <input
                 type="checkbox"

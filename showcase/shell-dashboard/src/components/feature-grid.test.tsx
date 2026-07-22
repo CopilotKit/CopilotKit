@@ -683,4 +683,11 @@ describe("FeatureGrid — Show unique filter", () => {
     fireEvent.click(getByTestId("show-unique-toggle").querySelector("input")!);
     expect(container.textContent).not.toContain("unique hidden");
   });
+
+  it("tooltip wording is accurate for the <2 definition (not 'only one framework')", () => {
+    const { getByTestId } = renderGrid();
+    const title = getByTestId("show-unique-toggle").getAttribute("title") ?? "";
+    expect(title).toContain("fewer than two frameworks");
+    expect(title).not.toContain("only one framework");
+  });
 });
