@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import json
 from pathlib import Path
 from typing import Any
@@ -21,7 +22,162 @@ CORPUS_PATH = (
     / "packages/intelligence/conformance/registry-adapters-v1.json"
 )
 CORPUS = json.loads(CORPUS_PATH.read_text(encoding="utf-8"))
-CASES = CORPUS["cases"]
+
+_CORPUS_FIELDS = frozenset(
+    {
+        "schemaVersion",
+        "contractVersion",
+        "distribution",
+        "sourceCorpus",
+        "fixtures",
+        "cases",
+    }
+)
+_CASE_FIELDS = frozenset({"name", "initialSnapshot", "operations", "expected"})
+_CASE_OPTIONAL_FIELDS = frozenset({"permanentDenialSource"})
+_EXPECTED_FIELDS = frozenset(
+    {
+        "calls",
+        "statusTransitions",
+        "genericSdk",
+        "readiness",
+        "nativeHook",
+        "telemetryNames",
+        "renderedRecords",
+        "telemetryRecords",
+    }
+)
+_EXPECTED_OPTIONAL_FIELDS = frozenset({"singleflight"})
+_PERMANENT_DENIAL_SOURCES = frozenset(
+    {
+        "error-category-auth",
+        "error-category-permission",
+        "http-401",
+        "http-403",
+        "http-404",
+        "http-410",
+        "container-archived",
+        "project-mismatch",
+        "container-not-found",
+        "registry-unrecoverable",
+    }
+)
+
+
+def _assert_field_shape(
+    value: dict[str, Any],
+    required: frozenset[str],
+    *,
+    optional: frozenset[str] = frozenset(),
+    label: str,
+) -> None:
+    actual = frozenset(value)
+    missing = required - actual
+    unexpected = actual - required - optional
+    assert not missing and not unexpected, (
+        f"{label} fields must match the conformance contract; "
+        f"missing={sorted(missing)!r}, unexpected={sorted(unexpected)!r}"
+    )
+
+
+def _validate_case_contract(case: dict[str, Any]) -> None:
+    _assert_field_shape(
+        case,
+        _CASE_FIELDS,
+        optional=_CASE_OPTIONAL_FIELDS,
+        label="case",
+    )
+    expected = case["expected"]
+    assert isinstance(expected, dict), "case expected must be an object"
+    _assert_field_shape(
+        expected,
+        _EXPECTED_FIELDS,
+        optional=_EXPECTED_OPTIONAL_FIELDS,
+        label="expected",
+    )
+
+    source = case.get("permanentDenialSource")
+    if source is None:
+        return
+    assert source in _PERMANENT_DENIAL_SOURCES, (
+        f"permanentDenialSource is not declared by the contract: {source!r}"
+    )
+    assert case["initialSnapshot"].get("error") is None, (
+        f"permanentDenialSource {source!r} must start without an initial error"
+    )
+    operations = case["operations"]
+    assert operations, f"permanentDenialSource {source!r} has no terminal operation"
+    terminal = operations[-1]
+    generic_sdk = expected["genericSdk"]
+    assert "error" in generic_sdk, (
+        f"permanentDenialSource {source!r} must produce a generic SDK error"
+    )
+    error = generic_sdk["error"]
+    assert error.get("causeIdentity") == source, (
+        f"permanentDenialSource {source!r} must match expected causeIdentity"
+    )
+
+    if source.startswith("error-category-"):
+        category = source.removeprefix("error-category-")
+        assert terminal.get("kind") == "registry-error", (
+            f"permanentDenialSource {source!r} must end in registry-error"
+        )
+        assert error.get("category") == category, (
+            f"permanentDenialSource {source!r} must match expected category"
+        )
+        return
+
+    if source.startswith("http-"):
+        status = int(source.removeprefix("http-"))
+        assert terminal.get("kind") == "http-response", (
+            f"permanentDenialSource {source!r} must end in http-response"
+        )
+        assert terminal.get("status") == status, (
+            f"permanentDenialSource {source!r} must match terminal HTTP status"
+        )
+        assert error.get("httpStatus") == status, (
+            f"permanentDenialSource {source!r} must match expected httpStatus"
+        )
+        return
+
+    assert terminal.get("kind") == "canonical-error", (
+        f"permanentDenialSource {source!r} must end in canonical-error"
+    )
+    code_suffix = source.upper().replace("-", "_")
+    assert error.get("code", "").endswith(code_suffix), (
+        f"permanentDenialSource {source!r} must match expected code suffix "
+        f"{code_suffix!r}"
+    )
+
+
+def _validate_corpus_contract(corpus: dict[str, Any]) -> list[dict[str, Any]]:
+    _assert_field_shape(corpus, _CORPUS_FIELDS, label="corpus")
+    cases = corpus["cases"]
+    assert isinstance(cases, list), "corpus cases must be an array"
+    assert len(cases) == 35, "corpus must contain exactly 35 cases"
+    for case in cases:
+        _validate_case_contract(case)
+    assert len({case["name"] for case in cases}) == len(cases), (
+        "corpus case names must be unique"
+    )
+    sources = [
+        case["permanentDenialSource"]
+        for case in cases
+        if "permanentDenialSource" in case
+    ]
+    assert len(sources) == len(_PERMANENT_DENIAL_SOURCES), (
+        "permanentDenialSource must classify exactly ten cases"
+    )
+    assert len(set(sources)) == len(sources), (
+        "permanentDenialSource classifications must be one-to-one"
+    )
+    assert set(sources) == _PERMANENT_DENIAL_SOURCES, (
+        "permanentDenialSource classifications must match the exact contract set"
+    )
+    return cases
+
+
+CASES = _validate_corpus_contract(CORPUS)
 
 
 def _observe_error(error: BaseException) -> dict[str, object]:
@@ -164,12 +320,116 @@ async def _pump() -> None:
 
 
 @pytest.mark.asyncio
+async def test_permanent_denial_source_is_consumed_structurally(tmp_path: Path) -> None:
+    case = copy.deepcopy(
+        next(
+            candidate
+            for candidate in CASES
+            if candidate.get("permanentDenialSource") == "error-category-auth"
+        )
+    )
+    case["permanentDenialSource"] = "error-category-permission"
+
+    with pytest.raises(AssertionError, match="permanentDenialSource"):
+        await test_adapter_conformance(case, tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("level", "field", "remove"),
+    [
+        ("corpus", "schemaVersion", True),
+        ("corpus", "unexpected", False),
+        ("case", "name", True),
+        ("case", "unexpected", False),
+        ("expected", "calls", True),
+        ("expected", "unexpected", False),
+    ],
+)
+def test_corpus_uses_exact_required_and_allowed_field_shapes(
+    level: str, field: str, remove: bool
+) -> None:
+    corpus = copy.deepcopy(CORPUS)
+    target = (
+        corpus
+        if level == "corpus"
+        else (corpus["cases"][0] if level == "case" else corpus["cases"][0]["expected"])
+    )
+    if remove:
+        target.pop(field)
+    else:
+        target[field] = True
+
+    with pytest.raises(AssertionError, match=f"{level} fields"):
+        _validate_corpus_contract(corpus)
+
+
+@pytest.mark.parametrize(
+    ("source", "path", "wrong_value", "message"),
+    [
+        (
+            "error-category-auth",
+            ("expected", "genericSdk", "error", "category"),
+            "permission",
+            "expected category",
+        ),
+        (
+            "http-401",
+            ("operations", -1, "status"),
+            403,
+            "terminal HTTP status",
+        ),
+        (
+            "http-403",
+            ("expected", "genericSdk", "error", "httpStatus"),
+            401,
+            "expected httpStatus",
+        ),
+        (
+            "container-archived",
+            ("operations", -1, "kind"),
+            "registry-error",
+            "canonical-error",
+        ),
+        (
+            "registry-unrecoverable",
+            ("expected", "genericSdk", "error", "code"),
+            "LEARNING_CONTAINER_ARCHIVED",
+            "code suffix",
+        ),
+        (
+            "project-mismatch",
+            ("initialSnapshot", "error"),
+            {"code": "unexpected"},
+            "initial error",
+        ),
+    ],
+)
+def test_permanent_denial_sources_reject_mismatched_inputs_and_outcomes(
+    source: str, path: tuple[str | int, ...], wrong_value: object, message: str
+) -> None:
+    corpus = copy.deepcopy(CORPUS)
+    case = next(
+        candidate
+        for candidate in corpus["cases"]
+        if candidate.get("permanentDenialSource") == source
+    )
+    target: Any = case
+    for part in path[:-1]:
+        target = target[part]
+    target[path[-1]] = wrong_value
+
+    with pytest.raises(AssertionError, match=message):
+        _validate_corpus_contract(corpus)
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("case", CASES, ids=[case["name"] for case in CASES])
 async def test_adapter_conformance(case: dict[str, Any], tmp_path: Path) -> None:
     """Execute fields from initialSnapshot/operations and compare every expected field."""
 
     from copilotkit_intelligence_agent_framework import SkillRegistryContextProvider
 
+    _validate_case_contract(case)
     assert CORPUS["schemaVersion"] == 1
     assert CORPUS["contractVersion"] == "registry-adapters-v1"
     assert [op["atMs"] for op in case["operations"]] == sorted(
