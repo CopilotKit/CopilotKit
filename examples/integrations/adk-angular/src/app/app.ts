@@ -10,6 +10,13 @@ import { AGENT_ID } from "./app.config";
 import { MainContent } from "./main-content";
 import { WebInspector } from "./web-inspector";
 
+/**
+ * Viewport width (px) at/above which an open chat DOCKS and pushes the content
+ * left; below it the chat overlays. Keep in sync with the `@media (min-width…)`
+ * rule in the component styles.
+ */
+const DOCK_BREAKPOINT_PX = 1200;
+
 @Component({
   selector: "app-root",
   standalone: true,
@@ -29,17 +36,18 @@ import { WebInspector } from "./web-inspector";
   // [data-copilotkit] hosts, which would shadow the value set here.
   host: { "[style.--app-theme-color]": "themeColor()" },
   template: `
-    <div class="layout">
+    <div class="layout" [class.layout--pushed]="chatOpen()">
       <!-- License-gated: locked "Upgrade" tease when unlicensed, threads when licensed. -->
       <copilot-threads-drawer [agentId]="AGENT_ID" class="drawer" />
       <app-main-content [themeColor]="themeColor()" class="center" />
     </div>
 
     <!--
-      Floating, collapsible chat. Angular has no CopilotSidebar, so this is a
-      hand-rolled slide-over that OVERLAYS the content (it doesn't reserve a
-      column). That keeps the threads drawer's desktop push from smushing the
-      content, and mirrors React's CopilotSidebar feel (dock right, closeable).
+      Collapsible chat (Angular has no CopilotSidebar, so it's hand-rolled).
+      Mirrors React: when there's room (wide viewport) it DOCKS and pushes the
+      content left — .layout--pushed adds a right margin equal to the chat width;
+      on narrower screens it OVERLAYS instead so the content isn't smushed.
+      Closeable via the header X.
     -->
     <aside class="chat" [class.chat--open]="chatOpen()" aria-label="Assistant">
       <header class="chat__bar">
@@ -76,17 +84,26 @@ import { WebInspector } from "./web-inspector";
     `
       :host {
         display: block;
+        --chat-width: 440px;
       }
       .layout {
         display: grid;
         /* Two tracks — drawer (pushed via the SDK's reserved-width var) + content.
-           The chat is a fixed overlay, NOT a grid column, so it never smushes the
-           content when the drawer expands. */
+           The chat is a fixed panel, NOT a grid column. When docked (wide + open)
+           .layout--pushed adds a right margin so the content reflows beside it
+           instead of being covered; below the dock breakpoint the chat overlays. */
         grid-template-columns: var(--cpk-drawer-reserved-width, 320px) minmax(0, 1fr);
         grid-template-rows: minmax(0, 1fr);
         height: 100dvh;
-        width: 100%;
         overflow: hidden;
+        transition: margin-inline-end 0.25s ease;
+      }
+      /* Dock breakpoint — keep in sync with DOCK_BREAKPOINT_PX in the component.
+         Above it, an open chat pushes the content; below, it overlays. */
+      @media (min-width: 1200px) {
+        .layout--pushed {
+          margin-inline-end: var(--chat-width);
+        }
       }
       .center {
         min-width: 0;
@@ -101,7 +118,7 @@ import { WebInspector } from "./web-inspector";
            React's z-1200 sidebar over its z-1100 toggle button. */
         z-index: 1200;
         height: 100dvh;
-        width: min(440px, 100%);
+        width: min(var(--chat-width), 100%);
         display: flex;
         flex-direction: column;
         background: #fff;
@@ -185,8 +202,13 @@ import { WebInspector } from "./web-inspector";
 export class App {
   protected readonly AGENT_ID = AGENT_ID;
   protected readonly themeColor = signal("#6366f1");
-  /** Chat starts open (mirrors React's `defaultOpen` CopilotSidebar). */
-  protected readonly chatOpen = signal(true);
+  /** Start expanded only when there's room to dock (wide viewport); on narrow
+   *  screens start closed so the overlay doesn't cover the content on load. */
+  protected readonly chatOpen = signal(
+    typeof window !== "undefined"
+      ? window.innerWidth >= DOCK_BREAKPOINT_PX
+      : true,
+  );
   /** lucide icons matching React's sidebar (X for close, MessageCircle to open). */
   protected readonly CloseIcon = X;
   protected readonly ChatIcon = MessageCircle;
