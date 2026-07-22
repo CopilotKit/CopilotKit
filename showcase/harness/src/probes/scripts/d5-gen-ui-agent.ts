@@ -25,10 +25,8 @@
  * from the step titles in `showcase/harness/fixtures/d5/gen-ui-agent.json`.
  */
 
-import {
-  registerD5Script,
-  type D5BuildContext,
-} from "../helpers/d5-registry.js";
+import type { D5BuildContext } from "../helpers/d5-registry.js";
+import { registerD5Script } from "../helpers/d5-registry.js";
 import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
 import { FIRST_SIGNAL_TIMEOUT_MS, waitForTestId } from "./_genuine-shared.js";
 
@@ -176,6 +174,14 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
       seenStepTextsRef,
     ),
     responseTimeoutMs: 60_000,
+    // This feature updates one stable state card in place, so transcript text
+    // can continue changing after RUN_FINISHED and never satisfy the generic
+    // text-stability gate. Complete on the mounted card; the per-pill
+    // assertion still polls for the new prompt's exact content markers.
+    completeOnMount: {
+      testIds: ["agent-state-card"],
+      minNewMounts: 0,
+    },
   }));
 }
 

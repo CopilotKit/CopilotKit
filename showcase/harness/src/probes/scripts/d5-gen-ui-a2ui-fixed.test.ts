@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { getD5Script, type D5BuildContext } from "../helpers/d5-registry.js";
+import type { D5BuildContext } from "../helpers/d5-registry.js";
+import { getD5Script } from "../helpers/d5-registry.js";
 import type { Page } from "../helpers/conversation-runner.js";
 import {
   buildTurns,
@@ -30,6 +31,10 @@ describe("d5-gen-ui-a2ui-fixed script", () => {
     const turn = buildTurns(ctx)[0]!;
     expect(turn.input).toBe(A2UI_FIXED_PILL_PROMPT);
     expect(turn.responseTimeoutMs).toBeGreaterThanOrEqual(60_000);
+    expect(turn.completeOnMount).toEqual({
+      testIds: ["a2ui-fixed-card"],
+      minNewMounts: 1,
+    });
   });
 
   it("assertion succeeds when waitForSelector resolves for the testid", async () => {
