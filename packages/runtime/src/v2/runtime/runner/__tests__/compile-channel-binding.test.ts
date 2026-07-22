@@ -128,14 +128,32 @@ describe("compileChannelBinding — selectAgent", () => {
 
   it("fails loud when a router returns an unknown agent name (no fallback)", async () => {
     const binding = compileChannelBinding(
-      fakeChannel({ agentBinding: () => "ghost" }),
+      fakeChannel({ name: "triage", agentBinding: () => "ghost" }),
       {
         resolveNamedAgent: (n) =>
           n === "default" ? new TagAgent(n) : undefined,
       },
     );
 
-    await expect(binding.selectAgent(routeContext())).rejects.toThrow(/ghost/);
+    await expect(binding.selectAgent(routeContext())).rejects.toThrow(
+      'Channel "triage" agent router returned unknown Runtime agent "ghost".',
+    );
+  });
+
+  it("fails loud when a router returns an agent object instead of a name", async () => {
+    const binding = compileChannelBinding(
+      fakeChannel({
+        name: "triage",
+        // A router must return a NAME (string); returning an agent object is a
+        // programming error the runtime rejects loudly.
+        agentBinding: (() => new TagAgent("nope")) as never,
+      }),
+      { resolveNamedAgent: () => new TagAgent("default") },
+    );
+
+    await expect(binding.selectAgent(routeContext())).rejects.toThrow(
+      'Channel "triage" agent router must return a registered agent name, not an agent object.',
+    );
   });
 });
 

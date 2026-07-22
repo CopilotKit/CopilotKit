@@ -1,6 +1,7 @@
 export * from "./agent-runner";
 export * from "./channel-runner";
 export * from "./compile-channel-binding";
+export * from "./compile-runtime-channel-bindings";
 export * from "./execute-channel-turn";
 export * from "./channel-preflight";
 export * from "./intelligence-channel-runner";

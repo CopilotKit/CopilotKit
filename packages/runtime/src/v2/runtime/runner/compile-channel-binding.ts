@@ -95,16 +95,29 @@ export function compileChannelBinding(
       if (inlineAgent) {
         return { key: inlineKey };
       }
-      let name: string;
-      if (typeof binding === "string") {
-        name = binding;
-      } else if (typeof binding === "function") {
-        name = await binding(context);
-      } else {
-        name = DEFAULT_AGENT_NAME;
+      const channelName = channel.name ?? "(unnamed)";
+      if (typeof binding === "function") {
+        // Router mode: run once, then validate the RETURNED name before pinning
+        // (plan §2). A router must return a registered NAME (string), never an
+        // agent object, and an unknown name fails loud with no fallback.
+        const routed = await binding(context);
+        if (typeof routed !== "string") {
+          throw new Error(
+            `Channel "${channelName}" agent router must return a registered ` +
+              `agent name, not an agent object.`,
+          );
+        }
+        if (!deps.resolveNamedAgent(routed)) {
+          throw new Error(
+            `Channel "${channelName}" agent router returned unknown Runtime ` +
+              `agent "${routed}".`,
+          );
+        }
+        return { key: `${NAMED_PREFIX}${routed}` };
       }
-      // Validate at selection time so a bad routing decision fails BEFORE the
-      // key is durably pinned (resolveAgent revalidates on the execution path).
+      // Named or omitted → default. Validate at selection time so a bad name
+      // fails BEFORE the key is pinned (resolveAgent revalidates on execution).
+      const name = typeof binding === "string" ? binding : DEFAULT_AGENT_NAME;
       requireNamedAgent(name);
       return { key: `${NAMED_PREFIX}${name}` };
     },
