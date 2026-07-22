@@ -232,11 +232,10 @@ describe("loadDoc", () => {
     expect(screenshot).toBeLessThan(gettingStarted);
     expect(gettingStarted).toBeLessThan(why);
     expect(why).toBeLessThan(diagram);
-    expect(overview).toContain("### Cloud-hosted Enterprise Intelligence");
     expect(overview).toContain("npx copilotkit@latest init");
     expect(overview).toContain("Build and verify this with a coding agent");
     expect(overview).toContain("Threads-capable CLI starters already include");
-    expect(overview).toContain("Book time with an engineer");
+    expect(overview).toContain("Book time with a CopilotKit engineer");
     expect(overview).toContain("## Sync existing conversations");
     expect(overview).toContain("threads-diagram-dark.png");
   });
@@ -530,8 +529,8 @@ describe("framework nav", () => {
     const langgraph = loadDoc("integrations/langgraph/threads-import");
 
     expect(generic?.fm.title).toBe("Import & Synchronize Thread History");
-    expect(adk?.fm.title).toBe("Import ADK Threads");
-    expect(langgraph?.fm.title).toBe("Import LangGraph Threads");
+    expect(adk?.fm.title).toBe("Synchronize ADK Threads");
+    expect(langgraph?.fm.title).toBe("Synchronize LangGraph Threads");
     expect(generic && readTitle(generic.filePath)).toBe(
       "Synchronize Thread History",
     );
@@ -577,7 +576,7 @@ describe("framework nav", () => {
     expect(langgraph).toContain("LangGraph or LangSmith storage and analytics");
   });
 
-  it("keeps Drawer and Headless guidance on the supported CLI-created path", () => {
+  it("keeps Drawer and Headless guidance applicable to starters and existing apps", () => {
     const drawer = fs.readFileSync(
       path.join(SNIPPETS_DIR, "shared/basics/copilot-threads-drawer.mdx"),
       "utf8",
@@ -588,21 +587,23 @@ describe("framework nav", () => {
     );
 
     expect(drawer).toContain(
-      "CLI starters with Rich Threads already include the Drawer",
+      "If your project was created from a CopilotKit CLI starter",
     );
-    expect(drawer).toContain(
-      "Follow the managed CLI starter flow in the [Rich Threads overview](/threads)",
+    expect(drawer).toContain("add it to an existing CopilotKit application");
+    expect(drawer).toContain("Get a free developer account");
+    expect(drawer).toContain("## Set up the Threads Drawer");
+    expect(drawer).not.toContain(
+      "Start with the [Rich Threads overview](/threads)",
     );
-    expect(drawer).not.toContain("Get a free developer account");
-    expect(drawer).toContain("## Understand the included setup");
-    expect(drawer).not.toContain("## Basic setup");
 
-    expect(headless).toContain("npx copilotkit@latest init");
-    expect(headless).toContain("Confirm the generated Runtime configuration");
-    expect(headless).toContain("already include the prebuilt");
-    expect(headless).not.toContain(
-      "Connect your CopilotKit runtime to the Enterprise Intelligence Platform",
+    expect(headless).toContain(
+      "If your app came from a CopilotKit CLI starter",
     );
+    expect(headless).toContain("adding a custom thread UI to an existing app");
+    expect(headless).toContain(
+      "Your `CopilotRuntime` must be connected to Enterprise Intelligence",
+    );
+    expect(headless).not.toContain("npx copilotkit@latest init");
   });
 
   it("documents conditional future native persistence without claiming replication", () => {
@@ -630,12 +631,8 @@ describe("framework nav", () => {
       loadDoc("premium/managed-intelligence-platform")?.source ?? "";
 
     expect(managed).toContain("[Rich Threads overview](/threads)");
-    expect(managed).toContain(
-      "[Threads Drawer](/prebuilt-components/copilot-threads-drawer)",
-    );
-    expect(managed).toContain(
-      "[Import & Synchronize Thread History](/threads-import)",
-    );
+    expect(managed).toContain("[CopilotKit CLI](/cli)");
+    expect(managed).toContain("[Headless Threads](/headless-threads)");
   });
 
   it("uses the generated Intelligence Platform section for authored framework nav", () => {

@@ -2,11 +2,6 @@
 
 Every CopilotKit conversation is scoped to a **thread**, identified by a `threadId`. This page explains the full lifecycle of that thread on the client: how the id is created, how prior history is restored when a conversation loads, how to switch between threads or start a new one, and where CopilotKit's threads end and your agent framework's own persistence (e.g. a LangGraph checkpointer) begins.
 
-It complements the other threads docs:
-- [Headless Threads](/headless-threads) — the `useThreads` API for listing/renaming/archiving/deleting.
-- [Threads & Persistence Architecture](/premium/threads-explained) — the server-side event-replay model.
-- [Multi-conversation chat](/tutorials/multi-conversation-chat) — an end-to-end sidebar tutorial.
-
 <Callout type="info">
   This page describes the **v2** hooks and components imported from `@copilotkit/react-core/v2`. The v1 API (`useCopilotChat`, `initialMessages`, the v1 `useThreads`) behaves differently; see the [v1 vs v2 notes](#v1-vs-v2) at the end.
 </Callout>
@@ -76,6 +71,44 @@ function MyComponent() {
 <Callout type="info">
   There is no v2 `useCopilotChat` hook and no v2 `initialMessages` prop. Read messages from `useAgent().agent.messages` and mutate with `agent.setMessages(...)` / `agent.addMessage(...)`. (`initialMessages` still exists on the **v1** `useCopilotChat` hook; see [below](#v1-vs-v2).)
 </Callout>
+
+## Scope Rich Threads to the signed-in user
+
+Your application owns end-user authentication. For an Intelligence-enabled
+Runtime, implement `identifyUser(request)` with the server-verified session or
+token from your auth provider and return a stable user `id` and `name`:
+
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+const runtime = new CopilotRuntime({
+  agents: { default: agent },
+  intelligence,
+  identifyUser: async (request) => {
+    const session = await verifyAppSession(request); // Your server-side auth.
+    if (!session?.user) throw new Error("Unauthorized");
+
+    return {
+      id: session.user.id,
+      name: session.user.name,
+    };
+  },
+});
+```
+
+Enterprise Intelligence combines that application user identity with the
+selected project when it scopes thread lists, subscriptions, history, rename,
+archive, unarchive, and delete operations. The project Runtime API key is a
+separate credential: keep it on the server and do not use the developer who
+created that key as the application user.
+
+<Callout type="warn">
+  A static `identifyUser` value is suitable only for a single-user demo. In a
+  multi-user application, every request must resolve the authenticated
+  application user or those users will share the same thread scope.
+</Callout>
+
+See [Authentication](/auth) for forwarding and verifying your provider's auth
+context. `identifyUser` is the additional Runtime contract that assigns the
+verified application user to Rich Threads.
 
 ## Switching threads and starting new ones
 

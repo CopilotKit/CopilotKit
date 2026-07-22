@@ -13,12 +13,12 @@ import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 
 ## Get started
 
-### Cloud-hosted Enterprise Intelligence
-
 Create a new CopilotKit app connected to cloud-hosted Enterprise Intelligence. Your application and CopilotKit Runtime run locally while Enterprise Intelligence stores and synchronizes Rich Threads.
 
 <Accordions>
 <Accordion title="Build and verify this with a coding agent">
+
+<DocsTrackedCopy surface="docs_threads_agent_prompt">
 
 ```text
 Set up and verify a CopilotKit Rich Threads application with cloud-hosted
@@ -44,6 +44,8 @@ you completed. Stop and explain the blocker if the cloud-hosted setup cannot be
 completed; do not substitute an undocumented setup.
 ```
 
+</DocsTrackedCopy>
+
 </Accordion>
 </Accordions>
 
@@ -51,9 +53,13 @@ Or follow the steps yourself:
 
 1. Run the interactive starter command:
 
+   <DocsTrackedCopy surface="docs_threads_managed_setup">
+
    ```bash title="Terminal"
    npx copilotkit@latest init
    ```
+
+   </DocsTrackedCopy>
 
 2. Complete browser sign-in, then create or select an Enterprise Intelligence project when the CLI asks.
 3. Start the generated application and Runtime with the command printed by the CLI. For the standard npm setup:
@@ -67,15 +73,9 @@ Or follow the steps yourself:
 
 Threads-capable CLI starters already include [Threads Drawer](/prebuilt-components/copilot-threads-drawer). Use its guide when you are ready to customize the drawer. Choose [Headless Threads](/headless-threads) later if your product needs a fully custom thread UI.
 
-<OpsPlatformCTA
-  variant="inline"
-  title="Run Enterprise Intelligence in your own infrastructure"
-  body="Production self-hosting keeps Rich Threads, event history, identity, storage, and operations inside your network. Book time with a CopilotKit engineer to get started."
-  ctaLabel="Book time with an engineer"
-  surface="docs_threads_overview_self_hosting"
-  href="https://copilotkit.ai/talk-to-an-engineer"
-  analyticsEvent="talk_to_us_clicked"
-/>
+### Production self-hosting: Run Enterprise Intelligence in your own infrastructure
+
+Production self-hosting keeps Rich Threads, durable event history, identity, storage, and operations inside your network, giving your organization control over data residency, security, and infrastructure. CopilotKit Engineering helps your team deploy Enterprise Intelligence in your Kubernetes environment. <DocsTrackedLink href="https://copilotkit.ai/talk-to-an-engineer" surface="docs_threads_self_hosting_contact">Book time with a CopilotKit engineer</DocsTrackedLink> to get started.
 
 ## Why use CopilotKit Rich Threads?
 
@@ -127,6 +127,14 @@ Both UI paths use the same Threads infrastructure. A stable `threadId` connects 
 2. `CopilotRuntime` runs your agent and sends conversation events to Enterprise Intelligence.
 3. When users return, Enterprise Intelligence replays the stored history, reconnects any live run, and synchronizes thread metadata.
 
+<Callout type="info" title="How are threads scoped to each user?">
+  Your application authenticates its users, and `CopilotRuntime` resolves that
+  verified identity on the server with `identifyUser`. Enterprise Intelligence
+  uses the stable user ID to scope thread lists and lifecycle actions. See
+  [Scope Rich Threads to the signed-in user](/threads-lifecycle#scope-rich-threads-to-the-signed-in-user)
+  for the Runtime contract and an implementation pattern.
+</Callout>
+
 ### What CopilotKit handles
 
 | CopilotKit handles | You control |
@@ -148,7 +156,7 @@ Both UI paths use the same Threads infrastructure. A stable `threadId` connects 
 
   | If you want to... | Choose | Start here |
   |---|---|---|
-  | Ship a mobile-friendly conversation sidebar with switching, new conversations, archive, delete, and pagination already wired to your chat | **Threads Drawer** | [Set up the Threads Drawer →](/prebuilt-components/copilot-threads-drawer) |
+  | Ship a mobile-friendly conversation sidebar with switching, new conversations, archive, delete, and pagination already wired to your chat | **Threads Drawer** | <DocsTrackedLink href="/prebuilt-components/copilot-threads-drawer" surface="docs_threads_drawer_customization">Set up the Threads Drawer →</DocsTrackedLink> |
   | Build a custom layout, workflow, permission model, or thread action UI while CopilotKit continues to handle the backend | **Headless Threads** | [Build a custom thread UI →](/headless-threads) |
 
 </div>
@@ -160,7 +168,7 @@ Both UI paths use the same Threads infrastructure. A stable `threadId` connects 
 
   Ship a mobile-friendly conversation sidebar with switching, new conversations, archive, delete, and pagination already wired to your chat.
 
-  <a href="/prebuilt-components/copilot-threads-drawer" className="font-medium !text-[var(--accent)] !underline !decoration-[color-mix(in_oklch,var(--accent)_40%,transparent)] underline-offset-[3px] transition-colors hover:!decoration-[var(--accent)]">Set up the Threads Drawer →</a>
+  <DocsTrackedLink href="/prebuilt-components/copilot-threads-drawer" surface="docs_threads_drawer_customization" className="font-medium !text-[var(--accent)] !underline !decoration-[color-mix(in_oklch,var(--accent)_40%,transparent)] underline-offset-[3px] transition-colors hover:!decoration-[var(--accent)]">Set up the Threads Drawer →</DocsTrackedLink>
 
   </div>
   <div className="p-5">
@@ -176,7 +184,7 @@ Both UI paths use the same Threads infrastructure. A stable `threadId` connects 
 
 ## Sync existing conversations
 
-Threads capture new CopilotKit conversations once your app uses Enterprise Intelligence. If you already have persisted Google ADK or LangGraph conversations, follow [Import & Synchronize Thread History](/threads-import) to synchronize supported history with the same thread store. Keep the native storage and analytics you already use; future CopilotKit-mediated runs continue through native durable persistence when it remains wired while Enterprise Intelligence records the Rich Thread experience. Users can then resume imported and new conversations through the same UI.
+Threads capture new CopilotKit conversations once your app uses Enterprise Intelligence. If you already have persisted Google ADK or LangGraph conversations, follow <DocsTrackedLink href="/threads-import" surface="docs_threads_history_sync">Import & Synchronize Thread History</DocsTrackedLink> to synchronize supported history with the same thread store. Keep the native storage and analytics you already use; future CopilotKit-mediated runs continue through native durable persistence when it remains wired while Enterprise Intelligence records the Rich Thread experience. Users can then resume imported and new conversations through the same UI.
 
 CopilotKit Threads are separate from native framework session or checkpoint stores. Your backend can keep a stable mapping when the agent framework also needs its own conversation identifier.
 

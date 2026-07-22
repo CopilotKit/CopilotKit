@@ -86,9 +86,9 @@ Use the CLI when you want to start a new app, import historical ADK or LangGraph
   </Step>
 </Steps>
 
-## Import historical conversations
+## Import and synchronize historical conversations
 
-Use `import` from a CopilotKit app created with the CLI and Enterprise Intelligence enabled. Start with a dry run; it reads the source without requiring an Enterprise Intelligence destination.
+Use `import` from a CopilotKit app created with the CLI and Enterprise Intelligence enabled. The importer targets the Enterprise Intelligence project already selected for the current directory.
 
 <Tabs groupId="cli-import-source" items={["ADK", "LangGraph"]}>
   <Tab value="ADK">
@@ -109,7 +109,15 @@ Use `import` from a CopilotKit app created with the CLI and Enterprise Intellige
 
 The command runs interactively by default. Start with `--dry-run` to discover source agent keys, conversation counts, skips, and the estimated upload size without opening an import batch.
 
-Before the real import, export the destination values from the starter's generated `.env`:
+If you need to import into a different project, select it before continuing with the real import:
+
+```bash title="Terminal"
+npx copilotkit@latest project select
+```
+
+This changes the project selected for the current directory and writes its project-scoped runtime key to the starter's generated `.env`.
+
+Before the real import, export the destination values from that `.env`:
 
 ```bash title="Terminal"
 export INTELLIGENCE_API_URL="https://..."
@@ -118,9 +126,9 @@ export INTELLIGENCE_API_KEY="cpk_..."
 
 The importer reads `--api-url` and `--api-key` or the current process environment. It does not load `.env` or `.copilotkit/project.json` automatically. `COPILOTKIT_API_KEY` is also accepted for the key.
 
-To import into a different cloud-hosted project, run `npx copilotkit@latest project select`, then export the updated values written to `.env`. Project selection updates the app configuration; the importer still receives its destination through flags or exported environment variables.
+Project selection updates the app configuration; the importer still receives its destination through flags or exported environment variables.
 
-For the full adoption flow, see [Import & Synchronize Thread History](/threads-import). Source-specific setup lives in [Import ADK threads](/google-adk/threads-import) and [Import LangGraph threads](/langgraph-python/threads-import).
+For the full adoption flow, see [Import & Synchronize Thread History](/threads-import). Source-specific setup lives in [Synchronize ADK threads](/google-adk/threads-import) and [Synchronize LangGraph threads](/langgraph-python/threads-import).
 
 ## Auth commands
 
@@ -152,6 +160,6 @@ Re-running `project select` is safe when you need to move a CLI-created app to a
 ## Next steps
 
 - **Cloud-hosted platform:** [Cloud-Hosted Enterprise Intelligence](/premium/managed-intelligence-platform) — login, projects, API keys, threads, and plans in the hosted web app
-- **Use Rich Threads:** the generated starter already includes the Drawer; see [Threads Drawer](/prebuilt-components/copilot-threads-drawer) to customize it, or [Headless Threads](/headless-threads) to replace it with your own thread UI
+- **Add threads:** use the [Threads Drawer](/prebuilt-components/copilot-threads-drawer) for a drop-in thread switcher, or [Headless Threads](/headless-threads) to build your own thread UI
 - **Synchronize thread history:** [Import & Synchronize Thread History](/threads-import) — import existing ADK or LangGraph conversations and keep future CopilotKit runs synchronized
-- **Production self-hosting:** [Self-Hosting Enterprise Intelligence](/premium/self-hosting) — review the enterprise architecture and plan a deployment with CopilotKit Engineering
+- **Self-hosting:** [Self-Hosting Enterprise Intelligence](/premium/self-hosting) — run the Enterprise Intelligence Platform in your own Kubernetes cluster

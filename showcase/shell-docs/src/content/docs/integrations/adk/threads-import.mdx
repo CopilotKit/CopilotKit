@@ -1,7 +1,7 @@
 ---
-title: Import ADK Threads
+title: Synchronize ADK Threads
 nav_title: Synchronize Thread History
-description: "Import historical Google ADK sessions into Enterprise Intelligence as persistent CopilotKit threads."
+description: "Import historical Google ADK sessions into Enterprise Intelligence, then keep future CopilotKit runs synchronized as Rich Threads."
 icon: "lucide/Repeat"
 doc_type: how-to
 ---
@@ -26,6 +26,18 @@ CLI-created starters already include the Threads Drawer for opening and switchin
 <Callout type="warning" title="Legacy ADK pickle stores">
   Legacy ADK pickle stores are not parsed by the importer. Migrate those sessions with ADK's session migration command first, then re-run the import against the migrated store.
 </Callout>
+
+## Confirm the target project
+
+The importer targets the Enterprise Intelligence project selected when you created the app with the CopilotKit CLI. If that is the project that should receive the ADK sessions, continue to source configuration.
+
+To target a different cloud-hosted project, select it before the dry run:
+
+```bash title="Terminal"
+npx copilotkit@latest project select
+```
+
+The command updates the project selected for the current directory and writes its project-scoped runtime key to the app's generated `.env`.
 
 ## Configure the source
 
@@ -98,7 +110,7 @@ export INTELLIGENCE_API_URL="https://..."
 export INTELLIGENCE_API_KEY="cpk_..."
 ```
 
-`COPILOTKIT_API_KEY` is also accepted for the key. To import into a different cloud-hosted project, run `npx copilotkit@latest project select` first, then export the updated values written to `.env`. You can pass the destination directly with `--api-url` and `--api-key` instead.
+`COPILOTKIT_API_KEY` is also accepted for the key. You can pass the destination directly with `--api-url` and `--api-key` instead.
 
 ## Import the sessions
 
@@ -123,6 +135,10 @@ npx copilotkit@latest import \
 
 ADK user attribution defaults to `session.user_id`. Sessions without a recoverable user are omitted by default; use `--unrecoverable imported-unknown` only when you intentionally want to place those sessions under an imported fallback user.
 
+## Verify the imported sessions
+
+Open the Threads Drawer, select an imported ADK conversation, and confirm that its session history appears in the chat.
+
 ## Re-run or replace
 
 Re-running the same import is idempotent. Sessions already imported from the same source are skipped.
@@ -144,3 +160,5 @@ Your CLI-created app sends future CopilotKit conversations to Enterprise Intelli
 - **Headless Threads:** use the [Headless Threads guide](/headless-threads) only when you need a custom UI. Select a thread with `useThreads`, store its `thread.id`, and pass that value to your chat component as `threadId`.
 
 Keep the mapping between CopilotKit thread IDs and ADK session IDs stable so a resumed Rich Thread reaches the expected ADK session.
+
+Create one new conversation through CopilotKit, then confirm that it appears in Enterprise Intelligence and in the ADK session store that remains connected to your agent.

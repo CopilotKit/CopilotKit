@@ -5,18 +5,15 @@ list, switch, start, archive, and delete their threads, and you wire up
 **no active-thread state** to make it work. Drop it next to your chat and it
 connects automatically.
 
-CopilotKit CLI starters with Rich Threads already include the Drawer and its
-shared chat configuration. Use this guide to understand that generated setup,
-customize the Drawer, or look up its component options; you do not need to add it
-again to a CLI-created starter.
-
-Start with the [Rich Threads overview](/threads) to compare the Drawer with a custom
-headless UI and understand the shared persistence infrastructure beneath both.
+If your project was created from a CopilotKit CLI starter, the Drawer and its
+shared chat configuration are already included. Otherwise, use the setup below
+to add it to an existing CopilotKit application. This guide also covers Drawer
+customization and component options.
 
 <Frame description="CopilotThreadsDrawer beside a CopilotChat. Selecting a thread replays its conversation with no active-thread wiring.">
   <img
-    src="/images/copilot-threads-drawer-preview.png"
-    alt="CopilotThreadsDrawer listing conversations next to an active CopilotChat conversation"
+    src="/images/threads/support-desk-threads.png"
+    alt="A support desk application with a Threads Drawer listing customer conversations beside CopilotChat case details for Northstar Analytics"
     className="w-full rounded-lg"
   />
 </Frame>
@@ -41,8 +38,10 @@ Use the drawer when you want:
 - A mobile-ready off-canvas drawer with its own launcher
 
 It requires the Enterprise Intelligence Platform (threads are stored and synced
-server-side). Follow the managed CLI starter flow in the [Rich Threads overview](/threads)
-to create an app connected to Enterprise Intelligence.
+server-side). <SignupLink surface="docs_drawer">Get a free developer account</SignupLink> to set that up.
+
+For multi-user applications, configure the Runtime to
+[scope Rich Threads to the signed-in user](/threads-lifecycle#scope-rich-threads-to-the-signed-in-user).
 
 <OpsPlatformCTA
   variant="inline"
@@ -51,15 +50,16 @@ to create an app connected to Enterprise Intelligence.
   surface="docs_drawer"
 />
 
-## Understand the included setup
+## Set up the Threads Drawer
 
-The generated starter places `<CopilotThreadsDrawer>` next to `<CopilotChat>` and
-wraps **both** in a shared `<CopilotChatConfigurationProvider>`. That shared
+Place `<CopilotThreadsDrawer>` next to `<CopilotChat>` and wrap **both** in a
+shared `<CopilotChatConfigurationProvider>`. If you are using a CLI-created
+starter, this structure is already in place. That shared
 configuration is what lets the Drawer drive the chat: with no callbacks,
 selecting a row connects the chat to that thread and replays its history; the
 "New Conversation" row resets the chat to a fresh welcome screen. The following
-example shows the essential structure to preserve while customizing your
-starter.
+example shows the essential structure to add to an existing app or preserve
+while customizing a starter.
 
 ```tsx title="app/page.tsx"
 import {
@@ -84,7 +84,7 @@ export default function Page() {
 }
 ```
 
-That's the whole integration included by the starter. A hand-rolled sidebar would have you track the
+That's the whole integration. A hand-rolled sidebar would have you track the
 active `threadId` in your own state and pass selection/new-thread handlers
 between the list and the chat; here the drawer and the
 `CopilotChatConfigurationProvider` share that state, so there is none of that
@@ -130,7 +130,7 @@ a locked view in place of the list.
 
 ## Related
 
-- [Rich Threads overview](/threads): understand the product and choose an implementation path
+- [Rich Threads overview](/threads): compare thread UI and deployment paths
 - [Headless Threads](/headless-threads): build a custom UI with the `useThreads` data layer
 - [Threads Drawer reference (React)](/reference/components/CopilotThreadsDrawer)
 - [CopilotChat](/prebuilt-components/chat): the chat the drawer connects to
