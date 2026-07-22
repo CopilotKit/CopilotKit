@@ -1,0 +1,40 @@
+{
+  "name": "@copilotkit/intelligence-adk",
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "sdk-python-adk/src",
+  "projectType": "library",
+  "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "outputs": ["{projectRoot}/.pytest_cache"],
+      "options": {
+        "command": "sdk-python-adk/.venv/bin/pytest sdk-python-adk/tests -v",
+        "cwd": "."
+      }
+    },
+    "check": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "sdk-python-adk/.venv/bin/python -m compileall -q sdk-python-adk/src && cd sdk-python-adk && poetry check",
+        "cwd": "."
+      }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "outputs": ["{projectRoot}/dist"],
+      "options": {
+        "command": "cd sdk-python-adk && poetry build",
+        "cwd": "."
+      }
+    },
+    "pack-check": {
+      "executor": "nx:run-commands",
+      "outputs": ["{projectRoot}/dist"],
+      "options": {
+        "command": "sdk-python-adk/.venv/bin/twine check sdk-python-adk/dist/* && sdk-python-adk/.venv/bin/python -m zipfile -l sdk-python-adk/dist/copilotkit_intelligence_adk-0.1.0-py3-none-any.whl",
+        "cwd": "."
+      }
+    }
+  },
+  "tags": ["scope:intelligence", "language:python"]
+}
