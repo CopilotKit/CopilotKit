@@ -92,7 +92,22 @@ For complete implementation details, see the [LangGraph Platform Authentication 
 
 **For self-hosted agents**, the recommended approach is to use `useAgentContext` from the v2 API. This pattern works seamlessly with LangGraph 0.6.0+ and the `CopilotKitMiddleware`.
 
-### Setup with CopilotKitMiddleware (Recommended)
+<Callout type="warning" title="Security: Auth Tokens and LLM Context">
+  **Important**: ALL values published via `useAgentContext` are serialized and sent to the LLM as a SystemMessage. This means:
+  - Auth tokens appear in LLM provider logs and traces
+  - The LLM can potentially reference token values in responses
+  - Tokens are visible to anyone with access to LLM provider logs
+  
+  **For production authentication**:
+  - Use **LangGraph Platform's built-in auth** (shown above) for platform deployments
+  - Use **secure HTTP headers** with custom middleware for self-hosted deployments
+  - Use **environment variables** for service-to-service authentication
+  - Only use `useAgentContext` for auth tokens in demos/prototypes where token exposure is acceptable
+  
+  The examples below demonstrate the pattern but should not be used with real secrets in production.
+</Callout>
+
+### Setup with CopilotKitMiddleware (Demo Pattern)
 
 Use the `CopilotKitMiddleware` which automatically handles context forwarding:
 
@@ -115,12 +130,14 @@ graph = create_agent(
 import { useAgentContext } from "@copilotkit/react-core/v2";
 
 function YourApp() {
-  const authToken = getUserAuthToken(); // Your auth logic
+  // WARNING: This demo pattern exposes tokens to the LLM
+  // For production, use LangGraph Platform auth or secure headers
+  const demoToken = getDemoToken(); // Demo only - not for production!
   
   useAgentContext({
-    description: "User authentication context",
+    description: "Demo authentication context",
     value: {
-      authToken: authToken,
+      demoToken: demoToken,  // WARNING: Sent to LLM - see security callout
       userId: getCurrentUserId(),
     },
   });
@@ -140,17 +157,19 @@ async def my_agent_node(state: AgentState):
     context_entries = copilotkit_state.get("context", [])
     
     # Extract auth values from context entries
-    auth_token = None
+    # WARNING: These values were sent to the LLM - see security callout
+    demo_token = None
     user_id = "anonymous"
     
     for entry in context_entries:
         value = entry.get("value", {})
         if isinstance(value, dict):
-            auth_token = value.get("authToken") or auth_token
+            demo_token = value.get("demoToken") or demo_token
             user_id = value.get("userId") or user_id
     
-    if auth_token:
-        user_info = validate_your_token(auth_token)
+    if demo_token:
+        # Demo only: validate the demo token
+        user_info = validate_demo_token(demo_token)
         user_role = user_info.get("role")
     else:
         user_role = None
@@ -159,8 +178,14 @@ async def my_agent_node(state: AgentState):
     return state
 ```
 
-<Callout type="tip" title="Why this pattern?">
-  The `CopilotKitMiddleware` stores context entries in `state["copilotkit"]["context"]`, making them accessible in your agent nodes for programmatic use (like authentication). The middleware also injects the context as a SystemMessage for the LLM to read.
+<Callout type="tip" title="Production Authentication">
+  For production self-hosted deployments:
+  
+  1. **Preferred**: Use custom middleware that reads auth tokens from secure HTTP headers (not `useAgentContext`)
+  2. **Alternative**: Deploy to LangGraph Platform and use built-in authentication (shown in the Platform section above)
+  3. **Demo only**: The `useAgentContext` pattern shown here is for prototypes/demos where token exposure to LLM providers is acceptable
+  
+  See the [LangGraph Platform auth docs](https://docs.langchain.com/langsmith/auth) for production-ready patterns.
 </Callout>
 
 ## Universal Authentication Pattern
@@ -182,19 +207,21 @@ async def my_agent_node(state: AgentState, config: RunnableConfig):
         user_role = user_info.get("role")
 
     # Self-hosted mode with CopilotKitMiddleware
+    # WARNING: This approach exposes auth tokens to the LLM
     else:
         # Access context from state (published via useAgentContext)
         copilotkit_state = state.get("copilotkit", {})
         context_entries = copilotkit_state.get("context", [])
         
-        auth_token = None
+        demo_token = None
         for entry in context_entries:
             value = entry.get("value", {})
             if isinstance(value, dict):
-                auth_token = value.get("authToken") or auth_token
+                demo_token = value.get("demoToken") or demo_token
         
-        if auth_token:
-            user_info = validate_your_token(auth_token)
+        if demo_token:
+            # Demo only - not for production (token was sent to LLM)
+            user_info = validate_demo_token(demo_token)
             user_id = user_info["user_id"]
             user_role = user_info.get("role")
 

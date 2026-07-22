@@ -39,9 +39,10 @@ function YourMainContent() {
   useAgentContext({
     description: "User preferences and session configuration",
     value: {
-      authToken: 'example-token',
       userPreference: 'detailed',
-      sessionId: 'abc123'
+      sessionId: 'abc123',
+      // WARNING: Do NOT put real secrets here - see security callout above
+      demoToken: 'example-only-not-production'
     },
   });
 
@@ -75,7 +76,16 @@ graph = create_agent(
 
 The context published via `useAgentContext` is accessible through the agent `state` parameter. The middleware stores it at `state["copilotkit"]["context"]` and also automatically injects it into the conversation as a SystemMessage for the LLM to read.
 
-**For programmatic access** (e.g., auth tokens, API calls):
+<Callout type="warning" title="Security: Context is sent to the LLM">
+  **ALL context values** published via `useAgentContext` are serialized and sent to the LLM as a SystemMessage. This means:
+  - Values appear in LLM provider logs and traces
+  - The LLM can reference context in its responses
+  - **DO NOT** put secrets, API keys, or sensitive auth tokens in `useAgentContext`
+  
+  For true secrets that need programmatic-only access, use environment variables, secure headers, or a separate authentication mechanism. The `authToken` example below is for demonstration only - in production, authenticate via secure headers or LangGraph Platform's built-in auth.
+</Callout>
+
+**For programmatic access** (e.g., user preferences, session metadata):
 
 ```python title="agent_node.py"
 from typing import Any
@@ -88,21 +98,22 @@ async def agent_node(state: AgentState) -> AgentState:
     
     # Extract values from context entries
     # Each entry has {"description": "...", "value": {...}}
-    auth_token = None
+    demo_token = None
     user_preference = None
     session_id = None
     
     for entry in context_entries:
         value = entry.get("value", {})
         if isinstance(value, dict):
-            auth_token = value.get("authToken") or auth_token
+            demo_token = value.get("demoToken") or demo_token
             user_preference = value.get("userPreference") or user_preference
             session_id = value.get("sessionId") or session_id
     
     # Use the context values in your agent logic
-    if auth_token:
-        # Make authenticated requests
-        user_data = fetch_user_data(auth_token)
+    # NOTE: For real authentication, use secure headers or LangGraph Platform auth
+    if user_preference:
+        # Adapt behavior based on user preferences
+        pass
     
     return state
 ```
@@ -112,8 +123,9 @@ async def agent_node(state: AgentState) -> AgentState:
 The `CopilotKitMiddleware` automatically injects context as a SystemMessage, so the LLM can read and respond to it naturally without explicit extraction code. This is ideal for configuration that affects how the LLM responds (tone, style, expertise level, etc.).
 
 <Callout type="tip" title="When to use each approach">
-  - Use **state access** when you need to programmatically use values in Python code (auth tokens, API keys, user IDs)
-  - Use **LLM injection** (automatic via middleware) when you want the model to adapt its responses based on user preferences
+  - Use **state access** when you need to programmatically use non-sensitive values in Python code (user preferences, session IDs, UI state)
+  - Use **LLM injection** (automatic via middleware) when you want the model to adapt its responses based on context
+  - For **real secrets** (auth tokens, API keys): use environment variables, secure HTTP headers, or LangGraph Platform's authentication system - NOT `useAgentContext`
 </Callout>
 </Step>
 </Steps>
