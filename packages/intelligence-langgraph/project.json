@@ -1,0 +1,42 @@
+{
+  "name": "@copilotkit/intelligence-langgraph",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/intelligence-langgraph/src",
+  "projectType": "library",
+  "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm --dir=packages/intelligence-langgraph vitest run",
+        "cwd": "."
+      },
+      "outputs": ["{projectRoot}/coverage/**"]
+    },
+    "check": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm --dir=packages/intelligence-langgraph check-types && pnpm --dir=packages/intelligence-langgraph publint && pnpm --dir=packages/intelligence-langgraph attw",
+        "cwd": "."
+      }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm --dir=packages/intelligence-langgraph build",
+        "cwd": "."
+      },
+      "dependsOn": ["^build"],
+      "inputs": ["production", "^production"],
+      "outputs": ["{projectRoot}/dist/**"]
+    },
+    "pack-check": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm --dir=packages/intelligence-langgraph verify-package",
+        "cwd": "."
+      },
+      "dependsOn": ["build"],
+      "outputs": ["{projectRoot}/artifacts/**"]
+    }
+  }
+}
