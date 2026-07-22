@@ -32,11 +32,12 @@ describe("CopilotDefaultToolRenderer", () => {
     const toggle: HTMLButtonElement = fixture.nativeElement.querySelector(
       "button[aria-expanded]",
     );
-    expect(
-      fixture.nativeElement.querySelector(
-        '[data-testid="copilot-tool-render"]',
-      ),
-    ).not.toBeNull();
+    const container: HTMLElement = fixture.nativeElement.querySelector(
+      '[data-testid="copilot-tool-render"]',
+    );
+    expect(container).not.toBeNull();
+    expect(container.getAttribute("data-tool-name")).toBe("future_tool");
+    expect(container.getAttribute("data-status")).toBe("unknown");
     expect(
       fixture.nativeElement.querySelector(
         '[data-testid="copilot-tool-render-status"]',

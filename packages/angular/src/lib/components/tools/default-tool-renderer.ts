@@ -40,7 +40,12 @@ export function safeToolValue(value: unknown): string {
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "copilot-default-tool-renderer" },
   template: `
-    <article class="tool-card" data-testid="copilot-tool-render">
+    <article
+      class="tool-card"
+      data-testid="copilot-tool-render"
+      [attr.data-tool-name]="toolCall().name || 'unknown'"
+      [attr.data-status]="statusValue()"
+    >
       <button
         type="button"
         class="tool-summary"
@@ -134,6 +139,17 @@ export class CopilotDefaultToolRenderer implements ToolRenderer {
   protected readonly resultText = computed(() =>
     safeToolValue(this.toolCall().result),
   );
+  protected readonly statusValue = computed(() => {
+    switch (this.toolCall().status as string) {
+      case "in-progress":
+        return "inProgress";
+      case "executing":
+      case "complete":
+        return this.toolCall().status as string;
+      default:
+        return "unknown";
+    }
+  });
   protected readonly statusLabel = computed(() => {
     switch (this.toolCall().status as string) {
       case "in-progress":
