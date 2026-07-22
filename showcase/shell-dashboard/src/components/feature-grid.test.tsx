@@ -672,16 +672,24 @@ describe("FeatureGrid — Show unique filter", () => {
     ).not.toBeNull();
   });
 
-  it("notes unique rows are hidden in the subtitle by default", () => {
+  it("shows the exact distinct hidden-row count in the subtitle by default", () => {
     const { container } = renderGrid();
-    expect(container.textContent).toContain(`${uniqueFeatures.length} unique`);
-    expect(container.textContent).toMatch(/\([^)]*hidden\)/);
+    // Distinct hidden = features hidden by EITHER filter (deprecated OR unique),
+    // deduped — not the sum of the two overlapping category counts.
+    const distinctHidden = features.filter(
+      (f) => f.deprecated === true || frameworkCount(f.id) < 2,
+    ).length;
+    expect(distinctHidden).toBeGreaterThan(0);
+    expect(container.textContent).toContain(`(${distinctHidden} hidden)`);
   });
 
-  it("drops the unique-hidden note once Show unique is enabled", () => {
+  it("drops the hidden-count note once both filters are enabled", () => {
     const { getByTestId, container } = renderGrid();
     fireEvent.click(getByTestId("show-unique-toggle").querySelector("input")!);
-    expect(container.textContent).not.toContain("unique hidden");
+    fireEvent.click(
+      getByTestId("show-deprecated-toggle").querySelector("input")!,
+    );
+    expect(container.textContent).not.toMatch(/\(\d+ hidden\)/);
   });
 
   it("tooltip wording is accurate for the <2 definition (not 'only one framework')", () => {
