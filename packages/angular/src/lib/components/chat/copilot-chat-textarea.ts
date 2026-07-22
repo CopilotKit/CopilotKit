@@ -27,6 +27,7 @@ import { injectChatState } from "../../chat-state";
     "[style.max-height.px]": "maxHeight()",
     "[style.overflow]": "'auto'",
     "[style.resize]": "'none'",
+    "[attr.data-testid]": "'copilot-chat-textarea'",
     "(input)": "onInput($event)",
     "(keydown)": "onKeyDown($event)",
     "[attr.rows]": "1",

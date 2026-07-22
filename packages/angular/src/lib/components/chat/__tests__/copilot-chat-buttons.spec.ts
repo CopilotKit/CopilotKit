@@ -88,4 +88,18 @@ describe("CopilotChat icon buttons", () => {
 
     expect(labels).toEqual(["Tools", "Transcribe", "Send message"]);
   });
+
+  it("exposes the canonical chat textarea test id", () => {
+    TestBed.configureTestingModule({
+      providers: [{ provide: ChatState, useClass: ChatStateStub }],
+    });
+    const fixture = TestBed.createComponent(DefaultInputHost);
+    fixture.detectChanges();
+
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector(
+        '[data-testid="copilot-chat-textarea"]',
+      ),
+    ).not.toBeNull();
+  });
 });
