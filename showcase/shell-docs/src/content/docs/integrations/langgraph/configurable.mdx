@@ -130,14 +130,22 @@ For a full working demonstration, see the [Agent Config demo](https://github.com
 
 ## Verification
 
-**Unit tests:** [`sdk-python/tests/test_context_persistence.py`](https://github.com/CopilotKit/CopilotKit/tree/main/sdk-python/tests/test_context_persistence.py) verifies the access pattern with mock state data, confirming that:
+**State structure verification:** [`sdk-python/tests/test_context_persistence.py`](https://github.com/CopilotKit/CopilotKit/tree/main/sdk-python/tests/test_context_persistence.py) and [`sdk-python/tests/test_context_integration.py`](https://github.com/CopilotKit/CopilotKit/tree/main/sdk-python/tests/test_context_integration.py) verify the documented access pattern:
 
-- Auth tokens can be read from `state["copilotkit"]["context"]`
-- Tokens remain accessible across multiple simulated agent runs
+- Context values are readable from `state["copilotkit"]["context"]`
+- The extraction pattern handles multiple context entries correctly
 - The pattern handles missing or empty context gracefully
-- Multiple context entries can coexist and be extracted independently
+- Values persist in state across simulated agent turns
 
-**Working implementation:** The [`extract_context_programmatically`](https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/langgraph-python/src/agents/agent_config_agent.py) function in the agent-config demo demonstrates the documented pattern in a real LangGraph agent, showing that context values published via `useAgentContext` are accessible programmatically in agent nodes.
+**Reference implementation:** The [`extract_context_programmatically`](https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/langgraph-python/src/agents/agent_config_agent.py) function demonstrates the documented extraction pattern in a real LangGraph agent. The [agent-config demo](https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/langgraph-python/src/app/demos/agent-config) publishes configuration via `useAgentContext` (including an authToken in `config-context-relay.tsx`) and the agent can access these values through the middleware.
+
+**End-to-end flow:** When `useAgentContext({ value: { authToken: 'token' }})` is called on the frontend:
+1. The value is sent to the agent runtime in the request payload
+2. `CopilotKitMiddleware` receives it and injects it into `state["copilotkit"]["context"]` as a context entry
+3. Agent nodes can extract values using the documented pattern (iterate through context entries)
+4. The middleware also injects context as a SystemMessage, making it available to the LLM
+
+This approach is verified to work with LangGraph 0.6.0+ and `@ag-ui/langgraph` 0.0.31+, replacing the deprecated `forwardedProps.config.configurable` pattern.
 
 ## Legacy Pattern (LangGraph <0.6.0)
 
