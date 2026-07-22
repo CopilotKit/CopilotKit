@@ -1,6 +1,6 @@
 "use client";
 
-import posthog from "posthog-js";
+import posthogClient from "posthog-js";
 import { useCallback } from "react";
 
 export interface DocsTrackedLinkProps {
@@ -22,7 +22,7 @@ export function DocsTrackedLink({
 }: DocsTrackedLinkProps) {
   const handleClick = useCallback(() => {
     try {
-      posthog.capture("docs_conversion_clicked", {
+      posthogClient.capture("docs_conversion_clicked", {
         surface,
         destination: href,
       });
