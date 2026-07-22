@@ -58,18 +58,40 @@ export class TelemetryAgentRunner implements AgentRunner {
    * Wraps the underlying runner's Observable stream with telemetry events.
    */
   run(...args: Parameters<AgentRunner["run"]>): ReturnType<AgentRunner["run"]> {
+    telemetry.capture("oss.runtime.agent_execution_stream_started", {
+      hashedLgcKey: this.hashedLgcKey,
+    });
+    return this._trackStream(this._runner.run(...args));
+  }
+
+  /**
+   * Runs a complete Channel turn (outer run) with the same telemetry tracking
+   * as {@link run}. Delegates to the underlying runner's `execute`.
+   */
+  execute(
+    ...args: Parameters<AgentRunner["execute"]>
+  ): ReturnType<AgentRunner["execute"]> {
+    telemetry.capture("oss.runtime.agent_execution_stream_started", {
+      hashedLgcKey: this.hashedLgcKey,
+    });
+    return this._trackStream(this._runner.execute(...args));
+  }
+
+  /**
+   * Wraps an agent-execution Observable stream with the telemetry pipe shared
+   * by {@link run} and {@link execute}: extract provider/model/LangGraph
+   * metadata, capture an errored event on failure, and an ended event on clean
+   * completion.
+   */
+  private _trackStream(
+    stream$: ReturnType<AgentRunner["run"]>,
+  ): ReturnType<AgentRunner["run"]> {
     const streamInfo: AgentExecutionResponseInfo = {
       hashedLgcKey: this.hashedLgcKey,
     };
     let streamErrored = false;
 
-    // Capture stream started event
-    telemetry.capture("oss.runtime.agent_execution_stream_started", {
-      hashedLgcKey: this.hashedLgcKey,
-    });
-
-    // Delegate to the underlying runner and wrap with telemetry
-    return this._runner.run(...args).pipe(
+    return stream$.pipe(
       // Extract metadata from events if available
       tap((event) => {
         // Try to extract provider/model info from raw events

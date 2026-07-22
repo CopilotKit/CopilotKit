@@ -2,9 +2,11 @@ import {
   AgentRunner,
   finalizeRunEvents,
   type AgentRunnerConnectRequest,
+  type AgentRunnerExecuteRequest,
   type AgentRunnerIsRunningRequest,
   type AgentRunnerRunRequest,
   type AgentRunnerStopRequest,
+  type AgentTurnController,
 } from "@copilotkit/runtime/v2";
 import { Observable, ReplaySubject } from "rxjs";
 import {
@@ -40,6 +42,8 @@ interface ActiveConnectionContext {
   runSubject?: ReplaySubject<BaseEvent>;
   currentEvents?: BaseEvent[];
   stopRequested?: boolean;
+  /** Aborts the in-flight outer run's turn body (execute()); unset on run(). */
+  abortController?: AbortController;
 }
 
 // Active connections for streaming events and stop support
@@ -412,6 +416,164 @@ export class SqliteAgentRunner extends AgentRunner {
     runAgent();
 
     // Return the run subject (only agent events, no injected messages)
+    return runSubject.asObservable();
+  }
+
+  /**
+   * Run a complete Channel turn as one fenced OUTER run (Task 1), persisting
+   * the run to SQLite. The turn body may call `controller.runAgent` zero or
+   * more times; inner RUN_STARTED/RUN_FINISHED are suppressed and the outer run
+   * emits exactly one RUN_STARTED and exactly one terminal — RUN_FINISHED on
+   * success, RUN_ERROR if the turn body rejects or any inner run errors.
+   */
+  execute(request: AgentRunnerExecuteRequest): Observable<BaseEvent> {
+    const runState = this.getRunState(request.threadId);
+    if (runState.isRunning) {
+      throw new Error("Thread already running");
+    }
+    this.setRunState(request.threadId, true, request.runId);
+
+    const currentRunEvents: BaseEvent[] = [];
+    const nextSubject = new ReplaySubject<BaseEvent>(Infinity);
+    const prevConnection = ACTIVE_CONNECTIONS.get(request.threadId);
+    const prevSubject = prevConnection?.subject;
+    const runSubject = new ReplaySubject<BaseEvent>(Infinity);
+    const abortController = new AbortController();
+
+    ACTIVE_CONNECTIONS.set(request.threadId, {
+      subject: nextSubject,
+      agent: undefined,
+      runSubject,
+      currentEvents: currentRunEvents,
+      stopRequested: false,
+      abortController,
+    });
+
+    let hasEmittedRunStarted = false;
+    let innerError: Error | null = null;
+
+    const emit = (event: BaseEvent): void => {
+      runSubject.next(event);
+      nextSubject.next(event);
+      currentRunEvents.push(event);
+    };
+
+    const ensureRunStarted = (): void => {
+      if (hasEmittedRunStarted) return;
+      hasEmittedRunStarted = true;
+      emit({
+        type: EventType.RUN_STARTED,
+        threadId: request.threadId,
+        runId: request.runId,
+        input: {
+          ...request.input,
+          threadId: request.threadId,
+          runId: request.runId,
+          ...(request.persistedInputMessages !== undefined
+            ? { messages: request.persistedInputMessages }
+            : {}),
+        },
+      } as RunStartedEvent);
+    };
+
+    const controller: AgentTurnController = {
+      signal: abortController.signal,
+      runAgent: async (inner) => {
+        const connection = ACTIVE_CONNECTIONS.get(request.threadId);
+        if (connection) connection.agent = inner.agent;
+        await inner.agent.runAgent(inner.input, {
+          onEvent: ({ event }) => {
+            if (event.type === EventType.RUN_STARTED) {
+              ensureRunStarted();
+              return;
+            }
+            if (event.type === EventType.RUN_FINISHED) {
+              return;
+            }
+            if (event.type === EventType.RUN_ERROR) {
+              innerError =
+                innerError ??
+                new Error(
+                  (event as BaseEvent & { message?: string }).message ??
+                    "inner run error",
+                );
+              return;
+            }
+            ensureRunStarted();
+            emit(event);
+          },
+        });
+        if (innerError) throw innerError;
+      },
+    };
+
+    const runTurn = async () => {
+      const parentRunId = this.getLatestRunId(request.threadId);
+
+      const cleanup = () => {
+        this.setRunState(request.threadId, false);
+        const connection = ACTIVE_CONNECTIONS.get(request.threadId);
+        if (connection) {
+          connection.agent = undefined;
+          connection.runSubject = undefined;
+          connection.currentEvents = undefined;
+          connection.stopRequested = false;
+          connection.abortController = undefined;
+        }
+        runSubject.complete();
+        nextSubject.complete();
+        ACTIVE_CONNECTIONS.delete(request.threadId);
+      };
+
+      try {
+        await request.turn(controller);
+        if (innerError) throw innerError;
+        ensureRunStarted();
+        emit({
+          type: EventType.RUN_FINISHED,
+          threadId: request.threadId,
+          runId: request.runId,
+        } as BaseEvent);
+        this.storeRun(
+          request.threadId,
+          request.runId,
+          currentRunEvents,
+          request.input,
+          parentRunId,
+        );
+        cleanup();
+      } catch (error) {
+        ensureRunStarted();
+        emit({
+          type: EventType.RUN_ERROR,
+          message: error instanceof Error ? error.message : String(error),
+          code: "OUTER_RUN_FAILED",
+        } as BaseEvent);
+        if (currentRunEvents.length > 0) {
+          this.storeRun(
+            request.threadId,
+            request.runId,
+            currentRunEvents,
+            request.input,
+            parentRunId,
+          );
+        }
+        cleanup();
+      }
+    };
+
+    if (prevSubject) {
+      prevSubject.subscribe({
+        next: (e) => nextSubject.next(e),
+        error: (err) => nextSubject.error(err),
+        complete: () => {
+          // Keep nextSubject open for the new outer run's events.
+        },
+      });
+    }
+
+    runTurn();
+
     return runSubject.asObservable();
   }
 
