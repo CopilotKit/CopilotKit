@@ -27,6 +27,7 @@ import {
   HaikuToolCard,
   NotesToolCard,
   PieChartToolCard,
+  ReasoningCatchallToolCard,
   ShowcaseWildcardToolCard,
   ThreadToolCard,
   WeatherToolCard,
@@ -90,7 +91,7 @@ export class ToolFeatureComponent {
         this.registerRenderer(
           "*",
           z.record(z.unknown()),
-          ShowcaseWildcardToolCard,
+          ReasoningCatchallToolCard,
         );
         break;
       case "frontend-tools":

@@ -97,6 +97,28 @@ export class ShowcaseWildcardToolCard {
 }
 
 @Component({
+  selector: "showcase-reasoning-catchall-tool-card",
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <article
+      class="showcase-tool-card"
+      data-testid="custom-catchall-card"
+      [attr.data-tool-name]="toolCall().name ?? 'unknown'"
+    >
+      <span>Reasoning-chain catchall renderer</span>
+      <strong>{{ toolCall().name ?? "Unknown tool" }}</strong>
+      <p>{{ statusLabel() }}</p>
+    </article>
+  `,
+})
+export class ReasoningCatchallToolCard {
+  readonly toolCall = input.required<AngularToolCall>();
+  protected readonly statusLabel = computed(() =>
+    this.toolCall().status === "complete" ? "Complete" : "Running",
+  );
+}
+
+@Component({
   selector: "showcase-haiku-tool-card",
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `

@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   NotesToolCard,
+  ReasoningCatchallToolCard,
   ShowcaseWildcardToolCard,
   WeatherToolCard,
 } from "./tool-cards";
@@ -36,6 +37,24 @@ describe("Angular showcase tool cards", () => {
         .querySelector('[data-testid="custom-wildcard-card"]')
         ?.getAttribute("data-tool-name"),
     ).toBe("get_stock_price");
+  });
+
+  it("uses the reasoning-chain catchall contract without changing the standalone wildcard", async () => {
+    const element = await render(ReasoningCatchallToolCard, {
+      name: "get_stock_price",
+      args: { ticker: "AAPL" },
+      status: "complete",
+      result: '{"price":210}',
+    });
+
+    expect(
+      element
+        .querySelector('[data-testid="custom-catchall-card"]')
+        ?.getAttribute("data-tool-name"),
+    ).toBe("get_stock_price");
+    expect(
+      element.querySelector('[data-testid="custom-wildcard-card"]'),
+    ).toBeNull();
   });
 
   it("renders settled async note results", async () => {
