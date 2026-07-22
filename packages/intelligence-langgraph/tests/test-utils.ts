@@ -28,6 +28,7 @@ export function deferred<T>(): Deferred<T> {
 export async function installedSkillSet(
   options: {
     readonly text?: string;
+    readonly texts?: readonly string[];
     readonly rawBytes?: Uint8Array;
     readonly count?: number;
     readonly revoked?: boolean;
@@ -64,7 +65,9 @@ export async function installedSkillSet(
     await mkdir(directory);
     await writeFile(
       join(directory, "SKILL.md"),
-      position === 0 && options.rawBytes ? options.rawBytes : text,
+      position === 0 && options.rawBytes
+        ? options.rawBytes
+        : (options.texts?.[position] ?? text),
     );
     entries.push({
       ...baseEntry,
@@ -109,19 +112,26 @@ export class TestCanonicalError extends Error {
   readonly category: string;
   readonly retryable: boolean;
   readonly status?: number;
-  readonly requestId = "request-telemetry";
-  readonly traceId = "trace-telemetry";
+  readonly requestId?: string;
+  readonly traceId?: string;
+  readonly causeIdentity?: string;
 
   constructor(options: {
     readonly code: string;
     readonly category: string;
     readonly retryable: boolean;
     readonly status?: number;
+    readonly causeIdentity?: string;
+    readonly requestId?: string;
+    readonly traceId?: string;
   }) {
     super(options.code);
     this.code = options.code;
     this.category = options.category;
     this.retryable = options.retryable;
     this.status = options.status;
+    this.causeIdentity = options.causeIdentity;
+    this.requestId = options.requestId;
+    this.traceId = options.traceId;
   }
 }

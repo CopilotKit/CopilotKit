@@ -1,7 +1,7 @@
 import type { InstalledSkillSet } from "@copilotkit/intelligence";
 import { AIMessage, SystemMessage, fakeModel } from "langchain";
 import type { ModelRequest } from "langchain";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import corpus from "../../intelligence/conformance/registry-adapters-v1.json" with { type: "json" };
 import { createSkillRegistryMiddleware } from "./index.js";
 import type {
@@ -14,250 +14,318 @@ import {
   installedSkillSet,
   testClient,
 } from "../tests/test-utils.js";
+import { assertConformanceObservation } from "../tests/conformance-harness.js";
+import type {
+  ConformanceObservation,
+  ConformanceTelemetryRecord,
+} from "../tests/conformance-harness.js";
 
-const CONTAINER_ID = "55555555-5555-4555-8555-555555555555";
+const CONTAINER_ID = corpus.fixtures.learningContainerId;
 type CorpusCase = (typeof corpus.cases)[number];
+type CorpusOperation = CorpusCase["operations"][number];
 
 interface Transition {
+  readonly atMs: number;
   readonly from: AdapterStatus;
   readonly to: AdapterStatus;
 }
 
-function operationCalls(case_: CorpusCase) {
-  let projection = 0;
-  let bundle = 0;
-  let cached = 0;
-  for (const operation of case_.operations) {
-    if (
-      operation.kind === "projection-request" ||
-      operation.kind === "conditional-projection-request" ||
-      operation.kind === "registry-request"
-    ) {
-      projection += 1;
-    }
-    if (operation.kind === "bundle-request") bundle += 1;
-    if (operation.kind === "cache-read" || operation.kind === "cached-preload")
-      cached += 1;
+interface ObservedCanonicalError extends Error {
+  readonly code: string;
+  readonly category: string;
+  readonly retryable: boolean;
+  readonly status?: number;
+  readonly requestId?: string;
+  readonly traceId?: string;
+  readonly causeIdentity?: string;
+}
+
+function isCanonicalError(error: unknown): error is ObservedCanonicalError {
+  return (
+    error instanceof Error &&
+    "code" in error &&
+    typeof error.code === "string" &&
+    "category" in error &&
+    typeof error.category === "string" &&
+    "retryable" in error &&
+    typeof error.retryable === "boolean"
+  );
+}
+
+function observeError(error: unknown) {
+  if (!isCanonicalError(error)) {
+    throw new Error("Expected a canonical Registry error", { cause: error });
   }
   return {
-    client: {
-      projection,
-      bundle,
-      cached,
-      network: projection + bundle,
-    },
-    routing: { readiness: 1, nativeHook: 1 },
+    code: error.code,
+    category: error.category,
+    retryable: error.retryable,
+    ...(typeof error.status === "number" ? { httpStatus: error.status } : {}),
+    ...(error.causeIdentity ? { causeIdentity: error.causeIdentity } : {}),
+    ...(error.requestId ? { requestId: error.requestId } : {}),
+    ...(error.traceId ? { traceId: error.traceId } : {}),
   };
 }
 
-function expectedError(case_: CorpusCase) {
-  if ("error" in case_.expected.genericSdk)
-    return case_.expected.genericSdk.error;
-  if ("error" in case_.expected.readiness)
-    return case_.expected.readiness.error;
-  return undefined;
+function wireError(options: {
+  readonly code: string;
+  readonly category: string;
+  readonly status?: number;
+  readonly causeIdentity: string;
+}): TestCanonicalError {
+  return new TestCanonicalError({
+    ...options,
+    retryable: false,
+    requestId: "request-telemetry",
+    traceId: "trace-telemetry",
+  });
 }
 
-function failureFor(case_: CorpusCase): TestCanonicalError {
-  if (case_.name === "integrity-stale") {
+function permanentDenialError(
+  source: NonNullable<CorpusCase["permanentDenialSource"]>,
+): TestCanonicalError {
+  switch (source) {
+    case "error-category-auth":
+      return wireError({
+        code: "LEARNING_REGISTRY_DENIED",
+        category: "auth",
+        causeIdentity: source,
+      });
+    case "error-category-permission":
+      return wireError({
+        code: "LEARNING_REGISTRY_DENIED",
+        category: "permission",
+        causeIdentity: source,
+      });
+    case "http-401":
+      return wireError({
+        code: "LEARNING_REGISTRY_DENIED",
+        category: "auth",
+        status: 401,
+        causeIdentity: source,
+      });
+    case "http-403":
+      return wireError({
+        code: "LEARNING_REGISTRY_DENIED",
+        category: "permission",
+        status: 403,
+        causeIdentity: source,
+      });
+    case "http-404":
+      return wireError({
+        code: "LEARNING_REGISTRY_DENIED",
+        category: "not_found",
+        status: 404,
+        causeIdentity: source,
+      });
+    case "http-410":
+      return wireError({
+        code: "LEARNING_REGISTRY_DENIED",
+        category: "permission",
+        status: 410,
+        causeIdentity: source,
+      });
+    case "container-archived":
+      return wireError({
+        code: "LEARNING_CONTAINER_ARCHIVED",
+        category: "conflict",
+        status: 409,
+        causeIdentity: source,
+      });
+    case "project-mismatch":
+      return wireError({
+        code: "LEARNING_CONTAINER_PROJECT_MISMATCH",
+        category: "permission",
+        status: 403,
+        causeIdentity: source,
+      });
+    case "container-not-found":
+      return wireError({
+        code: "LEARNING_CONTAINER_NOT_FOUND",
+        category: "not_found",
+        status: 404,
+        causeIdentity: source,
+      });
+    case "registry-unrecoverable":
+      return wireError({
+        code: "LEARNING_REGISTRY_UNRECOVERABLE",
+        category: "internal",
+        status: 500,
+        causeIdentity: source,
+      });
+    default:
+      throw new Error(`Unsupported permanent denial source: ${source}`);
+  }
+}
+
+function failureForOperation(
+  case_: CorpusCase,
+  operation: CorpusOperation,
+): TestCanonicalError {
+  if (operation.kind === "transient-failure") {
+    return new TestCanonicalError({
+      code: "INTELLIGENCE_ADAPTER_TRANSIENT_FAILURE",
+      category: "availability",
+      retryable: true,
+      causeIdentity: "transient-1",
+    });
+  }
+  if (operation.kind === "integrity-failure") {
     return new TestCanonicalError({
       code: "LEARNING_BLOB_INTEGRITY_FAILURE",
       category: "validation",
       retryable: false,
+      causeIdentity: "integrity-1",
     });
   }
-  const declared = expectedError(case_);
-  if (declared && !declared.code.startsWith("INTELLIGENCE_ADAPTER_")) {
-    return new TestCanonicalError({
-      code: declared.code,
-      category: declared.category,
-      retryable: declared.retryable,
-      ...(declared.httpStatus ? { status: declared.httpStatus } : {}),
+  if (operation.kind === "denial-response") {
+    return wireError({
+      code: "LEARNING_REGISTRY_DENIED",
+      category: "permission",
+      status: 403,
+      causeIdentity: "denial-1",
     });
+  }
+  if (case_.permanentDenialSource) {
+    return permanentDenialError(case_.permanentDenialSource);
+  }
+  throw new Error(`Operation ${operation.kind} does not define a failure`);
+}
+
+function initialError(case_: CorpusCase): TestCanonicalError {
+  const snapshot = case_.initialSnapshot;
+  if (!("error" in snapshot) || !snapshot.error) {
+    throw new Error("The initial snapshot does not declare an error");
   }
   return new TestCanonicalError({
-    code: "INTELLIGENCE_ADAPTER_TRANSIENT_FAILURE",
-    category: "availability",
-    retryable: true,
+    code: snapshot.error.code,
+    category: snapshot.error.category,
+    retryable: snapshot.error.retryable,
+    ...(snapshot.error.httpStatus ? { status: snapshot.error.httpStatus } : {}),
+    causeIdentity: snapshot.error.causeIdentity,
   });
 }
 
-function resultFor(case_: CorpusCase): Promise<InstalledSkillSet> {
-  const result =
-    "result" in case_.expected.genericSdk
-      ? case_.expected.genericSdk.result
-      : undefined;
-  return installedSkillSet({
-    count: result?.skillCount ?? 1,
-    revoked: result?.state === "revoked",
-    freshness: result?.freshness === "cached" ? "cached" : "fresh",
-    registryRevision: result?.registryRevision ?? "revision-1",
-  });
-}
-
-function validationFor(case_: CorpusCase): {
-  readonly result: Promise<InstalledSkillSet>;
-  readonly options: {
-    readonly maximumSkills?: number;
-    readonly maximumInstructionBytes?: number;
-    readonly maximumAggregateBytes?: number;
-  };
-} | null {
-  switch (case_.name) {
-    case "too-many-skills":
-      return {
-        result: installedSkillSet({ count: 129 }),
-        options: { maximumSkills: 128 },
-      };
-    case "skill-md-too-large":
-      return {
-        result: installedSkillSet({ text: "123456789" }),
-        options: { maximumInstructionBytes: 8 },
-      };
-    case "aggregate-too-large":
-      return {
-        result: installedSkillSet({ count: 2 }),
-        options: { maximumAggregateBytes: 15 },
-      };
-    case "invalid-utf8":
-      return {
-        result: installedSkillSet({ rawBytes: Uint8Array.from([0xff]) }),
-        options: {},
-      };
-    case "script-disabled":
-      return {
-        result: installedSkillSet({
-          files: [{ path: "scripts/run.sh", role: "script" }],
-        }),
-        options: {},
-      };
-    default:
-      return null;
-  }
-}
-
-function semanticTelemetryRecord(
-  event: SkillRegistryTelemetryEvent,
-  declared: CorpusCase["expected"]["telemetryRecords"][number],
-) {
-  const declaredMetadata = declared.metadata as Record<string, unknown>;
-  const metadata: Record<string, unknown> = {};
-  for (const key of Object.keys(declaredMetadata)) {
-    if (key === "framework") {
-      metadata.framework = "fixture";
-      continue;
-    }
-    if (key === "source") {
-      expect(event.metadata.source).toBeDefined();
-      metadata.source = declaredMetadata.source;
-      continue;
-    }
-    if (
-      key === "reason" &&
-      declaredMetadata.reason === "stale" &&
-      event.metadata.reason === "transient"
-    ) {
-      metadata.reason = "stale";
-      continue;
-    }
-    if (
-      key === "errorCode" &&
-      declaredMetadata.errorCode === "INTELLIGENCE_ADAPTER_TRANSIENT_FAILURE" &&
-      event.metadata.errorCode === "LEARNING_REGISTRY_STALE"
-    ) {
-      metadata.errorCode = declaredMetadata.errorCode;
-      continue;
-    }
-    const value = event.metadata[key as keyof typeof event.metadata];
-    if (value !== undefined) metadata[key] = value;
-  }
-  return { name: event.name, metadata };
-}
-
-function assertTelemetry(
+function observedValue(
   case_: CorpusCase,
-  events: readonly SkillRegistryTelemetryEvent[],
-) {
-  const expectedNames = case_.expected.telemetryNames;
-  const actualByName = new Map<string, SkillRegistryTelemetryEvent[]>();
-  for (const event of events) {
-    const named = actualByName.get(event.name) ?? [];
-    named.push(event);
-    actualByName.set(event.name, named);
+  kind: CorpusOperation["kind"],
+): number {
+  const operation = case_.operations.find(
+    (candidate) => candidate.kind === kind,
+  );
+  if (
+    !operation ||
+    !("observed" in operation) ||
+    typeof operation.observed !== "number"
+  ) {
+    throw new Error(`${kind} must declare its observed value`);
   }
-
-  for (const name of expectedNames) {
-    expect(
-      actualByName.has(name) ||
-        case_.name === "throttle-hit" ||
-        case_.name.startsWith("readiness-") ||
-        case_.name === "load-after-close-rejects",
-      `missing ${name} for ${case_.name}`,
-    ).toBe(true);
-  }
-
-  const comparable = case_.expected.telemetryRecords.flatMap((declared) => {
-    const candidates = actualByName.get(declared.name);
-    const matchingIndex = candidates?.findIndex(
-      (candidate) =>
-        !("status" in declared.metadata) ||
-        candidate.metadata.status === declared.metadata.status,
-    );
-    const event =
-      candidates && candidates.length > 0
-        ? candidates.splice(
-            matchingIndex && matchingIndex >= 0 ? matchingIndex : 0,
-            1,
-          )[0]
-        : undefined;
-    return event ? [semanticTelemetryRecord(event, declared)] : [];
-  });
-  const declaredComparable = case_.expected.telemetryRecords
-    .filter((record) =>
-      comparable.some((actual) => actual.name === record.name),
-    )
-    .map((record) => ({
-      name: record.name,
-      metadata: Object.fromEntries(
-        Object.entries(record.metadata).filter(([key]) =>
-          comparable.some(
-            (actual) => actual.name === record.name && key in actual.metadata,
-          ),
-        ),
-      ),
-    }));
-  expect(comparable).toEqual(declaredComparable);
-  expect(
-    events.every(
-      (event, index) => index === 0 || event.atMs >= events[index - 1]!.atMs,
-    ),
-  ).toBe(true);
+  return operation.observed;
 }
 
-async function executeCase(case_: CorpusCase) {
+function resultForOperations(case_: CorpusCase): Promise<InstalledSkillSet> {
+  const kinds = new Set(case_.operations.map(({ kind }) => kind));
+  if (kinds.has("validate-count")) {
+    return installedSkillSet({ count: observedValue(case_, "validate-count") });
+  }
+  if (kinds.has("validate-instruction-bytes")) {
+    return installedSkillSet({
+      text: "x".repeat(observedValue(case_, "validate-instruction-bytes")),
+    });
+  }
+  if (kinds.has("validate-aggregate-bytes")) {
+    const maximum = corpus.fixtures.limits.maximumInstructionBytes;
+    return installedSkillSet({
+      count: 5,
+      texts: [
+        "x".repeat(maximum),
+        "x".repeat(maximum),
+        "x".repeat(maximum),
+        "x".repeat(maximum),
+        "x".repeat(
+          observedValue(case_, "validate-aggregate-bytes") - maximum * 4,
+        ),
+      ],
+    });
+  }
+  if (kinds.has("decode-instruction")) {
+    return installedSkillSet({ rawBytes: Uint8Array.from([0xff]) });
+  }
+  if (kinds.has("reject-script")) {
+    return installedSkillSet({
+      files: [{ path: "scripts/run.sh", role: "script" }],
+    });
+  }
+  const cached = kinds.has("cached-preload");
+  const empty = kinds.has("render") && !kinds.has("bundle-request") && !cached;
+  return installedSkillSet({
+    count: empty ? 0 : 1,
+    revoked: kinds.has("revocation-observed"),
+    freshness: cached ? "cached" : "fresh",
+    registryRevision: kinds.has("changed-projection")
+      ? corpus.fixtures.changedRegistryRevision
+      : corpus.fixtures.registryRevision,
+  });
+}
+
+function telemetryObservation(events: readonly SkillRegistryTelemetryEvent[]) {
+  return events.map((event) => {
+    const { framework, ...metadata } = event.metadata;
+    expect(framework).toBe("langgraph-typescript");
+    return {
+      name: event.name,
+      atMs: event.atMs,
+      metadata: { ...metadata, framework: "fixture" as const },
+    };
+  });
+}
+
+function withWrongTelemetryMetadata(
+  actual: ConformanceObservation,
+): ConformanceObservation {
+  const first = actual.telemetryRecords[0];
+  if (!first) throw new Error("Mutation guard requires a telemetry record");
+  const changed: ConformanceTelemetryRecord = {
+    name: first.name,
+    atMs: first.atMs,
+    metadata: { source: "refresh", framework: "fixture" },
+  };
+  return {
+    ...actual,
+    telemetryRecords: [changed, ...actual.telemetryRecords.slice(1)],
+  };
+}
+
+async function executeCase(case_: CorpusCase): Promise<void> {
+  const kinds = new Set(case_.operations.map(({ kind }) => kind));
+  if (kinds.has("timeout")) vi.useFakeTimers();
+
   let now = 0;
+  let recordTelemetry = false;
   const events: SkillRegistryTelemetryEvent[] = [];
   const transitions: Transition[] = [];
-  const responses: Array<() => Promise<InstalledSkillSet>> = [];
-  const client = testClient(() => {
-    const response = responses.shift();
-    if (!response)
-      throw new Error(`Unexpected Registry call for ${case_.name}`);
-    return response();
-  });
-  const validation = validationFor(case_);
+  const operations: CorpusOperation[] = [];
+  const pendingRequests: ReturnType<typeof deferred<InstalledSkillSet>>[] = [];
+  let responseFactory = () => {
+    const pending = deferred<InstalledSkillSet>();
+    pendingRequests.push(pending);
+    return pending.promise;
+  };
+  const client = testClient(() => responseFactory());
   const joinedTelemetry = deferred<void>();
   const sinkFailure = new Error("sink-exception-1");
-  let rejectJoinedTelemetry = false;
   const middleware = createSkillRegistryMiddleware({
     client,
     learningContainerId: CONTAINER_ID,
+    refreshIntervalMs: corpus.fixtures.limits.throttleWindowMs,
+    maximumSkills: corpus.fixtures.limits.maximumSkills,
+    maximumInstructionBytes: corpus.fixtures.limits.maximumInstructionBytes,
+    maximumAggregateBytes: corpus.fixtures.limits.maximumAggregateBytes,
     clock: () => now,
-    ...validation?.options,
     telemetry: async (event) => {
-      events.push(event);
+      if (recordTelemetry) events.push(event);
       if (
-        case_.name === "telemetry-sink-failure-singleflight" &&
+        kinds.has("telemetry-write") &&
         event.name === "load.singleflight_joined"
       ) {
         await joinedTelemetry.promise;
@@ -265,225 +333,253 @@ async function executeCase(case_: CorpusCase) {
     },
   });
 
-  const recordTransition = (from: AdapterStatus, to: AdapterStatus) => {
-    if (from !== to) transitions.push({ from, to });
-  };
-  const runLoad = async (
-    load: () => Promise<typeof middleware.snapshot> = () => middleware.load(),
-  ) => {
-    const from = middleware.status;
-    const promise = load();
-    recordTransition(from, middleware.status);
-    let thrown: unknown;
-    try {
-      await promise;
-    } catch (error) {
-      thrown = error;
-    }
-    recordTransition(transitions.at(-1)?.to ?? from, middleware.status);
-    return { promise, thrown };
-  };
-  const seedReady = async (
-    keepTelemetry = false,
-    freshness: "fresh" | "cached" = "cached",
-  ) => {
-    responses.push(() => installedSkillSet({ freshness }));
+  const seedReady = async (freshness: "fresh" | "cached") => {
+    responseFactory = () =>
+      installedSkillSet({
+        freshness,
+        registryRevision: corpus.fixtures.registryRevision,
+      });
+    now =
+      case_.initialSnapshot.refreshDue ||
+      case_.initialSnapshot.status === "stale"
+        ? -corpus.fixtures.limits.throttleWindowMs
+        : (case_.initialSnapshot.lastAttemptAt ?? 0);
     if (freshness === "cached") await middleware.preloadCached();
     else await middleware.preload();
-    client.skills.get.mockClear();
-    client.skills.getCached.mockClear();
-    transitions.length = 0;
-    if (!keepTelemetry) events.length = 0;
   };
 
-  let thrown: unknown;
-  if (case_.name === "close-idempotent") {
-    const from = middleware.status;
-    await middleware.close();
-    recordTransition(from, middleware.status);
-    await middleware.close();
-  } else if (case_.name === "readiness-timeout") {
-    // The readiness operation itself is exercised below from cold state.
-  } else if (case_.name === "readiness-ready") {
-    await seedReady(true, "fresh");
-  } else if (
-    case_.name === "readiness-denied-rejects" ||
-    case_.name === "readiness-stale-rejects"
+  if (
+    case_.initialSnapshot.status === "ready" ||
+    case_.initialSnapshot.status === "stale"
   ) {
-    if (case_.name === "readiness-stale-rejects") {
-      await seedReady();
-      now = 30_000;
-    }
-    responses.push(() => Promise.reject(failureFor(case_)));
-    ({ thrown } = await runLoad());
-    transitions.length = 0;
-    client.skills.get.mockClear();
-    events.splice(0, Math.max(0, events.length - 2));
-  } else if (
-    case_.name === "readiness-closed-rejects" ||
-    case_.name === "load-after-close-rejects"
-  ) {
-    await seedReady();
-    const from = middleware.status;
-    await middleware.close();
-    recordTransition(from, middleware.status);
-    if (case_.name === "load-after-close-rejects") {
-      ({ thrown } = await runLoad());
-    }
-  } else if (case_.name === "throttle-hit") {
-    await seedReady();
-    ({ thrown } = await runLoad());
-  } else if (
-    case_.name === "etag-unchanged" ||
-    case_.name === "changed-revision"
-  ) {
-    await seedReady();
-    now = 30_000;
-    responses.push(() => resultFor(case_));
-    ({ thrown } = await runLoad());
-  } else if (
-    case_.name === "transient-stale" ||
-    case_.name === "integrity-stale"
-  ) {
-    await seedReady();
-    now = 30_000;
-    responses.push(() => Promise.reject(failureFor(case_)));
-    ({ thrown } = await runLoad());
-  } else if (case_.name === "retry-after-failed-throttle-window") {
-    await seedReady();
-    now = 30_000;
-    responses.push(
-      () => Promise.reject(failureFor(case_)),
-      () => resultFor(case_),
+    await seedReady(
+      case_.initialSnapshot.source === "fresh" ? "fresh" : "cached",
     );
-    ({ thrown } = await runLoad());
-    now = 59_999;
+  }
+  if (case_.initialSnapshot.status === "stale") {
+    responseFactory = () => Promise.reject(initialError(case_));
+    now = 0;
     await middleware.load().catch(() => undefined);
-    now = 60_000;
-    ({ thrown } = await runLoad());
-  } else if (
-    case_.name === "concurrent-singleflight" ||
-    case_.name === "telemetry-sink-failure-singleflight"
-  ) {
+  } else if (case_.initialSnapshot.status === "denied") {
+    responseFactory = () => Promise.reject(initialError(case_));
+    now = 0;
+    await middleware.load().catch(() => undefined);
+  }
+
+  responseFactory = () => {
     const pending = deferred<InstalledSkillSet>();
-    responses.push(() => pending.promise);
-    const from = middleware.status;
-    const first = middleware.load();
-    recordTransition(from, middleware.status);
-    const second = middleware.load();
-    expect(second).toBe(first);
-    pending.resolve(await resultFor(case_));
-    if (case_.name === "telemetry-sink-failure-singleflight") {
-      rejectJoinedTelemetry = true;
-      joinedTelemetry.reject(sinkFailure);
+    pendingRequests.push(pending);
+    return pending.promise;
+  };
+  client.skills.get.mockClear();
+  client.skills.getCached.mockClear();
+  now = 0;
+  recordTelemetry = true;
+
+  let observedStatus = middleware.status;
+  let thrown: unknown;
+  let closeCount = 0;
+  let readiness: ConformanceObservation["readiness"] | undefined;
+  let readinessPending: Promise<typeof middleware.snapshot> | undefined;
+  let readinessObservationPending: Promise<void> | undefined;
+  const activeLoads: Promise<typeof middleware.snapshot>[] = [];
+
+  const recordTransition = (atMs: number, before: AdapterStatus) => {
+    const after = middleware.status;
+    if (before !== after) transitions.push({ atMs, from: before, to: after });
+    observedStatus = after;
+  };
+
+  const startLoad = (
+    operation: CorpusOperation,
+    load: () => Promise<typeof middleware.snapshot>,
+  ) => {
+    const before = middleware.status;
+    const promise = load();
+    activeLoads.push(promise);
+    recordTransition(operation.atMs, before);
+    return promise;
+  };
+
+  const waitForRequest = async () => {
+    for (let turn = 0; turn < 8 && pendingRequests.length === 0; turn += 1) {
+      await Promise.resolve();
     }
-    const [firstResult, secondResult] = await Promise.allSettled([
-      first,
-      second,
-    ]);
-    recordTransition(transitions.at(-1)?.to ?? from, middleware.status);
-    expect(secondResult.status).toBe(firstResult.status);
-    if (firstResult.status === "rejected") thrown = firstResult.reason;
-  } else if (validation) {
-    responses.push(() => validation.result);
-    ({ thrown } = await runLoad());
-  } else if (expectedError(case_)) {
-    responses.push(() => Promise.reject(failureFor(case_)));
-    ({ thrown } = await runLoad());
-  } else {
-    responses.push(() => resultFor(case_));
-    ({ thrown } = await runLoad(
-      case_.name === "explicit-cached-preload"
-        ? () => middleware.preloadCached()
-        : () => middleware.load(),
-    ));
+    const pending = pendingRequests.shift();
+    if (!pending) throw new Error("No Registry request is pending");
+    return pending;
+  };
+
+  const observeActiveLoads = async (atMs: number) => {
+    const results = await Promise.allSettled(new Set(activeLoads));
+    const rejection = results.find(
+      (result): result is PromiseRejectedResult => result.status === "rejected",
+    );
+    if (rejection) thrown = rejection.reason;
+    const before = observedStatus;
+    recordTransition(atMs, before);
+  };
+
+  const settleSuccess = async (operation: CorpusOperation) => {
+    const pending = await waitForRequest();
+    now = operation.atMs;
+    pending.resolve(await resultForOperations(case_));
+    await observeActiveLoads(operation.atMs);
+  };
+
+  const settleFailure = async (operation: CorpusOperation) => {
+    const pending = await waitForRequest();
+    now = operation.atMs;
+    pending.reject(failureForOperation(case_, operation));
+    await observeActiveLoads(operation.atMs);
+  };
+
+  const captureReadiness = async (
+    promise: Promise<typeof middleware.snapshot>,
+  ) => {
+    try {
+      readiness = { result: { state: (await promise).status } };
+    } catch (error) {
+      thrown = error;
+      readiness = { error: observeError(error) };
+    }
+  };
+
+  for (const [index, operation] of case_.operations.entries()) {
+    operations.push(operation);
+    now = operation.atMs;
+    const next = case_.operations[index + 1];
+    switch (operation.kind) {
+      case "load": {
+        if (next?.kind === "throttle-hit") now = next.atMs;
+        const load = startLoad(operation, () => middleware.load());
+        if (middleware.status === "closed") {
+          const [result] = await Promise.allSettled([load]);
+          if (result?.status === "rejected") thrown = result.reason;
+        }
+        break;
+      }
+      case "cached-preload":
+        startLoad(operation, () => middleware.preloadCached());
+        break;
+      case "load-caller-a":
+        startLoad(operation, () => middleware.load());
+        break;
+      case "load-caller-b": {
+        const joined = startLoad(operation, () => middleware.load());
+        expect(joined).toBe(activeLoads[0]);
+        break;
+      }
+      case "registry-request":
+        startLoad(operation, () => middleware.load());
+        break;
+      case "bundle-request":
+        if (!next) await settleSuccess(operation);
+        break;
+      case "render":
+      case "not-modified":
+      case "revocation-observed":
+      case "validate-count":
+      case "validate-instruction-bytes":
+      case "validate-aggregate-bytes":
+      case "decode-instruction":
+      case "reject-script":
+        await settleSuccess(operation);
+        break;
+      case "transient-failure":
+      case "integrity-failure":
+      case "denial-response":
+      case "registry-error":
+      case "http-response":
+      case "canonical-error":
+        await settleFailure(operation);
+        break;
+      case "telemetry-write": {
+        const pending = await waitForRequest();
+        now = operation.atMs;
+        pending.resolve(await resultForOperations(case_));
+        joinedTelemetry.reject(sinkFailure);
+        await observeActiveLoads(operation.atMs);
+        break;
+      }
+      case "throttle-check": {
+        const before = middleware.status;
+        const [result] = await Promise.allSettled([middleware.load()]);
+        if (result?.status === "rejected") thrown = result.reason;
+        recordTransition(operation.atMs, before);
+        break;
+      }
+      case "throttle-hit":
+        await observeActiveLoads(operation.atMs);
+        break;
+      case "close": {
+        const before = middleware.status;
+        await middleware.close();
+        if (before !== "closed") closeCount += 1;
+        recordTransition(operation.atMs, before);
+        break;
+      }
+      case "readiness": {
+        const timeout =
+          next?.kind === "timeout" ? next.atMs - operation.atMs : 0;
+        readinessPending = middleware.waitUntilReady({ timeoutMs: timeout });
+        readinessObservationPending = captureReadiness(readinessPending);
+        if (next?.kind !== "timeout") await readinessObservationPending;
+        break;
+      }
+      case "timeout":
+        await vi.advanceTimersByTimeAsync(operation.atMs);
+        if (!readinessPending || !readinessObservationPending) {
+          throw new Error("No readiness wait is pending");
+        }
+        await readinessObservationPending;
+        break;
+      case "projection-request":
+      case "conditional-projection-request":
+      case "cache-read":
+      case "changed-projection":
+        break;
+      default:
+        throw new Error(`Unsupported operation ${JSON.stringify(operation)}`);
+    }
   }
 
-  if (rejectJoinedTelemetry) {
-    expect(thrown).toMatchObject({
-      code: "LEARNING_TELEMETRY_SINK_FAILED",
-      cause: sinkFailure,
-    });
+  if (!readiness) {
+    await captureReadiness(middleware.waitUntilReady({ timeoutMs: 0 }));
   }
 
-  let readiness:
-    | { readonly result: { readonly state: AdapterStatus } }
-    | {
-        readonly error: {
-          readonly code: string;
-          readonly category: string;
-          readonly retryable: boolean;
-        };
-      };
-  try {
-    const snapshot = await middleware.waitUntilReady({ timeoutMs: 0 });
-    readiness = { result: { state: snapshot.status } };
-  } catch (error) {
-    const canonical = error as TestCanonicalError;
-    readiness = {
-      error: {
-        code: canonical.code,
-        category: canonical.category,
-        retryable: canonical.retryable,
-      },
-    };
-  }
-
-  const expectedTransitions = case_.expected.statusTransitions.map(
-    ({ from, to }) => ({ from, to }),
+  let genericSdk: ConformanceObservation["genericSdk"];
+  const onlyCloses = case_.operations.every(({ kind }) => kind === "close");
+  const attemptedLoad = case_.operations.some(
+    ({ kind }) =>
+      kind === "load" ||
+      kind === "load-caller-a" ||
+      kind === "registry-request" ||
+      kind === "cached-preload",
   );
-  expect(transitions).toEqual(expectedTransitions);
-  expect(operationCalls(case_)).toEqual(case_.expected.calls);
-  const expectedReadiness =
-    "result" in case_.expected.readiness
-      ? case_.expected.readiness
-      : {
-          error: {
-            code: case_.expected.readiness.error.code,
-            category: case_.expected.readiness.error.category,
-            retryable: case_.expected.readiness.error.retryable,
-          },
-        };
-  expect(readiness).toEqual(expectedReadiness);
-  expect({ proceed: middleware.ready }).toEqual(case_.expected.nativeHook);
-
-  if ("result" in case_.expected.genericSdk) {
-    const expected = case_.expected.genericSdk.result;
-    if (!expected) throw new Error(`${case_.name} must declare a result`);
-    if ("closeCount" in expected) {
-      expect(middleware.snapshot.status).toBe(expected.state);
-      expect(expected.closeCount).toBe(1);
-    } else {
-      expect({
-        state: middleware.snapshot.status,
+  if (middleware.status === "closed" && onlyCloses) {
+    genericSdk = { result: { state: middleware.status, closeCount } };
+  } else if (
+    middleware.status === "ready" ||
+    middleware.status === "revoked" ||
+    (middleware.status === "stale" && attemptedLoad)
+  ) {
+    genericSdk = {
+      result: {
+        state: middleware.status,
         freshness:
-          middleware.snapshot.status === "stale"
-            ? "stale"
-            : middleware.snapshot.source,
-        registryRevision: middleware.snapshot.registryRevision,
+          middleware.status === "stale" ? "stale" : middleware.snapshot.source,
+        registryRevision: middleware.snapshot.registryRevision ?? "",
         skillCount: middleware.snapshot.renderedSkills.length,
         aggregateByteLength: middleware.snapshot.renderedSkills.reduce(
           (total, skill) => total + skill.byteLength,
           0,
         ),
-      }).toEqual(expected);
-    }
+      },
+    };
   } else {
-    const genericError =
-      thrown ?? ("error" in readiness ? readiness.error : undefined);
-    expect(genericError).toMatchObject({
-      code: case_.expected.genericSdk.error.code,
-      category: case_.expected.genericSdk.error.category,
-      retryable: case_.expected.genericSdk.error.retryable,
-    });
+    genericSdk = { error: observeError(thrown ?? middleware.snapshot.error) };
   }
-
-  const renderedForNativeHook =
-    case_.name === "readiness-stale-rejects"
-      ? []
-      : middleware.snapshot.renderedSkills;
-  expect(renderedForNativeHook).toEqual(case_.expected.renderedRecords);
-  assertTelemetry(case_, events);
 
   const request: ModelRequest = {
     systemMessage: new SystemMessage("base"),
@@ -495,16 +591,55 @@ async function executeCase(case_: CorpusCase) {
     runtime: {},
   };
   const handler = vi.fn(async () => new AIMessage("done"));
-  if (case_.expected.nativeHook.proceed) {
+  let nativeHook: ConformanceObservation["nativeHook"];
+  try {
     await middleware.wrapModelCall(request, handler);
-    expect(handler).toHaveBeenCalledOnce();
-  } else {
-    await expect(
-      middleware.wrapModelCall(request, handler),
-    ).rejects.toBeDefined();
-    expect(handler).not.toHaveBeenCalled();
+    nativeHook = { proceed: true };
+  } catch {
+    nativeHook = { proceed: false };
   }
+
+  const projection = case_.operations.filter(
+    ({ kind }) =>
+      kind === "projection-request" ||
+      kind === "conditional-projection-request" ||
+      kind === "registry-request",
+  ).length;
+  const bundle = case_.operations.filter(
+    ({ kind }) => kind === "bundle-request",
+  ).length;
+  const cached = case_.operations.filter(
+    ({ kind }) => kind === "cache-read" || kind === "cached-preload",
+  ).length;
+
+  assertConformanceObservation(case_, {
+    operations,
+    calls: {
+      client: {
+        projection,
+        bundle,
+        cached,
+        network: projection + bundle,
+        get: client.skills.get.mock.calls.length,
+        getCached: client.skills.getCached.mock.calls.length,
+      },
+      routing: { readiness: 1, nativeHook: 1 },
+    },
+    statusTransitions: transitions,
+    genericSdk,
+    readiness,
+    nativeHook,
+    telemetryRecords: telemetryObservation(events),
+    renderedRecords:
+      middleware.status === "stale" && !attemptedLoad
+        ? []
+        : middleware.snapshot.renderedSkills,
+  });
 }
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe.each(corpus.cases)("adapter conformance: $name", (case_) => {
   it("executes every declared operation and exact observable contract", async () => {
@@ -516,5 +651,61 @@ describe.each(corpus.cases)("adapter conformance: $name", (case_) => {
         .sort((left, right) => left - right),
     );
     await executeCase(case_);
+  });
+});
+
+describe("conformance harness mutation guards", () => {
+  const case_ = corpus.cases[0]!;
+  const observation: ConformanceObservation = {
+    operations: case_.operations,
+    calls: case_.expected.calls,
+    statusTransitions: case_.expected.statusTransitions,
+    genericSdk: case_.expected.genericSdk,
+    readiness: case_.expected.readiness,
+    nativeHook: case_.expected.nativeHook,
+    telemetryRecords: case_.expected.telemetryRecords,
+    renderedRecords: case_.expected.renderedRecords,
+  };
+
+  it.each([
+    [
+      "wrong operation",
+      (actual: ConformanceObservation): ConformanceObservation => ({
+        ...actual,
+        operations: [{ ...case_.operations[0]!, kind: "close" }],
+      }),
+    ],
+    [
+      "wrong actual client call count",
+      (actual: ConformanceObservation): ConformanceObservation => ({
+        ...actual,
+        calls: {
+          ...observation.calls,
+          client: { ...observation.calls.client, get: 0 },
+        },
+      }),
+    ],
+    [
+      "wrong transition time",
+      (actual: ConformanceObservation): ConformanceObservation => ({
+        ...actual,
+        statusTransitions: observation.statusTransitions.map((transition) => ({
+          ...transition,
+          atMs: transition.atMs + 1,
+        })),
+      }),
+    ],
+    [
+      "missing telemetry event",
+      (actual: ConformanceObservation): ConformanceObservation => ({
+        ...actual,
+        telemetryRecords: observation.telemetryRecords.slice(1),
+      }),
+    ],
+    ["wrong telemetry metadata", withWrongTelemetryMetadata],
+  ])("rejects a %s", (_name, mutate) => {
+    expect(() =>
+      assertConformanceObservation(case_, mutate(observation)),
+    ).toThrow();
   });
 });

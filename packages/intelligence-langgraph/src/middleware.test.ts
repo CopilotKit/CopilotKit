@@ -11,9 +11,8 @@ import {
 } from "../tests/test-utils.js";
 
 describe("createSkillRegistryMiddleware", () => {
-  it("loads before the native model hook", async () => {
-    const pending = deferred<InstalledSkillSet>();
-    const registryClient = testClient(() => pending.promise);
+  it("uses the loaded snapshot in the native model hook", async () => {
+    const registryClient = testClient(() => installedSkillSet());
     const middleware = createSkillRegistryMiddleware({
       client: registryClient,
       learningContainerId: "55555555-5555-4555-8555-555555555555",
@@ -34,13 +33,11 @@ describe("createSkillRegistryMiddleware", () => {
       modelSettings: { temperature: 0 },
     };
 
-    const call = middleware.wrapModelCall(request, handler);
-    await Promise.resolve();
-    expect(handler).not.toHaveBeenCalled();
-
-    pending.resolve(await installedSkillSet());
-    await call;
+    await middleware.preload();
+    registryClient.skills.get.mockClear();
+    await middleware.wrapModelCall(request, handler);
     expect(handler).toHaveBeenCalledOnce();
+    expect(registryClient.skills.get).not.toHaveBeenCalled();
     expect(forwarded).toMatchObject({
       state: request.state,
       tools: request.tools,

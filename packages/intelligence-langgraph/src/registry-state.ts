@@ -3,10 +3,8 @@ import { posix, resolve } from "node:path";
 import type {
   InstalledSkillSet,
   IntelligenceClient,
-  IntelligenceSdkError,
 } from "@copilotkit/intelligence";
 
-const ADAPTER_VERSION = "0.1.0";
 const FRAMEWORK = "langgraph-typescript";
 const DEFAULT_REFRESH_INTERVAL_MS = 30_000;
 const DEFAULT_MAXIMUM_SKILLS = 128;
@@ -57,12 +55,10 @@ export interface SkillRegistryTelemetryEvent {
   readonly atMs: number;
   readonly metadata: Readonly<{
     framework: typeof FRAMEWORK;
-    adapterVersion: typeof ADAPTER_VERSION;
-    source?: "load" | "preload" | "preloadCached" | "refresh";
+    source?: "load" | "preload" | "refresh";
     freshness?: "fresh" | "cached";
     status?: AdapterStatus;
     skillCount?: number;
-    refreshLatencyMs?: number;
     registryRevision?: string;
     joinedCallers?: number;
     outcome?: "success" | "failure";
@@ -98,7 +94,7 @@ export interface RegistryStateOptions {
   ) => void | Promise<void>;
 }
 
-type LoadSource = "load" | "preload" | "preloadCached" | "refresh";
+type LoadSource = "load" | "preload" | "refresh";
 
 interface CanonicalError extends Error {
   readonly code: string;
@@ -107,6 +103,7 @@ interface CanonicalError extends Error {
   readonly requestId?: string;
   readonly traceId?: string;
   readonly status?: number;
+  readonly causeIdentity?: string;
 }
 
 class AdapterError extends Error implements CanonicalError {
@@ -116,6 +113,7 @@ class AdapterError extends Error implements CanonicalError {
   readonly requestId?: string;
   readonly traceId?: string;
   readonly status?: number;
+  readonly causeIdentity?: string;
 
   constructor(options: {
     readonly message: string;
@@ -125,6 +123,7 @@ class AdapterError extends Error implements CanonicalError {
     readonly requestId?: string;
     readonly traceId?: string;
     readonly status?: number;
+    readonly causeIdentity?: string;
     readonly cause?: unknown;
   }) {
     super(options.message, { cause: options.cause });
@@ -135,6 +134,7 @@ class AdapterError extends Error implements CanonicalError {
     this.requestId = options.requestId;
     this.traceId = options.traceId;
     this.status = options.status;
+    this.causeIdentity = options.causeIdentity;
   }
 }
 
@@ -144,12 +144,20 @@ function adapterError(
   category: string,
   retryable: boolean,
   cause?: unknown,
+  causeIdentity?: string,
 ): AdapterError {
-  return new AdapterError({ message, code, category, retryable, cause });
+  return new AdapterError({
+    message,
+    code,
+    category,
+    retryable,
+    cause,
+    causeIdentity,
+  });
 }
 
-function canonicalError(error: unknown): CanonicalError {
-  if (
+function isCanonicalError(error: unknown): error is CanonicalError {
+  return (
     error instanceof Error &&
     "code" in error &&
     typeof error.code === "string" &&
@@ -157,9 +165,11 @@ function canonicalError(error: unknown): CanonicalError {
     typeof error.category === "string" &&
     "retryable" in error &&
     typeof error.retryable === "boolean"
-  ) {
-    return error as IntelligenceSdkError | AdapterError;
-  }
+  );
+}
+
+function canonicalError(error: unknown): CanonicalError {
+  if (isCanonicalError(error)) return error;
   return adapterError(
     "Registry load failed",
     "INTELLIGENCE_ADAPTER_TRANSIENT_FAILURE",
@@ -237,6 +247,14 @@ export class RegistryState {
   private joinedCallers = 0;
   private joinedTelemetryChain: Promise<void> = Promise.resolve();
   private readonly telemetryFailures = new WeakSet<Error>();
+  private readonly closedFailure = adapterError(
+    "Registry adapter is closed",
+    "LEARNING_REGISTRY_CLOSED",
+    "lifecycle",
+    false,
+    undefined,
+    "closed-1",
+  );
   private readonly waiters = new Set<{
     readonly resolve: (snapshot: AdapterSnapshot) => void;
     readonly reject: (error: Error) => void;
@@ -304,7 +322,6 @@ export class RegistryState {
       if (this.ready) return this.completeThrottledReadyLoad();
       return this.emit("load.throttled", {
         source: "refresh",
-        status: this.current.status,
       }).then(() => {
         throw (
           this.current.error ??
@@ -325,25 +342,9 @@ export class RegistryState {
 
   private async completeThrottledReadyLoad(): Promise<AdapterSnapshot> {
     const ready = this.current;
-    this.current = immutableSnapshot({ ...ready, status: "refreshing" });
     await this.emit("load.throttled", {
       source: "load",
-      status: "refreshing",
     });
-    await this.swap(ready, false);
-    await this.emit("load.succeeded", {
-      source: "load",
-      status: ready.status,
-      outcome: "success",
-      ...(ready.source === "fresh" || ready.source === "cached"
-        ? { freshness: ready.source }
-        : {}),
-      skillCount: ready.renderedSkills.length,
-      ...(ready.registryRevision
-        ? { registryRevision: ready.registryRevision }
-        : {}),
-    });
-    this.settleWaiters(ready);
     return ready;
   }
 
@@ -372,6 +373,8 @@ export class RegistryState {
             "LEARNING_REGISTRY_READINESS_TIMEOUT",
             "availability",
             true,
+            undefined,
+            `timeout-${options.timeoutMs}`,
           ),
         );
       }, options.timeoutMs);
@@ -415,7 +418,6 @@ export class RegistryState {
     if (this.inFlight !== null) {
       this.joinedCallers += 1;
       const joinedTelemetry = this.emit("load.singleflight_joined", {
-        source,
         joinedCallers: this.joinedCallers + 1,
       });
       this.joinedTelemetryChain = this.joinedTelemetryChain.then(
@@ -427,6 +429,8 @@ export class RegistryState {
     this.inFlight = promise;
     this.joinedCallers = 0;
     this.joinedTelemetryChain = Promise.resolve();
+    // Observe both outcomes solely to release the single-flight slot; callers
+    // still receive the original promise and its rejection unchanged.
     void promise.then(
       () => {
         if (this.inFlight === promise) this.inFlight = null;
@@ -453,7 +457,7 @@ export class RegistryState {
       error: null,
     });
     try {
-      await this.emit("load.started", { source, status: loadingStatus });
+      await this.emit("load.started", { source });
       const installed = await (cached
         ? this.options.client.skills.getCached({
             learningContainerId: this.options.learningContainerId,
@@ -480,12 +484,9 @@ export class RegistryState {
       });
       await this.swap(next, false);
       await this.emit("load.succeeded", {
-        source,
-        status,
         outcome: "success",
         freshness: installed.freshness,
         skillCount: renderedSkills.length,
-        refreshLatencyMs: completedAt - startedAt,
         registryRevision: installed.projection.registryRevision,
       });
       await this.drainJoinedTelemetry();
@@ -510,6 +511,7 @@ export class RegistryState {
               requestId: canonical.requestId,
               traceId: canonical.traceId,
               status: canonical.status,
+              causeIdentity: canonical.causeIdentity,
               cause: canonical,
             });
         const next = immutableSnapshot({
@@ -522,7 +524,7 @@ export class RegistryState {
           prompt: denied ? "" : this.current.prompt,
         });
         await this.swap(next);
-        await this.emit("load.failed", this.errorMetadata(source, surfaced));
+        await this.emit("load.failed", this.errorMetadata(surfaced));
         throw error;
       }
       const telemetryError = new AdapterError({
@@ -530,6 +532,7 @@ export class RegistryState {
         code: "LEARNING_TELEMETRY_SINK_FAILED",
         category: "internal",
         retryable: false,
+        causeIdentity: error.message,
         cause: error,
       });
       const next = immutableSnapshot({
@@ -548,10 +551,7 @@ export class RegistryState {
         // also rejects the terminal status notification.
       }
       try {
-        await this.emit(
-          "load.failed",
-          this.errorMetadata(source, telemetryError),
-        );
+        await this.emit("load.failed", this.errorMetadata(telemetryError));
       } catch {
         // Preserve the single canonical failure shared by every joined caller.
       }
@@ -577,6 +577,8 @@ export class RegistryState {
         "INTELLIGENCE_ADAPTER_TOO_MANY_SKILLS",
         "validation",
         false,
+        undefined,
+        `count-${installed.skills.length}`,
       );
     }
     for (const entry of installed.projection.entries) {
@@ -591,6 +593,8 @@ export class RegistryState {
           "INTELLIGENCE_ADAPTER_SCRIPT_DISABLED",
           "validation",
           false,
+          undefined,
+          "script-disabled-1",
         );
       }
     }
@@ -630,6 +634,8 @@ export class RegistryState {
           "INTELLIGENCE_ADAPTER_SKILL_TOO_LARGE",
           "validation",
           false,
+          undefined,
+          `bytes-${bytes.byteLength}`,
         );
       }
       aggregateBytes += bytes.byteLength;
@@ -639,6 +645,8 @@ export class RegistryState {
           "INTELLIGENCE_ADAPTER_CONTEXT_TOO_LARGE",
           "validation",
           false,
+          undefined,
+          `bytes-${aggregateBytes}`,
         );
       }
       let text: string;
@@ -651,6 +659,7 @@ export class RegistryState {
           "integrity",
           false,
           error,
+          "utf8-1",
         );
       }
       rendered.push(
@@ -708,12 +717,7 @@ export class RegistryState {
   }
 
   private closedError(): AdapterError {
-    return adapterError(
-      "Registry adapter is closed",
-      "LEARNING_REGISTRY_CLOSED",
-      "lifecycle",
-      false,
-    );
+    return this.closedFailure;
   }
 
   private isTelemetryFailure(error: Error): boolean {
@@ -721,14 +725,10 @@ export class RegistryState {
   }
 
   private errorMetadata(
-    source: LoadSource,
     error: CanonicalError,
   ): SkillRegistryTelemetryEvent["metadata"] {
     return {
       framework: FRAMEWORK,
-      adapterVersion: ADAPTER_VERSION,
-      source,
-      status: this.current.status,
       outcome: "failure",
       reason:
         this.current.status === "stale"
@@ -750,10 +750,7 @@ export class RegistryState {
 
   private async emit(
     name: SkillRegistryTelemetryEvent["name"],
-    metadata: Omit<
-      SkillRegistryTelemetryEvent["metadata"],
-      "framework" | "adapterVersion"
-    >,
+    metadata: Omit<SkillRegistryTelemetryEvent["metadata"], "framework">,
   ): Promise<void> {
     if (!this.options.telemetry) return;
     try {
@@ -763,7 +760,6 @@ export class RegistryState {
           atMs: this.options.clock(),
           metadata: Object.freeze({
             framework: FRAMEWORK,
-            adapterVersion: ADAPTER_VERSION,
             ...metadata,
           }),
         }),

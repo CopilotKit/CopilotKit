@@ -1,11 +1,11 @@
 import { createMiddleware } from "langchain";
-import {
-  RegistryState,
-  type AdapterSnapshot,
-  type AdapterStatus,
-  type RegistryStateOptions,
-  type RenderedSkill,
-  type SkillRegistryTelemetryEvent,
+import { RegistryState } from "./registry-state.js";
+import type {
+  AdapterSnapshot,
+  AdapterStatus,
+  RegistryStateOptions,
+  RenderedSkill,
+  SkillRegistryTelemetryEvent,
 } from "./registry-state.js";
 
 export type {
@@ -41,7 +41,13 @@ export function createSkillRegistryMiddleware(
   const wrapModelCall: NonNullable<
     ReturnType<typeof createMiddleware>["wrapModelCall"]
   > = async (request, handler) => {
-    const snapshot = await registry.load();
+    const snapshot = registry.snapshot;
+    if (!registry.ready) {
+      throw (
+        snapshot.error ??
+        new Error("Registry adapter is not ready for a model call")
+      );
+    }
     return handler({
       ...request,
       systemMessage:
