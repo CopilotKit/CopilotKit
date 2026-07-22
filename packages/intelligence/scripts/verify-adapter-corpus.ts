@@ -114,6 +114,25 @@ const telemetryMetadataFields = new Set([
   "source",
   "joinedCallers",
   "durationMs",
+  "framework",
+  "skillCount",
+  "registryRevision",
+  "errorCode",
+  "errorCategory",
+  "requestId",
+  "traceId",
+]);
+
+const telemetryErrorCategories = new Set([
+  "auth",
+  "permission",
+  "not_found",
+  "conflict",
+  "availability",
+  "integrity",
+  "validation",
+  "lifecycle",
+  "internal",
 ]);
 
 const adapterValidationCodes = new Map([
@@ -439,6 +458,8 @@ function validateRenderedRecords(
 
 function validateTelemetry(
   expected: JsonObject,
+  caseEntry: JsonObject,
+  operations: JsonObject[],
   sdkCorpus: JsonObject,
   label: string,
   failures: string[],
@@ -518,6 +539,7 @@ function validateTelemetry(
       (metadata.reason === undefined ||
         [
           "transient",
+          "integrity",
           "loading",
           "stale",
           "denied",
@@ -535,7 +557,27 @@ function validateTelemetry(
           Number(metadata.joinedCallers) > 0)) &&
       (metadata.durationMs === undefined ||
         (Number.isInteger(metadata.durationMs) &&
-          Number(metadata.durationMs) >= 0));
+          Number(metadata.durationMs) >= 0)) &&
+      (metadata.framework === undefined ||
+        (typeof metadata.framework === "string" &&
+          /^[a-z][a-z0-9-]*$/.test(metadata.framework))) &&
+      (metadata.skillCount === undefined ||
+        (Number.isInteger(metadata.skillCount) &&
+          Number(metadata.skillCount) >= 0)) &&
+      (metadata.registryRevision === undefined ||
+        (typeof metadata.registryRevision === "string" &&
+          metadata.registryRevision.length > 0)) &&
+      (metadata.errorCode === undefined ||
+        (typeof metadata.errorCode === "string" &&
+          /^[A-Z][A-Z0-9_]+$/.test(metadata.errorCode))) &&
+      (metadata.errorCategory === undefined ||
+        (typeof metadata.errorCategory === "string" &&
+          telemetryErrorCategories.has(metadata.errorCategory))) &&
+      (metadata.requestId === undefined ||
+        (typeof metadata.requestId === "string" &&
+          metadata.requestId.length > 0)) &&
+      (metadata.traceId === undefined ||
+        (typeof metadata.traceId === "string" && metadata.traceId.length > 0));
     if (!metadataValueValid) {
       failures.push(
         `${label} telemetry metadata value is outside the explicit allowlist`,
@@ -546,6 +588,130 @@ function validateTelemetry(
       failures.push(
         `${label} telemetry metadata contains a secret, ID, path, or content`,
       );
+    }
+
+    if (record.name === "load.started" || record.name === "load.throttled") {
+      if (metadata.framework === undefined || metadata.source === undefined) {
+        failures.push(
+          `${label} ${String(record.name)} requires framework and source`,
+        );
+      }
+    } else if (record.name === "load.singleflight_joined") {
+      if (
+        metadata.framework === undefined ||
+        metadata.joinedCallers === undefined
+      ) {
+        failures.push(
+          `${label} load.singleflight_joined requires framework and callers`,
+        );
+      }
+    } else if (record.name === "status.changed") {
+      if (metadata.framework === undefined || metadata.status === undefined) {
+        failures.push(`${label} status.changed requires framework and status`);
+      }
+    } else if (record.name === "load.succeeded") {
+      if (
+        metadata.framework === undefined ||
+        metadata.outcome !== "success" ||
+        metadata.freshness === undefined ||
+        metadata.skillCount === undefined ||
+        metadata.registryRevision === undefined
+      ) {
+        failures.push(
+          `${label} load.succeeded requires framework, success, freshness, skillCount, and registryRevision`,
+        );
+      }
+    } else if (record.name === "load.failed") {
+      if (
+        metadata.framework === undefined ||
+        metadata.outcome !== "failure" ||
+        metadata.reason === undefined ||
+        metadata.retryable === undefined ||
+        metadata.errorCode === undefined ||
+        metadata.errorCategory === undefined ||
+        metadata.requestId === undefined ||
+        metadata.traceId === undefined
+      ) {
+        failures.push(
+          `${label} load.failed requires framework, failure, reason, retryability, canonical error, requestId, and traceId`,
+        );
+      }
+      const canonicalError =
+        object(expected.genericSdk, `${label}.genericSdk`, failures).error ??
+        object(expected.readiness, `${label}.readiness`, failures).error;
+      if (canonicalError !== undefined) {
+        const error = object(
+          canonicalError,
+          `${label}.canonicalError`,
+          failures,
+        );
+        if (
+          metadata.errorCode !== error.code ||
+          metadata.errorCategory !== error.category
+        ) {
+          failures.push(
+            `${label} load.failed must use the canonical error code/category`,
+          );
+        }
+      }
+    }
+  }
+
+  const transitions = array(
+    expected.statusTransitions,
+    `${label}.statusTransitions`,
+    failures,
+  ).map((entry) => object(entry, `${label}.transition`, failures));
+  const terminalStale = transitions.at(-1)?.to === "stale";
+  const explicitFailure = operations.some((operation) =>
+    ["transient-failure", "integrity-failure"].includes(String(operation.kind)),
+  );
+  const succeeded = records.some((record) => record.name === "load.succeeded");
+  const failed = records.filter((record) => record.name === "load.failed");
+  if (
+    (terminalStale || explicitFailure) &&
+    (failed.length === 0 || succeeded)
+  ) {
+    failures.push(
+      `${label} stale load must emit load.failed and never load.succeeded`,
+    );
+  }
+  for (const [index, record] of records.entries()) {
+    if (record.name !== "load.succeeded") continue;
+    const lastStarted = records.findLastIndex(
+      (candidate, candidateIndex) =>
+        candidateIndex < index && candidate.name === "load.started",
+    );
+    const invalidPriorOutcome = records
+      .slice(lastStarted + 1, index)
+      .some((candidate) => {
+        if (candidate.name === "load.failed") return true;
+        if (candidate.name !== "status.changed") return false;
+        return (
+          (candidate.metadata as JsonObject | undefined)?.status === "stale"
+        );
+      });
+    if (invalidPriorOutcome) {
+      failures.push(
+        `${label} load.succeeded cannot follow failure or stale status`,
+      );
+    }
+  }
+  if (
+    caseEntry.name === "transient-stale" ||
+    caseEntry.name === "integrity-stale"
+  ) {
+    const failureMetadata = object(
+      failed[0]?.metadata,
+      `${label}.staleFailureMetadata`,
+      failures,
+    );
+    const transient = caseEntry.name === "transient-stale";
+    if (
+      failureMetadata.reason !== (transient ? "transient" : "integrity") ||
+      failureMetadata.retryable !== transient
+    ) {
+      failures.push(`${label} stale failure reason/retryability is incorrect`);
     }
   }
 }
@@ -640,7 +806,14 @@ function validateCase(
     `${label}.expected.renderedRecords`,
     failures,
   );
-  validateTelemetry(expected, sdkCorpus, `${label}.expected`, failures);
+  validateTelemetry(
+    expected,
+    entry,
+    operations,
+    sdkCorpus,
+    `${label}.expected`,
+    failures,
+  );
 
   const closeAt = operations.find(
     (operation) => operation.kind === "close",

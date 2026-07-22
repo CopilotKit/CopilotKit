@@ -187,6 +187,28 @@ const mutationFixtures: MutationFixture[] = [
     },
   },
   {
+    name: "stale load reports a succeeded outcome",
+    failure: "stale load must emit load.failed",
+    mutate(corpus) {
+      const expected = expectedFor(corpus, "transient-stale");
+      const record = asObject(asArray(expected.telemetryRecords).at(-1));
+      record.name = "load.succeeded";
+      asObject(record.metadata).outcome = "success";
+      const names = asArray(expected.telemetryNames);
+      names[names.length - 1] = "load.succeeded";
+    },
+  },
+  {
+    name: "failed load omits required error metadata",
+    failure: "load.failed requires",
+    mutate(corpus) {
+      const record = asObject(
+        asArray(expectedFor(corpus, "integrity-stale").telemetryRecords).at(-1),
+      );
+      delete asObject(record.metadata).errorCategory;
+    },
+  },
+  {
     name: "singleflight callers receive different rejections",
     failure: "sink exception identity",
     mutate(corpus) {

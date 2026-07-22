@@ -109,14 +109,16 @@
             "name": "load.started",
             "atMs": 0,
             "metadata": {
-              "source": "load"
+              "source": "load",
+              "framework": "fixture"
             }
           },
           {
             "name": "status.changed",
             "atMs": 1,
             "metadata": {
-              "status": "ready"
+              "status": "ready",
+              "framework": "fixture"
             }
           },
           {
@@ -124,7 +126,10 @@
             "atMs": 2,
             "metadata": {
               "outcome": "success",
-              "freshness": "fresh"
+              "freshness": "fresh",
+              "framework": "fixture",
+              "skillCount": 1,
+              "registryRevision": "revision-1"
             }
           }
         ]
@@ -198,14 +203,16 @@
             "name": "load.started",
             "atMs": 0,
             "metadata": {
-              "source": "preload"
+              "source": "preload",
+              "framework": "fixture"
             }
           },
           {
             "name": "status.changed",
             "atMs": 1,
             "metadata": {
-              "status": "ready"
+              "status": "ready",
+              "framework": "fixture"
             }
           },
           {
@@ -213,7 +220,10 @@
             "atMs": 2,
             "metadata": {
               "outcome": "success",
-              "freshness": "cached"
+              "freshness": "cached",
+              "framework": "fixture",
+              "skillCount": 1,
+              "registryRevision": "revision-1"
             }
           }
         ]
@@ -299,14 +309,16 @@
             "name": "load.throttled",
             "atMs": 0,
             "metadata": {
-              "source": "load"
+              "source": "load",
+              "framework": "fixture"
             }
           },
           {
             "name": "status.changed",
             "atMs": 1,
             "metadata": {
-              "status": "ready"
+              "status": "ready",
+              "framework": "fixture"
             }
           },
           {
@@ -314,7 +326,10 @@
             "atMs": 2,
             "metadata": {
               "outcome": "success",
-              "freshness": "cached"
+              "freshness": "cached",
+              "framework": "fixture",
+              "skillCount": 1,
+              "registryRevision": "revision-1"
             }
           }
         ]
@@ -407,21 +422,24 @@
             "name": "load.started",
             "atMs": 0,
             "metadata": {
-              "source": "load"
+              "source": "load",
+              "framework": "fixture"
             }
           },
           {
             "name": "load.singleflight_joined",
             "atMs": 1,
             "metadata": {
-              "joinedCallers": 2
+              "joinedCallers": 2,
+              "framework": "fixture"
             }
           },
           {
             "name": "status.changed",
             "atMs": 2,
             "metadata": {
-              "status": "ready"
+              "status": "ready",
+              "framework": "fixture"
             }
           },
           {
@@ -429,7 +447,10 @@
             "atMs": 3,
             "metadata": {
               "outcome": "success",
-              "freshness": "fresh"
+              "freshness": "fresh",
+              "framework": "fixture",
+              "skillCount": 1,
+              "registryRevision": "revision-1"
             }
           }
         ]
@@ -515,14 +536,16 @@
             "name": "load.started",
             "atMs": 0,
             "metadata": {
-              "source": "load"
+              "source": "load",
+              "framework": "fixture"
             }
           },
           {
             "name": "status.changed",
             "atMs": 1,
             "metadata": {
-              "status": "ready"
+              "status": "ready",
+              "framework": "fixture"
             }
           },
           {
@@ -530,7 +553,10 @@
             "atMs": 2,
             "metadata": {
               "outcome": "success",
-              "freshness": "fresh"
+              "freshness": "fresh",
+              "framework": "fixture",
+              "skillCount": 1,
+              "registryRevision": "revision-1"
             }
           }
         ]
@@ -620,14 +646,16 @@
             "name": "load.started",
             "atMs": 0,
             "metadata": {
-              "source": "load"
+              "source": "load",
+              "framework": "fixture"
             }
           },
           {
             "name": "status.changed",
             "atMs": 1,
             "metadata": {
-              "status": "ready"
+              "status": "ready",
+              "framework": "fixture"
             }
           },
           {
@@ -635,7 +663,10 @@
             "atMs": 2,
             "metadata": {
               "outcome": "success",
-              "freshness": "fresh"
+              "freshness": "fresh",
+              "framework": "fixture",
+              "skillCount": 1,
+              "registryRevision": "revision-2"
             }
           }
         ]
@@ -706,14 +737,16 @@
             "name": "load.started",
             "atMs": 0,
             "metadata": {
-              "source": "load"
+              "source": "load",
+              "framework": "fixture"
             }
           },
           {
             "name": "status.changed",
             "atMs": 1,
             "metadata": {
-              "status": "ready"
+              "status": "ready",
+              "framework": "fixture"
             }
           },
           {
@@ -721,7 +754,10 @@
             "atMs": 2,
             "metadata": {
               "outcome": "success",
-              "freshness": "fresh"
+              "freshness": "fresh",
+              "framework": "fixture",
+              "skillCount": 0,
+              "registryRevision": "revision-1"
             }
           }
         ]
@@ -792,14 +828,16 @@
             "name": "load.started",
             "atMs": 0,
             "metadata": {
-              "source": "load"
+              "source": "load",
+              "framework": "fixture"
             }
           },
           {
             "name": "status.changed",
             "atMs": 1,
             "metadata": {
-              "status": "revoked"
+              "status": "revoked",
+              "framework": "fixture"
             }
           },
           {
@@ -807,7 +845,10 @@
             "atMs": 2,
             "metadata": {
               "outcome": "success",
-              "freshness": "fresh"
+              "freshness": "fresh",
+              "framework": "fixture",
+              "skillCount": 0,
+              "registryRevision": "revision-1"
             }
           }
         ]
@@ -878,7 +919,7 @@
         "nativeHook": {
           "proceed": false
         },
-        "telemetryNames": ["load.started", "status.changed", "load.succeeded"],
+        "telemetryNames": ["load.started", "status.changed", "load.failed"],
         "renderedRecords": [
           {
             "position": 0,
@@ -896,22 +937,30 @@
             "name": "load.started",
             "atMs": 0,
             "metadata": {
-              "source": "load"
+              "source": "load",
+              "framework": "fixture"
             }
           },
           {
             "name": "status.changed",
             "atMs": 1,
             "metadata": {
-              "status": "stale"
+              "status": "stale",
+              "framework": "fixture"
             }
           },
           {
-            "name": "load.succeeded",
+            "name": "load.failed",
             "atMs": 2,
             "metadata": {
-              "outcome": "success",
-              "freshness": "stale"
+              "outcome": "failure",
+              "reason": "transient",
+              "retryable": true,
+              "framework": "fixture",
+              "errorCode": "LEARNING_REGISTRY_STALE",
+              "errorCategory": "availability",
+              "requestId": "request-telemetry",
+              "traceId": "trace-telemetry"
             }
           }
         ]
@@ -986,7 +1035,7 @@
         "nativeHook": {
           "proceed": false
         },
-        "telemetryNames": ["load.started", "status.changed", "load.succeeded"],
+        "telemetryNames": ["load.started", "status.changed", "load.failed"],
         "renderedRecords": [
           {
             "position": 0,
@@ -1004,22 +1053,30 @@
             "name": "load.started",
             "atMs": 0,
             "metadata": {
-              "source": "load"
+              "source": "load",
+              "framework": "fixture"
             }
           },
           {
             "name": "status.changed",
             "atMs": 1,
             "metadata": {
-              "status": "stale"
+              "status": "stale",
+              "framework": "fixture"
             }
           },
           {
-            "name": "load.succeeded",
+            "name": "load.failed",
             "atMs": 2,
             "metadata": {
-              "outcome": "success",
-              "freshness": "stale"
+              "outcome": "failure",
+              "reason": "integrity",
+              "retryable": false,
+              "framework": "fixture",
+              "errorCode": "LEARNING_REGISTRY_STALE",
+              "errorCategory": "integrity",
+              "requestId": "request-telemetry",
+              "traceId": "trace-telemetry"
             }
           }
         ]
@@ -1094,14 +1151,16 @@
             "name": "load.started",
             "atMs": 0,
             "metadata": {
-              "source": "load"
+              "source": "load",
+              "framework": "fixture"
             }
           },
           {
             "name": "status.changed",
             "atMs": 1,
             "metadata": {
-              "status": "denied"
+              "status": "denied",
+              "framework": "fixture"
             }
           },
           {
@@ -1110,7 +1169,12 @@
             "metadata": {
               "outcome": "failure",
               "reason": "denied",
-              "retryable": false
+              "retryable": false,
+              "framework": "fixture",
+              "errorCode": "LEARNING_REGISTRY_DENIED",
+              "errorCategory": "permission",
+              "requestId": "request-telemetry",
+              "traceId": "trace-telemetry"
             }
           }
         ]
@@ -1184,14 +1248,16 @@
             "name": "load.started",
             "atMs": 0,
             "metadata": {
-              "source": "load"
+              "source": "load",
+              "framework": "fixture"
             }
           },
           {
             "name": "status.changed",
             "atMs": 1,
             "metadata": {
-              "status": "denied"
+              "status": "denied",
+              "framework": "fixture"
             }
           },
           {
@@ -1200,7 +1266,12 @@
             "metadata": {
               "outcome": "failure",
               "reason": "denied",
-              "retryable": false
+              "retryable": false,
+              "framework": "fixture",
+              "errorCode": "INTELLIGENCE_ADAPTER_TOO_MANY_SKILLS",
+              "errorCategory": "validation",
+              "requestId": "request-telemetry",
+              "traceId": "trace-telemetry"
             }
           }
         ]
@@ -1278,14 +1349,16 @@
             "name": "load.started",
             "atMs": 0,
             "metadata": {
-              "source": "load"
+              "source": "load",
+              "framework": "fixture"
             }
           },
           {
             "name": "status.changed",
             "atMs": 1,
             "metadata": {
-              "status": "denied"
+              "status": "denied",
+              "framework": "fixture"
             }
           },
           {
@@ -1294,7 +1367,12 @@
             "metadata": {
               "outcome": "failure",
               "reason": "denied",
-              "retryable": false
+              "retryable": false,
+              "framework": "fixture",
+              "errorCode": "INTELLIGENCE_ADAPTER_SKILL_TOO_LARGE",
+              "errorCategory": "validation",
+              "requestId": "request-telemetry",
+              "traceId": "trace-telemetry"
             }
           }
         ]
@@ -1372,14 +1450,16 @@
             "name": "load.started",
             "atMs": 0,
             "metadata": {
-              "source": "load"
+              "source": "load",
+              "framework": "fixture"
             }
           },
           {
             "name": "status.changed",
             "atMs": 1,
             "metadata": {
-              "status": "denied"
+              "status": "denied",
+              "framework": "fixture"
             }
           },
           {
@@ -1388,7 +1468,12 @@
             "metadata": {
               "outcome": "failure",
               "reason": "denied",
-              "retryable": false
+              "retryable": false,
+              "framework": "fixture",
+              "errorCode": "INTELLIGENCE_ADAPTER_CONTEXT_TOO_LARGE",
+              "errorCategory": "validation",
+              "requestId": "request-telemetry",
+              "traceId": "trace-telemetry"
             }
           }
         ]
@@ -1465,14 +1550,16 @@
             "name": "load.started",
             "atMs": 0,
             "metadata": {
-              "source": "load"
+              "source": "load",
+              "framework": "fixture"
             }
           },
           {
             "name": "status.changed",
             "atMs": 1,
             "metadata": {
-              "status": "denied"
+              "status": "denied",
+              "framework": "fixture"
             }
           },
           {
@@ -1481,7 +1568,12 @@
             "metadata": {
               "outcome": "failure",
               "reason": "denied",
-              "retryable": false
+              "retryable": false,
+              "framework": "fixture",
+              "errorCode": "INTELLIGENCE_ADAPTER_INVALID_UTF8",
+              "errorCategory": "integrity",
+              "requestId": "request-telemetry",
+              "traceId": "trace-telemetry"
             }
           }
         ]
@@ -1558,14 +1650,16 @@
             "name": "load.started",
             "atMs": 0,
             "metadata": {
-              "source": "load"
+              "source": "load",
+              "framework": "fixture"
             }
           },
           {
             "name": "status.changed",
             "atMs": 1,
             "metadata": {
-              "status": "denied"
+              "status": "denied",
+              "framework": "fixture"
             }
           },
           {
@@ -1574,7 +1668,12 @@
             "metadata": {
               "outcome": "failure",
               "reason": "denied",
-              "retryable": false
+              "retryable": false,
+              "framework": "fixture",
+              "errorCode": "INTELLIGENCE_ADAPTER_SCRIPT_DISABLED",
+              "errorCategory": "validation",
+              "requestId": "request-telemetry",
+              "traceId": "trace-telemetry"
             }
           }
         ]
@@ -1629,22 +1728,15 @@
         "nativeHook": {
           "proceed": false
         },
-        "telemetryNames": ["status.changed", "load.succeeded"],
+        "telemetryNames": ["status.changed"],
         "renderedRecords": [],
         "telemetryRecords": [
           {
             "name": "status.changed",
             "atMs": 0,
             "metadata": {
-              "status": "closed"
-            }
-          },
-          {
-            "name": "load.succeeded",
-            "atMs": 1,
-            "metadata": {
-              "outcome": "success",
-              "freshness": "fresh"
+              "status": "closed",
+              "framework": "fixture"
             }
           }
         ]
@@ -1707,7 +1799,8 @@
             "name": "status.changed",
             "atMs": 0,
             "metadata": {
-              "status": "ready"
+              "status": "ready",
+              "framework": "fixture"
             }
           },
           {
@@ -1715,7 +1808,10 @@
             "atMs": 1,
             "metadata": {
               "outcome": "success",
-              "freshness": "fresh"
+              "freshness": "fresh",
+              "framework": "fixture",
+              "skillCount": 1,
+              "registryRevision": "revision-1"
             }
           }
         ]
@@ -1773,7 +1869,8 @@
             "name": "status.changed",
             "atMs": 0,
             "metadata": {
-              "status": "loading"
+              "status": "loading",
+              "framework": "fixture"
             }
           },
           {
@@ -1782,7 +1879,12 @@
             "metadata": {
               "outcome": "failure",
               "reason": "loading",
-              "retryable": true
+              "retryable": true,
+              "framework": "fixture",
+              "errorCode": "LEARNING_REGISTRY_READINESS_TIMEOUT",
+              "errorCategory": "availability",
+              "requestId": "request-telemetry",
+              "traceId": "trace-telemetry"
             }
           }
         ]
@@ -1838,7 +1940,8 @@
             "name": "status.changed",
             "atMs": 0,
             "metadata": {
-              "status": "denied"
+              "status": "denied",
+              "framework": "fixture"
             }
           },
           {
@@ -1847,7 +1950,12 @@
             "metadata": {
               "outcome": "failure",
               "reason": "denied",
-              "retryable": false
+              "retryable": false,
+              "framework": "fixture",
+              "errorCode": "LEARNING_REGISTRY_DENIED",
+              "errorCategory": "permission",
+              "requestId": "request-telemetry",
+              "traceId": "trace-telemetry"
             }
           }
         ]
@@ -1901,7 +2009,8 @@
             "name": "status.changed",
             "atMs": 0,
             "metadata": {
-              "status": "stale"
+              "status": "stale",
+              "framework": "fixture"
             }
           },
           {
@@ -1910,7 +2019,12 @@
             "metadata": {
               "outcome": "failure",
               "reason": "stale",
-              "retryable": true
+              "retryable": true,
+              "framework": "fixture",
+              "errorCode": "LEARNING_REGISTRY_STALE",
+              "errorCategory": "availability",
+              "requestId": "request-telemetry",
+              "traceId": "trace-telemetry"
             }
           }
         ]
@@ -1974,7 +2088,8 @@
             "name": "status.changed",
             "atMs": 0,
             "metadata": {
-              "status": "closed"
+              "status": "closed",
+              "framework": "fixture"
             }
           },
           {
@@ -1983,7 +2098,12 @@
             "metadata": {
               "outcome": "failure",
               "reason": "closed",
-              "retryable": false
+              "retryable": false,
+              "framework": "fixture",
+              "errorCode": "LEARNING_REGISTRY_CLOSED",
+              "errorCategory": "lifecycle",
+              "requestId": "request-telemetry",
+              "traceId": "trace-telemetry"
             }
           }
         ]
@@ -2085,7 +2205,8 @@
             "name": "load.started",
             "atMs": 0,
             "metadata": {
-              "source": "refresh"
+              "source": "refresh",
+              "framework": "fixture"
             }
           },
           {
@@ -2094,28 +2215,36 @@
             "metadata": {
               "outcome": "failure",
               "reason": "transient",
-              "retryable": true
+              "retryable": true,
+              "framework": "fixture",
+              "errorCode": "INTELLIGENCE_ADAPTER_TRANSIENT_FAILURE",
+              "errorCategory": "availability",
+              "requestId": "request-telemetry",
+              "traceId": "trace-telemetry"
             }
           },
           {
             "name": "load.throttled",
             "atMs": 29999,
             "metadata": {
-              "source": "refresh"
+              "source": "refresh",
+              "framework": "fixture"
             }
           },
           {
             "name": "load.started",
             "atMs": 30000,
             "metadata": {
-              "source": "refresh"
+              "source": "refresh",
+              "framework": "fixture"
             }
           },
           {
             "name": "status.changed",
             "atMs": 30001,
             "metadata": {
-              "status": "ready"
+              "status": "ready",
+              "framework": "fixture"
             }
           },
           {
@@ -2123,7 +2252,10 @@
             "atMs": 30002,
             "metadata": {
               "outcome": "success",
-              "freshness": "fresh"
+              "freshness": "fresh",
+              "framework": "fixture",
+              "skillCount": 1,
+              "registryRevision": "revision-1"
             }
           }
         ]
@@ -2187,14 +2319,16 @@
             "name": "load.started",
             "atMs": 0,
             "metadata": {
-              "source": "load"
+              "source": "load",
+              "framework": "fixture"
             }
           },
           {
             "name": "status.changed",
             "atMs": 1,
             "metadata": {
-              "status": "closed"
+              "status": "closed",
+              "framework": "fixture"
             }
           },
           {
@@ -2203,7 +2337,12 @@
             "metadata": {
               "outcome": "failure",
               "reason": "closed",
-              "retryable": false
+              "retryable": false,
+              "framework": "fixture",
+              "errorCode": "LEARNING_REGISTRY_CLOSED",
+              "errorCategory": "lifecycle",
+              "requestId": "request-telemetry",
+              "traceId": "trace-telemetry"
             }
           }
         ]
@@ -2304,21 +2443,24 @@
             "name": "load.started",
             "atMs": 0,
             "metadata": {
-              "source": "load"
+              "source": "load",
+              "framework": "fixture"
             }
           },
           {
             "name": "load.singleflight_joined",
             "atMs": 1,
             "metadata": {
-              "joinedCallers": 2
+              "joinedCallers": 2,
+              "framework": "fixture"
             }
           },
           {
             "name": "status.changed",
             "atMs": 2,
             "metadata": {
-              "status": "denied"
+              "status": "denied",
+              "framework": "fixture"
             }
           },
           {
@@ -2327,7 +2469,12 @@
             "metadata": {
               "outcome": "failure",
               "reason": "denied",
-              "retryable": false
+              "retryable": false,
+              "framework": "fixture",
+              "errorCode": "LEARNING_TELEMETRY_SINK_FAILED",
+              "errorCategory": "internal",
+              "requestId": "request-telemetry",
+              "traceId": "trace-telemetry"
             }
           }
         ]
@@ -2401,14 +2548,16 @@
             "name": "load.started",
             "atMs": 0,
             "metadata": {
-              "source": "load"
+              "source": "load",
+              "framework": "fixture"
             }
           },
           {
             "name": "status.changed",
             "atMs": 1,
             "metadata": {
-              "status": "denied"
+              "status": "denied",
+              "framework": "fixture"
             }
           },
           {
@@ -2417,7 +2566,12 @@
             "metadata": {
               "outcome": "failure",
               "reason": "denied",
-              "retryable": false
+              "retryable": false,
+              "framework": "fixture",
+              "errorCode": "LEARNING_REGISTRY_DENIED",
+              "errorCategory": "auth",
+              "requestId": "request-telemetry",
+              "traceId": "trace-telemetry"
             }
           }
         ]
@@ -2491,14 +2645,16 @@
             "name": "load.started",
             "atMs": 0,
             "metadata": {
-              "source": "load"
+              "source": "load",
+              "framework": "fixture"
             }
           },
           {
             "name": "status.changed",
             "atMs": 1,
             "metadata": {
-              "status": "denied"
+              "status": "denied",
+              "framework": "fixture"
             }
           },
           {
@@ -2507,7 +2663,12 @@
             "metadata": {
               "outcome": "failure",
               "reason": "denied",
-              "retryable": false
+              "retryable": false,
+              "framework": "fixture",
+              "errorCode": "LEARNING_REGISTRY_DENIED",
+              "errorCategory": "permission",
+              "requestId": "request-telemetry",
+              "traceId": "trace-telemetry"
             }
           }
         ]
@@ -2584,14 +2745,16 @@
             "name": "load.started",
             "atMs": 0,
             "metadata": {
-              "source": "load"
+              "source": "load",
+              "framework": "fixture"
             }
           },
           {
             "name": "status.changed",
             "atMs": 1,
             "metadata": {
-              "status": "denied"
+              "status": "denied",
+              "framework": "fixture"
             }
           },
           {
@@ -2600,7 +2763,12 @@
             "metadata": {
               "outcome": "failure",
               "reason": "denied",
-              "retryable": false
+              "retryable": false,
+              "framework": "fixture",
+              "errorCode": "LEARNING_REGISTRY_DENIED",
+              "errorCategory": "auth",
+              "requestId": "request-telemetry",
+              "traceId": "trace-telemetry"
             }
           }
         ]
@@ -2677,14 +2845,16 @@
             "name": "load.started",
             "atMs": 0,
             "metadata": {
-              "source": "load"
+              "source": "load",
+              "framework": "fixture"
             }
           },
           {
             "name": "status.changed",
             "atMs": 1,
             "metadata": {
-              "status": "denied"
+              "status": "denied",
+              "framework": "fixture"
             }
           },
           {
@@ -2693,7 +2863,12 @@
             "metadata": {
               "outcome": "failure",
               "reason": "denied",
-              "retryable": false
+              "retryable": false,
+              "framework": "fixture",
+              "errorCode": "LEARNING_REGISTRY_DENIED",
+              "errorCategory": "permission",
+              "requestId": "request-telemetry",
+              "traceId": "trace-telemetry"
             }
           }
         ]
@@ -2770,14 +2945,16 @@
             "name": "load.started",
             "atMs": 0,
             "metadata": {
-              "source": "load"
+              "source": "load",
+              "framework": "fixture"
             }
           },
           {
             "name": "status.changed",
             "atMs": 1,
             "metadata": {
-              "status": "denied"
+              "status": "denied",
+              "framework": "fixture"
             }
           },
           {
@@ -2786,7 +2963,12 @@
             "metadata": {
               "outcome": "failure",
               "reason": "denied",
-              "retryable": false
+              "retryable": false,
+              "framework": "fixture",
+              "errorCode": "LEARNING_REGISTRY_DENIED",
+              "errorCategory": "not_found",
+              "requestId": "request-telemetry",
+              "traceId": "trace-telemetry"
             }
           }
         ]
@@ -2863,14 +3045,16 @@
             "name": "load.started",
             "atMs": 0,
             "metadata": {
-              "source": "load"
+              "source": "load",
+              "framework": "fixture"
             }
           },
           {
             "name": "status.changed",
             "atMs": 1,
             "metadata": {
-              "status": "denied"
+              "status": "denied",
+              "framework": "fixture"
             }
           },
           {
@@ -2879,7 +3063,12 @@
             "metadata": {
               "outcome": "failure",
               "reason": "denied",
-              "retryable": false
+              "retryable": false,
+              "framework": "fixture",
+              "errorCode": "LEARNING_REGISTRY_DENIED",
+              "errorCategory": "permission",
+              "requestId": "request-telemetry",
+              "traceId": "trace-telemetry"
             }
           }
         ]
@@ -2955,14 +3144,16 @@
             "name": "load.started",
             "atMs": 0,
             "metadata": {
-              "source": "load"
+              "source": "load",
+              "framework": "fixture"
             }
           },
           {
             "name": "status.changed",
             "atMs": 1,
             "metadata": {
-              "status": "denied"
+              "status": "denied",
+              "framework": "fixture"
             }
           },
           {
@@ -2971,7 +3162,12 @@
             "metadata": {
               "outcome": "failure",
               "reason": "denied",
-              "retryable": false
+              "retryable": false,
+              "framework": "fixture",
+              "errorCode": "LEARNING_CONTAINER_ARCHIVED",
+              "errorCategory": "conflict",
+              "requestId": "request-telemetry",
+              "traceId": "trace-telemetry"
             }
           }
         ]
@@ -3047,14 +3243,16 @@
             "name": "load.started",
             "atMs": 0,
             "metadata": {
-              "source": "load"
+              "source": "load",
+              "framework": "fixture"
             }
           },
           {
             "name": "status.changed",
             "atMs": 1,
             "metadata": {
-              "status": "denied"
+              "status": "denied",
+              "framework": "fixture"
             }
           },
           {
@@ -3063,7 +3261,12 @@
             "metadata": {
               "outcome": "failure",
               "reason": "denied",
-              "retryable": false
+              "retryable": false,
+              "framework": "fixture",
+              "errorCode": "LEARNING_CONTAINER_PROJECT_MISMATCH",
+              "errorCategory": "permission",
+              "requestId": "request-telemetry",
+              "traceId": "trace-telemetry"
             }
           }
         ]
@@ -3139,14 +3342,16 @@
             "name": "load.started",
             "atMs": 0,
             "metadata": {
-              "source": "load"
+              "source": "load",
+              "framework": "fixture"
             }
           },
           {
             "name": "status.changed",
             "atMs": 1,
             "metadata": {
-              "status": "denied"
+              "status": "denied",
+              "framework": "fixture"
             }
           },
           {
@@ -3155,7 +3360,12 @@
             "metadata": {
               "outcome": "failure",
               "reason": "denied",
-              "retryable": false
+              "retryable": false,
+              "framework": "fixture",
+              "errorCode": "LEARNING_CONTAINER_NOT_FOUND",
+              "errorCategory": "not_found",
+              "requestId": "request-telemetry",
+              "traceId": "trace-telemetry"
             }
           }
         ]
@@ -3231,14 +3441,16 @@
             "name": "load.started",
             "atMs": 0,
             "metadata": {
-              "source": "load"
+              "source": "load",
+              "framework": "fixture"
             }
           },
           {
             "name": "status.changed",
             "atMs": 1,
             "metadata": {
-              "status": "denied"
+              "status": "denied",
+              "framework": "fixture"
             }
           },
           {
@@ -3247,7 +3459,12 @@
             "metadata": {
               "outcome": "failure",
               "reason": "denied",
-              "retryable": false
+              "retryable": false,
+              "framework": "fixture",
+              "errorCode": "LEARNING_REGISTRY_UNRECOVERABLE",
+              "errorCategory": "internal",
+              "requestId": "request-telemetry",
+              "traceId": "trace-telemetry"
             }
           }
         ]
