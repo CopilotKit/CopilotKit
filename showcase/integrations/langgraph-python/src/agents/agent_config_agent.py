@@ -89,35 +89,39 @@ def extract_context_programmatically(state: AgentState) -> dict[str, Any]:
 
 # @endregion[context-extraction]
 
+
 # @region[agent-node-with-context-access]
 async def agent_node_with_context_logging(state: AgentState) -> AgentState:
     """Agent node that logs extracted context to demonstrate the documented pattern works.
-    
+
     This proves the documented access pattern from configurable.mdx and auth.mdx works:
     - Frontend publishes via useAgentContext
     - Middleware injects into state["copilotkit"]["context"]
     - Agent node extracts values programmatically
-    
+
     The logger output provides concrete evidence for FAC-121 acceptance criteria.
     """
     # Extract context using the documented pattern
     extracted = extract_context_programmatically(state)
-    
+
     # Log to prove the pattern works (viewable in agent server logs)
     if extracted:
         logger.info(
-            "[FAC-121 Evidence] Successfully extracted context values: %s",
-            extracted
+            "[FAC-121 Evidence] Successfully extracted context values: %s", extracted
         )
         if "authToken" in extracted:
             logger.info(
                 "[FAC-121 Evidence] Auth token accessible: %s",
-                extracted["authToken"][:8] + "..." if len(extracted["authToken"]) > 8 else extracted["authToken"]
+                extracted["authToken"][:8] + "..."
+                if len(extracted["authToken"]) > 8
+                else extracted["authToken"],
             )
     else:
         logger.info("[FAC-121 Evidence] No context values found in state")
-    
+
     return state
+
+
 # @endregion[agent-node-with-context-access]
 
 # @region[agent-config-setup]

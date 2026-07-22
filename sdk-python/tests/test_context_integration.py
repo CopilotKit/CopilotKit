@@ -2,7 +2,7 @@
 
 This test addresses FAC-121 by proving the end-to-end flow:
 1. Frontend publishes authToken via useAgentContext
-2. Middleware injects it into state["copilotkit"]["context"]  
+2. Middleware injects it into state["copilotkit"]["context"]
 3. Agent node extracts authToken programmatically
 4. Token persists across multiple agent runs
 
@@ -112,7 +112,7 @@ def test_middleware_gracefully_handles_missing_context():
 
 def test_middleware_context_structure_matches_docs():
     """Verify the state structure matches what the docs promise.
-    
+
     This is the contract test for FAC-121: the docs claim that useAgentContext
     publishes { authToken: '...' } and it arrives at state["copilotkit"]["context"]
     as an array of { description, value } entries.
