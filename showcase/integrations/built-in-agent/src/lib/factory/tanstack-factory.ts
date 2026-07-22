@@ -20,8 +20,11 @@ import { forwardingFetch } from "../header-forwarding";
  * schema is only used for LLM tool-call declaration, not runtime
  * validation.
  */
+// Exported so the OGUI and MCP-Apps factories can declare the tools that
+// their runtime middleware injects into `input.tools` (see ogui-factory.ts /
+// mcp-apps-factory.ts) without duplicating this conversion.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function jsonSchemaToZod(schema: any): z.ZodTypeAny {
+export function jsonSchemaToZod(schema: any): z.ZodTypeAny {
   if (!schema || typeof schema !== "object") return z.object({});
   if (schema.type === "object" && schema.properties) {
     const shape: Record<string, z.ZodTypeAny> = {};
