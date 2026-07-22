@@ -77,6 +77,7 @@ const chatInputToolbarSecondary = cn(
     <div class="cpk:mr-[10px]">
       <button
         type="button"
+        aria-label="Send message"
         [disabled]="disabled()"
         [class]="buttonClass"
         (click)="onClick()"
@@ -109,6 +110,7 @@ export class CopilotChatSendButton {
   template: `
     <button
       type="button"
+      [attr.aria-label]="label"
       [disabled]="disabled()"
       [class]="buttonClass"
       [copilotTooltip]="label"
@@ -148,6 +150,7 @@ export class CopilotChatStartTranscribeButton {
   template: `
     <button
       type="button"
+      [attr.aria-label]="label"
       [disabled]="disabled()"
       [class]="buttonClass"
       [copilotTooltip]="label"
@@ -187,6 +190,7 @@ export class CopilotChatCancelTranscribeButton {
   template: `
     <button
       type="button"
+      [attr.aria-label]="label"
       [disabled]="disabled()"
       [class]="buttonClass"
       [copilotTooltip]="label"
@@ -226,6 +230,7 @@ export class CopilotChatFinishTranscribeButton {
   template: `
     <button
       type="button"
+      [attr.aria-label]="label"
       [disabled]="disabled()"
       [class]="buttonClass"
       [copilotTooltip]="label"

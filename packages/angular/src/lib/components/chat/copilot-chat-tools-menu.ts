@@ -22,6 +22,7 @@ import { CopilotTooltip } from "../../directives/tooltip";
   template: `
     <button
       type="button"
+      [attr.aria-label]="tooltipLabel()"
       [disabled]="triggerDisabled()"
       [class]="buttonClass()"
       [cdkMenuTriggerFor]="menu"

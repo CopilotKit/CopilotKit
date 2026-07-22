@@ -224,6 +224,7 @@ export interface ToolbarContext {
           <div class="cpk:mr-[10px]">
             <button
               type="button"
+              aria-label="Send message"
               [class]="sendButtonClass() || defaultButtonClass"
               [disabled]="sendButtonDisabled()"
               (click)="send()"
