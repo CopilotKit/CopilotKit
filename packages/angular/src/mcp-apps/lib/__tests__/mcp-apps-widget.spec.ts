@@ -221,6 +221,23 @@ it("loads the resource through the selected agent and boots the sandbox", async 
   expect(fixture.nativeElement.querySelector("[role='status']")).toBeNull();
 });
 
+it("preserves the sandbox across equivalent activity snapshot updates", async () => {
+  configureTestingModule();
+  const agent = createAgent();
+  const { fixture, frame } = await bootWidget(agent);
+  const initialSrcdoc = frame.srcdoc;
+
+  fixture.componentRef.setInput("data", {
+    ...snapshot,
+    result: { content: [{ type: "text", text: "done" }] },
+    toolInput: { city: "Paris" },
+  });
+  await settle(fixture);
+
+  expect(agent.runAgent).toHaveBeenCalledTimes(1);
+  expect(frame.srcdoc).toBe(initialSrcdoc);
+});
+
 it("accepts JSON-RPC only from the exact iframe window", async () => {
   configureTestingModule();
   const agent = createAgent();

@@ -6,6 +6,7 @@ import {
   ElementRef,
   PLATFORM_ID,
   afterRenderEffect,
+  computed,
   inject,
   input,
   signal,
@@ -112,6 +113,15 @@ export class CopilotMCPAppsWidget {
   readonly data = input.required<MCPAppsSnapshotContent>();
   readonly agent = input<AbstractAgent | undefined>();
 
+  private readonly renderSession = computed(
+    () => ({ agent: this.agent(), data: this.data() }),
+    {
+      equal: (previous, current) =>
+        previous.agent === current.agent &&
+        areStructurallyEqual(previous.data, current.data),
+    },
+  );
+
   private readonly appFrame =
     viewChild.required<ElementRef<HTMLIFrameElement>>("appFrame");
   protected readonly loading = signal(true);
@@ -120,8 +130,7 @@ export class CopilotMCPAppsWidget {
   constructor() {
     afterRenderEffect((onCleanup) => {
       const frame = this.appFrame().nativeElement;
-      const data = this.data();
-      const agent = this.agent();
+      const { data, agent } = this.renderSession();
       const version = ++this.renderVersion;
       const controller = new AbortController();
 
@@ -571,6 +580,31 @@ function isCancellation(error: unknown): boolean {
 
 function asError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error));
+}
+
+/** Compares JSON-compatible activity snapshots without relying on object identity. */
+function areStructurallyEqual(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true;
+  if (Array.isArray(left) || Array.isArray(right)) {
+    return (
+      Array.isArray(left) &&
+      Array.isArray(right) &&
+      left.length === right.length &&
+      left.every((value, index) => areStructurallyEqual(value, right[index]))
+    );
+  }
+  if (!isRecord(left) || !isRecord(right)) return false;
+
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  return (
+    leftKeys.length === rightKeys.length &&
+    leftKeys.every(
+      (key) =>
+        Object.prototype.hasOwnProperty.call(right, key) &&
+        areStructurallyEqual(left[key], right[key]),
+    )
+  );
 }
 
 function buildSandboxHTML(extraCspDomains?: string[]): string {
