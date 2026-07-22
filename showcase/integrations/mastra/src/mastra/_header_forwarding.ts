@@ -73,13 +73,19 @@ function getForwardedHeaders(): Record<string, string> {
 /** fetch wrapper that injects ALS-bound x-* headers into every outbound call. */
 const forwardingFetch: typeof fetch = (input, init) => {
   const forwarded = getForwardedHeaders();
-  if (Object.keys(forwarded).length === 0) {
-    return fetch(input, init);
-  }
   const merged = new Headers(init?.headers);
   for (const [k, v] of Object.entries(forwarded)) {
     // Don't clobber an explicit per-call header.
     if (!merged.has(k)) merged.set(k, v);
+  }
+  // Local aimock testing: a real browser does NOT send x-aimock-context, but
+  // every mastra d6 fixture is context-scoped ("mastra"), so aimock returns
+  // "No fixture matched" for browser-driven demos. Default the context to this
+  // integration's slug when absent so the demos replay against aimock in a
+  // plain browser. Harmless in production (real LLM providers ignore the
+  // header); the harness still sends its own x-aimock-context, which wins.
+  if (!merged.has("x-aimock-context")) {
+    merged.set("x-aimock-context", "mastra");
   }
   // GATING RULE: only deviate from the original control flow (append the
   // x-diag-hops breadcrumb, emit the per-outbound CVDIAG log) when a

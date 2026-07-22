@@ -38,6 +38,7 @@ interface RawFixtureEntry {
   match: {
     userMessage?: string;
     toolCallId?: string;
+    toolResultContains?: string;
     toolName?: string;
     model?: string;
     hasToolResult?: boolean;
@@ -67,6 +68,8 @@ function matchKey(match: RawFixtureEntry["match"]): string {
     parts.push(`sequenceIndex=${match.sequenceIndex}`);
   if (match.toolCallId != null) parts.push(`toolCallId=${match.toolCallId}`);
   if (match.toolName != null) parts.push(`toolName=${match.toolName}`);
+  if (match.toolResultContains != null)
+    parts.push(`toolResultContains=${match.toolResultContains}`);
   if (match.turnIndex != null) parts.push(`turnIndex=${match.turnIndex}`);
   if (match.userMessage != null) parts.push(`userMessage=${match.userMessage}`);
   return parts.join("|");
@@ -270,7 +273,23 @@ describe("fixture collision detection", () => {
     // `toolName=render_a2ui` key → 3 exact-key collisions that aimock's router
     // DOES disambiguate at runtime (verified live: the inner request's system
     // text carried the pill's context phrase, matched the right surface).
-    const KNOWN_DUPLICATE_CEILING = 300;
+    //
+    // Bumped 300 → 304 (+4) by the Mastra Partner Refresh native-interrupt +
+    // cancel-path fixtures (merged from the Mastra branch):
+    //   +2 native-interrupt resume-loop fix — gen-ui-interrupt +
+    //      interrupt-headless suspend fixtures gained `hasToolResult:false` so
+    //      the resume falls through to the toolCallId confirmation fixture;
+    //      that aligns them with hitl-in-chat.json's schedule_meeting suspend
+    //      fixtures, so all three mastra cells share the same two suspend keys
+    //      ("intro call with the sales team" + "1:1 with Alice").
+    //   +2 cancel-path fix (aimock toolResultContains) — interrupt-headless
+    //      gained cancelled legs mirroring gen-ui-interrupt's, keyed
+    //      userMessage + toolCallId + toolResultContains:"cancelled"; each
+    //      headless cancelled leg shares its exact key + response text with the
+    //      gen-ui-interrupt one, so first-match-wins yields the same Denied
+    //      narration — one pair per pill.
+    // All runtime-disambiguated by route/fixtureFile like every alias above.
+    const KNOWN_DUPLICATE_CEILING = 304;
 
     const collisions: string[] = [];
 
