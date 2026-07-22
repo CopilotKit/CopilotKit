@@ -21,6 +21,10 @@ await Promise.all(
 
 const sandboxProxyCandidates = [
   new URL(
+    "../node_modules/@copilotkit/angular/dist/mcp-apps/sandbox-proxy.html",
+    import.meta.url,
+  ),
+  new URL(
     "../node_modules/@copilotkit/angular/mcp-apps/sandbox-proxy.html",
     import.meta.url,
   ),
