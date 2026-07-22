@@ -1,0 +1,40 @@
+{
+  "name": "@copilotkit/intelligence-langgraph-python",
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "sdk-python-langgraph/src",
+  "projectType": "library",
+  "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "outputs": ["{projectRoot}/.pytest_cache"],
+      "options": {
+        "command": "sdk-python-langgraph/.venv/bin/pytest sdk-python-langgraph/tests -v",
+        "cwd": "."
+      }
+    },
+    "check": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "sdk-python-langgraph/.venv/bin/python -m compileall -q sdk-python-langgraph/src && cd sdk-python-langgraph && poetry check",
+        "cwd": "."
+      }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "outputs": ["{projectRoot}/dist"],
+      "options": {
+        "command": "cd sdk-python-langgraph && poetry build",
+        "cwd": "."
+      }
+    },
+    "pack-check": {
+      "executor": "nx:run-commands",
+      "outputs": ["{projectRoot}/dist"],
+      "options": {
+        "command": "sdk-python-langgraph/.venv/bin/twine check sdk-python-langgraph/dist/* && sdk-python-langgraph/.venv/bin/python -m zipfile -l sdk-python-langgraph/dist/copilotkit_intelligence_langgraph-0.1.0-py3-none-any.whl",
+        "cwd": "."
+      }
+    }
+  },
+  "tags": ["scope:intelligence", "language:python"]
+}
