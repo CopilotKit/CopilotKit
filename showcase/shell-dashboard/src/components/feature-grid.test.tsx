@@ -674,9 +674,8 @@ describe("FeatureGrid — Show unique filter", () => {
 
   it("notes unique rows are hidden in the subtitle by default", () => {
     const { container } = renderGrid();
-    expect(container.textContent).toContain(
-      `${uniqueFeatures.length} unique hidden`,
-    );
+    expect(container.textContent).toContain(`${uniqueFeatures.length} unique`);
+    expect(container.textContent).toMatch(/\([^)]*hidden\)/);
   });
 
   it("drops the unique-hidden note once Show unique is enabled", () => {
