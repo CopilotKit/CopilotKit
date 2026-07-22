@@ -512,6 +512,14 @@ export class RegistryState {
     } catch (error) {
       if (this.current.status === "closed") throw this.closedError();
       if (this.isTelemetryFailure(error)) return this.failTelemetry(error);
+      try {
+        await this.drainJoinedTelemetry();
+      } catch (joinedTelemetryError) {
+        if (this.isTelemetryFailure(joinedTelemetryError)) {
+          return this.failTelemetry(joinedTelemetryError);
+        }
+        throw joinedTelemetryError;
+      }
 
       const canonical = canonicalError(error);
       const denied = isPermanentDenial(canonical);
@@ -540,14 +548,28 @@ export class RegistryState {
         renderedSkills: denied ? [] : this.current.renderedSkills,
         prompt: denied ? "" : this.current.prompt,
       });
-      try {
-        await this.swap(next, false);
-        await this.emit("load.failed", this.errorMetadata(surfaced));
-      } catch (terminalError) {
-        if (this.isTelemetryFailure(terminalError)) {
-          return this.failTelemetry(terminalError);
+      const terminalTelemetry = await (async () => {
+        try {
+          await this.swap(next, false);
+          await this.emit("load.failed", this.errorMetadata(surfaced));
+          return { succeeded: true } as const;
+        } catch (terminalError) {
+          return { succeeded: false, error: terminalError } as const;
         }
-        throw terminalError;
+      })();
+      try {
+        await this.drainJoinedTelemetry();
+      } catch (joinedTelemetryError) {
+        if (this.isTelemetryFailure(joinedTelemetryError)) {
+          return this.failTelemetry(joinedTelemetryError);
+        }
+        throw joinedTelemetryError;
+      }
+      if (!terminalTelemetry.succeeded) {
+        if (this.isTelemetryFailure(terminalTelemetry.error)) {
+          return this.failTelemetry(terminalTelemetry.error);
+        }
+        throw terminalTelemetry.error;
       }
       this.settleWaiters(next);
       throw error;
@@ -745,6 +767,11 @@ export class RegistryState {
         await this.emit("load.failed", this.errorMetadata(error));
       } catch {
         // Preserve one error identity for every caller of this load.
+      }
+      try {
+        await this.drainJoinedTelemetry();
+      } catch {
+        // The initiating canonical telemetry failure remains authoritative.
       }
     } finally {
       this.settleWaiters(next);

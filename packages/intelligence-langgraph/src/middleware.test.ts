@@ -288,6 +288,98 @@ describe("createSkillRegistryMiddleware", () => {
     }
   });
 
+  it("preserves the first joined telemetry failure when the Registry request also fails", async () => {
+    const pending = deferred<InstalledSkillSet>();
+    const statusWriteStarted = deferred<void>();
+    const statusWrite = deferred<void>();
+    const lateJoinedWrite = deferred<void>();
+    const clientFailure = new IntelligenceSdkError({
+      message: "registry unavailable",
+      code: "LEARNING_SDK_CACHE_CORRUPT",
+      category: "dependency",
+      retryable: true,
+    });
+    const firstSinkFailure = new Error("first joined sink failure");
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => {
+      unhandled.push(reason);
+    };
+    let joinedWrites = 0;
+    const middleware = createSkillRegistryMiddleware({
+      client: testClient(() => pending.promise),
+      learningContainerId: CONTAINER_ID,
+      telemetry: (event) => {
+        if (event.name === "status.changed") {
+          statusWriteStarted.resolve();
+          return statusWrite.promise;
+        }
+        if (event.name !== "load.singleflight_joined") return;
+        joinedWrites += 1;
+        if (joinedWrites === 1) throw firstSinkFailure;
+        if (joinedWrites === 2) {
+          return Promise.reject("second joined sink failure");
+        }
+        return lateJoinedWrite.promise;
+      },
+    });
+    process.on("unhandledRejection", onUnhandled);
+
+    try {
+      const readiness = middleware.waitUntilReady({ timeoutMs: 1_000 });
+      const first = middleware.load();
+      const second = middleware.load();
+      const third = middleware.load();
+      const callerResults = Promise.allSettled([first, second, third]);
+      const readinessResult = Promise.allSettled([readiness]);
+      let loadSettled = false;
+      void first.then(
+        () => {
+          loadSettled = true;
+        },
+        () => {
+          loadSettled = true;
+        },
+      );
+
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(unhandled).toEqual([]);
+      pending.reject(clientFailure);
+      await statusWriteStarted.promise;
+
+      const fourth = middleware.load();
+      expect(fourth).toBe(first);
+      const fourthResult = Promise.allSettled([fourth]);
+      statusWrite.resolve();
+      await new Promise<void>((resolve) => setImmediate(resolve));
+
+      expect(loadSettled).toBe(false);
+      expect(unhandled).toEqual([]);
+      lateJoinedWrite.reject("third joined sink failure");
+
+      const results = await callerResults;
+      const [lastResult] = await fourthResult;
+      const [waiterResult] = await readinessResult;
+      const allResults = [...results, lastResult, waiterResult];
+      expect(allResults.every((result) => result?.status === "rejected")).toBe(
+        true,
+      );
+      const reasons = allResults.map((result) =>
+        result?.status === "rejected" ? result.reason : undefined,
+      );
+      expect(reasons.every((reason) => reason === reasons[0])).toBe(true);
+      expect(reasons[0]).toMatchObject({
+        code: "LEARNING_TELEMETRY_SINK_FAILED",
+        cause: firstSinkFailure,
+      });
+      expect(joinedWrites).toBe(3);
+      expect(middleware.status).toBe("denied");
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(unhandled).toEqual([]);
+    } finally {
+      process.off("unhandledRejection", onUnhandled);
+    }
+  });
+
   it("reports adapter version and refresh latency on telemetry", async () => {
     let now = 0;
     const pending = deferred<InstalledSkillSet>();
