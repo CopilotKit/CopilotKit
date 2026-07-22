@@ -10,6 +10,7 @@ export const ALLOWED_MULTI_FILE_REGION_KEYS = new Set([
   "agno::headless-complete::custom-bubbles",
   "agno::open-gen-ui-advanced::sandbox-function-registration",
   "built-in-agent::headless-complete::custom-bubbles",
+  "built-in-agent::open-gen-ui-advanced::sandbox-function-registration",
   "claude-sdk-python::headless-complete::custom-bubbles",
   "claude-sdk-python::open-gen-ui-advanced::sandbox-function-registration",
   "claude-sdk-typescript::headless-complete::custom-bubbles",
