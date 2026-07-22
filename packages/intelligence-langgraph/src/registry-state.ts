@@ -5,9 +5,9 @@ import type {
   InstalledSkillSet,
   IntelligenceClient,
 } from "@copilotkit/intelligence";
+import { ADAPTER_VERSION } from "./generated-version.js";
 
 const FRAMEWORK = "langgraph-typescript";
-const ADAPTER_VERSION = "0.1.0";
 const DEFAULT_REFRESH_INTERVAL_MS = 30_000;
 const DEFAULT_MAXIMUM_SKILLS = 128;
 const DEFAULT_MAXIMUM_INSTRUCTION_BYTES = 262_144;

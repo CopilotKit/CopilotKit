@@ -1,8 +1,14 @@
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import * as publicApi from "./index.js";
+import { ADAPTER_VERSION } from "./generated-version.js";
+import {
+  generateVersion,
+  renderVersionModule,
+} from "../scripts/generate-version.js";
 import { extractNativeRegistrationSnippet } from "../scripts/verify-package-lib.js";
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -37,7 +43,6 @@ describe("README and public API contract", () => {
     expect(Object.keys(publicApi)).toEqual(["createSkillRegistryMiddleware"]);
     expect(packageJson).toMatchObject({
       name: "@copilotkit/intelligence-langgraph",
-      version: "0.1.0",
       type: "module",
       engines: { node: ">=20" },
       peerDependencies: {
@@ -46,6 +51,32 @@ describe("README and public API contract", () => {
         langchain: ">=1.4.4 <2.0.0",
       },
     });
+    expect(packageJson.version).toMatch(
+      /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/u,
+    );
     expect(projectJson.targets.check.dependsOn).toEqual(["build"]);
+  });
+
+  it("derives the runtime adapter version from release-managed package metadata", async () => {
+    const packageJson = JSON.parse(
+      await readFile(join(packageRoot, "package.json"), "utf8"),
+    );
+    expect(ADAPTER_VERSION).toBe(packageJson.version);
+
+    const temporary = await mkdtemp(join(tmpdir(), "langgraph-version-"));
+    const manifestPath = join(temporary, "package.json");
+    const outputPath = join(temporary, "generated-version.ts");
+    try {
+      await writeFile(
+        manifestPath,
+        JSON.stringify({ version: "7.8.9-beta.1" }),
+      );
+      await generateVersion({ manifestPath, outputPath });
+      await expect(readFile(outputPath, "utf8")).resolves.toBe(
+        renderVersionModule("7.8.9-beta.1"),
+      );
+    } finally {
+      await rm(temporary, { recursive: true, force: true });
+    }
   });
 });

@@ -27,9 +27,14 @@
     "access": "public"
   },
   "scripts": {
+    "generate-version": "node --import tsx scripts/generate-version.ts",
+    "prebuild": "pnpm run generate-version",
     "build": "tsc -p tsconfig.json",
+    "precheck-types": "pnpm run generate-version",
     "check-types": "tsc --noEmit -p tsconfig.check.json",
+    "pretest": "pnpm run generate-version",
     "test": "vitest run",
+    "prepack": "pnpm --silent run build",
     "publint": "publint .",
     "attw": "attw --pack . --profile esm-only",
     "verify-package": "tsx scripts/verify-package.ts"

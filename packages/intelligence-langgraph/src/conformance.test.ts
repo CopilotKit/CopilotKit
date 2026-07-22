@@ -8,6 +8,7 @@ import type {
   AdapterStatus,
   SkillRegistryTelemetryEvent,
 } from "./middleware.js";
+import { ADAPTER_VERSION } from "./generated-version.js";
 import {
   TestCanonicalError,
   cleanupInstalledSkillSets,
@@ -274,7 +275,7 @@ function telemetryObservation(events: readonly SkillRegistryTelemetryEvent[]) {
     const { framework, adapterVersion, refreshLatencyMs, ...metadata } =
       event.metadata;
     expect(framework).toBe("langgraph-typescript");
-    expect(adapterVersion).toBe("0.1.0");
+    expect(adapterVersion).toBe(ADAPTER_VERSION);
     if (event.name === "load.succeeded") {
       expect(refreshLatencyMs).toEqual(expect.any(Number));
     } else {

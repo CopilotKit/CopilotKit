@@ -1,4 +1,6 @@
-import { access } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { IntelligenceSdkError } from "@copilotkit/intelligence";
 import type { InstalledSkillSet } from "@copilotkit/intelligence";
 import { AIMessage, SystemMessage, fakeModel } from "langchain";
@@ -17,6 +19,7 @@ import {
 } from "../tests/test-utils.js";
 
 const CONTAINER_ID = "55555555-5555-4555-8555-555555555555";
+const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 function captureUnhandledRejections() {
   const reasons: unknown[] = [];
@@ -900,8 +903,14 @@ describe("createSkillRegistryMiddleware", () => {
     pending.resolve(await installedSkillSet());
     await load;
 
+    const packageJson = JSON.parse(
+      await readFile(join(PACKAGE_ROOT, "package.json"), "utf8"),
+    );
+
     expect(
-      events.every((event) => event.metadata.adapterVersion === "0.1.0"),
+      events.every(
+        (event) => event.metadata.adapterVersion === packageJson.version,
+      ),
     ).toBe(true);
     const succeeded = events.find(({ name }) => name === "load.succeeded");
     expect(succeeded?.metadata.refreshLatencyMs).toBe(3);

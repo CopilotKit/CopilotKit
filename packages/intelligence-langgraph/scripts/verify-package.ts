@@ -39,7 +39,7 @@ async function pack(): Promise<{
   await mkdir(artifacts, { recursive: true });
   const { stdout } = await execFileAsync(
     "npm",
-    ["pack", "--json", "--pack-destination", artifacts],
+    ["pack", "--json", "--silent", "--pack-destination", artifacts],
     { cwd: packageRoot, maxBuffer: 10 * 1024 * 1024 },
   );
   const parsed: unknown = JSON.parse(stdout);
