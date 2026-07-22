@@ -240,6 +240,54 @@ describe("createSkillRegistryMiddleware", () => {
     ]);
   });
 
+  it("observes every joined telemetry rejection while the Registry request is pending", async () => {
+    const pending = deferred<InstalledSkillSet>();
+    const firstSinkFailure = new Error("first joined sink failure");
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => {
+      unhandled.push(reason);
+    };
+    let joinedWrites = 0;
+    const middleware = createSkillRegistryMiddleware({
+      client: testClient(() => pending.promise),
+      learningContainerId: CONTAINER_ID,
+      telemetry: (event) => {
+        if (event.name !== "load.singleflight_joined") return;
+        joinedWrites += 1;
+        if (joinedWrites === 1) throw firstSinkFailure;
+        return Promise.reject("second joined sink failure");
+      },
+    });
+    process.on("unhandledRejection", onUnhandled);
+
+    try {
+      const first = middleware.load();
+      const second = middleware.load();
+      const third = middleware.load();
+
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(unhandled).toEqual([]);
+
+      pending.resolve(await installedSkillSet());
+      const results = await Promise.allSettled([first, second, third]);
+      expect(results).toHaveLength(3);
+      expect(results.every(({ status }) => status === "rejected")).toBe(true);
+      const reasons = results.map((result) =>
+        result.status === "rejected" ? result.reason : undefined,
+      );
+      expect(reasons[1]).toBe(reasons[0]);
+      expect(reasons[2]).toBe(reasons[0]);
+      expect(reasons[0]).toMatchObject({
+        code: "LEARNING_TELEMETRY_SINK_FAILED",
+        cause: firstSinkFailure,
+      });
+      expect(joinedWrites).toBe(2);
+      expect(unhandled).toEqual([]);
+    } finally {
+      process.off("unhandledRejection", onUnhandled);
+    }
+  });
+
   it("reports adapter version and refresh latency on telemetry", async () => {
     let now = 0;
     const pending = deferred<InstalledSkillSet>();

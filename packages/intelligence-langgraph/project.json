@@ -17,7 +17,8 @@
       "options": {
         "command": "pnpm --dir=packages/intelligence-langgraph check-types && pnpm --dir=packages/intelligence-langgraph publint && pnpm --dir=packages/intelligence-langgraph attw",
         "cwd": "."
-      }
+      },
+      "dependsOn": ["build"]
     },
     "build": {
       "executor": "nx:run-commands",

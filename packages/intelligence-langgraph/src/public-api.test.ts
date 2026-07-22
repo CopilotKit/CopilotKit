@@ -24,6 +24,9 @@ describe("README and public API contract", () => {
     const packageJson = JSON.parse(
       await readFile(join(packageRoot, "package.json"), "utf8"),
     );
+    const projectJson = JSON.parse(
+      await readFile(join(packageRoot, "project.json"), "utf8"),
+    );
     expect(readme.match(/^## .+$/gmu)).toEqual(REQUIRED_HEADINGS);
     expect(readme).toContain("createAgent({");
     expect(readme).toContain("middleware: [skills]");
@@ -40,5 +43,6 @@ describe("README and public API contract", () => {
         langchain: ">=1.4.4 <2.0.0",
       },
     });
+    expect(projectJson.targets.check.dependsOn).toEqual(["build"]);
   });
 });

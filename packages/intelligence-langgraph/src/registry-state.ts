@@ -421,10 +421,24 @@ export class RegistryState {
       this.joinedCallers += 1;
       const joinedTelemetry = this.emit("load.singleflight_joined", {
         joinedCallers: this.joinedCallers + 1,
-      });
-      this.joinedTelemetryChain = this.joinedTelemetryChain.then(
-        () => joinedTelemetry,
+      }).then(
+        () => ({ succeeded: true }) as const,
+        (error: unknown) => ({ succeeded: false, error }) as const,
       );
+      this.joinedTelemetryChain = this.joinedTelemetryChain.then(
+        async () => {
+          const result = await joinedTelemetry;
+          if (!result.succeeded) throw result.error;
+        },
+        async (firstError: unknown) => {
+          await joinedTelemetry;
+          throw firstError;
+        },
+      );
+      // Observe rejection immediately so a slow Registry request cannot leave
+      // this internal chain unhandled. performLoad still awaits the original
+      // rejected chain and surfaces that exact first failure to every caller.
+      void this.joinedTelemetryChain.catch(() => undefined);
       return this.inFlight;
     }
     const promise = this.performLoad(source, cached);
