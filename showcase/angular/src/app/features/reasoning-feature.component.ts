@@ -87,7 +87,6 @@ export class CustomReasoningMessageComponent {
       </section>
       <div class="chat-surface">
         <showcase-chat-host
-          [agentId]="feature"
           [reasoningMessageComponent]="custom ? customRenderer : undefined"
         />
       </div>

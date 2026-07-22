@@ -19,12 +19,14 @@ const registry: RuntimeRegistryInput = {
           id: "agentic-chat",
           route: "/demos/agentic-chat",
           runtime_path: "/api/copilotkit",
+          agent_id: "agentic_chat",
           highlight: ["src/app/api/copilotkit-mcp-apps/route.ts"],
         },
         {
           id: "mcp-apps",
           route: "/demos/mcp-apps",
           runtime_path: "/api/copilotkit-mcp-apps",
+          agent_id: "mcp-apps",
           highlight: ["src/app/api/copilotkit/route.ts"],
         },
       ],
@@ -67,7 +69,7 @@ function resolve(
     index,
     integration: "langgraph-python",
     feature: "agentic-chat",
-    suffix: "/agent/default/run",
+    suffix: "/agent/agentic_chat/run",
     method: "POST",
     backendHostPattern: "showcase-{slug}.example.test",
     production: true,
@@ -80,7 +82,7 @@ describe("Angular Showcase proxy policy", () => {
     expect(resolve()).toEqual({
       cellId: "angular/langgraph-python/agentic-chat",
       targetUrl:
-        "https://showcase-langgraph-python.example.test/api/copilotkit/agent/default/run",
+        "https://showcase-langgraph-python.example.test/api/copilotkit/agent/agentic_chat/run",
     });
     expect(
       resolve({ feature: "mcp-apps", suffix: "/info", method: "GET" }),
@@ -113,12 +115,18 @@ describe("Angular Showcase proxy policy", () => {
     }
   });
 
+  it("rejects an agent identifier that is not declared for the cell", () => {
+    expect(() => resolve({ suffix: "/agent/default/run" })).toThrowError(
+      new ProxyPolicyError("invalid-runtime-path", 404),
+    );
+  });
+
   it("enforces the HTTP method for each allowlisted runtime path", () => {
     expect(() => resolve({ suffix: "/info", method: "POST" })).toThrowError(
       new ProxyPolicyError("method-not-allowed", 405),
     );
     expect(() =>
-      resolve({ suffix: "/agent/default/run", method: "GET" }),
+      resolve({ suffix: "/agent/agentic_chat/run", method: "GET" }),
     ).toThrowError(new ProxyPolicyError("method-not-allowed", 405));
   });
 
@@ -144,7 +152,7 @@ describe("Angular Showcase proxy policy", () => {
         production: false,
       }).targetUrl,
     ).toBe(
-      "http://localhost:3001/langgraph-python/api/copilotkit/agent/default/run",
+      "http://localhost:3001/langgraph-python/api/copilotkit/agent/agentic_chat/run",
     );
   });
 });

@@ -373,6 +373,7 @@ demos:
     tags:
       - chat-ui
     route: /demos/reasoning-custom
+    agent_id: agentic-chat-reasoning
     animated_preview_url:
     highlight:
       - src/agents/reasoning_agent.py
@@ -385,6 +386,7 @@ demos:
     tags:
       - chat-ui
     route: /demos/reasoning-default
+    agent_id: reasoning-default-render
     animated_preview_url:
     highlight:
       - src/agents/reasoning_agent.py

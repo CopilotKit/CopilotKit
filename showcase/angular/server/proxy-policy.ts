@@ -5,6 +5,7 @@ export interface RuntimeRegistryInput {
       id: string;
       route?: string;
       runtime_path: string;
+      agent_id: string;
     }>;
   }>;
 }
@@ -23,6 +24,7 @@ export interface RuntimeIndexEntry {
   cellId: string;
   runnable: boolean;
   runtimePrefix?: string;
+  agentId?: string;
 }
 
 export type RuntimeIndex = ReadonlyMap<string, RuntimeIndexEntry>;
@@ -67,6 +69,7 @@ export function buildRuntimeIndex(
       ...(cell.runnable && demo?.route
         ? {
             runtimePrefix: demo.runtime_path,
+            agentId: demo.agent_id,
           }
         : {}),
     });
@@ -115,13 +118,21 @@ const ALLOWED_RUNTIME_ROUTES: readonly AllowedRuntimeRoute[] = [
   },
 ];
 
-function validateRuntimeSuffix(suffix: string, method: string): string {
+function validateRuntimeSuffix(
+  suffix: string,
+  method: string,
+  agentId: string,
+): string {
   if (
     suffix.includes("?") ||
     suffix.includes("#") ||
     suffix.includes("\\") ||
     /%(?:2e|2f|5c)/i.test(suffix)
   ) {
+    throw new ProxyPolicyError("invalid-runtime-path", 404);
+  }
+  const requestedAgent = /^\/agent\/([^/]+)\//.exec(suffix)?.[1];
+  if (requestedAgent !== undefined && requestedAgent !== agentId) {
     throw new ProxyPolicyError("invalid-runtime-path", 404);
   }
   let decoded: string;
@@ -209,11 +220,15 @@ export function resolveProxyTarget(input: {
 }): { cellId: string; targetUrl: string } {
   const entry = input.index.get(`${input.integration}/${input.feature}`);
   if (!entry) throw new ProxyPolicyError("unknown-cell", 404);
-  if (!entry.runnable || !entry.runtimePrefix) {
+  if (!entry.runnable || !entry.runtimePrefix || !entry.agentId) {
     throw new ProxyPolicyError("non-runnable-cell", 404);
   }
 
-  const suffix = validateRuntimeSuffix(input.suffix, input.method);
+  const suffix = validateRuntimeSuffix(
+    input.suffix,
+    input.method,
+    entry.agentId,
+  );
   const base = backendBaseUrl(
     input.backendHostPattern,
     input.integration,

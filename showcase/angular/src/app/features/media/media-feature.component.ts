@@ -10,6 +10,7 @@ import {
 import { ActivatedRoute } from "@angular/router";
 import { CopilotKit, injectAgentStore } from "@copilotkit/angular";
 
+import { agentIdForRoute } from "../../feature-agent";
 import { FeatureHeaderComponent } from "../feature-header.component";
 import { ShowcaseChatHostComponent } from "../showcase-chat-host.component";
 import {
@@ -184,8 +185,7 @@ export class MediaFeatureComponent {
   private readonly copilotKit = inject(CopilotKit);
   protected readonly feature =
     (this.route.snapshot.data["feature"] as string | undefined) ?? "voice";
-  protected readonly agentId =
-    this.feature === "multimodal" ? "multimodal-demo" : "voice-demo";
+  protected readonly agentId = agentIdForRoute(this.feature, this.route);
   private readonly agentStore = injectAgentStore(this.agentId);
   protected readonly voiceSampleText = VOICE_SAMPLE_TEXT;
   protected readonly samples = SAMPLES;

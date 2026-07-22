@@ -9,6 +9,7 @@ description: >-
 partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/built-in-agent
 copilotkit_version: 2.0.0
+default_agent_id: default
 deployed: true
 docs_mode: authored
 sort_order: 5
@@ -356,6 +357,7 @@ demos:
     tags: [chat-ui]
     route: /demos/reasoning-custom
     runtime_path: /api/copilotkit-reasoning
+    agent_id: agentic-chat-reasoning
     highlight:
       - src/app/demos/reasoning-custom/page.tsx
       - src/app/demos/reasoning-custom/reasoning-block.tsx
@@ -367,6 +369,7 @@ demos:
     tags: [chat-ui]
     route: /demos/reasoning-default
     runtime_path: /api/copilotkit-reasoning
+    agent_id: reasoning-default-render
     highlight:
       - src/app/demos/reasoning-default/page.tsx
       - src/lib/factory/reasoning-factory.ts
@@ -377,6 +380,7 @@ demos:
     tags: [agent-capabilities]
     route: /demos/tool-rendering-reasoning-chain
     runtime_path: /api/copilotkit-reasoning
+    agent_id: tool-rendering-reasoning-chain
     highlight:
       - src/app/demos/tool-rendering-reasoning-chain/page.tsx
       - src/app/demos/tool-rendering-reasoning-chain/reasoning-block.tsx

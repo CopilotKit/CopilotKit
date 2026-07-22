@@ -147,6 +147,19 @@ describe("Registry Generator", () => {
       langgraph.demos.find((demo: any) => demo.id === "headless-complete")
         .runtime_path,
     ).toBe("/api/copilotkit-mcp-apps");
+    expect(
+      langgraph.demos.find((demo: any) => demo.id === "agentic-chat").agent_id,
+    ).toBe("agentic_chat");
+    expect(
+      langgraph.demos.find((demo: any) => demo.id === "agent-config").agent_id,
+    ).toBe("agent-config-demo");
+
+    const builtIn = registry.integrations.find(
+      (integration: any) => integration.slug === "built-in-agent",
+    );
+    expect(
+      builtIn.demos.find((demo: any) => demo.id === "agentic-chat").agent_id,
+    ).toBe("default");
   });
 
   it("sorts integrations by sort_order", () => {
@@ -188,6 +201,11 @@ describe("Registry Generator", () => {
         if (!/^\/api\/copilotkit(?:-[a-z0-9-]+)?$/.test(demo.runtime_path)) {
           mismatches.push(
             `${integration.slug}/${demo.id}: invalid generated runtime_path ${JSON.stringify(demo.runtime_path)}`,
+          );
+        }
+        if (!/^[A-Za-z0-9._~-]+$/.test(demo.agent_id)) {
+          mismatches.push(
+            `${integration.slug}/${demo.id}: invalid generated agent_id ${JSON.stringify(demo.agent_id)}`,
           );
         }
         if (typeof demo.route !== "string") continue;

@@ -23,7 +23,7 @@ import {
 import { mcpAppsActivityRendererConfig } from "@copilotkit/angular/mcp-apps";
 import { z } from "zod";
 
-import { agentIdForFeature } from "../../feature-agent";
+import { agentIdForRoute } from "../../feature-agent";
 import { FeatureHeaderComponent } from "../feature-header.component";
 import { ShowcaseChatHostComponent } from "../showcase-chat-host.component";
 import {
@@ -195,10 +195,7 @@ export class BeautifulChatFeatureComponent {
   protected readonly mode = signal<"chat" | "app">("chat");
   protected readonly attachments = ATTACHMENTS;
   private readonly route = inject(ActivatedRoute);
-  private readonly agentId = agentIdForFeature(
-    "beautiful-chat",
-    this.route.snapshot.paramMap.get("integration") ?? undefined,
-  );
+  private readonly agentId = agentIdForRoute("beautiful-chat", this.route);
   private readonly agentStore = injectAgentStore(this.agentId);
   protected readonly todos = computed(() =>
     readBeautifulTodos(this.agentStore().state()),

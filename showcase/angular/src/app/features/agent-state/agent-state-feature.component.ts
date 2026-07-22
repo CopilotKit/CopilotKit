@@ -10,6 +10,7 @@ import { injectAgentStore, registerRenderToolCall } from "@copilotkit/angular";
 import type { RenderToolCallConfig } from "@copilotkit/angular";
 import { z } from "zod";
 
+import { agentIdForRoute } from "../../feature-agent";
 import { FeatureHeaderComponent } from "../feature-header.component";
 import { ShowcaseChatHostComponent } from "../showcase-chat-host.component";
 import {
@@ -54,7 +55,6 @@ export class AgentStateTranscriptChildrenComponent {
       }
       <section class="chat-surface" aria-label="CopilotKit assistant">
         <showcase-chat-host
-          [agentId]="feature"
           [messageViewChildrenComponent]="
             feature === 'gen-ui-agent' ? plannerTranscriptChildren : undefined
           "
@@ -101,9 +101,10 @@ export class AgentStateFeatureComponent {
   protected readonly feature =
     (this.route.snapshot.data["feature"] as string | undefined) ??
     "gen-ui-agent";
+  private readonly agentId = agentIdForRoute(this.feature, this.route);
   protected readonly plannerTranscriptChildren =
     AgentStateTranscriptChildrenComponent;
-  private readonly agentStore = injectAgentStore(this.feature);
+  private readonly agentStore = injectAgentStore(this.agentId);
   protected readonly delegations = computed(() =>
     readDelegations(this.agentStore().state()),
   );
@@ -123,7 +124,7 @@ export class AgentStateFeatureComponent {
       component: SubAgentActivityCard as unknown as RenderToolCallConfig<{
         task: string;
       }>["component"],
-      agentId: "subagents",
+      agentId: this.agentId,
     };
     registerRenderToolCall(config);
   }

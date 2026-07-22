@@ -2,24 +2,55 @@ import { describe, expect, it } from "vitest";
 
 import { agentIdForFeature, threadIdForFeature } from "./feature-agent";
 
+const catalog = {
+  cells: [
+    ...[
+      ["agentic-chat", "agentic_chat"],
+      ["agent-config", "agent-config-demo"],
+      ["frontend-tools", "frontend_tools"],
+      ["declarative-hashbrown", "declarative-hashbrown-demo"],
+      ["headless-simple", "headless-simple"],
+      ["headless-complete", "headless-complete"],
+      ["tool-rendering", "tool-rendering"],
+    ].map(([feature, agent_id]) => ({
+      id: `angular/langgraph-python/${feature}`,
+      agent_id,
+    })),
+    {
+      id: "angular/google-adk/beautiful-chat",
+      agent_id: "beautiful-chat",
+    },
+    { id: "angular/built-in-agent/agentic-chat", agent_id: "default" },
+  ],
+};
+
 describe("Angular showcase agent selection", () => {
   it.each([
     ["agentic-chat", "agentic_chat"],
+    ["agent-config", "agent-config-demo"],
     ["frontend-tools", "frontend_tools"],
     ["declarative-hashbrown", "declarative-hashbrown-demo"],
     ["headless-simple", "headless-simple"],
     ["headless-complete", "headless-complete"],
     ["tool-rendering", "tool-rendering"],
   ])("maps %s to backend agent %s", (feature, agentId) => {
-    expect(agentIdForFeature(feature)).toBe(agentId);
+    expect(agentIdForFeature(feature, "langgraph-python", catalog)).toBe(
+      agentId,
+    );
   });
 
-  it("uses the Google ADK main-runtime identifier for beautiful chat", () => {
-    expect(agentIdForFeature("beautiful-chat", "google-adk")).toBe(
-      "beautiful_chat",
-    );
-    expect(agentIdForFeature("beautiful-chat", "ms-agent-python")).toBe(
+  it("uses the generated cell agent for integration-specific runtimes", () => {
+    expect(agentIdForFeature("beautiful-chat", "google-adk", catalog)).toBe(
       "beautiful-chat",
+    );
+    expect(agentIdForFeature("agentic-chat", "built-in-agent", catalog)).toBe(
+      "default",
+    );
+  });
+
+  it("fails closed when generated cell metadata omits the agent", () => {
+    expect(() => agentIdForFeature("agentic-chat", "unknown", catalog)).toThrow(
+      'Showcase cell "angular/unknown/agentic-chat" does not declare agent_id.',
     );
   });
 

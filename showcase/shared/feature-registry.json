@@ -70,6 +70,7 @@
       "id": "agentic-chat",
       "name": "Pre-Built: CopilotChat",
       "category": "chat-ui",
+      "agent_id": "agentic_chat",
       "description": "Pre-built <CopilotChat /> component for full-screen/embedded chat",
       "kind": "primary",
       "og_docs_url": "https://docs.copilotkit.ai/agentic-chat-ui",
@@ -152,6 +153,7 @@
       "id": "hitl-in-chat-booking",
       "name": "In-Chat HITL (Booking)",
       "category": "controlled-generative-ui",
+      "agent_id": "hitl-in-chat",
       "description": "Time-picker card rendered inline via useHumanInTheLoop for a booking flow",
       "kind": "primary",
       "og_docs_url": "https://docs.copilotkit.ai/generative-ui/your-components/interactive",
@@ -162,6 +164,7 @@
       "id": "hitl",
       "name": "In-Chat Human in the Loop (Original)",
       "category": "controlled-generative-ui",
+      "agent_id": "human_in_the_loop",
       "description": "Original HITL demo kept for backwards compatibility",
       "kind": "primary",
       "og_docs_url": "https://docs.copilotkit.ai/generative-ui/your-components/interactive",
@@ -313,6 +316,7 @@
       "id": "frontend-tools",
       "name": "Frontend Tools: In-app Actions",
       "category": "interactivity",
+      "agent_id": "frontend_tools",
       "description": "Frontend tool execution triggered by the agent",
       "og_docs_url": "https://docs.copilotkit.ai/frontend-tools",
       "shell_docs_path": "/frontend-tools"
@@ -411,6 +415,7 @@
       "id": "auth",
       "name": "Authentication",
       "category": "platform",
+      "agent_id": "auth-demo",
       "runtime_path": "/api/copilotkit-auth",
       "description": "Framework-native authentication",
       "shell_docs_path": "/auth"
@@ -419,6 +424,7 @@
       "id": "agent-config",
       "name": "Agent Config Object",
       "category": "platform",
+      "agent_id": "agent-config-demo",
       "runtime_path": "/api/copilotkit-agent-config",
       "description": "Forwarded props / config objects",
       "shell_docs_path": "/agent-config"
@@ -427,6 +433,7 @@
       "id": "voice",
       "name": "Voice",
       "category": "platform",
+      "agent_id": "voice-demo",
       "runtime_path": "/api/copilotkit-voice",
       "description": "Real-time voice interaction",
       "shell_docs_path": "/voice"
@@ -435,6 +442,7 @@
       "id": "multimodal",
       "name": "Attachments",
       "category": "platform",
+      "agent_id": "multimodal-demo",
       "runtime_path": "/api/copilotkit-multimodal",
       "description": "File upload and agent processing",
       "shell_docs_path": "/multimodal-attachments",
@@ -460,6 +468,7 @@
       "id": "declarative-hashbrown",
       "name": "Declarative UI: Hashbrown",
       "category": "byoc",
+      "agent_id": "declarative-hashbrown-demo",
       "runtime_path": "/api/copilotkit-declarative-hashbrown",
       "description": "Hashbrown-style generative UI"
     },
@@ -467,6 +476,7 @@
       "id": "declarative-json-render",
       "name": "Declarative UI: json-render",
       "category": "byoc",
+      "agent_id": "byoc_json_render",
       "runtime_path": "/api/copilotkit-declarative-json-render",
       "description": "Streaming structured-output generative UI via @json-render/react"
     }

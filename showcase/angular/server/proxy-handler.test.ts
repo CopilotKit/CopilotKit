@@ -13,6 +13,7 @@ const index = buildRuntimeIndex(
             id: "agentic-chat",
             route: "/demos/agentic-chat",
             runtime_path: "/api/copilotkit",
+            agent_id: "agentic_chat",
             highlight: ["src/app/api/copilotkit/route.ts"],
           },
         ],
@@ -46,7 +47,7 @@ describe("Angular Showcase proxy handler", () => {
   it("forwards only approved headers and returns cell correlation headers", async () => {
     const fetchImpl = vi.fn<typeof fetch>(async (target, init) => {
       expect(String(target)).toBe(
-        "https://showcase-langgraph-python.example.test/api/copilotkit/agent/default/run",
+        "https://showcase-langgraph-python.example.test/api/copilotkit/agent/agentic_chat/run",
       );
       expect(init?.method).toBe("POST");
       const headers = new Headers(init?.headers);
@@ -75,7 +76,7 @@ describe("Angular Showcase proxy handler", () => {
       log,
     )(
       new Request(
-        "https://angular.example.test/api/copilotkit/langgraph-python/agentic-chat/agent/default/run",
+        "https://angular.example.test/api/copilotkit/langgraph-python/agentic-chat/agent/agentic_chat/run",
         {
           method: "POST",
           headers: {

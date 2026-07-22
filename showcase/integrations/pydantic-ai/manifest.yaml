@@ -155,6 +155,7 @@ demos:
     tags:
       - interactivity
     route: /demos/frontend-tools
+    agent_id: frontend-tools
     animated_preview_url:
     highlight:
       - src/agents/agent.py

@@ -1,6 +1,8 @@
 import { DestroyRef, computed, inject, signal } from "@angular/core";
+import { ActivatedRoute } from "@angular/router";
 import { CopilotKit, injectAgentStore } from "@copilotkit/angular";
 
+import { agentIdForRoute } from "../../feature-agent";
 import type { ShowcaseMessage } from "./headless-chat.types";
 
 /** Signal-first controller shared by the two native Angular headless demos. */
@@ -15,8 +17,9 @@ export abstract class HeadlessChatController {
   );
   protected readonly isRunning = computed(() => this.agentStore().isRunning());
 
-  protected constructor(agentId: string) {
-    this.agentStore = injectAgentStore(agentId);
+  protected constructor(feature: string) {
+    const route = inject(ActivatedRoute);
+    this.agentStore = injectAgentStore(agentIdForRoute(feature, route));
   }
 
   protected updateInput(event: Event): void {

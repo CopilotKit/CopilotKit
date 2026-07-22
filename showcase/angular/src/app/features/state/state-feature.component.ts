@@ -13,6 +13,7 @@ import {
   injectAgentStore,
 } from "@copilotkit/angular";
 
+import { agentIdForRoute } from "../../feature-agent";
 import { FeatureHeaderComponent } from "../feature-header.component";
 import { ShowcaseChatHostComponent } from "../showcase-chat-host.component";
 import { ACTIVITIES, ContextPanelComponent } from "./context-panel.component";
@@ -99,10 +100,7 @@ import type { Preferences, Recipe } from "./state-model";
         }
       </section>
       <aside class="state-chat" aria-label="CopilotKit assistant">
-        <showcase-chat-host
-          [agentId]="feature"
-          [chatPlaceholder]="chatPlaceholder()"
-        />
+        <showcase-chat-host [chatPlaceholder]="chatPlaceholder()" />
       </aside>
     </main>
   `,
@@ -173,7 +171,8 @@ export class StateFeatureComponent {
   protected readonly feature =
     (this.route.snapshot.data["feature"] as string | undefined) ??
     "shared-state-read-write";
-  private readonly agentStore = injectAgentStore(this.feature);
+  private readonly agentId = agentIdForRoute(this.feature, this.route);
+  private readonly agentStore = injectAgentStore(this.agentId);
   protected readonly isRunning = computed(() => this.agentStore().isRunning());
   protected readonly readWriteState = computed(() =>
     readWriteState(this.agentStore().state()),

@@ -4,6 +4,7 @@ export interface BrowserCellCatalog {
     frontend: string;
     integration: string;
     feature: string;
+    agent_id?: string;
     frontend_status: string;
     backend_status: string;
     runnable: boolean;
@@ -17,6 +18,7 @@ export type BrowserCellResolution =
       cellId: string;
       integration: string;
       feature: string;
+      agentId: string;
       runtimeUrl: string;
     }
   | {
@@ -58,11 +60,18 @@ export function resolveBrowserCell(
         `This ${cell.frontend_status} frontend and ${cell.backend_status} backend intersection is not runnable.`,
     };
   }
+  if (cell.agent_id === undefined) {
+    return {
+      kind: "malformed",
+      reason: "The runnable demo cell does not declare an agent identifier.",
+    };
+  }
   return {
     kind: "runnable",
     cellId,
     integration,
     feature,
+    agentId: cell.agent_id,
     runtimeUrl: `/api/copilotkit/${integration}/${feature}`,
   };
 }

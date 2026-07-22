@@ -53,6 +53,11 @@ Everything below should exist in `showcase/integrations/<slug>/`:
       integration differs. Registry generation materializes an explicit path
       for every demo and defaults to `/api/copilotkit`; `highlight` is display
       metadata and never controls runtime routing.
+- [ ] Declare a feature-level `agent_id` when the backend agent key differs
+      from the feature ID. Use integration-level `default_agent_id` when every
+      demo shares one key, and a demo-level `agent_id` only for a real cell
+      exception. The generated browser catalog and server proxy use the same
+      normalized value, and the proxy rejects requests for any other agent.
 - [ ] `package.json` — dependencies including `@copilotkit/react-core`, `zod`, `tailwindcss`
 - [ ] `tsconfig.json`
 - [ ] `next.config.ts`

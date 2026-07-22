@@ -7,6 +7,7 @@ import {
 import { ActivatedRoute } from "@angular/router";
 import { injectInterrupt } from "@copilotkit/angular";
 
+import { agentIdForRoute } from "../../feature-agent";
 import { FeatureHeaderComponent } from "../feature-header.component";
 import { ShowcaseChatHostComponent } from "../showcase-chat-host.component";
 import { parseInterruptPayload } from "./interrupt-payload";
@@ -101,7 +102,7 @@ import type { InterruptSlot } from "./interrupt-payload";
             The decision could not be submitted. Please try again deliberately.
           </p>
         }
-        <showcase-chat-host [agentId]="feature" />
+        <showcase-chat-host />
       </section>
     </main>
   `,
@@ -112,7 +113,8 @@ export class InterruptFeatureComponent {
     (this.route.snapshot.data["feature"] as string | undefined) ??
     "gen-ui-interrupt";
   protected readonly isHeadless = this.feature === "interrupt-headless";
-  protected readonly controller = injectInterrupt({ agentId: this.feature });
+  private readonly agentId = agentIdForRoute(this.feature, this.route);
+  protected readonly controller = injectInterrupt({ agentId: this.agentId });
   protected readonly payload = computed(() =>
     parseInterruptPayload(this.controller.event()?.value),
   );

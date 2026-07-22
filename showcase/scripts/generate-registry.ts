@@ -55,6 +55,7 @@ const DEFAULT_BACKEND_HOST_PATTERN =
   "showcase-{slug}-production.up.railway.app";
 const DEFAULT_RUNTIME_PATH = "/api/copilotkit";
 const RUNTIME_PATH_RE = /^\/api\/copilotkit(?:-[a-z0-9-]+)?$/;
+const AGENT_ID_RE = /^[A-Za-z0-9._~-]+$/;
 
 // Env resolution parity with the runtime consumer (readEnvPair in
 // shell/src/lib/runtime-config.ts): values are trimmed, an empty or
@@ -192,16 +193,18 @@ function synthesizeBackendUrl(slug: string): string {
 }
 
 /**
- * Materialize one explicit server runtime path for every demo in generated
- * registry data. Feature metadata owns the common route; an integration demo
- * may override it when that backend deliberately exposes a different route.
+ * Materialize explicit server runtime and agent metadata for every demo.
+ * Feature metadata owns common values; integration defaults and demo entries
+ * override only deliberate backend-specific differences.
  */
-function normalizeDemoRuntimePaths(
+function normalizeDemoRuntimeMetadata(
   manifest: Record<string, unknown>,
   featureRuntimePaths: ReadonlyMap<string, string>,
+  featureAgentIds: ReadonlyMap<string, string>,
 ): Record<string, unknown> {
   const demos =
     (manifest.demos as Array<Record<string, unknown>> | undefined) ?? [];
+  const defaultAgentId = manifest.default_agent_id as string | undefined;
   return {
     ...manifest,
     demos: demos.map((demo) => ({
@@ -211,6 +214,12 @@ function normalizeDemoRuntimePaths(
           ? demo.runtime_path
           : (featureRuntimePaths.get(demo.id as string) ??
             DEFAULT_RUNTIME_PATH),
+      agent_id:
+        typeof demo.agent_id === "string"
+          ? demo.agent_id
+          : (defaultAgentId ??
+            featureAgentIds.get(demo.id as string) ??
+            (demo.id as string)),
     })),
   };
 }
@@ -478,22 +487,38 @@ function main() {
     featureRegistry.features.map((f: { id: string }) => f.id),
   );
   const featureRuntimePaths = new Map<string, string>();
+  const featureAgentIds = new Map<string, string>();
   for (const feature of featureRegistry.features as Array<{
     id: string;
     runtime_path?: unknown;
+    agent_id?: unknown;
   }>) {
-    if (feature.runtime_path === undefined) continue;
-    if (
-      typeof feature.runtime_path !== "string" ||
-      !RUNTIME_PATH_RE.test(feature.runtime_path)
-    ) {
-      console.error(
-        `ERROR: feature registry entry ${JSON.stringify(feature.id)} has ` +
-          `invalid runtime_path ${JSON.stringify(feature.runtime_path)}`,
-      );
-      process.exit(1);
+    if (feature.runtime_path !== undefined) {
+      if (
+        typeof feature.runtime_path !== "string" ||
+        !RUNTIME_PATH_RE.test(feature.runtime_path)
+      ) {
+        console.error(
+          `ERROR: feature registry entry ${JSON.stringify(feature.id)} has ` +
+            `invalid runtime_path ${JSON.stringify(feature.runtime_path)}`,
+        );
+        process.exit(1);
+      }
+      featureRuntimePaths.set(feature.id, feature.runtime_path);
     }
-    featureRuntimePaths.set(feature.id, feature.runtime_path);
+    if (feature.agent_id !== undefined) {
+      if (
+        typeof feature.agent_id !== "string" ||
+        !AGENT_ID_RE.test(feature.agent_id)
+      ) {
+        console.error(
+          `ERROR: feature registry entry ${JSON.stringify(feature.id)} has ` +
+            `invalid agent_id ${JSON.stringify(feature.agent_id)}`,
+        );
+        process.exit(1);
+      }
+      featureAgentIds.set(feature.id, feature.agent_id);
+    }
   }
 
   const ajv = new Ajv({ allErrors: true });
@@ -553,7 +578,13 @@ function main() {
       continue;
     }
 
-    integrations.push(normalizeDemoRuntimePaths(manifest, featureRuntimePaths));
+    integrations.push(
+      normalizeDemoRuntimeMetadata(
+        manifest,
+        featureRuntimePaths,
+        featureAgentIds,
+      ),
+    );
     console.log(`  OK: ${manifest.name} (${manifest.slug})`);
   }
 
@@ -730,6 +761,16 @@ function main() {
     path.join(ANGULAR_CLIENT_OUTPUT_DIR, "frontend-registry.json"),
     frontendRegistryJson,
   );
+  const agentIdByCell = new Map<string, string>();
+  for (const integration of integrations) {
+    const slug = integration.slug as string;
+    for (const demo of integration.demos as Array<{
+      id: string;
+      agent_id: string;
+    }>) {
+      agentIdByCell.set(`${slug}/${demo.id}`, demo.agent_id);
+    }
+  }
   writeFileAtomicSync(
     path.join(ANGULAR_CLIENT_OUTPUT_DIR, "frontend-catalog.json"),
     JSON.stringify(
@@ -741,6 +782,7 @@ function main() {
             frontend: cell.frontend,
             integration: cell.integration,
             feature: cell.feature,
+            agent_id: agentIdByCell.get(`${cell.integration}/${cell.feature}`),
             frontend_status: cell.frontend_status,
             backend_status: cell.backend_status,
             runnable: cell.runnable,

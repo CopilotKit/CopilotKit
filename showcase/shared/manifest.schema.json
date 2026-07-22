@@ -69,6 +69,11 @@
       "format": "uri",
       "description": "Deprecated/optional. Synthesized at build time by generate-registry.ts from SHOWCASE_BACKEND_HOST_PATTERN + slug. Manifests should omit this field; if present, the manifest value still wins via dual-read."
     },
+    "default_agent_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._~-]+$",
+      "description": "Optional integration-wide agent identifier override. Use when every demo runtime in this integration exposes the same agent key."
+    },
     "deployed": {
       "type": "boolean",
       "default": false,
@@ -133,6 +138,11 @@
             "type": "string",
             "pattern": "^/api/copilotkit(?:-[a-z0-9-]+)?$",
             "description": "Optional integration-specific override for the feature's CopilotKit runtime API path. Generated registry data always materializes this field, using the feature registry path or /api/copilotkit by default."
+          },
+          "agent_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._~-]+$",
+            "description": "Optional demo-specific agent identifier override. Generated registry data always materializes this field, using the integration default, feature registry value, or feature ID."
           },
           "command": {
             "type": "string",

@@ -13,6 +13,7 @@ const catalog = {
       frontend: "angular",
       integration: "langgraph-python",
       feature: "agentic-chat",
+      agent_id: "agentic_chat",
       frontend_status: "supported",
       backend_status: "wired",
       runnable: true,
@@ -23,6 +24,7 @@ const catalog = {
       frontend: "angular",
       integration: "langgraph-python",
       feature: "declarative-json-render",
+      agent_id: "byoc_json_render",
       frontend_status: "not-applicable",
       backend_status: "wired",
       runnable: false,
@@ -44,6 +46,7 @@ describe("Angular host browser cell context", () => {
       cellId: "angular/langgraph-python/agentic-chat",
       integration: "langgraph-python",
       feature: "agentic-chat",
+      agentId: "agentic_chat",
       runtimeUrl: "/api/copilotkit/langgraph-python/agentic-chat",
     });
   });
@@ -55,6 +58,17 @@ describe("Angular host browser cell context", () => {
       kind: "unavailable",
       cellId: "angular/langgraph-python/declarative-json-render",
       reason: "JSON Renderer is React-specific.",
+    });
+  });
+
+  it("fails closed when a runnable cell omits normalized agent metadata", () => {
+    expect(
+      resolveBrowserCell("/langgraph-python/agentic-chat", {
+        cells: [{ ...catalog.cells[0], agent_id: undefined }],
+      }),
+    ).toEqual({
+      kind: "malformed",
+      reason: "The runnable demo cell does not declare an agent identifier.",
     });
   });
 
