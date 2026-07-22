@@ -1120,7 +1120,7 @@ describe("intelligenceAdapter() — config-free default transports", () => {
     );
     const bot = createChannel({
       name: "opentagbot",
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
       // No source/egress injected -> default HTTP transports; no channelName in
       // config -> it comes from createChannel({ name }) via the start() context.
       adapters: [

@@ -42,7 +42,7 @@ describe("intelligenceAdapter — ingress dispatch", () => {
     const egress = new InMemoryEgressSink();
     const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
     let seen: IncomingMessage | undefined;
     bot.onMessage(async ({ thread, message }) => {
@@ -66,7 +66,7 @@ describe("intelligenceAdapter — ingress dispatch", () => {
     const egress = new InMemoryEgressSink();
     const channel = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
     let seenUser: { id: string; name?: string } | undefined;
     channel.onMessage(async ({ message }) => {
@@ -89,7 +89,7 @@ describe("intelligenceAdapter — ingress dispatch", () => {
     const egress = new InMemoryEgressSink();
     const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
     bot.onMessage(async () => {});
     await bot.start();
@@ -103,7 +103,7 @@ describe("intelligenceAdapter — ingress dispatch", () => {
     const egress = new InMemoryEgressSink();
     const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
     bot.onMessage(async () => {
       throw new Error("boom");
@@ -123,7 +123,7 @@ describe("intelligenceAdapter — inbound file content parts", () => {
     source.files.set("fileref_abc", { bytes: png, mimeType: "image/png" });
     const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
     let seen: IncomingMessage | undefined;
     bot.onMessage(async ({ message }) => {
@@ -162,7 +162,7 @@ describe("intelligenceAdapter — inbound file content parts", () => {
     // (fail-visible, not dropped) and the turn still dispatches + acks.
     const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
     let seen: IncomingMessage | undefined;
     bot.onMessage(async ({ message }) => {
@@ -194,7 +194,7 @@ describe("intelligenceAdapter — inbound file content parts", () => {
     });
     const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
     let seen: IncomingMessage | undefined;
     bot.onMessage(async ({ message }) => {
@@ -227,7 +227,7 @@ describe("intelligenceAdapter — inbound file content parts", () => {
     });
     const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
     let seen: IncomingMessage | undefined;
     bot.onMessage(async ({ message }) => {
@@ -258,7 +258,7 @@ describe("intelligenceAdapter — deterministic egress ids", () => {
     const egress = new InMemoryEgressSink();
     const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
     bot.onMessage(async ({ thread }) => {
       await thread.post(Section({ children: "a" }));
@@ -288,7 +288,7 @@ describe("intelligenceAdapter — egress fail-loud", () => {
     };
     const channel = createChannel({
       adapters: [intelligenceAdapter({ source, egress: failingEgress })],
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
     let postError: unknown;
     channel.onMessage(async ({ thread }) => {
@@ -358,7 +358,7 @@ describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
     const egress = new InMemoryEgressSink();
     const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
     let ran = "";
     bot.onCommand("triage", async ({ thread, text }) => {
@@ -381,7 +381,7 @@ describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
     const egress = new InMemoryEgressSink();
     const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
     let seenValue: unknown;
     bot.onInteraction("ck:1", async ({ thread, action }) => {
@@ -404,7 +404,7 @@ describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
     const egress = new InMemoryEgressSink();
     const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
     bot.onInteraction("ck:approve", async ({ thread, message }) => {
       // Flip the card that was clicked (posted in a PRIOR delivery) in place.
@@ -439,7 +439,7 @@ describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
     const egress = new InMemoryEgressSink();
     const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
     let ran = false;
     bot.onThreadStarted(async ({ thread }) => {
@@ -457,7 +457,7 @@ describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
     const egress = new InMemoryEgressSink();
     const bot = createChannel({
       adapters: [intelligenceAdapter({ source, egress })],
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
     let seenEmoji = "";
     bot.onReaction(async (evt) => {
@@ -486,7 +486,7 @@ describe("intelligenceAdapter — exclusivity (V1)", () => {
     expect(() =>
       createChannel({
         adapters: [ia(), new FakeAdapter()],
-        agent: () => new FakeAgent(),
+        agent: new FakeAgent(),
       }),
     ).toThrow(/only adapter|alternative modes/i);
   });
@@ -494,7 +494,7 @@ describe("intelligenceAdapter — exclusivity (V1)", () => {
   it("rejects adding a second adapter to a Channel Bot", () => {
     const bot = createChannel({
       adapters: [ia()],
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
     expect(() => bot.addAdapter(new FakeAdapter())).toThrow(
       /only adapter|alternative modes/i,
@@ -504,7 +504,7 @@ describe("intelligenceAdapter — exclusivity (V1)", () => {
   it("rejects adding intelligenceAdapter to a bot that already has an adapter", () => {
     const bot = createChannel({
       adapters: [new FakeAdapter()],
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
     expect(() => bot.addAdapter(ia())).toThrow(
       /only adapter|alternative modes/i,

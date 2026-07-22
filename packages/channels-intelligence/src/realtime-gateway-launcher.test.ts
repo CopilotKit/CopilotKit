@@ -82,7 +82,7 @@ describe("startChannelsWithGatewaySession — Channel runtime over Realtime Gate
     let ran = false;
     const bot = createChannel({
       name: "opentag",
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
     bot.onMessage(async ({ thread }) => {
       ran = true;
@@ -115,7 +115,7 @@ describe("startChannelsWithGatewaySession — Channel runtime over Realtime Gate
     const fake = makeFakeSession();
     const bot = createChannel({
       name: "opentag",
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
     bot.onMessage(async () => {
       throw new Error("boom");
@@ -154,7 +154,7 @@ describe("startChannelsOverRealtimeGateway — fail-fast validation (OSS-406)", 
     }
     const bot = createChannel({
       name: "opentag",
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
 
     await expect(
@@ -180,8 +180,8 @@ describe("startChannelsOverRealtimeGateway — fail-fast validation (OSS-406)", 
         );
       }
     }
-    const a = createChannel({ name: "dupe", agent: () => new FakeAgent() });
-    const b = createChannel({ name: "dupe", agent: () => new FakeAgent() });
+    const a = createChannel({ name: "dupe", agent: new FakeAgent() });
+    const b = createChannel({ name: "dupe", agent: new FakeAgent() });
 
     await expect(
       startChannelsOverRealtimeGateway([a, b], {
@@ -206,8 +206,8 @@ describe("startChannelsOverRealtimeGateway — fail-fast validation (OSS-406)", 
         );
       }
     }
-    const a = createChannel({ name: "one", agent: () => new FakeAgent() });
-    const b = createChannel({ name: "two", agent: () => new FakeAgent() });
+    const a = createChannel({ name: "one", agent: new FakeAgent() });
+    const b = createChannel({ name: "two", agent: new FakeAgent() });
 
     await expect(
       startChannelsOverRealtimeGateway([a, b], {
@@ -224,8 +224,8 @@ describe("startChannelsOverRealtimeGateway — fail-fast validation (OSS-406)", 
 
   it("startChannelsWithGatewaySession also rejects >1 Channel (shared-transport misrouting guard)", async () => {
     const fake = makeFakeSession();
-    const a = createChannel({ name: "one", agent: () => new FakeAgent() });
-    const b = createChannel({ name: "two", agent: () => new FakeAgent() });
+    const a = createChannel({ name: "one", agent: new FakeAgent() });
+    const b = createChannel({ name: "two", agent: new FakeAgent() });
 
     await expect(
       startChannelsWithGatewaySession([a, b], {
@@ -295,7 +295,7 @@ describe("startChannelsWithGatewaySession — activation metadata (OSS-406)", ()
     const fake = makeFakeSession();
     const bot = createChannel({
       name: "opentag",
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
 
     const handle = await startChannelsWithGatewaySession([bot], {
@@ -316,7 +316,7 @@ describe("startChannelsWithGatewaySession — activation metadata (OSS-406)", ()
     const fake = makeFakeSession();
     const bot = createChannel({
       name: "opentag",
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
 
     const handle = await startChannelsWithGatewaySession([bot], {
@@ -401,7 +401,7 @@ describe("startChannelsOverRealtimeGateway — socket lifecycle cleanup (OSS-406
     const { FakeWebSocket, instances } = makeFakeWebSocket("never");
     const bot = createChannel({
       name: "opentag",
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
 
     await expect(
@@ -423,7 +423,7 @@ describe("startChannelsOverRealtimeGateway — socket lifecycle cleanup (OSS-406
     const { FakeWebSocket, instances } = makeFakeWebSocket("error");
     const bot = createChannel({
       name: "opentag",
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
 
     await expect(
@@ -449,7 +449,7 @@ describe("startChannelsOverRealtimeGateway — socket lifecycle cleanup (OSS-406
     const started = makeFakeSession();
     const bot = createChannel({
       name: "opentag",
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
     const first = await startChannelsWithGatewaySession([bot], {
       session: started.session,
@@ -480,7 +480,7 @@ describe("startChannelsOverRealtimeGateway — onClose drop notification (OSS-47
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const bot = createChannel({
       name: "opentag",
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
 
     const handle = await startChannelsOverRealtimeGateway([bot], {
@@ -508,7 +508,7 @@ describe("startChannelsOverRealtimeGateway — onClose drop notification (OSS-47
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const bot = createChannel({
       name: "opentag",
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
 
     const handle = await startChannelsOverRealtimeGateway([bot], {
@@ -545,7 +545,7 @@ describe("startChannelsWithGatewaySession — onClose passthrough (OSS-473)", ()
     };
     const bot = createChannel({
       name: "opentag",
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
 
     const handle = await startChannelsWithGatewaySession([bot], {
@@ -569,7 +569,7 @@ describe("startChannelsWithGatewaySession — onClose passthrough (OSS-473)", ()
     const fake = makeFakeSession();
     const bot = createChannel({
       name: "opentag",
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
 
     const handle = await startChannelsWithGatewaySession([bot], {
@@ -605,7 +605,7 @@ describe("startChannelsWithGatewaySession — onClose passthrough (OSS-473)", ()
     const classBasedSession = new ClassBasedSession();
     const bot = createChannel({
       name: "opentag",
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
 
     const handle = await startChannelsWithGatewaySession([bot], {

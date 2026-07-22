@@ -15,14 +15,14 @@ import {
 
 describe("assertValidChannelNames", () => {
   it("throws when a bot has no name", () => {
-    const bot = createChannel({ agent: () => new FakeAgent() });
+    const bot = createChannel({ agent: new FakeAgent() });
     expect(() => assertValidChannelNames([bot])).toThrow(/name/i);
   });
 
   it("throws on a non-channel name", () => {
     const bot = createChannel({
       name: "Bad Name!",
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
     expect(() => assertValidChannelNames([bot])).toThrow(
       /channel name|invalid/i,
@@ -30,15 +30,15 @@ describe("assertValidChannelNames", () => {
   });
 
   it("throws on duplicate names", () => {
-    const a = createChannel({ name: "support", agent: () => new FakeAgent() });
-    const b = createChannel({ name: "support", agent: () => new FakeAgent() });
+    const a = createChannel({ name: "support", agent: new FakeAgent() });
+    const b = createChannel({ name: "support", agent: new FakeAgent() });
     expect(() => assertValidChannelNames([a, b])).toThrow(/duplicate/i);
   });
 
   it("rejects uppercase channel names", () => {
     const bot = createChannel({
       name: "Support",
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
     expect(() => assertValidChannelNames([bot])).toThrow(
       /lowercase kebab-case/i,
@@ -48,7 +48,7 @@ describe("assertValidChannelNames", () => {
   it("rejects the reserved channels name", () => {
     const bot = createChannel({
       name: "channels",
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
     expect(() => assertValidChannelNames([bot])).toThrow(/reserved/i);
   });
@@ -56,17 +56,17 @@ describe("assertValidChannelNames", () => {
   it("accepts valid unique channel names", () => {
     const a = createChannel({
       name: "support-bot",
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
-    const b = createChannel({ name: "triage-2", agent: () => new FakeAgent() });
+    const b = createChannel({ name: "triage-2", agent: new FakeAgent() });
     expect(() => assertValidChannelNames([a, b])).not.toThrow();
   });
 });
 
 describe("buildChannelActivationMetadata", () => {
   it("includes declared channel names and the provided env", () => {
-    const a = createChannel({ name: "support", agent: () => new FakeAgent() });
-    const b = createChannel({ name: "triage", agent: () => new FakeAgent() });
+    const a = createChannel({ name: "support", agent: new FakeAgent() });
+    const b = createChannel({ name: "triage", agent: new FakeAgent() });
     const meta = buildChannelActivationMetadata([a, b], {
       runtimeEnv: "production",
       nodeVersion: "v20",
@@ -79,7 +79,7 @@ describe("buildChannelActivationMetadata", () => {
   });
 
   it("includes each channel's declared command names", () => {
-    const a = createChannel({ name: "support", agent: () => new FakeAgent() });
+    const a = createChannel({ name: "support", agent: new FakeAgent() });
     a.onCommand("triage", async () => {});
     const meta = buildChannelActivationMetadata([a], { runtimeEnv: "test" });
     expect(meta.declaredChannels).toEqual([
@@ -122,8 +122,8 @@ describe("resolveChannelActivationEnv", () => {
 
 describe("startChannels", () => {
   it("validates, wires each Channel with a channel adapter, and routes delivery per channel", async () => {
-    const a = createChannel({ name: "support", agent: () => new FakeAgent() });
-    const b = createChannel({ name: "triage", agent: () => new FakeAgent() });
+    const a = createChannel({ name: "support", agent: new FakeAgent() });
+    const b = createChannel({ name: "triage", agent: new FakeAgent() });
     const aPosted: string[] = [];
     const bPosted: string[] = [];
     a.onMessage(async ({ thread }) => {
@@ -176,7 +176,7 @@ describe("startChannels", () => {
   it("forwards renderSink so channel runtime streams rich render frames", async () => {
     const bot = createChannel({
       name: "support",
-      agent: () => new FakeAgent(),
+      agent: new FakeAgent(),
     });
     bot.onMessage(async ({ thread }) => {
       await thread.post(Section({ children: "A" }));
@@ -210,7 +210,7 @@ describe("startChannels", () => {
   });
 
   it("throws on invalid names before wiring anything", async () => {
-    const a = createChannel({ agent: () => new FakeAgent() }); // no name
+    const a = createChannel({ agent: new FakeAgent() }); // no name
     await expect(
       startChannels({
         channels: [a],
@@ -224,8 +224,8 @@ describe("startChannels", () => {
   });
 
   it("rolls back already-started bots when a later bot fails to start", async () => {
-    const a = createChannel({ name: "support", agent: () => new FakeAgent() });
-    const b = createChannel({ name: "triage", agent: () => new FakeAgent() });
+    const a = createChannel({ name: "support", agent: new FakeAgent() });
+    const b = createChannel({ name: "triage", agent: new FakeAgent() });
     const stopA = vi.spyOn(a, "stop");
     await expect(
       startChannels({
