@@ -73,19 +73,30 @@ graph = create_agent(
 <Step>
 ### Access context in your agent nodes
 
-The context is available through the standard LangGraph `config` parameter. The middleware makes it accessible via `config["context"]` (LangGraph 0.6.0+) with automatic fallback to `config["configurable"]` for older versions:
+The context published via `useAgentContext` is accessible through the agent `state` parameter. The middleware stores it at `state["copilotkit"]["context"]` and also automatically injects it into the conversation as a SystemMessage for the LLM to read.
+
+**For programmatic access** (e.g., auth tokens, API calls):
 
 ```python title="agent_node.py"
-from langchain_core.runnables import RunnableConfig
 from typing import Any
 
-async def agent_node(state: AgentState, config: RunnableConfig) -> AgentState:
+async def agent_node(state: AgentState) -> AgentState:
     # Access the context published from useAgentContext
-    context = config.get("context", {}) or config.get("configurable", {})
+    copilotkit_state = state.get("copilotkit", {})
+    context_entries = copilotkit_state.get("context", [])
     
-    auth_token = context.get("authToken")
-    user_preference = context.get("userPreference")
-    session_id = context.get("sessionId")
+    # Extract values from context entries
+    # Each entry has {"description": "...", "value": {...}}
+    auth_token = None
+    user_preference = None
+    session_id = None
+    
+    for entry in context_entries:
+        value = entry.get("value", {})
+        if isinstance(value, dict):
+            auth_token = value.get("authToken") or auth_token
+            user_preference = value.get("userPreference") or user_preference
+            session_id = value.get("sessionId") or session_id
     
     # Use the context values in your agent logic
     if auth_token:
@@ -95,8 +106,13 @@ async def agent_node(state: AgentState, config: RunnableConfig) -> AgentState:
     return state
 ```
 
-<Callout type="info" title="Compatibility">
-  The `CopilotKitMiddleware` handles both LangGraph 0.6.0+ (`context`) and older versions (`configurable`) automatically, so your agent code works across versions.
+**For LLM-accessible context** (e.g., user preferences, instructions):
+
+The `CopilotKitMiddleware` automatically injects context as a SystemMessage, so the LLM can read and respond to it naturally without explicit extraction code. This is ideal for configuration that affects how the LLM responds (tone, style, expertise level, etc.).
+
+<Callout type="tip" title="When to use each approach">
+  - Use **state access** when you need to programmatically use values in Python code (auth tokens, API keys, user IDs)
+  - Use **LLM injection** (automatic via middleware) when you want the model to adapt its responses based on user preferences
 </Callout>
 </Step>
 </Steps>

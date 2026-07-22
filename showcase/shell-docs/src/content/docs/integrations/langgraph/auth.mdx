@@ -132,14 +132,20 @@ function YourApp() {
 ### Access User in Agent
 
 ```python
-from langchain_core.runnables import RunnableConfig
-
-async def my_agent_node(state: AgentState, config: RunnableConfig):
-    # Access context with LangGraph 0.6.0+ compatibility
-    context = config.get("context", {}) or config.get("configurable", {})
+async def my_agent_node(state: AgentState):
+    # Access context from state (published via useAgentContext)
+    copilotkit_state = state.get("copilotkit", {})
+    context_entries = copilotkit_state.get("context", [])
     
-    auth_token = context.get("authToken")
-    user_id = context.get("userId", "anonymous")
+    # Extract auth values from context entries
+    auth_token = None
+    user_id = "anonymous"
+    
+    for entry in context_entries:
+        value = entry.get("value", {})
+        if isinstance(value, dict):
+            auth_token = value.get("authToken") or auth_token
+            user_id = value.get("userId") or user_id
     
     if auth_token:
         user_info = validate_your_token(auth_token)
@@ -152,7 +158,7 @@ async def my_agent_node(state: AgentState, config: RunnableConfig):
 ```
 
 <Callout type="tip" title="Why this pattern?">
-  The `CopilotKitMiddleware` automatically reads context from both `config["context"]` (LangGraph 0.6.0+) and `config["configurable"]` (older versions), providing seamless compatibility across LangGraph versions.
+  The `CopilotKitMiddleware` stores context entries in `state["copilotkit"]["context"]`, making them accessible in your agent nodes for programmatic use (like authentication). The middleware also injects the context as a SystemMessage for the LLM to read.
 </Callout>
 
 ## Universal Authentication Pattern
@@ -174,9 +180,15 @@ async def my_agent_node(state: AgentState, config: RunnableConfig):
 
     # Self-hosted mode with CopilotKitMiddleware
     else:
-        # Check both context (LangGraph 0.6.0+) and configurable (fallback)
-        context = config.get("context", {}) or config.get("configurable", {})
-        auth_token = context.get("authToken")
+        # Access context from state (published via useAgentContext)
+        copilotkit_state = state.get("copilotkit", {})
+        context_entries = copilotkit_state.get("context", [])
+        
+        auth_token = None
+        for entry in context_entries:
+            value = entry.get("value", {})
+            if isinstance(value, dict):
+                auth_token = value.get("authToken") or auth_token
         
         if auth_token:
             user_info = validate_your_token(auth_token)
