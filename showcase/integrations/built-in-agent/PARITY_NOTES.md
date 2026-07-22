@@ -232,18 +232,24 @@ Fix (infra, not BIA): redeploy `showcase-aimock` from an aimock build that
 includes `context` matching (present on aimock `origin/main`). CI/staging that
 run a context-aware aimock will show these GREEN.
 
-## Downstream renderer/host RED (not NSF)
+## declarative-gen-ui and mcp-apps — RESOLVED to GREEN (not NSF)
 
-Kept as `features:` (wired + supported); the RED is downstream of the
-integration layer and informational (D6 is weekly/informational). Mirrors LGP.
+Both were earlier suspected downstream-host RED; per-demo probes against a
+context-scoped aimock prove otherwise — both are GREEN:
 
-- `declarative-gen-ui` — `generate_a2ui` fires with a valid 59 KB stream and
-  surface labels appear in the DOM, but the A2UI renderer host never projects
-  the `declarative-card` / `declarative-metric` testids. Same class as the
-  `a2ui-fixed-schema` renderer-host note above.
-- `mcp-apps` — the fixture matches but the MCP Apps iframe host never mounts
-  `[data-testid="mcp-app-iframe"]`; depends on a reachable MCP server +
-  activity-renderer host, not fixture content.
+- `declarative-gen-ui` — GREEN with **no change**. The earlier RED was purely
+  cross-slug fixture shadowing (see the aimock section above); `a2ui-fixed-schema`
+  passes on the same A2UI renderer host, so the host was never the problem. All
+  four pills render their catalog testids and assertions pass.
+- `mcp-apps` — GREEN after a fixture fix. Root cause: excalidraw's MCP
+  `create_view` tool declares its `elements` param as a **string** (JSON-encoded
+  array) in its `inputSchema`, but the fixtures emitted a raw JSON **array**. BIA
+  declares the injected MCP tool locally via `jsonSchemaToZod` → `z.string()`, so
+  the array arg failed input validation, the tool never executed against
+  excalidraw, no `ACTIVITY_SNAPSHOT` fired, and the iframe never mounted. Fix:
+  emit `elements` as a JSON string (in `tool-rendering-reasoning-chain.json`'s
+  `create_view` entry, and the flowchart entry in `mcp-apps.json`). The external
+  MCP server IS reachable from the demo container — not an external blocker.
 
 ## When to update this file
 
@@ -251,6 +257,3 @@ integration layer and informational (D6 is weekly/informational). Mirrors LGP.
 - Lifting a manifest quarantine → remove the corresponding entry above and flip
   `not_supported_features` in `manifest.yaml` in the same commit.
 - Adding an NSF banner → list the demo + testid here.
-- Finalizing the PENDING D6 CONFIRMATION candidates (`declarative-gen-ui`,
-  `mcp-apps`) → move them into `not_supported_features` (and out of `features`)
-  or drop the pending comment, in lockstep with this file.

@@ -64,17 +64,14 @@ features:
   - voice
   - agent-config
   - threadid-frontend-tool-roundtrip
-# CONFIRMED downstream-host RED — kept as `features:` (wired + supported), NOT
-# NSF. The integration layer is correct (byte-identical frontend, named agent,
-# fixture fires with a valid stream); the RED is DOWNSTREAM of the integration
-# and is informational (D6 is weekly/informational, not a merge gate). This
-# mirrors LGP, which also keeps these as features rather than quarantining
-# them. See PARITY_NOTES.md → "Downstream renderer/host RED (not NSF)":
-#   - declarative-gen-ui — A2UI dynamic renderer-host must project the v0.9 op
-#     envelope into DOM; verified the generate_a2ui stream fires (59 KB, labels
-#     present) but declarative-card/-metric testids never mount.
-#   - mcp-apps          — MCP Apps iframe host must mount the sandboxed iframe;
-#     the fixture matches but [data-testid="mcp-app-iframe"] never mounts.
+# All features above are D6-GREEN locally when aimock is scoped to this
+# integration's own fixtures (verified with per-demo probes). declarative-gen-ui
+# and mcp-apps — earlier suspected downstream-host RED — are in fact green:
+# declarative-gen-ui was purely cross-slug fixture shadowing (a2ui-fixed-schema
+# passes on the same renderer host), and mcp-apps needed a fixture fix (the
+# excalidraw create_view `elements` arg must be a JSON string, not a raw array).
+# See PARITY_NOTES.md → "Local D6 environment blocker (aimock context scoping)"
+# for the shadowing caveat that requires a context-aware aimock.
 not_supported_features:
   - hitl
   - shared-state-streaming
