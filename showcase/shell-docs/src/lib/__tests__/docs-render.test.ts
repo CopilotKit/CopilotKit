@@ -4,9 +4,13 @@ import path from "path";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-vi.mock("../registry", () => ({
-  getDocsMode: () => "generated",
-}));
+vi.mock("../registry", async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    getDocsMode: () => "generated",
+  };
+});
 
 import {
   buildFrameworkNav,
@@ -23,6 +27,7 @@ import type { NavNode } from "../docs-render";
 import { buildCookbookNavTree } from "../cookbook-nav";
 import { navTreeToPageTree } from "../page-tree-bridge";
 import { buildReferencePageTree } from "../reference-items";
+import { getDocsFolder, getIntegrations } from "../registry";
 
 let tempDir = "";
 
@@ -70,32 +75,25 @@ function hasPageTitle(navTree: NavNode[], page: string): boolean {
   });
 }
 
-function groupPageTitles(navTree: NavNode[], groupTitle: string): string[] {
+type NavPageEntry = { title: string; slug: string };
+
+function groupPageEntries(
+  navTree: NavNode[],
+  groupTitle: string,
+): NavPageEntry[] {
   for (const node of navTree) {
     if (node.type !== "group") continue;
     if (node.title === groupTitle) {
-      return node.children.flatMap((child) =>
-        child.type === "page" ? [child.title] : [],
-      );
+      if (node.children.some((child) => child.type !== "page")) {
+        throw new Error(`${groupTitle} must contain only direct page entries`);
+      }
+      return node.children.map((child) => {
+        if (child.type !== "page") throw new Error("expected page entry");
+        return { title: child.title, slug: child.slug };
+      });
     }
 
-    const nested = groupPageTitles(node.children, groupTitle);
-    if (nested.length > 0) return nested;
-  }
-
-  return [];
-}
-
-function groupPageSlugs(navTree: NavNode[], groupTitle: string): string[] {
-  for (const node of navTree) {
-    if (node.type !== "group") continue;
-    if (node.title === groupTitle) {
-      return node.children.flatMap((child) =>
-        child.type === "page" ? [child.slug] : [],
-      );
-    }
-
-    const nested = groupPageSlugs(node.children, groupTitle);
+    const nested = groupPageEntries(node.children, groupTitle);
     if (nested.length > 0) return nested;
   }
 
@@ -493,29 +491,39 @@ describe("framework nav", () => {
       "LangGraph (Python)",
       "langgraph-python",
     );
-    const authoredNav = buildFrameworkOnlyNav("mastra");
-    const builtInNav = buildFrameworkOnlyNav("built-in-agent");
-    const deepAgentsNav = buildFrameworkOnlyNav("deepagents");
-
     const expected = [
-      "Overview",
-      "Threads Drawer",
-      "Headless Threads",
-      "Thread & History Lifecycle",
-      "Synchronize Thread History",
-      "Threads & Persistence Architecture",
+      { title: "Overview", slug: "threads" },
+      {
+        title: "Threads Drawer",
+        slug: "prebuilt-components/copilot-threads-drawer",
+      },
+      { title: "Headless Threads", slug: "headless-threads" },
+      { title: "Thread & History Lifecycle", slug: "threads-lifecycle" },
+      { title: "Synchronize Thread History", slug: "threads-import" },
+      {
+        title: "Threads & Persistence Architecture",
+        slug: "premium/threads-explained",
+      },
+    ];
+    const withoutDrawer = expected.filter(
+      (entry) => entry.title !== "Threads Drawer",
+    );
+
+    expect(groupPageEntries(generatedNav, "Rich Threads")).toEqual(expected);
+
+    const authoredFolders = [
+      ...new Set(
+        getIntegrations()
+          .filter((integration) => integration.docs_mode === "authored")
+          .map((integration) => getDocsFolder(integration.slug)),
+      ),
     ];
 
-    expect(groupPageTitles(generatedNav, "Rich Threads")).toEqual(expected);
-    expect(groupPageTitles(authoredNav, "Rich Threads")).toEqual(expected);
-    expect(groupPageTitles(builtInNav, "Rich Threads")).toEqual(expected);
-    expect(groupPageTitles(deepAgentsNav, "Rich Threads")).toEqual([
-      "Overview",
-      "Headless Threads",
-      "Thread & History Lifecycle",
-      "Synchronize Thread History",
-      "Threads & Persistence Architecture",
-    ]);
+    for (const folder of authoredFolders) {
+      expect(
+        groupPageEntries(buildFrameworkOnlyNav(folder), "Rich Threads"),
+      ).toEqual(folder === "deepagents" ? withoutDrawer : expected);
+    }
   });
 
   it("keeps the thread synchronization route while preserving source-specific guides", () => {
@@ -539,18 +547,10 @@ describe("framework nav", () => {
       "LangGraph (Python)",
       "langgraph-python",
     );
-    const authoredNav = buildFrameworkOnlyNav("mastra");
-    const builtInNav = buildFrameworkOnlyNav("built-in-agent");
-
-    expect(groupPageSlugs(generatedNav, "Rich Threads")).toContain(
-      "threads-import",
-    );
-    expect(groupPageSlugs(authoredNav, "Rich Threads")).toContain(
-      "threads-import",
-    );
-    expect(groupPageSlugs(builtInNav, "Rich Threads")).toContain(
-      "threads-import",
-    );
+    expect(groupPageEntries(generatedNav, "Rich Threads")).toContainEqual({
+      title: "Synchronize Thread History",
+      slug: "threads-import",
+    });
   });
 
   it("documents destination credentials without claiming project metadata is imported", () => {
