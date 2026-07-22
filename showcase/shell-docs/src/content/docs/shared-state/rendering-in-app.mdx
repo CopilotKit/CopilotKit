@@ -29,19 +29,22 @@ export function Canvas() {
   const state = (agent.state ?? {}) as Partial<CanvasState>;
 
   // Seed initial state so the canvas has content before the agent runs.
-  // Skip if state is already populated (e.g., restored from a previous session).
+  // Check each field independently so we don't overwrite existing values.
   useEffect(() => {
+    const updates: Partial<CanvasState> = {};
     if (!state.title) {
-      agent.setState({
-        ...agent.state,
-        title: "My Canvas",
-        items: [
-          { id: "1", label: "First item", done: false },
-          { id: "2", label: "Second item", done: true },
-        ],
-      } satisfies CanvasState);
+      updates.title = "My Canvas";
     }
-  }, [agent, state.title]);
+    if (!state.items || state.items.length === 0) {
+      updates.items = [
+        { id: "1", label: "First item", done: false },
+        { id: "2", label: "Second item", done: true },
+      ];
+    }
+    if (Object.keys(updates).length > 0) {
+      agent.setState({ ...agent.state, ...updates });
+    }
+  }, [agent, state.title, state.items]);
 
   return (
     <main className="canvas">
