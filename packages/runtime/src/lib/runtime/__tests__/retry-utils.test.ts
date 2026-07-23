@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fetchWithRetry, parseRetryAfter, RETRY_CONFIG } from "../retry-utils";
+import {
+  fetchWithRetry,
+  parseRetryAfter,
+  RETRY_CONFIG,
+  RetryAfterExceededError,
+} from "../retry-utils";
 
 function responseWithRetryAfter(
   headerValue: string | null,
@@ -93,7 +98,7 @@ describe("fetchWithRetry Retry-After handling (#3637)", () => {
     fetchMock.mockResolvedValue(responseWithRetryAfter(String(excessive)));
 
     // The oversized-Retry-After branch throws before sleeping, and the
-    // resulting Error doesn't match any retryable pattern, so the loop
+    // resulting error doesn't match any retryable pattern, so the loop
     // breaks out without consuming the remaining attempts.
     await expect(fetchWithRetry("https://example.com", {})).rejects.toThrow(
       new RegExp(
@@ -101,6 +106,25 @@ describe("fetchWithRetry Retry-After handling (#3637)", () => {
       ),
     );
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("throws a RetryAfterExceededError with the parsed delay and response", async () => {
+    const excessive = RETRY_CONFIG.maxRetryAfterSeconds + 600;
+    fetchMock.mockResolvedValue(responseWithRetryAfter(String(excessive)));
+
+    // Callers handling rate-limit quota exhaustion should be able to
+    // discriminate on the error type and read the reset timing without
+    // re-parsing the original response.
+    const error = await fetchWithRetry("https://example.com", {}).catch(
+      (e: unknown) => e,
+    );
+
+    expect(error).toBeInstanceOf(RetryAfterExceededError);
+    const typed = error as RetryAfterExceededError;
+    expect(typed.retryAfterMs).toBe(excessive * 1000);
+    expect(typed.response).toBeInstanceOf(Response);
+    expect(typed.response.status).toBe(429);
+    expect(typed.response.headers.get("Retry-After")).toBe(String(excessive));
   });
 
   it("falls back to exponential backoff when Retry-After is missing on 429", async () => {

@@ -74,6 +74,25 @@ export function calculateDelay(attempt: number): number {
   return Math.min(delay, RETRY_CONFIG.maxDelayMs);
 }
 
+/**
+ * Thrown when a 429 response asks for a Retry-After delay that exceeds
+ * `RETRY_CONFIG.maxRetryAfterSeconds`. Signals quota exhaustion (STOP)
+ * rather than a transient retryable failure, and carries the requested
+ * reset timing so callers can decide whether to wait or abort.
+ */
+export class RetryAfterExceededError extends Error {
+  constructor(
+    message: string,
+    /** Retry-After delay in milliseconds, as parsed from the response. */
+    public readonly retryAfterMs: number,
+    /** The 429 response that triggered this error. */
+    public readonly response: Response,
+  ) {
+    super(message);
+    this.name = "RetryAfterExceededError";
+  }
+}
+
 // Retry wrapper for fetch requests
 export async function fetchWithRetry(
   url: string,
@@ -99,9 +118,11 @@ export async function fetchWithRetry(
           if (retryAfterMs !== undefined) {
             const maxMs = RETRY_CONFIG.maxRetryAfterSeconds * 1000;
             if (retryAfterMs > maxMs) {
-              throw new Error(
+              throw new RetryAfterExceededError(
                 `Server requested Retry-After of ${Math.ceil(retryAfterMs / 1000)}s ` +
                   `which exceeds the maximum of ${RETRY_CONFIG.maxRetryAfterSeconds}s`,
+                retryAfterMs,
+                response,
               );
             }
             delay = retryAfterMs;
