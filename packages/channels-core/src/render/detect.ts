@@ -12,23 +12,44 @@ export function isReactElement(v: unknown): boolean {
   return t === REACT_ELEMENT || t === REACT_TRANSITIONAL;
 }
 
-/**
- * True when `v` is arbitrary JSX that must render as an image: a React element,
- * or a `ChannelNode` whose `type` is an unbranded function (an app component
- * authored inside a channels-pragma file). Everything channels-ui produces
- * (string types, `Fragment`, branded component fns) stays on the native path.
- */
-export function isArbitraryJsx(v: unknown): boolean {
-  if (isReactElement(v)) return true;
-  if (
+function isFnTypeNode(v: unknown): v is {
+  type: (p: Record<string, unknown>) => unknown;
+  props: Record<string, unknown>;
+} {
+  return (
     typeof v === "object" &&
     v !== null &&
     "type" in v &&
     "props" in v &&
-    !("$$typeof" in v)
-  ) {
-    const t = (v as ChannelNode).type;
-    return typeof t === "function" && !isChannelComponent(t);
+    !("$$typeof" in v) &&
+    typeof (v as ChannelNode).type === "function"
+  );
+}
+
+/**
+ * Resolve a `post()` argument to the React element that must be rendered as an
+ * image, or `null` when it belongs on the native channel path.
+ *
+ * - A React element (app JSX authored in a react-pragma file) → image as-is.
+ * - A `{type: fn}` node whose fn is a first-party channels-ui component
+ *   (branded) → native, no peek.
+ * - Any other `{type: fn}` node → peek: call the fn once; if it returns a React
+ *   element the component is app JSX (→ image); if it returns channel nodes, or
+ *   throws (e.g. it uses React hooks), it is a native component (→ null, native).
+ *
+ * Peeking calls a presentational component once for classification; the native
+ * path then calls it again during binding. This double call is acceptable for
+ * the pure, presentational components this targets.
+ */
+export function resolveArbitraryElement(v: unknown): unknown | null {
+  if (isReactElement(v)) return v;
+  if (isFnTypeNode(v) && !isChannelComponent(v.type)) {
+    try {
+      const out = v.type(v.props ?? {});
+      if (isReactElement(out)) return out;
+    } catch {
+      /* couldn't render statically → fall through to the native path */
+    }
   }
-  return false;
+  return null;
 }
