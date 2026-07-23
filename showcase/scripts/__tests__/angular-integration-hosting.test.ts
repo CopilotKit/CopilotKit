@@ -154,9 +154,14 @@ test("keeps the exhaustive Angular audit opt-in, complete, and fail-closed", asy
   expect(workflow).toContain(
     "ref: ${{ github.event.pull_request.head.sha || github.sha }}",
   );
-  expect(workflow).toContain("Run every paired Chromium cell");
+  expect(workflow).toContain("--min-shards 4");
+  expect(workflow).toContain("--max-shards 4");
+  expect(workflow).toContain("Start four isolated integration containers");
+  expect(workflow).toContain("Run four isolated Chromium shards");
+  expect(workflow).toContain("for shard in 0 1 2 3");
   expect(workflow).toContain('--feature-contract-revision "$SOURCE_SHA"');
   expect(workflow).toContain("--concurrency 1");
+  expect(workflow).toContain(')" = "80"');
   expect(workflow).toContain("frontend-matrix-ci.ts aggregate");
   expect(workflow).toContain(
     '.summary.total "$RUNNER_TEMP/angular-audit-final.json")" = "1296"',

@@ -134,8 +134,8 @@ jobs:
           pnpm --dir showcase/scripts exec tsx generate-registry.ts
           pnpm --dir showcase/harness exec tsx src/cli/frontend-matrix-ci.ts plan \
             --integration "$INTEGRATION" \
-            --min-shards 1 \
-            --max-shards 1 \
+            --min-shards 4 \
+            --max-shards 4 \
             --output "$RUNNER_TEMP/angular-audit-plan.json"
 
       - name: Stage shared sources and the Angular artifact
@@ -179,82 +179,116 @@ jobs:
           echo "Branch-local fixture sidecar did not become ready" >&2
           exit 1
 
-      - name: Start the existing integration image
+      - name: Start four isolated integration containers
         env:
           INTEGRATION: ${{ matrix.integration }}
           SOURCE_SHA: ${{ needs.build-angular.outputs.source_sha }}
         run: |
           SECRET_SENTINEL="angular-audit-secret-$SOURCE_SHA"
           echo "SECRET_SENTINEL=$SECRET_SENTINEL" >> "$GITHUB_ENV"
-          docker run --detach \
-            --name angular-audit-integration \
-            --add-host host.docker.internal:host-gateway \
-            --publish 10000:10000 \
-            --env OPENAI_API_KEY=sk-mock \
-            --env OPENAI_BASE_URL=http://host.docker.internal:4010/v1 \
-            --env ANTHROPIC_API_KEY=sk-mock-anthropic \
-            --env ANTHROPIC_BASE_URL=http://host.docker.internal:4010 \
-            --env GOOGLE_API_KEY=fake-gemini-key \
-            --env GOOGLE_GEMINI_BASE_URL=http://host.docker.internal:4010 \
-            --env SPRING_AI_OPENAI_BASE_URL=http://host.docker.internal:4010 \
-            --env AIMOCK_URL=http://host.docker.internal:4010 \
-            --env GitHubToken=gh-mock-ci \
-            --env "SHOWCASE_PROOF_SECRET=$SECRET_SENTINEL" \
-            --env 'LANGGRAPH_HTTP={"configurable_headers":{"include":["x-*"]}}' \
-            "angular-audit-$INTEGRATION:$SOURCE_SHA"
+          for shard in 0 1 2 3; do
+            port=$((10000 + shard))
+            docker run --detach \
+              --name "angular-audit-integration-$shard" \
+              --add-host host.docker.internal:host-gateway \
+              --publish "$port:10000" \
+              --env OPENAI_API_KEY=sk-mock \
+              --env OPENAI_BASE_URL=http://host.docker.internal:4010/v1 \
+              --env ANTHROPIC_API_KEY=sk-mock-anthropic \
+              --env ANTHROPIC_BASE_URL=http://host.docker.internal:4010 \
+              --env GOOGLE_API_KEY=fake-gemini-key \
+              --env GOOGLE_GEMINI_BASE_URL=http://host.docker.internal:4010 \
+              --env SPRING_AI_OPENAI_BASE_URL=http://host.docker.internal:4010 \
+              --env AIMOCK_URL=http://host.docker.internal:4010 \
+              --env GitHubToken=gh-mock-ci \
+              --env "SHOWCASE_PROOF_SECRET=$SECRET_SENTINEL" \
+              --env 'LANGGRAPH_HTTP={"configurable_headers":{"include":["x-*"]}}' \
+              "angular-audit-$INTEGRATION:$SOURCE_SHA"
+          done
           for _ in $(seq 1 90); do
-            if curl --fail --silent --max-time 2 http://127.0.0.1:10000/api/health > /dev/null; then
+            ready=0
+            for shard in 0 1 2 3; do
+              port=$((10000 + shard))
+              if curl --fail --silent --max-time 2 "http://127.0.0.1:$port/api/health" > /dev/null; then
+                ready=$((ready + 1))
+              fi
+            done
+            if [ "$ready" = "4" ]; then
               exit 0
             fi
             sleep 2
           done
-          docker logs angular-audit-integration
-          echo "Integration image did not become ready" >&2
+          for shard in 0 1 2 3; do
+            docker logs "angular-audit-integration-$shard"
+          done
+          echo "One or more integration containers did not become ready" >&2
           exit 1
 
-      - name: Run every paired Chromium cell
+      - name: Run four isolated Chromium shards
         env:
           INTEGRATION: ${{ matrix.integration }}
           SOURCE_SHA: ${{ needs.build-angular.outputs.source_sha }}
         run: |
           IMAGE_REVISION=$(cat "$RUNNER_TEMP/container-image-revision.txt")
-          pnpm --dir showcase/harness exec tsx src/cli/frontend-matrix-ci.ts run \
-            --plan "$RUNNER_TEMP/angular-audit-plan.json" \
-            --shard-index 0 \
-            --integration "$INTEGRATION" \
-            --integration-base-url http://127.0.0.1:10000 \
-            --source-commit "$SOURCE_SHA" \
-            --container-image-revision "$IMAGE_REVISION" \
-            --fixture-revision "$SOURCE_SHA" \
-            --feature-contract-revision "$SOURCE_SHA" \
-            --concurrency 1 \
-            --output "$RUNNER_TEMP/angular-audit-$INTEGRATION.json"
+          pids=()
+          for shard in 0 1 2 3; do
+            port=$((10000 + shard))
+            (
+              pnpm --dir showcase/harness exec tsx src/cli/frontend-matrix-ci.ts run \
+                --plan "$RUNNER_TEMP/angular-audit-plan.json" \
+                --shard-index "$shard" \
+                --integration "$INTEGRATION" \
+                --integration-base-url "http://127.0.0.1:$port" \
+                --source-commit "$SOURCE_SHA" \
+                --container-image-revision "$IMAGE_REVISION" \
+                --fixture-revision "$SOURCE_SHA" \
+                --feature-contract-revision "$SOURCE_SHA" \
+                --concurrency 1 \
+                --output "$RUNNER_TEMP/angular-audit-$INTEGRATION-$shard.json"
+            ) > "$RUNNER_TEMP/browser-shard-$shard.log" 2>&1 &
+            pids+=("$!")
+          done
+          status=0
+          for pid in "${pids[@]}"; do
+            if ! wait "$pid"; then
+              status=1
+            fi
+          done
+          for shard in 0 1 2 3; do
+            sed -n '1,240p' "$RUNNER_TEMP/browser-shard-$shard.log"
+          done
+          exit "$status"
 
       - name: Reject any failed cell
         env:
           INTEGRATION: ${{ matrix.integration }}
         run: |
-          test "$(jq -r .summary.failed "$RUNNER_TEMP/angular-audit-$INTEGRATION.json")" = "0"
+          test "$(jq -s '[.[].summary.failed] | add' "$RUNNER_TEMP"/angular-audit-"$INTEGRATION"-*.json)" = "0"
 
       - name: Stop branch-local services and scan logs
         if: always()
         run: |
-          docker logs angular-audit-integration > "$RUNNER_TEMP/integration.log" 2>&1 || true
-          if [ -n "${SECRET_SENTINEL:-}" ] && grep --fixed-strings --quiet "$SECRET_SENTINEL" "$RUNNER_TEMP/integration.log"; then
-            echo "Secret sentinel leaked into integration logs" >&2
-            exit 1
-          fi
-          docker rm --force angular-audit-integration 2>/dev/null || true
+          leaked=0
+          for shard in 0 1 2 3; do
+            log_file="$RUNNER_TEMP/integration-$shard.log"
+            docker logs "angular-audit-integration-$shard" > "$log_file" 2>&1 || true
+            if [ -n "${SECRET_SENTINEL:-}" ] && grep --fixed-strings --quiet "$SECRET_SENTINEL" "$log_file"; then
+              echo "Secret sentinel leaked into integration shard $shard logs" >&2
+              leaked=1
+            fi
+            docker rm --force "angular-audit-integration-$shard" 2>/dev/null || true
+          done
           if [ -f "$RUNNER_TEMP/aimock.pid" ]; then
             kill "$(cat "$RUNNER_TEMP/aimock.pid")" 2>/dev/null || true
           fi
+          exit "$leaked"
 
       - name: Upload exact-cell evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: angular-audit-matrix-${{ matrix.integration }}
-          path: ${{ runner.temp }}/angular-audit-${{ matrix.integration }}.json
+          path: ${{ runner.temp }}/angular-audit-${{ matrix.integration }}-*.json
           if-no-files-found: error
           retention-days: 30
 
@@ -307,7 +341,7 @@ jobs:
         env:
           SOURCE_SHA: ${{ needs.build-angular.outputs.source_sha }}
         run: |
-          test "$(find "$RUNNER_TEMP/angular-audit-artifacts" -name '*.json' -type f | wc -l | tr -d ' ')" = "20"
+          test "$(find "$RUNNER_TEMP/angular-audit-artifacts" -name '*.json' -type f | wc -l | tr -d ' ')" = "80"
           pnpm --dir showcase/harness exec tsx src/cli/frontend-matrix-ci.ts aggregate \
             --artifacts "$RUNNER_TEMP/angular-audit-artifacts" \
             --output "$RUNNER_TEMP/angular-audit-final.json" \
