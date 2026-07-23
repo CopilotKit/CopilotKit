@@ -1,11 +1,13 @@
 ---
 title: React Native
-description: Get started with CopilotKit in React Native.
+description: Build with CopilotKit in React Native — quickstart, Metro and polyfill setup, frontend tools, and device deployment.
 icon: "lucide/Smartphone"
 hideTOC: true
 ---
 
-`@copilotkit/react-native` provides a lightweight, headless wrapper around CopilotKit's React hooks for React Native apps. You build the UI, and a [Copilot Runtime](/backend/copilot-runtime) endpoint handles agent communication from your server.
+`@copilotkit/react-native` gives you CopilotKit's provider and hooks for React Native, plus optional pre-built chat components. This guide builds a fully custom chat UI with the hooks, backed by a [Copilot Runtime](/backend/copilot-runtime) endpoint on your server.
+
+The package has three import surfaces — `/headless` (provider + hooks, no native peer dependencies), the root barrel, and `/components` (the rendered chat UI). See [Import surfaces](#import-surfaces) for what each one pulls in; this guide uses `/headless` throughout.
 
 ## Prerequisites
 
@@ -55,10 +57,17 @@ hideTOC: true
     <Step>
         ### Add polyfills
 
-        React Native's JS runtime (Hermes) lacks several Web APIs that CopilotKit depends on. Import the polyfills **before any other code** in your entry point:
+        React Native's JS runtime (Hermes) lacks several Web APIs that CopilotKit depends on. The package installs these polyfills itself on first import, but two things must happen **at the very top of your entry point, before any CopilotKit import**: a secure random source, then the polyfill barrel.
+
+        Install the secure RNG first:
+
+        ```bash
+        npm install react-native-get-random-values
+        ```
 
         ```js title="index.js"
-        import "@copilotkit/react-native/polyfills"; // [!code highlight]
+        import "react-native-get-random-values"; // [!code highlight:2] secure RNG — must be first
+        import "@copilotkit/react-native/polyfills";
 
         import { AppRegistry } from "react-native";
         import App from "./App";
@@ -67,8 +76,12 @@ hideTOC: true
         AppRegistry.registerComponent(appName, () => App);
         ```
 
+        <Callout type="warn" title="Import order is load-bearing for crypto">
+          CopilotKit's `crypto` polyfill and `react-native-get-random-values` both install only if `crypto.getRandomValues` is still undefined — first writer wins. If any CopilotKit module is evaluated first, CopilotKit's **non-cryptographic** `Math.random` fallback is locked in permanently and `react-native-get-random-values` becomes a silent no-op. Keep it on the first line. See [Polyfills](#polyfills).
+        </Callout>
+
         <Callout type="info" title="Granular polyfills">
-          If you already polyfill some of these APIs (e.g. `ReadableStream`), you can import only what you need instead:
+          If you already polyfill some of these APIs (e.g. `ReadableStream`), you can import only what you need instead of the barrel:
 
           ```js
           import "@copilotkit/react-native/polyfills/streams";
@@ -119,7 +132,7 @@ hideTOC: true
         Point the provider at the runtime endpoint. Android emulators reach the host machine at `10.0.2.2`; iOS simulators can use `localhost`.
 
         ```tsx title="App.tsx"
-        import { CopilotKitProvider } from "@copilotkit/react-native"; // [!code highlight]
+        import { CopilotKitProvider } from "@copilotkit/react-native/headless"; // [!code highlight]
         import { Platform } from "react-native";
         import { ChatScreen } from "./src/ChatScreen";
 
@@ -144,7 +157,7 @@ hideTOC: true
     <Step>
         ### Build your chat UI
 
-        Hooks from the web SDK work identically in React Native. Below is a minimal chat screen using `useAgent` and `useCopilotKit`:
+        The platform-agnostic hooks work the same way here as on the web. Below is a minimal chat screen using `useAgent` and `useCopilotKit`:
 
         ```tsx title="src/ChatScreen.tsx"
         import { useCallback, useRef, useState } from "react";
@@ -157,7 +170,7 @@ hideTOC: true
           TouchableOpacity,
           View,
         } from "react-native";
-        import { useAgent, useCopilotKit } from "@copilotkit/react-native"; // [!code highlight]
+        import { useAgent, useCopilotKit } from "@copilotkit/react-native/headless"; // [!code highlight]
 
         export function ChatScreen() {
           const [inputText, setInputText] = useState("");
@@ -232,7 +245,7 @@ hideTOC: true
         ```
 
         <Callout type="info" title="Headless by design">
-          `@copilotkit/react-native` is headless. It provides hooks, not UI components. You have full control over your chat interface using standard React Native components.
+          `@copilotkit/react-native/headless` provides hooks, not UI components, so you have full control over your chat interface using standard React Native components. If you'd rather not build one, a rendered chat is available from `@copilotkit/react-native/components` — see [Import surfaces](#import-surfaces).
         </Callout>
     </Step>
     <Step>
@@ -263,12 +276,13 @@ hideTOC: true
     <Step>
         ### Start chatting!
 
-        Your React Native app is now connected to Copilot Runtime. Hooks from the web SDK work identically:
+        Your React Native app is now connected to Copilot Runtime. The shared hooks are available here:
 
         - `useAgent` - connect to an agent and manage messages
         - `useFrontendTool` - let the agent call functions in your app
         - `useHumanInTheLoop` - add approval flows for agent actions
         - `useCopilotKit` - access the CopilotKit instance directly
+        - `useRenderTool` - React Native's own hook for drawing tool UI inside the rendered chat (see [Frontend tools](#frontend-tools-and-generative-ui))
 
         <Accordions className="mb-4">
             <Accordion title="Troubleshooting">
@@ -282,17 +296,351 @@ hideTOC: true
     </Step>
 </Steps>
 
-## What's included
+## Import surfaces
 
-| Export | Description |
+`@copilotkit/react-native` has three JavaScript entry points. They differ in what UI they give you and — crucially for release bundles — which native peer dependencies Metro has to resolve.
+
+| Import | What you get | Native peers Metro must resolve |
+|--------|--------------|---------------------------------|
+| `@copilotkit/react-native/headless` | `CopilotKitProvider` and every platform-agnostic hook. No components. | **None** |
+| `@copilotkit/react-native` (root) | Everything in `/headless`, plus `useAttachments`, the two *headless* chat wrappers (`CopilotChat`, `CopilotModal`) and the `CopilotSidebar` / `CopilotPopup` chrome | `expo-document-picker`, `expo-file-system` (via `useAttachments`) |
+| `@copilotkit/react-native/components` | The **rendered** chat UI: a `CopilotChat` with a message list, a bottom-sheet `CopilotModal`, `CopilotMarkdown`, `AssistantMessage`, `UserMessage` | `@gorhom/bottom-sheet` (which itself needs `react-native-reanimated` + `react-native-gesture-handler`), `react-native-streamdown` |
+
+Supporting entry points:
+
+| Import | Description |
 |--------|-------------|
-| `CopilotKitProvider` | Lightweight provider that points React Native at Copilot Runtime |
-| `useAgent`, `useFrontendTool`, etc. | Re-exported hooks from `@copilotkit/react-core` |
-| `@copilotkit/react-native/polyfills` | ReadableStream, TextEncoder, crypto, DOMException, location |
-| `@copilotkit/runtime` | Server-side runtime used to host your `default` agent |
+| `@copilotkit/react-native/polyfills` | Barrel that installs every polyfill (streams, encoding, crypto, dom, location) plus the streaming-fetch shim |
+| `@copilotkit/react-native/polyfills/{streams,encoding,crypto,dom,location}` | Granular subpaths for installing a single polyfill |
+| `@copilotkit/runtime` | Server-side runtime (`CopilotRuntime` / `BuiltInAgent` / `createCopilotNodeListener`) used to host your agent |
+
+<Callout type="warn" title="`CopilotChat` means two different things">
+  The root barrel's `CopilotChat` and `CopilotModal` are **headless wrappers** — they render only context and `children`, no messages and no tool UI. The versions that actually draw a chat are the same-named exports from `@copilotkit/react-native/components`. If you imported `CopilotChat` expecting a chat and got a blank screen, you imported the root one.
+</Callout>
+
+Because these are static re-exports, Metro resolves a surface's peers at bundle time whether or not you call the code — so a custom-UI app importing the root barrel must still install `expo-document-picker` and `expo-file-system` (or stub them) or the release bundle fails with `Unable to resolve module expo-document-picker`. Importing from `/headless` avoids that entirely, which is why this guide uses it:
+
+```tsx title="App.tsx"
+import {
+  CopilotKitProvider,
+  useAgent,
+  useFrontendTool,
+} from "@copilotkit/react-native/headless"; // [!code highlight]
+```
+
+All three surfaces auto-install the polyfills, and the root barrel re-exports everything from `/headless`, so existing `@copilotkit/react-native` imports keep working unchanged.
+
+### Which hooks are shared, and which aren't
+
+The **package** (both `/headless` and the root barrel) re-exports the platform-agnostic hooks from `@copilotkit/react-core`: `useAgent`, `useFrontendTool`, `useHumanInTheLoop`, `useInterrupt`, `useSuggestions`, `useConfigureSuggestions`, `useAgentContext`, `useThreads`, `useCapabilities`, `useComponent`, and `useCopilotKit`. These behave the same as on the web.
+
+Two React-Native-specific differences are worth knowing:
+
+- **`useRenderTool` is React Native's own hook**, not react-core's. It registers the tool *and* its renderer, requires `parameters`, accepts a `handler`, must return `ReactElement | null` (React Native's `FlatList` cannot render bare strings), and does not support the `"*"` wildcard that the web hook does.
+- **The web-only rendering hooks are deliberately not exported**: `useRenderToolCall`, `useDefaultRenderTool`, `useRenderCustomMessages`, and `useRenderActivityMessage`.
+
+## Metro configuration for release bundles
+
+With package exports enabled, a release bundle can fail with `Unable to resolve module node:crypto` (or another `node:` specifier) pointing at `jose`. This surfaces **only at bundle time**, never at typecheck.
+
+`jose` is not a direct dependency. It arrives transitively through telemetry: `@copilotkit/shared` → `@segment/analytics-node` → `jose`. `jose` publishes separate Node and browser builds behind its `exports` map, and its Node build imports `node:`-prefixed modules that Hermes cannot bundle.
+
+The fix is to resolve **`jose` specifically** against its `browser` condition, using `resolveRequest`:
+
+```js title="metro.config.js"
+const { getDefaultConfig, mergeConfig } = require("@react-native/metro-config");
+
+const config = {
+  resolver: {
+    resolveRequest: (context, moduleImport, platform) => {
+      // jose reaches the bundle via @copilotkit/shared -> @segment/analytics-node.
+      // Its Node build imports node:* modules that Hermes can't bundle.
+      if (moduleImport === "jose" || moduleImport.startsWith("jose/")) {
+        return context.resolveRequest(
+          { ...context, unstable_conditionNames: ["browser"] }, // [!code highlight]
+          moduleImport,
+          platform,
+        );
+      }
+      return context.resolveRequest(context, moduleImport, platform);
+    },
+  },
+};
+
+module.exports = mergeConfig(getDefaultConfig(__dirname), config);
+```
+
+On Expo, swap in `getDefaultConfig` from `expo/metro-config`; the `resolver` block is identical.
+
+<Callout type="warn" title="Don't assert `browser` globally">
+  It's tempting to set `resolver.unstable_conditionNames = ["browser", ...]` instead. Avoid it:
+
+  - `unstable_conditionNames` is an **unordered set of asserted conditions**, not a priority list. The winning target is chosen by the key order in *each package's own* `exports` map, so reordering this array changes nothing.
+  - It applies **globally**, so every dual-build dependency in your graph switches to its browser build — not just `jose`.
+  - Metro's React Native default is `["require", "react-native"]`. Replacing it wholesale drops the `react-native` condition, which changes resolution for any package that ships one.
+
+  Scoping with `resolveRequest` keeps Metro's defaults intact everywhere else.
+</Callout>
+
+<Callout type="info" title="Do you need `unstable_enablePackageExports`?">
+  Package `exports` resolution is **enabled by default from Metro 0.82 / React Native 0.79**, so no flag is needed there. It arrived opt-in in React Native 0.72 (Metro 0.76.1) — on React Native 0.72–0.78 set `resolver.unstable_enablePackageExports = true`, which is also what lets Metro resolve this package's `/headless`, `/components`, and `/polyfills` subpaths. React Native below 0.72 has no package-exports support.
+</Callout>
+
+<Callout type="success" title="Headless removes the need to stub">
+  Importing from [`@copilotkit/react-native/headless`](#import-surfaces) means Metro never resolves the chat or attachment peer dependencies, so you don't need `@gorhom/bottom-sheet`, `expo-document-picker`, or `expo-file-system` at all. The `jose` resolver above is independent of that choice — it's needed either way.
+</Callout>
+
+## Polyfills
+
+Hermes lacks several Web APIs CopilotKit relies on: `ReadableStream` / `WritableStream` / `TransformStream`, `TextEncoder` / `TextDecoder`, `DOMException` and `Headers`, `crypto.getRandomValues`, and `window.location`. It also lacks streaming `fetch` bodies (`response.body.getReader()`), which AG-UI's SSE transport needs.
+
+Every entry point installs these automatically on import — the package runs its polyfill barrel as its first statement and installs an XHR-based streaming-fetch shim on load. Each polyfill is skipped if the global it defines already exists, so importing more than once is safe.
+
+Keep the explicit `import "@copilotkit/react-native/polyfills"` from the quickstart at the top of your entry point anyway. Because every polyfill is **first writer wins**, the entry point is the only place you control what gets installed before CopilotKit's own defaults do — which is what makes the secure-RNG ordering below work.
+
+For granular control — for example, if you already polyfill `ReadableStream` yourself — import only the pieces you need instead of the barrel:
+
+```js
+import "@copilotkit/react-native/polyfills/streams";
+import "@copilotkit/react-native/polyfills/encoding";
+import "@copilotkit/react-native/polyfills/crypto";
+import "@copilotkit/react-native/polyfills/dom";
+import "@copilotkit/react-native/polyfills/location";
+```
+
+<Callout type="warn" title="The bundled crypto polyfill is not cryptographically secure">
+  CopilotKit's `crypto` polyfill backs `crypto.getRandomValues` with `Math.random` — enough for the message and run IDs it generates, and it logs a warning on install. For production, install [`react-native-get-random-values`](https://github.com/LinusU/react-native-get-random-values) and import it on the **first line of your entry point, before any CopilotKit import**:
+
+  ```js title="index.js"
+  import "react-native-get-random-values"; // [!code highlight] secure RNG — must be first
+  import "@copilotkit/react-native/polyfills";
+  // ...
+  ```
+
+  This ordering is a hard requirement, not a precaution. Both implementations install only when `crypto.getRandomValues` is undefined, so whichever loads first wins permanently. If any CopilotKit module is evaluated first, the `Math.random` fallback is locked in and `react-native-get-random-values` silently becomes a no-op — no warning, no error, and every ID stays non-cryptographic for the life of the process.
+</Callout>
+
+## Provider options
+
+`CopilotKitProvider` is a context-only provider (it renders no view of its own), so it composes cleanly as the outermost wrapper around your app. `runtimeUrl` is the only required prop, but several others are available:
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `runtimeUrl` | `string` | URL of the Copilot Runtime endpoint (**required**) |
+| `headers` | `Record<string, string> \| (() => Record<string, string>)` | Custom headers sent with every request. Use this for auth — e.g. an `Authorization` bearer token. A function form is called **when the provider renders**, not per request (see the callout below) |
+| `credentials` | `RequestCredentials` | Fetch credentials mode, e.g. `"include"` to send HTTP-only cookies on cross-origin requests |
+| `properties` | `Record<string, unknown>` | Custom properties forwarded to agents (e.g. a scoped user id) |
+| `onError` | `(event) => void` | Called for all error types (runtime connection, agent, tool). Defaults to `console.error` |
+| `debug` | `DebugConfig` | Enables verbose client-side event logging |
+| `defaultThrottleMs` | `number` | Default re-render throttle for streaming updates; individual `useAgent` calls can override |
+| `useSingleEndpoint` | `boolean` | Whether the runtime uses a single-route endpoint (defaults to auto-detect) |
+
+```tsx title="App.tsx"
+<CopilotKitProvider
+  runtimeUrl={runtimeUrl}
+  headers={{ Authorization: `Bearer ${token}` }} // [!code highlight]
+  properties={{ userId }}
+>
+  <ChatScreen />
+</CopilotKitProvider>
+```
+
+<Callout type="warn" title="Rotating auth tokens: `headers` is resolved on render, not per request">
+  If you pass a function, the provider calls it **in its render body**, memoizes the result, and pushes that object into the core, which snapshots it onto each agent. Nothing re-reads the function at request time.
+
+  So a refreshed token is only picked up if the provider **re-renders** and the resulting headers differ. Drive the token from React state (or context) so a refresh triggers a render:
+
+  ```tsx
+  const [token, setToken] = useState(initialToken);
+
+  <CopilotKitProvider runtimeUrl={runtimeUrl} headers={{ Authorization: `Bearer ${token}` }}>
+  ```
+
+  A token kept in a ref, module variable, or async SDK cache with no accompanying render will keep sending the **stale** value indefinitely. If you can't re-render, call `copilotkit.setHeaders({ ... })` directly when the token rotates.
+</Callout>
+
+<Callout type="info" title="Cloud props aren't wired on React Native yet">
+  The web provider's `publicApiKey` / `licenseToken` cloud props are not supported by the React Native provider. Point `runtimeUrl` at your own Copilot Runtime.
+</Callout>
+
+## Runtime and model wiring
+
+The runtime from the quickstart hosts a `BuiltInAgent` and serves it with `createCopilotNodeListener`, which plugs straight into Node's built-in `node:http` `createServer` — no Hono or Express dependency required. `createCopilotNodeListener({ runtime, basePath, cors })` returns a request listener.
+
+`cors: true` adds `Access-Control-*` response headers and answers `OPTIONS` preflights. That matters for **browser** clients — Expo Web or `react-native-web` — but it has no bearing on whether a native iOS or Android build can reach the server: CORS is enforced by the browser, and React Native's native networking stack (`NSURLSession` / OkHttp) neither sends an `Origin` header nor consults `Access-Control-Allow-Origin`. Native reachability is decided by the server's bind address, LAN routing and firewall, and platform transport security — see [Connecting from a device or bench](#connecting-from-a-device-or-bench).
+
+`BuiltInAgent` accepts a model **string** in `provider:model` (or `provider/model`) form for OpenAI, Anthropic, and Google:
+
+```ts
+new BuiltInAgent({ model: "openai:gpt-5-mini", prompt: "..." });      // OPENAI_API_KEY
+new BuiltInAgent({ model: "anthropic:claude-sonnet-4.5", prompt: "..." }); // ANTHROPIC_API_KEY
+new BuiltInAgent({ model: "google:gemini-2.5-pro", prompt: "..." });  // GOOGLE_API_KEY
+```
+
+The string form reads the matching provider API key from the environment. You can also pass `apiKey` on the config, or an already-constructed AI SDK `LanguageModel` instance in place of the string.
+
+### OpenAI-compatible endpoints
+
+To point the string model form at an OpenAI-compatible endpoint (a gateway, Azure OpenAI, a self-hosted server, etc.), set the base-URL environment variable — the runtime honors it when it constructs the provider:
+
+```bash
+export OPENAI_BASE_URL=https://your-gateway.example.com/v1
+export OPENAI_API_KEY=sk-...
+npx tsx server.ts
+```
+
+The same applies to `ANTHROPIC_BASE_URL` and `GOOGLE_GENERATIVE_AI_BASE_URL`. When the variable is unset, the provider falls back to its default endpoint, so this is fully backward compatible — you do **not** need to build a custom model instance just to change the base URL.
+
+<Callout type="info" title="Other BuiltInAgent options">
+  Beyond `model` and `prompt`, `BuiltInAgent` accepts `maxSteps` (tool-calling iterations, default `1`), `tools` (server-executed tools via `defineTool`), `temperature`, `maxOutputTokens`, `providerOptions` (e.g. OpenAI `reasoningEffort`), and `mcpServers` / `mcpClients`. Tools that mutate the app's UI belong on the **client** via `useFrontendTool` (below), not in the server `tools` list.
+</Callout>
+
+## Connecting from a device or bench
+
+`runtimeUrl` must be an address the **device** can reach — `localhost` on a physical device or emulator resolves to the device itself, not your dev machine.
+
+| Setup | `runtimeUrl` host |
+|-------|-------------------|
+| iOS simulator | `localhost` reaches the host machine |
+| Android emulator | `10.0.2.2` is the emulator's alias for the host's `localhost` |
+| Android device over USB | run `adb reverse tcp:8200 tcp:8200`, then use `localhost` on the device. `adb reverse` is Android-only — there is no iOS equivalent |
+| iOS device | your dev machine's LAN IP, on the same Wi-Fi network — plus the [ATS exception](#plaintext-http-on-a-physical-device) a plain `http://` address needs |
+| Physical device on the same LAN (a bench) | your dev machine's LAN IP, e.g. `http://192.168.1.23:8200/api/copilotkit` |
+| Production | a hosted runtime URL over HTTPS |
+
+The quickstart already branches on `Platform.OS` for the simulator/emulator case. Keep the URL a single named constant with a comment so it's easy to swap per environment.
+
+### Plaintext HTTP on a physical device
+
+Both platforms block plaintext (non-TLS) HTTP by default, so a device silently fails to reach a plain `http://<lan-ip>` dev runtime. These are dev-only affordances — a hosted TLS runtime needs none of them.
+
+On Expo, configure both through `app.json` so they survive the `android/` and `ios/` regeneration that `expo prebuild` performs (never hand-edit the generated `AndroidManifest.xml` or `Info.plist` — they're discarded on the next prebuild). Install the config plugin first:
+
+```bash
+npx expo install expo-build-properties
+```
+
+**Android** — an Android *release* build needs cleartext opted in:
+
+```jsonc title="app.json"
+{
+  "expo": {
+    "plugins": [
+      ["expo-build-properties", { "android": { "usesCleartextTraffic": true } }]
+    ]
+  }
+}
+```
+
+**iOS** — App Transport Security applies to debug *and* release builds alike, and `expo-build-properties` has no iOS ATS option, so this goes in `ios.infoPlist`. Since iOS 17, ATS refuses raw IP addresses unless the address is listed in `NSExceptionDomains`, so name your dev machine's IP explicitly (no port):
+
+```jsonc title="app.json"
+{
+  "expo": {
+    "ios": {
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSExceptionDomains": {
+            "192.168.1.23": { "NSExceptionAllowsInsecureHTTPLoads": true }
+          }
+        },
+        "NSLocalNetworkUsageDescription": "Connects to the local Copilot Runtime during development."
+      }
+    }
+  }
+}
+```
+
+`NSLocalNetworkUsageDescription` is required separately: iOS gates local-network access behind a user permission prompt, and without the string the connection fails regardless of ATS.
+
+<Callout type="warn" title="Keep these out of production builds">
+  `usesCleartextTraffic` and an ATS exception are bench affordances. Scope them to a dev build (a separate Expo profile or app variant), and ship production against an HTTPS runtime with neither. On Android you can tighten further by scoping cleartext to just the dev host with a network-security-config.
+</Callout>
+
+<Callout type="info" title="`NSAllowsLocalNetworking` isn't enough on its own">
+  Expo and React Native templates already ship `NSAllowsLocalNetworking: true`, which covers `.local` hostnames and unqualified names — but **not** raw IP addresses on iOS 17+. Its presence also causes `NSAllowsArbitraryLoads` to be ignored. The `NSExceptionDomains` entry above is the form that actually works for a LAN IP.
+</Callout>
+
+## Frontend tools and generative UI
+
+Frontend tools let the agent call functions in your app — and render UI — while the model runs. Register them with `useFrontendTool`. `parameters` is a [Standard Schema](https://standardschema.dev), so a `zod` schema (zod ≥ 3.24 implements Standard Schema) is the expected shape. `zod` is an optional peer dependency of `@copilotkit/react-native`, so add it to your app:
+
+```tsx title="src/useComposeStage.ts"
+import { useFrontendTool } from "@copilotkit/react-native/headless";
+import { z } from "zod";
+
+export function useComposeStage() {
+  useFrontendTool({
+    name: "composeStage",
+    description: "Render POI panels on the screen.",
+    agentId: "default", // scope the tool to one agent
+    parameters: z.object({
+      mode: z.enum(["home", "nearby", "hotels"]),
+      panels: z.array(
+        z.object({ title: z.string(), body: z.string().optional() }),
+      ),
+    }),
+    handler: async (args) => {
+      // Runs on the device. Push args into your own state/reducer here.
+      return "rendered";
+    },
+  });
+}
+```
+
+Because the tool is registered on the device, the model's call reaches your `handler` on the client — the ideal place to drive a state reducer that your React Native views render declaratively (the agent sends *state*, the client owns rendering). Discriminated-union / `oneOf` / `anyOf` param schemas are preserved through the runtime's schema conversion, so `z.discriminatedUnion(...)` params work. It's still good practice to normalize defensively in the handler — coerce a partially populated tool call into valid state rather than letting a malformed one render broken UI.
+
+<Callout type="warn" title="For inline chat UI, use `useRenderTool` — not `useFrontendTool({ render })`">
+  These write to two different registries. `useFrontendTool({ render })` registers with react-core's renderer collection, which only the **web** rendering pipeline reads. The rendered React Native chat (`@copilotkit/react-native/components`) reads a separate registry that only React Native's own `useRenderTool` populates — so a `render` passed to `useFrontendTool` is never drawn there, and you get the fallback `Called: <toolName>` stub instead.
+
+  ```tsx
+  import { useRenderTool } from "@copilotkit/react-native/headless";
+
+  useRenderTool({
+    name: "composeStage",
+    description: "Render POI panels on the screen.",
+    parameters: z.object({ mode: z.string() }),
+    render: ({ args, status }) => <StagePreview mode={args.mode} pending={status !== "complete"} />,
+  });
+  ```
+
+  Use `useFrontendTool({ handler })` when the tool drives your **own** state and your views render it declaratively (what this guide does); use `useRenderTool` when you want UI drawn inline in the rendered chat. `useRenderTool` registers both the tool and its renderer, so don't also register the same tool with `useFrontendTool`.
+
+  For agent-authored content whose length you can't predict, render it in a `ScrollView` with a `maxHeight` set to the available band — it sizes to content when short and scrolls when long, so it never hard-clips.
+</Callout>
+
+### Sending a turn and reading run state
+
+Running a user turn is the two-step the quickstart shows: `agent.addMessage(...)` then `copilotkit.runAgent({ agent })` (the runner lives on the core, not the agent). To cancel an in-flight run, call `copilotkit.stopAgent({ agent })`.
+
+When another component needs only the run flag — a "thinking" indicator, say — subscribe with `useAgent` (a plain read that registers nothing) and read `agent.isRunning`. Call the tool-registering hook exactly **once** per agent so a tool isn't registered twice.
+
+## Run lifecycle and UI
+
+A client-executed frontend tool renders its UI **mid-run**: the tool fires, your handler paints the screen, and the agent's run keeps going (further reasoning, a trailing summary). So `agent.isRunning` stays `true` past the moment the content is visible — the more so with a reasoning-tier model. Design run-gated UI around that gap:
+
+- Tie a loading overlay strictly to `isRunning` (render nothing when it's `false`) so an errored turn can't leave it stuck on. Keep always-available controls (a home or cancel button) above the overlay so they stay tappable while the run finishes.
+- If you gate a reveal animation, trigger it on the **falling edge** of `isRunning` (true → false) rather than on the content-arrived state change — otherwise the animation plays while the overlay is still up and the user never sees it.
+- Bound the run's tail with `maxSteps` on the agent so it doesn't linger longer than needed.
+
+## Voice and speech-to-text
+
+`@copilotkit/voice` has **not** been adapted for React Native, so there's no drop-in voice hook. Voice is a bring-your-own-STT concern: capture a transcript with a React Native speech recognizer, then feed the final text through the same send-a-turn path (`agent.addMessage` + `copilotkit.runAgent`).
+
+<Callout type="warn" title="Don't assume a platform speech recognizer exists">
+  Recognizers that wrap the OS speech service (iOS `SFSpeechRecognizer` / Android `SpeechRecognizer`) can be **absent** on de-Googled or automotive hardware, where the call throws rather than degrading. If you target that kind of device, guard the unavailable case and fall back to text input, or embed an on-device recognizer (e.g. Vosk) as a guaranteed floor. Always give voice a deterministic **Send** control rather than relying on silence detection to end a turn.
+</Callout>
 
 ## Known limitations
 
-- **No pre-built UI components** - you build the chat interface with React Native components
-- **Markdown rendering** - assistant messages with markdown render as plain text; bring your own renderer (e.g. `react-native-markdown-display`)
-- **Voice** - `@copilotkit/voice` has not been adapted for React Native yet
+- **Markdown in a custom UI** — the rendered chat on `@copilotkit/react-native/components` renders markdown for you (via `CopilotMarkdown`, backed by `react-native-streamdown`). If you build your own UI, a plain `Text` shows markdown as-is — reuse `CopilotMarkdown` or bring your own renderer.
+- **Voice** — `@copilotkit/voice` has not been adapted for React Native; wire your own STT as above.
+- **`threadId` on `useAgent`** — not supported yet ([#6141](https://github.com/CopilotKit/CopilotKit/pull/6141)). Thread scoping comes from a chat-configuration provider; a `threadId` passed to `useAgent` does not typecheck and is ignored.
+- **Cloud provider props** — `publicApiKey` / `licenseToken` are not supported on the React Native provider; connect via `runtimeUrl`.
+- **Web-only rendering hooks** — `useRenderToolCall`, `useDefaultRenderTool`, `useRenderCustomMessages`, and `useRenderActivityMessage` are not exported; use React Native's `useRenderTool`.
+
+## Next steps
+
+- **Model selection:** provider strings, keys, and custom endpoints in [Model Selection](/model-selection)
+- **Copilot Runtime:** hosting and configuring the server in [Copilot Runtime](/backend/copilot-runtime)
+- **Agents:** what the built-in agent supports in [Build with agents](/build-with-agents)
