@@ -161,6 +161,17 @@ describe("attachAssistant — userMessage", () => {
     );
   });
 
+  it("tags the pane turn conversationKind:assistant, mentioned:false (§2 — always directly addressed)", async () => {
+    const { onTurn } = setup();
+    await capturedConfig!.userMessage({ ...msg, setTitle: vi.fn() });
+    expect(onTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conversationKind: "assistant",
+        mentioned: false,
+      }),
+    );
+  });
+
   it("auto-titles from the FIRST user message only", async () => {
     const { onTurn } = setup(); // title defaults to "auto"
     const setTitle = vi.fn(async () => {});

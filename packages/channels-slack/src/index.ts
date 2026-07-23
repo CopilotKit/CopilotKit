@@ -26,7 +26,6 @@ export type {
   SlackFeedbackOptions,
   SlackMentionReplyMode,
   SlackRespondToOptions,
-  SlackThreadReplyMode,
 } from "./types.js";
 export {
   DEFAULT_SLACK_RESPOND_TO_OPTIONS,

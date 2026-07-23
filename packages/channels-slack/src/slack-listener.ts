@@ -1,6 +1,5 @@
 import type { App } from "@slack/bolt";
 import type { WebClient } from "@slack/web-api";
-import type { SlackConversationStore } from "./conversation-store.js";
 import type { IncomingTurn, ResolvedSlackRespondToOptions } from "./types.js";
 import { DEFAULT_SLACK_RESPOND_TO_OPTIONS, DM_SCOPE } from "./types.js";
 import {
@@ -45,8 +44,6 @@ export type CommandHandler = (
 
 export interface ListenerConfig {
   app: App;
-  /** Conversation store — used to check whether a thread-reply is "ours". */
-  store: SlackConversationStore;
   /** Bot user id, used to filter out our own messages (loop guard). */
   botUserId: string | undefined;
   /** Resolved response-routing policy for Slack ingress. */
@@ -68,21 +65,29 @@ export interface ListenerConfig {
  * Attach Slack event handlers to a Bolt app. After this returns, the listener
  * is the sole writer of IncomingTurn events — anything downstream sees a
  * stream of cleanly-normalised turns regardless of which Slack event fired.
+ * Every emitted turn carries a normalized `conversationKind` + `mentioned`
+ * (plan §2), so the engine's product-driven response policy
+ * (`decideChannelResponse`, channels-core) decides ignore / run-handler /
+ * auto-run — this listener no longer gates on ownership or a legacy
+ * `respondTo.threadReplies` setting.
  *
- * Triggers:
- *   1. @mention in a channel/thread → start or continue a conversation.
- *   2. DM to the bot                → reply flat in the DM.
- *   3. Plain reply in a tracked thread when explicitly configured.
+ * Triggers (every one becomes a turn — the engine decides what happens next):
+ *   1. @mention in a channel/thread → `mentioned: true`.
+ *   2. DM to the bot                → `conversationKind: "direct_message"`.
+ *   3. Plain reply in a shared thread (not a mention) → `conversationKind:
+ *      "thread"`, `mentioned: false`. A prior bot reply does NOT exempt this
+ *      from the engine's tagging requirement — that gate lives engine-side.
+ *   4. Top-level channel chatter (not a mention) → `conversationKind:
+ *      "channel"`, `mentioned: false`.
  *
  * Filters out:
  *   - `subtype` events (edits, joins, channel_renames, …)
  *   - bot messages (any `bot_id`, including our own posts)
- *   - top-level channel chatter we weren't @-mentioned in
  *   - the `message.channels` event that arrives alongside every `app_mention`
  *     (we recognise it by the presence of `<@botUserId>` in the text)
  */
 export function attachSlackListener(config: ListenerConfig): void {
-  const { app, store, onTurn, onCommand } = config;
+  const { app, onTurn, onCommand } = config;
   const respondTo = config.respondTo ?? DEFAULT_SLACK_RESPOND_TO_OPTIONS;
 
   // ── Slash commands ──────────────────────────────────────────────────
@@ -142,6 +147,8 @@ export function attachSlackListener(config: ListenerConfig): void {
           event as { client_msg_id?: string; ts?: string },
           event.channel,
         ),
+        conversationKind: event.thread_ts ? "thread" : "channel",
+        mentioned: true,
       },
       client,
     );
@@ -168,9 +175,11 @@ export function attachSlackListener(config: ListenerConfig): void {
     )
       return;
 
-    if (!respondTo.directMessages) return;
-
     if (isDM) {
+      // `directMessages` is a hard adapter pre-filter (plan §2): turning it
+      // off means "don't forward DMs at all" — it does NOT gate shared
+      // channel/thread surfaces below.
+      if (!respondTo.directMessages) return;
       await onTurn(
         {
           conversation: { channelId: message.channel, scope: DM_SCOPE },
@@ -180,37 +189,64 @@ export function attachSlackListener(config: ListenerConfig): void {
           userText: text,
           senderUserId: message.user,
           eventId: deriveEventId(body, message, message.channel),
+          conversationKind: "direct_message",
+          mentioned: false,
         },
         client,
       );
       return;
     }
 
-    if (!message.thread_ts) return; // top-level channel chatter — ignore
-
-    // app_mention runs separately for these; skip the duplicate.
+    // app_mention runs separately for these (both top-level and threaded
+    // mentions fire app_mention); skip the duplicate here regardless of
+    // whether this message is inside a thread.
     if (config.botUserId && text.includes(`<@${config.botUserId}>`)) return;
 
-    if (respondTo.threadReplies === "mentionsOnly") return;
-
-    // Only continue threads we already own. `has` consults Slack itself,
-    // so a restarted bridge naturally recognises threads it replied to
-    // before the restart.
-    if (
-      !(await store.has({
-        channelId: message.channel,
-        scope: message.thread_ts,
-      }))
-    )
+    if (message.thread_ts) {
+      // Plain, non-mention reply in a shared thread. §2 (ratified): forward
+      // it and let the engine's response policy decide — a shared thread now
+      // requires an explicit tag before auto-running (a prior bot reply does
+      // NOT remove that requirement), unless an `onMessage` handler opts in.
+      // This DELIBERATELY removes the old owned-thread auto-continue.
+      await onTurn(
+        {
+          conversation: {
+            channelId: message.channel,
+            scope: message.thread_ts,
+          },
+          replyTarget: {
+            channel: message.channel,
+            threadTs: message.thread_ts,
+          },
+          userText: stripMentions(text),
+          senderUserId: message.user,
+          eventId: deriveEventId(body, message, message.channel),
+          conversationKind: "thread",
+          mentioned: false,
+        },
+        client,
+      );
       return;
+    }
 
+    // Top-level, non-mention channel chatter. §2 (ratified): forward it too —
+    // the engine ignores it unless an `onMessage` handler opts in. Reply
+    // anchored in a new thread under the triggering message (consistent with
+    // a top-level @mention's default "thread" reply), keeping the channel
+    // from filling with flat bot replies if a handler ever does respond.
+    // Slack always stamps `ts` on a real message event; the fallback only
+    // satisfies the type (`ts` is optional on the shared `PlainUserMessage`
+    // shape) and is never expected to be hit.
+    const topLevelTs = message.ts ?? "";
     await onTurn(
       {
-        conversation: { channelId: message.channel, scope: message.thread_ts },
-        replyTarget: { channel: message.channel, threadTs: message.thread_ts },
+        conversation: { channelId: message.channel, scope: topLevelTs },
+        replyTarget: { channel: message.channel, threadTs: topLevelTs },
         userText: stripMentions(text),
         senderUserId: message.user,
         eventId: deriveEventId(body, message, message.channel),
+        conversationKind: "channel",
+        mentioned: false,
       },
       client,
     );

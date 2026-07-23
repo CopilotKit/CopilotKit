@@ -89,12 +89,14 @@ async function main() {
         // only the display is hidden.
         showToolStatus: false,
         // Kite keeps DMs conversational and responds to explicit app mentions
-        // in channels/threads. Plain channel thread replies stay quiet unless
-        // they mention Kite again.
+        // in channels/threads. Plain channel/thread messages are forwarded to
+        // the engine too (plan §2), which stays quiet on them unless Kite is
+        // explicitly @-mentioned (a prior reply in a thread does not lift
+        // that requirement) — there's no adapter-level toggle for this
+        // anymore.
         respondTo: {
           directMessages: true,
           appMentions: { reply: "thread" },
-          threadReplies: "mentionsOnly",
         },
         // Assistant-pane behavior is ON by default; this just customizes it.
         // The greeting + chips show when a user opens the pane (matching the

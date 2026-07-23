@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { attachSlackListener } from "../slack-listener.js";
 import type { SlackCommand } from "../slack-listener.js";
-import type { SlackConversationStore } from "../conversation-store.js";
 import type { IncomingTurn, ResolvedSlackRespondToOptions } from "../types.js";
 import { DM_SCOPE, resolveSlackRespondToOptions } from "../types.js";
 
@@ -49,34 +48,10 @@ function makeFakeApp() {
   };
 }
 
-/**
- * A tiny stand-in for SlackConversationStore. The listener only ever
- * calls `store.has(...)`; everything else (getOrCreate, save) is the
- * turn-runner's concern. The test controls which conversation keys are
- * "owned".
- */
-function fakeStore(
-  owned: Array<{ channelId: string; scope: string }> = [],
-): SlackConversationStore {
-  const ownedKeys = new Set(owned.map((o) => `${o.channelId}::${o.scope}`));
-  return {
-    has: vi.fn(async (k) => ownedKeys.has(`${k.channelId}::${k.scope}`)),
-    getOrCreate: vi.fn(),
-    save: vi.fn(),
-  } as unknown as SlackConversationStore;
-}
-
 function setup(opts?: {
-  ownedThreads?: Array<{ channelId: string; threadTs: string }>;
   assistantThreads?: Array<{ channel: string; threadTs: string }>;
   respondTo?: ResolvedSlackRespondToOptions;
 }) {
-  const store = fakeStore(
-    (opts?.ownedThreads ?? []).map((t) => ({
-      channelId: t.channelId,
-      scope: t.threadTs,
-    })),
-  );
   const turns: IncomingTurn[] = [];
   const onTurn = vi.fn(async (turn: IncomingTurn) => {
     turns.push(turn);
@@ -91,7 +66,6 @@ function setup(opts?: {
   );
   attachSlackListener({
     app: fake.app,
-    store,
     botUserId: BOT_USER_ID,
     respondTo: opts?.respondTo,
     onTurn,
@@ -100,26 +74,27 @@ function setup(opts?: {
       ? (channel, threadTs) => assistantKeys.has(`${channel}::${threadTs}`)
       : undefined,
   });
-  return { ...fake, turns, onTurn, commands, onCommand, store };
+  return { ...fake, turns, onTurn, commands, onCommand };
 }
 
 describe("slack-listener", () => {
   it("resolves partial respondTo config against Slack routing defaults", () => {
+    // `threadReplies` is REMOVED (superseded by the engine's §2 response
+    // policy) — the resolved shape only carries the two hard adapter
+    // pre-filters that still gate BEFORE the engine sees a turn.
     expect(resolveSlackRespondToOptions()).toEqual({
       directMessages: true,
       appMentions: { reply: "thread" },
-      threadReplies: "mentionsOnly",
     });
     expect(
-      resolveSlackRespondToOptions({ threadReplies: "afterBotReply" }),
+      resolveSlackRespondToOptions({ appMentions: { reply: "channel" } }),
     ).toEqual({
       directMessages: true,
-      appMentions: { reply: "thread" },
-      threadReplies: "afterBotReply",
+      appMentions: { reply: "channel" },
     });
   });
 
-  it("turns an @mention into a turn with the right reply target", async () => {
+  it("turns an @mention into a turn with the right reply target, tagged (§2)", async () => {
     const f = setup();
     await f.fireMention({
       type: "app_mention",
@@ -132,6 +107,9 @@ describe("slack-listener", () => {
       conversation: { channelId: "C1", scope: "100.0" },
       replyTarget: { channel: "C1", threadTs: "100.0" },
       userText: "hello there",
+      // A top-level mention has no thread_ts of its own to continue.
+      conversationKind: "channel",
+      mentioned: true,
     });
   });
 
@@ -140,7 +118,6 @@ describe("slack-listener", () => {
       respondTo: {
         directMessages: true,
         appMentions: false,
-        threadReplies: "mentionsOnly",
       },
     });
     await f.fireMention({
@@ -157,7 +134,6 @@ describe("slack-listener", () => {
       respondTo: {
         directMessages: true,
         appMentions: { reply: "channel" },
-        threadReplies: "mentionsOnly",
       },
     });
     await f.fireMention({
@@ -171,11 +147,12 @@ describe("slack-listener", () => {
       conversation: { channelId: "C1", scope: "100.0" },
       replyTarget: { channel: "C1" },
       userText: "hello there",
+      mentioned: true,
     });
     expect(f.turns[0]!.replyTarget.threadTs).toBeUndefined();
   });
 
-  it("threads a follow-up @mention into the existing thread", async () => {
+  it("threads a follow-up @mention into the existing thread, tagged + thread kind (§2)", async () => {
     const f = setup();
     await f.fireMention({
       type: "app_mention",
@@ -187,6 +164,10 @@ describe("slack-listener", () => {
     expect(f.turns[0]!.replyTarget).toEqual({
       channel: "C1",
       threadTs: "100.0",
+    });
+    expect(f.turns[0]).toMatchObject({
+      conversationKind: "thread",
+      mentioned: true,
     });
   });
 
@@ -201,7 +182,7 @@ describe("slack-listener", () => {
     expect(f.turns).toHaveLength(0);
   });
 
-  it("treats DM messages as flat replies (no threadTs)", async () => {
+  it("treats DM messages as flat replies (no threadTs), directly addressed (§2)", async () => {
     const f = setup();
     await f.fireMessage({
       type: "message",
@@ -215,6 +196,8 @@ describe("slack-listener", () => {
       conversation: { channelId: "D1", scope: DM_SCOPE },
       replyTarget: { channel: "D1" },
       userText: "hi bot",
+      conversationKind: "direct_message",
+      mentioned: false,
     });
     expect(f.turns[0]!.replyTarget.threadTs).toBeUndefined();
   });
@@ -224,7 +207,6 @@ describe("slack-listener", () => {
       respondTo: {
         directMessages: false,
         appMentions: { reply: "thread" },
-        threadReplies: "mentionsOnly",
       },
     });
     await f.fireMessage({
@@ -236,6 +218,39 @@ describe("slack-listener", () => {
       text: "hi bot",
     });
     expect(f.turns).toHaveLength(0);
+  });
+
+  it("directMessages: false is a DM-only pre-filter — shared channel/thread surfaces are unaffected", async () => {
+    // §2: respondTo.appMentions / respondTo.directMessages are hard adapter
+    // pre-filters that gate ONLY their own surface, sitting before the
+    // engine's response policy. Disabling DMs must not also drop channel or
+    // thread turns.
+    const f = setup({
+      respondTo: {
+        directMessages: false,
+        appMentions: { reply: "thread" },
+      },
+    });
+    await f.fireMessage({
+      type: "message",
+      channel: "C1",
+      user: "UATAI001",
+      ts: "500.0",
+      text: "top-level channel chatter",
+    });
+    expect(f.turns).toHaveLength(1);
+    expect(f.turns[0]).toMatchObject({ conversationKind: "channel" });
+
+    await f.fireMessage({
+      type: "message",
+      channel: "C1",
+      user: "UATAI001",
+      ts: "501.0",
+      thread_ts: "500.0",
+      text: "plain thread reply",
+    });
+    expect(f.turns).toHaveLength(2);
+    expect(f.turns[1]).toMatchObject({ conversationKind: "thread" });
   });
 
   it("skips a pane message (assistant thread) — owned by the Assistant middleware", async () => {
@@ -275,6 +290,7 @@ describe("slack-listener", () => {
     expect(f.turns[0]).toMatchObject({
       conversation: { channelId: "D1", scope: DM_SCOPE },
       replyTarget: { channel: "D1" },
+      conversationKind: "direct_message",
     });
   });
 
@@ -294,28 +310,12 @@ describe("slack-listener", () => {
     expect(f.turns[0]!.replyTarget.threadTs).toBeUndefined();
   });
 
-  it("ignores a tracked thread plain reply by default", async () => {
-    const f = setup({ ownedThreads: [{ channelId: "C1", threadTs: "100.0" }] });
-    await f.fireMessage({
-      type: "message",
-      channel: "C1",
-      user: "UATAI001",
-      ts: "400.0",
-      thread_ts: "100.0",
-      text: "carry on",
-    });
-    expect(f.turns).toHaveLength(0);
-  });
-
-  it("continues a tracked thread on a plain reply when configured for legacy behavior", async () => {
-    const f = setup({
-      ownedThreads: [{ channelId: "C1", threadTs: "100.0" }],
-      respondTo: {
-        directMessages: true,
-        appMentions: { reply: "thread" },
-        threadReplies: "afterBotReply",
-      },
-    });
+  it("forwards a plain thread reply (untagged) with conversationKind:thread, mentioned:false (§2)", async () => {
+    // §2 (ratified, D3): the listener no longer gates plain thread replies on
+    // thread ownership — that decision now lives in the engine's response
+    // policy (`decideChannelResponse`), which requires a mention for a shared
+    // thread by default. The listener's job is only to forward + tag.
+    const f = setup();
     await f.fireMessage({
       type: "message",
       channel: "C1",
@@ -325,11 +325,19 @@ describe("slack-listener", () => {
       text: "carry on",
     });
     expect(f.turns).toHaveLength(1);
-    expect(f.turns[0]!.userText).toBe("carry on");
+    expect(f.turns[0]).toMatchObject({
+      conversation: { channelId: "C1", scope: "100.0" },
+      replyTarget: { channel: "C1", threadTs: "100.0" },
+      userText: "carry on",
+      conversationKind: "thread",
+      mentioned: false,
+    });
   });
 
-  it("ignores plain replies in threads it doesn't own", async () => {
-    const f = setup(); // no seed
+  it("forwards a plain thread reply in a thread the bridge has never seen before (no more ownership gate)", async () => {
+    // Previously gated on `store.has(...)` (thread ownership); §2 removes
+    // that check entirely — ownership is no longer a forwarding concern.
+    const f = setup();
     await f.fireMessage({
       type: "message",
       channel: "C1",
@@ -338,10 +346,18 @@ describe("slack-listener", () => {
       thread_ts: "999.0",
       text: "random thread chatter",
     });
-    expect(f.turns).toHaveLength(0);
+    expect(f.turns).toHaveLength(1);
+    expect(f.turns[0]).toMatchObject({
+      conversation: { channelId: "C1", scope: "999.0" },
+      conversationKind: "thread",
+      mentioned: false,
+    });
   });
 
-  it("ignores top-level channel chatter with no @mention", async () => {
+  it("forwards top-level channel chatter with no @mention as conversationKind:channel, mentioned:false (§2)", async () => {
+    // §2 (ratified, D3): top-level, untagged channel chatter is no longer
+    // dropped at ingress — it is forwarded and the engine's response policy
+    // ignores it unless an `onMessage` handler opts in.
     const f = setup();
     await f.fireMessage({
       type: "message",
@@ -350,11 +366,18 @@ describe("slack-listener", () => {
       ts: "500.0",
       text: "just talking",
     });
-    expect(f.turns).toHaveLength(0);
+    expect(f.turns).toHaveLength(1);
+    expect(f.turns[0]).toMatchObject({
+      conversation: { channelId: "C1", scope: "500.0" },
+      replyTarget: { channel: "C1", threadTs: "500.0" },
+      userText: "just talking",
+      conversationKind: "channel",
+      mentioned: false,
+    });
   });
 
   it("skips messages from any bot (bot_id set, no user)", async () => {
-    const f = setup({ ownedThreads: [{ channelId: "C1", threadTs: "100.0" }] });
+    const f = setup();
     await f.fireMessage({
       type: "message",
       channel: "C1",
@@ -367,7 +390,7 @@ describe("slack-listener", () => {
   });
 
   it("skips its own messages (user matches botUserId)", async () => {
-    const f = setup({ ownedThreads: [{ channelId: "C1", threadTs: "100.0" }] });
+    const f = setup();
     await f.fireMessage({
       type: "message",
       channel: "C1",
@@ -380,7 +403,7 @@ describe("slack-listener", () => {
   });
 
   it("skips subtyped events (edits, joins, etc.)", async () => {
-    const f = setup({ ownedThreads: [{ channelId: "C1", threadTs: "100.0" }] });
+    const f = setup();
     await f.fireMessage({
       type: "message",
       subtype: "message_changed",
@@ -392,8 +415,9 @@ describe("slack-listener", () => {
     expect(f.turns).toHaveLength(0);
   });
 
-  it("skips the message.channels echo of an @mention (duplicate event)", async () => {
-    const f = setup({ ownedThreads: [{ channelId: "C1", threadTs: "100.0" }] });
+  it("skips the message.channels echo of an @mention (duplicate event), thread or top-level", async () => {
+    const f = setup();
+    // Threaded mention echo.
     await f.fireMessage({
       type: "message",
       channel: "C1",
@@ -401,6 +425,16 @@ describe("slack-listener", () => {
       ts: "100.0",
       thread_ts: "100.0",
       text: `<@${BOT_USER_ID}> hello`,
+    });
+    // Top-level mention echo — §2 forwards untagged top-level chatter, so the
+    // dedup guard must ALSO cover this case now (it used to be moot, since
+    // top-level chatter was dropped outright regardless).
+    await f.fireMessage({
+      type: "message",
+      channel: "C1",
+      user: "UATAI001",
+      ts: "101.0",
+      text: `<@${BOT_USER_ID}> hello again`,
     });
     expect(f.turns).toHaveLength(0);
   });
@@ -421,9 +455,7 @@ describe("slack-listener", () => {
     ];
     for (const subtype of subtypes) {
       it(`ignores subtype=${subtype}`, async () => {
-        const f = setup({
-          ownedThreads: [{ channelId: "C1", threadTs: "100.0" }],
-        });
+        const f = setup();
         await f.fireMessage({
           type: "message",
           subtype,
@@ -436,32 +468,8 @@ describe("slack-listener", () => {
       });
     }
 
-    it("ignores a file_share upload in an owned thread by default", async () => {
-      const f = setup({
-        ownedThreads: [{ channelId: "C1", threadTs: "100.0" }],
-      });
-      await f.fireMessage({
-        type: "message",
-        subtype: "file_share",
-        channel: "C1",
-        user: "UATAI001",
-        ts: "999.0",
-        thread_ts: "100.0",
-        text: "",
-        files: [{ id: "F1", name: "data.csv", mimetype: "text/csv" }],
-      });
-      expect(f.turns).toHaveLength(0);
-    });
-
-    it("processes a file_share upload in an owned thread when legacy continuation is enabled", async () => {
-      const f = setup({
-        ownedThreads: [{ channelId: "C1", threadTs: "100.0" }],
-        respondTo: {
-          directMessages: true,
-          appMentions: { reply: "thread" },
-          threadReplies: "afterBotReply",
-        },
-      });
+    it("forwards a file_share upload in a shared thread (§2 — no more ownership gate)", async () => {
+      const f = setup();
       await f.fireMessage({
         type: "message",
         subtype: "file_share",
@@ -473,10 +481,11 @@ describe("slack-listener", () => {
         files: [{ id: "F1", name: "data.csv", mimetype: "text/csv" }],
       });
       expect(f.turns).toHaveLength(1);
+      expect(f.turns[0]).toMatchObject({ conversationKind: "thread" });
     });
   });
 
-  it("treats a group-DM (mpim) like a non-IM channel (ignored without thread_ts)", async () => {
+  it("treats a group-DM (mpim) like a non-IM channel (forwarded as conversationKind:channel, §2)", async () => {
     const f = setup();
     await f.fireMessage({
       type: "message",
@@ -486,7 +495,8 @@ describe("slack-listener", () => {
       ts: "300.0",
       text: "ping in group dm",
     });
-    expect(f.turns).toHaveLength(0);
+    expect(f.turns).toHaveLength(1);
+    expect(f.turns[0]).toMatchObject({ conversationKind: "channel" });
   });
 
   it("strips multiple @mentions of the bot from a single message", async () => {
@@ -533,17 +543,33 @@ describe("slack-listener", () => {
     );
   });
 
-  it("same thread_ts in different channels = different conversations (and not owned)", async () => {
-    const f = setup({ ownedThreads: [{ channelId: "C1", threadTs: "100.0" }] });
+  it("same thread_ts in different channels are independent conversations (both forwarded, §2)", async () => {
+    const f = setup();
+    await f.fireMessage({
+      type: "message",
+      channel: "C1",
+      user: "UATAI001",
+      ts: "101.0",
+      thread_ts: "100.0",
+      text: "in channel one",
+    });
     await f.fireMessage({
       type: "message",
       channel: "C2",
       user: "UATAI001",
-      ts: "101.0",
+      ts: "102.0",
       thread_ts: "100.0",
       text: "stranger in another channel",
     });
-    expect(f.turns).toHaveLength(0);
+    expect(f.turns).toHaveLength(2);
+    expect(f.turns[0]!.conversation).toEqual({
+      channelId: "C1",
+      scope: "100.0",
+    });
+    expect(f.turns[1]!.conversation).toEqual({
+      channelId: "C2",
+      scope: "100.0",
+    });
   });
 
   it("forwards a slash command to onCommand with normalized fields (flat reply target)", async () => {
@@ -608,14 +634,7 @@ describe("slack-listener", () => {
   });
 
   it("F-user-token: thread reply with both user and bot_id (xoxp- post) is treated as real user message", async () => {
-    const f = setup({
-      ownedThreads: [{ channelId: "C1", threadTs: "100.0" }],
-      respondTo: {
-        directMessages: true,
-        appMentions: { reply: "thread" },
-        threadReplies: "afterBotReply",
-      },
-    });
+    const f = setup();
     await f.fireMessage({
       type: "message",
       channel: "C1",
@@ -626,5 +645,6 @@ describe("slack-listener", () => {
       text: "follow-up via user token",
     });
     expect(f.turns).toHaveLength(1);
+    expect(f.turns[0]).toMatchObject({ conversationKind: "thread" });
   });
 });

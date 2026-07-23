@@ -3,7 +3,6 @@ import { attachSlackListener } from "./slack-listener.js";
 import type { SlackCommand } from "./slack-listener.js";
 import type { IncomingTurn } from "./types.js";
 import type { App } from "@slack/bolt";
-import type { SlackConversationStore } from "./conversation-store.js";
 
 /**
  * Capture the Bolt handlers `attachSlackListener` registers, without a real
@@ -11,7 +10,7 @@ import type { SlackConversationStore } from "./conversation-store.js";
  * invoke it with a representative Slack payload and assert on the emitted
  * ingress object.
  */
-function captureListener(opts?: { storeHas?: boolean }): {
+function captureListener(): {
   turns: IncomingTurn[];
   commands: SlackCommand[];
   command: (args: unknown) => Promise<void>;
@@ -34,16 +33,11 @@ function captureListener(opts?: { storeHas?: boolean }): {
     }),
   } as unknown as App;
 
-  const store = {
-    has: vi.fn(async () => opts?.storeHas ?? true),
-  } as unknown as SlackConversationStore;
-
   const turns: IncomingTurn[] = [];
   const commands: SlackCommand[] = [];
 
   attachSlackListener({
     app,
-    store,
     botUserId: "UBOT",
     onTurn: (turn) => {
       turns.push(turn);

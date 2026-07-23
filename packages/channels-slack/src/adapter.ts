@@ -310,7 +310,6 @@ export class SlackAdapter implements PlatformAdapter {
 
     attachSlackListener({
       app: this.app,
-      store: this.store,
       botUserId: this.botUserId,
       respondTo: resolveSlackRespondToOptions(this.opts.respondTo),
       isAssistantThread: this.assistantHandle?.isAssistantThread,
@@ -331,6 +330,10 @@ export class SlackAdapter implements PlatformAdapter {
           // fallback derived by the listener); undefined when unavailable.
           eventId: turn.eventId,
           platform: "slack",
+          // Normalized conversation surface kind + tag signal (plan §2) — the
+          // engine's product-driven response policy governs from here.
+          conversationKind: turn.conversationKind,
+          mentioned: turn.mentioned,
         });
       },
       onCommand: async (cmd) => {

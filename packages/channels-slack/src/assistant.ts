@@ -134,6 +134,10 @@ export function attachAssistant(cfg: AttachAssistantConfig): AssistantHandle {
         userText: text,
         user: m.user ? await resolveUser(m.user) : undefined,
         platform: "slack",
+        // The assistant pane is always directly addressed (plan §2) —
+        // never gated behind a mention requirement.
+        conversationKind: "assistant",
+        mentioned: false,
       });
     },
 

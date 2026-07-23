@@ -1,4 +1,7 @@
-import type { PlatformUser } from "@copilotkit/channels-core";
+import type {
+  ChannelConversationKind,
+  PlatformUser,
+} from "@copilotkit/channels-core";
 
 /**
  * Where to post a reply in Slack. Used by the renderer; constructed by the
@@ -81,8 +84,6 @@ export interface SlackFeedbackOptions {
 
 export type SlackMentionReplyMode = "thread" | "channel";
 
-export type SlackThreadReplyMode = "mentionsOnly" | "afterBotReply";
-
 export interface SlackAppMentionOptions {
   /**
    * Where an app mention should reply. "thread" keeps channel noise down and is
@@ -99,25 +100,23 @@ export interface SlackRespondToOptions {
    * false to ignore app mentions entirely. Default: `{ reply: "thread" }`.
    */
   appMentions?: false | SlackAppMentionOptions;
-  /**
-   * How to handle plain, non-mention replies in channel/private-channel threads.
-   * "mentionsOnly" requires every thread turn to explicitly @mention the bot.
-   * "afterBotReply" preserves the legacy behavior: once the bot has replied in a
-   * thread, future plain replies in that thread can trigger new turns.
-   */
-  threadReplies?: SlackThreadReplyMode;
+  // NOTE: the shipped `threadReplies` option ("mentionsOnly" | "afterBotReply")
+  // is REMOVED (clean break, beta API — plan §5). Owned-thread auto-continue
+  // and the mentions-only gate are superseded by the engine's product-driven
+  // response policy (plan §2): every plain, non-mention reply in a shared
+  // channel/thread is now forwarded, and the engine requires an explicit tag
+  // before auto-running — a prior bot reply does not remove that requirement
+  // — unless an `onMessage` handler opts in.
 }
 
 export interface ResolvedSlackRespondToOptions {
   directMessages: boolean;
   appMentions: false | { reply: SlackMentionReplyMode };
-  threadReplies: SlackThreadReplyMode;
 }
 
 export const DEFAULT_SLACK_RESPOND_TO_OPTIONS: ResolvedSlackRespondToOptions = {
   directMessages: true,
   appMentions: { reply: "thread" },
-  threadReplies: "mentionsOnly",
 };
 
 export function resolveSlackRespondToOptions(
@@ -133,9 +132,6 @@ export function resolveSlackRespondToOptions(
         : {
             reply: respondTo?.appMentions?.reply ?? "thread",
           },
-    threadReplies:
-      respondTo?.threadReplies ??
-      DEFAULT_SLACK_RESPOND_TO_OPTIONS.threadReplies,
   };
 }
 
@@ -179,4 +175,17 @@ export interface IncomingTurn {
    * a random id; that would defeat dedup).
    */
   eventId?: string;
+  /**
+   * Normalized conversation surface kind (plan §2). Populated by the listener
+   * for EVERY emitted turn so the engine's product-driven response policy
+   * (`decideChannelResponse` in channels-core) can decide ignore / run-handler
+   * / auto-run. See channels-core's `ChannelConversationKind`.
+   */
+  conversationKind?: ChannelConversationKind;
+  /**
+   * True when the bot was explicitly tagged/mentioned in this message.
+   * `app_mention` turns are always `true`; every other surface is `false`
+   * (DMs and the assistant pane are already directly addressed regardless).
+   */
+  mentioned?: boolean;
 }

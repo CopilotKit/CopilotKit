@@ -81,7 +81,6 @@ const bot = createChannel({
       respondTo: {
         directMessages: true,
         appMentions: { reply: "thread" },
-        threadReplies: "mentionsOnly",
       },
     }),
   ],
@@ -108,10 +107,12 @@ bot.onMention(async ({ thread, message }) => {
 await bot.start();
 ```
 
-The runnable Slack example keeps DMs and the assistant pane conversational, but
-channel/private-channel threads require `@Kite` on each follow-up by default.
-Set `respondTo.threadReplies: "afterBotReply"` to restore legacy behavior where
-plain replies in a thread can continue after the bot has posted there.
+The runnable Slack example keeps DMs and the assistant pane conversational; a
+channel/private-channel message (top-level or in a thread) is forwarded to the
+engine too, which stays quiet on it unless `@Kite` is explicitly mentioned — a
+prior bot reply in a thread does NOT lift that requirement (there's no
+adapter-level toggle for this anymore; register an `onMessage` handler to see
+every untagged message instead).
 
 ### Tools (`app/tools/index.ts`)
 
@@ -260,10 +261,10 @@ several from one process).
   bot token (`SLACK_BOT_TOKEN`).
 - _Basic Information → App-Level Tokens_ → generate one with
   `connections:write` → copy the `xapp-` app token (`SLACK_APP_TOKEN`).
-- The manifest is tuned for mention-only channel threads. If you enable
-  `respondTo.threadReplies: "afterBotReply"`, also subscribe to
-  `message.channels` and `message.groups` so Slack delivers plain thread
-  replies.
+- The manifest is tuned for mention-only channel threads. To see every
+  untagged plain channel/thread message (via an `onMessage` handler), also
+  subscribe to `message.channels` and `message.groups` so Slack delivers
+  those events at all.
 
 ### 1b. Discord app (set `DISCORD_*` to enable Discord)
 
