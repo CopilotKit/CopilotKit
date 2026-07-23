@@ -203,7 +203,7 @@ describe("deriveChannelActivationConfig", () => {
     const intelligence = fakeIntelligence("cpk-7_a_b");
     const channel = {
       name: "support",
-      provider: "  teams  ",
+      ɵruntime: { provider: "  teams  " },
     } as unknown as Channel;
 
     expect(
@@ -219,11 +219,11 @@ describe("deriveChannelActivationConfig", () => {
     const intelligence = fakeIntelligence("cpk-7_a_b");
     const emptyProvider = {
       name: "support",
-      provider: "",
+      ɵruntime: { provider: "" },
     } as unknown as Channel;
     const blankProvider = {
       name: "support",
-      provider: "   ",
+      ɵruntime: { provider: "   " },
     } as unknown as Channel;
 
     expect(

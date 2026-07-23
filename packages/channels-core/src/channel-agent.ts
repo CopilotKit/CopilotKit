@@ -1,5 +1,6 @@
 import type { AbstractAgent } from "@ag-ui/client";
 import type { PlatformAdapter } from "./platform-adapter.js";
+import type { ManagedChannelProvider } from "./create-channel.js";
 
 /**
  * Channel agent binding + routing contracts (Task 2).
@@ -146,6 +147,15 @@ export interface ChannelRuntimeInternals {
   readonly agentBinding?: ChannelAgentBinding;
   /** The Channel's declared per-conversation concurrency policy, if any. */
   readonly concurrency?: ChannelConcurrencyPolicy;
+
+  /**
+   * The managed delivery provider a no-adapter Channel targets when activated
+   * via CopilotKit Intelligence (from `createChannel({ provider })`). Declared
+   * to the Intelligence gateway on join; `undefined` means the managed default
+   * (`"slack"`). Ignored for direct-adapter Channels. Relocated off the public
+   * `Channel` API (plan §2 A1) — read via `channel.ɵruntime.provider`.
+   */
+  readonly provider?: ManagedChannelProvider;
 
   /**
    * Attach an adapter before {@link start}. The Channel Runner uses this to

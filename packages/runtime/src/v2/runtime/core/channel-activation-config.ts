@@ -109,9 +109,10 @@ export function parseProjectIdFromApiKey(apiKey: string): number {
  *   parseable, strictly-positive project id, or if `channel.name` is
  *   missing/empty.
  *
- * The managed provider is a PER-CHANNEL choice read from `channel.provider`, so
- * one runtime can activate a Slack-backed Channel and a Teams-backed Channel
- * side by side. When `channel.provider` is unset the config adapter defaults to
+ * The managed provider is a PER-CHANNEL choice read from `channel.ɵruntime.provider`
+ * (relocated off the public Channel API, A1), so one runtime can activate a
+ * Slack-backed Channel and a Teams-backed Channel side by side. When unset the
+ * config adapter defaults to
  * `"slack"` — an explicit, documented default, not a silent global. The SDK
  * only DECLARES this provider to the Intelligence gateway on join; the gateway
  * resolves the actual connection and is the authority on which providers it
@@ -155,7 +156,7 @@ export function deriveChannelActivationConfig(args: {
   // resolves to its bare provider rather than being forwarded with whitespace,
   // and a blank/whitespace-only provider falls back to `"slack"` (`??` alone
   // would keep `""`).
-  const trimmedProvider = channel.provider?.trim();
+  const trimmedProvider = channel.ɵruntime.provider?.trim();
 
   return {
     wsUrl,

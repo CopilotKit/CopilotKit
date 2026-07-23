@@ -3,9 +3,10 @@ import { createChannel } from "./create-channel.js";
 import { FakeAdapter } from "./testing/fake-adapter.js";
 
 /**
- * The Channel lifecycle (`start`/`stop`/`addAdapter`) is relocated onto the
- * internal `ɵruntime` surface (plan §2 / A1). The public methods delegate to it
- * during the migration and are removed once all callers use `ɵruntime`.
+ * The Channel lifecycle (`start`/`stop`/`addAdapter`) lives on the internal
+ * `ɵruntime` surface (plan §2 / A1). The public `Channel.start/stop/addAdapter`
+ * methods have been removed — the runner (or a custom ChannelRunner) drives
+ * `ɵruntime` directly.
  */
 describe("Channel ɵruntime lifecycle", () => {
   it("ɵruntime.addAdapter attaches an adapter before start", async () => {
@@ -36,12 +37,20 @@ describe("Channel ɵruntime lifecycle", () => {
     expect(stopped).toBe(true);
   });
 
-  it("the public lifecycle delegates to the same ɵruntime implementation", async () => {
-    const adapter = new FakeAdapter();
+  it("does not expose a public start/stop/addAdapter surface", () => {
     const channel = createChannel({ name: "support" });
-    // Public addAdapter + start still work (delegating to ɵruntime).
-    channel.addAdapter(adapter);
-    await channel.start();
-    expect(adapter.started).toBe(true);
+    // The public lifecycle API was removed (A1); only the ɵruntime seam remains.
+    expect(
+      (channel as unknown as Record<string, unknown>).start,
+    ).toBeUndefined();
+    expect(
+      (channel as unknown as Record<string, unknown>).stop,
+    ).toBeUndefined();
+    expect(
+      (channel as unknown as Record<string, unknown>).addAdapter,
+    ).toBeUndefined();
+    expect(
+      (channel as unknown as Record<string, unknown>).provider,
+    ).toBeUndefined();
   });
 });

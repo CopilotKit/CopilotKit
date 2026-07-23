@@ -268,13 +268,6 @@ export interface Channel<TState = unknown> {
   readonly name?: string;
   /** Adapters currently attached to this Channel (read-only snapshot). The Channel runtime uses this to distinguish a managed-eligible Channel (no adapters) from one carrying developer-supplied direct adapters. */
   readonly adapters: readonly PlatformAdapter[];
-  /**
-   * The managed delivery provider a no-adapter Channel targets when activated
-   * via CopilotKit Intelligence (from `createChannel({ provider })`). Declared
-   * to the Intelligence gateway on join; `undefined` means the managed default
-   * (`"slack"`). Ignored for direct-adapter Channels.
-   */
-  readonly provider?: ManagedChannelProvider;
   /** Declared slash-command names (normalized). Surfaced for Channel activation metadata. */
   readonly commandNames: string[];
   onMention(h: ChannelHandler<TState>): void;
@@ -317,10 +310,6 @@ export interface Channel<TState = unknown> {
   /** Handle a modal dismissal for `callbackId` (Slack `view_closed`). */
   onModalClose(callbackId: string, handler: ModalCloseHandler): void;
   tool(t: ChannelTool): void;
-  /** Attach an adapter before `start()`. Throws if called after the channel has started. */
-  addAdapter(adapter: PlatformAdapter): void;
-  start(): Promise<void>;
-  stop(): Promise<void>;
   /** Cross-platform transcript store. Append, list, and delete entries per user. */
   transcripts: Transcripts;
   /**
@@ -980,18 +969,18 @@ export function createChannel<
 
   const channel: Channel<ThreadStateOf<TStateSchema>> = {
     name: opts.name,
-    ...(opts.provider !== undefined ? { provider: opts.provider } : {}),
     // Runtime-only binding surface (A6): the raw declared agent binding +
-    // concurrency policy, read by the Runtime to compile this Channel into a
-    // RuntimeChannelBinding. Omit each key when undeclared so the seam mirrors
-    // the caller's declaration exactly (undefined binding = default agent).
+    // concurrency policy + managed provider, read by the Runtime to compile this
+    // Channel into a RuntimeChannelBinding. Omit each key when undeclared so the
+    // seam mirrors the caller's declaration exactly (undefined binding = default
+    // agent). The Channel lifecycle (addAdapter/start/stop) lives here too — the
+    // public methods were removed (plan §2 A1); the runner drives ɵruntime.
     ɵruntime: {
       ...(opts.agent !== undefined ? { agentBinding: opts.agent } : {}),
       ...(opts.concurrency !== undefined
         ? { concurrency: opts.concurrency }
         : {}),
-      // The Channel lifecycle lives here (plan §2). The public
-      // addAdapter/start/stop delegate to these during migration.
+      ...(opts.provider !== undefined ? { provider: opts.provider } : {}),
       addAdapter: addAdapterImpl,
       start: startImpl,
       stop: stopImpl,
@@ -1011,9 +1000,6 @@ export function createChannel<
         );
       }
       return transcripts;
-    },
-    addAdapter(adapter) {
-      addAdapterImpl(adapter);
     },
     onMention(h) {
       // The public surface narrows `thread` to StatefulThread<TState>; the
@@ -1092,15 +1078,6 @@ export function createChannel<
     },
     tool(t) {
       toolMap.set(t.name, t);
-    },
-    // Public lifecycle delegates to the relocated `ɵruntime` implementation
-    // (plan §2). These public methods are removed once all callers migrate to
-    // `channel.ɵruntime.*`.
-    start() {
-      return startImpl();
-    },
-    stop() {
-      return stopImpl();
     },
   };
   return channel;
