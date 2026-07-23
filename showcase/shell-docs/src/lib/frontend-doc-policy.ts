@@ -119,6 +119,21 @@ export function resolveFrontendDocPage(
   const variantDoc = loadDoc(variantContentSlug);
   const policy = getFrontendDocPolicy(slugPath);
 
+  // Angular publishes only its own authored pages. Shared pages can contain
+  // APIs and examples for a different frontend, so they must not appear under
+  // an Angular URL.
+  if (frontend === "angular") {
+    return variantDoc
+      ? {
+          status: "found",
+          slugPath,
+          contentSlugPath: variantContentSlug,
+          canonicalPath: `/${frontend}/${slugPath}`,
+          policy: { kind: "frontend-variant", fallback: "hide" },
+        }
+      : { status: "not-found" };
+  }
+
   if (policy?.kind === "frontend-variant") {
     if (variantDoc) {
       return {

@@ -118,7 +118,7 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
           );
         }
         console.debug("[d5-headless-simple] turn 1 assertions passed", {
-          assistantText: text.slice(0, 200),
+          assistantTextLength: text.length,
         });
       },
     },

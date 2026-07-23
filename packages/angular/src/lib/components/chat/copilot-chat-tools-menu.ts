@@ -8,7 +8,7 @@ import {
 
 import { CdkMenuModule } from "@angular/cdk/menu";
 import { OverlayModule } from "@angular/cdk/overlay";
-import { LucideAngularModule, Plus, ChevronRight } from "lucide-angular";
+import { ChevronRight, CopilotIcon, Plus } from "../icons/copilot-icon";
 import type { ToolsMenuItem } from "./copilot-chat-input.types";
 import { cn } from "../../utils";
 import { injectChatLabels } from "../../chat-config";
@@ -16,19 +16,20 @@ import { CopilotTooltip } from "../../directives/tooltip";
 
 @Component({
   selector: "copilot-chat-tools-menu",
-  imports: [CdkMenuModule, OverlayModule, LucideAngularModule, CopilotTooltip],
+  imports: [CdkMenuModule, OverlayModule, CopilotIcon, CopilotTooltip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
     <button
       type="button"
+      [attr.aria-label]="tooltipLabel()"
       [disabled]="triggerDisabled()"
       [class]="buttonClass()"
       [cdkMenuTriggerFor]="menu"
       [copilotTooltip]="tooltipLabel()"
       tooltipPosition="below"
     >
-      <lucide-angular [img]="PlusIcon" [size]="20"></lucide-angular>
+      <copilot-icon [img]="PlusIcon" [size]="20"></copilot-icon>
     </button>
 
     <ng-template #menu>
@@ -50,11 +51,11 @@ import { CopilotTooltip } from "../../directives/tooltip";
                 cdkMenuItem
               >
                 {{ item.label }}
-                <lucide-angular
+                <copilot-icon
                   [img]="ChevronRightIcon"
                   [size]="12"
                   class="cpk:ml-auto"
-                ></lucide-angular>
+                ></copilot-icon>
               </button>
 
               <!-- Submenu template -->

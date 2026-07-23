@@ -83,6 +83,20 @@ const SNIPPET_FRAMEWORK_PREFERENCE = [
   "built-in-agent",
 ];
 
+/**
+ * Map Angular frontend source slugs to the URLs served by the docs router.
+ */
+function canonicalDocsUrl(slug: string): string {
+  if (slug === "frontends/angular") return "angular";
+  if (slug === "frontends/angular/docs-status") {
+    return "angular/using-these-docs";
+  }
+  if (slug.startsWith("frontends/angular/")) {
+    return slug.replace(/^frontends\//, "");
+  }
+  return slug;
+}
+
 // -----------------------------------------------------------------------
 // Public types
 // -----------------------------------------------------------------------
@@ -158,7 +172,7 @@ export function getAllLlmPages(): LlmPage[] {
     const overridePath = rootOverrides.get(slug);
     const meta = readMetaFromFile(overridePath ?? filePath);
     push({
-      url: slug,
+      url: canonicalDocsUrl(slug),
       title: meta.title ?? slug,
       description: meta.description,
       filePath: overridePath ?? filePath,

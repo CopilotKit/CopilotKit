@@ -5,21 +5,21 @@ description: "Angular function that adds reactive context for the agent and clea
 
 ## Overview
 
-`connectAgentContext` registers a piece of [context](https://docs.ag-ui.com/concepts/context) with the agent so the agent can read your application state. It accepts a static `Context` object or a `Signal<Context>`. When you pass a signal, the registered context updates reactively as the signal changes, and the previous context is removed and the new one added.
+`connectAgentContext` registers [context](https://docs.ag-ui.com/concepts/context) with the agent so it can read your application state. It accepts a static `Context` object or a zero-argument accessor. The internal Angular `effect` tracks any signals read by the accessor and updates the context when they change.
 
 The registration is wrapped in an Angular `effect`, so the context is cleaned up automatically when the owning component or service is destroyed.
 
-This is the function-based equivalent of React's `useAgentContext()`. For a template-driven alternative, use the [`CopilotKitAgentContext`](/reference/angular/directives/CopilotKitAgentContext) directive.
+For a template-driven alternative, use the [`CopilotKitAgentContext`](/reference/angular/directives/CopilotKitAgentContext) directive.
 
 <Callout type="warn">
-  Call this from an Angular injection context (a constructor or a field initializer). If you cannot, pass an `injector` in the config. If neither is available, it throws.
+  Call this from an Angular injection context, such as a constructor or field initializer. The current implementation resolves the ambient injector before it reads the config, so passing `config.injector` does not make an outside-context call valid.
 </Callout>
 
 ## Signature
 
 ```ts
 import { connectAgentContext } from "@copilotkit/angular";
-import type { Signal, Injector } from "@angular/core";
+import type { Injector } from "@angular/core";
 import type { Context } from "@ag-ui/client";
 
 interface ConnectAgentContextConfig {
@@ -27,15 +27,15 @@ interface ConnectAgentContextConfig {
 }
 
 function connectAgentContext(
-  context: Context | Signal<Context>,
+  context: Context | (() => Context),
   config?: ConnectAgentContextConfig,
 ): void;
 ```
 
 ## Parameters
 
-<PropertyReference name="context" type="Context | Signal<Context>" required>
-  The context to share with the agent, or a signal of it. A `Context` is an object with the following fields. When you pass a `Signal<Context>`, the context re-registers whenever the signal value changes.
+<PropertyReference name="context" type="Context | (() => Context)" required>
+  The context to share with the agent, or a zero-argument accessor that returns it. A `Context` is an object with the following fields. When the accessor reads Angular signals, the context re-registers when those signals change.
 
   <PropertyReference name="description" type="string" required>
     A human-readable description of what this context represents, for example `"User preferences"`.
@@ -47,10 +47,11 @@ function connectAgentContext(
 </PropertyReference>
 
 <PropertyReference name="config" type="ConnectAgentContextConfig">
-  Optional configuration.
+  Optional configuration. You must still call the function from an injection context.
 
   <PropertyReference name="injector" type="Injector">
-    An explicit `Injector` to use when `connectAgentContext` is called outside an injection context. When omitted, the ambient injector is used. The injector also scopes the internal `effect`, so cleanup runs when that injector is destroyed.
+    Injector used to resolve `CopilotKit` and own the reactive effect. When
+    supplied, it takes precedence over the ambient injector.
   </PropertyReference>
 </PropertyReference>
 
@@ -77,12 +78,12 @@ export class PreferencesComponent {
 }
 ```
 
-### Reactive context with a signal
+### Reactive context with an accessor
 
-Pass a `Signal<Context>` so the agent always sees the current value.
+Pass an accessor that reads signals so the agent always sees the current value.
 
 ```ts title="src/app/cart.component.ts"
-import { Component, computed, signal } from "@angular/core";
+import { Component, signal } from "@angular/core";
 import { connectAgentContext } from "@copilotkit/angular";
 
 @Component({
@@ -93,13 +94,13 @@ import { connectAgentContext } from "@copilotkit/angular";
 export class CartComponent {
   readonly items = signal<string[]>([]);
 
-  // Re-registers with the agent whenever the cart changes.
-  readonly cartContext = connectAgentContext(
-    computed(() => ({
+  constructor() {
+    // Re-registers with the agent whenever the cart changes.
+    connectAgentContext(() => ({
       description: "Current shopping cart",
       value: JSON.stringify(this.items()),
-    })),
-  );
+    }));
+  }
 
   add() {
     this.items.update((items) => [...items, "Item"]);
@@ -107,32 +108,11 @@ export class CartComponent {
 }
 ```
 
-### Passing an explicit injector
-
-When you call `connectAgentContext` outside an injection context, pass an `injector`.
-
-```ts title="src/app/late-context.service.ts"
-import { inject, Injectable, Injector } from "@angular/core";
-import { connectAgentContext } from "@copilotkit/angular";
-
-@Injectable({ providedIn: "root" })
-export class LateContextService {
-  private readonly injector = inject(Injector);
-
-  register(value: string) {
-    connectAgentContext(
-      { description: "Late context", value },
-      { injector: this.injector },
-    );
-  }
-}
-```
-
 ## Behavior
 
-- **Reactive updates.** When given a `Signal<Context>`, the context is removed and re-added whenever the signal value changes, so the agent always sees the current value.
+- **Reactive updates.** When an accessor reads signals, the context is removed and re-added whenever one of those signals changes.
 - **Automatic cleanup.** Registration runs inside an Angular `effect`; the context is removed when the effect is torn down, which happens when the owning component, service, or injector is destroyed.
-- **Injection context required.** Throws if called outside an injection context without an `injector` in the config.
+- **Injection context required.** Angular throws `NG0203` when you call the function outside an injection context.
 
 ## Related
 

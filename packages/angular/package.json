@@ -9,14 +9,21 @@
     "directory": "packages/angular"
   },
   "type": "module",
+  "sideEffects": false,
   "main": "dist/fesm2022/copilotkit-angular.mjs",
   "module": "dist/fesm2022/copilotkit-angular.mjs",
-  "types": "dist/types/copilotkit-angular.d.ts",
+  "types": "dist/index.d.ts",
   "exports": {
     ".": {
       "import": {
-        "types": "./dist/types/copilotkit-angular.d.ts",
+        "types": "./dist/index.d.ts",
         "default": "./dist/fesm2022/copilotkit-angular.mjs"
+      }
+    },
+    "./mcp-apps": {
+      "import": {
+        "types": "./dist/mcp-apps/index.d.ts",
+        "default": "./dist/fesm2022/copilotkit-angular-mcp-apps.mjs"
       }
     },
     "./styles.css": "./dist/styles.css"
@@ -24,8 +31,35 @@
   "publishConfig": {
     "access": "public"
   },
+  "copilotkit": {
+    "angularSupport": {
+      "compilerMajor": 20,
+      "rxjs": "^7.8.0",
+      "testedRxjs": "7.8.1",
+      "supportedMajors": [
+        {
+          "angular": "20.3.26",
+          "cdk": "20.2.14",
+          "major": 20,
+          "typescript": "5.9.3"
+        },
+        {
+          "angular": "21.2.18",
+          "cdk": "21.2.14",
+          "major": 21,
+          "typescript": "5.9.3"
+        },
+        {
+          "angular": "22.0.7",
+          "cdk": "22.0.5",
+          "major": 22,
+          "typescript": "6.0.3"
+        }
+      ]
+    }
+  },
   "scripts": {
-    "build": "ng-packagr -p ng-package.json && npm run build:css",
+    "build": "ng-packagr -p ng-package.json && node scripts/normalize-package-exports.mjs && npm run build:css",
     "build:css": "tailwindcss -i ./src/styles/globals.css -o ./src/styles/generated.css && node scripts/scope-preflight.mjs ./src/styles/generated.css && node -e \"const fs=require('fs');fs.mkdirSync('./dist',{recursive:true});fs.cpSync('./src/styles/generated.css','./dist/styles.css')\"",
     "dev": "concurrently \"ng-packagr -p ng-package.json --watch\" \"npm run dev:css\"",
     "dev:css": "tailwindcss -i ./src/styles/globals.css -o ./src/styles/generated.css --watch",
@@ -46,25 +80,25 @@
     "clsx": "^2.1.1",
     "highlight.js": "^11.11.1",
     "katex": "^0.16.22",
-    "lucide-angular": "^0.540.0",
     "marked": "^16.2.0",
     "rxjs": "^7.8.1",
     "tailwind-merge": "^2.6.0",
     "tslib": "^2.6.0",
+    "zod": "^3.25.75",
     "zod-to-json-schema": "^3.24.5"
   },
   "devDependencies": {
-    "@analogjs/vite-plugin-angular": "^1.20.2",
-    "@analogjs/vitest-angular": "^1.20.2",
-    "@angular/cdk": "^21.2.13",
-    "@angular/common": "^21.2.15",
-    "@angular/compiler": "^21.2.15",
-    "@angular/compiler-cli": "^21.2.15",
-    "@angular/core": "^21.2.15",
-    "@angular/platform-browser": "^21.2.15",
-    "@angular/platform-browser-dynamic": "^21.2.15",
+    "@analogjs/vite-plugin-angular": "1.20.2",
+    "@analogjs/vitest-angular": "1.20.2",
+    "@angular-devkit/architect": "0.2003.26",
+    "@angular/cdk": "20.2.14",
+    "@angular/common": "20.3.26",
+    "@angular/compiler": "20.3.26",
+    "@angular/compiler-cli": "20.3.26",
+    "@angular/core": "20.3.26",
+    "@angular/platform-browser": "20.3.26",
+    "@angular/platform-browser-dynamic": "20.3.26",
     "@copilotkit/typescript-config": "workspace:*",
-    "@lucide/build-icons": "^1.1.0",
     "@tailwindcss/cli": "^4.1.11",
     "@tailwindcss/postcss": "^4.1.11",
     "@tailwindcss/typography": "^0.5.16",
@@ -72,9 +106,11 @@
     "@types/node": "^22.5.1",
     "@vitest/ui": "^3.2.4",
     "autoprefixer": "^10.4.16",
+    "axe-core": "4.11.1",
+    "chokidar": "4.0.3",
     "concurrently": "^9.1.0",
     "jsdom": "^24.0.0",
-    "ng-packagr": "^21.2.3",
+    "ng-packagr": "20.3.2",
     "postcss": "^8.4.31",
     "reflect-metadata": "^0.2.2",
     "rimraf": "^6.0.1",
@@ -84,13 +120,12 @@
     "tw-animate-css": "^1.3.5",
     "typescript": "5.9.3",
     "vite": "^7.1.4",
-    "vitest": "^3.2.4",
-    "zod": "^3.22.4"
+    "vitest": "^3.2.4"
   },
   "peerDependencies": {
-    "@angular/cdk": "^19.0.0 || ^20.0.0 || ^21.0.0",
-    "@angular/common": "^19.0.0 || ^20.0.0 || ^21.0.0",
-    "@angular/core": "^19.0.0 || ^20.0.0 || ^21.0.0",
+    "@angular/cdk": "^20.0.0 || ^21.0.0 || ^22.0.0",
+    "@angular/common": "^20.0.0 || ^21.0.0 || ^22.0.0",
+    "@angular/core": "^20.0.0 || ^21.0.0 || ^22.0.0",
     "rxjs": "^7.8.0"
   }
 }

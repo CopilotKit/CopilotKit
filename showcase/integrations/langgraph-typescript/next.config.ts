@@ -1,6 +1,14 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  async rewrites() {
+    return [
+      {
+        source: "/angular/:path*",
+        destination: "/angular/index.html",
+      },
+    ];
+  },
   serverExternalPackages: ["@copilotkit/runtime"],
   // The staged CVDIAG emitter (src/cvdiag/*) uses NodeNext-style relative
   // imports with explicit `.js` extensions (e.g. `import … from "./schema.js"`).

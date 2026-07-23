@@ -7,7 +7,7 @@ description: "The root Angular service that exposes CopilotKit agents, tools, ru
 
 `CopilotKit` is the central injectable service for `@copilotkit/angular`. It is `providedIn: "root"`, so a single instance is shared across your application. It builds and owns the underlying `CopilotKitCore` from the [`CopilotKitConfig`](/reference/angular/functions/provideCopilotKit#parameters) you registered with [`provideCopilotKit`](/reference/angular/functions/provideCopilotKit), exposes reactive runtime state as Angular [signals](https://angular.dev/guide/signals), and provides methods to register tools, manage suggestions, and update the runtime connection.
 
-This is the Angular equivalent of React's `useCopilotKit()`. In most apps you do not call its methods directly. The injectable functions such as [`registerFrontendTool`](/reference/angular/functions/registerFrontendTool), [`registerRenderToolCall`](/reference/angular/functions/registerRenderToolCall), and [`registerHumanInTheLoop`](/reference/angular/functions/registerHumanInTheLoop) wrap it and add automatic cleanup. Inject the service when you need direct access to its signals or the `core` instance.
+In most apps you do not call its methods directly. The injectable functions such as [`registerFrontendTool`](/reference/angular/functions/registerFrontendTool), [`registerRenderToolCall`](/reference/angular/functions/registerRenderToolCall), and [`registerHumanInTheLoop`](/reference/angular/functions/registerHumanInTheLoop) register against the current injector and remove registrations with the same name and optional agent id when that injector is destroyed. Inject the service when you need direct access to its signals or the `core` instance.
 
 ## Accessing the service
 
@@ -54,6 +54,21 @@ All reactive state is exposed as read-only Angular signals. Read a signal by cal
   The HTTP headers currently sent with runtime requests.
 </PropertyReference>
 
+<PropertyReference name="threadEndpoints" type="Signal<ThreadEndpointRuntimeInfo | undefined>">
+  Thread endpoint support advertised by the connected runtime's `/info`
+  response. It is `undefined` until the runtime reports the capability.
+</PropertyReference>
+
+<PropertyReference name="intelligence" type="Signal<IntelligenceRuntimeInfo | undefined>">
+  Intelligence runtime information advertised by `/info`, including the
+  realtime WebSocket URL when available.
+</PropertyReference>
+
+<PropertyReference name="licenseStatus" type="Signal<RuntimeLicenseStatus | undefined>">
+  License status reported by the connected runtime, or `undefined` before the
+  runtime reports it.
+</PropertyReference>
+
 <PropertyReference name="suggestionsByAgent" type="Signal<Record<string, CopilotKitCoreGetSuggestionsResult>>">
   Suggestions keyed by agent id. Each value is
   `{ suggestions: Suggestion[]; isLoading: boolean }`.
@@ -85,30 +100,40 @@ All reactive state is exposed as read-only Angular signals. Read a signal by cal
   or subscribing to core events.
 </PropertyReference>
 
+<PropertyReference name="defaultToolRenderingEnabled" type="boolean">
+  Whether the text-only fallback renderer for otherwise unknown tools was
+  enabled with `defaultToolRendering: true`.
+</PropertyReference>
+
 ## Methods
 
 <PropertyReference name="addFrontendTool" type="(tool: FrontendToolConfig & { injector: Injector }) => void">
   Register a client-side tool. The handler is rebound to run inside the provided
   `injector`, so it can use `inject()`. Prefer
   [`registerFrontendTool`](/reference/angular/functions/registerFrontendTool),
-  which supplies the injector and removes the tool on destroy.
+  which supplies the injector and removes registrations with the same name and
+  optional agent id on destroy.
 </PropertyReference>
 
 <PropertyReference name="addRenderToolCall" type="(renderConfig: RenderToolCallConfig) => void">
   Register a renderer for a tool call. Prefer
   [`registerRenderToolCall`](/reference/angular/functions/registerRenderToolCall)
-  for automatic cleanup.
+  for injector-scoped, name-based cleanup.
 </PropertyReference>
 
 <PropertyReference name="addRenderActivityMessage" type="(renderConfig: RenderActivityMessageConfig) => void">
   Register a renderer for an agent activity message type.
 </PropertyReference>
 
+<PropertyReference name="removeRenderActivityMessage" type="(renderConfig: RenderActivityMessageConfig) => void">
+  Remove a dynamically registered activity renderer by object identity.
+</PropertyReference>
+
 <PropertyReference name="addHumanInTheLoop" type="(humanInTheLoopTool: HumanInTheLoopConfig) => void">
   Register a human-in-the-loop tool. The tool pauses the run until the user
   responds. Prefer
   [`registerHumanInTheLoop`](/reference/angular/functions/registerHumanInTheLoop)
-  for automatic cleanup.
+  for injector-scoped, name-based cleanup.
 </PropertyReference>
 
 <PropertyReference name="addSuggestionsConfig" type="(config: SuggestionsConfig) => string">
@@ -227,7 +252,7 @@ export class SuggestionsComponent {
   />
   <Card
     title="registerFrontendTool"
-    description="Register a client-side tool from a component, with automatic cleanup on destroy."
+    description="Register a client-side tool from an injection context, with name-based cleanup on destroy."
     href="/reference/angular/functions/registerFrontendTool"
   />
   <Card

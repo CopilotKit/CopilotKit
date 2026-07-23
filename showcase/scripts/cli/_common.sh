@@ -63,6 +63,29 @@ stage_shared() {
         fi
       fi
     done
+
+    # Angular is built once, then the same static artifact is materialized
+    # inside each selected integration context. The staged manifest contains
+    # only the frontend and integration IDs; all API traffic stays same-origin.
+    local angular_link="$pkg_dir/public/angular"
+    if [ -L "$angular_link" ]; then
+      local angular_target
+      angular_target="$(readlink "$angular_link")"
+      if [[ "$angular_target" != /* ]]; then
+        angular_target="$(cd "$(dirname "$angular_link")" && pwd)/$angular_target"
+      fi
+      if [ ! -d "$angular_target" ]; then
+        pnpm --dir "$SHOWCASE_ROOT/angular" build
+      fi
+      local integration_id
+      integration_id="$(basename "${pkg_dir%/}")"
+      rm "$angular_link"
+      mkdir -p "$angular_link"
+      rsync -a "$angular_target/" "$angular_link/"
+      printf '%s\n' \
+        "globalThis.__COPILOTKIT_SHOWCASE__ = Object.freeze({\"frontendId\":\"angular\",\"integrationId\":\"$integration_id\"});" \
+        > "$angular_link/runtime-config.js"
+    fi
   done
 }
 
@@ -70,7 +93,7 @@ restore_symlinks() {
   # Restore tools/, shared-tools/, and _shared/ symlinks replaced by
   # stage_shared. The integrations/*/_shared glob also matches the canonical
   # source dir integrations/_shared (a real tracked dir) — harmless no-op there.
-  (cd "$SHOWCASE_ROOT" && git checkout -- integrations/*/tools integrations/*/shared-tools integrations/*/_shared 2>/dev/null || true)
+  (cd "$SHOWCASE_ROOT" && git checkout -- integrations/*/tools integrations/*/shared-tools integrations/*/_shared integrations/*/public/angular 2>/dev/null || true)
 }
 
 slug_to_container() {
