@@ -129,7 +129,10 @@ const runtime = new CopilotRuntime({
 
 // Mounting the listener activates the Channel (starting its adapters) and
 // exposes `.channels` for readiness + shutdown — no bot.start()/bot.stop().
-const listener = createCopilotNodeListener({ runtime, basePath: "/api/copilotkit" });
+const listener = createCopilotNodeListener({
+  runtime,
+  basePath: "/api/copilotkit",
+});
 createServer(listener).listen(8300, "127.0.0.1");
 await listener.channels?.ready();
 ```

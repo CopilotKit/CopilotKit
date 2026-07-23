@@ -21,7 +21,9 @@ describe("createChannel — optional adapters + addAdapter", () => {
       agent: () => new FakeAgent(),
     });
     await channel.ɵruntime.start();
-    expect(() => channel.ɵruntime.addAdapter(new FakeAdapter())).toThrow(/start/i);
+    expect(() => channel.ɵruntime.addAdapter(new FakeAdapter())).toThrow(
+      /start/i,
+    );
   });
 
   it("is idempotent: a second start() does not re-start adapters or rebuild state", async () => {
