@@ -146,7 +146,7 @@
     "vitest": "^3.2.4"
   },
   "peerDependencies": {
-    "@anthropic-ai/sdk": "^0.57.0",
+    "@anthropic-ai/sdk": ">=0.57.0",
     "@langchain/aws": ">=0.1.9",
     "@langchain/community": ">=0.3.58",
     "@langchain/core": ">=0.3.66",
