@@ -316,6 +316,93 @@ describe("convertJsonSchemaToZodSchema", () => {
     const valid = zodSchema.parse({ user: { name: "John" } });
     expect(valid).toEqual({ user: { name: "John" } });
   });
+
+  it("should convert anyOf/oneOf unions to a Zod union instead of dropping them", () => {
+    // A frontend tool authored with z.discriminatedUnion serializes to a node
+    // carrying `anyOf` (or `oneOf`) and no top-level `type`. Previously this hit
+    // the empty-schema guard and collapsed to z.object({}), silently dropping
+    // the union. It must become a real z.union so both variants survive.
+    const jsonSchema = {
+      anyOf: [
+        {
+          type: "object" as const,
+          properties: {
+            kind: { type: "string" as const, enum: ["text"] },
+            text: { type: "string" as const },
+          },
+          required: ["kind", "text"],
+        },
+        {
+          type: "object" as const,
+          properties: {
+            kind: { type: "string" as const, enum: ["image"] },
+            url: { type: "string" as const },
+          },
+          required: ["kind", "url"],
+        },
+      ],
+    } as any;
+
+    const zodSchema = convertJsonSchemaToZodSchema(jsonSchema, true);
+    expect((zodSchema as z.ZodType)._def.typeName).toBe("ZodUnion");
+    expect(zodSchema.parse({ kind: "text", text: "hi" })).toEqual({
+      kind: "text",
+      text: "hi",
+    });
+    expect(zodSchema.parse({ kind: "image", url: "http://x/y.png" })).toEqual({
+      kind: "image",
+      url: "http://x/y.png",
+    });
+  });
+
+  it("should preserve a union nested inside array items (the oneOf trap)", () => {
+    // The exact reported trap: a z.discriminatedUnion inside array items. The
+    // union node must survive conversion; before the fix the array items became
+    // an empty object and the union-typed data was lost.
+    const jsonSchema = {
+      type: "object" as const,
+      properties: {
+        blocks: {
+          type: "array" as const,
+          items: {
+            oneOf: [
+              {
+                type: "object" as const,
+                properties: {
+                  type: { type: "string" as const, enum: ["heading"] },
+                  level: { type: "number" as const },
+                },
+                required: ["type", "level"],
+              },
+              {
+                type: "object" as const,
+                properties: {
+                  type: { type: "string" as const, enum: ["paragraph"] },
+                  content: { type: "string" as const },
+                },
+                required: ["type", "content"],
+              },
+            ],
+          },
+        },
+      },
+      required: ["blocks"],
+    } as any;
+
+    const zodSchema = convertJsonSchemaToZodSchema(jsonSchema, true);
+    const parsed = zodSchema.parse({
+      blocks: [
+        { type: "heading", level: 1 },
+        { type: "paragraph", content: "hello" },
+      ],
+    });
+    expect(parsed).toEqual({
+      blocks: [
+        { type: "heading", level: 1 },
+        { type: "paragraph", content: "hello" },
+      ],
+    });
+  });
 });
 
 describe("convertToolsToVercelAITools", () => {

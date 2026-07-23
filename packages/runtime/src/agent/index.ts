@@ -546,12 +546,17 @@ export function convertMessagesToVercelAISDKMessages(
  * JSON Schema type definition
  */
 interface JsonSchema {
-  type: "object" | "string" | "number" | "integer" | "boolean" | "array";
+  type?: "object" | "string" | "number" | "integer" | "boolean" | "array";
   description?: string;
   properties?: Record<string, JsonSchema>;
   required?: string[];
   items?: JsonSchema;
   enum?: string[];
+  // Union combinators. A frontend tool authored with `z.discriminatedUnion`
+  // (or any `z.union`) serializes to a node carrying `anyOf` / `oneOf` and
+  // usually NO top-level `type`.
+  anyOf?: JsonSchema[];
+  oneOf?: JsonSchema[];
 }
 
 /**
@@ -561,6 +566,28 @@ export function convertJsonSchemaToZodSchema(
   jsonSchema: JsonSchema,
   required: boolean,
 ): z.ZodSchema {
+  // Handle `anyOf` / `oneOf` unions (e.g. `z.discriminatedUnion` or `z.union`
+  // on a frontend tool) as `z.union`. These nodes usually carry no top-level
+  // `type`, so they MUST be handled before the empty-schema guard below —
+  // otherwise the union collapses to an empty object (`z.object({})`), the
+  // reconstructed tool schema loses the union-typed field entirely, and the
+  // model can never emit it. This is especially load-bearing for a union
+  // nested inside array `items`, which OpenAI otherwise silently drops.
+  const unionVariants = jsonSchema.anyOf ?? jsonSchema.oneOf;
+  if (Array.isArray(unionVariants) && unionVariants.length > 0) {
+    // A single-variant union is just that variant.
+    if (unionVariants.length === 1) {
+      return convertJsonSchemaToZodSchema(unionVariants[0], required);
+    }
+    const variantSchemas = unionVariants.map((variant) =>
+      convertJsonSchemaToZodSchema(variant, true),
+    );
+    const schema = z
+      .union(variantSchemas as [z.ZodSchema, z.ZodSchema, ...z.ZodSchema[]])
+      .describe(jsonSchema.description ?? "");
+    return required ? schema : schema.optional();
+  }
+
   // Handle empty schemas {} (no input required) - treat as empty object
   if (!jsonSchema.type) {
     return required ? z.object({}) : z.object({}).optional();
