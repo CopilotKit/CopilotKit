@@ -1,6 +1,7 @@
 "use client";
 import useCreditCards from "@/app/actions";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import type { Transaction } from "@/app/api/v1/data";
 import { ArrowDownRight, ArrowUpRight, Plus, ArrowRight } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -25,14 +26,23 @@ export default function HomePage() {
   } = useCreditCards();
   const { currentUser } = useAuthContext();
   const { logStep } = useRecording();
-  // Top-level dashboard tab; the "View All" link jumps straight to Transactions.
-  const [tab, setTab] = useState("overview");
+  // Top-level dashboard tab, held in the URL (?tab=) so the copilot's
+  // context-aware suggestions (and deep-links like /dashboard?tab=analytics)
+  // can read and drive it. "overview" is the default (no param).
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const tab = searchParams.get("tab") ?? "overview";
 
-  // Switch the top-level tab and narrate it into the recorder HUD (only while a
-  // workflow is being recorded). Used by both the tab strip and the "View All"
-  // shortcut so either path records the same "Opened Transactions" step.
+  // Switch the top-level tab (writing it to the URL) and narrate it into the
+  // recorder HUD (only while a workflow is being recorded). Used by both the tab
+  // strip and the "View All" shortcut so either path records the same step.
   const selectTab = (value: string) => {
-    setTab(value);
+    const params = new URLSearchParams(searchParams.toString());
+    if (value === "overview") params.delete("tab");
+    else params.set("tab", value);
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
     if (value === "transactions") logStep("Opened Transactions");
   };
 

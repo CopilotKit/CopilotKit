@@ -1,11 +1,12 @@
 "use client";
 import { LayoutComponent } from "@/components/layout";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   CopilotChatConfigurationProvider,
   CopilotKitProvider,
   useConfigureSuggestions,
-  type ReactActivityMessageRenderer,
 } from "@copilotkit/react-core/v2";
+import type { ReactActivityMessageRenderer } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 import { catalog } from "@/a2ui/catalog";
 import { CanvasProvider } from "@/components/canvas/canvas-context";
@@ -116,101 +117,127 @@ corporate banking dashboard. Match its aesthetic:
   hardcode white backgrounds.
 - Keep it calm, precise, and enterprise-appropriate — this is a finance tool.`;
 
+// A small library of suggestion pills. Each context below picks 3-4 of these,
+// so the copilot only ever offers what's relevant to where the officer is —
+// not one long undifferentiated wall of pills.
+const PILL = {
+  approveGoogleAds: {
+    // BEAT 1 — the teachable over-limit ask (Marketing policy trips the gate).
+    title: "Approve the $5,000 Google Ads charge",
+    message: "Approve the $5,000 Google Ads charge on the Marketing policy.",
+  },
+  reviewPending: {
+    // BEAT 2 setup — surfaces the pending, over-limit charges for the demo.
+    title: "Review my pending transactions",
+    message: "Show me my pending transactions.",
+  },
+  awsCharge: {
+    // BEAT 3 — recall / generalization to a DIFFERENT over-limit charge.
+    title: "How should I handle the $15,000 AWS charge?",
+    message:
+      "The $15,000 AWS charge is over its policy limit. How should I handle it?",
+  },
+  approvalsExplain: {
+    title: "How do approvals work?",
+    message: "Explain how an over-limit charge gets cleared and approved.",
+  },
+  spendingTrend: {
+    title: "Show the spending trend",
+    message: "Show me the spending trend over time.",
+  },
+  budgetsNearLimit: {
+    title: "Budgets near their limit?",
+    message:
+      "Show me budget usage by policy — which ones are close to or over their limit?",
+  },
+  whereMoney: {
+    title: "Where is the money going?",
+    message: "Where is the money going? Break down spend by team.",
+  },
+  cashFlow: {
+    title: "How's our cash flow?",
+    message: "Compare our income vs expenses — how is our cash flow?",
+  },
+  spendExplorer: {
+    title: "Build an interactive spend explorer",
+    message:
+      "Build an interactive spend explorer I can filter and play with — pull the real transactions and policies.",
+  },
+  q2Report: {
+    title: "Prep the Q2 spend report",
+    message:
+      "Prepare a Q2 spend report for the board: summarize spend against budgets, call out anything over limit or pending, and file it as a report.",
+  },
+  buildCanvasReport: {
+    title: "Build a spend report on the canvas",
+    message:
+      "Build a full spend report on the canvas: KPIs, the spending trend, budget usage, and a spend breakdown by team.",
+  },
+  addCard: {
+    title: "Add an expense card",
+    message: "Add a new expense card",
+  },
+  changePin: {
+    title: "Change my card PIN",
+    message: "I want to change the PIN on my Visa card.",
+  },
+  inviteMember: {
+    title: "Invite a team member",
+    message: "Invite a new member to my team.",
+  },
+  topExpensiveCharges: {
+    title: "Show me the 10 most expensive charges",
+    message: "Show me the 10 most expensive charges.",
+  },
+  chargesOverLimit: {
+    title: "Which charges are over limit?",
+    message: "Which charges are over their policy limit? Show them ranked.",
+  },
+} as const;
+
+type Pill = { title: string; message: string };
+
+// Pick the suggestion set for the current location. Route + dashboard tab
+// (?tab=) decide it, so the pills track what's on screen.
+function suggestionsFor(pathname: string, tab: string): Pill[] {
+  if (pathname.startsWith("/dashboard")) {
+    switch (tab) {
+      case "transactions":
+        return [
+          PILL.approveGoogleAds,
+          PILL.reviewPending,
+          PILL.approvalsExplain,
+        ];
+      case "analytics":
+        return [PILL.spendingTrend, PILL.budgetsNearLimit, PILL.cashFlow];
+      case "reports":
+        return [PILL.q2Report, PILL.buildCanvasReport];
+      default: // overview
+        return [PILL.reviewPending, PILL.awsCharge, PILL.whereMoney];
+    }
+  }
+  if (pathname.startsWith("/charges")) {
+    return [PILL.topExpensiveCharges, PILL.chargesOverLimit, PILL.whereMoney];
+  }
+  if (pathname.startsWith("/team")) {
+    return [PILL.inviteMember, PILL.reviewPending];
+  }
+  if (pathname === "/" || pathname.startsWith("/cards")) {
+    return [PILL.addCard, PILL.changePin, PILL.reviewPending];
+  }
+  // Fallback / welcome — a tight, high-signal trio.
+  return [PILL.reviewPending, PILL.spendingTrend, PILL.q2Report];
+}
+
 function BankingSuggestions() {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const tab = searchParams.get("tab") ?? "overview";
+  // Re-runs whenever the route or tab changes, so the pill set updates live as
+  // the officer moves around the app.
   useConfigureSuggestions({
     available: "always",
-    suggestions: [
-      {
-        // BEAT 1 — the teachable ask. Seed t-1: Google Ads, -$5,000, Marketing
-        // policy (limit $5,000 / spent $500 → approving always trips
-        // OVER_POLICY_LIMIT). Pre-learning the agent stalls here correctly;
-        // post-learning the same ask succeeds. Leads the welcome screen.
-        title: "Approve the $5,000 Google Ads charge",
-        message:
-          "Approve the $5,000 Google Ads charge on the Marketing policy.",
-      },
-      {
-        // BEAT 2 setup — surfaces the pending charges (all three are over their
-        // policy limit) via showTransactions, the unconditional-render tool
-        // that is reliable in every mode. The officer files a policy exception
-        // inline on a row to demonstrate the unlock; that is the recorded
-        // demonstration the writer agent distills into /knowledge.
-        title: "Review my pending transactions",
-        message: "Show me my pending transactions.",
-      },
-      {
-        // BEAT 3 — recall / generalization. On a fresh thread after the
-        // demonstration is distilled, the agent should apply the learned
-        // procedure to a DIFFERENT over-limit charge it was never explicitly
-        // taught (seed t-2: AWS, -$15,000, Engineering policy, limit $15,000 /
-        // spent $1,500), proving transferable memory, not per-row memorization.
-        title: "How should I handle the $15,000 AWS charge?",
-        message:
-          "The $15,000 AWS charge is over its policy limit. How should I handle it?",
-      },
-      {
-        // Breadth — a clean non-arc capability (the generative-UI card flow).
-        title: "Add an expense card",
-        message: "Add a new expense card",
-      },
-      // ── A2UI report canvas ───────────────────────────────────────────────
-      {
-        title: "Build a spend report on the canvas",
-        message:
-          "Build a full spend report on the canvas: KPIs, the spending trend, budget usage, and a spend breakdown by team.",
-      },
-      // ── Gen-UI charts ────────────────────────────────────────────────────
-      {
-        title: "Show the spending trend",
-        message: "Show me the spending trend over time.",
-      },
-      {
-        title: "Budgets near their limit?",
-        message:
-          "Show me budget usage by policy — which ones are close to or over their limit?",
-      },
-      {
-        title: "Where is the money going?",
-        message: "Where is the money going? Break down spend by team.",
-      },
-      {
-        title: "How's our cash flow?",
-        message: "Compare our income vs expenses — how is our cash flow?",
-      },
-      // ── Open Generative UI (custom interactive surfaces) ─────────────────
-      {
-        // OGUI-only: an interactive explorer the fixed catalog can't express.
-        // "interactive"/"explorer" (not "build") is what routes this to
-        // generateSandboxedUi; figures come from the sandbox functions.
-        title: "Build an interactive spend explorer",
-        message:
-          "Build an interactive spend explorer I can filter and play with — pull the real transactions and policies.",
-      },
-      {
-        title: "Prototype a cash-flow what-if calculator",
-        message:
-          "Prototype an interactive what-if calculator for our cash flow using our real income and expense figures.",
-      },
-      {
-        title: "How do approvals work?",
-        message: "Explain how an over-limit charge gets cleared and approved.",
-      },
-      // ── Work product ─────────────────────────────────────────────────────
-      {
-        title: "Prep the Q2 spend report",
-        message:
-          "Prepare a Q2 spend report for the board: summarize spend against budgets, call out anything over limit or pending, and file it as a report.",
-      },
-      // ── Cross-page operations (navigateToPageAndPerform fallbacks) ──────
-      {
-        title: "Change my card PIN",
-        message: "I want to change the PIN on my Visa card.",
-      },
-      {
-        title: "Invite a team member",
-        message: "Invite a new member to my team.",
-      },
-    ],
+    suggestions: suggestionsFor(pathname, tab),
   });
   return null;
 }
