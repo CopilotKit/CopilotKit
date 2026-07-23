@@ -36,9 +36,13 @@ export function PieChart(props: PieChartProps): ReactElement {
   const palette = colors && colors.length > 0 ? colors : DEFAULT_CHART_COLORS;
   const cx = width / 2;
   const cy = height / 2;
-  const r = Math.min(width, height) / 2 - 8;
-  const positive = data.filter((d) => d.value > 0);
-  const total = positive.reduce((a, d) => a + d.value, 0) || 1;
+  const r = Math.max(0, Math.min(width, height) / 2 - 8);
+  // Pair each datum with its original index in `data` before filtering, so
+  // both the single-slice and multi-slice branches below can color by that
+  // stable original index rather than the filtered position.
+  const positives = data
+    .map((d, i) => ({ d, i }))
+    .filter((x) => Number.isFinite(x.d.value) && x.d.value > 0);
   let a = -Math.PI / 2;
   const titleEl = title
     ? h(
@@ -52,7 +56,7 @@ export function PieChart(props: PieChartProps): ReactElement {
     : null;
   // No positive data: render an empty canvas rather than misrepresenting
   // "no data" as one full category.
-  if (positive.length === 0) {
+  if (positives.length === 0) {
     return h(
       "div",
       {
@@ -69,11 +73,11 @@ export function PieChart(props: PieChartProps): ReactElement {
     );
   }
   // A single positive slice can't be drawn as an arc (start==end); draw a
-  // full circle instead, colored by the slice's original index in `data`
-  // so it matches how a multi-slice chart would color it.
-  if (positive.length === 1) {
-    const originalIndex = data.findIndex((d) => d.value > 0);
-    const sliceColor = palette[originalIndex % palette.length];
+  // full circle instead. Both this branch and the multi-slice branch below
+  // color by the slice's original index in `data`, so a datum's color is
+  // stable regardless of how many other slices are positive.
+  if (positives.length === 1) {
+    const sliceColor = palette[positives[0]!.i % palette.length];
     return h(
       "div",
       {
@@ -93,7 +97,10 @@ export function PieChart(props: PieChartProps): ReactElement {
       ),
     );
   }
-  const slices = positive.map((d, i) => {
+  // After the length===0 and length===1 early returns above, at least two
+  // positive (finite, >0) values remain, so `total` is always > 0.
+  const total = positives.reduce((sum, x) => sum + x.d.value, 0);
+  const slices = positives.map(({ d, i }) => {
     const a0 = a;
     a += (d.value / total) * Math.PI * 2;
     return h("path", {

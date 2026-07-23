@@ -13,7 +13,7 @@ export interface ChartDatum {
  * values rather than shadcn `--chart-N` custom properties. Pass your own
  * `colors` prop per chart to theme it explicitly.
  */
-export const DEFAULT_CHART_COLORS: string[] = [
+export const DEFAULT_CHART_COLORS: readonly string[] = [
   "#6366f1",
   "#22c55e",
   "#f59e0b",
@@ -23,9 +23,12 @@ export const DEFAULT_CHART_COLORS: string[] = [
 
 /**
  * Styling knobs shared by every chart component. Not every field is honored
- * by every chart: box-model charts (BarChart/StackedBar/Meter) fill their
- * container and ignore `width`/`height`; `gridColor`/`showGrid` apply only
- * to the SVG cartesian charts (LineChart/Scatter); `title` is honored by
+ * by every chart: BarChart/StackedBar fill their container and ignore both
+ * `width` and `height`; Meter also fills its container width-wise and
+ * ignores `width`, but honors `height` as the bar's thickness; the SVG
+ * charts (LineChart/PieChart/Scatter/Sparkline) honor both `width` and
+ * `height` as the canvas size. `gridColor`/`showGrid` apply only to the SVG
+ * cartesian charts (LineChart/Scatter); `title` is honored by
  * BarChart/StackedBar/LineChart/PieChart/Scatter, not Meter/Sparkline.
  */
 export interface ChartStyleProps {
