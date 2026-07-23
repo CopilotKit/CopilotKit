@@ -2,6 +2,7 @@
 import useCreditCards from "@/app/actions";
 import { useMemo } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useAgentContext } from "@copilotkit/react-core/v2";
 import type { Transaction } from "@/app/api/v1/data";
 import { ArrowDownRight, ArrowUpRight, Plus, ArrowRight } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -135,6 +136,34 @@ export default function HomePage() {
         statLabels,
       };
     }, [policies, transactions]);
+
+  // Page awareness: tell the agent which dashboard view is on screen and the
+  // exact figures currently rendered, so the officer can ask about what they're
+  // looking at ("what am I seeing?", "which is highest?", "explain this KPI").
+  // The underlying cards/policies/transactions are already shared globally in
+  // copilot-context.tsx; this adds the *visible* view + derived KPIs.
+  useAgentContext({
+    description:
+      "The dashboard view the user is currently looking at: the active tab and the exact KPI figures rendered on screen. Use this to answer questions about what is on the page right now.",
+    value: JSON.stringify({
+      page: "dashboard",
+      activeTab: tab,
+      visibleKpis: {
+        balance,
+        income,
+        expenses,
+        spendLimitTotal: limit.total,
+        spendLimitUsedPercent: Math.round(limit.usagePercentage),
+        lastPayment: lastPayment
+          ? {
+              title: lastPayment.title,
+              amount: lastPayment.amount,
+              date: lastPayment.date,
+            }
+          : null,
+      },
+    }),
+  });
 
   const holderName = currentUser?.name?.toUpperCase() ?? "CARD HOLDER";
   const primaryCard = cards[0];
