@@ -17,7 +17,6 @@ import { ChatInboxProvider } from "@/components/chat/chat-inbox-context";
 import { ChatPanel } from "@/components/chat/chat-panel";
 import { RecordingProvider } from "@/components/recording-context";
 import { RecordingVignette } from "@/components/recording-vignette";
-import { ProactiveNotice } from "@/components/wow/proactive-notice";
 import { ReportCopilotTools } from "@/components/wow/report-tool";
 import { GlassEngineProvider } from "@/components/glass-engine-context";
 import { InspectorStoreProvider } from "@/lib/inspector/store";
@@ -212,8 +211,14 @@ function suggestionsFor(pathname: string, tab: string): Pill[] {
         return [PILL.spendingTrend, PILL.budgetsNearLimit, PILL.cashFlow];
       case "reports":
         return [PILL.q2Report, PILL.buildCanvasReport];
-      default: // overview
-        return [PILL.reviewPending, PILL.awsCharge, PILL.whereMoney];
+      default: // overview — lead with a one-click chart so a visual is one tap
+        // away the moment the app opens with the chat already showing.
+        return [
+          PILL.spendingTrend,
+          PILL.reviewPending,
+          PILL.awsCharge,
+          PILL.whereMoney,
+        ];
     }
   }
   if (pathname.startsWith("/charges")) {
@@ -337,7 +342,6 @@ export function CopilotKitWrapper({
                     <CopilotContext>{children}</CopilotContext>
                   </LayoutComponent>
                   <ChatPanel threadId={threadId} />
-                  <ProactiveNotice />
                   <ReportCopilotTools />
                 </CanvasProvider>
                 {/* Mount the pane (and its AG-UI subscription) ONLY where the
