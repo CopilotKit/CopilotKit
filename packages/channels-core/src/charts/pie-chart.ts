@@ -33,10 +33,12 @@ export function PieChart(props: PieChartProps): ReactElement {
     style,
     labelClassName,
   } = props;
+  const palette = colors && colors.length > 0 ? colors : DEFAULT_CHART_COLORS;
   const cx = width / 2;
   const cy = height / 2;
   const r = Math.min(width, height) / 2 - 8;
-  const total = data.reduce((a, d) => a + d.value, 0) || 1;
+  const positive = data.filter((d) => d.value > 0);
+  const total = positive.reduce((a, d) => a + d.value, 0) || 1;
   let a = -Math.PI / 2;
   const titleEl = title
     ? h(
@@ -48,8 +50,10 @@ export function PieChart(props: PieChartProps): ReactElement {
         title,
       )
     : null;
-  // A single full slice can't be drawn as an arc (start==end); draw a full circle.
-  if (data.length === 1) {
+  // A single positive slice (or all others non-positive) can't be drawn as an
+  // arc (start==end); draw a full circle instead.
+  if (positive.length <= 1) {
+    const sliceColor = palette[0];
     return h(
       "div",
       {
@@ -65,17 +69,17 @@ export function PieChart(props: PieChartProps): ReactElement {
           viewBox: `0 0 ${width} ${height}`,
           style: { backgroundColor: "#ffffff" },
         },
-        h("circle", { cx, cy, r, fill: colors[0] }),
+        h("circle", { cx, cy, r, style: { fill: sliceColor } }),
       ),
     );
   }
-  const slices = data.map((d, i) => {
+  const slices = positive.map((d, i) => {
     const a0 = a;
     a += (d.value / total) * Math.PI * 2;
     return h("path", {
       key: i,
       d: arcPath(cx, cy, r, a0, a),
-      fill: colors[i % colors.length],
+      style: { fill: palette[i % palette.length] },
     });
   });
   return h(

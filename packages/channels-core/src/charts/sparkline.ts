@@ -18,6 +18,16 @@ export function Sparkline(props: SparklineProps): ReactElement {
     className,
     style,
   } = props;
+  const palette = colors && colors.length > 0 ? colors : DEFAULT_CHART_COLORS;
+  if (data.length === 0) {
+    return h("svg", {
+      width,
+      height,
+      viewBox: `0 0 ${width} ${height}`,
+      className,
+      style,
+    });
+  }
   const max = Math.max(...data),
     min = Math.min(...data);
   const span = max - min || 1;
@@ -28,6 +38,10 @@ export function Sparkline(props: SparklineProps): ReactElement {
   return h(
     "svg",
     { width, height, viewBox: `0 0 ${width} ${height}`, className, style },
-    h("polyline", { points, fill: "none", stroke: colors[0], strokeWidth: 2 }),
+    h("polyline", {
+      points,
+      strokeWidth: 2,
+      style: { fill: "none", stroke: palette[0] },
+    }),
   );
 }
