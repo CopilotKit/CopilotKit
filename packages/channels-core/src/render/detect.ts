@@ -41,17 +41,23 @@ function isFnTypeNode(v: unknown): v is {
  * path then calls it again during binding. This double call is acceptable for
  * the pure, presentational components this targets.
  */
-export function resolveArbitraryElement(v: unknown): unknown | null {
+export function resolveArbitraryElement(v: unknown): object | null {
   if (isReactElement(v)) {
     const t = (v as { type?: unknown }).type;
     // A branded channels-ui component (even authored as a React element) is native.
     if (typeof t === "function" && isChannelComponent(t)) return null;
-    return v;
+    return v as object;
   }
   if (isFnTypeNode(v) && !isChannelComponent(v.type)) {
     try {
       const out = v.type(v.props ?? {});
-      if (isReactElement(out)) return out;
+      if (isReactElement(out)) {
+        const ot = (out as { type?: unknown }).type;
+        // Symmetric guard: an unbranded wrapper that peeks out to a branded
+        // channels-ui element is still native — it must not route to the image path.
+        if (typeof ot === "function" && isChannelComponent(ot)) return null;
+        return out as object;
+      }
     } catch {
       /* couldn't render statically → fall through to the native path */
     }

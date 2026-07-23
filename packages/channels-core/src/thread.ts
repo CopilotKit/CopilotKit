@@ -578,6 +578,13 @@ export class Thread implements ThreadInterface {
     if (this.supportsBlockingChoice === false) {
       return Promise.reject(new ChannelAwaitChoiceNotSupportedError());
     }
+    if (resolveArbitraryElement(ui)) {
+      return Promise.reject(
+        new Error(
+          "thread.awaitChoice does not support arbitrary JSX — it needs interactive channel components (e.g. Button/Select). Use thread.post to send an image.",
+        ),
+      );
+    }
     return this.trackOperation(async () => {
       const p = new Promise<T>((resolve) =>
         this.deps.registerWaiter(
