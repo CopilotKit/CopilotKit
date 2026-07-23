@@ -14,11 +14,28 @@ describe("Angular showcase agent selection", () => {
     expect(agentIdForFeature(feature, "langgraph-python")).toBe(agentId);
   });
 
-  it("uses bounded integration-specific agent overrides", () => {
+  it("uses the BuiltIn runtime's default agent for ordinary features", () => {
     expect(agentIdForFeature("beautiful-chat", "google-adk")).toBe(
       "beautiful-chat",
     );
-    expect(agentIdForFeature("agentic-chat", "built-in-agent")).toBe("default");
+    for (const feature of [
+      "agentic-chat",
+      "agent-config",
+      "auth",
+      "beautiful-chat",
+      "frontend-tools",
+      "tool-rendering",
+    ]) {
+      expect(agentIdForFeature(feature, "built-in-agent")).toBe("default");
+    }
+  });
+
+  it.each([
+    ["reasoning-custom", "agentic-chat-reasoning"],
+    ["reasoning-default", "reasoning-default-render"],
+    ["tool-rendering-reasoning-chain", "tool-rendering-reasoning-chain"],
+  ])("preserves BuiltIn's named %s agent", (feature, agentId) => {
+    expect(agentIdForFeature(feature, "built-in-agent")).toBe(agentId);
   });
 
   it("uses the feature contract when no integration override exists", () => {

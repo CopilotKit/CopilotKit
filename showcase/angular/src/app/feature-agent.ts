@@ -10,8 +10,10 @@ const AGENT_BY_FEATURE: Readonly<Record<string, string>> = {
   voice: "voice-demo",
 };
 
-const INTEGRATION_AGENT_OVERRIDES: Readonly<Record<string, string>> = {
-  "built-in-agent/agentic-chat": "default",
+const BUILT_IN_AGENT_OVERRIDES: Readonly<Record<string, string>> = {
+  "reasoning-custom": "agentic-chat-reasoning",
+  "reasoning-default": "reasoning-default-render",
+  "tool-rendering-reasoning-chain": "tool-rendering-reasoning-chain",
 };
 
 const THREAD_ID_OVERRIDES: Readonly<Record<string, string>> = {
@@ -23,11 +25,10 @@ export function agentIdForFeature(
   feature: string,
   integration: string,
 ): string {
-  return (
-    INTEGRATION_AGENT_OVERRIDES[`${integration}/${feature}`] ??
-    AGENT_BY_FEATURE[feature] ??
-    feature
-  );
+  if (integration === "built-in-agent") {
+    return BUILT_IN_AGENT_OVERRIDES[feature] ?? "default";
+  }
+  return AGENT_BY_FEATURE[feature] ?? feature;
 }
 
 /** Resolve the generated agent identifier for an activated Showcase route. */
