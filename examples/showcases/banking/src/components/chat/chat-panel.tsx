@@ -78,6 +78,16 @@ export function ChatPanel({ threadId }: { threadId: string }) {
         // own slot tests use for custom headers. `renderSlot` renders any
         // component reference at runtime.
         header={ChatPanelHeader as CopilotSidebarProps["header"]}
+        // Multimodal attachments: officers can drop a PDF (e.g. a vendor
+        // invoice) or an image into the composer. With no custom onUpload the
+        // built-in handler base64-encodes the file and sends it as a document
+        // part on the message, so gpt-5.4 can read it — e.g. "prep the Q2
+        // report" then augments the report with the uploaded invoice's figures.
+        attachments={{
+          enabled: true,
+          accept: "application/pdf,image/*",
+          maxSize: 20 * 1024 * 1024,
+        }}
         labels={{
           modalHeaderTitle: IDENTITY.assistant,
           welcomeMessageText: IDENTITY.greeting,

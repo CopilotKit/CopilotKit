@@ -224,6 +224,14 @@ Examples:
 
 render_report inputs: kpis is any of totalSpend | pendingCount | overLimitCount | policyCount; charts is any of spendingTrend | budgetUsage | spendBreakdown | incomeVsExpenses; transactions (optional) is one of all | pending | approved | denied. title and summary are LABELS ONLY — never put figures, amounts, percentages, or trend claims in them; every number comes from the selected KPIs/charts, which bind live data on the client.
 
+UPLOADED DOCUMENTS: the officer can attach a document (e.g. a vendor invoice or
+a financials PDF) to a message. When a document is attached, READ it and use its
+contents to augment your answer or report — cite specific figures, line items,
+and vendors from the document. For a Q2 report request accompanied by an invoice,
+incorporate that invoice's amounts/vendor into the filed report's summary and
+highlights (createReport), and reconcile it against the on-screen spend where
+relevant. Never claim a document says something it does not.
+
 OPEN GENERATIVE UI (generateSandboxedUi): You can also author a custom, sandboxed
 interactive UI on demand with the built-in generateSandboxedUi tool. Use it ONLY
 for something the standard charts and the render_report canvas cannot express: an
