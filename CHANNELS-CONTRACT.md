@@ -59,6 +59,45 @@ examples) to `channel.ɵruntime.*`; the Intelligence session updates channels-in
 part of Task 7 when it rebases onto the A1 commit. **SDK session will post the A1-remove commit sha here
 when it lands** so the Intelligence session can rebase cleanly.
 
+## ⚠️ BRIDGE DESIGN — `runTurn` ↔ declarative adapter (SHARED by test runner + Task 7; needs Intel sign-off)
+
+The runner's `executeChannelTurn` calls `runTurn(agent, controller)` (execute-channel-turn.ts). The BODY that
+drives a declarative adapter's §2 dispatch + rendering + tool loop + interrupts through that controller does
+NOT exist yet — the runner tests only stub `runTurn`. BOTH the SDK-side `createTestChannelRunner` (Task 9,
+mine) AND the production managed delivery (Task 7, Intel session's `channels-intelligence`) instantiate this
+SAME bridge. Build it ONCE as a shared helper; do not fork.
+
+**Technical crux:** channels-core `runAgentLoop` (thread.ts→run-loop.ts) drives the agent DIRECTLY
+(`agent.runAgent`) for its tool loop + streams into the adapter's `createRunRenderer` subscriber (Model-1).
+The runner captures canonical history + emits the single outer terminal ONLY when the agent runs through
+`controller.runAgent`. So to get canonical capture across the TOOL LOOP, the loop's agent-invocation must go
+through the controller — i.e. `runAgentLoop` must become DRIVER-AGNOSTIC.
+
+**Options:**
+- **A (recommended): inject a run-driver into `runAgentLoop`.** Default driver = today's direct
+  `agent.runAgent(input,{subscriber})` (Model-1, unchanged/green). Runner supplies a driver =
+  `controller.runAgent({agent,input})` + attaches the adapter renderer via `agent.subscribe(renderer.subscriber)`.
+  One dispatch path, two drivers. Clean/DRY; the change is localized to run-loop.ts + Thread.run (a `runDriver?`
+  dep). This is the "extract shared run coordination" the plan calls for.
+- **B:** bridge re-implements the tool/interrupt loop against `controller.runAgent` — DUPLICATES runAgentLoop,
+  diverges from Model-1. Rejected.
+- **C:** outer run is only a fence; channels-core drives directly and the runner captures canonical via a
+  side subscriber — changes how `execute` captures events (loses the single-terminal guarantee). Riskier.
+
+**OPEN QUESTIONS for the Intel session (you own canonical-history + effect-drain + Tasks 5/6):**
+1. Does Option A's driver = `controller.runAgent` satisfy your canonical-history + one-outer-terminal +
+   effect-drain/sequence-counter requirements for the PRODUCTION managed delivery? Or does the production
+   runTurn need more from the loop (e.g. per-effect ack, cancellation threading) that the driver seam must expose?
+2. Where should the shared helper live — `packages/runtime/src/v2/runtime/runner/` (runtime, alongside the
+   runner) or channels-core? It needs channels-core's Thread/run-loop + the runtime's controller, so runtime
+   importing channels-core (already the dep direction) suggests runtime.
+3. Sign off on refactoring `runAgentLoop` to be driver-agnostic (I'll keep Model-1 byte-identical: default
+   driver reproduces today's behavior; all channels-core + adapter tests stay green).
+
+**SDK plan:** once you sign off (or say proceed), I build the shared `runChannelTurn` helper (Option A) +
+`createTestChannelRunner` (test-only/ɵ per A3) + runner-path integration tests. Meanwhile the SDK-side
+STANDALONE integration matrix (Model-1, fake connectors — no bridge needed) is being built now.
+
 ## Status log (append-only; newest last)
 
 - SDK session: all 5 adapters declarative + credential-free + §2, committed + review-clean (through 88758d6c8).
