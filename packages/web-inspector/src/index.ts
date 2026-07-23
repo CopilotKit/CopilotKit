@@ -84,9 +84,18 @@ import type {
 } from "./lib/telemetry.js";
 
 export type { Anchor } from "./lib/types.js";
+export { buildCapabilityRows as ɵbuildCapabilityRows };
+export type { CapabilityToolRow as ɵCapabilityToolRow };
 
 export const WEB_INSPECTOR_TAG = "cpk-web-inspector" as const;
 export const THREAD_INSPECTOR_TAG = "cpk-thread-inspector" as const;
+
+/**
+ * User-facing label for the memory surface (nav item + view header). The menu
+ * KEY stays "memories" for persistence/telemetry stability; only the label
+ * changed from "Learning" to "Memory".
+ */
+const MEMORY_VIEW_LABEL = "Memory";
 
 type LucideIconName = keyof typeof icons;
 
@@ -94,6 +103,7 @@ type MenuKey =
   | "ag-ui-events"
   | "agents"
   | "frontend-tools"
+  | "capabilities"
   | "agent-context"
   | "threads"
   | "memories"
@@ -122,6 +132,11 @@ const INTELLIGENCE_SIGNUP_URL = "https://go.copilotkit.ai/intelligence-signup";
 const THREADS_INTELLIGENCE_SIGNIN_URL =
   "https://dashboard.operations.copilotkit.ai/sign-in";
 const TALK_TO_ENGINEER_URL = "https://www.copilotkit.ai/talk-to-an-engineer";
+// Label for the Capabilities tab (client-authoritative dev experimentation
+// surface: toggle frontend tools + A2UI catalog components on/off, enforced
+// immediately via core.setToolEnabled / core.setCatalogComponentEnabled).
+// Renameable — keep the display string in this one place.
+const CAPABILITIES_TAB_LABEL = "Capabilities";
 const THREADS_DOCS_URL = "https://docs.copilotkit.ai/threads";
 const SELF_HOSTED_INTELLIGENCE_URL =
   "https://docs.copilotkit.ai/premium/self-hosting";
@@ -219,6 +234,55 @@ type InspectorToolDefinition = {
   parameters?: unknown;
   type: "handler" | "renderer";
 };
+
+// ─── Capabilities tab view-models ────────────────────────────────────────────
+// A single toggle row. `key` is the stable identity used as a Lit list key; for
+// tools it is `${agentId}:${name}` (agentId "" for global tools), for catalog
+// components it is the component name.
+type CapabilityToolRow = {
+  key: string;
+  name: string;
+  description?: string;
+  agentId?: string;
+  enabled: boolean;
+};
+
+// Minimal structural view of CopilotKitCore that the pure helper needs, so
+// buildCapabilityRows is trivially unit-testable with a plain object. Method
+// names MUST match the A1 contract exactly.
+type CapabilityToolSource = {
+  tools?: ReadonlyArray<{
+    name: string;
+    description?: string;
+    agentId?: string;
+  }>;
+  isToolEnabled: (name: string, agentId?: string) => boolean;
+};
+
+/**
+ * Map core.tools (the registry INCLUDING disabled tools) into Capabilities-tab
+ * frontend-tool rows. Pure: no DOM, no `this`. Reads current on/off state from
+ * core.isToolEnabled(name, agentId?) per the A1 contract.
+ */
+function buildCapabilityRows(core: CapabilityToolSource): CapabilityToolRow[] {
+  const rows: CapabilityToolRow[] = [];
+  for (const tool of core.tools ?? []) {
+    const agentId = tool.agentId ?? "";
+    const key = `${agentId}:${tool.name}`;
+    rows.push({
+      key,
+      name: tool.name,
+      description: tool.description,
+      agentId: tool.agentId,
+      enabled: core.isToolEnabled(tool.name, tool.agentId),
+    });
+  }
+  return rows.sort((a, b) => {
+    const agentCompare = (a.agentId ?? "").localeCompare(b.agentId ?? "");
+    if (agentCompare !== 0) return agentCompare;
+    return a.name.localeCompare(b.name);
+  });
+}
 
 type InspectorEvent = {
   id: string;
@@ -3692,6 +3756,51 @@ ${unsafeHTML(highlightedJson(stateValue))}</pre
   }
 }
 
+// ─── memory recall relevance helpers ─────────────────────────────────────────
+
+/**
+ * Normalizes a memory's raw recall score to a 0..1 relevance ratio relative to
+ * the strongest result in the same result set. Recall scores are RRF scores
+ * (relative), so a bar is only meaningful against the set max. Returns
+ * `undefined` when no meaningful ranking exists (empty set, non-positive max,
+ * missing score) so the caller renders no bar.
+ */
+function normalizeRelevance(
+  score: number | undefined,
+  maxScore: number,
+): number | undefined {
+  if (maxScore <= 0) return undefined;
+  if (score === undefined || !Number.isFinite(score)) return undefined;
+  const ratio = score / maxScore;
+  if (ratio <= 0) return 0;
+  return ratio > 1 ? 1 : ratio;
+}
+
+/** Largest finite `score` across a result set, or 0 when none present. */
+function maxRecallScore(memories: readonly Memory[]): number {
+  let max = 0;
+  for (const m of memories) {
+    const s = m.score;
+    if (typeof s === "number" && Number.isFinite(s) && s > max) max = s;
+  }
+  return max;
+}
+
+/**
+ * Percent width for a relevance bar. Mirrors the banking reference
+ * (`max(6, round(rel*100))%`) so a matched-but-weak result still shows a sliver.
+ * Returns a whole number in [6, 100].
+ */
+function relevanceBarWidth(relevance: number): number {
+  return Math.max(6, Math.min(100, Math.round(relevance * 100)));
+}
+
+export {
+  normalizeRelevance as ɵnormalizeRelevance,
+  maxRecallScore as ɵmaxRecallScore,
+  relevanceBarWidth as ɵrelevanceBarWidth,
+};
+
 // ─── cpk-memory-list ─────────────────────────────────────────────────────────
 
 /** Memory kind values including the "all" sentinel used by the filter UI. */
@@ -3700,12 +3809,24 @@ type MemoryKindFilter = "all" | "topical" | "episodic" | "operational";
 class CpkMemoryList extends LitElement {
   static properties = {
     memories: { attribute: false },
+    recallResults: { attribute: false },
+    recallLoading: { attribute: false },
+    recallError: { attribute: false },
+    recallQueryText: { attribute: false },
     search: { state: true },
     kind: { state: true },
   };
 
   /** Ordered (newest-first) list of memories supplied by the parent. */
   memories: Memory[] = [];
+  /** Semantic-recall results. `null` = no recall run (section hidden); `[]` = ran, no matches. */
+  recallResults: Memory[] | null = null;
+  /** True while a recall request is in flight. */
+  recallLoading = false;
+  /** Error message from the most recent recall attempt, or null. */
+  recallError: string | null = null;
+  /** The recall input text (owned by the parent). */
+  recallQueryText = "";
   private search = "";
   private kind: MemoryKindFilter = "all";
 
@@ -3907,6 +4028,117 @@ class CpkMemoryList extends LitElement {
     .cpk-ml__empty-icon {
       color: #c0c0c8;
     }
+
+    /* ── Recall ── */
+    .cpk-ml__recall {
+      display: flex;
+      gap: 6px;
+      padding: 10px 12px;
+      border-bottom: 1px solid #dbdbe5;
+      flex-shrink: 0;
+    }
+    .cpk-ml__recall-input {
+      flex: 1;
+      box-sizing: border-box;
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-size: 12px;
+      padding: 7px 10px;
+      border-radius: 6px;
+      border: 1px solid #dbdbe5;
+      background: #fff;
+      color: #010507;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .cpk-ml__recall-input:focus {
+      border-color: #bec2ff;
+    }
+    .cpk-ml__recall-btn {
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 7px 12px;
+      border-radius: 6px;
+      border: 1px solid #dbdbe5;
+      background: #fff;
+      color: #010507;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .cpk-ml__recall-btn:hover:not(:disabled) {
+      background: #f0f0f5;
+    }
+    .cpk-ml__recall-btn:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+    .cpk-ml__recall-section {
+      flex-shrink: 0;
+      max-height: 45%;
+      overflow-y: auto;
+      padding: 8px 12px;
+      border-bottom: 1px solid #dbdbe5;
+      background: #fbfbfd;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .cpk-ml__recall-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .cpk-ml__recall-title {
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      color: #010507;
+    }
+    .cpk-ml__recall-clear {
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-size: 10px;
+      color: #838389;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+    }
+    .cpk-ml__recall-clear:hover {
+      color: #010507;
+    }
+    .cpk-ml__recall-msg {
+      font-size: 11px;
+      color: #838389;
+      line-height: 1.45;
+    }
+    .cpk-ml__recall-msg--error {
+      color: #c0333a;
+    }
+
+    /* ── Relevance bar ── */
+    .cpk-ml__relevance {
+      height: 4px;
+      width: 100%;
+      overflow: hidden;
+      border-radius: 9999px;
+      background: #f0f0f5;
+    }
+    .cpk-ml__relevance-fill {
+      height: 100%;
+      border-radius: 9999px;
+      background: #6366f1;
+    }
+
+    /* ── Scope badge variants ── */
+    .cpk-ml__scope-badge--user {
+      background: #f0f0f5;
+      color: #838389;
+    }
+    .cpk-ml__scope-badge--project {
+      background: #fef3c7;
+      color: #92660c;
+    }
   `;
 
   /** Memories that pass the current text search (before kind filter). */
@@ -3949,6 +4181,135 @@ class CpkMemoryList extends LitElement {
     return html`<span class="cpk-ml__kind-badge cpk-ml__kind-badge--${kind}"
       >${kind}</span
     >`;
+  }
+
+  private renderScopeBadge(scope: string): TemplateResult {
+    const variant = scope === "project" ? "project" : "user";
+    return html`<span
+      class="cpk-ml__scope-badge cpk-ml__scope-badge--${variant}"
+      >${scope}</span
+    >`;
+  }
+
+  /**
+   * Renders one memory card. `relevance` (0..1) is supplied only for recall
+   * results — when present a relevance bar is drawn; the full list omits it.
+   */
+  private renderCard(m: Memory, relevance?: number): TemplateResult {
+    const threads = m.sourceThreadIds.length;
+    return html`
+      <div class="cpk-ml__card">
+        <div class="cpk-ml__card-badges">
+          ${this.renderKindBadge(m.kind)}${this.renderScopeBadge(m.scope)}
+        </div>
+        <div class="cpk-ml__content">${m.content}</div>
+        ${
+          relevance !== undefined
+            ? html`<div class="cpk-ml__relevance">
+              <div
+                class="cpk-ml__relevance-fill"
+                style="width:${relevanceBarWidth(relevance)}%;"
+              ></div>
+            </div>`
+            : nothing
+        }
+        <div class="cpk-ml__footer">
+          <span class="cpk-ml__footer-threads"
+            >${threads} source thread${threads === 1 ? "" : "s"}</span
+          >
+          <span class="cpk-ml__footer-id">${this.shortId(m.id)}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  private onRecallInput = (event: Event): void => {
+    const value = (event.target as HTMLInputElement).value;
+    this.recallQueryText = value;
+    this.dispatchEvent(
+      new CustomEvent<string>("recallQueryChanged", {
+        detail: value,
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  };
+
+  private onRecallSubmit = (event: Event): void => {
+    event.preventDefault();
+    const query = this.recallQueryText.trim();
+    if (query.length === 0 || this.recallLoading) return;
+    this.dispatchEvent(
+      new CustomEvent<string>("recallSubmitted", {
+        detail: query,
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  };
+
+  private onRecallClear = (): void => {
+    this.dispatchEvent(
+      new CustomEvent("recallCleared", { bubbles: true, composed: true }),
+    );
+  };
+
+  private renderRecallForm(): TemplateResult {
+    const disabled =
+      this.recallLoading || this.recallQueryText.trim().length === 0;
+    return html`
+      <form class="cpk-ml__recall" @submit=${this.onRecallSubmit}>
+        <input
+          type="text"
+          placeholder="Recall by meaning…"
+          aria-label="Recall memories by meaning"
+          class="cpk-ml__recall-input"
+          .value=${this.recallQueryText}
+          @input=${this.onRecallInput}
+        />
+        <button type="submit" class="cpk-ml__recall-btn" ?disabled=${disabled}>
+          ${this.recallLoading ? "…" : "Recall"}
+        </button>
+      </form>
+    `;
+  }
+
+  private renderRecallSection(): TemplateResult {
+    const results = this.recallResults;
+    if (results === null) return html``;
+    const max = maxRecallScore(results);
+    return html`
+      <section
+        class="cpk-ml__recall-section"
+        aria-label="Semantic recall results"
+      >
+        <div class="cpk-ml__recall-header">
+          <span class="cpk-ml__recall-title"
+            >Semantic recall (${results.length})</span
+          >
+          <button
+            type="button"
+            class="cpk-ml__recall-clear"
+            @click=${this.onRecallClear}
+          >
+            Clear
+          </button>
+        </div>
+        ${
+          this.recallError
+            ? html`<p class="cpk-ml__recall-msg cpk-ml__recall-msg--error">
+              Recall failed: ${this.recallError}
+            </p>`
+            : results.length === 0
+              ? html`
+                  <p class="cpk-ml__recall-msg">No memories matched that query.</p>
+                `
+              : results.map((m) =>
+                  this.renderCard(m, normalizeRelevance(m.score, max)),
+                )
+        }
+      </section>
+    `;
   }
 
   private renderEmpty(): TemplateResult {
@@ -3997,6 +4358,9 @@ class CpkMemoryList extends LitElement {
 
     return html`
       <div class="cpk-ml">
+        <!-- Semantic recall -->
+        ${this.renderRecallForm()} ${this.renderRecallSection()}
+
         <!-- Search -->
         <div class="cpk-ml__search">
           <input
@@ -4030,23 +4394,7 @@ class CpkMemoryList extends LitElement {
 
         <!-- Memory list -->
         <div class="cpk-ml__list">
-          ${filtered.map(
-            (m) => html`
-              <div class="cpk-ml__card">
-                <div class="cpk-ml__card-badges">
-                  ${this.renderKindBadge(m.kind)}
-                  <span class="cpk-ml__scope-badge">${m.scope}</span>
-                </div>
-                <div class="cpk-ml__content">${m.content}</div>
-                <div class="cpk-ml__footer">
-                  <span class="cpk-ml__footer-threads"
-                    >${m.sourceThreadIds.length} source thread${m.sourceThreadIds.length === 1 ? "" : "s"}</span
-                  >
-                  <span class="cpk-ml__footer-id">${this.shortId(m.id)}</span>
-                </div>
-              </div>
-            `,
-          )}
+          ${filtered.map((m) => this.renderCard(m))}
           ${filtered.length === 0 ? this.renderEmpty() : nothing}
         </div>
       </div>
@@ -4076,6 +4424,7 @@ export class WebInspectorElement extends LitElement {
   static properties = {
     core: { attribute: false },
     autoAttachCore: { type: Boolean, attribute: "auto-attach-core" },
+    _capabilitiesVersion: { state: true },
   } as const;
 
   private _core: CopilotKitCore | null = null;
@@ -4100,6 +4449,15 @@ export class WebInspectorElement extends LitElement {
   // SDK). Distinct from `_memoriesAvailable` (memory not enabled on an
   // otherwise-current deployment) so the teaser can show upgrade-the-SDK copy.
   private _memoryStoreUnsupported = false;
+  // ── Semantic recall (B3) ──────────────────────────────────────────────
+  // `null` = no recall run yet (section hidden). `[]` = ran, no matches.
+  private _recallResults: Memory[] | null = null;
+  private _recallLoading = false;
+  private _recallError: string | null = null;
+  private _recallQuery = "";
+  // Monotonic token so a slow recall resolving after a newer one / Clear /
+  // detach is ignored — last-write-wins without racing state.
+  private _recallSeq = 0;
   private runtimeStatus: CopilotKitCoreRuntimeConnectionStatus | null = null;
   private coreProperties: Readonly<Record<string, unknown>> = {};
   private lastCoreError: {
@@ -4159,6 +4517,12 @@ export class WebInspectorElement extends LitElement {
   private attemptedAutoAttach = false;
   private cachedTools: InspectorToolDefinition[] = [];
   private toolSignature = "";
+  // Bumped after every core.setToolEnabled / core.setCatalogComponentEnabled
+  // call so the Capabilities tab re-paints from the fresh isToolEnabled /
+  // isCatalogComponentEnabled getters. There is no core subscriber for
+  // enablement changes — the inspector itself drives the toggle, so we force
+  // the re-render locally.
+  private _capabilitiesVersion = 0;
   private eventFilterText = "";
   private eventTypeFilter: InspectorAgentEventType | "all" = "all";
   // Column widths for the AG-UI events table (agent, time, event-type; last col is auto)
@@ -4264,6 +4628,8 @@ export class WebInspectorElement extends LitElement {
 
   private get menuItems(): MenuItem[] {
     const hasFrontendTools = (this._core?.tools?.length ?? 0) > 0;
+    const hasCatalog = (this._core?.catalogComponents?.length ?? 0) > 0;
+    const hasCapabilities = hasFrontendTools || hasCatalog;
     return [
       {
         key: "ag-ui-events",
@@ -4280,6 +4646,15 @@ export class WebInspectorElement extends LitElement {
             },
           ]
         : []),
+      ...(hasCapabilities
+        ? [
+            {
+              key: "capabilities" as const,
+              label: CAPABILITIES_TAB_LABEL,
+              icon: "SlidersHorizontal" as LucideIconName,
+            },
+          ]
+        : []),
       {
         key: "agent-context",
         label: "Context",
@@ -4290,7 +4665,11 @@ export class WebInspectorElement extends LitElement {
         label: "Threads",
         icon: "MessageSquare" as LucideIconName,
       },
-      { key: "memories", label: "Learning", icon: "Brain" as LucideIconName },
+      {
+        key: "memories",
+        label: MEMORY_VIEW_LABEL,
+        icon: "Brain" as LucideIconName,
+      },
     ];
   }
 
@@ -4704,6 +5083,58 @@ export class WebInspectorElement extends LitElement {
     this.requestUpdate();
   }
 
+  /**
+   * Runs a semantic recall via the memory store (`core.getMemoryStore().recall`,
+   * from B2) and stores ranked results. Guarded by a monotonic sequence token
+   * so a stale request cannot overwrite a newer result / Clear / detach. Only
+   * reachable from the Intelligence-gated memory view, so it inherits the gate.
+   */
+  private runRecall(query: string): void {
+    const trimmed = query.trim();
+    if (trimmed.length === 0) return;
+    const store = this._core?.getMemoryStore?.();
+    if (!store || typeof store.recall !== "function") {
+      this._recallResults = [];
+      this._recallError = "Recall is not supported by this SDK version.";
+      this._recallLoading = false;
+      this.requestUpdate();
+      return;
+    }
+
+    const seq = ++this._recallSeq;
+    this._recallLoading = true;
+    this._recallError = null;
+    this.requestUpdate();
+
+    store
+      .recall(trimmed)
+      .then((results) => {
+        if (seq !== this._recallSeq) return;
+        this._recallResults = results;
+        this._recallError = null;
+        this._recallLoading = false;
+        this.requestUpdate();
+      })
+      .catch((error: unknown) => {
+        if (seq !== this._recallSeq) return;
+        this._recallResults = [];
+        this._recallError =
+          error instanceof Error ? error.message : "unknown error";
+        this._recallLoading = false;
+        this.requestUpdate();
+      });
+  }
+
+  /** Clears recall results/section and cancels any in-flight recall. */
+  private clearRecall(): void {
+    this._recallSeq += 1;
+    this._recallResults = null;
+    this._recallError = null;
+    this._recallLoading = false;
+    this._recallQuery = "";
+    this.requestUpdate();
+  }
+
   private detachFromCore(): void {
     if (this.coreUnsubscribe) {
       this.coreUnsubscribe();
@@ -4720,6 +5151,13 @@ export class WebInspectorElement extends LitElement {
     // activation re-subscribes (and re-evaluates SDK support) cleanly.
     this._memorySubscribed = false;
     this._memoryStoreUnsupported = false;
+    // Reset recall state and bump the sequence token so any in-flight recall
+    // resolving after detach is ignored.
+    this._recallSeq += 1;
+    this._recallResults = null;
+    this._recallLoading = false;
+    this._recallError = null;
+    this._recallQuery = "";
     this.coreSubscriber = null;
     this.runtimeStatus = null;
     this.lastCoreError = null;
@@ -7783,6 +8221,10 @@ ${argsString}</pre
       return this.renderToolsView();
     }
 
+    if (this.selectedMenu === "capabilities") {
+      return this.renderCapabilitiesView();
+    }
+
     if (this.selectedMenu === "agent-context") {
       return this.renderContextView();
     }
@@ -8979,7 +9421,7 @@ ${argsString}</pre
     return html`
       <div style="display:flex;height:100%;overflow:hidden;flex-direction:column;">
         <div class="cpk-section-header" style="display:flex;align-items:center;justify-content:space-between;">
-          <h4>Learning</h4>
+          <h4>${MEMORY_VIEW_LABEL}</h4>
           <div style="display:flex;align-items:center;gap:6px;">
             ${this.renderMemoryRealtimeIndicator()}
             <span
@@ -9038,6 +9480,19 @@ ${argsString}</pre
           <cpk-memory-list
             style="height:100%;"
             .memories=${this._memories}
+            .recallResults=${this._recallResults}
+            .recallLoading=${this._recallLoading}
+            .recallError=${this._recallError}
+            .recallQueryText=${this._recallQuery}
+            @recallQueryChanged=${(e: CustomEvent<string>) => {
+              this._recallQuery = e.detail;
+            }}
+            @recallSubmitted=${(e: CustomEvent<string>) => {
+              this.runRecall(e.detail);
+            }}
+            @recallCleared=${() => {
+              this.clearRecall();
+            }}
           ></cpk-memory-list>
         </div>
       </div>
@@ -9897,6 +10352,152 @@ ${prettyEvent}</pre
 
     this.contextMenuOpen = false;
     this.persistState();
+    this.requestUpdate();
+  }
+
+  private renderCapabilitiesView() {
+    if (!this._core) {
+      return html`
+        <div
+          class="flex h-full items-center justify-center px-4 py-8 text-xs text-gray-500"
+        >
+          No core instance available
+        </div>
+      `;
+    }
+
+    const toolRows = buildCapabilityRows(
+      this._core as unknown as CapabilityToolSource,
+    );
+    const catalog = this._core.catalogComponents ?? [];
+    const hasCatalog = catalog.length > 0;
+
+    if (toolRows.length === 0 && !hasCatalog) {
+      return html`
+        <div class="flex h-full items-center justify-center px-4 py-8 text-center">
+          <div class="max-w-md">
+            <div class="mb-3 flex justify-center text-gray-300 [&>svg]:!h-8 [&>svg]:!w-8">
+              ${this.renderIcon("SlidersHorizontal")}
+            </div>
+            <p class="text-sm text-gray-600">No capabilities registered</p>
+            <p class="mt-2 text-xs text-gray-500">
+              Frontend tools and A2UI catalog components will appear here once
+              they are registered on the CopilotKit core.
+            </p>
+          </div>
+        </div>
+      `;
+    }
+
+    return html`
+      <div class="flex h-full flex-col overflow-hidden">
+        <div class="overflow-auto p-4">
+          <div class="space-y-3">
+            <p class="text-xs text-gray-500">
+              Toggle a capability off to omit it from what the agent sees. This
+              is a client-side experimentation surface and takes effect
+              immediately.
+            </p>
+          </div>
+
+          ${
+            toolRows.length > 0
+              ? html`
+                <div class="mt-4 space-y-2">
+                  <h3 class="text-sm text-slate-500">Frontend tools</h3>
+                  <div class="space-y-2">
+                    ${toolRows.map((row) => this.renderCapabilityRow(row))}
+                  </div>
+                </div>
+              `
+              : nothing
+          }
+
+          ${
+            hasCatalog
+              ? html`
+                <div class="mt-6 space-y-2">
+                  <h3 class="text-sm text-slate-500">A2UI catalog components</h3>
+                  <div class="space-y-2">
+                    ${catalog.map((component) =>
+                      this.renderCapabilityRow({
+                        key: component.name,
+                        name: component.name,
+                        description: component.description,
+                        enabled: this._core!.isCatalogComponentEnabled(
+                          component.name,
+                        ),
+                      }),
+                    )}
+                  </div>
+                </div>
+              `
+              : nothing
+          }
+        </div>
+      </div>
+    `;
+  }
+
+  private renderCapabilityRow(row: CapabilityToolRow) {
+    // Frontend-tool keys are always `${agentId}:${name}` (agentId may be ""),
+    // so they contain a ":"; catalog keys are the bare component name.
+    const isTool = row.key.includes(":");
+    return html`
+      <div class="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2">
+            <span class="font-mono text-sm font-semibold text-gray-900">${row.name}</span>
+            ${
+              row.agentId
+                ? html`<span class="inline-flex items-center gap-1 text-xs text-gray-500">
+                    ${this.renderIcon("Bot")}<span class="font-mono">${row.agentId}</span>
+                  </span>`
+                : nothing
+            }
+          </div>
+          ${row.description ? html`<p class="mt-1 text-xs text-gray-600">${row.description}</p>` : nothing}
+        </div>
+        ${this.renderCapabilitySwitch(row.enabled, () =>
+          isTool
+            ? this.handleToggleTool(row)
+            : this.handleToggleCatalogComponent(row.name),
+        )}
+      </div>
+    `;
+  }
+
+  private renderCapabilitySwitch(enabled: boolean, onToggle: () => void) {
+    const track = enabled ? "bg-emerald-500" : "bg-gray-300";
+    const knob = enabled ? "translate-x-4" : "translate-x-0.5";
+    return html`
+      <button
+        type="button"
+        role="switch"
+        aria-checked=${enabled ? "true" : "false"}
+        class="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 ${track}"
+        @click=${onToggle}
+      >
+        <span class="inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${knob}"></span>
+      </button>
+    `;
+  }
+
+  private handleToggleTool(row: CapabilityToolRow): void {
+    if (!this._core) return;
+    const next = !row.enabled;
+    // A1 contract: setToolEnabled(name, enabled, agentId?). Pass agentId only
+    // when the tool is agent-scoped so global tools toggle globally.
+    this._core.setToolEnabled(row.name, next, row.agentId);
+    this._capabilitiesVersion += 1;
+    this.requestUpdate();
+  }
+
+  private handleToggleCatalogComponent(name: string): void {
+    if (!this._core) return;
+    const next = !this._core.isCatalogComponentEnabled(name);
+    this._core.setCatalogComponentEnabled(name, next);
+    this._capabilitiesVersion += 1;
     this.requestUpdate();
   }
 

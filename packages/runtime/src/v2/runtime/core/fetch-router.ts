@@ -210,6 +210,16 @@ function matchSegments(path: string): RouteInfo | null {
     return { method: "threads/list" };
   }
 
+  // /memories/recall (2 segments) — semantic recall (POST). Must precede the
+  // /memories/:id mutate rule below, which would otherwise capture "recall".
+  if (
+    len >= 2 &&
+    segments[len - 2] === "memories" &&
+    segments[len - 1] === "recall"
+  ) {
+    return { method: "memories/recall" };
+  }
+
   // /memories/subscribe (2 segments) — mint memory-realtime join credentials.
   if (
     len >= 2 &&

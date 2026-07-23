@@ -79,12 +79,46 @@ interface ExecuteToolHandlerResult {
 }
 
 /**
+ * A registered A2UI catalog component, as exposed to the inspector via
+ * `CopilotKitCore.catalogComponents`. `schema` is an opaque JSON-schema-ish
+ * value (the built catalog's Zod schema or a serialized form); the inspector
+ * treats it as unknown. `description` is optional because the built
+ * `ComponentApi` does not carry descriptions.
+ */
+export interface CopilotKitCoreCatalogComponent {
+  name: string;
+  description?: string;
+  schema: unknown;
+}
+
+/**
  * Handles agent execution, tool calling, and agent connectivity for CopilotKitCore.
  * Manages the complete lifecycle of agent runs including tool execution and follow-ups.
  */
 export class RunHandler {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private _tools: FrontendTool<any>[] = [];
+
+  /**
+   * The full list of A2UI catalog components registered by the provider.
+   * Order is preserved for display in the inspector.
+   */
+  private _catalogComponents: CopilotKitCoreCatalogComponent[] = [];
+
+  /**
+   * Names of catalog components the caller has explicitly disabled. A name
+   * absent from this set is enabled (default). Survives re-registration so a
+   * catalog identity change does not silently re-enable a disabled component.
+   */
+  private _disabledCatalogComponents: Set<string> = new Set();
+
+  /**
+   * Keys of frontend tools explicitly disabled at runtime via the Inspector's
+   * Capabilities tool (`setToolEnabled`). Kept independently of each tool's own
+   * `available` flag so a hook re-registering the tool (which resets
+   * `available`) does not clobber the override. Key = `capabilityKey(name, agentId)`.
+   */
+  private _disabledToolKeys = new Set<string>();
 
   /**
    * Tracks whether the current run (including in-flight tool execution)
@@ -237,6 +271,39 @@ export class RunHandler {
    */
   setTools(tools: FrontendTool<any>[]): void {
     this._tools = [...tools];
+  }
+
+  /**
+   * Return the registered A2UI catalog components (readonly).
+   */
+  get catalogComponents(): ReadonlyArray<CopilotKitCoreCatalogComponent> {
+    return this._catalogComponents;
+  }
+
+  /**
+   * Replace the registered catalog component list. Preserves the disabled set
+   * (by name) so re-registration does not re-enable disabled components.
+   */
+  setCatalogComponents(components: CopilotKitCoreCatalogComponent[]): void {
+    this._catalogComponents = [...components];
+  }
+
+  /**
+   * Enable or disable a catalog component by name.
+   */
+  setCatalogComponentEnabled(name: string, enabled: boolean): void {
+    if (enabled) {
+      this._disabledCatalogComponents.delete(name);
+    } else {
+      this._disabledCatalogComponents.add(name);
+    }
+  }
+
+  /**
+   * Whether a catalog component is enabled. Unknown names default to enabled.
+   */
+  isCatalogComponentEnabled(name: string): boolean {
+    return !this._disabledCatalogComponents.has(name);
   }
 
   /**
@@ -954,6 +1021,31 @@ export class RunHandler {
     };
   }
 
+  /** Stable identity for a tool override: agent-scope + name (NUL-separated). */
+  private capabilityKey(name: string, agentId?: string): string {
+    return `${agentId ?? ""} ${name}`;
+  }
+
+  /**
+   * Enable/disable a registered frontend tool at runtime without unregistering
+   * it. A disabled tool is omitted from {@link buildFrontendTools}, so the agent
+   * never receives it. Unlike the per-tool `available` flag, this override
+   * survives the tool being re-registered.
+   */
+  setToolEnabled(name: string, enabled: boolean, agentId?: string): void {
+    const key = this.capabilityKey(name, agentId);
+    if (enabled) {
+      this._disabledToolKeys.delete(key);
+    } else {
+      this._disabledToolKeys.add(key);
+    }
+  }
+
+  /** Whether a tool is currently enabled (not overridden off). Defaults true. */
+  isToolEnabled(name: string, agentId?: string): boolean {
+    return !this._disabledToolKeys.has(this.capabilityKey(name, agentId));
+  }
+
   /**
    * Build frontend tools for an agent
    */
@@ -963,7 +1055,8 @@ export class RunHandler {
         (tool) =>
           tool.available !== false &&
           (tool.available as boolean | string | undefined) !== "disabled" &&
-          (!tool.agentId || tool.agentId === agentId),
+          (!tool.agentId || tool.agentId === agentId) &&
+          this.isToolEnabled(tool.name, tool.agentId),
       )
       .map((tool) => ({
         name: tool.name,

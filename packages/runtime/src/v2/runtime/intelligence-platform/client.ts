@@ -165,10 +165,17 @@ export interface MemorySummary {
   sourceThreadIds: string[];
   /** ISO-8601 timestamp when the memory was retired, or `null` if live. */
   invalidatedAt: string | null;
+  /** Relevance score from a `recall` (hybrid RAG) query. Present only on recall responses. */
+  score?: number;
 }
 
 /** Response from {@link CopilotKitIntelligence.listMemories}. */
 export interface ListMemoriesResponse {
+  memories: MemorySummary[];
+}
+
+/** Response from {@link CopilotKitIntelligence.recallMemories}. */
+export interface RecallMemoriesResponse {
   memories: MemorySummary[];
 }
 
@@ -241,6 +248,15 @@ export interface SubscribeToMemoriesRequest {
 export interface SubscribeToMemoriesResponse {
   joinToken: string;
   joinCode: string;
+  /**
+   * Project-scoped realtime credentials, minted by the platform only when the
+   * caller's API key resolves to a project scope. Absent when project scope is
+   * unavailable — a silent-degrade contract: the client then opens only the
+   * user channel. When present, the client builds the second
+   * `project_meta:memories:<projectJoinCode>` channel topic from them.
+   */
+  projectJoinToken?: string;
+  projectJoinCode?: string;
 }
 
 export type ConnectThreadResponse = ThreadConnectionResponse | null;
@@ -692,6 +708,30 @@ export class CopilotKitIntelligence {
     );
   }
 
+  /**
+   * Semantically recall the given user's memories (platform `POST
+   * /api/memories/recall`, hybrid RAG). Each returned memory carries a
+   * relevance `score`. `scope` narrows to `"user"`/`"project"`; omitted → platform default.
+   * @throws {@link PlatformRequestError} on non-2xx responses.
+   */
+  async recallMemories(params: {
+    userId: string;
+    query: string;
+    limit?: number;
+    scope?: string;
+  }): Promise<RecallMemoriesResponse> {
+    return this.#request<RecallMemoriesResponse>(
+      "POST",
+      `/api/memories/recall`,
+      {
+        query: params.query,
+        ...(params.limit !== undefined ? { limit: params.limit } : {}),
+        ...(params.scope !== undefined ? { scope: params.scope } : {}),
+      },
+      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
+    );
+  }
+
   async ɵsubscribeToThreads(
     params: SubscribeToThreadsRequest,
   ): Promise<SubscribeToThreadsResponse> {
@@ -708,7 +748,10 @@ export class CopilotKitIntelligence {
    * Mint memory-realtime join credentials (platform `POST
    * /api/memories/subscribe`). Returns both the single-use `joinToken` and the
    * per-user `joinCode` the client needs to build the
-   * `user_meta:memories:<joinCode>` channel topic.
+   * `user_meta:memories:<joinCode>` channel topic. When the platform also
+   * resolves a project scope it returns optional `projectJoinToken` /
+   * `projectJoinCode`; both are passed through verbatim (omitted when absent,
+   * the silent-degrade contract).
    *
    * The user is supplied via the `x-cpki-user-id` header — the same way every
    * other memory endpoint (`listMemories`/`createMemory`/…) identifies the app

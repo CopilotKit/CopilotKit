@@ -332,6 +332,11 @@ function createRuntime(): CopilotRuntime {
       agents: { default: bankingAgent },
       intelligence,
       identifyUser,
+      // Opt in to the client-facing /memories/* proxy routes (default off) so the
+      // product web-inspector's Memory tab can list + recall memories in this
+      // demo. Only meaningful in Intelligence mode; does not affect the agent's
+      // own server-side recall_memory (that runs via the MCP path).
+      exposeMemoryRoutes: true,
       licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN,
       lockTtlSeconds: 30,
       lockKeyPrefix: "northwind-lock",

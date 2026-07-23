@@ -18,9 +18,6 @@ import { RecordingProvider } from "@/components/recording-context";
 import { RecordingVignette } from "@/components/recording-vignette";
 import { ProactiveNotice } from "@/components/wow/proactive-notice";
 import { ReportCopilotTools } from "@/components/wow/report-tool";
-import { GlassEngineProvider } from "@/components/glass-engine-context";
-import { InspectorStoreProvider } from "@/lib/inspector/store";
-import { InspectorPane } from "@/components/inspector/inspector-pane";
 import { sandboxFunctions } from "@/opengen/sandbox-functions";
 import { SandboxDataSync } from "@/opengen/sandbox-data-sync";
 
@@ -217,11 +214,9 @@ function BankingSuggestions() {
 
 export function CopilotKitWrapper({
   children,
-  glassAvailable = false,
   resetEnabled = false,
 }: {
   children: React.ReactNode;
-  glassAvailable?: boolean;
   resetEnabled?: boolean;
 }) {
   const { currentUser } = useAuthContext();
@@ -260,7 +255,10 @@ export function CopilotKitWrapper({
       // chat appears "stuck". CopilotKitProvider is the lean stack the working
       // e-commerce reference uses; our inbox's `useThreads` (from /v2) reads
       // CopilotKitProvider's own context, so the inbox keeps working.
-      showDevConsole={false}
+      // Surface the product web-inspector (<CopilotKitInspector>) on every host —
+      // this reference demo showcases it. `true` (not "auto") so deployed demo
+      // hosts show it too; the provider mounts it automatically when this is set.
+      showDevConsole={true}
     >
       {/*
         Anchor the whole chat surface to the actively-selected thread. The
@@ -296,30 +294,22 @@ export function CopilotKitWrapper({
             call site (the transactions list approve/deny, the inline policy
             exception card) is inside it.
           */}
-          <GlassEngineProvider available={glassAvailable}>
-            <InspectorStoreProvider>
-              <RecordingProvider>
-                {/*
-                  CanvasProvider derives whether a report surface is active from
-                  the agent message stream (+ a local dismiss for the "← Back"
-                  control). It must be an ancestor of LayoutComponent, which calls
-                  useCanvas() to render <ReportCanvas/> in place of the page body.
-                */}
-                <CanvasProvider>
-                  <LayoutComponent resetEnabled={resetEnabled}>
-                    <CopilotContext>{children}</CopilotContext>
-                  </LayoutComponent>
-                  <ChatPanel threadId={threadId} />
-                  <ProactiveNotice />
-                  <ReportCopilotTools />
-                </CanvasProvider>
-                {/* Mount the pane (and its AG-UI subscription) ONLY where the
-                    deployment opted in. Public hosts never subscribe. */}
-                {glassAvailable && <InspectorPane />}
-                <RecordingVignette />
-              </RecordingProvider>
-            </InspectorStoreProvider>
-          </GlassEngineProvider>
+          <RecordingProvider>
+            {/*
+              CanvasProvider derives whether a report surface is active from the
+              agent message stream (+ a local dismiss). It must be an ancestor of
+              LayoutComponent, which calls useCanvas() to render <ReportCanvas/>.
+            */}
+            <CanvasProvider>
+              <LayoutComponent resetEnabled={resetEnabled}>
+                <CopilotContext>{children}</CopilotContext>
+              </LayoutComponent>
+              <ChatPanel threadId={threadId} />
+              <ProactiveNotice />
+              <ReportCopilotTools />
+            </CanvasProvider>
+            <RecordingVignette />
+          </RecordingProvider>
         </ChatInboxProvider>
       </CopilotChatConfigurationProvider>
     </CopilotKitProvider>

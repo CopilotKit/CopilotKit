@@ -26,6 +26,7 @@ import type {
   CopilotKitCoreGetToolParams,
   CopilotKitCoreRunToolParams,
   CopilotKitCoreRunToolResult,
+  CopilotKitCoreCatalogComponent,
 } from "./run-handler";
 import { RunHandler } from "./run-handler";
 import type { DebugConfig } from "@copilotkit/shared";
@@ -81,6 +82,7 @@ export type {
   CopilotKitCoreGetToolParams,
   CopilotKitCoreRunToolParams,
   CopilotKitCoreRunToolResult,
+  CopilotKitCoreCatalogComponent,
 };
 
 export interface CopilotKitCoreStopAgentParams {
@@ -165,6 +167,15 @@ export interface CopilotKitCoreSubscriber {
   onContextChanged?: (event: {
     copilotkit: CopilotKitCore;
     context: Readonly<Record<string, Context>>;
+  }) => void | Promise<void>;
+  /**
+   * Fired when the A2UI catalog component list changes (registration) or when
+   * a component is enabled/disabled. Consumers (the provider, the inspector)
+   * re-derive the filtered catalog from this event.
+   */
+  onCatalogComponentsChanged?: (event: {
+    copilotkit: CopilotKitCore;
+    catalogComponents: ReadonlyArray<CopilotKitCoreCatalogComponent>;
   }) => void | Promise<void>;
   onSuggestionsConfigChanged?: (event: {
     copilotkit: CopilotKitCore;
@@ -595,6 +606,10 @@ export class CopilotKitCore {
     return this.runHandler.tools;
   }
 
+  get catalogComponents(): ReadonlyArray<CopilotKitCoreCatalogComponent> {
+    return this.runHandler.catalogComponents;
+  }
+
   get runtimeUrl(): string | undefined {
     return this.agentRegistry.runtimeUrl;
   }
@@ -994,6 +1009,53 @@ export class CopilotKitCore {
 
   setTools(tools: FrontendTool<any>[]): void {
     this.runHandler.setTools(tools);
+  }
+
+  /**
+   * Enable/disable a registered frontend tool at runtime without unregistering
+   * it (Inspector "Capabilities" tool). A disabled tool is omitted from the
+   * tool list sent to the agent on the next run. The override is keyed by name
+   * (+ optional agentId) and survives the tool being re-registered.
+   */
+  setToolEnabled(name: string, enabled: boolean, agentId?: string): void {
+    this.runHandler.setToolEnabled(name, enabled, agentId);
+  }
+
+  /** Whether a registered tool is currently enabled (defaults true). */
+  isToolEnabled(name: string, agentId?: string): boolean {
+    return this.runHandler.isToolEnabled(name, agentId);
+  }
+
+  /**
+   * A2UI catalog component management (delegated to RunHandler).
+   * Registers the full component list and controls per-component enablement.
+   */
+  setCatalogComponents(components: CopilotKitCoreCatalogComponent[]): void {
+    this.runHandler.setCatalogComponents(components);
+    void this.notifySubscribers(
+      (subscriber) =>
+        subscriber.onCatalogComponentsChanged?.({
+          copilotkit: this,
+          catalogComponents: this.runHandler.catalogComponents,
+        }),
+      "Subscriber onCatalogComponentsChanged error:",
+    );
+  }
+
+  setCatalogComponentEnabled(name: string, enabled: boolean): void {
+    this.runHandler.setCatalogComponentEnabled(name, enabled);
+    void this.notifySubscribers(
+      (subscriber) =>
+        subscriber.onCatalogComponentsChanged?.({
+          copilotkit: this,
+          catalogComponents: this.runHandler.catalogComponents,
+        }),
+      "Subscriber onCatalogComponentsChanged error:",
+    );
+  }
+
+  isCatalogComponentEnabled(name: string): boolean {
+    return this.runHandler.isCatalogComponentEnabled(name);
   }
 
   /**

@@ -1,6 +1,7 @@
 import {
   CpkThreadInspector,
   WebInspectorElement,
+  ɵbuildCapabilityRows,
   ɵCpkThreadDetails,
 } from "../index.js";
 import type { ThreadDebuggerProvider } from "../index.js";
@@ -2295,7 +2296,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
 //
 // 6.1  Helpers: makeCoreWithMemory / makeCoreNoIntelligence / mountMemories
 // 6.2  Subscription: inspector._memories is seeded from store
-// 6.3  Tab presence: "Learning" label appears in the rendered menu
+// 6.3  Tab presence: "Memory" label appears in the rendered menu
 // 6.4  View states: locked teaser vs. enabled empty vs. enabled with cards
 // 6.5  cpk-memory-list: cards, kind filter, search filter, empty state
 // 6.6  Passive guard: inspector reads from core.getMemoryStore(), never creates its own
@@ -2514,7 +2515,7 @@ describe("WebInspectorElement memories — tab presence", () => {
     vi.unstubAllGlobals();
   });
 
-  it("renders a Learning tab button in the inspector menu", async () => {
+  it("renders a Memory tab button in the inspector menu", async () => {
     const core = makeCoreWithMemory([]);
     const el = await mountMemories(core);
 
@@ -2522,10 +2523,10 @@ describe("WebInspectorElement memories — tab presence", () => {
       el.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ?? [],
     );
     const memoriesButton = buttons.find((btn) =>
-      btn.textContent?.trim().includes("Learning"),
+      btn.textContent?.trim().includes("Memory"),
     );
 
-    expect(memoriesButton, "Learning tab button should render").toBeDefined();
+    expect(memoriesButton, "Memory tab button should render").toBeDefined();
   });
 });
 
@@ -3314,5 +3315,194 @@ describe("WebInspectorElement memories — tab telemetry + detach reset", () => 
     expect(state._memoriesLoading).toBe(false);
     expect(state._memoriesError).toBeNull();
     expect(state._memoriesAvailable).toBe(true);
+  });
+});
+
+describe("ɵbuildCapabilityRows", () => {
+  it("maps core.tools to rows, reflects isToolEnabled, and sorts by agentId then name", () => {
+    const enabled = new Set(["b-tool"]);
+    const core = {
+      tools: [
+        { name: "z-tool", agentId: "agent-2", description: "zed" },
+        { name: "a-tool", agentId: "agent-1" },
+        { name: "b-tool" },
+      ],
+      isToolEnabled: (name: string) => enabled.has(name),
+    };
+    const rows = ɵbuildCapabilityRows(core);
+    expect(rows.map((r) => r.name)).toEqual(["b-tool", "a-tool", "z-tool"]);
+    expect(rows[0]).toMatchObject({
+      key: ":b-tool",
+      name: "b-tool",
+      agentId: undefined,
+      enabled: true,
+    });
+    expect(rows.find((r) => r.name === "a-tool")).toMatchObject({
+      key: "agent-1:a-tool",
+      enabled: false,
+    });
+    expect(rows.find((r) => r.name === "z-tool")).toMatchObject({
+      description: "zed",
+      enabled: false,
+    });
+  });
+
+  it("passes isToolEnabled the tool's agentId (per-agent enablement)", () => {
+    const calls: Array<[string, string | undefined]> = [];
+    const core = {
+      tools: [{ name: "t", agentId: "agent-x" }],
+      isToolEnabled: (name: string, agentId?: string) => {
+        calls.push([name, agentId]);
+        return true;
+      },
+    };
+    ɵbuildCapabilityRows(core);
+    expect(calls).toEqual([["t", "agent-x"]]);
+  });
+
+  it("returns an empty array when there are no tools", () => {
+    expect(
+      ɵbuildCapabilityRows({ tools: [], isToolEnabled: () => false }),
+    ).toEqual([]);
+    expect(ɵbuildCapabilityRows({ isToolEnabled: () => false })).toEqual([]);
+  });
+});
+
+describe("WebInspectorElement Capabilities tab", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    const store: Record<string, string> = {};
+    vi.stubGlobal("localStorage", {
+      getItem: (k: string) => store[k] ?? null,
+      setItem: (k: string, v: string) => {
+        store[k] = v;
+      },
+      removeItem: (k: string) => {
+        delete store[k];
+      },
+      clear: () => {
+        for (const k of Object.keys(store)) delete store[k];
+      },
+      get length() {
+        return Object.keys(store).length;
+      },
+      key: (i: number) => Object.keys(store)[i] ?? null,
+    });
+  });
+
+  function createCapabilitiesCore() {
+    const toolEnabled: Record<string, boolean> = { greet: true, hide: true };
+    const catalogEnabled: Record<string, boolean> = { Chart: true };
+    const setToolEnabled = vi.fn(
+      (name: string, enabled: boolean, _agentId?: string) => {
+        toolEnabled[name] = enabled;
+      },
+    );
+    const setCatalogComponentEnabled = vi.fn(
+      (name: string, enabled: boolean) => {
+        catalogEnabled[name] = enabled;
+      },
+    );
+    const core = {
+      agents: {},
+      context: {},
+      properties: {},
+      runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
+      subscribe: () => ({ unsubscribe: () => undefined }),
+      getThreadStores: () => ({}),
+      getThreadStore: () => undefined,
+      getMemoryStore: () => ({
+        getState: () => ({ available: true }),
+        select: () => ({
+          subscribe: (cb: (v: unknown) => void) => {
+            cb(undefined);
+            return { unsubscribe: () => undefined };
+          },
+        }),
+      }),
+      tools: [{ name: "greet", description: "Say hi" }, { name: "hide" }],
+      isToolEnabled: (name: string) => toolEnabled[name] ?? true,
+      setToolEnabled,
+      catalogComponents: [{ name: "Chart", schema: {} }],
+      isCatalogComponentEnabled: (name: string) => catalogEnabled[name] ?? true,
+      setCatalogComponentEnabled,
+    };
+    return { core, setToolEnabled, setCatalogComponentEnabled };
+  }
+
+  it("shows the Capabilities tab and renders both sections", async () => {
+    const { core } = createCapabilitiesCore();
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = core as unknown as WebInspectorElement["core"];
+    (inspector as unknown as { isOpen: boolean }).isOpen = true;
+    (
+      inspector as unknown as { handleMenuSelect: (k: string) => void }
+    ).handleMenuSelect("capabilities");
+    await inspector.updateComplete;
+    const text = inspector.shadowRoot?.textContent ?? "";
+    expect(text).toContain("Frontend tools");
+    expect(text).toContain("A2UI catalog components");
+    expect(text).toContain("greet");
+    expect(text).toContain("Chart");
+  });
+
+  it("calls setToolEnabled(false) when a tool switch is toggled off", async () => {
+    const { core, setToolEnabled } = createCapabilitiesCore();
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = core as unknown as WebInspectorElement["core"];
+    (inspector as unknown as { isOpen: boolean }).isOpen = true;
+    (
+      inspector as unknown as { handleMenuSelect: (k: string) => void }
+    ).handleMenuSelect("capabilities");
+    await inspector.updateComplete;
+    const switches =
+      inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>(
+        'button[role="switch"]',
+      ) ?? [];
+    switches[0]?.click();
+    await inspector.updateComplete;
+    expect(setToolEnabled).toHaveBeenCalledWith("greet", false, undefined);
+    const refreshed =
+      inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>(
+        'button[role="switch"]',
+      ) ?? [];
+    expect(refreshed[0]?.getAttribute("aria-checked")).toBe("false");
+  });
+
+  it("calls setCatalogComponentEnabled when a catalog switch is toggled", async () => {
+    const { core, setCatalogComponentEnabled } = createCapabilitiesCore();
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = core as unknown as WebInspectorElement["core"];
+    (inspector as unknown as { isOpen: boolean }).isOpen = true;
+    (
+      inspector as unknown as { handleMenuSelect: (k: string) => void }
+    ).handleMenuSelect("capabilities");
+    await inspector.updateComplete;
+    const switches =
+      inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>(
+        'button[role="switch"]',
+      ) ?? [];
+    switches[switches.length - 1]?.click();
+    await inspector.updateComplete;
+    expect(setCatalogComponentEnabled).toHaveBeenCalledWith("Chart", false);
+  });
+
+  it("hides the catalog section when catalogComponents is empty", async () => {
+    const { core } = createCapabilitiesCore();
+    (core as { catalogComponents: unknown[] }).catalogComponents = [];
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = core as unknown as WebInspectorElement["core"];
+    (inspector as unknown as { isOpen: boolean }).isOpen = true;
+    (
+      inspector as unknown as { handleMenuSelect: (k: string) => void }
+    ).handleMenuSelect("capabilities");
+    await inspector.updateComplete;
+    const text = inspector.shadowRoot?.textContent ?? "";
+    expect(text).toContain("Frontend tools");
+    expect(text).not.toContain("A2UI catalog components");
   });
 });
