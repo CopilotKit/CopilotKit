@@ -168,6 +168,11 @@ export class Thread implements ThreadInterface {
         `post(image): upload failed — ${res.error ?? "unknown error"}`,
       );
     }
+    if (!res.fileId) {
+      console.warn(
+        "[channel] postFile succeeded without a fileId; returning an empty message ref",
+      );
+    }
     return { id: res.fileId ?? "" };
   }
 

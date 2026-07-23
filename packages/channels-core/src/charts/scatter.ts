@@ -60,11 +60,18 @@ export function Scatter(props: ScatterProps): ReactElement {
   const xMax = Math.max(...xs);
   const yMin = Math.min(...ys);
   const yMax = Math.max(...ys);
+  const xDegenerate = xMax === xMin;
+  const yDegenerate = yMax === yMin;
   const xSpan = xMax - xMin || 1;
   const ySpan = yMax - yMin || 1;
-  const px = (x: number) => pad + ((x - xMin) / xSpan) * (width - pad * 2);
+  const px = (x: number) =>
+    xDegenerate
+      ? pad + (width - pad * 2) / 2
+      : pad + ((x - xMin) / xSpan) * (width - pad * 2);
   const py = (y: number) =>
-    height - pad - ((y - yMin) / ySpan) * (height - pad * 2);
+    yDegenerate
+      ? pad + (height - pad * 2) / 2
+      : height - pad - ((y - yMin) / ySpan) * (height - pad * 2);
   const grid = showGrid
     ? [0.25, 0.5, 0.75].map((f, i) =>
         h("line", {
