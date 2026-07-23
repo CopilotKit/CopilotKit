@@ -14,6 +14,9 @@ import {
   Image,
   Select,
   Chart,
+  Input,
+  isChannelComponent,
+  CHANNEL_COMPONENT,
 } from "./components.js";
 
 /**
@@ -138,5 +141,32 @@ describe("component vocabulary", () => {
     expect(chart.props.title).toBe("Revenue");
     expect(chart.props.yAxisTitle).toBe("USD");
     expect(chart.props.data).toEqual(data);
+  });
+});
+
+describe("component branding", () => {
+  it("brands every channel component so it is recognizable", () => {
+    for (const c of [
+      Message,
+      Button,
+      Select,
+      Input,
+      Table,
+      Chart,
+      Image,
+      Divider,
+    ]) {
+      expect(isChannelComponent(c)).toBe(true);
+      expect((c as unknown as Record<symbol, unknown>)[CHANNEL_COMPONENT]).toBe(
+        true,
+      );
+    }
+  });
+
+  it("does not brand arbitrary functions", () => {
+    const notOurs = (props: { x: number }) => props;
+    expect(isChannelComponent(notOurs)).toBe(false);
+    expect(isChannelComponent(undefined)).toBe(false);
+    expect(isChannelComponent("message")).toBe(false);
   });
 });
