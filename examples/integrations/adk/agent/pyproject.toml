@@ -12,4 +12,6 @@ dependencies = [
   "google-genai",
   "ag-ui-adk==0.6.3",
   "ag-ui-protocol==0.1.18",
+  # uv skips transitive prereleases, and the only stable release was yanked.
+  "opentelemetry-resourcedetector-gcp==1.12.0a0",
 ]
