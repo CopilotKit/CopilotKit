@@ -128,7 +128,7 @@ Usually one of:
 ## Tools I registered don't show up
 
 - Open the [Inspector](../inspector) > **Frontend Tools** panel. If the tool isn't there, the hook call didn't land. Confirm the component is actually mounted.
-- If the tool is listed but the agent never calls it, the model may not know when to use it. Tweak the `description` to include the trigger phrase.
+- If the tool is listed but the agent never calls it, the model may not know when to use it. Tweak the `description` to include the trigger phrase. For LangGraph agents, also add an explicit instruction in `system_prompt` — especially for mandatory data-fetch tools where the agent must call the tool before answering. See [Ensuring your agent reliably calls frontend tools](/integrations/langgraph/frontend-tools#ensuring-your-agent-reliably-calls-frontend-tools) for the recommended pattern.
 - For v1 to v2 migrations, `useCopilotAction` split into `useFrontendTool`, `useComponent`, and `useHumanInTheLoop`. Make sure you're using the right one.
 
 ## Connect route returns 404 on a fresh thread
