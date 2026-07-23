@@ -38,4 +38,18 @@ describe("render_mrr tool", () => {
     expect(post.mock.calls[1]![1]).toMatchObject({ filename: "signups.png" });
     expect(res).toMatch(/MRR card and signups chart/);
   });
+
+  it("skips the chart when series is an empty array", async () => {
+    const post = vi.fn(
+      async (_ui: unknown, _opts?: { filename?: string; title?: string }) => ({
+        id: "F1",
+      }),
+    );
+    const res = await renderMrrTool.handler(
+      { value: "$1", delta: 0, series: [] },
+      { thread: { post } as never, platform: "slack" } as never,
+    );
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(res).not.toMatch(/chart/);
+  });
 });
