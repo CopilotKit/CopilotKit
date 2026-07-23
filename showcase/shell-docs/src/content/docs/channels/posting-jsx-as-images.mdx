@@ -159,7 +159,7 @@ icon: "lucide/Component"
     - **`gridColor`/`showGrid`:** only apply to `LineChart` and `Scatter`.
     - **`title`:** honored by `BarChart`/`StackedBar`/`LineChart`/`PieChart`/`Scatter`, not by `Meter`/`Sparkline`.
     - **Non-negative values:** `BarChart`/`StackedBar` assume non-negative values — a negative value clamps to a zero-height bar rather than rendering below the axis.
-    - **Y-axis baseline:** `LineChart` anchors its y-axis at zero (its scale spans from `min(0, ...values)` to `max(...values)`), so a chart with only positive values always shows the zero baseline. `Sparkline` has no such anchor — it scales purely to the data's own min/max, so its shape communicates relative movement, not absolute value.
+    - **Y-axis scaling:** all cartesian charts (`LineChart`, `Scatter`, `Sparkline`) scale to the data's own min/max rather than anchoring at zero, so their shape communicates relative movement across the data range, not absolute value against a zero baseline. (If you need a zero baseline, include a zero-valued datum in the series.)
 
     These are separate from the existing **native** `<Chart>` component, which still renders as a real Block Kit/Adaptive Card chart where the surface supports it. The `charts` components are for image output styled with your app's own CSS.
   </Step>

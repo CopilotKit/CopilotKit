@@ -41,6 +41,11 @@ function isFnTypeNode(v: unknown): v is {
  * Peeking calls a presentational component once for classification; the native
  * path then calls it again during binding. This double call is acceptable for
  * the pure, presentational components this targets.
+ *
+ * The peek recognizes a component that returns a single React element (the
+ * leaf-presentational contract); a component that returns another unbranded
+ * component *node* (a `{type: fn}` node, not a rendered element) is not
+ * re-peeked and is routed native.
  */
 export function resolveArbitraryElement(v: unknown): object | null {
   if (isReactElement(v)) {

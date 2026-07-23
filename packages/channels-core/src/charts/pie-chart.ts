@@ -61,14 +61,21 @@ export function PieChart(props: PieChartProps): ReactElement {
       "div",
       {
         className,
-        style: { display: "flex", flexDirection: "column", gap: 8, ...style },
+        // White default on the wrapper div so `style.backgroundColor` (and any
+        // other style) overrides uniformly; the inner <svg> stays transparent.
+        style: {
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+          backgroundColor: "#ffffff",
+          ...style,
+        },
       },
       titleEl,
       h("svg", {
         width,
         height,
         viewBox: `0 0 ${width} ${height}`,
-        style: { backgroundColor: "#ffffff" },
       }),
     );
   }
@@ -82,7 +89,15 @@ export function PieChart(props: PieChartProps): ReactElement {
       "div",
       {
         className,
-        style: { display: "flex", flexDirection: "column", gap: 8, ...style },
+        // White default on the wrapper div so `style.backgroundColor` (and any
+        // other style) overrides uniformly; the inner <svg> stays transparent.
+        style: {
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+          backgroundColor: "#ffffff",
+          ...style,
+        },
       },
       titleEl,
       h(
@@ -91,7 +106,6 @@ export function PieChart(props: PieChartProps): ReactElement {
           width,
           height,
           viewBox: `0 0 ${width} ${height}`,
-          style: { backgroundColor: "#ffffff" },
         },
         h("circle", { cx, cy, r, style: { fill: sliceColor } }),
       ),
@@ -113,7 +127,15 @@ export function PieChart(props: PieChartProps): ReactElement {
     "div",
     {
       className,
-      style: { display: "flex", flexDirection: "column", gap: 8, ...style },
+      // White default on the wrapper div so `style.backgroundColor` (and any
+      // other style) overrides uniformly; the inner <svg> stays transparent.
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
+        backgroundColor: "#ffffff",
+        ...style,
+      },
     },
     titleEl,
     h(
@@ -122,7 +144,6 @@ export function PieChart(props: PieChartProps): ReactElement {
         width,
         height,
         viewBox: `0 0 ${width} ${height}`,
-        style: { backgroundColor: "#ffffff" },
       },
       ...slices,
     ),

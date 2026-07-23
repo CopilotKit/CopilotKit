@@ -27,6 +27,25 @@ export function finiteOr0(n: number): number {
 }
 
 /**
+ * Min and max of a numeric array in a single pass (a `for` loop), instead of
+ * `Math.min(...nums)`/`Math.max(...nums)` — spreading a large array onto the
+ * call stack can `RangeError` on huge inputs. Returns `{ min: 0, max: 0 }` for
+ * an empty array; each caller applies its own fallback (e.g. a `span || 1`
+ * guard, or `max > 0 ? max : 1`) to match its existing empty handling.
+ */
+export function extent(nums: readonly number[]): { min: number; max: number } {
+  if (nums.length === 0) return { min: 0, max: 0 };
+  let min = nums[0]!;
+  let max = nums[0]!;
+  for (let i = 1; i < nums.length; i++) {
+    const n = nums[i]!;
+    if (n < min) min = n;
+    if (n > max) max = n;
+  }
+  return { min, max };
+}
+
+/**
  * Styling knobs shared by every chart component. Not every field is honored
  * by every chart: BarChart/StackedBar fill their container and ignore both
  * `width` and `height`; Meter also fills its container width-wise and
