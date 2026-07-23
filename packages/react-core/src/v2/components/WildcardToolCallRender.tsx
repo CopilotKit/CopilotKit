@@ -24,9 +24,10 @@ export const WildcardToolCallRender = defineToolCallRenderer({
         <div className="cpk:rounded-xl cpk:border cpk:border-zinc-200/60 cpk:dark:border-zinc-800/60 cpk:bg-white/70 cpk:dark:bg-zinc-900/50 cpk:shadow-sm cpk:backdrop-blur cpk:p-4">
           <div
             className="cpk:flex cpk:items-center cpk:justify-between cpk:gap-3 cpk:cursor-pointer"
+            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", cursor: "pointer" }}
             onClick={() => setIsExpanded(!isExpanded)}
           >
-            <div className="cpk:flex cpk:items-center cpk:gap-2 cpk:min-w-0">
+            <div className="cpk:flex cpk:items-center cpk:gap-2 cpk:min-w-0" style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
               <svg
                 className={`cpk:h-4 cpk:w-4 cpk:text-zinc-500 cpk:dark:text-zinc-400 cpk:transition-transform ${
                   isExpanded ? "cpk:rotate-90" : ""
