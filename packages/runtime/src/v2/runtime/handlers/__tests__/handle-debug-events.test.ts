@@ -24,7 +24,7 @@ function createMockRequest(options: { signal?: AbortSignal } = {}): Request {
 }
 
 function createTestEvent(): BaseEvent {
-  return { type: "custom" } as BaseEvent;
+  return { type: "custom" } as unknown as BaseEvent;
 }
 
 async function readNextSSELine(

@@ -22,7 +22,11 @@ import { CopilotKitInspector } from "../components/CopilotKitInspector";
 import type { Anchor } from "@copilotkit/web-inspector";
 import { LicenseWarningBanner } from "../components/license-warning-banner";
 import { createLicenseContextValue } from "@copilotkit/shared";
-import type { LicenseContextValue, DebugConfig } from "@copilotkit/shared";
+import type {
+  LicenseContextValue,
+  DebugConfig,
+  RuntimeLicenseStatus,
+} from "@copilotkit/shared";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
 import {
   MCPAppsActivityContentSchema,
@@ -54,6 +58,25 @@ import type { SandboxFunction } from "../types/sandbox-function";
 import { SandboxFunctionsContext } from "./SandboxFunctionsContext";
 import { schemaToJsonSchema } from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
+
+// Adapts zod-to-json-schema's zod-specific signature to the injectable
+// `zodToJsonSchema` contract of `schemaToJsonSchema`, which only invokes it
+// for schemas whose `~standard.vendor` is "zod".
+const zodToJsonSchemaAdapter = (
+  schema: unknown,
+  options?: { $refStrategy?: string },
+): Record<string, unknown> => {
+  const refStrategy = options?.$refStrategy;
+  return zodToJsonSchema(
+    schema as z.ZodType,
+    refStrategy === "root" ||
+      refStrategy === "relative" ||
+      refStrategy === "none" ||
+      refStrategy === "seen"
+      ? { $refStrategy: refStrategy }
+      : {},
+  );
+};
 
 const HEADER_NAME = "X-CopilotCloud-Public-Api-Key";
 const COPILOT_CLOUD_CHAT_URL = "https://api.cloud.copilotkit.ai/copilotkit/v1";
@@ -274,8 +297,13 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   const [runtimeA2UIEnabled, setRuntimeA2UIEnabled] = useState(false);
   const [runtimeOpenGenUIEnabled, setRuntimeOpenGenUIEnabled] = useState(false);
   const openGenUIActive = runtimeOpenGenUIEnabled || !!openGenerativeUI;
+  // A catalog passed to the provider is enough to turn A2UI on: render the
+  // surfaces locally and forward the catalog signal so the runtime injects the
+  // render tool — no runtime-side `a2ui` config required.
+  const a2uiCatalogProvided = !!a2ui?.catalog;
+  const a2uiActive = runtimeA2UIEnabled || a2uiCatalogProvided;
   const [runtimeLicenseStatus, setRuntimeLicenseStatus] = useState<
-    string | undefined
+    RuntimeLicenseStatus | undefined
   >(undefined);
 
   useEffect(() => {
@@ -349,7 +377,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       });
     }
 
-    if (runtimeA2UIEnabled) {
+    if (a2uiActive) {
       // The a2ui-surface renderer owns the WHOLE generative-UI lifecycle (OSS-162):
       // building skeleton → retrying → hard-failure → painted surface, all on one
       // activity, swapped in place. `recovery` tunes the pre-paint UX (timing +
@@ -365,7 +393,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     }
 
     return renderers;
-  }, [runtimeA2UIEnabled, openGenUIActive, a2ui]);
+  }, [a2uiActive, openGenUIActive, a2ui]);
 
   // Combine user-provided activity renderers with built-in ones
   // User-provided renderers take precedence (come first) so they can override built-ins
@@ -379,6 +407,22 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     [agents, selfManagedAgents],
   );
   const hasLocalAgents = mergedAgents && Object.keys(mergedAgents).length > 0;
+
+  // `selfManagedAgents` is part of CopilotKit's Enterprise Intelligence offering.
+  // The signal is advisory and client-side only (not enforced): warn — in both
+  // development and production — when it is used without a license key so
+  // production usage is surfaced. `agents__unsafe_dev_only` is the free local-dev
+  // escape hatch and is intentionally NOT gated here.
+  const hasSelfManagedAgents = Object.keys(selfManagedAgents).length > 0;
+  useEffect(() => {
+    if (hasSelfManagedAgents && !resolvedPublicKey) {
+      console.warn(
+        "[CopilotKit] `selfManagedAgents` is part of CopilotKit's Enterprise " +
+          "Intelligence offering. Provide a `publicLicenseKey` for production " +
+          "use — contact the CopilotKit team about licensing.",
+      );
+    }
+  }, [hasSelfManagedAgents, resolvedPublicKey]);
 
   // Resolve headers from function or static object
   const headers =
@@ -455,10 +499,10 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       if (tool.render) {
         processedRenderToolCalls.push({
           name: tool.name,
-          args: tool.parameters!,
-          render: tool.render,
+          args: tool.parameters,
+          render: tool.render as React.ComponentType<any>,
           ...(tool.agentId && { agentId: tool.agentId }),
-        } as ReactToolCallRenderer<unknown>);
+        });
       }
     });
 
@@ -531,6 +575,12 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   if (copilotkitRef.current === null) {
     copilotkitRef.current = new CopilotKitCoreReact({
       runtimeUrl: chatApiEndpoint,
+      // Defer the `/info` fetch out of construction. The core is constructed
+      // during render, and React can start-and-discard renders (concurrent
+      // rendering / Suspense / StrictMode) — a network request in the ctor
+      // would fire once per discarded attempt (issue #5801). `connect()` below
+      // starts the single request from a commit-phase effect.
+      deferInitialConnection: true,
       runtimeTransport:
         useSingleEndpoint === true
           ? "single"
@@ -555,17 +605,30 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }
   const copilotkit = copilotkitRef.current;
 
-  // Sync runtime feature flags from the core once runtime info is fetched
+  // Sync runtime feature flags from the core once runtime info is fetched.
+  //
+  // The core kicks off its `/info` fetch synchronously from its constructor
+  // (during render), so `onRuntimeConnectionStatusChanged` can fire BEFORE this
+  // passive effect runs and subscribes — especially on a cold first load
+  // (incognito/hard refresh) where JS compile congestion delays the effect flush
+  // past the `/info` resolution. If that happens, the settled values would be
+  // lost forever. To close the race we read the CURRENT values immediately, so a
+  // status that already resolved is captured whether or not we caught its event.
+  // This MUST mirror the subscriber below (all three values), otherwise a missed
+  // event leaves e.g. `licenseStatus` null indefinitely — which pins the threads
+  // drawer to its "Loading threads…" state (licensePending never clears).
   useEffect(() => {
-    // Check current value immediately (may already be set before subscription)
-    setRuntimeA2UIEnabled(copilotkit.a2uiEnabled);
+    const syncRuntimeInfo = () => {
+      setRuntimeA2UIEnabled(copilotkit.a2uiEnabled);
+      setRuntimeOpenGenUIEnabled(copilotkit.openGenerativeUIEnabled);
+      setRuntimeLicenseStatus(copilotkit.licenseStatus);
+    };
     const subscription = copilotkit.subscribe({
-      onRuntimeConnectionStatusChanged: () => {
-        setRuntimeA2UIEnabled(copilotkit.a2uiEnabled);
-        setRuntimeOpenGenUIEnabled(copilotkit.openGenerativeUIEnabled);
-        setRuntimeLicenseStatus(copilotkit.licenseStatus);
-      },
+      onRuntimeConnectionStatusChanged: syncRuntimeInfo,
     });
+    // Catch-up read after subscribing, so a status that settled between the
+    // subscribe call and now is still reflected.
+    syncRuntimeInfo();
     return () => {
       subscription.unsubscribe();
     };
@@ -657,15 +720,30 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     );
     copilotkit.setHeaders(mergedHeaders);
     copilotkit.setCredentials(credentials);
-    copilotkit.setProperties(properties);
+    // Forward a per-run signal when the provider has an A2UI catalog so the
+    // runtime can turn A2UI on (and inject the render tool) without a separate
+    // `a2ui.injectA2UITool` flag on the runtime.
+    copilotkit.setProperties(
+      a2uiCatalogProvided
+        ? { ...properties, a2uiCatalogAvailable: true }
+        : properties,
+    );
     copilotkit.setAgents__unsafe_dev_only(mergedAgents);
     copilotkit.setDebug(debug);
+    // Start the runtime `/info` connection now that we're in the commit phase.
+    // The ctor deferred it (see `deferInitialConnection` above) so discarded
+    // renders never fetch; `connect()` is idempotent, so StrictMode's
+    // double-invoked effect and re-runs on unrelated prop changes collapse to a
+    // single request (a real runtimeUrl/transport change reconnects via the
+    // setters above). See #5801.
+    copilotkit.connect();
   }, [
     copilotkit,
     chatApiEndpoint,
     mergedHeaders,
     credentials,
     properties,
+    a2uiCatalogProvided,
     mergedAgents,
     useSingleEndpoint,
     debug,
@@ -737,7 +815,9 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       sandboxFunctionsList.map((fn) => ({
         name: fn.name,
         description: fn.description,
-        parameters: schemaToJsonSchema(fn.parameters, { zodToJsonSchema }),
+        parameters: schemaToJsonSchema(fn.parameters, {
+          zodToJsonSchema: zodToJsonSchemaAdapter,
+        }),
       })),
     );
   }, [sandboxFunctionsList]);
@@ -762,16 +842,16 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
 
   // License context — driven by server-reported status via /info endpoint
   const licenseContextValue = useMemo(
-    () => createLicenseContextValue(null),
-    [],
+    () => createLicenseContextValue(runtimeLicenseStatus),
+    [runtimeLicenseStatus],
   );
 
   return (
     <SandboxFunctionsContext.Provider value={sandboxFunctionsList}>
       <CopilotKitContext.Provider value={contextValue}>
         <LicenseContext.Provider value={licenseContextValue}>
-          {runtimeA2UIEnabled && <A2UIBuiltInToolCallRenderer />}
-          {runtimeA2UIEnabled && (
+          {a2uiActive && <A2UIBuiltInToolCallRenderer />}
+          {a2uiActive && (
             <A2UICatalogContext
               catalog={a2ui?.catalog}
               includeSchema={a2ui?.includeSchema}

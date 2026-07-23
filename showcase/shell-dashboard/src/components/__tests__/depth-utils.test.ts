@@ -46,11 +46,13 @@ const cell = (
   max_depth: number = 0,
 ): CatalogCell => ({
   id: `${slug}/${featureId}`,
+  manifestation: "integrated",
   integration: slug,
   integration_name: slug,
   feature: featureId,
   feature_name: featureId,
   status,
+  parity_tier: "at_parity",
   max_depth,
   category: "dev-ex",
   category_name: "Dev Ex",
@@ -149,7 +151,12 @@ describe("deriveDepth", () => {
     expect(result.achieved).toBe(4);
   });
 
-  it("returns D4 when all depths are green (tools path)", () => {
+  it("D4 requires chat: a tools-only cell (no chat row) does NOT reach D4", () => {
+    // Unified engine §3 rule 1: D4 applies UNCONDITIONAL `chat:` strictness — a
+    // missing chat probe reads as NO_DATA even when tools is green, so a
+    // tools-only cell caps at D3. (The old deriveDepth OR-walk wrongly credited
+    // D4 from tools alone; this converges deriveDepth onto buildCellModel, whose
+    // resolveD4 has always required chat.)
     const c = cell("lgp", "agentic-chat");
     const live = mapOf([
       row("health:lgp", "health", "green"),
@@ -158,7 +165,7 @@ describe("deriveDepth", () => {
       row("tools:lgp", "tools", "green"),
     ]);
     const result = deriveDepth(c, live);
-    expect(result.achieved).toBe(4);
+    expect(result.achieved).toBe(3);
   });
 
   it("D4 worst-state wins: green chat + red tools does NOT achieve D4", () => {
@@ -190,7 +197,11 @@ describe("deriveDepth", () => {
     expect(result.achieved).toBe(0);
   });
 
-  it("short-circuits: D2 red (agent red) means D1 even if D3+ green", () => {
+  it("D2 red (agent red) gates the whole cell to D0 (corrected liveness gate)", () => {
+    // Unified engine §F: a PRESENT fresh-red D1/D2 liveness rung gates the cell
+    // to achieved 0 (chip red) — a red liveness rung is a genuine failure that
+    // pins the cell down, regardless of green D3+ above it. (Old deriveDepth
+    // stopped at D1 = achieved 1; the engine treats the red agent as a gate.)
     const c = cell("lgp", "agentic-chat");
     const live = mapOf([
       row("health:lgp", "health", "green"),
@@ -199,7 +210,7 @@ describe("deriveDepth", () => {
       row("chat:lgp", "chat", "green"),
     ]);
     const result = deriveDepth(c, live);
-    expect(result.achieved).toBe(1);
+    expect(result.achieved).toBe(0);
   });
 
   it("D3 skipped (no e2e row) means D2 even if D4 green", () => {
@@ -214,15 +225,18 @@ describe("deriveDepth", () => {
     expect(result.achieved).toBe(2);
   });
 
-  it("degraded state treated as not-green for depth walk", () => {
+  it("degraded D1 liveness is non-gating: a fresh green D2 still credits D2", () => {
+    // Unified engine §F: a degraded (non-red) D1/D2 liveness rung is NON-gating
+    // — it neither stops the walk nor gates the cell (only a fresh RED liveness
+    // rung gates). A degraded health with a fresh green agent therefore credits
+    // achieved 2. (Old deriveDepth treated degraded health as a hard stop at D0.)
     const c = cell("lgp", "agentic-chat");
     const live = mapOf([
       row("health:lgp", "health", "degraded"),
       row("agent:lgp", "agent", "green"),
     ]);
     const result = deriveDepth(c, live);
-    // degraded health = not green = D0
-    expect(result.achieved).toBe(0);
+    expect(result.achieved).toBe(2);
   });
 
   // ── isRegression now compares against maxPossible, not historical max_depth ──
@@ -316,6 +330,9 @@ describe("deriveDepth", () => {
       row("health:lgp", "health", "green"),
       row("agent:lgp", "agent", "green"),
       row("e2e:lgp/shared-state-read-write", "e2e", "green"),
+      // chat is required for D4 under the unified engine (§3 rule 1); include
+      // it so this stays a D5-mapping test rather than capping at D3.
+      row("chat:lgp", "chat", "green"),
       row("tools:lgp", "tools", "green"),
       row("d5:lgp/shared-state-write", "d5", "green"),
     ]);
@@ -329,6 +346,8 @@ describe("deriveDepth", () => {
       row("health:lgp", "health", "green"),
       row("agent:lgp", "agent", "green"),
       row("e2e:lgp/shared-state-read-write", "e2e", "green"),
+      // chat required for D4 (§3 rule 1) so the cell reaches D4 before D5 gates it.
+      row("chat:lgp", "chat", "green"),
       row("tools:lgp", "tools", "green"),
       row("d5:lgp/shared-state-write", "d5", "red"),
     ]);
@@ -466,15 +485,19 @@ describe("deriveDepth", () => {
     // Older than 1h (D4 window).
     const STALE_D4_AT = new Date(NOW - 70 * 60 * 1000).toISOString();
 
-    it("does not credit D1 when its green health row is stale", () => {
+    it("stale D1 liveness is non-gating: a fresh green D2 still credits D2", () => {
+      // Unified engine §F: a STALE (non-red) D1 liveness rung is NON-gating — it
+      // no longer zeroes a cell whose D2 is fresh-green. A stale health with a
+      // fresh green agent therefore credits achieved 2. This is the item-7
+      // correction: absent/stale liveness no longer grays or zeroes a live cell.
+      // (Old deriveDepth capped this at D0.)
       const c = cell("lgp", "agentic-chat");
       const live = mapOf([
         row("health:lgp", "health", "green", STALE_LIVENESS_AT),
         row("agent:lgp", "agent", "green", FRESH_AT),
       ]);
       const result = deriveDepth(c, live, NOW);
-      // Stale green health → D1 not credited → achieved caps at D0.
-      expect(result.achieved).toBe(0);
+      expect(result.achieved).toBe(2);
     });
 
     it("credits D1 when its green health row is fresh", () => {
@@ -568,7 +591,7 @@ describe("deriveDepth", () => {
   // ── maxPossible computation ──
 
   describe("maxPossible", () => {
-    it("(a) D5 mapping exists, D5 green but D6 missing → achieved=5, maxPossible=6, regression", () => {
+    it("(a) D5 green but D6 missing → achieved=5, maxPossible=6, NOT a regression", () => {
       const c = cell("lgp", "agentic-chat");
       const live = mapOf([
         row("health:lgp", "health", "green"),
@@ -580,8 +603,10 @@ describe("deriveDepth", () => {
       const result = deriveDepth(c, live);
       expect(result.achieved).toBe(5);
       expect(result.maxPossible).toBe(6);
-      // achieved < maxPossible → regression (D6 not yet achieved)
-      expect(result.isRegression).toBe(true);
+      // Unified engine §4d genuine-failure clause: an ABSENT rung above achieved
+      // (D6 simply has no row yet) is NOT a regression — only a fresh RED rung
+      // (FAIL_FRESH) counts. (Old deriveDepth flagged any achieved < maxPossible.)
+      expect(result.isRegression).toBe(false);
     });
 
     it("(a-full) D5+D6 green → achieved=6, maxPossible=6, at ceiling", () => {
@@ -616,7 +641,7 @@ describe("deriveDepth", () => {
       expect(result.isRegression).toBe(true);
     });
 
-    it("(c) D5 mapping exists, 1P no data → achieved=4, maxPossible=6, chip=AMBER territory", () => {
+    it("(c) D5 mapping exists, 1P no data → achieved=4, maxPossible=6, NOT a regression", () => {
       const c = cell("lgp", "agentic-chat");
       const live = mapOf([
         row("health:lgp", "health", "green"),
@@ -628,7 +653,9 @@ describe("deriveDepth", () => {
       const result = deriveDepth(c, live);
       expect(result.achieved).toBe(4);
       expect(result.maxPossible).toBe(6);
-      expect(result.isRegression).toBe(true);
+      // §4d genuine-failure clause: a NO_DATA D5 rung (no row) above achieved is
+      // not a regression — the cell is unverified, not regressed.
+      expect(result.isRegression).toBe(false);
     });
 
     it("(d) NO D5 mapping, D4 green → achieved=4, maxPossible=4, chip=GREEN territory", () => {
@@ -645,41 +672,46 @@ describe("deriveDepth", () => {
       expect(result.isRegression).toBe(false);
     });
 
-    it("(e) NO D5 mapping, D3 green → achieved=3, maxPossible=4, chip=AMBER territory", () => {
+    it("(e) NO D5 mapping, D3 green, D4 absent → achieved=3, maxPossible=4, NOT a regression", () => {
       const c = cell("lgp", "unknown-feature");
       const live = mapOf([
         row("health:lgp", "health", "green"),
         row("agent:lgp", "agent", "green"),
         row("e2e:lgp/unknown-feature", "e2e", "green"),
-        // no chat/tools row → D4 not achieved
+        // no chat/tools row → D4 has no data (ABSENT), not a failure
       ]);
       const result = deriveDepth(c, live);
       expect(result.achieved).toBe(3);
       expect(result.maxPossible).toBe(4);
-      expect(result.isRegression).toBe(true);
+      // §4d: an ABSENT D4 (no chat/tools row) above achieved is not a regression.
+      expect(result.isRegression).toBe(false);
     });
 
-    it("(f) D2 with maxPossible=6 → chip=RED territory (4 levels below)", () => {
+    it("(f) D2 reached, D3 (e2e) absent → achieved=2, maxPossible=6, NOT a regression", () => {
       const c = cell("lgp", "agentic-chat");
       const live = mapOf([
         row("health:lgp", "health", "green"),
         row("agent:lgp", "agent", "green"),
-        // e2e missing → achieved=2
+        // e2e missing → achieved=2, D3 is ABSENT (no data), not a failure
       ]);
       const result = deriveDepth(c, live);
       expect(result.achieved).toBe(2);
       expect(result.maxPossible).toBe(6);
-      // 6 - 2 = 4, which is > 2 → RED territory
-      expect(result.isRegression).toBe(true);
+      // §4d: an ABSENT D3 (no e2e row yet) above achieved is not a regression —
+      // the cell is unverified above D2, not regressed.
+      expect(result.isRegression).toBe(false);
     });
 
-    it("(g) D0 → maxPossible reflects probe existence, regression if maxPossible > 0", () => {
+    it("(g) D0 with NO live data → maxPossible=6, NOT a regression (no data ≠ failure)", () => {
       const c = cell("lgp", "agentic-chat");
       const live = mapOf([]); // no live data
       const result = deriveDepth(c, live);
       expect(result.achieved).toBe(0);
       expect(result.maxPossible).toBe(6); // D5 mapping exists → D6 reachable
-      expect(result.isRegression).toBe(true);
+      // §4d: a cold cell with ZERO observations has an ABSENT D1 above achieved,
+      // not a fresh RED — so it is unverified, not regressed. (Old deriveDepth
+      // flagged every zero-data mapped cell as a regression.)
+      expect(result.isRegression).toBe(false);
     });
 
     it("(h) unsupported → unsupported=true, maxPossible=0, no regression", () => {
@@ -701,28 +733,33 @@ describe("deriveDepth", () => {
       expect(result.isRegression).toBe(false);
     });
 
-    it("stub with no live data → maxPossible=0, NOT a regression (stub = not-yet-wired)", () => {
-      // A `stub` cell is "not yet wired", not "regressed". Treating it like
-      // `unshipped` (maxPossible=0) means a stub with no probe data does not
-      // light up the regression indicator. Pre-fix, computeMaxPossible gave a
-      // stub the same 4/6 ceiling as a wired cell, so achieved=0 < maxPossible
-      // falsely flagged isRegression.
+    it("stub with no live data → maxPossible=6 (structural), NOT a regression", () => {
+      // A `stub` cell is "not yet wired", not "regressed". The unified engine
+      // uses a STRUCTURAL ceiling everywhere (§4b): a stub of a D5-mapped
+      // feature has maxPossible=6 like any wired cell. It still does NOT flag a
+      // regression, because §4d's genuine-failure clause only counts a fresh RED
+      // rung above achieved — a stub with zero data has an ABSENT D1, not a
+      // failure. (Old deriveDepth special-cased stub ceiling to 0 to avoid the
+      // false regression; the genuine-failure clause makes that special case
+      // unnecessary.)
       const c = cell("lgp", "agentic-chat", "stub");
       const live = mapOf([]);
       const result = deriveDepth(c, live);
       expect(result.achieved).toBe(0);
-      expect(result.maxPossible).toBe(0);
+      expect(result.maxPossible).toBe(6);
       expect(result.isRegression).toBe(false);
     });
 
     it("null feature → maxPossible=2 (integration-scoped only)", () => {
       const c: CatalogCell = {
         id: "lgp/null",
+        manifestation: "integrated",
         integration: "lgp",
         integration_name: "lgp",
         feature: null,
         feature_name: null,
         status: "wired",
+        parity_tier: "at_parity",
         max_depth: 0,
         category: "dev-ex",
         category_name: "Dev Ex",

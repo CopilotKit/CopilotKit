@@ -36,8 +36,7 @@ on:
         options:
           - monorepo
           - angular
-          - bot
-          - bot-slack
+          - channels
       suffix:
         description: "Prerelease suffix (e.g. 'fix-user-issue'); blank = unix timestamp. Allowed: [a-zA-Z0-9._-]+. Reuse a suffix only if the base version moved, else the publish collides."
         required: false
@@ -52,12 +51,13 @@ on:
         type: boolean
 
 concurrency:
-  # Serialize repeated dispatches on the same source branch. Cross-branch ref
-  # races are independently prevented by making the canary ref unique per run
-  # (slug + github.run_id, see the slug step below).
-  # Side-effect: repeated dispatches on the same source branch queue behind each
-  # other (cancel-in-progress: false) — even for different scopes.
-  group: canary-publish-${{ github.ref }}
+  # Serialize repeated dispatches on the same source branch FOR THE SAME SCOPE.
+  # Cross-branch ref races are independently prevented by making the canary ref
+  # unique per run (slug + github.run_id, see the slug step below).
+  # The scope is folded into the key so canaries for different scopes (e.g.
+  # `monorepo` vs `angular`) on the same branch run in independent lanes instead
+  # of queuing behind each other (cancel-in-progress: false).
+  group: canary-publish-${{ inputs.scope }}-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:

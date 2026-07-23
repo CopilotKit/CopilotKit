@@ -1,9 +1,7 @@
 import { handleTranscribe } from "../handlers/handle-transcribe";
-import { CopilotRuntime } from "../core/runtime";
-import {
-  TranscriptionService,
-  TranscribeFileOptions,
-} from "../transcription-service/transcription-service";
+import type { CopilotRuntime } from "../core/runtime";
+import type { TranscribeFileOptions } from "../transcription-service/transcription-service";
+import { TranscriptionService } from "../transcription-service/transcription-service";
 import { describe, it, expect } from "vitest";
 
 // Mock TranscriptionService
@@ -35,7 +33,7 @@ describe("handleTranscribe", () => {
       transcriptionService,
       beforeRequestMiddleware: undefined,
       afterRequestMiddleware: undefined,
-    } as CopilotRuntime;
+    } as unknown as CopilotRuntime;
   };
 
   const createMockAudioFile = (

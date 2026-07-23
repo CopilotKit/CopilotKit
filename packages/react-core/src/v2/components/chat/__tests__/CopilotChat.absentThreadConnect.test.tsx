@@ -1,6 +1,12 @@
 import React from "react";
 import { describe, it, expect, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { EMPTY, Observable } from "rxjs";
 import { z } from "zod";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
@@ -179,5 +185,46 @@ describe("CopilotChat avoids /connect for locally-generated threadIds (ENT-314)"
           message.content === "Frontend tool finished for X.",
       ),
     ).toBe(true);
+  });
+
+  it("clears messages when switching to a fresh non-explicit thread ('+ New')", async () => {
+    // Switching to an existing thread replaces messages via /connect, but a
+    // fresh non-explicit thread skips /connect — so the previously-viewed
+    // thread's messages must be cleared explicitly, or "+ New" leaves the old
+    // conversation on screen instead of the welcome view.
+    const agent = new MockStepwiseAgent();
+
+    const { rerender } = render(
+      <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
+        <CopilotChatConfigurationProvider
+          threadId="thread-A"
+          hasExplicitThreadId={false}
+        >
+          <CopilotChat welcomeScreen={false} />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+
+    // Simulate an in-progress conversation on the current (non-explicit) thread.
+    act(() => {
+      agent.setMessages([
+        { id: "m1", role: "assistant", content: "hi" } as never,
+      ]);
+    });
+    expect(agent.messages.length).toBe(1);
+
+    // "+ New" mints a different non-explicit threadId.
+    rerender(
+      <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
+        <CopilotChatConfigurationProvider
+          threadId="thread-B"
+          hasExplicitThreadId={false}
+        >
+          <CopilotChat welcomeScreen={false} />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+
+    await waitFor(() => expect(agent.messages.length).toBe(0));
   });
 });

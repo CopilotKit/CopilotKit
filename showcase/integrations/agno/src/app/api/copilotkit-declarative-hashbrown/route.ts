@@ -17,6 +17,14 @@ const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 console.log(`[copilotkit-declarative-hashbrown/route] AGENT_URL: ${AGENT_URL}`);
 
+// Per-request request/response logging is gated behind this flag (default off).
+// Under d6 probe fan-out, unconditional per-request logs flooded Railway's
+// 500-logs/sec cap and killed the replica ("Messages dropped" → container stop).
+// Set SHOWCASE_ROUTE_DEBUG=1 to re-enable verbose per-request tracing locally.
+const ROUTE_DEBUG =
+  process.env.SHOWCASE_ROUTE_DEBUG === "1" ||
+  process.env.SHOWCASE_ROUTE_DEBUG === "true";
+
 function createDeclarativeHashbrownAgent() {
   return new HttpAgent({
     url: `${AGENT_URL}/byoc-hashbrown/agui`,
@@ -32,7 +40,9 @@ const agents: Record<string, AbstractAgent> = {
 
 export const POST = async (req: NextRequest) => {
   const url = req.url;
-  console.log(`[copilotkit-declarative-hashbrown/route] POST ${url}`);
+  if (ROUTE_DEBUG) {
+    console.log(`[copilotkit-declarative-hashbrown/route] POST ${url}`);
+  }
 
   try {
     const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
@@ -44,9 +54,15 @@ export const POST = async (req: NextRequest) => {
       }),
     });
     const response = await handleRequest(req);
-    console.log(
-      `[copilotkit-declarative-hashbrown/route] Response status: ${response.status}`,
-    );
+    if (!response.ok) {
+      console.log(
+        `[copilotkit-declarative-hashbrown/route] Response status: ${response.status}`,
+      );
+    } else if (ROUTE_DEBUG) {
+      console.log(
+        `[copilotkit-declarative-hashbrown/route] Response status: ${response.status}`,
+      );
+    }
     return response;
   } catch (error: unknown) {
     const e = error as { message?: string; stack?: string };

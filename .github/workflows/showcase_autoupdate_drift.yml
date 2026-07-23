@@ -1,0 +1,64 @@
+name: "Showcase: autoUpdates Drift Gate"
+
+# Fails when any showcase service's LIVE Railway `source.autoUpdates` diverges
+# from the SSOT expectation (every service must be "disabled"). Railway's own
+# auto-update feature, if left enabled, silently re-pulls upstream image
+# changes out-of-band — the same class of unmanaged mutation that produced the
+# April→June image drift. The sibling `verify-image-refs` gate catches the
+# drifted *ref*; this gate catches the *cause* (auto-updates enabled).
+#
+# Reads the live value from the `Environment.config` JSON scalar (autoUpdates
+# is not on the typed ServiceSource output) — see
+# showcase/scripts/verify-autoupdates.ts. Uses the same RAILWAY_TOKEN secret
+# and tsx invocation as the verify-image-refs job in showcase_build.yml.
+#
+# Triggers: PRs that touch the Railway SSOT/tooling (catch drift at review
+# time), a daily schedule (catch out-of-band mutations regardless of PR
+# activity), and manual dispatch.
+
+on:
+  pull_request:
+    paths:
+      - "showcase/scripts/railway-envs.ts"
+      - "showcase/scripts/railway-envs.generated.json"
+      - "showcase/scripts/verify-autoupdates.ts"
+      - "showcase/scripts/verify-autoupdates.test.ts"
+      - ".github/workflows/showcase_autoupdate_drift.yml"
+  schedule:
+    # Daily at 08:23 UTC (offset from other showcase crons to avoid pile-up).
+    - cron: "23 8 * * *"
+  workflow_dispatch:
+
+jobs:
+  verify-autoupdates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.x
+      # Fork PRs do not receive repository secrets, so RAILWAY_TOKEN is absent
+      # and the live gate cannot run. Detect that and skip cleanly (neutral,
+      # with a clear message) rather than fail an external contributor's PR with
+      # an unfixable red check. Same-repo PRs, the daily schedule, and manual
+      # dispatch all have the secret and run the gate normally.
+      - name: Check for Railway token (fork PRs lack it)
+        id: guard
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "RAILWAY_TOKEN not available (likely a fork PR) — skipping the live autoUpdates drift gate."
+            echo "It runs on same-repo PRs, the daily schedule, and manual dispatch."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Verify Railway autoUpdates disabled
+        if: steps.guard.outputs.skip != 'true'
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: npx tsx showcase/scripts/verify-autoupdates.ts

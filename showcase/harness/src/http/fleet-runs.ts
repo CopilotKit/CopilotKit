@@ -21,6 +21,8 @@
  */
 
 import type { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
+import { bearerAuth } from "./auth.js";
 import type { Logger } from "../types/index.js";
 import type { Scheduler } from "../scheduler/scheduler.js";
 import type { PbClient } from "../storage/pb-client.js";
@@ -30,6 +32,12 @@ import { PROBE_JOBS_COLLECTION } from "../fleet/queue-client.js";
 import { PROBE_RUNS_COLLECTION } from "../probes/run-history.js";
 import type { ProducerSchedule } from "../fleet/control-plane/control-plane.js";
 import {
+  FLEET_PRODUCER_DEEP_SCHEDULE_ID,
+  FLEET_PRODUCER_DEMOS_SCHEDULE_ID,
+  FLEET_PRODUCER_SCHEDULE_ID,
+  FLEET_PRODUCER_SMOKE_SCHEDULE_ID,
+} from "../fleet/control-plane/control-plane.js";
+import {
   FLEET_FAMILIES,
   RUN_FETCH_MAX_PAGES,
   RUN_FETCH_PAGE_SIZE,
@@ -37,13 +45,15 @@ import {
   fetchFamilyJobRows,
   groupBatches,
   projectRunBatch,
-  type FamilyJobCursor,
-  type FleetFamily,
-  type MemoizedFamilySummary,
-  type ProbeJobRecord,
-  type RunBatch,
-  type RunBatchRows,
-  type RunViewDeps,
+} from "../fleet/control-plane/run-view.js";
+import type {
+  FamilyJobCursor,
+  FleetFamily,
+  MemoizedFamilySummary,
+  ProbeJobRecord,
+  RunBatch,
+  RunBatchRows,
+  RunViewDeps,
 } from "../fleet/control-plane/run-view.js";
 
 // ───────────────────────────────────────────────────────────────────────
@@ -79,7 +89,32 @@ export interface FleetRunsRouteDeps {
   workerStaleAfterMs: number;
   logger: Logger;
   now?: () => number;
+  /**
+   * Bearer token gating the on-demand `POST /api/runs/:family/trigger` route.
+   * When supplied (the CP role always supplies `OPS_TRIGGER_TOKEN`), the
+   * trigger route is mounted and `bearerAuth` enforces it; construction is
+   * fail-loud (MissingAuthTokenError) on an empty token. When OMITTED, the
+   * three read-only GET routes mount exactly as before but the mutating
+   * trigger route is NOT registered (older worker/test wiring that never
+   * triggers fleet runs). This is the ONE token-coupled fleet-runs route —
+   * the §5.2 GETs stay unconditionally mounted.
+   */
+  triggerToken?: string;
 }
+
+/**
+ * Window during which a successful fleet-trigger blocks any further trigger
+ * for the same family. Mirrors `/api/probes` `TRIGGER_RATE_LIMIT_MS` so an
+ * operator can't accidentally fan a family out twice in quick succession.
+ * In-memory per process — sufficient for the single CP instance.
+ */
+export const FLEET_TRIGGER_RATE_LIMIT_MS = 5 * 60 * 1000;
+
+/**
+ * Hard ceiling on the fleet-trigger POST body — operators only ever send a
+ * small slug/featureType filter. Mirrors `/api/probes` `TRIGGER_BODY_LIMIT_BYTES`.
+ */
+export const FLEET_TRIGGER_BODY_LIMIT_BYTES = 16 * 1024;
 
 // ───────────────────────────────────────────────────────────────────────
 // Response DTOs
@@ -661,4 +696,189 @@ export function registerFleetRunsRoutes(
       });
     }
   });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // POST /api/runs/:family/trigger — ON-DEMAND fleet/D6 probe trigger
+  //
+  // The §5.2 GETs are read-only; the fleet/D6 (and the other browser-family)
+  // probes are dispatched via the control-plane producer → queue → worker
+  // path and so were NOT manually fireable. This route closes that gap: it
+  // resolves the family to its registered producer (via FLEET_FAMILIES →
+  // scheduleId → schedules) and runs an OPERATOR-triggered tick
+  // (`tick({ triggered: true, filter })`), which enqueues one per-service job
+  // through the SAME job-producer path a cron tick uses — it does NOT
+  // reimplement the worker. Combined with `/api/probes/:id/trigger` (the
+  // in-process registered probes), EVERY probe is now on-demand triggerable.
+  //
+  // Mounted ONLY when `triggerToken` is supplied (mirrors `/api/probes`); the
+  // bearer gate is constructed up-front so a missing token fails loud at boot
+  // rather than exposing an unauthenticated trigger.
+  // ─────────────────────────────────────────────────────────────────────
+  if (deps.triggerToken !== undefined) {
+    const auth = bearerAuth({ expectedToken: deps.triggerToken });
+    const triggerBodyLimit = bodyLimit({
+      maxSize: FLEET_TRIGGER_BODY_LIMIT_BYTES,
+      onError: (c) =>
+        c.json({ error: "payload_too_large" } as const, 413) as unknown as
+          | Response
+          | Promise<Response>,
+    });
+    // Per-family last-trigger timestamp for the rate-limit window.
+    const lastTriggerAt = new Map<string, number>();
+    // family → scheduleId. Mirrors the FLEET_FAMILIES registry's family↔
+    // scheduleId join, but reads the scheduleId from the constants DIRECTLY
+    // rather than `fam.scheduleId`: `FLEET_FAMILIES` and the SCHEDULE_ID
+    // constants live in a documented import cycle (run-view ⇄ control-plane),
+    // so depending on module load order `fam.scheduleId` can be the cycle's
+    // undefined snapshot — the constants themselves (plain string literals
+    // with no cycle dependency) are always defined. Keyed off the registry's
+    // `family` ids so adding a family is still a one-line registry change.
+    const familyToScheduleId: Record<string, string> = {
+      d6: FLEET_PRODUCER_SCHEDULE_ID,
+      d5: FLEET_PRODUCER_DEEP_SCHEDULE_ID,
+      "e2e-demos": FLEET_PRODUCER_DEMOS_SCHEDULE_ID,
+      "e2e-smoke": FLEET_PRODUCER_SMOKE_SCHEDULE_ID,
+    };
+    // family → producer schedule, joined via the injected schedules. A family
+    // whose scheduleId has no schedule entry is unfireable here (404) — same
+    // UX as an unknown family.
+    const scheduleById = new Map(deps.schedules.map((s) => [s.scheduleId, s]));
+    const producerByFamily = new Map<string, ProducerSchedule>();
+    for (const fam of FLEET_FAMILIES) {
+      const scheduleId = familyToScheduleId[fam.family];
+      const sched = scheduleId ? scheduleById.get(scheduleId) : undefined;
+      if (sched) producerByFamily.set(fam.family, sched);
+    }
+
+    app.post("/api/runs/:family/trigger", auth, triggerBodyLimit, async (c) => {
+      c.header("Cache-Control", "no-cache");
+      const family = c.req.param("family");
+      const sched = producerByFamily.get(family);
+      if (!sched) {
+        return c.json({ error: "not_found" }, 404);
+      }
+
+      // Read + validate the body BEFORE stamping the rate-limit window so a
+      // malformed filter never burns the operator's hold (mirrors /api/probes).
+      let raw: string;
+      try {
+        raw = await c.req.text();
+      } catch (err) {
+        if (err instanceof Error && err.name === "BodyLimitError") {
+          return c.json({ error: "payload_too_large" }, 413);
+        }
+        return c.json({ error: "invalid_body" }, 400);
+      }
+      if (Buffer.byteLength(raw, "utf8") > FLEET_TRIGGER_BODY_LIMIT_BYTES) {
+        return c.json({ error: "payload_too_large" }, 413);
+      }
+
+      // Optional operator filter — `slugs` (string[]) scopes which services
+      // enumerate; `featureTypes` (non-empty string[]) narrows cells. Both
+      // forwarded verbatim to the producer's TickOptions.filter.
+      let filter: { slugs?: string[]; featureTypes?: string[] } | undefined;
+      if (raw.length > 0) {
+        let parsed: { filter?: { slugs?: unknown; featureTypes?: unknown } };
+        try {
+          parsed = JSON.parse(raw) as {
+            filter?: { slugs?: unknown; featureTypes?: unknown };
+          };
+        } catch {
+          return c.json({ error: "invalid_json" }, 400);
+        }
+        if (parsed && typeof parsed === "object" && parsed.filter) {
+          const slugs = (parsed.filter as { slugs?: unknown }).slugs;
+          let outSlugs: string[] | undefined;
+          if (slugs !== undefined) {
+            if (
+              !Array.isArray(slugs) ||
+              !slugs.every((s): s is string => typeof s === "string")
+            ) {
+              return c.json({ error: "invalid_filter" }, 400);
+            }
+            outSlugs = slugs;
+          }
+          const featureTypes = (parsed.filter as { featureTypes?: unknown })
+            .featureTypes;
+          let outFeatureTypes: string[] | undefined;
+          if (featureTypes !== undefined) {
+            if (
+              !Array.isArray(featureTypes) ||
+              featureTypes.length === 0 ||
+              !featureTypes.every(
+                (s): s is string => typeof s === "string" && s.length > 0,
+              )
+            ) {
+              return c.json(
+                {
+                  error: "invalid_filter",
+                  message: "featureTypes must be a non-empty array of strings",
+                },
+                400,
+              );
+            }
+            outFeatureTypes = featureTypes;
+          }
+          if (outSlugs !== undefined || outFeatureTypes !== undefined) {
+            filter = {
+              ...(outSlugs !== undefined ? { slugs: outSlugs } : {}),
+              ...(outFeatureTypes !== undefined
+                ? { featureTypes: outFeatureTypes }
+                : {}),
+            };
+          }
+        }
+      }
+
+      // Stamp the rate-limit window AFTER validation passes, with a CAS
+      // rollback on failure so a concurrent trigger's stamp survives.
+      const last = lastTriggerAt.get(family);
+      const t = now();
+      if (last !== undefined && t - last < FLEET_TRIGGER_RATE_LIMIT_MS) {
+        return c.json(
+          {
+            error: "rate_limited",
+            retryAfterMs: FLEET_TRIGGER_RATE_LIMIT_MS - (t - last),
+          },
+          429,
+        );
+      }
+      lastTriggerAt.set(family, t);
+      const rollbackRateLimit = (): void => {
+        if (lastTriggerAt.get(family) !== t) return;
+        if (last === undefined) lastTriggerAt.delete(family);
+        else lastTriggerAt.set(family, last);
+      };
+
+      try {
+        // Operator-triggered tick: bypasses the producer's backlog gate and
+        // enqueues one per-service job through the existing producer path. A
+        // filter is TRIGGER-ONLY (the producer ignores filters on scheduled
+        // ticks); forwarding it under `triggered: true` is the supported scope.
+        const result = await sched.producer.tick({
+          triggered: true,
+          ...(filter !== undefined ? { filter } : {}),
+        });
+        return c.json({
+          family,
+          runId: result.runId,
+          enqueued: result.enqueued,
+          enqueueFailures: result.enqueueFailures,
+          skippedForBacklog: result.skippedForBacklog,
+          scope: filter?.slugs ?? null,
+          featureTypesScope: filter?.featureTypes ?? null,
+        });
+      } catch (err) {
+        // A producer tick never rejects by contract, but guard anyway: roll
+        // back the rate-limit stamp so a transient failure doesn't lock the
+        // operator out of the window for the next 5 minutes.
+        rollbackRateLimit();
+        deps.logger.error("fleet-runs.trigger-failed", {
+          family,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        return c.json({ family, error: "trigger_failed" }, 500);
+      }
+    });
+  }
 }

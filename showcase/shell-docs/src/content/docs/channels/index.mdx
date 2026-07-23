@@ -1,0 +1,40 @@
+---
+title: Channels SDK
+description: Build durable, cross-platform AI bots with CopilotKit — a platform adapter, an AG-UI agent, and optional persistence wired together in a single createBot call.
+icon: "lucide/Bot"
+hideTOC: true
+---
+
+The Channels SDK is three pieces: **`@copilotkit/channels`** (core runtime), a **platform adapter** (e.g. `@copilotkit/channels-slack`), and an **AG-UI agent** — any CopilotKit runtime or compatible backend. Plug them together with `createBot` and you get a bot that streams agent replies into the platform, handles interactive buttons, and — once you add a store — survives restarts and spans multiple instances.
+
+<OpsPlatformCTA
+  variant="inline"
+  title="Join the waitlist for managed Slack and Teams agents"
+  body="Start here when you want to own the adapter, runtime, and store. Join the waitlist if you want CopilotKit Intelligence to manage Slack and Teams setup, identity, durable state, approvals, and production operations."
+  ctaLabel="Join the waitlist"
+  surface="docs_bots_managed_agents_waitlist"
+  href="https://www.copilotkit.ai/opentag-managed"
+/>
+
+<Cards>
+  <Card
+    title="Slack quickstart"
+    href="/slack"
+    description="From zero to a working Slack bot in minutes — Socket Mode, streaming replies, and interactive Block Kit buttons."
+  />
+  <Card
+    title="Persistence"
+    href="/channels/persistence"
+    description="Persist actions, locks, and per-thread state across restarts by backing the store with a durable StateStore implementation."
+  />
+  <Card
+    title="Transcripts"
+    href="/channels/transcripts"
+    description="Give the agent a cross-platform memory that follows users from Slack to any other channel — with GDPR-ready delete support."
+  />
+  <Card
+    title="Channels SDK reference"
+    href="/reference/channels"
+    description="Full API reference — createBot, Thread, StateStore, ActionStore, and the Slack adapter."
+  />
+</Cards>

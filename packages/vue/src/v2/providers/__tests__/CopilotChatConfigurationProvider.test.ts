@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { mount } from "@vue/test-utils";
 import { defineComponent, h, nextTick } from "vue";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
@@ -305,5 +305,109 @@ describe("CopilotChatConfigurationProvider", () => {
     await nextTick();
     await nextTick();
     expect(wrapper.find("[data-testid=child-modal]").text()).toBe("false");
+  });
+});
+
+function harness(providerProps: Record<string, unknown>) {
+  let cfg!: ReturnType<typeof useCopilotChatConfiguration>;
+  const Probe = defineComponent({
+    setup() {
+      cfg = useCopilotChatConfiguration();
+      return () => h("div", cfg.value?.threadId ?? "none");
+    },
+  });
+  mount(CopilotChatConfigurationProvider, {
+    props: providerProps,
+    slots: { default: () => h(Probe) },
+  });
+  return () => cfg.value!;
+}
+
+describe("CopilotChatConfiguration active-thread setters", () => {
+  it("setActiveThreadId overrides a non-explicit seed and flags it explicit", async () => {
+    // A <CopilotKit>-style non-explicit seed: threadId prop + hasExplicitThreadId=false.
+    const cfg = harness({ threadId: "seed-uuid", hasExplicitThreadId: false });
+    cfg().setActiveThreadId("picked-thread");
+    await nextTick();
+    expect(cfg().threadId).toBe("picked-thread");
+    expect(cfg().hasExplicitThreadId).toBe(true);
+  });
+
+  it("startNewThread mints a fresh non-explicit thread", async () => {
+    const cfg = harness({ threadId: "seed-uuid", hasExplicitThreadId: false });
+    cfg().setActiveThreadId("picked-thread");
+    await nextTick();
+    cfg().startNewThread();
+    await nextTick();
+    expect(cfg().threadId).not.toBe("picked-thread");
+    expect(cfg().hasExplicitThreadId).toBe(false);
+  });
+
+  it("a caller-authoritative threadId prop is NOT overridable", async () => {
+    const cfg = harness({ threadId: "controlled" }); // no hasExplicitThreadId => authoritative
+    cfg().setActiveThreadId("ignored");
+    await nextTick();
+    expect(cfg().threadId).toBe("controlled");
+  });
+});
+
+describe("CopilotChatConfiguration drawer-awareness", () => {
+  it("registerDrawer flips drawerRegistered and cleans up", async () => {
+    const cfg = harness({ isModalDefaultOpen: true });
+    expect(cfg().drawerRegistered).toBe(false);
+    const unregister = cfg().registerDrawer();
+    await nextTick();
+    expect(cfg().drawerRegistered).toBe(true);
+    unregister();
+    await nextTick();
+    expect(cfg().drawerRegistered).toBe(false);
+  });
+
+  it("opening the drawer on mobile closes the modal", async () => {
+    vi.spyOn(window, "matchMedia").mockReturnValue({
+      matches: true,
+    } as MediaQueryList);
+    const cfg = harness({ isModalDefaultOpen: true });
+    expect(cfg().isModalOpen).toBe(true);
+    cfg().setDrawerOpen(true);
+    await nextTick();
+    expect(cfg().drawerOpen).toBe(true);
+    expect(cfg().isModalOpen).toBe(false);
+    vi.restoreAllMocks();
+  });
+
+  it("opening the modal on mobile closes the drawer", async () => {
+    vi.spyOn(window, "matchMedia").mockReturnValue({
+      matches: true,
+    } as MediaQueryList);
+    const cfg = harness({ isModalDefaultOpen: true });
+
+    // First open the drawer (closing the modal via the existing exclusion).
+    cfg().setDrawerOpen(true);
+    await nextTick();
+    expect(cfg().drawerOpen).toBe(true);
+    expect(cfg().isModalOpen).toBe(false);
+
+    // Now open the modal and confirm the reverse exclusion closes the drawer.
+    cfg().setModalOpen(true);
+    await nextTick();
+    expect(cfg().isModalOpen).toBe(true);
+    expect(cfg().drawerOpen).toBe(false);
+    vi.restoreAllMocks();
+  });
+});
+
+describe("CopilotChatConfiguration modal-setter presence contract", () => {
+  it("bare provider (no isModalDefaultOpen, no parent) exposes setModalOpen as undefined", () => {
+    const cfg = harness({ threadId: "thread-1" });
+    expect(cfg().setModalOpen).toBeUndefined();
+  });
+
+  it("provider with isModalDefaultOpen exposes a working setModalOpen", async () => {
+    const cfg = harness({ isModalDefaultOpen: true });
+    expect(typeof cfg().setModalOpen).toBe("function");
+    cfg().setModalOpen(false);
+    await nextTick();
+    expect(cfg().isModalOpen).toBe(false);
   });
 });

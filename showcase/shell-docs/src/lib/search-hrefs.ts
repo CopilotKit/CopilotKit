@@ -1,4 +1,15 @@
+import { frontendPathForBackend } from "@/lib/frontend-options";
+import type { FrontendId } from "@/lib/frontend-options";
+
 const ROOT_FRAMEWORK = "built-in-agent";
+const FRONTEND_IDS = new Set([
+  "vue",
+  "react-native",
+  "angular",
+  "slack",
+  "teams",
+]);
+type FrontendPageId = Exclude<FrontendId, "react">;
 
 export function parseIntegrationDocsHref(
   href: string,
@@ -14,10 +25,23 @@ export function parseIntegrationDocsHref(
 export function parseDocsHref(href: string): string | null {
   if (!href.startsWith("/docs/")) return null;
   if (href.startsWith("/docs/integrations/")) return null;
+  if (href.startsWith("/docs/frontends/")) return null;
   return href.slice("/docs/".length);
 }
 
-export function frameworkDocsHref(framework: string, topic: string): string {
+export function frameworkDocsHref(
+  framework: string,
+  topic: string,
+  frontend?: FrontendPageId | null,
+): string {
+  if (frontend) {
+    return frontendPathForBackend(
+      frontend,
+      topic,
+      framework === ROOT_FRAMEWORK ? null : framework,
+    );
+  }
+
   if (framework === ROOT_FRAMEWORK) {
     return topic ? `/${topic}` : "/";
   }
@@ -27,6 +51,25 @@ export function frameworkDocsHref(framework: string, topic: string): string {
 export function normalizeHref(href: string, shellHost: string): string {
   if (href === "/integrations" || href === "/matrix") {
     return `${shellHost}${href}`;
+  }
+
+  const frontendDocsPrefix = "/docs/frontends/";
+  if (href.startsWith(frontendDocsPrefix)) {
+    const [frontend, ...tail] = href
+      .slice(frontendDocsPrefix.length)
+      .split("/")
+      .filter(Boolean);
+
+    // Regenerated indexes expand shared frontend guidance once per frontend.
+    // This only protects users with a stale index from landing on 404.
+    if (frontend === "using-these-docs" || frontend === "docs-status") {
+      return "/vue/using-these-docs";
+    }
+    if (FRONTEND_IDS.has(frontend)) {
+      return tail.length > 0
+        ? `/${frontend}/${tail.join("/")}`
+        : `/${frontend}`;
+    }
   }
 
   const rootDocsPrefix = `/docs/${ROOT_FRAMEWORK}`;

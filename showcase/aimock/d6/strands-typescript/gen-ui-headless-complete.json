@@ -1,0 +1,119 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for strands / gen-ui-headless-complete",
+    "sourceFile": "headless-complete.json",
+    "copiedFrom": "langgraph-python",
+    "_note": "The 4 gen-UI pills (weather/stock/highlight/revenue) run as 4 sequential turns in ONE headless chat thread. Strands mints UUID tool_call_ids, so the langgraph-python toolCallId-keyed narration follow-ups never match here and the tool legs loop (turn 3+ went text-unstable). Each pill is sequenced with a per-userMessage sequenceIndex counter: seq0 -> tool call, bare userMessage -> narration. Invariant to UUID rewrite and to the thread-global hasToolResult flag."
+  },
+  "fixtures": [
+    {
+      "_comment": "weather pill — leg 1 (seq 0): emit get_weather(Tokyo).",
+      "match": {
+        "userMessage": "What's the weather in Tokyo",
+        "sequenceIndex": 0,
+        "context": "strands-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_headless_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "weather pill — leg 2 (narration). textToken 'tokyo' satisfied by the city name.",
+      "match": {
+        "userMessage": "What's the weather in Tokyo",
+        "context": "strands-typescript"
+      },
+      "response": {
+        "content": "Tokyo is 22°C and partly cloudy. The headless WeatherCard above shows the sunny snapshot from the tool."
+      }
+    },
+    {
+      "_comment": "stock pill — leg 1 (seq 0): emit get_stock_price(AAPL).",
+      "match": {
+        "userMessage": "price of AAPL right now",
+        "sequenceIndex": 0,
+        "context": "strands-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_headless_stock_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "stock pill — leg 2 (narration). textToken 'aapl' satisfied by ticker mention.",
+      "match": {
+        "userMessage": "price of AAPL right now",
+        "context": "strands-typescript"
+      },
+      "response": {
+        "content": "AAPL is at $189.42, up 1.27% on the day."
+      }
+    },
+    {
+      "_comment": "highlight pill — leg 1 (seq 0): emit highlight_note.",
+      "match": {
+        "userMessage": "ship the demo on Friday",
+        "sequenceIndex": 0,
+        "context": "strands-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_headless_highlight_001",
+            "name": "highlight_note",
+            "arguments": "{\"text\":\"ship the demo on Friday\",\"color\":\"yellow\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "highlight pill — leg 2 (narration).",
+      "match": {
+        "userMessage": "ship the demo on Friday",
+        "context": "strands-typescript"
+      },
+      "response": {
+        "content": "Highlighted 'ship the demo on Friday' for you above."
+      }
+    },
+    {
+      "_comment": "revenue chart pill — leg 1 (seq 0): emit get_revenue_chart. Leading content lands 'revenue' in the bubble synchronously with the tool-call emission (see prior note on the executing-render-phase title fallback).",
+      "match": {
+        "userMessage": "chart of revenue over the last six months",
+        "sequenceIndex": 0,
+        "context": "strands-typescript"
+      },
+      "response": {
+        "content": "Pulling the revenue chart for the last six months...",
+        "toolCalls": [
+          {
+            "id": "call_d5_headless_revenue_chart_001",
+            "name": "get_revenue_chart",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "revenue chart pill — leg 2 (narration).",
+      "match": {
+        "userMessage": "chart of revenue over the last six months",
+        "context": "strands-typescript"
+      },
+      "response": {
+        "content": "Here is the chart of revenue over the last six months — quarterly revenue grew steadily, peaking in June."
+      }
+    }
+  ]
+}

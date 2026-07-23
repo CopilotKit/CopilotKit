@@ -2,9 +2,9 @@
   "title": "Intelligence Platform",
   "pages": [
     "overview",
+    "managed-intelligence-platform",
+    "self-hosting",
     "intelligence-platform",
-    "threads-explained",
-    "observability",
-    "self-hosting"
+    "threads-explained"
   ]
 }

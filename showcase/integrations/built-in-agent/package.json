@@ -10,17 +10,17 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@copilotkit/a2ui-renderer": "1.60.2",
-    "@copilotkit/react-core": "1.60.2",
-    "@copilotkit/runtime": "1.60.2",
-    "@copilotkit/shared": "1.60.2",
-    "@copilotkit/voice": "1.60.2",
+    "@copilotkit/a2ui-renderer": "1.61.2",
+    "@copilotkit/react-core": "1.61.2",
+    "@copilotkit/runtime": "1.61.2",
+    "@copilotkit/shared": "1.61.2",
+    "@copilotkit/voice": "1.61.2",
     "@hashbrownai/core": "0.5.0-beta.4",
     "@hashbrownai/react": "0.5.0-beta.4",
     "@json-render/core": "0.18.0",
     "@json-render/react": "0.18.0",
-    "@tanstack/ai": "0.18.0",
-    "@tanstack/ai-openai": "0.9.1",
+    "@tanstack/ai": "0.35.0",
+    "@tanstack/ai-openai": "0.15.6",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.14.0",
@@ -30,7 +30,8 @@
     "react-dom": "^19.0.0",
     "recharts": "^2.15.0",
     "tailwind-merge": "^3.5.0",
-    "zod": "^4.4.0"
+    "zod": "^4.4.0",
+    "zod-v3": "npm:zod@^3.25.76"
   },
   "devDependencies": {
     "@playwright/test": "^1.50.0",

@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { CopilotKitCore } from "../core";
-import { DynamicSuggestionsConfig, StaticSuggestionsConfig } from "../types";
+import type {
+  DynamicSuggestionsConfig,
+  StaticSuggestionsConfig,
+} from "../types";
 import {
   MockAgent,
   createSuggestionsConfig,
@@ -197,8 +200,8 @@ describe("CopilotKitCore - Suggestions Config Management", () => {
     it("should recognize static suggestions config", () => {
       const staticConfig: StaticSuggestionsConfig = {
         suggestions: [
-          { title: "Test 1", message: "test1", isLoading: false },
-          { title: "Test 2", message: "test2", isLoading: false },
+          { title: "Test 1", message: "test1" },
+          { title: "Test 2", message: "test2" },
         ],
       };
 

@@ -1,7 +1,8 @@
 ---
 title: Overview
 description: "Focused, copy-pasteable recipes for wiring CopilotKit up to the tools and platforms you already use."
-icon: "lucide/ChefHat"
+icon: "lucide/BookOpen"
+showIcon: true
 doc_type: explanation
 hideTOC: true
 ---
@@ -15,6 +16,32 @@ working CopilotKit app and adds a single capability — nothing more than you ne
   <Card
     title="Run agent code in a Daytona sandbox"
     href="/cookbook/daytona"
+    logo="/logos/daytona.png"
+    logoClassName="rounded-[4px] object-cover"
     description="Give the Built-in Agent a tool that executes code in an isolated Daytona sandbox."
+  />
+  <Card
+    title="Build a portable agent with memory using Oracle Agent Spec"
+    href="/cookbook/oracle-agent-spec-memory"
+    logo="/logos/oracle-agent-spec.png"
+    description="Define an agent once in Oracle Agent Spec, run it on LangGraph over AG-UI, and give it long-term memory on Oracle AI Database."
+  />
+  <Card
+    title="Take authenticated actions with Arcade"
+    href="/cookbook/arcade"
+    logo="/logos/arcade.png"
+    description="Give the Built-in Agent OAuth-backed tools (Gmail, Google News) through Arcade, with the authorization step rendered as generative UI."
+  />
+  <Card
+    title="Build an agentic app on Angular + Google ADK"
+    href="/cookbook/angular-adk-agentic-app"
+    logo="/logos/google-adk.png"
+    description="Wire an Angular frontend to a Google ADK agent over AG-UI, with optional threads and memory. The production gotchas, as symptom, cause, and fix."
+  />
+  <Card
+    title="Govern agent actions with OpenBox"
+    href="/cookbook/openbox-governed-copilotkit"
+    logo="/logos/openbox.png"
+    description="Add OpenBox runtime governance — guardrails, policies, and human-in-the-loop approvals — to a CopilotKit + LangGraph agent, with decisions rendered as generative UI."
   />
 </Cards>

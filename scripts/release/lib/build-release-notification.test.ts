@@ -6,7 +6,7 @@ const RUN_URL = "https://github.com/CopilotKit/CopilotKit/actions/runs/123";
 const RELEASE_URL =
   "https://github.com/CopilotKit/CopilotKit/releases/tag/v1.2.3";
 const NPM_URL = "https://www.npmjs.com/org/copilotkit";
-const ANGULAR_NPM_URL = "https://www.npmjs.com/package/@copilotkitnext/angular";
+const ANGULAR_NPM_URL = "https://www.npmjs.com/package/@copilotkit/angular";
 const PY_URL = "https://pypi.org/project/copilotkit/0.9.0/";
 
 // A neutral baseline where nothing has acted. Each test overrides only the
@@ -27,7 +27,7 @@ function base(
     pyVer: "",
     scope: "monorepo",
     dryRun: false,
-    packageCount: 15,
+    packageCount: 16,
     runUrl: RUN_URL,
     releaseUrl: RELEASE_URL,
     npmUrl: NPM_URL,
@@ -106,7 +106,7 @@ describe("buildReleaseNotification", () => {
     );
     expect(r.shouldPost).toBe(true);
     expect(r.message).toBe(
-      "🚀 *CopilotKit monorepo v1.2.3* published to npm (`latest`, 15 packages) · " +
+      "🚀 *CopilotKit monorepo v1.2.3* published to npm (`latest`, 16 packages) · " +
         `<${RELEASE_URL}|Release notes> · <${NPM_URL}|npm>`,
     );
   });
@@ -123,7 +123,7 @@ describe("buildReleaseNotification", () => {
     );
     expect(r.shouldPost).toBe(true);
     expect(r.message).toBe(
-      "🚀 *CopilotKit monorepo v1.2.3* published to npm (`latest`, 15 packages) · " +
+      "🚀 *CopilotKit monorepo v1.2.3* published to npm (`latest`, 16 packages) · " +
         `<${NPM_URL}|npm>`,
     );
     // The broken "/releases/tag/" empty link must never appear.
@@ -556,7 +556,7 @@ describe("buildReleaseNotification", () => {
     );
     expect(r.shouldPost).toBe(true);
     const expected =
-      "🚀 *CopilotKit monorepo v1.2.3* published to npm (`latest`, 15 packages) · " +
+      "🚀 *CopilotKit monorepo v1.2.3* published to npm (`latest`, 16 packages) · " +
       `<${RELEASE_URL}|Release notes> · <${NPM_URL}|npm>\n` +
       "🐍 *copilotkit (Python SDK) v0.9.0* published to PyPI · " +
       `<${PY_URL}|PyPI>`;
@@ -620,10 +620,10 @@ describe("buildReleaseNotification", () => {
         npmResult: "success",
         npmVer: "1.2.3",
         buildResult: "success",
-        packageCount: 15,
+        packageCount: 16,
       }),
     );
-    expect(r.message).toContain("(`latest`, 15 packages)");
+    expect(r.message).toContain("(`latest`, 16 packages)");
   });
 
   it("packageCount=0 (unknown/degraded) → success line WITHOUT a packages count parenthetical", () => {
@@ -683,7 +683,7 @@ describe("buildReleaseNotification", () => {
     expect(r.shouldPost).toBe(true);
     expect(r.message).not.toContain("  ");
     expect(r.message).toBe(
-      "🚀 *CopilotKit v1.2.3* published to npm (`latest`, 15 packages) · " +
+      "🚀 *CopilotKit v1.2.3* published to npm (`latest`, 16 packages) · " +
         `<${RELEASE_URL}|Release notes> · <${NPM_URL}|npm>`,
     );
   });

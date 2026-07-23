@@ -1,9 +1,9 @@
 # release / publish
 #
 # Single npm OIDC entry point for both stable releases and prerelease canaries.
-# npm trusted publisher records for the 15 @copilotkit/* monorepo packages plus
-# @copilotkitnext/angular are registered against THIS workflow file. Matching
-# happens on the OIDC token's `workflow_ref` claim, which is always
+# npm trusted publisher records for the monorepo packages plus independently
+# scoped @copilotkit packages are registered against THIS workflow file.
+# Matching happens on the OIDC token's `workflow_ref` claim, which is always
 # publish-release.yml when this workflow is the entry point.
 #
 # Triggers:
@@ -39,8 +39,7 @@ on:
         options:
           - monorepo
           - angular
-          - bot
-          - bot-slack
+          - channels
       mode:
         description: "Release mode: stable (full release with tag + GH Release) or prerelease (canary, no tag/release)"
         required: false
@@ -69,7 +68,14 @@ permissions:
   contents: read
 
 concurrency:
-  group: publish-release
+  # Scope the lock to the package being released so a `monorepo` publish and an
+  # `angular` publish run in independent lanes instead of queuing behind each
+  # other. On the manual path `inputs.scope` carries the target; on the merged
+  # release-PR path inputs are empty, but the PR branch is
+  # `release/publish/<scope>/v<version>`, so `github.head_ref` already encodes
+  # the scope. Same-scope runs still serialize (cancel-in-progress: false),
+  # which is what protects the tag push / npm publish.
+  group: publish-release-${{ inputs.scope || github.head_ref || github.ref }}
   cancel-in-progress: false
 
 env:
@@ -103,7 +109,8 @@ jobs:
             SCOPE="$INPUT_SCOPE"
           else
             # Branch format: release/publish/<scope>/v<version>
-            SCOPE=$(echo "$PR_HEAD_REF" | sed 's|release/publish/\([^/]*\)/v.*|\1|')
+            SCOPE="${PR_HEAD_REF#release/publish/}"
+            SCOPE="${SCOPE%%/v*}"
           fi
           MODE="${INPUT_MODE:-stable}"
           echo "scope=$SCOPE" >> "$GITHUB_OUTPUT"
@@ -117,7 +124,7 @@ jobs:
       # (including .git/config) into an artifact — persisting credentials
       # here would leak a workflow-scoped token to anyone with actions:read.
       - name: Checkout Repo
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -125,10 +132,10 @@ jobs:
       - name: Setup pnpm
         # Omit `version:` so pnpm/action-setup inherits from the repo's
         # `packageManager` field in package.json (via corepack).
-        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
 
       - name: Setup Node
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22.x
 
@@ -159,22 +166,22 @@ jobs:
       - name: Build packages
         run: pnpm run build
 
-      # Exclude node_modules and build caches from the artifact. Including
-      # them produces ~6.4M files for this monorepo, which OOMs
-      # upload-artifact's Node process at its 4GB heap limit during
-      # enumeration. The publish job runs `pnpm install` after download to
-      # restore node_modules from pnpm-lock.yaml.
+      # Strip caches and pack the workspace into a single tarball before
+      # upload. upload-artifact's path filters are post-walk: it still
+      # descends into every node_modules and stats every file (~6.4M for
+      # this monorepo with pnpm's .pnpm/ symlink farm) before applying
+      # negations, which is the actual bottleneck. Removing the dirs and
+      # uploading one file collapses that to a single fast step.
+      - name: Pack workspace
+        run: |
+          find . -type d \( -name node_modules -o -name .nx -o -name .turbo -o -name .next \) -prune -exec rm -rf {} +
+          tar -czf /tmp/workspace.tgz .
+
       - name: Upload workspace
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: workspace
-          path: |
-            .
-            !**/node_modules/**
-            !**/.next/**
-            !**/.turbo/**
-            !**/.nx/**
-          include-hidden-files: true
+          path: /tmp/workspace.tgz
           retention-days: 1
 
     outputs:
@@ -206,7 +213,8 @@ jobs:
             SCOPE="$INPUT_SCOPE"
           else
             # Branch format: release/publish/<scope>/v<version>
-            SCOPE=$(echo "$PR_HEAD_REF" | sed 's|release/publish/\([^/]*\)/v.*|\1|')
+            SCOPE="${PR_HEAD_REF#release/publish/}"
+            SCOPE="${SCOPE%%/v*}"
           fi
           if [ -z "$SCOPE" ]; then
             echo "::error::Failed to resolve scope (input=$INPUT_SCOPE, ref=$PR_HEAD_REF)"
@@ -221,6 +229,11 @@ jobs:
         with:
           name: workspace
 
+      - name: Unpack workspace
+        run: |
+          tar -xzf workspace.tgz
+          rm workspace.tgz
+
       - name: Configure git credentials
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -231,10 +244,10 @@ jobs:
       - name: Setup pnpm
         # Omit `version:` so pnpm/action-setup inherits from the repo's
         # `packageManager` field in package.json (via corepack).
-        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
 
       - name: Setup Node
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22.x
           registry-url: https://registry.npmjs.org
@@ -249,9 +262,26 @@ jobs:
       - name: Dry-run notice
         if: ${{ inputs.dry-run == true }}
         run: |
-          echo "## Dry Run" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "DRY RUN — skipping publish step. Scope: ${{ steps.meta.outputs.scope }}, mode: ${{ steps.meta.outputs.mode }}." >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "## Dry Run"
+            echo ""
+            echo "DRY RUN — skipping publish step. Scope: ${{ steps.meta.outputs.scope }}, mode: ${{ steps.meta.outputs.mode }}."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # The family must exist on npm before the umbrella is allowed to ship:
+      # the registry verifier installs the packed umbrella against those exact
+      # published dependencies. Publish the foundation and adapters first, then
+      # verify, then let the final publish step release the umbrella.
+      - name: Publish Channels dependencies to npm
+        if: ${{ inputs.dry-run != true && steps.meta.outputs.scope == 'channels' && steps.meta.outputs.mode == 'stable' }}
+        env:
+          NODE_AUTH_TOKEN: ""
+          SCOPE: ${{ steps.meta.outputs.scope }}
+        run: pnpm tsx scripts/release/publish-release.ts --scope "$SCOPE" --phase dependencies
+
+      - name: Verify registry-backed Channels umbrella contract
+        if: ${{ inputs.dry-run != true && steps.meta.outputs.scope == 'channels' && steps.meta.outputs.mode == 'stable' }}
+        run: pnpm run verify:channels-umbrella:registry
 
       - name: Publish to npm
         id: publish
@@ -261,7 +291,15 @@ jobs:
           NOTION_API_KEY: ${{ steps.meta.outputs.mode == 'stable' && secrets.NOTION_API_KEY || '' }}
           PUBLISH_SCRIPT: ${{ steps.meta.outputs.mode == 'prerelease' && 'prerelease.ts' || 'publish-release.ts' }}
           SCOPE: ${{ steps.meta.outputs.scope }}
-        run: pnpm tsx "scripts/release/$PUBLISH_SCRIPT" --scope "$SCOPE"
+        run: |
+          set -euo pipefail
+          if [ "$PUBLISH_SCRIPT" = "prerelease.ts" ]; then
+            pnpm tsx "scripts/release/$PUBLISH_SCRIPT" --scope "$SCOPE"
+          elif [ "$SCOPE" = "channels" ]; then
+            pnpm tsx scripts/release/publish-release.ts --scope "$SCOPE" --phase umbrella
+          else
+            pnpm tsx scripts/release/publish-release.ts --scope "$SCOPE"
+          fi
 
       - name: Verify publish step emitted version
         if: ${{ success() && inputs.dry-run != true }}
@@ -315,12 +353,12 @@ jobs:
           fi
           git tag -a "$TAG" -m "Release ${SCOPE} ${VERSION}"
           git push origin "$TAG"
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
         id: tag
 
       - name: Create GitHub Release
         if: ${{ success() && inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           RELEASE_TAG: ${{ steps.tag.outputs.tag }}
           RELEASE_SCOPE: ${{ steps.meta.outputs.scope }}
@@ -434,7 +472,7 @@ jobs:
       pyproject_changed: ${{ steps.changed.outputs.pyproject_changed }}
     steps:
       - name: Checkout merged main
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           ref: main
@@ -473,7 +511,7 @@ jobs:
 
       - name: Set up Python
         if: github.event_name == 'workflow_dispatch' || steps.changed.outputs.pyproject_changed == 'true'
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
 
@@ -484,7 +522,7 @@ jobs:
 
       - name: Install Poetry
         if: steps.detect.outputs.should_publish == 'true'
-        uses: snok/install-poetry@76e04a911780d5b312d89783f7b1cd627778900a # v1.4.1
+        uses: snok/install-poetry@a783c322200f0519c7926aa6faa857c4e23e9263 # v1.4.2
         with:
           version: latest
           virtualenvs-create: true
@@ -530,14 +568,14 @@ jobs:
       id-token: write
     steps:
       - name: Checkout merged main
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           ref: main
           persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           version: ">=0.8.0"
 
@@ -601,7 +639,7 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           RELEASE_TAG: ${{ steps.tag.outputs.tag }}
           RELEASE_VERSION: ${{ needs.build-python.outputs.version }}
@@ -695,9 +733,17 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          # npm intent: a manual dispatch, or a merged release/publish/* PR.
-          # Computed purely from event-context expressions (no API needed).
-          NPM_INTENDED="${{ (github.event_name == 'workflow_dispatch' || (github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/publish/'))) && 'true' || 'false' }}"
+          # npm intent: a STABLE manual dispatch (mode != prerelease — the default
+          # and the retry escape hatch both publish to npm), or a merged
+          # release/publish/* PR. A prerelease dispatch is a canary: it never pushes
+          # a tag, cuts a GH Release, or posts to Slack (the builder returns
+          # should_post=false, mirroring the `mode != 'prerelease'` guards on the
+          # publish/tag steps), so it is NOT stable-release intent and must never
+          # self-page on failure. Computed purely from event-context expressions
+          # (no API needed). Guarding on mode here is what stops a failed canary
+          # build (e.g. a stale lockfile on a canary/* branch) from tripping the
+          # notifier self-watchdog's best-effort Slack post below.
+          NPM_INTENDED="${{ ((github.event_name == 'workflow_dispatch' && inputs.mode != 'prerelease') || (github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/publish/'))) && 'true' || 'false' }}"
           echo "npm_intended=$NPM_INTENDED" >> "$GITHUB_OUTPUT"
 
           # Python intent: a python_publish dispatch, OR a merged PR that changed
@@ -721,15 +767,15 @@ jobs:
           echo "npm_intended=$NPM_INTENDED py_intended=$PY_INTENDED"
 
       - name: Checkout Repo
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
 
       - name: Setup Node
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22.x
 
@@ -741,7 +787,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # Compute the scope-correct npm URL: the monorepo packages live under the
-      # @copilotkit org page, but the angular release is a single package.
+      # @copilotkit org page, while single-package scopes link to their package.
       - name: Resolve npm URL for scope
         id: npmurl
         env:
@@ -750,7 +796,7 @@ jobs:
           set -euo pipefail
           case "$SCOPE" in
             angular)
-              NPM_URL="https://www.npmjs.com/package/@copilotkitnext/angular"
+              NPM_URL="https://www.npmjs.com/package/@copilotkit/angular"
               ;;
             *)
               NPM_URL="https://www.npmjs.com/org/copilotkit"
@@ -799,7 +845,7 @@ jobs:
 
       - name: Post to #engr
         if: ${{ steps.build.outputs.should_post == 'true' && env.SLACK_WEBHOOK != '' && inputs.dry-run != true }}
-        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_ENGR }}
           webhook-type: incoming-webhook
@@ -842,7 +888,7 @@ jobs:
         # gate is correct and robust. (The ::error:: echo step above stays
         # unconditional — only the Slack POST needs these guards.)
         if: ${{ failure() && env.SLACK_WEBHOOK != '' && inputs.dry-run != true && (steps.intent.outputs.npm_intended == 'true' || steps.intent.outputs.py_intended == 'true') }}
-        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_ENGR }}
           webhook-type: incoming-webhook

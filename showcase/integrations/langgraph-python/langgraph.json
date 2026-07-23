@@ -12,6 +12,7 @@
     "tool_rendering_reasoning_chain": "./src/agents/tool_rendering_reasoning_chain_agent.py:graph",
     "a2ui_dynamic": "./src/agents/a2ui_dynamic.py:graph",
     "a2ui_fixed": "./src/agents/a2ui_fixed.py:graph",
+    "a2ui_recovery": "./src/agents/recovery_agent.py:graph",
     "reasoning_agent": "./src/agents/reasoning_agent.py:graph",
     "interrupt_agent": "./src/agents/interrupt_agent.py:graph",
     "open_gen_ui": "./src/agents/open_gen_ui_agent.py:graph",

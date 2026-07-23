@@ -13,14 +13,14 @@ import { FormsModule } from "@angular/forms";
 import type {
   HumanInTheLoopToolCall,
   HumanInTheLoopToolRenderer,
-} from "@copilotkitnext/angular";
+} from "@copilotkit/angular";
 import {
   connectAgentContext,
   CopilotKit,
   injectAgentStore,
   registerHumanInTheLoop,
-} from "@copilotkitnext/angular";
-import { RenderToolCalls } from "@copilotkitnext/angular";
+} from "@copilotkit/angular";
+import { RenderToolCalls } from "@copilotkit/angular";
 import { WEB_INSPECTOR_TAG } from "@copilotkit/web-inspector";
 import type { WebInspectorElement } from "@copilotkit/web-inspector";
 import { z } from "zod";

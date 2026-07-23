@@ -11,9 +11,19 @@
       } @else {
       <copilot-chat-message-view
         [messages]="messages()"
+        [state]="state()"
         [agentId]="agentId()"
         [inputClass]="messageViewClass()"
         [showCursor]="showCursor()"
+        [assistantMessageComponent]="assistantMessageComponent()"
+        [assistantMessageTemplate]="assistantMessageTemplate()"
+        [assistantMessageClass]="assistantMessageClass()"
+        [reasoningMessageComponent]="reasoningMessageComponent()"
+        [reasoningMessageTemplate]="reasoningMessageTemplate()"
+        [reasoningMessageClass]="reasoningMessageClass()"
+        [childrenComponent]="messageViewChildrenComponent()"
+        [childrenTemplate]="messageViewChildrenTemplate()"
+        [childrenClass]="messageViewChildrenClass()"
         (assistantMessageThumbsUp)="assistantMessageThumbsUp.emit($event)"
         (assistantMessageThumbsDown)="assistantMessageThumbsDown.emit($event)"
         (assistantMessageReadAloud)="assistantMessageReadAloud.emit($event)"
@@ -23,7 +33,7 @@
       >
       </copilot-chat-message-view>
       } @if (hasSuggestions()) {
-      <div class="cpk:pl-0 cpk:pr-4 cpk:sm:px-0 cpk:mt-4">
+      <div class="cpk:pl-0 cpk:pr-4 cpk:@3xl:px-0 cpk:mt-4">
         <copilot-chat-suggestion-view
           [suggestions]="chatState?.suggestions?.() ?? []"
           inputClass="cpk:mb-3 cpk:lg:ml-4 cpk:lg:mr-4 cpk:ml-0 cpk:mr-0"
@@ -42,7 +52,7 @@
 <div
   class="cpk:h-full cpk:max-h-full cpk:flex cpk:flex-col cpk:flex-1 cpk:min-h-0 cpk:overflow-y-auto cpk:overflow-x-hidden"
 >
-  <div class="cpk:px-4 cpk:sm:px-0">
+  <div class="cpk:px-4 cpk:@3xl:px-0">
     <ng-content></ng-content>
   </div>
 </div>
@@ -66,7 +76,7 @@
     class="cpk:flex-1 cpk:min-h-0 cpk:overflow-y-auto cpk:overflow-x-hidden"
   >
     <!-- Scrollable content wrapper -->
-    <div class="cpk:px-4 cpk:sm:px-0">
+    <div class="cpk:px-4 cpk:@3xl:px-0">
       <!-- Content with padding-bottom matching React -->
       <ng-container [ngTemplateOutlet]="scrollContent"></ng-container>
     </div>
@@ -79,7 +89,7 @@
     [class]="computedClass()"
     class="cpk:flex-1 cpk:min-h-0 cpk:overflow-y-auto cpk:overflow-x-hidden"
   >
-    <div #contentContainer class="cpk:px-4 cpk:sm:px-0">
+    <div #contentContainer class="cpk:px-4 cpk:@3xl:px-0">
       <!-- Content with padding-bottom matching React -->
       <ng-container [ngTemplateOutlet]="scrollContent"></ng-container>
     </div>

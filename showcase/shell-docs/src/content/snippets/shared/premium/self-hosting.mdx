@@ -3,13 +3,23 @@ import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
 ## What is this?
 
-Enterprise Intelligence — the platform that powers threads, shared state, the inspector, and observability — can be self-hosted on your own Kubernetes cluster using the `copilot-intelligence` Helm chart. You run the control plane and data plane inside your own network boundary; the chart leaves you in charge of identity, storage, and secrets.
+Enterprise Intelligence — the platform that powers threads, shared state, and the inspector — can be self-hosted on your own Kubernetes cluster using the `copilot-intelligence` Helm chart. You run the control plane and data plane inside your own network boundary; the chart leaves you in charge of identity, storage, and secrets.
 
 **What you bring:**
 
 - Postgres and Redis — your own, or the bundled Bitnami subcharts
 - An OIDC provider for identity
 - Secrets via External Secrets Operator, direct Kubernetes Secrets, or chart-managed credentials
+
+<OpsPlatformCTA
+  variant="inline"
+  title="Planning a self-hosted Enterprise Intelligence deployment?"
+  body="Self-hosting is available on the Team self-hosted plan or a custom Enterprise plan for VPC, on-prem, and data-residency deployments."
+  ctaLabel="Talk to an engineer"
+  surface="docs_premium_self_hosting_intro"
+  href="https://copilotkit.ai/talk-to-an-engineer"
+  analyticsEvent="talk_to_us_clicked"
+/>
 
 **What the chart deploys:**
 
@@ -24,8 +34,8 @@ Plus a `database-migrations` Job, a `thread-culler` CronJob, and the usual suppo
 ## When should I use this?
 
 - Your organization requires Enterprise Intelligence to run inside your own VPC or data center for compliance, data residency, or security reasons
-- You want to connect Enterprise Intelligence to internal databases, identity providers, or secret stores that are not reachable from Copilot Cloud
-- You need to operate the platform under your existing Kubernetes tooling, CI/CD, and observability stack
+- You want to connect Enterprise Intelligence to internal databases, identity providers, or secret stores that are not reachable from the cloud-hosted version
+- You need to operate the platform under your existing Kubernetes tooling, CI/CD, and monitoring stack
 - You have an Enterprise Intelligence Platform license and the platform-engineering capacity to run a production Kubernetes workload
 
 <Callout type="info" title="Validate locally before committing to a real cluster">
@@ -43,7 +53,7 @@ Both paths use the same install commands described below — pick whichever fits
 
 ## Prerequisites
 
-Before starting, make sure the following are in place. The [How the Enterprise Intelligence Platform Works](/learn/intelligence-platform) page explains the layering in more depth.
+Before starting, make sure the following are in place. [Enterprise Intelligence Architecture](/premium/intelligence-platform) explains the application/runtime/platform layers in more depth.
 
 **License and registry access:**
 
@@ -554,6 +564,6 @@ Per-service keys `podDisruptionBudget`, `podAntiAffinity`, and `networkPolicy` a
 
 ## Next steps
 
-- **Understand how it works:** [How the Enterprise Intelligence Platform Works](/learn/intelligence-platform) — architecture, multi-tenancy model, platform layering, and the decision between hosted and self-hosted
-- **Enterprise Intelligence Platform overview:** [Enterprise Intelligence Platform](/premium/overview) — hosted and self-hosted capabilities
+- **Platform architecture:** [Enterprise Intelligence Architecture](/premium/intelligence-platform) — runtime/platform architecture, project boundaries, threads, and realtime sync
+- **Enterprise Intelligence Platform overview:** [Enterprise Intelligence Platform](/premium/overview) — features, hosting options, and where to go next
 - **Use threads in your app:** [Threads](/threads) — the persistent-conversation surface powered by the Enterprise Intelligence Platform you just deployed

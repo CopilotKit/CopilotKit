@@ -1,11 +1,8 @@
 "use client";
 
 import React from "react";
-import {
-  CopilotKitProvider,
-  CopilotPopup,
-  useConfigureSuggestions,
-} from "@copilotkit/react-core/v2";
+import { CopilotKitProvider, CopilotPopup } from "@copilotkit/react-core/v2";
+import { usePrebuiltPopupSuggestions } from "./suggestions";
 
 // Outer layer — provider + main content + floating popup launcher.
 export default function PrebuiltPopupDemo() {
@@ -43,9 +40,6 @@ function MainContent() {
 }
 
 function Suggestions() {
-  useConfigureSuggestions({
-    suggestions: [{ title: "Say hi", message: "Say hi from the popup!" }],
-    available: "always",
-  });
+  usePrebuiltPopupSuggestions();
   return null;
 }

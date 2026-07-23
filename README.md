@@ -123,7 +123,7 @@ CopilotKit now lets you deploy the **same agent** to the places your users alrea
 
 ## 🧠 Self-Learning Agents
 
-Improve your procuct by learning over time.
+Improve your product by learning over time.
 
 With **Continuous Learning from Human Feedback (CLHF)**, part of the [CopilotKit Intelligence Platform](https://www.copilotkit.ai/copilotkit-intelligence), agents improve with every interaction:
 

@@ -5,9 +5,15 @@
     "---Getting Started---",
     "index",
     "quickstart",
+    "cli",
     "build-with-agents",
     "---Basics---",
     "prebuilt-components",
+    {
+      "title": "Threads",
+      "defaultOpen": true,
+      "pages": ["threads", "headless-threads"]
+    },
     "custom-look-and-feel",
     "programmatic-control",
     "inspector",

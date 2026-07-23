@@ -1,0 +1,349 @@
+---
+title: Quickstart
+description: Run a Claude Agent SDK Python agent behind CopilotKit.
+icon: "lucide/Play"
+hideTOC: true
+---
+
+This quickstart gives you two working paths:
+
+- **Start from scratch** to scaffold the full Claude Agent SDK Python showcase.
+- **Use an existing agent** to expose your own Claude Agent SDK process over AG-UI and connect it to a React app.
+
+## Prerequisites
+
+Before you begin, you'll need the following:
+
+- An Anthropic API key
+- Python 3.11+
+- Node.js 20+
+- `uv` for Python dependency management
+- Your favorite JavaScript package manager
+
+## Getting started
+
+<Steps>
+  <Step>
+    ### Choose your starting point
+
+    <TailoredContent className="step" id="agent">
+      <TailoredContentOption
+        id="starter"
+        title="Start from scratch"
+        description="Scaffold the canonical Claude Agent SDK Python starter."
+      >
+        <Step>
+          ### Run the CLI
+
+          ```bash
+          npx copilotkit@latest init --framework claude-sdk-python
+          ```
+
+          The starter contains three pieces:
+
+          - `src/agent_server.py` - the FastAPI Claude Agent SDK backend process
+          - `src/agents/claude_agent_sdk_adapter.py` - the Claude SDK to AG-UI adapter bridge
+          - `src/app/api/copilotkit/route.ts` - the CopilotKit runtime route that proxies to the agent
+        </Step>
+
+        <Step>
+          ### Configure your environment
+
+          Create a `.env` file in the generated project root:
+
+          ```plaintext title=".env"
+          ANTHROPIC_API_KEY=your_anthropic_api_key
+          ANTHROPIC_MODEL=claude-sonnet-4-6
+          ```
+
+          The runtime route defaults to `AGENT_URL=http://localhost:8000`, which is where the starter's FastAPI agent server listens.
+        </Step>
+
+        <Step>
+          ### Install dependencies
+
+          <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
+            <Tab value="npm">
+              ```bash
+              npm install
+              ```
+            </Tab>
+            <Tab value="pnpm">
+              ```bash
+              pnpm install
+              ```
+            </Tab>
+            <Tab value="yarn">
+              ```bash
+              yarn install
+              ```
+            </Tab>
+            <Tab value="bun">
+              ```bash
+              bun install
+              ```
+            </Tab>
+          </Tabs>
+        </Step>
+
+        <Step>
+          ### Start the development server
+
+          <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
+            <Tab value="npm">
+              ```bash
+              npm run dev
+              ```
+            </Tab>
+            <Tab value="pnpm">
+              ```bash
+              pnpm dev
+              ```
+            </Tab>
+            <Tab value="yarn">
+              ```bash
+              yarn dev
+              ```
+            </Tab>
+            <Tab value="bun">
+              ```bash
+              bun dev
+              ```
+            </Tab>
+          </Tabs>
+
+          This starts both the Next.js app and the Python agent server.
+        </Step>
+      </TailoredContentOption>
+
+      <TailoredContentOption
+        id="bring-your-own"
+        title="Use an existing agent"
+        description="I already have a Claude Agent SDK Python agent and want to add CopilotKit."
+      >
+        <Step>
+          ### Install the required Python packages
+
+          From your agent project, install the Claude Agent SDK adapter, AG-UI protocol packages, and FastAPI:
+
+          ```bash
+          uv add claude-agent-sdk ag-ui-claude-sdk ag-ui-protocol anthropic fastapi uvicorn python-dotenv
+          ```
+        </Step>
+
+        <Step>
+          ### Configure your agent environment
+
+          Create a `.env` file for the process that runs your Claude agent:
+
+          ```plaintext title=".env"
+          ANTHROPIC_API_KEY=your_anthropic_api_key
+          ANTHROPIC_MODEL=claude-sonnet-4-6
+          ```
+        </Step>
+
+        <Step>
+          ### Expose Claude Agent SDK over AG-UI
+
+          CopilotKit talks to agents over AG-UI. The small FastAPI server below receives AG-UI run input, passes it to `ClaudeAgentAdapter`, and streams AG-UI events back to the runtime.
+
+          ```python title="main.py"
+          import logging
+          import os
+          from collections.abc import AsyncIterator
+
+          from ag_ui.core import EventType, RunAgentInput, RunErrorEvent
+          from ag_ui.encoder import EventEncoder
+          from ag_ui_claude_sdk import ClaudeAgentAdapter
+          from dotenv import load_dotenv
+          from fastapi import FastAPI, Request
+          from fastapi.responses import StreamingResponse
+
+          load_dotenv()
+
+          app = FastAPI(title="Claude Agent SDK Agent")
+          logger = logging.getLogger("claude_agent")
+
+          # Build the adapter once, at module scope. ClaudeAgentAdapter is a
+          # long-lived singleton that caches a worker (and its Claude SDK
+          # subprocess) per thread; constructing it per request would leak those
+          # workers and their subprocesses.
+          adapter = ClaudeAgentAdapter(
+              name="claude_agent",
+              options={
+                  "model": os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6"),
+                  "system_prompt": "You are a helpful assistant embedded in a CopilotKit app.",
+                  "tools": [],
+                  "permission_mode": "dontAsk",
+                  "max_turns": 10,
+              },
+          )
+
+          @app.get("/health")
+          async def health() -> dict[str, str]:
+              return {"status": "ok"}
+
+          @app.post("/")
+          async def run_agent(request: Request) -> StreamingResponse:
+              encoder = EventEncoder()
+
+              async def event_stream() -> AsyncIterator[str]:
+                  try:
+                      input_data = RunAgentInput(**(await request.json()))
+                      async for event in adapter.run(input_data):
+                          yield encoder.encode(event)
+                  except Exception as error:
+                      # Every failure — malformed request body or streaming —
+                      # becomes a graceful RUN_ERROR, and the full detail is
+                      # logged server-side rather than only sent to the client.
+                      logger.exception("Claude agent run failed")
+                      yield encoder.encode(
+                          RunErrorEvent(
+                              type=EventType.RUN_ERROR,
+                              message=str(error),
+                          )
+                      )
+
+              return StreamingResponse(
+                  event_stream(),
+                  media_type="text/event-stream",
+                  headers={
+                      "Cache-Control": "no-cache",
+                      "X-Accel-Buffering": "no",
+                  },
+              )
+          ```
+
+          Start it and confirm the health check:
+
+          ```bash
+          uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
+          curl http://localhost:8000/health
+          ```
+        </Step>
+
+        <Step>
+          ### Create your frontend
+
+          CopilotKit works with any React app. This example uses Next.js App Router:
+
+          ```bash
+          npx create-next-app@latest frontend
+          cd frontend
+          npm install @copilotkit/runtime @copilotkit/react-core @ag-ui/client
+          ```
+        </Step>
+
+        <Step>
+          ### Add the CopilotKit runtime route
+
+          Create `app/api/copilotkit/route.ts` in your Next.js app. It registers the Python agent server as an AG-UI `HttpAgent`.
+
+          ```ts title="app/api/copilotkit/route.ts"
+          import { HttpAgent } from "@ag-ui/client";
+          import {
+            CopilotRuntime,
+            ExperimentalEmptyAdapter,
+            copilotRuntimeNextJSAppRouterEndpoint,
+          } from "@copilotkit/runtime";
+          import { NextRequest } from "next/server";
+
+          const runtime = new CopilotRuntime({
+            agents: {
+              claude_agent: new HttpAgent({
+                url: process.env.AGENT_URL ?? "http://localhost:8000",
+              }),
+            },
+          });
+
+          export const POST = async (req: NextRequest) => {
+            const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+              endpoint: "/api/copilotkit",
+              runtime,
+              serviceAdapter: new ExperimentalEmptyAdapter(),
+            });
+
+            return handleRequest(req);
+          };
+          ```
+        </Step>
+
+        <Step>
+          ### Mount CopilotKit in React
+
+          Wrap your app with `CopilotKit` and target the agent name you registered in the runtime route.
+
+          ```tsx title="app/layout.tsx"
+          import { CopilotKit } from "@copilotkit/react-core/v2";
+          import "@copilotkit/react-core/v2/styles.css";
+          import "./globals.css";
+
+          export default function RootLayout({ children }: { children: React.ReactNode }) {
+            return (
+              <html lang="en">
+                <body>
+                  <CopilotKit runtimeUrl="/api/copilotkit" agent="claude_agent">
+                    {children}
+                  </CopilotKit>
+                </body>
+              </html>
+            );
+          }
+          ```
+
+          Add a chat surface:
+
+          ```tsx title="app/page.tsx"
+          "use client";
+
+          import { CopilotSidebar } from "@copilotkit/react-core/v2";
+
+          export default function Page() {
+            return (
+              <main>
+                <CopilotSidebar />
+              </main>
+            );
+          }
+          ```
+        </Step>
+
+        <Step>
+          ### Start the UI
+
+          Keep the FastAPI agent server running, then start the frontend in a second terminal:
+
+          ```bash
+          npm run dev
+          ```
+        </Step>
+      </TailoredContentOption>
+    </TailoredContent>
+  </Step>
+
+  <Step>
+    ### Verify the integration
+
+    Open `http://localhost:3000` and ask:
+
+    ```plaintext
+    Tell me in one sentence what this app can do.
+    ```
+
+    If the chat streams a Claude response, CopilotKit is connected to your Claude Agent SDK Python agent.
+
+    <Accordions className="mb-4">
+      <Accordion title="Troubleshooting">
+        - If the runtime cannot reach the agent, check that the FastAPI server is running on `http://localhost:8000` or set `AGENT_URL` in the frontend.
+        - If Claude returns an authentication error, make sure `ANTHROPIC_API_KEY` is available to the Python process.
+        - If a custom tool call stalls, add the backend tool bridge shown below instead of leaving `"tools": []`.
+      </Accordion>
+    </Accordions>
+  </Step>
+</Steps>
+
+## Backend tools and state
+
+The minimal server above is enough for text chat. To support backend tools, shared state snapshots, and richer demos, expose your tool schemas through the Claude SDK MCP bridge and emit AG-UI state events:
+
+<FrameworkSetup concept="agent-setup" />

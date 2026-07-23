@@ -41,6 +41,13 @@ export type ProbeKind =
   | "health"
   | "image-drift"
   | "pin-drift"
+  // CROSS-ENV pin-drift (U11 / spec §7.3). The harness `/probes` endpoint
+  // emits `cfg.kind` raw, so this arrives over the wire as the underscore
+  // form `pin_drift_cross_env`. The Ops surface routes PROD drift here and
+  // STAGING to `image-drift` (the `:latest`-drift signal) — see the harness
+  // `probes/ops-drift-routing.ts`. Listed so the kind is documented rather
+  // than only matching the `(string & {})` forward-compat fallback.
+  | "pin_drift_cross_env"
   | "aimock-wiring"
   | "qa"
   | "redirect-decommission"
@@ -479,6 +486,13 @@ export interface WorkerView {
   workerId: string;
   health: WorkerHealthState;
   lastHeartbeatAt: string;
+  /**
+   * ISO instant the worker last (re)registered, or "" when absent. The
+   * freshest non-empty value across the strip is the fleet's most-recent
+   * bounce instant; the §7.3 glyph / §7.4 banner grace a post-deploy drain
+   * off it (PR #5715), consistent with the §9 Slack monitor.
+   */
+  registeredAt: string;
   currentJobId: string | null;
   capacity: { inUse: number; available: number; max: number };
 }

@@ -1,14 +1,14 @@
 /**
  * `render_chart` — the agent emits a Chart.js config; we render it to a PNG
  * locally (headless Chromium) and deliver it to the thread via the SDK's
- * `ctx.thread.postFile`. Slack shows the image inline. This is the "upload a CSV →
- * get a chart" payoff: the agent parses the data, then calls this. After the
- * upload we also post a small JSX caption card (`<Context>`) so the tool
- * doubles as a render-tool demo.
+ * `ctx.thread.postFile`. The image renders inline in the conversation. This
+ * is the "upload a CSV → get a chart" payoff: the agent parses the data, then
+ * calls this. After the upload we also post a small JSX caption card
+ * (`<Context>`) so the tool doubles as a render-tool demo.
  */
 import { z } from "zod";
-import { Context } from "@copilotkit/bot-ui";
-import { defineBotTool } from "@copilotkit/bot";
+import { Context } from "@copilotkit/channels";
+import { defineChannelTool } from "@copilotkit/channels";
 import { renderChart } from "../render/chart.js";
 
 const schema = z.object({
@@ -65,13 +65,13 @@ function slug(s: string): string {
   );
 }
 
-export const renderChartTool = defineBotTool({
+export const renderChartTool = defineChannelTool({
   name: "render_chart",
   description:
-    "Render a chart as an image and post it to the Slack thread. Pass a " +
-    "Chart.js config OBJECT (type + data, optionally options). Use this to " +
+    "Render a chart as an image and post it to the conversation thread. Pass " +
+    "a Chart.js config OBJECT (type + data, optionally options). Use this to " +
     "visualize data — e.g. after analyzing an uploaded CSV. The image renders " +
-    "inline in Slack.",
+    "inline in the conversation.",
   parameters: schema,
   async handler({ title, chartSpec }, ctx) {
     // chartSpec is an object; tolerate a stringified one too (some models
@@ -88,6 +88,14 @@ export const renderChartTool = defineBotTool({
     }
     try {
       const png = await renderChart(spec);
+      // Post the caption as a HEADER first, then the image. A file upload's
+      // channel message lands a beat after `postFile` resolves, so posting the
+      // caption first keeps a stable caption → image order (posting it after
+      // would let the image's message overtake it). Also doubles as a
+      // render-tool demo of a JSX <Context> card.
+      await ctx.thread.post(
+        <Context>{`📊  *${title ?? "Chart"}* — chart below.`}</Context>,
+      );
       const res = await ctx.thread.postFile({
         bytes: png,
         filename: `${slug(title ?? "chart")}.png`,
@@ -97,10 +105,6 @@ export const renderChartTool = defineBotTool({
       if (!res.ok) {
         return `Chart render failed: ${res.error ?? "upload was rejected"}`;
       }
-      // After the image lands, post a small JSX caption card.
-      await ctx.thread.post(
-        <Context>{`:bar_chart:  *${title ?? "Chart"}* — rendered as an image above.`}</Context>,
-      );
       return "Rendered and posted the chart image to the thread.";
     } catch (e) {
       return `Chart render failed: ${(e as Error).message}`;

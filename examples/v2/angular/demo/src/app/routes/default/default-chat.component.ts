@@ -1,6 +1,6 @@
 import { Component } from "@angular/core";
 
-import { CopilotChat } from "@copilotkitnext/angular";
+import { CopilotChat } from "@copilotkit/angular";
 
 @Component({
   selector: "default-chat",

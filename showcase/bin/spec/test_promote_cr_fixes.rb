@@ -80,6 +80,15 @@ class PromoteCRFixesTest < Minitest::Test
         # must reflect ONLY snapshot B's services — no stale A entries.
         cmd = Railway::PromoteCommand.new([])
         cmd.instance_variable_set(:@ghcr, PassGHCR.new)
+        # resolved_prod_image now pins staging's RUNNING digest (meta.imageDigest
+        # from the latest SUCCESS deployment), not resolve_digest(:latest). Stub
+        # the deployment lookup so a digest is resolvable for each tag-form svc.
+        cmd.define_singleton_method(:fetch_latest_staging_deployments) do |svc_id|
+            name = svc_id.sub("svc-stg-", "")
+            [{ "id" => "d", "status" => "SUCCESS",
+               "meta" => { "image" => "ghcr.io/copilotkit/#{name}:latest",
+                           "imageDigest" => "sha256:running_#{name}" } }]
+        end
 
         snapshot_a = { "services" => [make_svc("alpha", image: "ghcr.io/copilotkit/alpha:latest")] }
         snapshot_b = { "services" => [make_svc("beta",  image: "ghcr.io/copilotkit/beta:latest")] }
@@ -189,7 +198,7 @@ class PromoteCRFixesTest < Minitest::Test
         fake_gql = Object.new
         fake_gql.define_singleton_method(:query) do |q, vars = {}|
             recorded << [q, vars]
-            { "serviceInstanceUpdate" => true, "serviceInstanceRedeploy" => true }
+            { "serviceInstanceUpdate" => true, "serviceInstanceDeployV2" => "dep-new" }
         end
         cmd.instance_variable_set(:@gql, fake_gql)
         cmd.instance_variable_set(:@promote_refs, {
@@ -226,15 +235,19 @@ class PromoteCRFixesTest < Minitest::Test
             if q.include?("serviceInstanceUpdate")
                 call_count += 1
                 raise Railway::GraphQL::Error, "boom on update #2" if call_count == 2
-                pinned_ref = vars[:image]
+                pinned_ref = vars.dig(:input, :source, :image)
                 { "serviceInstanceUpdate" => true }
-            elsif q.include?("serviceInstanceRedeploy")
-                { "serviceInstanceRedeploy" => true }
+            elsif q.include?("serviceInstanceDeployV2")
+                { "serviceInstanceDeployV2" => "dep-new" }
             elsif q.include?("ServiceInstanceRecheck")
                 if pinned_ref
                     { "serviceInstance" => { "id" => "i",
                                               "source" => { "image" => pinned_ref },
-                                              "updatedAt" => "2026-05-29T00:00:01Z" } }
+                                              "updatedAt" => "2026-05-29T00:00:01Z",
+                                              "latestDeployment" => {
+                                                  "id" => "dep-new", "status" => "SUCCESS",
+                                                  "meta" => { "imageDigest" => (pinned_ref.include?("@") ? pinned_ref.split("@", 2).last : nil) },
+                                              } } }
                 else
                     { "serviceInstance" => { "id" => "i",
                                               "source" => { "image" => "ghcr.io/copilotkit/x@sha256:OLD" },
@@ -307,6 +320,14 @@ class PromoteCRFixesTest < Minitest::Test
         # continue and the service must get a per-service REFUSE.
         cmd = Railway::PromoteCommand.new([])
         cmd.instance_variable_set(:@ghcr, ArgumentErrorGHCR.new)
+        # Stub the running-digest lookup so resolved_prod_image succeeds and the
+        # flow reaches manifest_exists (which raises the ArgumentError under test).
+        cmd.define_singleton_method(:fetch_latest_staging_deployments) do |svc_id|
+            name = svc_id.sub("svc-stg-", "")
+            [{ "id" => "d", "status" => "SUCCESS",
+               "meta" => { "image" => "ghcr.io/copilotkit/#{name}:latest",
+                           "imageDigest" => "sha256:running_#{name}" } }]
+        end
         staging = { "services" => [
             make_svc("a", image: "ghcr.io/copilotkit/a:latest"),
             make_svc("b", image: "ghcr.io/copilotkit/b:latest"),
@@ -348,10 +369,10 @@ class PromoteCRFixesTest < Minitest::Test
         pinned = nil
         gql.define_singleton_method(:query) do |q, vars = {}|
             if q.include?("serviceInstanceUpdate")
-                pinned = vars[:image]
+                pinned = vars.dig(:input, :source, :image)
                 { "serviceInstanceUpdate" => true }
-            elsif q.include?("serviceInstanceRedeploy")
-                { "serviceInstanceRedeploy" => true }
+            elsif q.include?("serviceInstanceDeployV2")
+                { "serviceInstanceDeployV2" => "dep-new" }
             elsif q.include?("ServiceInstanceRecheck")
                 if pinned.nil?
                     # Pre-update: brand-new instance — both fields are nil.

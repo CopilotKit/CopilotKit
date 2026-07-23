@@ -4,13 +4,11 @@ on:
   push:
     branches: [main]
     paths-ignore:
-      - "docs/**"
       - "README.md"
       - "examples/**"
   pull_request:
     branches: [main]
     paths-ignore:
-      - "docs/**"
       - "README.md"
       - "examples/**"
 
@@ -37,7 +35,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
           ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
@@ -52,15 +50,39 @@ jobs:
           # tip to scope the formatter to PR-changed files.
           fetch-depth: 0
 
+      - name: Setup pnpm
+        # Omit `version:` so pnpm/action-setup inherits from the repo's
+        # `packageManager` field in package.json (via corepack).
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 20.x
+          cache: pnpm
+          cache-dependency-path: "**/pnpm-lock.yaml"
+
       - name: Install oxfmt
-        run: npm install -g oxfmt@0.36
+        # oxfmt is pinned as a root devDependency and installed from the frozen
+        # lockfile — no ad-hoc `npm install -g`. `--ignore-scripts` keeps
+        # install-time scripts from running against the PR-head checkout this job
+        # uses. Put node_modules/.bin on PATH so the bare `oxfmt` calls below
+        # (invoked via xargs) resolve the pinned binary.
+        run: |
+          pnpm install --frozen-lockfile --ignore-scripts
+          echo "$(pwd)/node_modules/.bin" >> "$GITHUB_PATH"
 
       - name: Install ruff
         # Pin ruff so a compromised or breaking release can't land on the next
-        # PR run with the persisted-credentials write token in this job.
-        # Bumped automatically by Dependabot? — no; ruff isn't tracked there.
-        # Bump manually when needed.
-        run: pipx install ruff==0.15.13
+        # PR run with the persisted-credentials write token in this job. The
+        # official ruff-action installs the pinned version (via uv) and puts
+        # `ruff` on PATH for the format steps below; `args: --version` makes the
+        # action install-only (it defaults to running `ruff check` otherwise).
+        # Bump the version manually when needed (ruff isn't tracked by Dependabot).
+        uses: astral-sh/ruff-action@278981a28ce3188b1e39527901f38254bf3aac89 # v4.1.0
+        with:
+          version: "0.15.13"
+          args: "--version"
 
       - name: Collect PR-changed files for formatting
         if: github.event_name == 'pull_request'
@@ -125,7 +147,18 @@ jobs:
           if [ -n "$py_files" ]; then
             echo "$py_files" | xargs ruff format || echo "::warning::ruff format exited with error"
           fi
-          if [ -n "$(git diff --name-only)" ]; then
+          # Trigger the auto-commit only when one of the SCOPED PR files
+          # actually changed. A whole-tree `git diff` here also trips on
+          # unrelated working-tree drift (e.g. an LFS smudge on a tracked
+          # `*.png filter=lfs` file), which would set format_fixed=true while
+          # the scoped `git add` below stages nothing — making `git commit`
+          # fail with "nothing to commit". Diffing only the scoped files keeps
+          # the trigger aligned with what the commit step can actually stage.
+          # shellcheck disable=SC2046 # intentional split: each path is a
+          # separate `git diff` pathspec arg; the `-s` guard rules out the
+          # empty-arg (whole-tree) case, and PR paths never contain spaces.
+          if [ -s .pr-format-files.existing.txt ] && \
+             ! git diff --quiet -- $(cat .pr-format-files.existing.txt); then
             echo "format_fixed=true" >> "$GITHUB_ENV"
           fi
           # Check mode: verify everything is formatted
@@ -163,6 +196,14 @@ jobs:
           # leaving formatting violations on the PR branch and (post-
           # merge) on main.
           xargs -a .pr-format-files.existing.txt git add --
+          # Guard against an empty staged set: if the scoped `git add` staged
+          # nothing (e.g. the whole-tree drift that set format_fixed=true lives
+          # entirely outside the scoped files), `git commit` would exit 1 and
+          # fail the job. Treat an empty index as a no-op instead.
+          if git diff --cached --quiet; then
+            echo "No scoped formatting changes to commit"
+            exit 0
+          fi
           git commit -m "style: auto-fix formatting"
           git push
 
@@ -173,17 +214,17 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       - name: Setup pnpm
         # Omit `version:` so pnpm/action-setup inherits from the repo's
         # `packageManager` field in package.json (via corepack).
-        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
 
       - name: Use Node.js 20
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 20.x
           # setup-node built-in cache is fork-safe (fork PRs can't write to base repo cache)
@@ -203,17 +244,17 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       - name: Setup pnpm
         # Omit `version:` so pnpm/action-setup inherits from the repo's
         # `packageManager` field in package.json (via corepack).
-        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
 
       - name: Use Node.js 20
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 20.x
           # setup-node built-in cache is fork-safe (fork PRs can't write to base repo cache)
@@ -235,6 +276,59 @@ jobs:
       - name: Run publint and attw
         run: pnpm run check:packages
 
+  check-types:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      # tsc on @copilotkit/runtime needs ~10 GB: the AI SDK v6 tool()
+      # generics explode against zod 3 schemas (~40M type instantiations,
+      # ~5 min check time). Bounding the worst inline schemas helps but the
+      # cost is systemic to the ai x zod type interaction, so this job gets
+      # a 12 GB heap instead of the workflow-level 4 GB default.
+      NODE_OPTIONS: "--max-old-space-size=12288"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        # Omit `version:` so pnpm/action-setup inherits from the repo's
+        # `packageManager` field in package.json (via corepack).
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 20.x
+          # setup-node built-in cache is fork-safe (fork PRs can't write to base repo cache)
+          cache: "pnpm"
+          cache-dependency-path: "**/pnpm-lock.yaml"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Configure Nx Cloud environment
+        run: |
+          {
+            echo "NX_CI_EXECUTION_ID=${{ github.run_id }}-${{ github.run_attempt }}-quality-check-types"
+            echo "NX_CLOUD_NO_TIMEOUTS=true"
+            echo "NX_CLOUD_DISTRIBUTED_EXECUTION=false"
+            echo "NX_NO_CLOUD=true"
+          } >> "$GITHUB_ENV"
+
+      - name: Generate GraphQL codegen files
+        run: npx nx run @copilotkit/runtime-client-gql:graphql-codegen
+
+      - name: Run check-types
+        # Invoke nx directly: `pnpm run check-types -- --parallel=1` makes
+        # nx forward --parallel=1 to each package's tsc command instead of
+        # consuming it. --parallel=1 keeps tsc within the runner's 16 GB
+        # RAM: the @copilotkit/runtime check alone peaks near 10 GB.
+        run: npx nx run-many -t check-types --parallel=1
+
   commitlint:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -243,7 +337,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -251,10 +345,10 @@ jobs:
       - name: Setup pnpm
         # Omit `version:` so pnpm/action-setup inherits from the repo's
         # `packageManager` field in package.json (via corepack).
-        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
 
       - name: Use Node.js 20
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 20.x
           # setup-node built-in cache is fork-safe (fork PRs can't write to base repo cache)
@@ -290,7 +384,7 @@ jobs:
       - name: Post fix suggestion on failure
         if: github.event_name == 'pull_request' && steps.commitlint.outcome == 'failure'
         continue-on-error: true
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
             const fs = require('fs');

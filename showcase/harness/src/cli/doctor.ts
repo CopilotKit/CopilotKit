@@ -22,7 +22,7 @@ const _INFRA_OFFSET = Number(process.env.SHOWCASE_INFRA_PORT_OFFSET) || 0;
 const INFRA_PORTS: Record<string, number> = {
   aimock: 4010 + _INFRA_OFFSET,
   pocketbase: 8090 + _INFRA_OFFSET,
-  dashboard: 3200 + _INFRA_OFFSET,
+  dashboard: 3210 + _INFRA_OFFSET,
 };
 
 // ---------------------------------------------------------------------------

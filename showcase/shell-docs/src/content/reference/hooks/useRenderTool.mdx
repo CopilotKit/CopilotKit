@@ -107,6 +107,26 @@ function App() {
 }
 ```
 
+### Disable rendering for a tool
+
+Return an empty fragment to suppress the default UI. The wildcard (`"*"`) needs no schema; a named tool takes a pass-through schema (`z.any()`).
+
+```tsx
+import { z } from "zod";
+
+function App() {
+  // One specific tool…
+  useRenderTool(
+    { name: "searchDocs", parameters: z.any(), render: () => <></> },
+    [],
+  );
+  // …or everything without its own renderer.
+  useRenderTool({ name: "*", render: () => <></> }, []);
+
+  return null;
+}
+```
+
 ## Related
 
 - [`useDefaultRenderTool`](/reference/hooks/useDefaultRenderTool)

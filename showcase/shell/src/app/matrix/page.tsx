@@ -6,6 +6,7 @@ import {
   getCategoryLabel,
 } from "@/lib/registry";
 import { IntegrationsTabs } from "@/components/integrations-tabs";
+import { canonicalDemoPath } from "@/lib/frontend-route";
 
 export default function FeatureMatrixPage() {
   const integrations = getIntegrations();
@@ -127,7 +128,11 @@ export default function FeatureMatrixPage() {
                       >
                         {supported && hasDemo ? (
                           <Link
-                            href={`/integrations/${integration.slug}/${feature.id}`}
+                            href={canonicalDemoPath(
+                              "react",
+                              integration.slug,
+                              feature.id,
+                            )}
                             className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-[var(--accent-dim)] text-[var(--accent)] hover:bg-[var(--accent-light)] transition-colors text-sm"
                             title={`Try ${feature.name} demo`}
                           >

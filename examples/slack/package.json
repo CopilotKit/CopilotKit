@@ -2,25 +2,29 @@
   "name": "slack-example",
   "version": "0.0.1",
   "private": true,
-  "description": "Runnable demo for @copilotkit/bot-slack \u2014 an on-call triage Slack bot backed by Linear + Notion MCP (query/file issues, find/write Notion pages), with a confirm-before-write HITL gate and a live-Slack e2e harness.",
+  "description": "Runnable demo for @copilotkit/channels — an on-call triage bot for Slack, Discord, Telegram, and WhatsApp via umbrella adapter subpaths, backed by Linear + Notion MCP (query/file issues, find/write Notion pages), with a confirm-before-write HITL gate and e2e harnesses.",
   "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "tsx watch app/index.ts",
     "start": "tsx app/index.ts",
+    "channel": "tsx app/managed.ts",
+    "build": "pnpm exec nx run-many -t build -p @copilotkit/channels @copilotkit/runtime",
     "runtime": "tsx runtime.ts",
     "notion-mcp": "tsx scripts/start-notion-mcp.ts",
     "check-types": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "e2e": "tsx e2e/run.ts",
-    "e2e:restart": "tsx e2e/restart-recovery.ts"
+    "e2e:restart": "tsx e2e/restart-recovery.ts",
+    "e2e:telegram": "tsx e2e/telegram-run.ts"
   },
   "dependencies": {
-    "@copilotkit/bot": "~0.0.2",
-    "@copilotkit/bot-discord": "~0.0.1",
-    "@copilotkit/bot-slack": "~0.0.2",
-    "@copilotkit/bot-ui": "~0.0.2",
-    "@copilotkit/runtime": "^1.59.5",
+    "@copilotkit/channels": "workspace:*",
+    "@copilotkit/channels-intelligence": "workspace:*",
+    "@copilotkit/runtime": "workspace:*",
+    "@tanstack/ai": "^0.42.0",
+    "@tanstack/ai-mcp": "^0.2.5",
+    "@tanstack/ai-openai": "^0.17.1",
     "@slack/bolt": "^4.2.0",
     "@slack/types": "^2.21.1",
     "playwright": "^1.49.0",
@@ -33,10 +37,5 @@
     "tsx": "^4.19.2",
     "typescript": "^5.6.3",
     "vitest": "^4.1.3"
-  },
-  "pnpm": {
-    "overrides": {
-      "@ai-sdk/mcp": "1.0.21"
-    }
   }
 }

@@ -48,12 +48,12 @@ import { createHash } from "node:crypto";
 import type { Logger } from "../../types/index.js";
 import type { AlertStateStore } from "../../storage/alert-state-store.js";
 import type { ProducerSchedule } from "./control-plane.js";
-import {
-  FLEET_FAMILIES,
-  periodMsFromCron,
-  type FamilySummaryEntry,
-  type FleetFamily,
-  type MemoizedFamilySummary,
+import { FLEET_FAMILIES, periodMsFromCron } from "./run-view.js";
+import type {
+  FamilySummaryEntry,
+  FleetFamily,
+  MemoizedFamilySummary,
+  WorkerView,
 } from "./run-view.js";
 
 /** Alert-state keying (§9): silence alerts — `rule_id` + `dedupe_key: family`. */
@@ -82,6 +82,48 @@ export const SILENCE_PERIOD_MULTIPLIER = 3;
  * applied along the orthogonal axis. Exported so tests pin the SSOT.
  */
 export const SILENCE_CONSECUTIVE_TICK_THRESHOLD = 3;
+
+/**
+ * Post-bounce drain grace: a family is NOT considered silent while the time
+ * since the fleet's most-recent worker (re)registration is below this many
+ * resolved periods.
+ *
+ * WHY THIS EXISTS — a NORMAL harness deploy rebuilds the shared
+ * `showcase-harness` image and bounces the pool workers (PR #5715: the prod
+ * worker is now in the image-rebuild redeploy scope, so an image push restarts
+ * it). Immediately after the bounce the workers re-register, the producers
+ * re-arm, and every family is legitimately MID-SWEEP: `lastSuccessAt` still
+ * points at the PRE-bounce success, which reads stale against the 3×period
+ * silence gate. Without a bounce-keyed grace, a routine deploy fires a FALSE
+ * "worker family … silent" alert (and the matching §7.4 dashboard banner)
+ * for the whole drain window.
+ *
+ * VALUE = 2: the family needs roughly one full period to enqueue + run its
+ * first post-bounce sweep and a second for headroom against scheduling skew
+ * and a sweep that runs slightly long — it must clear ~1–2 full sweep cycles
+ * before a fresh `lastSuccessAt` can exist. This 2×period bounce-grace TERM is
+ * identical on both surfaces: the §7.4 dashboard banner applies the same
+ * `BOUNCE_GRACE_PERIOD_MULTIPLIER` (=2) keyed off the same worker
+ * `registeredAt` shipped in the `/api/runs` workers strip, so for the grace
+ * window specifically the banner and this Slack alert agree — within two
+ * periods of a bounce neither flags silence, beyond it both can. NOTE the
+ * silence-ONSET thresholds are NOT identical and were never meant to be: the
+ * dashboard treats a family silent at 2×period of staleness, while this
+ * server gate requires 3×period of staleness AND 3 consecutive silent ticks
+ * (see `SILENCE_PERIOD_MULTIPLIER` / `SILENCE_CONSECUTIVE_TICK_THRESHOLD`).
+ * That onset asymmetry is pre-existing / by-design (the dashboard is a
+ * lower-latency visual hint; the pager is deliberately slower to fire) — only
+ * the bounce-grace term is shared. Past the grace with still-no-success → a
+ * GENUINE outage, alerts exactly as before.
+ *
+ * The grace keys off the freshest worker `registeredAt` (NOT CP `bootAtMs`):
+ * a worker can be bounced while the CP stays up (or vice-versa), so the
+ * worker-registration instant is the correct, independent bounce signal.
+ * When the workers strip is empty (no bounce signal — PB strip unavailable or
+ * pre-migration rows) there is nothing to grace against and the monitor
+ * behaves exactly as it did before this change. Exported so tests pin the SSOT.
+ */
+export const BOUNCE_GRACE_PERIOD_MULTIPLIER = 2;
 
 export interface FamilySilenceMonitorDeps {
   /** The SHARED memoized §5.2.1 projection instance (§5.2 — same one the routes get). */
@@ -148,6 +190,24 @@ function lastAttemptText(entry: FamilySummaryEntry): string {
  * else the oldest known batch's `enqueuedAt` (never-succeeded variant), else
  * null (zero batches — stay silent).
  */
+/**
+ * The fleet's most-recent worker (re)registration instant — the bounce signal
+ * the post-bounce drain grace keys off. Returns the freshest parseable
+ * `registeredAt` across the workers strip, or null when none is present (empty
+ * strip / pre-migration rows / unparseable values) — null disables the grace,
+ * preserving pre-change behavior.
+ */
+function freshestBounceMs(workers: readonly WorkerView[]): number | null {
+  let freshest = Number.NaN;
+  for (const worker of workers) {
+    const ms = parseIso(worker.registeredAt);
+    if (!Number.isNaN(ms) && (Number.isNaN(freshest) || ms > freshest)) {
+      freshest = ms;
+    }
+  }
+  return Number.isNaN(freshest) ? null : freshest;
+}
+
 function silenceReference(
   entry: FamilySummaryEntry,
 ): { refMs: number; neverSucceeded: boolean } | null {
@@ -416,6 +476,7 @@ export function createFamilySilenceMonitor(
     monitored: MonitoredFamily,
     entry: FamilySummaryEntry,
     nowMs: number,
+    bounceMs: number | null,
   ): Promise<void> {
     const { fam, periodMs, graceEndMs } = monitored;
 
@@ -440,6 +501,27 @@ export function createFamilySilenceMonitor(
     }
 
     if (nowMs < graceEndMs) return; // boot grace (1×period, §9)
+
+    // Post-bounce drain grace: a NORMAL deploy bounces the pool workers
+    // (PR #5715), after which the family is legitimately mid-sweep and its
+    // pre-bounce `lastSuccessAt` reads stale. While the freshest worker
+    // (re)registration is inside the 2×period drain window, the family is
+    // DRAINING, not silent — suppress, and reset the consecutive-silent
+    // counter so a tick observed during the drain can never accumulate
+    // toward the threshold once the grace lapses. A null bounce instant
+    // (empty workers strip) leaves today's behavior untouched.
+    if (
+      bounceMs !== null &&
+      nowMs - bounceMs < BOUNCE_GRACE_PERIOD_MULTIPLIER * periodMs
+    ) {
+      consecutiveSilentTicks.delete(fam.family);
+      logger.debug("fleet.family-silence.bounce-grace-suppressed", {
+        family: fam.family,
+        bounceAt: iso(bounceMs),
+        graceWindowMs: BOUNCE_GRACE_PERIOD_MULTIPLIER * periodMs,
+      });
+      return;
+    }
 
     // Consecutive-silent-tick gate (Change 3 — 2026-06-17 Cloudflare-WAF
     // incident remediation). The elapsed-time gate above (3×period) shows
@@ -511,6 +593,11 @@ export function createFamilySilenceMonitor(
           });
         }
 
+        // Fleet-wide bounce signal for this cycle: the freshest worker
+        // (re)registration across the shared workers strip. One read serves
+        // every due family (a deploy bounces the whole pool at once).
+        const bounceMs = body !== null ? freshestBounceMs(body.workers) : null;
+
         const metaTrips: Array<{ family: string; sinceMs: number }> = [];
         const metaRecoveries: string[] = [];
         for (const entry of due) {
@@ -534,7 +621,7 @@ export function createFamilySilenceMonitor(
             if (metaAlertActive.has(entry.fam.family)) {
               metaRecoveries.push(entry.fam.family);
             }
-            await evaluateFamily(entry, familyEntry, nowMs);
+            await evaluateFamily(entry, familyEntry, nowMs, bounceMs);
           }
         }
         await postMetaAlert(metaTrips, nowMs);

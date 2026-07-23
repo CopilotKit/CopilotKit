@@ -31,8 +31,18 @@ features:
       description: Triage this thread — summarize and propose Linear issues
       usage_hint: ""
       should_escape: false
+    - command: /preview
+      description: Privately preview the issue I'd file
+      usage_hint: "<issue title>"
+      should_escape: false
+    - command: /file-issue
+      description: Open a form to file a Linear issue
+      usage_hint: ""
+      should_escape: false
 oauth_config:
   scopes:
+    user:
+      - chat:write # user-token write access (e.g. grab-user-token.ts for e2e)
     bot:
       # --- Read what the user said ---
       - app_mentions:read # see @mentions of the bot
@@ -54,8 +64,6 @@ oauth_config:
       - chat:write.customize # per-message username/icon (handy for branding)
       - im:write # open DMs
       - mpim:write # open group DMs
-      - reactions:read
-      - reactions:write # 👀 / ✅ reactions as "thinking" / "done" affordance
       # --- Files (for future image/file passing) ---
       - files:read
       - files:write
@@ -70,6 +78,9 @@ settings:
       - assistant_thread_started # user opened the assistant pane
       - assistant_thread_context_changed # the channel/context the user is viewing
       - message.im # DMs to the bot + assistant-pane messages
+      - message.mpim # messages in group DMs the bot is in
+      # Add message.channels/message.groups only when using
+      # respondTo.threadReplies: "afterBotReply" for legacy plain thread continuation.
   interactivity:
     is_enabled: true
   socket_mode_enabled: true

@@ -21,6 +21,7 @@
  */
 import {
   appendFileSync,
+  existsSync,
   mkdirSync,
   readFileSync,
   readdirSync,
@@ -110,16 +111,17 @@ export function run(opts: RunOptions): void {
   const slotDirs = readdirSync(inputDir, { withFileTypes: true })
     .filter((d) => d.isDirectory() && d.name.startsWith("build-result-"))
     .map((d) => d.name);
+  const singleArtifactPath = join(inputDir, "result.json");
 
   // The aggregator job is gated upstream on `has_changes == 'true'`, so the
   // build matrix is guaranteed non-empty by the time we run. A zero-slot
-  // input dir therefore signals a BROKEN per-slot artifact download (e.g.
+  // input with neither layout therefore signals a BROKEN artifact download (e.g.
   // expired artifacts, wrong run-id, transient download error) — NOT a
   // legitimate empty build set. Silently emitting `any_success=false` with
   // `results=[]` would be indistinguishable from "all builds failed" and
   // would push deploy down the false-green path where it probes the full
   // service set against stale `:latest`. Fail loud instead.
-  if (slotDirs.length === 0) {
+  if (slotDirs.length === 0 && !existsSync(singleArtifactPath)) {
     throw new Error(
       `aggregate-build-results: found 0 build-result-* slot dirs in ${inputDir} — ` +
         `the per-slot artifact download produced nothing; this indicates a broken ` +
@@ -127,7 +129,10 @@ export function run(opts: RunOptions): void {
     );
   }
 
-  const payloads = slotDirs.map((name) => readSlotPayload(inputDir, name));
+  const payloads =
+    slotDirs.length === 0
+      ? [readFileSync(singleArtifactPath, "utf-8")]
+      : slotDirs.map((name) => readSlotPayload(inputDir, name));
 
   const merged = mergeBuildResultFiles(payloads);
   const resultsJson = JSON.stringify(merged);

@@ -1,0 +1,153 @@
+---
+title: "Angular"
+description: "API reference for @copilotkit/angular: the CopilotKit providers, prebuilt chat components, services, and functions for building CopilotKit into an Angular app."
+---
+
+`@copilotkit/angular` provides [providers](/reference/angular/functions/provideCopilotKit), prebuilt chat components, a `CopilotKit` service, and standalone functions for Angular applications. Everything is built on the [AG-UI](https://docs.ag-ui.com) agent protocol.
+
+<Callout type="info">
+  The package targets Angular 20, 21, and 22, and ships as standalone components
+  and providers. Import the main API from `@copilotkit/angular`. MCP Apps uses
+  the `@copilotkit/angular/mcp-apps` entry point. There is no `/v2` subpath.
+</Callout>
+
+## Installation
+
+```sh
+npm install @copilotkit/angular @angular/cdk
+```
+
+`@angular/cdk` and `rxjs` are peer dependencies. If your agent connects directly over AG-UI, also install `@ag-ui/client`.
+
+## Styling
+
+When using the prebuilt UI components, import the stylesheet once in your global styles. It is self-contained, so the chat renders without any other CSS.
+
+```css title="src/styles.css"
+@import "@copilotkit/angular/styles.css";
+```
+
+## Provider setup
+
+Add [`provideCopilotKit`](/reference/angular/functions/provideCopilotKit) to your application providers and configure the runtime connection there. The root `CopilotKit` service reads this application-level configuration.
+
+```ts title="src/app/app.config.ts"
+import { ApplicationConfig } from "@angular/core";
+import { provideCopilotKit } from "@copilotkit/angular";
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideCopilotKit({
+      runtimeUrl: "/api/copilotkit",
+    }),
+  ],
+};
+```
+
+To connect directly to an AG-UI agent without a runtime, pass `selfManagedAgents` instead of `runtimeUrl`:
+
+```ts title="src/app/app.config.ts"
+import { ApplicationConfig } from "@angular/core";
+import { provideCopilotKit } from "@copilotkit/angular";
+import { HttpAgent } from "@ag-ui/client";
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideCopilotKit({
+      selfManagedAgents: {
+        default: new HttpAgent({ url: "http://localhost:8000/" }),
+      },
+    }),
+  ],
+};
+```
+
+Then drop the chat into a standalone component's template:
+
+```ts title="src/app/app.component.ts"
+import { Component } from "@angular/core";
+import { CopilotChat } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-root",
+  standalone: true,
+  imports: [CopilotChat],
+  template: `<copilot-chat />`,
+})
+export class AppComponent {}
+```
+
+## Angular conventions
+
+CopilotKit follows Angular's dependency-injection and signal patterns:
+
+- Register [`provideCopilotKit`](/reference/angular/functions/provideCopilotKit) in application providers.
+- Read reactive state by calling signals such as `agentStore().messages()`.
+- Call injectable helpers from a constructor, field initializer, or another injection context.
+- Import standalone components in the component `imports` array.
+- Customize UI with component inputs, templates, directives, and content projection.
+
+## Lifecycle and rendering environments
+
+Injectable helpers bind their effects, subscriptions, runtime registrations,
+timers, and observers to the owning Angular `DestroyRef`. Call them from a
+field initializer, constructor, or explicit injection context. Do not cache an
+injected controller beyond that injector's lifetime. Application-owned work
+started inside a tool handler, such as a fetch, remains the application's
+responsibility to cancel.
+
+CopilotKit's main chat components use signals and support zoneless change
+detection. Browser-only behavior is inert during server rendering and
+activates after hydration. Keep configuration and
+initial model/input values identical for the server and the first client
+render, avoid running agents or tools on the server, and place
+application-owned DOM work behind an Angular platform guard or
+`afterNextRender`.
+
+A2UI, Open Generative UI, audio capture, and MCP Apps can be present in an SSR
+tree, but their custom elements, media APIs, sandboxes, and iframes become
+interactive only in the browser. See [Angular production and lifecycle](/reference/angular/production-lifecycle)
+for the full setup, cleanup, error, SSR, hydration, and zoneless contract.
+
+## API Reference
+
+<Callout type="info">
+  Looking for tool rendering? Start with
+  [`registerFrontendTool`](/reference/angular/functions/registerFrontendTool),
+  [`registerRenderToolCall`](/reference/angular/functions/registerRenderToolCall),
+  and
+  [`registerHumanInTheLoop`](/reference/angular/functions/registerHumanInTheLoop).
+</Callout>
+
+<Cards>
+  <Card
+    title="UI Components"
+    description="Prebuilt chat, popup, sidebar, and supported component-slot primitives."
+    href="/reference/angular/components/CopilotChat"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="Functions"
+    description="Setup providers and injectable functions for agents, tools, context, and chat labels."
+    href="/reference/angular/functions/provideCopilotKit"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="Services"
+    description="The CopilotKit service: the central handle on agents, tools, runtime connection, and suggestions."
+    href="/reference/angular/services/CopilotKit"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="Directives"
+    description="The CopilotKitAgentContext directive for sharing application state with the agent from a template."
+    href="/reference/angular/directives/CopilotKitAgentContext"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="Public API Inventory"
+    description="The complete root and MCP Apps export contract, including the explicitly internal extension token."
+    href="/reference/angular/public-api"
+    icon={<LinkIcon />}
+  />
+</Cards>

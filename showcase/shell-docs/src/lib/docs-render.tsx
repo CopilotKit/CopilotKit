@@ -28,9 +28,28 @@ export {
 // Nav tree types
 // ---------------------------------------------------------------------------
 
+export type NavNodeVariant = "react-docs-proxy" | "frontend-docs-upcoming";
+
+export type FrontendDocsStatus = "feature-complete" | "early-access";
+
 export type NavNode =
-  | { type: "page"; title: string; slug: string; icon?: string }
-  | { type: "section"; title: string; icon?: string }
+  | {
+      type: "page";
+      title: string;
+      slug: string;
+      href?: string;
+      icon?: string;
+      variant?: NavNodeVariant;
+    }
+  | {
+      type: "section";
+      title: string;
+      icon?: string;
+      variant?: NavNodeVariant;
+      quickstartHref?: string;
+      referenceHref?: string;
+      frontendDocsStatus?: FrontendDocsStatus;
+    }
   | {
       type: "group";
       title: string;
@@ -38,6 +57,7 @@ export type NavNode =
       children: NavNode[];
       defaultOpen?: boolean;
       icon?: string;
+      variant?: NavNodeVariant;
     };
 
 // Section headers (the all-caps separators) carry the only icons in
@@ -130,7 +150,13 @@ const isDev = process.env.NODE_ENV === "development";
 const titleCache = new Map<string, string | null>();
 const metaCache = new Map<
   string,
-  { title?: string; pages?: string[]; root?: boolean } | null
+  {
+    title?: string;
+    pages?: string[];
+    root?: boolean;
+    icon?: string;
+    frontend?: unknown;
+  } | null
 >();
 // Tree-level cache. Even with title/meta cached, `buildNavTree` still
 // allocates ~200 NavNode objects per call and is invoked from every
@@ -164,9 +190,12 @@ export function readTitle(filePath: string): string | null {
   // code sample or example config). Falls back to the first H1 when no
   // frontmatter title is set.
   const fm = extractFrontmatter(raw);
+  const navTitleMatch = fm.match(/^nav_title:\s*["']?(.+?)["']?\s*$/m);
   const fmMatch = fm.match(/^title:\s*["']?(.+?)["']?\s*$/m);
   let title: string | null = null;
-  if (fmMatch) {
+  if (navTitleMatch) {
+    title = navTitleMatch[1].replace(/["']$/, "");
+  } else if (fmMatch) {
     title = fmMatch[1].replace(/["']$/, "");
   } else {
     const headingMatch = raw.match(/^#\s+(.+)$/m);
@@ -176,11 +205,12 @@ export function readTitle(filePath: string): string | null {
   return title;
 }
 
-// Read the `icon:` field from an MDX file's frontmatter. Mirrors
-// `readTitle` so the icon survives the same caching / extraction story
-// (frontmatter-scoped regex, dev cache bypass). Returns the raw spec
-// string (e.g. `"lucide/Paintbrush"`); the bridge resolves it to a
-// React element when building the PageTree.
+// Read the sidebar `icon:` field from an MDX file's frontmatter. Page
+// icons are opt-in: `icon:` can live in frontmatter as metadata, but
+// it only appears in navigation when the page also sets
+// `showIcon: true`. This keeps icons available for targeted surfaces
+// like cookbook partner pages without turning every icon-bearing docs
+// page into an icon row.
 export function readIcon(filePath: string): string | null {
   const cacheKey = `icon:${path.resolve(filePath)}`;
   if (!isDev && titleCache.has(cacheKey)) return titleCache.get(cacheKey)!;
@@ -196,6 +226,11 @@ export function readIcon(filePath: string): string | null {
     return null;
   }
   const fm = extractFrontmatter(raw);
+  const showIcon = /^showIcon:\s*["']?true["']?\s*$/m.test(fm);
+  if (!showIcon) {
+    titleCache.set(cacheKey, null);
+    return null;
+  }
   const match = fm.match(/^icon:\s*["']?(.+?)["']?\s*$/m);
   const icon = match ? match[1].replace(/["']$/, "") : null;
   titleCache.set(cacheKey, icon);
@@ -222,6 +257,7 @@ export function readMeta(dir: string): {
   pages?: MetaPageEntry[];
   root?: boolean;
   icon?: string;
+  frontend?: unknown;
 } | null {
   const metaPath = path.join(dir, "meta.json");
   const cacheKey = path.resolve(metaPath);
@@ -607,7 +643,9 @@ export function buildFrameworkOnlyNav(
     return node;
   };
   return dropEmptySections(
-    appendSharedRootSections(nodes.map(rewrite), sharedSections),
+    appendSharedThreadArchitecturePage(
+      appendSharedRootSections(nodes.map(rewrite), sharedSections),
+    ),
   );
 }
 
@@ -693,6 +731,48 @@ function hasPageSlug(navTree: NavNode[], slug: string): boolean {
     if (node.type === "page") return node.slug === slug;
     if (node.type === "group") return hasPageSlug(node.children, slug);
     return false;
+  });
+}
+
+function findPageBySlug(navTree: NavNode[], slug: string): NavNode | null {
+  for (const node of navTree) {
+    if (node.type === "page" && node.slug === slug) return node;
+    if (node.type === "group") {
+      const match = findPageBySlug(node.children, slug);
+      if (match) return match;
+    }
+  }
+  return null;
+}
+
+function isRichThreadsGroup(
+  node: NavNode,
+): node is Extract<NavNode, { type: "group" }> {
+  return (
+    node.type === "group" &&
+    hasPageSlug(node.children, "threads") &&
+    hasPageSlug(node.children, "headless-threads")
+  );
+}
+
+function appendSharedThreadArchitecturePage(navTree: NavNode[]): NavNode[] {
+  const rootGroup = buildNavTree(CONTENT_DIR).find(
+    (node): node is Extract<NavNode, { type: "group" }> =>
+      isRichThreadsGroup(node),
+  );
+  if (!rootGroup) return navTree;
+
+  const architecturePage = findPageBySlug(
+    rootGroup.children,
+    "premium/threads-explained",
+  );
+  if (architecturePage?.type !== "page") return navTree;
+
+  return navTree.map((node) => {
+    if (!isRichThreadsGroup(node)) return node;
+    if (hasPageSlug(node.children, architecturePage.slug)) return node;
+
+    return { ...node, children: [...node.children, architecturePage] };
   });
 }
 
@@ -985,9 +1065,6 @@ export const SNIPPET_MAP: Record<string, string> = {
   MigrateTo1100: "shared/troubleshooting/migrate-to-1.10.X.mdx",
   MigrateTo182: "shared/troubleshooting/migrate-to-1.8.2.mdx",
   MigrateToV2: "shared/troubleshooting/migrate-to-v2.mdx",
-  Observability: "shared/premium/observability.mdx",
-  ObservabilityConnectors:
-    "shared/troubleshooting/observability-connectors.mdx",
   Overview: "shared/premium/overview.mdx",
   PrebuiltComponents: "shared/basics/prebuilt-components.mdx",
   ProgrammaticControl: "shared/basics/programmatic-control.mdx",
@@ -995,7 +1072,9 @@ export const SNIPPET_MAP: Record<string, string> = {
     "shared/guides/custom-look-and-feel/reasoning-messages.mdx",
   SelfHosting: "shared/premium/self-hosting.mdx",
   Slots: "shared/basics/slots.mdx",
-  Threads: "shared/threads/threads.mdx",
+  HeadlessThreads: "shared/threads/headless-threads.mdx",
+  Threads: "shared/threads/headless-threads.mdx",
+  ThreadsOverview: "shared/threads/overview.mdx",
   ToolRenderer: "shared/generative-ui/tool-rendering.mdx", // alias of ToolRendering
   ToolRendering: "shared/generative-ui/tool-rendering.mdx",
   DefaultToolRendering: "shared/guides/default-tool-rendering.mdx",
@@ -1039,14 +1118,12 @@ export const SUBPATH_TO_COMPONENT: Record<string, string> = {
   "prebuilt-components": "PrebuiltComponents",
   "programmatic-control": "ProgrammaticControl",
   "premium/headless-ui": "HeadlessUI",
-  "premium/observability": "Observability",
   "premium/overview": "Overview",
   "troubleshooting/common-issues": "CommonIssues",
   "troubleshooting/error-debugging": "ErrorDebugging",
   "troubleshooting/migrate-to-1.10.X": "MigrateTo1100",
   "troubleshooting/migrate-to-1.8.2": "MigrateTo182",
   "troubleshooting/migrate-to-v2": "MigrateToV2",
-  "troubleshooting/observability-connectors": "ObservabilityConnectors",
 };
 
 /**
@@ -1587,6 +1664,7 @@ export interface DocFrontmatter {
   defaultFramework?: string;
   defaultCell?: string;
   hideTOC?: boolean;
+  frontend?: unknown;
   /**
    * Early-access gate id (see `src/lib/early-access.ts`). When set,
    * the page renders blurred behind the matching password gate.
@@ -1735,6 +1813,7 @@ export function loadDoc(
   const defaultCell =
     typeof data.snippet_cell === "string" ? data.snippet_cell : undefined;
   const hideTOC = data.hideTOC === true;
+  const frontend = data.frontend;
   const earlyAccess =
     typeof data.earlyAccess === "string" ? data.earlyAccess : undefined;
 
@@ -1747,6 +1826,7 @@ export function loadDoc(
       defaultFramework,
       defaultCell,
       hideTOC,
+      frontend,
       earlyAccess,
     },
   };

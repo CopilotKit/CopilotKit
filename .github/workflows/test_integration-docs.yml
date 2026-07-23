@@ -3,13 +3,19 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - "docs/**"
       - "showcase/shell-docs/src/content/**"
+      - "showcase/shell-docs/model-allowlist.json"
+      - "scripts/validate-doc-model-names.ts"
+      - "scripts/doc-tests/**"
+      - ".github/workflows/test_integration-docs.yml"
   push:
     branches: [main]
     paths:
-      - "docs/**"
       - "showcase/shell-docs/src/content/**"
+      - "showcase/shell-docs/model-allowlist.json"
+      - "scripts/validate-doc-model-names.ts"
+      - "scripts/doc-tests/**"
+      - ".github/workflows/test_integration-docs.yml"
 
 # Least-privilege by default. Individual jobs/steps can widen when needed.
 permissions:
@@ -24,11 +30,11 @@ jobs:
       # id-token: write is required for Depot OIDC auth (runs-on: depot-ubuntu-*).
       id-token: write
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
           cache: pnpm
@@ -44,26 +50,28 @@ jobs:
       # id-token: write is required for Depot OIDC auth (runs-on: depot-ubuntu-*).
       id-token: write
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
           cache: pnpm
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
       - run: pnpm install --frozen-lockfile
-      - name: Install and start aimock
+      - name: Start aimock
         run: |
-          npm install -g @copilotkit/aimock@1.24.1
-          AIMOCK_BIN=$(npm root -g)/../bin/aimock
-          echo "aimock binary: $AIMOCK_BIN"
-          ls -la "$AIMOCK_BIN" || echo "binary not found at expected path"
-          which aimock || echo "aimock not on PATH"
-          nohup node $(npm root -g)/@copilotkit/aimock/dist/cli.js --fixtures scripts/doc-tests/fixtures --validate-on-load > /tmp/aimock.log 2>&1 &
+          # aimock is pinned as a workspace dependency (@copilotkit/showcase-scripts)
+          # and installed from the frozen lockfile above — no ad-hoc `npm install -g`.
+          # The `llmock` bin is aimock's fixtures-based CLI (the package also ships an
+          # `aimock` bin, which is the newer config-only CLI that does NOT accept
+          # --fixtures). Invoke the workspace-installed bin directly from the repo
+          # root so the root-relative --fixtures path resolves correctly (a
+          # `pnpm --filter exec` would run inside showcase/scripts and break the path).
+          nohup ./showcase/scripts/node_modules/.bin/llmock --fixtures scripts/doc-tests/fixtures --validate-on-load > /tmp/aimock.log 2>&1 &
           for i in $(seq 1 60); do
             if curl -sf http://localhost:4010/health; then
               echo "aimock ready"

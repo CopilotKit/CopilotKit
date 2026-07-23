@@ -338,6 +338,7 @@ const FRAMEWORK_ICONS: Record<string, React.ComponentType<IconProps>> = {
   ag2: Ag2Icon,
   llamaindex: LlamaIndexIcon,
   strands: StrandsIcon,
+  "strands-typescript": StrandsIcon,
   "google-adk": AdkIcon,
   "ms-agent-python": MicrosoftIcon,
   "ms-agent-dotnet": MicrosoftIcon,

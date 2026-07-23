@@ -28,6 +28,8 @@
  */
 
 import type { Page as PlaywrightPage } from "playwright";
+
+import { conversationFailureSummary } from "./privacy-safe-diagnostics.js";
 import {
   ASSISTANT_MESSAGE_FALLBACK_SELECTOR,
   ASSISTANT_MESSAGE_HEADLESS_SELECTOR,
@@ -175,6 +177,31 @@ const DEFAULT_RESPONSE_TIMEOUT_MS = 30_000;
 const DEFAULT_SETTLE_MS = 1500;
 const SELECTOR_PROBE_TIMEOUT_MS = 5_000;
 const POLL_INTERVAL_MS = 100;
+
+/**
+ * Compute the done-signal backstop ceiling for a turn from its hard
+ * timeout + settle window. The backstop must be:
+ *   - GENEROUSLY above the settle window so a legitimately-slow done-signal
+ *     (a multi-step run whose final RUN_FINISHED lands late, after the text
+ *     has already settled) is NOT cut off prematurely; and
+ *   - comfortably BELOW the hard `timeoutMs` so a genuine
+ *     settled-but-never-finished hang reds at `done-signal-missing` instead
+ *     of burning the full ceiling (and so a future demotion can never
+ *     false-green on DOM+text alone past this point).
+ * Chosen as the larger of "several settle windows" and 60% of the hard
+ * ceiling, clamped to `timeoutMs`. For the defaults (timeout 30s, settle
+ * 1.5s) this is 18s — 12× the settle window, 12s of headroom before the
+ * hard ceiling.
+ */
+function computeMaxTurnDurationMs(
+  turnTimeoutMs: number,
+  settleMs: number,
+): number {
+  return Math.min(
+    turnTimeoutMs,
+    Math.max(settleMs * 4 + POLL_INTERVAL_MS, Math.floor(turnTimeoutMs * 0.6)),
+  );
+}
 
 /**
  * Bounded cold-start retry budget. A showcase can paint a TRANSIENT error
@@ -365,6 +392,45 @@ export interface ConversationTurn {
    * to settle within this budget fails with `error: "timeout: ..."`.
    */
   responseTimeoutMs?: number;
+  /**
+   * Surface-mount completion criterion (OPT-IN). When set, this turn is
+   * considered complete on `run-finished + a new assistant bubble + the
+   * named render-surface testids mounting` — INSTEAD OF requiring the
+   * assistant TEXT bubble to stabilise for `settleMs`.
+   *
+   * This exists for tool-rendered / declarative-A2UI demos whose
+   * MEANINGFUL output is a RENDERED SURFACE, not assistant prose. In the
+   * canonical case (`langgraph-python` `declarative-gen-ui`, which uses
+   * `a2ui.injectA2UITool: true` → a secondary `render_a2ui` call), the
+   * dashboard paints and the run FINISHES, but no assistant text bubble is
+   * ever emitted, so the text-stability conjunct can never converge and the
+   * turn would otherwise time out with `reason=text-unstable` BEFORE the
+   * turn's `assertions` (the real render check) ever runs.
+   *
+   * Semantics (see `waitForTurnComplete`): the text-stability conjunct is
+   * REPLACED — not relaxed — by a surface-mount conjunct for THIS turn. The
+   * SSE-run-finished and new-bubble (`count > baselineCount`) conjuncts
+   * STILL apply, so this never declares completion before the run actually
+   * finished or before a new assistant bubble appeared — it only swaps WHAT
+   * the third signal is (rendered surface vs. stable text).
+   *
+   *   - `testIds`: every render-surface testid that MUST be present in the
+   *     DOM for the surface to count as mounted (conjunctive — `every`).
+   *   - `minNewMounts`: minimum number of testids (from `testIds`) that must
+   *     be NEWLY mounted vs. the pre-send baseline (default 1). The runner
+   *     snapshots each testid's count BEFORE sending the turn so a leftover
+   *     surface from a prior turn cannot satisfy completion on its own — at
+   *     least `minNewMounts` of the expected testids must have grown.
+   *
+   * Turns that DO NOT set `completeOnMount` are unaffected: the third
+   * conjunct remains text-stability exactly as before (text-based demos —
+   * agentic-chat, tool-rendering, HITL, etc. — keep their existing settle
+   * semantics). This is a per-turn opt-in, not a global mode change.
+   */
+  completeOnMount?: {
+    testIds: readonly string[];
+    minNewMounts?: number;
+  };
 }
 
 export interface ConversationResult {
@@ -507,7 +573,7 @@ export async function runConversation(
     console.debug(
       `[conversation-runner] turn ${turnNum}/${total} — sending message`,
       {
-        input: turn.input,
+        inputLength: turn.input.length,
         timeoutMs: turnTimeoutMs,
       },
     );
@@ -582,6 +648,43 @@ export async function runConversation(
         page as unknown as PlaywrightPage,
       );
 
+      // Multi-step run-start baseline for the PRIMARY DOM done-signal. Snapshot
+      // the page-side `runStartCount` BEFORE `sendTurnMessage` — SAME ordering
+      // rationale as `baselineCount`: the user message hasn't been submitted
+      // yet, so the agent provably cannot have fired RUN_STARTED for THIS turn,
+      // guaranteeing this baseline reflects only prior-turn runs. Threaded into
+      // `waitForTurnComplete` via `baselineRunStartCount` so the
+      // `runStartCount > baselineRunStartCount` gate stays correct even when a
+      // fast agent fires RUN_STARTED before the settle wait begins (capturing
+      // it inside `waitForTurnComplete`, which runs AFTER the send, would be
+      // racy and could kill the PRIMARY signal on fast turns).
+      const baselineRunStartCount = (await readCopilotRunning(page))
+        .runStartCount;
+
+      // Surface-mount completion (opt-in via `turn.completeOnMount`): snapshot
+      // the pre-send testid counts so the settle gate can detect a NEW render
+      // surface for THIS turn (vs. a leftover from a prior turn). Captured
+      // BEFORE `sendTurnMessage` — same ordering rationale as `baselineCount`:
+      // the user message hasn't been submitted yet, so nothing this turn could
+      // have mounted. `null` when the turn opts out → the gate keeps requiring
+      // text-stability (unchanged for every text-based demo).
+      let surfaceReady: ((page: Page) => Promise<boolean>) | null = null;
+      if (turn.completeOnMount) {
+        const baselineTestIds = await readTestIdCounts(
+          page,
+          turn.completeOnMount.testIds,
+        );
+        surfaceReady = buildSurfaceReady(turn.completeOnMount, baselineTestIds);
+        console.debug(
+          `[conversation-runner] turn ${turnNum}/${total} — surface-mount completion armed`,
+          {
+            testIds: turn.completeOnMount.testIds,
+            minNewMounts: turn.completeOnMount.minNewMounts ?? 1,
+            baselineTestIds,
+          },
+        );
+      }
+
       await sendTurnMessage();
 
       console.debug(
@@ -643,8 +746,11 @@ export async function runConversation(
           turnIndex: turnNum,
           settleMs,
           timeoutMs: turnTimeoutMs,
+          maxTurnDurationMs: computeMaxTurnDurationMs(turnTimeoutMs, settleMs),
           baselineBannerText,
           baselineCount,
+          baselineRunStartCount,
+          surfaceReady,
         });
       } catch (settleErr) {
         // Translate a turn-incomplete failure observed alongside a
@@ -707,7 +813,11 @@ export async function runConversation(
           coldStartRetries++;
           console.warn(
             `[conversation-runner] turn ${turnNum}/${total} — cold-start banner fast-fail; reloading + re-sending ONCE before fast-fail`,
-            { error: errorMessage(translatedErr) },
+            {
+              errorCategory: conversationFailureSummary(
+                errorMessage(translatedErr),
+              ),
+            },
           );
           // Reload to clear the transient cold-start banner. Safe on turn 1 —
           // no conversation state exists yet — and the plain-fill re-send below
@@ -748,6 +858,31 @@ export async function runConversation(
           const retryBaselineCount = await countAssistantMessages(
             page as unknown as PlaywrightPage,
           );
+          // Re-snapshot the post-reload run-start baseline BEFORE the
+          // cold-start re-send, mirroring `retryBaselineCount`. page.reload()
+          // tore down the page-side run-lifecycle state, so the live count is
+          // typically 0; capturing it here — before the re-send — keeps the
+          // retry's `runStartCount > baselineRunStartCount` gate measuring the
+          // re-send's NEW run rather than carrying the stale pre-reload
+          // baseline forward.
+          const retryBaselineRunStartCount = (await readCopilotRunning(page))
+            .runStartCount;
+          // Re-arm surface-mount completion against the post-reload baseline.
+          // page.reload() tore down the DOM, so any prior-turn surface is gone
+          // — re-snapshot so the retry's delta gate measures growth from the
+          // fresh (typically empty) state rather than the stale pre-reload one.
+          let retrySurfaceReady: ((page: Page) => Promise<boolean>) | null =
+            null;
+          if (turn.completeOnMount) {
+            const retryBaselineTestIds = await readTestIdCounts(
+              page,
+              turn.completeOnMount.testIds,
+            );
+            retrySurfaceReady = buildSurfaceReady(
+              turn.completeOnMount,
+              retryBaselineTestIds,
+            );
+          }
           await fillAndVerifySend(page, chatInputSelector, turn.input);
           // Re-snapshot the post-reload baseline banner. The page DOM was
           // torn down + repainted, so any banner now visible is the
@@ -767,16 +902,23 @@ export async function runConversation(
           // this attempt throws again (AssistantErroredError) and the outer
           // catch records the turn failure — #5142 stays intact.
           try {
+            const retryTimeoutMs = Math.max(
+              coldStartRetryMinSettleMs(settleMs),
+              turnDeadline - Date.now(),
+            );
             settleResult = await waitForTurnComplete({
               page,
               turnIndex: turnNum,
               settleMs,
-              timeoutMs: Math.max(
-                coldStartRetryMinSettleMs(settleMs),
-                turnDeadline - Date.now(),
+              timeoutMs: retryTimeoutMs,
+              maxTurnDurationMs: computeMaxTurnDurationMs(
+                retryTimeoutMs,
+                settleMs,
               ),
               baselineBannerText: retryBaselineBannerText,
               baselineCount: retryBaselineCount,
+              baselineRunStartCount: retryBaselineRunStartCount,
+              surfaceReady: retrySurfaceReady,
             });
           } catch (retryErr) {
             if (retryErr instanceof BannerVisibleError) {
@@ -820,16 +962,15 @@ export async function runConversation(
           hasAssertions: !!turn.assertions,
         },
       );
-      // Preserve the runner's diagnostic log contract — Phase 0 Task 0.3
-      // / Phase 5 Task 5.1 Step 6 / OPEN ISSUE #4: the bubble-race repro
-      // driver parses `[conversation-runner] turn N/total — settled text
-      // { turnNum, text: '…' }` out of verbose stdout. The settled-text
-      // value is now sourced from `waitForTurnComplete`'s return value
-      // (turn-scoped, cascade-consistent, defect-2 safe) instead of a
-      // separate post-settle `page.evaluate` read.
+      // Emit structural turn metadata only. Prompts and generated response
+      // content are intentionally excluded from CI logs.
       console.debug(
-        `[conversation-runner] turn ${turnNum}/${total} — settled text`,
-        { turnNum, text: settleResult.text.slice(0, 200) },
+        `[conversation-runner] turn ${turnNum}/${total} — settled metadata`,
+        {
+          turnNum,
+          bubbleIndex: settleResult.bubbleIndex,
+          textLength: settleResult.text.length,
+        },
       );
 
       if (turn.assertions) {
@@ -866,13 +1007,16 @@ export async function runConversation(
               querySelector(s: string): unknown;
             };
           };
-          const bodyText =
-            win.document.body?.innerText?.slice(0, 500) ?? "(no body)";
+          const bodyText = win.document.body?.innerText ?? "";
           const hasTextarea = !!win.document.querySelector("textarea");
           const hasErrorBoundary =
             bodyText.includes("Application error") ||
             bodyText.includes("Internal Server Error");
-          return { bodyText, hasTextarea, hasErrorBoundary };
+          return {
+            bodyTextLength: bodyText.length,
+            hasTextarea,
+            hasErrorBoundary,
+          };
         });
       } catch (diagErr) {
         /* diagnostics are best-effort */
@@ -890,7 +1034,7 @@ export async function runConversation(
         );
       }
       console.warn(`[conversation-runner] turn ${turnNum}/${total} — FAILED`, {
-        error: errorMessage(err),
+        errorCategory: conversationFailureSummary(errorMessage(err)),
         turnsCompleted: idx,
         elapsedMs: Date.now() - startedAt,
         ...failureDiagnostics,
@@ -968,6 +1112,102 @@ export async function readUserMessageCount(page: Page): Promise<number> {
 }
 
 /**
+ * Read the current DOM count of each `[data-testid="<id>"]` selector in
+ * ONE browser-side round-trip. Used by the surface-mount completion path
+ * (`ConversationTurn.completeOnMount`) to snapshot the pre-send baseline
+ * and to poll whether the expected render surface has mounted.
+ *
+ * Returns a `{ [testId]: count }` map. On any read error every requested
+ * testid maps to 0 (same resilience strategy as `countAssistantMessages`
+ * / `readUserMessageCount`) so a transient `page.evaluate` hiccup reads as
+ * "surface not mounted yet" rather than throwing out of the settle loop.
+ *
+ * The selectors are passed as an arg into the browser closure (the real
+ * Playwright `Page.evaluate` is variadic — the runner's structural `Page`
+ * threads the second arg through `arguments`), so the reader stays generic
+ * and the caller (a probe script) owns which testids constitute its
+ * surface.
+ */
+export async function readTestIdCounts(
+  page: Page,
+  testIds: readonly string[],
+): Promise<Record<string, number>> {
+  const ids = [...testIds];
+  try {
+    // The selector list is BAKED INTO the closure source via JSON.stringify
+    // rather than passed as a `page.evaluate(fn, arg)` argument. The harness
+    // worker's `page.evaluate` arg-passing does NOT reliably round-trip the
+    // second argument to the browser side (the arg arrives `undefined`), so a
+    // captured-arg closure silently reads an empty selector list and reports
+    // every testid as absent — exactly the `baselineTestIds: {}` failure that
+    // made the A2UI-declarative surface look unmounted. Inlining the literals
+    // matches the established zero-arg convention (`_genuine-shared.ts`'s
+    // `clickByJs`, `d5-gen-ui-declarative.ts`'s `readDeclarativeTestIds`).
+    const code = `
+      (() => {
+        const ids = ${JSON.stringify(ids)};
+        const out = {};
+        for (const id of ids) {
+          out[id] = document.querySelectorAll('[data-testid="' + id + '"]').length;
+        }
+        return out;
+      })()
+    `;
+    const fn = new Function(`return ${code.trim()};`) as () => Record<
+      string,
+      number
+    >;
+    return await page.evaluate(fn);
+  } catch (readErr) {
+    // CVDIAG: surface the previously-silent testid read error. Polled in
+    // the settle loop, so routed through console.debug (still greppable)
+    // to avoid flooding warn-level logs on a transient per-poll hiccup.
+    // Control flow is unchanged — the caller reads "all zero" and keeps
+    // polling.
+    console.debug(
+      formatCvdiag({
+        component: "conversation-runner",
+        boundary: "inbound",
+        status: "error",
+        error: `testid-count read failed: ${errorMessage(readErr).slice(0, 120)}`,
+      }),
+    );
+    const zero: Record<string, number> = {};
+    for (const id of ids) zero[id] = 0;
+    return zero;
+  }
+}
+
+/**
+ * Build a surface-mount completion predicate from a turn's
+ * `completeOnMount` spec and the pre-send baseline testid counts. The
+ * returned predicate resolves `true` once ALL `testIds` are present in the
+ * DOM AND at least `minNewMounts` of them have grown vs. the baseline.
+ *
+ * The "newly mounted" delta gate mirrors the declarative assertion's own
+ * leftover guard: A2UI render nodes accumulate across turns, so an
+ * absolute-presence check would let a turn complete on a prior turn's
+ * leftover surface. Requiring `minNewMounts` of the expected testids to
+ * grow guarantees THIS turn actually painted something.
+ */
+function buildSurfaceReady(
+  spec: { testIds: readonly string[]; minNewMounts?: number },
+  baseline: Record<string, number>,
+): (page: Page) => Promise<boolean> {
+  const ids = [...spec.testIds];
+  const minNewMounts = spec.minNewMounts ?? 1;
+  return async (page: Page): Promise<boolean> => {
+    const current = await readTestIdCounts(page, ids);
+    const allPresent = ids.every((id) => (current[id] ?? 0) > 0);
+    if (!allPresent) return false;
+    const newlyMounted = ids.filter(
+      (id) => (current[id] ?? 0) > (baseline[id] ?? 0),
+    ).length;
+    return newlyMounted >= minNewMounts;
+  };
+}
+
+/**
  * Fill the chat input and press Enter, then verify that a user message
  * actually appeared in the DOM. If no user message is detected (the
  * React hydration race swallowed the keypress), retry up to
@@ -995,7 +1235,7 @@ export async function fillAndVerifySend(
 
   const baseline = await readUserMessageCount(page);
   console.debug("[conversation-runner] fillAndVerifySend — start", {
-    input: input.slice(0, 100),
+    inputLength: input.length,
     selector: chatInputSelector,
     userMessageBaseline: baseline,
     maxAttempts,
@@ -1362,6 +1602,22 @@ export interface WaitForTurnCompleteOpts {
   settleMs: number;
   /** Hard ceiling. Beyond this we throw `TurnNotCompleteError`. */
   timeoutMs: number;
+  /**
+   * Done-signal backstop ceiling, SEPARATE from `timeoutMs`. Guards the
+   * "silent multi-step hang" failure mode: a turn renders a non-empty,
+   * text-stable bubble (DOM + TEXT conjuncts satisfied) but NO trustworthy
+   * done-signal ever confirms — neither the `data-copilot-running`
+   * true→false transition NOR the SSE fetch-counter. Without this, such a
+   * turn would otherwise sit DOM+text-stable until the much larger
+   * `timeoutMs` elapses; worse, a future demotion that completed on
+   * DOM+text alone would FALSE-GREEN a real hang. When DOM + TEXT have
+   * held but no done-signal has confirmed within `maxTurnDurationMs`, the
+   * gate throws `TurnNotCompleteError(reason="done-signal-missing")` so
+   * the hang STILL REDS. `undefined` ⇒ no backstop (legacy callers /
+   * unit-test fakes that never exercise the hang path); the runner passes
+   * it explicitly. Must be ≤ `timeoutMs` to fire before the hard ceiling.
+   */
+  maxTurnDurationMs?: number;
   /** Optional poll cadence. Default 100ms — fast enough for fast-replay aimock. */
   pollIntervalMs?: number;
   /**
@@ -1395,6 +1651,50 @@ export interface WaitForTurnCompleteOpts {
    * fakes that script count progressions keyed to turn ordinals.
    */
   baselineCount?: number;
+  /**
+   * Pre-turn baseline of the page-side run-start count (`runStartCount` from
+   * `data-copilot-running`'s lifecycle summary). Captured by the runner at the
+   * CALL SITE — BEFORE `sendTurnMessage` — mirroring `baselineCount`'s
+   * ordering: the user message hasn't been submitted yet, so the agent
+   * provably cannot have fired RUN_STARTED for THIS turn. The PRIMARY DOM
+   * done-signal gates on `runStartCount > baselineRunStartCount` to confirm "a
+   * NEW run started THIS turn and then stopped".
+   *
+   * Why pre-send matters: capturing the baseline INSIDE `waitForTurnComplete`
+   * (which the runner only calls AFTER `sendTurnMessage`) is RACY — a fast
+   * agent that fires RUN_STARTED between the send and the in-function read
+   * leaves the baseline already-incremented, so `runStartCount >
+   * baselineRunStartCount` can NEVER hold → the PRIMARY DOM signal is DEAD on
+   * fast turns and the turn falls back to the fragile SSE counter (or
+   * false-reds via the done-signal-missing backstop). Threading the pre-send
+   * baseline here closes that race.
+   *
+   * When omitted (unit-test fakes / any caller that doesn't snapshot
+   * pre-send), the function falls back to reading the baseline at turn entry —
+   * the legacy behaviour — so no existing caller breaks.
+   */
+  baselineRunStartCount?: number;
+  /**
+   * Surface-mount completion predicate (OPT-IN — set only by the runner
+   * when the turn carries `completeOnMount`). When provided, the third
+   * settle conjunct is REPLACED: instead of requiring the bubble's TEXT to
+   * be non-empty and stable for `settleMs`, the gate completes once
+   * `surfaceReady(page)` resolves `true` (the expected render surface has
+   * mounted). The SSE-run-finished and new-bubble (`count > baselineCount`)
+   * conjuncts STILL apply, so completion never precedes the run finishing
+   * or a new assistant bubble appearing — only the THIRD signal changes
+   * from "stable text" to "rendered surface".
+   *
+   * `null` / omitted → the text-stability conjunct is used unchanged. This
+   * is how every text-based demo keeps its existing settle semantics — only
+   * a turn that opts in via `completeOnMount` ever sees this predicate.
+   *
+   * Failure classification: when `surfaceReady` is set and the gate times
+   * out, the post-loop reason is `surface-missing` (the surface-mount
+   * analogue of `text-unstable`) so the operator sees the render surface,
+   * not the absent text, was the unmet signal.
+   */
+  surfaceReady?: ((page: Page) => Promise<boolean>) | null;
 }
 
 /** Result of a successful `waitForTurnComplete`. */
@@ -1415,7 +1715,12 @@ export interface WaitForTurnCompleteResult {
  */
 export class TurnNotCompleteError extends Error {
   constructor(
-    readonly reason: "sse-missing" | "dom-missing" | "text-unstable",
+    readonly reason:
+      | "sse-missing"
+      | "dom-missing"
+      | "text-unstable"
+      | "done-signal-missing"
+      | "surface-missing",
     readonly turnIndex: number,
     readonly observedAtMs: number,
     message: string,
@@ -1440,6 +1745,88 @@ async function readRunsFinished(page: Page): Promise<number> {
     );
   } catch {
     return 0;
+  }
+}
+
+/**
+ * Edge-accurate summary of CopilotKit v2's `data-copilot-running`
+ * attribute, latched page-side by the MutationObserver
+ * `attachSseInterceptor` installs (`window.__hk_copilotRunning`). This is
+ * the PRIMARY turn-done signal — transport-independent (driven by the
+ * agent run lifecycle RUN_STARTED/RUN_FINISHED, not a fetch monkeypatch).
+ *
+ * - `attrPresent`     — the `[data-testid="copilot-chat"]` element bearing
+ *                       `data-copilot-running` has been seen. `false` ⇒
+ *                       this demo doesn't render `CopilotChatView` (a
+ *                       headless bring-your-own-UI demo); the gate falls
+ *                       back to the SSE counter.
+ * - `runningNow`      — live attribute value; `null` when never observed.
+ * - `sawRunningTrue`  — latched once the attribute EVER went `true`. The
+ *                       primary done-signal gates on the TRANSITION
+ *                       (saw-true-then-stopped), never on a bare `false`
+ *                       (which is also the never-started baseline).
+ * - `runStartCount`   — count of false→true edges. A multi-step turn
+ *                       toggles between sub-runs; the gate uses a snapshot
+ *                       of this taken at turn start to detect a NEW run
+ *                       beginning after a stop (⇒ not yet complete).
+ * - `lastStoppedAtMs` — wall-clock ms of the most recent true→false edge.
+ */
+export interface CopilotRunningState {
+  attrPresent: boolean;
+  runningNow: boolean | null;
+  sawRunningTrue: boolean;
+  runStartCount: number;
+  lastStoppedAtMs: number;
+}
+
+/**
+ * Read the page-side `__hk_copilotRunning` lifecycle summary. Returns the
+ * "attribute absent / never observed" shape if the global hasn't been
+ * seeded (pre-navigation, or a page where `attachSseInterceptor` never
+ * ran) or if the `evaluate` itself throws — both are equivalent to "no
+ * trustworthy DOM run-signal available" from the gate's vantage, which
+ * routes it to the SSE-counter fallback.
+ */
+async function readCopilotRunning(page: Page): Promise<CopilotRunningState> {
+  const absent: CopilotRunningState = {
+    attrPresent: false,
+    runningNow: null,
+    sawRunningTrue: false,
+    runStartCount: 0,
+    lastStoppedAtMs: 0,
+  };
+  try {
+    const raw = await page.evaluate(
+      () =>
+        (
+          globalThis as unknown as {
+            __hk_copilotRunning?: {
+              attrPresent?: boolean;
+              runningNow?: boolean | null;
+              sawRunningTrue?: boolean;
+              runStartCount?: number;
+              lastStoppedAtMs?: number;
+            };
+          }
+        ).__hk_copilotRunning ?? null,
+    );
+    if (raw === null || typeof raw !== "object") return absent;
+    return {
+      attrPresent: raw.attrPresent === true,
+      runningNow:
+        raw.runningNow === true
+          ? true
+          : raw.runningNow === false
+            ? false
+            : null,
+      sawRunningTrue: raw.sawRunningTrue === true,
+      runStartCount:
+        typeof raw.runStartCount === "number" ? raw.runStartCount : 0,
+      lastStoppedAtMs:
+        typeof raw.lastStoppedAtMs === "number" ? raw.lastStoppedAtMs : 0,
+    };
+  } catch {
+    return absent;
   }
 }
 
@@ -1469,6 +1856,7 @@ export async function waitForTurnComplete(
 ): Promise<WaitForTurnCompleteResult> {
   const { page, turnIndex, settleMs, timeoutMs } = opts;
   const baselineBannerText = opts.baselineBannerText ?? null;
+  const surfaceReady = opts.surfaceReady ?? null;
   const pollIntervalMs = opts.pollIntervalMs ?? POLL_INTERVAL_MS;
   // Defect-2 sentinel: per-turn baseline count of assistant bubbles already
   // in the DOM BEFORE this turn submitted. The gate requires
@@ -1498,9 +1886,58 @@ export async function waitForTurnComplete(
   // stale text) resets the counter — the banner is not a fresh error.
   let consecutiveBannerDiffersFromBaseline = 0;
   let lastBannerText = "";
+  // Done-signal backstop ceiling. Defaults to `timeoutMs` (no early
+  // backstop) when the caller doesn't opt in. Clamped to `timeoutMs` so a
+  // misconfigured larger value can never push the backstop past the hard
+  // ceiling. See `WaitForTurnCompleteOpts.maxTurnDurationMs`.
+  const maxTurnDurationMs = Math.min(
+    opts.maxTurnDurationMs ?? timeoutMs,
+    timeoutMs,
+  );
+  // Multi-step toggle baseline: the page-side run-start count captured BEFORE
+  // this turn submitted. A multi-step turn fires RUN_STARTED/RUN_FINISHED per
+  // sub-run, toggling `data-copilot-running` false→true→false→true→…. By
+  // comparing the LIVE `runStartCount` against this baseline we detect "a
+  // NEW run started after the last stop" and refuse to complete on an
+  // INTERMEDIATE false — completion requires running to have STOPPED and
+  // STAYED stopped (no newer start) for the settle window.
+  //
+  // PREFER the caller's pre-send snapshot (`opts.baselineRunStartCount`). The
+  // runner captures it BEFORE `sendTurnMessage` (mirroring `baselineCount`) so
+  // a fast agent that fires RUN_STARTED before this function even runs cannot
+  // poison the baseline. Falling back to an in-function read here would be
+  // RACY on fast turns — the agent may already have started, making
+  // `runStartCount > baselineRunStartCount` impossible and killing the PRIMARY
+  // DOM signal. The in-function read is retained ONLY as the fallback for
+  // callers (unit-test fakes) that don't pass the opt.
+  const baselineRunStartCount =
+    opts.baselineRunStartCount ??
+    (await readCopilotRunning(page)).runStartCount;
+  // STAYED-STOPPED quiescence tracking (the temporal guard the comments
+  // promise and the gate must actually enforce). A bare `runningNow === false`
+  // edge (`sawStopThisTurn`) is INSTANTANEOUS — true at ANY stop edge,
+  // including the transient INTERMEDIATE stop between two sub-runs of a
+  // multi-step turn. Completing on that edge false-greens the turn before its
+  // final sub-run. We therefore require the stop to have PERSISTED — the same
+  // `runStartCount` observed `runningNow === false` continuously for at least
+  // `settleMs` (mirroring the text path's stability window) with NO newer
+  // run-start. A new run-start (a later false→true edge bumping
+  // `runStartCount`) resets this window, so an intermediate stop can never
+  // satisfy it; only the FINAL stop that STAYS stopped does.
+  //   - `stopStableSince`         : wall-clock ms the current stop edge was
+  //                                 first observed (`null` when not stopped).
+  //   - `stopStableRunStartCount` : the `runStartCount` value that stop edge
+  //                                 belongs to; a change resets the window
+  //                                 (a newer run started since).
+  let stopStableSince: number | null = null;
+  let stopStableRunStartCount = -1;
+  // Records the last time we had NOT yet observed a trustworthy done-signal
+  // while DOM+TEXT were satisfied — drives the `done-signal-missing`
+  // backstop. `null` until DOM+TEXT first hold.
   const pwPage = page as unknown as PlaywrightPage;
   while (Date.now() - startedAt < timeoutMs) {
     const runsFinished = await readRunsFinished(page);
+    const running = await readCopilotRunning(page);
     // Atomic single-evaluate read: `readCascadeStateLast` returns BOTH the
     // count and the text of the LAST bubble in the matched cascade tier in
     // ONE browser-side round-trip. The "last bubble" semantics is the
@@ -1517,7 +1954,78 @@ export async function waitForTurnComplete(
       lastText = text;
       lastChangeAt = now;
     }
+    // SSE fetch-counter signal (the legacy conjunct). FRAGILE: it relies on
+    // the page-side fetch wrapper matching the runtime URL pattern + install
+    // ordering + transport, which misses on variance → healthy demos
+    // false-red. Retained as the FALLBACK done-signal for HEADLESS demos
+    // (which never render `CopilotChatView`, so `data-copilot-running` is
+    // absent), and as a SECONDARY confirmation alongside the DOM signal.
     const sseOk = runsFinished >= turnIndex;
+    // PRIMARY done-signal edge — the `data-copilot-running` true→false
+    // TRANSITION. Trustworthy ONLY when the attribute is present
+    // (`attrPresent`); it is driven directly by the agent run lifecycle
+    // (RUN_STARTED → true, RUN_FINISHED → false) and is transport-
+    // independent (no fetch monkeypatch). We gate on the TRANSITION
+    // (saw-running-then-stopped), NOT a bare `runningNow === false`, because
+    // `false` is also the never-started baseline. Multi-step safety: we
+    // additionally require that at least one run started THIS turn —
+    // `runningNow === false` AND `sawRunningTrue` AND
+    // `runStartCount > baselineRunStartCount` — so the latest edge for this
+    // turn is a STOP. A subsequent false→true edge bumps `runStartCount` and
+    // flips `runningNow` back to true, so this EDGE predicate goes false again
+    // on an intermediate stop. CRUCIAL: this is only the INSTANTANEOUS edge —
+    // it is true at ANY `runningNow===false` poll, including the transient
+    // intermediate stop between sub-runs. Completion is NOT allowed to fire on
+    // the bare edge; it requires the STAYED-STOPPED quiescence below.
+    const sawStopThisTurn =
+      running.sawRunningTrue &&
+      running.runStartCount > baselineRunStartCount &&
+      running.runningNow === false;
+    // STAYED-STOPPED quiescence bookkeeping. Track that the stop has PERSISTED
+    // for `settleMs` on the SAME `runStartCount` (no newer run started). A new
+    // run-start (`runStartCount` changed) or a non-stop poll resets the
+    // window, so an intermediate stop — immediately followed by a re-start
+    // that bumps `runStartCount` — can never accumulate the window; only the
+    // FINAL stop that stays stopped does. This is the temporal guard the
+    // `data-copilot-running` done-signal needs so completion cannot fire on a
+    // transient intermediate edge (mirroring the text path's `settleMs`).
+    if (sawStopThisTurn) {
+      if (running.runStartCount !== stopStableRunStartCount) {
+        // First poll of a (new) stop edge for this run generation: arm the
+        // window. A bumped `runStartCount` here means a newer run started and
+        // then stopped — a DIFFERENT stop edge — so we re-arm from `now`.
+        stopStableSince = now;
+        stopStableRunStartCount = running.runStartCount;
+      }
+    } else {
+      // Not stopped this poll (still running, re-started, or never started):
+      // disarm — a stop must be CONTINUOUS across the settle window.
+      stopStableSince = null;
+      stopStableRunStartCount = -1;
+    }
+    const stopQuiescent =
+      sawStopThisTurn &&
+      stopStableSince !== null &&
+      now - stopStableSince >= settleMs;
+    const domSignalAvailable = running.attrPresent;
+    // The DONE-signal. When the trustworthy DOM signal is AVAILABLE it is the
+    // SOLE done-signal: the `data-copilot-running` true→false transition that
+    // has STAYED stopped for the settle window (`stopQuiescent`) — and ONLY
+    // that. Requiring quiescence (not the bare `sawStopThisTurn` edge) is what
+    // prevents completion on a transient INTERMEDIATE stop between sub-runs —
+    // the false-green the surface-mount path (which has no text-stability
+    // window of its own) was exposed to. The fragile SSE fetch-counter must
+    // NOT be able to satisfy the done-signal here, because on a MULTI-STEP
+    // turn `sseOk = runsFinished >= turnIndex` goes true after the FIRST
+    // sub-run's RUN_FINISHED and STAYS true for the rest of the turn — so an
+    // `|| sseOk` disjunct would let that stale counter SOLELY drive completion
+    // on an INTERMEDIATE stop (a new sub-run still to come). SSE is the
+    // FALLBACK done-signal ONLY when the DOM signal is unavailable (headless
+    // demos never render `CopilotChatView`, so `data-copilot-running` is
+    // absent) — never an OR-trigger alongside a present DOM signal. (The SSE
+    // counter is monotonic per turn and the headless path has no run-start
+    // generations to distinguish, so it carries no transient-edge hazard.)
+    const doneSignalOk = domSignalAvailable ? stopQuiescent : sseOk;
     // Defect-2 protection: a new bubble has appeared for THIS turn — not
     // just "any bubble exists". `count > baselineCount` rejects a leftover
     // bubble from a prior turn while accepting multi-step turns where >1
@@ -1525,11 +2033,126 @@ export async function waitForTurnComplete(
     const domOk = count > baselineCount;
     const textOk =
       text !== null && text.trim().length > 0 && now - lastChangeAt >= settleMs;
-    if (sseOk && domOk && textOk) {
+    // Third conjunct: text-stability by default, OR surface-mount when the
+    // turn opted in via `completeOnMount` (surfaceReady != null). The
+    // surface-mount path is checked ONLY once the done-signal + DOM hold, so
+    // completion still requires the run to have finished and a new assistant
+    // bubble to exist — we only swap WHAT the third signal is (rendered
+    // surface vs. stable text). This is what makes the tool-rendered
+    // A2UI-declarative demo (no assistant text bubble ever stabilises)
+    // complete on its rendered dashboard instead of timing out.
+    // ATOMICITY + EFFICIENCY: read the live surface state AT MOST ONCE per
+    // poll and reuse the single value for BOTH the main-completion conjunct
+    // (`thirdOk`) and the `done-signal-missing` backstop conjunct
+    // (`thirdConjunctHeld`) below. Previously `surfaceReady(page)` — a real
+    // `page.evaluate` DOM round-trip — was read once for `thirdOk` (gated on
+    // `doneSignalOk && domOk` via short-circuit) AND again for
+    // `thirdConjunctHeld`, so a poll where the done-signal + DOM held but the
+    // surface had NOT yet mounted paid TWO round-trips and discarded the
+    // second. The two reads
+    // were also NON-ATOMIC: a surface that mounts BETWEEN them makes the two
+    // conjuncts observe DIFFERENT live values within one iteration — a latent
+    // disagreement hazard. A single read removes the wasted round-trip and
+    // guarantees `thirdOk` and `thirdConjunctHeld` agree on the same value.
+    // `null` (text-path) skips the read entirely.
+    const surfaceMounted =
+      surfaceReady !== null ? await surfaceReady(page) : false;
+    const thirdOk =
+      surfaceReady !== null ? doneSignalOk && domOk && surfaceMounted : textOk;
+    if (doneSignalOk && domOk && thirdOk) {
       // bubbleIndex returned = last bubble in the matched tier at the
       // moment of return, so callers consuming the assertions ctx see the
-      // same bubble whose text settled the gate.
-      return { bubbleIndex: count - 1, text: text! };
+      // same bubble whose text settled (or whose turn's surface mounted).
+      return { bubbleIndex: count - 1, text: text ?? "" };
+    }
+    // DONE-SIGNAL BACKSTOP — catches the silent multi-step hang and REDS
+    // it EARLY (at `maxTurnDurationMs`, well before the hard `timeoutMs`).
+    // GATED on the trustworthy DOM signal being AVAILABLE (`domSignalAvailable`
+    // / `attrPresent === true`) — see the DOM-SIGNAL GATE note below. When the
+    // DOM signal is present and DOM + the third conjunct (text-stable /
+    // surface-mounted) have held but the done-signal has NOT confirmed
+    // (`!doneSignalOk` — the `data-copilot-running` true→false transition never
+    // STAYED stopped) by `maxTurnDurationMs`, the bubble is painted and settled
+    // yet the run never finished → throw RED rather than waiting out the full
+    // `timeoutMs` (and rather than EVER false-greening on DOM+text alone). The
+    // log/error below dumps BOTH raw counters for diagnosis. Classified
+    // `done-signal-missing` so the operator sees the missing completion, not
+    // the (present) text/surface. HEADLESS turns (`attrPresent === false`) are
+    // NOT eligible for this early backstop — they have no authoritative signal
+    // that can be "missing" and their lagging SSE counter must be allowed the
+    // full `timeoutMs`; a genuinely-stuck headless turn reds at the hard
+    // ceiling as `sse-missing` via the post-loop classifier. Reuses the single
+    // per-poll `surfaceMounted` read (see ATOMICITY note above) so this
+    // backstop conjunct and `thirdOk` agree on the same live surface value.
+    //
+    // RUNNING GUARD (`running.runningNow !== true`): the backstop must NEVER
+    // red a turn that is still LEGITIMATELY running. A gen-UI turn can paint
+    // its surface early while the run is still going; its stop edge may simply
+    // land after `maxTurnDurationMs` but before the hard `timeoutMs`. Without
+    // this guard such a turn false-REDS the moment `maxTurnDurationMs` elapses
+    // even though it is healthily in flight. The backstop's job is the
+    // painted-and-settled-but-finished-signal-MISSING case, where the run is
+    // NOT currently running (`runningNow` is false, or absent → `null`). A
+    // genuinely hung run whose `runningNow` is stuck `true` still reds — at
+    // the hard `timeoutMs` via the post-loop classifier, not here.
+    //
+    // ARMING-STOP GUARD (`stopStableSince === null`): once a stop edge has
+    // been observed it is ARMING toward quiescence — the very next poll(s) may
+    // satisfy the `settleMs` STAYED-STOPPED window and COMPLETE the turn. If
+    // `maxTurnDurationMs` happens to have already elapsed while the run was
+    // still in flight, the run's stop edge lands AFTER the backstop deadline;
+    // without this guard the backstop would red on the FIRST stopped poll,
+    // before the quiescence window (`settleMs`) could be satisfied — racing
+    // the legitimate completion it would otherwise produce one poll later. We
+    // therefore defer the backstop while a stop edge is arming. A genuine hang
+    // never arms a stop (`sawStopThisTurn` stays false → `stopStableSince`
+    // stays `null`), so the backstop still reds it.
+    //
+    // DOM-SIGNAL GATE (`domSignalAvailable` / `running.attrPresent === true`):
+    // the EARLY (`maxTurnDurationMs`) backstop applies ONLY when the
+    // trustworthy DOM run-signal is AVAILABLE. With the DOM signal present,
+    // `!doneSignalOk` means the `data-copilot-running` true→false transition we
+    // SHOULD have seen has not arrived — a meaningful "the run lifecycle says
+    // there should be a transition but there isn't" hang signal — so redding
+    // early (rather than waiting out the full `timeoutMs`) is correct. For
+    // HEADLESS turns (`attrPresent === false`: no `CopilotChatView`, so
+    // `data-copilot-running` is absent) there is NO authoritative done-signal
+    // that can be "missing"; the SOLE signal is the fragile SSE fetch-counter,
+    // which the comments above document as prone to LAGGING. Early-redding a
+    // healthy-but-lagging headless turn at `maxTurnDurationMs` (≈0.6×timeoutMs)
+    // is a FALSE-RED on the exact fragile-SSE mode this PR exists to eliminate
+    // — origin/main (no backstop) let such a turn run to the full timeout, by
+    // which point the counter usually catches up (→ green). Both of the guards
+    // above are INERT for headless (`runningNow` is `null`, never `true`;
+    // `sawRunningTrue` is false so `stopStableSince` stays `null`), so without
+    // this gate the early backstop would fire on every painted+settled headless
+    // turn whose SSE counter merely lagged. A GENUINELY-stuck headless turn
+    // (counter never catches up) still REDS — at the hard `timeoutMs` via the
+    // post-loop classifier as `sse-missing`, exactly as origin/main did.
+    const thirdConjunctHeld = surfaceReady !== null ? surfaceMounted : textOk;
+    if (
+      domSignalAvailable &&
+      !doneSignalOk &&
+      running.runningNow !== true &&
+      stopStableSince === null &&
+      domOk &&
+      thirdConjunctHeld &&
+      now - startedAt >= maxTurnDurationMs
+    ) {
+      console.warn(
+        formatCvdiag({
+          component: "conversation-runner",
+          boundary: "inbound",
+          status: "error",
+          error: `done-signal-missing backstop: turn ${turnIndex} bubble painted + settled but neither data-copilot-running transition nor SSE counter confirmed within ${maxTurnDurationMs}ms (attrPresent=${running.attrPresent}, runningNow=${String(running.runningNow)}, sawRunningTrue=${running.sawRunningTrue}, runStartCount=${running.runStartCount}, baselineRunStartCount=${baselineRunStartCount}, runsFinished=${runsFinished})`,
+        }),
+      );
+      throw new TurnNotCompleteError(
+        "done-signal-missing",
+        turnIndex,
+        now - startedAt,
+        `waitForTurnComplete: turn ${turnIndex} bubble settled but no done-signal (data-copilot-running transition or SSE counter) confirmed within maxTurnDurationMs=${maxTurnDurationMs}ms (reason=done-signal-missing, attrPresent=${running.attrPresent}, runningNow=${String(running.runningNow)}, runStartCount=${running.runStartCount}, runsFinished=${runsFinished}, count=${count})`,
+      );
     }
     // Pre-conjunct banner fast-fail guard. We ONLY fire fast-fail when the
     // assistant hasn't yet produced a response for THIS turn (domOk =
@@ -1580,17 +2203,62 @@ export async function waitForTurnComplete(
   // exactly between the last poll and the deadline should classify as
   // "we didn't see it in time", which the final read reproduces faithfully.
   const runsFinishedFinal = await readRunsFinished(page);
+  const runningFinal = await readCopilotRunning(page);
   const countFinal = await countAssistantMessages(pwPage);
-  const reason: TurnNotCompleteError["reason"] =
-    runsFinishedFinal < turnIndex
+  // Recompute the loop's done-signal predicate at the final read so the
+  // classifier agrees with the gate: with the DOM signal available the
+  // done-signal is SOLELY "saw a stop THIS turn" (the trustworthy DOM
+  // transition); the fragile SSE counter is NOT an OR-trigger here (it would
+  // false-green an intermediate multi-step stop — see the loop predicate).
+  // Headless (DOM signal absent) falls back to the SSE counter alone.
+  const sawStopFinal =
+    runningFinal.sawRunningTrue &&
+    runningFinal.runStartCount > baselineRunStartCount &&
+    runningFinal.runningNow === false;
+  const doneSignalOkFinal = runningFinal.attrPresent
+    ? sawStopFinal
+    : runsFinishedFinal >= turnIndex;
+  const domOkFinal = countFinal > baselineCount;
+  // Precedence: blame the earliest signal that hadn't arrived. The blamed
+  // reason differs by whether the trustworthy DOM run-signal was available.
+  //
+  //   1. No new bubble for this turn (`!domOkFinal`):
+  //        - HEADLESS (attribute absent): the legacy SSE-counter conjunct is
+  //          the only done-signal; if it never caught up, blame `sse-missing`
+  //          (preserves the pre-fix headless classification + operator
+  //          log-greps); otherwise `dom-missing`.
+  //        - DOM-signal present: `dom-missing` (nothing rendered).
+  //   2. A bubble rendered (`domOkFinal`) but the done-signal never confirmed
+  //      (`!doneSignalOkFinal`):
+  //        - DOM-signal present: `done-signal-missing` — the
+  //          `data-copilot-running` true→false transition never fired (the
+  //          SOLE done-signal when the DOM signal is available). This is the
+  //          silent-hang case the backstop reds. The SSE counter is NOT
+  //          consulted here: with the DOM signal present a bare missing SSE
+  //          counter is never blamed as `sse-missing` (that WAS the false-red),
+  //          and a PRESENT-but-stale SSE counter must not green an
+  //          intermediate multi-step stop — both fold into the DOM-transition
+  //          decision, classified `done-signal-missing`.
+  //        - HEADLESS: the SSE counter is the sole done-signal; a missing one
+  //          stays `sse-missing` (legacy semantics — the headless path has no
+  //          DOM transition to fold into `done-signal-missing`).
+  //   3. The done-signal DID confirm but the third conjunct never settled →
+  //      `surface-missing` (surface-mount mode) / `text-unstable`.
+  const reason: TurnNotCompleteError["reason"] = !domOkFinal
+    ? !runningFinal.attrPresent && runsFinishedFinal < turnIndex
       ? "sse-missing"
-      : countFinal <= baselineCount
-        ? "dom-missing"
+      : "dom-missing"
+    : !doneSignalOkFinal
+      ? runningFinal.attrPresent
+        ? "done-signal-missing"
+        : "sse-missing"
+      : surfaceReady !== null
+        ? "surface-missing"
         : "text-unstable";
   throw new TurnNotCompleteError(
     reason,
     turnIndex,
     Date.now() - startedAt,
-    `waitForTurnComplete: turn ${turnIndex} did not complete within ${timeoutMs}ms (reason=${reason}, runsFinished=${runsFinishedFinal}, count=${countFinal})`,
+    `waitForTurnComplete: turn ${turnIndex} did not complete within ${timeoutMs}ms (reason=${reason}, runsFinished=${runsFinishedFinal}, count=${countFinal}, attrPresent=${runningFinal.attrPresent}, runningNow=${String(runningFinal.runningNow)}, runStartCount=${runningFinal.runStartCount})`,
   );
 }

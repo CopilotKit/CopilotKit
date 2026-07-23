@@ -148,21 +148,30 @@ layer.
 - Action: tracked in follow-up PR; bundled with the
   `a2ui-fixed-schema` renderer-host fix.
 
-### `gen-ui-agent` — RED (state never reaches frontend)
+### `gen-ui-agent` — GREEN (reclaimed; the react-core premise was stale)
 
-- D6 status: RED — `StepsPanel` stays in its placeholder "No plan yet"
-  state for the full run.
-- This PR addressed: backend `set_steps` tool emits `STATE_DELTA`
-  correctly (verified in `tanstack-factory.ts`), factory wiring is sound
-  (✓).
-- What's missing: the frontend `useAgent` / `useCoAgent` subscriber
-  receives no state update — there is a wire-up gap between AG-UI
-  `STATE_DELTA` emission and the React hook's consumer. The placeholder
-  never flips to the rendered plan.
-- Suspected fix location: `packages/react-core` (AG-UI middleware /
-  `useAgent` / `useCoAgent` state-subscription path), not the BIA
-  integration.
-- Action: tracked in follow-up PR against `packages/react-core`.
+- D6 status: GREEN — the cell passes the D6 probe end-to-end. The earlier
+  claim (a `STATE_DELTA → useAgent` state-subscription gap in
+  `@copilotkit/react-core`) was **stale and is now refuted** by local D6
+  runs (3-turn probe, all assertions passed, `1 passed`, `green`).
+- Why it works: the backend `set_steps` server-tool result is converted to
+  a `STATE_DELTA` with `[{op:"add", path:"/steps", value:steps}]` in
+  `src/lib/factory/tanstack-factory.ts` (the `set_steps` branch). `add`
+  (not `replace`) is used deliberately so the patch lands even before
+  `/steps` exists and `@ag-ui/client@0.0.57` never swallows it as
+  `OPERATION_PATH_UNRESOLVABLE`. `@ag-ui/client`'s `AbstractAgent` applies
+  the patch to `agent.state` and fires `onStateChanged`; the core
+  state-manager's `handleStateDelta` saves it and fans `onStateChanged` to
+  subscribers; `useAgent` re-renders the page off `agent.state.steps`. The
+  wire-up is complete in the published kit — no react-core change is
+  required.
+- Evidence: the three-turn probe
+  (`harness/src/probes/scripts/d5-gen-ui-agent.ts`) passes all assertions,
+  including the `agent-state-card` + `≥2 [data-testid="agent-step"]` rows.
+  The `set_steps → STATE_DELTA(add)` workaround already merged in
+  `tanstack-factory.ts` closed the gap this note originally described.
+- Action: none — fully supported and counted. The earlier "follow-up PR
+  against `packages/react-core`" item is obsolete.
 
 ### headless-complete server-tool reprompt loop — resolved via sequenceIndex gating
 

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   runConversation,
   fillAndVerifySend,
@@ -6,8 +6,14 @@ import {
   waitForContentAndSend,
   readErrorBanner,
   AssistantErroredError,
+  waitForTurnComplete,
+  TurnNotCompleteError,
 } from "./conversation-runner.js";
-import type { ConversationTurn, Page } from "./conversation-runner.js";
+import type {
+  ConversationTurn,
+  Page,
+  CopilotRunningState,
+} from "./conversation-runner.js";
 
 /**
  * Unit tests for the D5 conversation runner helper. Page is a structural
@@ -72,6 +78,20 @@ interface PageScript {
   // re-paints fresh after the reload, so the 2nd settle re-snapshots a clean
   // baseline and fast-fails again — #5142 stays intact across the retry).
   reloadReplaysQueues?: boolean;
+  // Scripted generator for the CopilotKit v2 run-lifecycle summary
+  // (`window.__hk_copilotRunning`) that `waitForTurnComplete` reads as its
+  // PRIMARY done-signal. Called once per `__hk_copilotRunning` evaluate; the
+  // generator owns its own poll-to-poll progression (e.g. attribute absent →
+  // running true → running false). When omitted, the fake returns the
+  // "attribute absent" shape so the gate falls back to the SSE counter —
+  // every pre-existing count-driven test keeps its original semantics.
+  copilotRunning?: () => {
+    attrPresent: boolean;
+    runningNow: boolean | null;
+    sawRunningTrue: boolean;
+    runStartCount: number;
+    lastStoppedAtMs: number;
+  };
 }
 
 /**
@@ -126,6 +146,20 @@ function wrapEvaluateForUserMessages(
     // branch.
     if (body.includes("__hk_runsFinished")) {
       return latestCount as never;
+    }
+    // CopilotKit v2 run-lifecycle summary (`__hk_copilotRunning`) — the
+    // PRIMARY done-signal. These user-message helpers never simulate the
+    // chat-view attribute, so return the "attribute absent" shape; the gate
+    // then falls back to the synthesised SSE counter above (unchanged
+    // semantics for every test routed through this helper).
+    if (body.includes("__hk_copilotRunning")) {
+      return {
+        attrPresent: false,
+        runningNow: null,
+        sawRunningTrue: false,
+        runStartCount: 0,
+        lastStoppedAtMs: 0,
+      } as never;
     }
     // Atomic cascade-state read (`readCascadeState`): returns BOTH the
     // count and the indexed text from the SAME cascade tier in ONE
@@ -286,6 +320,24 @@ function makePage(script: PageScript = {}): Page {
       if (fnBody.includes("__hk_runsFinished")) {
         return latestCount as never;
       }
+      // CopilotKit v2 run-lifecycle summary (`__hk_copilotRunning`). The
+      // post-fix `waitForTurnComplete` reads this as its PRIMARY done-signal.
+      // Tests opt in by scripting `copilotRunning` (a generator keyed to the
+      // running-attribute state); when unscripted we return the
+      // "attribute absent" shape so the gate falls back to the SSE counter —
+      // exactly the behaviour every pre-existing count-based test relies on.
+      if (fnBody.includes("__hk_copilotRunning")) {
+        if (script.copilotRunning) {
+          return script.copilotRunning() as never;
+        }
+        return {
+          attrPresent: false,
+          runningNow: null,
+          sawRunningTrue: false,
+          runStartCount: 0,
+          lastStoppedAtMs: 0,
+        } as never;
+      }
       // Error-banner visibility probe references "copilot-error-banner".
       // Routed before the message-count branches so it gets its own
       // scripted queue. Defaults to `false` (no banner) when unscripted
@@ -421,6 +473,44 @@ function makePage(script: PageScript = {}): Page {
 }
 
 describe("runConversation", () => {
+  it("keeps prompts, assistant content, and assertion payloads out of CI logs", async () => {
+    const debug = vi.spyOn(console, "debug").mockImplementation(() => {});
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const privatePrompt = "PRIVATE_PROMPT_DO_NOT_LOG";
+    const privateAssertion = "PRIVATE_ASSERTION_PAYLOAD_DO_NOT_LOG";
+    const privateAssistantText = "assistant-bubble-text-1";
+    const page = makePage({
+      evaluateValues: [0, 0, 1, 1, 1, 1, 1, 1, 1, 1],
+    });
+
+    try {
+      const result = await runConversation(
+        page,
+        [
+          {
+            input: privatePrompt,
+            assertions: async () => {
+              throw new Error(privateAssertion);
+            },
+          },
+        ],
+        { assistantSettleMs: 50 },
+      );
+
+      // The in-memory result retains the original error so the bounded matrix
+      // classifier can identify the failure. Only operator-visible logs must
+      // omit content-bearing values.
+      expect(result.error).toBe(privateAssertion);
+      const emitted = JSON.stringify([...debug.mock.calls, ...warn.mock.calls]);
+      expect(emitted).not.toContain(privatePrompt);
+      expect(emitted).not.toContain(privateAssistantText);
+      expect(emitted).not.toContain(privateAssertion);
+    } finally {
+      debug.mockRestore();
+      warn.mockRestore();
+    }
+  }, 10_000);
+
   it("happy path: 3 turns succeed and run assertions in order", async () => {
     const recorded = { fills: [] as string[], presses: [] as string[] };
     // Each turn must see the assistant-message count grow then stabilise.
@@ -1385,6 +1475,15 @@ describe("runConversation", () => {
         if (body.includes("__hk_runsFinished")) {
           return assistantCount as never;
         }
+        if (body.includes("__hk_copilotRunning")) {
+          return {
+            attrPresent: false,
+            runningNow: null,
+            sawRunningTrue: false,
+            runStartCount: 0,
+            lastStoppedAtMs: 0,
+          } as never;
+        }
         if (
           body.includes("querySelectorAll") &&
           body.includes("textContent") &&
@@ -1853,6 +1952,18 @@ describe("runConversation", () => {
         if (fn.toString().includes("__hk_runsFinished")) {
           return (evalCount === 0 ? 0 : 2) as never;
         }
+        // This bare-document fake never renders the v2 chat-view attribute
+        // — return the "attribute absent" shape so `waitForTurnComplete`
+        // routes to the SSE-counter fallback above (unchanged semantics).
+        if (fn.toString().includes("__hk_copilotRunning")) {
+          return {
+            attrPresent: false,
+            runningNow: null,
+            sawRunningTrue: false,
+            runStartCount: 0,
+            lastStoppedAtMs: 0,
+          } as never;
+        }
         // Patch globalThis.document with our fake for the duration
         // of the evaluate call. The selector-fn closes over
         // globalThis at runtime, mirroring the browser-side execution.
@@ -1959,6 +2070,17 @@ describe("runConversation", () => {
         // poll has at least 2 RUN_FINISHED equivalents.
         if (fn.toString().includes("__hk_runsFinished")) {
           return (evalCount === 0 ? 1 : 2) as never;
+        }
+        // Bare-document fake — no v2 chat-view attribute; return absent so
+        // the gate uses the SSE-counter fallback (unchanged semantics).
+        if (fn.toString().includes("__hk_copilotRunning")) {
+          return {
+            attrPresent: false,
+            runningNow: null,
+            sawRunningTrue: false,
+            runStartCount: 0,
+            lastStoppedAtMs: 0,
+          } as never;
         }
         // Patch document + getComputedStyle so the error-banner probe
         // runs its real "no banner" path (see the narrowing test above).
@@ -2185,6 +2307,220 @@ describe("runConversation", () => {
     expect(result.failure_turn).toBe(1);
     expect(result.error).toContain("non-error string boom");
   });
+});
+
+describe("runConversation surface-mount completion (completeOnMount)", () => {
+  /**
+   * Purpose-built fake modelling the A2UI-declarative completion shape:
+   * the run FINISHES and a new assistant bubble appears, but the bubble's
+   * scoped TEXT is ALWAYS EMPTY (the demo emits a `render_a2ui` surface,
+   * not assistant prose) — so the default text-stability conjunct can
+   * never converge. A configurable set of render-surface testids mounts
+   * (or never mounts, for the integrity/red case).
+   *
+   * Routes `page.evaluate` by inspecting the closure body, mirroring
+   * `makePage`'s dispatch but with two key differences:
+   *   - the cascade-state read always returns non-empty `count` with
+   *     `text: ""` (empty → text-stability impossible), and
+   *   - the `readTestIdCounts` closure (body has `data-testid` + builds an
+   *     `out` map, no `{ count`) returns the scripted per-testid counts.
+   */
+  function makeSurfacePage(opts: {
+    /** Per-testid count returned AFTER the surface "mounts". */
+    mounted: Record<string, number>;
+    /**
+     * Polls before the surface mounts — until then `readTestIdCounts`
+     * returns all-zero. Default 1 (mounts almost immediately). Set high
+     * (or never-mounting via `neverMount`) to model a broken render.
+     */
+    mountAfterPolls?: number;
+    /** When true the surface NEVER mounts (integrity/red case). */
+    neverMount?: boolean;
+  }): Page {
+    const mountAfter = opts.mountAfterPolls ?? 1;
+    let surfacePolls = 0;
+    // Track whether the user message has been submitted. Before send the
+    // assistant-bubble count is 0 (the pre-send `baselineCount` snapshot);
+    // after the Enter press a new bubble exists (count=1) so the gate's
+    // `count > baselineCount` (domOk) conjunct holds for THIS turn.
+    let sent = false;
+    return {
+      async waitForSelector() {},
+      async fill() {},
+      async press() {
+        sent = true;
+      },
+      async evaluate(fn: () => unknown) {
+        const body = fn.toString();
+        // SSE counter: caught up only after the run (post-send).
+        if (body.includes("__hk_runsFinished")) return (sent ? 1 : 0) as never;
+        // Surface-mount fake — no v2 chat-view attribute; return absent so
+        // the done-signal falls back to the SSE counter above.
+        if (body.includes("__hk_copilotRunning")) {
+          return {
+            attrPresent: false,
+            runningNow: null,
+            sawRunningTrue: false,
+            runStartCount: 0,
+            lastStoppedAtMs: 0,
+          } as never;
+        }
+        // No error banner.
+        if (body.includes("copilot-error-banner")) {
+          return { state: "absent" } as never;
+        }
+        // User-message read: monotonic so fillAndVerifySend succeeds fast.
+        if (body.includes("copilot-user-message")) {
+          return 1 as never;
+        }
+        // Cascade-state read (`readCascadeStateLast`): builds `{ count, text }`.
+        // Route FIRST among the querySelectorAll branches — its closure ALSO
+        // references the `copilot-assistant-message` tier selector, so it
+        // must win before the count branch. A NEW bubble exists (count=1) but
+        // its scoped TEXT is ALWAYS EMPTY — text-stability can never hold.
+        if (
+          body.includes("querySelectorAll") &&
+          body.includes("textContent") &&
+          body.includes("{ count")
+        ) {
+          return { count: sent ? 1 : 0, text: "" } as never;
+        }
+        // countAssistantMessages (baseline snapshot + final-read
+        // classification): references the canonical assistant testid but does
+        // NOT build `{ count`. Returns a NUMBER — 0 before send (baseline), 1
+        // after (a new bubble exists for this turn).
+        if (body.includes("copilot-assistant-message")) {
+          return (sent ? 1 : 0) as never;
+        }
+        // readTestIdCounts: references data-testid + querySelectorAll, builds
+        // an `out` map, no `{ count`, no `copilot-assistant-message`. This is
+        // the surface-mount poll.
+        if (body.includes("data-testid") && body.includes("querySelectorAll")) {
+          surfacePolls += 1;
+          const ready = !opts.neverMount && surfacePolls >= mountAfter;
+          return (ready ? opts.mounted : {}) as never;
+        }
+        // Fallback: treat any other querySelectorAll read as 1 bubble.
+        if (body.includes("querySelectorAll")) return 1 as never;
+        return 0 as never;
+      },
+    };
+  }
+
+  it("GREEN: completes a text-empty A2UI turn once the render surface mounts (no text-stability)", async () => {
+    // The run finished + a new bubble exists, text is empty forever, but
+    // the declarative dashboard testids mount → the turn completes and the
+    // assertion runs. Without `completeOnMount` this same shape would time
+    // out as `text-unstable`.
+    const page = makeSurfacePage({
+      mounted: {
+        "declarative-metric": 4,
+        "declarative-pie-chart": 1,
+        "declarative-bar-chart": 1,
+      },
+      mountAfterPolls: 2,
+    });
+    let assertionRan = false;
+    const result = await runConversation(
+      page,
+      [
+        {
+          input: "Show me my sales dashboard for this quarter.",
+          completeOnMount: {
+            testIds: [
+              "declarative-metric",
+              "declarative-pie-chart",
+              "declarative-bar-chart",
+            ],
+            minNewMounts: 1,
+          },
+          assertions: async () => {
+            assertionRan = true;
+          },
+        },
+      ],
+      { assistantSettleMs: 50 },
+    );
+    expect(result.failure_turn).toBeUndefined();
+    expect(result.turns_completed).toBe(1);
+    expect(assertionRan).toBe(true);
+  }, 20_000);
+
+  it("INTEGRITY (red): the SAME turn FAILS surface-missing when the surface never mounts", async () => {
+    // Broken render: run finishes, a new bubble appears, text is empty —
+    // but NO declarative testids ever mount. The surface-mount completion
+    // must NOT pass; the turn must fail. This proves the fixed gate stays
+    // RED when the feature does not render (it is not "always green now").
+    const page = makeSurfacePage({
+      mounted: {},
+      neverMount: true,
+    });
+    let assertionRan = false;
+    const result = await runConversation(
+      page,
+      [
+        {
+          input: "Show me my sales dashboard for this quarter.",
+          // Short timeout so the never-mount case fails fast in-test.
+          responseTimeoutMs: 1_200,
+          completeOnMount: {
+            testIds: [
+              "declarative-metric",
+              "declarative-pie-chart",
+              "declarative-bar-chart",
+            ],
+            minNewMounts: 1,
+          },
+          assertions: async () => {
+            assertionRan = true;
+          },
+        },
+      ],
+      { assistantSettleMs: 50 },
+    );
+    expect(result.failure_turn).toBe(1);
+    expect(result.error).toContain("surface-missing");
+    // The assertion (real render check) must NOT have run — the gate threw
+    // before it.
+    expect(assertionRan).toBe(false);
+  }, 20_000);
+
+  it("INTEGRITY (red): fails surface-missing when only a LEFTOVER surface is present (no new mount)", async () => {
+    // The expected testids ARE present but were all already in the
+    // pre-send baseline (leftover from a prior turn) — zero newly mounted.
+    // The delta gate (`minNewMounts: 1`) must reject this so a stale
+    // surface cannot satisfy completion. The fake returns the same counts
+    // on the pre-send baseline read AND every poll, so `newlyMounted` is 0.
+    const leftover = {
+      "declarative-metric": 4,
+      "declarative-pie-chart": 1,
+      "declarative-bar-chart": 1,
+    };
+    const page = makeSurfacePage({
+      mounted: leftover,
+      mountAfterPolls: 1, // present from the very first read (incl. baseline)
+    });
+    const result = await runConversation(
+      page,
+      [
+        {
+          input: "Show me my sales dashboard for this quarter.",
+          responseTimeoutMs: 1_200,
+          completeOnMount: {
+            testIds: [
+              "declarative-metric",
+              "declarative-pie-chart",
+              "declarative-bar-chart",
+            ],
+            minNewMounts: 1,
+          },
+        },
+      ],
+      { assistantSettleMs: 50 },
+    );
+    expect(result.failure_turn).toBe(1);
+    expect(result.error).toContain("surface-missing");
+  }, 20_000);
 });
 
 describe("fillAndVerifySend", () => {
@@ -2573,5 +2909,1226 @@ describe("readErrorBanner shape handling", () => {
     if (result.state === "visible") {
       expect(result.text).toBe("boom");
     }
+  });
+});
+
+// ============================================================
+// waitForTurnComplete — data-copilot-running PRIMARY done-signal
+// (false-red kill) + done-signal-missing backstop (no false-green)
+// ============================================================
+//
+// BIDIRECTIONAL red-green safety proof for the turn-done-signal fix:
+//
+//   (1) FALSE-RED KILLED: a healthy turn where the SSE fetch-counter NEVER
+//       increments (the fragile signal the flap blames) but the
+//       `data-copilot-running` attribute goes true→false and the bubble is
+//       stable+non-empty → completes GREEN via the DOM transition.
+//   (2) REAL BREAK STILL RED (no false-green): the silent multi-step hang —
+//       bubble #1 paints + text settles but running stays stuck `true` (or
+//       clears without a stop edge for this turn) and the SSE counter never
+//       catches up → REDS via the `done-signal-missing` backstop.
+//   (2b) MULTI-STEP INTERMEDIATE FALSE: running toggles
+//       false→true→false→true→… between sub-runs → does NOT complete on the
+//       first (intermediate) false; only the final stop completes.
+//   (3) HEADLESS FALLBACK: attribute absent → completes via the SSE counter.
+//
+// These build a fake `page` whose `evaluate` dispatches the THREE reads
+// `waitForTurnComplete` makes per poll — `__hk_runsFinished` (SSE counter),
+// `__hk_copilotRunning` (run-lifecycle summary), and the atomic cascade
+// `{ count, text }` — each from a per-poll script array (last value repeats
+// so a "settled tail" models trivially). REAL timers; tiny settle window.
+/** Pull element `i` from `arr`, clamping to the last (steady-state tail). */
+function clampAt<T>(arr: T[], i: number): T {
+  if (arr.length === 0) throw new Error("empty script array");
+  return arr[Math.min(i, arr.length - 1)]!;
+}
+
+describe("waitForTurnComplete — data-copilot-running done-signal", () => {
+  const at = clampAt;
+
+  /**
+   * Build a fake Page that scripts the three per-poll reads independently.
+   * `poll` counts cascade reads (the once-per-iteration anchor); SSE +
+   * running reads sample the SAME poll index so all three advance together.
+   */
+  function makeRunSignalPage(script: {
+    sse: number[];
+    running: CopilotRunningState[];
+    cascade: Array<{ count: number; text: string | null }>;
+  }): Page {
+    let cascadePoll = 0;
+    return {
+      async waitForSelector() {},
+      async fill() {},
+      async press() {},
+      async evaluate(fn: () => unknown) {
+        const body = fn.toString();
+        if (body.includes("copilot-user-message")) return 1 as never;
+        if (body.includes("__hk_runsFinished")) {
+          return at(script.sse, cascadePoll) as never;
+        }
+        if (body.includes("__hk_copilotRunning")) {
+          return at(script.running, cascadePoll) as never;
+        }
+        if (body.includes("copilot-error-banner")) {
+          return { state: "absent" } as never;
+        }
+        // Atomic cascade read — the once-per-poll anchor that advances the
+        // shared poll index.
+        if (
+          body.includes("querySelectorAll") &&
+          body.includes("textContent") &&
+          body.includes("{ count")
+        ) {
+          const v = at(script.cascade, cascadePoll);
+          cascadePoll += 1;
+          return v as never;
+        }
+        // countAssistantMessages (post-loop classifier) — return the last
+        // cascade count.
+        return at(script.cascade, cascadePoll).count as never;
+      },
+    };
+  }
+
+  /**
+   * Surface-mount variant of `makeRunSignalPage`. Scripts the THREE per-poll
+   * reads (sse / running / cascade) PLUS a per-poll surface-mounted boolean,
+   * and returns a `{ page, surfaceReady }` pair. `waitForTurnComplete` calls
+   * `surfaceReady(page)` EXACTLY ONCE per loop iteration, so we key the
+   * surface script off an INDEPENDENT call counter rather than the page's
+   * cascade-poll index (the loop reads surface AFTER the cascade read, which
+   * already advanced the cascade index — keying off call ordinals keeps
+   * `surface[i]` aligned to the i-th loop iteration without an off-by-one).
+   * This lets the surface-mount completion path be exercised against scripted
+   * run-lifecycle toggles — the exact shape the F4 quiescence fix governs.
+   */
+  function makeSurfaceRunSignalPage(script: {
+    sse: number[];
+    running: CopilotRunningState[];
+    cascade: Array<{ count: number; text: string | null }>;
+    surface: boolean[];
+  }): { page: Page; surfaceReady: (page: Page) => Promise<boolean> } {
+    let cascadePoll = 0;
+    const page: Page = {
+      async waitForSelector() {},
+      async fill() {},
+      async press() {},
+      async evaluate(fn: () => unknown) {
+        const body = fn.toString();
+        if (body.includes("copilot-user-message")) return 1 as never;
+        if (body.includes("__hk_runsFinished")) {
+          return at(script.sse, cascadePoll) as never;
+        }
+        if (body.includes("__hk_copilotRunning")) {
+          return at(script.running, cascadePoll) as never;
+        }
+        if (body.includes("copilot-error-banner")) {
+          return { state: "absent" } as never;
+        }
+        if (
+          body.includes("querySelectorAll") &&
+          body.includes("textContent") &&
+          body.includes("{ count")
+        ) {
+          const v = at(script.cascade, cascadePoll);
+          cascadePoll += 1;
+          return v as never;
+        }
+        return at(script.cascade, cascadePoll).count as never;
+      },
+    };
+    let surfaceCall = 0;
+    const surfaceReady = async (): Promise<boolean> => {
+      const v = at(script.surface, surfaceCall);
+      surfaceCall += 1;
+      return v;
+    };
+    return { page, surfaceReady };
+  }
+
+  const runningAbsent: CopilotRunningState = {
+    attrPresent: false,
+    runningNow: null,
+    sawRunningTrue: false,
+    runStartCount: 0,
+    lastStoppedAtMs: 0,
+  };
+  const runningStarted: CopilotRunningState = {
+    attrPresent: true,
+    runningNow: true,
+    sawRunningTrue: true,
+    runStartCount: 1,
+    lastStoppedAtMs: 0,
+  };
+  const runningStopped: CopilotRunningState = {
+    attrPresent: true,
+    runningNow: false,
+    sawRunningTrue: true,
+    runStartCount: 1,
+    lastStoppedAtMs: 1,
+  };
+
+  it("(1) FALSE-RED KILLED: SSE counter never increments but data-copilot-running goes true→false → completes GREEN via DOM signal", async () => {
+    // The fragile fetch-counter NEVER catches up (stays 0 — the exact flap
+    // condition). The ONLY done-signal is the DOM transition. A bubble with
+    // stable non-empty text + the true→false edge must complete GREEN.
+    const page = makeRunSignalPage({
+      sse: [0], // counter never increments — the false-red trigger
+      running: [
+        runningAbsent, // baseline read (turn entry)
+        runningStarted, // run in flight
+        runningStopped, // RUN_FINISHED → true→false transition
+        runningStopped,
+        runningStopped,
+      ],
+      cascade: [
+        { count: 1, text: "hello there" },
+        { count: 1, text: "hello there" },
+        { count: 1, text: "hello there" }, // text stable + non-empty
+      ],
+    });
+    const result = await waitForTurnComplete({
+      page,
+      turnIndex: 1,
+      settleMs: 30,
+      timeoutMs: 5_000,
+      maxTurnDurationMs: 2_000,
+      baselineCount: 0,
+    });
+    expect(result.text).toBe("hello there");
+  });
+
+  it("(1-fast) FAST-TURN FALSE-RED KILLED: RUN_STARTED fires BEFORE the baseline read; pre-send baselineRunStartCount threaded via opts lets the true→false transition complete GREEN", async () => {
+    // F2 regression guard. The PRIMARY done-signal gates on
+    // `runStartCount > baselineRunStartCount`. If the run-start baseline is
+    // captured INSIDE waitForTurnComplete (after the message was sent), a fast
+    // agent that fires RUN_STARTED between the send and that read makes the
+    // baseline already-incremented (runStartCount=1), so
+    // `1 > 1` can NEVER hold → the PRIMARY DOM signal is DEAD and the turn
+    // must fall back to the SSE counter (which here never catches up) → it
+    // reds via the done-signal-missing backstop. The fix captures the
+    // run-start baseline at the CALL SITE BEFORE sendTurnMessage (runStartCount
+    // = 0, before the agent started) and threads it via
+    // `opts.baselineRunStartCount`. With the pre-send baseline of 0, the
+    // observed runStartCount=1 satisfies `1 > 0` → the true→false transition
+    // completes GREEN. The SSE counter stays 0 throughout, proving completion
+    // is driven SOLELY by the DOM transition.
+    const page = makeRunSignalPage({
+      sse: [0], // fragile counter never catches up — DOM signal is the only path
+      running: [
+        // Baseline read (turn entry) ALREADY shows a started run: the fast
+        // agent fired RUN_STARTED before this read could run. runStartCount=1.
+        runningStarted,
+        runningStarted, // run in flight
+        runningStopped, // RUN_FINISHED → true→false transition (runStartCount=1)
+        runningStopped,
+        runningStopped,
+      ],
+      cascade: [
+        { count: 1, text: "fast reply" },
+        { count: 1, text: "fast reply" },
+        { count: 1, text: "fast reply" }, // text stable + non-empty
+      ],
+    });
+    const result = await waitForTurnComplete({
+      page,
+      turnIndex: 1,
+      settleMs: 30,
+      timeoutMs: 5_000,
+      maxTurnDurationMs: 2_000,
+      baselineCount: 0,
+      // The TRUE pre-send baseline (captured at the call site before the agent
+      // started). On UNMODIFIED source this opt does not exist and the
+      // in-function read captures runStartCount=1 → primary signal dies → the
+      // turn reds via the backstop. With the fix, this 0 makes `1 > 0` hold.
+      baselineRunStartCount: 0,
+    });
+    expect(result.text).toBe("fast reply");
+  });
+
+  it("(2) REAL BREAK STILL RED: silent multi-step hang (bubble painted + text settled, running STUCK TRUE, SSE never catches up) → done-signal-missing at the HARD timeout", async () => {
+    // Bubble #1 paints, text settles, but the run NEVER finishes: running
+    // stays `true` forever AND the SSE counter never catches up. DOM+text
+    // hold, yet there is NO trustworthy done-signal → must RED (NOT green on
+    // DOM+text alone).
+    //
+    // NOTE (F4): the `done-signal-missing` BACKSTOP is now gated on
+    // `runningNow !== true` — it must never red a turn that is still
+    // legitimately running. A run STUCK `true` therefore no longer reds at
+    // `maxTurnDurationMs`; it reds at the HARD `timeoutMs` via the post-loop
+    // classifier instead (still `done-signal-missing`: attrPresent + a bubble
+    // + no stop edge for this turn). The backstop's job is the
+    // painted-and-settled-but-finished-signal-missing case where the run is
+    // NOT currently running — see (2-stopped) below. We use a small
+    // `timeoutMs` so the hard-ceiling red fires fast in-test.
+    const page = makeRunSignalPage({
+      sse: [0], // never catches up
+      running: [
+        runningAbsent, // baseline
+        runningStarted, // stuck running forever (no stop edge ever)
+      ],
+      cascade: [{ count: 1, text: "partial answer..." }],
+    });
+    await expect(
+      waitForTurnComplete({
+        page,
+        turnIndex: 1,
+        settleMs: 30,
+        timeoutMs: 400, // hard ceiling — the stuck-true hang reds here
+        maxTurnDurationMs: 200, // backstop is suppressed while runningNow===true
+        baselineCount: 0,
+      }),
+    ).rejects.toMatchObject({
+      name: "TurnNotCompleteError",
+      reason: "done-signal-missing",
+    });
+  });
+
+  it("(2-stopped) BACKSTOP STILL REDS: silent hang where the run has STOPPED (runningNow=false) but the done-signal never confirms → done-signal-missing backstop fires before the hard ceiling", async () => {
+    // The backstop's legitimate job after the F4 runningNow guard: a turn
+    // whose bubble painted + text settled and whose run is NOT currently
+    // running, yet no trustworthy done-signal ever confirms. Here the DOM
+    // attribute is present and `runningNow` is false, BUT no run ever started
+    // THIS turn (runStartCount stays at the baseline 0), so `sawStopThisTurn`
+    // never holds → no stayed-stopped quiescence → `doneSignalOk` stays false.
+    // With the run not running, the backstop must RED it at
+    // `maxTurnDurationMs` (well before the hard `timeoutMs`), proving the
+    // runningNow guard did not neuter the backstop for genuinely-stopped
+    // hangs.
+    const stoppedNoRunThisTurn: CopilotRunningState = {
+      attrPresent: true,
+      runningNow: false,
+      sawRunningTrue: true,
+      runStartCount: 0, // NOT > baseline (0) → sawStopThisTurn never holds
+      lastStoppedAtMs: 1,
+    };
+    const page = makeRunSignalPage({
+      sse: [0], // never catches up
+      running: [runningAbsent, stoppedNoRunThisTurn],
+      cascade: [{ count: 1, text: "partial answer..." }],
+    });
+    await expect(
+      waitForTurnComplete({
+        page,
+        turnIndex: 1,
+        settleMs: 30,
+        timeoutMs: 5_000,
+        maxTurnDurationMs: 300, // backstop fires well before the hard ceiling
+        baselineCount: 0,
+      }),
+    ).rejects.toMatchObject({
+      name: "TurnNotCompleteError",
+      reason: "done-signal-missing",
+    });
+  });
+
+  it("(2-empty) REAL BREAK STILL RED: empty/never-rendered bubble → dom-missing (never completes)", async () => {
+    // No new bubble for this turn (count never exceeds baseline). The run
+    // even reports a stop, but with nothing rendered the turn is a failure,
+    // classified dom-missing.
+    const page = makeRunSignalPage({
+      sse: [1],
+      running: [runningAbsent, runningStopped],
+      cascade: [{ count: 0, text: null }],
+    });
+    await expect(
+      waitForTurnComplete({
+        page,
+        turnIndex: 1,
+        settleMs: 30,
+        timeoutMs: 800,
+        maxTurnDurationMs: 800,
+        baselineCount: 0,
+      }),
+    ).rejects.toMatchObject({
+      name: "TurnNotCompleteError",
+      reason: "dom-missing",
+    });
+  });
+
+  it("(2b) MULTI-STEP INTERMEDIATE FALSE: running false→true→false→true→false does NOT complete on the intermediate false; only the final stop completes", async () => {
+    // A multi-step turn: sub-run 1 starts (true), finishes (false), sub-run 2
+    // starts (true), finishes (false). The gate must NOT complete on the
+    // INTERMEDIATE false (runStartCount=1, a new run about to start) — it
+    // completes only on the final stop. We model the "new run started after
+    // the first stop" by bumping runStartCount on the re-start; the
+    // intermediate-false poll has runningNow=false but is immediately
+    // followed by a re-start, and crucially the FINAL stop has
+    // runStartCount=2 with runningNow=false.
+    const intermediateStop: CopilotRunningState = {
+      attrPresent: true,
+      runningNow: false,
+      sawRunningTrue: true,
+      runStartCount: 1,
+      lastStoppedAtMs: 1,
+    };
+    const restarted: CopilotRunningState = {
+      attrPresent: true,
+      runningNow: true,
+      sawRunningTrue: true,
+      runStartCount: 2,
+      lastStoppedAtMs: 1,
+    };
+    const finalStop: CopilotRunningState = {
+      attrPresent: true,
+      runningNow: false,
+      sawRunningTrue: true,
+      runStartCount: 2,
+      lastStoppedAtMs: 2,
+    };
+    // SSE counter never catches up so completion is driven SOLELY by the DOM
+    // transition — proving the gate waits for the FINAL stop.
+    const page = makeRunSignalPage({
+      sse: [0],
+      running: [
+        runningAbsent, // baseline (runStartCount=0)
+        runningStarted, // sub-run 1 running
+        intermediateStop, // sub-run 1 done — but more work coming
+        restarted, // sub-run 2 running
+        finalStop, // sub-run 2 done — THIS is the real completion
+        finalStop,
+        finalStop,
+      ],
+      cascade: [
+        { count: 1, text: "step 1 output" },
+        { count: 2, text: "step 1 output" },
+        { count: 2, text: "final answer" },
+        { count: 2, text: "final answer" },
+        { count: 2, text: "final answer" }, // stable on the final stop
+      ],
+    });
+    const result = await waitForTurnComplete({
+      page,
+      turnIndex: 1,
+      settleMs: 30,
+      timeoutMs: 5_000,
+      maxTurnDurationMs: 4_000,
+      baselineCount: 0,
+    });
+    // Completed on the FINAL answer, not the intermediate step-1 text.
+    expect(result.text).toBe("final answer");
+  });
+
+  it("(2c) MULTI-STEP SSE OR-TRIGGER MUST NOT FALSE-GREEN: DOM signal present, sub-run 2 already RUNNING (no stop edge this poll) but SSE counter caught up at the intermediate stop + intermediate text settled → must NOT complete early; only the final stop completes", async () => {
+    // The cardinal false-GREEN this branch kills. On a multi-step turn the
+    // page-side RUN_FINISHED fetch-counter increments once per SUB-RUN, so
+    // after sub-run 1 finishes `runsFinished` already reaches 1 ≥ turnIndex 1
+    // → `sseOk` is true for the REST of the turn. With the old
+    // `doneSignalOk = domSignalAvailable ? sawStopThisTurn || sseOk : sseOk`,
+    // the `|| sseOk` disjunct lets that stale counter SOLELY satisfy the
+    // done-signal even when the trustworthy DOM transition says "a new run is
+    // in flight" (sub-run 2 already RUNNING → `sawStopThisTurn` false). If the
+    // intermediate bubble's text also momentarily settles, the gate completes
+    // EARLY on the intermediate answer — defeating the multi-step safety. The
+    // fix makes the DOM transition the SOLE done-signal whenever it's
+    // available, so the gate waits for the FINAL stop.
+    //
+    // Modelled poll-by-poll (note `makeRunSignalPage` advances its shared poll
+    // index only on the cascade read, and the pre-loop baseline read consumes
+    // `running[0]` WITHOUT advancing — so loop poll i reads running[i],
+    // sse[i], cascade[i], with poll 0 re-reading running[0]):
+    //   baseline + poll 0 : sub-run 1 running (sse 0)
+    //   poll 1            : sub-run 1 still running, intermediate text appears
+    //   poll 2 (THE TRAP) : sub-run 2 ALREADY RESTARTED — runningNow=true,
+    //                       runStartCount=2, BUT sse has caught up to 1
+    //                       (sub-run 1's RUN_FINISHED already counted), the
+    //                       intermediate bubble exists, and its text has been
+    //                       stable for settleMs. sawStopThisTurn is FALSE here
+    //                       (runningNow=true), so the ONLY thing that could
+    //                       complete this poll is the stale `|| sseOk`.
+    //   poll 3+           : sub-run 2 finishes — the REAL final stop.
+    const subRun1Running: CopilotRunningState = {
+      attrPresent: true,
+      runningNow: true,
+      sawRunningTrue: true,
+      runStartCount: 1,
+      lastStoppedAtMs: 0,
+    };
+    // Sub-run 2 is ALREADY running again by the time we poll after sub-run 1's
+    // RUN_FINISHED bumped the SSE counter — so this poll has NO stop edge
+    // (runningNow=true) yet sseOk is true. This is the poll that false-greens
+    // under the old OR-trigger.
+    const subRun2RunningWithSseCaughtUp: CopilotRunningState = {
+      attrPresent: true,
+      runningNow: true,
+      sawRunningTrue: true,
+      runStartCount: 2,
+      lastStoppedAtMs: 1,
+    };
+    const finalStop: CopilotRunningState = {
+      attrPresent: true,
+      runningNow: false,
+      sawRunningTrue: true,
+      runStartCount: 2,
+      lastStoppedAtMs: 2,
+    };
+    const page = makeRunSignalPage({
+      // SSE catches up to 1 at poll 2 (sub-run 1's RUN_FINISHED is now
+      // counted) and STAYS there — the stale counter the old `|| sseOk`
+      // would trust.
+      sse: [0, 0, 1, 1, 1, 1, 1],
+      running: [
+        runningAbsent, // baseline + poll 0 (runStartCount=0 → no sawStop)
+        subRun1Running, // poll 1: sub-run 1 in flight
+        subRun2RunningWithSseCaughtUp, // poll 2: THE TRAP — sub-run 2 running, sse=1, text settled
+        finalStop, // poll 3: sub-run 2 done — the REAL completion
+        finalStop,
+        finalStop,
+        finalStop,
+      ],
+      cascade: [
+        // Intermediate bubble appears at poll 1 with "intermediate answer" and
+        // is identical at poll 2 — so by poll 2 it has been stable for the full
+        // poll cadence (>= settleMs=10), arming domOk + thirdOk at the EXACT
+        // poll where the stale sseOk would trigger.
+        { count: 2, text: null }, // poll 0: no bubble text yet
+        { count: 2, text: "intermediate answer" }, // poll 1: intermediate text appears
+        { count: 2, text: "intermediate answer" }, // poll 2: settled — THE TRAP poll
+        { count: 2, text: "final answer" }, // poll 3: final text arrives
+        { count: 2, text: "final answer" },
+        { count: 2, text: "final answer" }, // stable on the final stop
+      ],
+    });
+    const result = await waitForTurnComplete({
+      page,
+      turnIndex: 1,
+      settleMs: 10,
+      timeoutMs: 5_000,
+      maxTurnDurationMs: 4_000,
+      baselineCount: 0,
+    });
+    // Must complete on the FINAL answer, never the intermediate one. Under the
+    // old OR-trigger this returned "intermediate answer" (false-GREEN).
+    expect(result.text).toBe("final answer");
+  });
+
+  it("(3) HEADLESS FALLBACK: attribute absent → completes via the SSE counter", async () => {
+    // A headless bring-your-own-UI demo never renders CopilotChatView, so
+    // `data-copilot-running` is absent (attrPresent=false). The done-signal
+    // falls back to the SSE counter, which catches up → completes GREEN.
+    const page = makeRunSignalPage({
+      sse: [0, 1, 1], // counter catches up by poll 2
+      running: [runningAbsent], // attribute never present
+      cascade: [
+        { count: 1, text: "headless reply" },
+        { count: 1, text: "headless reply" },
+        { count: 1, text: "headless reply" },
+      ],
+    });
+    const result = await waitForTurnComplete({
+      page,
+      turnIndex: 1,
+      settleMs: 30,
+      timeoutMs: 5_000,
+      maxTurnDurationMs: 2_000,
+      baselineCount: 0,
+    });
+    expect(result.text).toBe("headless reply");
+  });
+
+  it("(3-red) HEADLESS REAL BREAK: attribute absent AND SSE counter never catches up → sse-missing at the HARD timeout (NOT early via the backstop)", async () => {
+    // Headless demo whose run never finishes: no DOM signal AND the SSE
+    // counter never catches up, but a bubble painted + settled. The early
+    // `done-signal-missing` backstop is gated on `attrPresent === true` (F5):
+    // a headless turn has NO authoritative signal that can be "missing", so it
+    // is NOT redded early at `maxTurnDurationMs`. A genuinely-stuck headless
+    // turn still REDS — at the HARD `timeoutMs` via the post-loop classifier,
+    // classified `sse-missing` (the SSE counter is the headless done-signal and
+    // it never caught up). Tiny `timeoutMs` so the hard-ceiling path is fast.
+    const page = makeRunSignalPage({
+      sse: [0], // never catches up
+      running: [runningAbsent],
+      cascade: [{ count: 1, text: "stuck headless" }],
+    });
+    await expect(
+      waitForTurnComplete({
+        page,
+        turnIndex: 1,
+        settleMs: 30,
+        timeoutMs: 300,
+        maxTurnDurationMs: 100,
+        baselineCount: 0,
+      }),
+    ).rejects.toMatchObject({
+      name: "TurnNotCompleteError",
+      reason: "sse-missing",
+    });
+  });
+
+  it("(F3) SURFACE-READ ATOMICITY: `surfaceReady(page)` is evaluated AT MOST ONCE per poll (no wasted/non-atomic double DOM round-trip)", async () => {
+    // Regression for the duplicated per-poll `surfaceReady(page)` read. The
+    // buggy gate evaluated the live surface DOM state TWICE on any poll where
+    // the done-signal + DOM held but the surface had NOT yet mounted: once
+    // for the main-completion conjunct `thirdOk`
+    // (`doneSignalOk && domOk && await surfaceReady(page)` → false, so the
+    // completion `if` is skipped) and AGAIN for the backstop conjunct
+    // `thirdConjunctHeld` (`await surfaceReady(page)`), discarding the second
+    // result. That doubled the per-poll surface `page.evaluate` round-trips
+    // and made the two conjuncts read DIFFERENT live values if the surface
+    // mounted between the two reads (a latent disagreement hazard).
+    //
+    // RED PROOF: a counting `surfaceReady` records how many times it is
+    // invoked PER POLL (correlated to the once-per-poll cascade read via the
+    // shared `cascadePoll` the fake exposes through the script tail). On the
+    // first poll the done-signal (SSE counter) + DOM hold but the surface is
+    // NOT mounted, so the UNMODIFIED two-read source invokes `surfaceReady`
+    // TWICE that poll; the surface mounts on the next poll and completes.
+    // With the single-read fix every poll invokes `surfaceReady` AT MOST
+    // ONCE. We assert the per-poll maximum is 1 — FAILS on the two-read
+    // source (records 2 on the first poll), PASSES after the fix.
+    //
+    // `runStoppedThisTurn` keeps the DOM run-attribute present and reports a
+    // completed stop transition for THIS turn (`sawRunningTrue` + a started
+    // run + `runningNow === false`), so the DOM done-signal — the SOLE
+    // done-signal when the attribute is present — is satisfied from poll 1.
+    // That makes `doneSignalOk` TRUE from poll 1, which is exactly the
+    // condition that gates the FIRST (`thirdOk`) surface read on.
+    // Surface-not-yet-mounted on poll 1 then forces the SECOND (backstop)
+    // read on the buggy two-read source. (Note: a DOM transition is used here
+    // rather than the SSE counter because when the run attribute is present
+    // the SSE counter is no longer an OR-trigger for the done-signal.)
+    const runStoppedThisTurn: CopilotRunningState = {
+      attrPresent: true,
+      runningNow: false,
+      sawRunningTrue: true, // saw running then stopped → DOM done-signal fires
+      runStartCount: 1, // > baseline (0) → a run started THIS turn
+      lastStoppedAtMs: 0,
+    };
+    // A self-contained fake whose cascade read (the once-per-poll anchor)
+    // bumps a shared `pollIndex`. `surfaceReady` records the `pollIndex` of
+    // every invocation, so we can deterministically count how many times the
+    // gate read the surface WITHIN a single poll — no timers, no races.
+    let pollIndex = 0;
+    const surfaceCallsByPoll: number[] = []; // surfaceCallsByPoll[p] = reads on poll p
+    let mounted = false;
+    const sse = 1; // headless fallback only; irrelevant here (DOM signal present)
+    const cascade = { count: 1, text: "surface turn" as string | null };
+    const page: Page = {
+      async waitForSelector() {},
+      async fill() {},
+      async press() {},
+      async evaluate(fn: () => unknown) {
+        const body = fn.toString();
+        if (body.includes("copilot-user-message")) return 1 as never;
+        if (body.includes("__hk_runsFinished")) return sse as never;
+        if (body.includes("__hk_copilotRunning"))
+          return runStoppedThisTurn as never;
+        if (body.includes("copilot-error-banner"))
+          return { state: "absent" } as never;
+        if (
+          body.includes("querySelectorAll") &&
+          body.includes("textContent") &&
+          body.includes("{ count")
+        ) {
+          // Once-per-poll anchor: advance the poll index. The surface mounts
+          // starting on poll 2 so poll 1 stays unmounted (forcing the buggy
+          // second read), and poll 2 completes via the main conjunct.
+          pollIndex += 1;
+          if (pollIndex >= 2) mounted = true;
+          return cascade as never;
+        }
+        return cascade.count as never;
+      },
+    };
+    const surfaceReady = async (): Promise<boolean> => {
+      surfaceCallsByPoll[pollIndex] = (surfaceCallsByPoll[pollIndex] ?? 0) + 1;
+      return mounted;
+    };
+    const result = await waitForTurnComplete({
+      page,
+      turnIndex: 1,
+      settleMs: 10,
+      timeoutMs: 5_000,
+      maxTurnDurationMs: 5_000,
+      baselineCount: 0,
+      // Pre-send run-start baseline of 0 so the fake's runStartCount=1 clears
+      // it (`1 > 0`) and the DOM stop transition — the SOLE done-signal when
+      // the run attribute is present — fires from poll 1.
+      baselineRunStartCount: 0,
+      pollIntervalMs: 5,
+      surfaceReady,
+    });
+    expect(result.text).toBe("surface turn");
+    // The defect: the buggy source reads the surface TWICE on the poll where
+    // the done-signal holds but the surface is unmounted (poll 1). The fix
+    // reads it AT MOST ONCE per poll. (Index 0 is the pre-loop baseline-read
+    // window before the first cascade advance; surfaceReady is never called
+    // there, so the meaningful counts live at index >= 1.)
+    const perPollCounts = Array.from(surfaceCallsByPoll, (n) => n ?? 0);
+    const maxCallsInAnyPoll = Math.max(0, ...perPollCounts);
+    expect(maxCallsInAnyPoll).toBeLessThanOrEqual(1);
+    // Sanity: the surface WAS read (the test actually exercised the path).
+    expect(perPollCounts.reduce((a, b) => a + b, 0)).toBeGreaterThan(0);
+  });
+
+  // ==========================================================
+  // F4 — surface-mount STAYED-STOPPED quiescence (close BOTH the
+  // false-GREEN on a transient intermediate stop AND the false-RED
+  // backstop on a still-running gen-UI turn)
+  // ==========================================================
+
+  it("(F4-1) FALSE-GREEN KILLED: a MULTI-STEP completeOnMount turn does NOT complete on a transient INTERMEDIATE stop (surface mounted early); it completes only after the FINAL stop STAYS stopped", async () => {
+    // The cardinal false-green for the surface path. On a multi-step
+    // `completeOnMount` turn the render surface can mount during an EARLY
+    // sub-run. At the FIRST intermediate stop between sub-runs the old gate
+    // saw: sawStopThisTurn (a momentary runningNow=false edge), domOk (a
+    // bubble exists), surfaceMounted (surface already rendered) →
+    // `thirdOk = doneSignalOk && domOk && surfaceMounted` true → it RETURNED
+    // EARLY, before the final sub-run ran. The probe reported the turn
+    // complete when it wasn't.
+    //
+    // The fix requires the stop to have STAYED stopped (no newer run-start
+    // for the settle window) before completion can fire — so the transient
+    // intermediate stop cannot green the turn. NOTE the page-fake convention:
+    // the pre-loop baseline-run-start read consumes running[0] WITHOUT
+    // advancing the shared poll index, so loop iteration `i` reads
+    // running[i] / cascade[i] / surface[i] and running[0] is BOTH the baseline
+    // AND iteration 0 (so real run states begin at index 1). We model:
+    //   i1 sub-run 1 running, surface not yet mounted
+    //   i2 sub-run 1 running, surface MOUNTS (early gen-UI paint)
+    //   i3 INTERMEDIATE stop (runningNow=false, runStartCount=1) — THE TRAP:
+    //      surface mounted, bubble present (count=1), momentary stop edge
+    //   i4 sub-run 2 RE-STARTS (runningNow=true, runStartCount=2), count→2
+    //   i5 FINAL stop (runningNow=false, runStartCount=2)
+    //   i6 FINAL stop holds → quiescence satisfied → completes here
+    //
+    // bubbleIndex discriminates: a false-green at the intermediate stop
+    // returns count=1 → bubbleIndex 0; the correct completion at the final
+    // stop has count=2 → bubbleIndex 1. On UNMODIFIED source this returns
+    // bubbleIndex 0 (early); after the fix it returns bubbleIndex 1.
+    const intermediateStop: CopilotRunningState = {
+      attrPresent: true,
+      runningNow: false,
+      sawRunningTrue: true,
+      runStartCount: 1,
+      lastStoppedAtMs: 1,
+    };
+    const restarted: CopilotRunningState = {
+      attrPresent: true,
+      runningNow: true,
+      sawRunningTrue: true,
+      runStartCount: 2,
+      lastStoppedAtMs: 1,
+    };
+    const finalStop: CopilotRunningState = {
+      attrPresent: true,
+      runningNow: false,
+      sawRunningTrue: true,
+      runStartCount: 2,
+      lastStoppedAtMs: 2,
+    };
+    const { page, surfaceReady } = makeSurfaceRunSignalPage({
+      sse: [0], // DOM transition is the SOLE done-signal here
+      running: [
+        runningAbsent, // baseline + i0 (runStartCount=0 → no sawStop)
+        runningStarted, // i1: sub-run 1 running
+        runningStarted, // i2: still running, surface mounts this poll
+        intermediateStop, // i3: THE TRAP — intermediate stop, surface mounted
+        restarted, // i4: sub-run 2 running again (count→2)
+        finalStop, // i5: final stop
+        finalStop, // i6: final stop holds → quiescent
+        finalStop,
+      ],
+      cascade: [
+        { count: 1, text: null }, // i0
+        { count: 1, text: null }, // i1
+        { count: 1, text: null }, // i2
+        { count: 1, text: null }, // i3 (intermediate bubble — count=1)
+        { count: 2, text: null }, // i4 (sub-run 2's bubble appears — count=2)
+        { count: 2, text: null }, // i5 (final bubble)
+        { count: 2, text: null }, // i6
+        { count: 2, text: null },
+      ],
+      surface: [
+        false, // i0: surface not mounted yet
+        false, // i1: still not mounted
+        true, // i2: surface MOUNTS during sub-run 1
+        true, // i3: still mounted (THE TRAP poll)
+        true, // i4
+        true, // i5
+        true, // i6
+        true,
+      ],
+    });
+    const result = await waitForTurnComplete({
+      page,
+      turnIndex: 1,
+      settleMs: 15,
+      timeoutMs: 5_000,
+      maxTurnDurationMs: 4_000,
+      baselineCount: 0,
+      baselineRunStartCount: 0,
+      pollIntervalMs: 5,
+      surfaceReady,
+    });
+    // Completed on the FINAL bubble (count=2 → bubbleIndex 1), NOT the
+    // intermediate stop's bubble (count=1 → bubbleIndex 0). On unmodified
+    // source this is 0 (false-green at the intermediate stop).
+    expect(result.bubbleIndex).toBe(1);
+  });
+
+  it("(F4-2) FALSE-RED KILLED: a completeOnMount turn whose surface mounts WHILE the run is still going does NOT throw done-signal-missing while running (backstop gated on runningNow !== true)", async () => {
+    // The false-red symptom. A gen-UI turn paints its surface early and the
+    // run is STILL going (runningNow=true). The `done-signal-missing`
+    // backstop fires once `maxTurnDurationMs` elapses with DOM + the third
+    // conjunct (surface) held but no confirmed done-signal — and the OLD
+    // backstop had NO `runningNow` guard, so it RED a turn that was simply
+    // still legitimately running (its stop edge lands after
+    // `maxTurnDurationMs` but before `timeoutMs`).
+    //
+    // We hold the run RUNNING (runningNow=true) past `maxTurnDurationMs` with
+    // the surface mounted + bubble present, then let it stop and stay
+    // stopped. The fixed backstop must NOT fire while runningNow===true, so
+    // the turn completes GREEN on the eventual quiescent stop instead of
+    // throwing. On UNMODIFIED source the backstop throws done-signal-missing
+    // around `maxTurnDurationMs` while the run is still in flight.
+    const finalStop: CopilotRunningState = {
+      attrPresent: true,
+      runningNow: false,
+      sawRunningTrue: true,
+      runStartCount: 1,
+      lastStoppedAtMs: 1,
+    };
+    // maxTurnDurationMs=40 with pollIntervalMs=5 → the backstop window
+    // (~8 polls) elapses while the run is still running (the long
+    // runningStarted tail), so the OLD unguarded backstop reds mid-run.
+    const { page, surfaceReady } = makeSurfaceRunSignalPage({
+      sse: [0], // SSE never catches up; DOM transition is the sole done-signal
+      running: [
+        runningAbsent, // baseline
+        // Run stays RUNNING for many polls past maxTurnDurationMs (40ms /
+        // 5ms ≈ 8 polls); keep it running well beyond that, THEN stop.
+        runningStarted, // i0
+        runningStarted, // i1
+        runningStarted, // i2
+        runningStarted, // i3
+        runningStarted, // i4
+        runningStarted, // i5
+        runningStarted, // i6
+        runningStarted, // i7
+        runningStarted, // i8
+        runningStarted, // i9
+        runningStarted, // i10
+        finalStop, // i11: run finally stops
+        finalStop, // i12: stays stopped → quiescent → completes
+        finalStop,
+      ],
+      cascade: Array.from({ length: 15 }, () => ({
+        count: 1,
+        text: null as string | null,
+      })),
+      surface: Array.from({ length: 15 }, () => true), // surface mounted from i0
+    });
+    // Must NOT reject. On unmodified source this REJECTS (done-signal-missing
+    // backstop fires while runningNow===true).
+    const result = await waitForTurnComplete({
+      page,
+      turnIndex: 1,
+      settleMs: 15,
+      timeoutMs: 5_000,
+      maxTurnDurationMs: 40, // << timeoutMs, fires well before the hard ceiling
+      baselineCount: 0,
+      baselineRunStartCount: 0,
+      pollIntervalMs: 5,
+      surfaceReady,
+    });
+    expect(result.bubbleIndex).toBe(0);
+  });
+
+  it("(F4-3a) REGRESSION: a SINGLE-run completeOnMount happy path still completes once the surface mounts and the stop STAYS stopped", async () => {
+    // Guards against the quiescence gate over-tightening: a normal single-run
+    // gen-UI turn (run starts, stops once, stays stopped; surface mounts)
+    // MUST still complete after the surface mounts + the stop persists.
+    const { page, surfaceReady } = makeSurfaceRunSignalPage({
+      sse: [0],
+      running: [
+        runningAbsent, // baseline
+        runningStarted, // i0: running
+        runningStopped, // i1: stop (runStartCount=1)
+        runningStopped, // i2: stays stopped → quiescent
+        runningStopped,
+        runningStopped,
+      ],
+      cascade: [
+        { count: 1, text: null },
+        { count: 1, text: null },
+        { count: 1, text: null },
+        { count: 1, text: null },
+      ],
+      surface: [false, true, true, true, true, true], // surface mounts at i1
+    });
+    const result = await waitForTurnComplete({
+      page,
+      turnIndex: 1,
+      settleMs: 15,
+      timeoutMs: 5_000,
+      maxTurnDurationMs: 4_000,
+      baselineCount: 0,
+      baselineRunStartCount: 0,
+      pollIntervalMs: 5,
+      surfaceReady,
+    });
+    expect(result.bubbleIndex).toBe(0);
+  });
+
+  it("(F4-3b) REGRESSION: a genuine HEADLESS surface hang (bubble + surface mounted, runningNow=null, done-signal never confirmed) REDS as sse-missing at the HARD timeout (NOT early via the backstop)", async () => {
+    // A painted + surface-mounted-but-finished-signal-missing case on the
+    // HEADLESS path (attribute absent → no DOM transition; SSE counter never
+    // catches up). The early `done-signal-missing` backstop is gated on
+    // `attrPresent === true` (F5), so a headless turn is NOT redded early at
+    // `maxTurnDurationMs` — it would be a false-red on a merely-lagging SSE
+    // counter. A GENUINELY-stuck headless turn still REDS, at the HARD
+    // `timeoutMs` via the post-loop classifier, classified `sse-missing`. (The
+    // DOM-present equivalent of this surface hang is covered by F4-3c below,
+    // which keeps the early `done-signal-missing` backstop behaviour.)
+    const { page, surfaceReady } = makeSurfaceRunSignalPage({
+      sse: [0], // never catches up
+      running: [runningAbsent], // attribute absent → runningNow null (not true)
+      cascade: [{ count: 1, text: null }],
+      surface: [true], // surface mounted the whole time
+    });
+    await expect(
+      waitForTurnComplete({
+        page,
+        turnIndex: 1,
+        settleMs: 15,
+        timeoutMs: 200, // tiny hard ceiling so the timeout path is fast
+        maxTurnDurationMs: 60, // would have fired here on the old (ungated) backstop
+        baselineCount: 0,
+        baselineRunStartCount: 0,
+        pollIntervalMs: 5,
+        surfaceReady,
+      }),
+    ).rejects.toMatchObject({
+      name: "TurnNotCompleteError",
+      reason: "sse-missing",
+    });
+  });
+
+  it("(F4-3c) REGRESSION: a genuine DOM-PRESENT surface hang (bubble + surface mounted, runningNow=false, done-signal never confirmed) still REDS EARLY via the done-signal-missing backstop", async () => {
+    // The early backstop's preserved DOM-present job: a turn whose DOM signal
+    // IS available (attribute present, run stopped: runningNow=false) but where
+    // no run ever started for this turn (runStartCount stays at the baseline),
+    // so the trustworthy `data-copilot-running` true→false transition never
+    // fires. The surface mounted + a bubble exists, yet the done-signal is
+    // genuinely MISSING. Because the DOM signal is available, the early
+    // backstop fires at `maxTurnDurationMs` (well before the hard ceiling),
+    // classified `done-signal-missing`. This is the DOM-present counterpart to
+    // the headless F4-3b case and proves the F5 gate did NOT neuter the early
+    // backstop for the path where it is legitimate.
+    const stoppedNoStart: CopilotRunningState = {
+      attrPresent: true,
+      runningNow: false,
+      sawRunningTrue: false, // no run ever started this turn → no transition
+      runStartCount: 0, // equals baseline → sawStopThisTurn never holds
+      lastStoppedAtMs: 0,
+    };
+    const { page, surfaceReady } = makeSurfaceRunSignalPage({
+      sse: [0], // never catches up (and is not consulted on the DOM path)
+      running: [stoppedNoStart],
+      cascade: [{ count: 1, text: null }],
+      surface: [true], // surface mounted the whole time
+    });
+    await expect(
+      waitForTurnComplete({
+        page,
+        turnIndex: 1,
+        settleMs: 15,
+        timeoutMs: 5_000,
+        maxTurnDurationMs: 60, // backstop fires well before the hard ceiling
+        baselineCount: 0,
+        baselineRunStartCount: 0,
+        pollIntervalMs: 5,
+        surfaceReady,
+      }),
+    ).rejects.toMatchObject({
+      name: "TurnNotCompleteError",
+      reason: "done-signal-missing",
+    });
+  });
+
+  // ==========================================================================
+  // F5 — HEADLESS EARLY-BACKSTOP GATE + systematic backstop/completion matrix
+  // ==========================================================================
+  //
+  // F5 false-red: a HEADLESS turn (attrPresent=false, runningNow=null) whose
+  // bubble paints + text settles by `maxTurnDurationMs` but whose ONLY signal
+  // — the fragile SSE fetch-counter — lags, catching up only AFTER
+  // `maxTurnDurationMs` (≈0.6×timeoutMs) yet BEFORE the hard `timeoutMs`. On
+  // the OLD (ungated) backstop this false-RED at `maxTurnDurationMs` as
+  // `done-signal-missing`. The fix gates the early backstop on
+  // `attrPresent === true`, so the headless turn uses the FULL `timeoutMs` for
+  // its only signal and completes GREEN when the counter catches up.
+  //
+  // The matrix below covers, for BOTH the DOM path (attrPresent=true) and the
+  // HEADLESS path (attrPresent=false):
+  //   completes-normally          → GREEN
+  //   lagging-but-recovers        → GREEN (done-signal/SSE confirms after
+  //                                  maxTurnDurationMs but before timeoutMs;
+  //                                  NOT early-redded) — the F5 case headless
+  //   genuine-hang                → RED with the correct reason
+  //                                  (done-signal-missing for DOM at the early
+  //                                  backstop; sse-missing for headless at the
+  //                                  hard timeout)
+  // crossed with the third conjunct being text-stability (default) vs
+  // surface-mount (completeOnMount) where applicable. Reuses the existing
+  // `makeRunSignalPage` / `makeSurfaceRunSignalPage` page-fakes.
+
+  // -- F5 PRIMARY: the headless lagging-but-recovers false-red kill ----------
+
+  it("(F5) HEADLESS LAGGING-BUT-RECOVERS (text path): SSE counter catches up AFTER maxTurnDurationMs but BEFORE timeoutMs → completes GREEN, NOT early-redded", async () => {
+    // The exact F5 false-red. pollIntervalMs=20, maxTurnDurationMs=100 (≈5
+    // polls), timeoutMs=2000. A painted + settled headless bubble whose SSE
+    // counter stays 0 well past maxTurnDurationMs (polls 0..7) then flips to 1
+    // at poll 8 (~160ms elapsed > 100ms maxTurnDurationMs, << 2000ms timeout).
+    // On the OLD ungated backstop this RED at ~100ms as done-signal-missing
+    // (domOk + textOk held, !doneSignalOk, runningNow=null!==true,
+    // stopStableSince=null). The F5 gate (attrPresent===true) keeps the early
+    // backstop OFF for headless, so the turn waits and completes GREEN.
+    const page = makeRunSignalPage({
+      sse: [0, 0, 0, 0, 0, 0, 0, 0, 1, 1], // catches up at poll 8
+      running: [runningAbsent], // headless: attribute absent → runningNow null
+      cascade: [{ count: 1, text: "lagging headless reply" }], // settled tail
+    });
+    const result = await waitForTurnComplete({
+      page,
+      turnIndex: 1,
+      settleMs: 30,
+      timeoutMs: 2_000,
+      maxTurnDurationMs: 100, // early backstop window the lag crosses
+      baselineCount: 0,
+      pollIntervalMs: 20,
+    });
+    expect(result.text).toBe("lagging headless reply");
+  });
+
+  it("(F5-surface) HEADLESS LAGGING-BUT-RECOVERS (surface-mount path): surface mounted + SSE catches up after maxTurnDurationMs but before timeoutMs → completes GREEN", async () => {
+    // The surface-mount (completeOnMount) headless variant of F5: a text-empty
+    // A2UI-shape headless turn whose render surface mounts immediately but
+    // whose SSE counter lags past maxTurnDurationMs. Must complete GREEN once
+    // the counter catches up, not red early.
+    const { page, surfaceReady } = makeSurfaceRunSignalPage({
+      sse: [0, 0, 0, 0, 0, 0, 0, 0, 1, 1], // catches up at poll 8
+      running: [runningAbsent], // headless
+      cascade: [{ count: 1, text: null }], // text-empty A2UI shape
+      surface: [true], // surface mounted the whole time
+    });
+    const result = await waitForTurnComplete({
+      page,
+      turnIndex: 1,
+      settleMs: 30,
+      timeoutMs: 2_000,
+      maxTurnDurationMs: 100,
+      baselineCount: 0,
+      pollIntervalMs: 20,
+      surfaceReady,
+    });
+    expect(result.bubbleIndex).toBe(0);
+  });
+
+  // -- MATRIX: DOM path (attrPresent=true) -----------------------------------
+
+  it("(matrix DOM/text/completes) done-signal confirms promptly → GREEN", async () => {
+    // DOM signal present, run goes true→false and STAYS stopped, text settles
+    // → completes well before maxTurnDurationMs.
+    const page = makeRunSignalPage({
+      sse: [0], // SSE never consulted on the DOM path
+      running: [runningStarted, runningStopped],
+      cascade: [
+        { count: 1, text: "dom reply" },
+        { count: 1, text: "dom reply" },
+      ],
+    });
+    const result = await waitForTurnComplete({
+      page,
+      turnIndex: 1,
+      settleMs: 30,
+      timeoutMs: 2_000,
+      maxTurnDurationMs: 1_500,
+      baselineCount: 0,
+      baselineRunStartCount: 0,
+    });
+    expect(result.text).toBe("dom reply");
+  });
+
+  it("(matrix DOM/text/lagging-recovers) stop edge arrives AFTER maxTurnDurationMs but BEFORE timeoutMs → GREEN (arming guard defers the backstop)", async () => {
+    // DOM signal present; the run stays RUNNING past maxTurnDurationMs then
+    // stops + stays stopped before the hard timeout. The early backstop must
+    // NOT red while running (runningNow guard) nor on the first stopped poll
+    // (arming guard) — the turn completes GREEN once quiescence holds.
+    const page = makeRunSignalPage({
+      // runningNow=true for polls 0..6 (past maxTurnDurationMs=100 @ 20ms),
+      // then stops at poll 7 and stays stopped.
+      sse: [0],
+      running: [
+        runningStarted,
+        runningStarted,
+        runningStarted,
+        runningStarted,
+        runningStarted,
+        runningStarted,
+        runningStarted,
+        runningStopped,
+      ],
+      cascade: [{ count: 1, text: "dom lagging reply" }],
+    });
+    const result = await waitForTurnComplete({
+      page,
+      turnIndex: 1,
+      settleMs: 30,
+      timeoutMs: 2_000,
+      maxTurnDurationMs: 100,
+      baselineCount: 0,
+      baselineRunStartCount: 0,
+      pollIntervalMs: 20,
+    });
+    expect(result.text).toBe("dom lagging reply");
+  });
+
+  it("(matrix DOM/text/genuine-hang) bubble painted + text settled, run STOPPED but never started for this turn (no transition) → done-signal-missing EARLY at the backstop", async () => {
+    // DOM signal present (attrPresent=true) but no run ever started this turn
+    // (runStartCount stays at baseline, sawRunningTrue=false), so the
+    // true→false transition never fires. domOk + textOk hold, runningNow=false
+    // (not true), stopStableSince stays null (sawStopThisTurn false). The early
+    // backstop fires at maxTurnDurationMs → done-signal-missing.
+    const stoppedNoStart: CopilotRunningState = {
+      attrPresent: true,
+      runningNow: false,
+      sawRunningTrue: false,
+      runStartCount: 0,
+      lastStoppedAtMs: 0,
+    };
+    const page = makeRunSignalPage({
+      sse: [0],
+      running: [stoppedNoStart],
+      cascade: [{ count: 1, text: "dom stuck reply" }],
+    });
+    await expect(
+      waitForTurnComplete({
+        page,
+        turnIndex: 1,
+        settleMs: 30,
+        timeoutMs: 5_000,
+        maxTurnDurationMs: 100, // early backstop fires well before the ceiling
+        baselineCount: 0,
+        baselineRunStartCount: 0,
+        pollIntervalMs: 20,
+      }),
+    ).rejects.toMatchObject({
+      name: "TurnNotCompleteError",
+      reason: "done-signal-missing",
+    });
+  });
+
+  it("(matrix DOM/surface/genuine-hang) surface mounted + no transition → done-signal-missing EARLY at the backstop", async () => {
+    // Surface-mount third-conjunct counterpart of the DOM genuine-hang: covered
+    // structurally by F4-3c above; this asserts the same outcome through the
+    // surface page-fake to keep the {surface}×{DOM}×{genuine-hang} cell
+    // explicitly present in the matrix.
+    const stoppedNoStart: CopilotRunningState = {
+      attrPresent: true,
+      runningNow: false,
+      sawRunningTrue: false,
+      runStartCount: 0,
+      lastStoppedAtMs: 0,
+    };
+    const { page, surfaceReady } = makeSurfaceRunSignalPage({
+      sse: [0],
+      running: [stoppedNoStart],
+      cascade: [{ count: 1, text: null }],
+      surface: [true],
+    });
+    await expect(
+      waitForTurnComplete({
+        page,
+        turnIndex: 1,
+        settleMs: 15,
+        timeoutMs: 5_000,
+        maxTurnDurationMs: 60,
+        baselineCount: 0,
+        baselineRunStartCount: 0,
+        pollIntervalMs: 5,
+        surfaceReady,
+      }),
+    ).rejects.toMatchObject({
+      name: "TurnNotCompleteError",
+      reason: "done-signal-missing",
+    });
+  });
+
+  // -- MATRIX: HEADLESS path (attrPresent=false) -----------------------------
+
+  it("(matrix headless/text/completes) SSE counter confirms promptly → GREEN", async () => {
+    // Headless completes-normally: SSE catches up well before
+    // maxTurnDurationMs. (Mirrors test (3) with explicit matrix framing.)
+    const page = makeRunSignalPage({
+      sse: [0, 1, 1], // catches up at poll 1
+      running: [runningAbsent],
+      cascade: [{ count: 1, text: "headless prompt reply" }],
+    });
+    const result = await waitForTurnComplete({
+      page,
+      turnIndex: 1,
+      settleMs: 30,
+      timeoutMs: 2_000,
+      maxTurnDurationMs: 1_500,
+      baselineCount: 0,
+    });
+    expect(result.text).toBe("headless prompt reply");
+  });
+
+  // headless/text/lagging-recovers === (F5) above.
+  // headless/surface/lagging-recovers === (F5-surface) above.
+
+  it("(matrix headless/text/genuine-hang) SSE counter NEVER catches up → sse-missing at the HARD timeout (NOT early)", async () => {
+    // Headless genuine-hang on the text path: the early backstop is gated OFF
+    // for headless, so the turn runs to the hard timeout and reds sse-missing.
+    // (Mirrors (3-red) with explicit matrix framing; small timeout for speed.)
+    const page = makeRunSignalPage({
+      sse: [0], // never catches up
+      running: [runningAbsent],
+      cascade: [{ count: 1, text: "headless stuck" }],
+    });
+    await expect(
+      waitForTurnComplete({
+        page,
+        turnIndex: 1,
+        settleMs: 30,
+        timeoutMs: 300, // hard ceiling reached fast
+        maxTurnDurationMs: 100, // would have fired here on the old backstop
+        baselineCount: 0,
+      }),
+    ).rejects.toMatchObject({
+      name: "TurnNotCompleteError",
+      reason: "sse-missing",
+    });
+  });
+
+  it("(matrix headless/surface/genuine-hang) surface mounted + SSE NEVER catches up → sse-missing at the HARD timeout (NOT early)", async () => {
+    // Headless genuine-hang on the surface-mount path. (Mirrors (F4-3b) with
+    // explicit matrix framing.)
+    const { page, surfaceReady } = makeSurfaceRunSignalPage({
+      sse: [0],
+      running: [runningAbsent],
+      cascade: [{ count: 1, text: null }],
+      surface: [true],
+    });
+    await expect(
+      waitForTurnComplete({
+        page,
+        turnIndex: 1,
+        settleMs: 15,
+        timeoutMs: 200,
+        maxTurnDurationMs: 60,
+        baselineCount: 0,
+        baselineRunStartCount: 0,
+        pollIntervalMs: 5,
+        surfaceReady,
+      }),
+    ).rejects.toMatchObject({
+      name: "TurnNotCompleteError",
+      reason: "sse-missing",
+    });
   });
 });

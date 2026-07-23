@@ -24,10 +24,19 @@ in-stream STATE_DELTA path used by useAgent, just not via the optional
 
 import os
 
+# CVDIAG bootstrap — MUST be the first non-stdlib import (folded in from the
+# dropped L1-H slot). Importing this module configures the root logger via
+# ``logging.basicConfig`` so the ``agents._header_forwarding`` CVDIAG loggers
+# actually EMIT, and resolves the verbosity tier + PB writer. It imports
+# pydantic/starlette only (NOT ADK / google-genai), so it is safe to run before
+# the httpx hook install below — it does not construct Gemini's httpx client.
+import _shared.cvdiag_bootstrap  # noqa: F401,E402  (first non-stdlib import — bootstrap side effects)
+
 # ORDER-CRITICAL: install the global httpx hook BEFORE any ``agents.*``
 # import. ADK / google-genai construct Gemini's httpx client during agent
 # module import, so the patch must be in place before those imports run.
-from agents._header_forwarding import (
+from agents._cvdiag_backend import CvdiagBackendMiddleware  # noqa: E402
+from agents._header_forwarding import (  # noqa: E402
     HeaderForwardingHTTPMiddleware,
     install_global_httpx_hook,
 )
@@ -72,6 +81,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# CVDIAG backend emitter (spec §3 Layer 2) — emits the HTTP-observable backend
+# boundaries (request.ingress, sse.first_byte, sse.event, sse.aborted,
+# response.complete, error.caught) as structured CVDIAG envelopes. Added LAST so
+# it is the OUTERMOST layer: it observes ingress before any inner layer mutates
+# the request and wraps the response stream so SSE boundaries fire as chunks
+# flow. Gated behind ``CVDIAG_BACKEND_EMITTER`` (default OFF, canary-safe) — the
+# middleware fast-paths to a bare pass-through when the flag is unset.
+app.add_middleware(CvdiagBackendMiddleware)
 
 
 # Mount one ADKAgent per registered agent at /<agent_name>.

@@ -3,8 +3,8 @@ import { sanitizeErrorDesc } from "./sanitize.js";
 import {
   STARTER_LEVELS,
   starterToColumnSlug,
-  type StarterLevel,
 } from "../helpers/starter-mapping.js";
+import type { StarterLevel } from "../helpers/starter-mapping.js";
 import { parseSseEvents } from "../helpers/sse-interceptor.js";
 import type { ProbeDriver } from "../types.js";
 import type { ProbeContext, ProbeResult } from "../../types/index.js";

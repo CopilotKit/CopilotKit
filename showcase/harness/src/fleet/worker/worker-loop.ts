@@ -261,33 +261,75 @@ export const DEFAULT_POLL_INTERVAL_MS = 5_000;
  */
 export const DRAIN_DEREGISTER_TIMEOUT_MS = 3_000;
 /**
- * Upper bound on how long `stop()` waits for the in-flight run to drain before
- * detaching and resolving anyway.
+ * Platform SIGTERM→SIGKILL window the COMPOSED drain budget must fit under —
+ * i.e. the `terminationGracePeriodSeconds` layer-(c)/C3 MUST configure on the
+ * Railway `harness-workers` service so the worker drains cleanly before the
+ * platform hard-kills it.
  *
- * SERIAL BUDGET vs the platform kill: Railway SIGKILLs ~10s after SIGTERM
- * (live-verified 2026-06-10), and the drain sequence (`drainFleetWorker`)
- * spends its phases SERIALLY inside that window:
+ * This used to be Railway's ~10s default (live-verified 2026-06-10). Layer (b)
+ * turned the drain grace from a teardown budget into a FINISH-AND-REPORT budget
+ * that must BOUND a typical cell-job (see `DEFAULT_WORKER_DRAIN_GRACE_MS`), so
+ * a 10s default can no longer host it. The composed serial budget is now:
  *
- *     DRAIN_DEREGISTER_TIMEOUT_MS (cap; <1s normally)   — roster delete
- *   + DEFAULT_WORKER_DRAIN_GRACE_MS (this grace)        — best-effort teardown
- *   + health-server close + pool shutdown               — small remainder
- *   ≈ Railway's ~10s SIGTERM→SIGKILL window
+ *     DRAIN_DEREGISTER_TIMEOUT_MS (3s cap)          — roster delete
+ *   + DEFAULT_WORKER_DRAIN_GRACE_MS (90s grace)     — finish-and-report budget
+ *   + health-server close + pool shutdown           — small remainder
+ *   < PLATFORM_STOP_GRACE_MS (180s)                 — Railway terminationGracePeriod
  *
- * The COMPOSED worst case — a hung PocketBase consuming the full
- * `DRAIN_DEREGISTER_TIMEOUT_MS` cap AND a wedged driver consuming this full
- * grace — must fit under that window. The composed-budget test in
- * worker-loop.test.ts pins `DRAIN_DEREGISTER_TIMEOUT_MS +
- * DEFAULT_WORKER_DRAIN_GRACE_MS` against it and is the source of truth when
- * retuning either constant (both live in this file). Deregister-first
- * ordering makes the trade safe: only the roster delete is GUARANTEED to
- * beat the kill; the pool shutdown and clean `process.exit` behind this
- * grace are best-effort (a SIGKILL mid-teardown is harmless once the roster
- * row is gone). Env-overridable via `WORKER_DRAIN_GRACE_MS` for platforms
- * with longer stop-grace windows — but an override above ~7s forfeits the
- * composed <10s budget on Railway (the 3s deregister cap plus the override
- * would exceed the SIGTERM→SIGKILL window).
+ * **C3 REQUIREMENT (layer c):** set Railway
+ * `terminationGracePeriodSeconds = 180` (this value) on `harness-workers` so the
+ * 3s + 90s composed budget fits with ≥30s headroom for the serial teardown
+ * remainder. If the B5 grace is retuned (e.g. B-VAL measures a higher cell-job
+ * p95), C3 must raise this in lockstep. The composed-budget test in
+ * worker-loop.test.ts pins the relation `DRAIN_DEREGISTER_TIMEOUT_MS +
+ * DEFAULT_WORKER_DRAIN_GRACE_MS < PLATFORM_STOP_GRACE_MS` and is the source of
+ * truth when retuning any of the three constants.
  */
-export const DEFAULT_WORKER_DRAIN_GRACE_MS = 6_000;
+export const PLATFORM_STOP_GRACE_MS = 180_000;
+/**
+ * Upper bound on how long `stop()` waits for the in-flight run to
+ * FINISH-AND-REPORT (layer b) before firing `runAbort` (→ the driver's own
+ * abort fires → the run abandons → its lease lapses → layer-(a) reaper reclaims
+ * the row) and detaching so the process can exit before the platform SIGKILL.
+ *
+ * SIZED TO BOUND A CELL-JOB, NOT JUST TEARDOWN: layer (b) makes a graceful
+ * `drain()` let the in-flight run FINISH within this grace and report its real
+ * terminal result, instead of abandoning it. So this grace must be LONGER than
+ * a typical cell-job's wall-clock (so a normal in-flight job finishes within
+ * grace) and SHORTER than the platform stop window with headroom (so the
+ * process drains before SIGKILL).
+ *
+ * CELL-JOB SIGNAL (in-repo): a single-service cell-job runs ~15s (a light
+ * e2e-deep feature) up to ~200s (a heavy d6-all-pills service under concurrency
+ * contention); the per-job lease ceiling is `DEFAULT_LEASE_SECONDS` (300s),
+ * which a single job is expected to fit under. **90s** covers the bulk of
+ * single cell-jobs and stays well under the 300s lease so a finishing job's
+ * lease never lapses within grace. The long tail — a job that genuinely cannot
+ * finish in 90s — falls back to layer (a): abandon → reaper reclaim. The grace
+ * is DELIBERATELY FINITE; we do NOT try to guarantee every job finishes.
+ *
+ * ASSUMPTION FOR B-VAL: the exact numeric is to be CONFIRMED against staging
+ * p95/p99 cell-job duration (no per-cell-job p95 telemetry exists in-repo yet)
+ * and may be retuned toward the heavy ~200s case if validation shows it; this
+ * 90s is a defensible default, NOT a measured value. Env-overridable via
+ * `WORKER_DRAIN_GRACE_MS`.
+ *
+ * COMPOSED SERIAL BUDGET vs the platform kill: the drain sequence
+ * (`drainFleetWorker`) spends its phases SERIALLY inside the platform stop
+ * window (`PLATFORM_STOP_GRACE_MS`): `DRAIN_DEREGISTER_TIMEOUT_MS` (3s cap on a
+ * hung-PB roster delete) is consumed BEFORE this grace even starts, then the
+ * grace, then the health-server close + pool shutdown remainder. The COMPOSED
+ * worst case (hung PB AND a wedged driver) must fit under
+ * `PLATFORM_STOP_GRACE_MS` — see that constant's doc for the C3 requirement.
+ * Deregister-first ordering makes the trade safe: only the roster delete is
+ * GUARANTEED to beat the kill; the pool shutdown and clean `process.exit`
+ * behind this grace are best-effort (a SIGKILL mid-teardown is harmless once
+ * the roster row is gone). An override that pushes
+ * `DRAIN_DEREGISTER_TIMEOUT_MS + override` at or above `PLATFORM_STOP_GRACE_MS`
+ * forfeits the composed budget and risks SIGKILL mid-finish; raise
+ * `terminationGracePeriodSeconds` (C3) in lockstep with any such override.
+ */
+export const DEFAULT_WORKER_DRAIN_GRACE_MS = 90_000;
 
 /**
  * Guarded log: invoke `logger[level]` and SWALLOW any throw.
@@ -672,16 +714,29 @@ export async function runClaimedJob(
   lease: JobLease,
   opts: { leaseSeconds: number; heartbeatMs: number },
   /**
-   * The worker's drain signal (`startWorkerLoop`'s `stopAbort.signal`). Threaded
-   * into `ctx.abortSignal` so a graceful `stop()` cancels the in-flight driver
-   * run promptly (the d6 driver wires `ctx.abortSignal` into its own abort).
-   * Once the signal FIRES, `ctx.drainReason` reads `"shutdown"` (a live getter
-   * — undefined while the signal exists but has not fired) so the driver can
-   * distinguish a drain abort from a timeout/error abort and suppress its red
-   * per-cell side-emits only on a true drain. Optional so the `runClaimedJob`
+   * The worker's drain signal (`startWorkerLoop`'s `stopAbort.signal`). Fires
+   * the moment `drain()`/`stop()` is requested. It NO LONGER aborts the
+   * in-flight run (layer (b) graceful drain: a run that was seconds from done
+   * when SIGTERM landed must FINISH and be reported, not be cancelled mid-flight
+   * and abandoned). It still rides into `ctx.drainReason` ("shutdown" once it
+   * FIRES — a live getter, undefined while the signal exists but has not fired)
+   * so the driver can distinguish a drain from a timeout/error and soft-wind-down
+   * its red per-cell side-emits, and it still stops the lease heartbeat (the
+   * abandon path relies on the lease lapsing). Optional so the `runClaimedJob`
    * unit tests that call it directly keep compiling without a signal.
    */
   drainSignal?: AbortSignal,
+  /**
+   * The in-flight RUN's abort signal — DISTINCT from `drainSignal`. Threaded
+   * into `ctx.abortSignal` so the driver still has a hard cancel, but this fires
+   * only at GRACE-EXPIRY (a wedged run that ignores the drain and overruns the
+   * grace window), NOT at drain-START. Decoupling these is what lets a finishing
+   * run complete within grace instead of being aborted the instant `drain()`
+   * fires (the d6 driver wires `ctx.abortSignal` into its own abort). Defaults to
+   * `drainSignal` when omitted so `runClaimedJob`'s direct unit tests keep their
+   * existing single-signal semantics.
+   */
+  runAbortSignal?: AbortSignal,
 ): Promise<ServiceJobResult> {
   const { workerId, queue, logger, env, now } = deps;
   const { job, payload } = lease;
@@ -825,22 +880,37 @@ export async function runClaimedJob(
   // that returns null (lease lost/stolen) stops the heartbeat but does not
   // abort the run — `report` is the final CAS arbiter.
   const heartbeatAbort = new AbortController();
-  // DRAIN STOPS RENEWAL: once the drain signal fires the in-flight job is
-  // ABANDONED — the loop will never report it, and the abandon design relies
-  // on the lease LAPSING so the sweeper re-queues the job neutral-gray. A
-  // wedged driver that ignores its abort would otherwise keep this heartbeat
-  // renewing indefinitely, holding the abandoned lease alive past every
-  // reclaim window. Abort the heartbeat the moment the drain fires (the
-  // listener is removed in the finally below so a long-lived drain signal
-  // doesn't accumulate listeners across jobs). A renewLease round-trip that
-  // was ALREADY dispatched when the drain fired may still land post-drain and
-  // extend the abandoned lease once — accepted (it only delays the sweeper's
-  // reclaim by one lease window) and untested by design.
-  const stopHeartbeatOnDrain = (): void => heartbeatAbort.abort();
-  if (drainSignal?.aborted) {
+  // GRACE-EXPIRY STOPS RENEWAL — NOT drain-start (layer (b), Task B3). Layer (b)
+  // decoupled "stop claiming new work" (the DRAIN signal) from "abort the
+  // in-flight run" (the GRACE-EXPIRY signal, `runAbortSignal` ← `runAbort` in
+  // startWorkerLoop). A run that was seconds from done when SIGTERM landed now
+  // FINISHES within the grace window and is reported — but that finish can span
+  // one or more heartbeat ticks, so the lease MUST keep renewing across it.
+  // Keying the heartbeat-abort on the DRAIN signal (as before B3) would stop
+  // renewal at drain-start → the lease lapses mid-finish → the layer-(a) reaper
+  // could reclaim the row out from under the worker (double-run /
+  // report-after-reclaim). So gate the heartbeat-abort on the SAME signal that
+  // marks the run genuinely ABANDONED: `runAbortSignal` (grace-expiry).
+  //   - FINISHING run: drain fired, runAbort has NOT → heartbeat keeps renewing
+  //     → lease stays alive until the run reports terminal (and the terminal
+  //     `done|failed` release resets layer-(a)'s `consecutive_orphan_count`).
+  //   - ABANDONED run: stop() fires `runAbort` at grace-expiry → heartbeat
+  //     aborts → the lease lapses → the sweeper re-queues neutral-gray (the
+  //     abandon design still relies on the lease LAPSING; a wedged driver that
+  //     ignores its abort would otherwise hold the lease alive indefinitely).
+  // The listener is removed in the finally below so a long-lived signal doesn't
+  // accumulate listeners across jobs. A renewLease round-trip ALREADY dispatched
+  // when the abort fires may still land once post-abort and extend the abandoned
+  // lease — accepted (it only delays the sweeper's reclaim by one lease window).
+  // `runAbortSignal` defaults to `drainSignal` (see runClaimedJob's signature)
+  // so the direct-call unit tests that pass a single signal keep their original
+  // drain-stops-renewal semantics.
+  const graceAbortSignal = runAbortSignal ?? drainSignal;
+  const stopHeartbeatOnGraceExpiry = (): void => heartbeatAbort.abort();
+  if (graceAbortSignal?.aborted) {
     heartbeatAbort.abort();
   } else {
-    drainSignal?.addEventListener("abort", stopHeartbeatOnDrain, {
+    graceAbortSignal?.addEventListener("abort", stopHeartbeatOnGraceExpiry, {
       once: true,
     });
   }
@@ -888,11 +958,15 @@ export async function runClaimedJob(
       logger,
       env,
       writer: capture.writer,
-      // Thread the worker's drain signal so a graceful `stop()` aborts the
-      // in-flight run promptly. `drainReason` rides alongside it so the driver
-      // suppresses its red per-cell side-emits on drain (a redeploy must not
-      // paint a mass-red block).
-      abortSignal: drainSignal,
+      // The in-flight run's hard-cancel signal. Layer (b): this is the
+      // GRACE-EXPIRY signal (`runAbortSignal`), NOT the drain signal — a
+      // graceful `drain()` no longer aborts the run mid-flight, so a run that
+      // is about to finish completes within the grace window and is reported.
+      // Only a run that overruns the grace gets aborted here (falling back to
+      // layer (a) abandon→reclaim). `drainReason` rides alongside on the
+      // separate `drainSignal` so the driver still LEARNS it is draining and can
+      // soft-wind-down / suppress its red per-cell side-emits.
+      abortSignal: runAbortSignal ?? drainSignal,
       // LIVE drain state: "shutdown" only once the drain signal has actually
       // FIRED — not merely because one exists. Every fleet ctx carries the
       // signal, so a statically-stamped "shutdown" would mislabel the driver's
@@ -987,7 +1061,7 @@ export async function runClaimedJob(
       finishedAt: now().toISOString(),
     });
   } finally {
-    drainSignal?.removeEventListener("abort", stopHeartbeatOnDrain);
+    graceAbortSignal?.removeEventListener("abort", stopHeartbeatOnGraceExpiry);
     heartbeatAbort.abort();
     await heartbeat;
   }
@@ -1069,6 +1143,15 @@ export function startWorkerLoop(deps: WorkerLoopDeps): WorkerLoopHandle {
   }
 
   const stopAbort = new AbortController();
+  // The in-flight RUN's hard-cancel, DISTINCT from `stopAbort` (the drain
+  // signal). Layer (b) graceful drain: `drain()`/`stop()` fires `stopAbort`
+  // immediately to STOP CLAIMING new work, but the in-flight run keeps going so
+  // a run that was seconds from done finishes and is reported. This controller
+  // fires ONLY at grace-expiry (in `stop()`'s timeout leg) so a wedged run that
+  // overruns the grace window is still cut (then abandoned → reclaimed by layer
+  // (a)). Threaded into the run's `ctx.abortSignal`; `stopAbort` continues to
+  // drive `drainReason` and the lease-heartbeat stop.
+  const runAbort = new AbortController();
   let stopped = false;
   let drainRequested = false;
   /**
@@ -1081,10 +1164,13 @@ export function startWorkerLoop(deps: WorkerLoopDeps): WorkerLoopHandle {
 
   /**
    * Fire the drain signal exactly once: ABORT FIRST, then record the abandon
-   * decision. The abort is the load-bearing half — the loop's report-skip,
-   * the heartbeat stop, and the driver cancel all key on `stopAbort.signal`,
-   * NOT on `stop()` completing — so a hung run that "completes" after this
-   * point is still abandoned, never reported. The log line is forensics, and
+   * decision. The abort is the load-bearing half — `stopAbort.signal` stops the
+   * loop CLAIMING new work the instant it fires (not on `stop()` completing).
+   * Post-B2 the run-affecting halves are decoupled onto the GRACE-EXPIRY signal
+   * `runAbort.signal` (the loop's report-skip discriminator, the heartbeat stop,
+   * and the driver cancel `ctx.abortSignal`), so a graceful drain lets a
+   * FINISHING run complete and report; only a run that overruns the grace (when
+   * `runAbort` fires) is abandoned. The log line is forensics, and
    * `requestDrain()` sits at the head of `drainFleetWorker`'s SIGTERM
    * critical path: a throwing logger ahead of the abort would skip the abort
    * AND propagate out before the roster delete ever ran, so the log fires
@@ -1220,8 +1306,11 @@ export function startWorkerLoop(deps: WorkerLoopDeps): WorkerLoopHandle {
 
       // 3. Run + report. `runClaimedJob` never throws — it returns a comm-error
       //    terminal result on crash/timeout so the loop always reports.
-      //    The drain signal (`stopAbort.signal`) is threaded into the driver ctx
-      //    so a graceful `stop()` cancels the in-flight run.
+      //    Layer (b): the DRAIN signal (`stopAbort.signal`) is threaded for
+      //    `drainReason` + heartbeat-stop, but the RUN's hard cancel is the
+      //    GRACE-EXPIRY signal (`runAbort.signal`) — so a graceful `drain()`
+      //    lets the in-flight run FINISH (and be reported) instead of aborting
+      //    it; only a run that overruns the grace window is cut.
       const result = await runClaimedJob(
         {
           workerId,
@@ -1237,22 +1326,32 @@ export function startWorkerLoop(deps: WorkerLoopDeps): WorkerLoopHandle {
         lease,
         { leaseSeconds, heartbeatMs },
         stopAbort.signal,
+        runAbort.signal,
       );
 
-      // DRAIN ABANDON: the check is "stop() was requested" — NOT "the run was
-      // aborted". A result that completed green just before stop() fired is
-      // also abandoned, by design (accepted cost; it re-runs after the lease
-      // lapses). Do NOT report the result —
-      // a reported partial paints RED (terminalJobStatus maps any non-green
-      // aggregate to "failed", and there is no neutral aggregate state the
-      // result-consumer renders). Instead leave the row claimed/running so the
-      // lease lapses and the control-plane sweeper re-queues it neutral-gray
-      // (`worker-reclaimed-pending`). The accepted cost is an up-to-lease-window
-      // re-run delay; the win is ZERO red paint on a routine redeploy. The
-      // worker also deregisters its registry row (orchestrator runWorker stop
-      // path) so fleet-health doesn't reclaim the row red at its 180s stale
+      // DRAIN ABANDON — layer (b) finish-and-report split. The discriminator is
+      // `abortedWithoutResult`: did the run get HARD-ABORTED at grace-expiry
+      // (`runAbort.signal.aborted`) without producing a usable terminal result?
+      //   - YES (overran the grace window) → ABANDON: a reported partial paints
+      //     RED (terminalJobStatus maps any non-green aggregate to "failed", and
+      //     there is no neutral aggregate state the result-consumer renders), so
+      //     leave the row claimed/running, let the lease lapse, and let the
+      //     control-plane sweeper re-queue it neutral-gray
+      //     (`worker-reclaimed-pending`) → layer (a) reclaim is the backstop.
+      //   - NO (the run FINISHED within grace, even though `drain()` had fired)
+      //     → FALL THROUGH to the report path below and report the terminal
+      //     result (finish-and-report). A clean `drain()` no longer discards a
+      //     completed result.
+      // The worker still deregisters its registry row (orchestrator runWorker
+      // stop path) so fleet-health doesn't reclaim the row red at its 180s stale
       // window before the 300s lease expiry.
-      if (stopAbort.signal.aborted) {
+      // SAME-TURN SAFETY: even when the run resolves in the very flush the grace
+      // `setTimeout` comes due, `runAbort` does NOT fire here — `runAbort.abort()`
+      // lives only in stop()'s `Promise.race` TIMEOUT leg, and that leg loses the
+      // race once `done` is resolvable, so a finished run is reported, not
+      // spuriously abandoned (regression-pinned by the "SAME-TURN race" test).
+      const abortedWithoutResult = runAbort.signal.aborted;
+      if (abortedWithoutResult) {
         safeLog(logger, "info", "fleet.worker.drain-abandon", {
           workerId,
           jobId: lease.job.id,
@@ -1318,12 +1417,15 @@ export function startWorkerLoop(deps: WorkerLoopDeps): WorkerLoopHandle {
       }
       stopped = true;
       requestDrain();
-      // Bound the drain: the in-flight `driver.run` observes `stopAbort.signal`
-      // (threaded into `ctx.abortSignal`) and returns promptly, so `done`
-      // normally resolves fast. But a wedged driver that ignores the abort must
-      // not block process exit past Railway's grace window → SIGKILL mid-cleanup.
-      // Race `done` against a grace timeout; if the race times out, log and
-      // DETACH (resolve anyway) so the process actually leaves before SIGKILL.
+      // Bound the drain: layer (b) lets the in-flight `driver.run` FINISH within
+      // the grace window (its `ctx.abortSignal` is `runAbort.signal`, which has
+      // NOT fired yet), so `done` normally resolves on its own as the run
+      // completes and reports. But a wedged driver that overruns the grace must
+      // not block process exit past Railway's window → SIGKILL mid-cleanup.
+      // Race `done` against a grace timeout; on timeout, FIRE `runAbort` (hard
+      // cancel the overrunning run → it abandons via the `abortedWithoutResult`
+      // branch), then log and DETACH (resolve anyway) so the process leaves
+      // before SIGKILL.
       let graceTimer: ReturnType<typeof setTimeout> | undefined;
       const graceExpired = new Promise<"timeout">((resolve) => {
         graceTimer = setTimeout(() => resolve("timeout"), drainGraceMs);
@@ -1349,6 +1451,10 @@ export function startWorkerLoop(deps: WorkerLoopDeps): WorkerLoopHandle {
         if (graceTimer !== undefined) clearTimeout(graceTimer);
       }
       if (outcome === "timeout") {
+        // Grace expired: the run overran its budget. Hard-cancel it via
+        // `runAbort` so the driver's own abort fires and the loop abandons it
+        // (the `abortedWithoutResult` branch → lease lapses → layer (a) reclaim).
+        runAbort.abort();
         safeLog(logger, "warn", "fleet.worker.drain-timeout", {
           workerId,
           drainGraceMs,

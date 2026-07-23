@@ -1,7 +1,7 @@
 ---
 title: "Dynamic Schema A2UI"
 icon: "lucide/Sparkles"
-description: "LLM-generated A2UI — a secondary LLM creates both the schema and data from any prompt."
+description: "LLM-generated A2UI. A secondary LLM creates both the schema and data from any prompt."
 snippet_cell: declarative-gen-ui
 ---
 
@@ -14,9 +14,7 @@ any request without pre-defined schemas.
 
 ## How it works
 
-<FrameworkSetup concept="agent-setup" />
-
-1. The agent calls the A2UI tool to draw a surface — made available
+1. The agent calls the A2UI tool to draw a surface, made available
    when `injectA2UITool: true`.
 2. The runtime serializes your client-side catalog (component names +
    Zod prop schemas) into the agent's `copilotkit.context` so the LLM
@@ -76,23 +74,56 @@ provider registers the catalog and wires up the built-in A2UI
 activity-message renderer:
 
 <Snippet region="provider-a2ui-prop" />
+
+That is all the default path needs. The catalog auto-enables A2UI and
+injects the `generate_a2ui` tool, so the runtime needs no `a2ui` block.
+(No catalog? Turn it on from the runtime instead with
+`a2ui: { injectA2UITool: true }`.)
+</Step>
+</Steps>
+
+## I opted out of auto-inject, now what?
+
+By not passing a catalog, not setting `injectA2UITool`, or by passing
+a catalog and setting `injectA2UITool: false`, you have opted out
+entirely. That means you hook up two pieces yourself: the
+`generate_a2ui` tool which lets your agent generate A2UI surfaces, and
+the `A2UIMiddleware` which lets those surfaces render.
+
+<Steps>
+<Step>
+### The `A2UIMiddleware`
+
+The `A2UIMiddleware` is what turns the agent's `a2ui_operations` into
+rendered surfaces. Without it, the agent's output never becomes UI; it
+falls through as a plain tool result. It can also inject the
+`generate_a2ui` tool for you (`injectA2UITool: true`), letting you skip
+the next step. Attach it to the AG-UI agent:
+
+```typescript
+import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
+
+agent.use(new A2UIMiddleware({ injectA2UITool: false }));
+```
 </Step>
 
 <Step>
-### Turn A2UI on (runtime)
+### The A2UI agent tool
 
-On the TypeScript runtime, `injectA2UITool: true` turns A2UI on:
-CopilotKit renders A2UI output, serialises your client catalog into
-the agent's `copilotkit.context`, and makes the A2UI tool available to
-the agent. The frontend wiring is identical across integrations:
+The `generate_a2ui` tool runs a secondary LLM (a subagent) that designs
+the surface, which is why you hand it a model. Build it with the AG-UI
+factory and add it to your agent's tools:
 
-```typescript title="app/api/copilotkit/route.ts"
-const runtime = new CopilotRuntime({
-  agents: { default: myAgent },
-  a2ui: {
-    injectA2UITool: true,
-  },
-});
+```python title="agent.py"
+from ag_ui_langgraph import get_a2ui_tools
+from langchain_openai import ChatOpenAI
+
+generate_a2ui = get_a2ui_tools({
+    "model": ChatOpenAI(model="gpt-4o"),
+    "default_catalog_id": "copilotkit://app-dashboard-catalog",
+})
+
+tools = [my_other_tool, generate_a2ui]
 ```
 </Step>
 </Steps>
@@ -102,7 +133,7 @@ const runtime = new CopilotRuntime({
 The secondary LLM's `render_a2ui` tool call streams through LangGraph
 as `TOOL_CALL_ARGS` events. The A2UI middleware:
 
-1. Waits for the full `components` array before emitting anything —
+1. Waits for the full `components` array before emitting anything;
    the schema must be complete before rendering starts.
 2. Extracts `surfaceId` + `root` from the partial JSON.
 3. Emits `createSurface` + `updateComponents` once the schema is

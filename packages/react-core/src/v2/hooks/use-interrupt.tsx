@@ -5,17 +5,34 @@ import React, {
   useMemo,
   useRef,
 } from "react";
+import { randomUUID } from "@ag-ui/client";
+import type { Interrupt, Message } from "@ag-ui/client";
+import { ɵInterruptState } from "@copilotkit/core";
+import type { ɵPendingInterrupt } from "@copilotkit/core";
 import { useCopilotKit } from "../context";
 import { useAgent } from "./use-agent";
 import type {
   InterruptEvent,
   InterruptRenderProps,
   InterruptHandlerProps,
+  InterruptResolveFn,
+  InterruptCancelFn,
 } from "../types/interrupt";
 
-export type { InterruptEvent, InterruptRenderProps, InterruptHandlerProps };
+export type {
+  InterruptEvent,
+  InterruptRenderProps,
+  InterruptHandlerProps,
+  Interrupt,
+};
 
 const INTERRUPT_EVENT_NAME = "on_interrupt";
+
+/**
+ * Normalized pending interrupt. `legacy` carries the custom-event payload;
+ * `standard` carries the AG-UI `outcome:"interrupt"` interrupts array.
+ */
+type PendingInterrupt = ɵPendingInterrupt;
 
 type InterruptHandlerFn<TValue, TResult> = (
   props: InterruptHandlerProps<TValue>,
@@ -52,6 +69,12 @@ export function isPromiseLike<TValue>(
   );
 }
 
+/** Derive the legacy-compatible `event` for any pending interrupt. */
+function toLegacyEvent(pending: PendingInterrupt): InterruptEvent {
+  if (pending.kind === "legacy") return pending.event;
+  return { name: INTERRUPT_EVENT_NAME, value: pending.interrupts[0] };
+}
+
 /**
  * Configuration options for `useInterrupt`.
  */
@@ -59,22 +82,22 @@ interface UseInterruptConfigBase<TValue = unknown, TResult = never> {
   /**
    * Render function for the interrupt UI.
    *
-   * This is called once an interrupt is finalized and accepted by `enabled` (if provided).
-   * Use `resolve` from render props to resume the agent run with user input.
+   * Receives both the standard `interrupt`/`interrupts` and the legacy `event`.
+   * Call `resolve(payload)` to resume with user input, or `cancel()` to cancel.
    */
   render: (
     props: InterruptRenderProps<TValue, InterruptResult<TValue, TResult>>,
   ) => React.ReactElement;
   /**
    * Optional pre-render handler invoked when an interrupt is received.
-   *
-   * Return either a sync value or an async value to pass into `render` as `result`.
+   * Return a sync or async value to expose as `result` in `render`.
    * Rejecting/throwing falls back to `result = null`.
    */
   handler?: InterruptHandlerFn<TValue, TResult>;
   /**
-   * Optional predicate to filter which interrupts should be handled by this hook.
-   * Return `false` to ignore an interrupt.
+   * Optional predicate to filter which interrupts this hook handles.
+   * Receives the legacy-compatible event (for standard interrupts, `value` is
+   * the primary `Interrupt`). Return `false` to ignore.
    */
   enabled?: (event: InterruptEvent<TValue>) => boolean;
   /** Optional agent id. Defaults to the current configured chat agent. */
@@ -85,7 +108,7 @@ export interface UseInterruptInChatConfig<
   TValue = unknown,
   TResult = never,
 > extends UseInterruptConfigBase<TValue, TResult> {
-  /** When true (default), the interrupt UI renders inside `<CopilotChat>` automatically. Set to false to render it yourself. */
+  /** When true (default), the interrupt UI renders inside `<CopilotChat>` automatically. */
   renderInChat?: true;
 }
 
@@ -93,7 +116,7 @@ export interface UseInterruptExternalConfig<
   TValue = unknown,
   TResult = never,
 > extends UseInterruptConfigBase<TValue, TResult> {
-  /** When true (default), the interrupt UI renders inside `<CopilotChat>` automatically. Set to false to render it yourself. */
+  /** When false, the hook returns the interrupt element so you can place it yourself. */
   renderInChat: false;
 }
 
@@ -110,68 +133,35 @@ export type UseInterruptConfig<
   TResult = never,
   TRenderInChat extends InterruptRenderInChat = undefined,
 > = UseInterruptConfigBase<TValue, TResult> & {
-  /** When true (default), the interrupt UI renders inside `<CopilotChat>` automatically. Set to false to render it yourself. */
+  /** When true (default), the interrupt UI renders inside `<CopilotChat>` automatically. */
   renderInChat?: TRenderInChat;
 };
 
 /**
- * Handles agent interrupts (`on_interrupt`) with optional filtering, preprocessing, and resume behavior.
+ * Handles agent interrupts with optional filtering, preprocessing, and resume behavior.
  *
- * The hook listens to custom events on the active agent, stores interrupt payloads per run,
- * and surfaces a render callback once the run finalizes. Call `resolve` from your UI to resume
- * execution with user-provided data.
+ * Supports both the AG-UI standard interrupt flow (`RUN_FINISHED` with
+ * `outcome.type === "interrupt"`) and the legacy custom-event flow
+ * (`on_interrupt`). For standard interrupts, `render` receives `interrupt`
+ * (the primary one) and `interrupts` (the full open set); call `resolve(payload)`
+ * to resume or `cancel()` to cancel. Resuming addresses the targeted interrupt
+ * and, once every open interrupt is addressed, submits a single spec `resume`
+ * array via `copilotkit.runAgent`.
  *
- * - `renderInChat: true` (default): the element is published into `<CopilotChat>` and this hook returns `void`.
- * - `renderInChat: false`: the hook returns the interrupt element so you can place it anywhere in your component tree.
- *
- * `event.value` is typed as `any` since the interrupt payload shape depends on your agent.
- * Type-narrow it in your callbacks (e.g. `handler`, `enabled`, `render`) as needed.
- *
- * @typeParam TResult - Inferred from `handler` return type. Exposed as `result` in `render`.
- * @param config - Interrupt configuration (renderer, optional handler/filter, and render mode).
- * @returns When `renderInChat` is `false`, returns the interrupt element (or `null` when idle).
- * Otherwise returns `void` and publishes the element into chat. In `render`, `result` is always
- * either the handler's resolved return value or `null` (including when no handler is provided,
- * when filtering skips the interrupt, or when handler execution fails).
+ * - `renderInChat: true` (default): the element is published into `<CopilotChat>`; returns `void`.
+ * - `renderInChat: false`: the hook returns the interrupt element for manual placement.
  *
  * @example
  * ```tsx
- * import { useInterrupt } from "@copilotkit/react-core/v2";
- *
- * function InterruptUI() {
- *   useInterrupt({
- *     render: ({ event, resolve }) => (
- *       <div>
- *         <p>{event.value.question}</p>
- *         <button onClick={() => resolve({ approved: true })}>Approve</button>
- *         <button onClick={() => resolve({ approved: false })}>Reject</button>
- *       </div>
- *     ),
- *   });
- *
- *   return null;
- * }
- * ```
- *
- * @example
- * ```tsx
- * import { useInterrupt } from "@copilotkit/react-core/v2";
- *
- * function CustomPanel() {
- *   const interruptElement = useInterrupt({
- *     renderInChat: false,
- *     enabled: (event) => event.value.startsWith("approval:"),
- *     handler: async ({ event }) => ({ label: event.value.toUpperCase() }),
- *     render: ({ event, result, resolve }) => (
- *       <aside>
- *         <strong>{result?.label ?? ""}</strong>
- *         <button onClick={() => resolve({ value: event.value })}>Continue</button>
- *       </aside>
- *     ),
- *   });
- *
- *   return <>{interruptElement}</>;
- * }
+ * useInterrupt({
+ *   render: ({ interrupt, resolve, cancel }) => (
+ *     <div>
+ *       <p>{interrupt?.message}</p>
+ *       <button onClick={() => resolve({ approved: true })}>Approve</button>
+ *       <button onClick={() => cancel()}>Cancel</button>
+ *     </div>
+ *   ),
+ * });
  * ```
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -184,100 +174,200 @@ export function useInterrupt<
   /* eslint-enable @typescript-eslint/no-explicit-any */
   const { copilotkit } = useCopilotKit();
   const { agent } = useAgent({ agentId: config.agentId });
-  const [pendingEvent, setPendingEvent] = useState<InterruptEvent | null>(null);
-  const pendingEventRef = useRef(pendingEvent);
-  pendingEventRef.current = pendingEvent;
+  const [pending, setPending] = useState<PendingInterrupt | null>(null);
+  const pendingRef = useRef(pending);
+  pendingRef.current = pending;
   const [handlerResult, setHandlerResult] =
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     useState<InterruptResult<any, TResult>>(null);
 
+  const interruptStateRef = useRef(new ɵInterruptState());
+
   useEffect(() => {
-    let localInterrupt: InterruptEvent | null = null;
+    const interruptState = interruptStateRef.current;
+    let localLegacy: InterruptEvent | null = null;
+    let localStandard: Interrupt[] | null = null;
 
     const subscription = agent.subscribe({
       onCustomEvent: ({ event }) => {
         if (event.name === INTERRUPT_EVENT_NAME) {
-          localInterrupt = { name: event.name, value: event.value };
+          localLegacy = { name: event.name, value: event.value };
+        }
+      },
+      onRunFinishedEvent: (params) => {
+        if (params.outcome === "interrupt") {
+          localStandard = params.interrupts;
         }
       },
       onRunStartedEvent: () => {
-        localInterrupt = null;
-        setPendingEvent(null);
+        localLegacy = null;
+        localStandard = null;
+        interruptState.clear();
+        setPending(null);
       },
       onRunFinalized: () => {
-        if (localInterrupt) {
-          setPendingEvent(localInterrupt);
-          localInterrupt = null;
+        // Standard wins if both somehow appear for one run.
+        if (localStandard && localStandard.length > 0) {
+          interruptState.setStandard(localStandard);
+          setPending(interruptState.pending);
+        } else if (localLegacy) {
+          interruptState.setLegacy(localLegacy);
+          setPending(interruptState.pending);
         }
+        localLegacy = null;
+        localStandard = null;
       },
       onRunFailed: () => {
-        localInterrupt = null;
-        setPendingEvent(null);
+        localLegacy = null;
+        localStandard = null;
+        interruptState.clear();
+        setPending(null);
       },
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      interruptState.clear();
+    };
   }, [agent]);
 
-  const resolve = useCallback(
-    async (response: unknown) => {
-      // Do NOT synchronously clear pendingEvent here — onRunStartedEvent
-      // already clears it when the resume run begins. Clearing synchronously
-      // unmounts the card before commit, which previously forced consumers
-      // to wrap their resolve() in a 500ms setTimeout to keep the UI alive.
-      //
-      // RESUME-PATH: await runAgent and return the result so callers can
-      // sequence post-resume UI (e.g. harness DOM settle-check waiting for
-      // the assistant confirmation bubble). Returning void here is the bug
-      // that quarantined the showcase manifests' interrupt-headless feature.
-      try {
-        return await copilotkit.runAgent({
-          agent,
-          forwardedProps: {
-            command: {
-              resume: response,
-              interruptEvent: pendingEventRef.current?.value,
+  const resolve: InterruptResolveFn = useCallback(
+    async (payload, interruptId) => {
+      const current = pendingRef.current;
+      if (!current) return;
+
+      if (
+        current.kind === "standard" &&
+        current.interrupts.length > 1 &&
+        interruptId === undefined
+      ) {
+        console.warn(
+          `[CopilotKit] useInterrupt: resolve()/cancel() called without an interruptId while ${current.interrupts.length} interrupts are open; defaulting to the first. Pass an interruptId to address a specific interrupt.`,
+        );
+      }
+      const decision = interruptStateRef.current.resolve(payload, interruptId);
+      if (decision.kind === "legacy-resume") {
+        try {
+          return await copilotkit.runAgent({
+            agent,
+            forwardedProps: {
+              command: {
+                resume: decision.payload,
+                interruptEvent: decision.interruptValue,
+              },
             },
-          },
-        });
+          });
+        } catch (err) {
+          console.error(
+            "[CopilotKit] useInterrupt resolve: runAgent rejected; clearing pending + rethrowing",
+            err,
+          );
+          setPending(null);
+          throw err;
+        }
+      }
+      if (decision.kind === "expired") {
+        console.error(
+          `[CopilotKit] useInterrupt: interrupt ${decision.interrupt.id} expired at ${decision.interrupt.expiresAt}; not resuming.`,
+        );
+        interruptStateRef.current.clear();
+        setPending(null);
+        return;
+      }
+      if (decision.kind !== "resume") return;
+      for (const toolResult of decision.toolResults) {
+        agent.addMessage({
+          id: randomUUID(),
+          role: "tool",
+          toolCallId: toolResult.toolCallId,
+          content: toolResult.content,
+        } as Message);
+      }
+      try {
+        return await copilotkit.runAgent({ agent, resume: decision.resume });
       } catch (err) {
-        // Catastrophic rejection path: runAgent rejected before/around the
-        // run actually starting (network error, auth failure, validation
-        // reject). In that case `onRunFailed` may never fire — so clear
-        // `pendingEvent` here so the popup unmounts. Symmetric with the
-        // `onRunFailed` handler above; both write null, so no race.
         console.error(
           "[CopilotKit] useInterrupt resolve: runAgent rejected; clearing pending + rethrowing",
           err,
         );
-        setPendingEvent(null);
+        interruptStateRef.current.clear();
+        setPending(null);
         throw err;
       }
     },
     [agent, copilotkit],
   );
 
-  // Stabilize consumer-supplied callbacks behind refs so inline lambdas
-  // (a new identity every parent render) do NOT churn the element memo
-  // identity or the handler effect. Without this, every dep-churn cycle
-  // would re-run the publish effect's cleanup, racing a stale `null` past
-  // the new element and unmounting the in-chat card on each render.
+  const cancel: InterruptCancelFn = useCallback(
+    async (interruptId) => {
+      const current = pendingRef.current;
+      if (!current) return;
+
+      if (
+        current.kind === "standard" &&
+        current.interrupts.length > 1 &&
+        interruptId === undefined
+      ) {
+        console.warn(
+          `[CopilotKit] useInterrupt: resolve()/cancel() called without an interruptId while ${current.interrupts.length} interrupts are open; defaulting to the first. Pass an interruptId to address a specific interrupt.`,
+        );
+      }
+      const decision = interruptStateRef.current.cancel(interruptId);
+      if (decision.kind === "dismiss") {
+        // Legacy interrupts have no cancel semantics; dismiss without resuming.
+        console.warn(
+          "[CopilotKit] useInterrupt: cancel() is not supported for legacy on_interrupt interrupts; dismissing.",
+        );
+        interruptStateRef.current.clear();
+        setPending(null);
+        return;
+      }
+      if (decision.kind === "expired") {
+        console.error(
+          `[CopilotKit] useInterrupt: interrupt ${decision.interrupt.id} expired at ${decision.interrupt.expiresAt}; not resuming.`,
+        );
+        interruptStateRef.current.clear();
+        setPending(null);
+        return;
+      }
+      if (decision.kind !== "resume") return;
+      for (const toolResult of decision.toolResults) {
+        agent.addMessage({
+          id: randomUUID(),
+          role: "tool",
+          toolCallId: toolResult.toolCallId,
+          content: toolResult.content,
+        } as Message);
+      }
+      try {
+        return await copilotkit.runAgent({ agent, resume: decision.resume });
+      } catch (err) {
+        console.error(
+          "[CopilotKit] useInterrupt resolve: runAgent rejected; clearing pending + rethrowing",
+          err,
+        );
+        interruptStateRef.current.clear();
+        setPending(null);
+        throw err;
+      }
+    },
+    [agent, copilotkit],
+  );
+
+  // Stabilize consumer-supplied callbacks behind refs so inline lambdas do not
+  // churn the element memo identity or the handler effect.
   const renderRef = useRef(config.render);
   renderRef.current = config.render;
   const enabledRef = useRef(config.enabled);
   enabledRef.current = config.enabled;
   const handlerRef = useRef(config.handler);
   handlerRef.current = config.handler;
-  // F4: mirror `resolve` behind a ref so the handler effect does not depend
-  // on resolve's identity. Without this, churn in [agent, copilotkit]
-  // (resolve's deps) would re-run the effect for the same pendingEvent and
-  // double-invoke the consumer handler.
   const resolveRef = useRef(resolve);
   resolveRef.current = resolve;
+  const cancelRef = useRef(cancel);
+  cancelRef.current = cancel;
 
-  // F5: predicate evaluator that treats a throw as "disabled" (false) and
-  // logs the error. Called from both the handler effect and the element
-  // memo, neither of which may crash the React tree on a consumer bug.
+  // Predicate evaluator: a throw is treated as "disabled" (false) and logged.
   const isEnabled = (event: InterruptEvent): boolean => {
     const predicate = enabledRef.current;
     if (!predicate) return true;
@@ -293,33 +383,30 @@ export function useInterrupt<
   };
 
   useEffect(() => {
-    // No interrupt to process — reset any stale handler result from a previous interrupt
-    if (!pendingEvent) {
+    if (!pending) {
       setHandlerResult(null);
       return;
     }
-    // Interrupt exists but the consumer's filter rejects it — treat as no-op.
-    // F5: a throw from the predicate is treated as "disabled".
-    if (!isEnabled(pendingEvent)) {
+    const legacyEvent = toLegacyEvent(pending);
+    if (!isEnabled(legacyEvent)) {
       setHandlerResult(null);
       return;
     }
     const handler = handlerRef.current;
-    // No handler provided — skip straight to rendering with a null result
     if (!handler) {
       setHandlerResult(null);
       return;
     }
 
     let cancelled = false;
-    // F3: a synchronous throw from the consumer handler must not escape the
-    // effect. Honor the documented contract ("Rejecting/throwing falls back
-    // to `result = null`") at the sync branch too.
     let maybePromise: ReturnType<typeof handler>;
     try {
       maybePromise = handler({
-        event: pendingEvent,
+        event: legacyEvent,
+        interrupt: pending.kind === "standard" ? pending.interrupts[0] : null,
+        interrupts: pending.kind === "standard" ? [...pending.interrupts] : [],
         resolve: resolveRef.current,
+        cancel: cancelRef.current,
       });
     } catch (err) {
       console.error(
@@ -332,15 +419,12 @@ export function useInterrupt<
       };
     }
 
-    // If the handler returns a promise/thenable, wait for resolution before setting result.
     if (isPromiseLike(maybePromise)) {
       Promise.resolve(maybePromise)
         .then((resolved) => {
           if (!cancelled) setHandlerResult(resolved);
         })
         .catch((err) => {
-          // F3 (companion): log the async failure so it isn't silently
-          // swallowed, while preserving the documented null-fallback.
           console.error(
             "[CopilotKit] useInterrupt handler rejected; result will be null:",
             err,
@@ -354,33 +438,32 @@ export function useInterrupt<
     return () => {
       cancelled = true;
     };
-    // F4: depend ONLY on pendingEvent. resolve is read via resolveRef so
-    // identity churn in [agent, copilotkit] cannot double-fire the handler.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingEvent]);
+  }, [pending]);
 
   const element = useMemo(() => {
-    if (!pendingEvent) return null;
-    // F5: throwing predicate → disabled.
-    if (!isEnabled(pendingEvent)) return null;
+    if (!pending) return null;
+    const legacyEvent = toLegacyEvent(pending);
+    if (!isEnabled(legacyEvent)) return null;
 
     return renderRef.current({
-      event: pendingEvent,
+      event: legacyEvent,
+      interrupt: pending.kind === "standard" ? pending.interrupts[0] : null,
+      interrupts: pending.kind === "standard" ? [...pending.interrupts] : [],
       result: handlerResult,
       resolve,
+      cancel,
     });
-  }, [pendingEvent, handlerResult, resolve]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pending, handlerResult, resolve, cancel]);
 
-  // Publish to core for in-chat rendering. Publish-only — do NOT nullify
-  // on dep churn; the element memo already returns null when pendingEvent
-  // is null (the legitimate clear path: onRunStartedEvent / onRunFailed).
+  // Publish to core for in-chat rendering. Publish-only.
   useEffect(() => {
     if (config.renderInChat === false) return;
     copilotkit.setInterruptElement(element);
   }, [element, config.renderInChat, copilotkit]);
 
-  // Nullify on true unmount only. Separate effect with empty deps so the
-  // cleanup runs exactly once when the component is removed from the tree.
+  // Nullify on true unmount only.
   useEffect(() => {
     if (config.renderInChat === false) return;
     return () => {
@@ -389,7 +472,6 @@ export function useInterrupt<
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Only return element when rendering outside chat
   if (config.renderInChat === false) {
     return element as UseInterruptReturn<TRenderInChat>;
   }

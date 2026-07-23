@@ -1,19 +1,14 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { CopilotKitCore } from "../core";
-import {
-  AbstractAgent,
-  Message,
-  State,
-  RunAgentInput,
-  EventType,
-} from "@ag-ui/client";
+import type { Message, State, RunAgentInput } from "@ag-ui/client";
+import { AbstractAgent, EventType } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
 
 /**
  * Mock agent that can emit events to test state management
  */
 class EventEmittingMockAgent extends AbstractAgent {
-  private subscribers: any[] = [];
+  private testSubscribers: any[] = [];
 
   constructor(agentId: string, threadId: string, initialState: State = {}) {
     super({
@@ -23,7 +18,7 @@ class EventEmittingMockAgent extends AbstractAgent {
     });
   }
 
-  protected run(input: RunAgentInput): any {
+  public run(input: RunAgentInput): any {
     // Not used in these tests
     throw new Error("run() should not be called in these tests");
   }
@@ -36,7 +31,7 @@ class EventEmittingMockAgent extends AbstractAgent {
   // Helper to emit run started event
   public async emitRunStarted(runId: string, state: State = {}) {
     this.state = state;
-    for (const sub of this.subscribers) {
+    for (const sub of this.testSubscribers) {
       if (sub.onRunStartedEvent) {
         await sub.onRunStartedEvent({
           event: {
@@ -56,7 +51,7 @@ class EventEmittingMockAgent extends AbstractAgent {
   // Helper to emit run finished event
   public async emitRunFinished(runId: string, state: State = {}) {
     this.state = state;
-    for (const sub of this.subscribers) {
+    for (const sub of this.testSubscribers) {
       if (sub.onRunFinishedEvent) {
         await sub.onRunFinishedEvent({
           event: {
@@ -81,7 +76,7 @@ class EventEmittingMockAgent extends AbstractAgent {
     code: string = "unknown",
   ) {
     this.state = state;
-    for (const sub of this.subscribers) {
+    for (const sub of this.testSubscribers) {
       if (sub.onRunErrorEvent) {
         await sub.onRunErrorEvent({
           event: {
@@ -102,7 +97,7 @@ class EventEmittingMockAgent extends AbstractAgent {
 
   // Helper to emit state snapshot event
   public async emitStateSnapshot(runId: string, snapshot: State) {
-    for (const sub of this.subscribers) {
+    for (const sub of this.testSubscribers) {
       if (sub.onStateSnapshotEvent) {
         await sub.onStateSnapshotEvent({
           event: {
@@ -125,7 +120,7 @@ class EventEmittingMockAgent extends AbstractAgent {
     currentState: State,
   ) {
     this.state = currentState;
-    for (const sub of this.subscribers) {
+    for (const sub of this.testSubscribers) {
       if (sub.onStateDeltaEvent) {
         await sub.onStateDeltaEvent({
           event: {
@@ -143,7 +138,7 @@ class EventEmittingMockAgent extends AbstractAgent {
 
   // Helper to emit messages snapshot event
   public async emitMessagesSnapshot(runId: string, messages: Message[]) {
-    for (const sub of this.subscribers) {
+    for (const sub of this.testSubscribers) {
       if (sub.onMessagesSnapshotEvent) {
         await sub.onMessagesSnapshotEvent({
           event: {
@@ -162,7 +157,7 @@ class EventEmittingMockAgent extends AbstractAgent {
   // Helper to emit new message event
   public async emitNewMessage(runId: string, message: Message) {
     this.messages.push(message);
-    for (const sub of this.subscribers) {
+    for (const sub of this.testSubscribers) {
       if (sub.onNewMessage) {
         await sub.onNewMessage({
           message,
@@ -177,12 +172,12 @@ class EventEmittingMockAgent extends AbstractAgent {
 
   // Override subscribe to track subscribers
   public override subscribe(subscriber: any) {
-    this.subscribers.push(subscriber);
+    this.testSubscribers.push(subscriber);
     return {
       unsubscribe: () => {
-        const index = this.subscribers.indexOf(subscriber);
+        const index = this.testSubscribers.indexOf(subscriber);
         if (index > -1) {
-          this.subscribers.splice(index, 1);
+          this.testSubscribers.splice(index, 1);
         }
       },
     };
@@ -194,6 +189,8 @@ class EventEmittingMockAgent extends AbstractAgent {
       runId,
       state: this.state,
       messages: this.messages,
+      tools: [],
+      context: [],
     };
   }
 }
@@ -807,7 +804,7 @@ describe("StateManager - Edge Cases", () => {
     };
 
     // Emit message without proper input (edge case)
-    for (const sub of (agent as any).subscribers) {
+    for (const sub of (agent as any).testSubscribers) {
       if (sub.onNewMessage) {
         await sub.onNewMessage({
           message,

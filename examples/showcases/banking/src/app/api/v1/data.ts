@@ -51,6 +51,14 @@ export interface TransactionNote {
   date: string;
 }
 
+export interface PolicyException {
+  id: string;
+  transactionId: string;
+  code: string;
+  status: "draft" | "approved";
+  createdAt: string;
+}
+
 export interface Transaction {
   id: string;
   title: string;
@@ -60,12 +68,24 @@ export interface Transaction {
   policyId: string;
   cardId: string;
   status: "pending" | "denied" | "approved";
+  activeExceptionId?: string | null;
 }
 
 export interface NewCardRequest {
   type: CardBrand;
   color: string;
   pin: string;
+}
+
+// A copilot-generated report artifact, filed in the dashboard's Reports tab.
+// Narrative fields come from the agent; id/createdAt are server-set.
+export interface Report {
+  id: string;
+  title: string;
+  summary: string;
+  highlights: string[];
+  createdAt: string;
+  createdBy: string;
 }
 
 export function generateUniqueId() {

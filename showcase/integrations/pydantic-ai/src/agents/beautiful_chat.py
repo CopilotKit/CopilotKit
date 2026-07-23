@@ -177,19 +177,26 @@ def search_flights(
     """
     operations = [
         {
-            "type": "create_surface",
-            "surfaceId": FLIGHT_SURFACE_ID,
-            "catalogId": FLIGHT_CATALOG_ID,
+            "version": "v0.9",
+            "createSurface": {
+                "surfaceId": FLIGHT_SURFACE_ID,
+                "catalogId": FLIGHT_CATALOG_ID,
+            },
         },
         {
-            "type": "update_components",
-            "surfaceId": FLIGHT_SURFACE_ID,
-            "components": FLIGHT_SCHEMA,
+            "version": "v0.9",
+            "updateComponents": {
+                "surfaceId": FLIGHT_SURFACE_ID,
+                "components": FLIGHT_SCHEMA,
+            },
         },
         {
-            "type": "update_data_model",
-            "surfaceId": FLIGHT_SURFACE_ID,
-            "data": {"flights": flights},
+            "version": "v0.9",
+            "updateDataModel": {
+                "surfaceId": FLIGHT_SURFACE_ID,
+                "path": "/",
+                "value": {"flights": flights},
+            },
         },
     ]
     return json.dumps({"a2ui_operations": operations})

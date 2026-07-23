@@ -32,6 +32,14 @@ const REGISTRY_PATH = path.resolve(
 
 const BASE = process.env.PREVIEW_URL ?? "http://localhost:3003";
 const CONCURRENCY = Number(process.env.CONCURRENCY ?? 8);
+if (!Number.isInteger(CONCURRENCY) || CONCURRENCY < 1) {
+  // A zero/NaN worker pool would make Promise.all([]) resolve instantly and
+  // print "0/0 OK" with exit 0 — a silent no-op that probes nothing.
+  console.error(
+    `Invalid CONCURRENCY=${process.env.CONCURRENCY}; expected a positive integer`,
+  );
+  process.exit(1);
+}
 
 // Mirror getDocsFolder from shell-docs/src/lib/registry.ts. Single source
 // of truth lives there; duplicated here because this script is run via
@@ -43,6 +51,7 @@ const DOCS_FOLDER_OVERRIDES: Record<string, string> = {
   "google-adk": "adk",
   "crewai-crews": "crewai-flows",
   strands: "aws-strands",
+  "strands-typescript": "aws-strands",
   "ms-agent-dotnet": "microsoft-agent-framework",
   "ms-agent-harness-dotnet": "microsoft-agent-framework",
   "ms-agent-python": "microsoft-agent-framework",
@@ -67,15 +76,40 @@ interface Registry {
   integrations: Integration[];
 }
 
+interface DocsLinks {
+  features?: Record<string, { shell_docs_path?: string }>;
+}
+
+function docsLinkUrlsForFramework(slug: string): string[] {
+  const docsLinksPath = path.resolve(
+    REPO_SCRIPTS,
+    "../integrations",
+    slug,
+    "docs-links.json",
+  );
+  if (!fs.existsSync(docsLinksPath)) return [];
+
+  const docsLinks = JSON.parse(
+    fs.readFileSync(docsLinksPath, "utf-8"),
+  ) as DocsLinks;
+  const urls = new Set<string>();
+  for (const feature of Object.values(docsLinks.features ?? {})) {
+    const shellPath = feature.shell_docs_path;
+    if (!shellPath || !shellPath.startsWith("/")) continue;
+    urls.add(shellPath === "/" ? `/${slug}` : `/${slug}${shellPath}`);
+  }
+  return [...urls].sort();
+}
+
 function urlsForFramework(slug: string, docsFolder: string): string[] {
   const dir = path.join(CONTENT_DIR, "integrations", docsFolder);
+  const out = new Set<string>([`/${slug}`, ...docsLinkUrlsForFramework(slug)]);
   if (!fs.existsSync(dir)) {
     // No content folder at all — only the framework root URL is reachable
     // (Tier 1 data-driven; will render via FrameworkOverview record).
-    return [`/${slug}`];
+    return [...out].sort();
   }
   const files = glob.sync("**/*.mdx", { cwd: dir }).sort();
-  const out = new Set<string>();
   for (const rel of files) {
     const noExt = rel.replace(/\.mdx$/, "");
     // index.mdx at root → bare /<slug>; a/b/index.mdx → /<slug>/a/b
@@ -87,7 +121,7 @@ function urlsForFramework(slug: string, docsFolder: string): string[] {
           : noExt;
     out.add(cleaned ? `/${slug}/${cleaned}` : `/${slug}`);
   }
-  return [...out];
+  return [...out].sort();
 }
 
 interface ProbeResult {
@@ -119,6 +153,25 @@ interface ProbeResult {
 const H1_RX = /<h1[^>]*>([^<]+)<\/h1>/g;
 const MAIN_RX = /<main[\s>]/;
 
+function normalizeHtmlText(text: string): string {
+  return text
+    .replace(/&(?:#x27|apos);/gi, "'")
+    .replace(/&quot;/gi, '"')
+    .replace(/&amp;/gi, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isNotFoundHeading(text: string): boolean {
+  const normalized = normalizeHtmlText(text).toLowerCase();
+  return (
+    normalized === "404" ||
+    normalized.includes("page doesn't exist") ||
+    normalized.includes("page does not exist") ||
+    normalized.includes("page could not be found")
+  );
+}
+
 async function probe(url: string): Promise<ProbeResult> {
   try {
     const res = await fetch(BASE + url, {
@@ -140,8 +193,8 @@ async function probe(url: string): Promise<ProbeResult> {
     if (!hasMain && h1s.length === 0) {
       return { url, status: 200, ok: false, reason: "404 page" };
     }
-    // `<h1>404</h1>` slipped into the docs shell — rarer 404 variant.
-    if (h1s.some((t) => /^\s*404\s*$/.test(t))) {
+    // Custom 404 inside the docs shell.
+    if (h1s.some(isNotFoundHeading)) {
       return {
         url,
         status: 200,
@@ -175,14 +228,8 @@ async function main() {
   const urlsByFw = new Map<string, string[]>();
   let total = 0;
   // Probe every framework that has a `/<slug>` route. Registered
-  // integrations get the full MDX-tree enumeration. Docs-only
-  // frameworks (a2a / agent-spec / deepagents) are different: their
-  // route handler in app/[framework]/[[...slug]]/page.tsx ONLY
-  // serves the bare `/<slug>` root — scoped subpaths like
-  // `/deepagents/quickstart` intentionally `notFound()` (see the
-  // comment at "Docs-only frameworks ... only support the bare
-  // `/<framework>` root URL"). Enumerating their MDX tree would
-  // produce false-positive 404s, so we probe only the root for them.
+  // integrations and docs-only frameworks both use the framework-scoped
+  // route handler, so both get root + MDX-tree + docs-links coverage.
   for (const i of visible) {
     const folder = getDocsFolder(i.slug);
     const urls = urlsForFramework(i.slug, folder);
@@ -190,9 +237,9 @@ async function main() {
     total += urls.length;
   }
   for (const slug of DOCS_ONLY_FRAMEWORKS) {
-    const rootOnly = [`/${slug}`];
-    urlsByFw.set(slug, rootOnly);
-    total += rootOnly.length;
+    const urls = urlsForFramework(slug, getDocsFolder(slug));
+    urlsByFw.set(slug, urls);
+    total += urls.length;
   }
   const slugsToProbe = [...visible.map((i) => i.slug), ...DOCS_ONLY_FRAMEWORKS];
   // Also probe the unscoped docs root and a few canonical landings.

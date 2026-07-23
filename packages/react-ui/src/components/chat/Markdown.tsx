@@ -1,9 +1,12 @@
-import { FC, memo, useMemo } from "react";
-import ReactMarkdown, { Options, Components } from "react-markdown";
+import type { FC } from "react";
+import { memo, useMemo } from "react";
+import type { Options, Components } from "react-markdown";
+import ReactMarkdown from "react-markdown";
 import { CodeBlock } from "./CodeBlock";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeRaw from "rehype-raw";
+import rehypeSanitize from "rehype-sanitize";
 
 const defaultComponents: Components = {
   a({ children, ...props }) {
@@ -148,7 +151,7 @@ export const Markdown = ({
     [remarkPlugins],
   );
   const mergedRehypePlugins = useMemo<Options["rehypePlugins"]>(
-    () => [rehypeRaw, ...(rehypePlugins ?? [])],
+    () => [rehypeRaw, ...(rehypePlugins ?? []), rehypeSanitize],
     [rehypePlugins],
   );
   return (

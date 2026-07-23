@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { createCopilotRuntimeHandler } from "../core/fetch-handler";
 import { CopilotRuntime } from "../core/runtime";
+import type { CopilotSseRuntimeOptions } from "../core/runtime";
 import type { AbstractAgent } from "@ag-ui/client";
 import type { CopilotRuntimeHooks } from "../core/hooks";
 
@@ -16,7 +17,7 @@ const createMockAgent = () => {
   return agent as AbstractAgent;
 };
 
-const createRuntime = (opts?: Partial<CopilotRuntime>) =>
+const createRuntime = (opts?: Partial<CopilotSseRuntimeOptions>) =>
   new CopilotRuntime({
     agents: { default: createMockAgent() },
     ...opts,

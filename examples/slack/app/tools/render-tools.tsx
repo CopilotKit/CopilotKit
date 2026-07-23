@@ -1,12 +1,11 @@
 /**
  * Render-tools — the agent-facing wrappers that turn the JSX render
- * components into `BotTool`s. The agent calls `issue_card` / `issue_list` /
- * `page_list`; each handler renders the finished `@copilotkit/bot-ui`
+ * components into `ChannelTool`s. The agent calls `issue_card` / `issue_list` /
+ * `page_list`; each handler renders the finished `@copilotkit/channels-ui`
  * component (`<IssueCard … />` etc.) and posts it to the thread via
- * `thread.post`. The tool NAMES, descriptions and input schemas preserve the
- * legacy `componentToFrontendTool(defineSlackComponent(...))` contract.
+ * `thread.post`.
  */
-import { defineBotTool } from "@copilotkit/bot";
+import { defineChannelTool } from "@copilotkit/channels";
 import {
   IssueCard,
   IssueList,
@@ -16,10 +15,10 @@ import {
   pageListSchema,
 } from "../components/index.js";
 
-export const issueCardTool = defineBotTool({
+export const issueCardTool = defineChannelTool({
   name: "issue_card",
   description:
-    "Render ONE Linear issue as a rich Block Kit card with a status header, " +
+    "Render ONE Linear issue as a rich card with a status header, " +
     "the title as a link, and a metadata grid (status, assignee, priority, " +
     "team, cycle, updated) plus optional description and labels. Use for a " +
     "single issue, or right after creating one (set justCreated: true).",
@@ -30,14 +29,14 @@ export const issueCardTool = defineBotTool({
   },
 });
 
-export const issueListTool = defineBotTool({
+export const issueListTool = defineChannelTool({
   name: "issue_list",
   description:
-    "Render a list of Linear issues as a Block Kit card — a header plus one " +
-    "row per issue (status dot, linked identifier, title, and a meta line " +
-    "with assignee/priority/updated). Use this whenever you're showing the " +
-    "user multiple issues you pulled from Linear instead of writing them out " +
-    "as prose. For a single issue, use issue_card.",
+    "Render a list of Linear issues as a card — a header plus one row per " +
+    "issue (status dot, linked identifier, title, and a meta line with " +
+    "assignee/priority/updated). Use this whenever you're showing the user " +
+    "multiple issues you pulled from Linear instead of writing them out as " +
+    "prose. For a single issue, use issue_card.",
   parameters: issueListSchema,
   async handler(props, { thread }) {
     await thread.post(<IssueList {...props} />);
@@ -45,13 +44,13 @@ export const issueListTool = defineBotTool({
   },
 });
 
-export const pageListTool = defineBotTool({
+export const pageListTool = defineChannelTool({
   name: "page_list",
   description:
-    "Render a list of Notion pages as a Block Kit card — a header plus one " +
-    "row per page (linked title, a snippet, and optional last-edited). Use " +
-    "this whenever you're showing the user pages you found in Notion instead " +
-    "of writing them out as prose.",
+    "Render a list of Notion pages as a card — a header plus one row per " +
+    "page (linked title, a snippet, and optional last-edited). Use this " +
+    "whenever you're showing the user pages you found in Notion instead of " +
+    "writing them out as prose.",
   parameters: pageListSchema,
   async handler(props, { thread }) {
     await thread.post(<PageList {...props} />);

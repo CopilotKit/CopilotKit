@@ -266,8 +266,10 @@
       }
     },
     {
+      "_comment": "Chat-demo weather pill — emit get_weather. toolName gate added so the bare 'weather' substring only fires when the requesting agent actually registers get_weather. Without it, the tool-free voice agent's prompt 'What is the weather in Tokyo?' (substring 'weather') leaked into this fixture, emitting a get_weather call the voice agent could never resolve → the voice cell hung (done-signal-missing). Mirrors the toolName gate used by d6 tool-rendering.json's get_weather fixture.",
       "match": {
         "userMessage": "weather",
+        "toolName": "get_weather",
         "hasToolResult": false,
         "context": "llamaindex"
       },
@@ -630,8 +632,9 @@
       }
     },
     {
+      "_comment": "D4 toolbar 'Summarize' button — narrowed from bare 'summarize' to 'Summarize the sales pipeline' (verbatim D4 toolbar probe), matching langgraph-python parity. The prior bare 'summarize' substring-matched the D6 gen-ui-agent pill 'Research our top competitor and summarize their strengths and weaknesses.' and returned this sales-pipeline text instead of the gen-ui-agent set_steps fixture, so the competitor pill produced no/duplicate steps. 'Summarize the sales pipeline' is unique to the D4 toolbar probe.",
       "match": {
-        "userMessage": "summarize",
+        "userMessage": "Summarize the sales pipeline",
         "context": "llamaindex"
       },
       "response": {

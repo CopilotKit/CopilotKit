@@ -31,6 +31,7 @@ describe("FrameworkOverview", () => {
     expect(markup).toContain('aria-controls="hero-cli-commands"');
     expect(markup).toContain("border-[var(--accent)]");
     expect(markup).toContain("bg-[var(--accent)]");
+    expect(markup).toContain("shell-docs-primary-cta");
     expect(markup).toContain("text-[var(--primary-foreground)]");
   });
 

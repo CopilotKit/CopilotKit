@@ -6,10 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "test:e2e": "playwright test"
+    "lint": "eslint .",
+    "test:e2e": "playwright test",
+    "test:e2e:ogui": "playwright test -c playwright.ogui.config.ts",
+    "test:self-learning": "playwright test e2e/memory-learning.spec.ts",
+    "test:unit": "vitest run",
+    "mint-dev-license": "node scripts/mint-dev-license.mjs"
   },
   "dependencies": {
+    "@copilotkit/a2ui-renderer": "workspace:*",
     "@copilotkit/core": "workspace:*",
     "@copilotkit/react-core": "workspace:*",
     "@copilotkit/runtime": "workspace:*",
@@ -42,13 +47,20 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@copilotkit/aimock": "1.19.1",
     "@playwright/test": "^1.59.1",
     "@tailwindcss/postcss": "^4",
+    "@testing-library/react": "^16.1.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^4.3.4",
+    "eslint": "^9",
+    "eslint-config-next": "^16.0.10",
+    "jsdom": "^25.0.1",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.0"
   },
   "packageManager": "pnpm@10.10.0+sha512.d615db246fe70f25dcfea6d8d73dee782ce23e2245e3c4f6f888249fb568149318637dca73c2c5c8ef2a4ca0d5657fb9567188bfab47f566d1ee6ce987815c39"
 }

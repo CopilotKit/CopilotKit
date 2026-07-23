@@ -234,3 +234,118 @@ describe("buildCellModel — comm-error overlay precedence", () => {
     expect(model.surfaceState).toBe("unreachable");
   });
 });
+
+describe("buildCellModel — starter axis (probeAxis: 'starter')", () => {
+  const COL = "google-adk";
+  const STARTER_LEVELS = ["health", "agent", "chat", "interaction"] as const;
+  const STARTER_CELL = {
+    slug: COL,
+    featureId: "starter",
+    isSupported: true,
+    isWired: true,
+    probeAxis: "starter",
+  } as const;
+
+  function starterMap(
+    states: Partial<Record<(typeof STARTER_LEVELS)[number], State>>,
+    observedAt?: string,
+  ): LiveStatusMap {
+    const live: LiveStatusMap = new Map();
+    for (const level of STARTER_LEVELS) {
+      const st = states[level];
+      if (st === undefined) continue;
+      const key = keyFor("starter", COL, level);
+      live.set(key, row(key, st, observedAt ? { observedAt } : {}));
+    }
+    return live;
+  }
+
+  it("derives GREEN when every starter level is fresh-green", () => {
+    const live = starterMap({
+      health: "green",
+      agent: "green",
+      chat: "green",
+      interaction: "green",
+    });
+    const model = buildCellModel(live, STARTER_CELL, NOW);
+    expect(model.chipColor).toBe("green");
+    // It must NOT consult the agent ladder — d3/d4/d5/d6 are not the source.
+    expect(model.supported).toBe(true);
+  });
+
+  it("derives RED when any starter level is red", () => {
+    const live = starterMap({
+      health: "green",
+      agent: "green",
+      chat: "green",
+      interaction: "red",
+    });
+    const model = buildCellModel(live, STARTER_CELL, NOW);
+    expect(model.chipColor).toBe("red");
+  });
+
+  it("derives GRAY when a starter level row is missing (unverified)", () => {
+    const live = starterMap({
+      health: "green",
+      agent: "green",
+      chat: "green",
+      // interaction missing
+    });
+    const model = buildCellModel(live, STARTER_CELL, NOW);
+    expect(model.chipColor).toBe("gray");
+  });
+
+  it("does NOT resolve a starter cell from agent e2e/d5/d6 rows", () => {
+    // Only agent-axis rows present; no starter rows → starter cell is no-data.
+    const live: LiveStatusMap = new Map();
+    live.set(
+      keyFor("e2e", COL, "agentic-chat"),
+      row(keyFor("e2e", COL, "agentic-chat"), "green"),
+    );
+    const model = buildCellModel(live, STARTER_CELL, NOW);
+    expect(model.chipColor).toBe("gray");
+  });
+
+  // A starter row past STARTER_STALE_AFTER_MS (2.5h). 3h before NOW is stale,
+  // while the helper's default observed_at (30s before NOW) is fresh.
+  const STALE_OBSERVED = "2026-06-04T09:00:00.000Z";
+
+  it("derives AMBER (degraded fold) when all levels green but one is STALE", () => {
+    // health/agent/chat fresh-green; interaction green but past the starter
+    // staleness window → per-row stale-green→degraded fold → not-all-fresh →
+    // amber. A SINGLE stale-green level can't be credited green, but it isn't a
+    // red and the cell isn't wholly stale (3 fresh rows), so the matrix-stale
+    // gray fold does NOT apply.
+    const live: LiveStatusMap = new Map();
+    for (const level of ["health", "agent", "chat"] as const) {
+      const key = keyFor("starter", COL, level);
+      live.set(key, row(key, "green"));
+    }
+    const staleKey = keyFor("starter", COL, "interaction");
+    live.set(staleKey, row(staleKey, "green", { observedAt: STALE_OBSERVED }));
+
+    const model = buildCellModel(live, STARTER_CELL, NOW);
+    expect(model.chipColor).toBe("amber");
+    // One fresh row keeps the cell off the matrix-stale gray fold.
+    expect(model.isStaleCell).toBe(false);
+  });
+
+  it("derives GRAY with isStaleCell when ALL contributing rows are stale", () => {
+    // Every level present and green but ALL past the matrix window → the U8
+    // matrix-staleness fold collapses any colour to gray and flags the cell
+    // stale ("re-sweep pending"). starterMap applies the one stale timestamp to
+    // all four rows.
+    const live = starterMap(
+      {
+        health: "green",
+        agent: "green",
+        chat: "green",
+        interaction: "green",
+      },
+      STALE_OBSERVED,
+    );
+    const model = buildCellModel(live, STARTER_CELL, NOW);
+    expect(model.chipColor).toBe("gray");
+    expect(model.isStaleCell).toBe(true);
+  });
+});

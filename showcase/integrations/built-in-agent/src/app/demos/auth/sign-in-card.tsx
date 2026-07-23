@@ -3,15 +3,20 @@
 import { DEMO_TOKEN } from "./demo-token";
 
 interface SignInCardProps {
-  onSignIn: () => void;
+  onSignIn: (token: string) => void;
 }
 
 /**
  * Unauthenticated landing card for the auth demo. Surfaces the demo bearer
  * token in plain text so visitors can see exactly what gets sent on the
  * `Authorization` header — there's no real form because the value is fixed
- * by the runtime gate. Clicking "Sign in" calls `onSignIn`, which flips the
- * in-memory auth state via `useDemoAuth()`.
+ * by the runtime gate. Clicking "Sign in" stores the token via
+ * `useDemoAuth()`, which causes the parent to mount the chat surface.
+ *
+ * Note: built-in-agent is a deliberately minimal integration with no
+ * `@/components/ui` shadcn primitives, so this uses raw Tailwind-styled
+ * elements rather than the shared `Card`/`Button` components that
+ * langgraph-python (the gold reference) uses. The testids and behavior match.
  */
 export function SignInCard({ onSignIn }: SignInCardProps) {
   return (
@@ -51,7 +56,7 @@ export function SignInCard({ onSignIn }: SignInCardProps) {
         <button
           type="button"
           data-testid="auth-sign-in-button"
-          onClick={onSignIn}
+          onClick={() => onSignIn(DEMO_TOKEN)}
           className="w-full rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800"
         >
           Sign in with demo token

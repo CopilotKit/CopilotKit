@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { z } from "zod";
-import { BasicAgent, defineTool, type ToolDefinition } from "../index";
-import {
-  EventType,
-  type BaseEvent,
-  type ReasoningStartEvent,
-  type RunAgentInput,
+import { BasicAgent, defineTool } from "../index";
+import type { ToolDefinition } from "../index";
+import { EventType } from "@ag-ui/client";
+import type {
+  BaseEvent,
+  ReasoningStartEvent,
+  RunAgentInput,
 } from "@ag-ui/client";
 import { streamText } from "ai";
 import {
@@ -423,11 +424,12 @@ describe("BasicAgent", () => {
       expect(systemMessage.content).toContain("Application State");
 
       // Check order: prompt, then context, then state
-      const promptIndex = systemMessage.content.indexOf("You are helpful.");
-      const contextIndex = systemMessage.content.indexOf(
+      const systemContent = systemMessage.content as string;
+      const promptIndex = systemContent.indexOf("You are helpful.");
+      const contextIndex = systemContent.indexOf(
         "Context from the application",
       );
-      const stateIndex = systemMessage.content.indexOf("Application State");
+      const stateIndex = systemContent.indexOf("Application State");
 
       expect(promptIndex).toBeLessThan(contextIndex);
       expect(contextIndex).toBeLessThan(stateIndex);

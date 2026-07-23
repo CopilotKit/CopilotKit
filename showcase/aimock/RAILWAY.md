@@ -1,7 +1,7 @@
 # showcase-aimock Railway service reference
 
 Tagline: authoritative backup of the `showcase-aimock` Railway service config
-(image, startCommand, fixture URLs, env vars) and the from-scratch recreate
+(image, startCommand, baked-in fixtures, env vars) and the from-scratch recreate
 recipe. Concrete IDs / domains live in the Notion plan (section 9), not in
 this public repo.
 
@@ -21,8 +21,10 @@ Railway — this file is the authoritative backup.
 ## 1. What this service is
 
 `showcase-aimock` is a shared mock LLM server that 14+ CopilotKit showcase
-services route to via `OPENAI_BASE_URL`. It runs the `@copilotkit/aimock`
-container in proxy-only mode and serves fixture-driven responses so demos work
+services route to via `OPENAI_BASE_URL`. It runs the `showcase-aimock` wrapper
+image (built from `showcase/aimock/Dockerfile`, `FROM
+ghcr.io/copilotkit/aimock:latest` with the fixture tree baked in — see §3) in
+proxy-only mode and serves fixture-driven responses so demos work
 deterministically without burning provider tokens. Unmatched requests fall
 through to real upstream providers (OpenAI, Anthropic, Gemini).
 
@@ -37,6 +39,12 @@ through to real upstream providers (OpenAI, Anthropic, Gemini).
 | Environment    | `production`                                              |
 | Environment ID | `<environment-id>` (see Notion plan, section 9)           |
 | Public domain  | `<public-domain>` (see Notion plan, or Railway dashboard) |
+
+> **Auth for `showcase`-project mutations.** Use an account-scoped
+> `RAILWAY_TOKEN` (stored in the DevOps `showcase` 1Password item) against the
+> Railway GraphQL API with an `Authorization: Bearer <token>` header. The
+> Railway CLI session token is **not** authorized for mutations on the
+> `showcase` project — the account-scoped token is the working path.
 
 To look these up live from Railway GraphQL with a valid account token:
 
@@ -96,45 +104,52 @@ query {
 
 ## 3. Runtime image
 
-- Image: `ghcr.io/copilotkit/aimock:<version>` (the upstream aimock image
-  published from `CopilotKit/aimock`, not the legacy `showcase-aimock` wrapper)
-- At time of writing (2026-04-23): `1.14.8`
-- Available platforms: `linux/amd64`, `linux/arm64` (Railway pulls amd64)
-- Version selection: pin to the latest stable aimock release. Bump on a cadence
-  that matches showcase stability, not on every aimock publish.
+- Image: `showcase-aimock`, built by `.github/workflows/showcase_build.yml`
+  from `showcase/aimock/Dockerfile`. The Dockerfile is `FROM
+ghcr.io/copilotkit/aimock:latest` (the upstream aimock image published from
+  `CopilotKit/aimock`) and **bakes the fixture tree into the image** (see
+  section 4) — that baked image is what Railway deploys, not the bare upstream
+  image.
+- Base aimock version: tracks `ghcr.io/copilotkit/aimock:latest`. Pin the base
+  tag in the Dockerfile if you need to freeze it for showcase stability.
+- Published platform: `linux/amd64` only (`platforms: linux/amd64` in
+  `showcase_build.yml`; arm64 is intentionally not published — arm64-only builds
+  crash). Railway pulls amd64.
 
 ## 4. Fixture sources
 
-Three fixtures are served, fetched remotely at container boot:
+Fixtures are **baked into the image at build time**, not fetched remotely. The
+`showcase/aimock/Dockerfile` copies three fixture directories from this repo
+into the image:
 
-- D5 fixture bundle: <https://raw.githubusercontent.com/CopilotKit/CopilotKit/main/showcase/aimock/d5-all.json>
-  — 22 fixtures across 9 fixture files covering all 11 D5 feature types. Bundled
-  from `showcase/harness/fixtures/d5/*.json`. Must load BEFORE feature-parity
-  to win match precedence (D5 uses specific prompts that overlap with
-  feature-parity's broader substring matches).
-- Smoke fixture: <https://raw.githubusercontent.com/CopilotKit/CopilotKit/main/showcase/aimock/smoke.json>
-  — minimal "OK" ping for health verification.
-- Feature-parity fixture: <https://raw.githubusercontent.com/CopilotKit/CopilotKit/main/showcase/aimock/feature-parity.json>
-  — realistic tool-call / reasoning / streaming responses used by the
-  showcase demos.
+- `shared/` → `/fixtures/shared/` — `common.json` shared responses plus
+  `smoke.json` (the minimal "OK" ping used for health verification).
+- `d4/` → `/fixtures/d4/` — per-slug fixtures for the D4 demos.
+- `d6/` → `/fixtures/d6/` — per-slug fixtures for the D6 demos. The
+  `showcase/aimock/d6/<slug>/` tree is the source of truth for these.
 
-All files sit in this directory (`showcase/aimock/`). Edits land in the
-container on the next Railway restart — aimock fetches fixtures at boot and
-caches to disk. Note the `raw.githubusercontent.com` edge cache is ~5 minutes,
-so propagation after a merge is usually ~5 min + restart latency.
+The container loads these baked-in directories at boot (see the
+`--fixtures /fixtures` flag in section 5). There are no remote fixture URLs and no boot-time fetch —
+the old `d5-all.json` / `feature-parity.json` / remote-`smoke.json` bundles
+no longer exist (`d5-all.json` was a one-time migration source that was split
+into the per-slug `d6/` tree).
 
-When updating D5 fixtures, edit the individual files in `showcase/harness/fixtures/d5/`,
-then re-bundle into `d5-all.json` by running the merge script or manually
-combining the `fixtures` arrays. The bundle must stay in sync.
+To update fixtures, edit the files under `showcase/aimock/{shared,d4,d6}/` and
+rebuild the image (a push touching `showcase/aimock/**` triggers
+`showcase_build.yml`). Changes land on the next Railway deploy of the rebuilt
+image.
 
 > **showcase-harness browser-pool budget.** The harness runs
 > `BROWSER_POOL_BROWSERS=3` long-lived Chromium processes with a global
-> `BROWSER_POOL_MAX_CONTEXTS=40` context cap (D6 peak 32 + D5 peak 8). D5
-> e2e-deep alone runs up to 4 services x 2 features = 8 concurrent contexts
-> (~2.4 GB peak). The binding constraint is the PID ceiling of 1000, not
-> memory, so contexts (not processes) are the scaling knob — tune
-> `BROWSER_POOL_MAX_CONTEXTS` to bound contention, or reduce
-> `FEATURE_CONCURRENCY` in `e2e-deep.ts` / `max_concurrency` in
+> `BROWSER_POOL_MAX_CONTEXTS=24` context cap (lowered from 40). The D6 peak is
+> now 5×4=20 and the D5 e2e-deep peak is 16 (4 services × 4 features), so a
+> d6+d5 overlap (20+16=36) exceeds the 24 cap and serializes against it — that
+> back-pressure is intended. D5 e2e-deep alone runs up to 4 services × 4
+> features = 16 concurrent contexts (~4.8 GB peak). The binding constraint is
+> the PID ceiling of 1000, not memory, so contexts (not processes) are the
+> scaling knob — tune `BROWSER_POOL_MAX_CONTEXTS` to bound contention, or reduce
+> `FEATURE_CONCURRENCY_D6` in
+> `showcase/harness/src/probes/drivers/d6-all-pills.ts` / `max_concurrency` in
 > `e2e-deep.yml` if a single probe needs throttling.
 
 ## 5. Start command
@@ -149,31 +164,35 @@ combining the `fixtures` arrays. The bundle must stay in sync.
 ```sh
 node /app/dist/cli.js \
   --proxy-only \
+  --fixtures /fixtures \
   --provider-openai https://api.openai.com \
   --provider-anthropic https://api.anthropic.com \
   --provider-gemini https://generativelanguage.googleapis.com \
-  --fixtures https://raw.githubusercontent.com/CopilotKit/CopilotKit/main/showcase/aimock/d5-all.json \
-  --fixtures https://raw.githubusercontent.com/CopilotKit/CopilotKit/main/showcase/aimock/smoke.json \
-  --fixtures https://raw.githubusercontent.com/CopilotKit/CopilotKit/main/showcase/aimock/feature-parity.json \
   --validate-on-load \
   --host 0.0.0.0 \
   --port 4010
 ```
 
+> **A single `--fixtures /fixtures` loads the whole baked-in fixture tree.**
+> The live prod and staging `showcase-aimock` instances both run exactly this
+> startCommand — one `--fixtures /fixtures` flag that recurses into
+> `/fixtures/shared`, `/fixtures/d4`, and `/fixtures/d6` — and serve fixtures
+> correctly. (Confirmed via live Railway GraphQL on both environments.)
+
 Flag-by-flag:
 
-| Flag                    | Value                                       | Purpose                                                                                                                          |
-| ----------------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `node /app/dist/cli.js` | —                                           | Explicit bin invocation — required because Railway's `startCommand` overrides ENTRYPOINT.                                        |
-| `--proxy-only`          | —                                           | Forward unmatched requests to upstream providers instead of failing.                                                             |
-| `--provider-openai`     | `https://api.openai.com`                    | Upstream URL for OpenAI passthrough.                                                                                             |
-| `--provider-anthropic`  | `https://api.anthropic.com`                 | Upstream URL for Anthropic passthrough.                                                                                          |
-| `--provider-gemini`     | `https://generativelanguage.googleapis.com` | Upstream URL for Gemini passthrough.                                                                                             |
-| `--fixtures` (×3 URLs)  | Remote URLs above                           | Repeatable flag; each loads one JSON fixture at boot, with cache-fallback on failure. D5 must appear first for match precedence. |
-| `--validate-on-load`    | —                                           | Fail-loud on schema errors; allows cache-fallback only when network fetch fails.                                                 |
-| `--host`                | `0.0.0.0`                                   | Bind all interfaces so Railway can route to the container.                                                                       |
-| `--port`                | `4010`                                      | Hardcoded listen port — matches the legacy wrapper container convention and the fixed                                            |
-|                         |                                             | Railway domain routing. Railway injects `$PORT` but the image defaults align with 4010.                                          |
+| Flag                    | Value                                       | Purpose                                                                                                                                                             |
+| ----------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `node /app/dist/cli.js` | —                                           | Explicit bin invocation — required because Railway's `startCommand` overrides ENTRYPOINT.                                                                           |
+| `--proxy-only`          | —                                           | Forward unmatched requests to upstream providers instead of failing.                                                                                                |
+| `--provider-openai`     | `https://api.openai.com`                    | Upstream URL for OpenAI passthrough.                                                                                                                                |
+| `--provider-anthropic`  | `https://api.anthropic.com`                 | Upstream URL for Anthropic passthrough.                                                                                                                             |
+| `--provider-gemini`     | `https://generativelanguage.googleapis.com` | Upstream URL for Gemini passthrough.                                                                                                                                |
+| `--fixtures`            | `/fixtures`                                 | Loads the baked-in fixture tree at boot; recurses into `/fixtures/{shared,d4,d6}`. (The flag is repeatable if you ever need to point at individual subdirectories.) |
+| `--validate-on-load`    | —                                           | Fail-loud on schema errors at boot.                                                                                                                                 |
+| `--host`                | `0.0.0.0`                                   | Bind all interfaces so Railway can route to the container.                                                                                                          |
+| `--port`                | `4010`                                      | Hardcoded listen port — matches the legacy wrapper container convention and the fixed                                                                               |
+|                         |                                             | Railway domain routing. Railway injects `$PORT` but the image defaults align with 4010.                                                                             |
 
 If adopting `$PORT` interpolation in the future, both startCommand and any
 upstream `OPENAI_BASE_URL` env vars pointing at this service stay unchanged —
@@ -183,9 +202,10 @@ Railway routes the public domain to whatever port the container listens on.
 
 None are required for the default configuration. Notes:
 
-- `AIMOCK_ALLOW_PRIVATE_URLS=1` would only be needed if fixture URLs ever point
-  to private addresses (RFC1918, loopback, etc.). Not applicable here — all
-  fixture URLs are public GitHub raw.
+- `AIMOCK_ALLOW_PRIVATE_URLS=1` would only be needed if fixtures were loaded
+  from private URLs (RFC1918, loopback, etc.). Not applicable here — fixtures
+  are baked into the image and loaded from local directories, not over the
+  network.
 - `PORT` is injected by Railway but not read by the current startCommand
   (port is hardcoded to `4010`). Harmless.
 
@@ -199,20 +219,24 @@ GraphQL directly.
 1. Create a new service in the `showcase` project, `production` environment.
    Easiest path is the Railway UI (New Service → Docker Image), but the
    GraphQL `serviceCreate` mutation works too.
-2. Set `source.image` to `ghcr.io/copilotkit/aimock:<latest-stable>` via
-   `serviceInstanceUpdate`:
+2. Set `source.image` to the `showcase-aimock` image published by
+   `.github/workflows/showcase_build.yml` (the baked image from
+   `showcase/aimock/Dockerfile`, which contains the fixture tree — see section 3) via `serviceInstanceUpdate`:
 
    ```graphql
    mutation {
      serviceInstanceUpdate(
        serviceId: "<service-id>"
        environmentId: "<environment-id>"
-       input: { source: { image: "ghcr.io/copilotkit/aimock:1.14.8" } }
+       input: { source: { image: "<showcase-aimock-image-ref>" } }
      ) {
        id
      }
    }
    ```
+
+   Deploying the bare upstream `ghcr.io/copilotkit/aimock` instead will boot
+   with no fixtures baked in — every request falls through to the proxy.
 
 3. Set `startCommand` to the block in section 5 (join with spaces, escape as
    needed) via the same `serviceInstanceUpdate` mutation with
@@ -244,31 +268,47 @@ GraphQL directly.
    curl -sS -X POST https://<public-domain>/v1/chat/completions \
      -H "Content-Type: application/json" \
      -H "Authorization: Bearer test" \
-     -d '{"model":"gpt-4","messages":[{"role":"user","content":"ping"}]}'
+     -d '{"model":"gpt-4","messages":[{"role":"user","content":"Respond with exactly: OK"}]}'
    ```
 
-   Expect the smoke fixture's "OK" response. If proxy-fallthrough to OpenAI
-   fires instead, the smoke fixture did not load — check boot logs for
-   fixture fetch errors.
+   The payload matches the `shared/smoke.json` fixture (`userMessage:
+"Respond with exactly: OK"`), so expect its `"OK"` response. If
+   proxy-fallthrough to OpenAI fires instead, the smoke fixture did not load —
+   confirm the deployed image is the baked `showcase-aimock` image and that
+   `startCommand` passes `--fixtures /fixtures` (the baked fixture tree).
 
 8. Update any showcase services whose `OPENAI_BASE_URL` points at the old
    URL, if the domain changed during reconstruction.
 
-## 8. Dead code / cleanup
+## 8. The Dockerfile is LIVE
 
-The `Dockerfile` in this directory is the legacy wrapper image builder from
-the `showcase-aimock:latest` era. As of Phase 2 (the upstream-image switch),
-it is unused — Railway pulls `ghcr.io/copilotkit/aimock` directly. It is safe
-to remove in a follow-up PR once the upstream-image switchover has been
-stable for a release cycle or two. Leaving it in place for now as a rollback
-safety net.
+The `Dockerfile` in this directory is **not** dead code — it is the image that
+Railway deploys. `.github/workflows/showcase_build.yml` builds it (matrix entry
+`showcase-aimock`, with `dockerfile: showcase/aimock/Dockerfile` and context
+`showcase/aimock`) and publishes the `showcase-aimock` image. The Dockerfile is
+`FROM ghcr.io/copilotkit/aimock:latest` and bakes the fixture tree into the
+image:
+
+```dockerfile
+FROM ghcr.io/copilotkit/aimock:latest
+
+# Depth-organized fixture directories
+COPY shared/ /fixtures/shared/
+COPY d4/ /fixtures/d4/
+COPY d6/ /fixtures/d6/
+```
+
+Do not remove it — deleting it would strip the baked-in fixtures and the
+deployed mock would serve nothing (all requests would fall through to the
+proxy).
 
 ## 9. Related references
 
 - **Notion plan (authoritative source for concrete IDs and current domain):**
   <https://www.notion.so/34a3aa38185281148ae1ff7e2926c9d6>
 - aimock release process: `CopilotKit/aimock` repo CHANGELOG
-- GitHub raw URL caching: ~5 minute edge cache; hard fixture edits take effect
-  on the next Railway restart after the cache expires.
+- Fixture propagation: edit files under `showcase/aimock/{shared,d4,d6}/`,
+  which triggers `showcase_build.yml` to rebuild the `showcase-aimock` image;
+  changes take effect on the next Railway deploy of the rebuilt image.
 - Railway docs (deploy mutations):
   <https://docs.railway.com/reference/public-api>

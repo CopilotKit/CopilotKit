@@ -1,0 +1,190 @@
+---
+title: Angular
+description: Connect an Angular app to Copilot Runtime with CopilotKit.
+icon: "lucide/Triangle"
+hideTOC: true
+---
+
+`@copilotkit/angular` provides Angular components, directives, and services for CopilotKit. This guide gets you to a working Angular app with a chat UI backed by a local [Copilot Runtime](/backend/copilot-runtime) and `BuiltInAgent`.
+
+The runtime runs on your server, keeps model credentials out of the browser, and exposes the `default` agent that `CopilotChat` uses automatically.
+
+## What is CopilotKit for Angular?
+
+CopilotKit for Angular is the first-party, signal-based Angular frontend for
+AG-UI agents and Copilot Runtime. It provides complete chat surfaces and
+headless APIs, and it supports zoneless applications.
+
+## Prerequisites
+
+- An OpenAI API key (or another model provider supported by [Model Selection](/model-selection))
+- Angular 20, 21, or 22
+- Node.js 22
+
+## Getting started
+
+<Steps>
+    <Step>
+        ### Create your Angular app
+
+        If you don't have one already, pin the CLI to one of the supported majors. This example uses Angular 22:
+
+        ```bash
+        npx @angular/cli@22 new my-copilot-app
+        cd my-copilot-app
+        ```
+    </Step>
+    <Step>
+        ### Install CopilotKit
+
+        Install the Angular frontend package, `@angular/cdk`, and `@copilotkit/runtime` for your local Copilot Runtime server:
+
+        <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn']}>
+            <Tab value="npm">
+                ```bash
+                npm install @copilotkit/angular @angular/cdk @copilotkit/runtime
+                npm install -D tsx typescript @types/node
+                ```
+            </Tab>
+            <Tab value="pnpm">
+                ```bash
+                pnpm add @copilotkit/angular @angular/cdk @copilotkit/runtime
+                pnpm add -D tsx typescript @types/node
+                ```
+            </Tab>
+            <Tab value="yarn">
+                ```bash
+                yarn add @copilotkit/angular @angular/cdk @copilotkit/runtime
+                yarn add -D tsx typescript @types/node
+                ```
+            </Tab>
+        </Tabs>
+
+        <Callout type="info" title="Match @angular/cdk to your Angular version">
+          `@angular/cdk` must share your Angular major version. Most package managers resolve this for you, but if you hit a peer-dependency error, pin it explicitly (for example `@angular/cdk@^22`).
+        </Callout>
+    </Step>
+    <Step>
+        ### Create the Copilot Runtime
+
+        Add a small Node server that hosts Copilot Runtime at `/api/copilotkit` and registers a `default` built-in agent:
+
+        ```ts title="server.ts"
+        import { createServer } from "node:http";
+        import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime/v2";
+        import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+
+        const runtime = new CopilotRuntime({
+          agents: {
+            default: new BuiltInAgent({
+              model: "openai:gpt-5-mini",
+              prompt: "You are a helpful assistant for an Angular app.",
+            }),
+          },
+        });
+
+        const port = Number(process.env['PORT'] ?? 8200);
+
+        createServer(
+          createCopilotNodeListener({
+            runtime,
+            basePath: "/api/copilotkit",
+            cors: true,
+          }),
+        ).listen(port, () => {
+          console.log(
+            `Copilot Runtime listening at http://localhost:${port}/api/copilotkit`,
+          );
+        });
+        ```
+    </Step>
+    <Step>
+        ### Import the styles
+
+        Add the package stylesheet to your global styles. It's self-contained, so the chat renders without any other CSS.
+
+        ```css title="src/styles.css"
+        @import "@copilotkit/angular/styles.css"; /* [!code highlight] */
+        ```
+    </Step>
+    <Step>
+        ### Connect to Copilot Runtime
+
+        Point `provideCopilotKit` at the runtime endpoint. Because the runtime registers an agent named `default`, the chat picks it up automatically.
+
+        ```ts title="src/app/app.config.ts"
+        import { ApplicationConfig } from "@angular/core";
+        import { provideCopilotKit } from "@copilotkit/angular"; // [!code highlight]
+
+        export const appConfig: ApplicationConfig = {
+          providers: [
+            // [!code highlight:3]
+            provideCopilotKit({
+              runtimeUrl: "http://localhost:8200/api/copilotkit",
+            }),
+          ],
+        };
+        ```
+    </Step>
+    <Step>
+        ### Add the chat UI
+
+        Import the `CopilotChat` component into your root component and drop it into the template.
+
+        ```ts title="src/app/app.ts"
+        import { Component } from "@angular/core";
+        import { CopilotChat } from "@copilotkit/angular"; // [!code highlight]
+
+        @Component({
+          selector: "app-root",
+          imports: [CopilotChat], // [!code highlight]
+          template: `
+            <!-- [!code highlight:3] -->
+            <div style="height: 100vh">
+              <copilot-chat />
+            </div>
+          `,
+        })
+        export class App {}
+        ```
+
+    </Step>
+    <Step>
+        ### Run the runtime and app
+
+        Start Copilot Runtime in one terminal:
+
+        ```bash
+        export OPENAI_API_KEY=sk-...
+        npx tsx server.ts
+        ```
+
+        Start the Angular app in another terminal:
+
+        ```bash
+        npm start
+        ```
+
+        Open the dev server URL (the Angular CLI prints it, usually `http://localhost:4200`), send a message, and you'll see it stream back through Copilot Runtime.
+
+        <Accordions className="mb-4">
+            <Accordion title="Troubleshooting">
+                - **Chat renders unstyled**: Make sure you imported `@copilotkit/angular/styles.css` in `src/styles.css`.
+                - **No response from the agent**: Confirm the runtime server is running and `http://localhost:8200/api/copilotkit/info` returns agent information.
+                - **CORS errors**: Keep `cors: true` in `createCopilotNodeListener` for local development, or configure CORS to allow your Angular app's origin in production.
+                - **Model auth errors**: Confirm `OPENAI_API_KEY` is set in the terminal running `npx tsx server.ts`.
+                - **Peer-dependency error on install**: `@angular/cdk` must match your Angular major version. Install the matching major, for example `@angular/cdk@^22` on Angular 22.
+                - **Production build exceeds the bundle budget**: CopilotKit pulls in markdown and syntax-highlighting dependencies, so a fresh app can exceed Angular's default 1 MB budget. Raise `budgets` in `angular.json` if your production build fails on size.
+            </Accordion>
+        </Accordions>
+    </Step>
+
+</Steps>
+
+## Next steps
+
+- [Angular Showcase example](https://showcase.copilotkit.ai/angular/langgraph-python/agentic-chat): run the agentic chat example and inspect its source.
+- [Angular task guides](/angular/guides/chat-ui): build chat UI, tools, generative UI, interrupts, shared state, threads, memory, attachments, and headless UI.
+- [Angular feature examples](/angular/features): find runnable examples and source for each supported feature.
+- [Angular API reference](/reference/angular): use components, signals, tools, context, and runtime services.
+- [Production and lifecycle](/reference/angular/production-lifecycle): handle cleanup, errors, server rendering, hydration, zoneless Angular, and browser-only features.

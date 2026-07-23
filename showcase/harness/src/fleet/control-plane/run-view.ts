@@ -39,12 +39,19 @@ import {
 import { PROBE_JOBS_COLLECTION } from "../queue-client.js";
 import { PROBE_RUNS_COLLECTION } from "../../probes/run-history.js";
 import type { ProbeRunSummary } from "../../probes/run-history.js";
+// Import the schedule ids from the cycle-free LEAF module — NOT from
+// `control-plane.js`. The top-level `FLEET_FAMILIES` literal below reads these
+// at MODULE-EVAL time; `control-plane.ts` sits inside the
+// control-plane → job-producer → run-view → control-plane cycle, so importing
+// the ids from it left them in the TDZ under one cycle load order (the harness
+// crash-looped on boot). The leaf has no edges back into the cycle, so the ids
+// are always fully initialized before this literal evaluates.
 import {
   FLEET_PRODUCER_DEEP_SCHEDULE_ID,
   FLEET_PRODUCER_DEMOS_SCHEDULE_ID,
   FLEET_PRODUCER_SCHEDULE_ID,
   FLEET_PRODUCER_SMOKE_SCHEDULE_ID,
-} from "./control-plane.js";
+} from "./schedule-ids.js";
 import type { ProducerSchedule } from "./control-plane.js";
 
 // ───────────────────────────────────────────────────────────────────────
@@ -134,6 +141,14 @@ export interface WorkerRow {
   capacity_max?: number;
   current_job_id?: string;
   last_heartbeat_at?: string;
+  /**
+   * ISO instant the worker last (re)registered — seeded on every worker boot
+   * upsert (worker/registration.ts) and preserved verbatim across heartbeats.
+   * The freshest value across the strip is the fleet's most-recent BOUNCE
+   * instant (PR #5715: an image rebuild bounces the pool workers), which the
+   * §7.4 banner / §9 silence monitor key their post-bounce drain grace off.
+   */
+  registered_at?: string;
 }
 
 /** The `probe_runs` row fields the reds read path consumes (§4.2). */
@@ -200,6 +215,16 @@ export interface WorkerView {
   workerId: string;
   health: WorkerHealthState;
   lastHeartbeatAt: string;
+  /**
+   * ISO instant the worker last (re)registered (`registered_at`), or "" when
+   * the column is absent (pre-migration / never-registered row). The freshest
+   * non-empty value across the strip is the fleet's most-recent bounce instant
+   * — the §7.4 banner / §9 silence monitor use it to grace a post-deploy drain
+   * (workers just restarted, families legitimately mid-sweep) instead of
+   * flagging false silence. A non-secret identifier timestamp, same exposure
+   * carve-out as `lastHeartbeatAt`.
+   */
+  registeredAt: string;
   currentJobId: string | null;
   capacity: { inUse: number; available: number; max: number };
 }
@@ -370,7 +395,7 @@ function minEnqueuedAtMs(rows: readonly ProbeJobRecord[]): number {
 
 /**
  * Shortest interval between consecutive fires of `cron` (e.g.
- * `"5,20,35,50 * * * *"` → 900 000): croner walk over the next ~8 fires.
+ * `"40 * * * *"` → 3 600 000): croner walk over the next ~8 fires.
  * Every period-derived threshold (§5.2.1 stalled rules, §7.3/§7.4 windows,
  * §9 silence window) consumes this server-computed value — the dashboard
  * does no client-side cron parsing for thresholds.
@@ -715,6 +740,7 @@ export function projectWorker(
     workerId: row.worker_id,
     health,
     lastHeartbeatAt: heartbeat,
+    registeredAt: row.registered_at ?? "",
     currentJobId:
       row.current_job_id && row.current_job_id !== ""
         ? row.current_job_id

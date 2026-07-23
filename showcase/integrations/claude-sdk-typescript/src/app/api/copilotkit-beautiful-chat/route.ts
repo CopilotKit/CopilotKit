@@ -8,26 +8,21 @@
 //   showcase/integrations/pydantic-ai/src/app/api/copilotkit-beautiful-chat/route.ts
 //   showcase/integrations/langgraph-python/src/app/api/copilotkit-beautiful-chat/route.ts
 //
-// Backend wiring: CST's `agent_server.ts` has no dedicated `beautiful_chat`
-// mount (unlike LGP/PydanticAI which ship a per-cell graph). CST is a
-// frontend-driven pass-through: every demo's distinctive behaviour comes
-// from frontend-registered tools + runtime-injected middleware (a2ui,
-// openGenerativeUI, mcpApps). We therefore proxy to the pass-through `/`
-// mount — the same target used by `copilotkit-mcp-apps/route.ts` and the
-// other dedicated CST runtimes whose backends are middleware-driven.
-// Limitation: the langgraph-python `beautiful_chat` graph also owns a
-// backend `generate_a2ui` + `search_flights` tool pair; CST relies on the
-// A2UI middleware + frontend tooling to provide equivalent behaviour.
+// Backend wiring: CST exposes a dedicated `/beautiful-chat` agentic-loop
+// mount because this flagship cell mixes backend-owned tools
+// (`query_data`, `search_flights`, `generate_a2ui`, `manage_todos`) with
+// frontend tools and middleware-provided tools. Proxying to the default `/`
+// pass-through leaves backend tool calls unresolved.
 
 import type { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
 import type { AbstractAgent } from "@ag-ui/client";
-import { HttpAgent } from "@ag-ui/client";
+import { createClaudeHttpAgent } from "@/app/api/_shared/claude-http-agent";
+import { internalRuntimeErrorResponse } from "@/app/api/_shared/route-error";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
@@ -36,8 +31,8 @@ const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 // `useAgent()` with no args, which defaults to agentId "default". Alias
 // default to the same pass-through backend so those hooks resolve.
 const agents: Record<string, AbstractAgent> = {
-  "beautiful-chat": new HttpAgent({ url: `${AGENT_URL}/` }),
-  default: new HttpAgent({ url: `${AGENT_URL}/` }),
+  "beautiful-chat": createClaudeHttpAgent(`${AGENT_URL}/beautiful-chat`),
+  default: createClaudeHttpAgent(`${AGENT_URL}/beautiful-chat`),
 };
 
 const runtime = new CopilotRuntime({
@@ -73,10 +68,9 @@ export const POST = async (req: NextRequest) => {
     });
     return await handleRequest(req);
   } catch (error: unknown) {
-    const e = error as { message?: string; stack?: string };
-    return NextResponse.json(
-      { error: e.message, stack: e.stack },
-      { status: 500 },
+    return internalRuntimeErrorResponse(
+      "/api/copilotkit-beautiful-chat",
+      error,
     );
   }
 };

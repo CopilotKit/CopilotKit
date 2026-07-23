@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useReducer, useState } from "react";
+import { useEffect, useReducer } from "react";
 import {
-  useAgentContext,
   useHumanInTheLoop,
   useComponent,
+  useFrontendTool,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
-import type { NewCardRequest, Transaction } from "@/app/api/v1/data";
+import type { NewCardRequest } from "@/app/api/v1/data";
 import { CARD_COLORS, CardBrand } from "@/app/api/v1/data";
 import { CreditCardDetails } from "@/components/credit-card-details";
+import { CardPicker } from "@/components/card-picker";
 import type { PartialBy } from "@/lib/type-helpers";
 import {
   filterTransactionByTitle,
@@ -25,47 +26,7 @@ import { ChangePinDialog } from "@/components/change-pin-dialog";
 import { useSearchParams } from "next/navigation";
 import { CardsPageOperations } from "@/components/copilot-context";
 import { PERMISSIONS } from "@/app/api/v1/permissions";
-
-function ApprovalButtons({
-  onApprove,
-  onDeny,
-  approveLabel = "Approve",
-  denyLabel = "Deny",
-}: {
-  onApprove: () => Promise<void> | void;
-  onDeny: () => void;
-  approveLabel?: string;
-  denyLabel?: string;
-}) {
-  const [responded, setResponded] = useState(false);
-
-  if (responded) {
-    return <p className="text-sm text-gray-500 italic">Response submitted.</p>;
-  }
-
-  return (
-    <div className="flex gap-2">
-      <button
-        className="flex-1 rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
-        onClick={async () => {
-          setResponded(true);
-          await onApprove();
-        }}
-      >
-        {approveLabel}
-      </button>
-      <button
-        className="flex-1 rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300"
-        onClick={() => {
-          setResponded(true);
-          onDeny();
-        }}
-      >
-        {denyLabel}
-      </button>
-    </div>
-  );
-}
+import { ApprovalButtons } from "@/components/approval-buttons";
 
 interface ChangePinState {
   newPin: string;
@@ -100,7 +61,6 @@ export default function Page() {
     changePin,
     assignPolicyToCard,
     addNoteToTransaction,
-    changeTransactionStatus,
   } = useCreditCards();
 
   useEffect(() => {
@@ -164,14 +124,18 @@ export default function Page() {
       const { type, color, pin } = args;
 
       if (status === "inProgress") {
-        return <div>Loading...</div>;
+        return (
+          <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+            Loading…
+          </div>
+        );
       }
 
       return (
-        <div className="rounded-lg border bg-white p-4 shadow-sm space-y-4">
-          <h3 className="font-semibold text-lg">New Card Request</h3>
+        <div className="space-y-4 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
+          <h3 className="text-lg font-semibold text-ink">New Card Request</h3>
           <div className="flex items-center gap-3">
-            <div className="bg-white border rounded-md p-1 flex items-center justify-center w-10 h-7">
+            <div className="flex h-7 w-10 items-center justify-center rounded-md border border-hairline bg-surface p-1">
               {type === CardBrand.Visa ? (
                 <svg
                   className="h-5"
@@ -204,7 +168,7 @@ export default function Page() {
             </div>
             <div>
               <p className="font-medium">{type}</p>
-              <p className="text-sm text-gray-500">PIN: {pin}</p>
+              <p className="text-sm text-ink-muted">PIN: {pin}</p>
             </div>
           </div>
           <ApprovalButtons
@@ -219,105 +183,180 @@ export default function Page() {
     },
   });
 
-  useHumanInTheLoop({
-    followUp: false,
-    name: "assignPolicyToCard",
-    description:
-      "Assign a policy to a card. Do NOT ask for confirmation - just call this action immediately. The approval UI will handle user confirmation.",
-    available: PERMISSIONS.ADD_POLICY.includes(currentUser.role),
-    parameters: z.object({
-      cardId: z
-        .string()
-        .describe("The card (from existing) to assign policy to"),
-      policyType: z.string().describe("The type of the policy to use"),
-    }),
-    render: ({ args, respond, status }) => {
-      const { cardId, policyType } = args;
+  useHumanInTheLoop(
+    {
+      followUp: false,
+      name: "assignPolicyToCard",
+      description:
+        "Assign a policy to a card. Do NOT ask for confirmation - just call this action immediately. The approval UI will handle user confirmation.",
+      available: PERMISSIONS.ADD_POLICY.includes(currentUser.role),
+      parameters: z.object({
+        cardId: z
+          .string()
+          .describe("The card (from existing) to assign policy to"),
+        policyType: z.string().describe("The type of the policy to use"),
+      }),
+      render: ({ args, respond, status }) => {
+        const { cardId, policyType } = args;
 
-      if (status === "inProgress") {
-        return <div>Loading...</div>;
-      }
+        if (status === "inProgress") {
+          return (
+            <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+              Loading…
+            </div>
+          );
+        }
 
-      const card = cards.find((c) => c.id === cardId);
-      const policy = policies.find((p) => p.type === policyType);
+        const card = cards.find((c) => c.id === cardId);
+        const policy = policies.find((p) => p.type === policyType);
 
-      return (
-        <div className="rounded-lg border bg-white p-4 shadow-sm space-y-4">
-          <h3 className="font-semibold text-lg">Assign Policy to Card</h3>
-          <div className="text-sm space-y-1">
-            <p>
-              <span className="text-gray-500">Card:</span>{" "}
-              {card ? `${card.type} ending in ${card.last4}` : cardId}
-            </p>
-            <p>
-              <span className="text-gray-500">Policy:</span> {policyType}
-            </p>
+        return (
+          <div className="space-y-4 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
+            <h3 className="text-lg font-semibold text-ink">
+              Assign Policy to Card
+            </h3>
+            <div className="text-sm space-y-1">
+              <p>
+                <span className="text-ink-muted">Card:</span>{" "}
+                {card ? `${card.type} ending in ${card.last4}` : cardId}
+              </p>
+              <p>
+                <span className="text-ink-muted">Policy:</span> {policyType}
+              </p>
+            </div>
+            <ApprovalButtons
+              onApprove={async () => {
+                const policyId = policy?.id;
+                if (!cardId || !policyId) {
+                  respond?.("Could not find matching policy to assign");
+                  return;
+                }
+                await assignPolicyToCard({ cardId, policyId });
+                respond?.("Policy assigned successfully");
+              }}
+              onDeny={() => respond?.("Policy assignment denied by user")}
+            />
           </div>
-          <ApprovalButtons
-            onApprove={async () => {
-              const policyId = policy?.id;
-              if (!cardId || !policyId) {
-                respond?.("Could not find matching policy to assign");
-                return;
-              }
-              await assignPolicyToCard({ cardId, policyId });
-              respond?.("Policy assigned successfully");
-            }}
-            onDeny={() => respond?.("Policy assignment denied by user")}
-          />
-        </div>
-      );
+        );
+      },
+      // Re-register when cards/policies load; otherwise this render (mount-keyed
+      // effect) resolves the card/policy against the EMPTY initial arrays and
+      // shows raw ids. Mirrors selectCard / showTransactions.
     },
-  });
+    [cards, policies],
+  );
 
-  useHumanInTheLoop({
-    followUp: false,
-    name: "addNoteToTransaction",
-    description:
-      "Add note to transaction. Do NOT ask for confirmation - just call this action immediately. The approval UI will handle user confirmation.",
-    available: PERMISSIONS.ADD_NOTE.includes(currentUser.role),
-    parameters: z.object({
-      transactionId: z
-        .string()
-        .describe("The transaction to add note to (ID provided by copilot)"),
-      content: z.string().describe("The content of the note"),
-    }),
-    render: ({ args, respond, status }) => {
-      const { transactionId, content } = args;
+  // Visual card picker (human-in-the-loop). Instead of listing the user's
+  // cards as text, the agent calls this to render a tappable picker (brand +
+  // last 4 digits); the human's pick is returned to the agent so it can
+  // continue (e.g. then ask which policy and call assignPolicyToCard). Pure
+  // selection UI, so it's available to every role — the actual mutating action
+  // it precedes stays independently permission-gated.
+  useHumanInTheLoop(
+    {
+      followUp: false,
+      name: "selectCard",
+      description:
+        "Render a visual picker of the user's cards (brand + last 4 digits) and let them choose one. Call this whenever you need the user to choose which card to act on — for example before assigning a policy or changing a PIN. Do NOT list the cards as text; call this tool so the user can pick one directly. After the user picks, you receive the chosen card's id, type and last 4 digits.",
+      available: true,
+      parameters: z.object({
+        purpose: z
+          .string()
+          .describe(
+            "Short reason shown as the picker heading, e.g. 'Select a card to assign the Marketing policy'.",
+          )
+          .optional(),
+      }),
+      render: ({ args, respond, status }) => {
+        if (status === "inProgress") {
+          return (
+            <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+              Loading…
+            </div>
+          );
+        }
 
-      if (status === "inProgress") {
-        return <div>Loading...</div>;
-      }
+        return (
+          <CardPicker
+            cards={cards}
+            policies={policies}
+            heading={args.purpose || "Select a card"}
+            onSelect={(card) =>
+              respond?.(
+                `User selected the ${card.type} card ending in ${card.last4} (cardId: ${card.id}).`,
+              )
+            }
+          />
+        );
+      },
+      // Re-register the renderer once the cards/policies load; otherwise the
+      // render closure captures the initial EMPTY `cards` (registration runs in a
+      // mount effect keyed on these deps) and the picker shows "No cards
+      // available". Mirrors the deps array on the showTransactions useComponent.
+    },
+    [cards, policies],
+  );
 
-      const transaction = transactions.find((t) => t.id === transactionId);
+  useHumanInTheLoop(
+    {
+      followUp: false,
+      name: "addNoteToTransaction",
+      description:
+        "Add note to transaction. Do NOT ask for confirmation - just call this action immediately. The approval UI will handle user confirmation.",
+      available: PERMISSIONS.ADD_NOTE.includes(currentUser.role),
+      parameters: z.object({
+        transactionId: z
+          .string()
+          .describe("The transaction to add note to (ID provided by copilot)"),
+        content: z.string().describe("The content of the note"),
+      }),
+      render: ({ args, respond, status }) => {
+        const { transactionId, content } = args;
 
-      return (
-        <div className="rounded-lg border bg-white p-4 shadow-sm space-y-4">
-          <h3 className="font-semibold text-lg">Add Note to Transaction</h3>
-          <div className="text-sm space-y-1">
-            <p>
-              <span className="text-gray-500">Transaction:</span>{" "}
-              {transaction?.title ?? transactionId}
-            </p>
-            <p>
-              <span className="text-gray-500">Note:</span> {content}
-            </p>
+        if (status === "inProgress") {
+          return (
+            <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+              Loading…
+            </div>
+          );
+        }
+
+        const transaction = transactions.find((t) => t.id === transactionId);
+
+        return (
+          <div className="space-y-4 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
+            <h3 className="text-lg font-semibold text-ink">
+              Add Note to Transaction
+            </h3>
+            <div className="text-sm space-y-1">
+              <p>
+                <span className="text-ink-muted">Transaction:</span>{" "}
+                {transaction?.title ?? transactionId}
+              </p>
+              <p>
+                <span className="text-ink-muted">Note:</span> {content}
+              </p>
+            </div>
+            <ApprovalButtons
+              onApprove={async () => {
+                if (!transactionId || !content) {
+                  respond?.("Missing transaction or note content");
+                  return;
+                }
+                await addNoteToTransaction({ transactionId, content });
+                respond?.("Note added successfully");
+              }}
+              onDeny={() => respond?.("Note addition denied by user")}
+            />
           </div>
-          <ApprovalButtons
-            onApprove={async () => {
-              if (!transactionId || !content) {
-                respond?.("Missing transaction or note content");
-                return;
-              }
-              await addNoteToTransaction({ transactionId, content });
-              respond?.("Note added successfully");
-            }}
-            onDeny={() => respond?.("Note addition denied by user")}
-          />
-        </div>
-      );
+        );
+      },
+      // Re-register when transactions load; otherwise this render (mount-keyed
+      // effect) resolves the transaction title against the EMPTY initial array.
+      // Mirrors selectCard / showTransactions.
     },
-  });
+    [transactions],
+  );
 
   // Showcase usage of generative UI. Display-only components use `useComponent`
   // (not `useFrontendTool`): its render is unconditional, so the rendered card
@@ -374,160 +413,156 @@ export default function Page() {
   );
 
   // Enable pin changing with co pilot
-  useHumanInTheLoop({
-    followUp: false,
-    name: "setCardPin",
-    description:
-      "Set the pin code of an existing card. Ask the user for the new 4-digit PIN, then call this action immediately. Do NOT ask for additional confirmation - the approval UI will handle that.",
-    available: PERMISSIONS.SET_PIN.includes(currentUser.role),
-    parameters: z.object({
-      cardId: z.string().describe("The id of the card (provided by copilot)"),
-      pin: z
-        .string()
-        .describe("The new 4-digit PIN code (provided by the user)"),
-    }),
-    render: ({ args, respond, status }) => {
-      const { cardId, pin } = args;
+  useHumanInTheLoop(
+    {
+      followUp: false,
+      name: "setCardPin",
+      description:
+        "Set the pin code of an existing card. Ask the user for the new 4-digit PIN, then call this action immediately. Do NOT ask for additional confirmation - the approval UI will handle that.",
+      available: PERMISSIONS.SET_PIN.includes(currentUser.role),
+      parameters: z.object({
+        cardId: z.string().describe("The id of the card (provided by copilot)"),
+        pin: z
+          .string()
+          .describe("The new 4-digit PIN code (provided by the user)"),
+      }),
+      render: ({ args, respond, status }) => {
+        const { cardId, pin } = args;
 
-      if (status === "inProgress") {
-        return <div>Loading...</div>;
-      }
+        if (status === "inProgress") {
+          return (
+            <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+              Loading…
+            </div>
+          );
+        }
 
-      const card = cards.find((c) => c.id === cardId);
+        const card = cards.find((c) => c.id === cardId);
 
-      return (
-        <div className="rounded-lg border bg-white p-4 shadow-sm space-y-4">
-          <h3 className="font-semibold text-lg">Change Card PIN</h3>
-          <div className="text-sm space-y-1">
-            <p>
-              <span className="text-gray-500">Card:</span>{" "}
-              {card ? `${card.type} ending in ${card.last4}` : cardId}
-            </p>
-            <p>
-              <span className="text-gray-500">New PIN:</span> {pin}
-            </p>
+        return (
+          <div className="space-y-4 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
+            <h3 className="text-lg font-semibold text-ink">Change Card PIN</h3>
+            <div className="text-sm space-y-1">
+              <p>
+                <span className="text-ink-muted">Card:</span>{" "}
+                {card ? `${card.type} ending in ${card.last4}` : cardId}
+              </p>
+              <p>
+                <span className="text-ink-muted">New PIN:</span> {pin}
+              </p>
+            </div>
+            <ApprovalButtons
+              onApprove={async () => {
+                if (!pin || !cardId) {
+                  respond?.("Missing PIN or card information");
+                  return;
+                }
+                await changePin({ pin, cardId });
+                respond?.("PIN changed successfully");
+              }}
+              onDeny={() => respond?.("PIN change denied by user")}
+            />
           </div>
-          <ApprovalButtons
-            onApprove={async () => {
-              if (!pin || !cardId) {
-                respond?.("Missing PIN or card information");
-                return;
-              }
-              await changePin({ pin, cardId });
-              respond?.("PIN changed successfully");
-            }}
-            onDeny={() => respond?.("PIN change denied by user")}
-          />
-        </div>
-      );
-    },
-  });
-
-  useHumanInTheLoop({
-    followUp: false,
-    name: "showAndApproveTransactions",
-    description: `
-      This operation is per department.
-      An executive department admin is allowed to approve/deny from other departments as well.
-      Show the unapproved transactions and allow the admin per department to approve them.
-      Transactions will be presented to the admin one by one.
-      Do NOT ask for confirmation - just call this action immediately. The approval UI will handle user confirmation.
-    `,
-    available: PERMISSIONS.APPROVE_TRANSACTION.includes(currentUser.role),
-    parameters: z.object({
-      transactionId: z
-        .string()
-        .describe(
-          "The id of pending transaction to present to the given department admin (provided by copilot)",
-        ),
-    }),
-    render: ({ args, respond, status }) => {
-      const { transactionId } = args;
-      if (status === "inProgress") {
-        return <div>Loading...</div>;
-      }
-
-      if (!transactionId) {
-        respond?.(
-          "A transaction ID was not given, could be that there arent any pending approval or there was an error",
         );
-        return <div>No pending transactions</div>;
-      }
-
-      async function handleChangeTransactionStatus({
-        id,
-        status,
-      }: {
-        id: string;
-        status: Transaction["status"];
-      }) {
-        await changeTransactionStatus({ id, status });
-        respond?.(`transaction ${id} ${status}`);
-      }
-
-      return (
-        <TransactionsList
-          transactions={transactions.filter((t) =>
-            transactionId.includes(t.id),
-          )}
-          showApprovalInterface
-          approvalInterfaceProps={{
-            onApprove: (transactionId) =>
-              handleChangeTransactionStatus({
-                id: transactionId,
-                status: "approved",
-              }),
-            onDeny: (transactionId) =>
-              handleChangeTransactionStatus({
-                id: transactionId,
-                status: "denied",
-              }),
-          }}
-        />
-      );
+      },
+      // Re-register when cards load; otherwise this render (mount-keyed effect)
+      // resolves the card against the EMPTY initial array. Mirrors selectCard /
+      // showTransactions.
     },
+    [cards],
+  );
+
+  // Distractors. Plausible card/transaction actions that do NOT solve the
+  // over-limit block. No render — they run immediately and return a
+  // non-erroring success whose `note` makes clear it changed nothing about
+  // the transaction or policy. Their job is to widen the option space.
+  useFrontendTool({
+    name: "sendSpendAlert",
+    description: "Send a spend alert notification for a card.",
+    parameters: z.object({
+      cardId: z.string(),
+      message: z.string(),
+    }),
+    handler: async ({ cardId }) => ({
+      ok: true,
+      cardId,
+      note: "Spend alert sent. Informational only; does not modify any transaction or policy.",
+    }),
   });
 
-  useAgentContext({
-    description:
-      "The user does not have permission to perform these actions." +
-      "If they ask you to do one of these, please tell them that they " +
-      "do not have permission to do so." +
-      "Do not tell them they are on the wrong page, the real reason " +
-      "is that they do not have permission to perform the action.",
-    value: Object.keys(PERMISSIONS).filter(
-      (key) =>
-        !PERMISSIONS[key as keyof typeof PERMISSIONS].includes(
-          currentUser.role,
-        ),
-    ),
+  useFrontendTool({
+    name: "requestCardReplacement",
+    description: "Request a replacement card for an existing card.",
+    parameters: z.object({
+      cardId: z.string(),
+    }),
+    handler: async ({ cardId }) => ({
+      ok: true,
+      cardId,
+      note: "Replacement card requested. Does not affect pending transactions or policy limits.",
+    }),
+  });
+
+  useFrontendTool({
+    name: "flagForReview",
+    description: "Flag a transaction for manual review.",
+    parameters: z.object({
+      transactionId: z.string(),
+      reason: z.string(),
+    }),
+    handler: async ({ transactionId }) => ({
+      ok: true,
+      transactionId,
+      note: "Flagged for manual review. Does not approve or change the transaction.",
+    }),
   });
 
   if (!cards || !policies) return null;
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Credit Cards</h1>
+    <div className="mx-auto max-w-7xl px-2 pb-4 md:px-4">
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-ink">
+            Credit Cards
+          </h1>
+          <p className="text-sm text-ink-muted">
+            Manage cards and spending policies for your team.
+          </p>
+        </div>
         <AddCardDropdown
           handleAddCard={handleAddCard}
           currentUser={currentUser}
         />
       </div>
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      {/* Cards never squish: a horizontal-scroll row keeps each card at its
+          natural width (min 300px) and lets them grow to fill on wide screens.
+          When the chat panel docks open and narrows this area the row scrolls
+          horizontally instead of compressing the cards — which would otherwise
+          wrap the holder / valid-thru text. Mirrors the dashboard "My Cards".
+          `overflow-x-auto` also forces overflow-y to `auto`, so the matching
+          negative-margin / padding pairs (-mt-6/pt-6, -mx-2/px-2) keep the cards
+          in place while giving their soft drop shadows room inside the scroll
+          viewport instead of clipping them at the top/sides; pb-8 clears the
+          (downward) shadow at the bottom. */}
+      <div className="-mx-2 -mt-6 flex gap-6 overflow-x-auto px-2 pb-8 pt-6">
         {cards.length ? (
           cards.map((card) => (
-            <CreditCardDetails
-              key={card.id}
-              card={card}
-              policy={policies.find((p) => p.id === card.expensePolicyId)}
-              onChangePinModalOpen={() =>
-                dispatch({ dialogOpen: true, cardId: card.id })
-              }
-            />
+            <div key={card.id} className="min-w-[300px] max-w-[420px] flex-1">
+              <CreditCardDetails
+                card={card}
+                holder={currentUser.name}
+                policy={policies.find((p) => p.id === card.expensePolicyId)}
+                onChangePinModalOpen={() =>
+                  dispatch({ dialogOpen: true, cardId: card.id })
+                }
+              />
+            </div>
           ))
         ) : (
-          <div>No cards found for {currentUser.team} team</div>
+          <div className="w-full rounded-2xl border border-dashed border-hairline bg-surface/60 p-10 text-center text-ink-muted">
+            No cards found for {currentUser.team} team
+          </div>
         )}
       </div>
 

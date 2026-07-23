@@ -199,7 +199,7 @@ vi.mock("react-native", () => {
     },
     StyleSheet: {
       create: (styles: any) => styles,
-      absoluteFillObject: {
+      absoluteFill: {
         position: "absolute",
         top: 0,
         left: 0,

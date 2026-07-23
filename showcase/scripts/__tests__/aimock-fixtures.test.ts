@@ -38,6 +38,7 @@ interface RawFixtureEntry {
   match: {
     userMessage?: string;
     toolCallId?: string;
+    toolResultContains?: string;
     toolName?: string;
     model?: string;
     hasToolResult?: boolean;
@@ -67,6 +68,8 @@ function matchKey(match: RawFixtureEntry["match"]): string {
     parts.push(`sequenceIndex=${match.sequenceIndex}`);
   if (match.toolCallId != null) parts.push(`toolCallId=${match.toolCallId}`);
   if (match.toolName != null) parts.push(`toolName=${match.toolName}`);
+  if (match.toolResultContains != null)
+    parts.push(`toolResultContains=${match.toolResultContains}`);
   if (match.turnIndex != null) parts.push(`turnIndex=${match.turnIndex}`);
   if (match.userMessage != null) parts.push(`userMessage=${match.userMessage}`);
   return parts.join("|");
@@ -242,7 +245,51 @@ describe("fixture collision detection", () => {
     // Disambiguated at runtime by feature route (tool-rendering vs custom-catchall
     // fixtureFile) plus the catchall's distinct first prompt ('check Tokyo weather
     // forecast') that gates the multi-pill session before the AAPL pill fires.
-    const KNOWN_DUPLICATE_CEILING = 291;
+    //
+    // NOTE: the a2ui-recovery demos (langgraph python/fastapi/typescript +
+    // strands python/typescript) deliberately use UNIQUE recovery prompts per
+    // framework. Inner render_a2ui fixtures cannot be context-scoped (the in-graph
+    // render sub-agent's model client does not forward x-aimock-context), and
+    // aimock loads every framework's d6 dir into one process, so identical prompts
+    // would let the first-loaded framework's fixture hijack another's render calls.
+    // Unique prompts keep each framework's inner fixtures distinct → no new
+    // shared-scope duplicates, so this ceiling stays at the pre-recovery baseline.
+    //
+    // Bumped 291 → 297 (+6) for the Claude SDK demo parity port after
+    // de-duplicating avoidable no-context beautiful-chat fallbacks. The
+    // remaining new overlaps are context-scoped cross-demo fixture aliases
+    // (interrupt/gen-ui-interrupt, declarative/render_a2ui, and copied
+    // LangGraph headless/feature-parity routes) that are disambiguated by
+    // fixtureFile/demo route like the existing integration parity copies above.
+    // Bumped 297 → 300 (+3) porting agno/gen-ui-declarative to the OSS-136
+    // sales flow: agno's two-stage a2ui_dynamic_agent forces the INNER
+    // render_a2ui secondary call with a HARDCODED user message ("Generate a
+    // dynamic A2UI dashboard based on the conversation.") that is identical
+    // across all four pills, so the four inner fixtures cannot be keyed on
+    // userMessage — they discriminate on `systemMessage` (the per-pill
+    // context phrase the outer generate_a2ui injects as "Conversation
+    // context:\n<context>"). `matchKey` here does not encode systemMessage or
+    // context, so the four inner entries collapse to a single
+    // `toolName=render_a2ui` key → 3 exact-key collisions that aimock's router
+    // DOES disambiguate at runtime (verified live: the inner request's system
+    // text carried the pill's context phrase, matched the right surface).
+    //
+    // Bumped 300 → 304 (+4) by the Mastra Partner Refresh native-interrupt +
+    // cancel-path fixtures (merged from the Mastra branch):
+    //   +2 native-interrupt resume-loop fix — gen-ui-interrupt +
+    //      interrupt-headless suspend fixtures gained `hasToolResult:false` so
+    //      the resume falls through to the toolCallId confirmation fixture;
+    //      that aligns them with hitl-in-chat.json's schedule_meeting suspend
+    //      fixtures, so all three mastra cells share the same two suspend keys
+    //      ("intro call with the sales team" + "1:1 with Alice").
+    //   +2 cancel-path fix (aimock toolResultContains) — interrupt-headless
+    //      gained cancelled legs mirroring gen-ui-interrupt's, keyed
+    //      userMessage + toolCallId + toolResultContains:"cancelled"; each
+    //      headless cancelled leg shares its exact key + response text with the
+    //      gen-ui-interrupt one, so first-match-wins yields the same Denied
+    //      narration — one pair per pill.
+    // All runtime-disambiguated by route/fixtureFile like every alias above.
+    const KNOWN_DUPLICATE_CEILING = 304;
 
     const collisions: string[] = [];
 
@@ -309,7 +356,17 @@ describe("fixture collision detection", () => {
     // narration fallbacks share the same userMessage prefix as the emitters
     // (which the shadow detector skips because identical strings are caught
     // by the exact-duplicate test, not the shadow test).
-    const KNOWN_SHADOW_CEILING = 132;
+    // Bumped 132→137: +5 substring shadows from the strands-typescript D6 port
+    // (its per-integration fixtures mirror the Python strands sibling —
+    // calculator + tool-rendering pill variants), runtime-disambiguated by
+    // toolCallId / toolName / turnIndex like the other per-integration copies.
+    // Bumped 139→142 after this PR rebased against current main. The remaining
+    // counted shadows are pre-existing D4/D6 baseline overlaps (for example
+    // weather/AAPL/project-planning/calculator prompt variants), not Claude SDK
+    // local fallback aliases. Browser-local Claude demos now get an AIMock
+    // context header from server-side HttpAgent defaults instead of relying on
+    // context-less prompt aliases.
+    const KNOWN_SHADOW_CEILING = 142;
 
     const shadows: string[] = [];
 

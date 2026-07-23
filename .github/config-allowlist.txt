@@ -1,4 +1,3 @@
-docs/next.config.mjs
 examples/canvas/gemini/next.config.mjs
 examples/canvas/langgraph-python/next.config.ts
 examples/canvas/llamaindex-composio/next.config.ts
@@ -6,6 +5,7 @@ examples/canvas/llamaindex/next.config.ts
 examples/canvas/mastra-pm/next.config.ts
 examples/canvas/mastra/next.config.ts
 examples/canvas/pydantic-ai/next.config.ts
+examples/shadcn/next.config.ts
 examples/integrations/a2a-a2ui/next.config.js
 examples/integrations/a2a-middleware/next.config.ts
 examples/integrations/adk/next.config.ts
@@ -13,6 +13,8 @@ examples/integrations/agent-spec/next.config.ts
 examples/integrations/agentcore/frontend/src/vite-env.d.ts
 examples/integrations/agentcore/frontend/vite.config.ts
 examples/integrations/agno/next.config.ts
+examples/integrations/claude-sdk-python/next.config.ts
+examples/integrations/claude-sdk-typescript/next.config.ts
 examples/integrations/crewai-crews/next.config.ts
 examples/integrations/crewai-flows/next.config.ts
 examples/integrations/langgraph-fastapi/next.config.ts
@@ -29,6 +31,7 @@ examples/integrations/strands-python/next.config.ts
 examples/showcases/a2a-travel/next.config.ts
 examples/showcases/a2ui-pdf-analyst/next.config.ts
 examples/showcases/adk-dashboard/next.config.ts
+examples/showcases/arcade-tools/next.config.ts
 examples/showcases/banking/next.config.mjs
 examples/showcases/chatkit-studio/apps/playground/next.config.ts
 examples/showcases/chatkit-studio/apps/studio/next.config.ts
@@ -48,6 +51,7 @@ examples/showcases/multi-agent-canvas/frontend/next.config.ts
 examples/showcases/multi-page/vite.config.ts
 examples/showcases/open-mcp-client/apps/threejs-server/vite.config.ts
 examples/showcases/open-mcp-client/apps/web/next.config.ts
+examples/showcases/oracle-agent-memory/frontend/next.config.ts
 examples/showcases/orca/frontend/next.config.mjs
 examples/showcases/presentation/next.config.mjs
 examples/showcases/pydantic-ai-todos/next.config.ts
@@ -89,6 +93,8 @@ packages/shared/tsdown.config.ts
 packages/sqlite-runner/tsdown.config.ts
 packages/voice/tsdown.config.ts
 packages/vue/vite.config.ts
+packages/web-components/tsdown.config.ts
+packages/web-inspector/dev/vite.config.ts
 packages/web-inspector/tsdown.config.ts
 showcase/integrations/ag2/next.config.ts
 showcase/integrations/agno/next.config.ts
@@ -109,6 +115,7 @@ showcase/integrations/ms-agent-python/next.config.ts
 showcase/integrations/pydantic-ai/next.config.ts
 showcase/integrations/spring-ai/next.config.ts
 showcase/integrations/strands/next.config.ts
+showcase/integrations/strands-typescript/next.config.ts
 showcase/shell-dashboard/next.config.ts
 showcase/shell-docs/next.config.ts
 showcase/shell-dojo/next.config.ts

@@ -1,5 +1,5 @@
 ag-ui-protocol==0.1.18
-ag_ui_strands==0.1.9
+ag_ui_strands==0.2.2
 strands-agents[OpenAI]==1.18.0
 strands-agents-tools==0.2.16
 copilotkit==0.1.94

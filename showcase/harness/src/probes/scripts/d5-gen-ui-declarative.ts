@@ -331,6 +331,30 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
       },
       captured: false,
     };
+    // Surface-mount completion: this demo wires `a2ui.injectA2UITool: true`,
+    // so the agent's response is a secondary `render_a2ui` call that paints
+    // the declarative dashboard — NO assistant text bubble is ever emitted.
+    // The conversation runner's default text-stability settle can therefore
+    // never converge for this turn and would time out as `text-unstable`
+    // BEFORE the per-pill `assertions` (the real render-mount check) ever
+    // runs. Opting into `completeOnMount` swaps the runner's third settle
+    // conjunct from "assistant text stabilised" to "the expected render
+    // surface mounted", so the turn completes on `run-finished + new bubble +
+    // surface painted` and the assertion gets to verify the catalog testids.
+    //
+    // The surface testids are the union of the pill's conjunctive
+    // `expectedTestIds` and any `minCounts` keys (the full set the assertion
+    // checks), so the runner-level gate and the assertion agree on what
+    // "mounted" means. The runner's delta gate (`minNewMounts: 1`) only needs
+    // to confirm SOMETHING painted for THIS turn — the assertion still
+    // enforces the strict per-pill composition + per-testid `minCounts`
+    // deltas, so this does not weaken the genuine render check.
+    const surfaceTestIds = Array.from(
+      new Set<string>([
+        ...expectedTestIds,
+        ...(minCounts ? Object.keys(minCounts) : []),
+      ]),
+    );
     return {
       input: prompt,
       preFill: buildBaselineCapture(baselineRef),
@@ -341,6 +365,10 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
         minCounts,
       ),
       responseTimeoutMs: DECLARATIVE_RESPONSE_TIMEOUT_MS,
+      completeOnMount: {
+        testIds: surfaceTestIds,
+        minNewMounts: 1,
+      },
     };
   });
 }

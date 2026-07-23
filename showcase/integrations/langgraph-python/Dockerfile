@@ -68,6 +68,11 @@ COPY --chown=app:app manifest.yaml ./
 
 # Shared Python tools (symlinked in source, copied into build context by CI)
 COPY --chown=app:app tools/ /app/tools/
+
+# Shared CVDIAG bootstrap module (single source: showcase/integrations/_shared;
+# symlinked in source, dereferenced into this build context by the harness
+# stage_shared step). Lands at /app/_shared; /app is already on PYTHONPATH.
+COPY --chown=app:app _shared/ ./_shared/
 ENV PYTHONPATH=/app
 
 # Entrypoint

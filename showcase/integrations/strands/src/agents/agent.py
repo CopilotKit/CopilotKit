@@ -60,6 +60,7 @@ from tools import (
     get_weather_impl,
     query_data_impl,
     manage_sales_todos_impl,
+    roll_dice_impl,
     schedule_meeting_impl,
     search_flights_impl,
     build_a2ui_operations_from_tool_call,
@@ -345,6 +346,21 @@ def get_weather(location: str):
 
 
 # @endregion[weather-tool-backend]
+
+
+@tool
+def roll_dice(sides: int):
+    """Roll a die with the given number of sides and return the result.
+
+    Use for any dice-rolling request (e.g. 'roll a d20' -> sides=20).
+
+    Args:
+        sides: Number of sides (e.g. 20 for a d20)
+
+    Returns:
+        Roll result as JSON string
+    """
+    return json.dumps(roll_dice_impl(sides))
 
 
 @tool
@@ -675,6 +691,72 @@ async def notes_state_from_args(context):
         else:
             cleaned.append(str(n))
     return {"notes": cleaned}
+
+
+# ---- Shared State (Streaming) demo --------------------------------------
+#
+# The shared-state-streaming demo writes a document into ``state["document"]``
+# via a ``write_document`` tool; the frontend subscribes via ``useAgent`` and
+# renders ``state.document`` live. Mirrors langgraph-python's
+# ``StateStreamingMiddleware`` target. Strands updates state from the complete
+# tool args (not per-token), which the d5 probe tolerates — it only asserts the
+# document grew substantively after settle, not mid-stream chunking.
+
+
+@tool
+def write_document(document: str):
+    """Write a document for the user.
+
+    Call this whenever the user asks you to write, draft, or revise any
+    piece of text (a poem, email, essay, summary, etc.). Pass the FULL
+    content as a single string in the ``document`` argument — the document
+    lives in shared state and the UI renders it live; never paste it into a
+    chat message.
+
+    Args:
+        document: The full document content as a single string.
+
+    Returns:
+        Confirmation string for the LLM to summarise back to the user.
+    """
+    return "Document written to shared state."
+
+
+async def document_state_from_args(context):
+    """Emit a StateSnapshotEvent for the ``document`` slot when
+    ``write_document`` fires. Accepts str-or-dict tool input, mirrors
+    ``notes_state_from_args`` shape."""
+    raw_input = getattr(context, "tool_input", None)
+    if raw_input is None:
+        logger.warning("document_state_from_args: context has no tool_input")
+        return None
+
+    tool_input = raw_input
+    if isinstance(tool_input, str):
+        try:
+            tool_input = json.loads(tool_input)
+        except json.JSONDecodeError as exc:
+            logger.warning(
+                "document_state_from_args: malformed JSON tool input (%s); input excerpt: %s",
+                exc,
+                repr(raw_input)[:200],
+            )
+            return None
+
+    if isinstance(tool_input, dict):
+        document = tool_input.get("document")
+    elif isinstance(tool_input, str):
+        document = tool_input
+    else:
+        logger.warning(
+            "document_state_from_args: unsupported tool_input type %s",
+            type(tool_input).__name__,
+        )
+        return None
+
+    if not isinstance(document, str) or not document:
+        return None
+    return {"document": document}
 
 
 # ---- Sub-Agents demo ----------------------------------------------------
@@ -1060,6 +1142,42 @@ def _recover_original_user_message(input_data) -> Optional[str]:
     return None
 
 
+def _format_context_block(context) -> Optional[str]:
+    """Format the AG-UI ``context`` array into a prompt block.
+
+    ``RunAgentInput.context`` is populated by the frontend's
+    ``useAgentContext`` (readonly-state-agent-context), by
+    ``openGenerativeUI.designSkill``, and by sandbox-function descriptors
+    (open-gen-ui / advanced). ag_ui_strands does NOT surface ``context`` to
+    the model on its own, so without lifting it here the agent never sees
+    readonly context ("Who am I?") nor the open-gen-ui design skill / "call
+    generateSandboxedUi" guidance. Mirrors langgraph's lift-context-into-prompt
+    pattern; the TS sibling does the same in ``buildStatePrompt``.
+
+    Each item is an AG-UI Context object with ``.description`` and ``.value``.
+    Returns ``None`` when nothing usable is present.
+    """
+    if not isinstance(context, list) or not context:
+        return None
+    lines: list[str] = []
+    for item in context:
+        description = getattr(item, "description", None)
+        value = getattr(item, "value", None)
+        if isinstance(item, dict):
+            description = item.get("description", description)
+            value = item.get("value", value)
+        if description is None or value is None:
+            continue
+        lines.append(f"- {str(description)}: {str(value)}")
+    if not lines:
+        return None
+    return (
+        "Context for this conversation (treat as authoritative — use it to "
+        "answer questions about the user and follow any instructions it "
+        "contains):\n" + "\n".join(lines)
+    )
+
+
 def build_state_prompt(input_data, user_message: str) -> str:
     """Inject UI-owned shared state slots into the outgoing prompt.
 
@@ -1084,19 +1202,21 @@ def build_state_prompt(input_data, user_message: str) -> str:
     if recovered is not None:
         user_message = recovered
 
-    state_dict = getattr(input_data, "state", None)
-    if not isinstance(state_dict, dict):
-        return user_message
-
     blocks: list[str] = []
 
-    prefs_block = _format_preferences_block(state_dict.get("preferences") or {})
-    if prefs_block:
-        blocks.append(prefs_block)
+    state_dict = getattr(input_data, "state", None)
+    if isinstance(state_dict, dict):
+        prefs_block = _format_preferences_block(state_dict.get("preferences") or {})
+        if prefs_block:
+            blocks.append(prefs_block)
 
-    if "todos" in state_dict:
-        todos_json = json.dumps(state_dict["todos"], indent=2)
-        blocks.append(f"Current sales pipeline:\n{todos_json}")
+        if "todos" in state_dict:
+            todos_json = json.dumps(state_dict["todos"], indent=2)
+            blocks.append(f"Current sales pipeline:\n{todos_json}")
+
+    context_block = _format_context_block(getattr(input_data, "context", None))
+    if context_block:
+        blocks.append(context_block)
 
     if not blocks:
         return user_message
@@ -1485,23 +1605,17 @@ def build_showcase_agent(
                 skip_messages_snapshot=True,
                 state_from_args=sales_state_from_args,
             ),
-            # get_weather is used by the tool-rendering demo. The frontend
-            # renders a weather card from the tool result via useRenderTool.
-            # There is no need for the agent to continue streaming a text
-            # summary afterwards -- the card IS the response. Halting after
-            # the first tool result also protects against upstream LLM/mock
-            # loops (e.g. aimock's fuzzy fixture matching on "weather"
-            # returns the same get_weather tool call every turn, which would
-            # otherwise recurse indefinitely).
-            "get_weather": ToolBehavior(
-                stop_streaming_after_result=True,
-            ),
             # Shared State (Read + Write) — the agent writes notes to
             # `state["notes"]` via the `set_notes` tool. Emit a snapshot
             # the moment the tool fires so the UI's NotesCard re-renders
             # without waiting for the full text-response to stream.
             "set_notes": ToolBehavior(
                 state_from_args=notes_state_from_args,
+            ),
+            # Shared State (Streaming) — write_document streams the document
+            # string into state["document"] so the DocumentView renders it.
+            "write_document": ToolBehavior(
+                state_from_args=document_state_from_args,
             ),
             # gen-ui-agent — the planner writes the full step list to
             # `state["steps"]` via `set_steps` on every transition. Emit a
@@ -1536,12 +1650,14 @@ def build_showcase_agent(
             manage_sales_todos,
             get_weather,
             query_data,
+            roll_dice,
             schedule_meeting,
             search_flights,
             generate_a2ui,
             set_theme_color,
             set_notes,
             set_steps,
+            write_document,
             research_agent,
             writing_agent,
             critique_agent,

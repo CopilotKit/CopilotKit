@@ -29,4 +29,14 @@ describe("Streamdown styles", () => {
       '[data-copilotkit] [data-streamdown="superscript"]',
     );
   });
+
+  it("ships scoped fallback styles for the table action controls row (#5775)", () => {
+    // The controls row / buttons / popovers have no stable data-streamdown
+    // attribute, so they are scoped structurally under the table wrapper.
+    // Normalize whitespace so the assertion is independent of line-wrapping.
+    const normalized = globalsCss.replace(/\s+/g, " ");
+    expect(normalized).toContain(
+      '[data-streamdown="table-wrapper"] > div:first-child:not(:last-child)',
+    );
+  });
 });

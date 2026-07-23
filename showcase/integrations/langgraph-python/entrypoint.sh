@@ -53,17 +53,27 @@ echo "========================================="
 echo "[entrypoint] Starting LangGraph agent server on port 8123..."
 echo "========================================="
 
+# Disable langgraph_runtime_inmem's pickle-flush-to-disk loop. Without this,
+# the inmem runtime periodically flushes unbounded thread/checkpoint state to
+# .langgraph_api/*.pckl files, which is a slow-burn OOM risk on Railway.
+# The env var is checked at import time in langgraph_runtime_inmem
+# _persistence.py and checkpoint.py (langgraph-api==0.7.101 / runtime==0.27.4).
+export LANGGRAPH_DISABLE_FILE_PERSISTENCE=true
+
 # `python -u` forces unbuffered stdout/stderr at the interpreter level
 # (belt-and-suspenders with PYTHONUNBUFFERED=1 above) so langgraph_cli boot
 # failures surface in the Railway log stream immediately rather than sitting
 # in a pipe buffer until the process exits. `awk ... fflush()` replaces the
 # previous `sed` formulation — process substitution leaves $! pointing at
 # the real python process (pipe form made $! point at sed).
+# `--no-reload` disables watchfiles hot-reload, which fires on every request
+# and causes "1 change detected" log spam → Railway 500-logs/sec kill.
 python -u -m langgraph_cli dev \
   --config langgraph.json \
   --host 0.0.0.0 \
   --port 8123 \
-  --no-browser &> >(awk '{print "[langgraph] " $0; fflush()}') &
+  --no-browser \
+  --no-reload &> >(awk '{print "[langgraph] " $0; fflush()}') &
 LANGGRAPH_PID=$!
 
 # Give langgraph a moment to start

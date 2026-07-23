@@ -41,7 +41,7 @@ Use `copilotkit.runAgent()` to trigger your agent from any component — no chat
 ```tsx title="page.tsx"
 import { useAgent } from "@copilotkit/react-core/v2";
 import { useCopilotKit } from "@copilotkit/react-core/v2";
-import { randomUUID } from "@copilotkit/shared/v2";
+import { randomUUID } from "@copilotkit/shared";
 
 export function AgentTrigger() {
   const { agent } = useAgent();

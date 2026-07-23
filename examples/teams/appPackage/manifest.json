@@ -1,0 +1,50 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.25/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.25",
+  "version": "1.0.0",
+  "id": "c3da40e5-a328-46aa-bef2-cbbaa61496e3",
+  "developer": {
+    "name": "CopilotKit",
+    "websiteUrl": "https://copilotkit.ai",
+    "privacyUrl": "https://copilotkit.ai/privacy",
+    "termsOfUseUrl": "https://copilotkit.ai/terms"
+  },
+  "name": {
+    "short": "CopilotKit Bot",
+    "full": "CopilotKit Teams Bot"
+  },
+  "description": {
+    "short": "A CopilotKit assistant for Microsoft Teams.",
+    "full": "A Microsoft Teams bot powered by the CopilotKit Channels Teams integration."
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "accentColor": "#5B5FC7",
+  "supportsChannelFeatures": "tier1",
+  "bots": [
+    {
+      "botId": "REPLACE_WITH_MICROSOFT_APP_ID",
+      "scopes": ["personal", "team", "groupChat"],
+      "supportsFiles": true,
+      "isNotificationOnly": false
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": [],
+  "webApplicationInfo": {
+    "id": "REPLACE_WITH_MICROSOFT_APP_ID",
+    "resource": "https://graph.microsoft.com"
+  },
+  "authorization": {
+    "permissions": {
+      "resourceSpecific": [
+        {
+          "name": "ChannelMessage.Read.Group",
+          "type": "Application"
+        }
+      ]
+    }
+  }
+}

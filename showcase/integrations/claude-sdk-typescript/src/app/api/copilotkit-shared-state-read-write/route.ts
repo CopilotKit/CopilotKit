@@ -18,13 +18,14 @@ import {
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import { createClaudeHttpAgent } from "@/app/api/_shared/claude-http-agent";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
-const sharedStateAgent = new HttpAgent({
-  url: `${AGENT_URL}/shared-state-read-write`,
-});
+const sharedStateAgent = createClaudeHttpAgent(
+  `${AGENT_URL}/shared-state-read-write`,
+);
 
 const agents: Record<string, AbstractAgent> = {
   "shared-state-read-write": sharedStateAgent,

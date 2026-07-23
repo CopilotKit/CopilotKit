@@ -5,10 +5,15 @@ import {
   isIntelligenceRuntime,
   resolveAgents,
 } from "../core/runtime";
-import type { AgentDescription, RuntimeInfo } from "@copilotkit/shared";
+import type {
+  AgentDescription,
+  RuntimeInfo,
+  ThreadEndpointRuntimeInfo,
+} from "@copilotkit/shared";
 import type { RuntimeLicenseStatus } from "@copilotkit/shared";
 import { VERSION } from "../core/runtime";
 import { isTelemetryDisabled } from "../telemetry/telemetry-client";
+import { supportsLocalThreadEndpoints } from "../runner/agent-runner";
 
 function resolveLicenseStatus(
   runtime: CopilotRuntimeLike,
@@ -26,11 +31,13 @@ function resolveLicenseStatus(
 interface HandleGetRuntimeInfoParameters {
   runtime: CopilotRuntimeLike;
   request: Request;
+  threadEndpointsEnabled?: boolean;
 }
 
 export async function handleGetRuntimeInfo({
   runtime,
   request,
+  threadEndpointsEnabled = true,
 }: HandleGetRuntimeInfoParameters) {
   try {
     const agents = await resolveAgents(runtime.agents, request);
@@ -71,6 +78,15 @@ export async function handleGetRuntimeInfo({
       agents: agentsDict,
       audioFileTranscriptionEnabled: !!runtime.transcriptionService,
       mode: runtime.mode,
+      threadEndpoints: resolveThreadEndpointInfo(
+        runtime,
+        threadEndpointsEnabled,
+      ),
+      // Advertised unconditionally. Multi-route runtimes expose the dedicated
+      // POST /agent/:agentId/suggest path; single-route clients fall back to a
+      // client-side run (they don't construct the single-route envelope for
+      // suggest). The flag lets multi-route clients detect the stateless path.
+      suggestions: true,
       ...(isIntelligenceRuntime(runtime)
         ? {
             intelligence: {
@@ -115,4 +131,23 @@ export async function handleGetRuntimeInfo({
       },
     );
   }
+}
+
+function resolveThreadEndpointInfo(
+  runtime: CopilotRuntimeLike,
+  threadEndpointsEnabled: boolean,
+): ThreadEndpointRuntimeInfo {
+  const hasRestThreadBackend =
+    isIntelligenceRuntime(runtime) ||
+    supportsLocalThreadEndpoints(runtime.runner);
+  const restEndpointsAvailable = threadEndpointsEnabled && hasRestThreadBackend;
+  const managedThreadMetadata =
+    threadEndpointsEnabled && isIntelligenceRuntime(runtime);
+
+  return {
+    list: restEndpointsAvailable,
+    inspect: restEndpointsAvailable,
+    mutations: managedThreadMetadata,
+    realtimeMetadata: managedThreadMetadata,
+  };
 }

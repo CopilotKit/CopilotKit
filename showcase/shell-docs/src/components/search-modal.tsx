@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ArrowRight, Check, ChevronDown, Search, X } from "lucide-react";
 import searchIndex from "@/data/search-index.json";
 import { DEFAULT_FRAMEWORK, useFramework } from "./framework-provider";
+import { frontendFromPathname } from "@/lib/frontend-options";
 import { FrameworkLogo } from "./icons/framework-icons";
 import { compareByDisplayOrder } from "@/lib/framework-order";
 import type { Registry } from "@/lib/registry";
@@ -82,6 +83,7 @@ const DOCS_FOLDER_OVERRIDES: Record<string, string> = {
   "google-adk": "adk",
   "crewai-crews": "crewai-flows",
   strands: "aws-strands",
+  "strands-typescript": "aws-strands",
   "ms-agent-dotnet": "microsoft-agent-framework",
   "ms-agent-python": "microsoft-agent-framework",
 };
@@ -162,6 +164,8 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const selectedIndexRef = useRef(0);
   const router = useRouter();
+  const pathname = usePathname() ?? "";
+  const activeFrontend = frontendFromPathname(pathname);
 
   // Keep a ref in sync with selectedIndex so the Enter handler never reads
   // a stale closure value (reset-on-input + key-handler race).
@@ -309,7 +313,11 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
         docsGroups.set(integrationDoc.topic || "overview", {
           topic: integrationDoc.topic,
           entry: p,
-          href: frameworkDocsHref(selectedOption.slug, integrationDoc.topic),
+          href: frameworkDocsHref(
+            selectedOption.slug,
+            integrationDoc.topic,
+            activeFrontend,
+          ),
           frameworkCount: options.length,
         });
         continue;
@@ -324,7 +332,11 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
           docsGroups.set(docsTopic, {
             topic: docsTopic,
             entry: p,
-            href: normalizeHref(p.href, shellHost),
+            href: frameworkDocsHref(
+              selectedFramework,
+              docsTopic,
+              activeFrontend,
+            ),
           });
         }
         continue;
@@ -393,7 +405,14 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
     return dedupeResults(items)
       .sort((a, b) => scoreResult(a, q) - scoreResult(b, q))
       .slice(0, 12);
-  }, [query, registryData, selectedFramework, frameworkOptions, shellHost]);
+  }, [
+    query,
+    registryData,
+    selectedFramework,
+    frameworkOptions,
+    shellHost,
+    activeFrontend,
+  ]);
 
   useEffect(() => {
     setSelectedIndex((idx) =>

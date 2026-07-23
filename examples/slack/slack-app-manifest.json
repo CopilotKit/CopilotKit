@@ -39,6 +39,18 @@
         "description": "Triage this thread \u2014 summarize and propose Linear issues",
         "usage_hint": "",
         "should_escape": false
+      },
+      {
+        "command": "/preview",
+        "description": "Privately preview the issue I'd file",
+        "usage_hint": "<issue title>",
+        "should_escape": false
+      },
+      {
+        "command": "/file-issue",
+        "description": "Open a form to file a Linear issue",
+        "usage_hint": "",
+        "should_escape": false
       }
     ]
   },
@@ -64,8 +76,6 @@
         "chat:write.customize",
         "im:write",
         "mpim:write",
-        "reactions:read",
-        "reactions:write",
         "files:read",
         "files:write",
         "channels:join",
@@ -79,8 +89,6 @@
         "app_mention",
         "assistant_thread_started",
         "assistant_thread_context_changed",
-        "message.channels",
-        "message.groups",
         "message.im",
         "message.mpim"
       ]

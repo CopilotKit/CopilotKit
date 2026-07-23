@@ -1,7 +1,7 @@
 import express from "express";
 import request from "supertest";
 import { describe, expect, it, vi } from "vitest";
-import type { AbstractAgent } from "@ag-ui/client";
+import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
 import { Observable, of } from "rxjs";
 
 import { createCopilotEndpointExpress } from "../express";
@@ -37,12 +37,13 @@ describe("CopilotEndpointExpress routing", () => {
 
     const runner = {
       run: () =>
-        new Observable((observer) => {
-          observer.next({});
+        new Observable<BaseEvent>((observer) => {
+          observer.next({} as BaseEvent);
           observer.complete();
           return () => undefined;
         }),
-      connect: () => of({}),
+      connect: () => of({} as BaseEvent),
+      isRunning: async () => false,
       stop: async () => true,
     };
 

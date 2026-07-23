@@ -6,5 +6,6 @@ export const RESERVED_ROUTE_SLUGS = [
   "docs",
   "ag-ui",
   "reference",
+  "frontends",
   "api",
 ] as const;

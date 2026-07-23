@@ -453,7 +453,9 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     this.runtimeArgs.agents = Promise.resolve(
       this.runtimeArgs.agents ?? {},
     ).then(async (agents) => {
-      let agentsList = agents;
+      // An AgentsFactory function has no enumerable keys, so it flows through
+      // this path the same way an empty record does.
+      let agentsList = agents as Record<string, AbstractAgent>;
       const isAgentsListEmpty = !Object.keys(agents).length;
       const hasServiceAdapter = Boolean(serviceAdapter);
       const illegalServiceAdapterNames = ["EmptyAdapter"];
@@ -496,7 +498,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       const actions = this.params?.actions;
       if (actions) {
         const mcpTools = await this.getToolsFromMCP();
-        agentsList = this.assignToolsToAgents(agents, [
+        agentsList = this.assignToolsToAgents(agentsList, [
           ...this.getToolsFromActions(actions),
           ...mcpTools,
         ]);
@@ -551,7 +553,8 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         continue;
       }
 
-      const classicConfig = existingConfig as BuiltInAgentClassicConfig;
+      const classicConfig =
+        existingConfig as unknown as BuiltInAgentClassicConfig;
       const existingTools = classicConfig.tools ?? [];
 
       const updatedConfig: BuiltInAgentClassicConfig = {

@@ -1,0 +1,12 @@
+<Steps>
+  <Step>
+    ### Run Claude through an AG-UI endpoint
+
+    Programmatic control starts from the same AG-UI run boundary as the chat UI.
+    Wrap Claude Agent SDK once, then trigger runs from a custom UI with
+    `useAgent` or the AG-UI client. Inside your component, add the user
+    message to the agent and dispatch the run.
+
+    <DemoCode file="src/app/demos/headless-simple/chat.tsx" region="use-agent-simple" title="chat.tsx - useAgent run control" />
+  </Step>
+</Steps>

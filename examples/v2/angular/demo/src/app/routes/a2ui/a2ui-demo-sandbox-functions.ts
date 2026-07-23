@@ -1,4 +1,4 @@
-import type { SandboxFunction } from "@copilotkitnext/angular";
+import type { SandboxFunction } from "@copilotkit/angular";
 import { z } from "zod";
 
 export type Theme = "light" | "dark";

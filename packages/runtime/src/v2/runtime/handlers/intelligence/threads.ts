@@ -7,7 +7,7 @@ import { logger } from "@copilotkit/shared";
 import { errorResponse, isHandlerResponse } from "../shared/json-response";
 import { isValidIdentifier } from "../shared/intelligence-utils";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
-import { InMemoryAgentRunner } from "../../runner/in-memory";
+import { supportsLocalThreadEndpoints } from "../../runner/agent-runner";
 
 interface ThreadsHandlerParams {
   runtime: CopilotRuntimeLike;
@@ -106,7 +106,7 @@ export async function handleListThreads({
   }
 
   // Local in-memory fallback — useful for local development without Intelligence
-  if (runtime.runner instanceof InMemoryAgentRunner) {
+  if (supportsLocalThreadEndpoints(runtime.runner)) {
     const url = new URL(request.url);
     const agentId = url.searchParams.get("agentId");
     let threads = runtime.runner.listThreads();
@@ -134,7 +134,7 @@ export async function handleListThreads({
 export function handleClearThreads({
   runtime,
 }: ThreadsHandlerParams): Response {
-  if (runtime.runner instanceof InMemoryAgentRunner) {
+  if (supportsLocalThreadEndpoints(runtime.runner)) {
     runtime.runner.clearThreads();
   }
   return new Response(null, { status: 204 });
@@ -286,7 +286,7 @@ export async function handleGetThreadMessages({
   }
 
   // Local in-memory fallback — useful for local development without Intelligence
-  if (runtime.runner instanceof InMemoryAgentRunner) {
+  if (supportsLocalThreadEndpoints(runtime.runner)) {
     const messages = runtime.runner.getThreadMessages(threadId);
     // Map ag-ui Message objects to the same shape the Intelligence platform
     // returns. Switching on the discriminant `role` lets each branch read
@@ -363,7 +363,7 @@ export async function handleGetThreadEvents({
   }
 
   // Local in-memory fallback
-  if (runtime.runner instanceof InMemoryAgentRunner) {
+  if (supportsLocalThreadEndpoints(runtime.runner)) {
     try {
       const events = runtime.runner.getThreadEvents(threadId);
       return Response.json({ events });
@@ -406,7 +406,7 @@ export async function handleGetThreadState({
     }
   }
 
-  if (runtime.runner instanceof InMemoryAgentRunner) {
+  if (supportsLocalThreadEndpoints(runtime.runner)) {
     try {
       const state = runtime.runner.getThreadState(threadId);
       return Response.json({ state });

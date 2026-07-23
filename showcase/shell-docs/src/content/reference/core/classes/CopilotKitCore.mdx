@@ -169,8 +169,8 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
   Updates the transport style.
 </PropertyReference>
 
-<PropertyReference name="setHeaders(headers: Record<string, string>): void" type="method">
-  Replaces the request headers and re-applies them to existing agents.
+<PropertyReference name="setHeaders(headers: Record<string, string | null | undefined>): void" type="method">
+  Replaces the request headers and re-applies them to existing agents. Any key whose value is `null` or `undefined` is dropped from the stored headers, which is the supported way to clear a header (e.g. `Authorization` on logout). An empty string remains a valid header value and is preserved.
 </PropertyReference>
 
 <PropertyReference name="setCredentials(credentials: RequestCredentials | undefined): void" type="method">

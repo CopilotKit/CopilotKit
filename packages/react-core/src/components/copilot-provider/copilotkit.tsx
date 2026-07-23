@@ -14,13 +14,13 @@
  * ```
  */
 
+import type { SetStateAction } from "react";
 import React, {
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
-  SetStateAction,
 } from "react";
 import {
   CopilotChatConfigurationProvider,
@@ -28,43 +28,47 @@ import {
   CopilotKitProvider as CopilotKitV2Provider,
   useCopilotKit,
 } from "../../v2";
-import {
-  CopilotContext,
+import type {
   CopilotApiConfig,
   ChatComponentsCache,
   AgentSession,
   AuthState,
+} from "../../context/copilot-context";
+import {
+  CopilotContext,
   useCopilotContext,
 } from "../../context/copilot-context";
 import useTree from "../../hooks/use-tree";
-import {
+import type {
   CopilotChatSuggestionConfiguration,
   DocumentPointer,
 } from "../../types";
 import { flushSync } from "react-dom";
-import {
-  COPILOT_CLOUD_CHAT_URL,
+import type {
   CopilotCloudConfig,
   FunctionCallHandler,
-  COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
-  randomUUID,
-  ConfigurationError,
-  MissingPublicApiKeyError,
   CopilotKitError,
   CopilotErrorEvent,
   CopilotErrorHandler,
 } from "@copilotkit/shared";
-import { FrontendAction } from "../../types/frontend-action";
+import {
+  COPILOT_CLOUD_CHAT_URL,
+  COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
+  randomUUID,
+  ConfigurationError,
+  MissingPublicApiKeyError,
+} from "@copilotkit/shared";
+import type { FrontendAction } from "../../types/frontend-action";
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
-import { CopilotKitProps } from "./copilotkit-props";
-import { CoagentState } from "../../types/coagent-state";
+import type { CopilotKitProps } from "./copilotkit-props";
+import type { CoagentState } from "../../types/coagent-state";
 import { CopilotMessages, MessagesTapProvider } from "./copilot-messages";
 import { ToastProvider } from "../toast/toast-provider";
 import { getErrorActions, UsageBanner } from "../usage-banner";
 import { shouldShowDevConsole } from "../../utils";
 import { CopilotErrorBoundary } from "../error-boundary/error-boundary";
-import { Agent, ExtensionsInput } from "@copilotkit/runtime-client-gql";
-import {
+import type { Agent, ExtensionsInput } from "@copilotkit/runtime-client-gql";
+import type {
   LangGraphInterruptRender,
   LangGraphInterruptActionSetterArgs,
   QueuedInterruptEvent,
@@ -83,6 +87,13 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
 
   const renderArr = useMemo(() => [{ render: CoAgentStateRenderBridge }], []);
 
+  // v1's `onError` takes a v1 `CopilotErrorEvent` (with `type`/`timestamp`),
+  // which the v2 provider's `onError` does not produce. The v1 handler is
+  // invoked exclusively through `CopilotKitErrorBridge`, which adapts v2
+  // error events to the v1 shape — so it must not be spread into the v2
+  // provider directly.
+  const { onError: _onError, ...v2Props } = props;
+
   return (
     <ToastProvider enabled={enabled}>
       <CopilotErrorBoundary
@@ -91,7 +102,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
       >
         <ThreadsProvider threadId={props.threadId}>
           <CopilotKitV2Provider
-            {...props}
+            {...v2Props}
             showDevConsole={showInspector}
             renderCustomMessages={renderArr}
             useSingleEndpoint={props.useSingleEndpoint ?? true}
@@ -837,7 +848,17 @@ function validateProps(props: CopilotKitProps): never | void {
   // Check if we have either a runtimeUrl or one of the API keys
   const hasApiKey = props.publicApiKey || props.publicLicenseKey;
 
-  if (!props.runtimeUrl && !hasApiKey) {
+  // Self-managed (and dev-only) agents are instantiated client-side and route
+  // directly to their AG-UI endpoints, so they need neither a runtime nor a
+  // cloud key. Mirror CopilotKitProvider's `hasLocalAgents` gate so the wrapper
+  // doesn't reject a valid self-managed configuration (#5417).
+  const hasLocalAgents =
+    Object.keys({
+      ...props.agents__unsafe_dev_only,
+      ...props.selfManagedAgents,
+    }).length > 0;
+
+  if (!props.runtimeUrl && !hasApiKey && !hasLocalAgents) {
     throw new ConfigurationError(
       "Missing required prop: 'runtimeUrl' or 'publicApiKey' or 'publicLicenseKey'",
     );

@@ -8,6 +8,15 @@
     "---App Control---",
     "frontend-tools",
     "shared-state",
-    "---Intelligence Platform---"
+    "---Intelligence Platform---",
+    {
+      "title": "Rich Threads",
+      "defaultOpen": true,
+      "pages": [
+        "threads",
+        "headless-threads",
+        "threads-import"
+      ]
+    }
   ]
 }

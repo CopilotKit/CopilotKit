@@ -9,20 +9,21 @@
 // - src/agents/a2ui_dynamic.py (the Claude Agent SDK backend)
 
 import type { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { HttpAgent } from "@ag-ui/client";
+import { createClaudeHttpAgent } from "@/app/api/_shared/claude-http-agent";
+import { internalRuntimeErrorResponse } from "@/app/api/_shared/route-error";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
-const declarativeGenUiAgent = new HttpAgent({
-  url: `${AGENT_URL}/declarative-gen-ui`,
-});
+const declarativeGenUiAgent = createClaudeHttpAgent(
+  `${AGENT_URL}/declarative-gen-ui`,
+);
 
+// @region[a2ui-runtime-setup]
 const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts
   agents: { "declarative-gen-ui": declarativeGenUiAgent },
@@ -41,6 +42,7 @@ const runtime = new CopilotRuntime({
     defaultCatalogId: "declarative-gen-ui-catalog",
   },
 });
+// @endregion[a2ui-runtime-setup]
 
 export const POST = async (req: NextRequest) => {
   try {
@@ -51,10 +53,9 @@ export const POST = async (req: NextRequest) => {
     });
     return await handleRequest(req);
   } catch (error: unknown) {
-    const e = error as { message?: string; stack?: string };
-    return NextResponse.json(
-      { error: e.message, stack: e.stack },
-      { status: 500 },
+    return internalRuntimeErrorResponse(
+      "/api/copilotkit-declarative-gen-ui",
+      error,
     );
   }
 };

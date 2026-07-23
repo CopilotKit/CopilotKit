@@ -219,6 +219,12 @@ const ENTRIES: readonly SlugEntry[] = [
     fallback: false,
   },
   { slug: "spring-ai", bornInShowcase: true, examples: [], fallback: false },
+  {
+    slug: "strands-typescript",
+    bornInShowcase: true,
+    examples: [],
+    fallback: false,
+  },
 
   // Packages with a straightforward examples/integrations counterpart
   // whose dir name matches SLUG_MAP's examples→slug direction.

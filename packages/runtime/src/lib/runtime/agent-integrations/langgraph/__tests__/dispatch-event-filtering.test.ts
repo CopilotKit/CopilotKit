@@ -6,7 +6,7 @@ import { vi } from "vitest";
 function createAgent() {
   const agent = new LangGraphAgent({
     graphId: "test-graph",
-    url: "http://localhost:8000",
+    deploymentUrl: "http://localhost:8000",
   });
 
   const events: any[] = [];

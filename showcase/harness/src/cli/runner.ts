@@ -48,6 +48,9 @@ import type { E2eFullBrowser } from "../probes/drivers/d6-all-pills.js";
 import type { StatusWriter } from "../writers/status-writer.js";
 import { runViaControlPlane } from "./control-plane-run.js";
 import type { ControlPlaneLevel } from "./control-plane-run.js";
+import { createPbClient } from "../storage/pb-client.js";
+import { buildCvdiagPersistenceWriter } from "../orchestrator.js";
+import type { CvdiagPbWriter } from "../cvdiag/pb-writer.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -266,6 +269,25 @@ export async function run(
   const pbConfig = options.live ? resolvePbConfig(config) : null;
   const pbWriter = pbConfig ? createPbWriter(pbConfig, logger) : null;
 
+  // CVDIAG event-persistence writer for the local d5/d6 path. When `--live`
+  // (a PB connection is configured), build a writer-role PB client and gate it
+  // through `buildCvdiagPersistenceWriter` (the same assert-collection-exists
+  // degrade-or-inject path the orchestrator uses). When wired, the d6 driver's
+  // per-feature `CvdiagProbeSession` PERSISTS its probe-layer events (probe.exit
+  // etc.) to `cvdiag_events` on flush — so a local `--d5`/`--d6` run is readable
+  // back from PB exactly like staging. Absent (`--live` off, migration missing,
+  // or PB unreachable) → undefined → the emitter's flush is a clean no-op.
+  let cvdiagWriter: CvdiagPbWriter | undefined;
+  if (pbConfig) {
+    const cvdiagPb = createPbClient({
+      url: pbConfig.url,
+      email: pbConfig.email,
+      password: pbConfig.password,
+      logger,
+    });
+    cvdiagWriter = await buildCvdiagPersistenceWriter(cvdiagPb, logger);
+  }
+
   const ctx: ProbeContext = {
     now: () => new Date(),
     logger,
@@ -365,8 +387,10 @@ export async function run(
             close: () => browser.close(),
           };
         },
+        // CVDIAG persistence for the local d5/d6 path (headed).
+        cvdiagPbWriter: cvdiagWriter,
       })
-    : createE2eFullDriver();
+    : createE2eFullDriver({ cvdiagPbWriter: cvdiagWriter });
 
   // -- 9. Run probes --------------------------------------------------------
   const repeatCount = Math.max(1, options.repeat ?? 1);

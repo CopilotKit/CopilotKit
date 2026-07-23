@@ -12,19 +12,20 @@ trap cleanup EXIT
 # exits, by which point the container is already gone.
 export PYTHONUNBUFFERED=1
 
-# Disable Google ADK's progressive SSE streaming feature. With it enabled,
-# Gemini 3.1 Flash-Lite occasionally returns a stream whose final event is flagged
-# `partial`, which the ADK flow aborts with a "The last event is partial"
-# warning — the backend then emits no TOOL_CALL_* or TEXT_MESSAGE_* events,
-# so the tool-rendering UI is stranded and L4 smoke tests intermittently fail.
-# With it OFF the ADK falls back to simple text accumulation and always
-# produces a coherent final response.
-#
-# This env var is belt-and-suspenders with `simple_after_model_modifier` in
-# `src/agents/main.py`, which carries an in-callback partial-event guard. The
-# env var is the primary (operator-level, ADK-wide) workaround; the callback
-# guard runs regardless. Both layers are intentional.
-export ADK_DISABLE_PROGRESSIVE_SSE_STREAMING=1
+# NOTE: ADK_DISABLE_PROGRESSIVE_SSE_STREAMING was previously exported here to
+# dodge an intermittent "The last event is partial" abort on the tool-rendering
+# demos. But disabling progressive streaming ALSO suppresses ADK's
+# post-backend-tool LLM re-invocation: after a backend function tool (or a
+# sub-agent delegation) returns, ADK's non-progressive aggregation path ends the
+# agentic loop instead of re-invoking the model with the tool result appended.
+# That broke every demo that needs a second turn after a tool result — the
+# subagents chain (research -> writing -> critique), tool-rendering-reasoning-chain
+# (AAPL -> MSFT), shared-state-read-write's confirmation, the custom-catchall
+# narration, and headless-complete's per-turn completion. The partial-event
+# abort it guarded against is already handled in-callback by `stop_on_terminal_text`
+# (shared by every registered agent), so progressive streaming is left ON.
+# (Do not re-add this flag without a per-agent feature override that keeps
+# progressive streaming ON for the backend-tool / sub-agent chain agents.)
 
 echo "========================================="
 echo "[entrypoint] Starting showcase package: google-adk"

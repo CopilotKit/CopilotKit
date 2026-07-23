@@ -58,6 +58,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import yaml from "yaml";
+import { findUnexpectedMultiFileRegions } from "./lib/demo-region-guard.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -514,6 +515,37 @@ function main() {
           .filter((k) => !knownInFiles.has(k))
           .sort();
         const effectiveOrder = [...fileOrder, ...leftoverKeys];
+
+        const regionSources = new Map<string, Set<string>>();
+        for (const filename of effectiveOrder) {
+          const fileRegs = perFileRegions[filename];
+          if (!fileRegs) continue;
+          for (const [name, slices] of Object.entries(fileRegs)) {
+            if (slices.length === 0) continue;
+            const sources = regionSources.get(name) ?? new Set<string>();
+            sources.add(filename);
+            regionSources.set(name, sources);
+          }
+        }
+        const unexpectedMultiFileRegions = findUnexpectedMultiFileRegions(
+          [...regionSources.entries()].map(([regionName, filesForRegion]) => ({
+            demoKey: key,
+            regionName,
+            files: [...filesForRegion],
+          })),
+        );
+        if (unexpectedMultiFileRegions.length > 0) {
+          const details = unexpectedMultiFileRegions
+            .map(
+              ({ regionName, files: regionFiles }) =>
+                `${key}: region "${regionName}" appears in multiple files:\n  ${regionFiles.join("\n  ")}`,
+            )
+            .join("\n\n");
+          throw new Error(
+            `${details}\n\nRename/delete the accidental duplicate region, or add an explicit allowlist entry in showcase/scripts/lib/demo-region-guard.ts if this is an intentional multi-file snippet.`,
+          );
+        }
+
         for (const filename of effectiveOrder) {
           const fileRegs = perFileRegions[filename];
           if (!fileRegs) continue;

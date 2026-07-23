@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import type { ReactFrontendTool } from "../../types/frontend-tool";
 import type { ReactHumanInTheLoop } from "../../types/human-in-the-loop";
+import { HttpAgent } from "@ag-ui/client";
 import { CopilotKitProvider, useCopilotKit } from "../CopilotKitProvider";
 
 // Mock console methods
@@ -47,6 +48,54 @@ describe("CopilotKitProvider", () => {
 
       errorSpy.mockRestore();
       consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    });
+  });
+
+  describe("selfManagedAgents license signal", () => {
+    const ENTERPRISE_WARNING = "Enterprise Intelligence";
+
+    it("warns when selfManagedAgents is provided without a license key", () => {
+      const agent = new HttpAgent({ url: "http://localhost:8000" });
+      render(
+        <CopilotKitProvider selfManagedAgents={{ myAgent: agent }}>
+          child
+        </CopilotKitProvider>,
+      );
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining(ENTERPRISE_WARNING),
+      );
+      // selfManagedAgents satisfies hasLocalAgents, so the separate
+      // missing-runtime config warning must NOT fire here.
+      expect(consoleWarnSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining("Missing required prop"),
+      );
+    });
+
+    it("does not warn when selfManagedAgents is paired with a license key", () => {
+      const agent = new HttpAgent({ url: "http://localhost:8000" });
+      render(
+        <CopilotKitProvider
+          selfManagedAgents={{ myAgent: agent }}
+          publicLicenseKey="ck_lic_test"
+        >
+          child
+        </CopilotKitProvider>,
+      );
+      expect(consoleWarnSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining(ENTERPRISE_WARNING),
+      );
+    });
+
+    it("does not warn for the free agents__unsafe_dev_only escape hatch", () => {
+      const agent = new HttpAgent({ url: "http://localhost:8000" });
+      render(
+        <CopilotKitProvider agents__unsafe_dev_only={{ myAgent: agent }}>
+          child
+        </CopilotKitProvider>,
+      );
+      expect(consoleWarnSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining(ENTERPRISE_WARNING),
+      );
     });
   });
 
@@ -789,6 +838,52 @@ describe("CopilotKitProvider", () => {
         result.current.copilotkit.getTool({ toolName: "followUpTool" })
           ?.followUp,
       ).toBe(false);
+    });
+  });
+
+  describe("a2ui catalog auto-enable", () => {
+    it("forwards a2uiCatalogAvailable when a catalog is passed to the provider", () => {
+      const { result } = renderHook(() => useCopilotKit(), {
+        wrapper: ({ children }) => (
+          <CopilotKitProvider a2ui={{ catalog: { components: new Map() } }}>
+            {children}
+          </CopilotKitProvider>
+        ),
+      });
+
+      expect(result.current.copilotkit.properties.a2uiCatalogAvailable).toBe(
+        true,
+      );
+    });
+
+    it("does not forward a2uiCatalogAvailable when no catalog is passed", () => {
+      const { result } = renderHook(() => useCopilotKit(), {
+        wrapper: ({ children }) => (
+          <CopilotKitProvider a2ui={{}}>{children}</CopilotKitProvider>
+        ),
+      });
+
+      expect(
+        result.current.copilotkit.properties.a2uiCatalogAvailable,
+      ).toBeUndefined();
+    });
+
+    it("preserves user-provided properties alongside the catalog signal", () => {
+      const { result } = renderHook(() => useCopilotKit(), {
+        wrapper: ({ children }) => (
+          <CopilotKitProvider
+            a2ui={{ catalog: { components: new Map() } }}
+            properties={{ tenant: "acme" }}
+          >
+            {children}
+          </CopilotKitProvider>
+        ),
+      });
+
+      expect(result.current.copilotkit.properties).toMatchObject({
+        tenant: "acme",
+        a2uiCatalogAvailable: true,
+      });
     });
   });
 });

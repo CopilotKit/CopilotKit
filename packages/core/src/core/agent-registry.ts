@@ -6,11 +6,11 @@ import type {
   RuntimeMode,
   RuntimeLicenseStatus,
   IntelligenceRuntimeInfo,
+  ThreadEndpointRuntimeInfo,
 } from "@copilotkit/shared";
 import {
   logger,
   RUNTIME_MODE_SSE,
-  RUNTIME_MODE_INTELLIGENCE,
   resolveDebugConfig,
 } from "@copilotkit/shared";
 import { ProxiedCopilotRuntimeAgent } from "../agent";
@@ -59,6 +59,10 @@ export class AgentRegistry {
   private remoteAgents: Record<string, AbstractAgent> = {};
 
   private _runtimeUrl?: string;
+  // Tracks an in-flight `/info` connection so concurrent calls targeting the
+  // same runtime (url + requested transport) collapse to a single request
+  // instead of each firing their own. See #5801.
+  private _connectionInFlight?: { key: string; promise: Promise<void> };
   private _runtimeVersion?: string;
   private _runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus =
     CopilotKitCoreRuntimeConnectionStatus.Disconnected;
@@ -72,11 +76,25 @@ export class AgentRegistry {
   private _audioFileTranscriptionEnabled: boolean = false;
   private _runtimeMode: RuntimeMode = RUNTIME_MODE_SSE;
   private _intelligence?: IntelligenceRuntimeInfo;
+  private _threadEndpoints?: ThreadEndpointRuntimeInfo;
+  private _suggestions?: boolean;
   private _a2uiEnabled: boolean = false;
   private _a2uiAgents?: string[];
   private _openGenerativeUIEnabled: boolean = false;
   private _licenseStatus?: RuntimeLicenseStatus;
   private _telemetryDisabled: boolean = false;
+
+  /**
+   * The headers each HttpAgent was constructed with, captured on the first
+   * `applyHeadersToAgent` call for that agent (which, for agents the registry
+   * owns, happens at registration before any core headers are applied). Core
+   * headers are merged ON TOP of this baseline so that headers configured
+   * directly on an agent (e.g. an `Authorization` for a self-hosted backend)
+   * survive registration instead of being silently replaced. The baseline is
+   * captured once and never re-captured, so a later direct mutation of
+   * `agent.headers` is not folded into it. See #5635.
+   */
+  private agentOwnHeaders = new WeakMap<HttpAgent, Record<string, string>>();
 
   constructor(private core: CopilotKitCore) {}
 
@@ -113,6 +131,14 @@ export class AgentRegistry {
 
   get intelligence(): IntelligenceRuntimeInfo | undefined {
     return this._intelligence;
+  }
+
+  get threadEndpoints(): ThreadEndpointRuntimeInfo | undefined {
+    return this._threadEndpoints;
+  }
+
+  get suggestions(): boolean | undefined {
+    return this._suggestions;
   }
 
   get a2uiEnabled(): boolean {
@@ -152,7 +178,10 @@ export class AgentRegistry {
   /**
    * Set the runtime URL and update connection
    */
-  setRuntimeUrl(runtimeUrl: string | undefined): void {
+  setRuntimeUrl(
+    runtimeUrl: string | undefined,
+    options?: { deferConnection?: boolean },
+  ): void {
     const normalizedRuntimeUrl = runtimeUrl
       ? runtimeUrl.replace(/\/$/, "")
       : undefined;
@@ -162,6 +191,42 @@ export class AgentRegistry {
     }
 
     this._runtimeUrl = normalizedRuntimeUrl;
+
+    // Deferred construction (see CopilotKitCore.connect / #5801): record the URL
+    // so getters/hooks see it synchronously, but do NOT start the `/info` fetch
+    // here. The host starts it from a commit-phase effect via `connect()`, so
+    // renders discarded before commit never issue a request.
+    if (options?.deferConnection) {
+      return;
+    }
+
+    void this.updateRuntimeConnection();
+  }
+
+  /**
+   * Start the initial runtime connection if it has not been started yet.
+   *
+   * Backs {@link CopilotKitCore.connect}. Idempotent: it only kicks off a fetch
+   * when a `runtimeUrl` is set and the connection is still `Disconnected` (its
+   * state before any connect attempt). `updateRuntimeConnection` flips the
+   * status to `Connecting` synchronously, so a second call — e.g. React
+   * StrictMode double-invoking the mount effect — bails here. A genuine config
+   * change still reconnects through `setRuntimeUrl`/`setRuntimeTransport`. See
+   * #5801.
+   */
+  connectRuntime(): void {
+    if (typeof window === "undefined") {
+      return;
+    }
+    if (!this._runtimeUrl) {
+      return;
+    }
+    if (
+      this._runtimeConnectionStatus !==
+      CopilotKitCoreRuntimeConnectionStatus.Disconnected
+    ) {
+      return;
+    }
     void this.updateRuntimeConnection();
   }
 
@@ -307,11 +372,22 @@ export class AgentRegistry {
   }
 
   /**
-   * Apply current headers to an agent
+   * Apply current core headers to an agent, merged ON TOP of the agent's own
+   * construction-time headers (the per-agent baseline in `agentOwnHeaders`).
+   * Core wins on a key conflict. Non-`HttpAgent` agents are left untouched
+   * because only `HttpAgent` carries a `headers` field. See #5635.
    */
   applyHeadersToAgent(agent: AbstractAgent): void {
     if (agent instanceof HttpAgent) {
+      // Capture the agent's construction-time headers once, before any core
+      // headers overwrite them. On every subsequent apply we rebuild from this
+      // baseline so re-applying core headers (e.g. via setHeaders) never loses
+      // the agent's own headers.
+      if (!this.agentOwnHeaders.has(agent)) {
+        this.agentOwnHeaders.set(agent, { ...agent.headers });
+      }
       agent.headers = {
+        ...this.agentOwnHeaders.get(agent),
         ...(this.core as unknown as CopilotKitCoreFriendsAccess).headers,
       };
     }
@@ -355,6 +431,27 @@ export class AgentRegistry {
       return;
     }
 
+    // In-flight guard: if a connection to the same target (runtime url +
+    // requested transport) is already running, reuse it instead of starting a
+    // second `/info` request. A change to a different target supersedes it. See
+    // #5801.
+    const key = `${this._runtimeUrl ?? ""}::${this._requestedTransport}`;
+    const inFlight = this._connectionInFlight;
+    if (inFlight && inFlight.key === key) {
+      return inFlight.promise;
+    }
+
+    const promise = this.performRuntimeConnection();
+    this._connectionInFlight = { key, promise };
+    void promise.finally(() => {
+      if (this._connectionInFlight?.promise === promise) {
+        this._connectionInFlight = undefined;
+      }
+    });
+    return promise;
+  }
+
+  private async performRuntimeConnection(): Promise<void> {
     if (!this.runtimeUrl) {
       this._runtimeConnectionStatus =
         CopilotKitCoreRuntimeConnectionStatus.Disconnected;
@@ -362,6 +459,8 @@ export class AgentRegistry {
       this._audioFileTranscriptionEnabled = false;
       this._runtimeMode = RUNTIME_MODE_SSE;
       this._intelligence = undefined;
+      this._threadEndpoints = undefined;
+      this._suggestions = undefined;
       this._a2uiEnabled = false;
       this._a2uiAgents = undefined;
       this._openGenerativeUIEnabled = false;
@@ -391,6 +490,8 @@ export class AgentRegistry {
         version: string;
         mode?: RuntimeMode;
         intelligence?: IntelligenceRuntimeInfo;
+        threadEndpoints?: ThreadEndpointRuntimeInfo;
+        suggestions?: boolean;
       } = runtimeInfoResponse;
 
       const credentials = (this.core as unknown as CopilotKitCoreFriendsAccess)
@@ -400,6 +501,27 @@ export class AgentRegistry {
       const agents: Record<string, AbstractAgent> = Object.fromEntries(
         Object.entries(runtimeInfo.agents).map(
           ([id, { description, capabilities }]) => {
+            // Reuse the already-registered instance for ids that are still
+            // present. A re-connection (an /info re-settle, a header/config or
+            // transport change) re-runs this method, but the runtime agent for
+            // a given id is the SAME logical agent — minting a fresh instance
+            // would discard its accumulated `messages`/`threadId` and its live
+            // subscriptions. Downstream (e.g. the `use-agent` memo) keys on the
+            // instance identity returned by `getAgent(id)`, so replacing it
+            // unmounts an already-rendered conversation. Only re-apply what the
+            // registry owns (headers + credentials) in place; the proxy
+            // re-resolves its own runtime mode/intelligence via `/info`.
+            const existing = Object.prototype.hasOwnProperty.call(
+              this.remoteAgents,
+              id,
+            )
+              ? this.remoteAgents[id]
+              : undefined;
+            if (existing instanceof ProxiedCopilotRuntimeAgent) {
+              this.applyHeadersToAgent(existing);
+              this.applyCredentialsToAgent(existing);
+              return [id, existing];
+            }
             const agent = new ProxiedCopilotRuntimeAgent({
               runtimeUrl: this.runtimeUrl,
               agentId: id, // Runtime agents always have their ID set correctly
@@ -417,6 +539,9 @@ export class AgentRegistry {
         ),
       );
 
+      // Reassign the full set: ids present in `runtimeInfo.agents` are carried
+      // over (reused or freshly minted above); ids no longer advertised are
+      // dropped because they are absent from this rebuilt map.
       this.remoteAgents = agents;
       this._agents = { ...this.localAgents, ...this.remoteAgents };
       this._runtimeConnectionStatus =
@@ -426,6 +551,8 @@ export class AgentRegistry {
         runtimeInfoResponse.audioFileTranscriptionEnabled ?? false;
       this._runtimeMode = runtimeInfoResponse.mode ?? RUNTIME_MODE_SSE;
       this._intelligence = runtimeInfoResponse.intelligence;
+      this._threadEndpoints = runtimeInfoResponse.threadEndpoints;
+      this._suggestions = runtimeInfoResponse.suggestions;
       const a2uiInfo = runtimeInfoResponse.a2ui;
       this._a2uiEnabled =
         a2uiInfo?.enabled ?? runtimeInfoResponse.a2uiEnabled ?? false;
@@ -446,6 +573,8 @@ export class AgentRegistry {
       this._audioFileTranscriptionEnabled = false;
       this._runtimeMode = RUNTIME_MODE_SSE;
       this._intelligence = undefined;
+      this._threadEndpoints = undefined;
+      this._suggestions = undefined;
       this._a2uiEnabled = false;
       this._a2uiAgents = undefined;
       this._openGenerativeUIEnabled = false;

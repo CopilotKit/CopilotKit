@@ -35,7 +35,17 @@ from __future__ import annotations
 
 import os
 from collections.abc import AsyncIterator, Callable
+from pathlib import Path
 from typing import Any
+
+# CVDIAG bootstrap — MUST be the first non-stdlib import (folded in from the
+# dropped L1-H slot). Importing this module configures the root logger via
+# ``logging.basicConfig`` so the ``agents._header_forwarding`` (and sibling
+# ``agents.*``) CVDIAG loggers actually EMIT (fixes the silent-drop bug), and
+# resolves the verbosity tier + PB writer. It imports pydantic/starlette only
+# (NOT anthropic / claude-agent-sdk), so it is safe to run before the agent
+# imports below.
+import _shared.cvdiag_bootstrap  # noqa: F401,E402  (first non-stdlib import — bootstrap side effects)
 
 # ORDER-CRITICAL: install the global httpx hook BEFORE any agent module
 # (and before the ``anthropic`` SDK) imports. The Claude SDK Python
@@ -43,6 +53,7 @@ from typing import Any
 # per request, but installing the hook at module-import time guarantees
 # every future httpx client (including sub-agent calls) auto-attaches the
 # forwarded-header hook.
+from agents._cvdiag_backend import CvdiagBackendMiddleware
 from agents._header_forwarding import (
     HeaderForwardingHTTPMiddleware,
     install_global_httpx_hook,
@@ -59,7 +70,20 @@ from fastapi.responses import StreamingResponse
 
 from agents.a2ui_dynamic import run_a2ui_dynamic_agent
 from agents.a2ui_fixed import run_a2ui_fixed_agent
-from agents.agent import create_app, run_agent
+from agents.agent import (
+    BEAUTIFUL_CHAT_SYSTEM_PROMPT,
+    BEAUTIFUL_CHAT_TOOLS,
+    GEN_UI_AGENT_SYSTEM_PROMPT,
+    GEN_UI_AGENT_TOOLS,
+    HEADLESS_COMPLETE_SYSTEM_PROMPT,
+    HEADLESS_COMPLETE_TOOLS,
+    SHARED_STATE_STREAMING_SYSTEM_PROMPT,
+    SHARED_STATE_STREAMING_TOOLS,
+    TOOL_RENDERING_SYSTEM_PROMPT,
+    TOOL_RENDERING_TOOLS,
+    create_app,
+    run_agent,
+)
 from agents.agent_config_agent import build_system_prompt, read_properties
 from agents.byoc_hashbrown_agent import BYOC_HASHBROWN_SYSTEM_PROMPT
 from agents.byoc_json_render_agent import BYOC_JSON_RENDER_SYSTEM_PROMPT
@@ -77,7 +101,8 @@ from agents.tool_rendering_reasoning_chain_agent import (
     run_tool_rendering_reasoning_chain_agent,
 )
 
-load_dotenv()
+INTEGRATION_ROOT = Path(__file__).resolve().parent.parent
+load_dotenv(dotenv_path=INTEGRATION_ROOT / ".env")
 
 
 def _stream_agent_response(
@@ -86,6 +111,9 @@ def _stream_agent_response(
     system_prompt_override: str | None = None,
     disable_tools: bool = False,
     preprocess_user_parts: Callable[..., Any] | None = None,
+    tools_override: list[dict[str, Any]] | None = None,
+    frontend_tool_names_allowlist: set[str] | None = None,
+    latest_user_message_only: bool = False,
 ) -> StreamingResponse:
     """Wrap ``run_agent`` in a StreamingResponse with demo-specific overrides.
 
@@ -100,6 +128,9 @@ def _stream_agent_response(
             system_prompt_override=system_prompt_override,
             disable_tools=disable_tools,
             preprocess_user_parts=preprocess_user_parts,
+            tools_override=tools_override,
+            frontend_tool_names_allowlist=frontend_tool_names_allowlist,
+            latest_user_message_only=latest_user_message_only,
         ):
             yield chunk
 
@@ -114,6 +145,16 @@ def _stream_agent_response(
 
 
 app = create_app()
+
+# CVDIAG backend emitter (spec §3 Layer 2) — emits the HTTP-observable backend
+# boundaries (request.ingress, sse.first_byte, sse.event, sse.aborted,
+# response.complete, error.caught) as structured CVDIAG envelopes. Added right
+# after ``create_app`` so it is the OUTERMOST layer over the routes + CORS
+# ``create_app`` installs: it observes ingress before any inner layer mutates
+# the request and wraps the response stream so SSE boundaries fire as chunks
+# flow. Gated behind ``CVDIAG_BACKEND_EMITTER`` (default OFF, canary-safe) — the
+# middleware fast-paths to a bare pass-through when the flag is unset.
+app.add_middleware(CvdiagBackendMiddleware)
 
 # Tighten CORS: the dedicated endpoints share the same CORS policy as the
 # default route, which `create_app` already opens up with `*`. No extra
@@ -143,6 +184,12 @@ async def byoc_json_render_endpoint(request: Request) -> StreamingResponse:
     )
 
 
+@app.post("/declarative-json-render")
+async def declarative_json_render_endpoint(request: Request) -> StreamingResponse:
+    """Canonical route alias for the declarative JSON renderer demo."""
+    return await byoc_json_render_endpoint(request)
+
+
 @app.post("/byoc-hashbrown")
 async def byoc_hashbrown_endpoint(request: Request) -> StreamingResponse:
     body = await request.json()
@@ -152,6 +199,12 @@ async def byoc_hashbrown_endpoint(request: Request) -> StreamingResponse:
         system_prompt_override=BYOC_HASHBROWN_SYSTEM_PROMPT,
         disable_tools=True,
     )
+
+
+@app.post("/declarative-hashbrown")
+async def declarative_hashbrown_endpoint(request: Request) -> StreamingResponse:
+    """Canonical route alias for the declarative Hashbrown demo."""
+    return await byoc_hashbrown_endpoint(request)
 
 
 @app.post("/multimodal")
@@ -166,6 +219,75 @@ async def multimodal_endpoint(request: Request) -> StreamingResponse:
     )
 
 
+@app.post("/beautiful-chat")
+async def beautiful_chat_endpoint(request: Request) -> StreamingResponse:
+    """Beautiful Chat -- backend tools plus frontend/runtime tools."""
+    body = await request.json()
+    input_data = RunAgentInput(**body)
+    return _stream_agent_response(
+        input_data,
+        system_prompt_override=BEAUTIFUL_CHAT_SYSTEM_PROMPT,
+        tools_override=BEAUTIFUL_CHAT_TOOLS,
+    )
+
+
+# @region[backend-demo-endpoints]
+@app.post("/headless-complete")
+async def headless_complete_endpoint(request: Request) -> StreamingResponse:
+    """Headless Complete — backend weather/stock tools plus highlight_note."""
+    body = await request.json()
+    input_data = RunAgentInput(**body)
+    return _stream_agent_response(
+        input_data,
+        system_prompt_override=HEADLESS_COMPLETE_SYSTEM_PROMPT,
+        tools_override=HEADLESS_COMPLETE_TOOLS,
+        frontend_tool_names_allowlist={"highlight_note"},
+        preprocess_user_parts=convert_part_for_claude,
+    )
+
+
+@app.post("/tool-rendering")
+async def tool_rendering_endpoint(request: Request) -> StreamingResponse:
+    """Tool Rendering family — render-only UI, backend-owned tool execution."""
+    body = await request.json()
+    input_data = RunAgentInput(**body)
+    return _stream_agent_response(
+        input_data,
+        system_prompt_override=TOOL_RENDERING_SYSTEM_PROMPT,
+        tools_override=TOOL_RENDERING_TOOLS,
+        frontend_tool_names_allowlist=set(),
+    )
+
+
+@app.post("/gen-ui-agent")
+async def gen_ui_agent_endpoint(request: Request) -> StreamingResponse:
+    """Agentic Generative UI — backend-owned set_steps state updates."""
+    body = await request.json()
+    input_data = RunAgentInput(**body)
+    return _stream_agent_response(
+        input_data,
+        system_prompt_override=GEN_UI_AGENT_SYSTEM_PROMPT,
+        tools_override=GEN_UI_AGENT_TOOLS,
+        frontend_tool_names_allowlist=set(),
+    )
+
+
+@app.post("/shared-state-streaming")
+async def shared_state_streaming_endpoint(request: Request) -> StreamingResponse:
+    """Shared State Streaming — writes the final document into shared state."""
+    body = await request.json()
+    input_data = RunAgentInput(**body)
+    return _stream_agent_response(
+        input_data,
+        system_prompt_override=SHARED_STATE_STREAMING_SYSTEM_PROMPT,
+        tools_override=SHARED_STATE_STREAMING_TOOLS,
+        frontend_tool_names_allowlist=set(),
+    )
+
+
+# @endregion[backend-demo-endpoints]
+
+
 @app.post("/agent-config")
 async def agent_config_endpoint(request: Request) -> StreamingResponse:
     body = await request.json()
@@ -178,6 +300,7 @@ async def agent_config_endpoint(request: Request) -> StreamingResponse:
         input_data,
         system_prompt_override=system_prompt,
         disable_tools=True,
+        latest_user_message_only=True,
     )
 
 

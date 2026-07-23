@@ -1,0 +1,283 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://copilotkit.ai/schemas/cvdiag/v1.json",
+  "title": "CVDIAG flap-observability envelope",
+  "schema_version": 1,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "test_id",
+    "trace_id",
+    "span_id",
+    "parent_span_id",
+    "layer",
+    "boundary",
+    "slug",
+    "demo",
+    "ts",
+    "mono_ns",
+    "duration_ms",
+    "outcome",
+    "edge_headers",
+    "metadata"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "test_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "trace_id": {
+      "type": "string"
+    },
+    "span_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{16}$"
+    },
+    "parent_span_id": {
+      "type": ["string", "null"]
+    },
+    "layer": {
+      "type": "string",
+      "enum": ["probe", "backend", "aimock"]
+    },
+    "boundary": {
+      "type": "string",
+      "enum": [
+        "probe.start",
+        "probe.navigate.complete",
+        "probe.message.send",
+        "probe.dom.container.mount",
+        "probe.dom.firsttoken",
+        "probe.dom.alternate_content",
+        "probe.sse.event",
+        "probe.sse.aborted",
+        "probe.network.error",
+        "probe.network.response",
+        "probe.console.error",
+        "probe.exit",
+        "backend.request.ingress",
+        "backend.agent.enter",
+        "backend.llm.call.start",
+        "backend.llm.call.heartbeat",
+        "backend.llm.call.response",
+        "backend.sse.first_byte",
+        "backend.sse.event",
+        "backend.sse.aborted",
+        "backend.agent.exit",
+        "backend.response.complete",
+        "backend.error.caught",
+        "aimock.request.ingress",
+        "aimock.match.decision",
+        "aimock.response.start",
+        "aimock.sse.chunk",
+        "aimock.response.aborted",
+        "aimock.response.complete",
+        "cvdiag.purge_audit",
+        "cvdiag.collision_detected",
+        "cvdiag.queue_dropped",
+        "cvdiag.metadata_dropped"
+      ]
+    },
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,63}$"
+    },
+    "demo": {
+      "type": "string"
+    },
+    "ts": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "mono_ns": {
+      "type": "integer"
+    },
+    "duration_ms": {
+      "type": ["integer", "null"]
+    },
+    "outcome": {
+      "type": "string",
+      "enum": ["ok", "err", "timeout", "info"]
+    },
+    "edge_headers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cf-ray",
+        "cf-mitigated",
+        "cf-cache-status",
+        "x-railway-edge",
+        "x-railway-request-id",
+        "x-hikari-trace",
+        "retry-after",
+        "via",
+        "server"
+      ],
+      "properties": {
+        "cf-ray": {
+          "type": ["string", "null"]
+        },
+        "cf-mitigated": {
+          "type": ["string", "null"]
+        },
+        "cf-cache-status": {
+          "type": ["string", "null"]
+        },
+        "x-railway-edge": {
+          "type": ["string", "null"]
+        },
+        "x-railway-request-id": {
+          "type": ["string", "null"]
+        },
+        "x-hikari-trace": {
+          "type": ["string", "null"]
+        },
+        "retry-after": {
+          "type": ["string", "null"]
+        },
+        "via": {
+          "type": ["string", "null"]
+        },
+        "server": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "_metadata_dropped": {
+      "type": "boolean"
+    },
+    "_truncated": {
+      "type": "boolean"
+    }
+  },
+  "$defs": {
+    "layers": ["probe", "backend", "aimock"],
+    "outcomes": ["ok", "err", "timeout", "info"],
+    "boundaries": [
+      "probe.start",
+      "probe.navigate.complete",
+      "probe.message.send",
+      "probe.dom.container.mount",
+      "probe.dom.firsttoken",
+      "probe.dom.alternate_content",
+      "probe.sse.event",
+      "probe.sse.aborted",
+      "probe.network.error",
+      "probe.network.response",
+      "probe.console.error",
+      "probe.exit",
+      "backend.request.ingress",
+      "backend.agent.enter",
+      "backend.llm.call.start",
+      "backend.llm.call.heartbeat",
+      "backend.llm.call.response",
+      "backend.sse.first_byte",
+      "backend.sse.event",
+      "backend.sse.aborted",
+      "backend.agent.exit",
+      "backend.response.complete",
+      "backend.error.caught",
+      "aimock.request.ingress",
+      "aimock.match.decision",
+      "aimock.response.start",
+      "aimock.sse.chunk",
+      "aimock.response.aborted",
+      "aimock.response.complete",
+      "cvdiag.purge_audit",
+      "cvdiag.collision_detected",
+      "cvdiag.queue_dropped",
+      "cvdiag.metadata_dropped"
+    ],
+    "edge_header_keys": [
+      "cf-ray",
+      "cf-mitigated",
+      "cf-cache-status",
+      "x-railway-edge",
+      "x-railway-request-id",
+      "x-hikari-trace",
+      "retry-after",
+      "via",
+      "server"
+    ],
+    "boundary_metadata_keys": {
+      "probe.start": ["url", "viewport"],
+      "probe.navigate.complete": ["url", "nav_ms", "http_status"],
+      "probe.message.send": ["message_index", "char_count", "demo"],
+      "probe.dom.container.mount": ["delta_ms_from_start"],
+      "probe.dom.firsttoken": ["delta_ms_from_start", "text_length"],
+      "probe.dom.alternate_content": ["child_type_histogram"],
+      "probe.sse.event": ["event_type", "payload_size_bytes", "sequence_num"],
+      "probe.sse.aborted": ["termination_kind", "bytes_before_abort"],
+      "probe.network.error": ["url", "error_class", "response_status"],
+      "probe.network.response": [
+        "url",
+        "status",
+        "content_length",
+        "duration_ms"
+      ],
+      "probe.console.error": [
+        "level",
+        "message_scrubbed",
+        "source_file",
+        "line_col"
+      ],
+      "probe.exit": [
+        "terminal_outcome",
+        "total_duration_ms",
+        "sse_event_count",
+        "first_token_delta_ms",
+        "failure_classifier"
+      ],
+      "backend.request.ingress": ["method", "path", "content_length"],
+      "backend.agent.enter": ["agent_name", "model_id"],
+      "backend.llm.call.start": [
+        "provider",
+        "model",
+        "prompt_token_count_estimate"
+      ],
+      "backend.llm.call.heartbeat": ["elapsed_ms_since_start"],
+      "backend.llm.call.response": [
+        "provider",
+        "model",
+        "response_token_count",
+        "latency_ms",
+        "error_class"
+      ],
+      "backend.sse.first_byte": ["delta_ms_from_ingress"],
+      "backend.sse.event": ["event_type", "payload_size_bytes", "sequence_num"],
+      "backend.sse.aborted": ["termination_kind", "bytes_before_abort"],
+      "backend.agent.exit": ["terminal_outcome", "total_duration_ms"],
+      "backend.response.complete": [
+        "http_status",
+        "content_length",
+        "total_duration_ms",
+        "sse_event_count"
+      ],
+      "backend.error.caught": [
+        "exception_type",
+        "message_scrubbed",
+        "stack_brief",
+        "truncated"
+      ],
+      "aimock.request.ingress": ["path", "content_length", "match_keys"],
+      "aimock.match.decision": ["fixture_id", "match_score", "reject_reasons"],
+      "aimock.response.start": ["delta_ms_from_ingress"],
+      "aimock.sse.chunk": ["chunk_size_bytes", "sequence_num"],
+      "aimock.response.aborted": ["termination_kind", "bytes_before_abort"],
+      "aimock.response.complete": [
+        "http_status",
+        "total_bytes",
+        "total_duration_ms",
+        "chunk_count"
+      ]
+    }
+  }
+}

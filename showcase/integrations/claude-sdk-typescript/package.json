@@ -12,14 +12,16 @@
   },
   "dependencies": {
     "@ag-ui/client": "0.0.57",
+    "@ag-ui/claude-agent-sdk": "0.0.3",
     "@ag-ui/core": "0.0.57",
     "@ag-ui/encoder": "0.0.57",
-    "@anthropic-ai/sdk": "^0.57.0",
-    "@copilotkit/a2ui-renderer": "1.60.2",
-    "@copilotkit/react-core": "1.60.2",
-    "@copilotkit/runtime": "1.60.2",
-    "@copilotkit/shared": "1.60.2",
-    "@copilotkit/voice": "1.60.2",
+    "@anthropic-ai/sdk": "0.57.0",
+    "@anthropic-ai/claude-agent-sdk": "0.2.58",
+    "@copilotkit/a2ui-renderer": "1.61.2",
+    "@copilotkit/react-core": "1.61.2",
+    "@copilotkit/runtime": "1.61.2",
+    "@copilotkit/shared": "1.61.2",
+    "@copilotkit/voice": "1.61.2",
     "@hashbrownai/core": "0.5.0-beta.4",
     "@hashbrownai/react": "0.5.0-beta.4",
     "@json-render/core": "0.18.0",
@@ -28,13 +30,13 @@
     "@radix-ui/react-separator": "^1.1.8",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "cmdk": "^0.2.1",
+    "cmdk": "^1.1.1",
     "dotenv": "^16.4.0",
     "embla-carousel-react": "^8.6.0",
     "express": "^4.21.2",
     "lucide-react": "^1.14.0",
     "next": "^15.5.15",
-    "openai": "^5.9.0",
+    "openai": "5.9.0",
     "radix-ui": "^1.4.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -43,7 +45,8 @@
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.5.0",
     "yaml": "^2.8.4",
-    "zod": "^3.24.0"
+    "zod": "^3.25.76",
+    "zod4": "npm:zod@^4.3.6"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
@@ -60,12 +63,12 @@
   },
   "overrides": {
     "@copilotkit/web-inspector": {
-      "@copilotkit/core": "1.60.2"
+      "@copilotkit/core": "1.61.2"
     }
   },
   "pnpm": {
     "overrides": {
-      "@copilotkit/web-inspector>@copilotkit/core": "1.59.4"
+      "@copilotkit/web-inspector>@copilotkit/core": "1.61.2"
     }
   }
 }

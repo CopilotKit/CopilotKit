@@ -12,6 +12,14 @@ import { HttpAgent } from "@ag-ui/client";
 // This runtime proxies CopilotKit requests to it via AG-UI protocol.
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
+// Per-request request/response logging is gated behind this flag (default off).
+// Under d6 probe fan-out, unconditional per-request logs flooded Railway's
+// 500-logs/sec cap and killed the replica ("Messages dropped" → container stop).
+// Set SHOWCASE_ROUTE_DEBUG=1 to re-enable verbose per-request tracing locally.
+const ROUTE_DEBUG =
+  process.env.SHOWCASE_ROUTE_DEBUG === "1" ||
+  process.env.SHOWCASE_ROUTE_DEBUG === "true";
+
 console.log("[copilotkit/route] Initializing CopilotKit runtime");
 console.log(`[copilotkit/route] AGENT_URL: ${AGENT_URL}`);
 
@@ -31,7 +39,6 @@ const sharedAgentNames = [
   "shared-state-write",
   "shared-state-streaming",
   "frontend_tools",
-  "frontend_tools_async",
   "prebuilt_sidebar",
   "prebuilt_popup",
   "chat_slots",
@@ -43,7 +50,6 @@ const sharedAgentNames = [
   // Hyphenated aliases matching what the demo pages actually request
   // (mirrors langgraph-python's naming). The underscore names above are
   // kept as additive aliases.
-  "frontend-tools-async",
   "prebuilt-sidebar",
   "prebuilt-popup",
   "chat-slots",
@@ -68,6 +74,12 @@ const specializedAgents: Record<string, string> = {
   "shared-state-read-write": "/shared-state-read-write",
   "gen-ui-agent": "/gen-ui-agent",
   "gen-ui-tool-based": "/gen-ui-tool-based",
+  // frontend-tools-async injects an async `query_notes` useFrontendTool at
+  // request time; its dedicated router (make_request_aware_router) forwards
+  // injected tools, which the shared FixedAGUIChatWorkflow catch-all does not.
+  // Both the hyphenated (page-requested) and underscore (alias) ids route here.
+  "frontend-tools-async": "/frontend-tools-async",
+  frontend_tools_async: "/frontend-tools-async",
   "beautiful-chat": "/beautiful-chat",
   hitl_in_app: "/hitl-in-app",
   // Hyphenated names the hitl demo pages actually request. Both route to
@@ -100,7 +112,11 @@ console.log(
 export const POST = async (req: NextRequest) => {
   const url = req.url;
   const contentType = req.headers.get("content-type");
-  console.log(`[copilotkit/route] POST ${url} (content-type: ${contentType})`);
+  if (ROUTE_DEBUG) {
+    console.log(
+      `[copilotkit/route] POST ${url} (content-type: ${contentType})`,
+    );
+  }
 
   try {
     const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
@@ -115,7 +131,11 @@ export const POST = async (req: NextRequest) => {
     });
 
     const response = await handleRequest(req);
-    console.log(`[copilotkit/route] Response status: ${response.status}`);
+    if (!response.ok) {
+      console.log(`[copilotkit/route] Response status: ${response.status}`);
+    } else if (ROUTE_DEBUG) {
+      console.log(`[copilotkit/route] Response status: ${response.status}`);
+    }
     return response;
   } catch (error: unknown) {
     const err = error as Error;
@@ -129,7 +149,9 @@ export const POST = async (req: NextRequest) => {
 };
 
 export const GET = async () => {
-  console.log("[copilotkit/route] GET /api/copilotkit (health probe)");
+  if (ROUTE_DEBUG) {
+    console.log("[copilotkit/route] GET /api/copilotkit (health probe)");
+  }
 
   let agentStatus = "unknown";
   try {

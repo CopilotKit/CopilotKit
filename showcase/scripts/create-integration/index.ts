@@ -1562,6 +1562,7 @@ function generateGitignore(): string {
 .next/
 .env.local
 .env
+.copilotkit/
 *.pyc
 __pycache__/
 .venv/

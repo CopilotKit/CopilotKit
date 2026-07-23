@@ -6,8 +6,8 @@
  * shape — i.e. the tool posted the right component.
  */
 import { describe, it, expect } from "vitest";
-import { renderToIR } from "@copilotkit/bot-ui";
-import { renderSlackMessage } from "@copilotkit/bot-slack";
+import { renderToIR } from "@copilotkit/channels";
+import { renderSlackMessage } from "@copilotkit/channels/slack";
 import { issueCardTool, issueListTool, pageListTool } from "../render-tools.js";
 
 /** A fake `thread` that records each posted Renderable. */

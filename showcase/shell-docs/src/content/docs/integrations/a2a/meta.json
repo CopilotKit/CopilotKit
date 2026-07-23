@@ -4,6 +4,12 @@
   "pages": [
     "index",
     "---Generative UI---",
-    "...generative-ui"
+    "...generative-ui",
+    "---Intelligence Platform---",
+    {
+      "title": "Threads",
+      "defaultOpen": true,
+      "pages": ["threads", "headless-threads"]
+    }
   ]
 }

@@ -16,7 +16,7 @@ Example:
 
 import json
 import re
-from typing import Any, Callable, Awaitable, ClassVar, Iterable, Union
+from typing import Any, Callable, Awaitable, ClassVar, Iterable, Optional, Union
 
 from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
 from langchain.agents.middleware import (
@@ -189,6 +189,9 @@ class StateSchema(AgentState):
     copilotkit: CopilotKitProperties
 
 
+StateSchema.__annotations__["ag-ui"] = CopilotKitProperties
+
+
 # Internal/framework keys that should never be surfaced to the LLM as
 # user-facing state. These are either reducer-managed message buckets,
 # CopilotKit/AG-UI plumbing, or graph-internal scaffolding.
@@ -231,6 +234,20 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             - ``list``/``tuple``/``set[str]`` — only surface the named keys.
               Use this when you want explicit control over what the LLM
               sees (e.g. ``["liked", "todos"]``).
+        a2ui_params: Optional host overrides for the auto-injected
+            ``generate_a2ui`` tool, forwarded to ``get_a2ui_tools`` when A2UI
+            injection fires. An ``A2UIToolParams``-shaped dict: ``guidelines``
+            (``generation_guidelines`` / ``design_guidelines`` /
+            ``composition_guide``), ``default_catalog_id``,
+            ``default_surface_id``, ``tool_name``, ``recovery``, etc. Lets a
+            host steer the subagent (e.g. override the default design
+            guidelines to favor a repeating-card layout) on the auto-inject
+            path, which otherwise only ever uses the toolkit defaults.
+
+            The middleware always injects ``model`` from the bound request
+            model (the host cannot supply the live, header-hooked model), and
+            folds the registered catalog id + component schema into the params
+            unless the host already set them — so host values win.
     """
 
     state_schema = StateSchema
@@ -240,12 +257,18 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         self,
         *,
         expose_state: Union[bool, Iterable[str]] = False,
+        a2ui_params: "Optional[A2UIToolParams]" = None,
     ):
         super().__init__()
         if isinstance(expose_state, bool):
             self._expose_state: Union[bool, frozenset[str]] = expose_state
         else:
             self._expose_state = frozenset(expose_state)
+        # Host-supplied A2UI tool overrides (guidelines, catalog id, tool name,
+        # recovery, ...). Copied so later mutation of the caller's dict can't
+        # bleed into the middleware. ``model`` + the registered catalog are
+        # layered in at build time; everything here is host-owned and wins.
+        self._a2ui_params: dict = dict(a2ui_params or {})
 
     @property
     def name(self) -> str:
@@ -422,15 +445,22 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         component_schema, catalog_id = resolved if resolved else (None, None)
 
         # Shared A2UIToolParams: a single params object owned by the toolkit.
-        # ``model`` lives inside it; ``composition_guide`` is folded into the
-        # ``guidelines`` bag alongside generation/design overrides.
-        params: "A2UIToolParams" = {"model": request.model}
-        if catalog_id:
+        # Start from the host overrides (guidelines / catalog id / tool name /
+        # recovery) so a host can steer the subagent, then layer in only what
+        # the host cannot know — the bound model, and the registered catalog id
+        # + component schema — without clobbering any host-set value.
+        params: "A2UIToolParams" = dict(self._a2ui_params)
+        params["model"] = request.model
+        if catalog_id and "default_catalog_id" not in params:
             params["default_catalog_id"] = catalog_id
         # Feed the registered component schema to the subagent so it composes
         # only catalog components (the toolkit appends this to its prompt).
+        # Merge into any host ``guidelines`` bag; a host-set composition_guide
+        # wins, and host generation/design overrides are preserved.
         if component_schema:
-            params["guidelines"] = {"composition_guide": component_schema}
+            guidelines = dict(params.get("guidelines") or {})
+            guidelines.setdefault("composition_guide", component_schema)
+            params["guidelines"] = guidelines
 
         tool = get_a2ui_tools(params)
 

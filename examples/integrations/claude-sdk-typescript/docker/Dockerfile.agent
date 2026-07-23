@@ -1,0 +1,19 @@
+# Dockerfile for the Claude Agent SDK (TypeScript) agent.
+# Mirrors the local dev experience: npm install + tsx.
+# Debian (slim), not Alpine: the bundled Claude Code CLI ships native binaries
+# (e.g. ripgrep) built against glibc, which musl/Alpine can't run.
+FROM node:22-slim
+
+WORKDIR /app
+
+# Install dependencies
+COPY package.json package-lock.json ./
+RUN npm install
+
+# Copy agent source
+COPY tsconfig.json ./
+COPY src/ ./src/
+
+EXPOSE 8000
+
+CMD ["npx", "tsx", "src/server.ts"]

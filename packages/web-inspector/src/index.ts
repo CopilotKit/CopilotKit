@@ -13,12 +13,19 @@ import {
   ɵselectThreads,
   ɵselectThreadsError,
   ɵcreateThreadStore,
+  ɵselectMemories,
+  ɵselectMemoriesIsLoading,
+  ɵselectMemoriesError,
+  ɵselectMemoriesAvailable,
+  ɵselectMemoriesRealtimeStatus,
 } from "@copilotkit/core";
 import type {
   CopilotKitCoreSubscriber,
   CopilotKitCoreErrorCode,
   ɵThreadStore,
   ɵThread,
+  Memory,
+  MemoryRealtimeStatus,
 } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
 import type {
@@ -28,7 +35,7 @@ import type {
   DockMode,
   Position,
   Size,
-} from "./lib/types";
+} from "./lib/types.js";
 import {
   applyAnchorPosition as applyAnchorPositionHelper,
   centerContext as centerContextHelper,
@@ -37,7 +44,7 @@ import {
   updateAnchorFromPosition as updateAnchorFromPositionHelper,
   updateSizeFromElement,
   clampSize as clampSizeToViewport,
-} from "./lib/context-helpers";
+} from "./lib/context-helpers.js";
 import {
   loadInspectorState,
   saveInspectorState,
@@ -45,19 +52,41 @@ import {
   isValidPosition,
   isValidSize,
   isValidDockMode,
-} from "./lib/persistence";
-import type { PersistedState } from "./lib/persistence";
+} from "./lib/persistence.js";
+import type { PersistedState } from "./lib/persistence.js";
 import {
   TELEMETRY_DOCS_URL,
   ensureTelemetryDistinctId,
+  getRuntimeUrlType,
   getTelemetryDistinctIdForUrl,
   maybeShowDisclosure,
   trackBannerClicked,
   trackBannerViewed,
+  trackTalkToEngineerClicked,
+  trackThreadsEmptyEnabledViewed,
+  trackThreadsEnabledViewed,
+  trackThreadsExampleSelected,
+  trackThreadsExampleTourCompleted,
+  trackThreadsExampleTourDismissed,
+  trackThreadsExampleTourReopened,
+  trackThreadsExampleTourStarted,
+  trackThreadsExampleTourStepViewed,
+  trackThreadsExampleViewed,
+  trackThreadsIntelligenceSignupClicked,
+  trackThreadsLockedViewed,
+  trackMemoriesTabClicked,
   trackThreadsTabClicked,
-} from "./lib/telemetry";
+  trackThreadsTalkToEngineerClicked,
+} from "./lib/telemetry.js";
+import type {
+  InspectorMemoryTelemetryProps,
+  InspectorThreadTelemetryProps,
+} from "./lib/telemetry.js";
+
+export type { Anchor } from "./lib/types.js";
 
 export const WEB_INSPECTOR_TAG = "cpk-web-inspector" as const;
+export const THREAD_INSPECTOR_TAG = "cpk-thread-inspector" as const;
 
 type LucideIconName = keyof typeof icons;
 
@@ -67,6 +96,7 @@ type MenuKey =
   | "frontend-tools"
   | "agent-context"
   | "threads"
+  | "memories"
   | "settings";
 
 type MenuItem = {
@@ -88,6 +118,20 @@ const DEFAULT_WINDOW_SIZE: Size = { width: 840, height: 700 };
 const DOCKED_LEFT_WIDTH = 500; // Sensible width for left dock with collapsed sidebar
 const MAX_AGENT_EVENTS = 200;
 const MAX_TOTAL_EVENTS = 500;
+const INTELLIGENCE_SIGNUP_URL = "https://go.copilotkit.ai/intelligence-signup";
+const THREADS_INTELLIGENCE_SIGNIN_URL =
+  "https://dashboard.operations.copilotkit.ai/sign-in";
+const TALK_TO_ENGINEER_URL = "https://www.copilotkit.ai/talk-to-an-engineer";
+const THREADS_DOCS_URL = "https://docs.copilotkit.ai/threads";
+const SELF_HOSTED_INTELLIGENCE_URL =
+  "https://docs.copilotkit.ai/premium/self-hosting";
+const THREADS_EXAMPLE_OVERVIEW_VIDEO_URL =
+  "https://cdn.copilotkit.ai/corp-site/videos/copilotkit-generative-ui-agentic-frontend-demo.webm";
+const THREADS_EXAMPLE_TOUR_STORAGE_KEY =
+  "cpk:inspector:threads-example-tour:v1";
+const THREADS_EXAMPLE_AGENT_ID = "threads-feature";
+
+type ThreadServiceStatus = "available" | "unavailable" | "unknown" | "error";
 
 type InspectorAgentEventType =
   | "RUN_STARTED"
@@ -186,15 +230,62 @@ type InspectorEvent = {
 
 // ─── Thread details types ────────────────────────────────────────────────────
 
-interface ApiThreadMessage {
+export type ThreadDebuggerProviderLoadOptions = {
+  signal: AbortSignal;
+};
+
+export type ThreadDebuggerToolCall = {
+  id: string;
+  name: string;
+  args: string | Record<string, unknown>;
+};
+
+export type ThreadDebuggerMessage = {
   id: string;
   role: string;
   content?: string;
-  toolCalls?: Array<{ id: string; name: string; args: string }>;
+  toolCalls?: ThreadDebuggerToolCall[];
   toolCallId?: string;
   /** Present when role === "activity" (Generative UI output). */
   activityType?: string;
-}
+};
+
+export type ThreadDebuggerEvent = {
+  type: string;
+  timestamp: string | number;
+  payload?: Record<string, unknown>;
+  [key: string]: unknown;
+};
+
+export type ThreadDebuggerMetadata = {
+  id: string;
+  name?: string | null;
+  agentId?: string | null;
+  endUserId?: string | null;
+  createdById?: string | null;
+  status?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
+export type ThreadDebuggerProvider = {
+  getThreadMetadata?: (
+    threadId: string,
+    options: ThreadDebuggerProviderLoadOptions,
+  ) => Promise<ThreadDebuggerMetadata | null>;
+  getMessages?: (
+    threadId: string,
+    options: ThreadDebuggerProviderLoadOptions,
+  ) => Promise<ThreadDebuggerMessage[]>;
+  getEvents?: (
+    threadId: string,
+    options: ThreadDebuggerProviderLoadOptions,
+  ) => Promise<ThreadDebuggerEvent[]>;
+  getState?: (
+    threadId: string,
+    options: ThreadDebuggerProviderLoadOptions,
+  ) => Promise<Record<string, unknown> | null>;
+};
 
 interface ConversationUser {
   id: string;
@@ -268,9 +359,268 @@ interface ApiAgentEvent {
   type: string;
   timestamp: string | number;
   payload: Record<string, unknown>;
+  sourceIndex?: number;
+  rawEvent?: ThreadDebuggerEvent;
 }
 
-type ThreadDetailsTab = "conversation" | "agent-state" | "ag-ui-events";
+type ThreadDetailsTab = "timeline" | "state" | "raw-events";
+type ThreadDetailsPanelCacheSlot = ThreadDetailsTab | "timeline-fallback";
+
+type TimelineItemKind =
+  | "message"
+  | "tool"
+  | "state"
+  | "run"
+  | "event"
+  | "warning";
+
+type TimelineItem = {
+  id: string;
+  kind: TimelineItemKind;
+  title: string;
+  body?: string;
+  timestamp: string | number;
+  sourceIndex: number;
+  severity?: "warning" | "error";
+  details?: Record<string, unknown>;
+};
+
+type RuntimeEventsFetchResult =
+  | { status: "available"; events: ThreadDebuggerEvent[] }
+  | { status: "not-available" };
+
+type RuntimeStateFetchResult =
+  | { status: "available"; state: Record<string, unknown> | null }
+  | { status: "not-available" };
+
+type ExampleThread = ɵThread & { isExample: true };
+
+type ExampleThreadDetails = {
+  messages: ThreadDebuggerMessage[];
+  events: ThreadDebuggerEvent[];
+  state: Record<string, unknown>;
+};
+
+const THREADS_EXAMPLE_THREADS: ExampleThread[] = [
+  {
+    id: "example-realtime-sync",
+    name: "Realtime thread sync",
+    agentId: THREADS_EXAMPLE_AGENT_ID,
+    organizationId: "example-organization",
+    createdById: "example-user",
+    archived: false,
+    createdAt: "2026-07-08T16:00:00.000Z",
+    updatedAt: "2026-07-08T16:30:00.000Z",
+    isExample: true,
+  },
+  {
+    id: "example-manage-history",
+    name: "Manage saved conversations",
+    agentId: THREADS_EXAMPLE_AGENT_ID,
+    organizationId: "example-organization",
+    createdById: "example-user",
+    archived: false,
+    createdAt: "2026-07-07T17:45:00.000Z",
+    updatedAt: "2026-07-07T18:15:00.000Z",
+    isExample: true,
+  },
+  {
+    id: "example-inspect-runs",
+    name: "Inspect durable run history",
+    agentId: THREADS_EXAMPLE_AGENT_ID,
+    organizationId: "example-organization",
+    createdById: "example-user",
+    archived: false,
+    createdAt: "2026-07-06T20:15:00.000Z",
+    updatedAt: "2026-07-06T20:45:00.000Z",
+    isExample: true,
+  },
+];
+
+const THREADS_EXAMPLE_DETAILS: Record<string, ExampleThreadDetails> = {
+  "example-realtime-sync": {
+    messages: [
+      {
+        id: "example-sync-user",
+        role: "user",
+        content: "Resume the checkout support thread from yesterday.",
+      },
+      {
+        id: "example-sync-assistant",
+        role: "assistant",
+        content:
+          "I found the saved thread, restored the cart state, and continued from the latest user message.",
+      },
+    ],
+    events: [
+      {
+        type: "RUN_STARTED",
+        timestamp: "2026-07-08T16:30:00.000Z",
+        payload: {
+          threadId: "example-realtime-sync",
+          agentId: THREADS_EXAMPLE_AGENT_ID,
+        },
+      },
+      {
+        type: "MESSAGES_SNAPSHOT",
+        timestamp: "2026-07-08T16:30:01.000Z",
+        payload: {
+          messageCount: 6,
+          source: "thread-history",
+        },
+      },
+      {
+        type: "STATE_SNAPSHOT",
+        timestamp: "2026-07-08T16:30:02.000Z",
+        payload: {
+          cartId: "cart_demo_42",
+          checkoutStep: "shipping",
+          resumed: true,
+        },
+      },
+      {
+        type: "RUN_FINISHED",
+        timestamp: "2026-07-08T16:30:04.000Z",
+        payload: {
+          status: "completed",
+        },
+      },
+    ],
+    state: {
+      cartId: "cart_demo_42",
+      checkoutStep: "shipping",
+      userIntent: "resume_previous_checkout",
+      persistedThread: true,
+    },
+  },
+  "example-manage-history": {
+    messages: [
+      {
+        id: "example-history-user",
+        role: "user",
+        content: "Rename this saved support conversation for the handoff.",
+      },
+      {
+        id: "example-history-assistant",
+        role: "assistant",
+        content:
+          "Renamed the thread and kept the prior messages available for the next session.",
+      },
+    ],
+    events: [
+      {
+        type: "RUN_STARTED",
+        timestamp: "2026-07-07T18:15:00.000Z",
+        payload: {
+          threadId: "example-manage-history",
+          agentId: THREADS_EXAMPLE_AGENT_ID,
+        },
+      },
+      {
+        type: "CUSTOM_EVENT",
+        timestamp: "2026-07-07T18:15:01.000Z",
+        payload: {
+          action: "thread_renamed",
+          previousName: "Untitled",
+          name: "Billing escalation handoff",
+        },
+      },
+      {
+        type: "RUN_FINISHED",
+        timestamp: "2026-07-07T18:15:03.000Z",
+        payload: {
+          status: "completed",
+        },
+      },
+    ],
+    state: {
+      name: "Billing escalation handoff",
+      savedMessages: 14,
+      lastHandoff: "support-team",
+    },
+  },
+  "example-inspect-runs": {
+    messages: [
+      {
+        id: "example-inspect-user",
+        role: "user",
+        content: "Why did the assistant recommend the enterprise plan?",
+      },
+      {
+        id: "example-inspect-assistant",
+        role: "assistant",
+        content:
+          "The recommendation came from the account size, SSO requirement, and audit-log constraint in state.",
+      },
+    ],
+    events: [
+      {
+        type: "RUN_STARTED",
+        timestamp: "2026-07-06T20:45:00.000Z",
+        payload: {
+          threadId: "example-inspect-runs",
+          agentId: THREADS_EXAMPLE_AGENT_ID,
+        },
+      },
+      {
+        type: "TOOL_CALL_START",
+        timestamp: "2026-07-06T20:45:01.000Z",
+        payload: {
+          toolCallId: "call_account_lookup",
+          toolName: "lookupAccount",
+        },
+      },
+      {
+        type: "TOOL_CALL_RESULT",
+        timestamp: "2026-07-06T20:45:02.000Z",
+        payload: {
+          toolCallId: "call_account_lookup",
+          seats: 220,
+          requiresSso: true,
+        },
+      },
+      {
+        type: "RUN_FINISHED",
+        timestamp: "2026-07-06T20:45:04.000Z",
+        payload: {
+          status: "completed",
+        },
+      },
+    ],
+    state: {
+      accountTier: "growth",
+      seats: 220,
+      requiresSso: true,
+      auditLogsRequired: true,
+    },
+  },
+};
+
+const THREADS_EXAMPLE_TOUR_STEPS: ReadonlyArray<{
+  tab: ThreadDetailsTab;
+  label: string;
+  title: string;
+  body: string;
+}> = [
+  {
+    tab: "timeline",
+    label: "Timeline",
+    title: "Read the run as a story",
+    body: "The timeline turns messages, tool calls, state changes, and run markers into a scannable debugging trail.",
+  },
+  {
+    tab: "raw-events",
+    label: "Raw AG-UI Events",
+    title: "Drop into the protocol payloads",
+    body: "Raw events show the exact AG-UI stream behind the timeline when you need to verify ordering or payload shape.",
+  },
+  {
+    tab: "state",
+    label: "State",
+    title: "Check the durable state",
+    body: "The state tab shows the saved values that make a thread resumable across sessions.",
+  },
+];
 
 // ─── JSON syntax highlighter ─────────────────────────────────────────────────
 // Inline-styled so shadow DOM encapsulation preserves colors when the output
@@ -334,9 +684,10 @@ function eventColors(type: string): { bg: string; fg: string } {
     return { bg: "rgba(133,236,206,0.15)", fg: "#189370" };
   if (type.startsWith("STATE"))
     return { bg: "rgba(190,194,255,0.102)", fg: "#5558B2" };
+  if (type === "RUN_ERROR" || type === "ERROR")
+    return { bg: "rgba(250,95,103,0.13)", fg: "#c0333a" };
   if (type.startsWith("RUN_") || type.startsWith("STEP_"))
     return { bg: "rgba(255,172,77,0.2)", fg: "#996300" };
-  if (type === "ERROR") return { bg: "rgba(250,95,103,0.13)", fg: "#c0333a" };
   return { bg: "#F7F7F9", fg: "#838389" };
 }
 
@@ -497,6 +848,11 @@ class CpkThreadList extends LitElement {
       color: #57575b;
     }
 
+    .cpk-tl__pill--example {
+      background: rgba(133, 236, 206, 0.22);
+      color: #189370;
+    }
+
     /* ── Empty state ── */
     .cpk-tl__empty {
       padding: 32px 16px;
@@ -592,6 +948,13 @@ class CpkThreadList extends LitElement {
                 </div>
                 <div class="cpk-tl__meta">
                   <span class="cpk-tl__pill">${thread.agentId}</span>
+                  ${
+                    (thread as Partial<ExampleThread>).isExample
+                      ? html`
+                          <span class="cpk-tl__pill cpk-tl__pill--example">Example</span>
+                        `
+                      : nothing
+                  }
                 </div>
               </div>
             `,
@@ -603,28 +966,30 @@ class CpkThreadList extends LitElement {
                   ${
                     this.errorMessage
                       ? html`
-                          <svg
-                            width="24"
-                            height="24"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="1.5"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            class="cpk-tl__empty-icon"
+                        <svg
+                          width="24"
+                          height="24"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="1.5"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          class="cpk-tl__empty-icon"
+                        >
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="8" x2="12" y2="12" />
+                          <line x1="12" y1="16" x2="12.01" y2="16" />
+                        </svg>
+                        <div>
+                          Failed to load threads
+                          <div
+                            style="font-size:11px;margin-top:4px;color:#c0333a;"
                           >
-                            <circle cx="12" cy="12" r="10" />
-                            <line x1="12" y1="8" x2="12" y2="12" />
-                            <line x1="12" y1="16" x2="12.01" y2="16" />
-                          </svg>
-                          <div>
-                            Failed to load threads
-                            <div style="font-size:11px;margin-top:4px;color:#c0333a;">
-                              ${this.errorMessage}
-                            </div>
+                            ${this.errorMessage}
                           </div>
-                        `
+                        </div>
+                      `
                       : this.threads.length === 0
                         ? html`
                             <svg
@@ -656,28 +1021,23 @@ class CpkThreadList extends LitElement {
   }
 }
 
-// ─── cpk-thread-details ──────────────────────────────────────────────────────
-// Renders the selected thread's conversation, agent state, and AG-UI events.
-// Conversation comes from the runtime's `/threads/:id/messages` endpoint
-// (always thread-accurate). Agent state and AG-UI events accept live inputs
-// (`agentStateInput`, `agentEventsInput`) from the parent inspector's ongoing
-// agent subscriptions; when those are absent we fall back to the per-thread
-// fetched data via `/threads/:id/{events,state}`.
-
-// Exported (with the underscore-prefixed name signalling internal/test-only)
-// so unit tests can pin down the per-panel template-cache invariants without
-// reaching through `customElements`. Production consumers continue to use the
-// `cpk-thread-details` custom element registered below.
-export class ɵCpkThreadDetails extends LitElement {
+// ─── cpk-thread-inspector ────────────────────────────────────────────────────
+// Renders the selected thread's read-only timeline, state, raw AG-UI events,
+// and compact technical metadata. External hosts provide a ThreadDebuggerProvider;
+// the legacy CopilotKit Inspector wrapper can still pass runtime URL inputs.
+export class CpkThreadInspector extends LitElement {
   static properties = {
     threadId: { attribute: false },
+    provider: { attribute: false },
     thread: { attribute: false },
     runtimeUrl: { attribute: false },
     headers: { attribute: false },
+    threadInspectionAvailable: { attribute: false },
     agentStateInput: { attribute: false },
     agentEventsInput: { attribute: false },
     liveMessageVersion: { attribute: false },
     _tab: { state: true },
+    _fetchedMetadata: { state: true },
     _conversation: { state: true },
     _fetchedEvents: { state: true },
     _fetchedState: { state: true },
@@ -689,6 +1049,8 @@ export class ɵCpkThreadDetails extends LitElement {
     _stateError: { state: true },
     _expandedTools: { state: true },
     _expandedMessages: { state: true },
+    _expandedTimelineDetails: { state: true },
+    _expandedRawEvents: { state: true },
     _showDetailPanel: { state: true },
     _detailPanelWidth: { state: true },
     _eventsNotAvailable: { state: true },
@@ -698,9 +1060,11 @@ export class ɵCpkThreadDetails extends LitElement {
   };
 
   threadId: string | null = null;
-  thread: ɵThread | null = null;
+  provider: ThreadDebuggerProvider | null = null;
+  thread: ThreadDebuggerMetadata | ɵThread | null = null;
   runtimeUrl = "";
   headers: Record<string, string> = {};
+  threadInspectionAvailable = false;
   agentStateInput: Record<string, unknown> | null = null;
   agentEventsInput: ApiAgentEvent[] = [];
   /**
@@ -711,7 +1075,8 @@ export class ɵCpkThreadDetails extends LitElement {
    */
   liveMessageVersion = 0;
 
-  private _tab: ThreadDetailsTab = "conversation";
+  private _tab: ThreadDetailsTab = "timeline";
+  private _fetchedMetadata: ThreadDebuggerMetadata | null = null;
   private _conversation: ConversationItem[] = [];
   private _fetchedEvents: ApiAgentEvent[] | null = null;
   private _fetchedState: Record<string, unknown> | null = null;
@@ -723,6 +1088,8 @@ export class ɵCpkThreadDetails extends LitElement {
   private _stateError: string | null = null;
   private _expandedTools = new Set<string>();
   private _expandedMessages = new Set<string>();
+  private _expandedTimelineDetails = new Set<string>();
+  private _expandedRawEvents = new Set<string>();
   private _showDetailPanel = false;
   private _detailPanelWidth = 250;
   /** True when the /events endpoint returned 501 — don't fall back to live data. */
@@ -744,9 +1111,9 @@ export class ɵCpkThreadDetails extends LitElement {
    * switching back to AG-UI Events on a thread with hundreds of events
    * triggers a multi-second DOM-creation pass each time.
    *
-   * Reset to {"conversation"} when the selected thread changes.
+   * Reset to {"timeline"} when the selected thread changes.
    */
-  private _activatedTabs: Set<ThreadDetailsTab> = new Set(["conversation"]);
+  private _activatedTabs: Set<ThreadDetailsTab> = new Set(["timeline"]);
   /**
    * Memoized per-panel templates keyed by the inputs they render from.
    * When the underlying data hasn't changed (same `_conversation` /
@@ -758,9 +1125,17 @@ export class ɵCpkThreadDetails extends LitElement {
    * reference; if any element flips, the cache misses and rebuilds.
    */
   private _panelTplCache: Map<
-    ThreadDetailsTab,
+    ThreadDetailsPanelCacheSlot,
     { key: readonly unknown[]; tpl: TemplateResult }
   > = new Map();
+  private _timelineItemsCache: {
+    events: ApiAgentEvent[];
+    items: TimelineItem[];
+  } | null = null;
+  private _liveEventsWithSourceIndexCache: {
+    events: ApiAgentEvent[];
+    indexedEvents: ApiAgentEvent[];
+  } | null = null;
   /**
    * Tracks whether we've fetched events for the current thread yet. Events
    * fetch lazily on first sub-tab click so a large response's JSON.parse
@@ -773,8 +1148,9 @@ export class ɵCpkThreadDetails extends LitElement {
    * lazy-load reasoning as `_eventsFetched`.
    */
   private _stateFetched = false;
-  private _lastFetchedThreadId: string | null = null;
+  private _lastLoadKey: string | null = null;
   private _lastSeenLiveMessageVersion = 0;
+  private _metadataAbort: AbortController | null = null;
   private _messagesAbort: AbortController | null = null;
   private _eventsAbort: AbortController | null = null;
   private _stateAbort: AbortController | null = null;
@@ -784,18 +1160,53 @@ export class ɵCpkThreadDetails extends LitElement {
   private _dividerStartWidth = 0;
 
   static readonly COLLAPSE_THRESHOLD = 800;
-  private static readonly TAB_LIST: ReadonlyArray<{
+  static readonly TAB_LIST: ReadonlyArray<{
     id: ThreadDetailsTab;
     label: string;
   }> = [
-    { id: "conversation", label: "Conversation" },
-    { id: "agent-state", label: "Agent State" },
-    { id: "ag-ui-events", label: "AG-UI Events" },
+    { id: "timeline", label: "Timeline" },
+    { id: "raw-events", label: "Raw AG-UI Events" },
+    { id: "state", label: "State" },
   ];
 
+  private static providerIds = new WeakMap<ThreadDebuggerProvider, number>();
+  private static nextProviderId = 1;
+
+  private static providerLoadKey(
+    provider: ThreadDebuggerProvider | null,
+  ): string {
+    if (!provider) return "provider:none";
+    let id = CpkThreadInspector.providerIds.get(provider);
+    if (!id) {
+      id = CpkThreadInspector.nextProviderId;
+      CpkThreadInspector.nextProviderId += 1;
+      CpkThreadInspector.providerIds.set(provider, id);
+    }
+    return [
+      `provider:${id}`,
+      provider.getThreadMetadata ? "metadata:1" : "metadata:0",
+      provider.getMessages ? "messages:1" : "messages:0",
+      provider.getEvents ? "events:1" : "events:0",
+      provider.getState ? "state:1" : "state:0",
+    ].join("|");
+  }
+
+  /**
+   * Build a deterministic signature for runtime fetch headers so auth/CSRF
+   * changes invalidate cached thread data even when the selected thread is
+   * otherwise unchanged.
+   */
+  private static headersLoadKey(headers: Record<string, string>): string {
+    return JSON.stringify(
+      Object.entries(headers).sort(([leftKey], [rightKey]) =>
+        leftKey.localeCompare(rightKey),
+      ),
+    );
+  }
+
   private renderTabContent(id: ThreadDetailsTab): TemplateResult {
-    if (id === "conversation") return this.renderConversation();
-    if (id === "agent-state") return this.renderState();
+    if (id === "timeline") return this.renderTimeline();
+    if (id === "state") return this.renderState();
     return this.renderEvents();
   }
 
@@ -820,6 +1231,10 @@ export class ɵCpkThreadDetails extends LitElement {
     this.maybeFetchTabData(id);
   }
 
+  selectTab(id: ThreadDetailsTab): void {
+    this.activateTab(id);
+  }
+
   private maybeFetchTabData(id: ThreadDetailsTab): void {
     // Lazy-trigger the events / state fetches so their (potentially huge)
     // JSON.parse only blocks the main thread after the user has shown
@@ -828,10 +1243,10 @@ export class ɵCpkThreadDetails extends LitElement {
     // the entire panel for seconds — including making the tab buttons
     // themselves feel unresponsive.
     if (!this.threadId) return;
-    if (id === "ag-ui-events" && !this._eventsFetched) {
+    if ((id === "timeline" || id === "raw-events") && !this._eventsFetched) {
       this._eventsFetched = true;
       void this.fetchEvents(this.threadId);
-    } else if (id === "agent-state" && !this._stateFetched) {
+    } else if (id === "state" && !this._stateFetched) {
       this._stateFetched = true;
       void this.fetchState(this.threadId);
     }
@@ -961,6 +1376,51 @@ export class ɵCpkThreadDetails extends LitElement {
     /* Pin direct children so expanded tool bodies don't get flex-shrunk. */
     .cpk-td__content > * {
       flex-shrink: 0;
+    }
+
+    .cpk-td__metadata-strip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      padding: 10px 16px;
+      border-bottom: 1px solid #e9e9ef;
+      background: #fbfbfd;
+      flex-shrink: 0;
+    }
+
+    .cpk-td__metadata-pills {
+      display: flex;
+      gap: 6px;
+      flex: 1;
+      flex-wrap: wrap;
+      min-width: 0;
+    }
+
+    .cpk-td__metadata-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      max-width: 220px;
+      padding: 3px 7px;
+      border: 1px solid #e9e9ef;
+      border-radius: 5px;
+      background: #ffffff;
+      color: #57575b;
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 10px;
+      white-space: nowrap;
+    }
+
+    .cpk-td__metadata-label {
+      color: #838389;
+      text-transform: uppercase;
+      font-size: 9px;
+    }
+
+    .cpk-td__metadata-value {
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     /*
@@ -1183,6 +1643,140 @@ export class ɵCpkThreadDetails extends LitElement {
       background: #e9e9ef;
     }
 
+    /* ── Interaction timeline ───────────────────────────────────────── */
+    .cpk-td__timeline-item {
+      border: 1px solid #e9e9ef;
+      border-radius: 6px;
+      background: #ffffff;
+      overflow: hidden;
+    }
+
+    .cpk-td__timeline-item--warning {
+      border-color: rgba(250, 95, 103, 0.35);
+      background: rgba(250, 95, 103, 0.04);
+    }
+
+    .cpk-td__timeline-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      background: #f7f7f9;
+    }
+
+    .cpk-td__timeline-kind {
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 9px;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: #5558b2;
+    }
+
+    .cpk-td__timeline-title {
+      flex: 1;
+      min-width: 0;
+      font-size: 12px;
+      font-weight: 500;
+      color: #010507;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .cpk-td__timeline-time {
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 9px;
+      color: #838389;
+      flex-shrink: 0;
+    }
+
+    .cpk-td__timeline-body {
+      margin: 0;
+      padding: 0 10px 9px;
+      font-size: 12px;
+      line-height: 1.55;
+      color: #57575b;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .cpk-td__timeline-toolbar {
+      display: flex;
+      gap: 6px;
+      margin-left: auto;
+    }
+
+    .cpk-td__timeline-bulk-toggle {
+      margin: 0;
+      padding: 4px 8px;
+      border: 1px solid #dcdce8;
+      border-radius: 6px;
+      background: #ffffff;
+      color: #36363a;
+      cursor: pointer;
+      font-family: "Inter", sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.2;
+    }
+
+    .cpk-td__timeline-bulk-toggle:hover {
+      border-color: rgba(85, 88, 178, 0.38);
+      background: #f7f7ff;
+      color: #010507;
+    }
+
+    .cpk-td__timeline-bulk-toggle:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+    }
+
+    .cpk-td__source-link {
+      margin: 0;
+      padding: 0;
+      border: none;
+      background: transparent;
+      color: #5558b2;
+      cursor: pointer;
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 9px;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      flex-shrink: 0;
+    }
+
+    .cpk-td__source-link:hover {
+      color: #010507;
+    }
+
+    .cpk-td__timeline-details-toggle {
+      margin: 0;
+      padding: 5px 10px;
+      border: none;
+      background: #ffffff;
+      color: #5558b2;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-family: "Inter", sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.2;
+      width: 100%;
+    }
+
+    .cpk-td__timeline-details-toggle:hover {
+      background: #f7f7ff;
+      color: #010507;
+    }
+
+    .cpk-td__timeline-details-toggle svg {
+      width: 12px;
+      height: 12px;
+      stroke-width: 2;
+    }
+
     /* ── Generative UI ──────────────────────────────────────────────── */
     @keyframes cpk-genui-enter {
       from {
@@ -1392,36 +1986,27 @@ export class ɵCpkThreadDetails extends LitElement {
   `;
 
   updated(_changed: Map<string, unknown>): void {
-    if (this.threadId !== this._lastFetchedThreadId) {
-      this._lastFetchedThreadId = this.threadId;
+    const loadKey = this.currentLoadKey();
+    if (loadKey !== this._lastLoadKey) {
+      this._lastLoadKey = loadKey;
       this._lastSeenLiveMessageVersion = this.liveMessageVersion;
-      this._tab = "conversation";
-      this._activatedTabs = new Set(["conversation"]);
-      this._panelTplCache = new Map();
-      this._expandedTools = new Set();
-      this._expandedMessages = new Set();
-      this._messagesAbort?.abort();
-      this._messagesAbort = null;
-      this._eventsAbort?.abort();
-      this._eventsAbort = null;
-      this._stateAbort?.abort();
-      this._stateAbort = null;
-      // Reset cleared so the next click into events/state triggers a fresh
-      // fetch. Eagerly clear `_fetchedEvents` / `_fetchedState` so the empty
-      // state doesn't briefly show last thread's data.
-      this._eventsFetched = false;
-      this._stateFetched = false;
-      this._fetchedEvents = null;
-      this._fetchedState = null;
+      this.resetLoadedThreadData();
 
       if (this.threadId) {
-        // Conversation is the default tab and shows immediately on thread
-        // open, so fetch eagerly. Events and state are only visible once the
-        // user clicks their sub-tab; deferring those fetches prevents a long
-        // JSON.parse of a large events payload from blocking the main thread
-        // before the user has even shown intent to view them.
-        void this.fetchMessages(this.threadId);
+        // Timeline is the default tab and should be event-derived. Fetch
+        // events eagerly; the raw tab reuses the same response when opened.
+        void this.fetchMetadata(this.threadId);
+        if (this.canFetchEvents()) {
+          this._eventsFetched = true;
+          void this.fetchEvents(this.threadId);
+        } else {
+          // Last-resort compatibility path for consumers that only implement
+          // messages. New integrations should provide events so Timeline can
+          // expose source references and decode warnings.
+          void this.fetchMessages(this.threadId);
+        }
       } else {
+        this._fetchedMetadata = null;
         this._conversation = [];
       }
     } else if (
@@ -1442,6 +2027,92 @@ export class ɵCpkThreadDetails extends LitElement {
     }
   }
 
+  private canFetchMessages(): boolean {
+    return (
+      !!this.provider?.getMessages ||
+      (!!this.runtimeUrl && this.threadInspectionAvailable)
+    );
+  }
+
+  private canFetchEvents(): boolean {
+    return (
+      !!this.provider?.getEvents ||
+      (!!this.runtimeUrl && this.threadInspectionAvailable)
+    );
+  }
+
+  private canFetchState(): boolean {
+    return (
+      !!this.provider?.getState ||
+      (!!this.runtimeUrl && this.threadInspectionAvailable)
+    );
+  }
+
+  private currentLoadKey(): string {
+    return [
+      this.threadId ?? "thread:none",
+      CpkThreadInspector.providerLoadKey(this.provider),
+      `runtime:${this.runtimeUrl}`,
+      `headers:${CpkThreadInspector.headersLoadKey(this.headers)}`,
+      `inspect:${this.threadInspectionAvailable ? "1" : "0"}`,
+    ].join("||");
+  }
+
+  private resetLoadedThreadData(): void {
+    this._tab = "timeline";
+    this._activatedTabs = new Set(["timeline"]);
+    this._panelTplCache = new Map();
+    this._timelineItemsCache = null;
+    this._liveEventsWithSourceIndexCache = null;
+    this._expandedTools = new Set();
+    this._expandedMessages = new Set();
+    this._expandedTimelineDetails = new Set();
+    this._expandedRawEvents = new Set();
+    this._metadataAbort?.abort();
+    this._metadataAbort = null;
+    this._messagesAbort?.abort();
+    this._messagesAbort = null;
+    this._eventsAbort?.abort();
+    this._eventsAbort = null;
+    this._stateAbort?.abort();
+    this._stateAbort = null;
+    // Reset cleared so the next click into events/state triggers a fresh
+    // fetch. Eagerly clear fetched data so a provider/runtime swap cannot
+    // briefly show the old source's values for the same threadId.
+    this._eventsFetched = false;
+    this._stateFetched = false;
+    this._eventsNotAvailable = false;
+    this._stateNotAvailable = false;
+    this._loadingMessages = false;
+    this._loadingEvents = false;
+    this._loadingState = false;
+    this._messagesError = null;
+    this._eventsError = null;
+    this._stateError = null;
+    this._fetchedMetadata = null;
+    this._conversation = [];
+    this._fetchedEvents = null;
+    this._fetchedState = null;
+  }
+
+  private async fetchMetadata(threadId: string): Promise<void> {
+    if (!this.provider?.getThreadMetadata) return;
+    this._metadataAbort?.abort();
+    const controller = new AbortController();
+    this._metadataAbort = controller;
+    try {
+      const metadata = await this.provider.getThreadMetadata(threadId, {
+        signal: controller.signal,
+      });
+      if (controller.signal.aborted || this.threadId !== threadId) return;
+      this._fetchedMetadata = metadata;
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
+      if (this.threadId !== threadId) return;
+      this._fetchedMetadata = null;
+    }
+  }
+
   /**
    * Fetch the canonical conversation for `threadId` from the runtime.
    *
@@ -1456,10 +2127,11 @@ export class ɵCpkThreadDetails extends LitElement {
     threadId: string,
     silent: boolean = false,
   ): Promise<void> {
-    if (!this.runtimeUrl) {
+    if (!this.canFetchMessages()) {
       if (!silent) this._conversation = [];
       return;
     }
+    this._messagesAbort?.abort();
     const controller = new AbortController();
     this._messagesAbort = controller;
     if (!silent) {
@@ -1467,15 +2139,13 @@ export class ɵCpkThreadDetails extends LitElement {
       this._messagesError = null;
     }
     try {
-      const res = await fetch(
-        `${this.runtimeUrl}/threads/${encodeURIComponent(threadId)}/messages`,
-        { headers: { ...this.headers }, signal: controller.signal },
-      );
+      const messages = this.provider?.getMessages
+        ? await this.provider.getMessages(threadId, {
+            signal: controller.signal,
+          })
+        : await this.fetchRuntimeMessages(threadId, controller.signal);
       if (controller.signal.aborted || this.threadId !== threadId) return;
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = (await res.json()) as { messages: ApiThreadMessage[] };
-      if (controller.signal.aborted || this.threadId !== threadId) return;
-      this._conversation = this.mapMessages(data.messages);
+      this._conversation = this.mapMessages(messages);
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
       if (!silent) {
@@ -1493,45 +2163,51 @@ export class ɵCpkThreadDetails extends LitElement {
   }
 
   private async fetchEvents(threadId: string): Promise<void> {
-    this._eventsNotAvailable = false;
-    if (!this.runtimeUrl) {
+    if (!this.canFetchEvents()) {
       this._fetchedEvents = null;
       return;
     }
+    this._eventsAbort?.abort();
     const controller = new AbortController();
     this._eventsAbort = controller;
     this._loadingEvents = true;
     this._eventsError = null;
     try {
-      const res = await fetch(
-        `${this.runtimeUrl}/threads/${encodeURIComponent(threadId)}/events`,
-        { headers: { ...this.headers }, signal: controller.signal },
-      );
+      const result = this.provider?.getEvents
+        ? {
+            status: "available" as const,
+            events: await this.provider.getEvents(threadId, {
+              signal: controller.signal,
+            }),
+          }
+        : await this.fetchRuntimeEvents(threadId, controller.signal);
       // Drop results if a newer fetch superseded this one (thread switched
-      // mid-flight). Without this, switching A→B can leave thread B's view
-      // showing thread A's events when A's request resolves last.
+      // or provider/runtime changed mid-flight). Without this, switching A→B
+      // can leave thread B's view showing thread A's events when A's request
+      // resolves last.
       if (controller.signal.aborted || this.threadId !== threadId) return;
-      if (res.status === 501) {
-        // Endpoint not supported on this runtime (e.g. Intelligence platform).
-        // Mark unavailable so we don't misleadingly fall back to the parent's
-        // live agent events — those are agent-keyed, not thread-keyed, and
-        // would render identical across every thread on the same agent.
+      if (result.status === "not-available") {
         this._eventsNotAvailable = true;
-        this._fetchedEvents = null;
+        this._fetchedEvents = [];
+        if (this.canFetchMessages()) {
+          void this.fetchMessages(threadId);
+        }
         return;
       }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = (await res.json()) as {
-        events: Array<Record<string, unknown>>;
-      };
-      if (controller.signal.aborted || this.threadId !== threadId) return;
-      this._fetchedEvents = this.mapApiEvents(data.events);
+      const mappedEvents = this.mapApiEvents(result.events);
+      this._fetchedEvents = mappedEvents;
+      if (mappedEvents.length === 0 && this.canFetchMessages()) {
+        void this.fetchMessages(threadId);
+      }
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
       if (this.threadId !== threadId) return;
       this._eventsError =
         err instanceof Error ? err.message : "Failed to load events";
       this._fetchedEvents = [];
+      if (this.canFetchMessages()) {
+        void this.fetchMessages(threadId);
+      }
     } finally {
       if (!controller.signal.aborted && this.threadId === threadId) {
         this._loadingEvents = false;
@@ -1540,32 +2216,31 @@ export class ɵCpkThreadDetails extends LitElement {
   }
 
   private async fetchState(threadId: string): Promise<void> {
-    this._stateNotAvailable = false;
-    if (!this.runtimeUrl) {
+    if (!this.canFetchState()) {
       this._fetchedState = null;
       return;
     }
+    this._stateAbort?.abort();
     const controller = new AbortController();
     this._stateAbort = controller;
     this._loadingState = true;
     this._stateError = null;
     try {
-      const res = await fetch(
-        `${this.runtimeUrl}/threads/${encodeURIComponent(threadId)}/state`,
-        { headers: { ...this.headers }, signal: controller.signal },
-      );
+      const result = this.provider?.getState
+        ? {
+            status: "available" as const,
+            state: await this.provider.getState(threadId, {
+              signal: controller.signal,
+            }),
+          }
+        : await this.fetchRuntimeState(threadId, controller.signal);
       if (controller.signal.aborted || this.threadId !== threadId) return;
-      if (res.status === 501) {
+      if (result.status === "not-available") {
         this._stateNotAvailable = true;
         this._fetchedState = null;
         return;
       }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = (await res.json()) as {
-        state: Record<string, unknown> | null;
-      };
-      if (controller.signal.aborted || this.threadId !== threadId) return;
-      this._fetchedState = data.state ?? null;
+      this._fetchedState = result.state ?? null;
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
       if (this.threadId !== threadId) return;
@@ -1579,7 +2254,63 @@ export class ɵCpkThreadDetails extends LitElement {
     }
   }
 
-  private mapMessages(messages: ApiThreadMessage[]): ConversationItem[] {
+  private async fetchRuntimeMessages(
+    threadId: string,
+    signal: AbortSignal,
+  ): Promise<ThreadDebuggerMessage[]> {
+    const res = await fetch(this.getThreadInspectionUrl(threadId, "messages"), {
+      headers: { ...this.headers },
+      signal,
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = (await res.json()) as { messages: ThreadDebuggerMessage[] };
+    return data.messages;
+  }
+
+  private async fetchRuntimeEvents(
+    threadId: string,
+    signal: AbortSignal,
+  ): Promise<RuntimeEventsFetchResult> {
+    const res = await fetch(this.getThreadInspectionUrl(threadId, "events"), {
+      headers: { ...this.headers },
+      signal,
+    });
+    if (res.status === 501) {
+      return { status: "not-available" };
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = (await res.json()) as {
+      events: ThreadDebuggerEvent[];
+    };
+    return { status: "available", events: data.events };
+  }
+
+  private async fetchRuntimeState(
+    threadId: string,
+    signal: AbortSignal,
+  ): Promise<RuntimeStateFetchResult> {
+    const res = await fetch(this.getThreadInspectionUrl(threadId, "state"), {
+      headers: { ...this.headers },
+      signal,
+    });
+    if (res.status === 501) {
+      return { status: "not-available" };
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = (await res.json()) as {
+      state: Record<string, unknown> | null;
+    };
+    return { status: "available", state: data.state ?? null };
+  }
+
+  private getThreadInspectionUrl(
+    threadId: string,
+    resource: "messages" | "events" | "state",
+  ): string {
+    return `${this.runtimeUrl.replace(/\/+$/, "")}/threads/${encodeURIComponent(threadId)}/${resource}`;
+  }
+
+  private mapMessages(messages: ThreadDebuggerMessage[]): ConversationItem[] {
     const items: ConversationItem[] = [];
     const toolCallMap = new Map<string, ConversationToolCall>();
     for (const msg of messages) {
@@ -1594,19 +2325,20 @@ export class ɵCpkThreadDetails extends LitElement {
         if (msg.toolCalls?.length) {
           for (const tc of msg.toolCalls) {
             let args: Record<string, unknown> = {};
-            try {
-              args = JSON.parse(tc.args) as Record<string, unknown>;
-            } catch (err) {
-              // Inspector is a debugging surface — surface malformed payloads
-              // instead of silently substituting `{}`. The sentinel lets the
-              // renderer flag "raw arguments — failed to parse" if/when it
-              // grows that branch; the console.error gives anyone with the
-              // devtools open immediate visibility into the offending blob.
-              console.error(
-                "[CopilotKit Inspector] Failed to parse tool-call arguments",
-                { toolCallId: tc.id, raw: tc.args, error: err },
-              );
-              args = { __parseError: true, __raw: tc.args };
+            if (typeof tc.args === "string") {
+              try {
+                args = JSON.parse(tc.args) as Record<string, unknown>;
+              } catch (err) {
+                // Inspector is a debugging surface — surface malformed payloads
+                // instead of silently substituting `{}`.
+                console.error(
+                  "[CopilotKit Inspector] Failed to parse tool-call arguments",
+                  { toolCallId: tc.id, raw: tc.args, error: err },
+                );
+                args = { __parseError: true, __raw: tc.args };
+              }
+            } else {
+              args = tc.args;
             }
             const item: ConversationToolCall = {
               id: tc.id,
@@ -1660,20 +2392,282 @@ export class ɵCpkThreadDetails extends LitElement {
     return items;
   }
 
-  private mapApiEvents(
-    events: Array<Record<string, unknown>>,
-  ): ApiAgentEvent[] {
-    return events.map((event) => {
-      const { type, timestamp, ...rest } = event;
+  private mapApiEvents(events: ThreadDebuggerEvent[]): ApiAgentEvent[] {
+    return events.map((event, index) => {
+      const { type, timestamp, payload, ...rest } = event;
       return {
         type: typeof type === "string" ? type : "UNKNOWN",
         timestamp:
           typeof timestamp === "string" || typeof timestamp === "number"
             ? timestamp
             : Date.now(),
-        payload: rest,
+        payload: payload ?? rest,
+        sourceIndex: index + 1,
+        rawEvent: event,
       };
     });
+  }
+
+  private get activeTimelineItems(): TimelineItem[] {
+    return this.timelineItemsForEvents(this.activeEvents);
+  }
+
+  private timelineItemsForEvents(events: ApiAgentEvent[]): TimelineItem[] {
+    if (this._timelineItemsCache?.events === events) {
+      return this._timelineItemsCache.items;
+    }
+    const items = this.timelineItemsFromEvents(events);
+    this._timelineItemsCache = { events, items };
+    return items;
+  }
+
+  private timelineItemsFromEvents(events: ApiAgentEvent[]): TimelineItem[] {
+    if (events.length === 0) return [];
+
+    const items: TimelineItem[] = [];
+    const messageItems = new Map<string, TimelineItem>();
+    const toolItems = new Map<string, TimelineItem & { rawArgs?: string }>();
+
+    const readString = (
+      payload: Record<string, unknown>,
+      keys: string[],
+    ): string | null => {
+      for (const key of keys) {
+        const value = payload[key];
+        if (typeof value === "string") return value;
+      }
+      return null;
+    };
+
+    const sourceIndexFor = (event: ApiAgentEvent): number =>
+      event.sourceIndex ?? 0;
+
+    const appendWarning = (
+      event: ApiAgentEvent,
+      title: string,
+      body: string,
+      severity: "warning" | "error" = "warning",
+    ): void => {
+      const sourceIndex = sourceIndexFor(event);
+      items.push({
+        id: `warning-${sourceIndex}-${items.length}`,
+        kind: "warning",
+        title,
+        body,
+        timestamp: event.timestamp,
+        sourceIndex,
+        severity,
+      });
+    };
+
+    const ensureMessage = (
+      event: ApiAgentEvent,
+      role: string,
+    ): TimelineItem => {
+      const sourceIndex = sourceIndexFor(event);
+      const key =
+        readString(event.payload, ["messageId", "message_id", "id"]) ??
+        `message-${sourceIndex}`;
+      let item = messageItems.get(key);
+      if (!item) {
+        item = {
+          id: `message-${key}`,
+          kind: "message",
+          title: `${role || "message"} message`,
+          body: "",
+          timestamp: event.timestamp,
+          sourceIndex,
+        };
+        messageItems.set(key, item);
+        items.push(item);
+      }
+      return item;
+    };
+
+    const ensureTool = (
+      event: ApiAgentEvent,
+    ): TimelineItem & {
+      rawArgs?: string;
+    } => {
+      const sourceIndex = sourceIndexFor(event);
+      const key =
+        readString(event.payload, [
+          "toolCallId",
+          "tool_call_id",
+          "id",
+          "callId",
+        ]) ?? `tool-${sourceIndex}`;
+      let item = toolItems.get(key);
+      if (!item) {
+        item = {
+          id: `tool-${key}`,
+          kind: "tool",
+          title:
+            readString(event.payload, [
+              "toolCallName",
+              "toolName",
+              "name",
+              "functionName",
+            ]) ?? "Tool call",
+          body: "",
+          timestamp: event.timestamp,
+          sourceIndex,
+        };
+        toolItems.set(key, item);
+        items.push(item);
+      }
+      return item;
+    };
+
+    for (const event of events) {
+      const { type, payload } = event;
+      const sourceIndex = sourceIndexFor(event);
+
+      if (type === "UNKNOWN") {
+        appendWarning(
+          event,
+          "Unknown AG-UI event",
+          "The event is missing a string type and could not be normalized.",
+        );
+        continue;
+      }
+
+      if (type === "RUN_STARTED" || type === "STEP_STARTED") {
+        items.push({
+          id: `${type}-${sourceIndex}`,
+          kind: "run",
+          title: type === "RUN_STARTED" ? "Run started" : "Step started",
+          timestamp: event.timestamp,
+          sourceIndex,
+          details: payload,
+        });
+        continue;
+      }
+
+      if (type === "RUN_FINISHED" || type === "STEP_FINISHED") {
+        items.push({
+          id: `${type}-${sourceIndex}`,
+          kind: "run",
+          title: type === "RUN_FINISHED" ? "Run finished" : "Step finished",
+          timestamp: event.timestamp,
+          sourceIndex,
+          details: payload,
+        });
+        continue;
+      }
+
+      if (type === "RUN_ERROR" || type === "ERROR") {
+        items.push({
+          id: `${type}-${sourceIndex}`,
+          kind: "warning",
+          title: "Run error",
+          body: readString(payload, ["message", "error", "description"]) ?? "",
+          timestamp: event.timestamp,
+          sourceIndex,
+          severity: "error",
+          details: payload,
+        });
+        continue;
+      }
+
+      if (type === "TEXT_MESSAGE_START") {
+        ensureMessage(event, readString(payload, ["role"]) ?? "assistant");
+        continue;
+      }
+
+      if (type === "TEXT_MESSAGE_CONTENT") {
+        const item = ensureMessage(
+          event,
+          readString(payload, ["role"]) ?? "assistant",
+        );
+        item.body = `${item.body ?? ""}${
+          readString(payload, ["delta", "content", "text"]) ?? ""
+        }`;
+        continue;
+      }
+
+      if (type === "TEXT_MESSAGE_END") {
+        ensureMessage(event, readString(payload, ["role"]) ?? "assistant");
+        continue;
+      }
+
+      if (type === "TOOL_CALL_START") {
+        ensureTool(event);
+        continue;
+      }
+
+      if (type === "TOOL_CALL_ARGS") {
+        const item = ensureTool(event);
+        const chunk =
+          readString(payload, ["args", "arguments", "delta"]) ??
+          (typeof payload.args === "object"
+            ? JSON.stringify(payload.args)
+            : null);
+        if (chunk) {
+          item.rawArgs = `${item.rawArgs ?? ""}${chunk}`;
+          item.body = item.rawArgs;
+        }
+        continue;
+      }
+
+      if (type === "TOOL_CALL_END") {
+        const item = ensureTool(event);
+        if (item.rawArgs) {
+          try {
+            JSON.parse(item.rawArgs);
+          } catch {
+            appendWarning(
+              event,
+              "Could not decode tool call arguments",
+              item.rawArgs,
+            );
+          }
+        }
+        continue;
+      }
+
+      if (type === "TOOL_CALL_RESULT") {
+        const item = ensureTool(event);
+        const result = readString(payload, ["result", "content", "delta"]);
+        if (result) {
+          item.body = item.body
+            ? `${item.body}\nResult: ${result}`
+            : `Result: ${result}`;
+          try {
+            JSON.parse(result);
+          } catch {
+            appendWarning(event, "Could not decode tool result", result);
+          }
+        }
+        continue;
+      }
+
+      if (type.startsWith("STATE_")) {
+        items.push({
+          id: `${type}-${sourceIndex}`,
+          kind: "state",
+          title:
+            type === "STATE_SNAPSHOT"
+              ? "State snapshot captured"
+              : "State delta captured",
+          timestamp: event.timestamp,
+          sourceIndex,
+          details: payload,
+        });
+        continue;
+      }
+
+      items.push({
+        id: `event-${sourceIndex}`,
+        kind: "event",
+        title: type,
+        timestamp: event.timestamp,
+        sourceIndex,
+        details: payload,
+      });
+    }
+
+    return items;
   }
 
   private get renderItems(): RenderItem[] {
@@ -1718,7 +2712,7 @@ export class ɵCpkThreadDetails extends LitElement {
   }
 
   private get duration(): string {
-    const t = this.thread;
+    const t = this.metadata;
     if (!t?.createdAt || !t?.updatedAt) return "—";
     const ms =
       new Date(t.updatedAt).getTime() - new Date(t.createdAt).getTime();
@@ -1745,13 +2739,63 @@ export class ɵCpkThreadDetails extends LitElement {
     this._expandedMessages = next;
   }
 
+  private toggleTimelineDetails(id: string): void {
+    const next = new Set(this._expandedTimelineDetails);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    this._expandedTimelineDetails = next;
+  }
+
+  private expandTimelineDetails(ids: string[]): void {
+    this._expandedTimelineDetails = new Set([
+      ...this._expandedTimelineDetails,
+      ...ids,
+    ]);
+  }
+
+  private collapseTimelineDetails(ids: string[]): void {
+    const next = new Set(this._expandedTimelineDetails);
+    for (const id of ids) next.delete(id);
+    this._expandedTimelineDetails = next;
+  }
+
+  private toggleRawEventDetails(id: string): void {
+    const next = new Set(this._expandedRawEvents);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    this._expandedRawEvents = next;
+  }
+
+  private expandRawEventDetails(ids: string[]): void {
+    this._expandedRawEvents = new Set([...this._expandedRawEvents, ...ids]);
+  }
+
+  private collapseRawEventDetails(ids: string[]): void {
+    const next = new Set(this._expandedRawEvents);
+    for (const id of ids) next.delete(id);
+    this._expandedRawEvents = next;
+  }
+
+  private rawEventId(event: ApiAgentEvent): string {
+    return `raw-event-${event.sourceIndex ?? event.timestamp ?? event.type}`;
+  }
+
   private get activeEvents(): ApiAgentEvent[] {
     // When the endpoint explicitly returned 501 we report no events rather
     // than leaking the parent's agent-keyed live events across historical
     // threads (those would render identically for every thread on the same
     // agent and mislead the reader).
     if (this._eventsNotAvailable) return [];
-    return this._fetchedEvents ?? this.agentEventsInput ?? [];
+    const events = this._fetchedEvents ?? this.agentEventsInput ?? [];
+    if (events.every((event) => event.sourceIndex != null)) return events;
+    if (this._liveEventsWithSourceIndexCache?.events === events) {
+      return this._liveEventsWithSourceIndexCache.indexedEvents;
+    }
+    const indexedEvents = events.map((event, index) =>
+      event.sourceIndex == null ? { ...event, sourceIndex: index + 1 } : event,
+    );
+    this._liveEventsWithSourceIndexCache = { events, indexedEvents };
+    return indexedEvents;
   }
 
   private get activeState(): Record<string, unknown> | null {
@@ -1767,6 +2811,10 @@ export class ɵCpkThreadDetails extends LitElement {
   private shortId(id: string | null | undefined): string {
     if (!id) return "—";
     return id.length > 20 ? id.slice(0, 8) + "…" : id;
+  }
+
+  private get metadata(): ThreadDebuggerMetadata | null {
+    return this._fetchedMetadata ?? this.thread ?? null;
   }
 
   private fmtTime(dateStr: string | null | undefined): string {
@@ -1817,7 +2865,7 @@ export class ɵCpkThreadDetails extends LitElement {
           <!-- Tab bar -->
           <div class="cpk-td__tabs-header">
             <div class="cpk-td__tab-group" role="tablist">
-              ${ɵCpkThreadDetails.TAB_LIST.map(
+              ${CpkThreadInspector.TAB_LIST.map(
                 (tab) => html`
                   <button
                     role="tab"
@@ -1833,6 +2881,7 @@ export class ɵCpkThreadDetails extends LitElement {
             </div>
             ${this.renderPanelToggle()}
           </div>
+          ${this.renderMetadataStrip()}
 
           <!-- Scrollable content -->
           <div class="cpk-td__content">
@@ -1843,18 +2892,18 @@ export class ɵCpkThreadDetails extends LitElement {
                   `
                 : nothing
             }
-            ${ɵCpkThreadDetails.TAB_LIST.map((tab) =>
+            ${CpkThreadInspector.TAB_LIST.map((tab) =>
               this._activatedTabs.has(tab.id)
                 ? html`<div
-                      class="cpk-td__panel"
-                      style=${
-                        this._tab === tab.id && !this._panelInitializing
-                          ? ""
-                          : "display:none"
-                      }
-                    >
-                      ${this.renderTabContent(tab.id)}
-                    </div>`
+                    class="cpk-td__panel"
+                    style=${
+                      this._tab === tab.id && !this._panelInitializing
+                        ? ""
+                        : "display:none"
+                    }
+                  >
+                    ${this.renderTabContent(tab.id)}
+                  </div>`
                 : nothing,
             )}
           </div>
@@ -1887,6 +2936,252 @@ export class ɵCpkThreadDetails extends LitElement {
           }
           ${this.renderDetailPanel()}
         </div>
+      </div>
+    `;
+  }
+
+  private renderMetadataStrip() {
+    const metadata = this.metadata;
+    const pills: Array<{ label: string; value: string | null | undefined }> = [
+      { label: "Thread", value: metadata?.id ?? this.threadId },
+      { label: "Agent", value: metadata?.agentId },
+      {
+        label: "End user",
+        value: metadata?.endUserId ?? metadata?.createdById,
+      },
+      { label: "Status", value: metadata?.status },
+    ].filter((pill) => pill.value != null && pill.value !== "");
+    const bulkControls = this.renderActiveBulkControls();
+
+    if (pills.length === 0 && bulkControls === nothing) return nothing;
+
+    return html`
+      <div class="cpk-td__metadata-strip" aria-label="Thread metadata">
+        <div class="cpk-td__metadata-pills">
+          ${pills.map(
+            (pill) => html`
+              <span class="cpk-td__metadata-pill" title=${pill.value ?? ""}>
+                <span class="cpk-td__metadata-label">${pill.label}</span>
+                <span class="cpk-td__metadata-value"
+                  >${this.shortId(pill.value)}</span
+                >
+              </span>
+            `,
+          )}
+        </div>
+        ${bulkControls}
+      </div>
+    `;
+  }
+
+  private renderActiveBulkControls() {
+    if (this._eventsNotAvailable) return nothing;
+    if (this._tab === "raw-events") return this.renderRawEventBulkControls();
+    if (this._tab !== "timeline") return nothing;
+
+    const detailIds = this.timelineItemsForEvents(this.activeEvents)
+      .filter((item) => item.details)
+      .map((item) => item.id);
+    if (detailIds.length <= 1) return nothing;
+
+    const allExpanded = detailIds.every((id) =>
+      this._expandedTimelineDetails.has(id),
+    );
+    const allCollapsed = detailIds.every(
+      (id) => !this._expandedTimelineDetails.has(id),
+    );
+
+    return html`<div class="cpk-td__timeline-toolbar">
+      <button
+        type="button"
+        class="cpk-td__timeline-bulk-toggle"
+        ?disabled=${allExpanded}
+        @click=${() => this.expandTimelineDetails(detailIds)}
+      >
+        Expand all
+      </button>
+      <button
+        type="button"
+        class="cpk-td__timeline-bulk-toggle"
+        ?disabled=${allCollapsed}
+        @click=${() => this.collapseTimelineDetails(detailIds)}
+      >
+        Collapse all
+      </button>
+    </div>`;
+  }
+
+  private renderRawEventBulkControls() {
+    const eventIds = this.activeEvents.map((event) => this.rawEventId(event));
+    if (eventIds.length <= 1) return nothing;
+
+    const allExpanded = eventIds.every((id) => this._expandedRawEvents.has(id));
+    const allCollapsed = eventIds.every(
+      (id) => !this._expandedRawEvents.has(id),
+    );
+
+    return html`<div class="cpk-td__timeline-toolbar">
+      <button
+        type="button"
+        class="cpk-td__timeline-bulk-toggle"
+        ?disabled=${allExpanded}
+        @click=${() => this.expandRawEventDetails(eventIds)}
+      >
+        Expand all
+      </button>
+      <button
+        type="button"
+        class="cpk-td__timeline-bulk-toggle"
+        ?disabled=${allCollapsed}
+        @click=${() => this.collapseRawEventDetails(eventIds)}
+      >
+        Collapse all
+      </button>
+    </div>`;
+  }
+
+  private revealSourceEvent(sourceIndex: number): void {
+    this._activatedTabs = new Set([...this._activatedTabs, "raw-events"]);
+    this._tab = "raw-events";
+    this.requestUpdate();
+    requestAnimationFrame(() => {
+      const source = this.shadowRoot?.querySelector<HTMLElement>(
+        `[data-source-index="${sourceIndex}"]`,
+      );
+      source?.scrollIntoView?.({ block: "center" });
+    });
+  }
+
+  private renderTimeline() {
+    if (this._loadingEvents) {
+      return html`
+        <div class="cpk-td__status">Loading timeline…</div>
+      `;
+    }
+    if (this._eventsError) {
+      return html`<div class="cpk-td__status cpk-td__status--error">
+        ${this._eventsError}
+      </div>`;
+    }
+    if (this._eventsNotAvailable) {
+      if (this._conversation.length > 0) return this.renderConversation();
+      if (this._loadingMessages) return this.renderConversation();
+      return html`
+        <div class="cpk-td__empty-state">
+          <span>Timeline event history not available</span>
+          <span class="cpk-td__empty-hint"
+            >This runtime doesn't yet expose per-thread AG-UI events. Check State for
+            the latest snapshot when available.</span
+          >
+        </div>
+      `;
+    }
+
+    const events = this.activeEvents;
+    const cachedTimeline = this.getCachedPanelTpl("timeline", [
+      events,
+      this._expandedTimelineDetails,
+    ]);
+    if (cachedTimeline) return cachedTimeline;
+
+    const timelineItems = this.timelineItemsForEvents(events);
+    if (timelineItems.length === 0) {
+      if (this._conversation.length > 0) return this.renderConversation();
+      if (this._loadingMessages) return this.renderConversation();
+      return html`
+        <div class="cpk-td__empty-state">
+          <span>No timeline events captured</span>
+          <span class="cpk-td__empty-hint"
+            >Timeline rows are normalized from AG-UI events. Open Raw AG-UI Events or
+            State to inspect the available thread data.</span
+          >
+        </div>
+      `;
+    }
+
+    return this.cachedPanelTpl(
+      "timeline",
+      [events, this._expandedTimelineDetails],
+      () => html`${timelineItems.map((item) => this.renderTimelineItem(item))}`,
+    );
+  }
+
+  private renderTimelineItem(item: TimelineItem) {
+    const isWarning = item.kind === "warning";
+    const detailsExpanded = this._expandedTimelineDetails.has(item.id);
+    return html`
+      <div
+        class="cpk-td__timeline-item ${
+          isWarning ? "cpk-td__timeline-item--warning" : ""
+        }"
+      >
+        <div class="cpk-td__timeline-header">
+          <span class="cpk-td__timeline-kind"
+            >${item.severity === "error" ? "error" : item.kind}</span
+          >
+          <span class="cpk-td__timeline-title">${item.title}</span>
+          <button
+            type="button"
+            class="cpk-td__source-link"
+            @click=${() => this.revealSourceEvent(item.sourceIndex)}
+          >
+            Source event #${item.sourceIndex}
+          </button>
+          <span class="cpk-td__timeline-time"
+            >${formatTimestamp(item.timestamp)}</span
+          >
+        </div>
+        ${
+          item.details
+            ? html`<button
+                type="button"
+                class="cpk-td__timeline-details-toggle"
+                aria-expanded=${detailsExpanded ? "true" : "false"}
+                @click=${() => this.toggleTimelineDetails(item.id)}
+              >
+                ${
+                  detailsExpanded
+                    ? html`
+                        <svg
+                          aria-hidden="true"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
+                          <path d="m6 9 6 6 6-6" />
+                        </svg>
+                      `
+                    : html`
+                        <svg
+                          aria-hidden="true"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
+                          <path d="m9 18 6-6-6-6" />
+                        </svg>
+                      `
+                }
+                <span>${detailsExpanded ? "Hide details" : "Show details"}</span>
+              </button>`
+            : nothing
+        }
+        ${
+          item.body
+            ? html`<div class="cpk-td__timeline-body">${item.body}</div>`
+            : nothing
+        }
+        ${
+          item.details && detailsExpanded
+            ? html`<pre class="cpk-td__timeline-body">${unsafeHTML(
+                highlightedJson(item.details),
+              )}</pre>`
+            : nothing
+        }
       </div>
     `;
   }
@@ -1927,7 +3222,7 @@ export class ɵCpkThreadDetails extends LitElement {
     // `_conversation` — without those keys the cache returns the
     // pre-toggle template and the disclosure appears broken.
     return this.cachedPanelTpl(
-      "conversation",
+      "timeline-fallback",
       [this._conversation, this._expandedTools, this._expandedMessages],
       () => {
         const items = this.renderItems;
@@ -1946,10 +3241,21 @@ export class ɵCpkThreadDetails extends LitElement {
    * change without the listed key flipping.
    */
   private cachedPanelTpl(
-    slot: ThreadDetailsTab,
+    slot: ThreadDetailsPanelCacheSlot,
     key: readonly unknown[],
     build: () => TemplateResult,
   ): TemplateResult {
+    const cached = this.getCachedPanelTpl(slot, key);
+    if (cached) return cached;
+    const tpl = build();
+    this._panelTplCache.set(slot, { key, tpl });
+    return tpl;
+  }
+
+  private getCachedPanelTpl(
+    slot: ThreadDetailsPanelCacheSlot,
+    key: readonly unknown[],
+  ): TemplateResult | null {
     const cached = this._panelTplCache.get(slot);
     if (
       cached &&
@@ -1958,9 +3264,7 @@ export class ɵCpkThreadDetails extends LitElement {
     ) {
       return cached.tpl;
     }
-    const tpl = build();
-    this._panelTplCache.set(slot, { key, tpl });
-    return tpl;
+    return null;
   }
 
   private renderRenderItem(item: RenderItem) {
@@ -1991,7 +3295,7 @@ export class ɵCpkThreadDetails extends LitElement {
 
   private renderBubble(item: ConversationUser | ConversationAssistant) {
     const isUser = item.type === "user";
-    const threshold = ɵCpkThreadDetails.COLLAPSE_THRESHOLD;
+    const threshold = CpkThreadInspector.COLLAPSE_THRESHOLD;
     const expanded = this._expandedMessages.has(item.id);
     const tooLong = item.content.length > threshold;
     const shown =
@@ -2174,7 +3478,7 @@ ${unsafeHTML(highlightedJson(item.result))}</pre
       `;
     }
     const stateValue = this.activeState;
-    return this.cachedPanelTpl("agent-state", [stateValue], () => {
+    return this.cachedPanelTpl("state", [stateValue], () => {
       return html`<pre class="cpk-td__json-block">
 ${unsafeHTML(highlightedJson(stateValue))}</pre
       >`;
@@ -2214,11 +3518,16 @@ ${unsafeHTML(highlightedJson(stateValue))}</pre
         </div>
       `;
     }
-    return this.cachedPanelTpl("ag-ui-events", [events], () => {
-      return html`${events.map((event) => {
-        const { bg, fg } = eventColors(event.type);
-        return html`
-          <div class="cpk-td__event">
+    return this.cachedPanelTpl(
+      "raw-events",
+      [events, this._expandedRawEvents],
+      () => {
+        return html`${events.map((event) => {
+          const { bg, fg } = eventColors(event.type);
+          const eventId = this.rawEventId(event);
+          const detailsExpanded = this._expandedRawEvents.has(eventId);
+          return html`
+          <div class="cpk-td__event" data-source-index=${event.sourceIndex}>
             <div class="cpk-td__event-header" style="background:${bg}">
               <span class="cpk-td__event-type" style="color:${fg}"
                 >${event.type}</span
@@ -2227,13 +3536,53 @@ ${unsafeHTML(highlightedJson(stateValue))}</pre
                 >${formatTimestamp(event.timestamp)}</span
               >
             </div>
-            <pre class="cpk-td__event-payload">
-${unsafeHTML(highlightedJson(event.payload))}</pre
+            <button
+              type="button"
+              class="cpk-td__timeline-details-toggle"
+              aria-expanded=${detailsExpanded ? "true" : "false"}
+              @click=${() => this.toggleRawEventDetails(eventId)}
             >
+              ${
+                detailsExpanded
+                  ? html`
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
+                    `
+                  : html`
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="m9 18 6-6-6-6" />
+                      </svg>
+                    `
+              }
+              <span>${detailsExpanded ? "Hide details" : "Show details"}</span>
+            </button>
+            ${
+              detailsExpanded
+                ? html`<pre class="cpk-td__event-payload">${unsafeHTML(
+                    highlightedJson(event.rawEvent ?? event),
+                  )}</pre>`
+                : nothing
+            }
           </div>
         `;
-      })}`;
-    });
+        })}`;
+      },
+    );
   }
 
   private renderPanelToggle() {
@@ -2267,29 +3616,42 @@ ${unsafeHTML(highlightedJson(event.payload))}</pre
 
   private renderDetailPanel() {
     const counts = this.activityCounts;
+    const metadata = this.metadata;
     return html`
       <!-- Thread -->
       <div class="cpk-tdp__section-title">Thread</div>
       <div class="cpk-tdp__row">
         <span class="cpk-tdp__label">ID</span>
         <span class="cpk-tdp__value cpk-tdp__value--wrap"
-          >${this.shortId(this.thread?.id)}</span
+          >${this.shortId(metadata?.id)}</span
         >
       </div>
       <div class="cpk-tdp__row">
         <span class="cpk-tdp__label">Name</span>
-        <span class="cpk-tdp__value">${this.thread?.name ?? "—"}</span>
+        <span class="cpk-tdp__value">${metadata?.name ?? "—"}</span>
       </div>
       <div class="cpk-tdp__row">
         <span class="cpk-tdp__label">Agent</span>
         <span class="cpk-tdp__value cpk-tdp__value--truncate"
-          >${this.thread?.agentId ?? "—"}</span
+          >${metadata?.agentId ?? "—"}</span
+        >
+      </div>
+      <div class="cpk-tdp__row">
+        <span class="cpk-tdp__label">End user</span>
+        <span class="cpk-tdp__value cpk-tdp__value--truncate"
+          >${metadata?.endUserId ?? "—"}</span
         >
       </div>
       <div class="cpk-tdp__row">
         <span class="cpk-tdp__label">Created by</span>
         <span class="cpk-tdp__value cpk-tdp__value--truncate"
-          >${this.thread?.createdById ?? "—"}</span
+          >${metadata?.createdById ?? "—"}</span
+        >
+      </div>
+      <div class="cpk-tdp__row">
+        <span class="cpk-tdp__label">Status</span>
+        <span class="cpk-tdp__value cpk-tdp__value--truncate"
+          >${metadata?.status ?? "—"}</span
         >
       </div>
 
@@ -2299,11 +3661,11 @@ ${unsafeHTML(highlightedJson(event.payload))}</pre
       <div class="cpk-tdp__section-title">Timestamps</div>
       <div class="cpk-tdp__row">
         <span class="cpk-tdp__label">Created</span>
-        <span class="cpk-tdp__value">${this.fmtTime(this.thread?.createdAt)}</span>
+        <span class="cpk-tdp__value">${this.fmtTime(metadata?.createdAt)}</span>
       </div>
       <div class="cpk-tdp__row">
         <span class="cpk-tdp__label">Updated</span>
-        <span class="cpk-tdp__value">${this.fmtTime(this.thread?.updatedAt)}</span>
+        <span class="cpk-tdp__value">${this.fmtTime(metadata?.updatedAt)}</span>
       </div>
       <div class="cpk-tdp__row">
         <span class="cpk-tdp__label">Duration</span>
@@ -2330,11 +3692,384 @@ ${unsafeHTML(highlightedJson(event.payload))}</pre
   }
 }
 
+// ─── cpk-memory-list ─────────────────────────────────────────────────────────
+
+/** Memory kind values including the "all" sentinel used by the filter UI. */
+type MemoryKindFilter = "all" | "topical" | "episodic" | "operational";
+
+class CpkMemoryList extends LitElement {
+  static properties = {
+    memories: { attribute: false },
+    search: { state: true },
+    kind: { state: true },
+  };
+
+  /** Ordered (newest-first) list of memories supplied by the parent. */
+  memories: Memory[] = [];
+  private search = "";
+  private kind: MemoryKindFilter = "all";
+
+  static styles = css`
+    @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500&display=swap");
+
+    :host {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .cpk-ml {
+      font-family: "Plus Jakarta Sans", sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+      background: #f7f7f9;
+    }
+
+    /* ── Search ── */
+    .cpk-ml__search {
+      padding: 10px 12px;
+      border-bottom: 1px solid #dbdbe5;
+      flex-shrink: 0;
+    }
+
+    .cpk-ml__search-input {
+      width: 100%;
+      box-sizing: border-box;
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-size: 12px;
+      padding: 7px 10px;
+      border-radius: 6px;
+      border: 1px solid #dbdbe5;
+      background: #ffffff;
+      color: #010507;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .cpk-ml__search-input:focus {
+      border-color: #bec2ff;
+    }
+
+    /* ── Kind filter ── */
+    .cpk-ml__filter {
+      display: flex;
+      gap: 4px;
+      padding: 8px 12px;
+      border-bottom: 1px solid #dbdbe5;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    .cpk-ml__filter-seg {
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 3px 9px;
+      border-radius: 5px;
+      border: 1px solid #dbdbe5;
+      background: #ffffff;
+      color: #57575b;
+      cursor: pointer;
+      transition:
+        background 0.1s,
+        border-color 0.1s,
+        color 0.1s;
+      user-select: none;
+    }
+
+    .cpk-ml__filter-seg:hover {
+      background: #f0f0f5;
+    }
+
+    .cpk-ml__filter-seg--active {
+      background: #bec2ff1a;
+      border-color: #bec2ff;
+      color: #010507;
+    }
+
+    .cpk-ml__filter-count {
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 9px;
+      margin-left: 4px;
+      color: #838389;
+    }
+
+    /* ── List ── */
+    .cpk-ml__list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    /* ── Card ── */
+    .cpk-ml__card {
+      background: #ffffff;
+      border: 1px solid #e9e9ef;
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .cpk-ml__card-badges {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    /* Kind badge — color per kind */
+    .cpk-ml__kind-badge {
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 9px;
+      padding: 1px 7px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .cpk-ml__kind-badge--topical {
+      background: #eee6fe;
+      color: #57575b;
+    }
+
+    .cpk-ml__kind-badge--episodic {
+      background: #e6f4fe;
+      color: #2d5f80;
+    }
+
+    .cpk-ml__kind-badge--operational {
+      background: #e6feee;
+      color: #2d6645;
+    }
+
+    /* Scope badge */
+    .cpk-ml__scope-badge {
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 9px;
+      padding: 1px 7px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      font-weight: 500;
+      white-space: nowrap;
+      background: #f0f0f5;
+      color: #838389;
+    }
+
+    /* Content */
+    .cpk-ml__content {
+      font-size: 12px;
+      color: #010507;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    /* Footer */
+    .cpk-ml__footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 2px;
+    }
+
+    .cpk-ml__footer-threads {
+      font-size: 10px;
+      color: #838389;
+    }
+
+    .cpk-ml__footer-id {
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 9px;
+      color: #c0c0c8;
+    }
+
+    /* ── Empty state ── */
+    .cpk-ml__empty {
+      padding: 32px 16px;
+      text-align: center;
+      color: #838389;
+      font-size: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .cpk-ml__empty-icon {
+      color: #c0c0c8;
+    }
+  `;
+
+  /** Memories that pass the current text search (before kind filter). */
+  private get searchFiltered(): Memory[] {
+    const q = this.search.trim().toLowerCase();
+    if (!q) return this.memories;
+    return this.memories.filter((m) => m.content.toLowerCase().includes(q));
+  }
+
+  /** Memories that pass both search and kind filter. */
+  private get filtered(): Memory[] {
+    const searched = this.searchFiltered;
+    if (this.kind === "all") return searched;
+    return searched.filter((m) => m.kind === this.kind);
+  }
+
+  /** Count of search-filtered memories for a given kind (for segment labels). */
+  private countForKind(kind: Exclude<MemoryKindFilter, "all">): number {
+    return this.searchFiltered.filter((m) => m.kind === kind).length;
+  }
+
+  private onSearchInput = (event: Event): void => {
+    this.search = (event.target as HTMLInputElement).value;
+  };
+
+  private onKindClick = (event: Event): void => {
+    const seg = (event.target as HTMLElement).closest("[data-kind]");
+    if (!seg) return;
+    const k = (seg as HTMLElement).dataset["kind"] as MemoryKindFilter;
+    this.kind = k;
+  };
+
+  /** Truncate an id to first-4…last-4 characters. */
+  private shortId(id: string): string {
+    if (id.length <= 12) return id;
+    return `${id.slice(0, 4)}…${id.slice(-4)}`;
+  }
+
+  private renderKindBadge(kind: string): TemplateResult {
+    return html`<span class="cpk-ml__kind-badge cpk-ml__kind-badge--${kind}"
+      >${kind}</span
+    >`;
+  }
+
+  private renderEmpty(): TemplateResult {
+    const q = this.search.trim();
+    if (this.memories.length === 0) {
+      return html`
+        <div class="cpk-ml__empty">
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="cpk-ml__empty-icon"
+          >
+            <ellipse cx="12" cy="5" rx="9" ry="3" />
+            <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+            <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+          </svg>
+          No memories yet — tell the agent a durable fact and watch it appear.
+        </div>
+      `;
+    }
+    if (q) {
+      return html`
+        <div class="cpk-ml__empty">
+          No memories match &ldquo;${q}&rdquo;.
+        </div>
+      `;
+    }
+    return html`
+      <div class="cpk-ml__empty">No ${this.kind} memories yet.</div>
+    `;
+  }
+
+  render() {
+    const filtered = this.filtered;
+    const kinds: Array<Exclude<MemoryKindFilter, "all">> = [
+      "topical",
+      "episodic",
+      "operational",
+    ];
+
+    return html`
+      <div class="cpk-ml">
+        <!-- Search -->
+        <div class="cpk-ml__search">
+          <input
+            type="text"
+            placeholder="Search memories…"
+            .value=${this.search}
+            @input=${this.onSearchInput}
+            class="cpk-ml__search-input"
+          />
+        </div>
+
+        <!-- Kind filter -->
+        <div class="cpk-ml__filter" @click=${this.onKindClick}>
+          <button
+            class="cpk-ml__filter-seg ${this.kind === "all" ? "cpk-ml__filter-seg--active" : ""}"
+            data-kind="all"
+          >
+            All<span class="cpk-ml__filter-count">${this.searchFiltered.length}</span>
+          </button>
+          ${kinds.map(
+            (k) => html`
+              <button
+                class="cpk-ml__filter-seg ${this.kind === k ? "cpk-ml__filter-seg--active" : ""}"
+                data-kind="${k}"
+              >
+                ${k}<span class="cpk-ml__filter-count">${this.countForKind(k)}</span>
+              </button>
+            `,
+          )}
+        </div>
+
+        <!-- Memory list -->
+        <div class="cpk-ml__list">
+          ${filtered.map(
+            (m) => html`
+              <div class="cpk-ml__card">
+                <div class="cpk-ml__card-badges">
+                  ${this.renderKindBadge(m.kind)}
+                  <span class="cpk-ml__scope-badge">${m.scope}</span>
+                </div>
+                <div class="cpk-ml__content">${m.content}</div>
+                <div class="cpk-ml__footer">
+                  <span class="cpk-ml__footer-threads"
+                    >${m.sourceThreadIds.length} source thread${m.sourceThreadIds.length === 1 ? "" : "s"}</span
+                  >
+                  <span class="cpk-ml__footer-id">${this.shortId(m.id)}</span>
+                </div>
+              </div>
+            `,
+          )}
+          ${filtered.length === 0 ? this.renderEmpty() : nothing}
+        </div>
+      </div>
+    `;
+  }
+}
+
+// Backwards-compatible internal element name used by the full CopilotKit
+// Inspector shell. Keep this class thin so the public body remains the single
+// implementation.
+export class ɵCpkThreadDetails extends CpkThreadInspector {}
+
 if (!customElements.get("cpk-thread-list")) {
   customElements.define("cpk-thread-list", CpkThreadList);
 }
+if (!customElements.get(THREAD_INSPECTOR_TAG)) {
+  customElements.define(THREAD_INSPECTOR_TAG, CpkThreadInspector);
+}
 if (!customElements.get("cpk-thread-details")) {
   customElements.define("cpk-thread-details", ɵCpkThreadDetails);
+}
+if (!customElements.get("cpk-memory-list")) {
+  customElements.define("cpk-memory-list", CpkMemoryList);
 }
 
 export class WebInspectorElement extends LitElement {
@@ -2346,6 +4081,25 @@ export class WebInspectorElement extends LitElement {
   private _core: CopilotKitCore | null = null;
   private coreSubscriber: CopilotKitCoreSubscriber | null = null;
   private coreUnsubscribe: (() => void) | null = null;
+  private _memories: Memory[] = [];
+  private _memoriesLoading = false;
+  private _memoriesError: Error | null = null;
+  private _memoriesAvailable = true;
+  // Realtime-connection health, independent of `_memoriesAvailable` (the REST
+  // list route). Drives the "live" indicator: only "connected" shows "live".
+  private _memoriesRealtimeStatus: MemoryRealtimeStatus = "connecting";
+  private _memoryUnsub: (() => void) | null = null;
+  // Lazy-subscription guard. The memory store is created + started + opens
+  // realtime the first time `core.getMemoryStore()` is called, so we defer
+  // that call until the user actually activates the Memories tab (see
+  // `ensureMemorySubscription`). This flag prevents a repeated tab click from
+  // double-subscribing; `detachFromCore` resets it so a later attach + tab
+  // activation re-subscribes cleanly.
+  private _memorySubscribed = false;
+  // True when the attached core predates `getMemoryStore` (older @copilotkit
+  // SDK). Distinct from `_memoriesAvailable` (memory not enabled on an
+  // otherwise-current deployment) so the teaser can show upgrade-the-SDK copy.
+  private _memoryStoreUnsupported = false;
   private runtimeStatus: CopilotKitCoreRuntimeConnectionStatus | null = null;
   private coreProperties: Readonly<Record<string, unknown>> = {};
   private lastCoreError: {
@@ -2444,6 +4198,20 @@ export class WebInspectorElement extends LitElement {
   // `${bannerId}:${cta}`) so copy-button retries and accidental multi-clicks
   // don't inflate funnel counts beyond one signal per intent type per banner.
   private clickedBannerIds: Set<string> = new Set();
+  private viewedThreadsTelemetryStates: Set<string> = new Set();
+  private viewedExampleThreadIds: Set<string> = new Set();
+  private selectedExampleThreadIds: Set<string> = new Set();
+  private viewedExampleTourSteps: Set<string> = new Set();
+  private exampleThreadProviders: Map<string, ThreadDebuggerProvider> =
+    new Map();
+  private exampleTourDismissed = false;
+  private exampleTourActive = false;
+  private exampleTourStep = 0;
+  private exampleTourAutoShown = false;
+  private threadsExampleOverviewVideoShouldLoad = false;
+  private threadsExampleOverviewVideoReady = false;
+  private threadsExampleOverviewVideoLoadTimer: number | null = null;
+  private threadsExampleOverviewVideoIdleCallbackId: number | null = null;
 
   get core(): CopilotKitCore | null {
     return this._core;
@@ -2522,10 +4290,116 @@ export class WebInspectorElement extends LitElement {
         label: "Threads",
         icon: "MessageSquare" as LucideIconName,
       },
+      { key: "memories", label: "Learning", icon: "Brain" as LucideIconName },
     ];
   }
 
+  private getThreadServiceStatus(): ThreadServiceStatus {
+    if (!this._core) return "unknown";
+    if (!this._core.threadEndpoints) return "unknown";
+    return this._core.threadEndpoints?.list === false
+      ? "unavailable"
+      : "available";
+  }
+
+  private areThreadEndpointsAvailable(): boolean {
+    return this.getThreadServiceStatus() !== "unavailable";
+  }
+
+  private getActiveThreadsState(): {
+    displayThreads: ɵThread[];
+    threadsErrorMessage: string | null;
+  } {
+    const displayThreads =
+      this.selectedContext === "all-agents"
+        ? this._threads
+        : (this._threadsByAgent.get(this.selectedContext) ?? []);
+
+    // Surface a thread-store load error inline. For "all-agents" we report
+    // the first error encountered across all agents (good enough for a
+    // debugging surface — the per-agent context filter narrows down the
+    // culprit). For a specific agent we use that agent's error directly.
+    let threadsErrorMessage: string | null = null;
+    if (this.selectedContext === "all-agents") {
+      const firstError = this._threadsErrorByAgent.values().next().value;
+      threadsErrorMessage = firstError?.message ?? null;
+    } else {
+      threadsErrorMessage =
+        this._threadsErrorByAgent.get(this.selectedContext)?.message ?? null;
+    }
+
+    return { displayThreads, threadsErrorMessage };
+  }
+
+  private getThreadsTelemetryProps(
+    extra: Partial<InspectorThreadTelemetryProps> = {},
+    options: { includeUrlAttribution?: boolean } = {},
+  ): InspectorThreadTelemetryProps {
+    const distinctId =
+      options.includeUrlAttribution && !this.core?.telemetryDisabled
+        ? getTelemetryDistinctIdForUrl()
+        : null;
+    const threadServiceStatus = this.getThreadServiceStatus();
+    return {
+      posthog_distinct_id: distinctId ?? undefined,
+      intelligence_status:
+        threadServiceStatus === "available"
+          ? "intelligence_enabled"
+          : threadServiceStatus === "unavailable"
+            ? "intelligence_not_enabled"
+            : "unknown",
+      thread_service_status: threadServiceStatus,
+      license_status: this.core?.licenseStatus ?? undefined,
+      runtime_mode: this.core?.runtimeMode ?? undefined,
+      runtime_url_type: getRuntimeUrlType(this.core?.runtimeUrl),
+      telemetry_disabled: this.core?.telemetryDisabled ?? false,
+      ...extra,
+    };
+  }
+
+  private getMemoriesTelemetryProps(): InspectorMemoryTelemetryProps {
+    const distinctId = !this.core?.telemetryDisabled
+      ? getTelemetryDistinctIdForUrl()
+      : null;
+    return {
+      posthog_distinct_id: distinctId ?? undefined,
+      memory_count: this._memories.length,
+      available: this._memoriesAvailable,
+    };
+  }
+
+  private getIntelligenceSignupUrl(): string {
+    return this.appendRefParam(INTELLIGENCE_SIGNUP_URL, "cpk-inspector");
+  }
+
+  private getThreadsIntelligenceSignupUrl(): string {
+    return this.appendRefParam(
+      THREADS_INTELLIGENCE_SIGNIN_URL,
+      "cpk-inspector",
+    );
+  }
+
+  private getTalkToEngineerUrl(): string {
+    return this.appendRefParam(TALK_TO_ENGINEER_URL, "cpk-inspector-threads");
+  }
+
+  private getThreadsTalkToEngineerUrl(): string {
+    return this.appendRefParam(TALK_TO_ENGINEER_URL, "cpk-inspector-threads");
+  }
+
+  private getThreadsDocsUrl(): string {
+    return this.appendRefParam(THREADS_DOCS_URL, "cpk-inspector-threads");
+  }
+
+  private getSelfHostedIntelligenceUrl(): string {
+    return this.appendRefParam(
+      SELF_HOSTED_INTELLIGENCE_URL,
+      "cpk-inspector-threads",
+    );
+  }
+
   private subscribeToThreadStore(agentId: string, store: ɵThreadStore): void {
+    if (!this.areThreadEndpointsAvailable()) return;
     if (this._threadStoreSubscriptions.has(agentId)) return;
     const threadsSub = store.select(ɵselectThreads).subscribe((threads) => {
       this._threadsByAgent.set(agentId, threads as ɵThread[]);
@@ -2562,6 +4436,7 @@ export class WebInspectorElement extends LitElement {
     if (this._threads.length === 0) return;
     const stillValid =
       this.selectedThreadId != null &&
+      !this.isExampleThreadId(this.selectedThreadId) &&
       this._threads.some((t) => t.id === this.selectedThreadId);
     if (!stillValid) {
       // Threads are sorted most-recently-updated first
@@ -2585,12 +4460,14 @@ export class WebInspectorElement extends LitElement {
     if (this.core?.getThreadStore(agentId)) return;
     const core = this.core;
     if (!core?.runtimeUrl) return;
+    if (!this.areThreadEndpointsAvailable()) return;
 
     const store = ɵcreateThreadStore({ fetch: globalThis.fetch });
     store.start();
     store.setContext({
       runtimeUrl: core.runtimeUrl,
-      headers: {},
+      headers: { ...core.headers },
+      wsUrl: core.intelligence?.wsUrl,
       agentId,
     });
     this._ownedThreadStores.set(agentId, store);
@@ -2607,6 +4484,25 @@ export class WebInspectorElement extends LitElement {
     // refresh() re-fetches without resetting threads to [] first, so the list
     // stays visible while new data loads and survives transient fetch failures.
     store.refresh();
+  }
+
+  // Keep inspector-owned thread stores in sync when the host updates headers
+  // at runtime (e.g. a refreshed auth/CSRF token via core.setHeaders). Mirrors
+  // useThreads(), which re-dispatches the context whenever core.headers change,
+  // so the owned stores' /threads requests stay authorized.
+  private updateOwnedThreadStoreHeaders(
+    headers: Readonly<Record<string, string>>,
+  ): void {
+    const core = this.core;
+    if (!core?.runtimeUrl) return;
+    for (const [agentId, store] of this._ownedThreadStores) {
+      store.setContext({
+        runtimeUrl: core.runtimeUrl,
+        headers: { ...headers },
+        wsUrl: core.intelligence?.wsUrl,
+        agentId,
+      });
+    }
   }
 
   private removeOwnedThreadStore(agentId: string): void {
@@ -2639,8 +4535,12 @@ export class WebInspectorElement extends LitElement {
             maybeShowDisclosure();
           }
           this.flushPendingBannerViewed();
-          for (const agentId of this._ownedThreadStores.keys()) {
-            this.refreshOwnedThreadStore(agentId);
+          if (this.areThreadEndpointsAvailable()) {
+            for (const agentId of this._ownedThreadStores.keys()) {
+              this.refreshOwnedThreadStore(agentId);
+            }
+          } else {
+            this.teardownOwnedThreadStores();
           }
         } else {
           // Clear stale thread data immediately when the server goes away
@@ -2653,12 +4553,24 @@ export class WebInspectorElement extends LitElement {
         this.coreProperties = properties;
         this.requestUpdate();
       },
+      onHeadersChanged: ({ headers }) => {
+        this.updateOwnedThreadStoreHeaders(headers);
+        this.requestUpdate();
+      },
       onError: ({ code, error }) => {
         this.lastCoreError = { code, message: error.message };
         this.requestUpdate();
       },
       onAgentsChanged: ({ agents }) => {
         this.processAgentsChanged(agents);
+      },
+      onAgentRunStarted: ({ agent }) => {
+        // Per-thread clones (from useAgent) are not in the agent registry, so
+        // onAgentsChanged never fires for them. Subscribe to the running
+        // instance here so its AG-UI events reach the event timeline.
+        if (agent?.agentId) {
+          this.subscribeToAgent(agent);
+        }
       },
       onContextChanged: ({ context }) => {
         this.contextStore = this.normalizeContextStore(context);
@@ -2684,6 +4596,14 @@ export class WebInspectorElement extends LitElement {
     this.coreUnsubscribe = core.subscribe(this.coreSubscriber).unsubscribe;
     this.processAgentsChanged(core.agents);
 
+    if (core.runtimeConnectionStatus === "connected") {
+      if (!core.telemetryDisabled) {
+        ensureTelemetryDistinctId();
+        maybeShowDisclosure();
+      }
+      this.flushPendingBannerViewed();
+    }
+
     // Subscribe to any already-registered thread stores. `getThreadStores` was
     // added in the same release as this inspector; guard so consumers still on
     // an older @copilotkit/core don't throw when assigning `inspector.core`.
@@ -2697,6 +4617,91 @@ export class WebInspectorElement extends LitElement {
     if (core.context) {
       this.contextStore = this.normalizeContextStore(core.context);
     }
+
+    // NOTE: the memory store is intentionally NOT touched here. Calling
+    // `core.getMemoryStore()` lazily creates + `.start()`s the store and opens
+    // a realtime connection, so merely attaching the inspector would spin up a
+    // memory store + realtime even in apps that never use memory. Instead, the
+    // store is created + subscribed on first Memories-tab activation via
+    // `ensureMemorySubscription` (user-initiated, acceptable). Attaching the
+    // inspector creates nothing.
+    //
+    // Exception: if the Memories tab is ALREADY the active tab when core is
+    // wired (e.g. core attaches after `firstUpdated` restored a persisted
+    // `selectedMenu: "memories"`), subscribe now so the live store + realtime
+    // status paint instead of the stuck defaults. This preserves INSP-1 (no
+    // unconditional subscribe on attach) because it is gated on the active tab,
+    // and is safe to call when already subscribed — `ensureMemorySubscription`
+    // early-returns on `_memorySubscribed`.
+    if (this.selectedMenu === "memories") {
+      this.ensureMemorySubscription();
+    }
+  }
+
+  /**
+   * Lazily subscribes to the singleton memory store the first time the user
+   * activates the Memories tab. This is deferred out of `attachToCore` because
+   * `core.getMemoryStore()` is what creates + starts the store and opens
+   * realtime — doing it on attach would start memory for apps that never use
+   * it. Idempotent: repeated tab activations are guarded by
+   * `_memorySubscribed`. On an older @copilotkit/core without `getMemoryStore`,
+   * records the unsupported state so the teaser can guide an SDK upgrade.
+   */
+  private ensureMemorySubscription(): void {
+    if (this._memorySubscribed) {
+      return;
+    }
+    const core = this._core;
+    if (!core) {
+      return;
+    }
+
+    // Guard like getThreadStores: older @copilotkit/core has no getMemoryStore.
+    // When absent, flag the unsupported state so the teaser shows upgrade copy
+    // instead of throwing a TypeError that would break the entire inspector.
+    if (typeof core.getMemoryStore !== "function") {
+      this._memoryStoreUnsupported = true;
+      this._memoriesAvailable = false;
+      this.requestUpdate();
+      return;
+    }
+
+    this._memorySubscribed = true;
+    this._memoryStoreUnsupported = false;
+
+    // First touch of getMemoryStore() — creates + starts the store, opens realtime.
+    const memoryStore = core.getMemoryStore();
+    const ms = memoryStore.getState();
+    this._memories = ɵselectMemories(ms);
+    this._memoriesLoading = ɵselectMemoriesIsLoading(ms);
+    this._memoriesError = ɵselectMemoriesError(ms);
+    this._memoriesAvailable = ɵselectMemoriesAvailable(ms);
+    this._memoriesRealtimeStatus = ɵselectMemoriesRealtimeStatus(ms);
+    const memSubs = [
+      memoryStore.select(ɵselectMemories).subscribe((v) => {
+        this._memories = v;
+        this.requestUpdate();
+      }),
+      memoryStore.select(ɵselectMemoriesIsLoading).subscribe((v) => {
+        this._memoriesLoading = v;
+        this.requestUpdate();
+      }),
+      memoryStore.select(ɵselectMemoriesError).subscribe((v) => {
+        this._memoriesError = v;
+        this.requestUpdate();
+      }),
+      memoryStore.select(ɵselectMemoriesAvailable).subscribe((v) => {
+        this._memoriesAvailable = v;
+        this.requestUpdate();
+      }),
+      // Group E — realtime connection health.
+      memoryStore.select(ɵselectMemoriesRealtimeStatus).subscribe((v) => {
+        this._memoriesRealtimeStatus = v;
+        this.requestUpdate();
+      }),
+    ];
+    this._memoryUnsub = () => memSubs.forEach((s) => s.unsubscribe());
+    this.requestUpdate();
   }
 
   private detachFromCore(): void {
@@ -2704,6 +4709,17 @@ export class WebInspectorElement extends LitElement {
       this.coreUnsubscribe();
       this.coreUnsubscribe = null;
     }
+    this._memoryUnsub?.();
+    this._memoryUnsub = null;
+    this._memories = [];
+    this._memoriesLoading = false;
+    this._memoriesError = null;
+    this._memoriesAvailable = true;
+    this._memoriesRealtimeStatus = "connecting";
+    // Reset the lazy-subscription guards so a later attach + Memories-tab
+    // activation re-subscribes (and re-evaluates SDK support) cleanly.
+    this._memorySubscribed = false;
+    this._memoryStoreUnsupported = false;
     this.coreSubscriber = null;
     this.runtimeStatus = null;
     this.lastCoreError = null;
@@ -2830,8 +4846,11 @@ export class WebInspectorElement extends LitElement {
       onRunStartedEvent: ({ event }) => {
         this.recordAgentEvent(agentId, "RUN_STARTED", event);
       },
-      onRunFinishedEvent: ({ event, result }) => {
-        this.recordAgentEvent(agentId, "RUN_FINISHED", { event, result });
+      onRunFinishedEvent: (params) => {
+        this.recordAgentEvent(agentId, "RUN_FINISHED", {
+          event: params.event,
+          result: "result" in params ? params.result : undefined,
+        });
         this.refreshOwnedThreadStore(agentId);
       },
       onRunErrorEvent: ({ event }) => {
@@ -3375,6 +5394,10 @@ ${argsString}</pre
     const base =
       "font-mono text-[10px] font-medium inline-flex items-center rounded-sm px-1.5 py-0.5 border";
 
+    if (type === "RUN_ERROR") {
+      return `${base} bg-rose-50 text-rose-700 border-rose-200`;
+    }
+
     if (type.startsWith("RUN_")) {
       return `${base} bg-blue-50 text-blue-700 border-blue-200`;
     }
@@ -3397,10 +5420,6 @@ ${argsString}</pre
 
     if (type.startsWith("MESSAGES")) {
       return `${base} bg-sky-50 text-sky-700 border-sky-200`;
-    }
-
-    if (type === "RUN_ERROR") {
-      return `${base} bg-rose-50 text-rose-700 border-rose-200`;
     }
 
     return `${base} bg-gray-100 text-gray-600 border-gray-200`;
@@ -4007,6 +6026,35 @@ ${argsString}</pre
       .cpk-tab-active {
         cursor: pointer;
       }
+      .cpk-threads-overview-video-frame {
+        position: relative;
+        display: block;
+        width: 100%;
+        max-width: 440px;
+        aspect-ratio: 16 / 9;
+        margin: 0 0 14px;
+        overflow: hidden;
+        border: 1px solid #dbdbe5;
+        border-radius: 8px;
+        background:
+          linear-gradient(
+            135deg,
+            rgba(190, 194, 255, 0.18),
+            rgba(133, 236, 206, 0.12)
+          ),
+          #ffffff;
+        box-shadow: 0 8px 20px rgba(1, 5, 7, 0.08);
+      }
+      .cpk-threads-overview-video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0;
+        transition: opacity 220ms ease;
+      }
+      .cpk-threads-overview-video[data-ready="true"] {
+        opacity: 1;
+      }
 
       /* ── Header control buttons (dock, close) — first row only ───── */
       .drag-handle > div:first-child button {
@@ -4189,6 +6237,7 @@ ${argsString}</pre
 
       // Load state early (before first render) so menu selection is correct
       this.hydrateStateFromStorageEarly();
+      this.exampleTourDismissed = this.readThreadsExampleTourDismissed();
       this.tryAutoAttachCore();
       this.ensureAnnouncementLoading();
     }
@@ -4223,6 +6272,17 @@ ${argsString}</pre
       clearTimeout(this.transitionTimeoutId);
       this.transitionTimeoutId = null;
     }
+    if (this.threadsExampleOverviewVideoLoadTimer !== null) {
+      window.clearTimeout(this.threadsExampleOverviewVideoLoadTimer);
+      this.threadsExampleOverviewVideoLoadTimer = null;
+    }
+    if (
+      this.threadsExampleOverviewVideoIdleCallbackId !== null &&
+      typeof window.cancelIdleCallback === "function"
+    ) {
+      window.cancelIdleCallback(this.threadsExampleOverviewVideoIdleCallbackId);
+      this.threadsExampleOverviewVideoIdleCallbackId = null;
+    }
     this.removeDockStyles(true); // Clean up any docking styles, skip transition
     this.detachFromCore();
   }
@@ -4246,6 +6306,18 @@ ${argsString}</pre
     this.contextState.window.anchorOffset = { x: EDGE_MARGIN, y: EDGE_MARGIN };
 
     this.hydrateStateFromStorage();
+
+    // `hydrateStateFromStorage` may have restored `selectedMenu: "memories"`.
+    // The memory subscription is normally created on a Memories-tab CLICK via
+    // `handleMenuSelect`, which never fires when the tab boots already active —
+    // leaving the realtime indicator stuck on the default "connecting" and the
+    // list empty until the user toggles tabs. Subscribe now when the Memories
+    // tab is the active tab. Gated on the active tab to preserve INSP-1 (no
+    // unconditional subscribe), and safe if core is not yet attached or already
+    // subscribed — `ensureMemorySubscription` early-returns in both cases.
+    if (this.selectedMenu === "memories") {
+      this.ensureMemorySubscription();
+    }
 
     // Apply docking styles if open and docked (skip transition on initial load)
     if (this.isOpen && this.dockMode !== "floating") {
@@ -4480,6 +6552,21 @@ ${argsString}</pre
                   </button>
                 `;
               })}
+              ${
+                this.selectedMenu === "threads"
+                  ? html`
+                      <a
+                        href=${this.getThreadsTalkToEngineerUrl()}
+                        target="_blank"
+                        rel="noopener"
+                        style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;border-radius:6px;border:1px solid #dbdbe5;background:#ffffff;padding:7px 10px;font-size:12px;font-weight:600;color:#57575b;text-decoration:none;"
+                        @click=${this.handleTalkToEngineerClick}
+                      >
+                        Talk to an Engineer
+                      </a>
+                    `
+                  : nothing
+              }
             </div>
           </div>
           <div class="flex flex-1 flex-col overflow-hidden">
@@ -5704,6 +7791,10 @@ ${argsString}</pre
       return this.renderThreadsView();
     }
 
+    if (this.selectedMenu === "memories") {
+      return this.renderMemoriesView();
+    }
+
     if (this.selectedMenu === "settings") {
       return this.renderSettingsPanel();
     }
@@ -5721,7 +7812,9 @@ ${argsString}</pre
 
             <div class="space-y-2">
               <h3 class="text-sm text-slate-500">Privacy</h3>
-              <div class="rounded-lg border border-slate-200 bg-white p-4 space-y-3">
+              <div
+                class="rounded-lg border border-slate-200 bg-white p-4 space-y-3"
+              >
                 <p class="text-sm text-gray-600 flex items-start gap-2">
                   <span>${optedOut ? "❌" : "✅"}</span>
                   <span>
@@ -5737,7 +7830,8 @@ ${argsString}</pre
                   href=${TELEMETRY_DOCS_URL}
                   target="_blank"
                   rel="noopener"
-                >Learn more →</a>
+                  >Learn more →</a
+                >
               </div>
             </div>
           </div>
@@ -5761,6 +7855,45 @@ ${argsString}</pre
       cta_label: this.announcementCtaLabel ?? undefined,
     });
   }
+
+  private handleTalkToEngineerClick = (): void => {
+    if (this.core?.telemetryDisabled) return;
+    trackTalkToEngineerClicked(
+      this.getThreadsTelemetryProps(
+        {
+          cta: "talk_to_engineer",
+          cta_surface: "threads_header",
+        },
+        { includeUrlAttribution: true },
+      ),
+    );
+  };
+
+  private handleThreadsIntelligenceSignupClick = (): void => {
+    if (this.core?.telemetryDisabled) return;
+    trackThreadsIntelligenceSignupClicked(
+      this.getThreadsTelemetryProps(
+        {
+          cta: "signup",
+          cta_surface: "threads_locked",
+        },
+        { includeUrlAttribution: true },
+      ),
+    );
+  };
+
+  private handleThreadsTalkToEngineerClick = (): void => {
+    if (this.core?.telemetryDisabled) return;
+    trackThreadsTalkToEngineerClicked(
+      this.getThreadsTelemetryProps(
+        {
+          cta: "talk_to_engineer",
+          cta_surface: "threads_locked",
+        },
+        { includeUrlAttribution: true },
+      ),
+    );
+  };
 
   private handleThreadDividerPointerDown = (event: PointerEvent) => {
     this.threadDividerResizing = true;
@@ -5794,112 +7927,1248 @@ ${argsString}</pre
     this.threadDividerResizing = false;
   };
 
-  private renderThreadsView() {
-    const displayThreads =
-      this.selectedContext === "all-agents"
-        ? this._threads
-        : (this._threadsByAgent.get(this.selectedContext) ?? []);
-
-    // Surface a thread-store load error inline. For "all-agents" we report
-    // the first error encountered across all agents (good enough for a
-    // debugging surface — the per-agent context filter narrows down the
-    // culprit). For a specific agent we use that agent's error directly.
-    let threadsErrorMessage: string | null = null;
-    if (this.selectedContext === "all-agents") {
-      const firstError = this._threadsErrorByAgent.values().next().value;
-      threadsErrorMessage = firstError?.message ?? null;
+  private trackThreadsViewStateOnce(
+    state: "locked" | "empty_enabled" | "enabled",
+    threadCount: number,
+  ): void {
+    if (this.core?.telemetryDisabled) return;
+    const key = `${state}:${this.getThreadServiceStatus()}`;
+    if (this.viewedThreadsTelemetryStates.has(key)) return;
+    this.viewedThreadsTelemetryStates.add(key);
+    const props = this.getThreadsTelemetryProps({ thread_count: threadCount });
+    if (state === "locked") {
+      trackThreadsLockedViewed(props);
+    } else if (state === "empty_enabled") {
+      trackThreadsEmptyEnabledViewed(props);
     } else {
-      threadsErrorMessage =
-        this._threadsErrorByAgent.get(this.selectedContext)?.message ?? null;
+      trackThreadsEnabledViewed(props);
+    }
+  }
+
+  private shouldRenderExampleThreads(
+    displayThreads: ɵThread[],
+    threadsErrorMessage: string | null,
+  ): boolean {
+    return (
+      this.areThreadEndpointsAvailable() &&
+      !threadsErrorMessage &&
+      displayThreads.length === 0
+    );
+  }
+
+  private getVisibleThreads(
+    displayThreads: ɵThread[],
+    threadsErrorMessage: string | null,
+  ): ɵThread[] {
+    return this.shouldRenderExampleThreads(displayThreads, threadsErrorMessage)
+      ? THREADS_EXAMPLE_THREADS
+      : displayThreads;
+  }
+
+  private isExampleThreadId(threadId: string | null | undefined): boolean {
+    return THREADS_EXAMPLE_THREADS.some((thread) => thread.id === threadId);
+  }
+
+  private getExampleThreadProvider(threadId: string): ThreadDebuggerProvider {
+    const cached = this.exampleThreadProviders.get(threadId);
+    if (cached) return cached;
+    const thread = THREADS_EXAMPLE_THREADS.find((item) => item.id === threadId);
+    const details = THREADS_EXAMPLE_DETAILS[threadId];
+    const provider: ThreadDebuggerProvider = {
+      getThreadMetadata: async () =>
+        thread
+          ? {
+              id: thread.id,
+              name: thread.name,
+              agentId: thread.agentId,
+              endUserId: "example-user",
+              status: "completed",
+              updatedAt: thread.updatedAt,
+            }
+          : null,
+      getMessages: async () => details?.messages ?? [],
+      getEvents: async () => details?.events ?? [],
+      getState: async () => details?.state ?? null,
+    };
+    this.exampleThreadProviders.set(threadId, provider);
+    return provider;
+  }
+
+  private trackThreadsExampleViewedOnce(): void {
+    if (this.core?.telemetryDisabled) return;
+    for (const thread of THREADS_EXAMPLE_THREADS) {
+      if (this.viewedExampleThreadIds.has(thread.id)) continue;
+      this.viewedExampleThreadIds.add(thread.id);
+      trackThreadsExampleViewed(
+        this.getThreadsTelemetryProps({
+          example_thread_id: thread.id,
+          thread_count: 0,
+        }),
+      );
+    }
+  }
+
+  private trackThreadsExampleSelectedOnce(threadId: string): void {
+    if (this.core?.telemetryDisabled) return;
+    if (this.selectedExampleThreadIds.has(threadId)) return;
+    this.selectedExampleThreadIds.add(threadId);
+    trackThreadsExampleSelected(
+      this.getThreadsTelemetryProps({
+        example_thread_id: threadId,
+        thread_count: 0,
+      }),
+    );
+  }
+
+  private getCurrentExampleTourProps(): InspectorThreadTelemetryProps {
+    const step =
+      THREADS_EXAMPLE_TOUR_STEPS[this.exampleTourStep] ??
+      THREADS_EXAMPLE_TOUR_STEPS[0]!;
+    return this.getThreadsTelemetryProps({
+      example_thread_id: this.selectedThreadId ?? undefined,
+      thread_count: 0,
+      tour_step: this.exampleTourStep + 1,
+      tour_tab: step?.tab,
+    });
+  }
+
+  private trackThreadsExampleTourStepViewedOnce(): void {
+    if (this.core?.telemetryDisabled || !this.selectedThreadId) return;
+    const step =
+      THREADS_EXAMPLE_TOUR_STEPS[this.exampleTourStep] ??
+      THREADS_EXAMPLE_TOUR_STEPS[0]!;
+    if (!step) return;
+    const key = `${this.selectedThreadId}:${this.exampleTourStep}`;
+    if (this.viewedExampleTourSteps.has(key)) return;
+    this.viewedExampleTourSteps.add(key);
+    trackThreadsExampleTourStepViewed(this.getCurrentExampleTourProps());
+  }
+
+  private syncExampleTourTab(): void {
+    const step =
+      THREADS_EXAMPLE_TOUR_STEPS[this.exampleTourStep] ??
+      THREADS_EXAMPLE_TOUR_STEPS[0]!;
+    if (!step) return;
+    void this.updateComplete.then(() => {
+      const details = this.shadowRoot?.querySelector("cpk-thread-details") as
+        | (ɵCpkThreadDetails & { selectTab?: (id: ThreadDetailsTab) => void })
+        | null;
+      details?.selectTab?.(step.tab);
+    });
+  }
+
+  private startExampleTour(autoStarted: boolean): void {
+    if (!this.selectedThreadId) return;
+    this.exampleTourActive = true;
+    this.exampleTourStep = 0;
+    if (autoStarted) {
+      this.exampleTourAutoShown = true;
+      if (!this.core?.telemetryDisabled) {
+        trackThreadsExampleTourStarted(this.getCurrentExampleTourProps());
+      }
+    } else if (!this.core?.telemetryDisabled) {
+      trackThreadsExampleTourReopened(this.getCurrentExampleTourProps());
+    }
+    this.trackThreadsExampleTourStepViewedOnce();
+    this.syncExampleTourTab();
+    this.requestUpdate();
+  }
+
+  private setExampleTourStep(nextStep: number): void {
+    this.exampleTourStep = Math.max(
+      0,
+      Math.min(THREADS_EXAMPLE_TOUR_STEPS.length - 1, nextStep),
+    );
+    this.trackThreadsExampleTourStepViewedOnce();
+    this.syncExampleTourTab();
+    this.requestUpdate();
+  }
+
+  private dismissExampleTour(method: "skip" | "done"): void {
+    if (!this.selectedThreadId) return;
+    const props = {
+      ...this.getCurrentExampleTourProps(),
+      dismiss_method: method,
+    };
+    this.exampleTourActive = false;
+    this.exampleTourDismissed = true;
+    this.writeThreadsExampleTourDismissed();
+    if (!this.core?.telemetryDisabled) {
+      if (method === "done") {
+        trackThreadsExampleTourCompleted(props);
+      } else {
+        trackThreadsExampleTourDismissed(props);
+      }
+    }
+    this.requestUpdate();
+  }
+
+  private handleThreadsThreadSelected(
+    threadId: string,
+    showingExamples: boolean,
+  ): void {
+    if (showingExamples && this.selectedThreadId === threadId) {
+      this.selectedThreadId = null;
+      this.exampleTourActive = false;
+      this.requestUpdate();
+      return;
+    }
+
+    this.selectedThreadId = threadId;
+    if (showingExamples && this.isExampleThreadId(threadId)) {
+      this.trackThreadsExampleSelectedOnce(threadId);
+      if (!this.exampleTourDismissed && !this.exampleTourAutoShown) {
+        this.startExampleTour(true);
+      } else {
+        this.exampleTourActive = false;
+      }
+    } else {
+      this.exampleTourActive = false;
+    }
+    this.requestUpdate();
+  }
+
+  private readThreadsExampleTourDismissed(): boolean {
+    if (typeof window === "undefined") return false;
+    try {
+      const raw = window.localStorage.getItem(THREADS_EXAMPLE_TOUR_STORAGE_KEY);
+      if (!raw) return false;
+      const value = JSON.parse(raw) as { dismissed?: unknown };
+      return value.dismissed === true;
+    } catch {
+      return false;
+    }
+  }
+
+  private writeThreadsExampleTourDismissed(): void {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        THREADS_EXAMPLE_TOUR_STORAGE_KEY,
+        JSON.stringify({ dismissed: true }),
+      );
+    } catch {
+      // Persistence is best-effort; the inspector should keep working without it.
+    }
+  }
+
+  private scheduleThreadsExampleOverviewVideoLoad(): void {
+    if (
+      this.threadsExampleOverviewVideoShouldLoad ||
+      this.threadsExampleOverviewVideoLoadTimer !== null ||
+      this.threadsExampleOverviewVideoIdleCallbackId !== null ||
+      typeof window === "undefined"
+    ) {
+      return;
+    }
+
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      return;
+    }
+
+    const loadVideo = () => {
+      this.threadsExampleOverviewVideoLoadTimer = null;
+      this.threadsExampleOverviewVideoIdleCallbackId = null;
+      this.threadsExampleOverviewVideoShouldLoad = true;
+      this.requestUpdate();
+    };
+
+    if (typeof window.requestIdleCallback === "function") {
+      this.threadsExampleOverviewVideoIdleCallbackId =
+        window.requestIdleCallback(loadVideo, { timeout: 1200 });
+      return;
+    }
+
+    this.threadsExampleOverviewVideoLoadTimer = window.setTimeout(
+      loadVideo,
+      450,
+    );
+  }
+
+  private handleThreadsExampleOverviewVideoLoaded = (): void => {
+    this.threadsExampleOverviewVideoReady = true;
+    this.requestUpdate();
+  };
+
+  private renderThreadsExampleOverviewVideo() {
+    this.scheduleThreadsExampleOverviewVideoLoad();
+
+    return html`
+      <div class="cpk-threads-overview-video-frame" aria-hidden="true">
+        ${
+          this.threadsExampleOverviewVideoShouldLoad
+            ? html`
+                <video
+                  class="cpk-threads-overview-video"
+                  data-ready=${this.threadsExampleOverviewVideoReady}
+                  src=${THREADS_EXAMPLE_OVERVIEW_VIDEO_URL}
+                  autoplay
+                  loop
+                  muted
+                  playsinline
+                  preload="metadata"
+                  @loadeddata=${this.handleThreadsExampleOverviewVideoLoaded}
+                ></video>
+              `
+            : nothing
+        }
+      </div>
+    `;
+  }
+
+  private renderThreadsExampleOverview() {
+    return html`
+      <div
+        style="
+          flex: 1;
+          min-width: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 32px;
+          background: #f7f7f9;
+        "
+      >
+        <div style="max-width: 440px; color: #57575b;">
+          <h2
+            style="
+              margin: 0 0 10px;
+              font-size: 20px;
+              line-height: 1.25;
+              font-weight: 600;
+              color: #010507;
+            "
+          >
+            Threads are persistent, inspectable conversations
+          </h2>
+          ${this.renderThreadsExampleOverviewVideo()}
+          <p
+            style="
+              margin: 0 0 16px;
+              font-size: 13px;
+              line-height: 1.55;
+              color: #57575b;
+            "
+          >
+            Take a tour with the example threads in the sidebar. Then, start
+            chatting in your app to create the first real thread.
+          </p>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;">
+            <a
+              href=${this.getThreadsDocsUrl()}
+              target="_blank"
+              rel="noopener"
+              style="
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                min-height: 34px;
+                border-radius: 6px;
+                background: #010507;
+                padding: 8px 12px;
+                font-size: 12px;
+                font-weight: 600;
+                color: #ffffff;
+                text-decoration: none;
+              "
+            >
+              Learn how Threads work
+            </a>
+            <a
+              href=${this.getSelfHostedIntelligenceUrl()}
+              target="_blank"
+              rel="noopener"
+              style="
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                min-height: 34px;
+                border-radius: 6px;
+                border: 1px solid #dbdbe5;
+                background: #ffffff;
+                padding: 8px 12px;
+                font-size: 12px;
+                font-weight: 600;
+                color: #010507;
+                text-decoration: none;
+              "
+            >
+              Explore self-hosted Intelligence
+            </a>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderThreadsExampleTour() {
+    if (
+      !this.selectedThreadId ||
+      !this.isExampleThreadId(this.selectedThreadId)
+    ) {
+      return nothing;
+    }
+
+    if (!this.exampleTourActive) {
+      return html`
+        <button
+          type="button"
+          style="
+            position: absolute;
+            right: 16px;
+            bottom: 16px;
+            z-index: 2;
+            border: 1px solid #dbdbe5;
+            border-radius: 6px;
+            background: #ffffff;
+            padding: 7px 10px;
+            color: #57575b;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 8px 18px rgba(1, 5, 7, 0.08);
+          "
+          @click=${() => this.startExampleTour(false)}
+        >
+          Show tour
+        </button>
+      `;
+    }
+
+    const step =
+      THREADS_EXAMPLE_TOUR_STEPS[this.exampleTourStep] ??
+      THREADS_EXAMPLE_TOUR_STEPS[0]!;
+    const isFirst = this.exampleTourStep === 0;
+    const isLast =
+      this.exampleTourStep === THREADS_EXAMPLE_TOUR_STEPS.length - 1;
+
+    return html`
+      <div
+        role="dialog"
+        aria-label="Example thread tour"
+        style="
+          position: absolute;
+          right: 16px;
+          bottom: 16px;
+          z-index: 3;
+          width: min(340px, calc(100% - 32px));
+          border: 1px solid #dbdbe5;
+          border-radius: 8px;
+          background: #ffffff;
+          padding: 14px;
+          box-shadow: 0 16px 36px rgba(1, 5, 7, 0.14);
+          color: #57575b;
+        "
+      >
+        <div
+          style="
+            margin-bottom: 8px;
+            font-family: 'Spline Sans Mono', monospace;
+            font-size: 10px;
+            font-weight: 600;
+            color: #189370;
+            text-transform: uppercase;
+          "
+        >
+          ${this.exampleTourStep + 1}/${THREADS_EXAMPLE_TOUR_STEPS.length}
+          ${step.label}
+        </div>
+        <div
+          style="
+            margin-bottom: 6px;
+            font-size: 14px;
+            line-height: 1.35;
+            font-weight: 600;
+            color: #010507;
+          "
+        >
+          ${step.title}
+        </div>
+        <div style="font-size: 12px; line-height: 1.5; color: #57575b;">
+          ${step.body}
+        </div>
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            margin-top: 14px;
+          "
+        >
+          <button
+            type="button"
+            style="border:0;background:transparent;color:#838389;font-size:12px;font-weight:600;cursor:pointer;padding:7px 0;"
+            @click=${() => this.dismissExampleTour("skip")}
+          >
+            Skip
+          </button>
+          <div style="display:flex;gap:8px;">
+            <button
+              type="button"
+              style="border:1px solid #dbdbe5;border-radius:6px;background:#ffffff;color:#57575b;font-size:12px;font-weight:600;cursor:pointer;padding:7px 10px;"
+              ?disabled=${isFirst}
+              @click=${() => this.setExampleTourStep(this.exampleTourStep - 1)}
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              style="border:1px solid #010507;border-radius:6px;background:#010507;color:#ffffff;font-size:12px;font-weight:600;cursor:pointer;padding:7px 10px;"
+              @click=${() =>
+                isLast
+                  ? this.dismissExampleTour("done")
+                  : this.setExampleTourStep(this.exampleTourStep + 1)}
+            >
+              ${isLast ? "Done" : "Next"}
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderThreadsLockedBackgroundMockup() {
+    const threadRows = [
+      { width: 74, accent: true },
+      { width: 92 },
+      { width: 68 },
+      { width: 84 },
+      { width: 58 },
+      { width: 76 },
+    ];
+
+    return html`
+      <div
+        aria-hidden="true"
+        style="
+          position: absolute;
+          inset: 0;
+          display: grid;
+          grid-template-columns: minmax(180px, 28%) 1fr;
+          overflow: hidden;
+          opacity: 0.58;
+          pointer-events: none;
+        "
+      >
+        <div
+          style="
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 28px 24px;
+            border-right: 1px solid #dbdbe5;
+            background: #fafafa;
+          "
+        >
+          ${threadRows.map(
+            (row) => html`
+              <div
+                style="
+                  padding: 12px;
+                  border-radius: 8px;
+                  background: ${row.accent ? "#eee6fe" : "#ffffff"};
+                  box-shadow: inset 0 0 0 1px #eeeef4;
+                "
+              >
+                <div
+                  style="
+                    height: 8px;
+                    width: ${row.width}%;
+                    border-radius: 99px;
+                    background: ${row.accent ? "#a984f5" : "#d7d7df"};
+                  "
+                ></div>
+                <div
+                  style="
+                    height: 6px;
+                    width: 88%;
+                    margin-top: 10px;
+                    border-radius: 99px;
+                    background: #e3e3eb;
+                  "
+                ></div>
+                <div
+                  style="
+                    height: 6px;
+                    width: 62%;
+                    margin-top: 7px;
+                    border-radius: 99px;
+                    background: #e8e8ef;
+                  "
+                ></div>
+              </div>
+            `,
+          )}
+        </div>
+        <div
+          style="
+            min-width: 0;
+            padding: 42px 48px;
+            background: #ffffff;
+          "
+        >
+          <div
+            style="
+              height: 10px;
+              width: 180px;
+              border-radius: 99px;
+              background: #d7d7df;
+            "
+          ></div>
+          <div
+            style="
+              height: 8px;
+              width: min(520px, 58%);
+              margin-top: 28px;
+              border-radius: 99px;
+              background: #e3e3eb;
+            "
+          ></div>
+          <div
+            style="
+              height: 8px;
+              width: min(430px, 48%);
+              margin-top: 12px;
+              border-radius: 99px;
+              background: #e8e8ef;
+            "
+          ></div>
+          <div
+            style="
+              display: grid;
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              gap: 16px;
+              max-width: 620px;
+              margin-top: 30px;
+            "
+          >
+            <div
+              style="
+                height: 116px;
+                border-radius: 8px;
+                background: #f5f5f8;
+                box-shadow: inset 0 0 0 1px #eeeef4;
+              "
+            ></div>
+            <div
+              style="
+                height: 116px;
+                border-radius: 8px;
+                background: #f5f5f8;
+                box-shadow: inset 0 0 0 1px #eeeef4;
+              "
+            ></div>
+          </div>
+          <div
+            style="
+              height: 10px;
+              width: min(680px, 74%);
+              margin-top: 34px;
+              border-radius: 99px;
+              background: #e3e3eb;
+            "
+          ></div>
+          <div
+            style="
+              height: 10px;
+              width: min(560px, 60%);
+              margin-top: 14px;
+              border-radius: 99px;
+              background: #e8e8ef;
+            "
+          ></div>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderThreadsLockedView() {
+    this.trackThreadsViewStateOnce("locked", 0);
+    return html`
+      <div
+        style="
+          position: relative;
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 32px;
+          overflow: hidden;
+          background: #ffffff;
+        "
+      >
+        ${this.renderThreadsLockedBackgroundMockup()}
+        <div
+          aria-hidden="true"
+          style="
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background:
+              radial-gradient(circle at center, rgba(255,255,255,0.9) 0, rgba(255,255,255,0.78) 24%, rgba(255,255,255,0.34) 48%, rgba(255,255,255,0.56) 100%);
+          "
+        ></div>
+        <div
+          style="
+            position: relative;
+            z-index: 1;
+            max-width: 440px;
+            text-align: center;
+            color: #57575b;
+          "
+        >
+          <div
+            aria-hidden="true"
+            style="
+              margin: 0 auto 18px;
+              display: flex;
+              justify-content: center;
+            "
+          >
+            <div
+              style="
+                display: flex;
+                height: 44px;
+                width: 44px;
+                align-items: center;
+                justify-content: center;
+                border: 1px solid #dfd6fb;
+                border-radius: 8px;
+                background: #eee6fe;
+                color: #57575b;
+                box-shadow: 0 8px 18px rgba(87, 87, 91, 0.14);
+              "
+            >
+              ${this.renderIcon("Lock")}
+            </div>
+          </div>
+          <h2
+            style="
+              margin: 0 0 8px;
+              font-size: 16px;
+              line-height: 1.35;
+              font-weight: 600;
+              color: #010507;
+            "
+          >
+            Enable Intelligence to inspect Threads.
+          </h2>
+          <p
+            style="
+              margin: 0 auto 18px;
+              max-width: 380px;
+              font-size: 13px;
+              line-height: 1.55;
+              color: #57575b;
+            "
+          >
+            Persist conversations and inspect saved thread history from the
+            Inspector.
+          </p>
+          <div
+            style="
+              display: flex;
+              flex-wrap: wrap;
+              justify-content: center;
+              gap: 8px;
+            "
+          >
+            <a
+              href=${this.getThreadsIntelligenceSignupUrl()}
+              target="_blank"
+              rel="noopener"
+              style="
+                display: inline-flex;
+                min-height: 34px;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                border-radius: 6px;
+                border: 1px solid #dbdbe5;
+                background: #ffffff;
+                padding: 8px 12px;
+                font-size: 12px;
+                font-weight: 600;
+                color: #57575b;
+                text-decoration: none;
+              "
+              @click=${this.handleThreadsIntelligenceSignupClick}
+            >
+              Sign up for Intelligence
+            </a>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Renders the realtime-connection indicator in the memory-store header.
+   * Only `"connected"` shows the live (green-dot) state; `"connecting"` shows a
+   * muted amber "reconnecting" and `"unavailable"` a muted grey "offline", so
+   * the indicator never claims "live" over a frozen snapshot once the realtime
+   * socket has permanently given up.
+   */
+  private renderMemoryRealtimeIndicator() {
+    const status = this._memoriesRealtimeStatus;
+    const connected = status === "connected";
+    const dotColor = connected
+      ? "#22c55e"
+      : status === "connecting"
+        ? "#f59e0b"
+        : "#9ca3af";
+    const label =
+      status === "connected"
+        ? "live"
+        : status === "connecting"
+          ? "reconnecting"
+          : "offline";
+    return html`
+      <span
+        style="
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 10px;
+          font-weight: 500;
+          color: ${connected ? "#57575b" : "#838389"};
+        "
+      >
+        <span
+          style="
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: ${dotColor};
+          "
+        ></span>
+        ${label}
+      </span>
+    `;
+  }
+
+  private renderMemoriesView() {
+    // 1. Locked teaser — intelligence not configured or memories not available.
+    if (!this.core?.intelligence || !this._memoriesAvailable) {
+      return html`
+        <div
+          style="
+            position: relative;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 32px;
+            overflow: hidden;
+            background: #ffffff;
+          "
+        >
+          ${this.renderThreadsLockedBackgroundMockup()}
+          <div
+            aria-hidden="true"
+            style="
+              position: absolute;
+              inset: 0;
+              pointer-events: none;
+              background:
+                radial-gradient(circle at center, rgba(255,255,255,0.9) 0, rgba(255,255,255,0.78) 24%, rgba(255,255,255,0.34) 48%, rgba(255,255,255,0.56) 100%);
+            "
+          ></div>
+          <div
+            style="
+              position: relative;
+              z-index: 1;
+              max-width: 440px;
+              text-align: center;
+              color: #57575b;
+            "
+          >
+            <div
+              aria-hidden="true"
+              style="
+                margin: 0 auto 18px;
+                display: flex;
+                justify-content: center;
+              "
+            >
+              <div
+                style="
+                  display: flex;
+                  height: 44px;
+                  width: 44px;
+                  align-items: center;
+                  justify-content: center;
+                  border: 1px solid #dfd6fb;
+                  border-radius: 8px;
+                  background: #eee6fe;
+                  color: #57575b;
+                  box-shadow: 0 8px 18px rgba(87, 87, 91, 0.14);
+                "
+              >
+                ${this.renderIcon("Lock")}
+              </div>
+            </div>
+            <h2
+              style="
+                margin: 0 0 8px;
+                font-size: 16px;
+                line-height: 1.35;
+                font-weight: 600;
+                color: #010507;
+              "
+            >
+              Long-term memory
+            </h2>
+            <p
+              style="
+                margin: 0 auto 18px;
+                max-width: 380px;
+                font-size: 13px;
+                line-height: 1.55;
+                color: #57575b;
+              "
+            >
+              ${
+                this._memoryStoreUnsupported
+                  ? "Long-term memory isn't available in this version of the @copilotkit SDK. Upgrade @copilotkit/core (and @copilotkit/react) to a version that supports memory."
+                  : "Long-term memory isn't enabled on this deployment."
+              }
+            </p>
+            <div
+              style="
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 8px;
+              "
+            >
+              <a
+                href=${this.getTalkToEngineerUrl()}
+                target="_blank"
+                rel="noopener"
+                style="
+                  display: inline-flex;
+                  min-height: 34px;
+                  align-items: center;
+                  justify-content: center;
+                  gap: 6px;
+                  border-radius: 6px;
+                  background: #010507;
+                  padding: 8px 12px;
+                  font-size: 12px;
+                  font-weight: 600;
+                  color: #ffffff;
+                  text-decoration: none;
+                "
+                @click=${this.handleThreadsTalkToEngineerClick}
+              >
+                Talk to an Engineer
+              </a>
+              <a
+                href=${this.getIntelligenceSignupUrl()}
+                target="_blank"
+                rel="noopener"
+                style="
+                  display: inline-flex;
+                  min-height: 34px;
+                  align-items: center;
+                  justify-content: center;
+                  gap: 6px;
+                  border-radius: 6px;
+                  border: 1px solid #dbdbe5;
+                  background: #ffffff;
+                  padding: 8px 12px;
+                  font-size: 12px;
+                  font-weight: 600;
+                  color: #57575b;
+                  text-decoration: none;
+                "
+                @click=${this.handleThreadsIntelligenceSignupClick}
+              >
+                Sign up for Intelligence
+              </a>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // 2. Full-screen error — only for a snapshot-LOAD failure (no memories
+    // loaded). A mutation failure that arrives while memories are already on
+    // screen must NOT blank the list; it is surfaced inline below (step 4).
+    if (this._memoriesError && this._memories.length === 0) {
+      return html`
+        <div
+          style="
+            display: flex;
+            height: 100%;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            color: #838389;
+          "
+        >
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#c0333a"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          <span style="font-size: 13px; color: #c0333a;">
+            Failed to load memories
+          </span>
+          <span
+            style="
+              max-width: 320px;
+              text-align: center;
+              font-size: 11px;
+              line-height: 1.5;
+              color: #c0333a;
+            "
+          >
+            ${this._memoriesError.message}
+          </span>
+        </div>
+      `;
+    }
+
+    // 3. Initial loading placeholder (no memories yet to show behind it).
+    if (this._memoriesLoading && this._memories.length === 0) {
+      return html`
+        <div
+          style="
+            display: flex;
+            height: 100%;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            color: #838389;
+          "
+        >
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#c0c0c8"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+          </svg>
+          <span style="font-size: 13px">Loading memories…</span>
+        </div>
+      `;
+    }
+
+    // 4. Content — header + memory list.
+    return html`
+      <div style="display:flex;height:100%;overflow:hidden;flex-direction:column;">
+        <div class="cpk-section-header" style="display:flex;align-items:center;justify-content:space-between;">
+          <h4>Learning</h4>
+          <div style="display:flex;align-items:center;gap:6px;">
+            ${this.renderMemoryRealtimeIndicator()}
+            <span
+              style="
+                font-size: 11px;
+                font-weight: 500;
+                color: #57575b;
+                background: rgba(0,0,0,0.07);
+                border-radius: 9999px;
+                padding: 1px 7px;
+              "
+            >
+              ${this._memories.length}
+            </span>
+          </div>
+        </div>
+        ${
+          this._memoriesError
+            ? html`
+                <div
+                  role="alert"
+                  style="
+                    display: flex;
+                    align-items: flex-start;
+                    gap: 8px;
+                    flex-shrink: 0;
+                    border-bottom: 1px solid #f1c7c9;
+                    background: #fdf3f3;
+                    padding: 8px 12px;
+                    color: #c0333a;
+                    font-size: 12px;
+                    line-height: 1.45;
+                  "
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#c0333a"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    style="flex-shrink:0;margin-top:1px;"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                  <span>Action failed: ${this._memoriesError.message}</span>
+                </div>
+              `
+            : nothing
+        }
+        <div style="flex:1;min-height:0;overflow:hidden;">
+          <cpk-memory-list
+            style="height:100%;"
+            .memories=${this._memories}
+          ></cpk-memory-list>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderThreadsView() {
+    if (!this.areThreadEndpointsAvailable()) {
+      return this.renderThreadsLockedView();
+    }
+
+    const { displayThreads, threadsErrorMessage } =
+      this.getActiveThreadsState();
+
+    const showingExamples = this.shouldRenderExampleThreads(
+      displayThreads,
+      threadsErrorMessage,
+    );
+    const visibleThreads = this.getVisibleThreads(
+      displayThreads,
+      threadsErrorMessage,
+    );
+    if (showingExamples) {
+      this.trackThreadsExampleViewedOnce();
     }
 
     const selectedThread =
       this.selectedThreadId != null
-        ? (displayThreads.find((t) => t.id === this.selectedThreadId) ?? null)
+        ? (visibleThreads.find((t) => t.id === this.selectedThreadId) ?? null)
         : null;
+    const selectedThreadIsExample = this.isExampleThreadId(selectedThread?.id);
+
+    if (!threadsErrorMessage) {
+      this.trackThreadsViewStateOnce(
+        displayThreads.length === 0 ? "empty_enabled" : "enabled",
+        displayThreads.length,
+      );
+    }
 
     return html`
-      <div style="display:flex;height:100%;overflow:hidden;">
-        <!-- Left sidebar: thread list -->
-        <div
-          style="width:${this.threadListWidth}px;flex-shrink:0;overflow:hidden;display:flex;flex-direction:column;border-right:1px solid #DBDBE5;"
-        >
-          <cpk-thread-list
-            style="height:100%;"
-            .threads=${displayThreads}
-            .selectedThreadId=${this.selectedThreadId}
-            .errorMessage=${threadsErrorMessage}
-            @threadSelected=${(e: CustomEvent<string>) => {
-              this.selectedThreadId = e.detail;
-              this.requestUpdate();
-            }}
-          ></cpk-thread-list>
-        </div>
+      <div style="display:flex;height:100%;overflow:hidden;flex-direction:column;">
+        <div style="display:flex;min-height:0;flex:1;overflow:hidden;">
+          <!-- Left sidebar: thread list -->
+          <div
+            style="width:${this.threadListWidth}px;flex-shrink:0;overflow:hidden;display:flex;flex-direction:column;border-right:1px solid #DBDBE5;"
+          >
+            <cpk-thread-list
+              style="height:100%;"
+              .threads=${visibleThreads}
+              .selectedThreadId=${this.selectedThreadId}
+              .errorMessage=${threadsErrorMessage}
+              @threadSelected=${(e: CustomEvent<string>) => {
+                this.handleThreadsThreadSelected(e.detail, showingExamples);
+              }}
+            ></cpk-thread-list>
+          </div>
 
-        <!-- Resize divider -->
-        <div
-          style="width:4px;flex-shrink:0;cursor:col-resize;background:transparent;position:relative;z-index:1;"
-          @pointerdown=${this.handleThreadDividerPointerDown}
-          @pointermove=${this.handleThreadDividerPointerMove}
-          @pointerup=${this.handleThreadDividerPointerUp}
-          @pointercancel=${this.handleThreadDividerPointerUp}
-        ></div>
+          <!-- Resize divider -->
+          <div
+            style="width:4px;flex-shrink:0;cursor:col-resize;background:transparent;position:relative;z-index:1;"
+            @pointerdown=${this.handleThreadDividerPointerDown}
+            @pointermove=${this.handleThreadDividerPointerMove}
+            @pointerup=${this.handleThreadDividerPointerUp}
+            @pointercancel=${this.handleThreadDividerPointerUp}
+          ></div>
 
-        <!-- Center + right: thread details or empty state -->
-        <div style="flex:1;min-width:0;overflow:hidden;display:flex;">
-          ${
-            this.selectedThreadId
-              ? html`<cpk-thread-details
-                  style="flex:1;min-width:0;"
-                  .threadId=${this.selectedThreadId}
-                  .thread=${selectedThread}
-                  .runtimeUrl=${this._core?.runtimeUrl ?? ""}
-                  .headers=${this._core?.headers ?? {}}
-                  .liveMessageVersion=${
-                    this.selectedThreadId
-                      ? (this.liveMessageVersion.get(this.selectedThreadId) ??
-                        0)
-                      : 0
-                  }
-                  .agentStateInput=${
-                    selectedThread
-                      ? this.getLatestStateForAgent(selectedThread.agentId)
-                      : null
-                  }
-                  .agentEventsInput=${
-                    selectedThread
-                      ? (this.agentEvents.get(selectedThread.agentId) ?? [])
-                      : []
-                  }
-                ></cpk-thread-details>`
-              : html`
-                  <div
-                    style="
-                      flex: 1;
-                      display: flex;
-                      flex-direction: column;
-                      align-items: center;
-                      justify-content: center;
-                      gap: 8px;
-                      color: #838389;
-                    "
-                  >
-                    <svg
-                      width="32"
-                      height="32"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="#c0c0c8"
-                      stroke-width="1.5"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
+          <!-- Center + right: thread details or empty state -->
+          <div style="flex:1;min-width:0;overflow:hidden;display:flex;position:relative;">
+            ${
+              selectedThread
+                ? html`<cpk-thread-details
+                    style="flex:1;min-width:0;"
+                    .threadId=${selectedThread.id}
+                    .thread=${selectedThread}
+                    .provider=${
+                      selectedThreadIsExample
+                        ? this.getExampleThreadProvider(selectedThread.id)
+                        : null
+                    }
+                    .runtimeUrl=${this._core?.runtimeUrl ?? ""}
+                    .headers=${this._core?.headers ?? {}}
+                    .threadInspectionAvailable=${
+                      selectedThreadIsExample ||
+                      this._core?.threadEndpoints?.inspect !== false
+                    }
+                    .liveMessageVersion=${
+                      this.liveMessageVersion.get(selectedThread.id) ?? 0
+                    }
+                    .agentStateInput=${this.getLatestStateForAgent(
+                      selectedThread.agentId,
+                    )}
+                    .agentEventsInput=${
+                      this.agentEvents.get(selectedThread.agentId) ?? []
+                    }
+                  ></cpk-thread-details>
+                  ${selectedThreadIsExample ? this.renderThreadsExampleTour() : nothing}`
+                : showingExamples
+                  ? this.renderThreadsExampleOverview()
+                  : html`
+                    <div
+                      style="
+                        flex: 1;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 8px;
+                        color: #838389;
+                      "
                     >
-                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                    </svg>
-                    <span style="font-size: 13px">${displayThreads.length === 0 ? "No threads yet" : "Select a thread to inspect"}</span>
-                  </div>
-                `
-          }
+                      <svg
+                        width="32"
+                        height="32"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#c0c0c8"
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                      </svg>
+                      <span style="font-size: 13px">${
+                        displayThreads.length === 0
+                          ? "No threads yet"
+                          : "Select a thread to inspect"
+                      }</span>
+                    </div>
+                  `
+            }
+          </div>
         </div>
       </div>
     `;
@@ -6036,28 +9305,30 @@ ${argsString}</pre
         <div class="relative h-full w-full overflow-y-auto overflow-x-hidden">
           <table class="w-full table-fixed border-collapse text-xs box-border">
             <colgroup>
-              <col style="width:${this.evtColWidths[0]}px">
-              <col style="width:${this.evtColWidths[1]}px">
-              <col style="width:${this.evtColWidths[2]}px">
-              <col>
+              <col style="width:${this.evtColWidths[0]}px" />
+              <col style="width:${this.evtColWidths[1]}px" />
+              <col style="width:${this.evtColWidths[2]}px" />
+              <col />
             </colgroup>
             <thead class="sticky top-0 z-10">
               <tr class="bg-white">
                 ${["Agent", "Time", "Event Type"].map(
-                  (label, col) => html`
-                <th
-                  class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
-                  style="position:relative;overflow:hidden;"
-                >
-                  ${label}
-                  <div
-                    style="position:absolute;top:0;right:0;width:5px;height:100%;cursor:col-resize;user-select:none;background:transparent;"
-                    @pointerdown=${(e: PointerEvent) => this._onEvtColResizeStart(e, col)}
-                    @pointermove=${(e: PointerEvent) => this._onEvtColResizeMove(e)}
-                    @pointerup=${() => this._onEvtColResizeEnd()}
-                    @pointercancel=${() => this._onEvtColResizeEnd()}
-                  ></div>
-                </th>`,
+                  (label, col) =>
+                    html` <th
+                      class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
+                      style="position:relative;overflow:hidden;"
+                    >
+                      ${label}
+                      <div
+                        style="position:absolute;top:0;right:0;width:5px;height:100%;cursor:col-resize;user-select:none;background:transparent;"
+                        @pointerdown=${(e: PointerEvent) =>
+                          this._onEvtColResizeStart(e, col)}
+                        @pointermove=${(e: PointerEvent) =>
+                          this._onEvtColResizeMove(e)}
+                        @pointerup=${() => this._onEvtColResizeEnd()}
+                        @pointercancel=${() => this._onEvtColResizeEnd()}
+                      ></div>
+                    </th>`,
                 )}
                 <th
                   class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
@@ -6389,8 +9660,14 @@ ${prettyEvent}</pre
                 ? html`
                   <div class="w-full text-xs">
                     <div class="flex bg-gray-50">
-                      <div class="w-40 shrink-0 px-4 py-2 font-medium text-gray-700">Role</div>
-                      <div class="flex-1 px-4 py-2 font-medium text-gray-700">Content</div>
+                      <div
+                        class="w-40 shrink-0 px-4 py-2 font-medium text-gray-700"
+                      >
+                        Role
+                      </div>
+                      <div class="flex-1 px-4 py-2 font-medium text-gray-700">
+                        Content
+                      </div>
                     </div>
                     <div class="divide-y divide-gray-200">
                       ${messages.map((msg) => {
@@ -6413,7 +9690,9 @@ ${prettyEvent}</pre
                           <div class="flex items-start">
                             <div class="w-40 shrink-0 px-4 py-2">
                               <span
-                                class="inline-flex rounded px-2 py-0.5 text-[10px] font-medium ${roleColors[role] || roleColors.unknown}"
+                                class="inline-flex rounded px-2 py-0.5 text-[10px] font-medium ${
+                                  roleColors[role] || roleColors.unknown
+                                }"
                               >
                                 ${role}
                               </span>
@@ -6571,10 +9850,20 @@ ${prettyEvent}</pre
     }
 
     if (key === "threads") {
-      if (this.selectedMenu !== "threads" && !this.core?.telemetryDisabled) {
-        trackThreadsTabClicked();
+      if (previousMenu !== "threads" && !this.core?.telemetryDisabled) {
+        trackThreadsTabClicked(this.getThreadsTelemetryProps());
       }
       this.autoSelectLatestThread();
+    }
+
+    if (key === "memories") {
+      // Lazily create + subscribe to the memory store on first activation. This
+      // is the only place that touches getMemoryStore(), so the store/realtime
+      // are never started just by attaching the inspector.
+      this.ensureMemorySubscription();
+      if (previousMenu !== "memories" && !this.core?.telemetryDisabled) {
+        trackMemoriesTabClicked(this.getMemoriesTelemetryProps());
+      }
     }
 
     if (key === "ag-ui-events" || key === "agents") {
@@ -7252,6 +10541,22 @@ ${prettyEvent}</pre
                           }
                         </button>
                       </div>
+                      <pre
+                        style="
+                          margin: 0;
+                          max-height: 180px;
+                          overflow: auto;
+                          white-space: pre-wrap;
+                          word-break: break-word;
+                          border-radius: 6px;
+                          border: 1px solid #eeeef4;
+                          background: #f7f7f9;
+                          padding: 10px;
+                          font-size: 11px;
+                          line-height: 1.5;
+                          color: #2d2d30;
+                        "
+                      >${this.formatContextValue(context.value)}</pre>
                     `
                     : html`
                         <div class="flex items-center justify-center py-4 text-xs text-gray-500">
@@ -7403,7 +10708,9 @@ ${prettyEvent}</pre
       return nothing;
     }
 
-    return html`<div class="mx-4 mt-3 mb-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+    return html`<div
+      class="mx-4 mt-3 mb-3 rounded-xl border border-slate-200 bg-white px-4 py-3"
+    >
       <div
         class="mb-2 flex items-center gap-2 text-xs font-semibold text-slate-900"
       >
@@ -7422,7 +10729,13 @@ ${prettyEvent}</pre
           ${this.renderIcon("X")}
         </button>
       </div>
-      <div class="announcement-body ${this.announcementExpanded ? "announcement-body--expanded" : "announcement-body--collapsed"}">
+      <div
+        class="announcement-body ${
+          this.announcementExpanded
+            ? "announcement-body--expanded"
+            : "announcement-body--collapsed"
+        }"
+      >
         <div
           class="announcement-content"
           @click=${this.handleAnnouncementContentClick}
@@ -7600,10 +10913,15 @@ ${prettyEvent}</pre
   ): Promise<string | null> {
     const renderer = new marked.Renderer();
     renderer.link = (href, title, text) => {
-      const safeHref = this.escapeHtmlAttr(this.appendRefParam(href ?? ""));
+      const safeHref = this.escapeHtmlAttr(
+        this.isSafeAnnouncementHref(href ?? "")
+          ? this.appendRefParam(href ?? "")
+          : "#",
+      );
       const titleAttr = title ? ` title="${this.escapeHtmlAttr(title)}"` : "";
       return `<a href="${safeHref}" target="_blank" rel="noopener"${titleAttr}>${text}</a>`;
     };
+    renderer.html = (html) => escapeHtml(html);
     renderer.code = (code, lang) => {
       const safeLang = (lang ?? "").replace(/[^a-z0-9-]/gi, "");
       const langClass = safeLang ? ` class="language-${safeLang}"` : "";
@@ -7612,6 +10930,24 @@ ${prettyEvent}</pre
       return `<div class="announcement-code"><pre><code${langClass}>${escaped}</code></pre><div class="announcement-code__copy-shield"><button type="button" class="announcement-code__copy" data-copy="${encoded}" aria-label="Copy code">Copy</button></div></div>`;
     };
     return marked.parse(markdown, { renderer, async: false });
+  }
+
+  private isSafeAnnouncementHref(href: string): boolean {
+    try {
+      const url = new URL(
+        href,
+        typeof window !== "undefined"
+          ? window.location.href
+          : "https://copilotkit.ai",
+      );
+      return (
+        url.protocol === "http:" ||
+        url.protocol === "https:" ||
+        url.protocol === "mailto:"
+      );
+    } catch {
+      return false;
+    }
   }
 
   private copyResetTimeouts = new WeakMap<HTMLButtonElement, number>();
@@ -7678,8 +11014,9 @@ ${prettyEvent}</pre
     }
   };
 
-  private appendRefParam(href: string): string {
+  private appendRefParam(href: string, ref = "cpk-inspector"): string {
     try {
+      const isRootRelative = href.startsWith("/") && !href.startsWith("//");
       const url = new URL(
         href,
         typeof window !== "undefined"
@@ -7687,7 +11024,7 @@ ${prettyEvent}</pre
           : "https://copilotkit.ai",
       );
       if (!url.searchParams.has("ref")) {
-        url.searchParams.append("ref", "cpk-inspector");
+        url.searchParams.append("ref", ref);
       }
       // Propagate the inspector's anonymous distinct-ID so the website /
       // Ops API can call posthog.alias(...) on signup-flow landing and
@@ -7696,17 +11033,26 @@ ${prettyEvent}</pre
       // suppresses cross-domain ID leaks too.
       if (
         !url.searchParams.has("posthog_distinct_id") &&
-        !this.core?.telemetryDisabled
+        !this.core?.telemetryDisabled &&
+        this.isCopilotKitDestination(url)
       ) {
         const distinctId = getTelemetryDistinctIdForUrl();
         if (distinctId) {
           url.searchParams.append("posthog_distinct_id", distinctId);
         }
       }
+      if (isRootRelative) {
+        return `${url.pathname}${url.search}${url.hash}`;
+      }
       return url.toString();
     } catch {
       return href;
     }
+  }
+
+  private isCopilotKitDestination(url: URL): boolean {
+    const hostname = url.hostname.toLowerCase();
+    return hostname === "copilotkit.ai" || hostname.endsWith(".copilotkit.ai");
   }
 
   private escapeHtmlAttr(value: string): string {

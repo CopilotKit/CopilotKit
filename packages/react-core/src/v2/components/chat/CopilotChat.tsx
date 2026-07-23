@@ -16,7 +16,12 @@ import {
 } from "@copilotkit/shared";
 import type { AttachmentsConfig, InputContent } from "@copilotkit/shared";
 import type { Suggestion, CopilotKitCoreErrorCode } from "@copilotkit/core";
-import { isRunCompletionAware } from "@copilotkit/core";
+import {
+  CopilotKitCoreRuntimeConnectionStatus,
+  isRunCompletionAware,
+  ɵcreateThreadStore,
+} from "@copilotkit/core";
+import type { ɵThreadRuntimeContext, ɵThreadStore } from "@copilotkit/core";
 import React, {
   useCallback,
   useEffect,
@@ -24,10 +29,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import {
-  useCopilotKit,
-  useLicenseContext,
-} from "../../providers/CopilotKitProvider";
+import { useCopilotKit, useLicenseContext } from "../../context";
 import { InlineFeatureWarning } from "../../components/license-warning-banner";
 import type { AbstractAgent } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
@@ -225,8 +227,112 @@ export function CopilotChat({
   >(null);
   const isConnecting =
     hasExplicitThreadId && lastConnectedThreadId !== resolvedThreadId;
+  const activeConnectCountRef = useRef(0);
+  const pendingRunActivityReconnectRef = useRef(false);
+  const runActivityReconnectGenerationRef = useRef(0);
+  const activeLocalRunIdsRef = useRef<Set<string>>(new Set());
+  const recentlyLocalRunIdsRef = useRef<
+    Map<string, ReturnType<typeof setTimeout>>
+  >(new Map());
+  const activeWakeRunIdsRef = useRef<Set<string>>(new Set());
+  const recentlyWakeRunIdsRef = useRef<
+    Map<string, ReturnType<typeof setTimeout>>
+  >(new Map());
+  const pendingWakeRunIdRef = useRef<string | undefined>(undefined);
+  const startRunActivityReconnectRef = useRef<
+    ((generation: number) => void) | null
+  >(null);
+  const runtimeStatus =
+    copilotkit.runtimeConnectionStatus ===
+    CopilotKitCoreRuntimeConnectionStatus.Connected
+      ? "Connected"
+      : copilotkit.runtimeConnectionStatus;
+  const hasNativeIntelligenceRunActivity =
+    hasExplicitThreadId &&
+    runtimeStatus === "Connected" &&
+    !!copilotkit.intelligence?.wsUrl &&
+    copilotkit.threadEndpoints?.realtimeMetadata === true;
+  const [standaloneRunActivityStore] = useState<ɵThreadStore>(() =>
+    ɵcreateThreadStore({
+      fetch: globalThis.fetch,
+    }),
+  );
+
+  // Tracks the threadId the connect effect last ran for, so it can tell a real
+  // thread SWITCH from an incidental re-render (agent identity change, etc.).
+  const previousThreadIdRef = useRef<string | null>(null);
+
+  // Latest explicitness, readable from an async connect that may resolve after
+  // the user has already switched threads (see the stale-connect guard below).
+  const hasExplicitThreadIdRef = useRef(hasExplicitThreadId);
+  hasExplicitThreadIdRef.current = hasExplicitThreadId;
+
+  const rememberRecentlyLocalRunId = useCallback((runId: string) => {
+    const existingTimeout = recentlyLocalRunIdsRef.current.get(runId);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+    }
+
+    const timeout = setTimeout(() => {
+      recentlyLocalRunIdsRef.current.delete(runId);
+    }, 30_000);
+    recentlyLocalRunIdsRef.current.set(runId, timeout);
+  }, []);
+
+  const rememberRecentlyWakeRunId = useCallback((runId: string) => {
+    const existingTimeout = recentlyWakeRunIdsRef.current.get(runId);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+    }
+
+    const timeout = setTimeout(() => {
+      recentlyWakeRunIdsRef.current.delete(runId);
+    }, 30_000);
+    recentlyWakeRunIdsRef.current.set(runId, timeout);
+  }, []);
+
+  const isLocalActiveRunActivity = useCallback(
+    (notification: { agentId?: string; runId?: string; eventType: string }) => {
+      if (notification.agentId && notification.agentId !== resolvedAgentId) {
+        return false;
+      }
+      if (
+        !notification.runId ||
+        (!activeLocalRunIdsRef.current.has(notification.runId) &&
+          !recentlyLocalRunIdsRef.current.has(notification.runId))
+      ) {
+        return false;
+      }
+
+      const eventType = notification.eventType.toUpperCase();
+      return (
+        eventType === "RUN_STARTED" ||
+        eventType === "RUN_FINISHED" ||
+        eventType === "RUN_ERROR"
+      );
+    },
+    [resolvedAgentId],
+  );
 
   useEffect(() => {
+    const recentlyLocalRunIds = recentlyLocalRunIdsRef.current;
+    const recentlyWakeRunIds = recentlyWakeRunIdsRef.current;
+    return () => {
+      recentlyLocalRunIds.forEach((timeout) => {
+        clearTimeout(timeout);
+      });
+      recentlyLocalRunIds.clear();
+      recentlyWakeRunIds.forEach((timeout) => {
+        clearTimeout(timeout);
+      });
+      recentlyWakeRunIds.clear();
+    };
+  }, []);
+
+  useEffect(() => {
+    const threadChanged = previousThreadIdRef.current !== resolvedThreadId;
+    previousThreadIdRef.current = resolvedThreadId;
+
     // Non-explicit threads skip /connect, but the first runAgent still has to
     // ship the same SDK-generated threadId that the chat UI is rendering.
     agent.threadId = resolvedThreadId;
@@ -236,7 +342,18 @@ export function CopilotChat({
     // ThreadsProvider). The backend has never seen it, so /connect would
     // always 404 — skip the call. A real thread is only created once the
     // user runs the agent for the first time.
-    if (!hasExplicitThreadId) return;
+    if (!hasExplicitThreadId) {
+      // Switching to a fresh, non-backend thread (e.g. startNewThread / the
+      // drawer's "+ New"): there are no messages to /connect for, so drop any
+      // messages carried over from the previously-viewed thread and fall back
+      // to the welcome screen. Guard on an actual threadId change so re-renders
+      // of the current thread (including its first run) never wipe an
+      // in-progress conversation.
+      if (threadChanged && agent.messages.length > 0) {
+        agent.setMessages([]);
+      }
+      return;
+    }
 
     let detached = false;
 
@@ -250,6 +367,7 @@ export function CopilotChat({
     }
 
     const connect = async (agentToConnect: AbstractAgent) => {
+      activeConnectCountRef.current += 1;
       try {
         await copilotkit.connectAgent({ agent: agentToConnect });
       } catch (error) {
@@ -276,6 +394,25 @@ export function CopilotChat({
           raf(() => {
             if (!detached) setLastConnectedThreadId(resolvedThreadId);
           });
+        } else if (!hasExplicitThreadIdRef.current) {
+          // This connect was superseded (the user switched away while it was
+          // still loading). If the now-current thread is a fresh non-explicit
+          // one (e.g. the drawer's "+ New"), any snapshot this connect managed
+          // to apply is stale — clear it so the welcome screen shows instead of
+          // the abandoned thread's messages. A switch to ANOTHER explicit thread
+          // is left alone: that thread's own connect owns the message reset.
+          agentToConnect.setMessages([]);
+        }
+        activeConnectCountRef.current = Math.max(
+          0,
+          activeConnectCountRef.current - 1,
+        );
+        if (!detached && activeConnectCountRef.current === 0) {
+          const startReconnect = startRunActivityReconnectRef.current;
+          if (pendingRunActivityReconnectRef.current && startReconnect) {
+            pendingRunActivityReconnectRef.current = false;
+            startReconnect(runActivityReconnectGenerationRef.current);
+          }
         }
       }
     };
@@ -296,6 +433,174 @@ export function CopilotChat({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolvedThreadId, agent, resolvedAgentId, hasExplicitThreadId]);
 
+  useEffect(() => {
+    if (!hasNativeIntelligenceRunActivity) return;
+
+    const registeredThreadStore = copilotkit.getThreadStore(resolvedAgentId);
+    const threadStore = registeredThreadStore ?? standaloneRunActivityStore;
+    if (!threadStore?.subscribeToRunActivity) return;
+    const ownsStandaloneStore = registeredThreadStore === undefined;
+    if (ownsStandaloneStore) {
+      threadStore.start();
+      const context: ɵThreadRuntimeContext | null = copilotkit.runtimeUrl
+        ? {
+            runtimeUrl: copilotkit.runtimeUrl,
+            headers: { ...copilotkit.headers },
+            wsUrl: copilotkit.intelligence?.wsUrl,
+            agentId: resolvedAgentId,
+          }
+        : null;
+      threadStore.setContext(context);
+    }
+
+    const generation = runActivityReconnectGenerationRef.current + 1;
+    runActivityReconnectGenerationRef.current = generation;
+    let detached = false;
+    let wakeReconnectActive = false;
+    let pendingAgentIdleDrain: ReturnType<typeof setTimeout> | null = null;
+    const hasActiveAgentRun = () =>
+      activeLocalRunIdsRef.current.size > 0 || agent.isRunning;
+    const scheduleAgentIdleDrain = () => {
+      if (pendingAgentIdleDrain !== null) return;
+      pendingAgentIdleDrain = setTimeout(() => {
+        pendingAgentIdleDrain = null;
+        if (
+          detached ||
+          runActivityReconnectGenerationRef.current !== generation ||
+          !pendingRunActivityReconnectRef.current
+        ) {
+          return;
+        }
+        if (hasActiveAgentRun()) {
+          scheduleAgentIdleDrain();
+          return;
+        }
+        startRunActivityReconnectRef.current?.(generation);
+      }, 10);
+    };
+
+    const connect = async () => {
+      activeConnectCountRef.current += 1;
+      wakeReconnectActive = true;
+      const wakeRunId = pendingWakeRunIdRef.current;
+      pendingWakeRunIdRef.current = undefined;
+      if (wakeRunId) {
+        activeWakeRunIdsRef.current.add(wakeRunId);
+      }
+      let didConnect = false;
+      try {
+        await copilotkit.connectAgent({ agent });
+        didConnect = true;
+      } catch (error) {
+        if (!detached) {
+          console.error("CopilotChat: run activity reconnect failed", error);
+        }
+      } finally {
+        if (wakeRunId) {
+          activeWakeRunIdsRef.current.delete(wakeRunId);
+          if (didConnect) {
+            rememberRecentlyWakeRunId(wakeRunId);
+          }
+        }
+        activeConnectCountRef.current = Math.max(
+          0,
+          activeConnectCountRef.current - 1,
+        );
+        wakeReconnectActive = false;
+        const canDrainPendingReconnect =
+          !detached &&
+          runActivityReconnectGenerationRef.current === generation &&
+          activeConnectCountRef.current === 0;
+
+        if (
+          canDrainPendingReconnect &&
+          pendingRunActivityReconnectRef.current
+        ) {
+          pendingRunActivityReconnectRef.current = false;
+          connect();
+        }
+      }
+    };
+
+    startRunActivityReconnectRef.current = (requestedGeneration) => {
+      if (
+        detached ||
+        requestedGeneration !== generation ||
+        runActivityReconnectGenerationRef.current !== generation
+      ) {
+        return;
+      }
+      if (hasActiveAgentRun()) {
+        pendingRunActivityReconnectRef.current = true;
+        scheduleAgentIdleDrain();
+        return;
+      }
+      if (activeConnectCountRef.current > 0) {
+        if (!wakeReconnectActive) {
+          pendingRunActivityReconnectRef.current = true;
+        }
+        return;
+      }
+      pendingRunActivityReconnectRef.current = false;
+      connect();
+    };
+
+    const subscription = threadStore.subscribeToRunActivity((notification) => {
+      if (notification.threadId !== resolvedThreadId) return;
+      if (notification.agentId && notification.agentId !== resolvedAgentId) {
+        return;
+      }
+      if (isLocalActiveRunActivity(notification)) return;
+      if (
+        notification.runId &&
+        (activeWakeRunIdsRef.current.has(notification.runId) ||
+          recentlyWakeRunIdsRef.current.has(notification.runId))
+      ) {
+        return;
+      }
+      pendingWakeRunIdRef.current = notification.runId;
+      startRunActivityReconnectRef.current?.(generation);
+    });
+
+    return () => {
+      detached = true;
+      pendingRunActivityReconnectRef.current = false;
+      pendingWakeRunIdRef.current = undefined;
+      if (pendingAgentIdleDrain !== null) {
+        clearTimeout(pendingAgentIdleDrain);
+        pendingAgentIdleDrain = null;
+      }
+      if (startRunActivityReconnectRef.current) {
+        startRunActivityReconnectRef.current = null;
+      }
+      if (wakeReconnectActive) {
+        agent.detachActiveRun().catch(() => {});
+      }
+      activeWakeRunIdsRef.current.clear();
+      subscription.unsubscribe();
+      if (ownsStandaloneStore) {
+        threadStore.setContext(null);
+        threadStore.stop();
+      }
+    };
+    // copilotkit is intentionally excluded — it is a stable ref that never changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    agent,
+    resolvedAgentId,
+    resolvedThreadId,
+    hasExplicitThreadId,
+    hasNativeIntelligenceRunActivity,
+    copilotkit.runtimeConnectionStatus,
+    copilotkit.runtimeUrl,
+    copilotkit.headers,
+    copilotkit.intelligence?.wsUrl,
+    copilotkit.threadEndpoints?.realtimeMetadata,
+    standaloneRunActivityStore,
+    isLocalActiveRunActivity,
+    rememberRecentlyWakeRunId,
+  ]);
+
   // Serializes consecutive sends: if a run is already in flight, let it finish
   // before dispatching the next message instead of pre-empting it.
   // `copilotkit.runAgent` would otherwise call `agent.detachActiveRun()` and
@@ -315,13 +620,16 @@ export function CopilotChat({
   // so it is reached through a type guard, not a cast. Agents that don't
   // implement the contract degrade safely (the await is skipped).
   const waitForActiveRunToSettle = useCallback(async () => {
-    if (
-      agent.isRunning &&
-      isRunCompletionAware(agent) &&
-      agent.activeRunCompletionPromise
-    ) {
+    // Widen to `unknown` before the guard: narrowing `AbstractAgent` directly
+    // would intersect with its PRIVATE `activeRunCompletionPromise` declaration
+    // and collapse the narrowed type to `never`.
+    const maybeAware: unknown = agent;
+    const activeRunCompletionPromise = isRunCompletionAware(maybeAware)
+      ? maybeAware.activeRunCompletionPromise
+      : undefined;
+    if (agent.isRunning && activeRunCompletionPromise) {
       try {
-        await agent.activeRunCompletionPromise;
+        await activeRunCompletionPromise;
       } catch (error) {
         // The in-flight run rejected — proceed with the new send anyway,
         // but log so a chronically-failing in-flight run is observable.
@@ -407,15 +715,47 @@ export function CopilotChat({
         });
       }
 
+      const localRunId = hasNativeIntelligenceRunActivity
+        ? randomUUID()
+        : undefined;
+      if (localRunId) {
+        activeLocalRunIdsRef.current.add(localRunId);
+      }
+
       try {
-        await copilotkit.runAgent({ agent });
+        await copilotkit.runAgent({
+          agent,
+          ...(localRunId !== undefined ? { runId: localRunId } : {}),
+        });
       } catch (error) {
         console.error("CopilotChat: runAgent failed", error);
+      } finally {
+        if (localRunId) {
+          activeLocalRunIdsRef.current.delete(localRunId);
+          rememberRecentlyLocalRunId(localRunId);
+        }
+        if (
+          pendingRunActivityReconnectRef.current &&
+          activeLocalRunIdsRef.current.size === 0 &&
+          activeConnectCountRef.current === 0
+        ) {
+          const startReconnect = startRunActivityReconnectRef.current;
+          if (startReconnect) {
+            pendingRunActivityReconnectRef.current = false;
+            startReconnect(runActivityReconnectGenerationRef.current);
+          }
+        }
       }
     },
     // copilotkit is intentionally excluded — it is a stable ref that never changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [agent, consumeAttachments, waitForActiveRunToSettle],
+    [
+      agent,
+      consumeAttachments,
+      waitForActiveRunToSettle,
+      hasNativeIntelligenceRunActivity,
+      rememberRecentlyLocalRunId,
+    ],
   );
 
   const handleSelectSuggestion = useCallback(
@@ -432,17 +772,48 @@ export function CopilotChat({
         content: suggestion.message,
       });
 
+      const localRunId = hasNativeIntelligenceRunActivity
+        ? randomUUID()
+        : undefined;
+      if (localRunId) {
+        activeLocalRunIdsRef.current.add(localRunId);
+      }
+
       try {
-        await copilotkit.runAgent({ agent });
+        await copilotkit.runAgent({
+          agent,
+          ...(localRunId !== undefined ? { runId: localRunId } : {}),
+        });
       } catch (error) {
         console.error(
           "CopilotChat: runAgent failed after selecting suggestion",
           error,
         );
+      } finally {
+        if (localRunId) {
+          activeLocalRunIdsRef.current.delete(localRunId);
+          rememberRecentlyLocalRunId(localRunId);
+        }
+        if (
+          pendingRunActivityReconnectRef.current &&
+          activeLocalRunIdsRef.current.size === 0 &&
+          activeConnectCountRef.current === 0
+        ) {
+          const startReconnect = startRunActivityReconnectRef.current;
+          if (startReconnect) {
+            pendingRunActivityReconnectRef.current = false;
+            startReconnect(runActivityReconnectGenerationRef.current);
+          }
+        }
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [agent, waitForActiveRunToSettle],
+    [
+      agent,
+      waitForActiveRunToSettle,
+      hasNativeIntelligenceRunActivity,
+      rememberRecentlyLocalRunId,
+    ],
   );
 
   const stopCurrentRun = useCallback(() => {

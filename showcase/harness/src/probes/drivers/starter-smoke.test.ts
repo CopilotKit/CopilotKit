@@ -2,8 +2,10 @@ import { describe, it, expect } from "vitest";
 import {
   createStarterSmokeDriver,
   starterSmokeDriver,
-  type StarterSmokeAggregateSignal,
-  type StarterSmokeLevelSignal,
+} from "./starter-smoke.js";
+import type {
+  StarterSmokeAggregateSignal,
+  StarterSmokeLevelSignal,
 } from "./starter-smoke.js";
 import { STARTER_LEVELS } from "../helpers/starter-mapping.js";
 import { logger } from "../../logger.js";
@@ -202,7 +204,7 @@ function fakeFetch(opts: {
       method === "POST"
     ) {
       level = "chat";
-    } else if (/\/api\/copilotkit\/info$/.test(href)) {
+    } else if (href.endsWith("/api/copilotkit/info")) {
       // health and agent both GET the same info route, in STARTER_LEVELS
       // order: 1st info GET = health, 2nd = agent.
       level = infoCalls === 0 ? "health" : "agent";

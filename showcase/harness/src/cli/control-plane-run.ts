@@ -49,7 +49,7 @@ import type { Logger } from "../types/index.js";
 import type { LocalConfig } from "./config.js";
 import type { TestTarget } from "./targets.js";
 import type { TerminalResult } from "./results.js";
-import { demosForSlug } from "./targets.js";
+import { demosForSlug, loadManifest } from "./targets.js";
 import { demosToFeatureTypes } from "../probes/helpers/d5-feature-mapping.js";
 
 /** The two fleet levels this runner can drive. */
@@ -185,6 +185,15 @@ export function buildLocalServicesJson(
       : level === "d5"
         ? ["agentic-chat"]
         : demosForSlug(slug, config),
+    // Thread the manifest's `not_supported_features` into the roster so the
+    // worker's D6 driver reclassifies architecturally/upstream-blocked
+    // features as `skipped-incapable` instead of red — LOCAL==STAGING parity.
+    // Without this the discovery local-injection seam reads `[]` and NOTHING
+    // gets skipped. Mirrors the legacy `--direct` path (`buildFullInputs` /
+    // `buildDeepInputs` in `targets.ts`); `LocalServiceSchema` already accepts
+    // the field and the enumerator already forwards it downstream.
+    notSupportedFeatures:
+      loadManifest(slug, config).not_supported_features ?? [],
   }));
   return JSON.stringify(records);
 }

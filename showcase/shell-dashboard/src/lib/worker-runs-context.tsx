@@ -15,10 +15,52 @@
  * `not.toThrow`). `null` is also the provider-mounted value until the
  * first poll settles, so consumers have exactly one no-data case.
  */
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext } from "react";
+import type { ReactNode } from "react";
 
-import type { WorkerFamilySummary } from "./ops-api";
+import type { WorkerFamilySummary, WorkerView } from "./ops-api";
 import type { WorkerRunsStatus } from "../hooks/use-worker-runs";
+
+/**
+ * Post-bounce drain grace, in resolved periods — mirrors the §9 monitor's
+ * `BOUNCE_GRACE_PERIOD_MULTIPLIER` (=2). A NORMAL harness deploy rebuilds the
+ * shared image and bounces the pool workers (PR #5715); for ~1–2 sweep cycles
+ * afterward each family is legitimately mid-sweep with a still-stale
+ * `lastSuccessAt`, so neither the §7.3 glyph nor the §7.4 banner should flag
+ * silence. This 2×period bounce-grace TERM is the one piece the dashboard and
+ * the §9 Slack monitor share verbatim (both key off the same worker
+ * `registeredAt` shipped in the `/api/runs` workers strip): within 2 periods
+ * of a bounce neither surface flags silence, beyond it both can. The
+ * silence-ONSET threshold, by contrast, is NOT shared — the dashboard treats
+ * a family silent at 2×period (see `isFamilySilent` below) while the server
+ * pager requires 3×period plus a 3-tick debounce; that onset asymmetry is
+ * pre-existing / by-design (visual hint vs. pager) and only the grace term is
+ * intentionally kept in lockstep.
+ */
+export const BOUNCE_GRACE_PERIOD_MULTIPLIER = 2;
+
+/**
+ * The fleet's most-recent worker (re)registration instant — the bounce signal
+ * the post-bounce drain grace keys off. Returns the freshest parseable
+ * `registeredAt` across the workers strip, or null when none is present (empty
+ * strip / pre-migration rows), which disables the grace and preserves
+ * pre-change behavior. A worker can be bounced while the control-plane stays
+ * up, so the worker-registration instant — not any CP-side timer — is the
+ * correct, independent bounce signal.
+ */
+export function freshestBounceMs(
+  workers: readonly WorkerView[] | undefined,
+): number | null {
+  if (!workers) return null;
+  let freshest: number | null = null;
+  for (const worker of workers) {
+    if (!worker.registeredAt) continue;
+    const ms = Date.parse(worker.registeredAt);
+    if (Number.isNaN(ms)) continue;
+    if (freshest === null || ms > freshest) freshest = ms;
+  }
+  return freshest;
+}
 
 /**
  * `null` = no provider mounted OR the first poll has not settled yet.
@@ -71,10 +113,20 @@ export function useWorkerRuns(): WorkerRunsContextValue {
  * - A degraded entry (`error: "history_unavailable"` — no `periodMs`) is
  *   never classified silent here; §6.1 surfaces that as the `unavailable`
  *   incident class instead.
+ * - POST-BOUNCE DRAIN: when `bounceAtMs` (the fleet's freshest worker
+ *   `registeredAt`, via `freshestBounceMs`) is within
+ *   `BOUNCE_GRACE_PERIOD_MULTIPLIER` periods of now, the family is
+ *   legitimately mid-sweep after a deploy bounce (PR #5715) and is NOT
+ *   silent — this is the SAME 2×period bounce-grace term the §9 Slack monitor
+ *   applies, so for the grace window banner/glyph and pager agree. (The
+ *   silence-onset thresholds differ — 2×period here vs. 3×period + 3-tick
+ *   debounce server-side — by design; see the module-level grace JSDoc.) Pass
+ *   `null` (or omit) to disable the grace.
  */
 export function isFamilySilent(
   entry: WorkerFamilySummary,
   nowMs: number,
+  bounceAtMs: number | null = null,
 ): boolean {
   const periodMs = entry.periodMs;
   if (typeof periodMs !== "number" || periodMs <= 0) return false;
@@ -88,7 +140,16 @@ export function isFamilySilent(
   // Unparseable reference time: conservatively not-silent — a malformed
   // payload must not paint silence glyphs across the matrix.
   if (Number.isNaN(referenceMs)) return false;
-  return nowMs - referenceMs > 2 * periodMs;
+  if (nowMs - referenceMs <= 2 * periodMs) return false;
+  // Post-bounce drain grace: a recent fleet bounce means the family is
+  // draining, not silent (see the JSDoc + the §9 monitor's matching gate).
+  if (
+    bounceAtMs !== null &&
+    nowMs - bounceAtMs < BOUNCE_GRACE_PERIOD_MULTIPLIER * periodMs
+  ) {
+    return false;
+  }
+  return true;
 }
 
 /**

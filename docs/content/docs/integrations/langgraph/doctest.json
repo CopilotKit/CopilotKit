@@ -1,5 +1,0 @@
-{
-  "python": {
-    "deps": ["copilotkit", "ag-ui-langgraph", "langgraph", "langchain-openai", "langchain-core", "fastapi", "uvicorn", "python-dotenv"]
-  }
-}

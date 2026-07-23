@@ -21,13 +21,6 @@ not_supported_features:
   - shared-state-streaming
   - gen-ui-interrupt
   - interrupt-headless
-  # AG2 (autogen) rejects AG-UI image content parts: ConversableAgent message
-  # conversion raises ValueError("Wrong content format: unknown type image
-  # within the content") — observed live in the D6 multimodal probe (image
-  # turn errors before reaching the model). PDF flattening works, but the
-  # multimodal featureType requires the image path, so the feature is
-  # upstream-incapable until autogen accepts image content parts.
-  - multimodal
   # AG2's ConversableAgent/AGUIStream does not emit AG-UI REASONING_MESSAGE_*
   # events (documented in src/agents/tool_rendering_reasoning_chain.py) — the
   # reasoning-block can never mount, so any reasoning-bearing pill is
@@ -73,6 +66,7 @@ features:
   - auth
   - agent-config
   - voice
+  - multimodal
   - beautiful-chat
 agent_config_pattern: shared-state
 

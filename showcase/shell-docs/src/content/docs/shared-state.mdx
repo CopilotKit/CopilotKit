@@ -75,7 +75,7 @@ full main-view pattern.
 
 ## Streaming partial state updates
 
-By default, agent state only updates *between* node transitions, so a
+By default, agent state only updates *between* backend checkpoints, so a
 long-running tool call appears as one big burst at the end. State streaming
 forwards a specific tool argument straight into a state key *as it's being
 generated*, so the UI can watch the answer assemble token-by-token.

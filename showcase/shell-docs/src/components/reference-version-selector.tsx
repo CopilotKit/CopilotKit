@@ -18,8 +18,10 @@ const VERSION_LABELS: Record<ReferenceVersion, string> = {
   v2: "React (V2)",
   v1: "React (V1)",
   "react-native": "React Native",
+  vue: "Vue",
+  angular: "Angular",
   core: "Core (TypeScript)",
-  bot: "Bots",
+  channels: "Channels",
 };
 
 export function ReferenceVersionSelector({

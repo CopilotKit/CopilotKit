@@ -524,6 +524,29 @@ const nextConfig: NextConfig = {
       // pages at those paths (display-only, interactive). Framework-scoped
       // variants (`/:framework/generative-ui/your-components/*`) also
       // render directly.
+
+      // "Bots SDK" renamed to "Channels SDK" (OSS-438): docs moved from /bots to
+      // /channels and /reference/bot to /reference/channels. Preserve links + SEO.
+      {
+        source: "/bots",
+        destination: "/channels",
+        permanent: true,
+      },
+      {
+        source: "/bots/:path*",
+        destination: "/channels/:path*",
+        permanent: true,
+      },
+      {
+        source: "/reference/bot",
+        destination: "/reference/channels",
+        permanent: true,
+      },
+      {
+        source: "/reference/bot/:path*",
+        destination: "/reference/channels/:path*",
+        permanent: true,
+      },
     ];
   },
 };

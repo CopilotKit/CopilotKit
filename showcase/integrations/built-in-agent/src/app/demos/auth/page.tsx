@@ -1,149 +1,145 @@
 "use client";
 
 // Auth demo — framework-native request authentication via the V2 runtime's
-// `onRequest` hook. Banner toggles an in-memory React auth flag; when
-// authenticated, <CopilotKitProvider headers={...}> injects the
-// `Authorization: Bearer <demo-token>` header on every request. The runtime
-// route (/api/copilotkit-auth) rejects any request without the header.
+// `onRequest` hook. The runtime route (/api/copilotkit-auth) rejects any
+// request whose `Authorization: Bearer <demo-token>` header is missing or
+// wrong.
+//
+// UX shape: the demo defaults to UNAUTHENTICATED on first paint so visitors
+// land on a clear sign-in card. We don't mount the chat until the user has
+// signed in at least once — that sidesteps the transport 401 that would
+// otherwise crash `<CopilotChat>` during its initial `/info` handshake.
+// After the user signs in once, the chat stays mounted across the
+// sign-out → sign-in cycle so the post-sign-out state can actually
+// demonstrate the runtime rejecting unauthenticated requests in the chat
+// surface (the whole point of the demo).
+//
+// Error surfacing: the post-sign-out 401 is captured via the AGENT-SCOPED
+// `<CopilotChat onError>` channel, NOT the provider-level `<CopilotKitProvider
+// onError>` alone. Agent-run errors (`agent_run_failed`) are reliably
+// delivered to the chat-scoped subscription, whereas the provider-level
+// handler does not fire for them in this flow — so a demo that relies only
+// on the provider `onError` never renders the rejection banner. We register
+// the same handler on BOTH channels: `<CopilotKitProvider onError>` covers
+// any provider-level errors (e.g. the initial `/info` handshake) and
+// `<CopilotChat onError>` covers agent-run rejections, which is what the
+// sign-out path produces.
+//
+// Provider note: this integration is the BUILT-IN agent, so it mounts
+// `<CopilotKitProvider>` (the runtime registers the agent under the default
+// key) rather than `<CopilotKit agent="auth-demo">` like the named-agent
+// langgraph-python reference. That provider choice is a forced divergence;
+// the error-handling shape, auth hook, and testid contract match the gold
+// reference exactly.
 
-import { Component, useCallback, useMemo, useState } from "react";
-import type { ErrorInfo, ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-core/v2";
-import { useDemoAuth } from "./use-demo-auth";
+import type { CopilotKitCoreErrorCode } from "@copilotkit/react-core/v2";
 import { AuthBanner } from "./auth-banner";
 import { SignInCard } from "./sign-in-card";
+import { useDemoAuth } from "./use-demo-auth";
+import { DEMO_TOKEN } from "./demo-token";
 
-interface ChatErrorBoundaryProps {
-  authenticated: boolean;
-  onSignIn: () => void;
-  children: ReactNode;
+interface AuthDemoErrorState {
+  message: string;
+  code: CopilotKitCoreErrorCode | string;
 }
 
-interface ChatErrorBoundaryState {
-  error: Error | null;
-}
-
-class ChatErrorBoundary extends Component<
-  ChatErrorBoundaryProps,
-  ChatErrorBoundaryState
-> {
-  state: ChatErrorBoundaryState = { error: null };
-
-  static getDerivedStateFromError(error: Error): ChatErrorBoundaryState {
-    return { error };
-  }
-
-  componentDidUpdate(prevProps: ChatErrorBoundaryProps): void {
-    if (
-      prevProps.authenticated !== this.props.authenticated &&
-      this.state.error
-    ) {
-      this.setState({ error: null });
-    }
-  }
-
-  componentDidCatch(error: Error, info: ErrorInfo): void {
-    console.error("[auth-demo] chat error boundary caught:", error, info);
-  }
-
-  render(): ReactNode {
-    if (this.state.error) {
-      return (
-        <div
-          data-testid="auth-demo-chat-boundary"
-          className="flex h-full items-center justify-center p-6"
-        >
-          <SignInCard onSignIn={this.props.onSignIn} />
-        </div>
-      );
-    }
-    return this.props.children;
-  }
+interface AuthErrorEvent {
+  error?: { message?: string } | null;
+  code: CopilotKitCoreErrorCode;
 }
 
 export default function AuthDemoPage() {
-  const auth = useDemoAuth();
-  const [lastError, setLastError] = useState<string | null>(null);
+  const {
+    isAuthenticated,
+    authorizationHeader,
+    hasEverSignedIn,
+    signIn,
+    signOut,
+  } = useDemoAuth();
 
-  const authenticate = useCallback(() => {
-    setLastError(null);
-    auth.authenticate();
-  }, [auth]);
-
-  const signOut = useCallback(() => {
-    setLastError(null);
-    auth.signOut();
-  }, [auth]);
-
-  const headers = useMemo<Record<string, string>>(() => {
-    const h: Record<string, string> = {};
-    if (auth.authorizationHeader) {
-      h.Authorization = auth.authorizationHeader;
-    }
-    return h;
-  }, [auth.authorizationHeader]);
-
-  const onError = useCallback(
-    (errorEvent: {
-      error?: { message?: string; status?: number; statusCode?: number };
-      context?: { response?: { status?: number } };
-    }) => {
-      const err = errorEvent?.error;
-      const message = err?.message ?? "Request failed";
-      const status =
-        err?.status ?? err?.statusCode ?? errorEvent?.context?.response?.status;
-      if (status === 401 || /401|unauthor/i.test(message)) {
-        setLastError(
-          "401 Unauthorized — click Sign in above to restore access.",
-        );
-      } else {
-        setLastError(message);
-      }
-    },
-    [],
+  const headers = useMemo<Record<string, string>>(
+    () => (authorizationHeader ? { Authorization: authorizationHeader } : {}),
+    [authorizationHeader],
   );
 
+  const [authError, setAuthError] = useState<AuthDemoErrorState | null>(null);
+
+  // Shared error handler wired to BOTH the provider-level and chat-level
+  // `onError` channels (see the file header for why both are needed).
+  const handleAuthError = useCallback((event: AuthErrorEvent) => {
+    setAuthError({
+      message:
+        (event.error?.message && event.error.message.trim()) ||
+        (event.code
+          ? `Request rejected (${event.code})`
+          : "The request was rejected."),
+      code: event.code,
+    });
+  }, []);
+
+  // Clear stale errors as soon as the user re-authenticates. This is the
+  // ONLY thing that gates the amber error surface on auth state — the render
+  // condition below keys off `authError` alone. Coupling the render to a
+  // second `!isAuthenticated` slice (the obvious-but-wrong guard) created a
+  // post-sign-out race: the rejection's `onError` fires and calls
+  // `setAuthError`, but if that commit landed in a render where the auth
+  // state hadn't yet settled to false, `authError && !isAuthenticated`
+  // evaluated false and the banner never appeared. Driving the surface off
+  // `authError` and clearing it here on re-auth removes the cross-slice
+  // ordering dependency: a rejection always renders, and signing back in
+  // always wipes it.
+  useEffect(() => {
+    if (isAuthenticated) setAuthError(null);
+  }, [isAuthenticated]);
+
+  if (!hasEverSignedIn) {
+    return (
+      <div className="flex h-screen flex-col">
+        <SignInCard onSignIn={signIn} />
+      </div>
+    );
+  }
+
   return (
+    // `useSingleEndpoint={false}` opts into the V2 multi-endpoint protocol
+    // (separate /info, /agents/<id>/run, etc.), which is what this demo's
+    // runtime route is wired up for.
     <CopilotKitProvider
       runtimeUrl="/api/copilotkit-auth"
       headers={headers}
-      onError={onError}
       useSingleEndpoint={false}
+      onError={handleAuthError}
     >
       <div className="flex h-screen flex-col gap-3 p-6">
         <AuthBanner
-          authenticated={auth.authenticated}
-          onAuthenticate={authenticate}
+          authenticated={isAuthenticated}
           onSignOut={signOut}
+          onSignIn={() => signIn(DEMO_TOKEN)}
         />
         <header>
           <h1 className="text-lg font-semibold">Authentication</h1>
-          <p className="text-sm text-neutral-600">
-            The runtime rejects requests without a valid Bearer token via an{" "}
-            <code className="rounded bg-neutral-100 px-1 py-0.5 font-mono text-xs">
-              onRequest
-            </code>{" "}
-            hook. You start signed in — click Sign out above to exercise the 401
-            path, then Sign in to restore access.
-          </p>
         </header>
-        <div className="flex-1 overflow-hidden rounded-md border border-neutral-200">
-          <ChatErrorBoundary
-            authenticated={auth.authenticated}
-            onSignIn={authenticate}
-          >
-            <CopilotChat className="h-full" />
-          </ChatErrorBoundary>
-        </div>
-        {lastError && (
+        {authError && (
           <div
-            role="alert"
             data-testid="auth-demo-error"
-            className="rounded border border-red-300 bg-red-50 px-3 py-2 text-xs font-medium text-red-900"
+            className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900"
           >
-            <span data-testid="auth-demo-error-message">{lastError}</span>
+            <strong className="font-semibold">
+              Runtime rejected the request:
+            </strong>{" "}
+            <span data-testid="auth-demo-error-message">
+              {authError.message}
+            </span>{" "}
+            <code className="ml-1 rounded bg-amber-100 px-1 py-0.5 font-mono text-xs">
+              {authError.code}
+            </code>
           </div>
         )}
+        <div className="flex-1 overflow-hidden rounded-md border border-neutral-200">
+          <CopilotChat className="h-full" onError={handleAuthError} />
+        </div>
       </div>
     </CopilotKitProvider>
   );

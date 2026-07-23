@@ -4,6 +4,7 @@ import { serve } from "@hono/node-server";
 import { buildServer } from "./http/server.js";
 import { createPbClient } from "./storage/pb-client.js";
 import type { DiagSinkClient } from "./storage/diag-sink.js";
+import { CvdiagPbWriter } from "./cvdiag/pb-writer.js";
 import {
   createAlertStateStore,
   assertSafeKey,
@@ -40,6 +41,7 @@ import { aimockWiringDriver } from "./probes/drivers/aimock-wiring.js";
 import { pinDriftDriver } from "./probes/drivers/pin-drift.js";
 import { livenessDriver } from "./probes/drivers/d2-liveness.js";
 import { imageDriftDriver } from "./probes/drivers/image-drift.js";
+import { crossEnvPinDriftDriver } from "./probes/drivers/cross-env-pin-drift.js";
 import { versionDriftDriver } from "./probes/drivers/version-drift.js";
 import { redirectDecommissionDriver } from "./probes/drivers/redirect-decommission.js";
 import {
@@ -64,6 +66,7 @@ import { writeDiagEvent } from "./storage/diag-sink.js";
 import { qaDriver } from "./probes/drivers/qa.js";
 import { starterSmokeDriver } from "./probes/drivers/starter-smoke.js";
 import { railwayServicesSource } from "./probes/discovery/railway-services.js";
+import { crossEnvPinDriftDiscoverySource } from "./probes/discovery/cross-env-pin-drift-discovery.js";
 import { pnpmPackagesDiscoverySource } from "./probes/discovery/pnpm-packages.js";
 import { withCache } from "./probes/discovery/caching-source.js";
 import { DiscoveryAuthTracker } from "./probes/discovery/auth-tracker.js";
@@ -135,6 +138,13 @@ import type {
 } from "./fleet/control-plane/job-producer.js";
 import { createMemoizedFamilySummary } from "./fleet/control-plane/run-view.js";
 import { createFamilySilenceMonitor } from "./fleet/control-plane/family-silence-monitor.js";
+import {
+  createD0GoneMonitor,
+  isEnabled as isD0MonitorEnabled,
+  loadRegistryDoc,
+  resolveMonitorEnv as resolveD0MonitorEnv,
+  shouldRegister as shouldRegisterD0Monitor,
+} from "./fleet/control-plane/d0-gone-monitor.js";
 
 export interface BootOptions {
   configDir?: string;
@@ -739,9 +749,21 @@ export async function boot(opts: BootOptions = {}): Promise<{
 
   const probeRegistry = createProbeRegistry();
   const discoveryRegistry = createDiscoveryRegistry();
+  // CVDIAG event persistence (in-process/boot path parity with the fleet
+  // worker). Construct + collection-check the writer ONCE here and inject it
+  // into the pooled D4 smoke driver so probe-layer boundary events PERSIST to
+  // cvdiag_events on flush. `buildCvdiagPersistenceWriter` enforces the
+  // degrade-on-missing-migration guarantee (returns undefined → flush no-op)
+  // so a missing migration can never 404-spam per event. Only wired when a
+  // browser pool is available (the pooled D4 driver is the sole consumer);
+  // off the pool path there is no probe-layer emitter to persist.
+  const cvdiagPersistenceWriter = browserPoolReady
+    ? await buildCvdiagPersistenceWriter(pb, logger)
+    : undefined;
   registerAllProbeDrivers(
     probeRegistry,
     browserPoolReady ? browserPool : undefined,
+    cvdiagPersistenceWriter,
   );
   const authTracker = new DiscoveryAuthTracker({
     threshold: 3,
@@ -757,6 +779,12 @@ export async function boot(opts: BootOptions = {}): Promise<{
       authTracker,
     }),
   );
+  // Cross-env pin-drift discovery (U11): delegates the showcase-* roster to
+  // railway-services then stamps the prod/staging env-ids. Registered
+  // un-cached — its sole consumer is the weekly `pin_drift_cross_env` probe,
+  // so the per-tick re-enumeration cost is negligible and a stale cache
+  // would only hide a freshly-promoted digest.
+  discoveryRegistry.register(crossEnvPinDriftDiscoverySource);
   discoveryRegistry.register(pnpmPackagesDiscoverySource);
   const probeConfigDir =
     opts.configDir !== undefined
@@ -1352,6 +1380,48 @@ export async function boot(opts: BootOptions = {}): Promise<{
  * driver's `driverKind` constant; callers adapt (register the raw driver, or
  * pair it with a payload mapper for the worker registry).
  */
+/**
+ * Construct the CVDIAG event-persistence writer AND enforce the degrade-on-
+ * missing-migration guarantee BEFORE injecting it into any driver.
+ *
+ * BOTH production wiring paths (boot()/in-process and the fleet worker) route
+ * through here so the guarantee can never be bypassed: a `CvdiagPbWriter`
+ * injected without this check would 404 on EVERY event when the `cvdiag_events`
+ * migration is absent, emitting per-row `CVDIAG`-tagged warns indefinitely.
+ *
+ * Instead we call `assertCollectionExists()` once at wiring time:
+ *   - returns true (collection present, or writer-key 401/403 which still
+ *     proves presence) → inject the writer; the emit→persist seam is live.
+ *   - returns false (404 missing migration, PB unhealthy, or any transport
+ *     fault) → DEGRADE: log ONCE and return `undefined`, so the emitter's
+ *     flush is a clean no-op (the pre-wiring behavior) rather than 404-spam.
+ *
+ * Best-effort: a thrown construction/check error also degrades to `undefined`
+ * — CVDIAG is pure instrumentation and must never break boot.
+ */
+export async function buildCvdiagPersistenceWriter(
+  pb: ConstructorParameters<typeof CvdiagPbWriter>[0]["pb"],
+  log: Logger,
+): Promise<CvdiagPbWriter | undefined> {
+  try {
+    const writer = new CvdiagPbWriter({ pb, logger: log });
+    const present = await writer.assertCollectionExists();
+    if (!present) {
+      log.warn("orchestrator.cvdiag-persistence-degraded", {
+        hint: "cvdiag_events collection check failed (missing migration / PB unreachable) — CVDIAG event persistence is a no-op this boot; events still log to stdout. Apply the cvdiag migrations to enable durable persistence.",
+      });
+      return undefined;
+    }
+    return writer;
+  } catch (err) {
+    log.warn("orchestrator.cvdiag-persistence-degraded", {
+      hint: "constructing/checking the CVDIAG persistence writer threw — degrading to a no-op (pure instrumentation must never break boot).",
+      err: err instanceof Error ? err.message : String(err),
+    });
+    return undefined;
+  }
+}
+
 export function buildPooledBrowserDrivers(
   pool: BrowserPool,
   log: Logger,
@@ -1365,6 +1435,17 @@ export function buildPooledBrowserDrivers(
    * skipped). Never load-bearing — a write failure can't break a probe.
    */
   diagPb?: DiagSinkClient,
+  /**
+   * CVDIAG event persistence writer (best-effort, optional). When provided, the
+   * D4 smoke driver injects it into its `CvdiagEmitter` so the probe-layer
+   * boundary events PERSIST to the `cvdiag_events` collection on flush (the
+   * emit→persist seam). The fleet worker constructs one from its own superuser
+   * `PbClient` (which bypasses the CREATE-only ACL, mirroring the cvdiag CLI);
+   * the in-process probe-registry path leaves it undefined (events emit to the
+   * queue but the durable write is skipped — the pre-wiring behavior). Never
+   * load-bearing: a write failure can't break a probe.
+   */
+  cvdiagWriter?: CvdiagPbWriter,
 ): {
   smoke: ReturnType<typeof createE2eSmokeDriver>;
   demos: ReturnType<typeof createE2eDemosDriver>;
@@ -1373,6 +1454,7 @@ export function buildPooledBrowserDrivers(
   return {
     smoke: createE2eSmokeDriver({
       launcher: createPooledE2eSmokeLauncher(pool, log),
+      cvdiagPbWriter: cvdiagWriter,
     }),
     demos: createE2eDemosDriver({
       launcher: createPooledE2eDemosLauncher(pool, log),
@@ -1380,6 +1462,11 @@ export function buildPooledBrowserDrivers(
     d6: createE2eFullDriver({
       launcher: createPooledE2eFullLauncher(pool, log),
       diagPb,
+      // Same CVDIAG event-persistence writer the smoke driver uses: the d5/d6
+      // probe path now constructs a `CvdiagProbeSession` per feature and emits
+      // probe-layer boundaries (probe.exit etc.) that PERSIST to `cvdiag_events`
+      // on flush, so the flapping d5/d6 runs are readable from staging.
+      cvdiagPbWriter: cvdiagWriter,
     }),
   };
 }
@@ -1422,6 +1509,7 @@ export function registerHttpProbeDrivers(
   // `"smoke"`) — there is no separate "smoke" driver export.
   probeRegistry.register(livenessDriver);
   probeRegistry.register(imageDriftDriver);
+  probeRegistry.register(crossEnvPinDriftDriver);
   probeRegistry.register(versionDriftDriver);
   probeRegistry.register(redirectDecommissionDriver);
   probeRegistry.register(qaDriver);
@@ -1480,7 +1568,7 @@ export function assertHttpBrowserKindPartition(httpKinds: string[]): void {
  */
 export const FLEET_PRODUCER_SMOKE_CRON = "*/15 * * * *";
 export const FLEET_PRODUCER_DEMOS_CRON = "10 * * * *";
-export const FLEET_PRODUCER_DEEP_CRON = "5,20,35,50 * * * *";
+export const FLEET_PRODUCER_DEEP_CRON = "*/30 * * * *";
 
 /**
  * Scheduler entry ids for the three non-d6 browser-family producers. Homed in
@@ -1532,8 +1620,8 @@ export const FLEET_FAMILY_PERIODS_MS: Record<string, number> = {
   d6: 60 * 60 * 1000,
   /** d4 smoke — FLEET_PRODUCER_SMOKE_CRON (every 15min). */
   d4: 15 * 60 * 1000,
-  /** d5 deep — FLEET_PRODUCER_DEEP_CRON `5,20,35,50 * * * *` (every 15min). */
-  "d5-single-pill-e2e": 15 * 60 * 1000,
+  /** d5 deep — FLEET_PRODUCER_DEEP_CRON (every-30-min cron, on :00/:30). */
+  "d5-single-pill-e2e": 30 * 60 * 1000,
   /** demos — FLEET_PRODUCER_DEMOS_CRON `10 * * * *` (hourly). */
   "e2e-demos": 60 * 60 * 1000,
 };
@@ -1592,16 +1680,35 @@ export function buildProducerSchedules(producers: {
 export function registerAllProbeDrivers(
   probeRegistry: Pick<ProbeRegistry, "register">,
   pool?: BrowserPool,
+  /**
+   * CVDIAG event-persistence writer (best-effort, optional). When provided AND
+   * a browser `pool` is present, it is threaded into the pooled D4 smoke driver
+   * so probe-layer boundary events PERSIST to `cvdiag_events` on the boot
+   * (in-process) path — parity with the fleet worker path. The caller
+   * (`boot()`) is responsible for constructing it AND for the degrade-on-
+   * missing-migration guarantee (it calls `assertCollectionExists()` first and
+   * passes `undefined` here when the collection is absent, so flush is a clean
+   * no-op rather than 404-spamming per event).
+   */
+  cvdiagWriter?: CvdiagPbWriter,
 ): void {
   probeRegistry.register(aimockWiringDriver);
   probeRegistry.register(pinDriftDriver);
   probeRegistry.register(livenessDriver);
   probeRegistry.register(imageDriftDriver);
+  probeRegistry.register(crossEnvPinDriftDriver);
   probeRegistry.register(versionDriftDriver);
   probeRegistry.register(redirectDecommissionDriver);
 
   if (pool) {
-    const pooled = buildPooledBrowserDrivers(pool, logger);
+    // Thread the persistence writer (when wired) onto the SAME pooled launcher
+    // the fleet worker uses, so the boot/in-process path persists too.
+    const pooled = buildPooledBrowserDrivers(
+      pool,
+      logger,
+      undefined,
+      cvdiagWriter,
+    );
     probeRegistry.register(pooled.smoke);
     probeRegistry.register(pooled.demos);
     probeRegistry.register(pooled.d6);
@@ -2877,6 +2984,83 @@ export async function runControlPlane(
     logger,
   });
 
+  // Prod D0-gone monitor (spec `2026-07-13-prod-d0-gone-monitor.md`): the one
+  // incident class the per-cell alert rules miss — a whole integration column
+  // collapsing to red-D0 ("completely gone" / backend unreachable). Runs on its
+  // own 15m cron, PROD ONLY and control-plane-only (this block already implies
+  // the control-plane role). It runs the dashboard's OWN `buildCellModel` fold
+  // over the same `status` rows, so its verdict equals the DepthChip the
+  // dashboard renders by construction. Registered as an `internal:` orchestrator
+  // cron (the `internal:s3-backup` block is the template), gated on the resolved
+  // env being production and the `PROD_D0_MONITOR_ENABLED` kill-switch.
+  // B-env: the env gate + kill-switch are resolved by the monitor module's
+  // OWN `shouldRegister` / `resolveMonitorEnv` (the gate test exercises the
+  // same functions), so env-precedence, empty-string-shadow, and case/space
+  // normalization can never drift between here and the test.
+  const d0MonitorEnv = resolveD0MonitorEnv();
+  if (shouldRegisterD0Monitor()) {
+    const d0GoneMonitor = createD0GoneMonitor({
+      pb,
+      alertState: alertStateStore,
+      // Reuse the SAME #oss-alerts webhook target the family-silence monitor
+      // posts through — throws on send failure so `last_alert_at` never advances
+      // on a dropped Slack post (§7 dedupe discipline).
+      postAlert: async (text: string): Promise<void> => {
+        await ossAlertsTarget.send(
+          { payload: { text }, contentType: "application/json" },
+          { kind: "slack_webhook", webhook: "oss_alerts" },
+        );
+      },
+      // The SAME shared memoized family-summary the routes + silence monitor use
+      // — the §2.5 producer-liveness source.
+      summary: familySummary,
+      schedules,
+      // A5: pass a LOADER thunk (not a fixed doc) so the monitor re-reads
+      // `registry.json` on subsequent ticks while the wired-cell set is empty —
+      // a transiently-missing file (slow volume mount / boot race) self-heals
+      // without a redeploy instead of silently disabling the monitor forever.
+      registry: () => loadRegistryDoc(logger),
+      dashboardUrl:
+        process.env.DASHBOARD_URL ?? "https://dashboard.showcase.copilotkit.ai",
+      logger,
+      now: () => Date.now(),
+    });
+    scheduler.register({
+      id: "internal:prod-d0-gone-monitor",
+      cron: "*/15 * * * *",
+      handler: async () => {
+        // Defense-in-depth: `tick()` already swallows its own errors, but wrap
+        // the scheduler handler too so a rejection here (e.g. a future refactor
+        // that lets tick throw) is caught + logged with an errorId and never
+        // wedges the control-plane scheduler.
+        try {
+          await d0GoneMonitor.tick();
+        } catch (err) {
+          logger.error("orchestrator.prod-d0-gone-monitor-tick-failed", {
+            errorId: "d0-monitor-scheduler-tick",
+            err: err instanceof Error ? err.message : String(err),
+          });
+        }
+      },
+    });
+    logger.info("orchestrator.prod-d0-gone-monitor-registered", {
+      env: d0MonitorEnv,
+    });
+  } else {
+    // Log at WARN so an env-gate misconfig (a prod deploy whose SHOWCASE_ENV /
+    // RAILWAY_ENVIRONMENT_NAME is not exactly "production", or the kill-switch
+    // left off) is visible in log-based alerting — a silent info-level skip is
+    // how the whole-column-gone blind spot goes unnoticed in the first place.
+    logger.warn("orchestrator.prod-d0-gone-monitor-skipped", {
+      env: d0MonitorEnv ?? "(unset)",
+      enabled: isD0MonitorEnabled(),
+      reason:
+        d0MonitorEnv !== "production"
+          ? "env-not-production"
+          : "kill-switch-disabled",
+    });
+  }
+
   // REQ-B: wire the real aggregator + fleet-health monitor + sweep-key resolver
   // into the control-plane assembly so BOTH crash-path legs surface onto the
   // dashboard through the proper module seams (the control-plane runs the
@@ -2905,7 +3089,7 @@ export async function runControlPlane(
 
   // ---- In-process HTTP-only probe families ----
   //
-  // The control-plane runs the 8 HTTP-only probe families IN-PROCESS by
+  // The control-plane runs the 9 HTTP-only probe families IN-PROCESS by
   // lifting the legacy boot() probe-loader machinery: an HTTP-only
   // `probeRegistry` (no browser drivers), a `createProbeLoader` scoped to the
   // HTTP `kind`s via `includeKind` (browser `e2e_*` YAMLs are SKIPPED, not
@@ -3207,6 +3391,14 @@ export async function runControlPlane(
     // role — `summary` is the §5.2 shared memo instance the §9 monitor also
     // reads, so a dashboard poll and a monitor evaluation inside the same TTL
     // share one PB fan-out.
+    //
+    // On-demand fleet/D6 trigger: when an OPS_TRIGGER_TOKEN is configured
+    // (the same token gating /api/probes), `triggerToken` mounts the mutating
+    // POST /api/runs/:family/trigger route so EVERY fleet/D6 probe is
+    // on-demand fireable — it enqueues an operator-triggered run through the
+    // producer this CP already owns. The three GETs stay unconditionally
+    // mounted regardless; only the trigger route is token-gated (and skipped
+    // when the token is unset, mirroring probesDeps).
     fleetRuns: {
       summary: familySummary,
       pb,
@@ -3214,6 +3406,7 @@ export async function runControlPlane(
       scheduler,
       workerStaleAfterMs,
       logger,
+      ...(triggerToken ? { triggerToken } : {}),
     },
     // §9 compensating control: stamp the monitor's last evaluation cycle into
     // /health so an external poll can detect a wedged monitor.
@@ -3533,29 +3726,33 @@ export async function verifyWorkerRegistered(deps: {
  * GRACEFUL-DRAIN STOP SEQUENCE for the fleet worker role — deregister FIRST,
  * teardown best-effort AFTER (the platform-kill hardening).
  *
- * WHY THIS ORDER: live Railway redeploys showed the platform's stop grace
- * (~10s after SIGTERM) is SHORTER than the drain grace the worker shipped
- * with (WORKER_DRAIN_GRACE_MS — grace history: 25s at the 2026-06-10 live
- * incident → an 8s interim → the composed 6s default, so the SERIAL
- * deregister-cap + grace budget fits UNDER the platform window). The
- * previous sequence
- * (`await worker.stop()`
+ * WHY THIS ORDER: live Railway redeploys (2026-06-10) showed the platform's
+ * DEFAULT stop grace (~10s after SIGTERM) is far SHORTER than the drain grace
+ * the worker needs (WORKER_DRAIN_GRACE_MS, now a 90s FINISH-AND-REPORT budget —
+ * layer b). Layer (c) fixes the platform side by raising the Railway
+ * `drainingSeconds`/`terminationGracePeriodSeconds` to PLATFORM_STOP_GRACE_MS
+ * (180s) so the SERIAL deregister-cap + grace budget fits UNDER the platform
+ * window (see PLATFORM_STOP_GRACE_MS in worker-loop.ts + showcase/RAILWAY.md).
+ * Even so, the ORDER matters: the previous sequence (`await worker.stop()`
  * → deregister) gated the <1s roster delete on slow browser-context teardown:
  * workers stuck in teardown were HARD-KILLED before deregistering, stranding
  * stale roster rows that fleet-health reclaimed red at its 180s stale mark —
- * the exact deploy red-splash the drain was built to remove. Abandon +
- * deregister take <1s; teardown is best-effort on a process that is dying
- * anyway (a SIGKILL mid-teardown is harmless once the roster row is gone).
+ * the exact deploy red-splash the drain was built to remove. The deregister
+ * takes <1s; the in-flight run's finish-and-report (and the rest of teardown)
+ * is best-effort behind it, bounded by the drain grace (a SIGKILL
+ * mid-teardown is harmless once the roster row is gone).
  *
- *   1. `worker.drain()` — SYNCHRONOUS: fires the loop's drain signal, aborting
- *      the in-flight run and recording the abandon decision
- *      (`fleet.worker.drain-requested` with the abandoned jobId). The loop's
- *      report-skip keys on the SIGNAL — not on `stop()` completing — so a run
- *      that has not begun reporting can never be reported, even if a wedged
- *      teardown later "completes" the run; its lease lapses and the sweeper
- *      re-queues it neutral-gray (unchanged abandon semantics). (A report the
- *      loop already initiated before the signal is past the abandon point and
- *      may land — it is not recorded as abandoned.)
+ *   1. `worker.drain()` — SYNCHRONOUS: fires the loop's drain signal. Layer (b)
+ *      made this signal STOP-CLAIMING-only, NOT an abandon: an in-flight run is
+ *      left to FINISH within the drain grace (`DEFAULT_WORKER_DRAIN_GRACE_MS`,
+ *      90s) and is REPORTED with its real terminal result. The run is only
+ *      abandoned if it OVERRUNS that grace — at grace-expiry `stop()` fires the
+ *      separate `runAbort` signal (the `abortedWithoutResult` discriminator),
+ *      hard-cancelling the run; that case leaves the row claimed/running, lets
+ *      the lease lapse, and lets the sweeper re-queue it neutral-gray → layer
+ *      (a) reclaim is the backstop. So `drain()` returns immediately while the
+ *      finish-and-report (or, only on overrun, the abandon) plays out inside the
+ *      grace spent by `stop()` in step 4.
  *   2. `registration.stop()` — cancel the periodic heartbeat timer so no
  *      further periodic upsert can follow the delete.
  *   3. `await registration.deregister()` — latch the handle (every later
@@ -3822,7 +4019,24 @@ export async function runWorker(
   // sink. This is the production path that actually runs D5/D6 jobs, so the
   // post-run aimock-journal join can persist a durable cv-verdict row here
   // (best-effort; never breaks a probe).
-  const pooled = buildPooledBrowserDrivers(pool, logger, pb);
+  //
+  // ALSO construct the CVDIAG event-persistence writer from the SAME superuser
+  // `pb` client (the superuser bypasses the cvdiag_events CREATE-only ACL,
+  // mirroring the cvdiag CLI's superuser path — see cli-pb.ts). Threading it
+  // into the D4 smoke driver wires the emit→persist seam: the probe's
+  // CvdiagEmitter now flushes its queued boundary events to cvdiag_events.
+  // PB config presence is the gate — `resolveFleetPbConfig` above already
+  // resolved a real URL on this worker path (it throws off the test/dev
+  // escape hatch).
+  //
+  // CRITICAL: route through `buildCvdiagPersistenceWriter` (NOT a bare
+  // `new CvdiagPbWriter`) so `assertCollectionExists()` runs FIRST and the
+  // degrade-on-missing-migration guarantee holds in prod. Without the check, a
+  // missing `cvdiag_events` migration would inject a writer that 404s EVERY
+  // event with a per-row warn; the check makes that case a clean no-op + one
+  // log instead.
+  const cvdiagWriter = await buildCvdiagPersistenceWriter(pb, logger);
+  const pooled = buildPooledBrowserDrivers(pool, logger, pb, cvdiagWriter);
 
   // Construction-time fail-loud: each factory's self-reported `kind` MUST equal
   // the key constant we register it under, BEFORE the concrete `ProbeDriver` is
@@ -3986,13 +4200,15 @@ export async function runWorker(
     bus: worker.bus,
     async stop(): Promise<void> {
       // DEREGISTER-FIRST GRACEFUL DRAIN — see `drainFleetWorker` for the full
-      // ordering rationale (the platform kill grace is shorter than the drain
-      // grace, so the <1s abandon + roster delete must NOT gate on slow
-      // browser-context teardown). The no-re-upsert guarantee lives in the
-      // registration HANDLE (deregister latches synchronously, and the delete
-      // is the terminal link of its write-serialization chain), so the
-      // abandoned run's eventual fire-and-forget job-settle heartbeat —
-      // which now fires AFTER the delete — is latched into a logged no-op.
+      // ordering rationale. drain() (step 1) only STOPS CLAIMING — layer (b)
+      // lets the in-flight run finish-and-report within the drain grace; the
+      // FAST work that must beat the platform kill is the <1s deregister +
+      // roster delete (step 3), which must NOT gate on slow browser-context
+      // teardown. The no-re-upsert guarantee lives in the registration HANDLE
+      // (deregister latches synchronously, and the delete is the terminal link
+      // of its write-serialization chain), so the run's eventual fire-and-forget
+      // job-settle heartbeat — which now fires AFTER the delete — is latched
+      // into a logged no-op.
       // We injected BOTH budgetSource and drivers, so fleet runWorker did NOT
       // construct its own pool — WE own it and shut it down here (last).
       await drainFleetWorker({
@@ -4078,20 +4294,24 @@ export async function bootFleet(
       // worker process dies mid-job, leaving its claimed/running row to lapse so
       // the control-plane sweeper reclaims it as a comm error — a FALSE flap on
       // every routine teardown. The drain (worker.stop() in runWorker's stop
-      // path) does NOT report a terminal result for the in-flight job: a reported
-      // partial would paint RED (terminalJobStatus maps any non-green aggregate
-      // to "failed", and the result-consumer has no neutral aggregate state). So
-      // the drain instead ABANDONS the partial — the driver suppresses its red
-      // per-cell side-emits (ctx.drainReason === "shutdown"), the loop skips
-      // queue.report, and the worker DEREGISTERS its registry row. With no row,
-      // fleet-health can't reclaim a gracefully-drained worker red at its 180s
-      // stale window; the abandoned job's claimed/running row lapses at the 300s
-      // lease expiry where the sweeper re-queues it as the neutral
-      // `worker-reclaimed-pending` (gray), accepting an up-to-lease-window re-run
-      // delay for ZERO red paint on a routine redeploy. Deregistration is THE
-      // distinction the sweep boundary cannot make on its own (an expired lease
-      // looks the same for a crash and a SIGTERM teardown): a CRASH leaves the
-      // row (→ today's red reclaim, unchanged), a graceful drain deletes it.
+      // path) STOPS CLAIMING and, per layer (b), lets the in-flight job FINISH
+      // within the drain grace (`DEFAULT_WORKER_DRAIN_GRACE_MS`, 90s) and REPORTS
+      // its real terminal result — a run that was seconds from done is not thrown
+      // away. The driver still soft-winds-down its red per-cell side-emits while
+      // draining (ctx.drainReason === "shutdown") so a redeploy never paints those
+      // intermediate reds, and the worker DEREGISTERS its registry row. The ABANDON
+      // path is now only the long tail: a job that OVERRUNS the grace is hard-cut
+      // at grace-expiry (the separate `runAbort` signal) WITHOUT a terminal result
+      // (a reported partial would paint RED — terminalJobStatus maps any non-green
+      // aggregate to "failed", and the result-consumer has no neutral aggregate
+      // state), so its claimed/running row is left to lapse at the 300s lease
+      // expiry where the sweeper re-queues it neutral `worker-reclaimed-pending`
+      // (gray) → layer (a) reclaim. With the row deregistered, fleet-health can't
+      // reclaim a gracefully-drained worker red at its 180s stale window.
+      // Deregistration is THE distinction the sweep boundary cannot make on its
+      // own (an expired lease looks the same for a crash and a SIGTERM teardown):
+      // a CRASH leaves the row (→ today's red reclaim, unchanged), a graceful
+      // drain deletes it.
       let draining = false;
       const drainAndExit = (signal: NodeJS.Signals): void => {
         if (draining) return;

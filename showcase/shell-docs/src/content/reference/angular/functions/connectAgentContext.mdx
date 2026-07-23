@@ -1,0 +1,138 @@
+---
+title: "connectAgentContext"
+description: "Angular function that adds reactive context for the agent and cleans it up automatically for @copilotkit/angular."
+---
+
+## Overview
+
+`connectAgentContext` registers [context](https://docs.ag-ui.com/concepts/context) with the agent so it can read your application state. It accepts a static `Context` object or a zero-argument accessor. The internal Angular `effect` tracks any signals read by the accessor and updates the context when they change.
+
+The registration is wrapped in an Angular `effect`, so the context is cleaned up automatically when the owning component or service is destroyed.
+
+For a template-driven alternative, use the [`CopilotKitAgentContext`](/reference/angular/directives/CopilotKitAgentContext) directive.
+
+<Callout type="warn">
+  Call this from an Angular injection context, such as a constructor or field initializer. The current implementation resolves the ambient injector before it reads the config, so passing `config.injector` does not make an outside-context call valid.
+</Callout>
+
+## Signature
+
+```ts
+import { connectAgentContext } from "@copilotkit/angular";
+import type { Injector } from "@angular/core";
+import type { Context } from "@ag-ui/client";
+
+interface ConnectAgentContextConfig {
+  injector?: Injector;
+}
+
+function connectAgentContext(
+  context: Context | (() => Context),
+  config?: ConnectAgentContextConfig,
+): void;
+```
+
+## Parameters
+
+<PropertyReference name="context" type="Context | (() => Context)" required>
+  The context to share with the agent, or a zero-argument accessor that returns it. A `Context` is an object with the following fields. When the accessor reads Angular signals, the context re-registers when those signals change.
+
+  <PropertyReference name="description" type="string" required>
+    A human-readable description of what this context represents, for example `"User preferences"`.
+  </PropertyReference>
+
+  <PropertyReference name="value" type="string" required>
+    The context value. Stringify non-string values (for example with `JSON.stringify`) before passing them.
+  </PropertyReference>
+</PropertyReference>
+
+<PropertyReference name="config" type="ConnectAgentContextConfig">
+  Optional configuration. You must still call the function from an injection context.
+
+  <PropertyReference name="injector" type="Injector">
+    Injector used to resolve `CopilotKit` and own the reactive effect. When
+    supplied, it takes precedence over the ambient injector.
+  </PropertyReference>
+</PropertyReference>
+
+## Usage
+
+### Static context
+
+```ts title="src/app/preferences.component.ts"
+import { Component } from "@angular/core";
+import { connectAgentContext } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-preferences",
+  standalone: true,
+  template: `<!-- ... -->`,
+})
+export class PreferencesComponent {
+  constructor() {
+    connectAgentContext({
+      description: "User preferences",
+      value: JSON.stringify({ theme: "dark", locale: "en-US" }),
+    });
+  }
+}
+```
+
+### Reactive context with an accessor
+
+Pass an accessor that reads signals so the agent always sees the current value.
+
+```ts title="src/app/cart.component.ts"
+import { Component, signal } from "@angular/core";
+import { connectAgentContext } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-cart",
+  standalone: true,
+  template: `<button (click)="add()">Add item</button>`,
+})
+export class CartComponent {
+  readonly items = signal<string[]>([]);
+
+  constructor() {
+    // Re-registers with the agent whenever the cart changes.
+    connectAgentContext(() => ({
+      description: "Current shopping cart",
+      value: JSON.stringify(this.items()),
+    }));
+  }
+
+  add() {
+    this.items.update((items) => [...items, "Item"]);
+  }
+}
+```
+
+## Behavior
+
+- **Reactive updates.** When an accessor reads signals, the context is removed and re-added whenever one of those signals changes.
+- **Automatic cleanup.** Registration runs inside an Angular `effect`; the context is removed when the effect is torn down, which happens when the owning component, service, or injector is destroyed.
+- **Injection context required.** Angular throws `NG0203` when you call the function outside an injection context.
+
+## Related
+
+<Cards>
+  <Card
+    title="CopilotKitAgentContext directive"
+    description="Share context with the agent from a template instead of a function."
+    href="/reference/angular/directives/CopilotKitAgentContext"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="injectAgentStore"
+    description="Subscribe to an agent and read its messages, state, and run status."
+    href="/reference/angular/functions/injectAgentStore"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="CopilotKit service"
+    description="The central handle on agents, tools, and the runtime connection."
+    href="/reference/angular/services/CopilotKit"
+    icon={<LinkIcon />}
+  />
+</Cards>

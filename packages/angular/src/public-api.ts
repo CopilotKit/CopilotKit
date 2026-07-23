@@ -5,13 +5,17 @@ export * from "./lib/render-tool-calls";
 export * from "./lib/activity-renderer";
 export * from "./lib/open-generative-ui";
 export * from "./lib/agent";
+export * from "./lib/interrupt";
+export * from "./lib/threads";
 export * from "./lib/chat-config";
+export * from "./lib/chat-configuration";
 export * from "./lib/chat-state";
 export * from "./lib/transcription";
 export * from "./lib/scroll-position";
 export * from "./lib/resize-observer";
 export * from "./lib/utils";
 export * from "./lib/agent-context";
+export * from "./lib/memories";
 export type {
   Attachment,
   AttachmentModality,
@@ -64,8 +68,13 @@ export * from "./lib/components/chat/copilot-chat-view-input-container";
 export * from "./lib/components/chat/copilot-chat-view-scroll-to-bottom-button";
 export * from "./lib/components/chat/copilot-chat-view-scroll-view";
 export * from "./lib/components/chat/copilot-chat-view.types";
+export * from "./lib/components/chat/copilot-threads-drawer";
+export * from "./lib/components/modal/copilot-popup";
+export * from "./lib/components/modal/copilot-sidebar";
+export * from "./lib/components/tools/default-tool-renderer";
 export * from "./lib/components/a2ui/a2ui-activity-renderer";
 export * from "./lib/components/a2ui/a2ui-progress";
+export * from "./lib/components/a2ui/a2ui-recovery";
 export * from "./lib/components/a2ui/a2ui-tool-renderer";
 export * from "./lib/components/a2ui/a2ui-tool-types";
 export * from "./lib/components/open-generative-ui/open-generative-ui-activity-renderer";
@@ -75,4 +84,12 @@ export type {
   StaticSuggestionsConfig,
   Suggestion,
   SuggestionsConfig,
+} from "@copilotkit/core";
+
+export type {
+  Memory,
+  NewMemory,
+  MemoryChanges,
+  MemoryKind,
+  MemoryScope,
 } from "@copilotkit/core";
