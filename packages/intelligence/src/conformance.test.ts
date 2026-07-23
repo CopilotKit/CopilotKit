@@ -202,8 +202,8 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
 
     expect(corpus.schemaVersion).toBe(1);
     expect(Object.keys(corpus.schemas)).toHaveLength(47);
-    expect(corpus.cases).toHaveLength(291);
-    expect(new Set(corpus.cases.map(({ name }) => name)).size).toBe(291);
+    expect(corpus.cases).toHaveLength(295);
+    expect(new Set(corpus.cases.map(({ name }) => name)).size).toBe(295);
     expect(Object.keys(corpus.schemas).sort()).toEqual(expectedNames);
     expect(Object.keys(learningPlatformConformanceSchemas).sort()).toEqual(
       expectedNames,
