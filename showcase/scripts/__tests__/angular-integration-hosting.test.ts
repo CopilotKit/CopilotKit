@@ -157,7 +157,13 @@ test("keeps the exhaustive Angular audit opt-in, complete, and fail-closed", asy
   expect(workflow).toContain("--min-shards 4");
   expect(workflow).toContain("--max-shards 4");
   expect(workflow).toContain("Start four isolated integration containers");
-  expect(workflow).toContain("Run four isolated Chromium shards");
+  expect(workflow).toContain(
+    "Run isolated Chromium phases with fresh fixture state",
+  );
+  expect(workflow).toContain("run_frontend_phase react");
+  expect(workflow).toContain('kill "$fixture_pid"');
+  expect(workflow).toContain("run_frontend_phase angular");
+  expect(workflow).toContain("frontend-matrix-ci.ts merge-shard");
   expect(workflow).toContain("for shard in 0 1 2 3");
   expect(workflow).toContain("--host 0.0.0.0");
   expect(workflow).not.toContain("--host 127.0.0.1");
