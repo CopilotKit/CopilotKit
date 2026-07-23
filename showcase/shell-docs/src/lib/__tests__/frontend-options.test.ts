@@ -70,6 +70,7 @@ const angularGuideSlugs = [
   "guides/human-in-the-loop",
   "guides/shared-state",
   "guides/threads-memory-attachments-headless",
+  "guides/troubleshooting",
 ] as const;
 
 test("keeps React as the full docs surface and routes other frontends to their guides", () => {
