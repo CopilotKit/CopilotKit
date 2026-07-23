@@ -80,11 +80,11 @@ a single `onMention` handler covers most use cases.
 Discord still needs the same app-level credentials — they're just no longer passed to the
 adapter. Configure these in the CopilotKit Intelligence Discord connector instead:
 
-| Credential          | Purpose                                                                  |
-| ------------------- | ------------------------------------------------------------------------ |
-| Bot token           | Gateway login and REST calls.                                            |
-| Application ID      | Used when registering slash commands.                                    |
-| Guild ID            | _(Optional)_ Guild ID for instant per-guild command registration in dev. |
+| Credential     | Purpose                                                                  |
+| -------------- | ------------------------------------------------------------------------ |
+| Bot token      | Gateway login and REST calls.                                            |
+| Application ID | Used when registering slash commands.                                    |
+| Guild ID       | _(Optional)_ Guild ID for instant per-guild command registration in dev. |
 
 > **Global commands** (no guild id) propagate across Discord in ~1 hour.
 > **Guild-scoped commands** (with a guild id) register instantly — use them

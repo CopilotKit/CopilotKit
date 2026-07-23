@@ -83,7 +83,7 @@ those modes without going through a Runtime throws. Only the inline
   Intelligence (it ties the declaration to the Intelligence setup); optional
   for a standalone/custom-runner Channel.
 - `adapters` — direct `PlatformAdapter`s (e.g. `slack()`, `discord()`). A
-  Channel with no adapters is *managed* — CopilotKit Intelligence supplies
+  Channel with no adapters is _managed_ — CopilotKit Intelligence supplies
   delivery for it instead.
 - `provider` — which managed platform a no-adapter Channel targets when
   activated via Intelligence (`"slack"` | `"teams"`; defaults to `"slack"`).
@@ -292,8 +292,8 @@ invocations via `sink.onCommand(IncomingCommand)`, and may implement
 (e.g. Discord's application-command API); adapters that omit it are skipped.
 See `@copilotkit/channels-slack` for a complete implementation.
 
-Adapter authors are credential-free too: a `PlatformAdapter` describes *how*
-to speak to a surface, not *which* workspace/bot to speak to as — connectivity
+Adapter authors are credential-free too: a `PlatformAdapter` describes _how_
+to speak to a surface, not _which_ workspace/bot to speak to as — connectivity
 and credentials come from whatever drives the Channel (Intelligence or a
 custom runner).
 

@@ -13,8 +13,8 @@ You write your UI as JSX once (`@copilotkit/channels-ui`) and drive the bot with
 > Channels are no longer started directly. Credentials and connectivity are
 > supplied by CopilotKit Intelligence (the recommended path) or a custom
 > `ChannelRunner`. See the quick start below. (Old: `slack({ botToken, appToken
-> })` + `channel.start()`; New: `slack()` + `new CopilotRuntime({ intelligence,
-> channels })`.)
+})` + `channel.start()`; New: `slack()` + `new CopilotRuntime({ intelligence,
+channels })`.)
 
 ## Install
 
@@ -81,9 +81,9 @@ app-level token (`xapp-`) — they're just no longer passed to `slack()`.
 Configure them on the Slack connector in CopilotKit Intelligence:
 
 | Token         | Purpose                          |
-| ------------- | --------------------------------- |
-| `xoxb-` (bot) | Bot token for the Web API.        |
-| `xapp-` (app) | App-level token for Socket Mode.  |
+| ------------- | -------------------------------- |
+| `xoxb-` (bot) | Bot token for the Web API.       |
+| `xapp-` (app) | App-level token for Socket Mode. |
 
 ## Response routing
 

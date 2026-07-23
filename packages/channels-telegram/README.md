@@ -92,9 +92,9 @@ you configure on `telegram()`.
 Telegram still needs the same bot token — it's just no longer passed to the adapter. Configure it
 in the CopilotKit Intelligence Telegram connector instead:
 
-| Credential  | Purpose                                         |
-| ----------- | ------------------------------------------------ |
-| Bot token   | Bot token from @BotFather (e.g. `123:ABC-xyz`).  |
+| Credential | Purpose                                         |
+| ---------- | ----------------------------------------------- |
+| Bot token  | Bot token from @BotFather (e.g. `123:ABC-xyz`). |
 
 ## What it provides
 
@@ -110,7 +110,7 @@ rows`, `Image → photo`, `Table → <pre> monospace grid`, `Divider → ──�
 Telegram API limits are enforced via `TELEGRAM_LIMITS` and the helpers:
 
 | Limit               | Value | Element                         |
-| ------------------- | ----- | -------------------------------- |
+| ------------------- | ----- | ------------------------------- |
 | `messageText`       | 4096  | characters per message          |
 | `caption`           | 1024  | caption characters              |
 | `callbackData`      | 64    | bytes per callback_data         |
@@ -181,9 +181,9 @@ connectivity, not the `telegram()` adapter. In the managed CopilotKit Intelligen
 handled for you. A custom `ChannelRunner`'s Telegram connector typically exposes:
 
 | Mode      | How it works                                                                     |
-| --------- | ---------------------------------------------------------------------------------- |
+| --------- | -------------------------------------------------------------------------------- |
 | `polling` | **Default.** grammY long-polling. No public URL needed.                          |
-| `webhook` | grammY webhook + minimal Node HTTP server. Requires a configured domain.          |
+| `webhook` | grammY webhook + minimal Node HTTP server. Requires a configured domain.         |
 | `auto`    | Webhook when `VERCEL`/`AWS_LAMBDA_FUNCTION_NAME`/`NETLIFY` is set, else polling. |
 
 ## Reactions

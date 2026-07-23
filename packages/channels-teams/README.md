@@ -37,7 +37,9 @@ const support = createChannel({
   adapters: [teams()], // credential-free
 });
 
-support.onMessage(({ thread, message }) => thread.post(`Echo: ${message.text}`));
+support.onMessage(({ thread, message }) =>
+  thread.post(`Echo: ${message.text}`),
+);
 
 // CopilotKit Intelligence supplies credentials, connectivity, delivery, and failover:
 const runtime = new CopilotRuntime({

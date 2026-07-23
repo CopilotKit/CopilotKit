@@ -12,7 +12,7 @@ You write your UI as JSX once (`@copilotkit/channels-ui`) and drive the bot with
 > credential-free**: it no longer takes credentials and Channels are no longer started directly.
 > Credentials and connectivity are supplied by CopilotKit Intelligence (the recommended path) or a
 > custom `ChannelRunner`. See the quick start below. (Old: `whatsapp({ accessToken,
-> phoneNumberId, appSecret, verifyToken, port })` + `channel.start()`; New: `whatsapp()` +
+phoneNumberId, appSecret, verifyToken, port })` + `channel.start()`; New: `whatsapp()` +
 > `new CopilotRuntime({ intelligence, channels })`.)
 
 ## Install
@@ -74,22 +74,22 @@ registered) fires for every inbound message.
 WhatsApp still needs the same Cloud API credentials — they're just no longer passed to the
 adapter. Configure these in the CopilotKit Intelligence WhatsApp connector instead:
 
-| Credential            | Purpose                                                     |
-| ---------------------- | ------------------------------------------------------------ |
-| Access token           | Cloud API access token (Bearer), from Meta App → API setup. |
-| Phone-number id        | Business phone-number id that sends messages.               |
-| App secret             | App secret for `X-Hub-Signature-256` webhook validation.    |
-| Verify token            | Token echoed during the GET verification handshake.         |
-| Webhook port/path       | Where the webhook HTTP server listens.                       |
+| Credential        | Purpose                                                     |
+| ----------------- | ----------------------------------------------------------- |
+| Access token      | Cloud API access token (Bearer), from Meta App → API setup. |
+| Phone-number id   | Business phone-number id that sends messages.               |
+| App secret        | App secret for `X-Hub-Signature-256` webhook validation.    |
+| Verify token      | Token echoed during the GET verification handshake.         |
+| Webhook port/path | Where the webhook HTTP server listens.                      |
 
 ## Capabilities
 
 | Capability          | Supported | Notes                                                          |
-| -------------------- | --------- | --------------------------------------------------------------- |
+| ------------------- | --------- | -------------------------------------------------------------- |
 | `supportsStreaming` | false     | WhatsApp messages are immutable; there is no edit-message API. |
 | `supportsModals`    | false     | No modal surface in the Cloud API.                             |
-| `supportsTyping`    | true      | Typing indicator supported for business accounts.               |
-| `supportsReactions` | false     | No reaction API for business-sent messages.                     |
+| `supportsTyping`    | true      | Typing indicator supported for business accounts.              |
+| `supportsReactions` | false     | No reaction API for business-sent messages.                    |
 
 Because messages are immutable, `thread.stream(...)` buffers the full iterable
 and sends it as a single message — there is no token-by-token streaming. Calls to
@@ -104,12 +104,12 @@ API credentials (`accessToken`/`phoneNumberId`/`appSecret`/`verifyToken`) and tr
 (`port`/`path`/`apiVersion`/`graphBaseUrl`) now live on the connector that supplies connectivity
 (CopilotKit Intelligence, or a custom `ChannelRunner`'s `WhatsAppConnector`) — not here.
 
-| Option                | Type                  | Default                        | Description                                                         |
-| --------------------- | --------------------- | ------------------------------- | ---------------------------------------------------------------------------- |
-| `interruptEventNames` | `ReadonlySet<string>` | `undefined`                    | Custom AG-UI event names treated as interrupts by the run renderer. |
-| `commandPrefix`       | `string`              | `"/"`                          | Prefix for leading-keyword command matching.                        |
-| `historyStore`        | `HistoryStore`        | `new InMemoryHistoryStore()`   | Pluggable conversation-history persistence.                         |
-| `files`               | `FileDeliveryConfig`  | `{}`                           | Inbound media handling configuration.                               |
+| Option                | Type                  | Default                      | Description                                                         |
+| --------------------- | --------------------- | ---------------------------- | ------------------------------------------------------------------- |
+| `interruptEventNames` | `ReadonlySet<string>` | `undefined`                  | Custom AG-UI event names treated as interrupts by the run renderer. |
+| `commandPrefix`       | `string`              | `"/"`                        | Prefix for leading-keyword command matching.                        |
+| `historyStore`        | `HistoryStore`        | `new InMemoryHistoryStore()` | Pluggable conversation-history persistence.                         |
+| `files`               | `FileDeliveryConfig`  | `{}`                         | Inbound media handling configuration.                               |
 
 ## JSX → WhatsApp rendering
 
@@ -131,7 +131,7 @@ WhatsApp — links render as plain text.
 WhatsApp caps interactive elements. Limits live in `WA_LIMITS`:
 
 | Limit               | Value | Element                                          |
-| -------------------- | ----- | -------------------------------------------------- |
+| ------------------- | ----- | ------------------------------------------------ |
 | `bodyText`          | 4096  | text message body chars                          |
 | `replyButtons`      | 3     | reply buttons in an interactive button message   |
 | `buttonTitle`       | 20    | reply-button title chars                         |
