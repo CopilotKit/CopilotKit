@@ -304,16 +304,15 @@ export interface Channel<TState = unknown> {
   transcripts: Transcripts;
   /**
    * Internal lifecycle seam. Holds the `start`/`stop`/`addAdapter`
-   * implementations (and the resolved `provider`) that a Channel runner uses
-   * to drive the lifecycle directly — there is no public equivalent; channels
-   * are runtime-driven only.
+   * implementations that the runtime uses to drive the lifecycle directly —
+   * there is no public equivalent; channels are runtime-driven only. (Read the
+   * managed provider off the top-level `channel.provider`, not here.)
    * @internal
    */
   ɵruntime: {
     start(): Promise<void>;
     stop(): Promise<void>;
     addAdapter(adapter: PlatformAdapter): void;
-    readonly provider?: ManagedChannelProvider;
   };
 }
 
@@ -800,7 +799,6 @@ export function createChannel<
       return transcripts;
     },
     ɵruntime: {
-      ...(opts.provider !== undefined ? { provider: opts.provider } : {}),
       addAdapter(adapter) {
         if (started) {
           throw new Error(
