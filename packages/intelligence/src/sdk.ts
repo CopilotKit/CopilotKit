@@ -71,7 +71,7 @@ export interface InstalledSkillSet {
   readonly skills: InstalledSkill[];
 }
 
-type ErrorCategory =
+export type ErrorCategory =
   | "validation"
   | "auth"
   | "permission"
@@ -79,7 +79,8 @@ type ErrorCategory =
   | "conflict"
   | "rate_limit"
   | "internal"
-  | "dependency";
+  | "dependency"
+  | "dependency_unavailable";
 
 /** Typed canonical SDK failure. No SDK operation returns a fallback sentinel. */
 export class IntelligenceSdkError extends Error {

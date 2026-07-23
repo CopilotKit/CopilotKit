@@ -246,6 +246,41 @@ function sequence(
 }
 
 describe("IntelligenceClient registry SDK", () => {
+  it("preserves the public Learning job launch failure vocabulary", async () => {
+    const client = new IntelligenceClient({
+      baseUrl: "https://intelligence.example.test",
+      accessToken: "secret-token",
+      projectNamespace: "project_1",
+      cacheRoot: await cacheRoot(),
+      transport: sequence(
+        jsonResponse(
+          {
+            error: {
+              code: "LEARNING_JOB_LAUNCH_FAILED",
+              message: "The Learning job could not be launched.",
+              category: "dependency_unavailable",
+              retryable: true,
+            },
+            requestId: "req_job_launch",
+            traceId: "trace_job_launch",
+          },
+          503,
+        ),
+      ),
+    });
+
+    await expect(
+      client.skills.get({ learningContainerId: CONTAINER }),
+    ).rejects.toMatchObject({
+      code: "LEARNING_JOB_LAUNCH_FAILED",
+      category: "dependency_unavailable",
+      retryable: true,
+      requestId: "req_job_launch",
+      traceId: "trace_job_launch",
+      status: 503,
+    });
+  });
+
   it("consumes the shared canonical registry golden response", async () => {
     const golden = await goldenRegistryFixture();
     const root = await cacheRoot();

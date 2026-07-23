@@ -12383,6 +12383,66 @@
         "requestId": "request_1",
         "traceId": "trace_1"
       }
+    },
+    {
+      "name": "stable-error-job-launch-failed",
+      "schema": "LearningPlatformErrorResponseV1",
+      "valid": true,
+      "value": {
+        "error": {
+          "category": "dependency_unavailable",
+          "code": "LEARNING_JOB_LAUNCH_FAILED",
+          "message": "The Learning job could not be launched.",
+          "retryable": true
+        },
+        "requestId": "req_job_launch",
+        "traceId": "trace_job_launch"
+      }
+    },
+    {
+      "name": "stable-error-rejects-obsolete-candidate-stale-parent",
+      "schema": "LearningPlatformErrorResponseV1",
+      "valid": false,
+      "value": {
+        "error": {
+          "category": "conflict",
+          "code": "LEARNING_CANDIDATE_STALE_PARENT",
+          "message": "Obsolete error alias.",
+          "retryable": false
+        },
+        "requestId": "req_alias",
+        "traceId": "trace_alias"
+      }
+    },
+    {
+      "name": "stable-error-rejects-obsolete-candidate-subject-mismatch",
+      "schema": "LearningPlatformErrorResponseV1",
+      "valid": false,
+      "value": {
+        "error": {
+          "category": "conflict",
+          "code": "LEARNING_CANDIDATE_SUBJECT_MISMATCH",
+          "message": "Obsolete error alias.",
+          "retryable": false
+        },
+        "requestId": "req_alias",
+        "traceId": "trace_alias"
+      }
+    },
+    {
+      "name": "stable-error-rejects-obsolete-candidate-gates-incomplete",
+      "schema": "LearningPlatformErrorResponseV1",
+      "valid": false,
+      "value": {
+        "error": {
+          "category": "conflict",
+          "code": "LEARNING_CANDIDATE_GATES_INCOMPLETE",
+          "message": "Obsolete error alias.",
+          "retryable": false
+        },
+        "requestId": "req_alias",
+        "traceId": "trace_alias"
+      }
     }
   ],
   "metaSchemas": {
@@ -17017,7 +17077,8 @@
                 "conflict",
                 "rate_limit",
                 "internal",
-                "dependency"
+                "dependency",
+                "dependency_unavailable"
               ],
               "type": "string"
             },
@@ -17032,6 +17093,7 @@
                 "LEARNING_RUN_ACTIVE_CONFLICT",
                 "LEARNING_RUN_IDEMPOTENCY_CONFLICT",
                 "LEARNING_RUN_NOT_FOUND",
+                "LEARNING_JOB_LAUNCH_FAILED",
                 "LEARNING_ATTEMPT_FENCE_REJECTED",
                 "LEARNING_SNAPSHOT_INVARIANT_VIOLATION",
                 "LEARNING_REGISTRY_STALE_PARENT",

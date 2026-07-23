@@ -136,8 +136,8 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
 
     expect(corpus.schemaVersion).toBe(1);
     expect(Object.keys(corpus.schemas)).toHaveLength(47);
-    expect(corpus.cases).toHaveLength(257);
-    expect(new Set(corpus.cases.map(({ name }) => name)).size).toBe(257);
+    expect(corpus.cases).toHaveLength(261);
+    expect(new Set(corpus.cases.map(({ name }) => name)).size).toBe(261);
     expect(Object.keys(corpus.schemas).sort()).toEqual(expectedNames);
     expect(Object.keys(learningPlatformConformanceSchemas).sort()).toEqual(
       expectedNames,
@@ -442,6 +442,10 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
         ...commandSchemaNames.map((name) => `command-${name}-valid`),
         "stable-error-valid",
         "stable-error-unknown-code",
+        "stable-error-job-launch-failed",
+        "stable-error-rejects-obsolete-candidate-stale-parent",
+        "stable-error-rejects-obsolete-candidate-subject-mismatch",
+        "stable-error-rejects-obsolete-candidate-gates-incomplete",
         "normalized-activity-requires-activity-type",
         "normalized-tool-message-requires-result",
         "run-snapshot-rejects-unknown-tool-result-reference",

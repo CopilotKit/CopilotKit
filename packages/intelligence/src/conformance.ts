@@ -2261,6 +2261,66 @@ function buildCases(): LearningPlatformConformanceCase[] {
         traceId: "trace_1",
       },
     },
+    {
+      name: "stable-error-job-launch-failed",
+      schema: "LearningPlatformErrorResponseV1",
+      valid: true,
+      value: {
+        error: {
+          code: "LEARNING_JOB_LAUNCH_FAILED",
+          message: "The Learning job could not be launched.",
+          category: "dependency_unavailable",
+          retryable: true,
+        },
+        requestId: "req_job_launch",
+        traceId: "trace_job_launch",
+      },
+    },
+    {
+      name: "stable-error-rejects-obsolete-candidate-stale-parent",
+      schema: "LearningPlatformErrorResponseV1",
+      valid: false,
+      value: {
+        error: {
+          code: "LEARNING_CANDIDATE_STALE_PARENT",
+          message: "Obsolete error alias.",
+          category: "conflict",
+          retryable: false,
+        },
+        requestId: "req_alias",
+        traceId: "trace_alias",
+      },
+    },
+    {
+      name: "stable-error-rejects-obsolete-candidate-subject-mismatch",
+      schema: "LearningPlatformErrorResponseV1",
+      valid: false,
+      value: {
+        error: {
+          code: "LEARNING_CANDIDATE_SUBJECT_MISMATCH",
+          message: "Obsolete error alias.",
+          category: "conflict",
+          retryable: false,
+        },
+        requestId: "req_alias",
+        traceId: "trace_alias",
+      },
+    },
+    {
+      name: "stable-error-rejects-obsolete-candidate-gates-incomplete",
+      schema: "LearningPlatformErrorResponseV1",
+      valid: false,
+      value: {
+        error: {
+          code: "LEARNING_CANDIDATE_GATES_INCOMPLETE",
+          message: "Obsolete error alias.",
+          category: "conflict",
+          retryable: false,
+        },
+        requestId: "req_alias",
+        traceId: "trace_alias",
+      },
+    },
   );
 
   return cases.map((entry) => ({

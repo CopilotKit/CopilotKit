@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 import {
   LEARNING_PLATFORM_ERROR_CODES,
+  learningPlatformErrorCategorySchema,
   learningPlatformErrorResponseV1Schema,
 } from "./errors.js";
 
@@ -14,6 +15,7 @@ const intelligenceProducerErrorCodes = [
   "LEARNING_RUN_ACTIVE_CONFLICT",
   "LEARNING_RUN_IDEMPOTENCY_CONFLICT",
   "LEARNING_RUN_NOT_FOUND",
+  "LEARNING_JOB_LAUNCH_FAILED",
   "LEARNING_ATTEMPT_FENCE_REJECTED",
   "LEARNING_SNAPSHOT_INVARIANT_VIOLATION",
   "LEARNING_REGISTRY_STALE_PARENT",
@@ -27,6 +29,18 @@ const intelligenceProducerErrorCodes = [
   "LEARNING_BLOB_INTEGRITY_MISMATCH",
   "LEARNING_BLOB_INTEGRITY_FAILURE",
   "LEARNING_SDK_CACHE_CORRUPT",
+] as const;
+
+const errorCategories = [
+  "validation",
+  "auth",
+  "permission",
+  "not_found",
+  "conflict",
+  "rate_limit",
+  "internal",
+  "dependency",
+  "dependency_unavailable",
 ] as const;
 
 test("learning assignment mismatch has a stable typed error code", () => {
@@ -77,6 +91,27 @@ test("accepts every stable error envelope emitted by the Intelligence producer",
       code,
     ).toBe(true);
   }
+});
+
+test("accepts the public Learning job launch failure envelope", () => {
+  const response = {
+    error: {
+      code: "LEARNING_JOB_LAUNCH_FAILED",
+      message: "The Learning job could not be launched.",
+      category: "dependency_unavailable",
+      retryable: true,
+    },
+    requestId: "req_job_launch",
+    traceId: "trace_job_launch",
+  } as const;
+
+  expect(
+    learningPlatformErrorResponseV1Schema.safeParse(response).success,
+  ).toBe(true);
+});
+
+test("publishes the exact ordered public error categories", () => {
+  expect(learningPlatformErrorCategorySchema.options).toEqual(errorCategories);
 });
 
 test.each([

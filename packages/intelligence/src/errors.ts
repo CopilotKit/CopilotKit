@@ -11,6 +11,7 @@ export const LEARNING_PLATFORM_ERROR_CODES = [
   "LEARNING_RUN_ACTIVE_CONFLICT",
   "LEARNING_RUN_IDEMPOTENCY_CONFLICT",
   "LEARNING_RUN_NOT_FOUND",
+  "LEARNING_JOB_LAUNCH_FAILED",
   "LEARNING_ATTEMPT_FENCE_REJECTED",
   "LEARNING_SNAPSHOT_INVARIANT_VIOLATION",
   "LEARNING_REGISTRY_STALE_PARENT",
@@ -42,6 +43,7 @@ export const learningPlatformErrorCategorySchema = z.enum([
   "rate_limit",
   "internal",
   "dependency",
+  "dependency_unavailable",
 ]);
 
 /** Correlated REST error envelope used uniformly by Learning Platform APIs. */
