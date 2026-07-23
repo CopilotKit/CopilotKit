@@ -59,7 +59,7 @@ vi.mock("node:fs", () => {
   return { default: api, ...api };
 });
 
-import { rebuild, stageSharedModules, up } from "./lifecycle.js";
+import { down, rebuild, stageSharedModules, up } from "./lifecycle.js";
 
 /** Pull out the compose argv (after the `-f <file>` prefix) for each call. */
 function composeCalls(): string[][] {
@@ -169,6 +169,21 @@ describe("rebuild() — targeted slugs", () => {
     );
     expect(recreateCall).toContain("a");
     expect(recreateCall).toContain("b");
+  });
+});
+
+describe("down() — targeted slugs", () => {
+  it("loads the infra profile so integration dependencies resolve", async () => {
+    await down(["ag2"]);
+
+    expect(composeCalls()).toContainEqual([
+      "--profile",
+      "infra",
+      "--profile",
+      "ag2",
+      "stop",
+      "ag2",
+    ]);
   });
 });
 

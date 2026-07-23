@@ -402,7 +402,14 @@ export async function down(
     compose("--profile", "all", "down");
   } else {
     log.info("stopping services", { slugs });
-    const profileArgs = slugs.flatMap((s) => ["--profile", s]);
+    // Integration services depend on infra services such as aimock. Compose
+    // must load the infra profile to resolve those dependencies even though
+    // `stop <slug...>` only stops the explicitly named integrations.
+    const profileArgs = [
+      "--profile",
+      "infra",
+      ...slugs.flatMap((s) => ["--profile", s]),
+    ];
     compose(...profileArgs, "stop", ...slugs);
   }
 }
