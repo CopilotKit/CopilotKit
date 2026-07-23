@@ -38,9 +38,19 @@ describe("Angular showcase agent selection", () => {
     expect(agentIdForFeature(feature, "built-in-agent")).toBe(agentId);
   });
 
+  it.each([
+    ["reasoning-custom", "agentic-chat-reasoning"],
+    ["reasoning-default", "reasoning-default-render"],
+  ])("uses LlamaIndex's named %s agent", (feature, agentId) => {
+    expect(agentIdForFeature(feature, "llamaindex")).toBe(agentId);
+  });
+
   it("uses the feature contract when no integration override exists", () => {
     expect(agentIdForFeature("tool-rendering", "langgraph-python")).toBe(
       "tool-rendering",
+    );
+    expect(agentIdForFeature("reasoning-custom", "langgraph-python")).toBe(
+      "reasoning-custom",
     );
   });
 

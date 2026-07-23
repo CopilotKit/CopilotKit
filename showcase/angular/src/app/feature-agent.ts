@@ -16,6 +16,11 @@ const BUILT_IN_AGENT_OVERRIDES: Readonly<Record<string, string>> = {
   "tool-rendering-reasoning-chain": "tool-rendering-reasoning-chain",
 };
 
+const INTEGRATION_AGENT_OVERRIDES: Readonly<Record<string, string>> = {
+  "llamaindex/reasoning-custom": "agentic-chat-reasoning",
+  "llamaindex/reasoning-default": "reasoning-default-render",
+};
+
 const THREAD_ID_OVERRIDES: Readonly<Record<string, string>> = {
   "threadid-frontend-tool-roundtrip": "a9e7e9c4-6c72-4b8a-9d74-c5c0e05f6580",
 };
@@ -27,6 +32,11 @@ export function agentIdForFeature(
 ): string {
   if (integration === "built-in-agent") {
     return BUILT_IN_AGENT_OVERRIDES[feature] ?? "default";
+  }
+  const integrationOverride =
+    INTEGRATION_AGENT_OVERRIDES[`${integration}/${feature}`];
+  if (integrationOverride) {
+    return integrationOverride;
   }
   return AGENT_BY_FEATURE[feature] ?? feature;
 }
