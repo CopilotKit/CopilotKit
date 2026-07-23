@@ -178,12 +178,38 @@ const finishedSnapshot = {
   containerSequence: 1,
 } as const;
 
-function retainedEvidenceEvents(count: number) {
+function retainedEvidenceFixture(count: number) {
   const event = finishedSnapshot.retainedEvidence.events[0];
-  return Array.from({ length: count }, (_, index) => ({
+  const events = Array.from({ length: count }, (_, index) => ({
     ...event,
     eventId: `${event.eventId}_${index}`,
   }));
+  const sourceEvent = finishedSnapshot.sourceEvents.find(
+    ({ eventId }) => eventId === event.eventId,
+  );
+  const terminalEvent = finishedSnapshot.sourceEvents.find(
+    ({ eventId }) => eventId === finishedSnapshot.terminalEventId,
+  );
+  if (sourceEvent === undefined || terminalEvent === undefined) {
+    throw new Error("Canonical retained-evidence manifest entries are missing");
+  }
+
+  return {
+    sourceEvents: [
+      ...finishedSnapshot.sourceEvents.filter(
+        ({ eventId }) =>
+          eventId !== event.eventId &&
+          eventId !== finishedSnapshot.terminalEventId,
+      ),
+      ...events.map((retainedEvent, index) => ({
+        ...sourceEvent,
+        eventId: retainedEvent.eventId,
+        sequence: sourceEvent.sequence + index,
+      })),
+      { ...terminalEvent, sequence: sourceEvent.sequence + count },
+    ],
+    retainedEvidence: { schemaVersion: 1, events },
+  };
 }
 
 const workflowInput = {
@@ -453,19 +479,13 @@ describe("canonical snapshot evidence contracts", () => {
     expect(
       runSnapshotV1Schema.safeParse({
         ...finishedSnapshot,
-        retainedEvidence: {
-          schemaVersion: 1,
-          events: retainedEvidenceEvents(4_096),
-        },
+        ...retainedEvidenceFixture(4_096),
       }).success,
     ).toBe(true);
     expect(
       runSnapshotV1Schema.safeParse({
         ...finishedSnapshot,
-        retainedEvidence: {
-          schemaVersion: 1,
-          events: retainedEvidenceEvents(4_097),
-        },
+        ...retainedEvidenceFixture(4_097),
       }).success,
     ).toBe(false);
   });
@@ -654,10 +674,7 @@ describe("canonical snapshot evidence contracts", () => {
     expect(
       validateSnapshot({
         ...finishedSnapshot,
-        retainedEvidence: {
-          schemaVersion: 1,
-          events: retainedEvidenceEvents(4_096),
-        },
+        ...retainedEvidenceFixture(4_096),
       }),
     ).toBe(true);
     expect(
@@ -692,10 +709,7 @@ describe("canonical snapshot evidence contracts", () => {
     expect(
       validateSnapshot({
         ...finishedSnapshot,
-        retainedEvidence: {
-          schemaVersion: 1,
-          events: retainedEvidenceEvents(4_097),
-        },
+        ...retainedEvidenceFixture(4_097),
       }),
     ).toBe(false);
     expect(

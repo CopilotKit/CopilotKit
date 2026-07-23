@@ -520,6 +520,21 @@ export const runSnapshotV1Schema = z
       } else {
         retainedEventsById.set(event.eventId, event);
       }
+
+      const sourceEvent = sourceEventsById.get(event.eventId);
+      if (sourceEvent === undefined) {
+        context.addIssue({
+          code: "custom",
+          path: ["retainedEvidence", "events", eventIndex, "eventId"],
+          message: `Retained event must reference exactly one source event: ${event.eventId}.`,
+        });
+      } else if (sourceEvent.type !== event.type) {
+        context.addIssue({
+          code: "custom",
+          path: ["retainedEvidence", "events", eventIndex, "type"],
+          message: `Retained event type ${event.type} does not match source-event type ${sourceEvent.type}.`,
+        });
+      }
     });
 
     const referencedTerminalEvent = sourceEventsById.get(
@@ -2338,6 +2353,15 @@ registerLearningContractPortableAssertions(runSnapshotV1Schema, [
   {
     operation: "unique",
     values: "/retainedEvidence/events/*/eventId",
+  },
+  {
+    operation: "lookup-references",
+    sources: "/retainedEvidence/events/*",
+    reference: "/eventId",
+    values: "/type",
+    collection: "/sourceEvents/*",
+    key: "/eventId",
+    targets: "/type",
   },
   {
     operation: "unique",

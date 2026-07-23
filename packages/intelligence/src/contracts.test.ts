@@ -124,6 +124,13 @@ const snapshot = {
   containerSequence: 1,
 } as const;
 
+const correlatedRetainedEvidenceEvent = {
+  eventId: "event_1",
+  type: "TEXT_MESSAGE_END",
+  timestamp: NOW,
+  payload: { answer: 42 },
+} as const;
+
 const frozenAvailableSkill = {
   skillId: UUIDS.skill,
   versionId: UUIDS.version,
@@ -972,29 +979,6 @@ describe("parent V1 contract schemas", () => {
       },
     },
     {
-      name: "duplicate retained-event IDs",
-      value: {
-        ...snapshot,
-        retainedEvidence: {
-          schemaVersion: 1,
-          events: [
-            {
-              eventId: "event_custom",
-              type: "CUSTOM",
-              timestamp: NOW,
-              payload: {},
-            },
-            {
-              eventId: "event_custom",
-              type: "CUSTOM",
-              timestamp: NOW,
-              payload: { repeated: true },
-            },
-          ],
-        },
-      },
-    },
-    {
       name: "duplicate tool-call IDs",
       value: {
         ...snapshot,
@@ -1093,6 +1077,47 @@ describe("parent V1 contract schemas", () => {
     expect(
       runSnapshotV1Schema.safeParse({ ...snapshot, byteLength: -1 }).success,
     ).toBe(false);
+  });
+
+  test.each([
+    {
+      name: "a correlated retained event",
+      events: [correlatedRetainedEvidenceEvent],
+      expected: true,
+    },
+    {
+      name: "a retained event outside the source-event manifest",
+      events: [
+        {
+          ...correlatedRetainedEvidenceEvent,
+          eventId: "event_missing",
+        },
+      ],
+      expected: false,
+    },
+    {
+      name: "duplicate retained-event IDs",
+      events: [
+        correlatedRetainedEvidenceEvent,
+        {
+          ...correlatedRetainedEvidenceEvent,
+          payload: { repeated: true },
+        },
+      ],
+      expected: false,
+    },
+    {
+      name: "a retained event type that differs from the manifest",
+      events: [{ ...correlatedRetainedEvidenceEvent, type: "CUSTOM" }],
+      expected: false,
+    },
+  ])("$name satisfies retained-event provenance", ({ events, expected }) => {
+    expect(
+      runSnapshotV1Schema.safeParse({
+        ...snapshot,
+        retainedEvidence: { schemaVersion: 1, events },
+      }).success,
+    ).toBe(expected);
   });
 
   test("requires exactly one source event matching the terminal event ID", () => {

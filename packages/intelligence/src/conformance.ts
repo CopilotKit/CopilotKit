@@ -1242,6 +1242,38 @@ function buildCases(): LearningPlatformConformanceCase[] {
       },
     },
     {
+      name: "run-snapshot-accepts-correlated-retained-event",
+      schema: "RunSnapshotV1",
+      valid: true,
+      value: canonicalSnapshot,
+    },
+    {
+      name: "run-snapshot-rejects-retained-event-outside-manifest",
+      schema: "RunSnapshotV1",
+      valid: false,
+      value: {
+        ...canonicalSnapshot,
+        retainedEvidence: {
+          schemaVersion: 1,
+          events: [
+            { ...retainedEvidenceEvent, eventId: "event_not_in_manifest" },
+          ],
+        },
+      },
+    },
+    {
+      name: "run-snapshot-rejects-retained-event-type-mismatch",
+      schema: "RunSnapshotV1",
+      valid: false,
+      value: {
+        ...canonicalSnapshot,
+        retainedEvidence: {
+          schemaVersion: 1,
+          events: [{ ...retainedEvidenceEvent, type: "OTHER_CUSTOM" }],
+        },
+      },
+    },
+    {
       name: "run-snapshot-rejects-duplicate-tool-call-ids",
       schema: "RunSnapshotV1",
       valid: false,
@@ -1336,6 +1368,13 @@ function buildCases(): LearningPlatformConformanceCase[] {
       valid: true,
       value: {
         ...canonicalSnapshot,
+        sourceEvents: (
+          canonicalSnapshot.sourceEvents as Record<string, JsonValue>[]
+        ).map((event) =>
+          event.eventId === retainedEvidenceEvent.eventId
+            ? { ...event, eventId: "é".repeat(512) }
+            : event,
+        ),
         retainedEvidence: {
           schemaVersion: 1,
           events: [
@@ -1353,6 +1392,13 @@ function buildCases(): LearningPlatformConformanceCase[] {
       valid: false,
       value: {
         ...canonicalSnapshot,
+        sourceEvents: (
+          canonicalSnapshot.sourceEvents as Record<string, JsonValue>[]
+        ).map((event) =>
+          event.eventId === retainedEvidenceEvent.eventId
+            ? { ...event, eventId: "é".repeat(513) }
+            : event,
+        ),
         retainedEvidence: {
           schemaVersion: 1,
           events: [

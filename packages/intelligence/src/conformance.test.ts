@@ -202,8 +202,8 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
 
     expect(corpus.schemaVersion).toBe(1);
     expect(Object.keys(corpus.schemas)).toHaveLength(47);
-    expect(corpus.cases).toHaveLength(284);
-    expect(new Set(corpus.cases.map(({ name }) => name)).size).toBe(284);
+    expect(corpus.cases).toHaveLength(287);
+    expect(new Set(corpus.cases.map(({ name }) => name)).size).toBe(287);
     expect(Object.keys(corpus.schemas).sort()).toEqual(expectedNames);
     expect(Object.keys(learningPlatformConformanceSchemas).sort()).toEqual(
       expectedNames,
@@ -645,6 +645,9 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
         "run-snapshot-rejects-duplicate-source-event-ids",
         "run-snapshot-rejects-duplicate-message-ids",
         "run-snapshot-rejects-duplicate-retained-event-ids",
+        "run-snapshot-accepts-correlated-retained-event",
+        "run-snapshot-rejects-retained-event-outside-manifest",
+        "run-snapshot-rejects-retained-event-type-mismatch",
         "run-snapshot-rejects-duplicate-tool-call-ids",
         "run-snapshot-rejects-message-event-outside-manifest",
         "run-snapshot-rejects-mismatched-tool-result-name",
