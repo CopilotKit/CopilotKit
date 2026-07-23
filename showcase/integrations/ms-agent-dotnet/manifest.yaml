@@ -275,7 +275,7 @@ demos:
     highlight:
       - agent/Program.cs
       - src/app/demos/chat-slots/page.tsx
-      - src/app/demos/chat-slots/custom-welcome-screen.tsx
+      - src/app/demos/chat-slots/slot-wrappers.tsx
       - src/app/api/copilotkit/route.ts
   - id: headless-simple
     name: Headless Chat (Simple)
@@ -298,8 +298,8 @@ demos:
     highlight:
       - agent/Program.cs
       - src/app/demos/headless-complete/page.tsx
-      - src/app/demos/headless-complete/message-list.tsx
-      - src/app/demos/headless-complete/use-rendered-messages.tsx
+      - src/app/demos/headless-complete/chat/chat.tsx
+      - src/app/demos/headless-complete/hooks/use-tool-renderers.tsx
       - src/app/api/copilotkit/route.ts
   - id: gen-ui-interrupt
     name: In-Chat HITL (useInterrupt — low-level primitive)
@@ -311,7 +311,7 @@ demos:
     highlight:
       - agent/InterruptAgent.cs
       - src/app/demos/gen-ui-interrupt/page.tsx
-      - src/app/demos/gen-ui-interrupt/time-picker-card.tsx
+      - src/app/demos/gen-ui-interrupt/_components/time-picker-card.tsx
       - src/app/api/copilotkit/route.ts
   - id: declarative-gen-ui
     name: Declarative Generative UI (A2UI)
