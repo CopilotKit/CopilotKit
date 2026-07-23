@@ -1,0 +1,40 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for hermes / readonly-state-agent-context. The demo publishes name/timezone/recentActivity via useAgentContext; the hermes AG-UI adapter injects RunAgentInput.context as a system message (translate.context_to_text), so this is plain chat that references the injected context. Keyed on the verbatim suggestion-pill prompts.",
+    "sourceFile": "langgraph-python/readonly-state.json",
+    "context": "hermes",
+    "created": "2026-07-01"
+  },
+  "fixtures": [
+    {
+      "_comment": "readonly-state-agent-context — 'Who am I?' pill. Matches the verbatim pill prompt. Reply begins 'I see you're Atai' so the e2e assistant-message filter matches.",
+      "match": {
+        "userMessage": "What do you know about me from my context?",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "I see you're Atai, and you're in the America/Los_Angeles timezone. Recently, you viewed the pricing page and watched the product demo video. How can I help?"
+      }
+    },
+    {
+      "_comment": "readonly-state-agent-context — 'Suggest next steps' pill. Matches the verbatim pill prompt. Reply begins 'Since you recently viewed the pricing page and watched the product demo video'.",
+      "match": {
+        "userMessage": "Based on my recent activity, what should I try next?",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Since you recently viewed the pricing page and watched the product demo video, a natural next step is to start the 14-day free trial so you can experience the Pro Plan features firsthand. Browsing customer testimonials or case studies is another good option to see how similar teams got value."
+      }
+    },
+    {
+      "_comment": "readonly-state-agent-context — 'Plan my morning' pill. Matches the verbatim pill prompt; grounds the reply in the injected timezone context.",
+      "match": {
+        "userMessage": "What time is it in my timezone and what should I do for the next hour?",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Based on your America/Los_Angeles timezone, it's mid-morning for you. For the next hour I'd suggest kicking off the 14-day free trial and setting up your first project — that builds naturally on the pricing page and product demo you already looked at."
+      }
+    }
+  ]
+}

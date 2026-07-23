@@ -1,0 +1,19 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for hermes / prebuilt-sidebar",
+    "sourceFile": "langgraph-python/prebuilt-sidebar.json",
+    "created": "2026-07-01"
+  },
+  "fixtures": [
+    {
+      "_comment": "prebuilt-sidebar — single turn proving the CopilotSidebar component renders and messages round-trip inside its .copilotKitSidebar root. context:hermes isolates this fixture per-integration; no turnIndex gate needed (single-turn probe, unique prompt).",
+      "match": {
+        "userMessage": "hi from the sidebar test",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Hello from the sidebar — the CopilotSidebar prebuilt component is wired up and reachable. Anything else you would like me to confirm from inside the sidebar?"
+      }
+    }
+  ]
+}

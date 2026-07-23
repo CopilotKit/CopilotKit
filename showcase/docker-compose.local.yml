@@ -455,6 +455,17 @@ services:
     volumes:
       - ./integrations/pydantic-ai/src:/app/src
 
+  hermes:
+    <<: *integration-defaults
+    build: ./integrations/hermes
+    image: showcase-hermes:local
+    container_name: showcase-hermes
+    ports:
+      - "3120:10000"
+    profiles: ["hermes", "all"]
+    volumes:
+      - ./integrations/hermes/src:/app/src
+
   claude-sdk-python:
     <<: *integration-defaults
     build: ./integrations/claude-sdk-python

@@ -1,0 +1,238 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for hermes / tool-rendering-default-catchall. SERVER-SIDE backend tools (Hermes `hermes-showcase` toolset, integrations/hermes/showcase_tools.py), 1:1 with langgraph-python; rendered by CopilotKit's BUILT-IN default tool card (useDefaultRenderTool()). The fixture only makes the agent EMIT the tool call (leg 1, gated on toolName); Hermes runs the REAL handler in-loop (result via TOOL_CALL_RESULT), then the narration leg (gated on toolCallId, ordered first) fires. The tool RESULT comes from the server handler, NOT the fixture. The built-in renderer paints [data-testid='copilot-tool-render'][data-tool-name='<tool>'] with a status pill. Two-leg toolCallId pattern (2nd leg above 1st). D5 probe prompt: 'forecast for Tokyo' (disjoint from the custom-catchall probe's 'Forecast Tokyo through the wildcard renderer' so aimock's substring matcher cannot cross-route). Pills (verbatim from suggestions.ts): \"What's the weather in San Francisco?\", \"Find flights from SFO to JFK.\", \"Roll a 20-sided die.\", \"Chain a few tools in this single turn: ...\".",
+    "sourceFile": "langgraph-python/tool-rendering-default-catchall.json",
+    "created": "2026-07-01"
+  },
+  "fixtures": [
+    {
+      "_comment": "Chain tools — follow-up after all 3 tools ran (last chain toolCallId).",
+      "match": {
+        "userMessage": "Chain a few tools in this single turn",
+        "toolCallId": "call_dc_chain_roll_001",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Done — Tokyo is sunny, three flights found, and the d20 came up 11."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Chain a few tools in this single turn",
+        "toolCallId": "call_dc_chain_flights_001",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Done — Tokyo is sunny, three flights found, and the d20 came up 11."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Chain a few tools in this single turn",
+        "toolCallId": "call_dc_chain_weather_001",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Done — Tokyo is sunny, three flights found, and the d20 came up 11."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Chain a few tools in this single turn",
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_dc_chain_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          },
+          {
+            "id": "call_dc_chain_flights_001",
+            "name": "search_flights",
+            "arguments": "{\"origin\":\"SFO\",\"destination\":\"Tokyo\"}"
+          },
+          {
+            "id": "call_dc_chain_roll_001",
+            "name": "roll_d20",
+            "arguments": "{\"value\":11}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Weather in SF — follow-up content.",
+      "match": {
+        "userMessage": "What's the weather in San Francisco?",
+        "toolCallId": "call_dc_weather_sf_001",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "San Francisco is currently 68°F and sunny with light winds."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "What's the weather in San Francisco?",
+        "toolName": "get_weather",
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_dc_weather_sf_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"San Francisco\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Find flights — second leg.",
+      "match": {
+        "userMessage": "Find flights from SFO to JFK.",
+        "toolCallId": "call_dc_flights_sfo_jfk_001",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Three flights from SFO to JFK — United UA231, Delta DL412, and JetBlue B6722."
+      }
+    },
+    {
+      "_comment": "Find flights — first leg.",
+      "match": {
+        "userMessage": "Find flights from SFO to JFK.",
+        "toolName": "search_flights",
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_dc_flights_sfo_jfk_001",
+            "name": "search_flights",
+            "arguments": "{\"origin\":\"SFO\",\"destination\":\"JFK\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Roll a d20 — 5 sequential rolls [7,14,3,19,20], chained by toolCallId.",
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "toolCallId": "call_dc_d20_seq_001",
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_dc_d20_seq_002",
+            "name": "roll_d20",
+            "arguments": "{\"value\":14}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "toolCallId": "call_dc_d20_seq_002",
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_dc_d20_seq_003",
+            "name": "roll_d20",
+            "arguments": "{\"value\":3}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "toolCallId": "call_dc_d20_seq_003",
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_dc_d20_seq_004",
+            "name": "roll_d20",
+            "arguments": "{\"value\":19}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "toolCallId": "call_dc_d20_seq_004",
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_dc_d20_seq_005",
+            "name": "roll_d20",
+            "arguments": "{\"value\":20}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "toolCallId": "call_dc_d20_seq_005",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Rolled the d20 five times — landed on 20 on the final roll."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_dc_d20_seq_001",
+            "name": "roll_d20",
+            "arguments": "{\"value\":7}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "D5 probe: 'forecast for Tokyo' — follow-up content after get_weather ran. MUST come before the tool-emitting fixture. The built-in default renderer renders [data-testid='copilot-tool-render'][data-tool-name='get_weather'] with a status pill.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "toolCallId": "call_dc_weather_001",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Tokyo is 68°F and sunny — the default catchall renderer displayed the tool card above."
+      }
+    },
+    {
+      "_comment": "D5 probe: 'forecast for Tokyo' — first leg: emit get_weather that the built-in default catchall renders.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "toolName": "get_weather",
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_dc_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    }
+  ]
+}

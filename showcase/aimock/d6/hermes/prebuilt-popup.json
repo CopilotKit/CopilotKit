@@ -1,0 +1,19 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for hermes / prebuilt-popup",
+    "sourceFile": "langgraph-python/prebuilt-popup.json",
+    "created": "2026-07-01"
+  },
+  "fixtures": [
+    {
+      "_comment": "prebuilt-popup — single turn proving the CopilotPopup component renders and messages round-trip inside its .copilotKitPopup root. context:hermes isolates this fixture per-integration; no turnIndex gate needed (single-turn probe, unique prompt).",
+      "match": {
+        "userMessage": "hi from the popup test",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Hello from the popup — the CopilotPopup prebuilt component is wired up and reachable. The launcher floats in the corner and the chat sits in an overlay panel."
+      }
+    }
+  ]
+}

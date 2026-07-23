@@ -86,6 +86,8 @@ jobs:
               - 'showcase/integrations/claude-sdk-python/**'
             built_in_agent:
               - 'showcase/integrations/built-in-agent/**'
+            hermes:
+              - 'showcase/integrations/hermes/**'
             shell_dojo:
               - 'showcase/shell-dojo/**'
               - 'showcase/shared/**'
@@ -127,6 +129,20 @@ jobs:
           # Fields carried over: dispatch_name, filter_key, context, image,
           # timeout, lfs, build_args_*, dockerfile.
           # Fields omitted (not needed for build-only): railway_id, health_path.
+          #
+          # DELIBERATE EXCEPTION — `hermes` is present HERE but NOT in
+          # showcase_build.yml. Hermes is `deployed: false` (its AG-UI adapter
+          # installs from a not-yet-upstreamed fork pinned by SHA in
+          # requirements.txt, and it has no provisioned Railway service / SSOT
+          # entry in railway-envs.ts). We still want the fork-install Docker
+          # build gated on every PR that touches it, so it lives in this
+          # build-only check. Do NOT "fix the drift" by copying hermes into
+          # showcase_build.yml's ALL_SERVICES: that job builds+pushes to GHCR
+          # and then feeds the redeploy-staging step, which resolves each
+          # dispatch_name against the Railway SSOT — hermes has no entry there,
+          # so it would fail the redeploy. When the adapter lands upstream and
+          # a Railway service is provisioned (flip `deployed: true`), add it to
+          # showcase_build.yml WITH a real railway_id and this note goes away.
           ALL_SERVICES='[
             {"dispatch_name":"shell","filter_key":"shell","context":".","image":"showcase-shell","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell/Dockerfile"},
             {"dispatch_name":"langgraph-python","filter_key":"langgraph_python","context":"showcase/integrations/langgraph-python","image":"showcase-langgraph-python","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
@@ -149,6 +165,7 @@ jobs:
             {"dispatch_name":"ms-agent-harness-dotnet","filter_key":"ms_agent_harness_dotnet","context":"showcase/integrations/ms-agent-harness-dotnet","image":"showcase-ms-agent-harness-dotnet","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
             {"dispatch_name":"claude-sdk-python","filter_key":"claude_sdk_python","context":"showcase/integrations/claude-sdk-python","image":"showcase-claude-sdk-python","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
             {"dispatch_name":"built-in-agent","filter_key":"built_in_agent","context":"showcase/integrations/built-in-agent","image":"showcase-built-in-agent","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"hermes","filter_key":"hermes","context":"showcase/integrations/hermes","image":"showcase-hermes","timeout":20,"lfs":false,"build_args":"","dockerfile":""},
             {"dispatch_name":"shell-dojo","filter_key":"shell_dojo","context":".","image":"showcase-shell-dojo","timeout":10,"lfs":false,"build_args":"","dockerfile":"showcase/shell-dojo/Dockerfile"},
             {"dispatch_name":"shell-dashboard","filter_key":"shell_dashboard","context":".","image":"showcase-shell-dashboard","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell-dashboard/Dockerfile"},
             {"dispatch_name":"shell-docs","filter_key":"shell_docs","context":".","image":"showcase-shell-docs","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell-docs/Dockerfile"},

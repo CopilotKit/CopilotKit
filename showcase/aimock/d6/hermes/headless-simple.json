@@ -1,0 +1,39 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for hermes / headless-simple",
+    "sourceFile": "langgraph-python/headless-simple.json",
+    "created": "2026-07-01"
+  },
+  "fixtures": [
+    {
+      "_comment": "headless-simple D5 probe (d5-headless-simple.ts) clicks the 'Say hello in one short sentence.' chip. Reply is intentionally NON-boilerplate so the probe's non-empty assistant-bubble assertion is unambiguous. context:hermes isolates per-integration.",
+      "match": {
+        "userMessage": "Say hello in one short sentence",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Hi! In one short sentence: I'm a CopilotKit demo agent here to help you try features."
+      }
+    },
+    {
+      "_comment": "headless-simple chip 2 — one-line joke.",
+      "match": {
+        "userMessage": "Tell me a one-line joke",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Why did the scarecrow win an award? Because he was outstanding in his field!"
+      }
+    },
+    {
+      "_comment": "headless-simple chip 3 — fun fact.",
+      "match": {
+        "userMessage": "Give me a fun fact",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "A fun fact: Honey never spoils! Archaeologists have found pots of honey in ancient Egyptian tombs that are over 3,000 years old and still perfectly edible."
+      }
+    }
+  ]
+}

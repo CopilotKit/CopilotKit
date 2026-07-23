@@ -1,0 +1,215 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import type { FormEvent, ReactNode } from "react";
+
+import { CopilotKit } from "@copilotkit/react-core/v2";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+
+const DEFAULT_URL = "http://127.0.0.1:8000/";
+const URL_KEY = "hermes:url";
+const TOKEN_KEY = "hermes:token";
+
+// localStorage access can throw (Safari private mode, sandboxed iframes,
+// storage disabled). Never let that brick the connect screen or the submit
+// handler — degrade to a non-persistent session instead.
+function safeGet(key: string): string | null {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+function safeSet(key: string, value: string | null) {
+  try {
+    if (value) window.localStorage.setItem(key, value);
+    else window.localStorage.removeItem(key);
+  } catch {
+    /* storage unavailable — ignore */
+  }
+}
+
+/**
+ * Gates the CopilotKit provider behind a connect screen: the user enters the
+ * URL of their running `hermes agui` server (and an optional session token),
+ * which are forwarded to the agent as request headers — `X-Hermes-Url` (read
+ * by the AgentsFactory in the API route) and `X-Hermes-Session-Token`
+ * (auto-forwarded to the agent by the runtime).
+ *
+ * Security: the API route connects to whatever URL the browser supplies and
+ * the runtime forwards headers to that URL. This is intended for local /
+ * trusted use — see the README security note before exposing it beyond
+ * localhost.
+ */
+export function HermesConnection({ children }: { children: ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+  const [connected, setConnected] = useState(false);
+  const [url, setUrl] = useState(DEFAULT_URL);
+  const [token, setToken] = useState("");
+
+  // Hydrate the last-used connection after mount. Reading during render would
+  // mismatch SSR (the server has no localStorage).
+  useEffect(() => {
+    const savedUrl = safeGet(URL_KEY);
+    const savedToken = safeGet(TOKEN_KEY);
+    if (savedUrl) setUrl(savedUrl);
+    if (savedToken) setToken(savedToken);
+    setMounted(true);
+  }, []);
+
+  const headers = useMemo(() => {
+    const h: Record<string, string> = { "X-Hermes-Url": url };
+    if (token) h["X-Hermes-Session-Token"] = token;
+    return h;
+  }, [url, token]);
+
+  const handleConnect = (nextUrl: string, nextToken: string) => {
+    const trimmedUrl = nextUrl.trim();
+    const trimmedToken = nextToken.trim();
+    setUrl(trimmedUrl);
+    setToken(trimmedToken);
+    safeSet(URL_KEY, trimmedUrl);
+    safeSet(TOKEN_KEY, trimmedToken || null);
+    setConnected(true);
+  };
+
+  // Hold rendering until hydrated so the form reflects any saved connection.
+  if (!mounted) return null;
+
+  if (!connected) {
+    return (
+      <ConnectForm
+        initialUrl={url}
+        initialToken={token}
+        onConnect={handleConnect}
+      />
+    );
+  }
+
+  return (
+    // Key on the server URL so switching servers starts a clean CopilotKit
+    // session. Header changes (including the token) are applied live by the
+    // provider, and reconnecting always remounts via the connect screen.
+    <CopilotKit
+      key={url}
+      runtimeUrl="/api/copilotkit"
+      headers={headers}
+      inspectorDefaultAnchor={{ horizontal: "right", vertical: "top" }}
+      openGenerativeUI={{}}
+      useSingleEndpoint={false}
+    >
+      {children}
+      <ConnectionBadge url={url} onChange={() => setConnected(false)} />
+    </CopilotKit>
+  );
+}
+
+function ConnectForm({
+  initialUrl,
+  initialToken,
+  onConnect,
+}: {
+  initialUrl: string;
+  initialToken: string;
+  onConnect: (url: string, token: string) => void;
+}) {
+  const [url, setUrl] = useState(initialUrl);
+  const [token, setToken] = useState(initialToken);
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!url.trim()) return;
+    onConnect(url, token);
+  };
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4 dark:bg-stone-950">
+      <form
+        onSubmit={submit}
+        className="w-full max-w-md rounded-xl border border-gray-200 bg-white p-8 shadow-sm dark:border-stone-800 dark:bg-stone-900"
+      >
+        <h1 className="text-xl font-semibold text-gray-900 dark:text-stone-100">
+          Connect to Hermes
+        </h1>
+        <p className="mt-2 text-sm leading-relaxed text-gray-500 dark:text-stone-400">
+          Start your agent with{" "}
+          <code className="rounded bg-gray-100 px-1 py-0.5 text-xs dark:bg-stone-800">
+            hermes agui
+          </code>
+          , then paste its URL below. A session token is only required when the
+          server binds to a non-loopback address.
+        </p>
+
+        <div className="mt-6 space-y-4">
+          <div className="space-y-1.5">
+            <label
+              htmlFor="hermes-url"
+              className="text-sm font-medium text-gray-700 dark:text-stone-300"
+            >
+              Server URL
+            </label>
+            <Input
+              id="hermes-url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder={DEFAULT_URL}
+              autoComplete="off"
+              spellCheck={false}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label
+              htmlFor="hermes-token"
+              className="text-sm font-medium text-gray-700 dark:text-stone-300"
+            >
+              Session token{" "}
+              <span className="font-normal text-gray-400 dark:text-stone-500">
+                (optional)
+              </span>
+            </label>
+            <Input
+              id="hermes-token"
+              type="password"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              placeholder="HERMES_AGUI_SESSION_TOKEN"
+              autoComplete="off"
+              spellCheck={false}
+            />
+          </div>
+        </div>
+
+        <Button type="submit" className="mt-6 w-full" disabled={!url.trim()}>
+          Connect
+        </Button>
+      </form>
+    </div>
+  );
+}
+
+function ConnectionBadge({
+  url,
+  onChange,
+}: {
+  url: string;
+  onChange: () => void;
+}) {
+  return (
+    <div className="fixed bottom-3 left-3 z-50 flex items-center gap-2 rounded-full border border-gray-200 bg-white/90 px-3 py-1.5 text-xs text-gray-600 shadow-sm backdrop-blur dark:border-stone-700 dark:bg-stone-900/90 dark:text-stone-300">
+      <span className="inline-block h-2 w-2 rounded-full bg-green-500" />
+      <span className="max-w-[220px] truncate" title={url}>
+        {url}
+      </span>
+      <button
+        type="button"
+        onClick={onChange}
+        className="font-medium text-gray-900 underline-offset-2 hover:underline dark:text-stone-100"
+      >
+        change
+      </button>
+    </div>
+  );
+}

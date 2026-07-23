@@ -1,0 +1,481 @@
+name: Hermes
+slug: hermes
+category: agent-framework
+language: python
+logo: /logos/hermes.svg
+description: >-
+  CopilotKit integration with the Hermes agent by Nous Research, wired through
+  the Hermes AG-UI adapter. A self-improving agent exposed over the AG-UI
+  protocol and driven by CopilotKit's React UI.
+partner_docs: https://hermes-agent.nousresearch.com/docs/
+repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/hermes
+copilotkit_version: 2.0.0
+deployed: false
+# `generated` (the default, as used by langgraph-python): shell-docs renders a
+# data-driven FrameworkOverview — no per-framework MDX tree required. Hermes
+# ships no authored tree under shell-docs/src/content/docs/integrations/hermes,
+# so `authored` here would have rendered an empty page. Flip to `authored`
+# (and add the tree) if/when hermes gets hand-written docs.
+docs_mode: generated
+sort_order: 60
+generative_ui:
+  - constrained-explicit
+  - a2ui-fixed-schema
+  - a2ui-dynamic-schema
+interaction_modalities:
+  - sidebar
+  - chat
+managed_platform:
+  name: Nous Portal
+  url: https://portal.nousresearch.com
+not_supported_features:
+  # a2ui-recovery: the EXHAUST hard-fail end-state requires an AGENT-emitted
+  # tool result carrying the `a2ui_recovery_exhausted` envelope, which the
+  # langgraph variants produce in-graph via `ag_ui_langgraph.get_a2ui_tools`.
+  # Hermes has no A2UI backend, and its aimock transport cannot emit an
+  # agent-side tool result the A2UI middleware would parse for that envelope,
+  # so the demo cannot go fully green. HEAL works; EXHAUST does not. Same
+  # omission as pydantic-ai (which also lacks this demo entirely).
+  - a2ui-recovery
+  # gen-ui-interrupt / interrupt-headless: QUARANTINED upstream. langgraph-python
+  # ITSELF marks these not-supported — a @copilotkit/react-core/v2
+  # useInterrupt/useHeadlessInterrupt RESUME-PATH hook bug (backend resumes and
+  # streams HTTP 200, but the frontend never appends the confirmation assistant
+  # bubble). The fix is a published-package change, out of scope for this integration.
+  - gen-ui-interrupt
+  - interrupt-headless
+features:
+  - cli-start
+  - beautiful-chat
+  - agentic-chat
+  - prebuilt-sidebar
+  - prebuilt-popup
+  - chat-slots
+  - chat-customization-css
+  - headless-simple
+  - headless-complete
+  - frontend-tools
+  - frontend-tools-async
+  - hitl-in-chat
+  - hitl-in-app
+  - gen-ui-tool-based
+  - tool-rendering
+  - tool-rendering-default-catchall
+  - tool-rendering-custom-catchall
+  - tool-rendering-reasoning-chain
+  - readonly-state-agent-context
+  - shared-state-read
+  - shared-state-read-write
+  - gen-ui-agent
+  - agent-config
+  - multimodal
+  - declarative-json-render
+  - declarative-hashbrown
+  - reasoning-default
+  - reasoning-custom
+  - auth
+  - voice
+  - open-gen-ui
+  - open-gen-ui-advanced
+  - declarative-gen-ui
+  - a2ui-fixed-schema
+  - mcp-apps
+# Framework-pattern flags consumed by shell-docs (<WhenFrameworkHas>). Hermes
+# is the generic-AG-UI analog of pydantic-ai (same copilotRuntimeNextJSAppRouter
+# + HttpAgent + ExperimentalEmptyAdapter wiring), so its patterns match:
+#   a2ui: fixed schema loaded via the middleware-injected render_a2ui path.
+#   interrupt: CopilotKit promise-based frontend interrupt (no native backend
+#     interrupt — hermes has no graph); HITL demos use the render-and-wait path.
+#   agent_config: typed config forwarded as shared state (forwarded_props).
+#   auth: CopilotKit runtime onRequest hook (see api/copilotkit-auth/route.ts).
+a2ui_pattern: schema-loading
+interrupt_pattern: promise-based
+agent_config_pattern: shared-state
+auth_pattern: runtime-onrequest
+demos:
+  - id: cli-start
+    name: CLI Start Command
+    description: Copy-paste command to clone the canonical starter
+    tags:
+      - chat-ui
+    command: "npx copilotkit@latest init --framework hermes"
+  - id: beautiful-chat
+    name: Beautiful Chat
+    description: "Canonical polished flagship — combines A2UI (fixed FlightCard + dynamic render_a2ui), Open Generative UI, MCP Apps (Excalidraw), shared todos state, and useComponent/useFrontendTool in one cell, all wired to the real Hermes agent over AG-UI. Shared `todos` state is written via the manage_todos state-writer tool declared to the hermes adapter through forwarded_props."
+    tags:
+      - chat-ui
+    route: /demos/beautiful-chat
+    highlight:
+      - src/app/demos/beautiful-chat/page.tsx
+      - src/app/demos/beautiful-chat/components/example-layout/index.tsx
+      - src/app/demos/beautiful-chat/components/example-canvas/index.tsx
+      - src/app/demos/beautiful-chat/components/generative-ui/charts/bar-chart.tsx
+      - src/app/demos/beautiful-chat/components/generative-ui/charts/pie-chart.tsx
+      - src/app/demos/beautiful-chat/hooks/use-example-suggestions.tsx
+      - src/app/demos/beautiful-chat/hooks/use-generative-ui-examples.tsx
+      - src/app/api/copilotkit-beautiful-chat/route.ts
+  - id: agentic-chat
+    name: Agentic Chat
+    description: Natural conversation with the real Hermes agent over AG-UI
+    tags:
+      - chat-ui
+    route: /demos/agentic-chat
+    highlight:
+      - src/app/demos/agentic-chat/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: frontend-tools
+    name: Frontend Tools (In-App Actions)
+    description: Hermes invokes a client-side handler registered with useFrontendTool
+    tags:
+      - interactivity
+    route: /demos/frontend-tools
+    highlight:
+      - src/app/demos/frontend-tools/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: frontend-tools-async
+    name: "Frontend Tools: Async"
+    description: useFrontendTool with an async handler — agent awaits a client-side async operation (simulated notes DB query) and uses the returned result
+    tags:
+      - interactivity
+    route: /demos/frontend-tools-async
+    highlight:
+      - src/app/demos/frontend-tools-async/page.tsx
+      - src/app/demos/frontend-tools-async/notes-card.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: hitl-in-chat
+    name: "Human In the Loop: In-chat"
+    description: Time-slot picker rendered inline in the chat via `useHumanInTheLoop` — the agent requests user input, the frontend renders a TimePickerCard, and the user's choice resumes the agent.
+    tags:
+      - interactivity
+    route: /demos/hitl-in-chat
+    highlight:
+      - src/app/demos/hitl-in-chat/page.tsx
+      - src/app/demos/hitl-in-chat/time-picker-card.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: hitl-in-app
+    name: "Human in the Loop: In-app"
+    description: Agent requests approval via useFrontendTool with an async handler; the approval UI pops up as an app-level modal OUTSIDE the chat, and a completion callback resolves the pending tool Promise with the user's decision
+    tags:
+      - interactivity
+    route: /demos/hitl-in-app
+    highlight:
+      - src/app/demos/hitl-in-app/page.tsx
+      - src/app/demos/hitl-in-app/approval-dialog.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: gen-ui-tool-based
+    name: "Generative UI: useComponent"
+    description: Agent uses tools to trigger UI generation
+    tags:
+      - controlled-generative-ui
+    route: /demos/gen-ui-tool-based
+    highlight:
+      - src/app/demos/gen-ui-tool-based/page.tsx
+      - src/app/demos/gen-ui-tool-based/bar-chart.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: tool-rendering-default-catchall
+    name: "Generative UI: Tool Rendering (Default)"
+    description: Out-of-the-box tool rendering — client-executed frontend tools with fake-data handlers; the frontend adds zero custom renderers and relies on CopilotKit's built-in default UI
+    tags:
+      - generative-ui
+    route: /demos/tool-rendering-default-catchall
+    highlight:
+      - src/app/demos/tool-rendering-default-catchall/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: tool-rendering-custom-catchall
+    name: "Generative UI: Tool Rendering (Catch-all)"
+    description: Single branded wildcard renderer via useDefaultRenderTool — the same app-designed card paints every client-executed tool call
+    tags:
+      - generative-ui
+    route: /demos/tool-rendering-custom-catchall
+    highlight:
+      - src/app/demos/tool-rendering-custom-catchall/page.tsx
+      - src/app/demos/tool-rendering-custom-catchall/custom-catchall-renderer.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: tool-rendering
+    name: "Generative UI: Tool Rendering (Custom)"
+    description: Custom per-tool renderers (WeatherCard, FlightListCard) plus a wildcard catch-all for every other client-executed tool
+    tags:
+      - generative-ui
+    route: /demos/tool-rendering
+    highlight:
+      - src/app/demos/tool-rendering/page.tsx
+      - src/app/demos/tool-rendering/weather-card.tsx
+      - src/app/demos/tool-rendering/flight-list-card.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: tool-rendering-reasoning-chain
+    name: "Generative UI: Tool calls + reasoning"
+    description: "Per-tool renderers (WeatherCard, FlightListCard, custom catchall) interleaved with a reasoningMessage slot rendering the agent's reasoning tokens — combines reasoning-display + tool-rendering in one chat surface. Routes to the gpt-5-mini backend so the adapter emits REASONING_MESSAGE_* events; the tools (get_weather/search_flights/get_stock_price/roll_dice) run SERVER-SIDE in the hermes-showcase toolset, 1:1 with langgraph-python's backend tools."
+    tags:
+      - generative-ui
+    route: /demos/tool-rendering-reasoning-chain
+    highlight:
+      - src/app/demos/tool-rendering-reasoning-chain/page.tsx
+      - src/app/demos/tool-rendering-reasoning-chain/reasoning-block.tsx
+      - src/app/demos/tool-rendering-reasoning-chain/weather-card.tsx
+      - src/app/demos/tool-rendering-reasoning-chain/flight-list-card.tsx
+      - src/app/api/copilotkit-reasoning/route.ts
+  - id: prebuilt-sidebar
+    name: "Pre-Built: Sidebar"
+    description: Docked sidebar chat via <CopilotSidebar />
+    tags:
+      - chat-ui
+    route: /demos/prebuilt-sidebar
+    highlight:
+      - src/app/demos/prebuilt-sidebar/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: prebuilt-popup
+    name: "Pre-Built: Popup"
+    description: Floating popup chat via <CopilotPopup />
+    tags:
+      - chat-ui
+    route: /demos/prebuilt-popup
+    highlight:
+      - src/app/demos/prebuilt-popup/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: chat-slots
+    name: "Chat Customization: Slots"
+    description: Customize CopilotChat via its slot system
+    tags:
+      - chat-ui
+    route: /demos/chat-slots
+    highlight:
+      - src/app/demos/chat-slots/page.tsx
+      - src/app/demos/chat-slots/slot-wrappers.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: chat-customization-css
+    name: "Chat Customization: CSS"
+    description: Default CopilotChat re-themed via CopilotKitCSSProperties
+    tags:
+      - chat-ui
+    route: /demos/chat-customization-css
+    highlight:
+      - src/app/demos/chat-customization-css/page.tsx
+      - src/app/demos/chat-customization-css/theme.css
+      - src/app/api/copilotkit/route.ts
+  - id: headless-simple
+    name: "Headless UI: Simple"
+    description: Minimum viable headless chat — useAgent + useCopilotKit dressed in shadcn/ui primitives. No tool rendering, no generative UI, just text in / text out.
+    tags:
+      - chat-ui
+    route: /demos/headless-simple
+    highlight:
+      - src/app/demos/headless-simple/page.tsx
+      - src/app/demos/headless-simple/chat.tsx
+      - src/app/demos/headless-simple/composer.tsx
+      - src/app/demos/headless-simple/empty-state.tsx
+      - src/app/demos/headless-simple/message-bubble.tsx
+  - id: headless-complete
+    name: "Headless UI: Complete"
+    description: Full headless surface — hand-rolled CopilotChat replacement that wires every render hook (useRenderTool, useDefaultRenderTool, useComponent, useRenderToolCall, useRenderActivityMessage, useSuggestions, useAttachments) on top of shadcn primitives.
+    tags:
+      - chat-ui
+    route: /demos/headless-complete
+    highlight:
+      - src/app/demos/headless-complete/page.tsx
+      - src/app/demos/headless-complete/chat/chat.tsx
+      - src/app/demos/headless-complete/hooks/use-tool-renderers.tsx
+      - src/app/demos/headless-complete/hooks/use-frontend-components.ts
+      - src/app/demos/headless-complete/hooks/use-headless-suggestions.ts
+      - src/app/demos/headless-complete/attachments/use-attachments-config.ts
+      - src/app/demos/headless-complete/tools/weather-card.tsx
+      - src/app/demos/headless-complete/tools/stock-card.tsx
+      - src/app/demos/headless-complete/tools/chart-card.tsx
+      - src/app/demos/headless-complete/tools/highlight-note.tsx
+      - src/app/api/copilotkit-mcp-apps/route.ts
+  - id: readonly-state-agent-context
+    name: "Shared State: Frontend Context"
+    description: Frontend provides read-only context to the agent via useAgentContext
+    tags:
+      - agent-state
+    route: /demos/readonly-state-agent-context
+    highlight:
+      - src/app/demos/readonly-state-agent-context/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: shared-state-read
+    name: "Shared State: Read-only"
+    description: "Recipe editor publishes form state via agent.setState; the agent reads the recipe context but does not mutate it (no backend tool — neutral default agent)."
+    tags:
+      - agent-state
+    route: /demos/shared-state-read
+    highlight:
+      - src/app/demos/shared-state-read/page.tsx
+      - src/app/demos/shared-state-read/recipe-card.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: shared-state-read-write
+    name: "Shared State: Read-Write"
+    description: "Bidirectional shared state — the UI writes preferences into agent state via agent.setState; the agent writes notes back via its set_notes state-writer tool (declared to the hermes AG-UI adapter through forwarded_props), and the UI re-renders from the emitted state snapshot."
+    tags:
+      - agent-state
+    route: /demos/shared-state-read-write
+    highlight:
+      - src/app/demos/shared-state-read-write/page.tsx
+      - src/app/demos/shared-state-read-write/demo-layout.tsx
+      - src/app/demos/shared-state-read-write/preferences-card.tsx
+      - src/app/demos/shared-state-read-write/notes-card.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: gen-ui-agent
+    name: "Generative UI: In-Chat Agent State"
+    description: "The agent mutates its own steps state via a set_steps state-writer tool (declared to the hermes AG-UI adapter through forwarded_props); the chat transcript renders a single live-updating InlineAgentStateCard from the emitted state snapshots via useAgent."
+    tags:
+      - controlled-generative-ui
+    route: /demos/gen-ui-agent
+    highlight:
+      - src/app/demos/gen-ui-agent/page.tsx
+      - src/app/demos/gen-ui-agent/InlineAgentStateCard.tsx
+      - src/app/demos/gen-ui-agent/message-list-with-state.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: agent-config
+    name: Agent Config Object
+    description: Forward a typed config object (tone / expertise / response length) from the provider to the agent via useAgentContext
+    tags:
+      - agent-state
+    route: /demos/agent-config
+    highlight:
+      - src/app/demos/agent-config/page.tsx
+      - src/app/demos/agent-config/config-card.tsx
+      - src/app/demos/agent-config/config-context-relay.tsx
+      - src/app/demos/agent-config/config-types.ts
+      - src/app/api/copilotkit-agent-config/route.ts
+  - id: multimodal
+    name: Attachments
+    description: Image and PDF uploads via CopilotChat attachments, forwarded to a vision-capable agent
+    tags:
+      - chat-ui
+    route: /demos/multimodal
+    highlight:
+      - src/app/demos/multimodal/page.tsx
+      - src/app/demos/multimodal/multimodal-chat.tsx
+      - src/app/demos/multimodal/sample-attachment-buttons.tsx
+      - src/app/api/copilotkit-multimodal/route.ts
+  - id: declarative-json-render
+    name: "Declarative UI: json-render"
+    description: Streaming hierarchical JSON UI spec rendered via @json-render/react, with a Zod-validated catalog (MetricCard + PieChart + BarChart)
+    tags:
+      - generative-ui
+    route: /demos/declarative-json-render
+    highlight:
+      - src/app/demos/declarative-json-render/page.tsx
+      - src/app/demos/declarative-json-render/json-render-renderer.tsx
+      - src/app/demos/declarative-json-render/registry.tsx
+      - src/app/demos/declarative-json-render/catalog.ts
+      - src/app/demos/declarative-json-render/metric-card.tsx
+      - src/app/demos/declarative-json-render/charts/bar-chart.tsx
+      - src/app/demos/declarative-json-render/charts/pie-chart.tsx
+      - src/app/demos/declarative-json-render/types.ts
+      - src/app/demos/declarative-json-render/suggestions.ts
+      - src/app/api/copilotkit-declarative-json-render/route.ts
+  - id: declarative-hashbrown
+    name: "Declarative UI: Hashbrown"
+    description: Streaming structured output via @hashbrownai/react, rendering a sales dashboard catalog (MetricCard + PieChart + BarChart)
+    tags:
+      - generative-ui
+    route: /demos/declarative-hashbrown
+    highlight:
+      - src/app/demos/declarative-hashbrown/page.tsx
+      - src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx
+      - src/app/demos/declarative-hashbrown/metric-card.tsx
+      - src/app/demos/declarative-hashbrown/charts/bar-chart.tsx
+      - src/app/demos/declarative-hashbrown/charts/pie-chart.tsx
+      - src/app/demos/declarative-hashbrown/types.ts
+      - src/app/demos/declarative-hashbrown/suggestions.ts
+      - src/app/api/copilotkit-declarative-hashbrown/route.ts
+  - id: reasoning-default
+    name: "Reasoning: Default"
+    description: Built-in CopilotChatReasoningMessage rendering with no slot override.
+    tags:
+      - chat-ui
+    route: /demos/reasoning-default
+    highlight:
+      - src/app/demos/reasoning-default/page.tsx
+      - src/app/demos/reasoning-default/suggestions.ts
+      - src/app/api/copilotkit-reasoning/route.ts
+  - id: reasoning-custom
+    name: "Reasoning: Custom"
+    description: Visible reasoning/thinking chain alongside the final answer
+    tags:
+      - chat-ui
+    route: /demos/reasoning-custom
+    highlight:
+      - src/app/demos/reasoning-custom/page.tsx
+      - src/app/demos/reasoning-custom/reasoning-block.tsx
+      - src/app/api/copilotkit-reasoning/route.ts
+  - id: auth
+    name: Authentication
+    description: Bearer-token gate via runtime onRequest hook with unauthenticated / authenticated states
+    tags:
+      - platform
+    route: /demos/auth
+    highlight:
+      - src/app/demos/auth/page.tsx
+      - src/app/demos/auth/sign-in-card.tsx
+      - src/app/demos/auth/auth-banner.tsx
+      - src/app/demos/auth/use-demo-auth.ts
+      - src/app/demos/auth/demo-token.ts
+      - src/app/api/copilotkit-auth/[[...slug]]/route.ts
+  - id: voice
+    name: Voice
+    description: Speech-to-text via @copilotkit/voice with a bundled sample audio button
+    tags:
+      - chat-ui
+    route: /demos/voice
+    highlight:
+      - src/app/demos/voice/page.tsx
+      - src/app/demos/voice/sample-audio-button.tsx
+      - src/app/api/copilotkit-voice/[[...slug]]/route.ts
+  - id: open-gen-ui
+    name: "Open Generative UI: Default"
+    description: "Agent streams a single generateSandboxedUi tool call; the runtime openGenerativeUI middleware converts it into open-generative-ui activity events that the built-in renderer mounts inside a sandboxed iframe. The frontend passes openGenerativeUI.designSkill to tune the LLM's visual-authoring prompt for rich educational visualisations."
+    tags:
+      - generative-ui
+    route: /demos/open-gen-ui
+    highlight:
+      - src/app/demos/open-gen-ui/page.tsx
+      - src/app/demos/open-gen-ui/chat.tsx
+      - src/app/demos/open-gen-ui/design-skill.ts
+      - src/app/api/copilotkit-ogui/route.ts
+  - id: open-gen-ui-advanced
+    name: "Open Generative UI: Custom"
+    description: "Same Open Generative UI surface, with the iframe-rendered components able to call back into frontend sandbox functions (e.g. a Calculator whose buttons trigger host handlers) via openGenerativeUI.sandboxFunctions + Websandbox."
+    tags:
+      - generative-ui
+    route: /demos/open-gen-ui-advanced
+    highlight:
+      - src/app/demos/open-gen-ui-advanced/page.tsx
+      - src/app/demos/open-gen-ui-advanced/sandbox-functions.ts
+      - src/app/demos/open-gen-ui-advanced/suggestions.ts
+      - src/app/api/copilotkit-ogui/route.ts
+  - id: declarative-gen-ui
+    name: "Declarative UI: Dynamic A2UI"
+    description: Canonical A2UI BYOC — a custom catalog (Metric/PieChart/BarChart/DataTable/StatusBadge/InfoRow/Card) wired via a2ui.catalog on the provider; the runtime A2UI middleware injects render_a2ui and the agent emits a flat A2UI surface the catalog renders.
+    tags:
+      - generative-ui
+    route: /demos/declarative-gen-ui
+    highlight:
+      - src/app/demos/declarative-gen-ui/page.tsx
+      - src/app/demos/declarative-gen-ui/a2ui/catalog.ts
+      - src/app/demos/declarative-gen-ui/a2ui/definitions.ts
+      - src/app/demos/declarative-gen-ui/a2ui/renderers.tsx
+      - src/app/api/copilotkit-declarative-gen-ui/route.ts
+  - id: a2ui-fixed-schema
+    name: "Declarative UI: Fixed A2UI"
+    description: Render an A2UI tree from a fixed, pre-authored component schema — the agent streams only data into the data model via a display_flight tool that emits an a2ui_operations container.
+    tags:
+      - generative-ui
+    route: /demos/a2ui-fixed-schema
+    highlight:
+      - src/app/demos/a2ui-fixed-schema/page.tsx
+      - src/app/demos/a2ui-fixed-schema/a2ui/catalog.ts
+      - src/app/demos/a2ui-fixed-schema/a2ui/definitions.ts
+      - src/app/demos/a2ui-fixed-schema/a2ui/renderers.tsx
+      - src/app/api/copilotkit-a2ui-fixed-schema/route.ts
+  - id: mcp-apps
+    name: MCP Apps
+    description: MCP server-driven UI via activity renderers
+    tags:
+      - generative-ui
+    route: /demos/mcp-apps
+    highlight:
+      - src/app/demos/mcp-apps/page.tsx
+      - src/app/demos/mcp-apps/chat.tsx
+      - src/app/demos/mcp-apps/suggestions.ts
+      - src/app/api/copilotkit-mcp-apps/route.ts

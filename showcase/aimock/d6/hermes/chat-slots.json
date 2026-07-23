@@ -1,0 +1,49 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for hermes / chat-slots",
+    "sourceFile": "langgraph-python/chat-slots.json",
+    "created": "2026-07-01"
+  },
+  "fixtures": [
+    {
+      "_comment": "chat-slots D5 probe (d5-chat-slots.ts) — single turn proving the messageView.assistantMessage slot override renders (data-slot-label=MessageView.AssistantMessage). context:hermes isolates per-integration.",
+      "match": {
+        "userMessage": "verify chat slots are wired",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Confirmed — the chat-slots demo is rendering through the custom slot wrappers. The CustomAssistantMessage component should be visible as a tinted card with a 'slot' badge in the corner."
+      }
+    },
+    {
+      "_comment": "chat-slots e2e (chat-slots.spec.ts) — 'Tell me a joke' suggestion pill sends this message.",
+      "match": {
+        "userMessage": "Tell me a short joke",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Why did the scarecrow win an award? Because he was outstanding in his field!"
+      }
+    },
+    {
+      "_comment": "chat-slots e2e — typed first turn 'Say hello in one short sentence'.",
+      "match": {
+        "userMessage": "Say hello in one short sentence",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Hi! In one short sentence: I'm a CopilotKit demo agent here to help you try features."
+      }
+    },
+    {
+      "_comment": "chat-slots e2e — typed second turn 'Give me a fun fact', asserting the second assistant turn is also wrapped in the custom slot (the reply text is not asserted). Content kept identical to headless-simple.json's fun-fact fixture so the shared context:hermes key resolves deterministically regardless of which fixture file aimock scans first.",
+      "match": {
+        "userMessage": "Give me a fun fact",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "A fun fact: Honey never spoils! Archaeologists have found pots of honey in ancient Egyptian tombs that are over 3,000 years old and still perfectly edible."
+      }
+    }
+  ]
+}

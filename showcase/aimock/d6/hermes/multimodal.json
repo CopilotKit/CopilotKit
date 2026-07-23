@@ -1,0 +1,30 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for hermes / multimodal. The demo dispatches a bundled sample (image or PDF) plus a canned prompt via agent.addMessage + copilotkit.runAgent. The hermes AG-UI adapter forwards image content parts to the vision model natively (translate._content_to_parts); PDF 'document' parts carry no text so only the prompt text survives — either way aimock matches on the prompt substring and returns the canned reply. Keyed on the verbatim auto-prompts; distinct substrings ('demo image' vs 'demo pdf') so no turnIndex gate is needed. The image reply contains 'image' and the PDF reply contains 'document' to satisfy the D5 modality assertions.",
+    "sourceFile": "langgraph-python/multimodal.json",
+    "context": "hermes",
+    "created": "2026-07-01"
+  },
+  "fixtures": [
+    {
+      "_comment": "multimodal — sample image turn. The probe clicks 'Try with sample image', which auto-sends prompt 'can you tell me what is in this demo image I just attached'. Assertion checks the assistant transcript contains 'image'.",
+      "match": {
+        "userMessage": "demo image I just attached",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "The image attachment shows a small abstract test pattern used by the multimodal demo to validate the image-upload pipeline. Successful render of this response confirms the binary image attachment round-tripped through the runtime to the vision-capable model."
+      }
+    },
+    {
+      "_comment": "multimodal — sample PDF turn. The probe clicks 'Try with sample PDF', which auto-sends prompt 'can you tell me what is in this demo pdf I just attached'. Assertion checks the assistant transcript contains 'document'.",
+      "match": {
+        "userMessage": "demo pdf I just attached",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "The PDF document contains a single test page used by the multimodal demo. Receiving this response confirms the document attachment reached the runtime; hermes forwards the accompanying prompt text to the model (there is no PDF-text-flatten step, so the document body itself is not extracted)."
+      }
+    }
+  ]
+}

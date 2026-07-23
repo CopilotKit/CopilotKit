@@ -1,0 +1,89 @@
+# Stage 1: Build Next.js frontend
+FROM node:22-slim AS frontend
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --legacy-peer-deps
+COPY src/ ./src/
+COPY public/ ./public/
+COPY next.config.ts tsconfig.json postcss.config.mjs manifest.yaml ./
+RUN npm run build
+
+# Stage 2: Build Python venv with agent deps
+#
+# True multi-stage split — the builder carries full `python:3.12` (compilers,
+# build-essential, dev headers needed to compile wheels that don't ship
+# pre-built for ``-slim``) and produces a self-contained ``/opt/venv`` that
+# the runner COPYs in as a single opaque tree. The runner never runs
+# ``pip install`` itself, so no compiler toolchain bloats the final image.
+FROM python:3.12.13 AS agent-builder
+WORKDIR /agent
+RUN python -m venv /opt/venv
+ENV PATH=/opt/venv/bin:$PATH
+COPY requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir --upgrade pip \
+ && pip install --no-cache-dir -r requirements.txt
+
+# Stage 3: Production image with Node.js + Python (runtime only — no pip,
+# no build tools). Node.js is installed via NodeSource because the package
+# runs BOTH Next.js (frontend) and the Python agent inside this single image;
+# entrypoint.sh orchestrates both processes.
+FROM python:3.12.13-slim AS runner
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl && \
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+    apt-get install -y nodejs && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Create unprivileged runtime user BEFORE any COPY so --chown resolves
+# by name and so recursive chown over /app is never needed (fast builds).
+RUN (groupadd --system --gid 1001 app 2>/dev/null || true) \
+ && (useradd --system --uid 1001 --gid 1001 --no-create-home app 2>/dev/null || true) \
+ && mkdir -p /home/app && chown app:app /home/app
+
+# Python venv (prebuilt in agent-builder stage — no pip in the runner).
+COPY --chown=app:app --from=agent-builder /opt/venv /opt/venv
+ENV PATH=/opt/venv/bin:$PATH
+
+# Next.js build artifacts
+COPY --chown=app:app --from=frontend /app/.next ./.next
+COPY --chown=app:app --from=frontend /app/node_modules ./node_modules
+COPY --chown=app:app --from=frontend /app/package.json ./
+COPY --chown=app:app --from=frontend /app/public ./public
+
+# NOTE: the Hermes AG-UI adapter (`agui_adapter`) is NOT vendored — it is
+# installed as part of `hermes-agent[agui]` from the fork pinned in
+# requirements.txt (see the git URL there), so it lives in /opt/venv alongside
+# the hermes core. Only the showcase-specific demo tools + launcher below are
+# carried in this integration.
+
+# Server-side showcase demo tools + launcher (vendored in this integration; no
+# Hermes-core edits). run_backend.py imports showcase_tools (which registers
+# get_weather / search_flights / get_stock_price / roll_d20 / get_revenue_chart
+# into the `hermes-showcase` toolset) then starts the AG-UI adapter. Both land
+# at /app, which is already on PYTHONPATH.
+COPY --chown=app:app showcase_tools.py ./showcase_tools.py
+COPY --chown=app:app run_backend.py ./run_backend.py
+
+# Shared CVDIAG bootstrap module (single source: showcase/integrations/_shared;
+# symlinked in source, dereferenced into this build context by the harness
+# stage_shared step). Lands at /app/_shared; /app is already on PYTHONPATH.
+COPY --chown=app:app _shared/ ./_shared/
+
+# /app on PYTHONPATH so `run_backend.py` / `showcase_tools` resolve; the
+# `agui_adapter` package and hermes core both resolve from /opt/venv (installed
+# from the fork via requirements.txt).
+ENV PYTHONPATH=/app
+
+# Entrypoint
+COPY --chown=app:app entrypoint.sh ./
+RUN chmod +x entrypoint.sh
+
+USER app
+
+EXPOSE 10000
+# Intentionally NOT setting `ENV NODE_ENV=production` at the image level —
+# entrypoint.sh scopes NODE_ENV=production to the Next.js invocation only so
+# non-Next children (the Python agent, healthchecks) see the host environment.
+CMD ["./entrypoint.sh"]

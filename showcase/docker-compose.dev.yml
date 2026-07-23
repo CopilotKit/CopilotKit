@@ -90,3 +90,15 @@ services:
       - ./integrations/pydantic-ai/next.config.ts:/app/next.config.ts:ro
       - ./integrations/pydantic-ai/tsconfig.json:/app/tsconfig.json:ro
       - ./integrations/pydantic-ai/postcss.config.mjs:/app/postcss.config.mjs:ro
+
+  hermes:
+    <<: *dev-overrides
+    volumes:
+      - ./integrations/hermes/src:/app/src
+      - ./shared/dev/dev-entrypoint.sh:/app/dev-entrypoint.sh:ro
+      # next dev (unlike the baked `next start`) needs the source-side config
+      # files the production image does not ship — mount them read-only from the
+      # integration root so the frontend dev server boots.
+      - ./integrations/hermes/next.config.ts:/app/next.config.ts:ro
+      - ./integrations/hermes/tsconfig.json:/app/tsconfig.json:ro
+      - ./integrations/hermes/postcss.config.mjs:/app/postcss.config.mjs:ro

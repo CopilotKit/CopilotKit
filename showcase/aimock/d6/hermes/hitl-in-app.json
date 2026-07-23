@@ -1,0 +1,117 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for hermes / hitl-in-app",
+    "sourceFile": "langgraph-python/hitl-in-app.json",
+    "created": "2026-07-01"
+  },
+  "fixtures": [
+    {
+      "_comment": "D5 probe pill (\"Issue a $50 refund to customer #12345\") — 2nd leg: keyed on the request_user_approval tool id so it wins once the modal returns a decision. Ordered ABOVE the 1st-leg. Assertion tokens: \"$50\" and \"12345\".",
+      "match": {
+        "userMessage": "Issue a $50 refund to customer #12345",
+        "toolCallId": "call_d5_request_approval_001",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Approved — processing the $50 refund to customer #12345 now."
+      }
+    },
+    {
+      "_comment": "D5 probe pill — 1st leg: emit request_user_approval tool call only (app-level modal opens outside the chat).",
+      "match": {
+        "userMessage": "Issue a $50 refund to customer #12345",
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_request_approval_001",
+            "name": "request_user_approval",
+            "arguments": "{\"message\":\"Issue a $50 refund to customer #12345.\",\"context\":\"Per the standard goodwill-credit policy for shipping delays.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "refund pill (#12345) — 2nd leg. Content includes BOTH approve and reject key phrases so both e2e assertions can match (they check for a substring, not the full string).",
+      "match": {
+        "userMessage": "$50 refund to Jordan Rivera on ticket #12345",
+        "toolCallId": "call_d5_hitl_refund_12345_001",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "I am processing the $50 refund to Jordan Rivera on ticket #12345 now. The refund request was not approved by default — your explicit approval or rejection determines the outcome."
+      }
+    },
+    {
+      "_comment": "refund pill (#12345) — 1st leg: emit request_user_approval tool call. hasToolResult gate omitted so multi-pill conversations still match; the toolCallId-keyed 2nd leg above is more specific and wins on the 2nd turn.",
+      "match": {
+        "userMessage": "$50 refund to Jordan Rivera on ticket #12345",
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_hitl_refund_12345_001",
+            "name": "request_user_approval",
+            "arguments": "{\"message\":\"Issue a $50 refund to Jordan Rivera on ticket #12345 for the duplicate charge.\",\"context\":\"Ticket #12345 — duplicate-charge goodwill credit.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "downgrade pill (#12346) — 2nd leg.",
+      "match": {
+        "userMessage": "downgrade Priya Shah (#12346) to the Starter plan",
+        "toolCallId": "call_d5_hitl_downgrade_12346_001",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Downgrade confirmed — Priya Shah (#12346) will move to the Starter plan effective next billing cycle."
+      }
+    },
+    {
+      "_comment": "downgrade pill (#12346) — 1st leg.",
+      "match": {
+        "userMessage": "downgrade Priya Shah (#12346) to the Starter plan",
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_hitl_downgrade_12346_001",
+            "name": "request_user_approval",
+            "arguments": "{\"message\":\"Downgrade Priya Shah (#12346) to the Starter plan effective next billing cycle.\",\"context\":\"Ticket #12346 — voluntary downgrade per customer request.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "escalate pill (#12347) — 2nd leg. Content includes both approve and reject key phrases.",
+      "match": {
+        "userMessage": "escalate ticket #12347 to the payments team",
+        "toolCallId": "call_d5_hitl_escalate_12347_001",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Escalated ticket #12347 to the payments team for Morgan Lee. Not escalated by default — your explicit approval determines the outcome."
+      }
+    },
+    {
+      "_comment": "escalate pill (#12347) — 1st leg.",
+      "match": {
+        "userMessage": "escalate ticket #12347 to the payments team",
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_hitl_escalate_12347_001",
+            "name": "request_user_approval",
+            "arguments": "{\"message\":\"Escalate ticket #12347 to the payments team for Morgan Lee's stuck payment.\",\"context\":\"Ticket #12347 — payment stuck, needs payments-team triage.\"}"
+          }
+        ]
+      }
+    }
+  ]
+}

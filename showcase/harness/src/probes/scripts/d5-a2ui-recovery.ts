@@ -124,6 +124,15 @@ const PROMPTS: Readonly<Record<string, { heal: string; exhaust: string }>> = {
     exhaust:
       "Compose a snapshot that keeps failing validation so I can show the fallback.",
   },
+  // NOTE: hermes intentionally does NOT ship a2ui-recovery — same omission as
+  // pydantic-ai. The EXHAUST end-state (the `a2ui_recovery_exhausted` failure
+  // card) requires an AGENT-emitted tool result carrying the envelope, which
+  // the langgraph variants produce in-graph via `ag_ui_langgraph.get_a2ui_tools`.
+  // Hermes has no A2UI backend and its aimock transport cannot emit an
+  // agent-side tool result the A2UI middleware would parse for the envelope
+  // (client-executed tool results are request input, not agent output). HEAL
+  // works via the middleware-injected render path, but the demo cannot go fully
+  // green, so it is omitted from the hermes manifest.
 };
 
 interface RecoveryCounts {

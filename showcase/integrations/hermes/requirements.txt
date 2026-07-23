@@ -1,0 +1,8 @@
+# Hermes agent core + the AG-UI adapter, installed directly from the Hermes
+# fork that carries AG-UI support (not yet upstreamed to NousResearch/hermes-agent).
+# Pinned to a commit SHA for reproducible builds — NOT a mutable branch.
+# The `[agui]` extra pulls the adapter's runtime deps (ag-ui-protocol, fastapi,
+# uvicorn). When the adapter is merged upstream and published, switch this to a
+# plain `hermes-agent[agui]==<version>` PyPI pin and drop the git URL.
+hermes-agent[agui] @ git+https://github.com/mme/hermes-agent.git@a7b8d62f7268ac550f46fa24862465004c4f96ac
+python-dotenv

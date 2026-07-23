@@ -1,0 +1,14 @@
+<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Hermes">
+  <rect width="48" height="48" rx="10" fill="#0B0B0F"/>
+  <g stroke="#FFD700" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <!-- central staff -->
+    <path d="M24 9 V39"/>
+    <!-- winglets -->
+    <path d="M24 13 C20 11 16 11 13 13"/>
+    <path d="M24 13 C28 11 32 11 35 13"/>
+    <!-- entwined serpents -->
+    <path d="M24 17 C18 19 18 23 24 25 C30 27 30 31 24 33"/>
+    <path d="M24 17 C30 19 30 23 24 25 C18 27 18 31 24 33"/>
+  </g>
+  <circle cx="24" cy="9" r="2" fill="#FFD700"/>
+</svg>

@@ -1,0 +1,59 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for hermes / agentic-chat",
+    "sourceFile": "langgraph-python/agentic-chat.json",
+    "created": "2026-07-01"
+  },
+  "fixtures": [
+    {
+      "_comment": "agentic-chat turn 1 — goldfish name. No turnIndex gate: the probe sends 3 sequential turns in one thread; turnIndex would restrict this to the first turn only.",
+      "match": {
+        "userMessage": "good name for a goldfish",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "How about Bubbles? It is friendly, classic, and easy to call out at the tank. If you want alternatives: Goldie, Finley, or Mango."
+      }
+    },
+    {
+      "_comment": "agentic-chat turn 2 — tank name. No turnIndex gate (multi-turn conversation).",
+      "match": {
+        "userMessage": "name for its tank",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Following the Bubbles theme, you could call the tank The Bubble Bowl. It pairs naturally with the goldfish's name and keeps the playful tone."
+      }
+    },
+    {
+      "_comment": "agentic-chat turn 3 — recall. No turnIndex gate (multi-turn conversation).",
+      "match": {
+        "userMessage": "what we named the goldfish",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "We named the goldfish Bubbles, and the tank The Bubble Bowl."
+      }
+    },
+    {
+      "_comment": "agentic-chat e2e: multi-turn test turn 1 — 'My name is Alice.' (ported from the peer integrations' _from-feature-parity fixtures; substring-anchored on the longer phrase so it does not collide with other Alice prompts).",
+      "match": {
+        "userMessage": "My name is Alice",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Nice to meet you, Alice! How can I help you today?"
+      }
+    },
+    {
+      "_comment": "agentic-chat e2e: multi-turn test turn 2 — 'What name did I just give you?' Response must contain 'Alice' so the test's context-retention assertion passes.",
+      "match": {
+        "userMessage": "What name did I just give you",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "You told me your name is Alice."
+      }
+    }
+  ]
+}

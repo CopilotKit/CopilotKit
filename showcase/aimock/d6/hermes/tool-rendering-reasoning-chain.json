@@ -1,0 +1,153 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for hermes / tool-rendering-reasoning-chain. COMBINES two proven hermes mechanisms: (a) the demo routes to /api/copilotkit-reasoning (the single gpt-5-mini backend on :8000) so aimock streams reasoning_content and the adapter emits REASONING_MESSAGE_* events — the tool-emitting legs carry a `reasoning` field so the custom <ReasoningBlock> slot mounts; (b) client-executed frontend tools (get_weather/search_flights via useFrontendTool + per-tool renderers, get_stock_price/roll_dice via useFrontendTool routed to the catchall) with deterministic fake-data handlers. Three CHAINED pills (each drives two tool calls before a final narration), keyed on the langgraph-python-unique pill substrings so they don't collide with the fleet's other reasoning-chain demos. Within each pill: final-content (toolCallId) → second-leg (toolCallId) → first-leg (userMessage only), first-match-wins so the toolCallId-specific fixtures win before the bare first-leg re-emits. Non-empty `content` is load-bearing on tool-emitting fixtures: aimock's tool-call-only responses drop the `reasoning` payload and the <ReasoningBlock> never mounts. Mirrors langgraph-python/tool-rendering-reasoning-chain.json + the two-leg toolCallId pattern proven in hermes tool-rendering.json.",
+    "sourceFile": "langgraph-python/tool-rendering-reasoning-chain.json",
+    "created": "2026-07-01"
+  },
+  "fixtures": [
+    {
+      "_comment": "Pill 1 (stocks) — final narration after the MSFT tool result lands. Specific toolCallId so this matches BEFORE the first-leg fixture below despite the same userMessage substring.",
+      "match": {
+        "userMessage": "Compare AAPL and MSFT stocks",
+        "toolCallId": "call_rc_stock_msft_001",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "AAPL is at $338.37 (-2.96% on the day) while MSFT is at $412.18 (+1.08%). MSFT is outpacing AAPL by roughly 4 points today — strong day for MSFT, rough one for AAPL."
+      }
+    },
+    {
+      "_comment": "Pill 1 (stocks) — second leg: after get_stock_price(AAPL) returns, chain to MSFT for the comparison.",
+      "match": {
+        "userMessage": "Compare AAPL and MSFT stocks",
+        "toolCallId": "call_rc_stock_aapl_001",
+        "context": "hermes"
+      },
+      "response": {
+        "reasoning": "AAPL quote is in hand. The user explicitly asked to compare AAPL with MSFT, so I'll fetch MSFT next and then summarize the side-by-side.",
+        "content": "Now pulling MSFT to complete the comparison.",
+        "toolCalls": [
+          {
+            "id": "call_rc_stock_msft_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"MSFT\",\"price_usd\":412.18,\"change_pct\":1.08}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Pill 1 (stocks) — first leg: emit get_stock_price(AAPL). The `Compare AAPL and MSFT stocks` substring is unique to this demo's pill.",
+      "match": {
+        "userMessage": "Compare AAPL and MSFT stocks",
+        "context": "hermes"
+      },
+      "response": {
+        "reasoning": "The user asked to compare AAPL and MSFT. I'll fetch AAPL first, then MSFT, then summarize the deltas in a single sentence so the comparison is the punchline.",
+        "content": "Pulling the AAPL quote first.",
+        "toolCalls": [
+          {
+            "id": "call_rc_stock_aapl_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Pill 2 (dice) — final narration after the d6 contrast roll lands. userMessage is the unique tail of the pill prompt ('compare it to a smaller one').",
+      "match": {
+        "userMessage": "compare it to a smaller one",
+        "toolCallId": "call_rc_dice_d6_001",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "The d20 came up 14, and a d6 for contrast landed on 4 — the d20's range is much wider, which is the whole point of the comparison."
+      }
+    },
+    {
+      "_comment": "Pill 2 (dice) — second leg: after roll_dice(sides=20) returns, chain a smaller die for contrast.",
+      "match": {
+        "userMessage": "compare it to a smaller one",
+        "toolCallId": "call_rc_dice_d20_001",
+        "context": "hermes"
+      },
+      "response": {
+        "reasoning": "Got the d20 result. The user explicitly asked to compare it to a smaller die — a d6 is a natural choice because its 1-6 range is what most people picture when they think 'die'. Rolling that next.",
+        "content": "Now rolling a d6 for contrast.",
+        "toolCalls": [
+          {
+            "id": "call_rc_dice_d6_001",
+            "name": "roll_dice",
+            "arguments": "{\"sides\":6}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Pill 2 (dice) — first leg: emit roll_dice(sides=20).",
+      "match": {
+        "userMessage": "compare it to a smaller one",
+        "context": "hermes"
+      },
+      "response": {
+        "reasoning": "The user asked for a d20 roll and wants to compare it against a smaller die. I'll roll the d20 first, then chain a smaller die so the contrast in possible-value ranges is concrete and observable.",
+        "content": "Rolling the d20 now.",
+        "toolCalls": [
+          {
+            "id": "call_rc_dice_d20_001",
+            "name": "roll_dice",
+            "arguments": "{\"sides\":20}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Pill 3 (flights + destination weather) — final narration after get_weather(JFK) lands. userMessage is the unique tail of the pill prompt ('show me the weather there').",
+      "match": {
+        "userMessage": "show me the weather there",
+        "toolCallId": "call_rc_weather_jfk_001",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Three flights from SFO to JFK — United UA231 at 08:15 ($348), Delta DL412 at 11:20 ($312), and JetBlue B6722 at 17:05 ($289). JFK is currently 68°F and sunny — easy travel weather on the receiving end."
+      }
+    },
+    {
+      "_comment": "Pill 3 (flights + destination weather) — second leg: after search_flights(SFO,JFK) returns, chain to destination weather.",
+      "match": {
+        "userMessage": "show me the weather there",
+        "toolCallId": "call_rc_flights_jfk_001",
+        "context": "hermes"
+      },
+      "response": {
+        "reasoning": "Flights are in hand. The user explicitly asked for the destination weather as part of the request, so pulling JFK weather next to round out the trip plan.",
+        "content": "Pulling JFK weather to round out the trip plan.",
+        "toolCalls": [
+          {
+            "id": "call_rc_weather_jfk_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"JFK\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Pill 3 (flights + destination weather) — first leg: emit search_flights(SFO,JFK).",
+      "match": {
+        "userMessage": "show me the weather there",
+        "context": "hermes"
+      },
+      "response": {
+        "reasoning": "The user wants flights from SFO to JFK AND the destination weather. I'll call search_flights first, then chain get_weather on JFK so they have flight options and arrival conditions in one reply.",
+        "content": "Searching SFO→JFK flights.",
+        "toolCalls": [
+          {
+            "id": "call_rc_flights_jfk_001",
+            "name": "search_flights",
+            "arguments": "{\"origin\":\"SFO\",\"destination\":\"JFK\"}"
+          }
+        ]
+      }
+    }
+  ]
+}

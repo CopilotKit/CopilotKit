@@ -1,0 +1,19 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for hermes / voice",
+    "sourceFile": "langgraph-python/voice.json",
+    "created": "2026-07-01"
+  },
+  "fixtures": [
+    {
+      "_comment": "Voice probe: the sample-audio button synchronously injects 'What is the weather in Tokyo?' into the composer (no /transcribe round trip), then the runner presses Enter. Single-turn probe — matched on the stable userMessage + context (no turnIndex gate needed).",
+      "match": {
+        "userMessage": "What is the weather in Tokyo?",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "The weather in Tokyo is currently 22°C with partly cloudy skies and light easterly winds."
+      }
+    }
+  ]
+}

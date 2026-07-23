@@ -161,13 +161,14 @@ showcase/integrations/<slug>/  ──(extract-starter.ts)───────�
 
 ### Born-in-Showcase Packages (no Dojo counterpart)
 
-Five packages exist only in showcase and have no `examples/integrations/<name>/` sibling:
+Six packages exist only in showcase and have no `examples/integrations/<name>/` sibling:
 
 - `ag2`
 - `claude-sdk-python`
 - `claude-sdk-typescript`
 - `langroid`
 - `spring-ai`
+- `hermes` — the Hermes agent (Nous Research) is not a framework you author per-demo agents in; it's a complete agent reached over AG-UI. The backend is installed from the Hermes fork that carries AG-UI support (`hermes-agent[agui] @ git+…mme/hermes-agent@<sha>`, pinned by SHA in `requirements.txt`) — core + `agui_adapter/` bridge, not vendored (no `src/agents/`). Migrates to a plain PyPI pin once the adapter is upstreamed. See `integrations/hermes/PARITY_NOTES.md`.
 
 These are authored directly in `showcase/integrations/<slug>/` and are **exempt from the pin-to-Dojo rule** — there is no Dojo to pin to. They still must pin exact versions (see "Dependency Pinning"), but the reference is whatever the framework's own examples or release notes recommend, not a sibling `examples/integrations/` directory.
 

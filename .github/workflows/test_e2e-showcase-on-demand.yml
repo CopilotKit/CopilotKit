@@ -72,6 +72,7 @@ on:
         options:
           - crewai-crews
           - langgraph-python
+          - hermes
 
 # Default to read-only at the job level. The only step that needs write access
 # is "Post result to PR" at the end — we grant it write perms inline there.
@@ -236,13 +237,26 @@ jobs:
           else
             echo "has_python=false" >> "$GITHUB_OUTPUT"
           fi
-          # Detect agent server type: langgraph (langgraph_cli dev on :8123)
-          # vs uvicorn (agent_server:app on :8000). The two use different
-          # start commands, ports, and health endpoints.
+          # Detect agent server type. Three shapes:
+          #   langgraph — langgraph_cli dev on :8123, health /ok
+          #     (detected by langgraph.json).
+          #   hermes    — the Hermes AG-UI adapter on :8000, health /health,
+          #     started via run_backend.py (NOT uvicorn agent_server:app). The
+          #     adapter + Hermes core install from a fork pinned in
+          #     requirements.txt; run_backend.py registers the server-side
+          #     showcase demo tools then boots the adapter. Detected by the
+          #     presence of run_backend.py.
+          #   uvicorn   — agent_server:app on :8000, health /health
+          #     (the default for every other Python integration, e.g.
+          #     crewai-crews).
           if [ -f "$PKG_DIR/langgraph.json" ]; then
             echo "agent_type=langgraph" >> "$GITHUB_OUTPUT"
             echo "agent_port=8123" >> "$GITHUB_OUTPUT"
             echo "agent_health_path=/ok" >> "$GITHUB_OUTPUT"
+          elif [ -f "$PKG_DIR/run_backend.py" ]; then
+            echo "agent_type=hermes" >> "$GITHUB_OUTPUT"
+            echo "agent_port=8000" >> "$GITHUB_OUTPUT"
+            echo "agent_health_path=/health" >> "$GITHUB_OUTPUT"
           else
             echo "agent_type=uvicorn" >> "$GITHUB_OUTPUT"
             echo "agent_port=8000" >> "$GITHUB_OUTPUT"
@@ -382,6 +396,37 @@ jobs:
               --host 127.0.0.1 \
               --port "$AGENT_PORT" \
               --no-browser &
+          elif [ "$AGENT_TYPE" = "hermes" ]; then
+            # Hermes AG-UI adapter: the adapter + Hermes core install from the
+            # fork pinned in requirements.txt (pip install above), and boot via
+            # run_backend.py — which registers the server-side showcase demo
+            # tools then starts the adapter on :8000. There is NO
+            # src/agent_server.py; run_backend.py is the launcher.
+            #
+            # HERMES_AGUI_BASE_URL points the adapter's OpenAI-compatible
+            # client straight at aimock, bypassing the Hermes provider resolver
+            # (deterministic, no real provider tokens). api_mode=chat_completions
+            # matches aimock's /v1/chat/completions surface; gpt-5-mini is the
+            # reasoning-capable model the reasoning demos need. The inbound
+            # `x-aimock-context: hermes` header (set by playwright.config.ts) is
+            # forwarded by the adapter onto the outbound aimock call, so the
+            # per-integration fixtures resolve — same contract as the docker/D5
+            # harness. Mirrors integrations/hermes/entrypoint.sh.
+            if [ ! -f "run_backend.py" ]; then
+              echo "::error::Slug '$SLUG' detected as hermes but run_backend.py is missing."
+              exit 1
+            fi
+            HERMES_AGUI_HOST=127.0.0.1 \
+            HERMES_AGUI_PORT="$AGENT_PORT" \
+            OPENAI_BASE_URL=http://localhost:4010/v1 \
+            OPENAI_API_KEY=sk-aimock-dev-ci-only \
+            HERMES_AGUI_BASE_URL=http://localhost:4010/v1 \
+            HERMES_AGUI_API_KEY=sk-aimock-dev-ci-only \
+            HERMES_AGUI_MODEL=gpt-5-mini \
+            HERMES_AGUI_PROVIDER=custom \
+            HERMES_AGUI_API_MODE=chat_completions \
+            HERMES_AGUI_TOOLSETS=hermes-acp,hermes-showcase \
+            python -u run_backend.py &
           else
             # uvicorn-based agent (crewai-crews): start via agent_server:app
             # on port 8000. Packages that ship aimock_toggle.py wire

@@ -1,0 +1,19 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for hermes / chat-customization-css",
+    "sourceFile": "langgraph-python/chat-css.json",
+    "created": "2026-07-01"
+  },
+  "fixtures": [
+    {
+      "_comment": "chat-css D5 probe (d5-chat-css.ts) — single turn. The probe asserts the HALCYON CSS theme is applied (fonts + ember border); the reply content is neutral chat. context:hermes isolates per-integration.",
+      "match": {
+        "userMessage": "verify the css theme rendering",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "The chat is re-themed entirely through theme.css, scoped to .chat-css-demo-scope so the styling never leaks. The HALCYON editorial look uses parchment tones, a serif assistant voice, and a mono user transmission with an ember accent."
+      }
+    }
+  ]
+}

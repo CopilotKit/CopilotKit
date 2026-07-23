@@ -45,6 +45,21 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
       input: A2UI_FIXED_PILL_PROMPT,
       assertions: buildA2uiFixedAssertion(),
       responseTimeoutMs: 60_000,
+      // The A2UI surface can complete WITHOUT an assistant text bubble — e.g.
+      // frameworks whose fixed-schema render arrives via the middleware-injected
+      // `render_a2ui` tool call (no trailing narration), such as the hermes
+      // integration. Opting into `completeOnMount` swaps the runner's third
+      // settle conjunct from "assistant text stabilised" to "the fixed flight
+      // card mounted", so the turn completes on `run-finished + new bubble +
+      // surface painted` and the `a2ui-fixed-card` assertion gets to run.
+      // Frameworks that DO emit a confirmation sentence (langgraph-python etc.)
+      // still mount `a2ui-fixed-card`, so this is a strict superset — same
+      // green outcome, just a completion path that also covers text-less
+      // renders. Mirrors the `completeOnMount` swap in d5-gen-ui-declarative.ts.
+      completeOnMount: {
+        testIds: ["a2ui-fixed-card"],
+        minNewMounts: 1,
+      },
     },
   ];
 }

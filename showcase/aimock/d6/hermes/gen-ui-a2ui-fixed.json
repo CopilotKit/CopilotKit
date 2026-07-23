@@ -1,0 +1,39 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for hermes / a2ui-fixed-schema (A2UI Fixed Schema flight card). The demo routes to /api/copilotkit-a2ui-fixed-schema, a dedicated hermes runtime whose page registers the flight catalog via `<CopilotKit a2ui={{ catalog }}>` (auto-enabling A2UI with injectA2UITool defaulting on). Hermes has no A2UI backend and a generic aimock agent cannot emit an agent-side tool RESULT the middleware would see, so — unlike langgraph's backend display_flight tool that emits an a2ui_operations container — the agent EMITS the middleware-injected render_a2ui directly with the FIXED flight component schema as `components` + the flight `data` model. The schema's `{ path: \"/origin\" }` bindings resolve against that data, preserving the fixed-schema semantics. The middleware forwards the surface; the frontend flight catalog (Card/Title/Airport/Arrow/AirlineBadge/PriceTag/Button) renders it with the a2ui-fixed-card testid. Tool-emit leg gates on hasToolResult:false; narration on toolCallId.",
+    "sourceFile": "langgraph-python/a2ui_schemas/flight_schema.json",
+    "created": "2026-07-02"
+  },
+  "fixtures": [
+    {
+      "_comment": "a2ui-fixed-schema pill — 'Find me a flight from SFO to JFK on United for $289.' (D5 gen-ui-a2ui-fixed probe prompt). Agent emits the middleware-injected render_a2ui with the fixed flight schema + data. Gated on hasToolResult:false so it fires on the tool-call turn.",
+      "match": {
+        "userMessage": "Find me a flight from SFO to JFK on United for $289.",
+        "hasToolResult": false,
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_hermes_a2ui_fixed_flight_001",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\":\"flight-fixed-schema\",\"catalogId\":\"copilotkit://flight-fixed-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Card\",\"child\":\"content\"},{\"id\":\"content\",\"component\":\"Column\",\"children\":[\"title\",\"route\",\"meta\",\"bookButton\"]},{\"id\":\"title\",\"component\":\"Title\",\"text\":\"Flight Details\"},{\"id\":\"route\",\"component\":\"Row\",\"justify\":\"spaceBetween\",\"align\":\"center\",\"children\":[\"from\",\"arrow\",\"to\"]},{\"id\":\"from\",\"component\":\"Airport\",\"code\":{\"path\":\"/origin\"}},{\"id\":\"arrow\",\"component\":\"Arrow\"},{\"id\":\"to\",\"component\":\"Airport\",\"code\":{\"path\":\"/destination\"}},{\"id\":\"meta\",\"component\":\"Row\",\"justify\":\"spaceBetween\",\"align\":\"center\",\"children\":[\"airline\",\"price\"]},{\"id\":\"airline\",\"component\":\"AirlineBadge\",\"name\":{\"path\":\"/airline\"}},{\"id\":\"price\",\"component\":\"PriceTag\",\"amount\":{\"path\":\"/price\"}},{\"id\":\"bookButton\",\"component\":\"Button\",\"variant\":\"primary\",\"child\":\"bookButtonLabel\",\"action\":{\"event\":{\"name\":\"book_flight\",\"context\":{\"origin\":{\"path\":\"/origin\"},\"destination\":{\"path\":\"/destination\"},\"airline\":{\"path\":\"/airline\"},\"price\":{\"path\":\"/price\"}}}}},{\"id\":\"bookButtonLabel\",\"component\":\"Text\",\"text\":\"Book flight\"}],\"data\":{\"origin\":\"SFO\",\"destination\":\"JFK\",\"airline\":\"United\",\"price\":\"$289\"}}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "a2ui-fixed-schema pill — one-sentence confirmation after the render (gated on toolCallId).",
+      "match": {
+        "userMessage": "Find me a flight from SFO to JFK on United for $289.",
+        "toolCallId": "call_d6_hermes_a2ui_fixed_flight_001",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Here's your flight: United Airlines, SFO → JFK, $289 — rendered in the card above. Tap \"Book flight\" to confirm."
+      },
+      "chunkSize": 9999
+    }
+  ]
+}

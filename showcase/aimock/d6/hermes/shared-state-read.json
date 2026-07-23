@@ -1,0 +1,30 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for hermes / shared-state-read. The recipe-editor UI publishes a recipe object to the agent via agent.setState({recipe}); CopilotKit sends it as RunAgentInput.state and the hermes AG-UI adapter injects it as a 'Current shared state: <json>' system message (translate.state_to_text). The agent only READS it (no backend tool). Keyed on the verbatim chip prompts; no turnIndex gate — the two prompts are distinct substrings, so matching stays stable across repeated/interleaved clicks.",
+    "sourceFile": "langgraph-python/shared-state-read.json",
+    "context": "hermes",
+    "created": "2026-07-01"
+  },
+  "fixtures": [
+    {
+      "_comment": "shared-state-read turn 1 — 'Create Italian recipe' chip (probe TURN_1_INPUT 'Create a delicious Italian pasta recipe.'). Substring 'Italian pasta recipe' is unique. Reply references the injected recipe state.",
+      "match": {
+        "userMessage": "Italian pasta recipe",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Great choice — looking at your current recipe state, I'd build an Italian pasta around the existing ingredients: a quick spaghetti aglio e olio, finishing with parmesan and a squeeze of lemon. Want me to suggest substitutions or adjust the cooking time?"
+      }
+    },
+    {
+      "_comment": "shared-state-read turn 2 — 'Make it healthier' chip. Reply mentions recipe-context tokens (recipe / pasta / italian / vegetable / ingredient) so the probe's turn-2 soft assertion lands, proving shared state reaches the agent.",
+      "match": {
+        "userMessage": "healthier with more vegetables",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Here are a few healthier ingredient additions for the recipe: roasted bell peppers, baby spinach folded in at the end, and cherry tomatoes for brightness. The Italian flavor profile holds up well, and the vegetable swap keeps the dish lighter without losing the comfort of pasta."
+      }
+    }
+  ]
+}

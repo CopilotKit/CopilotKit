@@ -1,0 +1,139 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for hermes / headless-complete (probe featureType gen-ui-headless-complete, route /demos/headless-complete). Full hand-rolled headless surface. Three SERVER-SIDE backend tools (Hermes `hermes-showcase` toolset, integrations/hermes/showcase_tools.py), 1:1 with the langgraph-python headless_complete backend tools (get_weather → WeatherCard, get_stock_price → StockCard, get_revenue_chart → ChartCard), registered client-side RENDER-ONLY via useRenderTool + a useComponent frontend tool (highlight_note → HighlightNote, which stays a CLIENT UI tool — it is UI, not data). The fixture only makes the agent EMIT each tool call (leg 1, gated on toolName); Hermes runs the REAL handler in-loop and returns the result via TOOL_CALL_RESULT (the tool RESULT comes from the server handler, NOT the fixture); the second leg (gated on toolCallId) narrates AFTER the tool result lands. Second (narration) leg placed BEFORE the first (emit) leg in the array — aimock is first-match-wins, and the toolCallId key is uniquely satisfied only once the tool has run. highlight_note is a useComponent (UI-only) client tool so its render IS the result; it still uses the same two-leg pattern. D5 probe prompts (verbatim SuggestionBar `.message` from use-headless-suggestions.ts): \"What's the weather in Tokyo?\", \"What's the price of AAPL right now?\", \"Highlight this note for me: 'ship the demo on Friday'.\", \"Show me a chart of revenue over the last six months.\" Narration strings kept 1:1 with langgraph-python's headless-complete e2e assertions where applicable.",
+    "sourceFile": "langgraph-python headless-complete backend tools + d5-gen-ui-headless-complete probe",
+    "created": "2026-07-02"
+  },
+  "fixtures": [
+    {
+      "_comment": "Weather in Tokyo — narration leg. Fires after get_weather ran (keyed on the emitted toolCallId). MUST precede the emit leg below (first-match-wins). userMessage matcher \"What's the weather in Tokyo\" (the FULL headless probe prompt is \"What's the weather in Tokyo?\") NOT bare 'weather in Tokyo' nor 'the weather in Tokyo', so it stays DISJOINT from BOTH the tool-rendering D5 probe prompt 'weather in Tokyo' AND the tool-rendering chain pill 'get the weather in Tokyo, search flights ...' (which contains 'the weather in Tokyo' verbatim and was cross-matching this get_weather-only leg, dropping the chain's flights+d20 cards) — all share context 'hermes' (LGP-gold disjoint-prompts pattern).",
+      "match": {
+        "userMessage": "What's the weather in Tokyo",
+        "toolCallId": "call_d5_hc_get_weather_001",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Tokyo is 22°C and partly cloudy. The headless WeatherCard above shows the snapshot from the tool."
+      }
+    },
+    {
+      "_comment": "Weather in Tokyo — emit leg: emit get_weather(Tokyo). Gated on toolName so it fires whenever the tool is registered, regardless of prior tool results in a multi-pill thread. userMessage \"What's the weather in Tokyo\" (not bare 'weather in Tokyo' nor 'the weather in Tokyo') keeps it disjoint from the tool-rendering probe prompt AND the chain pill (see the narration-leg comment above).",
+      "match": {
+        "userMessage": "What's the weather in Tokyo",
+        "toolName": "get_weather",
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_hc_get_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "AAPL price — narration leg. Fires AFTER get_stock_price ran. userMessage 'AAPL' is a substring of BOTH stock entry prompts (\"...price of AAPL right now?\" and \"...AAPL trading at?\") so this ONE narration leg serves both emit legs below, AND it applies the same disjoint-userMessage hardening the weather/highlight/revenue narration legs use. This matters because aimock matches toolCallId against the last tool-role message in the WHOLE accumulated history: the D5 probe runs all four pills in ONE thread, so on the highlight/revenue turns AFTER the stock pill the last tool result is still call_d5_hc_get_stock_price_001 — a bare userMessage \"\" (the langgraph-python gold's pattern) would then hijack those turns and suppress their tool emission. 'AAPL' is absent from the highlight/revenue prompts, so it cannot; and the toolCallId gate keeps it from cross-matching the tool-rendering 'current price of AAPL' / custom-catchall 'Quote AAPL' pills (which run in their own threads where this id is never the last tool result).",
+      "match": {
+        "userMessage": "AAPL",
+        "toolCallId": "call_d5_hc_get_stock_price_001",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "AAPL is trading at $189.42, up 1.27% on the day. The card above shows the live ticker and the percentage change."
+      }
+    },
+    {
+      "_comment": "AAPL price — emit leg (D5 probe + SuggestionBar path). Matches 'price of AAPL right now' — the prompt the SHARED harness probe (harness/src/probes/scripts/d5-gen-ui-headless-complete.ts) types and the SuggestionBar chip (use-headless-suggestions.ts) sends; mirrors the langgraph-python gold matcher. Disjoint from the tool-rendering 'Stock price' pill \"What's the current price of AAPL?\" (no 'right now') so it does NOT shadow that pill's 338.37 leg, and disjoint from custom-catchall 'Quote AAPL' / reasoning-chain 'Compare AAPL and MSFT'. Emits get_stock_price(AAPL) with NO price_usd arg → handler returns its 189.42/+1.27% default.",
+      "match": {
+        "userMessage": "price of AAPL right now",
+        "toolName": "get_stock_price",
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_hc_get_stock_price_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "AAPL price — emit leg (EmptyState first-paint pill path). hermes-specific ADDITION over the gold: hermes' empty-state.tsx first-paint stock chip says \"What's AAPL trading at?\" (distinct from the SuggestionBar/probe \"...price of AAPL right now?\"), and the e2e (headless-complete.spec.ts) clicks that chip — without this leg the e2e click hits no fixture. 'AAPL trading at' is disjoint from the tool-rendering 'current price of AAPL' pill and 'Quote AAPL' — no shadowing. Same emit + toolCallId as the probe leg above, so the single narration leg serves both. (The empty-state vs SuggestionBar prompt divergence is inherited from the langgraph-python baseline; unifying them is an upstream follow-up.)",
+      "match": {
+        "userMessage": "AAPL trading at",
+        "toolName": "get_stock_price",
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_hc_get_stock_price_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Highlight note — narration leg. Fires after the highlight_note useComponent tool call landed.",
+      "match": {
+        "userMessage": "ship the demo on Friday",
+        "toolCallId": "call_d5_hc_highlight_note_001",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Highlighted 'ship the demo on Friday' in yellow above. Let me know if you want a different color or a longer note."
+      }
+    },
+    {
+      "_comment": "Highlight note — emit leg: emit highlight_note (useComponent frontend tool; its render IS the result). Gated on toolName.",
+      "match": {
+        "userMessage": "ship the demo on Friday",
+        "toolName": "highlight_note",
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_hc_highlight_note_001",
+            "name": "highlight_note",
+            "arguments": "{\"text\":\"ship the demo on Friday\",\"color\":\"yellow\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Revenue chart — narration leg. Fires after get_revenue_chart ran.",
+      "match": {
+        "userMessage": "revenue over the last six months",
+        "toolCallId": "call_d5_hc_get_revenue_chart_001",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Here is the chart of revenue over the last six months — quarterly revenue grew from $38K in January to $71K in June, with one dip in April."
+      }
+    },
+    {
+      "_comment": "Revenue chart — emit leg: emit get_revenue_chart (no args). Gated on toolName. Includes a short leading `content` snippet so the word 'revenue' lands in the assistant bubble synchronously with the tool-call emission — without it the chart card title falls back to 'Chart' during the `executing` render phase (result still undefined) and the D5 probe's 'revenue' token can miss on the first settle window before the narration follow-up arrives (mirrors langgraph-python's fixture).",
+      "match": {
+        "userMessage": "revenue over the last six months",
+        "toolName": "get_revenue_chart",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Pulling the revenue chart for the last six months...",
+        "toolCalls": [
+          {
+            "id": "call_d5_hc_get_revenue_chart_001",
+            "name": "get_revenue_chart",
+            "arguments": "{}"
+          }
+        ]
+      }
+    }
+  ]
+}
