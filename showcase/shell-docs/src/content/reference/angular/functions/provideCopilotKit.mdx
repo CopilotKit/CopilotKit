@@ -5,9 +5,9 @@ description: "Angular provider that configures CopilotKit through dependency inj
 
 ## Overview
 
-`provideCopilotKit` is the primary setup entry point for `@copilotkit/angular`. It returns an Angular [`Provider`](https://angular.dev/guide/di/dependency-injection-providers) that you add to your application (or component) `providers` array. The provider stores your [`CopilotKitConfig`](#parameters) behind the `COPILOT_KIT_CONFIG` injection token, where the [`CopilotKit`](/reference/angular/services/CopilotKit) service and every CopilotKit function reads it.
+`provideCopilotKit` is the primary setup entry point for `@copilotkit/angular`. It returns an Angular [`Provider`](https://angular.dev/guide/di/dependency-injection-providers) that you add to your application providers. The provider stores your [`CopilotKitConfig`](#parameters) behind the `COPILOT_KIT_CONFIG` injection token, where the root [`CopilotKit`](/reference/angular/services/CopilotKit) service reads it.
 
-This is the Angular equivalent of React's `<CopilotKit>` provider. Because Angular configures CopilotKit through dependency injection rather than a wrapper component, you register it once in `app.config.ts` (or in a feature component's `providers`) and everything below it in the injector tree can connect to your runtime and agents.
+Register it once in `app.config.ts`. A component-local config provider alone does not configure the root `CopilotKit` service.
 
 You typically configure the connection one of two ways: point at a CopilotKit runtime with `runtimeUrl`, or connect directly to one or more AG-UI agents with `selfManagedAgents`.
 
@@ -32,16 +32,17 @@ function provideCopilotKit(config: CopilotKitConfig): Provider;
 
   <PropertyReference name="headers" type="Record<string, string>">
     Extra HTTP headers sent with every runtime request, for example an
-    `Authorization` header. If you pass a `licenseKey`, a
+    `Authorization` header. If you pass a format-valid `licenseKey`, a
     `X-CopilotCloud-Public-Api-Key` header is merged in automatically unless you
     already set one here.
   </PropertyReference>
 
   <PropertyReference name="licenseKey" type="string">
-    Your CopilotCloud license key (a `ck_pub_...` value). When present and valid
-    it is sent as the `X-CopilotCloud-Public-Api-Key` header and removes the
-    license watermark. An absent or malformed key logs a one-time console
-    warning.
+    Your CopilotCloud public key. A value matching `ck_pub_` followed by 32
+    hexadecimal characters is sent as the
+    `X-CopilotCloud-Public-Api-Key` header unless that header is already set.
+    Watermark rendering and missing-key warnings are disabled in the current
+    package.
   </PropertyReference>
 
   <PropertyReference name="properties" type="Record<string, unknown>">
@@ -106,6 +107,11 @@ function provideCopilotKit(config: CopilotKitConfig): Provider;
     for tools scoped to a component.
   </PropertyReference>
 
+  <PropertyReference name="defaultToolRendering" type="boolean" default="false">
+    Opts into the text-only fallback renderer for otherwise unknown tool calls.
+    Unknown tools are hidden when this is omitted or `false`.
+  </PropertyReference>
+
   <PropertyReference name="a2ui" type="A2UIConfig">
     Configuration for A2UI (agent-to-UI declarative surfaces). A runtime may
     advertise A2UI through `/info`; supplying a catalog also enables the
@@ -124,6 +130,20 @@ function provideCopilotKit(config: CopilotKitConfig): Provider;
     <PropertyReference name="includeSchema" type="boolean" default="true">
       Whether to send the catalog component schemas to the agent as context. Set
       to `false` to omit the schema context.
+    </PropertyReference>
+    <PropertyReference name="recovery" type="A2UIRecoveryOptions">
+      Controls when A2UI retry and diagnostic state becomes visible.
+
+      <PropertyReference name="showAfterMs" type="number" default="2000">
+        Delay before revealing a transient retry.
+      </PropertyReference>
+      <PropertyReference name="showAfterAttempts" type="number" default="2">
+        Attempt number that reveals retry state immediately.
+      </PropertyReference>
+      <PropertyReference name="debugExposure" type='"hidden" | "collapsed" | "verbose"'>
+        Client diagnostic visibility. Authoritative server lifecycle content may
+        override it.
+      </PropertyReference>
     </PropertyReference>
   </PropertyReference>
 
@@ -145,7 +165,7 @@ function provideCopilotKit(config: CopilotKitConfig): Provider;
 
 ## Return Value
 
-Returns an Angular `Provider` that binds your (header-augmented) config to the `COPILOT_KIT_CONFIG` injection token. Add it to a `providers` array.
+Returns an Angular `Provider` that binds your (header-augmented) config to the `COPILOT_KIT_CONFIG` injection token. Add it to the application providers.
 
 ## Usage
 
@@ -221,7 +241,9 @@ export const appConfig: ApplicationConfig = {
 ## Behavior
 
 - The provided config is bound to the `COPILOT_KIT_CONFIG` injection token. Read it with [`injectCopilotKitConfig`](/reference/angular/functions/injectCopilotKitConfig).
-- If `licenseKey` (or an `X-CopilotCloud-Public-Api-Key` header) is missing or malformed, a one-time license watermark warning is logged to the console.
+- A format-valid `licenseKey` is merged into the
+  `X-CopilotCloud-Public-Api-Key` header unless that header is already present.
+  The current package does not render a watermark or log a missing-key warning.
 - `agents` and `selfManagedAgents` are merged together when the underlying core is created, so an id present in both resolves to the `selfManagedAgents` entry.
 
 ## Related

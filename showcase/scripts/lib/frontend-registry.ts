@@ -26,6 +26,10 @@ export interface FrontendSupportDeclaration {
   owner?: string;
   review_date?: string;
   issue?: string;
+  docs?: {
+    name: string;
+    description: string;
+  };
 }
 
 export interface FrontendRegistry {

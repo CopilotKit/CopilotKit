@@ -37,7 +37,15 @@ const API_BY_FEATURE: Record<string, string> = {
 export function getAngularFeatureDocs(): AngularFeatureDoc[] {
   const support = (
     frontendRegistryData as {
-      feature_support: Record<string, { angular: { state: string } }>;
+      feature_support: Record<
+        string,
+        {
+          angular: {
+            state: string;
+            docs?: { name: string; description: string };
+          };
+        }
+      >;
     }
   ).feature_support;
   const features = (
@@ -51,7 +59,7 @@ export function getAngularFeatureDocs(): AngularFeatureDoc[] {
 
   return Object.entries(support)
     .filter(([, declaration]) => declaration.angular.state === "supported")
-    .map(([id]) => {
+    .map(([id, declaration]) => {
       const feature = features.find((candidate) => candidate.id === id);
       const runnableCell = cells.find(
         (candidate) =>
@@ -74,8 +82,9 @@ export function getAngularFeatureDocs(): AngularFeatureDoc[] {
       const route = `https://showcase.copilotkit.ai/angular/${cell.integration}/${id}`;
       return {
         id,
-        name: feature.name,
-        description: feature.description,
+        name: declaration.angular.docs?.name ?? feature.name,
+        description:
+          declaration.angular.docs?.description ?? feature.description,
         state: "supported" as const,
         integration: cell.integration,
         runnable: runnableCell !== undefined,

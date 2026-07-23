@@ -137,6 +137,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
     }
   }
 
+  const angularFeaturesDoc = loadDoc("frontends/angular/features");
+  if (angularFeaturesDoc) {
+    entries.push({
+      url: `${baseUrl}/angular/features`,
+      lastModified: resolveLastModified(angularFeaturesDoc.filePath),
+    });
+  }
+
   // Status/guidance page, emitted once per non-React frontend.
   for (const frontend of FRONTEND_PAGE_IDS) {
     const doc = loadDoc(getFrontendGuidanceContentSlug(frontend));

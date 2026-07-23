@@ -3,18 +3,19 @@ title: "Production and lifecycle"
 description: "Cleanup, errors, SSR, hydration, and zoneless behavior for @copilotkit/angular."
 ---
 
-`@copilotkit/angular` is signal-first, standalone, OnPush, and compatible with
-zoneless Angular. This page describes the environment and ownership rules that
-apply across the public API.
+`@copilotkit/angular` uses signals and standalone Angular APIs and is compatible
+with zoneless Angular. Most UI components use `OnPush`; `RenderToolCalls`
+currently uses Angular's default change-detection strategy. This page describes
+the environment and ownership rules that apply across the public API.
 
 ## Minimal production setup
 
 ```ts title="src/app/app.config.ts"
 import {
   ApplicationConfig,
-  provideClientHydration,
   provideZonelessChangeDetection,
 } from "@angular/core";
+import { provideClientHydration } from "@angular/platform-browser";
 import { provideCopilotKit } from "@copilotkit/angular";
 
 export const appConfig: ApplicationConfig = {
@@ -39,7 +40,8 @@ Angular injection context. They use the owning `DestroyRef`:
 | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | `injectAgentStore`                                                                                          | Agent subscription and signal projection                        | Replaces the subscription when `agentId` changes; unsubscribes on destroy      |
 | `connectAgentContext`                                                                                       | Reactive context registration                                   | Removes the context when the owning effect is destroyed                        |
-| `registerFrontendTool`, `registerRenderToolCall`, `registerHumanInTheLoop`, `registerRenderActivityMessage` | Runtime renderer or tool registration                           | Removes the exact registration on destroy                                      |
+| `registerFrontendTool`, `registerRenderToolCall`, `registerHumanInTheLoop`                                  | Runtime renderer or tool registration                           | Removes registrations matching the same name and optional agent ID on destroy  |
+| `registerRenderActivityMessage`                                                                             | Activity renderer registration                                  | Removes the exact renderer object on destroy                                   |
 | `injectInterrupt`                                                                                           | Agent subscription, pending interrupt state, handler generation | Disconnects and invalidates pending asynchronous handler work on destroy       |
 | `injectThreads`                                                                                             | Store selectors, realtime lifecycle, runtime registration       | Unsubscribes, stops, and unregisters the store on destroy                      |
 | `injectMemories`                                                                                            | RxJS selectors converted to signals                             | Angular's signal interop owns the subscriptions                                |
@@ -55,9 +57,10 @@ manually constructed advanced stores; injected stores clean themselves up.
 
 - Agent lookup throws an error containing the requested agent, runtime URL,
   and known agent IDs after runtime synchronization cannot resolve it.
-- Frontend-tool and renderer input is validated by its Standard Schema before
-  use. Unknown tools remain hidden unless `defaultToolRendering` is explicitly
-  enabled.
+- Activity-renderer content must pass its Standard Schema before rendering.
+  Frontend-tool and tool-call-renderer schemas define advertised JSON Schema and
+  TypeScript types, but runtime arguments are only JSON-parsed. Unknown tools
+  remain hidden unless `defaultToolRendering` is explicitly enabled.
 - Interrupt predicate and preparation failures are exposed on the controller's
   `error` signal. Expired interrupts produce `InterruptExpiredError`. Resume
   failures are not retried automatically.

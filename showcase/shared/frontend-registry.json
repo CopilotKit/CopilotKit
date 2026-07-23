@@ -67,15 +67,33 @@
     },
     "agentic-chat": {
       "react": { "state": "supported" },
-      "angular": { "state": "supported" }
+      "angular": {
+        "state": "supported",
+        "docs": {
+          "name": "Prebuilt chat",
+          "description": "Add a full chat surface with the standalone CopilotChat component."
+        }
+      }
     },
     "prebuilt-sidebar": {
       "react": { "state": "supported" },
-      "angular": { "state": "supported" }
+      "angular": {
+        "state": "supported",
+        "docs": {
+          "name": "Prebuilt sidebar",
+          "description": "Add a responsive docked or overlay chat with CopilotSidebar."
+        }
+      }
     },
     "prebuilt-popup": {
       "react": { "state": "supported" },
-      "angular": { "state": "supported" }
+      "angular": {
+        "state": "supported",
+        "docs": {
+          "name": "Prebuilt popup",
+          "description": "Add a floating, accessible chat dialog with CopilotPopup."
+        }
+      }
     },
     "chat-slots": {
       "react": { "state": "supported" },
@@ -95,19 +113,43 @@
     },
     "gen-ui-tool-based": {
       "react": { "state": "supported" },
-      "angular": { "state": "supported" }
+      "angular": {
+        "state": "supported",
+        "docs": {
+          "name": "Generative UI: component rendering",
+          "description": "Render typed tool results with registerFrontendTool and a standalone Angular component."
+        }
+      }
     },
     "hitl-in-chat": {
       "react": { "state": "supported" },
-      "angular": { "state": "supported" }
+      "angular": {
+        "state": "supported",
+        "docs": {
+          "name": "Human in the loop: in chat",
+          "description": "Pause a tool call for user input with registerHumanInTheLoop and render the decision inside chat."
+        }
+      }
     },
     "gen-ui-interrupt": {
       "react": { "state": "supported" },
-      "angular": { "state": "supported" }
+      "angular": {
+        "state": "supported",
+        "docs": {
+          "name": "Human in the loop: interrupts",
+          "description": "Handle an agent interrupt with injectInterrupt and render the response controls inside chat."
+        }
+      }
     },
     "interrupt-headless": {
       "react": { "state": "supported" },
-      "angular": { "state": "supported" }
+      "angular": {
+        "state": "supported",
+        "docs": {
+          "name": "Human in the loop: headless interrupts",
+          "description": "Resolve an agent interrupt with injectInterrupt from application UI outside the chat."
+        }
+      }
     },
     "declarative-gen-ui": {
       "react": { "state": "supported" },
@@ -155,11 +197,23 @@
     },
     "reasoning-custom": {
       "react": { "state": "supported" },
-      "angular": { "state": "supported" }
+      "angular": {
+        "state": "supported",
+        "docs": {
+          "name": "Reasoning: custom",
+          "description": "Replace the reasoning-message slot with a standalone Angular component."
+        }
+      }
     },
     "gen-ui-agent": {
       "react": { "state": "supported" },
-      "angular": { "state": "supported" }
+      "angular": {
+        "state": "supported",
+        "docs": {
+          "name": "Generative UI: agent state",
+          "description": "Read live agent state with injectAgentStore and render it in the chat transcript."
+        }
+      }
     },
     "frontend-tools": {
       "react": { "state": "supported" },
@@ -167,15 +221,33 @@
     },
     "frontend-tools-async": {
       "react": { "state": "supported" },
-      "angular": { "state": "supported" }
+      "angular": {
+        "state": "supported",
+        "docs": {
+          "name": "Frontend tools: async",
+          "description": "Register an async browser tool whose result returns to the agent."
+        }
+      }
     },
     "threadid-frontend-tool-roundtrip": {
       "react": { "state": "supported" },
-      "angular": { "state": "supported" }
+      "angular": {
+        "state": "supported",
+        "docs": {
+          "name": "Thread ID: frontend tool round trip",
+          "description": "Keep an explicit thread ID across an async frontend-tool call and resumed agent run."
+        }
+      }
     },
     "hitl-in-app": {
       "react": { "state": "supported" },
-      "angular": { "state": "supported" }
+      "angular": {
+        "state": "supported",
+        "docs": {
+          "name": "Human in the loop: in app",
+          "description": "Render approval UI outside chat and resolve the pending tool with the user's decision."
+        }
+      }
     },
     "shared-state-read-write": {
       "react": { "state": "supported" },
@@ -191,7 +263,13 @@
     },
     "readonly-state-agent-context": {
       "react": { "state": "supported" },
-      "angular": { "state": "supported" }
+      "angular": {
+        "state": "supported",
+        "docs": {
+          "name": "Shared state: agent context",
+          "description": "Share read-only application state with the agent through connectAgentContext."
+        }
+      }
     },
     "subagents": {
       "react": { "state": "supported" },

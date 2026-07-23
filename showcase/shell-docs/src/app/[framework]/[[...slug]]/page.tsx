@@ -41,6 +41,7 @@ import { resolveFrontendDocPage } from "@/lib/frontend-doc-policy";
 import {
   getFrontendGuidanceContentSlug,
   getFrontendContentSlug,
+  getFrontendCanonicalSlug,
   getFrontendQuickstartNavTree,
 } from "@/lib/frontend-page-content";
 import type { FrontendPageId } from "@/lib/frontend-page-content";
@@ -402,7 +403,22 @@ export default async function FrameworkScopedDocsPage({
       getIntegrations().map((integration) => integration.slug),
     );
     const activeBackendFramework = frontendRoute?.backend ?? null;
-    const activeFrontendSlugPath = frontendRoute?.slugPath ?? frontendSlugPath;
+    const requestedFrontendSlugPath =
+      frontendRoute?.slugPath ?? frontendSlugPath;
+    const activeFrontendSlugPath = getFrontendCanonicalSlug(
+      framework,
+      requestedFrontendSlugPath,
+    );
+
+    if (activeFrontendSlugPath !== requestedFrontendSlugPath) {
+      redirect(
+        frontendRoutePath(
+          framework,
+          activeFrontendSlugPath,
+          activeBackendFramework,
+        ),
+      );
+    }
 
     if (activeBackendFramework === ROOT_FRAMEWORK) {
       redirect(frontendRoutePath(framework, activeFrontendSlugPath));
@@ -437,7 +453,7 @@ export default async function FrameworkScopedDocsPage({
       );
     }
 
-    if (activeBackendFramework) {
+    if (activeBackendFramework && framework !== "angular") {
       scopedFramework = activeBackendFramework;
       scopedSlug = activeFrontendSlugPath
         ? activeFrontendSlugPath.split("/").filter(Boolean)

@@ -27,6 +27,7 @@ export const appConfig: ApplicationConfig = {
 interface MCPAppsConfig {
   idleTimeoutMs?: number;
   initializationTimeoutMs?: number;
+  sandboxProxyUrl?: string;
   hostInfo?: { name: string; version: string };
   hostCapabilities?: Record<string, unknown>;
   hostContext?: Record<string, unknown>;
@@ -35,8 +36,13 @@ interface MCPAppsConfig {
 
 `provideMCPApps` contributes a lower-precedence built-in renderer for
 `activityType: "mcp-apps"`; an explicit application activity renderer still
-wins. It deliberately accepts no server URL. Resource loads, tool calls, and
-follow-up messages travel through the selected AG-UI agent.
+wins. It deliberately accepts no MCP server URL. Resource loads, tool calls,
+and follow-up messages travel through the selected AG-UI agent.
+
+`sandboxProxyUrl` selects a dedicated sandbox proxy document for hosts with a
+strict response-level content security policy. The document must implement the
+CopilotKit MCP sandbox proxy protocol and use an opaque response sandbox without
+`allow-same-origin`.
 
 Each widget owns an abortable FIFO queue and iframe listener. Destroying one
 widget cancels only its work; changing threads drops queued stale work. Busy

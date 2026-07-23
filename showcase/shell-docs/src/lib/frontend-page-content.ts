@@ -30,10 +30,20 @@ export function getFrontendUsingTheseDocsPath(id: FrontendPageId): string {
   return `/${id}/using-these-docs`;
 }
 
+/** Collapse legacy frontend guide slugs to the public canonical path. */
+export function getFrontendCanonicalSlug(
+  id: FrontendPageId,
+  slugPath: string,
+): string {
+  return id === "angular" && slugPath === "docs-status"
+    ? "using-these-docs"
+    : slugPath;
+}
+
 const FRONTEND_REFERENCE_SLUGS = {
   vue: "reference",
   "react-native": "reference/react-native",
-  angular: "reference",
+  angular: "reference/angular",
   slack: "reference/channels",
   teams: "reference",
 } satisfies Record<FrontendPageId, string>;
@@ -48,8 +58,24 @@ export function getFrontendQuickstartNavTree(id: FrontendPageId): NavNode[] {
 
   const featureGuides: NavNode[] =
     id === "angular"
-      ? [{ type: "page", title: "Feature guides", slug: "features" }]
+      ? [{ type: "page", title: "Feature examples", slug: "features" }]
       : [];
+  const upcomingGuides: NavNode[] =
+    id === "angular"
+      ? []
+      : [
+          {
+            type: "section",
+            title: frontendName,
+            icon: "lucide/RefreshCw",
+            variant: "frontend-docs-upcoming",
+            quickstartHref: `/${id}`,
+            referenceHref: `/${getFrontendReferenceSlug(id)}`,
+            frontendDocsStatus: isFrontendEarlyAccess(id)
+              ? "early-access"
+              : "feature-complete",
+          },
+        ];
 
   return [
     { type: "section", title: "Getting Started", icon: "lucide/Rocket" },
@@ -66,16 +92,6 @@ export function getFrontendQuickstartNavTree(id: FrontendPageId): NavNode[] {
       slug: getFrontendReferenceSlug(id),
       href: `/${getFrontendReferenceSlug(id)}`,
     },
-    {
-      type: "section",
-      title: frontendName,
-      icon: "lucide/RefreshCw",
-      variant: "frontend-docs-upcoming",
-      quickstartHref: `/${id}`,
-      referenceHref: `/${getFrontendReferenceSlug(id)}`,
-      frontendDocsStatus: isFrontendEarlyAccess(id)
-        ? "early-access"
-        : "feature-complete",
-    },
+    ...upcomingGuides,
   ];
 }

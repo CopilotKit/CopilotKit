@@ -7,7 +7,15 @@ export interface AngularFeatureSearchEntry {
 }
 
 interface FrontendRegistry {
-  feature_support: Record<string, { angular?: { state: string } }>;
+  feature_support: Record<
+    string,
+    {
+      angular?: {
+        state: string;
+        docs?: { name: string; description: string };
+      };
+    }
+  >;
 }
 
 interface FeatureRegistry {
@@ -21,7 +29,7 @@ export function buildAngularFeatureSearchEntries(
 ): AngularFeatureSearchEntry[] {
   return Object.entries(frontendRegistry.feature_support)
     .filter(([, declaration]) => declaration.angular?.state === "supported")
-    .map(([id]) => {
+    .map(([id, declaration]) => {
       const feature = featureRegistry.features.find(
         (candidate) => candidate.id === id,
       );
@@ -33,8 +41,8 @@ export function buildAngularFeatureSearchEntries(
 
       return {
         type: "page" as const,
-        title: `${feature.name} — Angular example`,
-        subtitle: feature.description,
+        title: `${declaration.angular?.docs?.name ?? feature.name} — Angular example`,
+        subtitle: declaration.angular?.docs?.description ?? feature.description,
         section: "Angular features" as const,
         href: `/angular/features#${id}`,
       };

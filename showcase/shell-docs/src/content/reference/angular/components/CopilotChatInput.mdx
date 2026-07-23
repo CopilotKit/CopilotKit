@@ -1,26 +1,32 @@
 ---
 title: "CopilotChatInput"
-description: "Angular standalone component for the chat input area: textarea, send button, tools menu, file upload, and audio transcription, the @copilotkit/angular equivalent of React's CopilotChatInput"
+description: "Angular standalone component for chat input, tools, file upload, and audio transcription"
 ---
 
 ## Overview
 
 `CopilotChatInput` is the input area of the chat. It renders the textarea, the send button, an optional tools menu, an add-file button, and the audio transcription controls. It has three modes: `"input"` (the default textarea), `"transcribe"` (records audio and shows transcription controls), and `"processing"` (disables the textarea and send button while the agent runs).
 
-This is the Angular equivalent of React's `<CopilotChatInput>`. When rendered inside [`CopilotChat`](/reference/angular/components/CopilotChat) or [`CopilotChatView`](/reference/angular/components/CopilotChatView), it reads the surrounding `ChatState` (through `injectChatState`) and wires submission, value changes, transcription, and file uploads to it automatically. Its outputs fire in addition to that built-in behavior, so you can observe interactions without disabling them.
+`CopilotChatInput` requires a parent injector to provide `ChatState`. It reads that state through `injectChatState` and wires submission, value changes, transcription, and file uploads to it. Its outputs fire in addition to that built-in behavior, so you can observe interactions without disabling them.
 
 ## Usage
 
-`CopilotChatInput` is a standalone component with the selector `copilot-chat-input`. Import the class into your component's `imports` array and use the element in the template.
+`CopilotChatInput` is a standalone component with the selector `copilot-chat-input`. The example below provides the required `ChatState`. Use [`CopilotChat`](/reference/angular/components/CopilotChat) when you want CopilotKit to manage this state for you.
 
 ```ts title="src/app/chat.component.ts"
-import { Component } from "@angular/core";
-import { CopilotChatInput } from "@copilotkit/angular";
+import { Component, forwardRef, signal } from "@angular/core";
+import { ChatState, CopilotChatInput } from "@copilotkit/angular";
 
 @Component({
   selector: "app-chat",
   standalone: true,
   imports: [CopilotChatInput],
+  providers: [
+    {
+      provide: ChatState,
+      useExisting: forwardRef(() => ChatComponent),
+    },
+  ],
   template: `
     <copilot-chat-input
       [autoFocus]="true"
@@ -28,9 +34,16 @@ import { CopilotChatInput } from "@copilotkit/angular";
     />
   `,
 })
-export class ChatComponent {
-  onSubmit(value: string) {
+export class ChatComponent extends ChatState {
+  readonly inputValue = signal("");
+
+  submitInput(value: string) {
+    // Send the message through your chat state owner.
     console.log("user submitted:", value);
+  }
+
+  changeInput(value: string) {
+    this.inputValue.set(value);
   }
 }
 ```
@@ -40,7 +53,7 @@ export class ChatComponent {
 ### Behavior inputs
 
 <PropertyReference name="mode" type='"input" | "transcribe" | "processing"'>
-  Initial input mode. The component manages transitions between these modes during audio transcription. When omitted, the input starts in `"input"` mode.
+  Declared by the component, but the current release does not read this input. The component starts in `"input"` mode and manages later transitions itself.
 </PropertyReference>
 
 <PropertyReference name="toolsMenu" type='(ToolsMenuItem | "-")[]'>
@@ -52,11 +65,11 @@ export class ChatComponent {
 </PropertyReference>
 
 <PropertyReference name="value" type="string">
-  Controlled value for the textarea. When provided, it takes precedence over the value held in the surrounding `ChatState`.
+  Controlled value for the textarea when it is non-empty. An empty string falls back to the value held in `ChatState`.
 </PropertyReference>
 
 <PropertyReference name="inputClass" type="string">
-  Class applied to the internal input wrapper. Prefer the host `class` for styling the component itself.
+  Declared by the component, but the current release does not apply it. Use the host `class` or a slot override.
 </PropertyReference>
 
 <PropertyReference name="additionalToolbarItems" type="TemplateRef<any>">
@@ -79,14 +92,14 @@ export class ChatComponent {
 
 ### Slot override inputs
 
-Each interactive piece can be replaced with a component class (`*Component`) and styled with a class (`*Class`). Templates for the same slots are read from content projection (see Slots below).
+Each interactive piece can be replaced with a component class (`*Component`). Templates for the same slots are read from content projection.
 
 <PropertyReference name="sendButtonComponent" type="Type<any>">
   Component class for the send button. Style the default with `sendButtonClass`.
 </PropertyReference>
 
 <PropertyReference name="toolbarComponent" type="Type<any>">
-  Component class for the toolbar. Style the default with `toolbarClass`.
+  Component class for the toolbar.
 </PropertyReference>
 
 <PropertyReference name="textAreaComponent" type="Type<any>">
@@ -94,28 +107,32 @@ Each interactive piece can be replaced with a component class (`*Component`) and
 </PropertyReference>
 
 <PropertyReference name="audioRecorderComponent" type="Type<any>">
-  Component class for the audio recorder shown in transcribe mode. Style the default with `audioRecorderClass`.
+  Component class for the audio recorder shown in transcribe mode.
 </PropertyReference>
 
 <PropertyReference name="startTranscribeButtonComponent" type="Type<any>">
-  Component class for the start-transcribe button. Style the default with `startTranscribeButtonClass`.
+  Component class for the start-transcribe button.
 </PropertyReference>
 
 <PropertyReference name="cancelTranscribeButtonComponent" type="Type<any>">
-  Component class for the cancel-transcribe button. Style the default with `cancelTranscribeButtonClass`.
+  Component class for the cancel-transcribe button.
 </PropertyReference>
 
 <PropertyReference name="finishTranscribeButtonComponent" type="Type<any>">
-  Component class for the finish-transcribe button. Style the default with `finishTranscribeButtonClass`.
+  Component class for the finish-transcribe button.
 </PropertyReference>
 
 <PropertyReference name="addFileButtonComponent" type="Type<any>">
-  Component class for the add-file button. Style the default with `addFileButtonClass`.
+  Component class for the add-file button.
 </PropertyReference>
 
 <PropertyReference name="toolsButtonComponent" type="Type<any>">
-  Component class for the tools menu button. Style the default with `toolsButtonClass`.
+  Component class for the tools menu button.
 </PropertyReference>
+
+<Callout type="warn">
+  The current release declares class inputs for the toolbar, audio recorder, transcription buttons, add-file button, and tools button, but does not apply them. `sendButtonClass` and `textAreaClass` do apply.
+</Callout>
 
 ## Outputs
 
@@ -192,19 +209,26 @@ For deep customization, provide named `<ng-template>` elements inside `<copilot-
 ### Tools menu example
 
 ```ts title="src/app/chat.component.ts"
-import { Component } from "@angular/core";
-import { CopilotChatInput } from "@copilotkit/angular";
+import { Component, forwardRef, signal } from "@angular/core";
+import { ChatState, CopilotChatInput } from "@copilotkit/angular";
 import type { ToolsMenuItem } from "@copilotkit/angular";
 
 @Component({
   selector: "app-chat",
   standalone: true,
   imports: [CopilotChatInput],
+  providers: [
+    {
+      provide: ChatState,
+      useExisting: forwardRef(() => ChatComponent),
+    },
+  ],
   template: `
     <copilot-chat-input [toolsMenu]="toolsMenu" />
   `,
 })
-export class ChatComponent {
+export class ChatComponent extends ChatState {
+  readonly inputValue = signal("");
   toolsMenu: (ToolsMenuItem | "-")[] = [
     { label: "Summarize", action: () => this.summarize() },
     "-",
@@ -213,6 +237,14 @@ export class ChatComponent {
 
   summarize() {}
   translate() {}
+
+  submitInput(value: string) {
+    // Send the message through your chat state owner.
+  }
+
+  changeInput(value: string) {
+    this.inputValue.set(value);
+  }
 }
 ```
 
