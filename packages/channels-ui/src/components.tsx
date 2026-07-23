@@ -1,6 +1,22 @@
 import type { ChannelNode } from "./ir.js";
 import type { ClickHandler, MessageReactionHandler } from "./types.js";
 
+/** Brand marking a function as a first-party channels-ui component (native path). */
+export const CHANNEL_COMPONENT: unique symbol = Symbol.for(
+  "copilotkit.channels-ui.component",
+);
+/** True when `fn` is a branded channels-ui component (see {@link CHANNEL_COMPONENT}). */
+export function isChannelComponent(fn: unknown): boolean {
+  return (
+    typeof fn === "function" &&
+    (fn as unknown as Record<symbol, unknown>)[CHANNEL_COMPONENT] === true
+  );
+}
+function brand<F extends (...a: never[]) => unknown>(fn: F): F {
+  (fn as Record<symbol, unknown>)[CHANNEL_COMPONENT] = true;
+  return fn;
+}
+
 /**
  * Anything that can appear as a child in the component tree: nested elements,
  * text, numbers, and conditionals (`false` / `null` / `undefined` render
@@ -155,12 +171,13 @@ export interface ChartProps {
 // `intrinsic` produces a typed component that lowers `<X .../>` to an IR node
 // of the given `type`; the generic `P` is what gives each tag its prop type.
 
-export const intrinsic =
-  <P,>(type: string) =>
-  (props: P): ChannelNode => ({
-    type,
-    props: (props ?? {}) as Record<string, unknown>,
-  });
+export const intrinsic = <P,>(type: string) =>
+  brand(
+    (props: P): ChannelNode => ({
+      type,
+      props: (props ?? {}) as Record<string, unknown>,
+    }),
+  );
 
 export const Message = intrinsic<MessageProps>("message");
 export const Header = intrinsic<HeaderProps>("header");
@@ -176,17 +193,17 @@ export const Chart = intrinsic<ChartProps>("chart");
 export const Row = intrinsic<RowProps>("row");
 export const Cell = intrinsic<CellProps>("cell");
 
-export function Button<TValue = unknown>(
+export const Button = brand(function Button<TValue = unknown>(
   props: ButtonProps<TValue>,
 ): ChannelNode {
   return { type: "button", props: props as unknown as Record<string, unknown> };
-}
-export function Select(props: SelectProps): ChannelNode {
+});
+export const Select = brand(function Select(props: SelectProps): ChannelNode {
   return { type: "select", props: props as unknown as Record<string, unknown> };
-}
-export function Input(props: InputProps): ChannelNode {
+});
+export const Input = brand(function Input(props: InputProps): ChannelNode {
   return { type: "input", props: props as unknown as Record<string, unknown> };
-}
-export function Table(props: TableProps): ChannelNode {
+});
+export const Table = brand(function Table(props: TableProps): ChannelNode {
   return { type: "table", props: props as unknown as Record<string, unknown> };
-}
+});
