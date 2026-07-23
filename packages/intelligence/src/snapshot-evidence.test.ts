@@ -220,17 +220,20 @@ function failedSnapshot() {
 
 describe("canonical snapshot evidence contracts", () => {
   test("registers exactly the two public evidence DTOs", () => {
-    expect(Object.keys(learningContractSchemas)).toHaveLength(47);
-    expect(Object.keys(learningContractSchemas)).toEqual(
+    const schemaNames = Object.keys(learningContractSchemas);
+
+    expect(schemaNames).toHaveLength(47);
+    expect(schemaNames).toEqual(
       expect.arrayContaining(["AttachmentReferenceV1", "TerminalErrorV1"]),
     );
-    expect(Object.keys(learningContractSchemas)).not.toEqual(
-      expect.arrayContaining([
-        "LearningResourceLimitsV1",
-        "RetainedEvidenceEventV1",
-        "RetainedEvidenceV1",
-      ]),
-    );
+  });
+
+  test.each([
+    "LearningResourceLimitsV1",
+    "RetainedEvidenceEventV1",
+    "RetainedEvidenceV1",
+  ])("does not register the internal %s schema", (schemaName) => {
+    expect(Object.keys(learningContractSchemas)).not.toContain(schemaName);
   });
 
   test("accepts complete strict attachment and terminal-error DTOs", () => {
@@ -467,7 +470,7 @@ describe("canonical snapshot evidence contracts", () => {
     ).toBe(false);
   });
 
-  test("requires activity type, activity metadata objects, and tool results", () => {
+  test("requires activity type and tool results", () => {
     expect(
       runSnapshotV1Schema.safeParse({
         ...finishedSnapshot,
@@ -497,6 +500,26 @@ describe("canonical snapshot evidence contracts", () => {
         messages: [
           assistantCallMessage,
           { ...toolResultMessage, toolResults: [] },
+        ],
+      }).success,
+    ).toBe(false);
+  });
+
+  test.each([
+    ["scalar", "complete"],
+    ["array", ["complete"]],
+  ])("rejects %s activity metadata", (_kind, activityMetadata) => {
+    expect(
+      runSnapshotV1Schema.safeParse({
+        ...finishedSnapshot,
+        messages: [
+          {
+            ...assistantCallMessage,
+            role: "activity",
+            activityType: "status-card",
+            activityMetadata,
+          },
+          toolResultMessage,
         ],
       }).success,
     ).toBe(false);
@@ -571,9 +594,6 @@ describe("canonical snapshot evidence contracts", () => {
     );
     const validateSnapshot = portable.compile(
       learningContractJsonSchemas.RunSnapshotV1,
-    );
-    const validateThread = portable.compile(
-      learningContractJsonSchemas.WorkflowThreadV1,
     );
 
     expect(validateAttachment(attachment)).toBe(true);
@@ -698,6 +718,28 @@ describe("canonical snapshot evidence contracts", () => {
         ],
       }),
     ).toBe(false);
+  });
+
+  test("carries workflow tool-call closure into portable JSON Schema", () => {
+    const portable = createLearningContractJsonSchemaValidator();
+    const validateThread = portable.compile(
+      learningContractJsonSchemas.WorkflowThreadV1,
+    );
+
     expect(validateThread(workflowInput.threads[0])).toBe(true);
+    expect(
+      validateThread({
+        ...workflowInput.threads[0],
+        messages: [
+          assistantCallMessage,
+          {
+            ...toolResultMessage,
+            toolResults: [
+              { toolCallId: "missing", status: "ok", output: null },
+            ],
+          },
+        ],
+      }),
+    ).toBe(false);
   });
 });

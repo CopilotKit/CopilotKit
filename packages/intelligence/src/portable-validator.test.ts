@@ -729,6 +729,24 @@ describe("Learning Contract assertion pointer grammar", () => {
       },
     ],
     ["count.values", { operation: "count", values: "/a~2b", exactly: 1 }],
+    [
+      "utf8-byte-length.values",
+      { operation: "utf8-byte-length", values: "/a~2b", maximum: 1 },
+    ],
+    [
+      "bounded-json.values",
+      {
+        operation: "bounded-json",
+        values: "/a~2b",
+        serializedMaximum: 1,
+        maximumDepth: 1,
+        maximumNodes: 1,
+        maximumObjectProperties: 1,
+        maximumArrayItems: 1,
+        maximumStringUtf8Bytes: 1,
+        maximumKeyUtf8Bytes: 1,
+      },
+    ],
   ])("rejects invalid RFC 6901 escapes in %s", (_field, assertion) => {
     const ajv = new Ajv2020({ strict: false, validateFormats: false });
     registerLearningContractJsonSchemaValidator(ajv);
