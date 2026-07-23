@@ -49,6 +49,13 @@ const CHART_INTEGRATIONS = new Set([
   // `render_pie_chart` + `render_bar_chart` via `useComponent` like LGP
   // does, not the legacy `generate_haiku` shape.
   "google-adk",
+  // mastra's gen-ui-tool-based page is the same LGP-style `useComponent`
+  // chart demo (render_pie_chart / render_bar_chart), not the haiku shape.
+  // Without this entry the probe sent the haiku prompt and looked for a
+  // haiku card the demo can't produce, so the assistant bubble came back
+  // empty ("rendered but has no text content"). Surfaced once OSS-381 took
+  // the cell out of not_supported. Pairs with aimock/d6/mastra/gen-ui-custom.json.
+  "mastra",
 ]);
 
 /**
