@@ -151,8 +151,12 @@ test("keeps the exhaustive Angular audit opt-in, complete, and fail-closed", asy
   expect(workflow).toContain(
     "pnpm nx run @copilotkit/showcase-angular-host:build --skip-nx-cache",
   );
+  expect(workflow).toContain(
+    "ref: ${{ github.event.pull_request.head.sha || github.sha }}",
+  );
   expect(workflow).toContain("Run every paired Chromium cell");
   expect(workflow).toContain('--feature-contract-revision "$SOURCE_SHA"');
+  expect(workflow).toContain("--concurrency 1");
   expect(workflow).toContain("frontend-matrix-ci.ts aggregate");
   expect(workflow).toContain(
     '.summary.total "$RUNNER_TEMP/angular-audit-final.json")" = "1296"',

@@ -31,6 +31,7 @@ jobs:
       - name: Check out exact source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
           lfs: true
 
@@ -226,6 +227,7 @@ jobs:
             --container-image-revision "$IMAGE_REVISION" \
             --fixture-revision "$SOURCE_SHA" \
             --feature-contract-revision "$SOURCE_SHA" \
+            --concurrency 1 \
             --output "$RUNNER_TEMP/angular-audit-$INTEGRATION.json"
 
       - name: Reject any failed cell
