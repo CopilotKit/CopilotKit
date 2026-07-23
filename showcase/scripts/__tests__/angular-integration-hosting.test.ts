@@ -130,3 +130,33 @@ test("does not run the broad Angular proof matrix in pull requests", async () =>
     ),
   ).rejects.toMatchObject({ code: "ENOENT" });
 });
+
+test("keeps the exhaustive Angular audit manual, complete, and fail-closed", async () => {
+  const workflow = await readFile(
+    resolve(
+      repositoryRoot,
+      ".github/workflows/test_showcase-angular-audit.yml",
+    ),
+    "utf8",
+  );
+
+  expect(workflow).toContain("workflow_dispatch:");
+  expect(workflow).not.toContain("pull_request:");
+  for (const integration of integrations) {
+    expect(workflow).toContain(`          - ${integration}`);
+  }
+  expect(workflow).toContain(
+    "pnpm nx run @copilotkit/showcase-angular-host:build --skip-nx-cache",
+  );
+  expect(workflow).toContain("Run every paired Chromium cell");
+  expect(workflow).toContain('--feature-contract-revision "$SOURCE_SHA"');
+  expect(workflow).toContain("frontend-matrix-ci.ts aggregate");
+  expect(workflow).toContain(
+    '.summary.total "$RUNNER_TEMP/angular-audit-final.json")" = "1296"',
+  );
+  expect(workflow).toContain(
+    '.summary.failed "$RUNNER_TEMP/angular-audit-final.json")" = "0"',
+  );
+  expect(workflow).not.toContain("frontend-matrix-baseline");
+  expect(workflow).not.toContain("frontend-matrix-ci.ts compare");
+});
