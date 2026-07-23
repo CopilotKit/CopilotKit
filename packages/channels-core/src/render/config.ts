@@ -8,7 +8,7 @@ export interface RenderConfig {
   stylesheets?: string[];
   /** Default image width in px (canvas). */
   width?: number;
-  /** Default image height in px (canvas). Omit to use the width-derived default. */
+  /** Default image height in px (canvas). Omit to use the default (480). */
   height?: number;
 }
 

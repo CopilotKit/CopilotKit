@@ -2450,6 +2450,12 @@ importers:
       '@copilotkit/channels-whatsapp':
         specifier: workspace:*
         version: link:../channels-whatsapp
+      react:
+        specifier: 19.2.3
+        version: 19.2.3
+      takumi-js:
+        specifier: '*'
+        version: 2.4.1(csstype@3.2.3)(react@19.2.3)
     devDependencies:
       '@copilotkit/typescript-config':
         specifier: workspace:^
