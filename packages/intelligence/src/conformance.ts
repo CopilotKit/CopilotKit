@@ -861,6 +861,65 @@ function buildCases(): LearningPlatformConformanceCase[] {
       },
     },
     {
+      name: "attachment-metadata-rejects-bare-payload",
+      schema: "AttachmentReferenceV1",
+      valid: false,
+      value: {
+        ...canonicalAttachment,
+        metadata: { payload: "aGVsbG8=" },
+      },
+    },
+    {
+      name: "attachment-metadata-rejects-spaced-base64",
+      schema: "AttachmentReferenceV1",
+      valid: false,
+      value: {
+        ...canonicalAttachment,
+        metadata: { "base 64": "aGVsbG8=" },
+      },
+    },
+    {
+      name: "attachment-metadata-rejects-full-width-data",
+      schema: "AttachmentReferenceV1",
+      valid: false,
+      value: {
+        ...canonicalAttachment,
+        metadata: { ｄａｔａ: "aGVsbG8=" },
+      },
+    },
+    {
+      name: "attachment-metadata-rejects-full-width-bytes",
+      schema: "AttachmentReferenceV1",
+      valid: false,
+      value: {
+        ...canonicalAttachment,
+        metadata: { ｂｙｔｅｓ: "aGVsbG8=" },
+      },
+    },
+    {
+      name: "attachment-metadata-rejects-separated-inline-body",
+      schema: "AttachmentReferenceV1",
+      valid: false,
+      value: {
+        ...canonicalAttachment,
+        metadata: { "INLINE BODY": "aGVsbG8=" },
+      },
+    },
+    {
+      name: "attachment-metadata-allows-reference-fields",
+      schema: "AttachmentReferenceV1",
+      valid: true,
+      value: {
+        ...canonicalAttachment,
+        metadata: {
+          payloadRef: "object-1",
+          contentType: "text/plain",
+          byteLength: 12,
+          database: "primary",
+        },
+      },
+    },
+    {
       name: "attachment-metadata-rejects-depth-boundary-plus-one",
       schema: "AttachmentReferenceV1",
       valid: false,

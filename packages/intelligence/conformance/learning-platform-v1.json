@@ -2591,6 +2591,153 @@
       }
     },
     {
+      "name": "attachment-metadata-rejects-bare-payload",
+      "schema": "AttachmentReferenceV1",
+      "valid": false,
+      "value": {
+        "byteLength": 12,
+        "checksum": {
+          "algorithm": "sha256",
+          "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "mediaType": "text/plain",
+        "metadata": {
+          "payload": "aGVsbG8="
+        },
+        "name": "attachment.txt",
+        "objectLocator": {
+          "key": "snapshots/attachment.txt",
+          "resource": "learning-evidence",
+          "version": null
+        },
+        "provider": "s3",
+        "schemaVersion": 1
+      }
+    },
+    {
+      "name": "attachment-metadata-rejects-spaced-base64",
+      "schema": "AttachmentReferenceV1",
+      "valid": false,
+      "value": {
+        "byteLength": 12,
+        "checksum": {
+          "algorithm": "sha256",
+          "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "mediaType": "text/plain",
+        "metadata": {
+          "base 64": "aGVsbG8="
+        },
+        "name": "attachment.txt",
+        "objectLocator": {
+          "key": "snapshots/attachment.txt",
+          "resource": "learning-evidence",
+          "version": null
+        },
+        "provider": "s3",
+        "schemaVersion": 1
+      }
+    },
+    {
+      "name": "attachment-metadata-rejects-full-width-data",
+      "schema": "AttachmentReferenceV1",
+      "valid": false,
+      "value": {
+        "byteLength": 12,
+        "checksum": {
+          "algorithm": "sha256",
+          "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "mediaType": "text/plain",
+        "metadata": {
+          "ｄａｔａ": "aGVsbG8="
+        },
+        "name": "attachment.txt",
+        "objectLocator": {
+          "key": "snapshots/attachment.txt",
+          "resource": "learning-evidence",
+          "version": null
+        },
+        "provider": "s3",
+        "schemaVersion": 1
+      }
+    },
+    {
+      "name": "attachment-metadata-rejects-full-width-bytes",
+      "schema": "AttachmentReferenceV1",
+      "valid": false,
+      "value": {
+        "byteLength": 12,
+        "checksum": {
+          "algorithm": "sha256",
+          "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "mediaType": "text/plain",
+        "metadata": {
+          "ｂｙｔｅｓ": "aGVsbG8="
+        },
+        "name": "attachment.txt",
+        "objectLocator": {
+          "key": "snapshots/attachment.txt",
+          "resource": "learning-evidence",
+          "version": null
+        },
+        "provider": "s3",
+        "schemaVersion": 1
+      }
+    },
+    {
+      "name": "attachment-metadata-rejects-separated-inline-body",
+      "schema": "AttachmentReferenceV1",
+      "valid": false,
+      "value": {
+        "byteLength": 12,
+        "checksum": {
+          "algorithm": "sha256",
+          "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "mediaType": "text/plain",
+        "metadata": {
+          "INLINE BODY": "aGVsbG8="
+        },
+        "name": "attachment.txt",
+        "objectLocator": {
+          "key": "snapshots/attachment.txt",
+          "resource": "learning-evidence",
+          "version": null
+        },
+        "provider": "s3",
+        "schemaVersion": 1
+      }
+    },
+    {
+      "name": "attachment-metadata-allows-reference-fields",
+      "schema": "AttachmentReferenceV1",
+      "valid": true,
+      "value": {
+        "byteLength": 12,
+        "checksum": {
+          "algorithm": "sha256",
+          "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "mediaType": "text/plain",
+        "metadata": {
+          "byteLength": 12,
+          "contentType": "text/plain",
+          "database": "primary",
+          "payloadRef": "object-1"
+        },
+        "name": "attachment.txt",
+        "objectLocator": {
+          "key": "snapshots/attachment.txt",
+          "resource": "learning-evidence",
+          "version": null
+        },
+        "provider": "s3",
+        "schemaVersion": 1
+      }
+    },
+    {
       "name": "attachment-metadata-rejects-depth-boundary-plus-one",
       "schema": "AttachmentReferenceV1",
       "valid": false,
@@ -13024,6 +13171,40 @@
                     },
                     "type": "array"
                   },
+                  "keyNormalization": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "caseNormalization": {
+                        "const": "lowercase"
+                      },
+                      "ignoredCodePointClasses": {
+                        "items": false,
+                        "maxItems": 3,
+                        "minItems": 3,
+                        "prefixItems": [
+                          {
+                            "const": "White_Space"
+                          },
+                          {
+                            "const": "Dash_Punctuation"
+                          },
+                          {
+                            "const": "Connector_Punctuation"
+                          }
+                        ],
+                        "type": "array"
+                      },
+                      "unicodeNormalization": {
+                        "const": "NFKC"
+                      }
+                    },
+                    "required": [
+                      "unicodeNormalization",
+                      "caseNormalization",
+                      "ignoredCodePointClasses"
+                    ],
+                    "type": "object"
+                  },
                   "maximumArrayItems": {
                     "minimum": 0,
                     "type": "integer"
@@ -13555,8 +13736,22 @@
             "body",
             "content",
             "data",
-            "bytes"
+            "bytes",
+            "payload",
+            "inlinebody",
+            "inlinecontent",
+            "inlinedata",
+            "inlinepayload"
           ],
+          "keyNormalization": {
+            "caseNormalization": "lowercase",
+            "ignoredCodePointClasses": [
+              "White_Space",
+              "Dash_Punctuation",
+              "Connector_Punctuation"
+            ],
+            "unicodeNormalization": "NFKC"
+          },
           "maximumArrayItems": 32,
           "maximumDepth": 6,
           "maximumKeyUtf8Bytes": 128,
@@ -19078,8 +19273,22 @@
                         "body",
                         "content",
                         "data",
-                        "bytes"
+                        "bytes",
+                        "payload",
+                        "inlinebody",
+                        "inlinecontent",
+                        "inlinedata",
+                        "inlinepayload"
                       ],
+                      "keyNormalization": {
+                        "caseNormalization": "lowercase",
+                        "ignoredCodePointClasses": [
+                          "White_Space",
+                          "Dash_Punctuation",
+                          "Connector_Punctuation"
+                        ],
+                        "unicodeNormalization": "NFKC"
+                      },
                       "maximumArrayItems": 32,
                       "maximumDepth": 6,
                       "maximumKeyUtf8Bytes": 128,
@@ -21479,8 +21688,22 @@
                   "body",
                   "content",
                   "data",
-                  "bytes"
+                  "bytes",
+                  "payload",
+                  "inlinebody",
+                  "inlinecontent",
+                  "inlinedata",
+                  "inlinepayload"
                 ],
+                "keyNormalization": {
+                  "caseNormalization": "lowercase",
+                  "ignoredCodePointClasses": [
+                    "White_Space",
+                    "Dash_Punctuation",
+                    "Connector_Punctuation"
+                  ],
+                  "unicodeNormalization": "NFKC"
+                },
                 "maximumArrayItems": 32,
                 "maximumDepth": 6,
                 "maximumKeyUtf8Bytes": 128,
@@ -24577,8 +24800,22 @@
                   "body",
                   "content",
                   "data",
-                  "bytes"
+                  "bytes",
+                  "payload",
+                  "inlinebody",
+                  "inlinecontent",
+                  "inlinedata",
+                  "inlinepayload"
                 ],
+                "keyNormalization": {
+                  "caseNormalization": "lowercase",
+                  "ignoredCodePointClasses": [
+                    "White_Space",
+                    "Dash_Punctuation",
+                    "Connector_Punctuation"
+                  ],
+                  "unicodeNormalization": "NFKC"
+                },
                 "maximumArrayItems": 32,
                 "maximumDepth": 6,
                 "maximumKeyUtf8Bytes": 128,

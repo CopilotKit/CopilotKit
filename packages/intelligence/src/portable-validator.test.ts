@@ -4,6 +4,7 @@ import {
   COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD,
   COPILOTKIT_EQUAL_PROPERTIES_JSON_SCHEMA_KEYWORD,
   COPILOTKIT_LEARNING_CONTRACT_META_SCHEMA_URI,
+  INLINE_ATTACHMENT_PAYLOAD_KEY_NORMALIZATION_V1,
   LEARNING_CONTRACT_PORTABLE_VALIDATOR_CAPABILITY_V1,
   assertLearningContractJsonSchemaValidatorCapabilities,
   compileLearningContractJsonSchema,
@@ -1099,7 +1100,15 @@ describe(`${COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD} bounded assertions`, () =
           maximumArrayItems: 32,
           maximumStringUtf8Bytes: 2_048,
           maximumKeyUtf8Bytes: 128,
-          forbiddenNormalizedKeys: ["body", "content", "data", "bytes"],
+          keyNormalization: INLINE_ATTACHMENT_PAYLOAD_KEY_NORMALIZATION_V1,
+          forbiddenNormalizedKeys: [
+            "body",
+            "content",
+            "data",
+            "bytes",
+            "payload",
+            "inlinebody",
+          ],
           forbiddenNormalizedKeySuffixes: ["bytes"],
           forbiddenNormalizedKeyFragments: ["base64"],
         },
@@ -1115,6 +1124,34 @@ describe(`${COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD} bounded assertions`, () =
         attachments: [{ metadata: { nested: { dataBase64: "x" } } }],
       }),
     ).toBe(false);
+    expect(
+      validate({
+        attachments: [
+          {
+            metadata: {
+              payload: "x",
+              "base 64": "x",
+              ｄａｔａ: "x",
+              "INLINE BODY": "x",
+            },
+          },
+        ],
+      }),
+    ).toBe(false);
+    expect(
+      validate({
+        attachments: [
+          {
+            metadata: {
+              payloadRef: "object-1",
+              contentType: "text/plain",
+              byteLength: 1,
+              database: "primary",
+            },
+          },
+        ],
+      }),
+    ).toBe(true);
     expect(
       validate({
         attachments: [

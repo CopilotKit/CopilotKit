@@ -10,9 +10,11 @@ import {
   learningContractSemanticsMetaSchema,
 } from "./contracts.js";
 import {
+  normalizeInlineAttachmentPayloadKeyV1,
   utf8ByteLength,
   validateJsonTreeBoundsV1,
 } from "./snapshot-evidence-bounds.js";
+import type { INLINE_ATTACHMENT_PAYLOAD_KEY_NORMALIZATION_V1 } from "./snapshot-evidence-bounds.js";
 
 export type LearningContractAssertionNormalizationV1 = {
   readonly caseFold?: boolean;
@@ -124,6 +126,7 @@ export type LearningContractAssertionV1 =
       readonly maximumArrayItems: number;
       readonly maximumStringUtf8Bytes: number;
       readonly maximumKeyUtf8Bytes: number;
+      readonly keyNormalization?: typeof INLINE_ATTACHMENT_PAYLOAD_KEY_NORMALIZATION_V1;
       readonly forbiddenNormalizedKeys?: readonly string[];
       readonly forbiddenNormalizedKeySuffixes?: readonly string[];
       readonly forbiddenNormalizedKeyFragments?: readonly string[];
@@ -940,10 +943,6 @@ function validateUtf8ByteLengthAssertion(
   );
 }
 
-function normalizeBoundedJsonKey(key: string): string {
-  return key.toLowerCase().replaceAll("-", "").replaceAll("_", "");
-}
-
 function hasForbiddenBoundedJsonKey(
   value: unknown,
   assertion: Extract<
@@ -957,7 +956,7 @@ function hasForbiddenBoundedJsonKey(
   if (value === null || typeof value !== "object") return false;
 
   return Object.entries(value).some(([key, item]) => {
-    const normalizedKey = normalizeBoundedJsonKey(key);
+    const normalizedKey = normalizeInlineAttachmentPayloadKeyV1(key);
     return (
       assertion.forbiddenNormalizedKeys?.includes(normalizedKey) === true ||
       assertion.forbiddenNormalizedKeySuffixes?.some((suffix) =>

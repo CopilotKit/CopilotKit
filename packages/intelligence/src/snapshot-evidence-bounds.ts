@@ -104,15 +104,61 @@ export function utf8ByteLength(value: string): number {
   return bytes;
 }
 
+/** Language-neutral V1 normalization for attachment metadata field names. */
+export const INLINE_ATTACHMENT_PAYLOAD_KEY_NORMALIZATION_V1 = {
+  unicodeNormalization: "NFKC",
+  caseNormalization: "lowercase",
+  ignoredCodePointClasses: [
+    "White_Space",
+    "Dash_Punctuation",
+    "Connector_Punctuation",
+  ],
+} as const;
+
+export const INLINE_ATTACHMENT_PAYLOAD_FORBIDDEN_NORMALIZED_KEYS_V1 = [
+  "body",
+  "content",
+  "data",
+  "bytes",
+  "payload",
+  "inlinebody",
+  "inlinecontent",
+  "inlinedata",
+  "inlinepayload",
+] as const;
+
+export const INLINE_ATTACHMENT_PAYLOAD_FORBIDDEN_NORMALIZED_KEY_SUFFIXES_V1 = [
+  "bytes",
+] as const;
+
+export const INLINE_ATTACHMENT_PAYLOAD_FORBIDDEN_NORMALIZED_KEY_FRAGMENTS_V1 = [
+  "base64",
+] as const;
+
+const ignoredAttachmentPayloadKeyCodePoints =
+  /[\p{White_Space}\p{Dash_Punctuation}\p{Connector_Punctuation}]/gu;
+
+export function normalizeInlineAttachmentPayloadKeyV1(key: string): string {
+  return key
+    .normalize(
+      INLINE_ATTACHMENT_PAYLOAD_KEY_NORMALIZATION_V1.unicodeNormalization,
+    )
+    .toLowerCase()
+    .replaceAll(ignoredAttachmentPayloadKeyCodePoints, "");
+}
+
 export function isInlineAttachmentPayloadKey(key: string): boolean {
-  const normalized = key.toLowerCase().replaceAll("-", "").replaceAll("_", "");
+  const normalized = normalizeInlineAttachmentPayloadKeyV1(key);
   return (
-    normalized === "body" ||
-    normalized === "content" ||
-    normalized === "data" ||
-    normalized === "bytes" ||
-    normalized.endsWith("bytes") ||
-    normalized.includes("base64")
+    INLINE_ATTACHMENT_PAYLOAD_FORBIDDEN_NORMALIZED_KEYS_V1.some(
+      (forbidden) => normalized === forbidden,
+    ) ||
+    INLINE_ATTACHMENT_PAYLOAD_FORBIDDEN_NORMALIZED_KEY_SUFFIXES_V1.some(
+      (suffix) => normalized.endsWith(suffix),
+    ) ||
+    INLINE_ATTACHMENT_PAYLOAD_FORBIDDEN_NORMALIZED_KEY_FRAGMENTS_V1.some(
+      (fragment) => normalized.includes(fragment),
+    )
   );
 }
 

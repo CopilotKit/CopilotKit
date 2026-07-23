@@ -1,11 +1,23 @@
 import { z } from "zod/v4";
 import type { LearningContractAssertionV1 } from "./portable-validator.js";
 import {
+  INLINE_ATTACHMENT_PAYLOAD_FORBIDDEN_NORMALIZED_KEYS_V1,
+  INLINE_ATTACHMENT_PAYLOAD_FORBIDDEN_NORMALIZED_KEY_FRAGMENTS_V1,
+  INLINE_ATTACHMENT_PAYLOAD_FORBIDDEN_NORMALIZED_KEY_SUFFIXES_V1,
+  INLINE_ATTACHMENT_PAYLOAD_KEY_NORMALIZATION_V1,
   RUN_SNAPSHOT_ATTACHMENT_LIMITS_V1,
   RUN_SNAPSHOT_TERMINAL_ERROR_LIMITS_V1,
   utf8ByteLength,
   validateAttachmentMetadataV1,
   validateTerminalErrorDetailsV1,
+} from "./snapshot-evidence-bounds.js";
+
+export {
+  INLINE_ATTACHMENT_PAYLOAD_FORBIDDEN_NORMALIZED_KEYS_V1,
+  INLINE_ATTACHMENT_PAYLOAD_FORBIDDEN_NORMALIZED_KEY_FRAGMENTS_V1,
+  INLINE_ATTACHMENT_PAYLOAD_FORBIDDEN_NORMALIZED_KEY_SUFFIXES_V1,
+  INLINE_ATTACHMENT_PAYLOAD_KEY_NORMALIZATION_V1,
+  normalizeInlineAttachmentPayloadKeyV1,
 } from "./snapshot-evidence-bounds.js";
 
 const nonEmptyStringSchema = z.string().min(1);
@@ -1347,6 +1359,34 @@ const assertionJsonPointerJsonSchema: JsonObject = {
   pattern: "^(?:$|/(?:[^~/]|~[01])*(?:/(?:[^~/]|~[01])*)*)$",
 };
 
+const boundedJsonKeyNormalizationJsonSchema: JsonObject = {
+  type: "object",
+  properties: {
+    unicodeNormalization: { const: "NFKC" },
+    caseNormalization: { const: "lowercase" },
+    ignoredCodePointClasses: {
+      type: "array",
+      prefixItems:
+        INLINE_ATTACHMENT_PAYLOAD_KEY_NORMALIZATION_V1.ignoredCodePointClasses.map(
+          (codePointClass) => ({ const: codePointClass }),
+        ),
+      items: false,
+      minItems:
+        INLINE_ATTACHMENT_PAYLOAD_KEY_NORMALIZATION_V1.ignoredCodePointClasses
+          .length,
+      maxItems:
+        INLINE_ATTACHMENT_PAYLOAD_KEY_NORMALIZATION_V1.ignoredCodePointClasses
+          .length,
+    },
+  },
+  required: [
+    "unicodeNormalization",
+    "caseNormalization",
+    "ignoredCodePointClasses",
+  ],
+  additionalProperties: false,
+};
+
 /** Exact schema for sibling-property equality pairs. */
 export const learningContractEqualPropertiesV1JsonSchema: JsonObject = {
   type: "array",
@@ -1564,6 +1604,7 @@ export const learningContractAssertionV1JsonSchema: JsonObject = {
           maximumArrayItems: { type: "integer", minimum: 0 },
           maximumStringUtf8Bytes: { type: "integer", minimum: 0 },
           maximumKeyUtf8Bytes: { type: "integer", minimum: 0 },
+          keyNormalization: boundedJsonKeyNormalizationJsonSchema,
           forbiddenNormalizedKeys: {
             type: "array",
             items: { type: "string", minLength: 1 },
@@ -2073,9 +2114,13 @@ registerLearningContractPortableAssertions(attachmentReferenceV1Schema, [
       RUN_SNAPSHOT_ATTACHMENT_LIMITS_V1.metadataMaxStringUtf8Bytes,
     maximumKeyUtf8Bytes:
       RUN_SNAPSHOT_ATTACHMENT_LIMITS_V1.metadataMaxKeyUtf8Bytes,
-    forbiddenNormalizedKeys: ["body", "content", "data", "bytes"],
-    forbiddenNormalizedKeySuffixes: ["bytes"],
-    forbiddenNormalizedKeyFragments: ["base64"],
+    keyNormalization: INLINE_ATTACHMENT_PAYLOAD_KEY_NORMALIZATION_V1,
+    forbiddenNormalizedKeys:
+      INLINE_ATTACHMENT_PAYLOAD_FORBIDDEN_NORMALIZED_KEYS_V1,
+    forbiddenNormalizedKeySuffixes:
+      INLINE_ATTACHMENT_PAYLOAD_FORBIDDEN_NORMALIZED_KEY_SUFFIXES_V1,
+    forbiddenNormalizedKeyFragments:
+      INLINE_ATTACHMENT_PAYLOAD_FORBIDDEN_NORMALIZED_KEY_FRAGMENTS_V1,
   },
 ]);
 registerLearningContractPortableAssertions(terminalErrorV1Schema, [

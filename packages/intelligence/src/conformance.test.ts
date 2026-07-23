@@ -13,6 +13,10 @@ import {
   COPILOTKIT_CANDIDATE_SEMANTICS_META_SCHEMA_URI,
   COPILOTKIT_CANDIDATE_SEMANTICS_VOCABULARY_URI,
   COPILOTKIT_EQUAL_PROPERTIES_JSON_SCHEMA_KEYWORD,
+  INLINE_ATTACHMENT_PAYLOAD_FORBIDDEN_NORMALIZED_KEYS_V1,
+  INLINE_ATTACHMENT_PAYLOAD_FORBIDDEN_NORMALIZED_KEY_FRAGMENTS_V1,
+  INLINE_ATTACHMENT_PAYLOAD_FORBIDDEN_NORMALIZED_KEY_SUFFIXES_V1,
+  INLINE_ATTACHMENT_PAYLOAD_KEY_NORMALIZATION_V1,
 } from "./contracts.js";
 import type { JsonObject } from "./contracts.js";
 import { LEARNING_PLATFORM_ERROR_CODES } from "./errors.js";
@@ -86,6 +90,30 @@ function containsPortableSemanticKeyword(value: unknown): boolean {
   return Object.values(value).some(containsPortableSemanticKeyword);
 }
 
+function findAttachmentMetadataBoundedJsonAssertion(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const match = findAttachmentMetadataBoundedJsonAssertion(item);
+      if (match !== undefined) return match;
+    }
+    return undefined;
+  }
+  if (value === null || typeof value !== "object") return undefined;
+  if (
+    "operation" in value &&
+    value.operation === "bounded-json" &&
+    "values" in value &&
+    value.values === "/metadata"
+  ) {
+    return value;
+  }
+  for (const item of Object.values(value)) {
+    const match = findAttachmentMetadataBoundedJsonAssertion(item);
+    if (match !== undefined) return match;
+  }
+  return undefined;
+}
+
 const dtoSchemaNames = [
   "AttachmentReferenceV1",
   "BlobLocatorV1",
@@ -136,8 +164,8 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
 
     expect(corpus.schemaVersion).toBe(1);
     expect(Object.keys(corpus.schemas)).toHaveLength(47);
-    expect(corpus.cases).toHaveLength(261);
-    expect(new Set(corpus.cases.map(({ name }) => name)).size).toBe(261);
+    expect(corpus.cases).toHaveLength(267);
+    expect(new Set(corpus.cases.map(({ name }) => name)).size).toBe(267);
     expect(Object.keys(corpus.schemas).sort()).toEqual(expectedNames);
     expect(Object.keys(learningPlatformConformanceSchemas).sort()).toEqual(
       expectedNames,
@@ -215,6 +243,26 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
         corpus.schemas[name as LearningPlatformConformanceSchemaName],
       ).toEqual(schema);
     }
+  });
+
+  test("publishes the attachment metadata key normalization and forbidden vocabulary", () => {
+    const corpus = buildLearningPlatformConformanceCorpus();
+    const assertion = findAttachmentMetadataBoundedJsonAssertion(
+      corpus.schemas.AttachmentReferenceV1,
+    );
+
+    expect(assertion).toMatchObject({
+      keyNormalization: INLINE_ATTACHMENT_PAYLOAD_KEY_NORMALIZATION_V1,
+      forbiddenNormalizedKeys: [
+        ...INLINE_ATTACHMENT_PAYLOAD_FORBIDDEN_NORMALIZED_KEYS_V1,
+      ],
+      forbiddenNormalizedKeySuffixes: [
+        ...INLINE_ATTACHMENT_PAYLOAD_FORBIDDEN_NORMALIZED_KEY_SUFFIXES_V1,
+      ],
+      forbiddenNormalizedKeyFragments: [
+        ...INLINE_ATTACHMENT_PAYLOAD_FORBIDDEN_NORMALIZED_KEY_FRAGMENTS_V1,
+      ],
+    });
   });
 
   test("declares the custom capability only for schemas that use portable semantic keywords", () => {
@@ -453,6 +501,12 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
         "run-finished-forbids-terminal-error",
         "run-snapshot-accepts-omitted-retained-evidence",
         "run-snapshot-rejects-untyped-retained-evidence-event",
+        "attachment-metadata-rejects-bare-payload",
+        "attachment-metadata-rejects-spaced-base64",
+        "attachment-metadata-rejects-full-width-data",
+        "attachment-metadata-rejects-full-width-bytes",
+        "attachment-metadata-rejects-separated-inline-body",
+        "attachment-metadata-allows-reference-fields",
         "run-snapshot-rejects-untyped-attachment-payload",
         "run-snapshot-rejects-attachment-entry-boundary-plus-one",
         "workflow-thread-requires-terminal-error-projection",
