@@ -40,6 +40,19 @@ function extractJson(text) {
 // which we extract uniformly — keeps the whole Foundry catalog (GPT/Llama/…) in play.
 async function ask(prompt, maxTokens) {
   if (provider() === "azure") {
+    // Defense-in-depth: the endpoint is a mutable, non-secret repo Variable. Refuse
+    // to send the API key to anything but an Azure host (covers *.openai.azure.com,
+    // *.cognitiveservices.azure.com, *.services.ai.azure.com). Harden-Runner egress
+    // block-mode is the hard control; this is the cheap in-code guard.
+    let host;
+    try {
+      host = new URL(process.env.AZURE_OPENAI_ENDPOINT).host;
+    } catch {
+      throw new Error("AZURE_OPENAI_ENDPOINT is not a valid URL");
+    }
+    if (!host.endsWith(".azure.com")) {
+      throw new Error(`Refusing to send key to non-Azure host: ${host}`);
+    }
     const base = process.env.AZURE_OPENAI_ENDPOINT.replace(/\/+$/, "");
     const url = `${base}/openai/deployments/${process.env.AZURE_OPENAI_DEPLOYMENT}/chat/completions?api-version=${AZURE_API_VERSION}`;
     const res = await fetch(url, {

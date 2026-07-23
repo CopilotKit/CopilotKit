@@ -45,9 +45,25 @@ and backfill workflows call it, so policy and safety controls live in one place.
   comment. Humans close.
 - **Spam/low-signal gate** — already-flagged or empty-body-from-outsider issues
   skip the LLM call entirely (cost guard).
-- **Pinned actions** — checkout / github-script / stale are SHA-pinned, with
-  `persist-credentials: false` (no git ops).
-- **Least privilege** — `issues: write` is scoped to the job, not the workflow;
-  no other token scopes are granted.
+- **Pinned actions** — checkout / github-script / stale / harden-runner are
+  SHA-pinned, with `persist-credentials: false` (no git ops).
+- **Least privilege** — every workflow defaults to `permissions: {}`; each job
+  opts into only `contents: read` + `issues: write`. Nothing else is granted.
 - **No template injection** — `workflow_dispatch` inputs are passed via `env`
   and read from `process.env`, never interpolated into the inline script.
+- **Egress monitoring** — [StepSecurity Harden-Runner](https://github.com/step-security/harden-runner)
+  runs first in every job (`egress-policy: audit`). Review the network report,
+  then flip to `block` with the allow-list commented in each workflow so the
+  model key can only reach GitHub + your model host.
+- **Endpoint pinning** — `analyze.js` refuses to send the key to any non-Azure
+  host (guards against the endpoint `var` being repointed).
+- **Bounded runtime** — `timeout-minutes` on every job caps a hung model call.
+
+### Not yet automated (operator actions)
+
+- **Provider spend cap** — set a hard quota/spend limit on the model provider
+  (Azure deployment TPM quota / Anthropic workspace monthly limit). This is the
+  real backstop against issue-flood cost-DoS (an event-driven workflow can't hold
+  a global rate limit); do it when you configure the provider.
+- **Flip Harden-Runner to `block`** after one `audit` baseline run.
+- **Confirm Renovate doesn't auto-merge** action SHA bumps (review them by hand).

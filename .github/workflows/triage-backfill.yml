@@ -14,6 +14,8 @@ on:
         description: "Preview only (no labels/comments applied)"
         type: boolean
         default: true
+# Default to no privileges; each job opts in to exactly what it needs.
+permissions: {}
 concurrency:
   group: triage-backfill
   cancel-in-progress: false
@@ -21,10 +23,22 @@ jobs:
   backfill:
     name: backfill triage over open issues
     runs-on: ubuntu-latest
-    # Least privilege: only add labels/comments to existing issues.
+    # Least privilege: read the repo (for analyze.js) + write issue labels/comments.
     permissions:
+      contents: read
       issues: write
+    timeout-minutes: 30 # backfill iterates many issues; still bounded
     steps:
+      - uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit # baseline first — review the run's network report, then flip to "block" with the allow-list below
+          # block-mode allow-list (uncomment + set the model host when flipping):
+          #   allowed-endpoints: >
+          #     github.com:443
+          #     api.github.com:443
+          #     objects.githubusercontent.com:443
+          #     api.anthropic.com:443
+          #     <your-azure-resource>.openai.azure.com:443   # or *.services.ai.azure.com for Foundry
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false # only reads scripts/triage/analyze.js; no git ops

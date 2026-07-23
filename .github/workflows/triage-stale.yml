@@ -6,6 +6,8 @@ on:
   schedule:
     - cron: "0 9 * * *" # daily 09:00 UTC
   workflow_dispatch:
+# Default to no privileges; each job opts in to exactly what it needs.
+permissions: {}
 concurrency:
   group: triage-stale
   cancel-in-progress: false
@@ -16,7 +18,11 @@ jobs:
     # Least privilege: only label/close stale needs-info issues.
     permissions:
       issues: write
+    timeout-minutes: 10
     steps:
+      - uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit # no secrets/external calls here; GitHub API only. Block-mode: github.com:443 + api.github.com:443
       - uses: actions/stale@5bef64f19d7facfb25b37b414482c7164d639639 # v9.1.0
         with:
           # MVP: only auto-progress issues we explicitly asked info on and got silence.
