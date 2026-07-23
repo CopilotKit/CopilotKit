@@ -33,6 +33,7 @@ export const ANGULAR_GUIDE_PAGES = [
  */
 export const ANGULAR_DOC_REDIRECTS: Readonly<Record<string, string>> = {
   "concepts/which-hook": "features",
+  "agentic-protocols/mcp": "guides/frontend-tools-generative-ui",
   "prebuilt-components": "guides/chat-ui",
   "prebuilt-components/chat": "guides/chat-ui",
   "prebuilt-components/sidebar": "guides/chat-ui",
@@ -51,17 +52,28 @@ export const ANGULAR_DOC_REDIRECTS: Readonly<Record<string, string>> = {
     "guides/frontend-tools-generative-ui",
   "generative-ui/your-components/interactive":
     "guides/frontend-tools-generative-ui",
+  "generative-ui/your-components/interrupt-based": "guides/human-in-the-loop",
   "generative-ui/a2ui": "guides/frontend-tools-generative-ui",
   "generative-ui/a2ui/index": "guides/frontend-tools-generative-ui",
+  "generative-ui/a2ui/advanced": "guides/frontend-tools-generative-ui",
   "generative-ui/a2ui/dynamic-schema": "guides/frontend-tools-generative-ui",
   "generative-ui/a2ui/fixed-schema": "guides/frontend-tools-generative-ui",
   "generative-ui/mcp-apps": "guides/frontend-tools-generative-ui",
   "frontend-tools": "guides/frontend-tools-generative-ui",
   "human-in-the-loop": "guides/human-in-the-loop",
   "human-in-the-loop/index": "guides/human-in-the-loop",
+  "human-in-the-loop/interrupt-flow": "guides/human-in-the-loop",
+  "human-in-the-loop/tool-based": "guides/human-in-the-loop",
   "human-in-the-loop/useInterrupt": "guides/human-in-the-loop",
   "human-in-the-loop/headless": "guides/human-in-the-loop",
   "shared-state": "guides/shared-state",
+  "shared-state/in-app-agent-read": "guides/shared-state",
+  "shared-state/in-app-agent-write": "guides/shared-state",
+  "shared-state/state-inputs-outputs": "guides/shared-state",
+  "shared-state/predictive-state-updates": "guides/shared-state",
+  "shared-state/read": "guides/shared-state",
+  "shared-state/write": "guides/shared-state",
+  readables: "guides/shared-state",
   "shared-state/rendering-in-app": "guides/shared-state",
   "shared-state/streaming": "guides/shared-state",
   "shared-state/agent-readonly": "guides/shared-state",
@@ -76,6 +88,12 @@ export const ANGULAR_DOC_REDIRECTS: Readonly<Record<string, string>> = {
   "custom-look-and-feel/headless-ui":
     "guides/threads-memory-attachments-headless",
   "programmatic-control": "guides/threads-memory-attachments-headless",
+  "troubleshooting/migrate-to-1.8.2": "using-these-docs",
+  "troubleshooting/migrate-to-1.10.X": "using-these-docs",
+  "troubleshooting/migrate-to-v2": "using-these-docs",
+  "troubleshooting/error-debugging": "using-these-docs",
+  inspector: "using-these-docs",
+  "multi-agent-flows": "multi-agent/subagents",
 };
 
 export function getFrontendContentSlug(id: FrontendPageId): string {

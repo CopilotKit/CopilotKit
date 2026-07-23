@@ -1014,10 +1014,11 @@ provideCopilotKit({
 ```
 </FrontendOnly>
 
-For same-origin deployments (e.g. Next.js, React Router, TanStack Start), use a relative path:
-
+<FrontendOnly frontend="react">
+For same-origin deployments, use a relative path:
 ```tsx
 <CopilotKit runtimeUrl="/api/copilotkit">
   <YourApp />
 </CopilotKit>
 ```
+</FrontendOnly>
