@@ -27,6 +27,7 @@ import type {
   SlackIngressConfig,
   SlackIngressConnection,
 } from "../slack-connector.js";
+import type { IngressSink, IncomingTurn } from "@copilotkit/channels-core";
 
 /** One recorded call to a {@link FakeSlackConnector} op, in call order. */
 export type SlackConnectorCall =
@@ -87,6 +88,15 @@ export class FakeSlackConnector implements SlackConnector {
   ingressConfig: SlackIngressConfig | undefined;
   /** True once {@link stopIngress} has been called. */
   ingressStopped = false;
+  /**
+   * Captured from {@link SlackIngressConfig.sink} by {@link startIngress} —
+   * the SAME `IngressSink` a real Bolt-backed connector would forward
+   * normalized turns to. Lets {@link emitTurn} push a fake inbound turn
+   * straight into the real channels-core dispatch (`sink.onTurn` → §2
+   * `decideChannelResponse` → `thread.runAgent` → egress) without a real
+   * Bolt socket — the Model-1 standalone proof (Task 3/T3s-4b).
+   */
+  private sink: IngressSink | undefined;
 
   constructor(readonly results: FakeSlackConnectorResults = {}) {}
 
@@ -229,18 +239,53 @@ export class FakeSlackConnector implements SlackConnector {
 
   /**
    * No real Bolt socket here — records the config it was handed (so a test
-   * can assert on `respondTo`/`assistant`/callbacks) and resolves with a
-   * canned connection. Never fires any handler on its own; a test drives
-   * ingress behavior against `WebClientSlackConnector` directly instead.
+   * can assert on `respondTo`/`assistant`/callbacks) and captures `config.sink`
+   * (see {@link emitTurn}) so a test can drive fake inbound turns through it.
+   * Resolves with a canned connection. Raw Slack-shaped ingress (app_mention/
+   * message payloads) is still exercised against `WebClientSlackConnector`
+   * directly / `attachSlackListener` — this fake only proves what happens
+   * AFTER a turn reaches the sink.
    */
   async startIngress(
     config: SlackIngressConfig,
   ): Promise<SlackIngressConnection> {
     this.ingressConfig = config;
+    this.sink = config.sink;
     return { botUserId: "UFAKEBOT", teamId: "TFAKE" };
   }
 
   async stopIngress(): Promise<void> {
     this.ingressStopped = true;
+  }
+
+  /**
+   * Push a fake inbound turn through the `sink` captured by {@link startIngress}
+   * — the Model-1 standalone proof's ingress entry point. Mirrors channels-core's
+   * `FakeAdapter.emitTurn`, but RETURNS the underlying `sink.onTurn` promise
+   * (rather than firing-and-forgetting) so a test can `await` a turn all the
+   * way through §2's `decideChannelResponse` → `thread.runAgent` → egress
+   * before asserting, instead of racing a `setTimeout(0)` tick.
+   *
+   * Throws if ingress hasn't started yet (`channel.start()`/`SlackAdapter.start()`
+   * not called) — this proves the standalone dispatch wiring, so a call before
+   * `start()` is a test bug, not a tolerable no-op.
+   */
+  emitTurn(
+    turn: Partial<IncomingTurn> & { conversationKey: string },
+  ): Promise<void> {
+    if (!this.sink) {
+      throw new Error(
+        "FakeSlackConnector.emitTurn: ingress not started — call " +
+          "channel.start() (which calls SlackAdapter.start()) first",
+      );
+    }
+    return Promise.resolve(
+      this.sink.onTurn({
+        replyTarget: { channel: "C1" },
+        userText: "",
+        platform: "slack",
+        ...turn,
+      }),
+    );
   }
 }
