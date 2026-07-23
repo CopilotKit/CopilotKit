@@ -29,7 +29,6 @@ export interface ChartStyleProps {
   colors?: string[];
   gridColor?: string;
   labelClassName?: string;
-  showLegend?: boolean;
   showGrid?: boolean;
   title?: string;
 }

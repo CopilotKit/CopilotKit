@@ -12,8 +12,6 @@ export function BarChart(props: BarChartProps): ReactElement {
   const {
     data,
     colors = DEFAULT_CHART_COLORS,
-    width = 480,
-    height = 240,
     title,
     className,
     style,
