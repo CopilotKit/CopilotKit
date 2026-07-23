@@ -22,7 +22,9 @@ export function Meter(props: MeterProps): ReactElement {
     labelClassName,
   } = props;
   const palette = colors && colors.length > 0 ? colors : DEFAULT_CHART_COLORS;
-  const pct = Math.max(0, Math.min(1, value)) * 100;
+  const pct = Number.isFinite(value)
+    ? Math.max(0, Math.min(1, value)) * 100
+    : 0;
   return h(
     "div",
     {

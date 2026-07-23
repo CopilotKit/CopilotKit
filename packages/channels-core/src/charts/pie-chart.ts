@@ -50,10 +50,30 @@ export function PieChart(props: PieChartProps): ReactElement {
         title,
       )
     : null;
-  // A single positive slice (or all others non-positive) can't be drawn as an
-  // arc (start==end); draw a full circle instead.
-  if (positive.length <= 1) {
-    const sliceColor = palette[0];
+  // No positive data: render an empty canvas rather than misrepresenting
+  // "no data" as one full category.
+  if (positive.length === 0) {
+    return h(
+      "div",
+      {
+        className,
+        style: { display: "flex", flexDirection: "column", gap: 8, ...style },
+      },
+      titleEl,
+      h("svg", {
+        width,
+        height,
+        viewBox: `0 0 ${width} ${height}`,
+        style: { backgroundColor: "#ffffff" },
+      }),
+    );
+  }
+  // A single positive slice can't be drawn as an arc (start==end); draw a
+  // full circle instead, colored by the slice's original index in `data`
+  // so it matches how a multi-slice chart would color it.
+  if (positive.length === 1) {
+    const originalIndex = data.findIndex((d) => d.value > 0);
+    const sliceColor = palette[originalIndex % palette.length];
     return h(
       "div",
       {
