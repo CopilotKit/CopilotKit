@@ -37,17 +37,49 @@ function countColoredPixels(png: Buffer): number {
   return count;
 }
 
+/**
+ * Counts pixels close to the first palette color (`#6366f1` = rgb 99/102/241),
+ * skipping transparent pixels. Every chart draws its primary data mark in
+ * `palette[0]`, so this is a real assertion that the DATA rendered visibly —
+ * unlike `countColoredPixels`, which is satisfied by gray grid/track chrome
+ * (`#e5e7eb`) alone and would pass even if the data itself were invisible.
+ */
+function countPaletteColorPixels(png: Buffer): number {
+  const decoded = PNG.sync.read(png);
+  let count = 0;
+  const TOLERANCE = 40;
+  for (let i = 0; i < decoded.data.length; i += 4) {
+    const r = decoded.data[i] ?? 0;
+    const g = decoded.data[i + 1] ?? 0;
+    const b = decoded.data[i + 2] ?? 0;
+    const a = decoded.data[i + 3] ?? 0;
+    if (a < 128) continue;
+    if (
+      Math.abs(r - 99) < TOLERANCE &&
+      Math.abs(g - 102) < TOLERANCE &&
+      Math.abs(b - 241) < TOLERANCE
+    ) {
+      count++;
+    }
+  }
+  return count;
+}
+
 describe("chart render smoke (Takumi)", () => {
-  it("renders a bar chart to a non-empty PNG", async () => {
+  it("renders a bar chart to a PNG with visible palette colors", async () => {
     const png = await renderJsxToPng(BarChart({ data }), cfg);
     expect(png.byteLength).toBeGreaterThan(100);
     expect([png[0], png[1], png[2], png[3]]).toEqual([0x89, 0x50, 0x4e, 0x47]); // PNG signature
+    const palette = countPaletteColorPixels(Buffer.from(png));
+    expect(palette).toBeGreaterThan(50);
   });
   it("renders a line chart to a PNG with visible palette colors", async () => {
     const png = await renderJsxToPng(LineChart({ data }), cfg);
     expect(png[0]).toBe(0x89);
     const colored = countColoredPixels(Buffer.from(png));
     expect(colored).toBeGreaterThan(50);
+    const palette = countPaletteColorPixels(Buffer.from(png));
+    expect(palette).toBeGreaterThan(50);
   });
   it("renders a pie chart to a PNG with visible palette colors", async () => {
     const png = await renderJsxToPng(
@@ -57,6 +89,8 @@ describe("chart render smoke (Takumi)", () => {
     expect(png[0]).toBe(0x89);
     const colored = countColoredPixels(Buffer.from(png));
     expect(colored).toBeGreaterThan(50);
+    const palette = countPaletteColorPixels(Buffer.from(png));
+    expect(palette).toBeGreaterThan(50);
   });
   it("renders a stacked bar chart to a PNG with visible palette colors", async () => {
     const png = await renderJsxToPng(
@@ -71,6 +105,8 @@ describe("chart render smoke (Takumi)", () => {
     expect(png[0]).toBe(0x89);
     const colored = countColoredPixels(Buffer.from(png));
     expect(colored).toBeGreaterThan(50);
+    const palette = countPaletteColorPixels(Buffer.from(png));
+    expect(palette).toBeGreaterThan(50);
   });
   it("renders a sparkline to a PNG with visible palette colors", async () => {
     const png = await renderJsxToPng(
@@ -80,12 +116,16 @@ describe("chart render smoke (Takumi)", () => {
     expect(png[0]).toBe(0x89);
     const colored = countColoredPixels(Buffer.from(png));
     expect(colored).toBeGreaterThan(50);
+    const palette = countPaletteColorPixels(Buffer.from(png));
+    expect(palette).toBeGreaterThan(50);
   });
   it("renders a meter to a PNG with visible palette colors", async () => {
     const png = await renderJsxToPng(Meter({ value: 0.6 }), cfg);
     expect(png[0]).toBe(0x89);
     const colored = countColoredPixels(Buffer.from(png));
     expect(colored).toBeGreaterThan(50);
+    const palette = countPaletteColorPixels(Buffer.from(png));
+    expect(palette).toBeGreaterThan(50);
   });
   it("renders a scatter plot to a PNG with visible palette colors", async () => {
     const png = await renderJsxToPng(
@@ -103,5 +143,7 @@ describe("chart render smoke (Takumi)", () => {
     expect(png[0]).toBe(0x89);
     const colored = countColoredPixels(Buffer.from(png));
     expect(colored).toBeGreaterThan(50);
+    const palette = countPaletteColorPixels(Buffer.from(png));
+    expect(palette).toBeGreaterThan(50);
   });
 });

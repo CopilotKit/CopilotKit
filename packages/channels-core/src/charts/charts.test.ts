@@ -61,8 +61,6 @@ describe("box-model charts", () => {
     expect(parseFloat(positiveBarHeight)).toBeGreaterThan(0);
   });
   it("Meter clamps and returns a React element", () => {
-    expect(isValidElement(Meter({ value: 0.5 }))).toBe(true);
-
     interface MeterElement {
       props: { children: unknown };
     }
@@ -75,11 +73,45 @@ describe("box-model charts", () => {
       return barInner.props.style.width;
     };
 
+    const mid = Meter({ value: 0.5 });
+    expect(isValidElement(mid)).toBe(true);
+    expect(innerBarWidth(mid as unknown as MeterElement)).toBe("50%");
+
     const over = Meter({ value: 5 }); // > 1 clamps, no throw
     expect(isValidElement(over)).toBe(true);
     expect(innerBarWidth(over as unknown as MeterElement)).toBe("100%");
 
     const under = Meter({ value: -5 }); // < 0 clamps, no throw
     expect(innerBarWidth(under as unknown as MeterElement)).toBe("0%");
+  });
+
+  it("BarChart clamps a non-finite (NaN) value's bar to 0% while a finite bar renders > 0%", () => {
+    const el = BarChart({
+      data: [
+        { label: "a", value: NaN },
+        { label: "b", value: 10 },
+      ],
+    });
+    interface BarElement {
+      props: { children: unknown };
+    }
+    const bars = (
+      (el as unknown as BarElement).props.children as BarElement[]
+    ).at(-1) as BarElement;
+    const [nanBarWrapper, finiteBarWrapper] = bars.props
+      .children as BarElement[];
+    const nanBarHeight = (
+      (nanBarWrapper!.props.children as BarElement[])[0]!.props as unknown as {
+        style: { height: string };
+      }
+    ).style.height;
+    const finiteBarHeight = (
+      (finiteBarWrapper!.props.children as BarElement[])[0]!
+        .props as unknown as {
+        style: { height: string };
+      }
+    ).style.height;
+    expect(nanBarHeight).toBe("0%");
+    expect(parseFloat(finiteBarHeight)).toBeGreaterThan(0);
   });
 });
