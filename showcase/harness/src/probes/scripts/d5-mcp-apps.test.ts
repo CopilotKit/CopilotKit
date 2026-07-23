@@ -3,8 +3,8 @@ import {
   D5_REGISTRY,
   __clearD5RegistryForTesting,
   getD5Script,
-  type D5BuildContext,
 } from "../helpers/d5-registry.js";
+import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { Page } from "../helpers/conversation-runner.js";
 
 let scriptModule: typeof import("./d5-mcp-apps.js");
@@ -50,6 +50,9 @@ describe("D5 mcp-apps script — buildTurns", () => {
     const turns = scriptModule.buildTurns(ctx);
     expect(turns).toHaveLength(1);
     expect(typeof turns[0]!.assertions).toBe("function");
+    expect(turns[0]!.completeOnMount).toEqual({
+      testIds: ["mcp-app-iframe"],
+    });
   });
 
   it("drives a real MCP-tool prompt (not the previous 'hello' no-op)", () => {
