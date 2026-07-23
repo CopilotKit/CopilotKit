@@ -9,6 +9,13 @@ on Teams by adding this adapter.
 It is built on the **Microsoft 365 Agents SDK** (`@microsoft/agents-hosting`),
 the successor to the Bot Framework SDK.
 
+The adapter keeps its own Teams/Microsoft 365 credentials (`clientId` /
+`clientSecret` / `tenantId`, or none for anonymous local dev) — but the
+Channel itself only runs inside a CopilotKit Intelligence-configured
+`CopilotRuntime` (an API key; a free tier is available). There is no
+standalone / DIY runner and no `channel.start()`; the runtime starts and owns
+the channel because Intelligence is configured.
+
 ## Install
 
 ```sh
@@ -20,14 +27,32 @@ pnpm add @copilotkit/channels @copilotkit/channels-ui @copilotkit/channels-teams
 ```ts
 import { createChannel } from "@copilotkit/channels";
 import { teams } from "@copilotkit/channels-teams";
+import {
+  CopilotRuntime,
+  CopilotKitIntelligence,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 
 const bot = createChannel({
+  name: "support-bot", // project-unique Intelligence Channel name
   adapters: [teams({ port: 3978 })],
 });
 
 bot.onMessage(({ thread, message }) => thread.post(`Echo: ${message.text}`));
 
-await bot.start(); // POST /api/messages now listening on :3978
+// The runtime owns the channel's lifecycle — there is no `bot.start()`.
+const runtime = new CopilotRuntime({
+  intelligence: new CopilotKitIntelligence({
+    apiUrl: "https://api.copilotkit.ai",
+    wsUrl: "wss://api.copilotkit.ai",
+    apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!, // free tier available
+  }),
+  identifyUser: async () => ({ id: "support-bot", name: "Support Bot" }),
+  channels: [bot],
+});
+
+const handler = createCopilotRuntimeHandler({ runtime });
+await handler.channels.ready(); // POST /api/messages now listening on :3978
 ```
 
 Then point the **Microsoft 365 Agents Playground** at it. No Microsoft
