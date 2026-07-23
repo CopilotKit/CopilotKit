@@ -101,7 +101,7 @@ One agent backend. Every frontend.
 | Platform                                    | Status       | Get Started                                                                                                 |
 | ------------------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------- |
 | ⚛️ React / Next.js                          | ✅ GA        | [Quickstart](https://docs.copilotkit.ai/built-in-agent/quickstart)                                          |
-| 🅰️ Angular                                  | ✅ Supported | [Source Code - Quickstart coming soon](https://github.com/CopilotKit/CopilotKit/tree/main/packages/angular) |
+| 🅰️ Angular                                  | ✅ Supported | [Source Code & Quickstart](https://github.com/CopilotKit/CopilotKit/tree/main/packages/angular) |
 | 💚 Vue                                      | ✅ Supported | [Source Code - Quickstart coming soon](https://github.com/CopilotKit/CopilotKit/tree/main/packages/vue)     |
 | 📱 React Native                             | ✅ Supported | [Quickstart](https://docs.copilotkit.ai/react-native)                                                       |
 | 💬 Slack / MS Teams / Discord / Google Chat | 🟡 Beta      | [Request early access](https://go.copilotkit.ai/beyond-the-web-form)                                        |
