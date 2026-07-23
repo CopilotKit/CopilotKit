@@ -34,6 +34,7 @@
   "devDependencies": {
     "@notionhq/notion-mcp-server": "^2.2.1",
     "@types/node": "^22.10.0",
+    "@types/react": "^19.1.0",
     "dotenv": "^16.4.5",
     "playwright": "^1.49.0",
     "tsx": "^4.19.2",

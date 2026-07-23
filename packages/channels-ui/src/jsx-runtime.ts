@@ -24,6 +24,18 @@ export const jsxs = jsx;
 export namespace JSX {
   /** The result of evaluating a JSX expression. */
   export type Element = ChannelNode;
+  /**
+   * Decouples "what can be used as a JSX tag" from "what a JSX expression
+   * evaluates to" (TS 5.1+). Without this, TypeScript additionally requires
+   * every function component's return type to be assignable to {@link Element}
+   * — which breaks arbitrary app/React components (e.g. `@copilotkit/channels/charts`'
+   * `BarChart`, which returns a real `ReactElement`) authored directly as JSX
+   * under this pragma. Those are intentionally unbranded: `thread.post` peeks
+   * at their output at runtime and routes them to the image path (see
+   * `isArbitraryJsx`) — this only widens what the *type checker* accepts as a
+   * valid tag, matching that runtime behavior.
+   */
+  export type ElementType = string | symbol | ((props: never) => unknown);
   /** Tells TypeScript which prop receives nested children. */
   export interface ElementChildrenAttribute {
     children: {};
