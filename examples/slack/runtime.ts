@@ -318,6 +318,15 @@ const listener = createCopilotNodeListener({
 });
 
 const port = Number(process.env["PORT"] ?? 8200);
+// Fail loud on a malformed PORT rather than letting `Number("abc")` → NaN
+// (or an out-of-range value) reach `server.listen()` and silently bind a
+// random/wrong port that still comes up "healthy".
+if (!Number.isInteger(port) || port < 1 || port > 65535) {
+  console.error(
+    `Invalid PORT: "${process.env["PORT"]}" is not a valid port number`,
+  );
+  process.exit(1);
+}
 createServer(listener).listen(port, () => {
   console.log(
     `[slack-runtime] listening on http://localhost:${port}/api/copilotkit/agent/triage/run`,

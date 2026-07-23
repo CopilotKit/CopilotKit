@@ -89,14 +89,11 @@ async function main() {
     tools: [...appTools, ...defaultSlackTools],
     context: [...appContext, ...defaultSlackContext],
     commands: appCommands,
-    // Takumi JSX image rendering config. Stylesheet-only (no `googleFonts`,
-    // which can trigger a network fetch and hang tests/CI) — Takumi's
-    // built-in Latin covers this demo, and the CSS vars give chart colors a
-    // hex fallback with no external dependency.
+    // Takumi JSX image rendering config. No `fonts`/`googleFonts` (the latter
+    // can trigger a network fetch and hang tests/CI) — Takumi's built-in Latin
+    // covers this demo. The `charts` components render in color from their own
+    // fixed hex palette (no stylesheet needed), and `MrrCard` uses inline styles.
     render: {
-      stylesheets: [
-        ":root{--chart-1:#6366f1;--chart-2:#22c55e;--chart-3:#f59e0b}",
-      ],
       width: 720,
     },
   });
