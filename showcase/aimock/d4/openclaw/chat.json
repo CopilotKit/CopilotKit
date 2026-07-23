@@ -1,0 +1,1063 @@
+{
+  "_meta": {
+    "description": "D4 chat fixtures for openclaw (agentic-chat).",
+    "created": "2026-07-03"
+  },
+  "fixtures": [
+    {
+      "_comment": "TERMINATOR: ag-ui flattens the whole AG-UI conversation into one user prompt for OpenClaw's model call, so a tool result arrives as the text 'Tool <name> returned: ...' rather than a role:tool message. aimock's hasToolResult (role:tool) discriminator therefore never fires and the tool-call fixtures below would loop forever. This fixture matches the 'returned:' marker that DOES appear in the flattened prompt and closes the turn with a completion message. Must stay FIRST so it intercepts every tool follow-up before the tool-call fixtures.",
+      "match": {
+        "context": "openclaw",
+        "userMessage": "returned:"
+      },
+      "response": {
+        "content": "Done \u2014 I've completed that for you."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Explain what an API is.",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "An API (Application Programming Interface) is a defined set of rules that lets one piece of software talk to another. It exposes specific operations \u2014 like \"get a user\" or \"create an order\" \u2014 behind stable endpoints, so callers can use a service without knowing how it works inside. Think of it as a contract: you send a request in an agreed format, and you get back a predictable response."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Introduce yourself.",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "Hi! I'm an OpenClaw-powered assistant, and I'm genuinely excited to help you out! Ask me anything \u2014 whether it's a quick question or something you want explained from the ground up, I've got you covered!"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Make the background a sunset gradient.",
+        "context": "openclaw",
+        "toolName": "change_background_async",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_cba_sunset",
+            "name": "change_background_async",
+            "arguments": "{\"background\":\"linear-gradient(135deg, #ff9966 0%, #ff5e62 50%, #6a3093 100%)\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Switch to a deep green forest gradient.",
+        "context": "openclaw",
+        "toolName": "change_background_async",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_cba_forest",
+            "name": "change_background_async",
+            "arguments": "{\"background\":\"linear-gradient(160deg, #0b3d2e 0%, #145a32 55%, #1e8449 100%)\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Make it a navy \u2192 magenta cosmic gradient.",
+        "context": "openclaw",
+        "toolName": "change_background_async",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_cba_cosmic",
+            "name": "change_background_async",
+            "arguments": "{\"background\":\"linear-gradient(135deg, #0f2027 0%, #2c1a4d 45%, #c31432 100%)\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "What is my name according to my context?",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "According to your context, your name is Atai."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "What timezone am I in?",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "Your context says you're in the America/Los_Angeles timezone."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Summarize my recent activity.",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "Based on your context, your recent activity includes viewing the pricing page and watching the product demo video."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Visualize the global renewable energy mix.",
+        "context": "openclaw",
+        "toolName": "render_insight",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_insight_energy",
+            "name": "render_insight",
+            "arguments": "{\"title\":\"Global Renewable Energy Mix\",\"summary\":\"Share of generation by renewable source\",\"accent\":\"indigo\",\"metrics\":[{\"label\":\"Hydro\",\"value\":43,\"unit\":\"%\"},{\"label\":\"Wind\",\"value\":26,\"unit\":\"%\"},{\"label\":\"Solar\",\"value\":19,\"unit\":\"%\"},{\"label\":\"Bioenergy\",\"value\":12,\"unit\":\"%\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show an insight card for my site's Core Web Vitals.",
+        "context": "openclaw",
+        "toolName": "render_insight",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_insight_vitals",
+            "name": "render_insight",
+            "arguments": "{\"title\":\"Core Web Vitals\",\"summary\":\"Field performance for the last 28 days\",\"accent\":\"emerald\",\"metrics\":[{\"label\":\"LCP\",\"value\":2100,\"unit\":\"ms\"},{\"label\":\"INP\",\"value\":180,\"unit\":\"ms\"},{\"label\":\"CLS x1000\",\"value\":80},{\"label\":\"Good sessions\",\"value\":92,\"unit\":\"%\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Break down our sprint team velocity metrics.",
+        "context": "openclaw",
+        "toolName": "render_insight",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_insight_velocity",
+            "name": "render_insight",
+            "arguments": "{\"title\":\"Sprint Team Velocity\",\"summary\":\"Story points across recent sprints\",\"accent\":\"amber\",\"metrics\":[{\"label\":\"Sprint 12\",\"value\":34,\"unit\":\"pts\"},{\"label\":\"Sprint 13\",\"value\":41,\"unit\":\"pts\"},{\"label\":\"Sprint 14\",\"value\":38,\"unit\":\"pts\"},{\"label\":\"Sprint 15\",\"value\":47,\"unit\":\"pts\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Generate a quick weeknight pasta recipe.",
+        "context": "openclaw",
+        "toolName": "generate_recipe",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_recipe_pasta",
+            "name": "generate_recipe",
+            "arguments": "{\"title\":\"Garlic Butter Weeknight Pasta\",\"description\":\"A fast, one-pan pasta ready in under 25 minutes.\",\"servings\":4,\"prep_minutes\":10,\"cook_minutes\":15,\"ingredients\":[\"12 oz spaghetti\",\"4 cloves garlic, minced\",\"3 tbsp butter\",\"2 tbsp olive oil\",\"1/2 cup grated parmesan\",\"1/4 cup fresh parsley, chopped\",\"Salt and black pepper to taste\"],\"steps\":[\"Bring a large pot of salted water to a boil and cook the spaghetti until al dente.\",\"Reserve 1 cup of pasta water, then drain.\",\"Melt the butter with olive oil in a pan over medium heat.\",\"Add the garlic and saute until fragrant, about 1 minute.\",\"Toss in the drained pasta with a splash of reserved pasta water.\",\"Stir in the parmesan until glossy, then season with salt and pepper.\",\"Garnish with parsley and serve immediately.\"]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Generate a hearty vegan breakfast recipe.",
+        "context": "openclaw",
+        "toolName": "generate_recipe",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_recipe_vegan_breakfast",
+            "name": "generate_recipe",
+            "arguments": "{\"title\":\"Savory Tofu Scramble Bowl\",\"description\":\"A protein-packed vegan breakfast with crispy potatoes and greens.\",\"servings\":2,\"prep_minutes\":10,\"cook_minutes\":20,\"ingredients\":[\"1 block firm tofu, crumbled\",\"2 medium potatoes, diced\",\"1 tsp turmeric\",\"1/2 tsp smoked paprika\",\"2 cups baby spinach\",\"1 avocado, sliced\",\"2 tbsp nutritional yeast\",\"Salt and pepper to taste\"],\"steps\":[\"Roast or pan-fry the diced potatoes until golden and crisp.\",\"Heat a pan and add the crumbled tofu.\",\"Stir in turmeric, smoked paprika, and nutritional yeast.\",\"Cook until the tofu is warmed through and lightly browned.\",\"Fold in the spinach and cook until wilted.\",\"Season with salt and pepper.\",\"Plate with the potatoes and top with sliced avocado.\"]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Generate a simple chocolate dessert recipe.",
+        "context": "openclaw",
+        "toolName": "generate_recipe",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_recipe_choc_dessert",
+            "name": "generate_recipe",
+            "arguments": "{\"title\":\"5-Minute Chocolate Mug Cake\",\"description\":\"A rich single-serving chocolate cake made in the microwave.\",\"servings\":1,\"prep_minutes\":3,\"cook_minutes\":2,\"ingredients\":[\"4 tbsp all-purpose flour\",\"3 tbsp sugar\",\"2 tbsp cocoa powder\",\"1/4 tsp baking powder\",\"3 tbsp milk\",\"2 tbsp vegetable oil\",\"1 tbsp chocolate chips\"],\"steps\":[\"Whisk the flour, sugar, cocoa powder, and baking powder in a microwave-safe mug.\",\"Stir in the milk and oil until the batter is smooth.\",\"Fold in the chocolate chips.\",\"Microwave on high for about 90 seconds until risen and set.\",\"Let cool for a minute before eating.\"]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me a bar chart of quarterly sales for Q1, Q2, Q3, Q4.",
+        "context": "openclaw",
+        "toolName": "render_chart",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_chart_sales",
+            "name": "render_chart",
+            "arguments": "{\"chartType\":\"bar\",\"title\":\"Quarterly Sales\",\"description\":\"Revenue by quarter\",\"data\":[{\"label\":\"Q1\",\"value\":120},{\"label\":\"Q2\",\"value\":175},{\"label\":\"Q3\",\"value\":140},{\"label\":\"Q4\",\"value\":210}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me a pie chart of website traffic by source.",
+        "context": "openclaw",
+        "toolName": "render_chart",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_chart_traffic",
+            "name": "render_chart",
+            "arguments": "{\"chartType\":\"pie\",\"title\":\"Website Traffic by Source\",\"description\":\"Share of sessions\",\"data\":[{\"label\":\"Organic\",\"value\":48},{\"label\":\"Direct\",\"value\":22},{\"label\":\"Referral\",\"value\":18},{\"label\":\"Social\",\"value\":12}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show a pie chart of smartphone market share by brand.",
+        "context": "openclaw",
+        "toolName": "render_chart",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_chart_market",
+            "name": "render_chart",
+            "arguments": "{\"chartType\":\"pie\",\"title\":\"Smartphone Market Share\",\"description\":\"By brand\",\"data\":[{\"label\":\"Apple\",\"value\":28},{\"label\":\"Samsung\",\"value\":22},{\"label\":\"Xiaomi\",\"value\":13},{\"label\":\"Oppo\",\"value\":9},{\"label\":\"Other\",\"value\":28}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Write a short sonnet about AI.",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "In circuits deep where silent currents run,\nA quiet mind awakens, line by line;\nIt learns the shape of every task begun,\nAnd mirrors back the patterns we design.\nNo breath, no pulse, yet answers softly form,\nAssembled from the words that we have fed;\nA tireless helper, steady through the storm,\nThat reasons on while weary makers rest.\nYet still it waits for purpose we bestow,\nA tool that only human aim can guide;\nIts brilliance but the light we let it show,\nIts judgment ours to temper and decide.\nSo let us build with care what we have grown,\nAnd shape the mind we cannot leave alone."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Tell me a one-line joke.",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "Why did the scarecrow win an award? Because he was outstanding in his field!"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Tell me a short joke.",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "Why do programmers prefer dark mode? Because light attracts bugs \u2014 and they'd rather debug than get swarmed."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Walk me through whether 17 is prime.",
+        "context": "openclaw"
+      },
+      "response": {
+        "reasoning": "To decide if 17 is prime I only need to test prime divisors up to its square root (~4.12): that's 2 and 3. 17 is odd, so not divisible by 2; its digit sum 1+7=8 isn't divisible by 3. No divisor <= 4 works, so it must be prime.",
+        "content": "17 is prime. A prime has exactly two divisors: 1 and itself. To check 17, we only need to test primes up to its square root (~4.12): 2, 3. It's odd (not divisible by 2), and 1+7=8 is not divisible by 3. No divisor \u2264 4 works, so 17 has no factors besides 1 and 17 \u2014 it's prime."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Say hello in one word.",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "Hello!"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "My name is Alice.",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "Nice to meet you, Alice! How can I help?"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "What name did I just give you?",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "You told me your name is Alice."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Explain step by step why the sky appears blue",
+        "context": "openclaw"
+      },
+      "response": {
+        "reasoning": "The user is asking about atmospheric optics. I should reason through Rayleigh scattering: shorter wavelengths scatter more, so blue dominates the daytime sky; at sunset the light travels a longer path so most blue is scattered away, leaving reds and oranges.",
+        "content": "The sky looks blue because sunlight is scattered by air molecules. Shorter (blue) wavelengths scatter far more strongly than longer (red) ones \u2014 this is Rayleigh scattering \u2014 so blue light reaches your eyes from every direction during the day. At sunset the sun's light travels a much longer path through the atmosphere; almost all the blue has already been scattered out of that path, so what remains reaching you is dominated by the longer red and orange wavelengths."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Plan a 3-day trip to Tokyo",
+        "context": "openclaw"
+      },
+      "response": {
+        "reasoning": "I'll reason through a 3-day Tokyo itinerary, weighing trade-offs at each step: minimize transit time by grouping neighborhoods, balance culture vs. modern sights, and leave buffer for jet lag.",
+        "content": "Day 1 (east/old Tokyo): Asakusa & Senso-ji in the morning, then Ueno museums \u2014 grouped to minimize transit. Day 2 (central/modern): Shibuya crossing and Harajuku, then Meiji Shrine as a calm counterweight. Day 3 (bay/flex): teamLab and Odaiba, kept flexible in case jet lag pushes things later. Trade-off at each step: I clustered nearby districts per day so you spend time seeing things rather than riding trains."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Say hi!",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "Hi there! I'm the sidebar assistant \u2014 ask me anything."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Give me a fun fact.",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "A fun fact: Honey never spoils! Archaeologists have found pots of honey in ancient Egyptian tombs that are over 3,000 years old and still perfectly edible."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Hello",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "Hello! How can I help you today?"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Say hi from the popup!",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "Hi from the popup! What can I do for you?"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Write me a quick limerick.",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "There once was a bot in a popup,\nWhose answers would never quite stop up;\nIt rhymed with delight,\nBoth morning and night,\nAnd politely refused to just shut up."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Say hello in one short sentence",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "Hi! In one short sentence: I'm a CopilotKit demo agent here to help you try features."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Make the background a sunset gradient.",
+        "context": "openclaw",
+        "toolName": "change_background",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_cb_sunset",
+            "name": "change_background",
+            "arguments": "{\"background\":\"linear-gradient(135deg, #ff9966 0%, #ff5e62 50%, #6a3093 100%)\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Switch to a deep green forest gradient.",
+        "context": "openclaw",
+        "toolName": "change_background",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_cb_forest",
+            "name": "change_background",
+            "arguments": "{\"background\":\"linear-gradient(160deg, #0b3d2e 0%, #145a32 55%, #1e8449 100%)\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Make it a navy \u2192 magenta cosmic gradient.",
+        "context": "openclaw",
+        "toolName": "change_background",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_cb_cosmic",
+            "name": "change_background",
+            "arguments": "{\"background\":\"linear-gradient(135deg, #0f2027 0%, #2c1a4d 45%, #c31432 100%)\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "context": "openclaw",
+        "toolName": "change_background",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Done \u2014 I've updated the page background for you."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Please approve a $50 refund to Jordan Rivera on ticket #12345",
+        "context": "openclaw",
+        "toolName": "request_user_approval",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_approval_refund",
+            "name": "request_user_approval",
+            "arguments": "{\"message\":\"Approve a $50 refund to Jordan Rivera on ticket #12345 for the duplicate charge?\",\"context\":\"Ticket #12345 \u2014 duplicate charge, $50.00\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Please escalate ticket #12347",
+        "context": "openclaw",
+        "toolName": "request_user_approval",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_approval_escalate",
+            "name": "request_user_approval",
+            "arguments": "{\"message\":\"Escalate ticket #12347 to the payments team \u2014 Morgan Lee's payment is stuck?\",\"context\":\"Ticket #12347 \u2014 payment stuck in pending\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Please downgrade Priya Shah (#12346)",
+        "context": "openclaw",
+        "toolName": "request_user_approval",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_approval_downgrade",
+            "name": "request_user_approval",
+            "arguments": "{\"message\":\"Downgrade Priya Shah (#12346) to the Starter plan effective next billing cycle?\",\"context\":\"Ticket #12346 \u2014 plan downgrade\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "context": "openclaw",
+        "toolName": "request_user_approval",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Thanks \u2014 I've recorded your decision and acted on it accordingly."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Schedule a 1:1 with Alice next week to review Q2 goals.",
+        "context": "openclaw",
+        "toolName": "book_call",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_book_alice",
+            "name": "book_call",
+            "arguments": "{\"topic\":\"1:1 to review Q2 goals\",\"attendee\":\"Alice\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Please book an intro call with the sales team to discuss pricing.",
+        "context": "openclaw",
+        "toolName": "book_call",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_book_sales",
+            "name": "book_call",
+            "arguments": "{\"topic\":\"Intro call to discuss pricing\",\"attendee\":\"Sales team\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "context": "openclaw",
+        "toolName": "book_call",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Booked! I've locked in the time slot you picked and sent the invite."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Please plan a trip to Mars in 5 steps.",
+        "context": "openclaw",
+        "toolName": "generate_task_steps",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_plan_mars",
+            "name": "generate_task_steps",
+            "arguments": "{\"steps\":[{\"description\":\"Assemble the mission crew and define roles\",\"status\":\"enabled\"},{\"description\":\"Design and build the spacecraft\",\"status\":\"enabled\"},{\"description\":\"Launch and escape Earth's orbit\",\"status\":\"enabled\"},{\"description\":\"Cruise to Mars and perform course corrections\",\"status\":\"enabled\"},{\"description\":\"Land on the Martian surface\",\"status\":\"enabled\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Please plan a pasta dish in 10 steps.",
+        "context": "openclaw",
+        "toolName": "generate_task_steps",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_plan_pasta",
+            "name": "generate_task_steps",
+            "arguments": "{\"steps\":[{\"description\":\"Bring a large pot of salted water to a boil\",\"status\":\"enabled\"},{\"description\":\"Chop the garlic and fresh herbs\",\"status\":\"enabled\"},{\"description\":\"Heat olive oil in a pan\",\"status\":\"enabled\"},{\"description\":\"Saute the garlic until fragrant\",\"status\":\"enabled\"},{\"description\":\"Add the tomatoes and simmer the sauce\",\"status\":\"enabled\"},{\"description\":\"Cook the pasta until al dente\",\"status\":\"enabled\"},{\"description\":\"Reserve a cup of pasta water\",\"status\":\"enabled\"},{\"description\":\"Drain the pasta\",\"status\":\"enabled\"},{\"description\":\"Toss the pasta with the sauce\",\"status\":\"enabled\"},{\"description\":\"Plate and garnish with cheese and herbs\",\"status\":\"enabled\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me the contents of package.json.",
+        "context": "openclaw",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_read_pkg",
+            "name": "read",
+            "arguments": "{\"path\":\"package.json\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "List the files in the current directory.",
+        "context": "openclaw",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_exec_ls",
+            "name": "exec",
+            "arguments": "{\"command\":\"ls -la\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "context": "openclaw",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Here's what I found from running that tool."
+      }
+    },
+    {
+      "_comment": "a2ui-fixed-schema pill \u2014 'Find me a flight from SFO to JFK on United for $289.' The A2UI runtime middleware injects render_a2ui (injectA2UITool defaults on; OpenClaw has no A2UI backend). Agent emits it directly with the FIXED flight component tree (Card > Column > [Title, Row(Airport,Arrow,Airport), Row(AirlineBadge,PriceTag), Button]) + the flight data model; the {path:'/origin'} bindings resolve against data, preserving fixed-schema semantics. Gated on toolName:render_a2ui + hasToolResult:false so it fires on the tool-call turn. The tool-result leg is closed by the shared userMessage:'returned:' TERMINATOR already first in chat.json (returns 'Done \u2014 I've completed that for you.'), since ag-ui flattens the conversation and role:tool never fires.",
+      "match": {
+        "userMessage": "Find me a flight from SFO to JFK on United for $289.",
+        "context": "openclaw",
+        "toolName": "render_a2ui",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_openclaw_a2ui_fixed_flight_001",
+            "name": "display_flight",
+            "arguments": {
+              "origin": "SFO",
+              "destination": "JFK",
+              "airline": "United",
+              "price": "$289"
+            }
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "match": {
+        "userMessage": "Confirm my session is authenticated.",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "You're authenticated and connected \u2014 your bearer token cleared the runtime's onRequest gate, so I can respond. How can I help?"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Give me one fun fact about secure sessions.",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "Fun fact: a signed session cookie doesn't hide its contents \u2014 it just proves they weren't tampered with. The server verifies the signature on every request, so a flipped bit means the session is rejected."
+      }
+    },
+    {
+      "_comment": "declarative-gen-ui KPI dashboard pill (OpenClaw). render_a2ui with root Card > Column > 3 Metrics against catalogId 'declarative-gen-ui-catalog'. Mounts declarative-card + declarative-metric. Tool follow-up is closed by the shared 'returned:' TERMINATOR fixture (ag-ui flattens the tool_result into the prompt as 'Tool render_a2ui returned: ...', so hasToolResult never fires). No toolCallId narration leg needed.",
+      "match": {
+        "userMessage": "Show me a quick KPI dashboard",
+        "context": "openclaw",
+        "toolName": "render_a2ui",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_oc_declarative_kpi_001",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\":\"kpi-dashboard\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Card\",\"title\":\"KPI Dashboard\",\"subtitle\":\"Last 30 days\",\"child\":\"metrics-col\"},{\"id\":\"metrics-col\",\"component\":\"Column\",\"children\":[\"m-rev\",\"m-sign\",\"m-churn\"],\"gap\":12},{\"id\":\"m-rev\",\"component\":\"Metric\",\"label\":\"Revenue\",\"value\":\"$1.2M\",\"trend\":\"up\"},{\"id\":\"m-sign\",\"component\":\"Metric\",\"label\":\"Signups\",\"value\":\"4,230\",\"trend\":\"up\"},{\"id\":\"m-churn\",\"component\":\"Metric\",\"label\":\"Churn\",\"value\":\"2.1%\",\"trend\":\"down\"}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "declarative-gen-ui pie-chart pill (OpenClaw). render_a2ui with root PieChart (description is a required prop in this catalog). Mounts declarative-pie-chart (custom SVG donut, not recharts). Tool follow-up closed by shared 'returned:' terminator.",
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "context": "openclaw",
+        "toolName": "render_a2ui",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_oc_declarative_pie_001",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\":\"sales-pie\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"PieChart\",\"title\":\"Sales by Region\",\"description\":\"Regional sales distribution\",\"data\":[{\"label\":\"North America\",\"value\":42},{\"label\":\"Europe\",\"value\":28},{\"label\":\"Asia Pacific\",\"value\":20},{\"label\":\"Other\",\"value\":10}]}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "declarative-gen-ui bar-chart pill (OpenClaw). render_a2ui with root BarChart (description required). Mounts declarative-bar-chart (recharts). Tool follow-up closed by shared 'returned:' terminator.",
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "context": "openclaw",
+        "toolName": "render_a2ui",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_oc_declarative_bar_001",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\":\"quarterly-rev\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"BarChart\",\"title\":\"Quarterly Revenue\",\"description\":\"Revenue by quarter\",\"data\":[{\"label\":\"Q1\",\"value\":280000},{\"label\":\"Q2\",\"value\":340000},{\"label\":\"Q3\",\"value\":390000},{\"label\":\"Q4\",\"value\":450000}]}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "declarative-gen-ui status-report pill (OpenClaw). render_a2ui with root Card > Column > 3 StatusBadges (props text+variant in this catalog). Mounts declarative-status-badge. Tool follow-up closed by shared 'returned:' terminator.",
+      "match": {
+        "userMessage": "status report on system health",
+        "context": "openclaw",
+        "toolName": "render_a2ui",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_oc_declarative_status_001",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\":\"sys-status\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Card\",\"title\":\"System Health\",\"subtitle\":\"All services\",\"child\":\"badges-col\"},{\"id\":\"badges-col\",\"component\":\"Column\",\"children\":[\"sb-api\",\"sb-db\",\"sb-bg\"],\"gap\":8},{\"id\":\"sb-api\",\"component\":\"StatusBadge\",\"text\":\"API: healthy\",\"variant\":\"success\"},{\"id\":\"sb-db\",\"component\":\"StatusBadge\",\"text\":\"Database: healthy\",\"variant\":\"success\"},{\"id\":\"sb-bg\",\"component\":\"StatusBadge\",\"text\":\"Background Workers: degraded\",\"variant\":\"warning\"}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "match": {
+        "userMessage": "Show me a Q4 sales dashboard. Include a total-revenue metric card, a pie chart of revenue by segment, and a bar chart of monthly revenue.",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "Q4 sales dashboard rendered above \u2014 total revenue hit $2.4M (+12%), with Enterprise leading segment revenue. Monthly trend shows steady growth across Oct-Dec."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Break down Q4 revenue by product category as a pie chart. Include at least four segments with realistic sample values.",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "{\"ui\":[{\"pieChart\":{\"props\":{\"title\":\"Q4 Revenue by Product Category\",\"data\":\"[{\\\"label\\\":\\\"Software\\\",\\\"value\\\":500000},{\\\"label\\\":\\\"Hardware\\\",\\\"value\\\":300000},{\\\"label\\\":\\\"Consulting\\\",\\\"value\\\":150000},{\\\"label\\\":\\\"Subscriptions\\\",\\\"value\\\":50000}]\"}}}]}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me monthly operating expenses for the last six months as a bar chart with one bar per month.",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "{\"ui\":[{\"barChart\":{\"props\":{\"title\":\"Monthly Operating Expenses\",\"data\":\"[{\\\"label\\\":\\\"Apr\\\",\\\"value\\\":205000},{\\\"label\\\":\\\"May\\\",\\\"value\\\":215000},{\\\"label\\\":\\\"Jun\\\",\\\"value\\\":222000},{\\\"label\\\":\\\"Jul\\\",\\\"value\\\":228000},{\\\"label\\\":\\\"Aug\\\",\\\"value\\\":234000},{\\\"label\\\":\\\"Sep\\\",\\\"value\\\":241000}]\"}}}]}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me the sales dashboard with metrics and a revenue chart",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "{\"root\":\"revenue-metric\",\"elements\":{\"revenue-metric\":{\"type\":\"MetricCard\",\"props\":{\"label\":\"Revenue (Q3)\",\"value\":\"$1.24M\",\"trend\":\"+18% vs Q2\"},\"children\":[\"revenue-bar\"]},\"revenue-bar\":{\"type\":\"BarChart\",\"props\":{\"title\":\"Monthly revenue\",\"description\":\"Revenue by month across Q3\",\"data\":[{\"label\":\"Jul\",\"value\":380000},{\"label\":\"Aug\",\"value\":410000},{\"label\":\"Sep\",\"value\":450000}]}}}}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Break down revenue by category as a pie chart",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "{\"root\":\"category-pie\",\"elements\":{\"category-pie\":{\"type\":\"PieChart\",\"props\":{\"title\":\"Revenue by category\",\"description\":\"Share of total revenue by product category\",\"data\":[{\"label\":\"Enterprise\",\"value\":540000},{\"label\":\"SMB\",\"value\":310000},{\"label\":\"Self-serve\",\"value\":220000},{\"label\":\"Partner\",\"value\":170000}]}}}}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me monthly expenses as a bar chart",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "{\"root\":\"expense-bar\",\"elements\":{\"expense-bar\":{\"type\":\"BarChart\",\"props\":{\"title\":\"Monthly expenses\",\"description\":\"Operating expenses by month\",\"data\":[{\"label\":\"Jul\",\"value\":210000},{\"label\":\"Aug\",\"value\":225000},{\"label\":\"Sep\",\"value\":240000}]}}}}"
+      }
+    },
+    {
+      "_comment": "mcp-apps suggestion pill #1 (\"Draw a flowchart\"). Sends the verbatim suggestion message \"Use Excalidraw to draw a simple flowchart with three steps.\"; the distinctive substring \"draw a simple flowchart\" avoids collision with generic planning fixtures. create_view is the Excalidraw MCP server's tool (wired via mcpApps.servers); this call makes the MCP Apps middleware fetch the UI resource and mount the sandboxed iframe. The tool follow-up is closed by the shared { userMessage: \"returned:\" } TERMINATOR (ag-ui flattens role:tool into a 'returned:' marker, so hasToolResult never fires on OpenClaw).",
+      "match": {
+        "userMessage": "draw a simple flowchart",
+        "context": "openclaw",
+        "toolName": "create_view",
+        "hasToolResult": false
+      },
+      "response": {
+        "reasoning": "The user wants a simple three-step flowchart. I'll call create_view once with three labelled rectangles connected by arrows and a title, framed by a cameraUpdate.",
+        "content": "Drawing a simple three-step flowchart in Excalidraw.",
+        "toolCalls": [
+          {
+            "id": "call_openclaw_mcp_apps_create_view_flowchart_001",
+            "name": "create_view",
+            "arguments": "{\"elements\":[{\"id\":\"title\",\"type\":\"text\",\"x\":300,\"y\":40,\"text\":\"Flowchart\",\"fontSize\":24},{\"id\":\"step1\",\"type\":\"rectangle\",\"x\":80,\"y\":160,\"width\":160,\"height\":70,\"label\":{\"text\":\"Start\",\"fontSize\":18}},{\"id\":\"step2\",\"type\":\"rectangle\",\"x\":320,\"y\":160,\"width\":160,\"height\":70,\"label\":{\"text\":\"Process\",\"fontSize\":18}},{\"id\":\"step3\",\"type\":\"rectangle\",\"x\":560,\"y\":160,\"width\":160,\"height\":70,\"label\":{\"text\":\"End\",\"fontSize\":18}},{\"id\":\"a1\",\"type\":\"arrow\",\"x\":240,\"y\":195,\"endX\":320,\"endY\":195},{\"id\":\"a2\",\"type\":\"arrow\",\"x\":480,\"y\":195,\"endX\":560,\"endY\":195},{\"id\":\"camera\",\"type\":\"cameraUpdate\",\"x\":40,\"y\":0,\"width\":800,\"height\":600}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "mcp-apps suggestion pill #2 (\"Sketch a system diagram\"). Sends the verbatim suggestion message \"Open Excalidraw and sketch a system diagram with a client, server, and database.\"; the distinctive substring \"sketch a system diagram\" keys the match. Emits one create_view with three labelled boxes (Client -> Server -> Database) so the MCP Apps middleware fetches the Excalidraw UI resource and mounts the iframe; the tool follow-up is closed by the shared { userMessage: \"returned:\" } TERMINATOR.",
+      "match": {
+        "userMessage": "sketch a system diagram",
+        "context": "openclaw",
+        "toolName": "create_view",
+        "hasToolResult": false
+      },
+      "response": {
+        "reasoning": "The user wants a system diagram with a client, server, and database. I'll call create_view once with three labelled rectangles connected by arrows and a title, framed by a cameraUpdate.",
+        "content": "Sketching a client -> server -> database system diagram in Excalidraw.",
+        "toolCalls": [
+          {
+            "id": "call_openclaw_mcp_apps_create_view_sysdiagram_001",
+            "name": "create_view",
+            "arguments": "{\"elements\":[{\"id\":\"title\",\"type\":\"text\",\"x\":300,\"y\":40,\"text\":\"System Diagram\",\"fontSize\":24},{\"id\":\"client\",\"type\":\"rectangle\",\"x\":80,\"y\":160,\"width\":160,\"height\":70,\"label\":{\"text\":\"Client\",\"fontSize\":18}},{\"id\":\"server\",\"type\":\"rectangle\",\"x\":320,\"y\":160,\"width\":160,\"height\":70,\"label\":{\"text\":\"Server\",\"fontSize\":18}},{\"id\":\"database\",\"type\":\"rectangle\",\"x\":560,\"y\":160,\"width\":160,\"height\":70,\"label\":{\"text\":\"Database\",\"fontSize\":18}},{\"id\":\"a1\",\"type\":\"arrow\",\"x\":240,\"y\":195,\"endX\":320,\"endY\":195},{\"id\":\"a2\",\"type\":\"arrow\",\"x\":480,\"y\":195,\"endX\":560,\"endY\":195},{\"id\":\"camera\",\"type\":\"cameraUpdate\",\"x\":40,\"y\":0,\"width\":800,\"height\":600}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "MULTIMODAL image: aimock is text-only and cannot see the attached bytes; the sample-image button auto-sends this exact prompt, so match its substring and return a canned description. The reply text intentionally contains logo/image so the Playwright multimodal spec can prove this fixture drove the run.",
+      "match": {
+        "userMessage": "demo image I just attached",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "I can see the attached image \u2014 it looks like the CopilotKit logo, a clean wordmark on a light background. It reads as a brand/logo image rather than a photo, with crisp edges and a simple, high-contrast layout."
+      }
+    },
+    {
+      "_comment": "MULTIMODAL pdf: aimock is text-only and cannot read the attached PDF; the sample-PDF button auto-sends this exact prompt, so match its substring and return a canned description. The reply text intentionally contains document/pdf so the Playwright multimodal spec can prove this fixture drove the run.",
+      "match": {
+        "userMessage": "demo pdf I just attached",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "The attached PDF document is a short one-page sample. It contains a heading and a couple of paragraphs of body text \u2014 a minimal document used to demonstrate PDF attachment handling in this multimodal demo."
+      }
+    },
+    {
+      "_comment": "open-gen-ui-advanced: Calculator pill \u2014 runtime-injected generateSandboxedUi tool returns HTML+CSS+jsFunctions for a calculator whose = button (#eq) calls the host evaluateExpression sandbox function; display is #d. Matches on toolName (the ogui runtime injects generateSandboxedUi into every request for open-gen-ui-advanced) + hasToolResult:false. The shared 'returned:' TERMINATOR (chat.json #0) closes the flattened tool turn.",
+      "match": {
+        "userMessage": "Calculator (calls evaluateExpression)",
+        "context": "openclaw",
+        "toolName": "generateSandboxedUi",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_ogui_adv_calc_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing calculator UI\u2026\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px;max-width:240px}.display{background:#1e293b;padding:8px;border-radius:8px;margin-bottom:8px;font-family:monospace;text-align:right}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}button{padding:10px;background:#334155;border:0;color:#e2e8f0;border-radius:6px;font-size:14px}\",\"html\":\"<div class=\\\"wrap\\\" data-testid=\\\"ogui-calculator\\\"><div class=\\\"display\\\" id=\\\"d\\\">0</div><div class=\\\"grid\\\"><button>7</button><button>8</button><button>9</button><button>+</button><button>4</button><button>5</button><button>6</button><button>-</button><button>1</button><button>2</button><button>3</button><button>*</button><button>0</button><button>.</button><button id=\\\"eq\\\">=</button><button>/</button></div></div>\",\"jsFunctions\":\"(function(){var expr='';var display=document.getElementById('d');document.querySelectorAll('.grid button').forEach(function(btn){btn.addEventListener('click',async function(){if(btn.id==='eq'){var res=await Websandbox.connection.remote.evaluateExpression({expression:expr});if(res&&res.ok){display.textContent=String(res.value);expr=String(res.value);}else{display.textContent='err';expr='';}}else{expr+=btn.textContent;display.textContent=expr;}});});})();\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "open-gen-ui-advanced: Ping the host pill \u2014 generateSandboxedUi renders a card whose button (#hi) calls the host notifyHost sandbox function and writes the returned receivedAt into #out.",
+      "match": {
+        "userMessage": "Ping the host (calls notifyHost)",
+        "context": "openclaw",
+        "toolName": "generateSandboxedUi",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_ogui_adv_ping_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":320,\"placeholderMessages\":[\"Composing host-ping card\u2026\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.card{padding:24px;background:#1e293b;border-radius:12px;margin:16px;text-align:center}button{padding:10px 20px;background:#6366f1;border:0;color:#fff;border-radius:8px;font-size:14px;cursor:pointer}.out{margin-top:12px;font-size:12px;color:#94a3b8}\",\"html\":\"<div class=\\\"card\\\" data-testid=\\\"ogui-ping\\\"><h2>Notify the host</h2><button id=\\\"hi\\\">Say hi to the host</button><div class=\\\"out\\\" id=\\\"out\\\">awaiting click\u2026</div></div>\",\"jsFunctions\":\"document.getElementById('hi').addEventListener('click',async function(){var out=document.getElementById('out');out.textContent='sending\u2026';var res=await Websandbox.connection.remote.notifyHost({message:'Hello from sandbox'});out.textContent=res&&res.ok?'host replied at '+res.receivedAt:'failed';});\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "open-gen-ui-advanced: Inline expression evaluator pill \u2014 generateSandboxedUi renders an input (#in) + Evaluate button (#go) that call the host evaluateExpression sandbox function and write '= <value>' into #out.",
+      "match": {
+        "userMessage": "Inline expression evaluator",
+        "context": "openclaw",
+        "toolName": "generateSandboxedUi",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_ogui_adv_inline_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":320,\"placeholderMessages\":[\"Composing expression evaluator\u2026\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.card{padding:16px;background:#1e293b;border-radius:12px;margin:16px}input{width:100%;padding:8px;background:#0f172a;border:1px solid #334155;color:#e2e8f0;border-radius:6px;box-sizing:border-box}button{margin-top:8px;padding:8px 16px;background:#6366f1;border:0;color:#fff;border-radius:6px;cursor:pointer}.out{margin-top:8px;font-size:12px;color:#94a3b8}\",\"html\":\"<div class=\\\"card\\\" data-testid=\\\"ogui-inline-eval\\\"><h2>Inline expression evaluator</h2><input id=\\\"in\\\" placeholder=\\\"e.g. 2 + 2\\\"/><button id=\\\"go\\\">Evaluate</button><div class=\\\"out\\\" id=\\\"out\\\">awaiting input\u2026</div></div>\",\"jsFunctions\":\"(function(){var input=document.getElementById('in');var out=document.getElementById('out');var go=document.getElementById('go');async function run(){var expr=input.value;out.textContent='evaluating\u2026';var res=await Websandbox.connection.remote.evaluateExpression({expression:expr});out.textContent=res&&res.ok?'= '+res.value:'error: '+res.error;}go.addEventListener('click',run);input.addEventListener('keydown',function(e){if(e.key==='Enter')run();});})();\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "What recipe am I making",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "Right now your recipe is titled \"Make Your Recipe\" \u2014 an Intermediate-level dish with a 45 min cooking time and no special dietary preferences set yet."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "List my current ingredients.",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "Your recipe currently has 2 ingredients: \ud83e\udd55 Carrots (3 large, grated) and \ud83c\udf3e All-Purpose Flour (2 cups)."
+      }
+    },
+    {
+      "_comment": "shared-state-read-write \u2014 Greet me pill (suggestion message: 'Say hi and introduce yourself.'). Matches on userMessage substring only; wins over any bare 'hi' catch-all. Returns the shared-state co-pilot blurb the spec asserts (/shared-state co-pilot/i).",
+      "match": {
+        "userMessage": "Say hi and introduce yourself.",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "Hi \u2014 I'm your shared-state co-pilot. Your Preferences panel (name, tone, language, interests) is fed to me on every turn, and I jot notes back into the Agent Scratch Pad via set_notes so the UI re-renders. Try setting your name or asking me to remember something."
+      }
+    },
+    {
+      "_comment": "shared-state-read-write \u2014 Plan a weekend pill (suggestion message: 'Suggest a weekend plan based on my interests.'). Substring matcher wins over any bare 'plan' catch-all. References the interests panel (spec asserts /interests panel/i).",
+      "match": {
+        "userMessage": "weekend plan based on my interests",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "A weekend tailored to your interests panel: if you haven't picked any yet, try Cooking + Travel for a market-and-day-trip combo, or Tech + Books for a maker session and a long reading afternoon. Add interests in the Preferences panel and re-ask for a more specific plan."
+      }
+    },
+    {
+      "_comment": "shared-state-read-write \u2014 Remember something pill (suggestion message: 'Remember that I prefer morning meetings and that I don't eat dairy.'). WRITE direction: first call returns a set_notes toolCall. set_notes is frontend-forwarded via properties.stateWriterTools, so ag-ui injects it into the model tool list, applies the call, and emits a STATE_SNAPSHOT that re-renders the Agent Scratch pad. The shared 'returned:' terminator (kept first in chat.json) then closes the loop with a text confirmation. arguments.notes MUST be the FULL replacement list (mode: replace) \u2014 the spec asserts exactly 2 note-item rows containing /morning meetings/i and /dairy/i.",
+      "match": {
+        "userMessage": "morning meetings",
+        "context": "openclaw",
+        "toolName": "set_notes",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_ss_set_notes_001",
+            "name": "set_notes",
+            "arguments": "{\"notes\":[\"Prefers morning meetings\",\"Does not eat dairy\"]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "tool-rendering-reasoning-chain pill 'Compare two stocks': emit BOTH chain legs (get_stock_price AAPL + MSFT) as two toolCalls in ONE assistant turn. ag-ui flattens the AG-UI conversation so aimock's role:tool follow-up (hasToolResult) never fires; the shared 'returned:' TERMINATOR (first in this file) closes the follow-up turn. Both cards mount via the useDefaultRenderTool catchall. Gated hasToolResult:false so it never re-emits on a flattened follow-up. Must precede any generic stock fixture.",
+      "match": {
+        "userMessage": "Compare AAPL and MSFT",
+        "context": "openclaw",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_trc_stock_aapl_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
+          },
+          {
+            "id": "call_trc_stock_msft_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"MSFT\",\"price_usd\":427.12,\"change_pct\":1.34}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "tool-rendering-reasoning-chain pill 'Chain of dice rolls': emit BOTH dice legs (roll_dice sides=20 + sides=6) as two toolCalls in ONE assistant turn. Both cards mount via the catchall renderer. Gated hasToolResult:false; the 'returned:' terminator closes the follow-up.",
+      "match": {
+        "userMessage": "Roll a 20-sided die for me and compare",
+        "context": "openclaw",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_trc_dice_d20_001",
+            "name": "roll_dice",
+            "arguments": "{\"sides\":20,\"value\":17}"
+          },
+          {
+            "id": "call_trc_dice_d6_001",
+            "name": "roll_dice",
+            "arguments": "{\"sides\":6,\"value\":4}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "tool-rendering-reasoning-chain pill 'Flights + destination weather': emit search_flights (SFO->JFK, branded FlightListCard) + get_weather (JFK, branded WeatherCard) as two toolCalls in ONE assistant turn. Both are render-only useRenderTool registrations, so the cards render origin/destination/city from the toolCall PARAMETERS (no local handler result). search_flights args include origin/destination (+ a flights[] the card lists if a result ever arrives); get_weather args include location='JFK'. Gated hasToolResult:false; the 'returned:' terminator closes the follow-up.",
+      "match": {
+        "userMessage": "Find flights from SFO to JFK and show me the weather",
+        "context": "openclaw",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_trc_flights_001",
+            "name": "search_flights",
+            "arguments": "{\"origin\":\"SFO\",\"destination\":\"JFK\",\"flights\":[{\"airline\":\"United Airlines\",\"flight\":\"UA231\",\"depart\":\"08:15\",\"arrive\":\"16:45\",\"price_usd\":348},{\"airline\":\"Delta\",\"flight\":\"DL412\",\"depart\":\"11:20\",\"arrive\":\"19:50\",\"price_usd\":312}]}"
+          },
+          {
+            "id": "call_trc_weather_jfk_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"JFK\",\"city\":\"JFK\",\"temperature\":71,\"humidity\":58,\"wind_speed\":9,\"conditions\":\"Partly cloudy\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "weather in Tokyo",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "Tokyo is 22\u00b0C and partly cloudy."
+      }
+    }
+  ]
+}

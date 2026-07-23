@@ -638,5 +638,16 @@ services:
     volumes:
       - ./integrations/built-in-agent/src:/app/src
 
+  openclaw:
+    <<: *integration-defaults
+    build: ./integrations/openclaw
+    image: showcase-openclaw:local
+    container_name: showcase-openclaw
+    ports:
+      - "3119:10000"
+    profiles: ["openclaw", "all"]
+    volumes:
+      - ./integrations/openclaw/src:/app/src
+
 volumes:
   showcase-pb-data:

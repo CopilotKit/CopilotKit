@@ -1,0 +1,17 @@
+node_modules/
+.next/
+.env.local
+.env
+dist/
+playwright-report/
+test-results/
+
+# Shared modules (copied by CI)
+shared_frontend/
+shared_python/
+shared_typescript/
+
+# The vendored ag-ui plugin ships its built dist in the image, so it must
+# stay tracked despite the blanket dist/ ignore above.
+!gateway/ag-ui/dist/
+!gateway/ag-ui/dist/**

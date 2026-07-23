@@ -1,0 +1,30 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for langgraph-python / chat-slots",
+    "sourceFile": "d5-all.json",
+    "created": "2026-05-21"
+  },
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "verify chat slots are wired",
+        "turnIndex": 0,
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "Confirmed \u2014 the chat-slots demo is rendering through the custom slot wrappers. The CustomAssistantMessage component should be visible as a tinted card with a 'slot' badge in the corner."
+      }
+    },
+    {
+      "_comment": "chat-slots e2e (chat-slots.spec.ts:90 'second assistant turn is also wrapped in the custom slot') \u2014 turn 2 prompt after the 'Say hello in one short sentence' first turn. Without this fixture aimock has no match for turn 2 and the second assistant slot never mounts. turnIndex:1 is REQUIRED to avoid stealing headless-simple's turn-0 fun-fact prompt (which resolves to a different deterministic reply in headless-simple.json).",
+      "match": {
+        "userMessage": "Give me a fun fact",
+        "turnIndex": 1,
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "Sure \u2014 sea otters hold hands while they sleep so they don't drift apart on the current."
+      }
+    }
+  ]
+}

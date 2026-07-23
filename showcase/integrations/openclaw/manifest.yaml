@@ -1,0 +1,639 @@
+name: OpenClaw
+slug: openclaw
+category: emerging
+language: typescript
+logo: /logos/openclaw.svg
+description: CopilotKit integration with OpenClaw — a self-hosted multi-channel
+  AI gateway. Connects via the ag-ui AG-UI adapter (operator-auth route), so
+  a CopilotKit frontend drives an OpenClaw agent with streaming responses, tool
+  rendering, and A2UI.
+partner_docs: null
+repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/openclaw
+copilotkit_version: 2.0.0
+deployed: false
+docs_mode: hidden
+sort_order: 145
+generative_ui:
+  - constrained-explicit
+  - a2ui-fixed-schema
+  - a2ui-dynamic-schema
+interaction_modalities:
+  - sidebar
+  - embedded
+  - chat
+not_supported_features:
+  # Frontend render_chart tool (useFrontendTool). Failing tests: the chart <svg>
+  # is not asserted-visible inside copilot-assistant-message, and a plain "Hello"
+  # turn timed out with no assistant message. NOT root-caused to DOM depth (unlike
+  # tool-rendering); the earlier "renders outside the bubble" note was an
+  # unverified guess -- for tool-rendering the card DID render inside the bubble,
+  # so revisit before trusting that explanation for this demo.
+  - gen-ui-tool-based
+  # Async query_notes frontend tool: the notes card and sequential multi-turn card sequence depend on the client-tool result rendering inline; OpenClaw's fire-and-forget client-tool round-trip does not reproduce the inline card/sequence.
+  - frontend-tools-async
+  # Dedicated auth runtime route (/api/copilotkit-auth, bearer onRequest gate): authenticated send does not surface an assistant response in the demo cell (route/token plumbing); gateway itself returns responses. Fixable with route-plumbing work.
+  - auth
+  # Dedicated voice runtime route: transcription round-trip populates the composer, but the subsequent send does not surface the assistant response in the voice cell (route plumbing); gateway returns the weather text fine. Fixable with route-plumbing work.
+  - voice
+  # TOOL-CALL LOOP (measured; root cause for the whole tool-rendering cluster).
+  # The card renders CORRECTLY inside the assistant bubble (right testid + real
+  # data) -- the bug is that it is painted many times because the backend tool is
+  # re-invoked in a loop. One "weather in SF" turn = ~41 get_weather calls.
+  # Two compounding causes:
+  #  1) API shape. OpenClaw runs the showcase model (gpt-5.5) on the OpenAI
+  #     Responses API (/v1/responses), where a tool result is a
+  #     `function_call_output` item and an assistant turn is a `function_call`
+  #     item. aimock's multi-turn matchers (turnIndex/hasToolResult/toolCallId)
+  #     are defined over chat-completions `role:assistant`/`role:tool` messages
+  #     (see aimock skills/write-fixtures), so they don't see the Responses-API
+  #     tool result and never advance to the "narrate & stop" fixture.
+  #  2) toolCallId not preserved. The loop-ender fixtures gate on a specific
+  #     toolCallId (e.g. call_tr_weather_sf_001), but OpenClaw's provider mints
+  #     its own composite ids (call_...|fc_...), so that gate can't match either.
+  # Evidence: flipping the model to api:openai-completions cut the loop 41 -> 8
+  # (confirms cause #1 is dominant) but did NOT terminate it (cause #2 remains),
+  # and it breaks the reasoning demos -- so it is not a viable fix.
+  # STATUS: the d6/openclaw tool fixtures are now re-gated to the hasToolResult
+  # 2-step (tool-call: hasToolResult:false; narration: hasToolResult:true), which
+  # DOES work under the Responses API -- so SINGLE-tool turns (weather/flights/
+  # stock/background/etc.) terminate after one call and render correctly.
+  # MULTI-tool/sequential turns still fail: a catch-all narration in
+  # d4/openclaw/chat.json ({context:openclaw, hasToolResult:true} -> generic
+  # "Here's what I found...") fires on the FIRST tool result of any prompt, so
+  # 5x d20 / chain-3 stop after turn 1. Removing that catch-all risks re-looping
+  # prompts that lack their own terminator. Real fix: teach aimock's matchers to
+  # read Responses-API function_call/function_call_output (then per-tool
+  # toolCallId narrations work), or cap/dedupe repeated identical tool calls in
+  # ag-ui. These demos stay excluded until the multi-tool tests can pass.
+  - tool-rendering
+  # Same tool-call loop as tool-rendering (useDefaultRenderTool wildcard): dozens of
+  # duplicate default cards; the flood eventually stalls the run.
+  - tool-rendering-default-catchall
+  # Same tool-call loop as tool-rendering (branded wildcard renderer).
+  - tool-rendering-custom-catchall
+  # Same tool-call loop as tool-rendering, across a multi-tool chain
+  # (stocks/dice/flights) plus intermittent reasoning.
+  - tool-rendering-reasoning-chain
+  # A2UI dynamic-schema drives a render_a2ui tool turn. OBSERVED: the run hangs
+  # (only RUN_STARTED emitted; SSE never completes) and crashed the Next runtime
+  # during full runs. Consistent with the same multi-turn non-advancement as the
+  # tool-rendering loop, on the render_a2ui path. Needs the same aimock/ag-ui
+  # fix (or a gateway-side A2UI relay).
+  - declarative-gen-ui
+  # Agent-state generative UI: the live agent-state card did not render. Suspected
+  # cause is predictive per-step state streaming, which the gateway does not emit
+  # (same class as shared-state-streaming) -- but NOT individually root-caused;
+  # confirm before trusting this reason.
+  - gen-ui-agent
+  # Deliberately configured with injectA2UITool:false and aggregates A2UI/MCP surfaces the pass-through gateway does not drive; the canonical A2UI assertions cannot pass.
+  - beautiful-chat
+  # Asserts a reasoning chain (data-testid=headless-message-reasoning) the demo never renders; reasoning is intermittent on OpenClaw (openai-responses summary:auto, upstream). See PARITY_NOTES.
+  - headless-complete
+  - shared-state-streaming
+  - gen-ui-interrupt
+  - interrupt-headless
+  # Requires a rendering system prompt (the { ui: [...] } envelope instruction)
+  # that the reference held in its backend. The ag-ui gateway is a
+  # pass-through and does not inject it, so catalog-constrained output is not
+  # reliably produced. See PARITY_NOTES.md "Known gaps".
+  - declarative-hashbrown
+features:
+  - cli-start
+  - agentic-chat
+  - prebuilt-sidebar
+  - prebuilt-popup
+  - chat-slots
+  - chat-customization-css
+  - headless-simple
+  - reasoning-custom
+  - reasoning-default
+  - frontend-tools
+  - hitl-in-chat
+  - hitl-in-chat-booking
+  - hitl
+  - hitl-in-app
+  - mcp-apps
+  - a2ui-fixed-schema
+  - shared-state-read-write
+  - readonly-state-agent-context
+  - subagents
+  - multimodal
+  - declarative-json-render
+  - open-gen-ui
+  - open-gen-ui-advanced
+  - agent-config
+agent_config_pattern: shared-state
+interrupt_pattern: promise-based
+a2ui_pattern: schema-loading
+auth_pattern: runtime-onrequest
+demos:
+  - id: cli-start
+    name: CLI Start Command
+    description: Copy-paste command to clone the canonical starter
+    tags:
+      - chat-ui
+    command: npx copilotkit@latest init --framework openclaw
+  - id: agentic-chat
+    name: "Pre-Built: CopilotChat"
+    description: Natural conversation with frontend tool execution
+    tags:
+      - chat-ui
+    route: /demos/agentic-chat
+    animated_preview_url: null
+    highlight:
+      - src/lib/openclaw-agent.ts
+      - src/app/demos/agentic-chat/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: prebuilt-sidebar
+    name: "Pre-Built: Sidebar"
+    description: Docked sidebar chat via <CopilotSidebar />
+    tags:
+      - chat-ui
+    route: /demos/prebuilt-sidebar
+    animated_preview_url: null
+    highlight:
+      - src/lib/openclaw-agent.ts
+      - src/app/demos/prebuilt-sidebar/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: prebuilt-popup
+    name: "Pre-Built: Popup"
+    description: Floating popup chat via <CopilotPopup />
+    tags:
+      - chat-ui
+    route: /demos/prebuilt-popup
+    animated_preview_url: null
+    highlight:
+      - src/lib/openclaw-agent.ts
+      - src/app/demos/prebuilt-popup/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: chat-slots
+    name: "Chat Customization: Slots"
+    description: Customize CopilotChat via its slot system
+    tags:
+      - chat-ui
+    route: /demos/chat-slots
+    animated_preview_url: null
+    highlight:
+      - src/lib/openclaw-agent.ts
+      - src/app/demos/chat-slots/page.tsx
+      - src/app/demos/chat-slots/slot-wrappers.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: chat-customization-css
+    name: "Chat Customization: CSS"
+    description: Default CopilotChat re-themed via CopilotKitCSSProperties
+    tags:
+      - chat-ui
+    route: /demos/chat-customization-css
+    animated_preview_url: null
+    highlight:
+      - src/lib/openclaw-agent.ts
+      - src/app/demos/chat-customization-css/page.tsx
+      - src/app/demos/chat-customization-css/theme.css
+      - src/app/api/copilotkit/route.ts
+  - id: headless-simple
+    name: "Headless UI: Simple"
+    description: Minimal custom chat surface built on useAgent
+    tags:
+      - chat-ui
+    route: /demos/headless-simple
+    animated_preview_url: null
+    highlight:
+      - src/lib/openclaw-agent.ts
+      - src/app/demos/headless-simple/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: frontend-tools
+    name: "Frontend Tools: In-app Actions"
+    description: Agent invokes client-side handlers registered with useFrontendTool
+    tags:
+      - interactivity
+    route: /demos/frontend-tools
+    animated_preview_url: null
+    highlight:
+      - src/lib/openclaw-agent.ts
+      - src/app/demos/frontend-tools/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: frontend-tools-async
+    name: "Frontend Tools: Async"
+    description:
+      useFrontendTool with an async handler — agent awaits a client-side
+      async operation (simulated notes DB query) and uses the returned result
+    tags:
+      - interactivity
+    route: /demos/frontend-tools-async
+    animated_preview_url: null
+    highlight:
+      - src/lib/openclaw-agent.ts
+      - src/app/demos/frontend-tools-async/page.tsx
+      - src/app/demos/frontend-tools-async/notes-card.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: hitl
+    name: In-Chat Human in the Loop (Original)
+    description: User approves agent actions before execution
+    tags:
+      - interactivity
+    route: /demos/hitl
+    animated_preview_url: null
+    highlight:
+      - src/lib/openclaw-agent.ts
+      - src/app/demos/hitl/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: hitl-in-app
+    name: "Human in the Loop: In-app"
+    description:
+      Agent requests approval via useFrontendTool with an async handler;
+      the approval UI pops up as an app-level modal OUTSIDE the chat, and a
+      completion callback resolves the pending tool Promise with the user's
+      decision
+    tags:
+      - interactivity
+    route: /demos/hitl-in-app
+    animated_preview_url: null
+    highlight:
+      - src/lib/openclaw-agent.ts
+      - src/app/demos/hitl-in-app/page.tsx
+      - src/app/demos/hitl-in-app/approval-dialog.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: tool-rendering
+    name: "Generative UI: Tool Rendering (Specific)"
+    description: Backend agent tools rendered as UI components
+    tags:
+      - generative-ui
+    route: /demos/tool-rendering
+    animated_preview_url: null
+    highlight:
+      - src/lib/openclaw-agent.ts
+      - src/app/demos/tool-rendering/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: declarative-gen-ui
+    name: "Declarative UI: Dynamic A2UI"
+    description:
+      Canonical A2UI BYOC — custom catalog wired via a2ui.catalog on the
+      provider; runtime injects the render_a2ui tool automatically
+    tags:
+      - generative-ui
+    route: /demos/declarative-gen-ui
+    animated_preview_url: null
+    highlight:
+      - src/lib/openclaw-agent.ts
+      - src/app/demos/declarative-gen-ui/page.tsx
+      - src/app/demos/declarative-gen-ui/a2ui/catalog.ts
+      - src/app/demos/declarative-gen-ui/a2ui/definitions.ts
+      - src/app/demos/declarative-gen-ui/a2ui/renderers.tsx
+      - src/app/api/copilotkit-declarative-gen-ui/route.ts
+  - id: gen-ui-agent
+    name: "Generative UI: Agent State"
+    description: Long-running agent tasks with generated UI
+    tags:
+      - generative-ui
+    route: /demos/gen-ui-agent
+    animated_preview_url: null
+    highlight:
+      - src/lib/openclaw-agent.ts
+      - src/app/demos/gen-ui-agent/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: gen-ui-tool-based
+    name: "Generative UI: useComponent"
+    description: Agent uses frontend tools to trigger UI generation —
+      useFrontendTool with a render function paints structured haiku output as a
+      styled card alongside the chat
+    tags:
+      - controlled-generative-ui
+    route: /demos/gen-ui-tool-based
+    animated_preview_url: null
+    highlight:
+      - src/lib/openclaw-agent.ts
+      - src/app/demos/gen-ui-tool-based/page.tsx
+      - src/app/demos/gen-ui-tool-based/bar-chart.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: shared-state-streaming
+    name: "Shared State: Streaming"
+    description: Per-token state delta streaming from agent to UI
+    tags:
+      - agent-state
+    route: /demos/shared-state-streaming
+    animated_preview_url: null
+    highlight:
+      - src/lib/openclaw-agent.ts
+      - src/app/demos/shared-state-streaming/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: shared-state-read-write
+    name: Shared State (Read + Write)
+    description: Bidirectional shared state — UI writes preferences via
+      agent.setState, agent reads them every turn and writes notes back via a
+      set_notes tool
+    tags:
+      - agent-state
+    route: /demos/shared-state-read-write
+    animated_preview_url: null
+    highlight:
+      - src/lib/openclaw-agent.ts
+      - src/app/demos/shared-state-read-write/page.tsx
+      - src/app/demos/shared-state-read-write/preferences-card.tsx
+      - src/app/demos/shared-state-read-write/notes-card.tsx
+      - src/app/api/copilotkit-shared-state-read-write/route.ts
+  - id: subagents
+    name: Sub-Agents
+    description:
+      Supervisor delegates to research / writing / critique sub-agents
+      (each a single secondary Anthropic Messages call); every delegation
+      appears in a live log via shared state
+    tags:
+      - multi-agent
+    route: /demos/subagents
+    animated_preview_url: null
+    highlight:
+      - src/lib/openclaw-agent.ts
+      - src/app/demos/subagents/page.tsx
+      - src/app/demos/subagents/delegation-log.tsx
+      - src/app/api/copilotkit-subagents/route.ts
+  - id: readonly-state-agent-context
+    name: "Shared State: Frontend Context"
+    description: Frontend provides read-only context to the agent via useAgentContext
+    tags:
+      - agent-state
+    route: /demos/readonly-state-agent-context
+    animated_preview_url: null
+    highlight:
+      - src/lib/openclaw-agent.ts
+      - src/app/demos/readonly-state-agent-context/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: open-gen-ui
+    name: "Open Generative UI: Default"
+    description: Agent generates UI from an arbitrary component library
+    tags:
+      - generative-ui
+    route: /demos/open-gen-ui
+    animated_preview_url: null
+    highlight:
+      - src/lib/openclaw-agent.ts
+      - src/app/demos/open-gen-ui/page.tsx
+      - src/app/api/copilotkit-ogui/route.ts
+  - id: open-gen-ui-advanced
+    name: "Open Generative UI: Custom"
+    description:
+      Agent-authored UI that can invoke frontend sandbox functions from
+      inside the iframe
+    tags:
+      - generative-ui
+    route: /demos/open-gen-ui-advanced
+    animated_preview_url: null
+    highlight:
+      - src/lib/openclaw-agent.ts
+      - src/app/demos/open-gen-ui-advanced/page.tsx
+      - src/app/demos/open-gen-ui-advanced/sandbox-functions.ts
+      - src/app/demos/open-gen-ui-advanced/suggestions.ts
+      - src/app/api/copilotkit-ogui/route.ts
+  - id: declarative-json-render
+    name: "Declarative UI: json-render"
+    description:
+      Declarative generative UI via @json-render/react — Claude emits a
+      flat element-tree spec the renderer consumes
+    tags:
+      - generative-ui
+    route: /demos/declarative-json-render
+    animated_preview_url: null
+    highlight:
+      - src/lib/openclaw-agent.ts
+      - src/app/demos/declarative-json-render/page.tsx
+      - src/app/demos/declarative-json-render/json-render-renderer.tsx
+      - src/app/demos/declarative-json-render/catalog.ts
+      - src/app/demos/declarative-json-render/registry.tsx
+      - src/app/api/copilotkit-declarative-json-render/route.ts
+  - id: declarative-hashbrown
+    name: "Declarative UI: Hashbrown"
+    description: Declarative streaming UI via @hashbrownai/react useJsonParser —
+      Claude emits a catalog-constrained UI envelope
+    tags:
+      - generative-ui
+    route: /demos/declarative-hashbrown
+    animated_preview_url: null
+    highlight:
+      - src/lib/openclaw-agent.ts
+      - src/app/demos/declarative-hashbrown/page.tsx
+      - src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx
+      - src/app/api/copilotkit-declarative-hashbrown/route.ts
+  - id: mcp-apps
+    name: MCP Apps
+    description:
+      MCP server-driven UI via activity renderers — runtime auto-applies
+      the MCP Apps middleware and the built-in MCPAppsActivityRenderer paints
+      sandboxed iframes inline in the chat
+    tags:
+      - generative-ui
+    route: /demos/mcp-apps
+    animated_preview_url: null
+    highlight:
+      - src/app/demos/mcp-apps/page.tsx
+      - src/app/api/copilotkit-mcp-apps/route.ts
+  - id: multimodal
+    name: Attachments
+    description: Image and PDF attachments forwarded to Claude's vision-capable model
+    tags:
+      - chat-ui
+    route: /demos/multimodal
+    animated_preview_url: null
+    highlight:
+      - src/lib/openclaw-agent.ts
+      - src/app/demos/multimodal/page.tsx
+      - src/app/demos/multimodal/sample-attachment-buttons.tsx
+      - src/app/api/copilotkit-multimodal/route.ts
+  - id: voice
+    name: Voice
+    description: Mic + sample audio transcription via a guarded OpenAI Whisper service
+    tags:
+      - chat-ui
+    route: /demos/voice
+    animated_preview_url: null
+    highlight:
+      - src/lib/openclaw-agent.ts
+      - src/app/demos/voice/page.tsx
+      - src/app/demos/voice/sample-audio-button.tsx
+      - src/app/api/copilotkit-voice/[[...slug]]/route.ts
+  - id: agent-config
+    name: Agent Config Object
+    description:
+      forwardedProps route provider-configured tone/expertise/length into
+      the Claude system prompt per turn
+    tags:
+      - platform
+    route: /demos/agent-config
+    animated_preview_url: null
+    highlight:
+      - src/lib/openclaw-agent.ts
+      - src/app/demos/agent-config/page.tsx
+      - src/app/demos/agent-config/config-card.tsx
+      - src/app/demos/agent-config/use-agent-config.ts
+      - src/app/api/copilotkit-agent-config/route.ts
+  - id: auth
+    name: Authentication
+    description: Bearer-token gate via the V2 runtime onRequest hook with typed 401 surface
+    tags:
+      - platform
+    route: /demos/auth
+    animated_preview_url: null
+    highlight:
+      - src/app/demos/auth/page.tsx
+      - src/app/demos/auth/auth-banner.tsx
+      - src/app/demos/auth/use-demo-auth.ts
+      - src/app/demos/auth/demo-token.ts
+      - src/app/api/copilotkit-auth/[[...slug]]/route.ts
+  - id: tool-rendering-default-catchall
+    name: "Generative UI: Tool Rendering (Default)"
+    description:
+      Zero-config wildcard renderer via useDefaultRenderTool — built-in
+      tool-call card paints every tool
+    tags:
+      - generative-ui
+    route: /demos/tool-rendering-default-catchall
+    animated_preview_url: null
+    highlight:
+      - src/app/demos/tool-rendering-default-catchall/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: tool-rendering-custom-catchall
+    name: "Generative UI: Tool Rendering (Custom default)"
+    description: Single branded wildcard renderer registered via
+      useDefaultRenderTool({ render })
+    tags:
+      - generative-ui
+    route: /demos/tool-rendering-custom-catchall
+    animated_preview_url: null
+    highlight:
+      - src/app/demos/tool-rendering-custom-catchall/page.tsx
+      - src/app/demos/tool-rendering-custom-catchall/custom-catchall-renderer.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: reasoning-default
+    name: "Reasoning: Default"
+    description: Built-in CopilotChatReasoningMessage card paints Claude
+      extended-thinking output — zero custom slots
+    tags:
+      - chat-ui
+    route: /demos/reasoning-default
+    animated_preview_url: null
+    highlight:
+      - src/lib/openclaw-agent.ts
+      - src/app/demos/reasoning-default/page.tsx
+      - src/app/demos/reasoning-default/suggestions.ts
+      - src/app/api/copilotkit-reasoning/route.ts
+  - id: reasoning-custom
+    name: "Reasoning: Custom"
+    description: Custom reasoningMessage slot renders Claude extended-thinking
+      deltas as a tagged amber banner
+    tags:
+      - chat-ui
+    route: /demos/reasoning-custom
+    animated_preview_url: null
+    highlight:
+      - src/lib/openclaw-agent.ts
+      - src/app/demos/reasoning-custom/page.tsx
+      - src/app/demos/reasoning-custom/reasoning-block.tsx
+      - src/app/demos/reasoning-custom/suggestions.ts
+      - src/app/api/copilotkit-reasoning/route.ts
+  - id: tool-rendering-reasoning-chain
+    name: "Generative UI: Rendering multiple tools"
+    description: Reasoning slot + per-tool renderers + wildcard catch-all in one cell
+    tags:
+      - generative-ui
+    route: /demos/tool-rendering-reasoning-chain
+    animated_preview_url: null
+    highlight:
+      - src/lib/openclaw-agent.ts
+      - src/app/demos/tool-rendering-reasoning-chain/page.tsx
+      - src/app/demos/tool-rendering-reasoning-chain/reasoning-block.tsx
+      - src/app/demos/tool-rendering-reasoning-chain/weather-card.tsx
+      - src/app/demos/tool-rendering-reasoning-chain/flight-list-card.tsx
+      - src/app/api/copilotkit-reasoning/route.ts
+  - id: beautiful-chat
+    name: Beautiful Chat
+    description:
+      Polished brand-themed chat surface over the shared Claude SDK agent
+      with seeded suggestion pills
+    tags:
+      - chat-ui
+    route: /demos/beautiful-chat
+    animated_preview_url: null
+    highlight:
+      - src/app/demos/beautiful-chat/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: hitl-in-chat
+    name: "Human In the Loop: In-chat"
+    description:
+      Interactive approval/decision surface rendered inline in the chat
+      via the high-level `useHumanInTheLoop` hook
+    tags:
+      - interactivity
+    route: /demos/hitl-in-chat
+    animated_preview_url: null
+    highlight:
+      - src/app/demos/hitl-in-chat/page.tsx
+      - src/app/demos/hitl-in-chat/time-picker-card.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: hitl-in-chat-booking
+    name: "In-Chat HITL (Booking)"
+    description: Time-picker card rendered inline via useHumanInTheLoop for a booking flow
+    tags:
+      - interactivity
+    route: /demos/hitl-in-chat
+    animated_preview_url: null
+    highlight:
+      - src/app/demos/hitl-in-chat/page.tsx
+      - src/app/demos/hitl-in-chat/time-picker-card.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: gen-ui-interrupt
+    name: "Human in the Loop: Interrupts"
+    description:
+      Interactive time-picker component rendered inline in the chat via
+      useFrontendTool with an async handler — the Promise resolves only when the
+      user picks a slot or cancels
+    tags:
+      - interactivity
+    route: /demos/gen-ui-interrupt
+    animated_preview_url: null
+    highlight:
+      - src/lib/openclaw-agent.ts
+      - src/app/demos/gen-ui-interrupt/page.tsx
+      - src/app/demos/gen-ui-interrupt/_components/time-picker-card.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: interrupt-headless
+    name: "Human in the Loop: Headless Interrupts"
+    description: Resolve interrupts from a plain button grid — no chat, no
+      useInterrupt render prop; the time-picker popup appears in the app surface
+      outside the chat
+    tags:
+      - interactivity
+    route: /demos/interrupt-headless
+    animated_preview_url: null
+    highlight:
+      - src/lib/openclaw-agent.ts
+      - src/app/demos/interrupt-headless/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: headless-complete
+    name: "Headless UI: Complete"
+    description:
+      Full custom chat surface built on `useAgent` — exercises the full
+      rendering stack (text, per-tool renderers, frontend components) with
+      backend get_weather / get_stock_price tools and a frontend highlight_note
+      tool
+    tags:
+      - chat-ui
+    route: /demos/headless-complete
+    animated_preview_url: null
+    highlight:
+      - src/app/demos/headless-complete/page.tsx
+      - src/app/demos/headless-complete/chat/chat.tsx
+      - src/app/demos/headless-complete/hooks/use-tool-renderers.tsx
+      - src/app/api/copilotkit-headless-complete/route.ts
+  - id: a2ui-fixed-schema
+    name: "Declarative UI: Fixed A2UI"
+    description: Fixed-schema A2UI — backend display_flight tool emits an
+      a2ui_operations container that ships a JSON component tree plus per-call
+      data; frontend catalog binds component names to React renderers
+    tags:
+      - generative-ui
+    route: /demos/a2ui-fixed-schema
+    animated_preview_url: null
+    highlight:
+      - src/app/demos/a2ui-fixed-schema/page.tsx
+      - src/app/demos/a2ui-fixed-schema/a2ui/catalog.ts
+      - src/app/demos/a2ui-fixed-schema/a2ui/definitions.ts
+      - src/app/demos/a2ui-fixed-schema/a2ui/renderers.tsx
+      - src/app/api/copilotkit-a2ui-fixed-schema/route.ts
