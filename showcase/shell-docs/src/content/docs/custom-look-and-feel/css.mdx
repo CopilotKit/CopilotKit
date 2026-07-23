@@ -35,13 +35,14 @@ into the rest of the app.
 
 ## CSS Variables (Easiest)
 
-The easiest way to change the colors used in the Copilot UI components is to
-override CopilotKit CSS variables. The demo sets them on the scope wrapper so
-they cascade into every nested chat component:
+The easiest way to recolor the chat is to override the v2 design tokens.
+Every CopilotKit v2 primitive renders inside a `[data-copilotkit]` element
+that reads its colors and radius from these tokens. Re-point them on your
+scope wrapper and the change cascades into every nested chat component:
 
 <Snippet region="design-tokens" title="frontend/src/app/theme.css: design-token overrides" />
 
-Once you've found the right variable, you can also apply the overrides inline
+Once you've found the right token, you can also apply the overrides inline
 via the `CopilotKitCSSProperties` helper:
 
 ```tsx
@@ -50,11 +51,11 @@ import { CopilotKitCSSProperties } from "@copilotkit/react-ui";
 <div
   style={
     {
-      "--copilot-kit-primary-color": "#222222",
+      "--primary": "#4f46e5",
     } as CopilotKitCSSProperties
   }
 >
-  <CopilotSidebar />
+  <CopilotChat />
 </div>
 ```
 
@@ -136,6 +137,26 @@ matching dark-mode value under `.dark [data-copilotkit]`. The full set
   consistent across hues. You can still pass `hsl()`, `rgb()`, or hex; any
   valid CSS color works.
 </Callout>
+
+## Chat control variables
+
+A few chat controls hardcode their colors, so a set of `--cpk-*` variables expose them on top of the shadcn tokens above. They let you recolor the input pill, send button, toolbar buttons, and slash menu without resorting to `!important` overrides on class names. Set them on the same `[data-copilotkit]` scope; each defaults to the control's original color and has a matching dark-mode value.
+
+| CSS Variable | Controls |
+|-------------|----------|
+| `--cpk-input-background` | Input pill background |
+| `--cpk-send-button-background` | Send button background |
+| `--cpk-send-button-foreground` | Send button icon color |
+| `--cpk-send-button-disabled-background` | Send button background when disabled |
+| `--cpk-send-button-disabled-foreground` | Send button icon when disabled |
+| `--cpk-toolbar-button-foreground` | Input toolbar button color (add, mic) |
+| `--cpk-toolbar-button-hover-background` | Input toolbar button hover background |
+| `--cpk-toolbar-button-hover-foreground` | Input toolbar button hover color |
+| `--cpk-message-toolbar-button-foreground` | Assistant message action icons (copy, regenerate) |
+| `--cpk-message-toolbar-button-hover-background` | Assistant message action hover background |
+| `--cpk-menu-background` | Slash command menu background |
+| `--cpk-menu-border` | Slash command menu border |
+| `--cpk-menu-item-active-background` | Slash command active and hovered item background |
 
 ## Custom CSS
 
