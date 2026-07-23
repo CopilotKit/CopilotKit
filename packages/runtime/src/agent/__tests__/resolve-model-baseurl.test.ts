@@ -3,12 +3,25 @@ import { resolveModel } from "../index";
 
 // Mock the SDK provider factories so we can assert the options resolveModel passes them
 // (the returned LanguageModel does not expose baseURL publicly, so we verify at the factory).
-const createOpenAI = vi.fn(() => (modelId: string) => ({ modelId, provider: "openai" }));
-const createAnthropic = vi.fn(() => (modelId: string) => ({ modelId, provider: "anthropic" }));
-const createGoogleGenerativeAI = vi.fn(() => (modelId: string) => ({ modelId, provider: "google" }));
+const createOpenAI = vi.fn(() => (modelId: string) => ({
+  modelId,
+  provider: "openai",
+}));
+const createAnthropic = vi.fn(() => (modelId: string) => ({
+  modelId,
+  provider: "anthropic",
+}));
+const createGoogleGenerativeAI = vi.fn(() => (modelId: string) => ({
+  modelId,
+  provider: "google",
+}));
 
-vi.mock("@ai-sdk/openai", () => ({ createOpenAI: (opts: unknown) => createOpenAI(opts) }));
-vi.mock("@ai-sdk/anthropic", () => ({ createAnthropic: (opts: unknown) => createAnthropic(opts) }));
+vi.mock("@ai-sdk/openai", () => ({
+  createOpenAI: (opts: unknown) => createOpenAI(opts),
+}));
+vi.mock("@ai-sdk/anthropic", () => ({
+  createAnthropic: (opts: unknown) => createAnthropic(opts),
+}));
 vi.mock("@ai-sdk/google", () => ({
   createGoogleGenerativeAI: (opts: unknown) => createGoogleGenerativeAI(opts),
 }));
@@ -45,7 +58,8 @@ describe("resolveModel — custom baseURL via env", () => {
   });
 
   it("passes GOOGLE_GENERATIVE_AI_BASE_URL to the Google provider", () => {
-    process.env.GOOGLE_GENERATIVE_AI_BASE_URL = "https://google.internal/v1beta";
+    process.env.GOOGLE_GENERATIVE_AI_BASE_URL =
+      "https://google.internal/v1beta";
     resolveModel("google/gemini-2.5-pro");
     expect(createGoogleGenerativeAI).toHaveBeenCalledWith(
       expect.objectContaining({ baseURL: "https://google.internal/v1beta" }),
