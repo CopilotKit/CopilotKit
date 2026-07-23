@@ -45,6 +45,12 @@ describe("Angular showcase agent selection", () => {
     expect(agentIdForFeature(feature, "llamaindex")).toBe(agentId);
   });
 
+  it("preserves PydanticAI's hyphenated frontend-tools agent", () => {
+    expect(agentIdForFeature("frontend-tools", "pydantic-ai")).toBe(
+      "frontend-tools",
+    );
+  });
+
   it("uses the feature contract when no integration override exists", () => {
     expect(agentIdForFeature("tool-rendering", "langgraph-python")).toBe(
       "tool-rendering",

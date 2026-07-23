@@ -19,6 +19,7 @@ const BUILT_IN_AGENT_OVERRIDES: Readonly<Record<string, string>> = {
 const INTEGRATION_AGENT_OVERRIDES: Readonly<Record<string, string>> = {
   "llamaindex/reasoning-custom": "agentic-chat-reasoning",
   "llamaindex/reasoning-default": "reasoning-default-render",
+  "pydantic-ai/frontend-tools": "frontend-tools",
 };
 
 const THREAD_ID_OVERRIDES: Readonly<Record<string, string>> = {
