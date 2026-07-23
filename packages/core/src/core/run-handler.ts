@@ -1003,6 +1003,19 @@ export class RunHandler {
         });
       },
       onRunErrorEvent: async ({ event }) => {
+        // A user-initiated stop (stopAgent / agent.abortRun) makes the agent
+        // emit a terminal RUN_ERROR — often code "abort" — as its cancellation
+        // signal. That is expected, not a failure: surfacing it would pop an
+        // error banner on Stop (#5966, follow-up to #5812). Mirror the
+        // local-abort suppression on the runAgent/connectAgent paths and skip
+        // it. Prefer the abort controller (the client's own record that it
+        // initiated the stop) over the agent-supplied `code`, which is not
+        // standardized across agents.
+        const runWasAborted = this._runAbortController?.signal.aborted === true;
+        if (runWasAborted || event?.code === "abort") {
+          return;
+        }
+
         const eventError =
           event?.rawEvent instanceof Error
             ? event.rawEvent
