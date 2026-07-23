@@ -22,6 +22,11 @@ function grantsRuntimeAccess(response: RuntimeEntitlementResponse): boolean {
   return response.status === "ready" && response.entitlement.active;
 }
 
+/** Whether an HTTP status can recover without changing Runtime configuration. */
+function isRetryableRuntimeEntitlementStatus(status: number): boolean {
+  return status === 408 || status === 425 || status === 429 || status >= 500;
+}
+
 const runtimeEntitlementTransportSchema = z
   .object({
     organizationId: z.string(),
@@ -95,6 +100,8 @@ export class PlatformRequestError extends Error {
     message: string,
     /** The HTTP status code returned by the platform (e.g. 404, 409, 500). */
     public readonly status: number,
+    /** Whether retrying may succeed without changing client configuration. */
+    public readonly retryable?: boolean,
   ) {
     super(message);
     this.name = "PlatformRequestError";
@@ -672,6 +679,7 @@ export class CopilotKitIntelligence {
         throw new PlatformRequestError(
           `Runtime entitlement request failed with status ${response.status}`,
           response.status,
+          isRetryableRuntimeEntitlementStatus(response.status),
         );
       }
 
@@ -682,6 +690,7 @@ export class CopilotKitIntelligence {
         throw new PlatformRequestError(
           "Runtime entitlement response was malformed",
           502,
+          false,
         );
       }
 
@@ -690,6 +699,7 @@ export class CopilotKitIntelligence {
         throw new PlatformRequestError(
           "Runtime entitlement response was malformed",
           502,
+          false,
         );
       }
 
@@ -705,9 +715,14 @@ export class CopilotKitIntelligence {
         throw new PlatformRequestError(
           "Runtime entitlement request timed out",
           504,
+          true,
         );
       }
-      throw new PlatformRequestError("Runtime entitlement request failed", 502);
+      throw new PlatformRequestError(
+        "Runtime entitlement request failed",
+        502,
+        true,
+      );
     } finally {
       clearTimeout(timeout);
     }

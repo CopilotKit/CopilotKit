@@ -88,8 +88,13 @@ async function expectRuntimeEntitlementValidationError(
   if (!(error instanceof PlatformRequestError)) {
     throw new Error("Expected a typed Runtime entitlement validation error");
   }
-  expect({ name: error.name, status: error.status }).toEqual({
+  expect({
+    name: error.name,
+    retryable: error.retryable,
+    status: error.status,
+  }).toEqual({
     name: "PlatformRequestError",
+    retryable: false,
     status: 502,
   });
   expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -192,10 +197,30 @@ test("getRuntimeEntitlements aborts a bounded request with a typed timeout error
       throw new Error("Expected a typed Runtime entitlement timeout error");
     }
     expect(error.status).toBe(504);
+    expect(error.retryable).toBe(true);
     expect(error.message).not.toContain(privateAbortDetail);
   } finally {
     vi.useRealTimers();
   }
+});
+
+test("getRuntimeEntitlements marks a safe network failure as retryable", async () => {
+  const privateNetworkDetail = "private-upstream-network-detail";
+  const client = runtimeEntitlementsClient();
+  fetchMock.mockRejectedValue(new Error(privateNetworkDetail));
+
+  const error: unknown = await client
+    .getRuntimeEntitlements()
+    .catch((caught: unknown) => caught);
+
+  expect(error).toBeInstanceOf(PlatformRequestError);
+  if (!(error instanceof PlatformRequestError)) {
+    throw new Error("Expected a typed Runtime entitlement network error");
+  }
+  expect(error.status).toBe(502);
+  expect(error.retryable).toBe(true);
+  expect(error.message).toBe("Runtime entitlement request failed");
+  expect(error.message).not.toContain(privateNetworkDetail);
 });
 
 const UNKNOWN_FIELD_PRIVATE_VALUE = "private-runtime-entitlement-value";
@@ -258,7 +283,7 @@ test.each([
   },
 );
 
-test.each([300, 401, 503, 599])(
+test.each([300, 401, 403, 408, 425, 429, 503, 599])(
   "getRuntimeEntitlements rejects non-OK status %i after disposing without reading or leaking its body",
   async (status) => {
     consoleErrorSpy.mockClear();
@@ -279,6 +304,9 @@ test.each([300, 401, 503, 599])(
       throw new Error("Expected a typed Runtime entitlement status error");
     }
     expect(error.status).toBe(status);
+    expect(error.retryable).toBe(
+      status === 408 || status === 425 || status === 429 || status >= 500,
+    );
     expect(error.message).toBe(
       `Runtime entitlement request failed with status ${status}`,
     );
@@ -342,6 +370,7 @@ test("getRuntimeEntitlements bounds stalled non-OK response disposal without lea
       throw new Error("Expected a typed Runtime entitlement timeout error");
     }
     expect(error.status).toBe(504);
+    expect(error.retryable).toBe(true);
     expect(error.message).toBe("Runtime entitlement request timed out");
     expect(error.message).not.toContain(privateUpstreamDetail);
     expect(upstreamResponse.bodyUsed).toBe(true);

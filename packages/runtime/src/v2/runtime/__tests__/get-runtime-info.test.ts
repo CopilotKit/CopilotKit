@@ -244,6 +244,74 @@ test("keeps `/info` successful when Runtime entitlement lookup fails", async () 
   expect(getRuntimeEntitlements).toHaveBeenCalledOnce();
 });
 
+test.each([
+  {
+    expectedCode: "runtime_entitlements_misconfigured",
+    expectedMessage: "Runtime entitlement lookup is misconfigured",
+    expectedRetryable: false,
+    label: "401 credential rejection",
+    response: () => new Response("private credential detail", { status: 401 }),
+  },
+  {
+    expectedCode: "runtime_entitlements_misconfigured",
+    expectedMessage: "Runtime entitlement lookup is misconfigured",
+    expectedRetryable: false,
+    label: "403 credential rejection",
+    response: () => new Response("private credential detail", { status: 403 }),
+  },
+  {
+    expectedCode: "runtime_entitlements_misconfigured",
+    expectedMessage: "Runtime entitlement lookup is misconfigured",
+    expectedRetryable: false,
+    label: "malformed successful contract",
+    response: () =>
+      new Response("{not-json", {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+  },
+  {
+    expectedCode: "runtime_entitlements_unavailable",
+    expectedMessage: "Runtime entitlement lookup failed",
+    expectedRetryable: true,
+    label: "503 dependency outage",
+    response: () => new Response("private dependency detail", { status: 503 }),
+  },
+] as const)(
+  "classifies a $label without exposing upstream details",
+  async ({
+    expectedCode,
+    expectedMessage,
+    expectedRetryable,
+    response: createResponse,
+  }) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(createResponse()));
+
+    try {
+      const runtime = createIntelligenceRuntimeLike();
+      const response = await handleGetRuntimeInfo({
+        runtime,
+        request: mockRequest,
+      });
+      const data: RuntimeInfo = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.runtimeEntitlements).toEqual({
+        status: expectedRetryable ? "unavailable" : "misconfigured",
+        error: {
+          code: expectedCode,
+          message: expectedMessage,
+          retryable: expectedRetryable,
+        },
+      });
+      expect(JSON.stringify(data)).not.toContain("private");
+      expect(data.licenseStatus).toBe(expectedRetryable ? "unknown" : "none");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  },
+);
+
 describe("handleGetRuntimeInfo", () => {
   const inMemoryThreadEndpoints = {
     list: true,

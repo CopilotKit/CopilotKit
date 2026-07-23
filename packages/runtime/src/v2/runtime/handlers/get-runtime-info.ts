@@ -13,6 +13,7 @@ import type {
 } from "@copilotkit/shared";
 import type { RuntimeLicenseStatus } from "@copilotkit/shared";
 import { VERSION } from "../core/runtime";
+import { PlatformRequestError } from "../intelligence-platform/client";
 import { isTelemetryDisabled } from "../telemetry/telemetry-client";
 import { supportsLocalThreadEndpoints } from "../runner/agent-runner";
 
@@ -84,7 +85,18 @@ async function resolveRuntimeEntitlements(
 
   try {
     return await runtime.intelligence.getRuntimeEntitlements();
-  } catch {
+  } catch (error) {
+    if (error instanceof PlatformRequestError && error.retryable === false) {
+      return {
+        status: "misconfigured",
+        error: {
+          code: "runtime_entitlements_misconfigured",
+          message: "Runtime entitlement lookup is misconfigured",
+          retryable: false,
+        },
+      };
+    }
+
     return {
       status: "unavailable",
       error: {
