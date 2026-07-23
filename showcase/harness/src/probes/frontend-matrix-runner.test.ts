@@ -33,6 +33,31 @@ const CELLS: FrontendMatrixCell[] = [
   },
 ];
 
+const PAIRED_CELLS: FrontendMatrixCell[] = [
+  ...CELLS,
+  {
+    id: "react/langgraph-python/beautiful-chat",
+    frontend: "react",
+    integration: "langgraph-python",
+    feature: "beautiful-chat",
+    featureTypes: ["beautiful-chat-toggle-theme", "beautiful-chat-pie-chart"],
+  },
+  {
+    id: "react/mastra/frontend-tools",
+    frontend: "react",
+    integration: "mastra",
+    feature: "frontend-tools",
+    featureTypes: ["frontend-tools"],
+  },
+  {
+    id: "angular/mastra/agentic-chat",
+    frontend: "angular",
+    integration: "mastra",
+    feature: "agentic-chat",
+    featureTypes: ["agentic-chat"],
+  },
+];
+
 describe("frontend matrix CI runner", () => {
   it("builds a deterministic duration-balanced shard plan", () => {
     const first = buildMeasuredShardPlan(CELLS, {
@@ -65,6 +90,38 @@ describe("frontend matrix CI runner", () => {
     );
     expect(first.shards[0]?.estimatedDurationMs).toBe(50_000);
     expect(first.shards[1]?.estimatedDurationMs).toBe(20_000);
+  });
+
+  it("keeps React and Angular counterparts adjacent on one shard", () => {
+    const plan = buildMeasuredShardPlan(PAIRED_CELLS, {
+      targetDurationMs: 40_000,
+      minimumShardCount: 2,
+      maximumShardCount: 2,
+      defaultProbeDurationMs: 10_000,
+      measuredCellDurationsMs: {},
+    });
+
+    const pairOrders: string[][] = [];
+    for (const feature of [
+      "beautiful-chat",
+      "frontend-tools",
+      "agentic-chat",
+    ]) {
+      const ids = PAIRED_CELLS.filter((cell) => cell.feature === feature).map(
+        (cell) => cell.id,
+      );
+      const containing = plan.shards.filter((shard) =>
+        ids.every((id) => shard.cellIds.includes(id)),
+      );
+      expect(containing).toHaveLength(1);
+      const shard = containing[0]!;
+      const positions = ids.map((id) => shard.cellIds.indexOf(id)).sort();
+      expect(positions[1]! - positions[0]!).toBe(1);
+      pairOrders.push(shard.cellIds.slice(positions[0], positions[1]! + 1));
+    }
+
+    expect(pairOrders.some((ids) => ids[0]?.startsWith("angular/"))).toBe(true);
+    expect(pairOrders.some((ids) => ids[0]?.startsWith("react/"))).toBe(true);
   });
 
   it("executes every cell once and never retries a deterministic failure", async () => {

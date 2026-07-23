@@ -81,10 +81,53 @@ function estimatedCellDurationMs(
   };
 }
 
+interface WeightedFrontendPair {
+  key: string;
+  cells: Array<{
+    cell: FrontendMatrixCell;
+    durationMs: number;
+    measured: boolean;
+  }>;
+  durationMs: number;
+}
+
+function pairKey(cell: FrontendMatrixCell): string {
+  return `${cell.integration}\u0000${cell.feature}`;
+}
+
+function stablePairParity(key: string): number {
+  let hash = 2_166_136_261;
+  for (const character of key) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16_777_619);
+  }
+  return hash >>> 0;
+}
+
+/**
+ * Keep counterpart cells adjacent while alternating which framework receives
+ * the warm-cache position. A global React-first or Angular-first order would
+ * systematically advantage one implementation across the entire audit.
+ */
+function orderFrontendPair(
+  pair: WeightedFrontendPair,
+): WeightedFrontendPair["cells"] {
+  const angularFirst = stablePairParity(pair.key) % 2 === 0;
+  return [...pair.cells].sort(
+    (left, right) =>
+      (left.cell.frontend === (angularFirst ? "angular" : "react") ? -1 : 1) -
+        (right.cell.frontend === (angularFirst ? "angular" : "react")
+          ? -1
+          : 1) || left.cell.id.localeCompare(right.cell.id),
+  );
+}
+
 /**
  * Build a deterministic least-loaded shard plan from recorded cell timings.
- * Unmeasured cells use a conservative per-probe estimate so new catalog cells
- * participate immediately instead of disappearing from the merge gate.
+ * React/Angular counterparts are one scheduling unit so they share the same
+ * backend process and remain adjacent. Unmeasured cells use a conservative
+ * per-probe estimate so new catalog cells participate immediately instead of
+ * disappearing from the merge gate.
  */
 export function buildMeasuredShardPlan(
   cells: readonly FrontendMatrixCell[],
@@ -120,6 +163,19 @@ export function buildMeasuredShardPlan(
       defaultProbeDurationMs,
     }),
   }));
+  const pairsByKey = new Map<string, WeightedFrontendPair>();
+  for (const item of weighted) {
+    const key = pairKey(item.cell);
+    const pair = pairsByKey.get(key) ?? {
+      key,
+      cells: [],
+      durationMs: 0,
+    };
+    pair.cells.push(item);
+    pair.durationMs += item.durationMs;
+    pairsByKey.set(key, pair);
+  }
+  const pairs = [...pairsByKey.values()];
   const estimatedTotalDurationMs = weighted.reduce(
     (total, item) => total + item.durationMs,
     0,
@@ -129,9 +185,9 @@ export function buildMeasuredShardPlan(
     Math.ceil(estimatedTotalDurationMs / targetDurationMs),
   );
   const shardCount =
-    cells.length === 0
+    pairs.length === 0
       ? 0
-      : Math.min(cells.length, maximumShardCount, desiredShardCount);
+      : Math.min(pairs.length, maximumShardCount, desiredShardCount);
   const shards = Array.from(
     { length: shardCount },
     (_, index): MeasuredShard => ({
@@ -141,24 +197,24 @@ export function buildMeasuredShardPlan(
     }),
   );
 
-  weighted
+  pairs
     .sort(
       (left, right) =>
-        right.durationMs - left.durationMs ||
-        left.cell.id.localeCompare(right.cell.id),
+        right.durationMs - left.durationMs || left.key.localeCompare(right.key),
     )
-    .forEach(({ cell, durationMs }) => {
+    .forEach((pair) => {
       const target = [...shards].sort(
         (left, right) =>
           left.estimatedDurationMs - right.estimatedDurationMs ||
           left.index - right.index,
       )[0];
-      if (!target) throw new Error("cannot assign a cell without a shard");
-      target.cellIds.push(cell.id);
-      target.estimatedDurationMs += durationMs;
+      if (!target) throw new Error("cannot assign a pair without a shard");
+      target.cellIds.push(
+        ...orderFrontendPair(pair).map(({ cell }) => cell.id),
+      );
+      target.estimatedDurationMs += pair.durationMs;
     });
 
-  for (const shard of shards) shard.cellIds.sort();
   return {
     schemaVersion: 1,
     targetDurationMs,
