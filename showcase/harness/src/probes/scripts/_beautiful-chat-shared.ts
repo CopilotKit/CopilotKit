@@ -321,11 +321,13 @@ export async function assertToggleTheme(page: ConversationPage): Promise<void> {
     if (closeAware.isClosed?.()) {
       throw new Error(
         `beautiful-chat-toggle-theme: page closed before theme-flip / "Theme toggled" signal landed (initiallyDark=${initiallyDark}) — likely a renderer crash in the demo's toggleTheme handler or surrounding tree`,
+        { cause: err },
       );
     }
     const msg = err instanceof Error ? err.message : String(err);
     throw new Error(
       `beautiful-chat-toggle-theme: neither html.dark flip from ${initiallyDark ? "dark" : "light"} nor visible "Theme toggled" content within 30s — toggleTheme path did not produce either signal (${msg.slice(0, 120)})`,
+      { cause: err },
     );
   }
 }
@@ -397,12 +399,23 @@ export async function assertBarChart(page: ConversationPage): Promise<void> {
  */
 export async function assertSearchFlights(
   page: ConversationPage,
+  ctx: { bubbleIndex: number; text: string },
 ): Promise<void> {
   const tag = "beautiful-chat-search-flights";
+  const literals = ["United", "Delta", "$349", "$289"];
+
+  // Some integrations intentionally return narration instead of a tool call
+  // because their beautiful-chat runtime does not register search_flights.
+  // Consume the turn-scoped assistant text supplied by the conversation
+  // runner before falling back to DOM surface checks. This avoids racing
+  // Playwright's global text selector against Angular's post-settle repaint
+  // while preserving the stronger rendered-card path when narration is absent.
+  if (literals.every((literal) => ctx.text.includes(literal))) return;
+
   // Short brand labels — present in both the FlightCard surface and
   // the assistant's "United at $349 / Delta at $289" narration.
   await waitForText(page, "United", FIRST_SIGNAL_TIMEOUT_MS, tag);
-  for (const literal of ["Delta", "$349", "$289"]) {
+  for (const literal of literals.slice(1)) {
     await waitForText(page, literal, SIBLING_TIMEOUT_MS, tag);
   }
 }
