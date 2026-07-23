@@ -215,12 +215,15 @@ async function main() {
   // to observe or stop it. There is no public Slack ingress on this port —
   // Intelligence owns the Slack edge — but the server keeps the lifecycle-owning
   // process alive.
+  const port = Number(process.env.PORT ?? 8300);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error(`Invalid PORT: "${process.env.PORT}" is not a valid port number`);
+  }
   const listener = createCopilotNodeListener({
     runtime,
     basePath: "/api/copilotkit",
   });
   stopChannels = () => listener.channels.stop();
-  const port = Number(process.env.PORT ?? 8300);
   createServer(listener).listen(port, () => {
     console.log(`[channel] listener on :${port}`);
   });
