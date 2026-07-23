@@ -17,8 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     # Least privilege: read the repo (for analyze.js) + write issue labels/comments.
     permissions:
-      contents: read
-      issues: write
+      contents: read # checkout reads scripts/triage/analyze.js
+      issues: write # apply labels + post the templated dup comment
     timeout-minutes: 10 # a hung model fetch shouldn't burn the 6h default
     steps:
       - uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0

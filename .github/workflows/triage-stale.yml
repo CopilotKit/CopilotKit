@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     # Least privilege: only label/close stale needs-info issues.
     permissions:
-      issues: write
+      issues: write # label/close stale needs-info issues
     timeout-minutes: 10
     steps:
       - uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
