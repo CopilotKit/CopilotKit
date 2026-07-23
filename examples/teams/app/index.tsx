@@ -7,8 +7,18 @@
  * table, list of facts) is clearer as a card than as prose. Consequential
  * actions go through a human-in-the-loop approval gate (`confirm_write`).
  *
- * Requires `OPENAI_API_KEY`. No Microsoft credentials are needed to test in the
- * M365 Agents Playground:
+ * RUN MODEL — a Channel runs ONLY through the Intelligence runtime. The Teams
+ * `teams({ port })` adapter stays DIRECT (it keeps its own transport / the
+ * Playground ingress), but the runtime OWNS its lifecycle: the Channel is
+ * declared on `new CopilotRuntime({ intelligence, identifyUser, channels })`,
+ * and you drive readiness/shutdown through the handler's `channels` control
+ * (`listener.channels?.ready()` / `.stop()`) — there is no `bot.start()`/
+ * `bot.stop()` and no standalone path.
+ *
+ * Requires `OPENAI_API_KEY` (the BuiltInAgent's LLM) AND an Intelligence key
+ * (`COPILOTKIT_INTELLIGENCE_URL` + `COPILOTKIT_API_KEY` — free tier), which the
+ * runtime that owns the Channel is configured with. No Microsoft credentials
+ * are needed to test in the M365 Agents Playground:
  *
  *   pnpm start        # bot on http://localhost:3978/api/messages
  *   pnpm playground   # M365 Agents Playground UI (http://localhost:56150)
@@ -17,7 +27,12 @@ import "dotenv/config";
 import { createServer } from "node:http";
 import { createChannel, defineChannelTool } from "@copilotkit/channels";
 import { teams, SanitizingHttpAgent } from "@copilotkit/channels/teams";
-import { BuiltInAgent, CopilotSseRuntime } from "@copilotkit/runtime/v2";
+import {
+  BuiltInAgent,
+  CopilotSseRuntime,
+  CopilotRuntime,
+  CopilotKitIntelligence,
+} from "@copilotkit/runtime/v2";
 import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 import { z } from "zod";
 import { hitlTools } from "./human-in-the-loop/index.js";
@@ -44,6 +59,32 @@ if (!process.env.OPENAI_API_KEY) {
   );
   process.exit(1);
 }
+
+// A Channel runs ONLY through the Intelligence runtime — the runtime that owns
+// the Channel's lifecycle is configured with an Intelligence key. Fail fast
+// here rather than deep in activation. Free tier is enough for this demo.
+const required = (name: string): string => {
+  const v = process.env[name];
+  if (!v) {
+    console.error(
+      `Missing ${name}.\n` +
+        "Channels run only through the Intelligence runtime, which needs an " +
+        "Intelligence key (free tier).\n" +
+        "  export COPILOTKIT_INTELLIGENCE_URL=https://api.copilotkit.ai\n" +
+        "  export COPILOTKIT_API_KEY=cpk-...   (or add them to examples/teams/.env)\n" +
+        "Optional: COPILOTKIT_INTELLIGENCE_WS_URL (derived from the API URL when unset).",
+    );
+    process.exit(1);
+  }
+  return v;
+};
+
+/**
+ * Derive the Intelligence websocket base URL from the API base URL when it
+ * isn't set explicitly: `http(s)://…` → `ws(s)://…` (same host + port).
+ */
+const deriveWsUrl = (apiUrl: string): string =>
+  apiUrl.replace(/^http(s?):\/\//, "ws$1://");
 
 const port = Number(process.env.PORT ?? 3978);
 
@@ -161,6 +202,9 @@ const showCard = defineChannelTool({
 });
 
 const bot = createChannel({
+  // Every declared Channel needs a unique `name` — the Intelligence runtime
+  // keys its lifecycle (and, for managed Channels, its activation config) by it.
+  name: "teams-assistant",
   adapters: [teams({ port })],
   agent: (threadId: string) => {
     const agent = new SanitizingHttpAgent({ url: runtimeAgentUrl });
@@ -193,7 +237,53 @@ bot.onMessage(async ({ thread, message }) => {
   await thread.runAgent();
 });
 
-await bot.start();
+// The Intelligence client the Channel-owning runtime is configured with. The
+// Teams adapter stays DIRECT (it keeps its own credentials/transport), but a
+// Channel runs only through the Intelligence runtime, so the runtime is what
+// starts and stops it.
+const intelligenceApiUrl = required("COPILOTKIT_INTELLIGENCE_URL");
+const intelligence = new CopilotKitIntelligence({
+  apiUrl: intelligenceApiUrl,
+  wsUrl:
+    process.env.COPILOTKIT_INTELLIGENCE_WS_URL ??
+    deriveWsUrl(intelligenceApiUrl),
+  apiKey: required("COPILOTKIT_API_KEY"),
+});
+
+// Declare the Channel on the Intelligence runtime. The runtime OWNS the
+// Channel's lifecycle: because Intelligence is configured, it starts the direct
+// Teams adapter for us (there is no `bot.start()`). It hosts no agents itself —
+// the Channel supplies its own agent (the SanitizingHttpAgent above, pointed at
+// the local BuiltInAgent runtime) — so `agents` is empty.
+const channelRuntime = new CopilotRuntime({
+  agents: {},
+  intelligence,
+  // Demo stub — replace with your own auth-derived user identity (e.g. OIDC)
+  // before any multi-user deployment, or all users share one thread history.
+  identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
+  channels: [bot],
+});
+
+// Mounting the Node listener creates the runtime handler, which activates the
+// Channel (starting the direct Teams adapter) and exposes `.channels` for
+// readiness + shutdown. Bind loopback: this runtime holds the Intelligence key
+// and needs no public ingress (the Teams adapter has its own on :${port}); the
+// listener only owns the Channel lifecycle and keeps the process alive.
+const channelPort = Number(process.env.CHANNELS_PORT ?? 8300);
+const listener = createCopilotNodeListener({
+  runtime: channelRuntime,
+  basePath: "/api/copilotkit",
+});
+createServer(listener).listen(channelPort, "127.0.0.1", () => {
+  console.log(
+    `Channel runtime (owns lifecycle) listening on 127.0.0.1:${channelPort}`,
+  );
+});
+
+// Drive readiness through the runtime's Channel control instead of a
+// (now-removed) bot.start(): resolves once the direct Teams adapter's transport
+// is up.
+await listener.channels?.ready();
 
 console.log(
   `Teams demo bot listening at http://localhost:${port}/api/messages`,
@@ -204,10 +294,11 @@ console.log(
     'or "announce X to the team" to see the HITL approval.',
 );
 
-// Stop the bot cleanly on exit.
+// Stop the bot cleanly on exit — through the runtime's Channel control, which
+// tears down the direct Teams adapter it started.
 const shutdown = async (signal: string): Promise<void> => {
   console.log(`\nReceived ${signal}, stopping…`);
-  await bot.stop().catch(() => {});
+  await listener.channels?.stop().catch(() => {});
   process.exit(0);
 };
 process.on("SIGINT", () => void shutdown("SIGINT"));
