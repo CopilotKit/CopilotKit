@@ -23,6 +23,12 @@ export type {
 // Thread
 export { Thread } from "./thread.js";
 export type { ThreadDeps } from "./thread.js";
+export { DirectAdapterEgress } from "./channel-egress.js";
+export type {
+  ChannelEgress,
+  ProviderEffect,
+  EffectResultFor,
+} from "./channel-egress.js";
 
 // Channel agent binding + routing contracts (Task 2).
 export type {

@@ -22,6 +22,7 @@ import { decideChannelResponse } from "./response-policy.js";
 import type { ChannelCommand, CommandContext } from "./commands.js";
 import { Thread } from "./thread.js";
 import type { ThreadDeps } from "./thread.js";
+import { DirectAdapterEgress } from "./channel-egress.js";
 import type { AbstractAgent } from "@ag-ui/client";
 import type {
   ChannelAgentBinding,
@@ -489,6 +490,10 @@ export function createChannel<
     }
     const deps: ThreadDeps = {
       adapter,
+      // Transitional: the direct-adapter egress delegates each provider effect
+      // to the adapter's existing methods (behavior-identical). When the adapter
+      // is gutted onto a managed/custom runner port, only this line changes.
+      egress: new DirectAdapterEgress(adapter),
       replyTarget,
       conversationKey,
       registry,

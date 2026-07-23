@@ -3,6 +3,7 @@ import { Thread } from "./thread.js";
 import type { ThreadDeps } from "./thread.js";
 import { MemoryStore } from "./state/memory-store.js";
 import { FakeAdapter } from "./testing/fake-adapter.js";
+import { DirectAdapterEgress } from "./channel-egress.js";
 import { ActionRegistry } from "./action-registry.js";
 import { InMemoryActionStore } from "./action-store.js";
 
@@ -14,6 +15,7 @@ function makeTestThread(overrides: {
   const registry = new ActionRegistry({ store: new InMemoryActionStore() });
   const deps: ThreadDeps = {
     adapter,
+    egress: new DirectAdapterEgress(adapter),
     replyTarget: {},
     conversationKey: overrides.conversationKey ?? "c1",
     registry,

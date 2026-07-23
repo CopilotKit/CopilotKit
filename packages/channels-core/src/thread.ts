@@ -1,4 +1,5 @@
 import type { PlatformAdapter, ReplyTarget } from "./platform-adapter.js";
+import type { ChannelEgress } from "./channel-egress.js";
 import type { ActionRegistry } from "./action-registry.js";
 import type {
   AgentContentPart,
@@ -28,6 +29,13 @@ import type { StandardSchemaV1 } from "./standard-schema.js";
 
 export interface ThreadDeps {
   adapter: PlatformAdapter;
+  /**
+   * The bound egress port every outbound provider effect (post/update/react/…),
+   * the incremental `stream`, and the run-loop renderer go through (plan §2).
+   * Rendering + normalization stay on {@link adapter}; the credentialed provider
+   * calls live behind this port.
+   */
+  egress: ChannelEgress;
   replyTarget: ReplyTarget;
   conversationKey: string;
   registry: ActionRegistry;
@@ -108,20 +116,24 @@ export class Thread implements ThreadInterface {
 
   async post(ui: Renderable): Promise<MessageRef> {
     const bound = await this.bindForPost(ui);
-    const ref = await this.deps.adapter.post(this.deps.replyTarget, bound.root);
+    const ref = await this.deps.egress.send({
+      op: "post",
+      target: this.deps.replyTarget,
+      ir: bound.root,
+    });
     await this.bindReaction(ref.id, bound);
     return ref;
   }
 
   async update(ref: MessageRef, ui: Renderable): Promise<MessageRef> {
     const bound = await this.bindForPost(ui);
-    await this.deps.adapter.update(ref, bound.root);
+    await this.deps.egress.send({ op: "update", ref, ir: bound.root });
     await this.bindReaction(ref.id, bound);
     return ref;
   }
 
   async delete(ref: MessageRef): Promise<void> {
-    await this.deps.adapter.delete(ref);
+    await this.deps.egress.send({ op: "delete", ref });
   }
 
   async stream(src: string | AsyncIterable<string>): Promise<MessageRef> {
@@ -131,7 +143,7 @@ export class Thread implements ThreadInterface {
             yield src;
           })()
         : src;
-    return this.deps.adapter.stream(this.deps.replyTarget, iter);
+    return this.deps.egress.stream(this.deps.replyTarget, iter);
   }
 
   async postFile(args: {
@@ -140,14 +152,11 @@ export class Thread implements ThreadInterface {
     title?: string;
     altText?: string;
   }): Promise<{ ok: boolean; fileId?: string; error?: string }> {
-    const adapter = this.deps.adapter;
-    if (!adapter.postFile) {
-      return {
-        ok: false,
-        error: `${this.platform} does not support file upload`,
-      };
-    }
-    return adapter.postFile(this.deps.replyTarget, args);
+    return this.deps.egress.send({
+      op: "file",
+      target: this.deps.replyTarget,
+      file: args,
+    });
   }
 
   /** Pin suggested prompts (returns `{ ok: false }` on surfaces without support). */
@@ -155,26 +164,21 @@ export class Thread implements ThreadInterface {
     prompts: ReadonlyArray<{ title: string; message: string }>,
     opts?: { title?: string },
   ): Promise<{ ok: boolean; error?: string }> {
-    const adapter = this.deps.adapter;
-    if (!adapter.setSuggestedPrompts) {
-      return {
-        ok: false,
-        error: `${this.platform} does not support suggested prompts`,
-      };
-    }
-    return adapter.setSuggestedPrompts(this.deps.replyTarget, prompts, opts);
+    return this.deps.egress.send({
+      op: "suggested",
+      target: this.deps.replyTarget,
+      prompts,
+      title: opts?.title,
+    });
   }
 
   /** Name this conversation (returns `{ ok: false }` on surfaces without support). */
   async setTitle(title: string): Promise<{ ok: boolean; error?: string }> {
-    const adapter = this.deps.adapter;
-    if (!adapter.setThreadTitle) {
-      return {
-        ok: false,
-        error: `${this.platform} does not support thread titles`,
-      };
-    }
-    return adapter.setThreadTitle(this.deps.replyTarget, title);
+    return this.deps.egress.send({
+      op: "title",
+      target: this.deps.replyTarget,
+      title,
+    });
   }
 
   /** Add an emoji reaction to a message (capability-gated; `{ ok: false }` on surfaces without support). */
@@ -182,14 +186,13 @@ export class Thread implements ThreadInterface {
     messageRef: MessageRef,
     emoji: EmojiValue,
   ): Promise<{ ok: boolean; error?: string }> {
-    const adapter = this.deps.adapter;
-    if (!adapter.addReaction) {
-      return {
-        ok: false,
-        error: `${this.platform} does not support reactions`,
-      };
-    }
-    return adapter.addReaction(this.deps.replyTarget, messageRef, emoji);
+    return this.deps.egress.send({
+      op: "react",
+      target: this.deps.replyTarget,
+      ref: messageRef,
+      emoji,
+      add: true,
+    });
   }
 
   /** Remove the channel's emoji reaction from a message (capability-gated). */
@@ -197,14 +200,13 @@ export class Thread implements ThreadInterface {
     messageRef: MessageRef,
     emoji: EmojiValue,
   ): Promise<{ ok: boolean; error?: string }> {
-    const adapter = this.deps.adapter;
-    if (!adapter.removeReaction) {
-      return {
-        ok: false,
-        error: `${this.platform} does not support reactions`,
-      };
-    }
-    return adapter.removeReaction(this.deps.replyTarget, messageRef, emoji);
+    return this.deps.egress.send({
+      op: "react",
+      target: this.deps.replyTarget,
+      ref: messageRef,
+      emoji,
+      add: false,
+    });
   }
 
   /**
@@ -217,17 +219,16 @@ export class Thread implements ThreadInterface {
     ui: Renderable,
     opts: { fallbackToDM: boolean },
   ): Promise<EphemeralResult | null> {
-    const adapter = this.deps.adapter;
-    if (!adapter.postEphemeral) {
-      return {
-        ok: false,
-        error: `${this.platform} does not support ephemeral messages`,
-      };
-    }
     // Ephemeral messages can't be reacted to, so any `onReaction` is dropped
     // (stripped by bindForPost) rather than registered.
     const { root } = await this.bindForPost(ui);
-    return adapter.postEphemeral(this.deps.replyTarget, user, root, opts);
+    return this.deps.egress.send({
+      op: "ephemeral",
+      target: this.deps.replyTarget,
+      user,
+      ir: root,
+      fallbackToDM: opts.fallbackToDM,
+    });
   }
 
   // Subscription STORAGE lands here; subscription ROUTING (onSubscribedMessage) is deferred.
@@ -268,12 +269,12 @@ export class Thread implements ThreadInterface {
 
   /** Read the conversation's messages (returns `[]` when the adapter can't read history). */
   async getMessages(): Promise<ThreadMessage[]> {
-    return (await this.deps.adapter.getMessages?.(this.deps.replyTarget)) ?? [];
+    return (await this.deps.egress.getMessages?.(this.deps.replyTarget)) ?? [];
   }
 
   /** Resolve a platform user by free-form query (returns `undefined` when unsupported). */
   async lookupUser(query: string): Promise<PlatformUser | undefined> {
-    return this.deps.adapter.lookupUser?.({ query });
+    return this.deps.egress.lookupUser?.({ query });
   }
 
   /** Post a picker and wait until an interaction in this conversation resolves it. */
@@ -350,7 +351,7 @@ export class Thread implements ThreadInterface {
         content: extra.prompt as unknown as string,
       });
     }
-    const renderer = this.deps.adapter.createRunRenderer(this.deps.replyTarget);
+    const renderer = this.deps.egress.createRunRenderer(this.deps.replyTarget);
 
     // Transcript auto-bridge (step 1 + 2): inject prior cross-platform history
     // as a context entry, then append the current user turn. This flag owns the
