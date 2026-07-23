@@ -106,7 +106,10 @@ describe("@copilotkit/react-native/headless entry", () => {
   it("does not reach the chat UI / useAttachments modules", () => {
     const reached = [...seen].filter((f) =>
       FORBIDDEN_LOCAL.some((name) =>
-        path.basename(f).replace(/\.tsx?$/, "").includes(name),
+        path
+          .basename(f)
+          .replace(/\.tsx?$/, "")
+          .includes(name),
       ),
     );
     expect(
