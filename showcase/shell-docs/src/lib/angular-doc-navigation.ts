@@ -46,18 +46,21 @@ function frameworkContentSlug(
 ): string | null {
   const frameworkSlug = `integrations/${getDocsFolder(framework)}/${slugPath}`;
   const frameworkDoc = loadDoc(frameworkSlug);
-  const sharedContentSlug =
-    slugPath === "telemetry" ? "(other)/telemetry" : slugPath;
-  const sharedDoc = isFrontendFirstClassDoc("angular", sharedContentSlug)
-    ? loadDoc(sharedContentSlug)
-    : null;
+  const sharedContentSlug = [
+    slugPath,
+    ...(slugPath.startsWith("(other)/") ? [] : [`(other)/${slugPath}`]),
+  ].find(
+    (candidate) =>
+      isFrontendFirstClassDoc("angular", candidate) && loadDoc(candidate),
+  );
+  const sharedDoc = sharedContentSlug ? loadDoc(sharedContentSlug) : null;
 
   if (getDocsMode(framework) === "authored") {
-    if (sharedDoc) return sharedContentSlug;
+    if (sharedDoc) return sharedContentSlug ?? null;
     return frameworkDoc ? frameworkSlug : null;
   }
 
-  if (sharedDoc) return sharedContentSlug;
+  if (sharedDoc) return sharedContentSlug ?? null;
   return frameworkDoc ? frameworkSlug : null;
 }
 

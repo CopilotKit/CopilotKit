@@ -294,6 +294,21 @@ export async function DocsPageView({
                       source={content}
                       components={{
                         ...docsComponents,
+                        Card: (
+                          props: React.ComponentProps<
+                            typeof docsComponents.Card
+                          >,
+                        ) => {
+                          const CardComp = docsComponents.Card;
+                          const href =
+                            typeof props.href === "string"
+                              ? resolveDocsHref(props.href, {
+                                  slugHrefPrefix,
+                                  frameworkOverride,
+                                })
+                              : props.href;
+                          return <CardComp {...props} href={href} />;
+                        },
                         // Wrap MDX-rendered <pre> blocks (triple-fenced code)
                         // with the same figure chrome <Snippet> uses — copy
                         // button always visible, file-path caption when the

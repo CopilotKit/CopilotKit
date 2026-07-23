@@ -473,6 +473,7 @@ export default async function FrameworkScopedDocsPage({
           <FrameworkRootPage
             framework={activeBackendFramework}
             preferIndexMdx
+            frontendOverride="angular"
             slugHrefPrefix={frontendRoutePath(
               framework,
               "",
@@ -914,12 +915,14 @@ async function FrameworkRootPage({
   framework,
   preferIndexMdx = false,
   slugHrefPrefix = `/${framework}`,
+  frontendOverride,
   navTreeOverride,
   sidebarBannerSlot,
 }: {
   framework: string;
   preferIndexMdx?: boolean;
   slugHrefPrefix?: string;
+  frontendOverride?: FrontendPageId;
   navTreeOverride?: NavNode[];
   sidebarBannerSlot?: React.ReactNode;
 }) {
@@ -959,6 +962,7 @@ async function FrameworkRootPage({
         contentSlugPath={indexContentPath}
         slugHrefPrefix={slugHrefPrefix}
         frameworkOverride={framework}
+        frontendOverride={frontendOverride}
         navTree={navTree}
         sidebarBannerSlot={sidebarBannerSlot}
       />
@@ -1057,6 +1061,32 @@ async function FrameworkRootPage({
         );
       }
     }
+    const overviewSourceSlug = overview.guideLink.split("/")[1] ?? framework;
+    const scopedOverview =
+      frontendOverride === "angular"
+        ? {
+            ...overview,
+            guideLink: `/${framework}/quickstart`,
+            supportedFeatures: overview.supportedFeatures?.map((feature) => ({
+              ...feature,
+              description: feature.description.replace(
+                /\bReact components?\b/g,
+                (match) =>
+                  match.endsWith("s")
+                    ? "Angular components"
+                    : "an Angular component",
+              ),
+              documentationLink: feature.documentationLink.startsWith(
+                `/${overviewSourceSlug}/`,
+              )
+                ? `/${framework}${feature.documentationLink.slice(
+                    overviewSourceSlug.length + 1,
+                  )}`
+                : feature.documentationLink,
+            })),
+          }
+        : overview;
+
     return (
       <FrameworkRootShell
         navTree={navTree}
@@ -1064,9 +1094,10 @@ async function FrameworkRootPage({
         sidebarBannerSlot={sidebarBannerSlot}
       >
         <FrameworkOverview
-          data={overview}
+          data={scopedOverview}
           currentFramework={framework}
           hrefPrefix={slugHrefPrefix}
+          frontendOverride={frontendOverride}
           afterFeatures={afterFeatures}
         />
       </FrameworkRootShell>
@@ -1086,6 +1117,7 @@ async function FrameworkRootPage({
         contentSlugPath={indexContentPath}
         slugHrefPrefix={slugHrefPrefix}
         frameworkOverride={framework}
+        frontendOverride={frontendOverride}
         navTree={navTree}
         sidebarBannerSlot={sidebarBannerSlot}
       />

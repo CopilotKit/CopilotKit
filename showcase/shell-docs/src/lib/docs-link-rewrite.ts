@@ -1,4 +1,8 @@
 import { getIntegrations, ROOT_FRAMEWORK } from "@/lib/registry";
+import {
+  FRONTEND_PAGE_IDS,
+  getFrontendCanonicalSlug,
+} from "@/lib/frontend-page-content";
 import { RESERVED_ROUTE_SLUGS } from "@/lib/reserved-route-slugs";
 import { matchesSeoRedirectSource } from "@/lib/seo-redirects";
 
@@ -37,6 +41,15 @@ function joinPrefixedPath(prefix: string, suffix: string): string {
   return `${prefix}${suffix}`;
 }
 
+function canonicalAngularHref(href: string): string {
+  const suffixIndex = href.search(/[?#]/);
+  const pathname = suffixIndex === -1 ? href : href.slice(0, suffixIndex);
+  const suffix = suffixIndex === -1 ? "" : href.slice(suffixIndex);
+  const slugPath = pathname.replace(/^\/+|\/+$/g, "");
+  const canonicalSlug = getFrontendCanonicalSlug("angular", slugPath);
+  return canonicalSlug ? `/${canonicalSlug}${suffix}` : `/${suffix}`;
+}
+
 /**
  * Keep authored MDX links inside the active docs surface.
  *
@@ -63,6 +76,36 @@ export function resolveDocsHref(
   if (legacyIntegrationPath !== null) return legacyIntegrationPath;
 
   const firstSegment = href.slice(1).split(/[/?#]/, 1)[0];
+  const activeAngularPath = stripPathPrefix(slugHrefPrefix, "/angular");
+  if (activeAngularPath !== null) {
+    const sameAngularPath = stripPathPrefix(href, "/angular");
+    const targetsAnotherFrontend = FRONTEND_PAGE_IDS.some(
+      (frontend) =>
+        frontend !== "angular" &&
+        stripPathPrefix(href, `/${frontend}`) !== null,
+    );
+    const targetsReservedRoute =
+      firstSegment !== undefined && RESERVED_ROUTE_SLUG_SET.has(firstSegment);
+
+    if (targetsAnotherFrontend || targetsReservedRoute) return href;
+
+    const angularHref = canonicalAngularHref(sameAngularPath ?? href);
+    const angularFirstSegment = angularHref.slice(1).split(/[/?#]/, 1)[0];
+    const targetsAnotherBackend =
+      sameAngularPath === null &&
+      angularFirstSegment !== undefined &&
+      CROSS_FRAMEWORK_SLUGS.has(angularFirstSegment);
+    const targetsRootOnlyPage =
+      sameAngularPath === null && angularHref === "/model-selection";
+
+    return joinPrefixedPath(
+      targetsAnotherBackend || targetsRootOnlyPage
+        ? "/angular"
+        : slugHrefPrefix,
+      angularHref,
+    );
+  }
+
   const linkRewriteFramework =
     frameworkOverride ?? (slugHrefPrefix === "" ? ROOT_FRAMEWORK : null);
   if (!linkRewriteFramework) return href;

@@ -17,6 +17,7 @@ import type {
   FrameworkOverviewData,
   OpsPlatformCTAData,
 } from "@/data/frameworks/types";
+import type { FrontendId } from "@/lib/frontend-options";
 
 export interface FrameworkOverviewProps {
   data: FrameworkOverviewData;
@@ -34,6 +35,8 @@ export interface FrameworkOverviewProps {
    * prefix after variant normalization.
    */
   hrefPrefix?: string;
+  /** Frontend selected by the route, used for framework-sensitive copy. */
+  frontendOverride?: FrontendId;
   /**
    * Optional slot rendered between the supported-features section and the
    * architecture section. When supplied, this takes precedence over `data.cta`
@@ -124,6 +127,7 @@ export function FrameworkOverview({
   data,
   currentFramework,
   hrefPrefix,
+  frontendOverride,
   afterFeatures,
   iconOverride,
 }: FrameworkOverviewProps) {
@@ -134,12 +138,25 @@ export function FrameworkOverview({
     subheader,
     guideLink: rawGuideLink,
     initCommand,
-    supportedFeatures = [],
+    supportedFeatures: rawSupportedFeatures = [],
     architectureImage,
     architectureVideo,
     liveDemos = [],
     cta,
   } = data;
+  const supportedFeatures =
+    frontendOverride === "angular"
+      ? rawSupportedFeatures.map((feature) => ({
+          ...feature,
+          description: feature.description.replace(
+            /\bReact components?\b/g,
+            (match) =>
+              match.endsWith("s")
+                ? "Angular components"
+                : "an Angular component",
+          ),
+        }))
+      : rawSupportedFeatures;
 
   // Derive the primary variant's slug from the data record's own links —
   // typically the path segment after the leading `/` of `guideLink`

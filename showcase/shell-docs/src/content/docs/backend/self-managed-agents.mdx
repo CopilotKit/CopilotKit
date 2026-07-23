@@ -13,7 +13,7 @@ and choosing the right one matters.
 
 ## Production: self-managed agents
 
-`selfManagedAgents` is the supported prop for connecting agents you manage
+`selfManagedAgents` is the supported configuration option for connecting agents you manage
 yourself, for example an [`HttpAgent`](/backend/ag-ui) pointing at an
 AG-UI-compatible backend you own and have already secured:
 
@@ -133,11 +133,14 @@ they are merged, and **`selfManagedAgents` wins on a key collision**:
 ```
 </FrontendOnly>
 
-Supplying agents through either prop also satisfies the provider's configuration
-check. You won't get the
+Supplying agents through either provider option also satisfies the frontend
+configuration check when at least one local agent is registered.
+
+<FrontendOnly frontend="react">
+You won't get the
 `Missing required prop: 'runtimeUrl' or 'publicApiKey' or 'publicLicenseKey'`
-error (see the [error reference](/troubleshooting/error-reference)) when at least
-one local agent is registered.
+error; see the [error reference](/troubleshooting/error-reference).
+</FrontendOnly>
 
 | | `selfManagedAgents` | Local agents |
 |---|---|---|
@@ -149,5 +152,5 @@ one local agent is registered.
 ## Related
 
 - [Copilot Runtime](/backend/copilot-runtime): the recommended runtime-backed path and its trade-offs compared with direct connections.
-- [Connect AG-UI agents](/backend/ag-ui): the `AbstractAgent` / `HttpAgent` interface these props accept.
+- [Connect AG-UI agents](/backend/ag-ui): the `AbstractAgent` / `HttpAgent` interface these options accept.
 - [Auth](/auth): securing agent traffic when you self-manage the connection.

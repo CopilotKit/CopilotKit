@@ -50,6 +50,7 @@ import demoContent from "@/data/demo-content.json";
 import angularSourceContent from "@/data/angular-source-content.json";
 import { filterFrontendScopedBlocks } from "./toc";
 import type { FrontendId } from "./frontend-options";
+import { resolveDocsHref } from "./docs-link-rewrite";
 
 interface Region {
   file: string;
@@ -611,6 +612,41 @@ function stripInlineDemos(body: string): string {
   );
 }
 
+function rewriteAngularLinks(body: string, page: LlmPage): string {
+  const parts = page.url.split("/").filter(Boolean);
+  if (parts[0] !== "angular") return body;
+
+  const backendSlugs = new Set(
+    getIntegrations().map((integration) => integration.slug),
+  );
+  const backend = parts[1] && backendSlugs.has(parts[1]) ? parts[1] : null;
+  const slugHrefPrefix = backend ? `/angular/${backend}` : "/angular";
+  const options = {
+    slugHrefPrefix,
+    frameworkOverride: backend ?? ROOT_FRAMEWORK,
+  };
+  const rewrite = (href: string): string =>
+    resolveDocsHref(href, options) ?? href;
+
+  return body
+    .split(/(```[\s\S]*?```)/g)
+    .map((chunk, index) => {
+      if (index % 2 === 1) return chunk;
+      return chunk
+        .replace(
+          /(\]\()((?:\/(?!\/))[^\s)]+)(\))/g,
+          (_match, open: string, href: string, close: string) =>
+            `${open}${rewrite(href)}${close}`,
+        )
+        .replace(
+          /(\bhref\s*=\s*["'])((?:\/(?!\/))[^"']+)(["'])/g,
+          (_match, open: string, href: string, close: string) =>
+            `${open}${rewrite(href)}${close}`,
+        );
+    })
+    .join("");
+}
+
 /**
  * Convert an MDX source into LLM-friendly markdown. The output:
  *
@@ -669,7 +705,10 @@ export function renderPageToLlmText(
   // 4) Drop `<InlineDemo />`.
   body = stripInlineDemos(body);
 
-  // 5) Prepend an H1 (and description blockquote) so consumers always
+  // 5) Keep raw Markdown links in the same Angular surface as the live page.
+  body = rewriteAngularLinks(body, page);
+
+  // 6) Prepend an H1 (and description blockquote) so consumers always
   //    get a clear page title — frontmatter alone wouldn't survive the
   //    strip step.
   const header: string[] = [`# ${title}`];

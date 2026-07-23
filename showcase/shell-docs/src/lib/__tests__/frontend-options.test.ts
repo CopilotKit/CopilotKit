@@ -27,7 +27,7 @@ import {
   getFrontendQuickstartNavTree,
   getFrontendUsingTheseDocsPath,
 } from "../frontend-page-content";
-import { loadDoc } from "../docs-render";
+import { buildBreadcrumbs, loadDoc } from "../docs-render";
 import type { NavNode } from "../docs-render";
 import { resolveFrontendDocPage } from "../frontend-doc-policy";
 import {
@@ -310,6 +310,35 @@ test("canonicalizes React-only frontend topics to Angular-native task guides", (
   expect(getFrontendCanonicalSlug("angular", "premium/overview")).toBe(
     "premium/overview",
   );
+  expect(
+    getFrontendCanonicalSlug(
+      "angular",
+      "(other)/contributing/code-contributions",
+    ),
+  ).toBe("contributing/code-contributions");
+  expect(
+    getFrontendCanonicalSlug("angular", "generative-ui/a2ui/styling"),
+  ).toBe("guides/frontend-tools-generative-ui");
+  expect(getFrontendCanonicalSlug("angular", "deploy-agentcore")).toBe(
+    "backend/copilot-runtime",
+  );
+  expect(
+    getFrontendCanonicalSlug("angular", "a2a/generative-ui/declarative-a2ui"),
+  ).toBe("guides/frontend-tools-generative-ui");
+});
+
+test("does not link breadcrumbs for section-only paths", () => {
+  const breadcrumbs = buildBreadcrumbs("backend/copilot-runtime", {
+    rootLabel: "Docs",
+    rootHref: "/angular",
+    slugHrefPrefix: "/angular",
+  });
+
+  expect(breadcrumbs).toEqual([
+    { label: "Docs", href: "/angular" },
+    { label: "Runtime", href: null },
+    { label: "Copilot Runtime", href: null },
+  ]);
 });
 
 test("routes frontend sidebars to the most specific reference docs available", () => {
