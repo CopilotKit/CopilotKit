@@ -159,11 +159,11 @@ describe("adapter reaction ingress loop guard", () => {
     };
     const sink = makeSink();
     await adapter.start(sink as never);
-    return { fireReaction, sink, usersInfo };
+    return { sink, usersInfo };
   }
 
   it("does NOT dispatch the bot's OWN reaction to sink.onReaction", async () => {
-    const { fireReaction, sink } = await startWithFakes();
+    const { sink } = await startWithFakes();
     await fireReaction("reaction_added", {
       user: BOT_USER_ID,
       reaction: "thumbsup",
@@ -173,7 +173,7 @@ describe("adapter reaction ingress loop guard", () => {
   });
 
   it("DOES dispatch a normal user's reaction to sink.onReaction", async () => {
-    const { fireReaction, sink } = await startWithFakes();
+    const { sink } = await startWithFakes();
     await fireReaction("reaction_added", {
       user: "UHUMAN",
       reaction: "thumbsup",
@@ -183,7 +183,7 @@ describe("adapter reaction ingress loop guard", () => {
   });
 
   it("enriches the reaction user via resolveUser (name + email), not a bare {id}", async () => {
-    const { fireReaction, sink, usersInfo } = await startWithFakes();
+    const { sink, usersInfo } = await startWithFakes();
     await fireReaction("reaction_added", {
       user: "UHUMAN",
       reaction: "thumbsup",
@@ -201,7 +201,7 @@ describe("adapter reaction ingress loop guard", () => {
   });
 
   it("enriches the reaction user on reaction_removed too", async () => {
-    const { fireReaction, sink } = await startWithFakes();
+    const { sink } = await startWithFakes();
     await fireReaction("reaction_removed", {
       user: "UHUMAN",
       reaction: "thumbsup",
