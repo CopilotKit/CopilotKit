@@ -94,7 +94,7 @@ icon: "lucide/Component"
     ```tsx
     import { BarChart, LineChart, PieChart, Sparkline } from "@copilotkit/channels/charts";
 
-    // Themed by default — palette falls back to your shadcn --chart-1..5 tokens
+    // Uses the fixed default palette (see below)
     await thread.post(
       <BarChart
         title="Signups / day"
@@ -128,7 +128,12 @@ icon: "lucide/Component"
     );
     ```
 
-    Every chart component shares the same `ChartStyleProps`: `className`, `style`, `width`, `height`, `colors`, `gridColor`, `labelClassName`, `title`, and `showGrid` (cartesian charts only). The default palette is `var(--chart-1)` through `var(--chart-5)` — the exact tokens shadcn ships — with hex fallbacks, so charts pick up your app's theme automatically once `render.stylesheets` is set, and still render in color when it isn't.
+    Every chart component shares the same `ChartStyleProps`: `className`, `style`, `width`, `height`, `colors`, `gridColor`, `labelClassName`, `title`, and `showGrid` — but not every field is honored by every chart:
+
+    - **Colors:** Takumi does not resolve CSS `var()`/theme tokens for SVG `stroke`/`fill` (or for `backgroundColor` on box-model charts in a theme-independent way), so the default palette is a **fixed** set of hex values, not your shadcn `--chart-1..5` tokens. Pass your own `colors` prop to theme a chart explicitly.
+    - **`width`/`height`:** honored by the SVG charts (`LineChart`, `PieChart`, `Scatter`, `Sparkline`); box-model charts (`BarChart`, `StackedBar`, `Meter`) fill their container instead and ignore both.
+    - **`gridColor`/`showGrid`:** only apply to `LineChart` and `Scatter`.
+    - **`title`:** honored by `BarChart`/`StackedBar`/`LineChart`/`PieChart`/`Scatter`, not by `Meter`/`Sparkline`.
 
     These are separate from the existing **native** `<Chart>` component, which still renders as a real Block Kit/Adaptive Card chart where the surface supports it. The `charts` components are for image output styled with your app's own CSS.
   </Step>

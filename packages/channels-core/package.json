@@ -71,6 +71,7 @@
     "@copilotkit/typescript-config": "workspace:^",
     "@types/node": "^22.10.0",
     "@types/react": "^19.1.0",
+    "pngjs": "^7.0.0",
     "react": "^19.1.0",
     "takumi-js": "^2.4.1",
     "typescript": "^5.6.3",
