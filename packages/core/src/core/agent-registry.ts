@@ -22,6 +22,8 @@ import {
 } from "./core";
 import type { CopilotRuntimeTransport } from "../types";
 
+const RUNTIME_ENTITLEMENT_RETRY_DELAY_MS = 5_000;
+
 export interface CopilotKitCoreAddAgentParams {
   id: string;
   agent: AbstractAgent;
@@ -64,6 +66,8 @@ export class AgentRegistry {
   // same runtime (url + requested transport) collapse to a single request
   // instead of each firing their own. See #5801.
   private _connectionInFlight?: { key: string; promise: Promise<void> };
+  private _runtimeEntitlementRetryTimer?: ReturnType<typeof setTimeout>;
+  private _runtimeEntitlementRetryAttemptedKey?: string;
   private _runtimeVersion?: string;
   private _runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus =
     CopilotKitCoreRuntimeConnectionStatus.Disconnected;
@@ -197,6 +201,7 @@ export class AgentRegistry {
       return;
     }
 
+    this.resetRuntimeEntitlementRetry();
     this._runtimeUrl = normalizedRuntimeUrl;
 
     // Deferred construction (see CopilotKitCore.connect / #5801): record the URL
@@ -246,6 +251,7 @@ export class AgentRegistry {
       return;
     }
 
+    this.resetRuntimeEntitlementRetry();
     this._requestedTransport = runtimeTransport;
     this._runtimeTransport = runtimeTransport;
     void this.updateRuntimeConnection();
@@ -442,7 +448,7 @@ export class AgentRegistry {
     // requested transport) is already running, reuse it instead of starting a
     // second `/info` request. A change to a different target supersedes it. See
     // #5801.
-    const key = `${this._runtimeUrl ?? ""}::${this._requestedTransport}`;
+    const key = this.runtimeConnectionKey();
     const inFlight = this._connectionInFlight;
     if (inFlight && inFlight.key === key) {
       return inFlight.promise;
@@ -456,6 +462,58 @@ export class AgentRegistry {
       }
     });
     return promise;
+  }
+
+  /** Return the stable key used to scope connection and entitlement retries. */
+  private runtimeConnectionKey(): string {
+    return `${this._runtimeUrl ?? ""}::${this._requestedTransport}`;
+  }
+
+  /** Cancel a pending entitlement retry and allow a new connection to retry. */
+  private resetRuntimeEntitlementRetry(): void {
+    if (this._runtimeEntitlementRetryTimer !== undefined) {
+      clearTimeout(this._runtimeEntitlementRetryTimer);
+      this._runtimeEntitlementRetryTimer = undefined;
+    }
+    this._runtimeEntitlementRetryAttemptedKey = undefined;
+  }
+
+  /**
+   * Schedule one later `/info` read after Runtime's five-second failure cache.
+   */
+  private updateRuntimeEntitlementRetry(
+    runtimeEntitlements: RuntimeEntitlementResponse | undefined,
+  ): void {
+    if (
+      runtimeEntitlements?.status === "ready" ||
+      runtimeEntitlements?.error.retryable !== true
+    ) {
+      this.resetRuntimeEntitlementRetry();
+      return;
+    }
+
+    const key = this.runtimeConnectionKey();
+    if (
+      this._runtimeEntitlementRetryTimer !== undefined ||
+      this._runtimeEntitlementRetryAttemptedKey === key
+    ) {
+      return;
+    }
+
+    this._runtimeEntitlementRetryAttemptedKey = key;
+    this._runtimeEntitlementRetryTimer = setTimeout(() => {
+      this._runtimeEntitlementRetryTimer = undefined;
+      if (!this._runtimeUrl || this.runtimeConnectionKey() !== key) {
+        return;
+      }
+      this.updateRuntimeConnection().catch((error: unknown) => {
+        const message =
+          error instanceof Error ? error.message : JSON.stringify(error);
+        logger.warn(
+          `Failed to retry runtime info (${this.runtimeUrl}/info): ${message}`,
+        );
+      });
+    }, RUNTIME_ENTITLEMENT_RETRY_DELAY_MS);
   }
 
   private async performRuntimeConnection(): Promise<void> {
@@ -570,6 +628,9 @@ export class AgentRegistry {
         runtimeInfoResponse.openGenerativeUIEnabled ?? false;
       this._licenseStatus = runtimeInfoResponse.licenseStatus;
       this._runtimeEntitlements = runtimeInfoResponse.runtimeEntitlements;
+      this.updateRuntimeEntitlementRetry(
+        runtimeInfoResponse.runtimeEntitlements,
+      );
       this._telemetryDisabled = runtimeInfoResponse.telemetryDisabled ?? false;
 
       await this.notifyRuntimeStatusChanged(

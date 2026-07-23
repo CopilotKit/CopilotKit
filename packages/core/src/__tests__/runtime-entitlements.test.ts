@@ -35,6 +35,24 @@ const refreshedRuntimeEntitlements: RuntimeEntitlementResponse = {
   },
 };
 
+const retryableRuntimeEntitlements: RuntimeEntitlementResponse = {
+  status: "unavailable",
+  error: {
+    code: "runtime_entitlements_unavailable",
+    message: "Runtime entitlement lookup failed",
+    retryable: true,
+  },
+};
+
+const nonRetryableRuntimeEntitlements: RuntimeEntitlementResponse = {
+  status: "misconfigured",
+  error: {
+    code: "runtime_entitlements_misconfigured",
+    message: "Runtime entitlement lookup is misconfigured",
+    retryable: false,
+  },
+};
+
 interface RuntimeInfoOptions {
   agents?: RuntimeInfo["agents"];
   includeRuntimeAuthority?: boolean;
@@ -260,5 +278,118 @@ test("keeps updated Runtime authority when a refresh removes an agent", async ()
     });
   } finally {
     teardown();
+  }
+});
+
+test("retries a transient Runtime entitlement result once without a reconnect", async () => {
+  vi.useFakeTimers();
+  const { core, fetchMock, teardown } = setupCore(
+    runtimeInfoResponse(
+      runtimeInfo({
+        licenseStatus: "unknown",
+        runtimeEntitlements: retryableRuntimeEntitlements,
+      }),
+    ),
+    runtimeInfoResponse(runtimeInfo()),
+  );
+
+  try {
+    await vi.waitFor(() => {
+      expect(core.runtimeConnectionStatus).toBe(
+        CopilotKitCoreRuntimeConnectionStatus.Connected,
+      );
+    });
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(readRuntimeAuthority(core)).toEqual({
+      licenseStatus: "unknown",
+      runtimeEntitlements: retryableRuntimeEntitlements,
+    });
+
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(readRuntimeAuthority(core)).toEqual({
+        licenseStatus: "valid",
+        runtimeEntitlements: initialRuntimeEntitlements,
+      });
+    });
+  } finally {
+    teardown();
+    vi.useRealTimers();
+  }
+});
+
+test("does not retry a non-retryable Runtime entitlement result", async () => {
+  vi.useFakeTimers();
+  const { core, fetchMock, teardown } = setupCore(
+    runtimeInfoResponse(
+      runtimeInfo({
+        licenseStatus: "none",
+        runtimeEntitlements: nonRetryableRuntimeEntitlements,
+      }),
+    ),
+  );
+
+  try {
+    await vi.waitFor(() => {
+      expect(core.runtimeConnectionStatus).toBe(
+        CopilotKitCoreRuntimeConnectionStatus.Connected,
+      );
+    });
+
+    await vi.advanceTimersByTimeAsync(30_000);
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(readRuntimeAuthority(core)).toEqual({
+      licenseStatus: "none",
+      runtimeEntitlements: nonRetryableRuntimeEntitlements,
+    });
+  } finally {
+    teardown();
+    vi.useRealTimers();
+  }
+});
+
+test("bounds automatic recovery to one retry for a persistent outage", async () => {
+  vi.useFakeTimers();
+  const transientInfo = runtimeInfoResponse(
+    runtimeInfo({
+      licenseStatus: "unknown",
+      runtimeEntitlements: retryableRuntimeEntitlements,
+    }),
+  );
+  const { core, fetchMock, teardown } = setupCore(
+    transientInfo,
+    runtimeInfoResponse(
+      runtimeInfo({
+        licenseStatus: "unknown",
+        runtimeEntitlements: retryableRuntimeEntitlements,
+      }),
+    ),
+  );
+
+  try {
+    await vi.waitFor(() => {
+      expect(core.runtimeConnectionStatus).toBe(
+        CopilotKitCoreRuntimeConnectionStatus.Connected,
+      );
+    });
+
+    await vi.advanceTimersByTimeAsync(5_000);
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+    await vi.advanceTimersByTimeAsync(30_000);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(readRuntimeAuthority(core)).toEqual({
+      licenseStatus: "unknown",
+      runtimeEntitlements: retryableRuntimeEntitlements,
+    });
+  } finally {
+    teardown();
+    vi.useRealTimers();
   }
 });

@@ -846,9 +846,16 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   );
 
   // License context — driven by server-reported authority via /info endpoint
+  const runtimeEntitlementRetryPending =
+    runtimeEntitlements?.status !== "ready" &&
+    runtimeEntitlements?.error.retryable === true;
   const licenseContextValue = useMemo(
-    () => createLicenseContextValue(runtimeLicenseStatus, runtimeEntitlements),
-    [runtimeEntitlements, runtimeLicenseStatus],
+    () =>
+      createLicenseContextValue(
+        runtimeEntitlementRetryPending ? undefined : runtimeLicenseStatus,
+        runtimeEntitlements,
+      ),
+    [runtimeEntitlementRetryPending, runtimeEntitlements, runtimeLicenseStatus],
   );
 
   return (
