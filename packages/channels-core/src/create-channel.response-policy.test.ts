@@ -28,7 +28,7 @@ describe("createChannel onTurn — response policy (declarative adapter)", () =>
     const fake = new FakeAdapter();
     const { agent, runs } = countingAgent();
     const channel = createChannel({ adapters: [fake], agent });
-    await channel.start();
+    await channel.ɵruntime.start();
 
     fake.emitTurn({
       userText: "chatter",
@@ -46,7 +46,7 @@ describe("createChannel onTurn — response policy (declarative adapter)", () =>
     const fake = new FakeAdapter();
     const { agent, runs } = countingAgent();
     const channel = createChannel({ adapters: [fake], agent });
-    await channel.start();
+    await channel.ɵruntime.start();
 
     fake.emitTurn({
       userText: "help",
@@ -62,7 +62,7 @@ describe("createChannel onTurn — response policy (declarative adapter)", () =>
     const fake = new FakeAdapter();
     const { agent, runs } = countingAgent();
     const channel = createChannel({ adapters: [fake], agent });
-    await channel.start();
+    await channel.ɵruntime.start();
 
     fake.emitTurn({
       userText: "@bot help",
@@ -83,7 +83,7 @@ describe("createChannel onTurn — response policy (declarative adapter)", () =>
     channel.onMention(() => {
       handled++;
     });
-    await channel.start();
+    await channel.ɵruntime.start();
 
     fake.emitTurn({
       userText: "@bot",
@@ -104,7 +104,7 @@ describe("createChannel onTurn — response policy (declarative adapter)", () =>
     channel.onMessage(() => {
       handled++;
     });
-    await channel.start();
+    await channel.ɵruntime.start();
 
     fake.emitTurn({
       userText: "chatter",
@@ -126,7 +126,7 @@ describe("createChannel onTurn — legacy dispatch (no conversationKind)", () =>
     channel.onMention(() => {
       handled++;
     });
-    await channel.start();
+    await channel.ɵruntime.start();
 
     // No conversationKind → legacy behavior preserved (handler fires).
     fake.emitTurn({ userText: "yo", conversationKey: "c1" });

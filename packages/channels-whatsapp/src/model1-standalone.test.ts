@@ -49,7 +49,7 @@ describe("Model 1 standalone: credential-free WhatsApp via an injected connector
   it("a DM auto-runs the agent (already directly addressed), reply posts through the FakeWhatsAppConnector", async () => {
     const agent = new FakeAgent([replyingWith("hi there")]);
     const { channel, connector } = setup(agent);
-    await channel.start();
+    await channel.ɵruntime.start();
 
     await connector.emitTurn({
       conversationKey: "whatsapp:111",
@@ -68,7 +68,7 @@ describe("Model 1 standalone: credential-free WhatsApp via an injected connector
     channel.onMessage(() => {
       handled++;
     });
-    await channel.start();
+    await channel.ɵruntime.start();
 
     await connector.emitTurn({
       conversationKey: "whatsapp:222",

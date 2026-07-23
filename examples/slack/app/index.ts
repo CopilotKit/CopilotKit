@@ -273,14 +273,14 @@ async function main() {
     ]);
   });
 
-  await bot.start();
+  await bot.ɵruntime.start();
   console.log(
     `[channel] started on: ${adapters.map((a) => a.platform).join(", ")}`,
   );
 
   const shutdown = async (signal: string) => {
     console.log(`\n[channel] received ${signal}, stopping…`);
-    await bot.stop();
+    await bot.ɵruntime.stop();
     // Tear down the shared headless browser used for chart/diagram rendering.
     await closeBrowser();
     process.exit(0);

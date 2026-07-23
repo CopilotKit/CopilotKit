@@ -44,7 +44,7 @@ describe("Model 1 standalone: credential-free Teams via an injected connector", 
   it("a tagged shared channel message auto-runs the agent, and the reply posts through the FakeTeamsConnector", async () => {
     const agent = new FakeAgent([replyingWith("hi there")]);
     const { channel, connector } = setup(agent);
-    await channel.start();
+    await channel.ɵruntime.start();
 
     await connector.emitTurn({
       conversationKey: "19:abc@thread.tacv2",
@@ -61,7 +61,7 @@ describe("Model 1 standalone: credential-free Teams via an injected connector", 
   it("an untagged shared channel message with no onMessage handler is ignored — no run, no egress", async () => {
     const agent = new FakeAgent([replyingWith("should never post")]);
     const { channel, connector } = setup(agent);
-    await channel.start();
+    await channel.ɵruntime.start();
 
     await connector.emitTurn({
       conversationKey: "19:abc@thread.tacv2",
@@ -78,7 +78,7 @@ describe("Model 1 standalone: credential-free Teams via an injected connector", 
   it("a personal (1:1) chat auto-runs the agent (already directly addressed), reply posts through the FakeTeamsConnector", async () => {
     const agent = new FakeAgent([replyingWith("hello from DM")]);
     const { channel, connector } = setup(agent);
-    await channel.start();
+    await channel.ɵruntime.start();
 
     await connector.emitTurn({
       conversationKey: "conv-1",
@@ -98,7 +98,7 @@ describe("Model 1 standalone: credential-free Teams via an injected connector", 
     channel.onMention(() => {
       handled++;
     });
-    await channel.start();
+    await channel.ɵruntime.start();
 
     await connector.emitTurn({
       conversationKey: "19:abc@thread.tacv2",

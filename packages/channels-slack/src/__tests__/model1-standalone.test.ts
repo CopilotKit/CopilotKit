@@ -50,7 +50,7 @@ describe("Model 1 standalone: credential-free Slack via an injected connector (T
   it("a tagged shared message auto-runs the agent, and the reply posts through the FakeSlackConnector", async () => {
     const agent = new FakeAgent([replyingWith("hi there")]);
     const { channel, connector } = setup(agent);
-    await channel.start();
+    await channel.ɵruntime.start();
 
     await connector.emitTurn({
       conversationKey: "C1::100.000",
@@ -67,7 +67,7 @@ describe("Model 1 standalone: credential-free Slack via an injected connector (T
   it("an untagged shared message with no onMessage handler is ignored — no run, no egress", async () => {
     const agent = new FakeAgent([replyingWith("should never post")]);
     const { channel, connector } = setup(agent);
-    await channel.start();
+    await channel.ɵruntime.start();
 
     await connector.emitTurn({
       conversationKey: "C1::200.000",
@@ -84,7 +84,7 @@ describe("Model 1 standalone: credential-free Slack via an injected connector (T
   it("a DM auto-runs the agent (already directly addressed), reply posts through the FakeSlackConnector", async () => {
     const agent = new FakeAgent([replyingWith("hello from DM")]);
     const { channel, connector } = setup(agent);
-    await channel.start();
+    await channel.ɵruntime.start();
 
     await connector.emitTurn({
       conversationKey: "D1",
@@ -104,7 +104,7 @@ describe("Model 1 standalone: credential-free Slack via an injected connector (T
     channel.onMention(() => {
       handled++;
     });
-    await channel.start();
+    await channel.ɵruntime.start();
 
     await connector.emitTurn({
       conversationKey: "C1::300.000",

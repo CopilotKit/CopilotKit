@@ -33,7 +33,7 @@ describe("createChannel telemetry wiring", () => {
         },
       ],
     });
-    await channel.start();
+    await channel.ɵruntime.start();
     const call = capture.mock.calls.find(
       (c) => c[0] === "oss.channel.configured",
     );
@@ -46,7 +46,7 @@ describe("createChannel telemetry wiring", () => {
   it("emits oss.channel.started on start, start_failed (category only) on a throwing adapter", async () => {
     const ok = new FakeAdapter();
     const channel = createChannel({ adapters: [ok] });
-    await channel.start();
+    await channel.ɵruntime.start();
     expect(
       capture.mock.calls.find((c) => c[0] === "oss.channel.started")?.[1]
         .startedCount,
@@ -59,7 +59,7 @@ describe("createChannel telemetry wiring", () => {
         Object.assign(new Error("xoxb-SECRET token bad"), { code: "EAUTH" }),
       );
     const bot2 = createChannel({ adapters: [bad] });
-    await bot2.start();
+    await bot2.ɵruntime.start();
     const f = capture.mock.calls.find(
       (c) => c[0] === "oss.channel.start_failed",
     );
@@ -77,7 +77,7 @@ describe("createChannel telemetry wiring", () => {
     channel.onMention(async ({ thread }) => {
       await thread.runAgent();
     });
-    await channel.start();
+    await channel.ɵruntime.start();
     capture.mockClear();
     fake.emitTurn({ userText: "hi", conversationKey: "c1" });
     await tick();

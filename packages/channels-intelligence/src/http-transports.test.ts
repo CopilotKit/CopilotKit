@@ -1135,7 +1135,7 @@ describe("intelligenceAdapter() — config-free default transports", () => {
         }),
       ],
     });
-    await bot.start();
+    await bot.ɵruntime.start();
     // Let the loop heartbeat + poll at least once.
     const deadline = Date.now() + 200;
     while (
@@ -1144,7 +1144,7 @@ describe("intelligenceAdapter() — config-free default transports", () => {
     ) {
       await new Promise((r) => setTimeout(r, 5));
     }
-    await bot.stop();
+    await bot.ɵruntime.stop();
 
     const hb = calls.find((c) => c.url.endsWith("/heartbeat"))!;
     expect(hb.body).toMatchObject({

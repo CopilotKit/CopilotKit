@@ -48,7 +48,7 @@ describe("Model 1 standalone: credential-free Telegram via an injected connector
   it("a tagged group message auto-runs with no handlers, reply posts through the FakeTelegramConnector", async () => {
     const agent = new FakeAgent([replyingWith("hi there")]);
     const { channel, connector } = setup(agent);
-    await channel.start();
+    await channel.ɵruntime.start();
 
     await connector.emitTurn({
       conversationKey: "tg:9:user:5",
@@ -65,7 +65,7 @@ describe("Model 1 standalone: credential-free Telegram via an injected connector
   it("an untagged group message with no onMessage handler is ignored — no run, no egress", async () => {
     const agent = new FakeAgent([replyingWith("should never post")]);
     const { channel, connector } = setup(agent);
-    await channel.start();
+    await channel.ɵruntime.start();
 
     await connector.emitTurn({
       conversationKey: "tg:9:user:5",
@@ -82,7 +82,7 @@ describe("Model 1 standalone: credential-free Telegram via an injected connector
   it("a DM auto-runs the agent (already directly addressed), reply posts through the FakeTelegramConnector", async () => {
     const agent = new FakeAgent([replyingWith("hello from DM")]);
     const { channel, connector } = setup(agent);
-    await channel.start();
+    await channel.ɵruntime.start();
 
     await connector.emitTurn({
       conversationKey: "tg:9:dm",
@@ -102,7 +102,7 @@ describe("Model 1 standalone: credential-free Telegram via an injected connector
     channel.onMention(() => {
       handled++;
     });
-    await channel.start();
+    await channel.ɵruntime.start();
 
     await connector.emitTurn({
       conversationKey: "tg:9:user:5",
@@ -120,8 +120,8 @@ describe("Model 1 standalone: credential-free Telegram via an injected connector
   it("stop() delegates to the injected connector's stopIngress", async () => {
     const agent = new FakeAgent([replyingWith("n/a")]);
     const { channel, connector } = setup(agent);
-    await channel.start();
-    await channel.stop();
+    await channel.ɵruntime.start();
+    await channel.ɵruntime.stop();
 
     expect(connector.ingressStopped).toBe(true);
   });

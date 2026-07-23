@@ -193,7 +193,7 @@ bot.onMessage(async ({ thread, message }) => {
   await thread.runAgent();
 });
 
-await bot.start();
+await bot.ɵruntime.start();
 
 console.log(
   `Teams demo bot listening at http://localhost:${port}/api/messages`,
@@ -207,7 +207,7 @@ console.log(
 // Stop the bot cleanly on exit.
 const shutdown = async (signal: string): Promise<void> => {
   console.log(`\nReceived ${signal}, stopping…`);
-  await bot.stop().catch(() => {});
+  await bot.ɵruntime.stop().catch(() => {});
   process.exit(0);
 };
 process.on("SIGINT", () => void shutdown("SIGINT"));

@@ -13,7 +13,7 @@ async function runOnMessage(
 ) {
   const channel = createChannel({ adapters: [fake] });
   channel.onMessage(fn);
-  await channel.start();
+  await channel.ɵruntime.start();
   fake.emitTurn({ userText: "hi", user: { id: "U1" } });
   await new Promise((r) => setTimeout(r, 0));
 }
