@@ -1,6 +1,6 @@
 import { createElement as h } from "react";
 import type { ReactElement } from "react";
-import { DEFAULT_CHART_COLORS } from "./types.js";
+import { DEFAULT_CHART_COLORS, finiteOr0 } from "./types.js";
 import type { ChartStyleProps } from "./types.js";
 
 export interface StackedDatum {
@@ -23,7 +23,8 @@ export function StackedBar(props: StackedBarProps): ReactElement {
     labelClassName,
   } = props;
   const palette = colors && colors.length > 0 ? colors : DEFAULT_CHART_COLORS;
-  const totals = data.map((d) => d.values.reduce((a, b) => a + b, 0));
+  const values = data.map((d) => d.values.map((v) => finiteOr0(v)));
+  const totals = values.map((vs) => vs.reduce((a, b) => a + b, 0));
   const max = Math.max(1, ...totals);
   return h(
     "div",
@@ -87,7 +88,7 @@ export function StackedBar(props: StackedBarProps): ReactElement {
                 overflow: "hidden",
               },
             },
-            ...d.values.map((v, s) =>
+            ...values[i]!.map((v, s) =>
               h("div", {
                 key: s,
                 style: {

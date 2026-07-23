@@ -1,6 +1,6 @@
 import { createElement as h } from "react";
 import type { ReactElement } from "react";
-import { DEFAULT_CHART_COLORS } from "./types.js";
+import { DEFAULT_CHART_COLORS, finiteOr0 } from "./types.js";
 import type { ChartStyleProps } from "./types.js";
 
 export interface MeterProps extends ChartStyleProps {
@@ -22,9 +22,7 @@ export function Meter(props: MeterProps): ReactElement {
     labelClassName,
   } = props;
   const palette = colors && colors.length > 0 ? colors : DEFAULT_CHART_COLORS;
-  const pct = Number.isFinite(value)
-    ? Math.max(0, Math.min(1, value)) * 100
-    : 0;
+  const pct = Math.max(0, Math.min(1, finiteOr0(value))) * 100;
   return h(
     "div",
     {

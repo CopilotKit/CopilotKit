@@ -1,6 +1,6 @@
 import { createElement as h } from "react";
 import type { ReactElement } from "react";
-import { DEFAULT_CHART_COLORS } from "./types.js";
+import { DEFAULT_CHART_COLORS, finiteOr0 } from "./types.js";
 import type { ChartStyleProps } from "./types.js";
 
 export interface SparklineProps extends ChartStyleProps {
@@ -28,11 +28,12 @@ export function Sparkline(props: SparklineProps): ReactElement {
       style,
     });
   }
-  const max = Math.max(...data),
-    min = Math.min(...data);
+  const vals = data.map((v) => finiteOr0(v));
+  const max = Math.max(...vals),
+    min = Math.min(...vals);
   const span = max - min || 1;
-  const step = data.length > 1 ? width / (data.length - 1) : 0;
-  const points = data
+  const step = vals.length > 1 ? width / (vals.length - 1) : 0;
+  const points = vals
     .map((v, i) => `${i * step},${height - ((v - min) / span) * height}`)
     .join(" ");
   return h(

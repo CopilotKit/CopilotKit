@@ -30,7 +30,8 @@ function isFnTypeNode(v: unknown): v is {
  * Resolve a `post()` argument to the React element that must be rendered as an
  * image, or `null` when it belongs on the native channel path.
  *
- * - A React element (app JSX authored in a react-pragma file) → image as-is.
+ * - A React element (app JSX authored in a react-pragma file) → image as-is,
+ *   UNLESS its `type` is a branded channels-ui component (then native).
  * - A `{type: fn}` node whose fn is a first-party channels-ui component
  *   (branded) → native, no peek.
  * - Any other `{type: fn}` node → peek: call the fn once; if it returns a React
