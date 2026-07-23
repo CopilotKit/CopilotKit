@@ -1,6 +1,6 @@
 import { createElement as h } from "react";
 import type { ReactElement } from "react";
-import { DEFAULT_CHART_COLORS } from "./types.js";
+import { DEFAULT_CHART_COLORS, finiteOr0 } from "./types.js";
 import type { ChartStyleProps } from "./types.js";
 
 export interface ScatterPoint {
@@ -53,8 +53,9 @@ export function Scatter(props: ScatterProps): ReactElement {
       }),
     );
   }
-  const xs = points.map((p) => p.x);
-  const ys = points.map((p) => p.y);
+  const pts = points.map((p) => ({ x: finiteOr0(p.x), y: finiteOr0(p.y) }));
+  const xs = pts.map((p) => p.x);
+  const ys = pts.map((p) => p.y);
   const xMin = Math.min(...xs);
   const xMax = Math.max(...xs);
   const yMin = Math.min(...ys);
@@ -67,7 +68,7 @@ export function Scatter(props: ScatterProps): ReactElement {
   const grid = showGrid
     ? [0.25, 0.5, 0.75].map((f, i) =>
         h("line", {
-          key: i,
+          key: `g${i}`,
           x1: pad,
           x2: width - pad,
           y1: pad + (height - pad * 2) * f,
@@ -93,9 +94,9 @@ export function Scatter(props: ScatterProps): ReactElement {
         style: { backgroundColor: "#ffffff" },
       },
       ...grid,
-      ...points.map((p, i) =>
+      ...pts.map((p, i) =>
         h("circle", {
-          key: i,
+          key: `p${i}`,
           cx: px(p.x),
           cy: py(p.y),
           r: 4,
