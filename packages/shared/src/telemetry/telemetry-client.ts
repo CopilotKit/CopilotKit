@@ -38,9 +38,9 @@ export class TelemetryClient {
   // identity so legacy callers continue sending only their license token to
   // the Lambda transport.
   private telemetryId: string | null = null;
-  // Effective standalone or license-derived identity used only for sampling.
-  // Null means the caller remains anonymous and is subject to sampleRate.
-  private resolvedTelemetryId: string | null = null;
+  // License-derived identity used only as sampling authority. A standalone
+  // telemetry id remains a transport claim and does not bypass sampleRate.
+  private licenseTelemetryId: string | null = null;
   packageName: string;
   packageVersion: string;
   private telemetryDisabled: boolean = false;
@@ -102,20 +102,18 @@ export class TelemetryClient {
       return;
     }
 
-    // Anonymous callers (no telemetry_id) are gated by sampleRate.
-    // Identified callers (license token with telemetry_id) always send —
+    // Callers without license-derived sampling authority are gated by
+    // sampleRate. Legacy license tokens with telemetry_id always send —
     // the volume is bounded by paying-customer count and full fidelity
     // per identified customer is worth the marginal cost.
-    if (!this.resolvedTelemetryId && !this.shouldSendEvent()) {
+    if (!this.licenseTelemetryId && !this.shouldSendEvent()) {
       return;
     }
 
-    // Identified events ship at 100% effective rate, anonymous events at
-    // sampleRate. Compute per-event so downstream weight-based extrapolation
-    // (sampleWeight = 1 / effectiveRate) is correct for both populations;
-    // a single global sampleWeight would overweight identified-customer
-    // counts by 1/sampleRate.
-    const effectiveSampleRate = this.resolvedTelemetryId ? 1 : this.sampleRate;
+    // License-authorized events ship at a 100% effective rate. Anonymous and
+    // standalone-identified events use sampleRate. Compute per event so
+    // downstream weight-based extrapolation stays correct for both groups.
+    const effectiveSampleRate = this.licenseTelemetryId ? 1 : this.sampleRate;
     const samplingMeta = {
       sampleRate: effectiveSampleRate,
       sampleRateAdjustmentFactor: 1 - effectiveSampleRate,
@@ -179,9 +177,9 @@ export class TelemetryClient {
   /**
    * Atomically configure standalone, legacy, or anonymous telemetry identity.
    *
-   * A standalone id takes precedence over a supplied legacy license token.
-   * Neither value is added to event properties; the resolved id travels only
-   * through the Lambda transport's telemetry header.
+   * A standalone id takes transport precedence over a supplied legacy license
+   * token, but only a license-derived id grants sampling authority. Neither
+   * value is added to event properties.
    *
    * @param identity - One standalone id, one legacy license token, or neither.
    */
@@ -193,13 +191,13 @@ export class TelemetryClient {
     if (telemetryId !== undefined) {
       this.telemetryId = telemetryId;
       this.licenseToken = null;
-      this.resolvedTelemetryId = telemetryId;
+      this.licenseTelemetryId = null;
       return;
     }
 
     this.telemetryId = null;
     this.licenseToken = identity.licenseToken ?? null;
-    this.resolvedTelemetryId = identity.licenseToken
+    this.licenseTelemetryId = identity.licenseToken
       ? parseAndWarnTelemetryId(identity.licenseToken)
       : null;
   }
@@ -233,9 +231,8 @@ export class TelemetryClient {
     }
 
     this.sampleRate = _sampleRate;
-    // Per-event sampling metadata (sampleRate/sampleRateAdjustmentFactor/
-    // sampleWeight) is computed in capture() so identified events get
-    // their own effectiveSampleRate=1 weight instead of the anonymous
-    // population's 1/sampleRate.
+    // Per-event sampling metadata is computed in capture() so only license-
+    // authorized events get effectiveSampleRate=1. Standalone transport
+    // identity stays in the sampled population.
   }
 }

@@ -205,31 +205,10 @@ interface RuntimeConstructorCase {
   }): CopilotRuntime | CopilotSseRuntime | CopilotIntelligenceRuntime;
 }
 
-interface RuntimeTelemetryIdentity {
-  telemetryId?: string;
-  licenseToken?: string;
-}
-
 /** Installs atomic and legacy setters that mutate the real telemetry singleton. */
 function installRuntimeTelemetryIdentitySpies() {
-  const applyIdentity = (identity: RuntimeTelemetryIdentity) => {
-    Reflect.set(telemetry, "licenseToken", identity.licenseToken ?? null);
-    Reflect.set(
-      telemetry,
-      "telemetryId",
-      identity.telemetryId ??
-        parseTelemetryIdFromLicense(identity.licenseToken) ??
-        null,
-    );
-  };
-  const setTelemetryIdentity = vi.fn(applyIdentity);
-  Object.defineProperty(telemetry, "setTelemetryIdentity", {
-    configurable: true,
-    value: setTelemetryIdentity,
-  });
-  const setLicenseToken = vi
-    .spyOn(telemetry, "setLicenseToken")
-    .mockImplementation((licenseToken) => applyIdentity({ licenseToken }));
+  const setTelemetryIdentity = vi.spyOn(telemetry, "setTelemetryIdentity");
+  const setLicenseToken = vi.spyOn(telemetry, "setLicenseToken");
   const send = vi.spyOn(lambdaClient, "send");
   const random = vi.spyOn(Math, "random").mockReturnValue(0);
   const fetchMock = vi.fn(
@@ -245,11 +224,11 @@ function installRuntimeTelemetryIdentitySpies() {
     setLicenseToken,
     setTelemetryIdentity,
     restore: () => {
-      applyIdentity({});
+      telemetry.setTelemetryIdentity({});
       random.mockRestore();
       send.mockRestore();
       setLicenseToken.mockRestore();
-      Reflect.deleteProperty(telemetry, "setTelemetryIdentity");
+      setTelemetryIdentity.mockRestore();
       vi.unstubAllGlobals();
       vi.unstubAllEnvs();
     },
@@ -397,10 +376,11 @@ test.each(runtimeConstructorIdentityCases)(
       );
 
       expect(send).toHaveBeenCalledTimes(1);
-      const identified =
-        identityCase.expectedIdentity.telemetryId !== undefined ||
-        identityCase.expectedIdentity.licenseToken !== undefined;
-      expect(random).toHaveBeenCalledTimes(identified ? 0 : 1);
+      const hasLicenseSamplingAuthority =
+        parseTelemetryIdFromLicense(
+          identityCase.expectedIdentity.licenseToken,
+        ) !== null;
+      expect(random).toHaveBeenCalledTimes(hasLicenseSamplingAuthority ? 0 : 1);
       expect(send).toHaveBeenCalledWith(
         expect.objectContaining({
           licenseToken: identityCase.expectedIdentity.licenseToken,

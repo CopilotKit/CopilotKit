@@ -1,125 +1,128 @@
 import { describe, it, expect, test, vi, beforeEach, afterEach } from "vitest";
+import type { MockInstance } from "vitest";
 import { TelemetryClient } from "../telemetry/telemetry-client";
+import type { RuntimeInstanceCreatedInfo } from "../telemetry/events";
 import { lambdaClient } from "@copilotkit/shared";
 
-const resolvedTelemetryIdentityCases = [
-  {
-    configureIdentity: (client: TelemetryClient) =>
-      client.setTelemetryIdentity({ telemetryId: "standalone-id" }),
-    expectedSinkIdentity: { telemetryId: "standalone-id" },
-    label: "standalone",
-  },
-  {
-    configureIdentity: (client: TelemetryClient) => {
-      const payload = Buffer.from(
-        '{"telemetry_id":"legacy-license-id"}',
-      ).toString("base64url");
-      client.setLicenseToken(`header.${payload}.sig`);
+const baseInstanceEvent: RuntimeInstanceCreatedInfo = {
+  actionsAmount: 0,
+  endpointTypes: [],
+  endpointsAmount: 0,
+  "cloud.api_key_provided": false,
+};
+const legacyLicenseToken = `header.${Buffer.from(
+  '{"telemetry_id":"legacy-license-id"}',
+).toString("base64url")}.sig`;
+
+describe("V2 telemetry identity sampling", () => {
+  let lambdaSpy: MockInstance<typeof lambdaClient.send>;
+
+  beforeEach(() => {
+    lambdaSpy = vi.spyOn(lambdaClient, "send").mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  test.each([
+    { label: "configured directly", priorLicenseToken: undefined },
+    {
+      label: "replacing a legacy license identity",
+      priorLicenseToken: legacyLicenseToken,
     },
-    expectedSinkIdentity: {
-      licenseToken: `header.${Buffer.from(
-        '{"telemetry_id":"legacy-license-id"}',
-      ).toString("base64url")}.sig`,
-    },
-    label: "legacy license",
-  },
-];
-
-/** Create one isolated V2 telemetry sink fixture. */
-function setupTelemetrySink() {
-  const lambdaSpy = vi.spyOn(lambdaClient, "send").mockResolvedValue(undefined);
-
-  return {
-    lambdaSpy,
-    teardown: () => vi.restoreAllMocks(),
-  };
-}
-
-test.each(resolvedTelemetryIdentityCases)(
-  "$label identity bypasses anonymous sampling with its resolved sink identity",
-  async ({ configureIdentity, expectedSinkIdentity }) => {
-    const { lambdaSpy, teardown } = setupTelemetrySink();
-
-    try {
-      // Math.random would land above the anonymous gate. Resolved standalone
-      // and legacy identities both bypass it and reach the sink at full rate.
+  ])(
+    "standalone identity remains sample-gated when $label",
+    async ({ priorLicenseToken }) => {
       const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.99);
       const client = new TelemetryClient({
         telemetryDisabled: false,
         sampleRate: 0.05,
       });
-      configureIdentity(client);
+      if (priorLicenseToken !== undefined) {
+        client.setLicenseToken(priorLicenseToken);
+      }
+      client.setTelemetryIdentity({ telemetryId: "standalone-id" });
 
-      await client.capture("oss.runtime.instance_created", {
-        actionsAmount: 0,
-        endpointTypes: [],
-        endpointsAmount: 0,
-        "cloud.api_key_provided": false,
-      });
+      await client.capture("oss.runtime.instance_created", baseInstanceEvent);
 
-      expect(randomSpy).not.toHaveBeenCalled();
-      expect(lambdaSpy).toHaveBeenCalledTimes(1);
-      expect(lambdaSpy.mock.calls[0][0]).toMatchObject(expectedSinkIdentity);
-    } finally {
-      teardown();
-    }
-  },
-);
+      expect(randomSpy).toHaveBeenCalledTimes(1);
+      expect(lambdaSpy).not.toHaveBeenCalled();
+    },
+  );
 
-test.each(["", " \t "])(
-  "V2 blank standalone identity %j falls through to a supplied legacy identity",
-  async (blankTelemetryId) => {
-    const { lambdaSpy, teardown } = setupTelemetrySink();
-    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.99);
-    const payload = Buffer.from(
-      '{"telemetry_id":"legacy-license-id"}',
-    ).toString("base64url");
-    const licenseToken = `header.${payload}.sig`;
-    const client = new TelemetryClient({
-      telemetryDisabled: false,
-      sampleRate: 0.05,
-    });
-    client.setTelemetryIdentity({
-      telemetryId: blankTelemetryId,
-      licenseToken,
-    });
-
-    try {
-      await client.capture("oss.runtime.instance_created", {
-        actionsAmount: 0,
-        endpointTypes: [],
-        endpointsAmount: 0,
-        "cloud.api_key_provided": false,
-      });
-
-      expect(randomSpy).not.toHaveBeenCalled();
-      expect(lambdaSpy).toHaveBeenCalledWith(
-        expect.objectContaining({ licenseToken, telemetryId: undefined }),
-      );
-    } finally {
-      teardown();
-    }
-  },
-);
-
-test.each(["", " \t "])(
-  "V2 blank standalone identity %j without a legacy identity remains anonymously sampled",
-  async (blankTelemetryId) => {
-    const { lambdaSpy, teardown } = setupTelemetrySink();
+  test("sampled standalone identity reaches the sink only as a transport claim", async () => {
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
     const client = new TelemetryClient({
       telemetryDisabled: false,
       sampleRate: 0.05,
     });
-    client.setTelemetryIdentity({ telemetryId: blankTelemetryId });
+    client.setTelemetryIdentity({ telemetryId: "standalone-id" });
 
-    try {
-      await client.capture("oss.runtime.instance_created", {
-        actionsAmount: 0,
-        endpointTypes: [],
-        endpointsAmount: 0,
-        "cloud.api_key_provided": false,
+    await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+    expect(randomSpy).toHaveBeenCalledTimes(1);
+    expect(lambdaSpy).toHaveBeenCalledTimes(1);
+    expect(lambdaSpy.mock.calls[0][0]).toMatchObject({
+      licenseToken: undefined,
+      telemetryId: "standalone-id",
+    });
+  });
+
+  test("legacy license identity bypasses anonymous sampling", async () => {
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const client = new TelemetryClient({
+      telemetryDisabled: false,
+      sampleRate: 0.05,
+    });
+    client.setLicenseToken(legacyLicenseToken);
+
+    await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+    expect(randomSpy).not.toHaveBeenCalled();
+    expect(lambdaSpy).toHaveBeenCalledTimes(1);
+    expect(lambdaSpy.mock.calls[0][0]).toMatchObject({
+      licenseToken: legacyLicenseToken,
+      telemetryId: undefined,
+    });
+  });
+
+  test.each(["", " \t "])(
+    "V2 blank standalone identity %j falls through to a supplied legacy identity",
+    async (blankTelemetryId) => {
+      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.99);
+      const client = new TelemetryClient({
+        telemetryDisabled: false,
+        sampleRate: 0.05,
       });
+      client.setTelemetryIdentity({
+        telemetryId: blankTelemetryId,
+        licenseToken: legacyLicenseToken,
+      });
+
+      await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+      expect(randomSpy).not.toHaveBeenCalled();
+      expect(lambdaSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          licenseToken: legacyLicenseToken,
+          telemetryId: undefined,
+        }),
+      );
+    },
+  );
+
+  test.each(["", " \t "])(
+    "V2 blank standalone identity %j without a legacy identity remains anonymously sampled",
+    async (blankTelemetryId) => {
+      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+      const client = new TelemetryClient({
+        telemetryDisabled: false,
+        sampleRate: 0.05,
+      });
+      client.setTelemetryIdentity({ telemetryId: blankTelemetryId });
+
+      await client.capture("oss.runtime.instance_created", baseInstanceEvent);
 
       expect(randomSpy).toHaveBeenCalledTimes(1);
       expect(lambdaSpy).toHaveBeenCalledWith(
@@ -128,14 +131,12 @@ test.each(["", " \t "])(
           telemetryId: undefined,
         }),
       );
-    } finally {
-      teardown();
-    }
-  },
-);
+    },
+  );
+});
 
 describe("TelemetryClient", () => {
-  let lambdaSpy: ReturnType<typeof vi.spyOn>;
+  let lambdaSpy: MockInstance<typeof lambdaClient.send>;
 
   beforeEach(() => {
     lambdaSpy = vi.spyOn(lambdaClient, "send").mockResolvedValue(undefined);
@@ -179,7 +180,7 @@ describe("TelemetryClient", () => {
     });
 
     expect(lambdaSpy).toHaveBeenCalledTimes(1);
-    const arg = lambdaSpy.mock.calls[0][0] as Record<string, unknown>;
+    const arg = lambdaSpy.mock.calls[0][0];
     expect(arg.event).toBe("oss.runtime.copilot_request_created");
     // Customer API keys are NOT used for telemetry attribution — only the
     // license token is. The cloud.public_api_key property still rides in
@@ -214,7 +215,7 @@ describe("TelemetryClient", () => {
     });
 
     expect(lambdaSpy).toHaveBeenCalledTimes(1);
-    const arg = lambdaSpy.mock.calls[0][0] as Record<string, unknown>;
+    const arg = lambdaSpy.mock.calls[0][0];
     expect(arg.licenseToken).toBe(token);
   });
 
@@ -374,8 +375,12 @@ describe("TelemetryClient", () => {
       sampleRate: 0.05,
     });
 
-    const good = `header.${Buffer.from('{"telemetry_id":"abc-123"}').toString("base64url")}.sig`;
-    const bad = `header.${Buffer.from('{"license_id":"no-tid"}').toString("base64url")}.sig`;
+    const good = `header.${Buffer.from('{"telemetry_id":"abc-123"}').toString(
+      "base64url",
+    )}.sig`;
+    const bad = `header.${Buffer.from('{"license_id":"no-tid"}').toString(
+      "base64url",
+    )}.sig`;
     client.setLicenseToken(good);
     client.setLicenseToken(bad);
 

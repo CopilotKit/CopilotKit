@@ -107,28 +107,11 @@ function installTelemetryIdentitySpies() {
 
 /** Installs identity setters that expose the final delegated V2 sink state. */
 function installDelegatedTelemetryIdentitySpies() {
-  const applyIdentity = (identity: TelemetryIdentity) => {
-    Reflect.set(
-      delegatedTelemetry,
-      "licenseToken",
-      identity.licenseToken ?? null,
-    );
-    Reflect.set(
-      delegatedTelemetry,
-      "telemetryId",
-      identity.telemetryId ??
-        parseTelemetryIdFromLicense(identity.licenseToken) ??
-        null,
-    );
-  };
-  const setTelemetryIdentity = vi.fn(applyIdentity);
-  Object.defineProperty(delegatedTelemetry, "setTelemetryIdentity", {
-    configurable: true,
-    value: setTelemetryIdentity,
-  });
-  const setLicenseToken = vi
-    .spyOn(delegatedTelemetry, "setLicenseToken")
-    .mockImplementation((licenseToken) => applyIdentity({ licenseToken }));
+  const setTelemetryIdentity = vi.spyOn(
+    delegatedTelemetry,
+    "setTelemetryIdentity",
+  );
+  const setLicenseToken = vi.spyOn(delegatedTelemetry, "setLicenseToken");
   const send = vi.spyOn(lambdaClient, "send");
   const random = vi.spyOn(Math, "random").mockReturnValue(0);
   const fetchMock = vi.fn(
@@ -139,15 +122,16 @@ function installDelegatedTelemetryIdentitySpies() {
 
   return {
     fetchMock,
+    random,
     send,
     setLicenseToken,
     setTelemetryIdentity,
     restore: () => {
-      applyIdentity({});
+      delegatedTelemetry.setTelemetryIdentity({});
       random.mockRestore();
       send.mockRestore();
       setLicenseToken.mockRestore();
-      Reflect.deleteProperty(delegatedTelemetry, "setTelemetryIdentity");
+      setTelemetryIdentity.mockRestore();
       vi.unstubAllGlobals();
     },
   };
@@ -222,6 +206,7 @@ test.each(rootRuntimeTelemetryIdentityCases)(
       installTelemetryIdentitySpies();
     const {
       fetchMock,
+      random,
       send,
       setLicenseToken: delegatedSetLicenseToken,
       setTelemetryIdentity: delegatedSetTelemetryIdentity,
@@ -257,6 +242,9 @@ test.each(rootRuntimeTelemetryIdentityCases)(
       });
 
       expect(send).toHaveBeenCalledTimes(1);
+      const hasLicenseSamplingAuthority =
+        parseTelemetryIdFromLicense(expectedIdentity.licenseToken) !== null;
+      expect(random).toHaveBeenCalledTimes(hasLicenseSamplingAuthority ? 0 : 1);
       expect(send).toHaveBeenCalledWith(
         expect.objectContaining({
           licenseToken: expectedIdentity.licenseToken,

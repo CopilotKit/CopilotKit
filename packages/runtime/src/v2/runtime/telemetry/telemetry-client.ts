@@ -26,8 +26,11 @@ export class TelemetryClient {
   // from standalone identity so the transport receives only the selected
   // identity source.
   private licenseToken: string | null = null;
-  // Effective standalone or license-derived identity used for sampling.
+  // Standalone identity sent as a transport claim. It does not grant sampling
+  // authority.
   private telemetryId: string | null = null;
+  // License-derived identity used only as sampling authority.
+  private licenseTelemetryId: string | null = null;
 
   constructor({
     telemetryDisabled,
@@ -49,7 +52,10 @@ export class TelemetryClient {
    * Atomically replace the process-wide telemetry identity.
    *
    * Standalone identity takes precedence and clears any legacy license token.
-   * Passing an empty object clears both sources for anonymous sampling.
+   * It remains sample-gated; only a license-derived id bypasses sampling.
+   * Passing an empty object clears both sources.
+   *
+   * @param identity - One standalone id, one legacy license token, or neither.
    */
   setTelemetryIdentity(identity: {
     telemetryId?: string;
@@ -59,11 +65,13 @@ export class TelemetryClient {
     if (telemetryId !== undefined) {
       this.telemetryId = telemetryId;
       this.licenseToken = null;
+      this.licenseTelemetryId = null;
       return;
     }
 
+    this.telemetryId = null;
     this.licenseToken = identity.licenseToken ?? null;
-    this.telemetryId = identity.licenseToken
+    this.licenseTelemetryId = identity.licenseToken
       ? parseAndWarnTelemetryId(identity.licenseToken)
       : null;
   }
@@ -82,19 +90,16 @@ export class TelemetryClient {
     properties: AnalyticsEvents[K],
   ) {
     if (this.telemetryDisabled) return;
-    // Anonymous callers are gated by sampleRate; identified callers
-    // (telemetry_id present) bypass the gate and always send.
-    if (!this.telemetryId && !this.shouldSendEvent()) return;
+    // Standalone identity is a transport claim, not sampling authority.
+    // Only a legacy license token with telemetry_id bypasses sampleRate.
+    if (!this.licenseTelemetryId && !this.shouldSendEvent()) return;
 
     await lambdaClient.send({
       event,
       properties: properties as Record<string, unknown>,
       packageName: packageJson.name,
       packageVersion: packageJson.version,
-      telemetryId:
-        this.licenseToken === null
-          ? (this.telemetryId ?? undefined)
-          : undefined,
+      telemetryId: this.telemetryId ?? undefined,
       licenseToken: this.licenseToken ?? undefined,
     });
   }
