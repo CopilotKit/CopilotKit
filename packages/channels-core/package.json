@@ -31,6 +31,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./charts": {
+      "types": "./dist/charts/index.d.ts",
+      "import": "./dist/charts/index.js"
+    },
     "./testing": {
       "types": "./dist/testing/state-store-conformance.d.ts",
       "import": "./dist/testing/state-store-conformance.js"
