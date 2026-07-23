@@ -8,6 +8,7 @@ import {
   backendPathForCurrentPath,
   frontendFromPathname,
   frontendPathFor,
+  frontendPathForBackend,
   frontendPathForCurrentPath,
   getFrontendOption,
   isFrontendEarlyAccess,
@@ -58,6 +59,14 @@ function collectPageUrls(tree: PageTree.Root): string[] {
 function renderNavNameToMarkup(name: React.ReactNode): string {
   return renderToStaticMarkup(React.createElement(React.Fragment, null, name));
 }
+
+const angularGuideSlugs = [
+  "guides/chat-ui",
+  "guides/frontend-tools-generative-ui",
+  "guides/human-in-the-loop",
+  "guides/shared-state",
+  "guides/threads-memory-attachments-headless",
+] as const;
 
 test("keeps React as the full docs surface and routes other frontends to their guides", () => {
   expect(frontendPathFor("react")).toBe("/");
@@ -231,6 +240,27 @@ test("gives Angular a standalone feature guide without React fallback", () => {
   expect(getFrontendCanonicalSlug("angular", "docs-status")).toBe(
     "using-these-docs",
   );
+});
+
+test("publishes Angular task guides in unscoped and backend-scoped routes", () => {
+  const pageUrls = collectPageUrls(
+    navTreeToPageTree(getFrontendQuickstartNavTree("angular"), "/angular"),
+  );
+
+  for (const slug of angularGuideSlugs) {
+    expect(pageUrls).toContain(`/angular/${slug}`);
+    expect(resolveFrontendDocPage("angular", slug)).toEqual(
+      expect.objectContaining({
+        status: "found",
+        slugPath: slug,
+        contentSlugPath: `frontends/angular/${slug}`,
+        canonicalPath: `/angular/${slug}`,
+      }),
+    );
+    expect(frontendPathForBackend("angular", slug, "langgraph-python")).toBe(
+      `/angular/langgraph-python/${slug}`,
+    );
+  }
 });
 
 test("routes frontend sidebars to the most specific reference docs available", () => {

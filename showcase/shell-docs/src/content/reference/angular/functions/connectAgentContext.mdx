@@ -50,7 +50,8 @@ function connectAgentContext(
   Optional configuration. You must still call the function from an injection context.
 
   <PropertyReference name="injector" type="Injector">
-    Accepted for API compatibility. The current implementation uses the ambient injector when one is present.
+    Injector used to resolve `CopilotKit` and own the reactive effect. When
+    supplied, it takes precedence over the ambient injector.
   </PropertyReference>
 </PropertyReference>
 

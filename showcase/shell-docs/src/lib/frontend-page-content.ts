@@ -8,6 +8,23 @@ export const FRONTEND_PAGE_IDS = FRONTEND_OPTIONS.filter(
   (option) => option.id !== "react",
 ).map((option) => option.id) as FrontendPageId[];
 
+export const ANGULAR_GUIDE_PAGES = [
+  { title: "Chat UI and customization", slug: "guides/chat-ui" },
+  {
+    title: "Frontend tools and generative UI",
+    slug: "guides/frontend-tools-generative-ui",
+  },
+  {
+    title: "Human-in-the-loop and interrupts",
+    slug: "guides/human-in-the-loop",
+  },
+  { title: "Shared state and agent context", slug: "guides/shared-state" },
+  {
+    title: "Threads, memory, attachments, and headless UI",
+    slug: "guides/threads-memory-attachments-headless",
+  },
+] as const;
+
 export function getFrontendContentSlug(id: FrontendPageId): string {
   return `frontends/${id}`;
 }
@@ -56,9 +73,19 @@ export function getFrontendQuickstartNavTree(id: FrontendPageId): NavNode[] {
   const frontendName =
     FRONTEND_OPTIONS.find((option) => option.id === id)?.name ?? id;
 
-  const featureGuides: NavNode[] =
+  const authoredGuides: NavNode[] =
     id === "angular"
-      ? [{ type: "page", title: "Feature examples", slug: "features" }]
+      ? [
+          { type: "page", title: "Feature examples", slug: "features" },
+          { type: "section", title: "Guides", icon: "lucide/BookOpen" },
+          ...ANGULAR_GUIDE_PAGES.map(
+            (guide): NavNode => ({
+              type: "page",
+              title: guide.title,
+              slug: guide.slug,
+            }),
+          ),
+        ]
       : [];
   const upcomingGuides: NavNode[] =
     id === "angular"
@@ -85,7 +112,7 @@ export function getFrontendQuickstartNavTree(id: FrontendPageId): NavNode[] {
       title: getFrontendGuidanceTitle(id),
       slug: "using-these-docs",
     },
-    ...featureGuides,
+    ...authoredGuides,
     {
       type: "page",
       title: "Reference docs",

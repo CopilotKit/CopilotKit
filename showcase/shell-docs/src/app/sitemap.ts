@@ -25,6 +25,7 @@ import {
   resolveLastModified,
 } from "@/lib/sitemap-helpers";
 import {
+  ANGULAR_GUIDE_PAGES,
   FRONTEND_PAGE_IDS,
   getFrontendContentSlug,
   getFrontendGuidanceContentSlug,
@@ -143,6 +144,16 @@ export default function sitemap(): MetadataRoute.Sitemap {
       url: `${baseUrl}/angular/features`,
       lastModified: resolveLastModified(angularFeaturesDoc.filePath),
     });
+  }
+
+  for (const guide of ANGULAR_GUIDE_PAGES) {
+    const doc = loadDoc(`frontends/angular/${guide.slug}`);
+    if (doc) {
+      entries.push({
+        url: `${baseUrl}/angular/${guide.slug}`,
+        lastModified: resolveLastModified(doc.filePath),
+      });
+    }
   }
 
   // Status/guidance page, emitted once per non-React frontend.

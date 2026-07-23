@@ -9,6 +9,11 @@ test("publishes canonical Angular URLs instead of source-tree URLs", () => {
     expect.arrayContaining([
       "angular",
       "angular/features",
+      "angular/guides/chat-ui",
+      "angular/guides/frontend-tools-generative-ui",
+      "angular/guides/human-in-the-loop",
+      "angular/guides/shared-state",
+      "angular/guides/threads-memory-attachments-headless",
       "angular/using-these-docs",
     ]),
   );

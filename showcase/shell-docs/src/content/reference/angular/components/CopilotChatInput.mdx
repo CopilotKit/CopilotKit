@@ -53,7 +53,7 @@ export class ChatComponent extends ChatState {
 ### Behavior inputs
 
 <PropertyReference name="mode" type='"input" | "transcribe" | "processing"'>
-  Declared by the component, but the current release does not read this input. The component starts in `"input"` mode and manages later transitions itself.
+  Controlled input mode. When omitted, the component starts in `"input"` mode and manages later transitions itself.
 </PropertyReference>
 
 <PropertyReference name="toolsMenu" type='(ToolsMenuItem | "-")[]'>
@@ -65,7 +65,7 @@ export class ChatComponent extends ChatState {
 </PropertyReference>
 
 <PropertyReference name="value" type="string">
-  Controlled value for the textarea when it is non-empty. An empty string falls back to the value held in `ChatState`.
+  Controlled value for the textarea. When omitted, the component reads the value held in `ChatState`. An explicit empty string keeps the textarea empty.
 </PropertyReference>
 
 <PropertyReference name="inputClass" type="string">
