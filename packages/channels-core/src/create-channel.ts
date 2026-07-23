@@ -18,6 +18,7 @@ import type { StateStore } from "./state/state-store.js";
 import { toAgentToolDescriptors, parseToolArgs } from "./tools.js";
 import type { ChannelTool, ContextEntry } from "./tools.js";
 import { normalizeCommandName, toCommandSpec } from "./commands.js";
+import { decideChannelResponse } from "./response-policy.js";
 import type { ChannelCommand, CommandContext } from "./commands.js";
 import { Thread } from "./thread.js";
 import type { ThreadDeps } from "./thread.js";
@@ -593,13 +594,40 @@ export function createChannel<
             turn.conversationKey,
             { userKey, message },
           );
-          // v1 routing: there is no turn `kind`, so prefer mention handlers; if
-          // none are registered, fall back to message handlers. (The reference
-          // example registers identical handlers on both, so this avoids
-          // double-firing while still invoking whatever is registered.)
-          const handlers =
-            mentionHandlers.length > 0 ? mentionHandlers : messageHandlers;
-          for (const h of handlers) await h({ thread, message });
+          // Product-driven response policy (plan §2). A declarative adapter
+          // supplies a normalized `conversationKind`, so the engine decides
+          // ignore / run-handler / auto-run the selected agent. When it is
+          // omitted (non-declarative adapters), the LEGACY dispatch is preserved
+          // — prefer mention handlers, else message handlers, always run — so
+          // those adapters are unaffected by the new defaults.
+          if (turn.conversationKind === undefined) {
+            const handlers =
+              mentionHandlers.length > 0 ? mentionHandlers : messageHandlers;
+            for (const h of handlers) await h({ thread, message });
+          } else {
+            const decision = decideChannelResponse({
+              conversationKind: turn.conversationKind,
+              mentioned: turn.mentioned ?? false,
+              hasMentionHandler: mentionHandlers.length > 0,
+              hasMessageHandler: messageHandlers.length > 0,
+            });
+            if (decision.action === "handler") {
+              const handlers =
+                decision.handler === "mention"
+                  ? mentionHandlers
+                  : messageHandlers;
+              for (const h of handlers) await h({ thread, message });
+            } else if (decision.action === "auto_run") {
+              // No matching custom handler for an addressed message: run the
+              // selected/pinned agent with the user's message as the prompt
+              // (the reconstructed history excludes the current turn).
+              await thread.runAgent({
+                prompt: message.contentParts ?? message.text,
+              });
+            }
+            // decision.action === "ignore": untagged shared message with no
+            // opted-in handler — drop it.
+          }
         } finally {
           // acquired is null on "force" — naturally skips release.
           if (acquired) await store.lock.release(lockKey, acquired.token);

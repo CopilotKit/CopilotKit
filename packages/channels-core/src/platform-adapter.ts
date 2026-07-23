@@ -10,6 +10,7 @@ import type {
 } from "@copilotkit/channels-ui";
 import type { CommandSpec } from "./commands.js";
 import type { StateStore } from "./state/state-store.js";
+import type { ChannelConversationKind } from "./channel-agent.js";
 
 /** Opaque to the channel core — created by an adapter during ingress and passed back to post/createRunRenderer. */
 export type ReplyTarget = unknown;
@@ -102,6 +103,20 @@ export interface IncomingTurn extends IngressEventBase, IngressIds {
    */
   contentParts?: AgentContentPart[];
   platform: string;
+  /**
+   * Normalized conversation surface kind (plan §2), used by the product-driven
+   * response policy to decide whether a shared-channel message is addressed.
+   * Declarative adapters set it; when OMITTED the engine preserves the legacy
+   * dispatch (run mention-or-message handlers, no ignore/auto-run) so
+   * non-declarative adapters are unaffected.
+   */
+  conversationKind?: ChannelConversationKind;
+  /**
+   * Whether the bot was explicitly tagged/mentioned in this message (plan §2).
+   * Read by the response policy for shared channels/threads. Defaults to
+   * `false` when omitted.
+   */
+  mentioned?: boolean;
 }
 
 export interface InteractionEvent extends IngressEventBase, IngressIds {
