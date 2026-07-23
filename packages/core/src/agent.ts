@@ -344,7 +344,10 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
   }
 
   public run(input: RunAgentInput): Observable<BaseEvent> {
-    if (this.runtimeMode === RUNTIME_MODE_INTELLIGENCE) {
+    if (
+      this.runtimeMode === RUNTIME_MODE_INTELLIGENCE &&
+      input.forwardedProps?.__proxiedMCPRequest === undefined
+    ) {
       return this.#runViaDelegate(input);
     }
     return this.#runViaHttp(input);

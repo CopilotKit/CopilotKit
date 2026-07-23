@@ -1,15 +1,69 @@
 import { EMPTY, Observable } from "rxjs";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import type { BaseEvent, RunAgentInput, RunAgentResult } from "@ag-ui/client";
 import { AbstractAgent, EventType, HttpAgent } from "@ag-ui/client";
 import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
+import { getServerHash } from "@ag-ui/mcp-apps-middleware";
+import { LLMock, MCPMock } from "@copilotkit/aimock";
 import { handleRunAgent } from "../handlers/handle-run";
 import { CopilotRuntime } from "../core/runtime";
 import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
 import { InMemoryAgentRunner } from "../runner/in-memory";
 
+class ProxiedMCPTestAgent extends AbstractAgent {
+  run(input: RunAgentInput): ReturnType<AbstractAgent["run"]> {
+    return new Observable<BaseEvent>((subscriber) => {
+      subscriber.next({
+        type: EventType.RUN_STARTED,
+        threadId: input.threadId,
+        runId: input.runId,
+      });
+      subscriber.next({
+        type: EventType.RUN_FINISHED,
+        threadId: input.threadId,
+        runId: input.runId,
+      });
+      subscriber.complete();
+    });
+  }
+
+  protected connect(): ReturnType<AbstractAgent["connect"]> {
+    return EMPTY;
+  }
+
+  clone(): AbstractAgent {
+    return new ProxiedMCPTestAgent();
+  }
+}
+
 describe("handleRunAgent", () => {
+  let llm: LLMock | undefined;
+  let mcpMock: MCPMock | undefined;
+
+  afterEach(async () => {
+    await llm?.stop().catch(() => {});
+    llm = undefined;
+    mcpMock = undefined;
+  });
+
+  async function startMcpServer(): Promise<string> {
+    mcpMock = new MCPMock();
+    mcpMock.addResource(
+      {
+        uri: "ui://excalidraw/mcp-app.html",
+        name: "Excalidraw MCP App",
+        mimeType: "text/html+mcp",
+      },
+      { text: "<html><body>Excalidraw MCP app</body></html>" },
+    );
+
+    llm = new LLMock({ port: 0 });
+    llm.mount("/mcp", mcpMock);
+    await llm.start();
+    return `${llm.url}/mcp`;
+  }
+
   const createMockRuntime = (
     agents: Record<string, unknown> = {},
   ): CopilotRuntime => {
@@ -165,6 +219,130 @@ describe("handleRunAgent", () => {
     });
     expect(recordedHeaders[0]).not.toHaveProperty("origin");
     expect(recordedHeaders[0]).not.toHaveProperty("content-type");
+  });
+
+  it("serves proxied MCP resource runs over SSE for intelligence runtimes", async () => {
+    const mcpUrl = await startMcpServer();
+    const mcpServer = {
+      type: "http" as const,
+      url: mcpUrl,
+      serverId: "example_mcp_app",
+    };
+
+    const runtime = {
+      mode: "intelligence",
+      intelligence: {},
+      agents: Promise.resolve({ "test-agent": new ProxiedMCPTestAgent() }),
+      transcriptionService: undefined,
+      beforeRequestMiddleware: undefined,
+      afterRequestMiddleware: undefined,
+      runner: new IntelligenceAgentRunner({
+        url: "ws://localhost:4000/runner",
+      }),
+      a2ui: undefined,
+      mcpApps: {
+        servers: [mcpServer],
+      },
+      openGenerativeUI: undefined,
+      debug: false,
+    } as unknown as CopilotRuntime;
+
+    const request = new Request("https://example.com/agent/test-agent/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        threadId: "thread-1",
+        runId: "run-1",
+        state: {},
+        messages: [],
+        tools: [],
+        context: [],
+        forwardedProps: {
+          __proxiedMCPRequest: {
+            method: "resources/read",
+            serverId: "example_mcp_app",
+            serverHash: getServerHash(mcpServer),
+            params: { uri: "ui://excalidraw/mcp-app.html" },
+          },
+        },
+      }),
+    });
+
+    const response = await handleRunAgent({
+      runtime,
+      request,
+      agentId: "test-agent",
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Type")).toBe("text/event-stream");
+
+    const reader = response.body!.getReader();
+    const chunks: string[] = [];
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      chunks.push(
+        typeof value === "string" ? value : new TextDecoder().decode(value),
+      );
+    }
+    const body = chunks.join("");
+
+    expect(body).toContain('data: {"type":"RUN_STARTED"');
+    expect(body).toContain('data: {"type":"RUN_FINISHED"');
+    expect(body).toContain("Excalidraw MCP app");
+    expect(() => JSON.parse(body)).toThrow();
+  });
+
+  it("rejects proxied MCP resource runs for intelligence runtimes without matching MCP Apps config", async () => {
+    const runtime = {
+      mode: "intelligence",
+      intelligence: {},
+      agents: Promise.resolve({ "test-agent": new ProxiedMCPTestAgent() }),
+      transcriptionService: undefined,
+      beforeRequestMiddleware: undefined,
+      afterRequestMiddleware: undefined,
+      runner: new IntelligenceAgentRunner({
+        url: "ws://localhost:4000/runner",
+      }),
+      a2ui: undefined,
+      mcpApps: undefined,
+      openGenerativeUI: undefined,
+      debug: false,
+    } as unknown as CopilotRuntime;
+
+    const request = new Request("https://example.com/agent/test-agent/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        threadId: "thread-1",
+        runId: "run-1",
+        state: {},
+        messages: [],
+        tools: [],
+        context: [],
+        forwardedProps: {
+          __proxiedMCPRequest: {
+            method: "resources/read",
+            serverId: "example_mcp_app",
+            serverHash: "server-hash",
+            params: { uri: "ui://excalidraw/mcp-app.html" },
+          },
+        },
+      }),
+    });
+
+    const response = await handleRunAgent({
+      runtime,
+      request,
+      agentId: "test-agent",
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.headers.get("Content-Type")).toBe("application/json");
+    await expect(response.json()).resolves.toMatchObject({
+      error: "MCP Apps proxy request is not configured",
+    });
   });
 
   const createMockAgentWithUse = () => {

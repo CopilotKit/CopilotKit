@@ -1,5 +1,7 @@
 import { isIntelligenceRuntime } from "../core/runtime";
+import { InMemoryAgentRunner } from "../runner/in-memory";
 import { telemetry } from "../telemetry";
+import { getServerHash } from "@ag-ui/mcp-apps-middleware";
 import type { RunAgentParameters } from "./shared/agent-utils";
 import {
   attachIntelligenceEnterpriseLearning,
@@ -9,6 +11,102 @@ import {
 } from "./shared/agent-utils";
 import { handleIntelligenceRun } from "./intelligence/run";
 import { handleSseRun } from "./sse/run";
+
+type ProxiedMCPRequestCandidate = {
+  method?: unknown;
+  serverHash?: unknown;
+  serverId?: unknown;
+};
+
+function getProxiedMCPRequest(input: {
+  forwardedProps?: Record<string, unknown>;
+}): ProxiedMCPRequestCandidate | undefined {
+  const proxiedRequest = input.forwardedProps?.__proxiedMCPRequest;
+  if (proxiedRequest === undefined) {
+    return undefined;
+  }
+  if (
+    proxiedRequest === null ||
+    typeof proxiedRequest !== "object" ||
+    Array.isArray(proxiedRequest)
+  ) {
+    return {};
+  }
+  return proxiedRequest as ProxiedMCPRequestCandidate;
+}
+
+function validateMCPAppsProxyRequest({
+  runtime,
+  agentId,
+  proxiedRequest,
+}: RunAgentParameters & {
+  proxiedRequest: ProxiedMCPRequestCandidate;
+}): Response | undefined {
+  if (typeof proxiedRequest.method !== "string") {
+    return new Response(
+      JSON.stringify({
+        error: "Invalid MCP Apps proxy request",
+        message: "Proxied MCP request must include a string method.",
+      }),
+      {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+  }
+
+  const serverId =
+    typeof proxiedRequest.serverId === "string"
+      ? proxiedRequest.serverId
+      : undefined;
+  const serverHash =
+    typeof proxiedRequest.serverHash === "string"
+      ? proxiedRequest.serverHash
+      : undefined;
+
+  if (!serverId && !serverHash) {
+    return new Response(
+      JSON.stringify({
+        error: "Invalid MCP Apps proxy request",
+        message:
+          "Proxied MCP request must include a string serverId or serverHash.",
+      }),
+      {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+  }
+
+  const applicableServers =
+    runtime.mcpApps?.servers?.filter(
+      (server) => !server.agentId || server.agentId === agentId,
+    ) ?? [];
+
+  const hasMatchingServer = applicableServers.some((server) => {
+    const { agentId: _agentId, ...mcpServer } = server;
+    return (
+      (serverId !== undefined && mcpServer.serverId === serverId) ||
+      (serverHash !== undefined && getServerHash(mcpServer) === serverHash)
+    );
+  });
+
+  if (!hasMatchingServer) {
+    return new Response(
+      JSON.stringify({
+        error: "MCP Apps proxy request is not configured",
+        message:
+          "No configured MCP Apps server for this agent matches the proxied request.",
+      }),
+      {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+  }
+
+  return undefined;
+}
 
 export async function handleRunAgent({
   runtime,
@@ -76,7 +174,8 @@ export async function handleRunAgent({
       );
     }
 
-    if (isIntelligenceRuntime(runtime)) {
+    const proxiedMCPRequest = getProxiedMCPRequest(input);
+    if (isIntelligenceRuntime(runtime) && proxiedMCPRequest === undefined) {
       return handleIntelligenceRun({
         runtime,
         request,
@@ -86,8 +185,25 @@ export async function handleRunAgent({
       });
     }
 
+    const useLocalMCPAppsProxyRunner =
+      isIntelligenceRuntime(runtime) && proxiedMCPRequest !== undefined;
+
+    if (useLocalMCPAppsProxyRunner) {
+      const invalidProxyRequest = validateMCPAppsProxyRequest({
+        runtime,
+        request,
+        agentId,
+        proxiedRequest: proxiedMCPRequest,
+      });
+      if (invalidProxyRequest) {
+        return invalidProxyRequest;
+      }
+    }
+
     return handleSseRun({
-      runtime,
+      runtime: useLocalMCPAppsProxyRunner
+        ? { ...runtime, runner: new InMemoryAgentRunner() }
+        : runtime,
       request,
       agent,
       input,
