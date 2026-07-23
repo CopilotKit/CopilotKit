@@ -10,6 +10,7 @@ import type { CopilotSidebarProps } from "@copilotkit/react-core/v2";
 import { IDENTITY } from "@/lib/identity";
 import { ChatPanelHeader } from "./chat-panel-header";
 import { ChatInbox } from "./chat-inbox";
+import { DemoSuggestionsView } from "./demo-suggestions";
 
 /** Docked panel width on desktop (px). Mobile falls back to full width.
  * Sized so the always-on suggestion pills flow two-per-row instead of
@@ -71,6 +72,15 @@ export function ChatPanel({ threadId }: { threadId: string }) {
         // own slot tests use for custom headers. `renderSlot` renders any
         // component reference at runtime.
         header={ChatPanelHeader as CopilotSidebarProps["header"]}
+        // Custom suggestion pills: same seven registered via
+        // useConfigureSuggestions, but this slot owns what each click does —
+        // #3 (change PIN) navigates to the app's own dialog instead of the
+        // agent, and #6 (Q2 report) rides a real PDF attachment so the model
+        // reads the invoice. The other five delegate to the framework's normal
+        // suggestion send. See demo-suggestions.tsx.
+        suggestionView={
+          DemoSuggestionsView as CopilotSidebarProps["suggestionView"]
+        }
         // Multimodal attachments: officers can drop a PDF (e.g. a vendor
         // invoice) or an image into the composer. With no custom onUpload the
         // built-in handler base64-encodes the file and sends it as a document

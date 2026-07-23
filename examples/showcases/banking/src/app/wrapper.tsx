@@ -3,9 +3,15 @@ import { LayoutComponent } from "@/components/layout";
 import {
   CopilotChatConfigurationProvider,
   CopilotKitProvider,
+  defineToolCallRenderer,
+  ToolCallStatus,
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
-import type { ReactActivityMessageRenderer } from "@copilotkit/react-core/v2";
+import type {
+  ReactActivityMessageRenderer,
+  ReactToolCallRenderer,
+} from "@copilotkit/react-core/v2";
+import { Check, Loader2, Wrench } from "lucide-react";
 import { z } from "zod";
 import { catalog } from "@/a2ui/catalog";
 import { CanvasProvider } from "@/components/canvas/canvas-context";
@@ -68,6 +74,87 @@ const A2UI_RENDERERS: ReactActivityMessageRenderer<unknown>[] = [
     content: z.any(),
     render: OguiHandoffPill,
   },
+];
+
+// Human-readable labels for the tool-call chips. Anything not listed falls back
+// to a prettified version of the raw tool name.
+const TOOL_LABELS: Record<string, string> = {
+  recall_memory: "Recalling from long-term memory",
+  save_memory: "Saving to long-term memory",
+  createReport: "Filing the report",
+  render_report: "Building the report on the canvas",
+  generateSandboxedUi: "Generating an interactive UI",
+  showCharges: "Opening the charges page",
+  showTransactions: "Pulling up transactions",
+  showPendingApprovals: "Loading the approvals queue",
+};
+
+function prettifyToolName(name: string): string {
+  const spaced = name
+    // Drop MCP namespacing (e.g. "mcp__intelligence__recall_memory") so the
+    // fallback label reads cleanly.
+    .replace(/^mcp[_]+(intelligence[_]+)?/i, "")
+    .replace(/_/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .toLowerCase()
+    .trim();
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
+// Resolve the display label for a tool call. Matches on `includes` so that
+// MCP-namespaced names (e.g. "mcp__intelligence__recall_memory") still map to
+// the friendly label for "recall_memory".
+function resolveToolLabel(name: string): string {
+  for (const key of Object.keys(TOOL_LABELS)) {
+    if (name === key || name.includes(key)) return TOOL_LABELS[key];
+  }
+  return prettifyToolName(name);
+}
+
+/**
+ * A small, always-visible chip for EVERY tool the agent calls — the wildcard
+ * ("*") tool-call renderer. CopilotKit only falls back to this for tool calls
+ * that have no exact renderer of their own, so it surfaces the otherwise
+ * invisible ones (recall_memory / save_memory from the Intelligence memory MCP,
+ * createReport, render_report, generateSandboxedUi) while the charts and HITL
+ * cards keep their own rich renders. It's what makes "show the tool calls"
+ * literally true in the transcript: a spinner while running, a check when done.
+ */
+function ToolCallChip({
+  name,
+  status,
+}: {
+  name: string;
+  status: ToolCallStatus;
+}) {
+  const label = resolveToolLabel(name);
+  const done = status === ToolCallStatus.Complete;
+  return (
+    <div className="my-1.5 inline-flex max-w-fit items-center gap-2 rounded-full border border-hairline bg-surface px-3 py-1.5 text-xs font-medium text-ink shadow-soft">
+      <span className="flex h-4 w-4 items-center justify-center text-brand-indigo dark:text-brand-violet">
+        {done ? (
+          <Check className="h-3.5 w-3.5" />
+        ) : (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        )}
+      </span>
+      <Wrench className="h-3 w-3 text-ink-muted" aria-hidden />
+      <span className="uppercase tracking-wide text-ink-muted">tool</span>
+      <span aria-hidden className="text-ink-muted">
+        ·
+      </span>
+      <span>{label}</span>
+    </div>
+  );
+}
+
+// Module-level stable array — CopilotKitProvider requires a stable
+// `renderToolCalls` reference across renders.
+const TOOL_CALL_RENDERERS: ReactToolCallRenderer<unknown>[] = [
+  defineToolCallRenderer({
+    name: "*",
+    render: ({ name, status }) => <ToolCallChip name={name} status={status} />,
+  }),
 ];
 
 // Static suggestion pills — the demo's full use-case catalog, available at
@@ -263,6 +350,11 @@ export function CopilotKitWrapper({
       // the surface itself renders full-screen in <ReportCanvas/>.
       a2ui={{ catalog }}
       renderActivityMessages={A2UI_RENDERERS}
+      // Wildcard tool-call chip: renders a visible "tool · <label>" pill for
+      // every tool call that has no richer renderer of its own — recall_memory,
+      // save_memory, createReport, render_report, etc. This is what makes the
+      // agent's tool use visible in the transcript ("show the tool calls").
+      renderToolCalls={TOOL_CALL_RENDERERS}
       openGenerativeUI={{
         sandboxFunctions,
         designSkill: NORTHWIND_DESIGN_SKILL,

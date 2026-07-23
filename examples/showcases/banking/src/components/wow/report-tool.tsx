@@ -40,8 +40,27 @@ export function ReportCopilotTools() {
         .describe(
           "3-6 short bullet highlights: key figures, risks, and recommendations.",
         ),
+      additions: z
+        .array(
+          z.object({
+            team: z
+              .string()
+              .describe(
+                "The team/policy this spend belongs to (e.g. Marketing, Engineering, Executive) so it lands in the right chart segment.",
+              ),
+            amount: z.number().describe("The spend amount in USD (positive)."),
+            label: z
+              .string()
+              .optional()
+              .describe("Short source label, e.g. the vendor or line item."),
+          }),
+        )
+        .optional()
+        .describe(
+          "Spend pulled from an ATTACHED document (e.g. an uploaded invoice) to merge INTO the report's Spend Breakdown + Income vs Expenses charts, on top of the live ledger. Provide one entry per line item or per team. Omit when no document contributes spend.",
+        ),
     }),
-    handler: async ({ title, summary, highlights }) => {
+    handler: async ({ title, summary, highlights, additions }) => {
       const res = await fetch("/api/v1/reports", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -49,6 +68,7 @@ export function ReportCopilotTools() {
           title,
           summary,
           highlights,
+          additions,
           createdBy: `Copilot, for ${currentUser.name}`,
         }),
       });
