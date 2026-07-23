@@ -1,6 +1,7 @@
 "use client";
 
 import type { AbstractAgent } from "@ag-ui/client";
+import { ToolCallStatus } from "@copilotkit/core";
 import type { FrontendTool } from "@copilotkit/core";
 import type React from "react";
 import {
@@ -464,6 +465,9 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     openGenerativeUI?.sandboxFunctions,
     "openGenerativeUI.sandboxFunctions must be a stable array.",
   );
+  const humanInTheLoopResolversRef = useRef<
+    Map<string, (result: unknown) => void>
+  >(new Map());
 
   // Note: warnings for array identity changes are handled by useStableArrayProp
 
@@ -480,16 +484,32 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
         parameters: tool.parameters,
         followUp: tool.followUp,
         ...(tool.agentId && { agentId: tool.agentId }),
-        handler: async () => {
-          // This handler will be replaced by the hook when it runs
-          // For provider-level tools, we create a basic handler that waits for user interaction
+        handler: async (_args, context) => {
           return new Promise((resolve) => {
-            // The actual implementation will be handled by the render component
-            // This is a placeholder that the hook will override
-            console.warn(
-              `Human-in-the-loop tool '${tool.name}' called but no interactive handler is set up.`,
-            );
-            resolve(undefined);
+            const toolCallId = context?.toolCall?.id;
+            if (!toolCallId) {
+              console.warn(
+                `Human-in-the-loop tool '${tool.name}' called without a tool call id.`,
+              );
+              resolve(undefined);
+              return;
+            }
+
+            const finish = (result: unknown) => {
+              humanInTheLoopResolversRef.current.delete(toolCallId);
+              resolve(result);
+            };
+
+            humanInTheLoopResolversRef.current.set(toolCallId, finish);
+
+            if (context.signal?.aborted) {
+              finish(undefined);
+              return;
+            }
+
+            context.signal?.addEventListener("abort", () => finish(undefined), {
+              once: true,
+            });
           });
         },
       };
@@ -497,10 +517,34 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
 
       // Add the render component to renderToolCalls
       if (tool.render) {
+        const RenderComponent: ReactToolCallRenderer<unknown>["render"] = (
+          props,
+        ) => {
+          const ToolComponent = tool.render;
+          const respond =
+            props.status === ToolCallStatus.Executing
+              ? async (result: unknown) => {
+                  humanInTheLoopResolversRef.current.get(props.toolCallId)?.(
+                    result,
+                  );
+                }
+              : undefined;
+
+          const enhancedProps = {
+            ...props,
+            name: tool.name,
+            description: tool.description || "",
+            agentId: tool.agentId,
+            respond,
+          } as React.ComponentProps<typeof ToolComponent>;
+
+          return <ToolComponent {...enhancedProps} />;
+        };
+
         processedRenderToolCalls.push({
           name: tool.name,
           args: tool.parameters,
-          render: tool.render as React.ComponentType<any>,
+          render: RenderComponent,
           ...(tool.agentId && { agentId: tool.agentId }),
         });
       }
