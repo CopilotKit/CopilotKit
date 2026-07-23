@@ -47,6 +47,9 @@ import {
   walkMdx,
 } from "./sitemap-helpers";
 import demoContent from "@/data/demo-content.json";
+import angularSourceContent from "@/data/angular-source-content.json";
+import { filterFrontendScopedBlocks } from "./toc";
+import type { FrontendId } from "./frontend-options";
 
 interface Region {
   file: string;
@@ -70,6 +73,15 @@ interface DemoRecord {
 const demos: Record<string, DemoRecord> = (
   demoContent as { demos: Record<string, DemoRecord> }
 ).demos;
+
+const angularRegions = (
+  angularSourceContent as {
+    regions: Record<
+      string,
+      { file: string; language: string; content: string }
+    >;
+  }
+).regions;
 
 // Preferred framework for cross-framework `<Snippet />` resolution when
 // the caller hasn't picked one (i.e. `/<slug>.md` without a framework
@@ -563,6 +575,25 @@ function expandSnippets(
   });
 }
 
+/** Resolve Angular-authored docs snippets from the canonical Showcase app. */
+function expandAngularSnippets(body: string): string {
+  return body.replace(
+    /<AngularSnippet\b([\s\S]*?)\/>/g,
+    (_match, inner: string) => {
+      const region = /\bregion\s*=\s*["']([^"']+)["']/.exec(inner)?.[1];
+      const source = region ? angularRegions[region] : undefined;
+      if (!source) {
+        return `<!-- Angular Showcase snippet skipped: missing region ${region ?? "(none)"} -->`;
+      }
+      const header = fileHeaderComment(source.language, source.file);
+      return fenceFor(
+        source.language,
+        header ? `${header}\n${source.content}` : source.content,
+      );
+    },
+  );
+}
+
 /**
  * Drop `<InlineDemo ... />` tags — these mount live iframes in the
  * browser; in plain markdown they're noise. Leave a short note so the
@@ -596,7 +627,7 @@ function stripInlineDemos(body: string): string {
  */
 export function renderPageToLlmText(
   page: LlmPage,
-  options: { framework?: string } = {},
+  options: { framework?: string; frontend?: FrontendId } = {},
 ): string {
   const raw = readSource(page);
   if (!raw) return "";
@@ -618,6 +649,7 @@ export function renderPageToLlmText(
   const framework = options.framework ?? page.framework ?? frontmatterFramework;
 
   let body = stripFrontmatter(raw);
+  body = filterFrontendScopedBlocks(body, options.frontend);
 
   // 1) Inline `<Component />` shared snippets (`<AGUI />`, etc.). Uses
   //    the SNIPPET_MAP / SUBPATH_TO_COMPONENT logic — same as the page
@@ -627,10 +659,13 @@ export function renderPageToLlmText(
   // 2) Resolve `<Snippet ... />` to fenced code.
   body = expandSnippets(body, framework, frontmatterCell);
 
-  // 3) Drop `<InlineDemo />`.
+  // 3) Resolve regions from the canonical Angular Showcase app.
+  body = expandAngularSnippets(body);
+
+  // 4) Drop `<InlineDemo />`.
   body = stripInlineDemos(body);
 
-  // 4) Prepend an H1 (and description blockquote) so consumers always
+  // 5) Prepend an H1 (and description blockquote) so consumers always
   //    get a clear page title — frontmatter alone wouldn't survive the
   //    strip step.
   const header: string[] = [`# ${title}`];

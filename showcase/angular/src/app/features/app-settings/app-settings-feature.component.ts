@@ -24,9 +24,11 @@ import type {
   Tone,
 } from "./app-settings-cards";
 
+// @region[runtime-auth-headers]
 const DEMO_AUTH_HEADERS: Readonly<Record<string, string>> = {
   Authorization: "Bearer demo-token-123",
 };
+// @endregion[runtime-auth-headers]
 
 @Component({
   selector: "showcase-app-settings-feature",

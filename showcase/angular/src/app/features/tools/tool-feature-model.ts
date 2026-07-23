@@ -7,6 +7,7 @@ type BackgroundToolArgs = {
   color?: string;
 };
 
+// @region[frontend-tool-registration]
 /** Create the frontend tool that applies a requested CSS gradient. */
 export function createBackgroundTool(
   background: WritableSignal<string>,
@@ -25,6 +26,7 @@ export function createBackgroundTool(
     },
   };
 }
+// @endregion[frontend-tool-registration]
 
 function resolveGradient(candidate: unknown): string {
   if (typeof candidate === "string" && candidate.includes("gradient")) {

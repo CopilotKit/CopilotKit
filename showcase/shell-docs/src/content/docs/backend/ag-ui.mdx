@@ -8,6 +8,7 @@ CopilotKit is built on the [AG-UI protocol](https://ag-ui.com) — a lightweight
 
 Everything in CopilotKit — messages, state updates, tool calls, and more — flows through AG-UI events. Understanding this layer helps you debug, extend, and build on top of CopilotKit more effectively.
 
+<FrontendOnly frontend="react">
 ## Accessing your agent with `useAgent`
 
 The `useAgent` hook is your primary interface to the AG-UI agent powering your copilot. It returns an `AbstractAgent` from the AG-UI client library — the same base type that all AG-UI agents implement.
@@ -91,6 +92,57 @@ The full list of subscribable events maps directly to the [AG-UI event types](ht
 | Messages | `onMessagesSnapshotEvent` | Full message list snapshots |
 | Custom | `onCustomEvent`, `onRawEvent` | Custom and raw events for extensibility |
 | High-level | `onMessagesChanged`, `onStateChanged` | Aggregate notifications after any message or state mutation |
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+## Accessing your agent with `injectAgentStore`
+
+`injectAgentStore` is the signal-based interface to the AG-UI agent powering
+your Angular copilot. Select an agent by id, read reactive state from the
+returned signal, and use the underlying `AbstractAgent` for protocol methods:
+
+```ts title="src/app/agent-status.component.ts"
+import { Component, computed } from "@angular/core";
+import { injectAgentStore } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-agent-status",
+  template: `
+    <p>{{ messageCount() }} messages</p>
+    @if (store().isRunning()) {
+      <p>Agent is running…</p>
+    }
+  `,
+})
+export class AgentStatusComponent {
+  readonly store = injectAgentStore("research-agent");
+  readonly messageCount = computed(() => this.store().messages().length);
+}
+```
+
+The `store().agent` value is a standard AG-UI `AbstractAgent`. Subscribe to
+protocol events when you need a lower-level stream:
+
+```ts
+const subscription = this.store().agent.subscribe({
+  onTextMessageContentEvent({ textMessageBuffer }) {
+    console.log("Streaming text:", textMessageBuffer);
+  },
+  onToolCallEndEvent({ toolCallName, toolCallArgs }) {
+    console.log("Tool called:", toolCallName, toolCallArgs);
+  },
+  onStateChanged({ agent }) {
+    console.log("State changed:", agent.state);
+  },
+});
+
+this.destroyRef.onDestroy(() => subscription.unsubscribe());
+```
+
+The callbacks map directly to the [AG-UI event
+types](https://docs.ag-ui.com/concepts/events). Prefer Angular signals for
+templates; use `subscribe` for protocol-level diagnostics or integrations.
+</FrontendOnly>
 
 ## The proxy pattern
 
@@ -98,6 +150,7 @@ When you use CopilotKit with a runtime, your frontend never talks directly to yo
 
 On startup, CopilotKit calls the runtime's `/info` endpoint to discover which agents are available. Each agent is wrapped in a `ProxiedCopilotRuntimeAgent` — a thin client that extends AG-UI's `HttpAgent`. From your component's perspective, this proxy behaves identically to a local AG-UI agent: same `AbstractAgent` interface, same subscribe API, same properties. Under the hood, every `run` call is an HTTP request to your server, and every response is an SSE stream of AG-UI events flowing back.
 
+<FrontendOnly frontend="react">
 ```tsx title="What your component sees"
 const { agent } = useAgent(); // Returns an AbstractAgent
 agent.messages; // Read messages
@@ -109,6 +162,22 @@ agent.subscribe({ /* … */ }); // Subscribe to events
 // useAgent() → AgentRegistry checks /info → wraps each agent in ProxiedCopilotRuntimeAgent
 // agent.runAgent() → HTTP POST to runtime → runtime routes to your agent → SSE stream back
 ```
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+```ts title="What your component sees"
+const store = injectAgentStore("default");
+const agent = store().agent;  // An AbstractAgent
+store().messages();           // Reactive conversation history
+store().state();              // Reactive agent state
+agent.subscribe({ /* … */ }); // Protocol event stream
+```
+
+```ts title="What actually happens"
+// injectAgentStore() → registry checks /info → resolves a proxy agent
+// core.runAgent({ agent }) → runtime POST → agent execution → SSE events
+```
+</FrontendOnly>
 
 This indirection is what enables the runtime to provide authentication, middleware, agent routing, and Enterprise Intelligence Platform features — without changing how you interact with agents on the frontend.
 

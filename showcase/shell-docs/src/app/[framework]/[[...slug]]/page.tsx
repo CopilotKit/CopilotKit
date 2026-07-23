@@ -518,6 +518,7 @@ export default async function FrameworkScopedDocsPage({
             activeBackendFramework,
           )}
           frameworkOverride={resolution.framework}
+          frontendOverride="angular"
           navTree={getAngularDocsNavTree(activeBackendFramework)}
           sidebarBannerSlot={<FrontendSidebarBanner frontend={framework} />}
         />
@@ -551,6 +552,7 @@ export default async function FrameworkScopedDocsPage({
             activeBackendFramework,
           )}
           frameworkOverride={activeBackendFramework}
+          frontendOverride={framework}
           navTree={getFrontendQuickstartNavTree(framework)}
           sidebarBannerSlot={<FrontendSidebarBanner frontend={framework} />}
         />
@@ -787,6 +789,7 @@ export default async function FrameworkScopedDocsPage({
       contentSlugPath={contentSlugPath}
       slugHrefPrefix={scopedSlugHrefPrefix ?? `/${scopedFramework}`}
       frameworkOverride={scopedFramework}
+      frontendOverride={activeFrontendPage ?? undefined}
       navTree={
         activeFrontendPage
           ? getFrontendQuickstartNavTree(activeFrontendPage)
@@ -822,6 +825,7 @@ function FrontendQuickstartDocsPage({
       contentSlugPath={contentSlug}
       slugHrefPrefix={frontendRoutePath(frontend, "", activeBackendFramework)}
       frameworkOverride={activeBackendFramework}
+      frontendOverride={frontend}
       navTree={navTree ?? getFrontendQuickstartNavTree(frontend)}
       sidebarBannerSlot={<FrontendSidebarBanner frontend={frontend} />}
     />
@@ -846,6 +850,7 @@ function FrontendGuidanceDocsPage({
       contentSlugPath={contentSlug}
       slugHrefPrefix={frontendRoutePath(frontend, "", activeBackendFramework)}
       frameworkOverride={activeBackendFramework}
+      frontendOverride={frontend}
       navTree={navTree ?? getFrontendQuickstartNavTree(frontend)}
       sidebarBannerSlot={<FrontendSidebarBanner frontend={frontend} />}
     />

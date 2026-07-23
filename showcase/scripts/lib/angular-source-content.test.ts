@@ -33,4 +33,19 @@ describe("Angular source content", () => {
     );
     expect(JSON.stringify(content)).not.toMatch(/hashbrown/i);
   });
+
+  it("extracts named documentation regions without exposing marker comments", () => {
+    const content = buildAngularSourceContent(showcaseRoot);
+
+    expect(content.regions["frontend-tool-registration"]).toEqual(
+      expect.objectContaining({
+        file: "features/tools/tool-feature-model.ts",
+        language: "typescript",
+      }),
+    );
+    expect(content.regions["frontend-tool-registration"]?.content).toContain(
+      'name: "change_background"',
+    );
+    expect(JSON.stringify(content.files)).not.toContain("@region[");
+  });
 });

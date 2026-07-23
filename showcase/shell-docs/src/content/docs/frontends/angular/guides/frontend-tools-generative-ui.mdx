@@ -11,42 +11,14 @@ chat.
 
 ## Register a browser tool
 
-Call `registerFrontendTool` from an Angular injection context. The registration
-is removed when that injector is destroyed.
+Call `registerFrontendTool` from an Angular injection context. The live
+Showcase example builds a typed tool config around a writable signal:
 
-```ts title="src/app/todo-board.component.ts"
-import { Component, signal } from "@angular/core";
-import { registerFrontendTool } from "@copilotkit/angular";
-import { z } from "zod";
+<AngularSnippet region="frontend-tool-registration" />
 
-@Component({
-  selector: "app-todo-board",
-  template: `
-    <ul>
-      @for (todo of todos(); track todo) {
-        <li>{{ todo }}</li>
-      }
-    </ul>
-  `,
-})
-export class TodoBoardComponent {
-  readonly todos = signal<string[]>([]);
-
-  constructor() {
-    registerFrontendTool({
-      name: "addTodo",
-      description: "Add an item to the user's todo list",
-      parameters: z.object({
-        text: z.string().describe("The todo text"),
-      }),
-      handler: async ({ text }) => {
-        this.todos.update((todos) => [...todos, text]);
-        return { added: text };
-      },
-    });
-  }
-}
-```
+Register that config from a component or service with
+`registerFrontendTool(createBackgroundTool(background))`. The registration is
+removed when that injector is destroyed.
 
 The schema advertises the input shape and supplies TypeScript inference.
 Runtime arguments arrive as parsed JSON; validate inside the handler when the
