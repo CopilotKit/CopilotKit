@@ -11,7 +11,8 @@
 // Selection: TRIAGE_PROVIDER ("azure"|"anthropic") forces it; otherwise inferred
 // from whichever credentials are present (Azure wins when both are set).
 
-const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001";
+const ANTHROPIC_MODEL =
+  process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001";
 const AZURE_API_VERSION = process.env.AZURE_OPENAI_API_VERSION || "2024-10-21";
 
 function provider() {
