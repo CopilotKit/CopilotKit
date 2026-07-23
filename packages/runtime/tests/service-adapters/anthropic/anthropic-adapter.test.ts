@@ -685,3 +685,119 @@ describe("AnthropicAdapter max_tokens default", () => {
     expect(createCallArgs.max_tokens).toBe(8192);
   });
 });
+
+describe("AnthropicAdapter - same-role coalescing", () => {
+  let adapter: AnthropicAdapter;
+  let mockAnthropicCreate: any;
+  let mockEventSource: any;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    const mockAnthropic = { messages: { create: vi.fn() } };
+    adapter = new AnthropicAdapter({ anthropic: mockAnthropic as any });
+    mockAnthropicCreate = mockAnthropic.messages.create;
+    mockAnthropicCreate.mockResolvedValue({
+      [Symbol.asyncIterator]: async function* () {},
+    });
+    mockEventSource = {
+      stream: vi.fn((cb) => {
+        cb({
+          sendTextMessageStart: vi.fn(),
+          sendTextMessageContent: vi.fn(),
+          sendTextMessageEnd: vi.fn(),
+          sendActionExecutionStart: vi.fn(),
+          sendActionExecutionArgs: vi.fn(),
+          sendActionExecutionEnd: vi.fn(),
+          complete: vi.fn(),
+        });
+        return Promise.resolve();
+      }),
+    };
+  });
+
+  it("merges TextMessage(assistant) + ActionExecutionMessage into a single Anthropic assistant message", async () => {
+    const systemMsg = new TextMessage("system", "You are a helpful assistant.");
+    const userMsg = new TextMessage("user", "Look something up for me.");
+    // A prior assistant turn that had both a text preamble and a tool call.
+    // CopilotKit stores these as separate messages.
+    const assistantText = new TextMessage("assistant", "Let me check that.");
+    const toolExec = new ActionExecutionMessage({
+      id: "tool-abc",
+      name: "lookup",
+      arguments: { query: "example" },
+    });
+    const toolResult = new ResultMessage({
+      actionExecutionId: "tool-abc",
+      result: "Found it.",
+    });
+    const userFollowUp = new TextMessage("user", "Thanks, what did you find?");
+
+    await adapter.process({
+      threadId: "t1",
+      messages: [
+        systemMsg,
+        userMsg,
+        assistantText,
+        toolExec,
+        toolResult,
+        userFollowUp,
+      ],
+      actions: [
+        {
+          name: "lookup",
+          description: "look up",
+          parameters: [],
+          jsonSchema: '{"type":"object","properties":{}}',
+        },
+      ],
+      eventSource: mockEventSource,
+      forwardedParameters: {},
+    });
+
+    const sentMessages: any[] = mockAnthropicCreate.mock.calls[0][0].messages;
+
+    // Find all assistant messages
+    const assistantMessages = sentMessages.filter(
+      (m: any) => m.role === "assistant",
+    );
+
+    // There must be exactly ONE assistant message for the text+tool turn (merged)
+    expect(assistantMessages).toHaveLength(1);
+
+    // That single assistant message must contain both a text block and a tool_use block
+    const blocks = assistantMessages[0].content as any[];
+    const textBlocks = blocks.filter((b: any) => b.type === "text");
+    const toolUseBlocks = blocks.filter((b: any) => b.type === "tool_use");
+    expect(textBlocks).toHaveLength(1);
+    expect(textBlocks[0].text).toBe("Let me check that.");
+    expect(toolUseBlocks).toHaveLength(1);
+    expect(toolUseBlocks[0].id).toBe("tool-abc");
+
+    // Confirm no two consecutive messages share the same role
+    for (let i = 1; i < sentMessages.length; i++) {
+      expect(sentMessages[i].role).not.toBe(sentMessages[i - 1].role);
+    }
+  });
+
+  it("does not merge alternating user/assistant messages (no regression)", async () => {
+    const systemMsg = new TextMessage("system", "You are helpful.");
+    const user1 = new TextMessage("user", "Hi");
+    const asst1 = new TextMessage("assistant", "Hello!");
+    const user2 = new TextMessage("user", "How are you?");
+
+    await adapter.process({
+      threadId: "t2",
+      messages: [systemMsg, user1, asst1, user2],
+      actions: [],
+      eventSource: mockEventSource,
+      forwardedParameters: {},
+    });
+
+    const sentMessages: any[] = mockAnthropicCreate.mock.calls[0][0].messages;
+    // Expect three messages: user, assistant, user — unchanged
+    expect(sentMessages).toHaveLength(3);
+    expect(sentMessages[0].role).toBe("user");
+    expect(sentMessages[1].role).toBe("assistant");
+    expect(sentMessages[2].role).toBe("user");
+  });
+});

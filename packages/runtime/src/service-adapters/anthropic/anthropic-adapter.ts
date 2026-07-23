@@ -33,6 +33,7 @@ import {
 import {
   convertActionInputToAnthropicTool,
   convertMessageToAnthropicMessage,
+  coalesceConsecutiveSameRoleMessages,
   limitMessagesToTokenCount,
 } from "./utils";
 
@@ -326,9 +327,15 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
         return true;
       }) as Anthropic.Messages.MessageParam[];
 
+    // Coalesce consecutive same-role messages so the Anthropic API receives alternating turns.
+    // A mixed text+tool_use response is stored as separate TextMessage / ActionExecutionMessage
+    // objects; they must be merged into one assistant message before dispatch.
+    const coalescedMessages =
+      coalesceConsecutiveSameRoleMessages(anthropicMessages);
+
     // Apply token limits
     const limitedMessages = limitMessagesToTokenCount(
-      anthropicMessages,
+      coalescedMessages,
       tools,
       model,
       this.maxInputTokens,
@@ -345,7 +352,7 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
     );
 
     // We'll check if we need a fallback response after seeing what Anthropic returns
-    // We skip grouping by role since we've already ensured uniqueness of tool_results
+    // Role alternation is now enforced by coalesceConsecutiveSameRoleMessages above.
 
     let toolChoice: any = forwardedParameters?.toolChoice;
     if (forwardedParameters?.toolChoice === "function") {
