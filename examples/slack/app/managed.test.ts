@@ -10,7 +10,6 @@ const fakes = vi.hoisted(() => {
   return {
     stop,
     listener,
-    closeBrowser: vi.fn(async () => {}),
     createCopilotNodeListener: vi.fn(() => listener),
     // Captures the options `new CopilotRuntime(...)` was constructed with so
     // the test can assert the runtime carries `channels`.
@@ -57,7 +56,6 @@ vi.mock("./modals/file-issue.js", () => ({
   fileIssueSubmit: vi.fn(),
   FILE_ISSUE_CALLBACK: "file-issue",
 }));
-vi.mock("./render/browser.js", () => ({ closeBrowser: fakes.closeBrowser }));
 
 const envKeys = [
   "AGENT_URL",
@@ -115,7 +113,6 @@ describe("managed channel entrypoint", () => {
     sigterm!();
     await vi.waitFor(() => expect(exit).toHaveBeenCalled());
     expect(fakes.stop).toHaveBeenCalledOnce();
-    expect(fakes.closeBrowser).toHaveBeenCalledOnce();
     // stop() threw, so shutdown exits nonzero.
     expect(exit).toHaveBeenCalledWith(1);
   });

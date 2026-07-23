@@ -40,7 +40,6 @@ import { appContext } from "./context/app-context.js";
 import { appCommands } from "./commands/index.js";
 import { senderContext } from "./sender-context.js";
 import { fileIssueSubmit, FILE_ISSUE_CALLBACK } from "./modals/file-issue.js";
-import { closeBrowser } from "./render/browser.js";
 
 const required = (name: string): string => {
   const v = process.env[name];
@@ -90,6 +89,16 @@ async function main() {
     tools: [...appTools, ...defaultSlackTools],
     context: [...appContext, ...defaultSlackContext],
     commands: appCommands,
+    // Takumi JSX image rendering config. Stylesheet-only (no `googleFonts`,
+    // which can trigger a network fetch and hang tests/CI) — Takumi's
+    // built-in Latin covers this demo, and the CSS vars give chart colors a
+    // hex fallback with no external dependency.
+    render: {
+      stylesheets: [
+        ":root{--chart-1:#6366f1;--chart-2:#22c55e;--chart-3:#f59e0b}",
+      ],
+      width: 720,
+    },
   });
 
   // Turn + feature handlers — identical to the native example (app/index.ts).
@@ -176,14 +185,6 @@ async function main() {
       console.error("[channel] error stopping managed Channel", err);
       exitCode = 1;
     }
-    // Browser teardown is best-effort, but still surface a failure rather than
-    // swallow it silently.
-    await closeBrowser().catch((err: unknown) =>
-      console.error(
-        "[channel] browser cleanup failed (continuing shutdown)",
-        err,
-      ),
-    );
     process.exit(exitCode);
   };
   // A failed shutdown must not vanish — log it and exit nonzero.

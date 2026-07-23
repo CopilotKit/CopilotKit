@@ -12,7 +12,7 @@ adapters; `app/index.ts` includes the Slack adapter when `SLACK_*` secrets are
 present, the Discord adapter when `DISCORD_*` are present, the Telegram adapter
 when `TELEGRAM_BOT_TOKEN` is present, and the WhatsApp adapter when `WHATSAPP_*`
 are present. Everything else in `app/` (tools,
-components, the `confirm_write` HITL gate, chart/diagram/table rendering) is
+components, the `confirm_write` HITL gate, table rendering) is
 platform-agnostic and shared verbatim — set the secrets for whichever
 platform(s) you want and run the same process. It connects to **Linear** and
 **Notion** over MCP and can:
@@ -42,7 +42,7 @@ Slack / Discord / Telegram ──@mention──▶  bot (app/)  ──AG-UI─�
 
 - **`app/`** — the platform-agnostic bot: `createChannel` + whichever of the
   `slack()` / `discord()` / `telegram()` adapters have secrets, the
-  `read_thread` / `render_chart` / `render_diagram` / `render_table` tools,
+  `read_thread` / `render_table` tools,
   the `issue_card` / `issue_list` / `page_list` render-tools, the
   `confirm_write` HITL gate, and the bot's context. The components emit a
   cross-platform JSX IR that each adapter renders natively. This is the
@@ -124,11 +124,6 @@ adapter supplies at call time; tools reach platform power (post, postFile,
 - **`read_thread`** — fetches the messages in the current conversation thread
   so the agent can summarize/act on a real conversation (e.g. "write this
   thread up as a postmortem") instead of inventing content.
-- **`render_chart`** — the agent emits a Chart.js config; rendered to a PNG
-  **locally** in a headless browser (reusing the Playwright dep) and posted
-  inline.
-- **`render_diagram`** — the agent emits Mermaid; rendered to a PNG the same
-  way.
 - **`render_table`** — the agent emits columns + rows; rendered natively per
   platform (a Slack Table block, otherwise a monospace fallback).
 
@@ -359,30 +354,20 @@ Caveat: a single API key can't forge Linear's `creator`, so created issues
 are _authored_ by the bot and _assigned_ to the requester. True per-user
 attribution (and reliable Notion personalization) needs per-user OAuth.
 
-## Files → charts, diagrams & tables
+## Files → tables
 
 Upload a file and the bot analyzes it: images and **PDFs** go straight to the
 model, and CSV/JSON/text are decoded and handed over as text. The adapter is
 transport-only — it downloads the upload and delivers it to the agent as
-multimodal content; the **app** (the `render_*` tools above) decides what to
-do.
+multimodal content; the **app** (the `render_table` tool above) decides what
+to do.
 
 > **PDFs and images need a vision/document-capable model.** The default
 > `openai/gpt-5.5` reads both natively through this path, as do recent Claude
 > (`anthropic/claude-sonnet-4-6`) and Gemini (`google/gemini-2.5-*`) models.
 > An older text-only model will ignore the attached document.
 
-Try it: drop a CSV and say _"chart revenue by month"_, _"diagram this incident
-flow"_, or _"show the incidents as a table"_. The chart/diagram renderers need
-a Chromium binary:
-
-```bash
-npx playwright install chromium
-```
-
-Notes: the chart/diagram libraries load from a CDN into the local browser
-(override `CHART_JS_URL` / `MERMAID_URL`); your data is rendered locally and
-never sent to a rendering service.
+Try it: drop a CSV and say _"show the incidents as a table"_.
 
 ## Deploying
 
@@ -441,9 +426,7 @@ bot service (Railway):
    `https://<bot-domain>/webhook`, Verify Token = `WHATSAPP_VERIFY_TOKEN`,
    subscribe to the `messages` field.
 
-Health check: `GET https://<bot-domain>/` returns `ok`. Chart/diagram tools use
-the same headless browser the Slack/Discord paths already run; their PNGs go
-out as WhatsApp images via the media upload.
+Health check: `GET https://<bot-domain>/` returns `ok`.
 
 ## Feature demos
 

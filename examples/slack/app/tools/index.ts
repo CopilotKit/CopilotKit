@@ -9,8 +9,6 @@
  * in `app/index.ts`.
  */
 import { readThreadTool } from "./read-thread.js";
-import { renderChartTool } from "./render-chart.js";
-import { renderDiagramTool } from "./render-diagram.js";
 import { renderTableTool } from "./render-table.js";
 import { issueCardTool, issueListTool, pageListTool } from "./render-tools.js";
 import {
@@ -31,8 +29,6 @@ import type { ChannelTool } from "@copilotkit/channels";
  */
 export const appTools: ChannelTool[] = [
   readThreadTool,
-  renderChartTool,
-  renderDiagramTool,
   renderTableTool,
   issueCardTool,
   issueListTool,
@@ -45,8 +41,6 @@ export const appTools: ChannelTool[] = [
 
 export {
   readThreadTool,
-  renderChartTool,
-  renderDiagramTool,
   renderTableTool,
   issueCardTool,
   issueListTool,
