@@ -34,6 +34,12 @@ import { ThreadStoreRegistry } from "./thread-store-registry";
 import type { ɵThreadStore } from "../threads";
 import { ɵcreateMemoryStore } from "../memory";
 import type { ɵMemoryStore } from "../memory";
+import type { Subscription } from "rxjs";
+import { ɵcreateMetadataSocket } from "./metadata-realtime";
+import type {
+  ɵMetadataSocket,
+  ɵMetadataSocketHandle,
+} from "./metadata-realtime";
 
 /** Configuration options for `CopilotKitCore`. */
 export interface CopilotKitCoreConfig {
@@ -396,6 +402,20 @@ export class CopilotKitCore {
    */
   private _memoryStore?: ɵMemoryStore;
   /**
+   * The ONE shared metadata socket (threads + memory ride the same socket).
+   * Lazily seeded by `ɵgetMetadataSocket(joinToken)` from the FIRST consumer's
+   * joinToken while the runtime is connected and a ws URL is known; disposed
+   * when the runtime disconnects or the headers change. `undefined` when no
+   * live socket exists.
+   */
+  private _metadataSocket?: ɵMetadataSocketHandle;
+  /**
+   * Subscription to the shared socket's `socketFatal$`, held so a health
+   * give-up disposes the socket (see `ɵgetMetadataSocket`). Torn down alongside
+   * the socket in `disposeMetadataSocket`.
+   */
+  private _metadataSocketFatalSub?: Subscription;
+  /**
    * Tracks the agent IDs from the most recent `onAgentsChanged` notification.
    * Used to gate thread-store auto-unregister so the FIRST empty-agents
    * notification (before published agents are merged in) does not rip out a
@@ -456,6 +476,16 @@ export class CopilotKitCore {
       // so this single hook covers both connection and intelligence changes.
       // Guarded so we never instantiate the store just to sync it.
       onRuntimeConnectionStatusChanged: () => {
+        // Tear down the shared metadata socket whenever we are no longer in the
+        // connected+wsUrl state; the next consumer re-seeds a fresh socket via
+        // `ɵgetMetadataSocket(joinToken)` once we are live again.
+        if (
+          this.runtimeConnectionStatus !==
+            CopilotKitCoreRuntimeConnectionStatus.Connected ||
+          !this.intelligence?.wsUrl
+        ) {
+          this.disposeMetadataSocket();
+        }
         if (this._memoryStore) this.syncMemoryContext();
       },
       onAgentsChanged: ({ agents }) => {
@@ -764,6 +794,12 @@ export class CopilotKitCore {
    */
   setHeaders(headers: Record<string, string | null | undefined>): void {
     this._headers = normalizeHeaders(headers);
+    // Headers changed — the metadata join token is minted (by the consumer)
+    // from them, so tear down the shared socket (accepting the socket
+    // teardown/reconnect cost). The next consumer (memory re-fetching its
+    // credentials with the new headers) re-seeds a fresh socket with a fresh
+    // token via `ɵgetMetadataSocket`. `syncMemoryContext()` re-pushes context.
+    this.disposeMetadataSocket();
     if (this._memoryStore) this.syncMemoryContext();
     this.agentRegistry.applyHeadersToAgents(
       this.agentRegistry.agents as Record<string, AbstractAgent>,
@@ -928,11 +964,76 @@ export class CopilotKitCore {
   }
 
   /**
+   * Lazily creates (seeds) the ONE shared metadata socket from the first
+   * consumer's `joinToken`, memoizes it, and hands back the consumer view
+   * (threads + memory ride the same socket, each joining its own channel off
+   * `socket$`). Returns `undefined` until the runtime is connected with a ws
+   * URL. Subsequent calls return the SAME socket — the `joinToken` argument is
+   * used only to seed the first time, since the socket is already authenticated
+   * after that.
+   *
+   * The `seedJoinToken` seeds the socket on the FIRST call only; later calls
+   * return the already-authenticated socket and ignore the argument. (Both
+   * stores' tokens are scoped to the same per-user meta_join_code, so the first
+   * consumer's token authorizes every channel joined off the shared socket.)
+   */
+  ɵgetMetadataSocket(seedJoinToken: string): ɵMetadataSocket | undefined {
+    if (
+      this.runtimeConnectionStatus !==
+        CopilotKitCoreRuntimeConnectionStatus.Connected ||
+      !this.intelligence?.wsUrl
+    ) {
+      return undefined;
+    }
+    if (!this._metadataSocket) {
+      const handle = ɵcreateMetadataSocket({
+        wsUrl: this.intelligence.wsUrl,
+        joinToken: seedJoinToken,
+      });
+      this._metadataSocket = handle;
+      // Give-up must be terminal. When the shared socket's health chain gives
+      // up (`socketFatal$` fires after ɵMETADATA_MAX_SOCKET_RETRIES consecutive
+      // errors), dispose the socket so it stops reconnecting forever; the next
+      // consumer access re-seeds a fresh socket (matching "give up now; a later
+      // reconnect starts over"). `socketFatal$` completes on teardown and this
+      // subscription is torn down in `disposeMetadataSocket`, so it cannot leak;
+      // both `disposeMetadataSocket` and the handle's `dispose` are idempotent,
+      // so the give-up path cannot double-dispose.
+      this._metadataSocketFatalSub = handle.socket.socketFatal$.subscribe(
+        () => {
+          // Defer teardown one microtask so the synchronous socketFatal$
+          // fan-out reaches every store subscriber (memory's
+          // fatal$ -> realtimeUnavailable) BEFORE dispose() completes the
+          // shared subject and preempts them. Without the defer, this
+          // callback — subscribed at socket-creation time, ahead of any
+          // store's own fatal$ subscriber — would synchronously
+          // `teardown$.complete()` the shared `socketFatal$`, so later
+          // subscribers receive `complete()` instead of their mapped value
+          // and never dispatch `realtimeUnavailable`. The socket lives one
+          // microtask longer, which is harmless.
+          queueMicrotask(() => this.disposeMetadataSocket());
+        },
+      );
+    }
+    return this._metadataSocket.socket;
+  }
+
+  /** Idempotent teardown of the shared metadata socket. */
+  private disposeMetadataSocket(): void {
+    this._metadataSocketFatalSub?.unsubscribe();
+    this._metadataSocketFatalSub = undefined;
+    this._metadataSocket?.dispose();
+    this._metadataSocket = undefined;
+  }
+
+  /**
    * Pushes the current runtime wiring into the memory store. When the runtime
-   * is connected and both the intelligence WebSocket URL and runtime URL are
-   * available, the store receives a context (runtime URL, WebSocket URL, and a
-   * copy of the current headers); otherwise its context is cleared. No-op when
-   * the store has not been created yet.
+   * is connected with a ws URL and a runtime URL is set, the store receives a
+   * context (runtime URL, a copy of the current headers, and a provider that
+   * lazily seeds/returns the shared metadata socket); otherwise its context is
+   * cleared. The provider closes over `this`, so it always reflects the current
+   * socket — including after a re-mint. No-op when the store has not been
+   * created yet.
    */
   private syncMemoryContext(): void {
     if (!this._memoryStore) return;
@@ -944,8 +1045,9 @@ export class CopilotKitCore {
     ) {
       this._memoryStore.setContext({
         runtimeUrl: this.runtimeUrl,
-        wsUrl: this.intelligence.wsUrl,
         headers: { ...this.headers },
+        getMetadataSocket: (joinToken) =>
+          this.ɵgetMetadataSocket(joinToken) ?? null,
       });
     } else {
       this._memoryStore.setContext(null);

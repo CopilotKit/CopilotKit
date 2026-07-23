@@ -1456,6 +1456,7 @@ type HeaderMockCore = {
   registerThreadStore: (agentId: string, store: unknown) => void;
   unregisterThreadStore: (agentId: string) => void;
   getMemoryStore: () => ReturnType<typeof createNoopMemoryStore>;
+  ɵgetMetadataSocket: (joinToken: string) => undefined;
 };
 
 function createHeaderMockCore(
@@ -1495,6 +1496,12 @@ function createHeaderMockCore(
     getMemoryStore() {
       return createNoopMemoryStore();
     },
+    // These tests exercise only /threads header forwarding, not realtime.
+    // Returning undefined means the owned thread store's `getMetadataSocket`
+    // provider resolves to `null`, so it never opens a realtime channel here.
+    ɵgetMetadataSocket() {
+      return undefined;
+    },
   };
 
   const asCore = () => core as unknown as CopilotKitCore;
@@ -1509,6 +1516,12 @@ function createHeaderMockCore(
       core.headers = nextHeaders;
       subscribers.forEach((s) =>
         s.onHeadersChanged?.({ copilotkit: asCore(), headers: nextHeaders }),
+      );
+    },
+    emitConnectionStatusChanged(status: CopilotKitCoreRuntimeConnectionStatus) {
+      core.runtimeConnectionStatus = status;
+      subscribers.forEach((s) =>
+        s.onRuntimeConnectionStatusChanged?.({ copilotkit: asCore(), status }),
       );
     },
   };
@@ -1612,6 +1625,62 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     expect(headersOf(threadListCalls().at(-1)!)).toMatchObject({
       "X-CSRF": "2",
     });
+  });
+
+  it("re-dispatches setContext on owned stores on reconnect (re-resolving a fresh metadata socket), not a REST-only refresh (B2)", async () => {
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore({ alpha: agent }, { "X-CSRF": "1" });
+
+    // The owned store's realtime flow needs a `joinCode` on the list response
+    // and a `joinToken` on `/threads/subscribe` so it reaches
+    // `context.getMetadataSocket(joinToken)`. Spying on core.ɵgetMetadataSocket
+    // then distinguishes a fresh `setContext` (new session → re-fetches creds →
+    // re-resolves the shared socket) from a REST-only `refresh()` (same session,
+    // no cred re-fetch, socket never re-resolved).
+    fetchMock.mockImplementation((url: string) => {
+      if (String(url).includes("/threads/subscribe")) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ joinToken: "join-token" }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ threads: [], joinCode: "join-code" }),
+      });
+    });
+    const socketSpy = vi.spyOn(harness.core, "ɵgetMetadataSocket");
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+
+    // Initial owned-store dispatch resolves the shared socket once.
+    await vi.waitFor(() => {
+      expect(socketSpy.mock.calls.length).toBeGreaterThanOrEqual(1);
+    });
+    const socketCallsBefore = socketSpy.mock.calls.length;
+    const listCallsBefore = threadListCalls().length;
+
+    // Runtime drops then recovers: core disposes the shared socket on disconnect.
+    harness.emitConnectionStatusChanged(
+      CopilotKitCoreRuntimeConnectionStatus.Disconnected,
+    );
+    harness.emitConnectionStatusChanged(
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+
+    // Reconnect re-dispatches `setContext` per owned store → new session → new
+    // `/threads` list + `/threads/subscribe` → `getMetadataSocket` invoked
+    // AGAIN. A REST-only `refreshOwnedThreadStore` loop would reuse the session
+    // and never re-resolve the socket, leaving this at the initial count.
+    await vi.waitFor(() => {
+      expect(socketSpy.mock.calls.length).toBeGreaterThan(socketCallsBefore);
+    });
+    expect(threadListCalls().length).toBeGreaterThan(listCallsBefore);
   });
 
   it("rerenders selected thread details so core header changes refetch events with new headers", async () => {

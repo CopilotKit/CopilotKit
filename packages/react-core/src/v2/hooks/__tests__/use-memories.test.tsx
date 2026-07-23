@@ -12,8 +12,8 @@ import {
 } from "vitest";
 import type { Mock } from "vitest";
 import { useCopilotKit } from "../../context";
-import { ɵcreateMemoryStore } from "@copilotkit/core";
-import type { ɵMemoryStore } from "@copilotkit/core";
+import { ɵcreateMemoryStore, ɵcreateMetadataSocket } from "@copilotkit/core";
+import type { ɵMemoryStore, ɵMetadataSocket } from "@copilotkit/core";
 import { useMemories } from "../use-memories";
 
 vi.mock("../../context", () => ({
@@ -124,9 +124,22 @@ function setupCopilotKit(mock: Mock): void {
  * subscribed when the async response arrives.
  */
 function activateStore(): void {
+  // Mirror `CopilotKitCore.ɵgetMetadataSocket`: ONE credential-agnostic socket
+  // created on first call and memoized, so repeated resolves return the same
+  // instance. The store fetches its own `/memories/subscribe` creds and hands
+  // the token here.
+  let socket: ɵMetadataSocket | undefined;
   store.setContext({
     runtimeUrl: RUNTIME_URL,
-    wsUrl: "wss://gw.example.com/client",
+    getMetadataSocket: (joinToken: string) => {
+      if (!socket) {
+        socket = ɵcreateMetadataSocket({
+          wsUrl: "wss://gw.example.com/client",
+          joinToken,
+        }).socket;
+      }
+      return socket;
+    },
     headers: {},
   });
 }
