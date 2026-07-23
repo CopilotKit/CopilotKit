@@ -649,12 +649,16 @@ export function renderPageToLlmText(
   const framework = options.framework ?? page.framework ?? frontmatterFramework;
 
   let body = stripFrontmatter(raw);
-  body = filterFrontendScopedBlocks(body, options.frontend);
 
   // 1) Inline `<Component />` shared snippets (`<AGUI />`, etc.). Uses
   //    the SNIPPET_MAP / SUBPATH_TO_COMPONENT logic — same as the page
   //    renderer uses for the live HTML view.
   body = inlineSnippets(body, page.loadSlug);
+
+  // Imported snippets can contain frontend-scoped branches of their own.
+  // Filter after inlining so raw Markdown output follows the same frontend
+  // selection as the live MDX component tree.
+  body = filterFrontendScopedBlocks(body, options.frontend);
 
   // 2) Resolve `<Snippet ... />` to fenced code.
   body = expandSnippets(body, framework, frontmatterCell);

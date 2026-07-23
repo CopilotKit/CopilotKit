@@ -1,6 +1,6 @@
 ---
 title: Architecture
-description: How CopilotKit's pieces fit together — a React frontend, a runtime in your app server, and an agent backend, all talking AG-UI.
+description: How CopilotKit's pieces fit together — a frontend, a runtime in your app server, and an agent backend, all talking AG-UI.
 icon: "lucide/Boxes"
 doc_type: explanation
 ---
@@ -9,7 +9,7 @@ CopilotKit is a three-layer stack — **frontend, runtime, agent** — connected
 
 ## The 30-second version
 
-- **Frontend.** React hooks + prebuilt chat components that connect your UI to a running agent.
+- **Frontend.** A framework-native SDK and prebuilt chat components that connect your UI to a running agent.
 - **Runtime.** A request handler mounted in your app server (Next.js, Express, Hono, Bun, Deno, Workers). Brokers auth, tool calls, and the AG-UI stream.
 - **Agent.** Any AG-UI-compatible backend — Built-in, LangGraph, Mastra, CrewAI, Pydantic AI, MAF, or your own.
 - **AG-UI** is the wire format: 16 event types, transport-agnostic, framework-agnostic. Swap any layer without rewriting the others.
@@ -25,7 +25,10 @@ CopilotKit is a three-layer stack — **frontend, runtime, agent** — connected
 
 ### 1. Frontend
 
-The React app your users interact with. CopilotKit ships hooks (`useAgent`, `useFrontendTool`, `useAgentContext`, `useThreads`) and prebuilt components (`CopilotChat`, `CopilotSidebar`, `CopilotPopup`). Use the prebuilt chat surface, build a fully custom UI with the headless hooks, or mix the two.
+The application your users interact with. CopilotKit ships framework-native
+state and tool APIs plus prebuilt components such as `CopilotChat`,
+`CopilotSidebar`, and `CopilotPopup`. Use a prebuilt chat surface, build a
+fully custom UI with the headless APIs, or mix the two.
 
 ### 2. Runtime
 
@@ -50,12 +53,12 @@ Because the contract is a protocol — not an SDK lock-in — you can swap the a
 
 ## Request flow at a glance
 
-1. User sends a message in your React app.
-2. Frontend `useAgent` hook posts to your runtime endpoint.
+1. A user sends a message in your frontend application.
+2. The frontend agent API posts to your runtime endpoint.
 3. Runtime opens an AG-UI session with the configured agent.
 4. Agent emits text, tool calls, and state updates as AG-UI events.
 5. Runtime streams the events back; the frontend renders them in real time.
-6. If the agent calls a frontend tool, the runtime relays the request, your hook handler runs in the browser, and the result flows back to the agent.
+6. If the agent calls a frontend tool, the runtime relays the request, your browser handler runs, and the result flows back to the agent.
 7. Threads, persistence, and realtime sync (when configured) are mediated by the [Enterprise Intelligence Platform](/premium/overview) — the platform backend that sits beside the runtime.
 
 ## Where to go next

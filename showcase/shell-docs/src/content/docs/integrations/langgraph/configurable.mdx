@@ -26,6 +26,7 @@ By default, LangGraph agents are invoked with a `config` argument. This config h
 ### Pass configuration from the frontend
 First, pass the configuration properties as you would like to receive them in the agent.
 
+<FrontendOnly frontend="react">
 Do not call `runAgent` directly in the component body: it would run on every render and can trigger errors such as **thread is already processing**. Use a `useEffect` with an empty dependency array (or call `runAgent` from an event handler) when you want to start the run once with a given config.
 
 ```tsx title="app/page.tsx"
@@ -59,6 +60,39 @@ function YourMainContent() {
   return (... your component UI markdown)
 }
 ```
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+Call `runAgent` from an event handler or another intentional lifecycle point. Calling it during component initialization without a guard can start duplicate runs.
+
+```typescript title="app.component.ts"
+import { Component, inject } from "@angular/core";
+import { CopilotKit, injectAgentStore } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-root",
+  template: `<button (click)="runWithConfig()">Start agent</button>`,
+})
+export class AppComponent {
+  private readonly copilotKit = inject(CopilotKit);
+  private readonly store = injectAgentStore("sample_agent");
+
+  async runWithConfig(): Promise<void> {
+    await this.copilotKit.core.runAgent({
+      agent: this.store().agent,
+      forwardedProps: {
+        config: {
+          configurable: {
+            authToken: "example-token",
+          },
+          recursion_limit: 50,
+        },
+      },
+    });
+  }
+}
+```
+</FrontendOnly>
 </Step>
 <Step>
 ### Use configurables in agent

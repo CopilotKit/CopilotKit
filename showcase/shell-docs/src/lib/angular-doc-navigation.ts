@@ -51,8 +51,8 @@ function frameworkContentSlug(
     : null;
 
   if (getDocsMode(framework) === "authored") {
-    if (frameworkDoc) return frameworkSlug;
-    return sharedDoc ? slugPath : null;
+    if (sharedDoc) return slugPath;
+    return frameworkDoc ? frameworkSlug : null;
   }
 
   if (sharedDoc) return slugPath;
@@ -63,7 +63,10 @@ export function resolveAngularDoc(
   backendFramework: string | null,
   slugPath: string,
 ): AngularDocResolution | null {
-  const angularContentSlug = `frontends/angular/${slugPath}`;
+  const angularContentSlug =
+    slugPath === "using-these-docs"
+      ? "frontends/angular/docs-status"
+      : `frontends/angular/${slugPath}`;
   if (loadDoc(angularContentSlug)) {
     return {
       slugPath,

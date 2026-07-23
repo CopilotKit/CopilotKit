@@ -33,8 +33,9 @@ They let you build multi-agent systems, reuse node sets across multiple graphs, 
 CopilotKit supports streaming directly from subgraphs, so nested graphs can emit events in real time just like a single graph.
 
 Using this feature requires no extra steps on the agent side.
-All you need to do, is to enable subgraph streaming using the `useAgent` hook:
+All you need to do is subscribe to the agent state in your frontend:
 
+<FrontendOnly frontend="react">
 ```tsx
 const { agent } = useAgent({
   agentId: "sample_agent",
@@ -43,5 +44,19 @@ const { agent } = useAgent({
 // Access agent state as usual - subgraph streaming is handled automatically
 const state = agent.state;
 ```
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+```typescript
+import { injectAgentStore } from "@copilotkit/angular";
+
+export class AgentStatusComponent {
+  readonly store = injectAgentStore("sample_agent");
+
+  // Read this.store().state() in the template or another computed signal.
+  // Subgraph streaming updates it automatically.
+}
+```
+</FrontendOnly>
 
 The subgraph nodes will stream as usual, and you can also use `interrupt()` directly from a subgraph.

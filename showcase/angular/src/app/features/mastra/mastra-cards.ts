@@ -467,6 +467,7 @@ function parseBrowseResult(result: unknown): BrowseWebResult {
   }
 }
 
+// region:mastra-activity-renderer-configs
 /** Ready-to-register background-task activity renderer. */
 export const backgroundTaskActivityRendererConfig: RenderActivityMessageConfig<BackgroundTaskContent> =
   {
@@ -486,6 +487,7 @@ export const observationalMemoryActivityRendererConfig: RenderActivityMessageCon
       ObservationalMemoryActivityCard,
     ),
   };
+// endregion:mastra-activity-renderer-configs
 
 /** Isolate the source-workspace Angular-major type brand from packed consumers. */
 export function asBrowseRenderer(
