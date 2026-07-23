@@ -1,6 +1,5 @@
 "use client";
 import { LayoutComponent } from "@/components/layout";
-import { usePathname, useSearchParams } from "next/navigation";
 import {
   CopilotChatConfigurationProvider,
   CopilotKitProvider,
@@ -192,57 +191,43 @@ const PILL = {
     title: "Which charges are over limit?",
     message: "Which charges are over their policy limit? Show them ranked.",
   },
+  askScreen: {
+    title: "What's on my screen?",
+    message:
+      "Look at the page I'm on right now and tell me what's on screen — the key elements and the figures shown.",
+  },
+  favoriteFood: {
+    title: "What's my favorite food?",
+    message:
+      "What's my favorite food? Recall it from memory and tell me you got it from memory.",
+  },
 } as const;
 
 type Pill = { title: string; message: string };
 
-// Pick the suggestion set for the current location. Route + dashboard tab
-// (?tab=) decide it, so the pills track what's on screen.
-function suggestionsFor(pathname: string, tab: string): Pill[] {
-  if (pathname.startsWith("/dashboard")) {
-    switch (tab) {
-      case "transactions":
-        return [
-          PILL.approveGoogleAds,
-          PILL.reviewPending,
-          PILL.approvalsExplain,
-        ];
-      case "analytics":
-        return [PILL.spendingTrend, PILL.budgetsNearLimit, PILL.cashFlow];
-      case "reports":
-        return [PILL.q2Report, PILL.buildCanvasReport];
-      default: // overview — lead with a one-click chart so a visual is one tap
-        // away the moment the app opens with the chat already showing.
-        return [
-          PILL.spendingTrend,
-          PILL.reviewPending,
-          PILL.awsCharge,
-          PILL.whereMoney,
-        ];
-    }
-  }
-  if (pathname.startsWith("/charges")) {
-    return [PILL.topExpensiveCharges, PILL.chargesOverLimit, PILL.whereMoney];
-  }
-  if (pathname.startsWith("/team")) {
-    return [PILL.inviteMember, PILL.reviewPending];
-  }
-  if (pathname === "/" || pathname.startsWith("/cards")) {
-    return [PILL.addCard, PILL.changePin, PILL.reviewPending];
-  }
-  // Fallback / welcome — a tight, high-signal trio.
-  return [PILL.reviewPending, PILL.spendingTrend, PILL.q2Report];
-}
+// A fixed, curated demo set — the SAME seven bubbles everywhere, independent of
+// where the officer is in the app. Ordered to walk the capabilities end to end:
+//   1. show a chart
+//   2. change something in the app, driven by the agent
+//   3. change a card PIN (entered in the app UI, not typed into the chat)
+//   4. ask about the elements on the current screen
+//   5. the 10 most expensive charges (navigate + stack-rank)
+//   6. generate + file the Q2 report
+//   7. recall a fact from long-term memory
+const DEMO_SUGGESTIONS: Pill[] = [
+  PILL.spendingTrend,
+  PILL.addCard,
+  PILL.changePin,
+  PILL.askScreen,
+  PILL.topExpensiveCharges,
+  PILL.q2Report,
+  PILL.favoriteFood,
+];
 
 function BankingSuggestions() {
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const tab = searchParams.get("tab") ?? "overview";
-  // Re-runs whenever the route or tab changes, so the pill set updates live as
-  // the officer moves around the app.
   useConfigureSuggestions({
     available: "always",
-    suggestions: suggestionsFor(pathname, tab),
+    suggestions: DEMO_SUGGESTIONS,
   });
   return null;
 }
