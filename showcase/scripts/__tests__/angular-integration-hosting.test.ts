@@ -159,6 +159,8 @@ test("keeps the exhaustive Angular audit opt-in, complete, and fail-closed", asy
   expect(workflow).toContain("Start four isolated integration containers");
   expect(workflow).toContain("Run four isolated Chromium shards");
   expect(workflow).toContain("for shard in 0 1 2 3");
+  expect(workflow).toContain("--host 0.0.0.0");
+  expect(workflow).not.toContain("--host 127.0.0.1");
   expect(workflow).toContain('--feature-contract-revision "$SOURCE_SHA"');
   expect(workflow).toContain("--concurrency 1");
   expect(workflow).toContain(')" = "80"');

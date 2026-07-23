@@ -161,7 +161,7 @@ jobs:
         run: |
           showcase/scripts/node_modules/.bin/llmock \
             --port 4010 \
-            --host 127.0.0.1 \
+            --host 0.0.0.0 \
             --metrics \
             --fixtures showcase/aimock/shared \
             --fixtures showcase/aimock/d4 \
