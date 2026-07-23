@@ -6,9 +6,16 @@ interface SourceFile {
   content: string;
 }
 
+export interface AngularSourceRegion extends SourceFile {
+  file: string;
+  startLine: number;
+  endLine: number;
+}
+
 export interface AngularSourceContent {
   files: Record<string, SourceFile>;
   defaultFileByFeature: Record<string, string>;
+  regions: Record<string, AngularSourceRegion>;
 }
 
 const FEATURE_GROUPS: ReadonlyArray<{
@@ -120,8 +127,70 @@ function sourceLanguage(filename: string): SourceFile["language"] {
   }
 }
 
-function readSourceTree(root: string): Record<string, SourceFile> {
+const REGION_START = /@region\[([a-z0-9][a-z0-9-]*)\]/;
+const REGION_END = /@endregion\[([a-z0-9][a-z0-9-]*)\]/;
+
+function extractRegions(
+  content: string,
+  file: string,
+  language: SourceFile["language"],
+): { content: string; regions: Record<string, AngularSourceRegion> } {
+  const cleaned: string[] = [];
+  const open: Array<{ name: string; startLine: number; lines: string[] }> = [];
+  const regions: Record<string, AngularSourceRegion> = {};
+
+  for (const line of content.split("\n")) {
+    const start = line.match(REGION_START);
+    const end = line.match(REGION_END);
+    if (start && end) {
+      throw new Error(`${file}: region markers must use separate lines.`);
+    }
+    if (start) {
+      if (
+        regions[start[1]] ||
+        open.some((region) => region.name === start[1])
+      ) {
+        throw new Error(`${file}: duplicate Angular region ${start[1]}.`);
+      }
+      open.push({
+        name: start[1],
+        startLine: cleaned.length + 1,
+        lines: [],
+      });
+      continue;
+    }
+    if (end) {
+      const region = open.pop();
+      if (!region || region.name !== end[1]) {
+        throw new Error(`${file}: unmatched Angular region end ${end[1]}.`);
+      }
+      regions[region.name] = {
+        file,
+        language,
+        content: region.lines.join("\n"),
+        startLine: region.startLine,
+        endLine: cleaned.length,
+      };
+      continue;
+    }
+
+    cleaned.push(line);
+    for (const region of open) region.lines.push(line);
+  }
+
+  if (open.length > 0) {
+    throw new Error(`${file}: unclosed Angular region ${open.at(-1)?.name}.`);
+  }
+
+  return { content: cleaned.join("\n"), regions };
+}
+
+function readSourceTree(root: string): {
+  files: Record<string, SourceFile>;
+  regions: Record<string, AngularSourceRegion>;
+} {
   const files: Record<string, SourceFile> = {};
+  const regions: Record<string, AngularSourceRegion> = {};
 
   function visit(directory: string): void {
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
@@ -137,15 +206,29 @@ function readSourceTree(root: string): Record<string, SourceFile> {
         continue;
       }
       const filename = relative(root, absolute).replaceAll("\\", "/");
+      const language = sourceLanguage(filename);
+      const extracted = extractRegions(
+        readFileSync(absolute, "utf8"),
+        filename,
+        language,
+      );
       files[filename] = {
-        language: sourceLanguage(filename),
-        content: readFileSync(absolute, "utf8"),
+        language,
+        content: extracted.content,
       };
+      for (const [name, region] of Object.entries(extracted.regions)) {
+        if (regions[name]) {
+          throw new Error(
+            `Angular region ${name} is declared in both ${regions[name].file} and ${filename}.`,
+          );
+        }
+        regions[name] = region;
+      }
     }
   }
 
   visit(root);
-  return files;
+  return { files, regions };
 }
 
 /** Build the source bundle used by Angular Showcase code routes. */
@@ -177,7 +260,7 @@ export function buildAngularSourceContent(
     );
   }
 
-  const files = readSourceTree(appRoot);
+  const { files, regions } = readSourceTree(appRoot);
   for (const [feature, filename] of Object.entries(defaultFileByFeature)) {
     if (!files[filename]) {
       throw new Error(
@@ -186,5 +269,5 @@ export function buildAngularSourceContent(
     }
   }
 
-  return { files, defaultFileByFeature };
+  return { files, defaultFileByFeature, regions };
 }

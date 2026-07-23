@@ -39,6 +39,7 @@ export const POST = async (req: NextRequest) => {
 
 Then point your frontend at the endpoint:
 
+<FrontendOnly frontend="react">
 ```tsx
 import { CopilotKit } from "@copilotkit/react-core/v2";
 
@@ -46,6 +47,22 @@ import { CopilotKit } from "@copilotkit/react-core/v2";
   <YourApp />
 </CopilotKit>
 ```
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+```ts title="src/app/app.config.ts"
+import { ApplicationConfig } from "@angular/core";
+import { provideCopilotKit } from "@copilotkit/angular";
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideCopilotKit({
+      runtimeUrl: "/api/copilotkit",
+    }),
+  ],
+};
+```
+</FrontendOnly>
 
 For Express, NestJS, or plain Node.js HTTP variants, see the [quickstart](/quickstart).
 For the exact HTTP routes the runtime exposes (and how to probe them with `curl`),
@@ -78,13 +95,13 @@ import { BuiltInAgent } from "@copilotkit/runtime/v2";
 
 const runtime = new CopilotRuntime({
   agents: {
-    // This agent is used automatically by CopilotPopup, CopilotSidebar, etc.
+    // Frontend components use this agent unless given another agentId.
     default: new BuiltInAgent({ model: "openai:gpt-4.1" }),
   },
 });
 ```
 
-When you register multiple agents, the `"default"` agent is what powers the chat unless a specific agent is selected. Other agents can still be addressed by passing their `agentId` to `useAgent` or the prebuilt components.
+When you register multiple agents, the `"default"` agent is what powers the chat unless a specific agent is selected. Other agents can still be addressed by passing their `agentId` to a chat component or frontend agent API.
 
 ## What the runtime provides
 
@@ -127,6 +144,7 @@ a2ui: { agents: ["my-agent"] }
 
 On the frontend, the A2UI renderer activates automatically. No extra configuration is needed. To override the default theme, pass an `a2ui` prop to `<CopilotKit>`:
 
+<FrontendOnly frontend="react">
 ```tsx
 import { CopilotKit } from "@copilotkit/react-core/v2";
 
@@ -134,6 +152,16 @@ import { CopilotKit } from "@copilotkit/react-core/v2";
   {children}
 </CopilotKit>
 ```
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+```ts title="src/app/app.config.ts"
+provideCopilotKit({
+  runtimeUrl: "/api/copilotkit",
+  a2ui: { theme: myCustomTheme },
+})
+```
+</FrontendOnly>
 
 ### mcpApps
 
@@ -154,7 +182,7 @@ Each server entry optionally accepts an `agentId` field to scope that server to 
 
 ## Forwarding request headers to your agent
 
-When a request reaches the runtime, some inbound headers are forwarded onto the outgoing call to your agent (the `/run` path that actually dispatches the agent). This is how a token set on `<CopilotKit headers={...}>` reaches a self-hosted agent — see [Authentication](/auth).
+When a request reaches the runtime, some inbound headers are forwarded onto the outgoing call to your agent (the `/run` path that actually dispatches the agent). This is how a token configured by the frontend provider reaches a self-hosted agent — see [Authentication](/auth).
 
 By default the runtime forwards `authorization` and any `x-*` header, **minus** a built-in denylist of infrastructure, proxy, and platform headers that no legitimate agent integration needs forwarded from the edge. The denylist strips, among others:
 
@@ -209,6 +237,7 @@ In allowlist mode the built-in denylist does **not** apply — only your `allow`
 
 CopilotKit is built on the [AG-UI protocol](/backend/ag-ui), which is an open standard. If you want to connect your frontend directly to an AG-UI-compatible agent without the runtime, you can do so by passing agent instances straight to the `CopilotKit`:
 
+<FrontendOnly frontend="react">
 ```tsx
 import { HttpAgent } from "@ag-ui/client";
 import { CopilotKit } from "@copilotkit/react-core/v2";
@@ -221,6 +250,27 @@ const myAgent = new HttpAgent({
   <YourApp />
 </CopilotKit>;
 ```
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+```ts title="src/app/app.config.ts"
+import { ApplicationConfig } from "@angular/core";
+import { HttpAgent } from "@ag-ui/client";
+import { provideCopilotKit } from "@copilotkit/angular";
+
+const localAgent = new HttpAgent({
+  url: "http://localhost:8000",
+});
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideCopilotKit({
+      agents: { "my-agent": localAgent },
+    }),
+  ],
+};
+```
+</FrontendOnly>
 
 <Callout type="warn">
 Direct agent connections are intended for development and prototyping. They are **not recommended for production** and are not officially supported by CopilotKit.

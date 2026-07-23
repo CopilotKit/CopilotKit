@@ -990,11 +990,29 @@ When using `credentials: true`, you must specify an explicit origin — wildcard
 
 Once your runtime is running, point your frontend at it:
 
+<FrontendOnly frontend="react">
 ```tsx
 <CopilotKit runtimeUrl="http://localhost:4000/api/copilotkit">
   <YourApp />
 </CopilotKit>
 ```
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+```ts title="src/app/app.config.ts"
+provideCopilotKit({
+  runtimeUrl: "http://localhost:4000/api/copilotkit",
+})
+```
+
+For same-origin deployments, use a relative path:
+
+```ts title="src/app/app.config.ts"
+provideCopilotKit({
+  runtimeUrl: "/api/copilotkit",
+})
+```
+</FrontendOnly>
 
 For same-origin deployments (e.g. Next.js, React Router, TanStack Start), use a relative path:
 

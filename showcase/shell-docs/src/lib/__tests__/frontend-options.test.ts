@@ -289,9 +289,9 @@ test("keeps Angular backend docs in context without a frontend-backend copy tree
   expect(pageUrls).toContain(`${prefix}/guides/frontend-tools-generative-ui`);
   expect(resolveAngularDoc("langgraph-python", "auth")).toEqual(
     expect.objectContaining({
-      contentSlugPath: "integrations/langgraph/auth",
+      contentSlugPath: "frontends/angular/auth",
       framework: "langgraph-python",
-      source: "backend",
+      source: "angular",
     }),
   );
 });

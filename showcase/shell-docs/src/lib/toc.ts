@@ -8,6 +8,7 @@
 // no H2 collisions today; if that changes, swap in rehype-slug.
 
 import { getIntegration } from "./registry";
+import type { FrontendId } from "./frontend-options";
 
 export interface TocHeading {
   depth: 2 | 3;
@@ -116,6 +117,39 @@ export function filterFrameworkScopedBlocks(
 
     cursor = blockEnd;
     openRe.lastIndex = blockEnd;
+  }
+
+  out.push(source.slice(cursor));
+  return out.join("");
+}
+
+/** Keep only `<FrontendOnly frontend="…">` blocks for the selected frontend. */
+export function filterFrontendScopedBlocks(
+  source: string,
+  frontend: FrontendId = "react",
+): string {
+  const openRe = /<FrontendOnly\b([^>]*)>/g;
+  const closeTag = "</FrontendOnly>";
+  const out: string[] = [];
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = openRe.exec(source)) !== null) {
+    const openStart = match.index;
+    const openEnd = openRe.lastIndex;
+    const closeIndex = source.indexOf(closeTag, openEnd);
+    if (closeIndex === -1) {
+      out.push(source.slice(cursor));
+      return out.join("");
+    }
+
+    out.push(source.slice(cursor, openStart));
+    const target = /\bfrontend\s*=\s*["']([^"']+)["']/.exec(match[1])?.[1];
+    if (target === frontend) {
+      out.push(source.slice(openEnd, closeIndex));
+    }
+    cursor = closeIndex + closeTag.length;
+    openRe.lastIndex = cursor;
   }
 
   out.push(source.slice(cursor));

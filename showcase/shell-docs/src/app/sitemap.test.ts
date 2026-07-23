@@ -22,3 +22,34 @@ test("publishes every Angular task guide at its canonical URL", () => {
     expect(urls.some((url) => url.endsWith(guidePath))).toBe(true);
   }
 });
+
+test("publishes shared Runtime and Intelligence docs once on the Angular surface", () => {
+  const urls = sitemap().map((entry) => entry.url);
+
+  expect(
+    urls.some((url) => url.endsWith("/angular/backend/copilot-runtime")),
+  ).toBe(true);
+  expect(
+    urls.some((url) => url.endsWith("/angular/premium/intelligence-platform")),
+  ).toBe(true);
+  expect(urls.some((url) => url.endsWith("/angular/auth"))).toBe(true);
+  expect(
+    urls.some((url) =>
+      url.endsWith("/angular/langgraph-python/premium/intelligence-platform"),
+    ),
+  ).toBe(false);
+});
+
+test("publishes Angular backend roots and backend-owned pages without a full cross-product", () => {
+  const urls = sitemap().map((entry) => entry.url);
+
+  expect(urls.some((url) => url.endsWith("/angular/langgraph-python"))).toBe(
+    true,
+  );
+  expect(
+    urls.some((url) => url.endsWith("/angular/langgraph-python/quickstart")),
+  ).toBe(true);
+  expect(
+    urls.some((url) => url.endsWith("/angular/langgraph-python/auth")),
+  ).toBe(false);
+});

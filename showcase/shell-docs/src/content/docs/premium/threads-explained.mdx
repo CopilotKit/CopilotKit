@@ -36,7 +36,7 @@ From a developer's perspective, threads involve three things:
 
 | What you use | What it does |
 |-------------|-------------|
-| `useThreads` hook | Lists, renames, archives, and deletes threads. Pagination via `hasMoreThreads` / `fetchMoreThreads`. Stays in sync across tabs and devices via WebSocket. |
+| Frontend thread API | Lists, renames, archives, and deletes threads. Supports pagination and stays in sync across tabs and devices via WebSocket. |
 | `CopilotChat` with `threadId` | Connects to a specific thread, loads its history, and streams new events in realtime. |
 | `CopilotRuntime` | Server-side layer that executes agents, stores thread data on the Enterprise Intelligence Platform, and relays events to connected clients. |
 
@@ -46,7 +46,7 @@ To wire these pieces into a custom chat UI, follow [Headless Threads](/headless-
 
 ### Auto-naming
 
-When a new thread is created and the first run completes, the runtime automatically generates a short name (2–5 words) using the LLM. This runs asynchronously, so it doesn't block thread creation or the agent's response. The generated name appears in `useThreads` via the realtime sync.
+When a new thread is created and the first run completes, the runtime automatically generates a short name (2–5 words) using the LLM. This runs asynchronously, so it doesn't block thread creation or the agent's response. The generated name appears through the frontend thread API via realtime sync.
 
 Auto-naming is enabled by default. Disable it with `generateThreadNames: false` on the runtime. Users can always override the generated name via `renameThread()`.
 
@@ -54,7 +54,7 @@ Auto-naming is enabled by default. Disable it with `generateThreadNames: false` 
 
 Threads support two removal operations with different semantics:
 
-- **Archive** is a soft delete. The thread remains stored but disappears from the default list. Show archived threads by passing `includeArchived: true` to `useThreads`. Threads can also be unarchived, which restores them to the active list.
+- **Archive** is a soft delete. The thread remains stored but disappears from the default list. Show archived threads by setting `includeArchived: true` in the frontend thread API. Threads can also be unarchived, which restores them to the active list.
 - **Delete** is permanent and irreversible. The thread and its history are removed entirely.
 
 Neither operation has a built-in confirmation dialog, so your application should implement its own if needed.
@@ -76,7 +76,7 @@ In either case the transition from replayed history to live updates is seamless.
 
 ### Realtime sync
 
-The `useThreads` hook maintains a WebSocket subscription for thread metadata changes. When any client creates, renames, archives, or deletes a thread, the update is pushed to all connected clients automatically. This is how a thread created on one tab appears in the sidebar on another tab without polling.
+The frontend thread client maintains a WebSocket subscription for thread metadata changes. When any client creates, renames, archives, or deletes a thread, the update is pushed to all connected clients automatically. This is how a thread created on one tab appears in the sidebar on another tab without polling.
 
 ### Future runs and native persistence
 
@@ -89,7 +89,7 @@ service that retains its sessions.
 
 That coordinated future persistence lets teams retain native framework storage
 and analytics while adding the Rich Threads experience for users. It is not a
-general replication link between databases: `useThreads` operations such as
+general replication link between databases: frontend thread operations such as
 rename, archive, and delete change the Enterprise Intelligence thread and do not
 mutate records in LangGraph, ADK, or another native store.
 
@@ -112,13 +112,14 @@ All mutation methods (`renameThread`, `archiveThread`, `deleteThread`) return pr
 - **Authorization failure.** The user doesn't have permission to modify the thread.
 - **Timeout.** The server didn't respond within 15 seconds.
 
-The `error` field on `useThreads` always reflects the most recent error. It resets to `null` on the next successful operation.
+The thread client exposes the most recent list or mutation error and clears it
+after the next successful operation.
 
 ### WebSocket disconnection
 
 If the WebSocket connection drops (network change, server restart, laptop sleep):
 
-- **Thread list.** `useThreads` stops receiving realtime updates, so the list becomes stale until the connection is re-established. Reconnection is automatic with exponential backoff.
+- **Thread list.** The frontend thread API stops receiving realtime updates, so the list becomes stale until the connection is re-established. Reconnection is automatic with exponential backoff.
 - **Active conversation.** If `CopilotChat` loses its WebSocket mid-run, the agent's output may be interrupted. Reloading the page, or switching away and back to the thread, triggers the reconnection flow, which replays any missed events.
 
 ### Thread locked
@@ -149,11 +150,18 @@ The trade-off is that replay is more complex than loading a message array. The p
 ### When threads are the wrong tool
 
 - **Ephemeral interactions.** If your users don't need conversation history (e.g., a one-shot Q&A widget), threads add unnecessary complexity. Use `CopilotChat` without a `threadId`.
-- **Client-only state.** If you need local-only chat history without server persistence, manage messages in React state or localStorage instead.
+- **Client-only state.** If you need local-only chat history without server persistence, manage messages in frontend state or localStorage instead.
 
 ## Next steps
 
 - **Client lifecycle:** [Thread & History Lifecycle](/threads-lifecycle) — how a `threadId` is minted, hydrated, and switched on the client
 - **Overview:** [Rich Threads](/threads) — understand the feature and choose an implementation path
 - **Step-by-step guide:** [Headless Threads](/headless-threads) — build a custom thread-management UI
+<FrontendOnly frontend="react">
 - **API reference:** [useThreads](/reference/hooks/useThreads) — parameters, return values, types
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+- **Angular guide:** [Threads, memory, attachments, and headless UI](/angular/guides/threads-memory-attachments-headless)
+- **API reference:** [injectThreads](/reference/angular/functions/injectThreads) — options, signals, and mutations
+</FrontendOnly>

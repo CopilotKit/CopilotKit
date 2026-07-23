@@ -22,7 +22,7 @@ For a product-level map of features and hosting options, start with the [Enterpr
 
 A CopilotKit app has three layers:
 
-- **Frontend** — your React UI calls CopilotKit hooks and renders chat, generative UI, tools, and thread controls.
+- **Frontend** — your application uses the CopilotKit frontend SDK to render chat, generative UI, tools, and thread controls.
 - **Runtime** — your application server hosts the CopilotKit runtime and connects to your agent framework through AG-UI.
 - **Enterprise Intelligence Platform** — a platform service that stores durable thread data, indexes operational history, serves project-scoped APIs, and powers dashboard surfaces.
 
@@ -40,7 +40,7 @@ Project API keys are issued per project. Threads, events, and dashboard history 
 
 ## Threads and event history
 
-Threads are stored as durable platform records. When your UI uses `useThreads`, the runtime asks the platform to list, create, rename, archive, delete, and resume conversations for the selected project and user.
+Threads are stored as durable platform records. When your UI uses its thread-management API, the runtime asks the platform to list, create, rename, archive, delete, and resume conversations for the selected project and user.
 
 The platform stores event history so a conversation can be replayed after reloads and resumed across devices. That is what separates platform-backed threads from an in-memory chat transcript.
 
@@ -67,7 +67,7 @@ Cloud-hosted and self-hosted Enterprise Intelligence share the same application 
 | Cloud-hosted | CopilotKit runs the platform, database, web app, project API keys, and plan management. | Your frontend hooks, runtime APIs, AG-UI agent connection, and thread APIs. |
 | Self-hosted | You run the platform in your own Kubernetes cluster and own its infrastructure dependencies. | Your frontend hooks, runtime APIs, AG-UI agent connection, and thread APIs. |
 
-Self-hosting changes operational ownership. It does not require a different React integration. Moving from cloud-hosted projects to self-hosting is available on the Team self-hosted plan or a custom Enterprise plan.
+Self-hosting changes operational ownership. It does not require a different frontend integration. Moving from cloud-hosted projects to self-hosting is available on the Team self-hosted plan or a custom Enterprise plan.
 
 ## Error handling model
 

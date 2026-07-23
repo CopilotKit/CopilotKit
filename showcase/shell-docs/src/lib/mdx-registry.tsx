@@ -34,6 +34,7 @@ import { WhenFrameworkHas } from "@/components/when-framework-has";
 import { AgentCoreCommandTabs } from "@/components/agentcore-command-tabs";
 import { DemoSource } from "@/components/demo-source";
 import { AngularFeatureCatalog } from "@/components/angular-feature-catalog";
+import { AngularSnippet } from "@/components/angular-snippet";
 import { UnsupportedBox } from "@/components/snippet";
 import { getRegistry } from "@/lib/registry";
 import { PartialLoader } from "@/lib/mdx-registry-loader";
@@ -430,6 +431,7 @@ export const docsComponents = {
   WhenFrameworkHas,
   AgentCoreCommandTabs,
   AngularFeatureCatalog,
+  AngularSnippet,
   FeatureGrid: ({ children }: { children?: React.ReactNode }) => (
     <div
       style={{

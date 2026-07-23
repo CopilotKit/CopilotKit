@@ -25,12 +25,16 @@ import {
   resolveLastModified,
 } from "@/lib/sitemap-helpers";
 import {
-  ANGULAR_GUIDE_PAGES,
   FRONTEND_PAGE_IDS,
   getFrontendContentSlug,
   getFrontendGuidanceContentSlug,
 } from "@/lib/frontend-page-content";
 import { loadDoc } from "@/lib/docs-render";
+import type { NavNode } from "@/lib/docs-render";
+import {
+  getAngularDocsNavTree,
+  resolveAngularDoc,
+} from "@/lib/angular-doc-navigation";
 import { getDocsFolder, getIntegrations, ROOT_FRAMEWORK } from "@/lib/registry";
 
 // Force-dynamic so the sitemap is regenerated per request and reads
@@ -138,24 +142,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     }
   }
 
-  const angularFeaturesDoc = loadDoc("frontends/angular/features");
-  if (angularFeaturesDoc) {
-    entries.push({
-      url: `${baseUrl}/angular/features`,
-      lastModified: resolveLastModified(angularFeaturesDoc.filePath),
-    });
-  }
-
-  for (const guide of ANGULAR_GUIDE_PAGES) {
-    const doc = loadDoc(`frontends/angular/${guide.slug}`);
-    if (doc) {
-      entries.push({
-        url: `${baseUrl}/angular/${guide.slug}`,
-        lastModified: resolveLastModified(doc.filePath),
-      });
-    }
-  }
-
   // Status/guidance page, emitted once per non-React frontend.
   for (const frontend of FRONTEND_PAGE_IDS) {
     const doc = loadDoc(getFrontendGuidanceContentSlug(frontend));
@@ -164,6 +150,54 @@ export default function sitemap(): MetadataRoute.Sitemap {
         url: `${baseUrl}/${frontend}/using-these-docs`,
         lastModified: resolveLastModified(doc.filePath),
       });
+    }
+  }
+
+  // Angular reuses the shared Runtime and Intelligence IA, with sparse
+  // Angular-authored variants for frontend code. Publish that canonical
+  // surface once under /angular. For a selected backend, publish only its
+  // landing, frontend quickstart, and genuinely backend-owned pages rather
+  // than multiplying every shared topic by frontend × backend.
+  const seenAngularUrls = new Set(
+    entries
+      .map((entry) => entry.url)
+      .filter((url) => url.startsWith(`${baseUrl}/angular`)),
+  );
+  const pushAngular = (
+    path: string,
+    filePath?: string,
+    lastModified = now,
+  ): void => {
+    const url = `${baseUrl}${path}`;
+    if (seenAngularUrls.has(url)) return;
+    seenAngularUrls.add(url);
+    entries.push({
+      url,
+      lastModified: filePath ? resolveLastModified(filePath) : lastModified,
+    });
+  };
+
+  for (const slug of pageSlugs(getAngularDocsNavTree(null))) {
+    if (!slug) continue;
+    const resolution = resolveAngularDoc(null, slug);
+    const doc = resolution ? loadDoc(resolution.contentSlugPath) : null;
+    if (doc) pushAngular(`/angular/${slug}`, doc.filePath);
+  }
+
+  for (const integration of integrations.filter(
+    (item) => item.docs_mode !== "hidden",
+  )) {
+    const prefix = `/angular/${integration.slug}`;
+    pushAngular(prefix);
+    const quickstart = loadDoc(getFrontendContentSlug("angular"));
+    if (quickstart) pushAngular(`${prefix}/quickstart`, quickstart.filePath);
+
+    for (const slug of pageSlugs(getAngularDocsNavTree(integration.slug))) {
+      if (!slug || slug === "quickstart") continue;
+      const resolution = resolveAngularDoc(integration.slug, slug);
+      if (!resolution || resolution.source !== "backend") continue;
+      const doc = loadDoc(resolution.contentSlugPath);
+      if (doc) pushAngular(`${prefix}/${slug}`, doc.filePath);
     }
   }
 
@@ -188,4 +222,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
   entries.push({ url: `${baseUrl}/ag-ui`, lastModified: now });
 
   return entries;
+}
+
+function pageSlugs(nodes: NavNode[]): string[] {
+  return nodes.flatMap((node): string[] => {
+    if (node.type === "page") return node.href ? [] : [node.slug];
+    if (node.type === "group") return pageSlugs(node.children);
+    return [];
+  });
 }
