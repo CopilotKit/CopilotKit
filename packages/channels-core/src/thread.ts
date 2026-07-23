@@ -35,6 +35,8 @@ import { channelActorIdentity } from "./identity.js";
 import { hasMemoryAccess, resolveMemoryGrant } from "./memory.js";
 import type { MemoryGrant, ResolvedChannelMemory } from "./memory.js";
 import type { ChannelComponentRenderContext } from "./channel-component.js";
+import type { RenderConfig, ResolvedRenderConfig } from "./render/config.js";
+import type { PostImageOptions } from "@copilotkit/channels-ui";
 
 /**
  * Default retention for a captured interrupt value (7 days) — deliberately the
@@ -149,6 +151,16 @@ export interface ThreadDeps {
   telemetry?: {
     capture(event: string, properties: Record<string, unknown>): void;
   };
+  /** Channel-wide image-render config (fonts + compiled CSS), from createChannel({ render }). */
+  render?: RenderConfig;
+  /**
+   * Test seam: override the image renderer. Defaults to a lazy import of the
+   * Takumi render module, so `takumi-js` loads only when an image is posted.
+   */
+  renderImage?: (
+    node: unknown,
+    cfg: ResolvedRenderConfig,
+  ) => Promise<Uint8Array>;
 }
 
 /** Stable rejection for surfaces that cannot hold one run open for a choice. */
