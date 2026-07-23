@@ -22,7 +22,6 @@ interaction_modalities:
   - embedded
   - chat
 not_supported_features:
-  - shared-state-streaming
   # QUARANTINED pending a @copilotkit/react-core release. gen-ui-interrupt /
   # interrupt-headless fail turn-2 on a useInterrupt/useHeadlessInterrupt
   # RESUME-PATH hook bug in @copilotkit/react-core/v2: backend resumes + streams
@@ -50,6 +49,7 @@ features:
   - gen-ui-tool-based
   - declarative-gen-ui
   - a2ui-fixed-schema
+  - a2ui-recovery
   - mcp-apps
   - gen-ui-agent
   - tool-rendering-default-catchall
@@ -341,6 +341,22 @@ demos:
       - src/app/demos/a2ui-fixed-schema/a2ui/definitions.ts
       - src/app/demos/a2ui-fixed-schema/a2ui/renderers.tsx
       - src/app/api/copilotkit/route.ts
+  - id: a2ui-recovery
+    name: A2UI Error Recovery
+    description: >-
+      Makes the A2UI validate->retry recovery loop visible — an invalid first
+      render heals to a valid one, and an always-invalid render shows a graceful
+      recovery-exhausted fallback. Backend-owned; reuses the declarative-gen-ui
+      catalog.
+    tags:
+      - generative-ui
+    route: /demos/a2ui-recovery
+    animated_preview_url:
+    highlight:
+      - agent/RecoveryAgent.cs
+      - src/app/demos/a2ui-recovery/page.tsx
+      - src/app/demos/a2ui-recovery/suggestions.ts
+      - src/app/api/copilotkit-a2ui-recovery/route.ts
   - id: mcp-apps
     name: MCP Apps
     description: MCP server-driven UI via activity renderers
