@@ -2,6 +2,8 @@
 title: "Deploy to any runtime"
 icon: "lucide/Server"
 description: Deploy the CopilotKit runtime on any backend framework — Node.js, Express, Hono, Bun, Deno, Cloudflare Workers, and more.
+frontend:
+  kind: universal
 ---
 
 The CopilotKit runtime is **framework-agnostic**. At its core, it's a pure Fetch handler — a function that takes a `Request` and returns a `Response`. This means it runs natively on any platform that supports the [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API), and thin adapters are provided for Node.js-based frameworks like Express and Hono.

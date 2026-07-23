@@ -29,6 +29,12 @@ export interface FrameworkOverviewProps {
    */
   currentFramework: string;
   /**
+   * Optional public route prefix for nested docs surfaces such as
+   * `/angular/langgraph-python`. Framework links are rewritten into this
+   * prefix after variant normalization.
+   */
+  hrefPrefix?: string;
+  /**
    * Optional slot rendered between the supported-features section and the
    * architecture section. When supplied, this takes precedence over `data.cta`
    * (which is the structured fallback). Routes that pre-render
@@ -117,6 +123,7 @@ const DOCS_SLUG_TO_CLI_FRAMEWORK: Record<string, string> = {
 export function FrameworkOverview({
   data,
   currentFramework,
+  hrefPrefix,
   afterFeatures,
   iconOverride,
 }: FrameworkOverviewProps) {
@@ -140,7 +147,17 @@ export function FrameworkOverview({
   // rewrite *away from* so that variant users land on their own variant's
   // sub-pages.
   const fromSlug = rawGuideLink.split("/")[1] ?? "";
-  const link = (href: string) => rewriteHref(href, fromSlug, currentFramework);
+  const link = (href: string) => {
+    const rewritten = rewriteHref(href, fromSlug, currentFramework);
+    if (!hrefPrefix || !rewritten.startsWith("/")) return rewritten;
+
+    const frameworkPrefix = `/${currentFramework}`;
+    if (rewritten === frameworkPrefix) return hrefPrefix;
+    if (rewritten.startsWith(`${frameworkPrefix}/`)) {
+      return `${hrefPrefix}${rewritten.slice(frameworkPrefix.length)}`;
+    }
+    return rewritten;
+  };
 
   // Frameworks whose init is the generic top-level command get the unified
   // two-command recommendation (matching the home hero). Frameworks with

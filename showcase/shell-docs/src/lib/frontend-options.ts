@@ -111,7 +111,8 @@ export function frontendPathForBackend(
 
   if (
     normalizedSlugPath === "" ||
-    normalizedSlugPath === "quickstart" ||
+    (normalizedSlugPath === "quickstart" &&
+      (backendFrameworkSlug === null || id !== "angular")) ||
     (id === "react" && normalizedSlugPath === "using-these-docs")
   ) {
     return basePath || "/";
