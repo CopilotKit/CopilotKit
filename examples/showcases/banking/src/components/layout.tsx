@@ -32,7 +32,11 @@ import { useAuthContext } from "@/components/auth-context";
 import { useGlassEngine } from "@/components/glass-engine-context";
 import { useRecording } from "@/components/recording-context";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { useAgentContext } from "@copilotkit/react-core/v2";
+import {
+  useAgentContext,
+  useCopilotChatConfiguration,
+} from "@copilotkit/react-core/v2";
+import { useChatInbox } from "@/components/chat/chat-inbox-context";
 import { usePathname } from "next/navigation";
 import { IDENTITY } from "@/lib/identity";
 import { useCanvas } from "@/components/canvas/canvas-context";
@@ -156,6 +160,21 @@ export function LayoutComponent({
   });
   const { activeSurfaceId, clear } = useCanvas();
 
+  // When the chat panel is open the CopilotSidebar already pushes the body by
+  // the conversation width; when the persistent thread rail is also expanded
+  // we push the page content an extra rail-width (300px) so the rail never
+  // covers page content. Desktop-only (the rail is hidden on mobile).
+  const { isInboxOpen } = useChatInbox();
+  const chatConfig = useCopilotChatConfiguration();
+  const railVisible = isInboxOpen && (chatConfig?.isModalOpen ?? false);
+  const padClass = railVisible
+    ? glassActive
+      ? "md:pr-[684px]"
+      : "md:pr-[300px]"
+    : glassActive
+      ? "md:pr-96"
+      : "";
+
   const handleReset = async () => {
     // Native confirm keeps the booth tool dependency-free and reliable; a stray
     // click can't nuke the demo mid-show.
@@ -190,7 +209,7 @@ export function LayoutComponent({
     <div
       className={cn(
         "flex h-screen overflow-hidden bg-canvas transition-[padding] duration-300",
-        glassActive && "md:pr-96",
+        padClass,
       )}
     >
       {/* Floating icon rail. */}

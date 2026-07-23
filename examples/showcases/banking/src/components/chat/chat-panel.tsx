@@ -14,7 +14,10 @@ import { ChatInbox } from "./chat-inbox";
 /** Docked panel width on desktop (px). Mobile falls back to full width.
  * Sized so the always-on suggestion pills flow two-per-row instead of
  * stacking into a single tall column. */
-const PANEL_WIDTH = 560;
+const PANEL_WIDTH = 480;
+/** ChatGPT-style persistent thread rail, docked to the LEFT of the
+ * conversation (so the whole thing stays on the right). */
+const RAIL_WIDTH = 300;
 
 /**
  * The docked chat experience: a right-side `CopilotSidebar` that pushes page
@@ -97,7 +100,8 @@ export function ChatPanel({ threadId }: { threadId: string }) {
         panelOpen={panelOpen}
         showArchived={showArchived}
         onShowArchivedChange={setShowArchived}
-        width={PANEL_WIDTH}
+        width={RAIL_WIDTH}
+        offset={PANEL_WIDTH}
       />
     </>
   );

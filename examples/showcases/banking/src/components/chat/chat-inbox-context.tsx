@@ -41,7 +41,11 @@ export function ChatInboxProvider({
   onSelectThread,
   onCreateThread,
 }: ChatInboxProviderProps) {
-  const [isInboxOpen, setIsInboxOpen] = useState(false);
+  // The thread rail is PERSISTENT (ChatGPT-style): it shows alongside the
+  // conversation whenever the panel is open, and the header toggle merely
+  // collapses/expands it. So it defaults OPEN and selecting/creating a thread
+  // does NOT close it — you keep the list in view like ChatGPT.
+  const [isInboxOpen, setIsInboxOpen] = useState(true);
 
   const value = useMemo<ChatInboxContextValue>(
     () => ({
@@ -50,14 +54,8 @@ export function ChatInboxProvider({
       closeInbox: () => setIsInboxOpen(false),
       toggleInbox: () => setIsInboxOpen((open) => !open),
       selectedThreadId,
-      selectConversation: (id: string) => {
-        onSelectThread(id);
-        setIsInboxOpen(false);
-      },
-      startNewConversation: () => {
-        onCreateThread();
-        setIsInboxOpen(false);
-      },
+      selectConversation: (id: string) => onSelectThread(id),
+      startNewConversation: () => onCreateThread(),
     }),
     [isInboxOpen, selectedThreadId, onSelectThread, onCreateThread],
   );

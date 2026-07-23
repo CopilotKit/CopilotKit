@@ -61,7 +61,7 @@ export function ChatPanelHeader() {
 
       <div className="flex flex-shrink-0 items-center gap-1">
         <HeaderIconButton
-          label={isInboxOpen ? "Back to chat" : "Conversations"}
+          label={isInboxOpen ? "Hide conversations" : "Show conversations"}
           active={isInboxOpen}
           onClick={toggleInbox}
           testId="chat-inbox-toggle"
