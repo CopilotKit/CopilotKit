@@ -679,6 +679,13 @@ function compareAssertionValues(
   normalization?: LearningContractAssertionNormalizationV1,
 ): boolean {
   if (relation === "equal") {
+    if (
+      valueType === "date-time" &&
+      (comparableValue(left, valueType) === undefined ||
+        comparableValue(right, valueType) === undefined)
+    ) {
+      return false;
+    }
     return (
       assertionValueKey(left, normalization) ===
       assertionValueKey(right, normalization)

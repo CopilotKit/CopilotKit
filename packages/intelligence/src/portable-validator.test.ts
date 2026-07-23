@@ -1033,6 +1033,140 @@ describe(`${COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD} bounded assertions`, () =
   });
 
   test.each([
+    {
+      name: "compare",
+      assertion: {
+        operation: "compare",
+        left: "/left",
+        relation: "less-than-or-equal",
+        right: "/right",
+        valueType: "date-time",
+      },
+      invalidValue: {
+        left: "2026-01-01T00:00:00+24:00",
+        right: "2026-01-01T00:00:00Z",
+      },
+      validValue: {
+        left: "2025-12-31T00:01:00-23:59",
+        right: "2026-01-01T00:00:00Z",
+      },
+    },
+    {
+      name: "compare equality",
+      assertion: {
+        operation: "compare",
+        left: "/left",
+        relation: "equal",
+        right: "/right",
+        valueType: "date-time",
+      },
+      invalidValue: {
+        left: "2026-01-01T00:00:00+23:60",
+        right: "2026-01-01T00:00:00+23:60",
+      },
+      validValue: {
+        left: "2024-02-29T00:00:00+23:59",
+        right: "2024-02-29T00:00:00+23:59",
+      },
+    },
+    {
+      name: "compare-values",
+      assertion: {
+        operation: "compare-values",
+        values: "/values/*",
+        relation: "less-than-or-equal",
+        right: "/right",
+        valueType: "date-time",
+      },
+      invalidValue: {
+        values: ["2026-01-01T00:00:00+99:99"],
+        right: "2026-01-01T00:00:00Z",
+      },
+      validValue: {
+        values: ["2025-12-31T00:01:00-23:59"],
+        right: "2026-01-01T00:00:00Z",
+      },
+    },
+    {
+      name: "strictly-increasing",
+      assertion: {
+        operation: "strictly-increasing",
+        values: "/values/*",
+        valueType: "date-time",
+      },
+      invalidValue: {
+        values: ["2025-01-01T00:00:00Z", "2026-01-01T00:00:00+24:00"],
+      },
+      validValue: {
+        values: ["2024-02-29T23:59:59Z", "2024-03-01T00:00:00Z"],
+      },
+    },
+    {
+      name: "values-in-range",
+      assertion: {
+        operation: "values-in-range",
+        values: "/values/*",
+        minimum: "/minimum",
+        maximum: "/maximum",
+        valueType: "date-time",
+      },
+      invalidValue: {
+        values: ["2026-01-01T00:00:00-24:00"],
+        minimum: "2025-12-31T00:00:00Z",
+        maximum: "2026-01-02T00:00:00Z",
+      },
+      validValue: {
+        values: ["2026-01-01T23:59:00+23:59"],
+        minimum: "2026-01-01T00:00:00Z",
+        maximum: "2026-01-01T00:00:00Z",
+      },
+    },
+    {
+      name: "ordered-ranges",
+      assertion: {
+        operation: "ordered-ranges",
+        ranges: "/ranges/*",
+        first: "/first",
+        last: "/last",
+        valueType: "date-time",
+      },
+      invalidValue: {
+        ranges: [
+          {
+            first: "2026-01-01T00:00:00+23:60",
+            last: "2026-01-01T00:00:00Z",
+          },
+        ],
+      },
+      validValue: {
+        ranges: [
+          {
+            first: "2024-02-29T23:59:59Z",
+            last: "2024-03-01T00:00:00Z",
+          },
+        ],
+      },
+    },
+  ])(
+    "enforces canonical date-time semantics through $name assertions",
+    ({
+      assertion,
+      invalidValue: invalidDateTimeValue,
+      validValue: validDateTimeValue,
+    }) => {
+      const ajv = new Ajv2020({ strict: false, validateFormats: false });
+      registerLearningContractJsonSchemaValidator(ajv);
+      const validate = compileLearningContractJsonSchema(ajv, {
+        type: "object",
+        [COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD]: [assertion],
+      });
+
+      expect(validate(invalidDateTimeValue)).toBe(false);
+      expect(validate(validDateTimeValue)).toBe(true);
+    },
+  );
+
+  test.each([
     ["multi-code-point sharp-s", "Straße", "STRASSE"],
     ["Greek final sigma", "Σ", "ς"],
     ["non-Turkic dotted capital I", "\u0130", "i\u0307"],

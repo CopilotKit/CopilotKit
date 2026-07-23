@@ -18,6 +18,10 @@ function parseCanonicalDateTimeInstant(
   const hour = Number(match[4]);
   const minute = Number(match[5]);
   const second = Number(match[6] ?? "0");
+  const offsetHour = Number(match[10] ?? "0");
+  const offsetMinute = Number(match[11] ?? "0");
+  if (offsetHour > 23 || offsetMinute > 59) return undefined;
+
   const wallTime = new Date(0);
   wallTime.setUTCFullYear(year, month - 1, day);
   wallTime.setUTCHours(hour, minute, second, 0);
@@ -36,8 +40,7 @@ function parseCanonicalDateTimeInstant(
   const offsetSeconds =
     match[8] === "Z"
       ? 0
-      : offsetDirection *
-        (Number(match[10]) * 60 * 60 + Number(match[11]) * 60);
+      : offsetDirection * (offsetHour * 60 * 60 + offsetMinute * 60);
   return {
     epochSecond: BigInt(wallTime.getTime() / 1_000) - BigInt(offsetSeconds),
     fractionalSecond: match[7] ?? "",
