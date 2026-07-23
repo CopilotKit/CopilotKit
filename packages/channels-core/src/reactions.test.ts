@@ -15,7 +15,7 @@ describe("channel.onReaction", () => {
     channel.onReaction([emoji.thumbs_up], (evt) => {
       seen.push({ emoji: evt.emoji, raw: evt.rawEmoji, added: evt.added });
     });
-    await channel.start();
+    await channel.ɵruntime.start();
     // FakeAdapter.platform === "fake": normalizeEmoji falls through, but engine
     // normalizes by adapter.platform. Use a Slack-style token via a fake whose
     // platform normalizes — here we assert passthrough + catch-all instead.
@@ -44,7 +44,7 @@ describe("channel.onReaction", () => {
         platform: evt.thread.platform,
       });
     });
-    await channel.start();
+    await channel.ɵruntime.start();
     fake.emitReaction({
       rawEmoji: "🎉",
       added: true,
@@ -74,7 +74,7 @@ describe("channel.onReaction", () => {
     channel.onReaction(["thumbs_up"], (evt) => {
       hits.push(evt.emoji);
     });
-    await channel.start();
+    await channel.ɵruntime.start();
     fake.emitReaction({ rawEmoji: "thumbsup", added: true }); // Slack alias
     await tick();
     expect(hits).toEqual(["thumbs_up"]);
@@ -91,7 +91,7 @@ describe("channel.onReaction", () => {
     channel.onReaction(["refresh"], (evt) => {
       hits.push(evt.emoji);
     });
-    await channel.start();
+    await channel.ɵruntime.start();
     fake.emitReaction({
       rawEmoji: "1f504_refresh",
       added: true,
@@ -115,7 +115,7 @@ describe("channel.onReaction", () => {
         }),
       );
     });
-    await channel.start();
+    await channel.ɵruntime.start();
     fake.emitTurn({});
     await tick();
     // The handler is a closure, never serialized into the native payload.
@@ -144,7 +144,7 @@ describe("channel.onReaction", () => {
         }),
       );
     });
-    await channel.start();
+    await channel.ɵruntime.start();
     fake.emitTurn({});
     await tick();
     // Channel delivery: the reaction arrives keyed by the provider ts (NOT the
@@ -184,7 +184,7 @@ describe("channel.onReaction", () => {
       // pre-rendered Message() node.
       await thread.post({ type: Card, props: {} });
     });
-    await bot1.start();
+    await bot1.ɵruntime.start();
     fake1.emitTurn({});
     await tick();
 
@@ -196,7 +196,7 @@ describe("channel.onReaction", () => {
       store: { adapter: backend },
       components: [Card],
     });
-    await bot2.start();
+    await bot2.ɵruntime.start();
     fake2.emitReaction({ rawEmoji: "🎉", added: true, messageId: "msg-1" });
     await tick();
     expect(seen).toEqual(["🎉"]);
@@ -217,7 +217,7 @@ describe("channel.onReaction", () => {
         }),
       );
     });
-    await channel.start();
+    await channel.ɵruntime.start();
     fake.emitTurn({});
     await tick();
     const before = fake.posted.length;
@@ -243,7 +243,7 @@ describe("channel.onReaction", () => {
         }),
       );
     });
-    await channel.start();
+    await channel.ɵruntime.start();
     fake.emitTurn({});
     await tick();
     fake.emitReaction({ rawEmoji: "🎉", added: true, messageId: "other" });
@@ -264,7 +264,7 @@ describe("channel.onReaction", () => {
     channel.onReaction(["thumbsup"], (evt) => {
       hits.push(`alias:${evt.emoji}`);
     });
-    await channel.start();
+    await channel.ɵruntime.start();
     fake.emitReaction({ rawEmoji: "thumbsup", added: true }); // Slack alias
     await tick();
     expect(hits).toEqual(["thumbs_up", "alias:thumbs_up"]);

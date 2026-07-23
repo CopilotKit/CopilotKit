@@ -10,7 +10,7 @@ describe("onThreadStarted routing", () => {
     channel.onThreadStarted(({ thread, user }) => {
       seen.push({ user: user?.id, platform: thread.platform });
     });
-    await channel.start();
+    await channel.ɵruntime.start();
 
     await fake.emitThreadStarted({ user: { id: "U1", name: "Ada" } });
     expect(seen).toEqual([{ user: "U1", platform: "fake" }]);
@@ -26,7 +26,7 @@ describe("onThreadStarted routing", () => {
     channel.onThreadStarted(() => {
       order.push(2);
     });
-    await channel.start();
+    await channel.ɵruntime.start();
     await fake.emitThreadStarted();
     expect(order).toEqual([1, 2]);
   });
@@ -34,7 +34,7 @@ describe("onThreadStarted routing", () => {
   it("is a no-op when no handler is registered", async () => {
     const fake = new FakeAdapter();
     const channel = createChannel({ adapters: [fake] });
-    await channel.start();
+    await channel.ɵruntime.start();
     // Should not throw.
     await expect(
       Promise.resolve(fake.emitThreadStarted()),
@@ -56,7 +56,7 @@ describe("Thread.setSuggestedPrompts / setTitle capability gating", () => {
       );
       results.push(await thread.setTitle("My conversation"));
     });
-    await channel.start();
+    await channel.ɵruntime.start();
     await fake.emitThreadStarted({ replyTarget: { channel: "D1" } });
 
     expect(results).toEqual([{ ok: true }, { ok: true }]);
@@ -79,7 +79,7 @@ describe("Thread.setSuggestedPrompts / setTitle capability gating", () => {
       results.push(await thread.setSuggestedPrompts([]));
       results.push(await thread.setTitle("nope"));
     });
-    await channel.start();
+    await channel.ɵruntime.start();
     await fake.emitThreadStarted();
 
     expect(results[0]!.ok).toBe(false);

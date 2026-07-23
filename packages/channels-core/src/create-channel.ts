@@ -87,9 +87,10 @@ export type LockConflictDecision = "drop" | "force";
  * (Intelligence OSS-450 / #511).
  *
  * Distinct from a {@link PlatformAdapter} attached via
- * `createChannel({ adapters })` / {@link Channel.addAdapter}: an adapter is a
- * *direct*, developer-owned connection this handler does not manage, whereas
- * `provider` selects the *managed* platform for a Channel with no adapters.
+ * `createChannel({ adapters })` / `channel.ɵruntime.addAdapter`: an adapter is
+ * a *direct*, developer-owned connection this handler does not manage,
+ * whereas `provider` selects the *managed* platform for a Channel with no
+ * adapters.
  */
 export type ManagedChannelProvider = "slack" | "teams";
 
@@ -207,7 +208,8 @@ export interface CreateChannelOptions<
   name?: string;
   /**
    * Adapters supplied at construction. Optional — adapters can also be attached
-   * before `start()` via {@link Channel.addAdapter} (the Channel runtime uses this).
+   * before the runner starts the channel, via `channel.ɵruntime.addAdapter`
+   * (the Channel runtime uses this).
    */
   adapters?: PlatformAdapter[];
   /**
@@ -222,8 +224,8 @@ export interface CreateChannelOptions<
    * {@link ManagedChannelProvider}.
    *
    * Ignored for direct-adapter Channels (those created with `adapters` /
-   * {@link Channel.addAdapter}) — a direct Channel is owned by the developer's
-   * own adapter, not by managed activation.
+   * `channel.ɵruntime.addAdapter`) — a direct Channel is owned by the
+   * developer's own adapter, not by managed activation.
    */
   provider?: ManagedChannelProvider;
   agent?: AbstractAgent | ((threadId: string) => AbstractAgent);
@@ -298,17 +300,13 @@ export interface Channel<TState = unknown> {
   /** Handle a modal dismissal for `callbackId` (Slack `view_closed`). */
   onModalClose(callbackId: string, handler: ModalCloseHandler): void;
   tool(t: ChannelTool): void;
-  /** Attach an adapter before `start()`. Throws if called after the channel has started. */
-  addAdapter(adapter: PlatformAdapter): void;
-  start(): Promise<void>;
-  stop(): Promise<void>;
   /** Cross-platform transcript store. Append, list, and delete entries per user. */
   transcripts: Transcripts;
   /**
-   * Internal lifecycle seam. Holds the real `start`/`stop`/`addAdapter`
-   * implementations (and the resolved `provider`) that the public methods of
-   * the same name delegate to. Lets a Channel runner drive the lifecycle
-   * directly, without going through the public API.
+   * Internal lifecycle seam. Holds the `start`/`stop`/`addAdapter`
+   * implementations (and the resolved `provider`) that a Channel runner uses
+   * to drive the lifecycle directly — there is no public equivalent; channels
+   * are runtime-driven only.
    * @internal
    */
   ɵruntime: {
@@ -387,17 +385,19 @@ export function createChannel<
     );
   }
 
-  // Adapters can be supplied up front or added later via `channel.addAdapter`
-  // (before `start()`). The runtime uses the latter to attach Channel delivery.
+  // Adapters can be supplied up front or added later via
+  // `channel.ɵruntime.addAdapter` (before `channel.ɵruntime.start()`). The
+  // runtime uses the latter to attach Channel delivery.
   const adapters: PlatformAdapter[] = [...(opts.adapters ?? [])];
   assertExclusive(adapters);
   let started = false;
 
   // Backend, transcripts, telemetry, the action registry, and component
-  // registration are resolved in `start()` — not at construction — so an
-  // adapter added via `addAdapter` after `createChannel` can still supply the
-  // persistence backend (see `resolveBackend`). Nothing reads these before the
-  // first event, which can only arrive after `start()`.
+  // registration are resolved in `ɵruntime.start()` — not at construction —
+  // so an adapter added via `ɵruntime.addAdapter` after `createChannel` can
+  // still supply the persistence backend (see `resolveBackend`). Nothing
+  // reads these before the first event, which can only arrive after
+  // `ɵruntime.start()`.
   let backend: StateStore | undefined;
   let transcripts: Transcripts | undefined;
   let registry: ActionRegistry | undefined;
@@ -452,7 +452,7 @@ export function createChannel<
   ): Thread {
     if (!backend || !registry || !telemetry) {
       throw new Error(
-        "channel not started: call channel.start() before handling events",
+        "channel not started: the runner must start the channel (channel.ɵruntime.start()) before handling events",
       );
     }
     const deps: ThreadDeps = {
@@ -794,7 +794,7 @@ export function createChannel<
     get transcripts() {
       if (!transcripts) {
         throw new Error(
-          "channel.transcripts is available after channel.start()",
+          "channel.transcripts is available after the runner starts the channel (channel.ɵruntime.start())",
         );
       }
       return transcripts;
@@ -804,7 +804,7 @@ export function createChannel<
       addAdapter(adapter) {
         if (started) {
           throw new Error(
-            "channel.addAdapter must be called before channel.start()",
+            "channel.ɵruntime.addAdapter must be called before channel.ɵruntime.start()",
           );
         }
         assertExclusive([...adapters, adapter]);
@@ -936,9 +936,6 @@ export function createChannel<
         });
       },
     },
-    addAdapter(adapter) {
-      this.ɵruntime.addAdapter(adapter);
-    },
     onMention(h) {
       // The public surface narrows `thread` to StatefulThread<TState>; the
       // internal arrays hold the loose `ChannelHandler` shape. A real Thread is
@@ -1016,12 +1013,6 @@ export function createChannel<
     },
     tool(t) {
       toolMap.set(t.name, t);
-    },
-    async start() {
-      return this.ɵruntime.start();
-    },
-    async stop() {
-      return this.ɵruntime.stop();
     },
   };
   return channel;

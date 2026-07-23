@@ -21,7 +21,7 @@ describe("channel.onModalSubmit / onModalClose", () => {
         hasThread: !!evt.thread,
       });
     });
-    await channel.start();
+    await channel.ɵruntime.start();
     const res = await fake.emitModalSubmit({
       callbackId: "triage",
       values: { summary: "boom", prio: "high" },
@@ -46,7 +46,7 @@ describe("channel.onModalSubmit / onModalClose", () => {
     channel.onModalSubmit("triage", (evt) =>
       evt.values.summary ? undefined : { errors: { summary: "Required" } },
     );
-    await channel.start();
+    await channel.ɵruntime.start();
     const res = await fake.emitModalSubmit({
       callbackId: "triage",
       values: {},
@@ -57,7 +57,7 @@ describe("channel.onModalSubmit / onModalClose", () => {
   it("ignores submissions with no registered handler", async () => {
     const fake = new FakeAdapter();
     const channel = createChannel({ adapters: [fake] });
-    await channel.start();
+    await channel.ɵruntime.start();
     const res = await fake.emitModalSubmit({
       callbackId: "unknown",
       values: {},
@@ -72,7 +72,7 @@ describe("channel.onModalSubmit / onModalClose", () => {
     channel.onModalClose("triage", (evt) => {
       closed.push(evt.callbackId);
     });
-    await channel.start();
+    await channel.ɵruntime.start();
     await fake.emitModalClose({ callbackId: "triage", user: { id: "U2" } });
     expect(closed).toEqual(["triage"]);
   });
