@@ -75,6 +75,23 @@ test("stages a bounded same-origin runtime manifest", async () => {
   expect(staging).not.toContain("ANGULAR_BACKEND_URL");
 });
 
+test.each(["showcase_build.yml", "showcase_build_check.yml"])(
+  "materializes the canonical Angular browser artifact in %s",
+  async (workflowFile) => {
+    const workflow = await readFile(
+      resolve(repositoryRoot, ".github/workflows", workflowFile),
+      "utf8",
+    );
+
+    expect(workflow).toContain("needs_angular");
+    expect(workflow).toContain("- 'packages/angular/**'");
+    expect(workflow).toContain('$changes | index("angular")');
+    expect(workflow).toContain("Build canonical Angular browser artifact");
+    expect(workflow).toContain("Download canonical Angular browser artifact");
+    expect(workflow).toContain('stage_angular "$CONTEXT" "$ANGULAR_BROWSER"');
+  },
+);
+
 test("has no dedicated Angular host, image, proxy, or server", async () => {
   const packageJson = JSON.parse(
     await readFile(
