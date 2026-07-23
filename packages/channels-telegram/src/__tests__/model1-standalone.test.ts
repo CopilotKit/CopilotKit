@@ -10,10 +10,10 @@ import { FakeTelegramConnector } from "../testing/fake-telegram-connector.js";
  * `createChannel({ agent, adapters: [telegram()] })` → inject a
  * `FakeTelegramConnector` via `telegramAdapter.ɵbindConnector` →
  * `channel.start()` → `conn.emitTurn(...)` flows through the REAL
- * channels-core dispatch (`sink.onTurn` → legacy dispatch, since the
- * Telegram listener does not yet stamp §2's `conversationKind`/`mentioned` —
- * see the adapter-gut report) → the fake agent's reply is posted back
- * through the SAME injected `FakeTelegramConnector`.
+ * channels-core dispatch (`sink.onTurn` → §2 `decideChannelResponse` →
+ * `thread.runAgent` → egress) → the fake agent's reply is posted back
+ * through the SAME injected `FakeTelegramConnector`. Mirrors
+ * `channels-slack/src/__tests__/model1-standalone.test.ts`.
  */
 
 /** A FakeAgent script step that streams a short text reply, like a real agent would. */
@@ -45,40 +45,76 @@ function setup(agent: FakeAgent) {
 }
 
 describe("Model 1 standalone: credential-free Telegram via an injected connector", () => {
-  it("a matching onMention handler runs (legacy dispatch: no conversationKind yet), reply posts through the FakeTelegramConnector", async () => {
-    const agent = new FakeAgent([replyingWith("should never run directly")]);
+  it("a tagged group message auto-runs with no handlers, reply posts through the FakeTelegramConnector", async () => {
+    const agent = new FakeAgent([replyingWith("hi there")]);
     const { channel, connector } = setup(agent);
-    let handled = 0;
-    channel.onMention(async ({ thread }) => {
-      handled++;
-      await thread.runAgent();
-    });
     await channel.start();
 
     await connector.emitTurn({
-      conversationKey: "tg:9:dm",
-      replyTarget: { chatId: 9, conversationKey: "tg:9:dm" },
-      userText: "hi",
+      conversationKey: "tg:9:user:5",
+      replyTarget: { chatId: 9, conversationKey: "tg:9:user:5" },
+      userText: "hello",
+      conversationKind: "channel",
+      mentioned: true,
     });
 
-    expect(handled).toBe(1);
     expect(agent.runAgentCalls).toBe(1);
     expect(connector.calls.some((c) => c.op === "sendMessage")).toBe(true);
   });
 
-  it("with no mention/message handler registered, legacy dispatch is a no-op (no run, no egress)", async () => {
+  it("an untagged group message with no onMessage handler is ignored — no run, no egress", async () => {
     const agent = new FakeAgent([replyingWith("should never post")]);
     const { channel, connector } = setup(agent);
     await channel.start();
 
     await connector.emitTurn({
-      conversationKey: "tg:9:dm",
-      replyTarget: { chatId: 9, conversationKey: "tg:9:dm" },
-      userText: "hi",
+      conversationKey: "tg:9:user:5",
+      replyTarget: { chatId: 9, conversationKey: "tg:9:user:5" },
+      userText: "just chatting",
+      conversationKind: "channel",
+      mentioned: false,
     });
 
     expect(agent.runAgentCalls).toBe(0);
     expect(connector.calls).toHaveLength(0);
+  });
+
+  it("a DM auto-runs the agent (already directly addressed), reply posts through the FakeTelegramConnector", async () => {
+    const agent = new FakeAgent([replyingWith("hello from DM")]);
+    const { channel, connector } = setup(agent);
+    await channel.start();
+
+    await connector.emitTurn({
+      conversationKey: "tg:9:dm",
+      replyTarget: { chatId: 9, conversationKey: "tg:9:dm" },
+      userText: "help",
+      conversationKind: "direct_message",
+    });
+
+    expect(agent.runAgentCalls).toBe(1);
+    expect(connector.calls.some((c) => c.op === "sendMessage")).toBe(true);
+  });
+
+  it("a matching onMention handler takes precedence — the agent is not auto-run", async () => {
+    const agent = new FakeAgent([replyingWith("should never run")]);
+    const { channel, connector } = setup(agent);
+    let handled = 0;
+    channel.onMention(() => {
+      handled++;
+    });
+    await channel.start();
+
+    await connector.emitTurn({
+      conversationKey: "tg:9:user:5",
+      replyTarget: { chatId: 9, conversationKey: "tg:9:user:5" },
+      userText: "handle me",
+      conversationKind: "channel",
+      mentioned: true,
+    });
+
+    expect(handled).toBe(1);
+    expect(agent.runAgentCalls).toBe(0);
+    expect(connector.calls.some((c) => c.op === "sendMessage")).toBe(false);
   });
 
   it("stop() delegates to the injected connector's stopIngress", async () => {

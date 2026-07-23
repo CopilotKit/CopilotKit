@@ -1,5 +1,8 @@
 import type { Bot } from "grammy";
-import type { IngressSink } from "@copilotkit/channels-core";
+import type {
+  ChannelConversationKind,
+  IngressSink,
+} from "@copilotkit/channels-core";
 import type { TelegramConversationStore } from "./conversation-store.js";
 import {
   conversationKeyOf,
@@ -152,17 +155,22 @@ export function attachTelegramListener(config: ListenerConfig): void {
   }
 
   /**
-   * Apply loop-guard + group gating and (when answered) enqueue the user's
-   * message onto the store and emit `onTurn`. Returns without effect when the
-   * turn should be ignored (own message, or un-addressed group message).
+   * Apply the loop-guard, compute this turn's §2 routing signals
+   * (`conversationKind` + `mentioned`), enqueue the user's message onto the
+   * store, and emit `onTurn`. Returns without effect only for the loop guard
+   * (our own message) — every other message, addressed or not, is forwarded;
+   * channels-core's `decideChannelResponse` (fed by the signals below) is what
+   * decides ignore / run-handler / auto-run for a shared group/supergroup
+   * message. This listener no longer gates on ownership itself.
    *
    * @param ctx          grammY context (provides `chat`).
    * @param msg          the inbound message.
-   * @param userText     the addressing text used for gating + handler context
-   *                     (text body or media caption; "" when absent).
-   * @param buildContent produces the agent message content for an answered
-   *                     turn — the mention-stripped string for text, or an
-   *                     array of content parts for media.
+   * @param userText     the addressing text used for mention-detection +
+   *                     handler context (text body or media caption; "" when
+   *                     absent).
+   * @param buildContent produces the agent message content for this turn — the
+   *                     mention-stripped string for text, or an array of
+   *                     content parts for media.
    */
   async function handleTurn(
     ctx: { chat: { id: number | string; type: string; is_forum?: boolean } },
@@ -182,19 +190,28 @@ export function attachTelegramListener(config: ListenerConfig): void {
       ? new RegExp(`@${escapeRegExp(botUsername)}\\b`, "i")
       : undefined;
 
-    // Decide whether to answer.
+    // §2 routing signals (plan §2 — see channels-core's `decideChannelResponse`).
+    // private chat → directly addressed (`direct_message`, never "mentioned":
+    // there is no tag concept in a 1:1 DM). group/supergroup → `mentioned` is
+    // true only for an EXPLICIT tag: an @mention (case-insensitive,
+    // word-boundary) or a reply directly to the bot's own message; a plain,
+    // untagged message is forwarded with `mentioned: false` and left for the
+    // engine's response policy (ignored unless an `onMessage` handler opts in).
     const chatType = ctx.chat.type;
-    let shouldAnswer = false;
-    if (chatType === "private") {
-      shouldAnswer = true;
-    } else {
-      // group / supergroup: answer if @mentioned (case-insensitive, word-boundary)
-      // or reply to bot's message.
-      const mentionedBot = mentionRegex?.test(userText) ?? false;
-      const replyToBot = msg.reply_to_message?.from?.id === botUserId;
-      shouldAnswer = mentionedBot || replyToBot;
-    }
-    if (!shouldAnswer) return;
+    const isPrivate = chatType === "private";
+    const mentionedBot = mentionRegex?.test(userText) ?? false;
+    const replyToBot = msg.reply_to_message?.from?.id === botUserId;
+    const mentioned = !isPrivate && (mentionedBot || replyToBot);
+    // Telegram "threads" only exist as forum topics (`is_forum` chats with a
+    // `message_thread_id`). A non-forum group/supergroup also stamps
+    // `message_thread_id` on replies, but that's just a reply pointer, not a
+    // topic surface — those stay `"channel"` (matches the existing
+    // `messageThreadId` gating below, which is also `is_forum`-only).
+    const conversationKind: ChannelConversationKind = isPrivate
+      ? "direct_message"
+      : ctx.chat.is_forum && msg.message_thread_id !== undefined
+        ? "thread"
+        : "channel";
 
     // Bug 1 & 2 fix: strip the @mention wherever it appears (first occurrence),
     // case-insensitively, collapsing surrounding whitespace so the agent gets
@@ -268,6 +285,8 @@ export function attachTelegramListener(config: ListenerConfig): void {
         userText: strippedText,
         user: from ? toPlatformUser(from) : undefined,
         platform: "telegram",
+        conversationKind,
+        mentioned,
       }),
     ).catch((e: unknown) => {
       console.error(
@@ -293,22 +312,10 @@ export function attachTelegramListener(config: ListenerConfig): void {
 
     const caption = msg.caption ?? "";
 
-    // Gating is applied inside handleTurn against the caption; only build the
-    // (potentially expensive) file parts once we know the turn is answered.
-    // Bug 1 fix: use case-insensitive, word-boundary regex for mention check.
-    // Bug 4 fix: guard against an empty botUsername (see handleTurn).
-    const mediaMentionRegex = botUsername
-      ? new RegExp(`@${escapeRegExp(botUsername)}\\b`, "i")
-      : undefined;
-    const chatType = ctx.chat.type;
-    let shouldAnswer = chatType === "private";
-    if (!shouldAnswer) {
-      const mentionedBot = mediaMentionRegex?.test(caption) ?? false;
-      const replyToBot = msg.reply_to_message?.from?.id === botUserId;
-      shouldAnswer = mentionedBot || replyToBot;
-    }
-    if (!shouldAnswer) return;
-
+    // §2 (ratified): media messages are no longer gated on addressing here —
+    // handleTurn computes `conversationKind`/`mentioned` from the caption and
+    // forwards every message; the engine's response policy decides what
+    // happens with an untagged group attachment.
     const { parts, notes } = await buildFileContentParts(
       fileRefs,
       downloadFile,

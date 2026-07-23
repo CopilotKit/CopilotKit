@@ -50,6 +50,8 @@ describe("attachTelegramListener", () => {
       expect.objectContaining({
         userText: "hello",
         conversationKey: "tg:9:dm",
+        conversationKind: "direct_message",
+        mentioned: false,
       }),
     );
   });
@@ -139,9 +141,13 @@ describe("attachTelegramListener", () => {
     );
   });
 
-  // ── Group gating ──────────────────────────────────────────────────────
+  // ── §2 routing signals (conversationKind + mentioned) ───────────────────
+  // The listener no longer gates group messages itself — every message is
+  // forwarded to `onTurn` with the normalized signals; channels-core's
+  // `decideChannelResponse` (proven separately in response-policy-wiring.test.ts)
+  // decides ignore / handler / auto-run from them.
 
-  it("group plain text without @mention → NOT answered", async () => {
+  it("group plain text without @mention → forwarded untagged (channel, mentioned:false)", async () => {
     const bot = fakeBot();
     const s = sink();
     attachTelegramListener({
@@ -161,10 +167,16 @@ describe("attachTelegramListener", () => {
       },
       chat: { id: 9, type: "group" },
     });
-    expect(s.onTurn).not.toHaveBeenCalled();
+    expect(s.onTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userText: "hello everyone",
+        conversationKind: "channel",
+        mentioned: false,
+      }),
+    );
   });
 
-  it("group @mention → answered with stripped text", async () => {
+  it("group @mention → answered with stripped text, mentioned:true", async () => {
     const bot = fakeBot();
     const s = sink();
     attachTelegramListener({
@@ -185,11 +197,15 @@ describe("attachTelegramListener", () => {
       chat: { id: 9, type: "group" },
     });
     expect(s.onTurn).toHaveBeenCalledWith(
-      expect.objectContaining({ userText: "hello" }),
+      expect.objectContaining({
+        userText: "hello",
+        conversationKind: "channel",
+        mentioned: true,
+      }),
     );
   });
 
-  it("group reply-to-bot → answered", async () => {
+  it("group reply-to-bot → answered, mentioned:true (explicit tag via reply)", async () => {
     const bot = fakeBot();
     const s = sink();
     attachTelegramListener({
@@ -211,7 +227,11 @@ describe("attachTelegramListener", () => {
       chat: { id: 9, type: "group" },
     });
     expect(s.onTurn).toHaveBeenCalledWith(
-      expect.objectContaining({ userText: "thanks!" }),
+      expect.objectContaining({
+        userText: "thanks!",
+        conversationKind: "channel",
+        mentioned: true,
+      }),
     );
   });
 
@@ -288,7 +308,13 @@ describe("attachTelegramListener", () => {
       chat: { id: 9, type: "supergroup", is_forum: false },
     });
     expect(s.onTurn).toHaveBeenCalledWith(
-      expect.objectContaining({ conversationKey: "tg:9:user:5" }),
+      expect.objectContaining({
+        conversationKey: "tg:9:user:5",
+        // Non-forum: message_thread_id is just a reply pointer, not a topic —
+        // conversationKind stays "channel", not "thread".
+        conversationKind: "channel",
+        mentioned: true,
+      }),
     );
     const replyTarget = s.onTurn.mock.calls[0]?.[0]?.replyTarget;
     expect(replyTarget.messageThreadId).toBeUndefined();
@@ -316,7 +342,12 @@ describe("attachTelegramListener", () => {
       chat: { id: 9, type: "supergroup", is_forum: true },
     });
     expect(s.onTurn).toHaveBeenCalledWith(
-      expect.objectContaining({ conversationKey: "tg:9:topic:77" }),
+      expect.objectContaining({
+        conversationKey: "tg:9:topic:77",
+        // Forum topic → "thread" (is_forum + message_thread_id present).
+        conversationKind: "thread",
+        mentioned: true,
+      }),
     );
     const replyTarget = s.onTurn.mock.calls[0]?.[0]?.replyTarget;
     expect(replyTarget.messageThreadId).toBe(77);
@@ -480,12 +511,16 @@ describe("attachTelegramListener", () => {
     expect(arr[0]).toEqual({ type: "text", text: "look" });
     expect(arr.some((p) => p.type === "image")).toBe(true);
     expect(s.onTurn).toHaveBeenCalledWith(
-      expect.objectContaining({ userText: "look" }),
+      expect.objectContaining({
+        userText: "look",
+        conversationKind: "channel",
+        mentioned: true,
+      }),
     );
     vi.unstubAllGlobals();
   });
 
-  it("group photo without @mention caption is NOT answered (no enqueue, no onTurn)", async () => {
+  it("group photo without @mention caption is forwarded untagged (mentioned:false, still enqueued)", async () => {
     const bot = fakeBot();
     const s = sink();
     const store = new TelegramConversationStore();
@@ -508,8 +543,17 @@ describe("attachTelegramListener", () => {
         message_id: 2,
       },
     });
-    expect(enqueue).not.toHaveBeenCalled();
-    expect(s.onTurn).not.toHaveBeenCalled();
+    // §2: the listener no longer gates on addressing — the message (and its
+    // attachment) is still built/enqueued/forwarded; channels-core's
+    // decideChannelResponse is what ignores an untagged group message.
+    expect(enqueue).toHaveBeenCalledTimes(1);
+    expect(s.onTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userText: "nice pic",
+        conversationKind: "channel",
+        mentioned: false,
+      }),
+    );
   });
 
   // ── Bug 1: case-insensitive mention gating ────────────────────────────
@@ -535,11 +579,15 @@ describe("attachTelegramListener", () => {
       chat: { id: 9, type: "group" },
     });
     expect(s.onTurn).toHaveBeenCalledWith(
-      expect.objectContaining({ userText: "hello" }),
+      expect.objectContaining({
+        userText: "hello",
+        conversationKind: "channel",
+        mentioned: true,
+      }),
     );
   });
 
-  it("group @mybotextra does NOT match botUsername=mybot (word boundary)", async () => {
+  it("group @mybotextra does NOT match botUsername=mybot (word boundary) → forwarded untagged", async () => {
     const bot = fakeBot();
     const s = sink();
     attachTelegramListener({
@@ -559,7 +607,15 @@ describe("attachTelegramListener", () => {
       },
       chat: { id: 9, type: "group" },
     });
-    expect(s.onTurn).not.toHaveBeenCalled();
+    // The near-miss mention does NOT satisfy the word-boundary regex, so this
+    // stays untagged (mentioned:false) — forwarded, not dropped.
+    expect(s.onTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userText: "@mybotextra hello",
+        conversationKind: "channel",
+        mentioned: false,
+      }),
+    );
   });
 
   // ── Bug 2: mid-message mention strip ─────────────────────────────────
@@ -585,7 +641,11 @@ describe("attachTelegramListener", () => {
       chat: { id: 9, type: "group" },
     });
     expect(s.onTurn).toHaveBeenCalledWith(
-      expect.objectContaining({ userText: "hey what's up" }),
+      expect.objectContaining({
+        userText: "hey what's up",
+        conversationKind: "channel",
+        mentioned: true,
+      }),
     );
   });
 
@@ -795,7 +855,7 @@ describe("attachTelegramListener", () => {
 
   // ── Bug 4: empty botUsername guard ────────────────────────────────────
 
-  it("group bare '@' with empty botUsername is NOT answered", async () => {
+  it("group bare '@' with empty botUsername → forwarded untagged (no mention to match)", async () => {
     const bot = fakeBot();
     const s = sink();
     attachTelegramListener({
@@ -815,6 +875,14 @@ describe("attachTelegramListener", () => {
       },
       chat: { id: 9, type: "group" },
     });
-    expect(s.onTurn).not.toHaveBeenCalled();
+    // With no botUsername there is no mention to match — forwarded untagged,
+    // not dropped (§2: the listener no longer gates group messages itself).
+    expect(s.onTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userText: "@ hello",
+        conversationKind: "channel",
+        mentioned: false,
+      }),
+    );
   });
 });
